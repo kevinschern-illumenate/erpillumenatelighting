@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:cri_name",
+ "creation": "2026-01-06 12:11:12.757850",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "general_info_sb",
+  "cri_name",
+  "code",
+  "sort_order",
+  "column_break_vaqd",
+  "minimum_ra",
+  "is_active",
+  "deep_technical_specs_sb",
+  "r9",
+  "column_break_snif",
+  "tm30_rf",
+  "tm30_rg"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_info_sb",
+   "fieldtype": "Section Break",
+   "label": "General Info"
+  },
+  {
+   "fieldname": "cri_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "CRI Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_vaqd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "deep_technical_specs_sb",
+   "fieldtype": "Section Break",
+   "label": "Deep Technical Specs"
+  },
+  {
+   "fieldname": "column_break_snif",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "CRI Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "minimum_ra",
+   "fieldtype": "Int",
+   "label": "Minimum Ra"
+  },
+  {
+   "fieldname": "r9",
+   "fieldtype": "Int",
+   "label": "R9 Value"
+  },
+  {
+   "fieldname": "tm30_rf",
+   "fieldtype": "Int",
+   "label": "TM-30 Rf"
+  },
+  {
+   "fieldname": "tm30_rg",
+   "fieldtype": "Int",
+   "label": "TM-30 Rg"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active?"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 11:31:06.006664",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Attribute-CRI",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "code, minimum_ra",
+ "sort_field": "code",
+ "sort_order": "ASC",
+ "states": []
+}

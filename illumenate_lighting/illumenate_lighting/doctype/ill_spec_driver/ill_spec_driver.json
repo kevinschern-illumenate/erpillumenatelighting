@@ -1,0 +1,119 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:item",
+ "creation": "2026-01-07 12:49:43.036344",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "item",
+  "electrical_section",
+  "input_voltage",
+  "voltage_output",
+  "outputs_count",
+  "output_type",
+  "column_break_gfyi",
+  "max_wattage",
+  "max_wattage_per_output",
+  "usable_load_factor"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Driver Item",
+   "options": "Item",
+   "unique": 1
+  },
+  {
+   "fieldname": "electrical_section",
+   "fieldtype": "Section Break",
+   "label": "Electrical"
+  },
+  {
+   "fieldname": "input_voltage",
+   "fieldtype": "Data",
+   "label": "Input Voltage"
+  },
+  {
+   "fieldname": "voltage_output",
+   "fieldtype": "Link",
+   "label": "Voltage Output",
+   "options": "ilL-Attribute-Output Voltage"
+  },
+  {
+   "fieldname": "outputs_count",
+   "fieldtype": "Int",
+   "label": "Outputs"
+  },
+  {
+   "fieldname": "output_type",
+   "fieldtype": "Select",
+   "label": "Output Type",
+   "options": "Constant Voltage\nConstant Current"
+  },
+  {
+   "fieldname": "column_break_gfyi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_wattage",
+   "fieldtype": "Float",
+   "label": "Max Wattage (W)"
+  },
+  {
+   "fieldname": "max_wattage_per_output",
+   "fieldtype": "Float",
+   "label": "Max Wattage per Output"
+  },
+  {
+   "default": "0.8",
+   "fieldname": "usable_load_factor",
+   "fieldtype": "Float",
+   "label": "Usable Load Factor"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 12:59:01.082084",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-Driver",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
