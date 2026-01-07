@@ -1,0 +1,166 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{tape_spec}-{cct}-{cri}-{sdcm}-{led_package}-{output_level}",
+ "creation": "2026-01-07 21:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "offering_section",
+  "tape_spec",
+  "cct",
+  "cri",
+  "column_break_offering",
+  "sdcm",
+  "led_package",
+  "output_level",
+  "status_section",
+  "is_active",
+  "overrides_section",
+  "watts_per_ft_override",
+  "cut_increment_mm_override",
+  "column_break_overrides",
+  "pricing_class_override",
+  "lead_time_class_override"
+ ],
+ "fields": [
+  {
+   "fieldname": "offering_section",
+   "fieldtype": "Section Break",
+   "label": "Offering Attributes"
+  },
+  {
+   "fieldname": "tape_spec",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tape Spec",
+   "options": "ilL-Spec-LED Tape",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cct",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "CCT",
+   "options": "ilL-Attribute-CCT",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cri",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "CRI",
+   "options": "ilL-Attribute-CRI",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_offering",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sdcm",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "SDCM",
+   "options": "ilL-Attribute-SDCM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "led_package",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "LED Package",
+   "options": "ilL-Attribute-LED Package",
+   "reqd": 1
+  },
+  {
+   "fieldname": "output_level",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Output Level",
+   "options": "ilL-Attribute-Output Level",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status_section",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "overrides_section",
+   "fieldtype": "Section Break",
+   "label": "Optional Overrides"
+  },
+  {
+   "fieldname": "watts_per_ft_override",
+   "fieldtype": "Float",
+   "label": "Watts/ft Override"
+  },
+  {
+   "fieldname": "cut_increment_mm_override",
+   "fieldtype": "Int",
+   "label": "Cut Increment (mm) Override"
+  },
+  {
+   "fieldname": "column_break_overrides",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pricing_class_override",
+   "fieldtype": "Link",
+   "label": "Pricing Class Override",
+   "options": "ilL-Attribute-Pricing Class"
+  },
+  {
+   "fieldname": "lead_time_class_override",
+   "fieldtype": "Link",
+   "label": "Lead Time Class Override",
+   "options": "ilL-Attribute-Lead Time Class"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Rel-Tape Offering",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "tape_spec, cct, cri",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,132 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-07 21:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "line_id",
+  "qty",
+  "location",
+  "notes",
+  "column_break_line",
+  "manufacturer_type",
+  "illumenate_section",
+  "configured_fixture",
+  "ill_item_code",
+  "manufacturable_length_mm",
+  "other_section",
+  "manufacturer_name",
+  "model_number",
+  "attachments"
+ ],
+ "fields": [
+  {
+   "fieldname": "line_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Line ID"
+  },
+  {
+   "default": "1",
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Qty",
+   "reqd": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Location"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_line",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "ILLUMENATE",
+   "fieldname": "manufacturer_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Manufacturer Type",
+   "options": "ILLUMENATE\nOTHER",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
+   "fieldname": "illumenate_section",
+   "fieldtype": "Section Break",
+   "label": "ilLumenate Fixture"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
+   "fieldname": "configured_fixture",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Configured Fixture",
+   "mandatory_depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
+   "options": "ilL-Configured-Fixture"
+  },
+  {
+   "fieldname": "ill_item_code",
+   "fieldtype": "Data",
+   "label": "Item Code (Cached)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manufacturable_length_mm",
+   "fieldtype": "Int",
+   "label": "Manufacturable Length (mm)",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "other_section",
+   "fieldtype": "Section Break",
+   "label": "Other Manufacturer"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "manufacturer_name",
+   "fieldtype": "Data",
+   "label": "Manufacturer Name",
+   "mandatory_depends_on": "eval:doc.manufacturer_type=='OTHER'"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "model_number",
+   "fieldtype": "Data",
+   "label": "Model Number"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "attachments",
+   "fieldtype": "Attach",
+   "label": "Attachments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-07 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Fixture-Schedule-Line",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,23 @@
+[
+ {
+  "doctype": "ilL-Attribute-Endcap Color",
+  "code": "GRY",
+  "display_name": "Grey",
+  "sort_order": 1,
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Attribute-Endcap Color",
+  "code": "BLK",
+  "display_name": "Black",
+  "sort_order": 2,
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Attribute-Endcap Color",
+  "code": "WHT",
+  "display_name": "White",
+  "sort_order": 3,
+  "is_active": 1
+ }
+]
