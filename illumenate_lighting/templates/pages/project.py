@@ -13,6 +13,11 @@ def get_context(context):
 
 	# Get project name from path
 	project_name = frappe.form_dict.get("project")
+
+	# Handle new project creation
+	if project_name == "new":
+		return _get_new_project_context(context)
+
 	if not project_name:
 		frappe.throw("Project not specified", frappe.DoesNotExistError)
 
@@ -68,3 +73,20 @@ def schedule_status_class(status):
 		"CLOSED": "secondary",
 	}
 	return class_map.get(status, "secondary")
+
+
+def _get_new_project_context(context):
+	"""Get context for creating a new project."""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+	)
+
+	# Get user's customer for the form
+	user_customer = _get_user_customer(frappe.session.user)
+
+	context.is_new = True
+	context.user_customer = user_customer
+	context.title = "Create Project"
+	context.no_cache = 1
+
+	return context
