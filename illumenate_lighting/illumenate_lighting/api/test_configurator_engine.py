@@ -285,6 +285,11 @@ class TestConfiguratorEngine(FrappeTestCase):
 
 	def tearDown(self):
 		"""Clean up test data"""
-		# Clean up any test configured fixtures
-		frappe.db.delete("ilL-Configured-Fixture", {"fixture_template": "TEST-TEMPLATE"})
+		# Clean up any test configured fixtures created during tests
+		# Delete all fixtures associated with TEST-TEMPLATE
+		test_fixtures = frappe.get_all(
+			"ilL-Configured-Fixture", filters={"fixture_template": "TEST-TEMPLATE"}, pluck="name"
+		)
+		for fixture_name in test_fixtures:
+			frappe.delete_doc("ilL-Configured-Fixture", fixture_name, force=True)
 		frappe.db.commit()

@@ -523,7 +523,7 @@ def _create_or_update_configured_fixture(
 	Returns:
 		str: Name of the created/updated ilL-Configured-Fixture document
 	"""
-	# Create a config hash from all input parameters
+	# Create config data for hashing (all input parameters)
 	config_data = {
 		"fixture_template_code": fixture_template_code,
 		"finish_code": finish_code,
@@ -537,8 +537,7 @@ def _create_or_update_configured_fixture(
 		"requested_overall_length_mm": requested_overall_length_mm,
 	}
 
-	# Create a config hash from all input parameters
-	# Using 32 characters (128 bits) of SHA-256 hash for good collision resistance
+	# Generate hash: first 32 hex characters (128 bits of entropy) from SHA-256 for collision resistance
 	config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()[:32]
 
 	# Check if this configuration already exists
