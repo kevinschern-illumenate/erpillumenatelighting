@@ -1345,6 +1345,577 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertIn("base", components)
 		self.assertIn("length", components)
 
+	# =========================================================================
+	# Epic 7 Task 7.1: Unit tests for engine core functions
+	# =========================================================================
+
+	def test_length_rounding_exact_cut_increment(self):
+		"""Test length rounding when internal length is exact multiple of cut increment (50mm)"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# L_req = 1045mm (chosen so L_internal is exact multiple of 50)
+		# L_internal = 1045 - 2*15 - 15 = 1000mm (exact multiple of 50)
+		# L_tape_cut = floor(1000 / 50) * 50 = 1000mm
+		# L_mfg = 1000 + 2*15 + 15 = 1045mm
+		# difference = 1045 - 1045 = 0mm
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1045,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify exact cut increment produces zero difference
+		self.assertEqual(computed["internal_length_mm"], 1000)  # 1045 - 2*15 - 15 = 1000
+		self.assertEqual(computed["tape_cut_length_mm"], 1000)  # floor(1000/50)*50 = 1000
+		self.assertEqual(computed["manufacturable_overall_length_mm"], 1045)  # 1000 + 2*15 + 15
+		self.assertEqual(computed["difference_mm"], 0)  # 1045 - 1045 = 0
+
+	def test_length_rounding_rounds_down_to_cut_increment(self):
+		"""Test that tape cut length always rounds DOWN to nearest cut increment"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# L_req = 1080mm
+		# L_internal = 1080 - 2*15 - 15 = 1035mm
+		# L_tape_cut = floor(1035 / 50) * 50 = floor(20.7) * 50 = 20 * 50 = 1000mm
+		# L_mfg = 1000 + 2*15 + 15 = 1045mm
+		# difference = 1080 - 1045 = 35mm
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1080,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify rounding down behavior
+		self.assertEqual(computed["internal_length_mm"], 1035)  # 1080 - 2*15 - 15
+		self.assertEqual(computed["tape_cut_length_mm"], 1000)  # floor(1035/50)*50 = 1000
+		self.assertEqual(computed["manufacturable_overall_length_mm"], 1045)  # 1000 + 2*15 + 15
+		self.assertEqual(computed["difference_mm"], 35)  # 1080 - 1045 = 35
+
+	def test_length_rounding_small_internal_length(self):
+		"""Test length rounding when internal length is less than one cut increment"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# L_req = 74mm (very small fixture)
+		# L_internal = 74 - 2*15 - 15 = 29mm (less than cut_increment of 50)
+		# L_tape_cut = floor(29 / 50) * 50 = floor(0.58) * 50 = 0 * 50 = 0mm
+		# L_mfg = 0 + 2*15 + 15 = 45mm
+		# difference = 74 - 45 = 29mm
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=74,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify behavior with very small internal length
+		self.assertEqual(computed["internal_length_mm"], 29)  # 74 - 2*15 - 15
+		self.assertEqual(computed["tape_cut_length_mm"], 0)  # floor(29/50)*50 = 0
+		self.assertEqual(computed["manufacturable_overall_length_mm"], 45)  # 0 + 2*15 + 15
+		self.assertEqual(computed["difference_mm"], 29)  # 74 - 45 = 29
+
+	def test_run_splitting_voltage_drop_smaller_than_85w_max(self):
+		"""Test run splitting when voltage-drop limit is smaller than 85W-derived max"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# With watts_per_ft = 5, max_run_ft_by_watts = 85/5 = 17ft
+		# With voltage_drop_max_run_length_ft = 16ft (from tape spec)
+		# max_run_ft_effective = min(17, 16) = 16ft (voltage-drop is limiting factor)
+
+		# Request a fixture long enough to require multiple runs
+		# 16ft = 4876.8mm, so 10000mm should require 2 runs
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=10000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify voltage-drop is the limiting factor
+		self.assertEqual(computed["max_run_ft_by_watts"], 17.0)  # 85/5 = 17
+		self.assertEqual(computed["max_run_ft_by_voltage_drop"], 16.0)  # from tape spec
+		self.assertEqual(computed["max_run_ft_effective"], 16.0)  # min(17, 16) = 16
+		self.assertGreater(computed["runs_count"], 1)  # Should have multiple runs
+
+	def test_run_splitting_85w_max_smaller_than_voltage_drop(self):
+		"""Test run splitting when 85W-derived max is smaller than voltage-drop max"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a tape spec with higher voltage drop limit and higher watts/ft
+		high_watt_tape_spec = self._ensure(
+			{
+				"doctype": "ilL-Spec-LED Tape",
+				"item": "TAPE-HIGH-WATT",
+				"input_voltage": self.output_voltage_code,
+				"watts_per_foot": 10,  # Higher watts/ft -> lower max_run_ft_by_watts
+				"cut_increment_mm": 50,
+				"voltage_drop_max_run_length_ft": 20,  # Higher voltage drop limit
+			}
+		)
+
+		high_watt_tape_offering_id = f"{high_watt_tape_spec.name}-{self.cct_code}-{self.cri_code}-{self.sdcm_code}-{self.led_package_code}-{self.output_level_code}"
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Tape Offering",
+				"name": high_watt_tape_offering_id,
+				"tape_spec": high_watt_tape_spec.name,
+				"cct": self.cct_code,
+				"cri": self.cri_code,
+				"sdcm": self.sdcm_code,
+				"led_package": self.led_package_code,
+				"output_level": self.output_level_code,
+				"is_active": 1,
+			}
+		)
+
+		# Add to template allowed tape offerings
+		self.template.append("allowed_tape_offerings", {
+			"tape_offering": high_watt_tape_offering_id,
+			"environment_rating": self.environment_rating_code,
+		})
+		self.template.save()
+
+		# Create leader cable map for this tape spec
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Leader-Cable-Map",
+				"tape_spec": high_watt_tape_spec.name,
+				"power_feed_type": self.power_feed_type_code,
+				"environment_rating": self.environment_rating_code,
+				"leader_item": "LEADER-ITEM-01",
+				"default_length_mm": 150,
+				"is_active": 1,
+			},
+			ignore_links=True,
+		)
+
+		# With watts_per_ft = 10, max_run_ft_by_watts = 85/10 = 8.5ft
+		# With voltage_drop_max_run_length_ft = 20ft
+		# max_run_ft_effective = min(8.5, 20) = 8.5ft (85W is limiting factor)
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=high_watt_tape_offering_id,
+			requested_overall_length_mm=5000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify 85W limit is the limiting factor
+		self.assertEqual(computed["max_run_ft_by_watts"], 8.5)  # 85/10 = 8.5
+		self.assertEqual(computed["max_run_ft_by_voltage_drop"], 20.0)  # from tape spec
+		self.assertEqual(computed["max_run_ft_effective"], 8.5)  # min(8.5, 20) = 8.5
+		self.assertGreater(computed["runs_count"], 1)  # Should have multiple runs
+
+	def test_run_splitting_fallback_to_85w_when_no_voltage_drop(self):
+		"""Test run splitting falls back to 85W when voltage-drop max is not set"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a tape spec WITHOUT voltage drop limit
+		no_vd_tape_spec = self._ensure(
+			{
+				"doctype": "ilL-Spec-LED Tape",
+				"item": "TAPE-NO-VD",
+				"input_voltage": self.output_voltage_code,
+				"watts_per_foot": 5,
+				"cut_increment_mm": 50,
+				"voltage_drop_max_run_length_ft": None,  # No voltage drop limit set
+			}
+		)
+
+		no_vd_tape_offering_id = f"{no_vd_tape_spec.name}-{self.cct_code}-{self.cri_code}-{self.sdcm_code}-{self.led_package_code}-{self.output_level_code}"
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Tape Offering",
+				"name": no_vd_tape_offering_id,
+				"tape_spec": no_vd_tape_spec.name,
+				"cct": self.cct_code,
+				"cri": self.cri_code,
+				"sdcm": self.sdcm_code,
+				"led_package": self.led_package_code,
+				"output_level": self.output_level_code,
+				"is_active": 1,
+			}
+		)
+
+		# Add to template allowed tape offerings
+		self.template.append("allowed_tape_offerings", {
+			"tape_offering": no_vd_tape_offering_id,
+			"environment_rating": self.environment_rating_code,
+		})
+		self.template.save()
+
+		# Create leader cable map for this tape spec
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Leader-Cable-Map",
+				"tape_spec": no_vd_tape_spec.name,
+				"power_feed_type": self.power_feed_type_code,
+				"environment_rating": self.environment_rating_code,
+				"leader_item": "LEADER-ITEM-01",
+				"default_length_mm": 150,
+				"is_active": 1,
+			},
+			ignore_links=True,
+		)
+
+		# With watts_per_ft = 5, max_run_ft_by_watts = 85/5 = 17ft
+		# With no voltage_drop_max_run_length_ft, only 85W limit applies
+		# max_run_ft_effective = 17ft
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=no_vd_tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify fallback to 85W limit when no voltage drop max set
+		self.assertEqual(computed["max_run_ft_by_watts"], 17.0)  # 85/5 = 17
+		self.assertIsNone(computed["max_run_ft_by_voltage_drop"])  # Not set
+		self.assertEqual(computed["max_run_ft_effective"], 17.0)  # Falls back to 17
+
+	def test_sh01_max_length_assembled_mode(self):
+		"""Test SH01 max-length block case - assembly mode changes at assembled_max_len_mm"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# SH01 has assembled_max_len_mm = 2590mm (~8.5ft)
+		# Fixture with L_mfg <= 2590 should be ASSEMBLED
+		# Fixture with L_mfg > 2590 should be SHIP_PIECES
+
+		# Test fixture just under the limit
+		# L_req = 2590mm
+		# L_internal = 2590 - 2*15 - 15 = 2545mm
+		# L_tape_cut = floor(2545/50)*50 = 2500mm
+		# L_mfg = 2500 + 45 = 2545mm (< 2590mm -> ASSEMBLED)
+		result_under = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=2590,
+			qty=1,
+		)
+
+		self.assertTrue(result_under["is_valid"])
+		self.assertEqual(result_under["computed"]["assembled_max_len_mm"], 2590)
+		self.assertLessEqual(result_under["computed"]["manufacturable_overall_length_mm"], 2590)
+		self.assertEqual(result_under["computed"]["assembly_mode"], "ASSEMBLED")
+
+		# Test fixture just over the limit
+		# L_req = 2640mm
+		# L_internal = 2640 - 2*15 - 15 = 2595mm
+		# L_tape_cut = floor(2595/50)*50 = 2550mm
+		# L_mfg = 2550 + 45 = 2595mm (> 2590mm -> SHIP_PIECES)
+		result_over = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=2640,
+			qty=1,
+		)
+
+		self.assertTrue(result_over["is_valid"])
+		self.assertEqual(result_over["computed"]["assembled_max_len_mm"], 2590)
+		self.assertGreater(result_over["computed"]["manufacturable_overall_length_mm"], 2590)
+		self.assertEqual(result_over["computed"]["assembly_mode"], "SHIP_PIECES")
+
+	def test_sh01_max_length_boundary_exact(self):
+		"""Test SH01 exact boundary case where L_mfg equals assembled_max_len_mm"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# To get L_mfg = 2590mm exactly:
+		# L_mfg = L_tape_cut + 2*E + A_leader = L_tape_cut + 2*15 + 15 = L_tape_cut + 45
+		# So L_tape_cut = 2590 - 45 = 2545mm
+		# L_tape_cut = floor(L_internal / 50) * 50 = 2545 -> L_internal must be in [2545, 2595)
+		# L_internal = L_req - 2*E - A_leader = L_req - 45
+		# So L_req = L_internal + 45, with L_internal in [2545, 2595)
+		# L_req = 2545 + 45 = 2590 to 2595 + 45 = 2640 (exclusive)
+		# Let's use L_req = 2590 + 45 = 2635 (just under the increment that bumps up)
+
+		# Actually simpler: L_req = 2590 gives L_internal = 2545
+		# L_tape_cut = floor(2545/50)*50 = 2500mm (not 2545)
+		# Let me recalculate for exact boundary...
+		# For L_tape_cut = 2545, need floor(L_internal/50)*50 = 2545
+		# This requires L_internal in [2545, 2595), so L_internal = 2545 works
+		# But floor(2545/50) = 50.9 -> floor = 50, so 50*50 = 2500, not 2545
+
+		# Actually, cut increment of 50 means L_tape_cut is always multiple of 50
+		# So L_mfg = multiple_of_50 + 45
+		# For L_mfg = 2590, need L_tape_cut = 2545 (not a multiple of 50)
+		# This is impossible! L_mfg can only be 2500+45=2545, 2550+45=2595, etc.
+
+		# The closest L_mfg values to 2590 are:
+		# L_tape_cut=2500 -> L_mfg = 2545 (ASSEMBLED)
+		# L_tape_cut=2550 -> L_mfg = 2595 (SHIP_PIECES)
+
+		# Test the exact boundary values
+		# L_req chosen so L_tape_cut = 2550
+		# L_internal needs to be >= 2550 and < 2600
+		# L_internal = L_req - 45, so L_req >= 2595 and < 2645
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=2595,  # L_internal = 2550, L_tape_cut = 2550
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# L_mfg = 2550 + 45 = 2595 (just 5mm over 2590 limit)
+		self.assertEqual(computed["tape_cut_length_mm"], 2550)
+		self.assertEqual(computed["manufacturable_overall_length_mm"], 2595)
+		self.assertEqual(computed["assembly_mode"], "SHIP_PIECES")
+
+	def test_missing_endcap_map_returns_error(self):
+		"""Test that missing endcap map returns proper error message"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a new endcap color that doesn't have a mapping
+		unmapped_color = "UNMAPPED-COLOR"
+		self._ensure(
+			{"doctype": "ilL-Attribute-Endcap Color", "code": unmapped_color, "display_name": unmapped_color}
+		)
+
+		# Add the color to allowed options for the template
+		self.template.append("allowed_options", {
+			"doctype": "ilL-Child-Template-Allowed-Option",
+			"option_type": "Endcap Style",
+			"endcap_style": self.endcap_style_code,
+			"is_active": 1,
+		})
+		self.template.save()
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=unmapped_color,  # No mapping exists for this
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertFalse(result["is_valid"])
+		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
+		self.assertTrue(any("Endcap-Map" in text for text in error_texts))
+
+	def test_missing_mounting_map_returns_error(self):
+		"""Test that missing mounting accessory map returns proper error message"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a new mounting method that doesn't have a mapping
+		unmapped_mount = "UNMAPPED-MOUNT"
+		self._ensure(
+			{"doctype": "ilL-Attribute-Mounting Method", "label": unmapped_mount, "code": unmapped_mount}
+		)
+
+		# Add the mounting method to allowed options for the template
+		self.template.append("allowed_options", {
+			"doctype": "ilL-Child-Template-Allowed-Option",
+			"option_type": "Mounting Method",
+			"mounting_method": unmapped_mount,
+			"is_active": 1,
+		})
+		self.template.save()
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=unmapped_mount,  # No mapping exists for this
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertFalse(result["is_valid"])
+		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
+		self.assertTrue(any("Mounting-Accessory-Map" in text for text in error_texts))
+
+	def test_missing_lens_map_returns_error(self):
+		"""Test that missing lens map returns proper error message"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a new lens appearance that doesn't have a mapping
+		unmapped_lens = "UNMAPPED-LENS"
+		self._ensure(
+			{"doctype": "ilL-Attribute-Lens Appearance", "label": unmapped_lens, "code": unmapped_lens}
+		)
+
+		# Add the lens appearance to allowed options for the template
+		self.template.append("allowed_options", {
+			"doctype": "ilL-Child-Template-Allowed-Option",
+			"option_type": "Lens Appearance",
+			"lens_appearance": unmapped_lens,
+			"is_active": 1,
+		})
+		self.template.save()
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=unmapped_lens,  # No mapping exists for this
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertFalse(result["is_valid"])
+		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
+		self.assertTrue(any("Lens" in text for text in error_texts))
+
+	def test_missing_leader_cable_map_returns_error(self):
+		"""Test that missing leader cable map returns proper error message (duplicate of existing test for coverage)"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a new power feed type that doesn't have a leader cable mapping
+		unmapped_power = "UNMAPPED-POWER"
+		self._ensure(
+			{"doctype": "ilL-Attribute-Power Feed Type", "label": unmapped_power, "code": unmapped_power}
+		)
+
+		# Add to allowed options
+		self.template.append("allowed_options", {
+			"doctype": "ilL-Child-Template-Allowed-Option",
+			"option_type": "Power Feed Type",
+			"power_feed_type": unmapped_power,
+			"is_active": 1,
+		})
+		self.template.save()
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=unmapped_power,  # No leader cable mapping exists for this
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertFalse(result["is_valid"])
+		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
+		self.assertTrue(any("Leader-Cable-Map" in text for text in error_texts))
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests

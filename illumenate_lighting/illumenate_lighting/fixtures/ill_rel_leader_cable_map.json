@@ -1,0 +1,11 @@
+[
+ {
+  "doctype": "ilL-Rel-Leader-Cable-Map",
+  "tape_spec": "TAPE-SH01-24V-5W",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "leader_item": "LEADER-SH01-24V",
+  "default_length_mm": 150,
+  "is_active": 1
+ }
+]
