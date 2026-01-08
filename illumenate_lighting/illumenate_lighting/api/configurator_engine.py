@@ -1018,8 +1018,8 @@ def _select_driver_plan(
 
 		try:
 			driver_spec = frappe.get_doc("ilL-Spec-Driver", driver_spec_name)
-		except Exception:
-			continue  # Skip if driver spec cannot be loaded
+		except frappe.DoesNotExistError:
+			continue  # Skip if driver spec doesn't exist
 
 		# Filter by voltage: driver's voltage_output must match tape's input_voltage
 		if tape_voltage and driver_spec.voltage_output and driver_spec.voltage_output != tape_voltage:
