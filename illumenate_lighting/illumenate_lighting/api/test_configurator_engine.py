@@ -472,14 +472,12 @@ class TestConfiguratorEngine(FrappeTestCase):
 			validate_and_quote,
 		)
 
-		leader_maps = frappe.get_all("ilL-Rel-Leader-Cable-Map", filters={"tape_spec": self.tape_spec.name}, pluck="name")
-		leader_maps = leader_maps or []
+		leader_maps = frappe.get_all("ilL-Rel-Leader-Cable-Map", filters={"tape_spec": self.tape_spec.name}, pluck="name") or []
 		for row in leader_maps:
 			if frappe.db.exists("ilL-Rel-Leader-Cable-Map", row):
 				try:
 					frappe.delete_doc("ilL-Rel-Leader-Cable-Map", row, force=True)
 				except Exception:
-					# If the document vanishes between exists and delete, skip to keep the test deterministic
 					continue
 
 		result = validate_and_quote(
