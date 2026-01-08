@@ -894,6 +894,330 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertEqual(float(latest_snapshot.msrp_unit), result["pricing"]["msrp_unit"])
 		self.assertEqual(float(latest_snapshot.tier_unit), result["pricing"]["tier_unit"])
 
+	def test_driver_selection_single_driver_sufficient(self):
+		"""Test Epic 5 Task 5.1: Driver selection when single driver satisfies constraints"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a driver spec with sufficient capacity
+		driver_item_code = "TEST-DRIVER-01"
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"voltage_output": self.output_voltage_code,
+				"outputs_count": 4,
+				"max_wattage": 100.0,
+				"usable_load_factor": 0.8,  # W_usable = 80W
+				"dimming_protocol": None,  # No dimming protocol filter
+				"cost": 50.0,  # Has cost for selection policy
+			},
+			ignore_links=True,
+		)
+
+		# Create driver eligibility mapping
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Driver-Eligibility",
+				"fixture_template": self.template_code,
+				"driver_spec": driver_item_code,
+				"is_allowed": 1,
+				"is_active": 1,
+				"priority": 0,
+			},
+			ignore_links=True,
+		)
+
+		# Test with a small fixture (1 run, low wattage)
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+
+		# Verify driver plan in resolved_items
+		driver_plan = result["resolved_items"]["driver_plan"]
+		self.assertEqual(driver_plan["status"], "selected")
+		self.assertEqual(len(driver_plan["drivers"]), 1)
+
+		driver_alloc = driver_plan["drivers"][0]
+		self.assertEqual(driver_alloc["item_code"], driver_item_code)
+		self.assertEqual(driver_alloc["qty"], 1)  # Single driver should be sufficient
+		self.assertIn("mapping_notes", driver_alloc)
+
+	def test_driver_selection_multiple_drivers_needed(self):
+		"""Test Epic 5 Task 5.1: Driver selection when multiple drivers are needed"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a driver spec with limited capacity (1 output, 50W usable)
+		driver_item_code = "TEST-DRIVER-02"
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"voltage_output": self.output_voltage_code,
+				"outputs_count": 1,  # Only 1 output
+				"max_wattage": 62.5,
+				"usable_load_factor": 0.8,  # W_usable = 50W
+				"dimming_protocol": None,
+				"cost": 30.0,
+			},
+			ignore_links=True,
+		)
+
+		# Create driver eligibility mapping
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Driver-Eligibility",
+				"fixture_template": self.template_code,
+				"driver_spec": driver_item_code,
+				"is_allowed": 1,
+				"is_active": 1,
+				"priority": 0,
+			},
+			ignore_links=True,
+		)
+
+		# Test with a large fixture that requires multiple runs
+		# L_req = 10000mm should produce multiple runs (> 1 run)
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=10000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+
+		# Verify driver plan requires multiple drivers (due to multiple runs)
+		driver_plan = result["resolved_items"]["driver_plan"]
+		self.assertEqual(driver_plan["status"], "selected")
+		self.assertEqual(len(driver_plan["drivers"]), 1)
+
+		driver_alloc = driver_plan["drivers"][0]
+		self.assertEqual(driver_alloc["item_code"], driver_item_code)
+		# Should need multiple drivers since only 1 output per driver
+		self.assertGreater(driver_alloc["qty"], 1)
+
+	def test_driver_selection_no_eligible_drivers(self):
+		"""Test Epic 5 Task 5.1: Warning when no eligible drivers configured"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a new template without any driver eligibility
+		no_driver_template = "TEST-NO-DRIVER-TEMPLATE"
+
+		template_allowed_options = [
+			{
+				"doctype": "ilL-Child-Template-Allowed-Option",
+				"option_type": "Finish",
+				"finish": self.finish_code,
+				"is_active": 1,
+				"is_default": 1,
+			},
+			{
+				"doctype": "ilL-Child-Template-Allowed-Option",
+				"option_type": "Lens Appearance",
+				"lens_appearance": self.lens_appearance_code,
+				"is_active": 1,
+			},
+			{
+				"doctype": "ilL-Child-Template-Allowed-Option",
+				"option_type": "Mounting Method",
+				"mounting_method": self.mounting_method_code,
+				"is_active": 1,
+			},
+			{
+				"doctype": "ilL-Child-Template-Allowed-Option",
+				"option_type": "Endcap Style",
+				"endcap_style": self.endcap_style_code,
+				"is_active": 1,
+			},
+			{
+				"doctype": "ilL-Child-Template-Allowed-Option",
+				"option_type": "Power Feed Type",
+				"power_feed_type": self.power_feed_type_code,
+				"is_active": 1,
+			},
+			{
+				"doctype": "ilL-Child-Template-Allowed-Option",
+				"option_type": "Environment Rating",
+				"environment_rating": self.environment_rating_code,
+				"is_active": 1,
+			},
+		]
+
+		template_allowed_tapes = [
+			{
+				"doctype": "ilL-Child-Template-Allowed-TapeOffering",
+				"tape_offering": self.tape_offering.name,
+				"environment_rating": self.environment_rating_code,
+			}
+		]
+
+		self._ensure(
+			{
+				"doctype": "ilL-Fixture-Template",
+				"template_code": no_driver_template,
+				"template_name": "Test No Driver Template",
+				"is_active": 1,
+				"default_profile_family": self.profile_family,
+				"default_profile_stock_len_mm": 2000,
+				"leader_allowance_mm_per_fixture": 15,
+				"assembled_max_len_mm": 2590,
+				"base_price_msrp": 100.0,
+				"price_per_ft_msrp": 10.0,
+				"pricing_length_basis": "L_tape_cut",
+				"allowed_options": template_allowed_options,
+				"allowed_tape_offerings": template_allowed_tapes,
+			}
+		)
+
+		# Create endcap map for this template
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Endcap-Map",
+				"fixture_template": no_driver_template,
+				"endcap_style": self.endcap_style_code,
+				"endcap_color": self.endcap_color_code,
+				"power_feed_type": self.power_feed_type_code,
+				"environment_rating": self.environment_rating_code,
+				"endcap_item": "ENDCAP-ITEM-01",
+				"is_active": 1,
+			},
+			ignore_links=True,
+		)
+
+		# Create mounting map for this template
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Mounting-Accessory-Map",
+				"fixture_template": no_driver_template,
+				"mounting_method": self.mounting_method_code,
+				"environment_rating": self.environment_rating_code,
+				"accessory_item": "MOUNT-ITEM-01",
+				"qty_rule_type": "PER_FIXTURE",
+				"qty_rule_value": 1,
+				"min_qty": 0,
+				"is_active": 1,
+			},
+			ignore_links=True,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=no_driver_template,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])  # Still valid, just no driver selected
+
+		# Verify driver plan status is not "selected"
+		driver_plan = result["resolved_items"]["driver_plan"]
+		self.assertIn(driver_plan["status"], ["no_eligible_drivers", "none"])
+
+		# Verify warning message about no eligible drivers
+		warning_messages = [msg for msg in result["messages"] if msg["severity"] == "warning"]
+		self.assertTrue(
+			any("No eligible drivers" in msg["text"] for msg in warning_messages),
+			f"Expected warning about no eligible drivers. Messages: {result['messages']}"
+		)
+
+	def test_driver_plan_persisted_in_configured_fixture(self):
+		"""Test Epic 5 Task 5.2: Driver plan persisted into ilL-Configured-Fixture"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a driver spec
+		driver_item_code = "TEST-DRIVER-PERSIST"
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"voltage_output": self.output_voltage_code,
+				"outputs_count": 4,
+				"max_wattage": 100.0,
+				"usable_load_factor": 0.8,
+				"dimming_protocol": None,
+				"cost": 75.0,
+			},
+			ignore_links=True,
+		)
+
+		# Create driver eligibility mapping
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Driver-Eligibility",
+				"fixture_template": self.template_code,
+				"driver_spec": driver_item_code,
+				"is_allowed": 1,
+				"is_active": 1,
+				"priority": 0,
+			},
+			ignore_links=True,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		# Fetch the configured fixture and verify driver allocation persisted
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+
+		# Verify drivers child table has data
+		self.assertGreaterEqual(len(fixture_doc.drivers), 1)
+
+		# Check driver allocation details
+		driver_alloc = fixture_doc.drivers[0]
+		self.assertEqual(driver_alloc.driver_item, driver_item_code)
+		self.assertGreaterEqual(driver_alloc.driver_qty, 1)
+		self.assertIsNotNone(driver_alloc.outputs_used)
+		# Mapping notes should contain run→output mapping text
+		self.assertIsNotNone(driver_alloc.mapping_notes)
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests

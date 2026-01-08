@@ -268,6 +268,16 @@ def validate_and_quote(
 
 	response["resolved_items"].update(resolved_result)
 
+	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
+	driver_plan_result, driver_messages = _select_driver_plan(
+		fixture_template_code,
+		runs_count=computed_result["runs_count"],
+		total_watts=computed_result["total_watts"],
+		tape_offering_doc=validation_result.get("tape_offering_doc"),
+	)
+	response["messages"].extend(driver_messages)
+	response["resolved_items"]["driver_plan"] = driver_plan_result
+
 	# Step 4: Calculate pricing
 	pricing_result = _calculate_pricing(
 		fixture_template_code,
@@ -921,6 +931,237 @@ def _resolve_items(
 	return resolved, messages, is_valid
 
 
+def _select_driver_plan(
+	fixture_template_code: str,
+	runs_count: int,
+	total_watts: float,
+	tape_offering_doc=None,
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
+	"""
+	Select driver model and calculate quantity to satisfy fixture requirements.
+
+	Implements Epic 5 Task 5.1: Driver auto-selection algorithm.
+
+	Rules (locked):
+	- W_usable = 0.8 * W_rated (or driver.usable_load_factor * max_wattage)
+	- Must satisfy: sum(outputs) >= runs_count AND sum(W_usable) >= total_watts
+	- Selection policy: "lowest cost if cost exists else smallest rated wattage that works"
+	- If one driver can't satisfy, add multiples of the same model until constraints met
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		runs_count: Number of runs requiring driver outputs
+		total_watts: Total wattage load to be driven
+		tape_offering_doc: Tape offering document (for voltage and dimming protocol)
+
+	Returns:
+		tuple: (driver_plan dict, messages list)
+	"""
+	messages: list[dict[str, str]] = []
+	driver_plan: dict[str, Any] = {
+		"status": "none",
+		"drivers": [],
+	}
+
+	# Handle edge case: no runs or no wattage
+	if runs_count <= 0 or total_watts <= 0:
+		driver_plan["status"] = "not_required"
+		messages.append({
+			"severity": "info",
+			"text": "No driver required (zero runs or zero wattage)",
+			"field": None,
+		})
+		return driver_plan, messages
+
+	# Get tape voltage and dimming protocol from tape spec
+	tape_voltage = None
+	dimming_protocol = None
+	if tape_offering_doc:
+		if not frappe.db.exists("ilL-Spec-LED Tape", tape_offering_doc.tape_spec):
+			messages.append({
+				"severity": "warning",
+				"text": f"Tape spec '{tape_offering_doc.tape_spec}' not found for driver selection",
+				"field": None,
+			})
+		else:
+			tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
+			tape_voltage = tape_spec_doc.input_voltage  # This is the output voltage the driver needs to provide
+			dimming_protocol = tape_spec_doc.dimming_protocol
+
+	# Query eligible drivers from ilL-Rel-Driver-Eligibility for this template
+	eligibility_rows = frappe.get_all(
+		"ilL-Rel-Driver-Eligibility",
+		filters={
+			"fixture_template": fixture_template_code,
+			"is_allowed": 1,
+			"is_active": 1,
+		},
+		fields=["driver_spec", "priority"],
+		order_by="priority asc",
+	)
+
+	if not eligibility_rows:
+		driver_plan["status"] = "no_eligible_drivers"
+		messages.append({
+			"severity": "warning",
+			"text": f"No eligible drivers configured for template '{fixture_template_code}'",
+			"field": None,
+		})
+		return driver_plan, messages
+
+	# Get driver specs and filter by voltage and dimming protocol
+	candidate_drivers = []
+	for elig_row in eligibility_rows:
+		driver_spec_name = elig_row.driver_spec
+		if not frappe.db.exists("ilL-Spec-Driver", driver_spec_name):
+			continue
+
+		try:
+			driver_spec = frappe.get_doc("ilL-Spec-Driver", driver_spec_name)
+		except frappe.DoesNotExistError:
+			continue  # Skip if driver spec doesn't exist
+
+		# Filter by voltage: driver's voltage_output must match tape's input_voltage
+		if tape_voltage and driver_spec.voltage_output and driver_spec.voltage_output != tape_voltage:
+			continue
+
+		# Filter by dimming protocol: driver's dimming_protocol must match tape's dimming_protocol
+		# (if tape has a dimming protocol requirement)
+		if dimming_protocol and driver_spec.dimming_protocol and driver_spec.dimming_protocol != dimming_protocol:
+			continue
+
+		# Calculate usable wattage
+		usable_load_factor = float(driver_spec.usable_load_factor or 0.8)
+		max_wattage = float(driver_spec.max_wattage or 0)
+		outputs_count = int(driver_spec.outputs_count or 1)
+		cost = float(driver_spec.cost or 0) if driver_spec.cost else None
+
+		w_usable = usable_load_factor * max_wattage
+
+		candidate_drivers.append({
+			"driver_spec_name": driver_spec_name,
+			"item": driver_spec.item,
+			"max_wattage": max_wattage,
+			"w_usable": w_usable,
+			"outputs_count": outputs_count,
+			"cost": cost,
+			"priority": elig_row.priority,
+		})
+
+	if not candidate_drivers:
+		driver_plan["status"] = "no_matching_drivers"
+		messages.append({
+			"severity": "warning",
+			"text": (
+				f"No drivers match voltage '{tape_voltage}' and/or "
+				f"dimming protocol '{dimming_protocol}' for template '{fixture_template_code}'"
+			),
+			"field": None,
+		})
+		return driver_plan, messages
+
+	# Selection policy: "lowest cost if cost exists else smallest rated wattage that works"
+	# First, sort candidates by selection policy
+	# Priority 1: Drivers with cost (sorted by cost ascending)
+	# Priority 2: Drivers without cost (sorted by max_wattage ascending)
+	drivers_with_cost = [d for d in candidate_drivers if d["cost"] is not None]
+	drivers_without_cost = [d for d in candidate_drivers if d["cost"] is None]
+
+	# Sort drivers with cost by cost (lowest first)
+	drivers_with_cost.sort(key=lambda d: (d["cost"], d["max_wattage"]))
+
+	# Sort drivers without cost by max_wattage (smallest first)
+	drivers_without_cost.sort(key=lambda d: d["max_wattage"])
+
+	# Combine: prefer drivers with cost (sorted by lowest cost)
+	sorted_candidates = drivers_with_cost + drivers_without_cost
+
+	# Find the best driver that can satisfy constraints (possibly with multiples)
+	selected_driver = None
+	selected_qty = 0
+
+	for candidate in sorted_candidates:
+		# Calculate how many of this driver we need
+		# Constraint 1: sum(outputs) >= runs_count
+		# Constraint 2: sum(W_usable) >= total_watts
+
+		outputs_per_driver = candidate["outputs_count"]
+		w_usable_per_driver = candidate["w_usable"]
+
+		# Use a minimum threshold to prevent division issues with extremely small values
+		MIN_THRESHOLD = 0.001
+		if outputs_per_driver < MIN_THRESHOLD or w_usable_per_driver < MIN_THRESHOLD:
+			continue  # Skip invalid drivers
+
+		# Calculate quantity needed for outputs constraint
+		qty_for_outputs = math.ceil(runs_count / outputs_per_driver)
+
+		# Calculate quantity needed for wattage constraint
+		qty_for_watts = math.ceil(total_watts / w_usable_per_driver)
+
+		# Take the maximum to satisfy both constraints
+		qty_needed = max(qty_for_outputs, qty_for_watts)
+
+		# Select this driver
+		selected_driver = candidate
+		selected_qty = qty_needed
+		break  # First valid candidate wins (already sorted by policy)
+
+	if not selected_driver:
+		driver_plan["status"] = "no_suitable_driver"
+		messages.append({
+			"severity": "warning",
+			"text": "No driver can satisfy the output/wattage requirements",
+			"field": None,
+		})
+		return driver_plan, messages
+
+	# Calculate outputs used and generate mapping notes
+	total_outputs_available = selected_driver["outputs_count"] * selected_qty
+	outputs_used = min(runs_count, total_outputs_available)
+
+	# Generate sequential run→output mapping notes
+	mapping_notes_parts = []
+	run_idx = 1
+	for driver_idx in range(1, selected_qty + 1):
+		for output_idx in range(1, selected_driver["outputs_count"] + 1):
+			if run_idx > runs_count:
+				break
+			mapping_notes_parts.append(f"Run {run_idx} → Driver {driver_idx} Output {output_idx}")
+			run_idx += 1
+		if run_idx > runs_count:
+			break
+	mapping_notes = "; ".join(mapping_notes_parts)
+
+	# Build driver plan result
+	driver_plan = {
+		"status": "selected",
+		"drivers": [
+			{
+				"driver_spec": selected_driver["driver_spec_name"],
+				"item_code": selected_driver["item"],
+				"qty": selected_qty,
+				"outputs_per_driver": selected_driver["outputs_count"],
+				"outputs_used": outputs_used,
+				"w_usable_per_driver": round(selected_driver["w_usable"], 2),
+				"total_w_usable": round(selected_driver["w_usable"] * selected_qty, 2),
+				"mapping_notes": mapping_notes,
+			}
+		],
+	}
+
+	messages.append({
+		"severity": "info",
+		"text": (
+			f"Driver selected: {selected_driver['item']} × {selected_qty} "
+			f"({outputs_used} outputs used, {round(selected_driver['w_usable'] * selected_qty, 2)}W usable capacity)"
+		),
+		"field": None,
+	})
+
+	return driver_plan, messages
+
+
 def _calculate_pricing(
 	fixture_template_code: str,
 	resolved_items: dict,
@@ -1173,6 +1414,21 @@ def _create_or_update_configured_fixture(
 				"leader_len_mm": run["leader_len_mm"],
 			},
 		)
+
+	# Set driver allocations (Epic 5 Task 5.2)
+	doc.drivers = []
+	driver_plan = resolved_items.get("driver_plan", {})
+	if driver_plan.get("status") == "selected" and driver_plan.get("drivers"):
+		for driver_alloc in driver_plan["drivers"]:
+			doc.append(
+				"drivers",
+				{
+					"driver_item": driver_alloc.get("item_code"),
+					"driver_qty": driver_alloc.get("qty", 1),
+					"outputs_used": driver_alloc.get("outputs_used", 0),
+					"mapping_notes": driver_alloc.get("mapping_notes", ""),
+				},
+			)
 
 	# Append pricing snapshot (preserves audit history)
 	# Each quote creates a new pricing snapshot entry with timestamp
