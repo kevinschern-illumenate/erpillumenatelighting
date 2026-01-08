@@ -93,6 +93,7 @@ from typing import Any
 
 import frappe
 from frappe import _
+from frappe.utils import now
 
 
 @frappe.whitelist()
@@ -536,16 +537,19 @@ def _create_or_update_configured_fixture(
 		"requested_overall_length_mm": requested_overall_length_mm,
 	}
 
-	config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()[:16]
+	# Create a config hash from all input parameters
+	# Using 32 characters (128 bits) of SHA-256 hash for good collision resistance
+	config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()[:32]
 
 	# Check if this configuration already exists
+	# Note: The document name IS the config_hash (autoname: "field:config_hash" in DocType)
 	existing = frappe.db.exists("ilL-Configured-Fixture", config_hash)
 
 	if existing:
 		doc = frappe.get_doc("ilL-Configured-Fixture", config_hash)
 	else:
 		doc = frappe.new_doc("ilL-Configured-Fixture")
-		doc.config_hash = config_hash
+		doc.config_hash = config_hash  # This will become the document name
 
 	# Set identity fields
 	doc.engine_version = "1.0.0"
@@ -609,7 +613,7 @@ def _create_or_update_configured_fixture(
 			"msrp_unit": pricing["msrp_unit"],
 			"tier_unit": pricing["tier_unit"],
 			"adder_breakdown_json": json.dumps(pricing["adder_breakdown"]),
-			"timestamp": frappe.utils.now(),
+			"timestamp": now(),
 		},
 	)
 
