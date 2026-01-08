@@ -29,7 +29,7 @@ from frappe.utils.file_manager import save_file
 MM_PER_FOOT = 304.8
 
 
-def _check_schedule_access(schedule_name: str, user: str = None) -> tuple[bool, str]:
+def _check_schedule_access(schedule_name: str, user: str = None) -> tuple[bool, str | None]:
 	"""
 	Check if user has access to the schedule based on company/private rules.
 
@@ -116,7 +116,9 @@ def _create_export_job(schedule_name: str, export_type: str, user: str = None) -
 	return job.name
 
 
-def _update_export_job_status(job_name: str, status: str, output_file: str = None, error_log: str = None):
+def _update_export_job_status(
+	job_name: str, status: str, output_file: str | None = None, error_log: str | None = None
+):
 	"""
 	Update an export job's status and optionally attach output or error.
 
@@ -158,6 +160,43 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 	if schedule.customer:
 		customer = frappe.get_doc("Customer", schedule.customer)
 
+	# Pre-fetch all configured fixtures to avoid N+1 queries
+	fixture_ids = [
+		line.configured_fixture
+		for line in (schedule.lines or [])
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+	]
+
+	fixtures_map = {}
+	if fixture_ids:
+		fixtures = frappe.get_all(
+			"ilL-Configured-Fixture",
+			filters={"name": ["in", fixture_ids]},
+			fields=[
+				"name", "fixture_template", "finish", "lens_appearance",
+				"mounting_method", "power_feed_type", "environment_rating",
+				"requested_overall_length_mm", "manufacturable_overall_length_mm",
+				"runs_count",
+			],
+		)
+		for f in fixtures:
+			fixtures_map[f.name] = f
+
+		# If we need pricing, fetch pricing snapshots separately
+		if include_pricing:
+			for fixture_id in fixture_ids:
+				if fixture_id in fixtures_map:
+					# Get the latest pricing snapshot
+					snapshots = frappe.get_all(
+						"ilL-Child-Pricing-Snapshot",
+						filters={"parent": fixture_id, "parenttype": "ilL-Configured-Fixture"},
+						fields=["msrp_unit"],
+						order_by="timestamp desc",
+						limit=1,
+					)
+					if snapshots:
+						fixtures_map[fixture_id]["latest_msrp_unit"] = float(snapshots[0].msrp_unit or 0)
+
 	# Build lines data
 	lines_data = []
 	schedule_total = 0.0
@@ -172,23 +211,21 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 		}
 
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-			# Get configured fixture details
-			try:
-				fixture = frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
+			# Get configured fixture details from pre-fetched map
+			fixture = fixtures_map.get(line.configured_fixture)
+			if fixture:
 				line_data["template_code"] = fixture.fixture_template or ""
-				line_data["config_summary"] = _build_config_summary(fixture)
+				line_data["config_summary"] = _build_config_summary_from_dict(fixture)
 				line_data["requested_length_mm"] = fixture.requested_overall_length_mm or 0
 				line_data["manufacturable_length_mm"] = fixture.manufacturable_overall_length_mm or 0
 				line_data["runs_count"] = fixture.runs_count or 0
 
-				if include_pricing and fixture.pricing_snapshot:
-					# Get latest pricing snapshot
-					latest_snapshot = fixture.pricing_snapshot[-1]
-					unit_price = float(latest_snapshot.msrp_unit or 0)
+				if include_pricing and fixture.get("latest_msrp_unit"):
+					unit_price = fixture["latest_msrp_unit"]
 					line_data["unit_price"] = unit_price
 					line_data["line_total"] = unit_price * (line.qty or 1)
 					schedule_total += line_data["line_total"]
-			except frappe.DoesNotExistError:
+			else:
 				line_data["template_code"] = ""
 				line_data["config_summary"] = "Configured fixture not found"
 				line_data["requested_length_mm"] = 0
@@ -218,7 +255,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 
 
 def _build_config_summary(fixture) -> str:
-	"""Build a summary string of fixture configuration options."""
+	"""Build a summary string of fixture configuration options from a document."""
 	parts = []
 
 	if fixture.finish:
@@ -231,6 +268,24 @@ def _build_config_summary(fixture) -> str:
 		parts.append(f"Feed: {fixture.power_feed_type}")
 	if fixture.environment_rating:
 		parts.append(f"Env: {fixture.environment_rating}")
+
+	return " | ".join(parts) if parts else ""
+
+
+def _build_config_summary_from_dict(fixture: dict) -> str:
+	"""Build a summary string of fixture configuration options from a dict."""
+	parts = []
+
+	if fixture.get("finish"):
+		parts.append(f"Finish: {fixture['finish']}")
+	if fixture.get("lens_appearance"):
+		parts.append(f"Lens: {fixture['lens_appearance']}")
+	if fixture.get("mounting_method"):
+		parts.append(f"Mount: {fixture['mounting_method']}")
+	if fixture.get("power_feed_type"):
+		parts.append(f"Feed: {fixture['power_feed_type']}")
+	if fixture.get("environment_rating"):
+		parts.append(f"Env: {fixture['environment_rating']}")
 
 	return " | ".join(parts) if parts else ""
 
@@ -612,11 +667,21 @@ def get_export_history(schedule_id: str) -> dict:
 		limit=50,
 	)
 
+	# Batch fetch user names to avoid N+1 queries
+	user_ids = list({exp.requested_by for exp in exports if exp.requested_by})
+	user_names_map = {}
+	if user_ids:
+		users = frappe.get_all(
+			"User",
+			filters={"name": ["in", user_ids]},
+			fields=["name", "full_name"],
+		)
+		user_names_map = {u.name: u.full_name for u in users}
+
 	# Enrich with user display name
 	for export in exports:
 		if export.requested_by:
-			user_name = frappe.db.get_value("User", export.requested_by, "full_name")
-			export["requested_by_name"] = user_name or export.requested_by
+			export["requested_by_name"] = user_names_map.get(export.requested_by) or export.requested_by
 		else:
 			export["requested_by_name"] = ""
 

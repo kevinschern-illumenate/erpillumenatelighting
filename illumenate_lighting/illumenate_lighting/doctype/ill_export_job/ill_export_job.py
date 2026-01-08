@@ -46,7 +46,7 @@ class ilLExportJob(Document):
 			if not _check_pricing_permission(self.requested_by):
 				frappe.throw(_("You don't have permission to generate priced exports"))
 
-	def set_status(self, status: str, output_file: str = None, error_log: str = None):
+	def set_status(self, status: str, output_file: str | None = None, error_log: str | None = None):
 		"""
 		Update the export job status.
 
