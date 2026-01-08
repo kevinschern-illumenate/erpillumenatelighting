@@ -292,4 +292,4 @@ class TestConfiguratorEngine(FrappeTestCase):
 		)
 		for fixture_name in test_fixtures:
 			frappe.delete_doc("ilL-Configured-Fixture", fixture_name, force=True)
-		frappe.db.commit()
+		# Note: frappe.db.commit() is not needed - test framework handles transactions automatically
