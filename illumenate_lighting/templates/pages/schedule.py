@@ -52,9 +52,26 @@ def get_context(context):
 	illumenate_count = sum(1 for line in lines if line.manufacturer_type == "ILLUMENATE")
 	other_count = sum(1 for line in lines if line.manufacturer_type == "OTHER")
 
+	# Create JSON-serializable line data for JavaScript
+	lines_json = []
+	for line in lines:
+		lines_json.append({
+			"line_id": line.line_id,
+			"qty": line.qty,
+			"location": line.location,
+			"manufacturer_type": line.manufacturer_type,
+			"manufacturer_name": line.manufacturer_name,
+			"model_number": line.model_number,
+			"notes": line.notes,
+			"configured_fixture": line.configured_fixture,
+			"ill_item_code": line.ill_item_code,
+			"manufacturable_length_mm": line.manufacturable_length_mm,
+		})
+
 	context.schedule = schedule
 	context.project = project
 	context.lines = lines
+	context.lines_json = lines_json
 	context.can_edit = can_edit
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count

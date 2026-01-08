@@ -466,7 +466,7 @@ function duplicateLine(line_idx) {
 }
 
 // Line data for editing
-var lineData = {{ lines | tojson if lines else '[]' }};
+var lineData = {{ lines_json | tojson if lines_json else '[]' }};
 
 function editLine(line_idx) {
 	var line = lineData[line_idx];
