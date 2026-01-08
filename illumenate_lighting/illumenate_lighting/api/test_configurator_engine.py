@@ -472,10 +472,14 @@ class TestConfiguratorEngine(FrappeTestCase):
 			validate_and_quote,
 		)
 
-		leader_maps = frappe.get_all("ilL-Rel-Leader-Cable-Map", filters={"tape_spec": self.tape_spec.name}, pluck="name") or []
+		leader_maps = frappe.get_all(
+			"ilL-Rel-Leader-Cable-Map", filters={"tape_spec": self.tape_spec.name}, pluck="name"
+		) or []
 		for row in leader_maps:
+			if not row:
+				continue
 			try:
-				if frappe.db.exists("ilL-Rel-Leader-Cable-Map", row):
+				if frappe.db.exists("ilL-Rel-Leader-Cable-Map", {"name": row}):
 					frappe.delete_doc("ilL-Rel-Leader-Cable-Map", row, force=True)
 			except Exception:
 				continue
