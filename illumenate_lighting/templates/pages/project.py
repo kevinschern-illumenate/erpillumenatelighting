@@ -51,6 +51,7 @@ def get_context(context):
 	context.project = project
 	context.schedules = schedules
 	context.can_edit = can_edit
+	context.schedule_status_class = schedule_status_class
 	context.title = project.project_name
 	context.no_cache = 1
 

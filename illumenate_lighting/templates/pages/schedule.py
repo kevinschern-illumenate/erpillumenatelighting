@@ -53,6 +53,7 @@ def get_context(context):
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count
 	context.other_count = other_count
+	context.schedule_status_class = schedule_status_class
 	context.title = schedule.schedule_name
 	context.no_cache = 1
 
