@@ -1218,6 +1218,133 @@ class TestConfiguratorEngine(FrappeTestCase):
 		# Mapping notes should contain run→output mapping text
 		self.assertIsNotNone(driver_alloc.mapping_notes)
 
+	def test_configured_fixture_full_persistence_task_6_1(self):
+		"""Test Epic 6 Task 6.1: Full configured fixture persistence with all computed children"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a driver spec for complete test coverage
+		driver_item_code = "TEST-DRIVER-PERSIST-6-1"
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"voltage_output": self.output_voltage_code,
+				"outputs_count": 4,
+				"max_wattage": 100.0,
+				"usable_load_factor": 0.8,
+				"dimming_protocol": None,
+				"cost": 75.0,
+			},
+			ignore_links=True,
+		)
+
+		# Create driver eligibility mapping
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Driver-Eligibility",
+				"fixture_template": self.template_code,
+				"driver_spec": driver_item_code,
+				"is_allowed": 1,
+				"is_active": 1,
+				"priority": 0,
+			},
+			ignore_links=True,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		# Fetch the configured fixture
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+
+		# Verify config_hash is set and unique
+		self.assertIsNotNone(fixture_doc.config_hash)
+		self.assertEqual(len(fixture_doc.config_hash), 32)  # 32 hex chars (128 bits)
+
+		# Verify chosen option links are persisted
+		self.assertEqual(fixture_doc.fixture_template, self.template_code)
+		self.assertEqual(fixture_doc.finish, self.finish_code)
+		self.assertEqual(fixture_doc.lens_appearance, self.lens_appearance_code)
+		self.assertEqual(fixture_doc.mounting_method, self.mounting_method_code)
+		self.assertEqual(fixture_doc.endcap_style, self.endcap_style_code)
+		self.assertEqual(fixture_doc.endcap_color, self.endcap_color_code)
+		self.assertEqual(fixture_doc.power_feed_type, self.power_feed_type_code)
+		self.assertEqual(fixture_doc.environment_rating, self.environment_rating_code)
+		self.assertEqual(fixture_doc.tape_offering, self.tape_offering_id)
+
+		# Verify computed length fields are persisted
+		self.assertEqual(fixture_doc.requested_overall_length_mm, 1000)
+		self.assertIsNotNone(fixture_doc.endcap_allowance_mm_per_side)
+		self.assertIsNotNone(fixture_doc.leader_allowance_mm)
+		self.assertIsNotNone(fixture_doc.internal_length_mm)
+		self.assertIsNotNone(fixture_doc.tape_cut_length_mm)
+		self.assertIsNotNone(fixture_doc.manufacturable_overall_length_mm)
+
+		# Verify run metadata (effective max run) is persisted
+		self.assertEqual(fixture_doc.max_run_ft_by_watts, 17.0)
+		self.assertEqual(fixture_doc.max_run_ft_by_voltage_drop, 16.0)
+		self.assertEqual(fixture_doc.max_run_ft_effective, 16.0)
+
+		# Verify resolved item links are persisted
+		self.assertEqual(fixture_doc.profile_item, "PROFILE-ITEM-01")
+		self.assertEqual(fixture_doc.lens_item, "LENS-ITEM-01")
+		self.assertEqual(fixture_doc.endcap_item, "ENDCAP-ITEM-01")
+		self.assertEqual(fixture_doc.mounting_item, "MOUNT-ITEM-01")
+		self.assertEqual(fixture_doc.leader_item, "LEADER-ITEM-01")
+
+		# Verify segments child table is persisted
+		self.assertGreaterEqual(len(fixture_doc.segments), 1)
+		segment = fixture_doc.segments[0]
+		self.assertIsNotNone(segment.segment_index)
+		self.assertIsNotNone(segment.profile_cut_len_mm)
+		self.assertIsNotNone(segment.lens_cut_len_mm)
+
+		# Verify runs child table is persisted
+		self.assertGreaterEqual(len(fixture_doc.runs), 1)
+		run = fixture_doc.runs[0]
+		self.assertIsNotNone(run.run_index)
+		self.assertIsNotNone(run.run_len_mm)
+		self.assertIsNotNone(run.run_watts)
+		self.assertIsNotNone(run.leader_len_mm)
+
+		# Verify drivers child table is persisted
+		self.assertGreaterEqual(len(fixture_doc.drivers), 1)
+		driver = fixture_doc.drivers[0]
+		self.assertIsNotNone(driver.driver_item)
+		self.assertIsNotNone(driver.driver_qty)
+		self.assertIsNotNone(driver.outputs_used)
+
+		# Verify pricing_snapshot child table is persisted
+		self.assertGreaterEqual(len(fixture_doc.pricing_snapshot), 1)
+		snapshot = fixture_doc.pricing_snapshot[-1]
+		self.assertIsNotNone(snapshot.msrp_unit)
+		self.assertIsNotNone(snapshot.tier_unit)
+		self.assertIsNotNone(snapshot.adder_breakdown_json)
+		self.assertIsNotNone(snapshot.timestamp)
+
+		# Verify pricing breakdown JSON is valid and contains expected components
+		breakdown = json.loads(snapshot.adder_breakdown_json)
+		self.assertIsInstance(breakdown, list)
+		components = {item["component"] for item in breakdown}
+		self.assertIn("base", components)
+		self.assertIn("length", components)
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests

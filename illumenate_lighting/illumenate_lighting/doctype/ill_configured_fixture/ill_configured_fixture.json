@@ -34,6 +34,18 @@
   "total_watts",
   "column_break_computed",
   "assembly_mode",
+  "run_metadata_section",
+  "max_run_ft_by_watts",
+  "max_run_ft_by_voltage_drop",
+  "column_break_run_metadata",
+  "max_run_ft_effective",
+  "resolved_items_section",
+  "profile_item",
+  "lens_item",
+  "endcap_item",
+  "column_break_resolved_items",
+  "mounting_item",
+  "leader_item",
   "erp_links_section",
   "configured_item",
   "bom",
@@ -201,6 +213,74 @@
    "fieldtype": "Select",
    "label": "Assembly Mode",
    "options": "ASSEMBLED\nSHIP_PIECES"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "run_metadata_section",
+   "fieldtype": "Section Break",
+   "label": "Run Metadata"
+  },
+  {
+   "description": "Max run length based on 85W power limit",
+   "fieldname": "max_run_ft_by_watts",
+   "fieldtype": "Float",
+   "label": "Max Run (ft) by Watts"
+  },
+  {
+   "description": "Max run length based on voltage drop limit from tape spec",
+   "fieldname": "max_run_ft_by_voltage_drop",
+   "fieldtype": "Float",
+   "label": "Max Run (ft) by Voltage Drop"
+  },
+  {
+   "fieldname": "column_break_run_metadata",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Effective max run length (minimum of watts and voltage drop limits)",
+   "fieldname": "max_run_ft_effective",
+   "fieldtype": "Float",
+   "label": "Max Run (ft) Effective"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "resolved_items_section",
+   "fieldtype": "Section Break",
+   "label": "Resolved Items"
+  },
+  {
+   "fieldname": "profile_item",
+   "fieldtype": "Link",
+   "label": "Profile Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "lens_item",
+   "fieldtype": "Link",
+   "label": "Lens Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "endcap_item",
+   "fieldtype": "Link",
+   "label": "Endcap Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "column_break_resolved_items",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mounting_item",
+   "fieldtype": "Link",
+   "label": "Mounting Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "leader_item",
+   "fieldtype": "Link",
+   "label": "Leader Item",
+   "options": "Item"
   },
   {
    "collapsible": 1,

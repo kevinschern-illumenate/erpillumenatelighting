@@ -1388,6 +1388,18 @@ def _create_or_update_configured_fixture(
 	doc.total_watts = computed["total_watts"]
 	doc.assembly_mode = computed["assembly_mode"]
 
+	# Set run metadata (effective max run for downstream calculations)
+	doc.max_run_ft_by_watts = computed.get("max_run_ft_by_watts")
+	doc.max_run_ft_by_voltage_drop = computed.get("max_run_ft_by_voltage_drop")
+	doc.max_run_ft_effective = computed.get("max_run_ft_effective")
+
+	# Set resolved item links (cached for downstream BOM/WO generation)
+	doc.profile_item = resolved_items.get("profile_item")
+	doc.lens_item = resolved_items.get("lens_item")
+	doc.endcap_item = resolved_items.get("endcap_item")
+	doc.mounting_item = resolved_items.get("mounting_item")
+	doc.leader_item = resolved_items.get("leader_item")
+
 	# Set segments
 	doc.segments = []
 	for segment in computed["segments"]:
