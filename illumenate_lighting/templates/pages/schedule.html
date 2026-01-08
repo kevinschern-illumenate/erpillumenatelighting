@@ -248,6 +248,42 @@ Also handles new schedule creation when is_new is True
 		</div>
 	</div>
 	{% endif %}
+
+	<!-- Exports Section -->
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Exports") }}</h5>
+					<div class="btn-group">
+						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', false)">
+							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (No Pricing)") }}
+						</button>
+						{% if can_view_pricing %}
+						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', true)">
+							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (With Pricing)") }}
+						</button>
+						{% endif %}
+						<button class="btn btn-sm btn-outline-secondary" onclick="generateExport('csv', false)">
+							<i class="fa fa-file-excel-o"></i> {{ _("CSV (No Pricing)") }}
+						</button>
+						{% if can_view_pricing %}
+						<button class="btn btn-sm btn-outline-secondary" onclick="generateExport('csv', true)">
+							<i class="fa fa-file-excel-o"></i> {{ _("CSV (With Pricing)") }}
+						</button>
+						{% endif %}
+					</div>
+				</div>
+				<div class="card-body p-0">
+					<div id="exportHistoryContainer">
+						<div class="text-center py-3">
+							<i class="fa fa-spinner fa-spin"></i> {{ _("Loading export history...") }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 </div>
 
 <!-- Add Line Modal -->
@@ -581,6 +617,131 @@ function createSalesOrder() {
 		});
 	});
 }
+
+// Export functionality
+function generateExport(format, priced) {
+	var method = format === 'pdf'
+		? 'illumenate_lighting.illumenate_lighting.api.exports.generate_schedule_pdf'
+		: 'illumenate_lighting.illumenate_lighting.api.exports.generate_schedule_csv';
+
+	frappe.show_alert({
+		message: 'Generating ' + format.toUpperCase() + ' export...',
+		indicator: 'blue'
+	});
+
+	frappe.call({
+		method: method,
+		args: {
+			schedule_id: schedule_name,
+			priced: priced
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.show_alert({
+					message: 'Export generated successfully!',
+					indicator: 'green'
+				});
+				// Refresh export history
+				loadExportHistory();
+				// Open download in new tab
+				if (r.message.download_url) {
+					window.open(r.message.download_url, '_blank');
+				}
+			} else {
+				frappe.msgprint({
+					title: 'Export Error',
+					indicator: 'red',
+					message: r.message.error || 'Error generating export'
+				});
+			}
+		},
+		error: function() {
+			frappe.msgprint({
+				title: 'Export Error',
+				indicator: 'red',
+				message: 'Error generating export'
+			});
+		}
+	});
+}
+
+function loadExportHistory() {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.exports.get_export_history',
+		args: {
+			schedule_id: schedule_name
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				renderExportHistory(r.message.exports);
+			} else {
+				$('#exportHistoryContainer').html(
+					'<div class="text-center text-muted py-3">' +
+					'<i class="fa fa-exclamation-circle"></i> ' +
+					(r.message.error || 'Error loading export history') +
+					'</div>'
+				);
+			}
+		}
+	});
+}
+
+function renderExportHistory(exports) {
+	if (!exports || exports.length === 0) {
+		$('#exportHistoryContainer').html(
+			'<div class="text-center text-muted py-3">' +
+			'<i class="fa fa-download"></i> No exports yet. Use the buttons above to generate exports.' +
+			'</div>'
+		);
+		return;
+	}
+
+	var html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+	html += '<thead class="thead-light"><tr>';
+	html += '<th>Type</th>';
+	html += '<th>Status</th>';
+	html += '<th>Requested By</th>';
+	html += '<th>Created</th>';
+	html += '<th>Download</th>';
+	html += '</tr></thead><tbody>';
+
+	exports.forEach(function(exp) {
+		var statusClass = {
+			'QUEUED': 'warning',
+			'RUNNING': 'info',
+			'COMPLETE': 'success',
+			'FAILED': 'danger'
+		}[exp.status] || 'secondary';
+
+		var typeLabel = exp.export_type.replace('_', ' ');
+		var createdOn = exp.created_on ? frappe.datetime.prettyDate(exp.created_on) : '-';
+
+		html += '<tr>';
+		html += '<td>' + typeLabel + '</td>';
+		html += '<td><span class="badge badge-' + statusClass + '">' + exp.status + '</span></td>';
+		html += '<td>' + (exp.requested_by_name || '-') + '</td>';
+		html += '<td>' + createdOn + '</td>';
+		html += '<td>';
+		if (exp.status === 'COMPLETE' && exp.output_file) {
+			html += '<a href="' + exp.output_file + '" target="_blank" class="btn btn-sm btn-outline-primary">';
+			html += '<i class="fa fa-download"></i> Download</a>';
+		} else if (exp.status === 'FAILED') {
+			html += '<span class="text-danger"><i class="fa fa-times"></i> Failed</span>';
+		} else {
+			html += '<span class="text-muted"><i class="fa fa-clock-o"></i> Pending</span>';
+		}
+		html += '</td>';
+		html += '</tr>';
+	});
+
+	html += '</tbody></table></div>';
+	$('#exportHistoryContainer').html(html);
+}
+
+// Load export history on page load
+$(document).ready(function() {
+	loadExportHistory();
+});
 {% endif %}
 </script>
 {% endblock %}

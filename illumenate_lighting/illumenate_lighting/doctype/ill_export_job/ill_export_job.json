@@ -12,6 +12,7 @@
   "column_break_export",
   "status",
   "requested_by",
+  "created_on",
   "output_section",
   "output_file",
   "column_break_output",
@@ -37,7 +38,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Export Type",
-   "options": "PDF_PRICED\nPDF_NO_PRICE\nCSV",
+   "options": "PDF_PRICED\nPDF_NO_PRICE\nCSV_PRICED\nCSV_NO_PRICE",
    "reqd": 1
   },
   {
@@ -58,6 +59,13 @@
    "in_list_view": 1,
    "label": "Requested By",
    "options": "User"
+  },
+  {
+   "default": "Now",
+   "fieldname": "created_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created On"
   },
   {
    "fieldname": "output_section",

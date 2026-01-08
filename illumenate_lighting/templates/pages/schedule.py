@@ -39,6 +39,10 @@ def get_context(context):
 	# Check if user can edit
 	can_edit = has_permission(schedule, "write", frappe.session.user)
 
+	# Check if user can view pricing
+	from illumenate_lighting.illumenate_lighting.api.exports import _check_pricing_permission
+	can_view_pricing = _check_pricing_permission(frappe.session.user)
+
 	# Get project
 	project = None
 	if schedule.ill_project:
@@ -73,6 +77,7 @@ def get_context(context):
 	context.lines = lines
 	context.lines_json = lines_json
 	context.can_edit = can_edit
+	context.can_view_pricing = can_view_pricing
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count
 	context.other_count = other_count
