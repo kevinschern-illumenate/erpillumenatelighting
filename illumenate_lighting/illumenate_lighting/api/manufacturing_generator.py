@@ -19,11 +19,10 @@ API Endpoints:
 """
 
 import math
-from typing import Any
+from typing import Any, Optional
 
 import frappe
 from frappe import _
-from frappe.utils import now
 
 # Engine version for tracking
 ENGINE_VERSION = "1.0.0"
@@ -830,7 +829,7 @@ def _calculate_mounting_quantity(fixture) -> int:
 	return max(qty, min_qty)
 
 
-def _get_tape_item(fixture) -> str | None:
+def _get_tape_item(fixture) -> Optional[str]:
 	"""Get the tape item from the tape offering."""
 	if not fixture.tape_offering:
 		return None
