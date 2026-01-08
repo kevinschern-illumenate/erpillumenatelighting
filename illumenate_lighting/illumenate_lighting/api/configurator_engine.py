@@ -312,9 +312,7 @@ def _validate_configuration(
 
 	for field_name, field_value in required_fields.items():
 		if not field_value:
-			messages.append(
-				{"severity": "error", "text": f"{field_name} is required", "field": field_name}
-			)
+			messages.append({"severity": "error", "text": f"{field_name} is required", "field": field_name})
 			is_valid = False
 
 	# Validate requested length
