@@ -8,8 +8,108 @@ This module provides API endpoints for the portal pages to interact with
 the system. These endpoints are whitelisted for portal users.
 """
 
+import json
+from typing import Union
+
 import frappe
 from frappe import _
+
+
+@frappe.whitelist()
+def get_allowed_customers_for_project() -> dict:
+	"""
+	Get customers that the current user can create projects for.
+
+	Returns customers that:
+	1. The user's own company (Customer linked via their Contact)
+	2. Customers that were created by contacts at the user's company
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"user_customer": str or None,
+			"allowed_customers": [{"value": name, "label": customer_name}]
+		}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+	)
+
+	user_customer = _get_user_customer(frappe.session.user)
+
+	if not user_customer:
+		return {
+			"success": True,
+			"user_customer": None,
+			"allowed_customers": [],
+		}
+
+	# Get all contacts linked to the user's company (Customer)
+	company_contacts = frappe.db.sql("""
+		SELECT DISTINCT c.name as contact_name, c.user
+		FROM `tabContact` c
+		INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
+			AND dl.parenttype = 'Contact'
+			AND dl.link_doctype = 'Customer'
+			AND dl.link_name = %(user_customer)s
+	""", {"user_customer": user_customer}, as_dict=True)
+
+	contact_names = [c.contact_name for c in company_contacts]
+
+	# Get customers that were created by users at this company
+	# A customer is considered "created by the company" if:
+	# 1. The owner is a user linked to a contact at the company, OR
+	# 2. There's a contact at the company linked to that customer
+	allowed_customer_names = set()
+	allowed_customer_names.add(user_customer)  # Always include user's own company
+
+	if contact_names:
+		# Get customers linked to contacts at the user's company
+		linked_customers = frappe.db.sql("""
+			SELECT DISTINCT dl.link_name as customer_name
+			FROM `tabDynamic Link` dl
+			WHERE dl.parenttype = 'Contact'
+				AND dl.link_doctype = 'Customer'
+				AND dl.parent IN (
+					SELECT c.name FROM `tabContact` c
+					INNER JOIN `tabDynamic Link` dl2 ON dl2.parent = c.name
+						AND dl2.parenttype = 'Contact'
+						AND dl2.link_doctype = 'Customer'
+						AND dl2.link_name = %(user_customer)s
+				)
+		""", {"user_customer": user_customer}, as_dict=True)
+
+		for row in linked_customers:
+			allowed_customer_names.add(row.customer_name)
+
+		# Also get customers created by users at this company
+		company_users = [c.user for c in company_contacts if c.user]
+		if company_users:
+			created_customers = frappe.get_all(
+				"Customer",
+				filters={"owner": ["in", company_users]},
+				pluck="name",
+			)
+			for cust in created_customers:
+				allowed_customer_names.add(cust)
+
+	# Build the response with customer details
+	allowed_customers = []
+	for cust_name in allowed_customer_names:
+		customer_name_display = frappe.db.get_value("Customer", cust_name, "customer_name")
+		allowed_customers.append({
+			"value": cust_name,
+			"label": customer_name_display or cust_name,
+		})
+
+	# Sort by label
+	allowed_customers.sort(key=lambda x: x["label"])
+
+	return {
+		"success": True,
+		"user_customer": user_customer,
+		"allowed_customers": allowed_customers,
+	}
 
 
 @frappe.whitelist()
@@ -78,7 +178,7 @@ def get_template_options(template_code: str) -> dict:
 
 
 @frappe.whitelist()
-def add_schedule_line(schedule_name: str, line_data: dict) -> dict:
+def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	"""
 	Add a new line to a fixture schedule.
 
@@ -109,7 +209,6 @@ def add_schedule_line(schedule_name: str, line_data: dict) -> dict:
 
 	# Parse line_data if it's a string (from form submission)
 	if isinstance(line_data, str):
-		import json
 		line_data = json.loads(line_data)
 
 	# Add the line
@@ -239,7 +338,7 @@ def save_configured_fixture_to_schedule(
 
 
 @frappe.whitelist()
-def create_project(project_data: dict) -> dict:
+def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
 
@@ -251,7 +350,6 @@ def create_project(project_data: dict) -> dict:
 	"""
 	# Parse project_data if it's a string
 	if isinstance(project_data, str):
-		import json
 		project_data = json.loads(project_data)
 
 	# Get user's customer
@@ -261,20 +359,28 @@ def create_project(project_data: dict) -> dict:
 
 	user_customer = _get_user_customer(frappe.session.user)
 
-	# Validate customer matches user's customer (portal users can only create for their customer)
-	if user_customer and project_data.get("customer") != user_customer:
-		# Override with user's customer for portal users
-		project_data["customer"] = user_customer
-
 	if not project_data.get("customer"):
 		return {"success": False, "error": "Customer is required"}
+
+	# Validate the chosen customer is in the allowed list for this user
+	allowed_result = get_allowed_customers_for_project()
+	allowed_customer_names = [c["value"] for c in allowed_result.get("allowed_customers", [])]
+
+	chosen_customer = project_data.get("customer")
+	if chosen_customer not in allowed_customer_names:
+		# If user doesn't have access to this customer, use their own company
+		if user_customer:
+			chosen_customer = user_customer
+		else:
+			return {"success": False, "error": "You don't have permission to create projects for this customer"}
 
 	try:
 		project = frappe.new_doc("ilL-Project")
 		project.project_name = project_data.get("project_name")
-		project.customer = project_data.get("customer")
+		project.customer = chosen_customer
 		project.description = project_data.get("description")
 		project.is_private = project_data.get("is_private", 0)
+		# owner_customer is set automatically in before_insert
 
 		project.insert()
 		return {"success": True, "project_name": project.name}
@@ -283,7 +389,7 @@ def create_project(project_data: dict) -> dict:
 
 
 @frappe.whitelist()
-def create_schedule(schedule_data: dict) -> dict:
+def create_schedule(schedule_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project-Fixture-Schedule.
 
@@ -295,7 +401,6 @@ def create_schedule(schedule_data: dict) -> dict:
 	"""
 	# Parse schedule_data if it's a string
 	if isinstance(schedule_data, str):
-		import json
 		schedule_data = json.loads(schedule_data)
 
 	# Validate project exists and user has access
@@ -331,7 +436,7 @@ def create_schedule(schedule_data: dict) -> dict:
 
 
 @frappe.whitelist()
-def update_project_collaborators(project_name: str, collaborators: list) -> dict:
+def update_project_collaborators(project_name: str, collaborators: Union[str, list]) -> dict:
 	"""
 	Update collaborators for a project.
 
@@ -353,7 +458,6 @@ def update_project_collaborators(project_name: str, collaborators: list) -> dict
 
 	# Parse collaborators if string
 	if isinstance(collaborators, str):
-		import json
 		collaborators = json.loads(collaborators)
 
 	try:

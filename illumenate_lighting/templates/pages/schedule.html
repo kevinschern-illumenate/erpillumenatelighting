@@ -1,10 +1,11 @@
 {#
 Portal Schedule Detail Page
 Displays a fixture schedule with its lines and configurator actions
+Also handles new schedule creation when is_new is True
 #}
 {% extends "templates/web.html" %}
 
-{% block title %}{{ schedule.schedule_name }}{% endblock %}
+{% block title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}{% endblock %}
 
 {% block page_content %}
 <div class="container portal-page">
@@ -13,9 +14,48 @@ Displays a fixture schedule with its lines and configurator actions
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
-			<li class="breadcrumb-item active" aria-current="page">{{ schedule.schedule_name }}</li>
+			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}</li>
 		</ol>
 	</nav>
+
+	{% if is_new %}
+	<!-- New Schedule Form -->
+	<div class="row">
+		<div class="col-lg-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Create New Fixture Schedule") }}</h5>
+				</div>
+				<div class="card-body">
+					<form id="createScheduleForm">
+						<input type="hidden" name="ill_project" value="{{ project.name }}">
+						<div class="form-group">
+							<label>{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="schedule_name" required placeholder="{{ _('e.g., Area A - Linear Fixtures') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Project") }}</label>
+							<input type="text" class="form-control" value="{{ project.project_name }}" readonly>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Notes") }}</label>
+							<textarea class="form-control" name="notes" rows="3" placeholder="{{ _('Optional notes about this schedule') }}"></textarea>
+						</div>
+						<hr>
+						<div class="d-flex justify-content-between">
+							<a href="/portal/projects/{{ project.name }}" class="btn btn-secondary">
+								<i class="fa fa-arrow-left"></i> {{ _("Cancel") }}
+							</a>
+							<button type="submit" class="btn btn-primary">
+								<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% else %}
 
 	<!-- Schedule Header -->
 	<div class="row mb-4">
@@ -247,10 +287,61 @@ Displays a fixture schedule with its lines and configurator actions
 		</div>
 	</div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block script %}
 <script>
+{% if is_new %}
+// Handle create schedule form submission
+$('#createScheduleForm').on('submit', function(e) {
+	e.preventDefault();
+
+	var form = $(this);
+	var submitBtn = form.find('button[type="submit"]');
+
+	// Prevent double submission
+	if (submitBtn.prop('disabled')) {
+		return;
+	}
+
+	submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+
+	var data = {
+		schedule_name: form.find('[name="schedule_name"]').val(),
+		ill_project: form.find('[name="ill_project"]').val(),
+		notes: form.find('[name="notes"]').val()
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule',
+		args: {
+			schedule_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Schedule created successfully'
+				});
+				// Redirect to the new schedule
+				window.location.href = '/portal/schedules/' + r.message.schedule_name;
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error creating schedule'
+				});
+				submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Schedule');
+			}
+		},
+		error: function() {
+			submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Schedule');
+		}
+	});
+});
+{% else %}
 var schedule_name = "{{ schedule.name }}";
 
 // Toggle other manufacturer fields
@@ -357,5 +448,6 @@ function createSalesOrder() {
 		});
 	});
 }
+{% endif %}
 </script>
 {% endblock %}

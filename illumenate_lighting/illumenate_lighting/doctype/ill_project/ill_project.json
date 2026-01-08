@@ -12,6 +12,7 @@
   "column_break_identity",
   "status",
   "is_active",
+  "owner_customer",
   "description_section",
   "description",
   "privacy_section",
@@ -63,6 +64,14 @@
    "fieldname": "is_active",
    "fieldtype": "Check",
    "label": "Is Active"
+  },
+  {
+   "description": "The company (Customer) of the user who created this project. Used for visibility - all users at this company can view non-private projects.",
+   "fieldname": "owner_customer",
+   "fieldtype": "Link",
+   "label": "Owner Company",
+   "options": "Customer",
+   "read_only": 1
   },
   {
    "fieldname": "description_section",

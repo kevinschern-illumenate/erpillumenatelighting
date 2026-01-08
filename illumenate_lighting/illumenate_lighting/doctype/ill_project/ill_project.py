@@ -9,10 +9,16 @@ from frappe.utils import now
 
 class ilLProject(Document):
 	def before_insert(self):
-		"""Set timestamps on collaborator rows before insert."""
+		"""Set timestamps on collaborator rows and owner_customer before insert."""
 		for collaborator in self.collaborators or []:
 			if not collaborator.added_on:
 				collaborator.added_on = now()
+
+		# Set owner_customer from the creating user's Contact -> Customer link
+		if not self.owner_customer:
+			user_customer = _get_user_customer(frappe.session.user)
+			if user_customer:
+				self.owner_customer = user_customer
 
 	def before_save(self):
 		"""Set timestamps on new collaborator rows before save."""
@@ -70,9 +76,11 @@ def get_permission_query_conditions(user=None):
 		)"""
 
 	# User has a customer link - apply company-visible + private access rules
+	# Visibility is based on owner_customer (the company that created the project),
+	# not the customer field (which may be a downstream customer)
 	return f"""(
 		(
-			`tabilL-Project`.customer = {frappe.db.escape(user_customer)}
+			`tabilL-Project`.owner_customer = {frappe.db.escape(user_customer)}
 			AND `tabilL-Project`.is_private = 0
 		)
 		OR (
@@ -131,12 +139,11 @@ def has_permission(doc, ptype="read", user=None):
 			return False
 		return True
 
-	# For non-private projects, check if user is from the same customer
+	# For non-private projects, check if user is from the same owner company
 	if not doc.is_private:
 		user_customer = _get_user_customer(user)
-		if user_customer and user_customer == doc.customer:
-			# Company-visible: user from same customer can read
-			# For write permission on non-private projects, still allow (MVP)
+		if user_customer and user_customer == doc.owner_customer:
+			# Company-visible: user from same owner company can read/write
 			return True
 
 	return False

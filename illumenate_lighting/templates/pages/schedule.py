@@ -11,6 +11,12 @@ def get_context(context):
 	if frappe.session.user == "Guest":
 		frappe.throw("Please login to view schedules", frappe.PermissionError)
 
+	# Check if this is a new schedule creation (routed from /portal/projects/<project>/schedules/new)
+	project_name = frappe.form_dict.get("project")
+	if project_name:
+		# This is the new schedule creation flow
+		return _get_new_schedule_context(context, project_name)
+
 	# Get schedule name from path
 	schedule_name = frappe.form_dict.get("schedule")
 	if not schedule_name:
@@ -55,6 +61,30 @@ def get_context(context):
 	context.other_count = other_count
 	context.schedule_status_class = schedule_status_class
 	context.title = schedule.schedule_name
+	context.no_cache = 1
+
+	return context
+
+
+def _get_new_schedule_context(context, project_name):
+	"""Get context for creating a new schedule."""
+	# Validate project exists
+	if not frappe.db.exists("ilL-Project", project_name):
+		frappe.throw("Project not found", frappe.DoesNotExistError)
+
+	project = frappe.get_doc("ilL-Project", project_name)
+
+	# Check permission on project (user must be able to write to project to create schedules)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		has_permission as project_has_permission,
+	)
+
+	if not project_has_permission(project, "write", frappe.session.user):
+		frappe.throw("You don't have permission to create schedules in this project", frappe.PermissionError)
+
+	context.is_new = True
+	context.project = project
+	context.title = "Create Schedule"
 	context.no_cache = 1
 
 	return context

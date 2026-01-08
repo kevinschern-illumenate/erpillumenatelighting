@@ -77,15 +77,16 @@ def schedule_status_class(status):
 
 def _get_new_project_context(context):
 	"""Get context for creating a new project."""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
+	from illumenate_lighting.illumenate_lighting.api.portal import (
+		get_allowed_customers_for_project,
 	)
 
-	# Get user's customer for the form
-	user_customer = _get_user_customer(frappe.session.user)
+	# Get allowed customers for the dropdown
+	allowed_result = get_allowed_customers_for_project()
 
 	context.is_new = True
-	context.user_customer = user_customer
+	context.user_customer = allowed_result.get("user_customer")
+	context.allowed_customers = allowed_result.get("allowed_customers", [])
 	context.title = "Create Project"
 	context.no_cache = 1
 
