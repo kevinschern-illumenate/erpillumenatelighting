@@ -2,7 +2,55 @@
 
 ## Overview
 
-This document describes the implementation of Task 1.1: Define request/response schema for the engine.
+This document describes the implementation of the Rules Engine v1 API, including:
+- Task 1.1: Define request/response schema for the engine
+- Epic 3: Computation layer (lengths, segments, runs)
+
+## Epic 3 — Computation Layer Implementation
+
+### Task 3.1: Length Math (Locked Rules)
+
+**Implementation:**
+- E = `endcap_style.allowance_mm_per_side` from ilL-Attribute-Endcap Style
+- A_leader = `template.leader_allowance_mm_per_fixture` (default: 15mm)
+- L_internal = L_req - 2E - A_leader
+- L_tape_cut = floor(L_internal / cut_increment) * cut_increment
+- L_mfg = L_tape_cut + 2E + A_leader
+- difference = L_req - L_mfg
+
+**Response Fields:** `endcap_allowance_mm_per_side`, `leader_allowance_mm_per_fixture`, `internal_length_mm`, `tape_cut_length_mm`, `manufacturable_overall_length_mm`, `difference_mm`, `requested_overall_length_mm`
+
+### Task 3.2: Segmentation Plan (Profile + Lens)
+
+**Implementation:**
+- profile_stock_len_mm from ilL-Spec-Profile or template default
+- segments_count = ceil(L_mfg / profile_stock_len_mm)
+- segments[] with N-1 full stock segments + remainder segment
+- Lens segmentation mirrors profile (stick type)
+
+**Response Fields:** `profile_stock_len_mm`, `segments_count`, `segments[]`
+
+### Task 3.3: Run Splitting (Voltage-Drop + 85W Limit)
+
+**Implementation:**
+- MAX_WATTS_PER_RUN = 85W constant
+- total_ft = L_tape_cut_mm / 304.8
+- max_run_ft_by_watts = 85 / watts_per_ft
+- max_run_ft_by_voltage_drop from ilL-Spec-LED Tape (optional)
+- max_run_ft_effective = min(max_run_ft_by_watts, max_run_ft_by_voltage_drop)
+- runs_count = ceil(total_ft / max_run_ft_effective)
+- runs[] using "full runs then remainder" strategy
+- leader_qty = runs_count
+
+**Response Fields:** `max_run_ft_by_watts`, `max_run_ft_by_voltage_drop`, `max_run_ft_effective`, `runs_count`, `leader_qty`, `runs[]`, `total_watts`
+
+### Task 3.4: Assembly Mode Rule
+
+**Implementation:**
+- assembled_max_len_mm from template (default: 2590mm ~8.5ft)
+- assembly_mode = "ASSEMBLED" if L_mfg <= assembled_max_len_mm, else "SHIP_PIECES"
+
+**Response Fields:** `assembly_mode`, `assembled_max_len_mm`
 
 ## What Was Implemented
 
@@ -16,7 +64,7 @@ This document describes the implementation of Task 1.1: Define request/response 
 
 A single, comprehensive API endpoint that:
 1. Validates fixture configurations against business rules
-2. Computes manufacturable dimensions and outputs
+2. Computes manufacturable dimensions and outputs (Epic 3)
 3. Resolves component items
 4. Calculates pricing
 5. Creates/updates ilL-Configured-Fixture documents
@@ -48,12 +96,11 @@ Complete response structure includes:
 - **is_valid** (boolean): Overall validation status
 - **messages[]**: Array of validation/info/warning messages
   - Each with: severity, text, field
-- **computed**: All computed/calculated values
-  - Dimensions: endcap_allowance, leader_allowance, internal_length, tape_cut_length
-  - manufacturable_overall_length_mm, difference_mm
-  - segments[]: Cut plan with index, lengths, notes
-  - runs[]: Run plan with index, length, watts, leader info
-  - runs_count, total_watts, assembly_mode
+- **computed**: All computed/calculated values (Epic 3)
+  - Task 3.1: endcap_allowance, leader_allowance, internal_length, tape_cut_length, L_mfg, difference
+  - Task 3.2: segments_count, profile_stock_len_mm, segments[]
+  - Task 3.3: runs_count, leader_qty, total_watts, max_run_ft_*, runs[]
+  - Task 3.4: assembly_mode, assembled_max_len_mm
 - **resolved_items**: Resolved component item codes
   - profile_item, lens_item, endcap_item, mounting_item, leader_item
   - driver_plan (Phase 2: suggested only)
@@ -135,29 +182,27 @@ Comprehensive documentation includes:
 - ✅ Comprehensive inline documentation
 - ✅ Type hints for all functions
 
-## What's Ready for Phase 3
+## What's Ready for Future Phases
 
-### Business Logic Placeholders
+### Completed (Epic 3)
 
-The following are implemented with placeholder logic and can be enhanced:
+1. **Dimension Computation** ✅
+   - Dynamic lookup from endcap style (`allowance_mm_per_side`)
+   - Leader allowance from template (`leader_allowance_mm_per_fixture`)
+   - Proper L_internal, L_tape_cut, L_mfg calculations
 
-1. **Dimension Computation**
-   - Current: Fixed endcap and leader allowances
-   - Ready for: Dynamic lookup from endcap/leader specs
+2. **Segment/Run Calculation** ✅
+   - Multi-segment logic based on profile stock length
+   - Run splitting based on min(voltage-drop limit, 85W limit)
+   - Proper run count and leader_qty calculation
 
-2. **Segment/Run Calculation**
-   - Current: Single segment assumption
-   - Ready for: Complex multi-segment/run logic based on tape specs
+### Remaining Placeholders
 
-3. **Item Resolution**
-   - Current: Placeholder item codes
-   - Ready for: Real lookups from:
-     - ilL-Rel-Endcap-Map
-     - ilL-Rel-Leader-Cable-Map
-     - ilL-Rel-Mounting-Accessory-Map
-     - Profile/Lens/Tape specs
+1. **Lens Segmentation (Continuous)**
+   - Current: Mirrors profile segmentation (works for stick lenses)
+   - Ready for: Continuous lens max length support
 
-4. **Pricing Calculation**
+2. **Pricing Calculation**
    - Current: Simple formula
    - Ready for: Price list integration with:
      - Base pricing by template/length
@@ -165,13 +210,9 @@ The following are implemented with placeholder logic and can be enhanced:
      - Quantity breaks
      - Tier pricing rules
 
-5. **Driver Allocation**
+3. **Driver Allocation**
    - Current: Suggested placeholder
    - Ready for: Driver eligibility and allocation logic
-
-6. **Option Validation**
-   - Current: Basic required field checks
-   - Ready for: ilL-Child-Template-Allowed-Option validation
 
 ### Integration Points
 
@@ -195,11 +236,11 @@ The API is ready for integration with:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| configurator_engine.py | 625 | Main API implementation |
-| test_configurator_engine.py | 295 | Test suite |
-| README.md | 388 | API documentation |
+| configurator_engine.py | ~750 | Main API implementation (with Epic 3) |
+| test_configurator_engine.py | ~750 | Test suite (with Epic 3 tests) |
+| README.md | ~450 | API documentation |
 | __init__.py | 6 | Module initialization |
-| **Total** | **1,314** | Complete API module |
+| IMPLEMENTATION_NOTES.md | ~300 | Implementation notes |
 
 ## Acceptance Criteria Met
 

@@ -40,7 +40,12 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self._ensure(
 			{"doctype": "ilL-Attribute-Mounting Method", "label": self.mounting_method_code, "code": self.mounting_method_code}
 		)
-		self._ensure({"doctype": "ilL-Attribute-Endcap Style", "label": self.endcap_style_code, "code": self.endcap_style_code})
+		self._ensure({
+			"doctype": "ilL-Attribute-Endcap Style",
+			"label": self.endcap_style_code,
+			"code": self.endcap_style_code,
+			"allowance_mm_per_side": 15,  # Epic 3 Task 3.1: E = endcap_style.allowance_mm_per_side
+		})
 		self._ensure(
 			{"doctype": "ilL-Attribute-Endcap Color", "code": self.endcap_color_code, "display_name": self.endcap_color_code}
 		)
@@ -79,6 +84,7 @@ class TestConfiguratorEngine(FrappeTestCase):
 				"variant_code": self.finish_code,
 				"is_active": 1,
 				"lens_interface": self.lens_interface_code,
+				"stock_length_mm": 2000,  # Epic 3 Task 3.2: profile_stock_len_mm
 			}
 		)
 
@@ -99,6 +105,7 @@ class TestConfiguratorEngine(FrappeTestCase):
 				"input_voltage": self.output_voltage_code,
 				"watts_per_foot": 5,
 				"cut_increment_mm": 50,
+				"voltage_drop_max_run_length_ft": 16,  # Epic 3 Task 3.3: voltage drop limit
 			}
 		)
 
@@ -172,6 +179,10 @@ class TestConfiguratorEngine(FrappeTestCase):
 			self.template.template_name = "Test Template"
 			self.template.is_active = 1
 			self.template.default_profile_family = self.profile_family
+			# Epic 3 Task 3.1, 3.2, 3.4 fields
+			self.template.default_profile_stock_len_mm = 2000
+			self.template.leader_allowance_mm_per_fixture = 15
+			self.template.assembled_max_len_mm = 2590  # ~8.5ft
 			self.template.allowed_options = template_allowed_options
 			self.template.allowed_tape_offerings = template_allowed_tapes
 			self.template.save()
@@ -183,6 +194,10 @@ class TestConfiguratorEngine(FrappeTestCase):
 					"template_name": "Test Template",
 					"is_active": 1,
 					"default_profile_family": self.profile_family,
+					# Epic 3 Task 3.1, 3.2, 3.4 fields
+					"default_profile_stock_len_mm": 2000,
+					"leader_allowance_mm_per_fixture": 15,
+					"assembled_max_len_mm": 2590,  # ~8.5ft
 					"allowed_options": template_allowed_options,
 					"allowed_tape_offerings": template_allowed_tapes,
 				}
@@ -534,19 +549,31 @@ class TestConfiguratorEngine(FrappeTestCase):
 		for field in required_top_level:
 			self.assertIn(field, result, f"Missing top-level field: {field}")
 
-		# Verify computed fields
+		# Verify computed fields (Epic 3 computation layer)
 		required_computed = [
+			# Task 3.1: Length Math
 			"endcap_allowance_mm_per_side",
 			"leader_allowance_mm_per_fixture",
 			"internal_length_mm",
 			"tape_cut_length_mm",
 			"manufacturable_overall_length_mm",
 			"difference_mm",
+			"requested_overall_length_mm",
+			# Task 3.2: Segmentation Plan
+			"segments_count",
+			"profile_stock_len_mm",
 			"segments",
-			"runs",
+			# Task 3.3: Run Splitting
 			"runs_count",
+			"leader_qty",
 			"total_watts",
+			"max_run_ft_by_watts",
+			"max_run_ft_by_voltage_drop",
+			"max_run_ft_effective",
+			"runs",
+			# Task 3.4: Assembly Mode
 			"assembly_mode",
+			"assembled_max_len_mm",
 		]
 		for field in required_computed:
 			self.assertIn(field, result["computed"], f"Missing computed field: {field}")
@@ -567,6 +594,168 @@ class TestConfiguratorEngine(FrappeTestCase):
 		required_pricing = ["msrp_unit", "tier_unit", "adder_breakdown"]
 		for field in required_pricing:
 			self.assertIn(field, result["pricing"], f"Missing pricing field: {field}")
+
+	def test_length_math_task_3_1(self):
+		"""Test Epic 3 Task 3.1: Length math (locked rules)"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# L_req = 1000mm, E = 15mm, A_leader = 15mm, cut_increment = 50mm
+		# L_internal = 1000 - 2*15 - 15 = 955mm
+		# L_tape_cut = floor(955 / 50) * 50 = 950mm
+		# L_mfg = 950 + 2*15 + 15 = 995mm
+		# difference = 1000 - 995 = 5mm
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify length math calculations
+		self.assertEqual(computed["endcap_allowance_mm_per_side"], 15.0)
+		self.assertEqual(computed["leader_allowance_mm_per_fixture"], 15.0)
+		self.assertEqual(computed["internal_length_mm"], 955)  # 1000 - 2*15 - 15
+		self.assertEqual(computed["tape_cut_length_mm"], 950)  # floor(955/50)*50
+		self.assertEqual(computed["manufacturable_overall_length_mm"], 995)  # 950 + 2*15 + 15
+		self.assertEqual(computed["difference_mm"], 5)  # 1000 - 995
+		self.assertEqual(computed["requested_overall_length_mm"], 1000)
+
+	def test_segmentation_plan_task_3_2(self):
+		"""Test Epic 3 Task 3.2: Segmentation plan (profile + lens)"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Test with a length that requires multiple segments
+		# profile_stock_len_mm = 2000mm, L_mfg = 4995mm -> 3 segments
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=5000,  # Large fixture
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify segmentation
+		self.assertEqual(computed["profile_stock_len_mm"], 2000)
+		self.assertGreater(computed["segments_count"], 1)
+		self.assertEqual(len(computed["segments"]), computed["segments_count"])
+
+		# Verify segment structure
+		for segment in computed["segments"]:
+			self.assertIn("segment_index", segment)
+			self.assertIn("profile_cut_len_mm", segment)
+			self.assertIn("lens_cut_len_mm", segment)
+			self.assertIn("notes", segment)
+
+	def test_run_splitting_task_3_3(self):
+		"""Test Epic 3 Task 3.3: Run splitting (min of voltage-drop max length and 85W limit)"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+
+		# Verify run metadata is present
+		# watts_per_ft = 5, so max_run_ft_by_watts = 85/5 = 17ft
+		# voltage_drop_max_run_length_ft = 16ft
+		# max_run_ft_effective = min(17, 16) = 16ft
+		self.assertEqual(computed["max_run_ft_by_watts"], 17.0)
+		self.assertEqual(computed["max_run_ft_by_voltage_drop"], 16.0)
+		self.assertEqual(computed["max_run_ft_effective"], 16.0)
+
+		# Verify runs and leader_qty
+		self.assertGreater(computed["runs_count"], 0)
+		self.assertEqual(computed["leader_qty"], computed["runs_count"])
+		self.assertEqual(len(computed["runs"]), computed["runs_count"])
+
+		# Verify run structure
+		for run in computed["runs"]:
+			self.assertIn("run_index", run)
+			self.assertIn("run_len_mm", run)
+			self.assertIn("run_watts", run)
+			self.assertIn("leader_len_mm", run)
+
+	def test_assembly_mode_task_3_4(self):
+		"""Test Epic 3 Task 3.4: Assembly mode rule"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Test ASSEMBLED mode (L_mfg <= assembled_max_len_mm)
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,  # Small fixture
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		computed = result["computed"]
+		self.assertEqual(computed["assembled_max_len_mm"], 2590)
+		self.assertEqual(computed["assembly_mode"], "ASSEMBLED")
+
+		# Test SHIP_PIECES mode (L_mfg > assembled_max_len_mm)
+		result_long = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=5000,  # Large fixture > 2590mm
+			qty=1,
+		)
+
+		self.assertTrue(result_long["is_valid"])
+		computed_long = result_long["computed"]
+		self.assertEqual(computed_long["assembly_mode"], "SHIP_PIECES")
 
 	def tearDown(self):
 		"""Clean up test data"""
