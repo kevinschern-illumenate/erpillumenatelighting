@@ -64,6 +64,16 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # 	"Role": "home_page"
 # }
 
+# Website Route Rules
+# -------------------
+website_route_rules = [
+	{"from_route": "/portal/projects", "to_route": "projects"},
+	{"from_route": "/portal/projects/<project>", "to_route": "project"},
+	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
+	{"from_route": "/portal/configure", "to_route": "configure"},
+	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
+]
+
 # Generators
 # ----------
 
@@ -117,13 +127,15 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
+	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
+}
+
+has_permission = {
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
+	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
+}
 
 # DocType Class
 # ---------------

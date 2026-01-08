@@ -1,0 +1,63 @@
+{#
+Portal Projects List Page
+Displays all projects accessible to the current user
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}Projects{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="d-flex justify-content-between align-items-center">
+				<h1>{{ _("My Projects") }}</h1>
+				<a href="/portal/projects/new" class="btn btn-primary">
+					<i class="fa fa-plus"></i> {{ _("Create Project") }}
+				</a>
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-12">
+			{% if projects %}
+			<div class="list-group">
+				{% for project in projects %}
+				<a href="/portal/projects/{{ project.name }}" class="list-group-item list-group-item-action">
+					<div class="d-flex w-100 justify-content-between align-items-center">
+						<div>
+							<h5 class="mb-1">{{ project.project_name }}</h5>
+							<p class="mb-1 text-muted">
+								{{ project.customer }}
+								{% if project.is_private %}
+								<span class="badge badge-secondary ml-2">
+									<i class="fa fa-lock"></i> Private
+								</span>
+								{% endif %}
+							</p>
+						</div>
+						<div class="text-right">
+							<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else 'secondary' }}">
+								{{ project.status }}
+							</span>
+							<br>
+							<small class="text-muted">{{ frappe.utils.format_date(project.modified) }}</small>
+						</div>
+					</div>
+				</a>
+				{% endfor %}
+			</div>
+			{% else %}
+			<div class="text-center py-5">
+				<i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
+				<p class="text-muted">{{ _("No projects found. Create your first project to get started.") }}</p>
+				<a href="/portal/projects/new" class="btn btn-primary">
+					<i class="fa fa-plus"></i> {{ _("Create Project") }}
+				</a>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+{% endblock %}
