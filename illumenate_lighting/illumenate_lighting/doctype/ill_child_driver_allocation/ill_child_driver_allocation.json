@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-07 21:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "driver_item",
+  "driver_qty",
+  "column_break_driver",
+  "outputs_used",
+  "mapping_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "driver_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Driver Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "driver_qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Driver Qty",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_driver",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "outputs_used",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Outputs Used"
+  },
+  {
+   "fieldname": "mapping_notes",
+   "fieldtype": "Small Text",
+   "label": "Mapping Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-07 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Driver-Allocation",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

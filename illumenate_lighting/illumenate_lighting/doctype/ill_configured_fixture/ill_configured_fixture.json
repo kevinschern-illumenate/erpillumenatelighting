@@ -1,0 +1,321 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:config_hash",
+ "creation": "2026-01-07 21:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "config_hash",
+  "engine_version",
+  "column_break_identity",
+  "fixture_template",
+  "selected_options_section",
+  "finish",
+  "lens_appearance",
+  "mounting_method",
+  "endcap_style",
+  "column_break_options",
+  "endcap_color",
+  "power_feed_type",
+  "environment_rating",
+  "tape_offering",
+  "length_section",
+  "requested_overall_length_mm",
+  "endcap_allowance_mm_per_side",
+  "leader_allowance_mm",
+  "column_break_length",
+  "internal_length_mm",
+  "tape_cut_length_mm",
+  "manufacturable_overall_length_mm",
+  "computed_outputs_section",
+  "runs_count",
+  "total_watts",
+  "column_break_computed",
+  "assembly_mode",
+  "erp_links_section",
+  "configured_item",
+  "bom",
+  "column_break_erp",
+  "work_order",
+  "segments_section",
+  "segments",
+  "runs_section",
+  "runs",
+  "drivers_section",
+  "drivers",
+  "pricing_section",
+  "pricing_snapshot"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "config_hash",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Config Hash",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "engine_version",
+   "fieldtype": "Data",
+   "label": "Engine Version"
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fixture_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fixture Template",
+   "options": "ilL-Fixture-Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "selected_options_section",
+   "fieldtype": "Section Break",
+   "label": "Selected Options"
+  },
+  {
+   "fieldname": "finish",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Finish",
+   "options": "ilL-Attribute-Finish"
+  },
+  {
+   "fieldname": "lens_appearance",
+   "fieldtype": "Link",
+   "label": "Lens Appearance",
+   "options": "ilL-Attribute-Lens Appearance"
+  },
+  {
+   "fieldname": "mounting_method",
+   "fieldtype": "Link",
+   "label": "Mounting Method",
+   "options": "ilL-Attribute-Mounting Method"
+  },
+  {
+   "fieldname": "endcap_style",
+   "fieldtype": "Link",
+   "label": "Endcap Style",
+   "options": "ilL-Attribute-Endcap Style"
+  },
+  {
+   "fieldname": "column_break_options",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "endcap_color",
+   "fieldtype": "Link",
+   "label": "Endcap Color",
+   "options": "ilL-Attribute-Endcap Color"
+  },
+  {
+   "fieldname": "power_feed_type",
+   "fieldtype": "Link",
+   "label": "Power Feed Type",
+   "options": "ilL-Attribute-Power Feed Type"
+  },
+  {
+   "fieldname": "environment_rating",
+   "fieldtype": "Link",
+   "label": "Environment Rating",
+   "options": "ilL-Attribute-Environment Rating"
+  },
+  {
+   "fieldname": "tape_offering",
+   "fieldtype": "Link",
+   "label": "Tape Offering",
+   "options": "ilL-Rel-Tape Offering"
+  },
+  {
+   "fieldname": "length_section",
+   "fieldtype": "Section Break",
+   "label": "Length Inputs/Outputs"
+  },
+  {
+   "fieldname": "requested_overall_length_mm",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Requested Overall Length (mm)"
+  },
+  {
+   "fieldname": "endcap_allowance_mm_per_side",
+   "fieldtype": "Float",
+   "label": "Endcap Allowance per Side (mm)"
+  },
+  {
+   "fieldname": "leader_allowance_mm",
+   "fieldtype": "Float",
+   "label": "Leader Allowance (mm)"
+  },
+  {
+   "fieldname": "column_break_length",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "internal_length_mm",
+   "fieldtype": "Int",
+   "label": "Internal Length (mm)"
+  },
+  {
+   "fieldname": "tape_cut_length_mm",
+   "fieldtype": "Int",
+   "label": "Tape Cut Length (mm)"
+  },
+  {
+   "fieldname": "manufacturable_overall_length_mm",
+   "fieldtype": "Int",
+   "label": "Manufacturable Overall Length (mm)"
+  },
+  {
+   "fieldname": "computed_outputs_section",
+   "fieldtype": "Section Break",
+   "label": "Computed Outputs"
+  },
+  {
+   "fieldname": "runs_count",
+   "fieldtype": "Int",
+   "label": "Runs Count"
+  },
+  {
+   "fieldname": "total_watts",
+   "fieldtype": "Float",
+   "label": "Total Watts"
+  },
+  {
+   "fieldname": "column_break_computed",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "assembly_mode",
+   "fieldtype": "Select",
+   "label": "Assembly Mode",
+   "options": "ASSEMBLED\nSHIP_PIECES"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "erp_links_section",
+   "fieldtype": "Section Break",
+   "label": "ERP Links"
+  },
+  {
+   "fieldname": "configured_item",
+   "fieldtype": "Link",
+   "label": "Configured Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "BOM",
+   "options": "BOM"
+  },
+  {
+   "fieldname": "column_break_erp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "work_order",
+   "fieldtype": "Link",
+   "label": "Work Order",
+   "options": "Work Order"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "segments_section",
+   "fieldtype": "Section Break",
+   "label": "Segments"
+  },
+  {
+   "fieldname": "segments",
+   "fieldtype": "Table",
+   "label": "Segments",
+   "options": "ilL-Child-Configured-Segment"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "runs_section",
+   "fieldtype": "Section Break",
+   "label": "Runs"
+  },
+  {
+   "fieldname": "runs",
+   "fieldtype": "Table",
+   "label": "Runs",
+   "options": "ilL-Child-Configured-Run"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "drivers_section",
+   "fieldtype": "Section Break",
+   "label": "Drivers"
+  },
+  {
+   "fieldname": "drivers",
+   "fieldtype": "Table",
+   "label": "Drivers",
+   "options": "ilL-Child-Driver-Allocation"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "fieldname": "pricing_snapshot",
+   "fieldtype": "Table",
+   "label": "Pricing Snapshot",
+   "options": "ilL-Child-Pricing-Snapshot"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Configured-Fixture",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "config_hash, fixture_template",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
