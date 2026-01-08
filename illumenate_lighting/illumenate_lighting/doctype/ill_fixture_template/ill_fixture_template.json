@@ -17,6 +17,11 @@
   "column_break_defaults",
   "assembled_max_len_mm",
   "leader_allowance_mm_per_fixture",
+  "pricing_section",
+  "base_price_msrp",
+  "price_per_ft_msrp",
+  "column_break_pricing",
+  "pricing_length_basis",
   "notes_section",
   "notes",
   "allowed_options_section",
@@ -87,6 +92,37 @@
    "fieldname": "leader_allowance_mm_per_fixture",
    "fieldtype": "Int",
    "label": "Leader Allowance per Fixture (mm)"
+  },
+  {
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "default": "0",
+   "description": "Base fixture price (MSRP) before length adders",
+   "fieldname": "base_price_msrp",
+   "fieldtype": "Currency",
+   "label": "Base Price (MSRP)"
+  },
+  {
+   "default": "0",
+   "description": "Price per foot based on selected length basis",
+   "fieldname": "price_per_ft_msrp",
+   "fieldtype": "Currency",
+   "label": "Price per Foot (MSRP)"
+  },
+  {
+   "fieldname": "column_break_pricing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "L_tape_cut",
+   "description": "Which length value to use for $/ft pricing: L_tape_cut (LED tape length) or L_mfg (manufacturable overall length)",
+   "fieldname": "pricing_length_basis",
+   "fieldtype": "Select",
+   "label": "Pricing Length Basis",
+   "options": "L_tape_cut\nL_mfg"
   },
   {
    "fieldname": "notes_section",

@@ -133,36 +133,42 @@ class TestConfiguratorEngine(FrappeTestCase):
 				"finish": self.finish_code,
 				"is_active": 1,
 				"is_default": 1,
+				"msrp_adder": 25.0,  # Epic 4: Pricing adder for finish option
 			},
 			{
 				"doctype": "ilL-Child-Template-Allowed-Option",
 				"option_type": "Lens Appearance",
 				"lens_appearance": self.lens_appearance_code,
 				"is_active": 1,
+				"msrp_adder": 15.0,  # Epic 4: Pricing adder for lens option
 			},
 			{
 				"doctype": "ilL-Child-Template-Allowed-Option",
 				"option_type": "Mounting Method",
 				"mounting_method": self.mounting_method_code,
 				"is_active": 1,
+				"msrp_adder": 10.0,  # Epic 4: Pricing adder for mounting option
 			},
 			{
 				"doctype": "ilL-Child-Template-Allowed-Option",
 				"option_type": "Endcap Style",
 				"endcap_style": self.endcap_style_code,
 				"is_active": 1,
+				"msrp_adder": 5.0,  # Epic 4: Pricing adder for endcap style option
 			},
 			{
 				"doctype": "ilL-Child-Template-Allowed-Option",
 				"option_type": "Power Feed Type",
 				"power_feed_type": self.power_feed_type_code,
 				"is_active": 1,
+				"msrp_adder": 0.0,  # No adder for power feed type
 			},
 			{
 				"doctype": "ilL-Child-Template-Allowed-Option",
 				"option_type": "Environment Rating",
 				"environment_rating": self.environment_rating_code,
 				"is_active": 1,
+				"msrp_adder": 0.0,  # No adder for environment rating
 			},
 		]
 
@@ -183,6 +189,10 @@ class TestConfiguratorEngine(FrappeTestCase):
 			self.template.default_profile_stock_len_mm = 2000
 			self.template.leader_allowance_mm_per_fixture = 15
 			self.template.assembled_max_len_mm = 2590  # ~8.5ft
+			# Epic 4: Pricing fields
+			self.template.base_price_msrp = 100.0  # Base price
+			self.template.price_per_ft_msrp = 10.0  # $10 per foot
+			self.template.pricing_length_basis = "L_tape_cut"  # Use tape cut length for pricing
 			self.template.allowed_options = template_allowed_options
 			self.template.allowed_tape_offerings = template_allowed_tapes
 			self.template.save()
@@ -198,6 +208,10 @@ class TestConfiguratorEngine(FrappeTestCase):
 					"default_profile_stock_len_mm": 2000,
 					"leader_allowance_mm_per_fixture": 15,
 					"assembled_max_len_mm": 2590,  # ~8.5ft
+					# Epic 4: Pricing fields
+					"base_price_msrp": 100.0,  # Base price
+					"price_per_ft_msrp": 10.0,  # $10 per foot
+					"pricing_length_basis": "L_tape_cut",  # Use tape cut length for pricing
 					"allowed_options": template_allowed_options,
 					"allowed_tape_offerings": template_allowed_tapes,
 				}
@@ -756,6 +770,129 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertTrue(result_long["is_valid"])
 		computed_long = result_long["computed"]
 		self.assertEqual(computed_long["assembly_mode"], "SHIP_PIECES")
+
+	def test_pricing_formula_task_4_1(self):
+		"""Test Epic 4 Task 4.1: Baseline pricing formula"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Test with a known length to verify pricing calculation
+		# L_req = 1000mm, E = 15mm, A_leader = 15mm, cut_increment = 50mm
+		# L_internal = 1000 - 2*15 - 15 = 955mm
+		# L_tape_cut = floor(955 / 50) * 50 = 950mm
+		# L_tape_cut in feet = 950 / 304.8 = 3.117 ft
+		#
+		# Pricing:
+		# - base_price_msrp = $100
+		# - price_per_ft_msrp = $10/ft
+		# - length_adder = 3.117 * $10 = $31.17 (rounded)
+		# - finish_adder = $25
+		# - lens_adder = $15
+		# - mounting_adder = $10
+		# - endcap_style_adder = $5
+		# - power_feed_type_adder = $0
+		# - environment_rating_adder = $0
+		# Total MSRP = 100 + 31.17 + 25 + 15 + 10 + 5 = $186.17 (approximately)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		pricing = result["pricing"]
+
+		# Verify pricing structure
+		self.assertIn("msrp_unit", pricing)
+		self.assertIn("tier_unit", pricing)
+		self.assertIn("adder_breakdown", pricing)
+
+		# Verify msrp_unit is a positive number
+		self.assertGreater(pricing["msrp_unit"], 0)
+
+		# Verify tier_unit equals msrp_unit (placeholder: MSRP only)
+		self.assertEqual(pricing["tier_unit"], pricing["msrp_unit"])
+
+		# Verify adder_breakdown is a list with at least base and length components
+		self.assertIsInstance(pricing["adder_breakdown"], list)
+		self.assertGreaterEqual(len(pricing["adder_breakdown"]), 2)
+
+		# Check for required components in adder_breakdown
+		components = {item["component"] for item in pricing["adder_breakdown"]}
+		self.assertIn("base", components)
+		self.assertIn("length", components)
+
+		# Verify base price is correct
+		base_adder = next(item for item in pricing["adder_breakdown"] if item["component"] == "base")
+		self.assertEqual(base_adder["amount"], 100.0)
+
+		# Verify length adder calculation
+		# L_tape_cut = 950mm = 3.117 ft, price_per_ft = $10
+		# length_adder = 3.117 * 10 = 31.17 (approximately)
+		length_adder = next(item for item in pricing["adder_breakdown"] if item["component"] == "length")
+		self.assertGreater(length_adder["amount"], 30)
+		self.assertLess(length_adder["amount"], 35)
+		self.assertIn("L_tape_cut", length_adder["description"])
+
+		# Verify option adders are included
+		self.assertIn("finish", components)
+		finish_adder = next(item for item in pricing["adder_breakdown"] if item["component"] == "finish")
+		self.assertEqual(finish_adder["amount"], 25.0)
+
+	def test_pricing_snapshot_storage_task_4_2(self):
+		"""Test Epic 4 Task 4.2: Store pricing snapshot into ilL-Configured-Fixture"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"])
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		# Fetch the configured fixture and verify pricing snapshot
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+
+		# Verify pricing_snapshot child table exists and has data
+		self.assertGreaterEqual(len(fixture_doc.pricing_snapshot), 1)
+
+		# Check the latest pricing snapshot
+		latest_snapshot = fixture_doc.pricing_snapshot[-1]
+		self.assertIsNotNone(latest_snapshot.msrp_unit)
+		self.assertIsNotNone(latest_snapshot.tier_unit)
+		self.assertIsNotNone(latest_snapshot.adder_breakdown_json)
+		self.assertIsNotNone(latest_snapshot.timestamp)
+
+		# Verify the breakdown JSON is valid
+		breakdown = json.loads(latest_snapshot.adder_breakdown_json)
+		self.assertIsInstance(breakdown, list)
+		self.assertGreaterEqual(len(breakdown), 2)
+
+		# Verify msrp_unit matches the API response
+		self.assertEqual(float(latest_snapshot.msrp_unit), result["pricing"]["msrp_unit"])
+		self.assertEqual(float(latest_snapshot.tier_unit), result["pricing"]["tier_unit"])
 
 	def tearDown(self):
 		"""Clean up test data"""

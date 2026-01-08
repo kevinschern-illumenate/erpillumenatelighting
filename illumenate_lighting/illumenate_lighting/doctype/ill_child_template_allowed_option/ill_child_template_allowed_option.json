@@ -15,7 +15,8 @@
   "environment_rating",
   "column_break_opts",
   "is_default",
-  "is_active"
+  "is_active",
+  "msrp_adder"
  ],
  "fields": [
   {
@@ -97,6 +98,14 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Is Active"
+  },
+  {
+   "default": "0",
+   "description": "MSRP price adder for this option",
+   "fieldname": "msrp_adder",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "MSRP Adder"
   }
  ],
  "grid_page_length": 50,

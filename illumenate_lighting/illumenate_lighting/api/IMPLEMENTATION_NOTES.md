@@ -196,19 +196,30 @@ Comprehensive documentation includes:
    - Run splitting based on min(voltage-drop limit, 85W limit)
    - Proper run count and leader_qty calculation
 
+### Completed (Epic 4)
+
+1. **Baseline Pricing Formula (Task 4.1)** ✅
+   - Base price from template (`base_price_msrp`)
+   - Price per foot calculation using configurable length basis
+   - `pricing_length_basis` = "L_tape_cut" or "L_mfg"
+   - $/ft × length calculation with proper mm to ft conversion
+   - Option adders from `ilL-Child-Template-Allowed-Option.msrp_adder`
+   - Tape offering pricing class adder support
+
+2. **Pricing Snapshot Storage (Task 4.2)** ✅
+   - `ilL-Child-Pricing-Snapshot` child table on Configured Fixture
+   - Stores: msrp_unit, tier_unit, adder_breakdown_json, timestamp
+   - Auditable snapshot of quoted prices
+
 ### Remaining Placeholders
 
 1. **Lens Segmentation (Continuous)**
    - Current: Mirrors profile segmentation (works for stick lenses)
    - Ready for: Continuous lens max length support
 
-2. **Pricing Calculation**
-   - Current: Simple formula
-   - Ready for: Price list integration with:
-     - Base pricing by template/length
-     - Option adders from price lists
-     - Quantity breaks
-     - Tier pricing rules
+2. **Customer Tier/Price List Logic**
+   - Current: tier_unit = msrp_unit (MSRP only placeholder)
+   - Ready for: Customer -> Price List -> apply discount/multiplier
 
 3. **Driver Allocation**
    - Current: Suggested placeholder

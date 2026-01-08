@@ -157,11 +157,27 @@ The computed object contains all calculated values from the Epic 3 computation l
 
 ### Pricing Object
 
+The pricing object contains Epic 4 Task 4.1 baseline pricing calculation results.
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `msrp_unit` | float | MSRP unit price |
-| `tier_unit` | float | Tier unit price |
+| `msrp_unit` | float | MSRP unit price (base + length adder + option adders) |
+| `tier_unit` | float | Tier unit price (currently equals msrp_unit - placeholder for customer tier logic) |
 | `adder_breakdown` | array | Itemized pricing adders |
+
+#### Pricing Formula
+
+The pricing formula is: `msrp_unit = base + ($/ft × length) + option_adders`
+
+**Components:**
+1. **Base Price** - From `ilL-Fixture-Template.base_price_msrp`
+2. **Length Adder** - `(length_mm / 304.8) × template.price_per_ft_msrp`
+   - Length basis is configurable via `template.pricing_length_basis`:
+     - `L_tape_cut` (default): Uses tape cut length for pricing
+     - `L_mfg`: Uses manufacturable overall length
+3. **Option Adders** - From `ilL-Child-Template-Allowed-Option.msrp_adder` for each selected option:
+   - Finish, Lens Appearance, Mounting Method, Endcap Style, Power Feed Type, Environment Rating
+4. **Tape Offering Adder** - From `ilL-Attribute-Pricing Class.default_adder` if `tape_offering.pricing_class_override` is set
 
 #### Adder Breakdown Item
 
