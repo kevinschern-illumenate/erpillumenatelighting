@@ -1,10 +1,11 @@
 {#
 Portal Project Detail Page
 Displays a single project with its schedules and actions
+Also handles new project creation when is_new is True
 #}
 {% extends "templates/web.html" %}
 
-{% block title %}{{ project.project_name }}{% endblock %}
+{% block title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}{% endblock %}
 
 {% block page_content %}
 <div class="container portal-page">
@@ -12,9 +13,60 @@ Displays a single project with its schedules and actions
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item active" aria-current="page">{{ project.project_name }}</li>
+			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}</li>
 		</ol>
 	</nav>
+
+	{% if is_new %}
+	<!-- New Project Form -->
+	<div class="row">
+		<div class="col-lg-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Create New Project") }}</h5>
+				</div>
+				<div class="card-body">
+					<form id="createProjectForm">
+						<div class="form-group">
+							<label>{{ _("Project Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="project_name" required>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Customer") }} <span class="text-danger">*</span></label>
+							{% if user_customer %}
+							<input type="text" class="form-control" name="customer" value="{{ user_customer }}" readonly>
+							{% else %}
+							<input type="text" class="form-control" name="customer" required>
+							{% endif %}
+						</div>
+						<div class="form-group">
+							<label>{{ _("Description") }}</label>
+							<textarea class="form-control" name="description" rows="3"></textarea>
+						</div>
+						<div class="form-group">
+							<div class="custom-control custom-checkbox">
+								<input type="checkbox" class="custom-control-input" id="isPrivate" name="is_private">
+								<label class="custom-control-label" for="isPrivate">
+									{{ _("Private Project") }}
+									<small class="text-muted d-block">{{ _("Only you and collaborators can view this project") }}</small>
+								</label>
+							</div>
+						</div>
+						<hr>
+						<div class="d-flex justify-content-between">
+							<a href="/portal/projects" class="btn btn-secondary">
+								<i class="fa fa-arrow-left"></i> {{ _("Cancel") }}
+							</a>
+							<button type="submit" class="btn btn-primary">
+								<i class="fa fa-plus"></i> {{ _("Create Project") }}
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% else %}
 
 	<!-- Project Header -->
 	<div class="row mb-4">
@@ -122,11 +174,50 @@ Displays a single project with its schedules and actions
 			</div>
 		</div>
 	</div>
+	{% endif %}
 </div>
 {% endblock %}
 
 {% block script %}
 <script>
+{% if is_new %}
+// Handle create project form submission
+$('#createProjectForm').on('submit', function(e) {
+	e.preventDefault();
+
+	var form = $(this);
+	var data = {
+		project_name: form.find('[name="project_name"]').val(),
+		customer: form.find('[name="customer"]').val(),
+		description: form.find('[name="description"]').val(),
+		is_private: form.find('[name="is_private"]').is(':checked') ? 1 : 0
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_project',
+		args: {
+			project_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Project created successfully'
+				});
+				// Redirect to the new project
+				window.location.href = '/portal/projects/' + r.message.project_name;
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error creating project'
+				});
+			}
+		}
+	});
+});
+{% else %}
 // Helper function for schedule status badge class
 function schedule_status_class(status) {
 	var classMap = {
@@ -138,5 +229,6 @@ function schedule_status_class(status) {
 	};
 	return classMap[status] || 'secondary';
 }
+{% endif %}
 </script>
 {% endblock %}
