@@ -33,21 +33,20 @@ Also handles new project creation when is_new is True
 						</div>
 						<div class="form-group">
 							<label>{{ _("Customer") }} <span class="text-danger">*</span></label>
-							{% if allowed_customers and allowed_customers|length > 1 %}
-							<select class="form-control" name="customer" id="customerSelect" required>
-								{% for cust in allowed_customers %}
-								<option value="{{ cust.value }}" {% if cust.value == user_customer %}selected{% endif %}>{{ cust.label }}</option>
-								{% endfor %}
-							</select>
-							<small class="form-text text-muted">{{ _("Select the customer this project is for") }}</small>
-							{% elif allowed_customers and allowed_customers|length == 1 %}
-							<input type="text" class="form-control" name="customer" value="{{ allowed_customers[0].value }}" readonly>
-							<small class="form-text text-muted">{{ allowed_customers[0].label }}</small>
-							{% elif user_customer %}
-							<input type="text" class="form-control" name="customer" value="{{ user_customer }}" readonly>
-							{% else %}
-							<input type="text" class="form-control" name="customer" required placeholder="{{ _('Enter customer name') }}">
-							{% endif %}
+							<div class="input-group">
+								<select class="form-control" name="customer" id="customerSelect" required>
+									<option value="">{{ _("Select a customer...") }}</option>
+									{% for cust in allowed_customers %}
+									<option value="{{ cust.value }}" {% if cust.value == user_customer %}selected{% endif %}>{{ cust.label }}</option>
+									{% endfor %}
+								</select>
+								<div class="input-group-append">
+									<button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#newCustomerModal" title="{{ _('Create New Customer') }}">
+										<i class="fa fa-plus"></i> {{ _("New") }}
+									</button>
+								</div>
+							</div>
+							<small class="form-text text-muted">{{ _("Select an existing customer or create a new one") }}</small>
 						</div>
 						<div class="form-group">
 							<label>{{ _("Description") }}</label>
@@ -72,6 +71,51 @@ Also handles new project creation when is_new is True
 							</button>
 						</div>
 					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- New Customer Modal -->
+	<div class="modal fade" id="newCustomerModal" tabindex="-1" role="dialog">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">{{ _("Create New Customer") }}</h5>
+					<button type="button" class="close" data-dismiss="modal">
+						<span>&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<form id="newCustomerForm">
+						<div class="form-group">
+							<label>{{ _("Customer Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="customer_name" id="newCustomerName" required placeholder="{{ _('Company or Individual Name') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Customer Type") }}</label>
+							<select class="form-control" name="customer_type" id="newCustomerType">
+								<option value="Company">{{ _("Company") }}</option>
+								<option value="Individual">{{ _("Individual") }}</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Territory") }}</label>
+							<select class="form-control" name="territory" id="newCustomerTerritory">
+								<option value="">{{ _("Default") }}</option>
+								{% for territory in territories %}
+								<option value="{{ territory }}">{{ territory }}</option>
+								{% endfor %}
+							</select>
+							<small class="form-text text-muted">{{ _("Optional - geographic region for this customer") }}</small>
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+					<button type="button" class="btn btn-primary" onclick="createNewCustomer()">
+						<i class="fa fa-plus"></i> {{ _("Create Customer") }}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -240,6 +284,68 @@ $('#createProjectForm').on('submit', function(e) {
 		}
 	});
 });
+
+// Handle new customer creation
+function createNewCustomer() {
+	var customerName = $('#newCustomerName').val().trim();
+	var customerType = $('#newCustomerType').val();
+	var territory = $('#newCustomerTerritory').val();
+
+	if (!customerName) {
+		frappe.msgprint({
+			title: 'Error',
+			indicator: 'red',
+			message: 'Customer name is required'
+		});
+		return;
+	}
+
+	var createBtn = $('#newCustomerModal .btn-primary');
+	createBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_customer',
+		args: {
+			customer_data: {
+				customer_name: customerName,
+				customer_type: customerType,
+				territory: territory || null
+			}
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				// Add the new customer to the dropdown
+				var newOption = $('<option></option>')
+					.attr('value', r.message.customer_name)
+					.text(customerName)
+					.prop('selected', true);
+				$('#customerSelect').append(newOption);
+
+				// Close the modal
+				$('#newCustomerModal').modal('hide');
+
+				// Reset the form
+				$('#newCustomerForm')[0].reset();
+
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Customer "' + customerName + '" created and selected'
+				});
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error creating customer'
+				});
+			}
+			createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Customer');
+		},
+		error: function() {
+			createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Customer');
+		}
+	});
+}
 {% else %}
 // Helper function for schedule status badge class
 function schedule_status_class(status) {

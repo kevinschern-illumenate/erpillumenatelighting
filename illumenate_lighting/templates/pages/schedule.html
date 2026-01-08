@@ -7,6 +7,18 @@ Also handles new schedule creation when is_new is True
 
 {% block title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}{% endblock %}
 
+{% block style %}
+<style>
+.action-buttons .btn {
+	margin-left: 2px;
+	margin-right: 2px;
+}
+.action-buttons .btn i {
+	pointer-events: none;
+}
+</style>
+{% endblock %}
+
 {% block page_content %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
@@ -182,17 +194,22 @@ Also handles new schedule creation when is_new is True
 									</td>
 									{% if can_edit %}
 									<td class="text-center">
-										{% if line.manufacturer_type == 'ILLUMENATE' %}
-										<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-outline-primary" title="{{ _('Configure') }}">
-											<i class="fa fa-cog"></i>
-										</a>
-										{% endif %}
-										<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
-											<i class="fa fa-copy"></i>
-										</button>
-										<button class="btn btn-sm btn-outline-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
-											<i class="fa fa-trash"></i>
-										</button>
+										<div class="action-buttons">
+											{% if line.manufacturer_type == 'ILLUMENATE' %}
+											<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<i class="fa fa-cog"></i> {{ _('Configure') }}
+											</a>
+											{% endif %}
+											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit') }}">
+												<i class="fa fa-pencil"></i> {{ _('Edit') }}
+											</button>
+											<button class="btn btn-sm btn-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
+												<i class="fa fa-copy"></i>
+											</button>
+											<button class="btn btn-sm btn-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
+												<i class="fa fa-trash"></i>
+											</button>
+										</div>
 									</td>
 									{% endif %}
 								</tr>
@@ -282,6 +299,55 @@ Also handles new schedule creation when is_new is True
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 				<button type="button" class="btn btn-primary" onclick="addLine()">
 					<i class="fa fa-plus"></i> {{ _("Add Line") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Edit Line Modal -->
+<div class="modal fade" id="editLineModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Edit Fixture Line") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="editLineForm">
+					<input type="hidden" name="edit_line_idx" id="edit_line_idx">
+					<div class="form-group">
+						<label>{{ _("Line ID") }}</label>
+						<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Quantity") }}</label>
+						<input type="number" class="form-control" name="edit_qty" id="edit_qty" value="1" min="1">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Location") }}</label>
+						<input type="text" class="form-control" name="edit_location" id="edit_location" placeholder="e.g., Kitchen, Office...">
+					</div>
+					<div class="form-group edit-other-fields" style="display: none;">
+						<label>{{ _("Manufacturer Name") }}</label>
+						<input type="text" class="form-control" name="edit_manufacturer_name" id="edit_manufacturer_name">
+					</div>
+					<div class="form-group edit-other-fields" style="display: none;">
+						<label>{{ _("Model Number") }}</label>
+						<input type="text" class="form-control" name="edit_model_number" id="edit_model_number">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Notes") }}</label>
+						<textarea class="form-control" name="edit_notes" id="edit_notes" rows="2"></textarea>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" onclick="saveEditLine()">
+					<i class="fa fa-save"></i> {{ _("Save Changes") }}
 				</button>
 			</div>
 		</div>
@@ -384,15 +450,75 @@ function addLine() {
 
 function duplicateLine(line_idx) {
 	frappe.call({
-		method: 'frappe.client.run_doc_method',
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.duplicate_schedule_line',
 		args: {
-			dt: 'ilL-Project-Fixture-Schedule',
-			dn: schedule_name,
-			method: 'duplicate_line',
-			args: { line_idx: line_idx }
+			schedule_name: schedule_name,
+			line_idx: line_idx
 		},
 		callback: function(r) {
-			location.reload();
+			if (r.message && r.message.success) {
+				location.reload();
+			} else {
+				frappe.msgprint(r.message.error || 'Error duplicating line');
+			}
+		}
+	});
+}
+
+// Line data for editing
+var lineData = {{ lines | tojson if lines else '[]' }};
+
+function editLine(line_idx) {
+	var line = lineData[line_idx];
+	if (!line) {
+		frappe.msgprint('Line not found');
+		return;
+	}
+
+	// Populate the edit form
+	$('#edit_line_idx').val(line_idx);
+	$('#edit_line_id').val(line.line_id || '');
+	$('#edit_qty').val(line.qty || 1);
+	$('#edit_location').val(line.location || '');
+	$('#edit_notes').val(line.notes || '');
+
+	// Show/hide other manufacturer fields
+	if (line.manufacturer_type === 'OTHER') {
+		$('.edit-other-fields').show();
+		$('#edit_manufacturer_name').val(line.manufacturer_name || '');
+		$('#edit_model_number').val(line.model_number || '');
+	} else {
+		$('.edit-other-fields').hide();
+	}
+
+	$('#editLineModal').modal('show');
+}
+
+function saveEditLine() {
+	var line_idx = $('#edit_line_idx').val();
+	var line_data = {
+		line_id: $('#edit_line_id').val(),
+		qty: $('#edit_qty').val(),
+		location: $('#edit_location').val(),
+		notes: $('#edit_notes').val(),
+		manufacturer_name: $('#edit_manufacturer_name').val(),
+		model_number: $('#edit_model_number').val()
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_idx: line_idx,
+			line_data: line_data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#editLineModal').modal('hide');
+				location.reload();
+			} else {
+				frappe.msgprint(r.message.error || 'Error updating line');
+			}
 		}
 	});
 }
@@ -417,14 +543,21 @@ function deleteLine(line_idx) {
 function requestQuote() {
 	frappe.confirm('Request a quote for this schedule?', function() {
 		frappe.call({
-			method: 'frappe.client.run_doc_method',
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.request_schedule_quote',
 			args: {
-				dt: 'ilL-Project-Fixture-Schedule',
-				dn: schedule_name,
-				method: 'request_quote'
+				schedule_name: schedule_name
 			},
 			callback: function(r) {
-				location.reload();
+				if (r.message && r.message.success) {
+					frappe.msgprint({
+						title: 'Success',
+						indicator: 'green',
+						message: 'Quote requested successfully'
+					});
+					location.reload();
+				} else {
+					frappe.msgprint(r.message.error || 'Error requesting quote');
+				}
 			}
 		});
 	});
@@ -433,16 +566,16 @@ function requestQuote() {
 function createSalesOrder() {
 	frappe.confirm('Create a Sales Order from this schedule?', function() {
 		frappe.call({
-			method: 'frappe.client.run_doc_method',
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_sales_order',
 			args: {
-				dt: 'ilL-Project-Fixture-Schedule',
-				dn: schedule_name,
-				method: 'create_sales_order'
+				schedule_name: schedule_name
 			},
 			callback: function(r) {
-				if (r.message) {
-					frappe.msgprint('Sales Order ' + r.message + ' created successfully');
+				if (r.message && r.message.success) {
+					frappe.msgprint('Sales Order ' + r.message.sales_order + ' created successfully');
 					location.reload();
+				} else {
+					frappe.msgprint(r.message.error || 'Error creating Sales Order');
 				}
 			}
 		});

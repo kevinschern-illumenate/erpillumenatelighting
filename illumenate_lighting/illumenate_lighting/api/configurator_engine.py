@@ -415,8 +415,6 @@ def _validate_configuration(
 		"Finish": ("finish", finish_code, "finish_code", "ilL-Attribute-Finish"),
 		"Lens Appearance": ("lens_appearance", lens_appearance_code, "lens_appearance_code", "ilL-Attribute-Lens Appearance"),
 		"Mounting Method": ("mounting_method", mounting_method_code, "mounting_method_code", "ilL-Attribute-Mounting Method"),
-		"Endcap Style Start": ("endcap_style", endcap_style_start_code, "endcap_style_start_code", "ilL-Attribute-Endcap Style"),
-		"Endcap Style End": ("endcap_style", endcap_style_end_code, "endcap_style_end_code", "ilL-Attribute-Endcap Style"),
 		"Power Feed Type": ("power_feed_type", power_feed_type_code, "power_feed_type_code", "ilL-Attribute-Power Feed Type"),
 		"Environment Rating": ("environment_rating", environment_rating_code, "environment_rating_code", "ilL-Attribute-Environment Rating"),
 	}
@@ -447,6 +445,43 @@ def _validate_configuration(
 				{
 					"severity": "error",
 					"text": f"Selected {option_type.lower()} '{value}' is not allowed for template '{fixture_template_code}'",
+					"field": field_name,
+				}
+			)
+			is_valid = False
+
+	# Endcap styles need special handling - both start and end use the same "Endcap Style" option_type in the template
+	endcap_style_validations = [
+		("Endcap Style", endcap_style_start_code, "endcap_style_start_code", "ilL-Attribute-Endcap Style", "start"),
+		("Endcap Style", endcap_style_end_code, "endcap_style_end_code", "ilL-Attribute-Endcap Style", "end"),
+	]
+
+	for option_type, value, field_name, doctype, position in endcap_style_validations:
+		if not value:
+			continue
+
+		if not frappe.db.exists(doctype, value):
+			messages.append(
+				{
+					"severity": "error",
+					"text": f"Selected endcap style ({position}) '{value}' does not exist",
+					"field": field_name,
+				}
+			)
+			is_valid = False
+			continue
+
+		allowed_rows = [
+			row
+			for row in template_doc.get("allowed_options", [])
+			if row.option_type == option_type and row.get("endcap_style") == value and row.is_active
+		]
+
+		if not allowed_rows:
+			messages.append(
+				{
+					"severity": "error",
+					"text": f"Selected endcap style ({position}) '{value}' is not allowed for template '{fixture_template_code}'",
 					"field": field_name,
 				}
 			)

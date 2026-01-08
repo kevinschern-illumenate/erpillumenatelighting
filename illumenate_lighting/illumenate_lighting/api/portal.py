@@ -293,6 +293,113 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 
 
 @frappe.whitelist()
+def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
+	"""
+	Duplicate a line in a fixture schedule.
+
+	Args:
+		schedule_name: Name of the schedule
+		line_idx: Index of the line to duplicate
+
+	Returns:
+		dict: {"success": True/False, "new_line_idx": index, "error": "message if error"}
+	"""
+	# Validate schedule exists
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to edit this schedule"}
+
+	# Validate status
+	if schedule.status not in ["DRAFT", "READY"]:
+		return {"success": False, "error": "Cannot duplicate lines in a schedule in this status"}
+
+	line_idx = int(line_idx)
+	if line_idx < 0 or line_idx >= len(schedule.lines):
+		return {"success": False, "error": "Invalid line index"}
+
+	try:
+		# Call the DocType method to duplicate the line
+		new_idx = schedule.duplicate_line(line_idx)
+		return {"success": True, "new_line_idx": new_idx}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str, dict]) -> dict:
+	"""
+	Update an existing line in a fixture schedule.
+
+	Args:
+		schedule_name: Name of the schedule
+		line_idx: Index of the line to update
+		line_data: Dict with line fields to update (line_id, qty, location, notes, etc.)
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	# Validate schedule exists
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to edit this schedule"}
+
+	# Validate status
+	if schedule.status not in ["DRAFT", "READY"]:
+		return {"success": False, "error": "Cannot edit lines in a schedule in this status"}
+
+	# Parse line_data if it's a string (from form submission)
+	if isinstance(line_data, str):
+		line_data = json.loads(line_data)
+
+	line_idx = int(line_idx)
+	if line_idx < 0 or line_idx >= len(schedule.lines):
+		return {"success": False, "error": "Invalid line index"}
+
+	try:
+		line = schedule.lines[line_idx]
+
+		# Update allowed fields
+		if "line_id" in line_data:
+			line.line_id = line_data.get("line_id")
+		if "qty" in line_data:
+			line.qty = int(line_data.get("qty", 1))
+		if "location" in line_data:
+			line.location = line_data.get("location")
+		if "notes" in line_data:
+			line.notes = line_data.get("notes")
+
+		# For OTHER manufacturer type, also allow updating these fields
+		if line.manufacturer_type == "OTHER":
+			if "manufacturer_name" in line_data:
+				line.manufacturer_name = line_data.get("manufacturer_name")
+			if "model_number" in line_data:
+				line.model_number = line_data.get("model_number")
+
+		schedule.save()
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def save_configured_fixture_to_schedule(
 	schedule_name: str,
 	configured_fixture_id: str,
@@ -530,4 +637,143 @@ def toggle_project_privacy(project_name: str, is_private: int) -> dict:
 		project.save()
 		return {"success": True}
 	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def request_schedule_quote(schedule_name: str) -> dict:
+	"""
+	Request a quote for a fixture schedule.
+
+	Args:
+		schedule_name: Name of the schedule
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to request a quote for this schedule"}
+
+	try:
+		schedule.request_quote()
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_schedule_sales_order(schedule_name: str) -> dict:
+	"""
+	Create a Sales Order from a fixture schedule.
+
+	Args:
+		schedule_name: Name of the schedule
+
+	Returns:
+		dict: {"success": True/False, "sales_order": "SO name", "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to create a Sales Order for this schedule"}
+
+	try:
+		sales_order = schedule.create_sales_order()
+		return {"success": True, "sales_order": sales_order}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_customer(customer_data: Union[str, dict]) -> dict:
+	"""
+	Create a new Customer from the portal.
+
+	Portal users can create customers that they will then be linked to.
+
+	Args:
+		customer_data: Dict with customer fields (customer_name, customer_type, territory, etc.)
+
+	Returns:
+		dict: {"success": True/False, "customer_name": name, "error": "message if error"}
+	"""
+	# Parse customer_data if it's a string
+	if isinstance(customer_data, str):
+		customer_data = json.loads(customer_data)
+
+	if not customer_data.get("customer_name"):
+		return {"success": False, "error": "Customer name is required"}
+
+	# Check if customer already exists
+	if frappe.db.exists("Customer", customer_data.get("customer_name")):
+		return {"success": False, "error": "A customer with this name already exists"}
+
+	try:
+		customer = frappe.new_doc("Customer")
+		customer.customer_name = customer_data.get("customer_name")
+		customer.customer_type = customer_data.get("customer_type", "Company")
+		customer.territory = customer_data.get("territory", frappe.db.get_single_value("Selling Settings", "territory") or "All Territories")
+		customer.customer_group = customer_data.get("customer_group", frappe.db.get_single_value("Selling Settings", "customer_group") or "All Customer Groups")
+
+		# Set default currency if provided
+		if customer_data.get("default_currency"):
+			customer.default_currency = customer_data.get("default_currency")
+
+		customer.insert(ignore_permissions=True)
+
+		# Link the current user to this customer via Contact
+		user = frappe.session.user
+		user_doc = frappe.get_doc("User", user)
+
+		# Check if user already has a Contact, if not create one
+		existing_contact = frappe.db.get_value(
+			"Dynamic Link",
+			{"link_doctype": "User", "link_name": user, "parenttype": "Contact"},
+			"parent"
+		)
+
+		if existing_contact:
+			# Add the new customer link to existing contact
+			contact = frappe.get_doc("Contact", existing_contact)
+			contact.append("links", {
+				"link_doctype": "Customer",
+				"link_name": customer.name
+			})
+			contact.save(ignore_permissions=True)
+		else:
+			# Create a new contact for the user
+			contact = frappe.new_doc("Contact")
+			contact.first_name = user_doc.first_name or user_doc.name.split("@")[0]
+			contact.last_name = user_doc.last_name or ""
+			contact.email_id = user_doc.email
+			contact.user = user
+
+			# Link to the new customer
+			contact.append("links", {
+				"link_doctype": "Customer",
+				"link_name": customer.name
+			})
+			contact.insert(ignore_permissions=True)
+
+		return {"success": True, "customer_name": customer.name}
+	except Exception as e:
+		frappe.log_error(f"Error creating customer: {str(e)}")
 		return {"success": False, "error": str(e)}

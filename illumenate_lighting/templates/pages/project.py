@@ -90,4 +90,7 @@ def _get_new_project_context(context):
 	context.title = "Create Project"
 	context.no_cache = 1
 
+	# Get list of territories for new customer creation
+	context.territories = frappe.get_all("Territory", pluck="name", order_by="name")
+
 	return context
