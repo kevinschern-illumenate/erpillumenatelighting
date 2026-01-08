@@ -619,7 +619,7 @@ def _compute_manufacturable_outputs(
 		max_run_ft_effective = max_run_ft_by_watts
 
 	# Compute run count: runs_count = ceil(total_ft / max_run_ft_effective)
-	if max_run_ft_effective > 0 and total_ft > 0:
+	if max_run_ft_effective > 0 and max_run_ft_effective != float("inf") and total_ft > 0:
 		runs_count = math.ceil(total_ft / max_run_ft_effective)
 	else:
 		runs_count = 1
@@ -627,7 +627,11 @@ def _compute_manufacturable_outputs(
 	# Produce runs[] using "full runs then remainder" strategy
 	runs = []
 	remaining_tape_mm = L_tape_cut
-	max_run_mm = max_run_ft_effective * MM_PER_FOOT
+	# Guard against infinite max_run_mm
+	if max_run_ft_effective == float("inf") or max_run_ft_effective <= 0:
+		max_run_mm = L_tape_cut  # Single run for entire tape
+	else:
+		max_run_mm = max_run_ft_effective * MM_PER_FOOT
 
 	for i in range(runs_count):
 		run_index = i + 1
