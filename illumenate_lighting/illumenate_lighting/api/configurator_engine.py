@@ -276,7 +276,12 @@ def validate_and_quote(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
+		endcap_style_code,
+		power_feed_type_code,
+		environment_rating_code,
+		tape_offering_id,
 		qty,
+		template_doc=validation_result.get("template_doc"),
 	)
 
 	response["pricing"].update(pricing_result)
@@ -923,50 +928,140 @@ def _calculate_pricing(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
+	endcap_style_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
 	qty: int,
+	template_doc=None,
 ) -> dict[str, Any]:
 	"""
 	Calculate MSRP, tier pricing, and adders.
 
+	Implements Epic 4 Task 4.1: Baseline pricing formula
+	- base + $/ft × L_tape_cut (or L_mfg based on template setting)
+	- adders based on selected options (finish, lens, mounting, endcap, power feed, environment)
+	- customer tier/price list logic (MSRP only placeholder if tier not available)
+
+	Args:
+		fixture_template_code: The fixture template code
+		resolved_items: Dict of resolved item codes
+		computed: Dict of computed values including lengths
+		finish_code: Selected finish code
+		lens_appearance_code: Selected lens appearance code
+		mounting_method_code: Selected mounting method code
+		endcap_style_code: Selected endcap style code
+		power_feed_type_code: Selected power feed type code
+		environment_rating_code: Selected environment rating code
+		tape_offering_id: Selected tape offering ID
+		qty: Quantity ordered
+		template_doc: Optional pre-fetched template document
+
 	Returns:
-		dict: Pricing information
+		dict: Pricing information with msrp_unit, tier_unit, and adder_breakdown
 	"""
-	# Placeholder pricing logic - would query price lists and calculate based on:
-	# - Base fixture price
-	# - Length-based pricing
-	# - Option adders (finish, lens, mounting, etc.)
-	# - Quantity breaks
+	MM_PER_FOOT = 304.8
 
-	base_price = 100.0  # Placeholder
-	length_adder = computed["manufacturable_overall_length_mm"] * 0.05  # $0.05 per mm
-	finish_adder = 20.0  # Placeholder
-	lens_adder = 15.0  # Placeholder
-	mounting_adder = 10.0  # Placeholder
+	# Get template doc if not passed
+	if template_doc is None:
+		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
-	msrp_unit = base_price + length_adder + finish_adder + lens_adder + mounting_adder
-	tier_unit = msrp_unit * 0.7  # 30% discount for tier pricing
+	# --- Base Price ---
+	# Base price from template (MSRP), defaults to 0 if not set
+	base_price = float(template_doc.base_price_msrp or 0)
+
+	# --- Length-based Price ($/ft × length) ---
+	# Get pricing length basis from template: L_tape_cut or L_mfg
+	pricing_length_basis = template_doc.pricing_length_basis or "L_tape_cut"
+	if pricing_length_basis == "L_mfg":
+		length_mm = float(computed.get("manufacturable_overall_length_mm", 0))
+		length_basis_description = "L_mfg"
+	else:
+		length_mm = float(computed.get("tape_cut_length_mm", 0))
+		length_basis_description = "L_tape_cut"
+
+	# Convert mm to feet for $/ft calculation
+	length_ft = length_mm / MM_PER_FOOT
+	price_per_ft = float(template_doc.price_per_ft_msrp or 0)
+	length_adder = length_ft * price_per_ft
 
 	adder_breakdown = [
-		{"component": "base", "description": "Base fixture price", "amount": base_price},
+		{"component": "base", "description": "Base fixture price", "amount": round(base_price, 2)},
 		{
 			"component": "length",
-			"description": f"Length adder ({computed['manufacturable_overall_length_mm']}mm)",
-			"amount": length_adder,
-		},
-		{"component": "finish", "description": f"Finish ({finish_code})", "amount": finish_adder},
-		{
-			"component": "lens",
-			"description": f"Lens ({lens_appearance_code})",
-			"amount": lens_adder,
-		},
-		{
-			"component": "mounting",
-			"description": f"Mounting ({mounting_method_code})",
-			"amount": mounting_adder,
+			"description": f"Length adder ({length_basis_description}: {length_mm:.0f}mm = {length_ft:.2f}ft × ${price_per_ft:.2f}/ft)",
+			"amount": round(length_adder, 2),
 		},
 	]
 
-	return {"msrp_unit": msrp_unit, "tier_unit": tier_unit, "adder_breakdown": adder_breakdown}
+	# --- Option Adders ---
+	# Build a map of option type to (field_name, selected_value)
+	option_map = {
+		"Finish": ("finish", finish_code),
+		"Lens Appearance": ("lens_appearance", lens_appearance_code),
+		"Mounting Method": ("mounting_method", mounting_method_code),
+		"Endcap Style": ("endcap_style", endcap_style_code),
+		"Power Feed Type": ("power_feed_type", power_feed_type_code),
+		"Environment Rating": ("environment_rating", environment_rating_code),
+	}
+
+	total_option_adders = 0.0
+	for option_type, (field_name, selected_value) in option_map.items():
+		if not selected_value:
+			continue
+
+		# Find the matching allowed option row in template
+		matching_rows = [
+			row
+			for row in template_doc.get("allowed_options", [])
+			if row.option_type == option_type
+			and row.get(field_name) == selected_value
+			and row.is_active
+		]
+
+		option_adder = 0.0
+		if matching_rows:
+			# Use the msrp_adder from the allowed option row
+			option_adder = float(matching_rows[0].msrp_adder or 0)
+
+		total_option_adders += option_adder
+		if option_adder != 0:
+			adder_breakdown.append({
+				"component": field_name,
+				"description": f"{option_type} ({selected_value})",
+				"amount": round(option_adder, 2),
+			})
+
+	# --- Tape Offering Adder (SDCM, Output Level via Pricing Class) ---
+	# Check if tape offering has a pricing class override with adders
+	tape_adder = 0.0
+	if tape_offering_id and frappe.db.exists("ilL-Rel-Tape Offering", tape_offering_id):
+		tape_offering_doc = frappe.get_doc("ilL-Rel-Tape Offering", tape_offering_id)
+		pricing_class_code = tape_offering_doc.pricing_class_override
+		if pricing_class_code and frappe.db.exists("ilL-Attribute-Pricing Class", pricing_class_code):
+			pricing_class_doc = frappe.get_doc("ilL-Attribute-Pricing Class", pricing_class_code)
+			tape_adder = float(pricing_class_doc.default_adder or 0)
+			if tape_adder != 0:
+				adder_breakdown.append({
+					"component": "tape_offering",
+					"description": f"Tape offering pricing class ({pricing_class_code})",
+					"amount": round(tape_adder, 2),
+				})
+
+	# --- Calculate MSRP Unit Price ---
+	msrp_unit = base_price + length_adder + total_option_adders + tape_adder
+
+	# --- Customer Tier/Price List Logic ---
+	# Placeholder: MSRP only if tier not available
+	# In future, this would query Customer -> Price List -> apply discount/multiplier
+	# For now, tier_unit equals msrp_unit (no tier discount applied)
+	tier_unit = msrp_unit  # Placeholder: MSRP only
+
+	return {
+		"msrp_unit": round(msrp_unit, 2),
+		"tier_unit": round(tier_unit, 2),
+		"adder_breakdown": adder_breakdown,
+	}
 
 
 def _create_or_update_configured_fixture(
