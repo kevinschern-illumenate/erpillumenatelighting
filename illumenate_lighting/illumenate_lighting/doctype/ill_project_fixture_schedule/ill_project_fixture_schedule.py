@@ -5,6 +5,9 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+# Conversion constant: millimeters per foot
+MM_PER_FOOT = 304.8
+
 
 class ilLProjectFixtureSchedule(Document):
 	@frappe.whitelist()
@@ -37,7 +40,7 @@ class ilLProjectFixtureSchedule(Document):
 		# Create Sales Order
 		so = frappe.new_doc("Sales Order")
 		so.customer = self.customer
-		so.project = self.project if self.project else None
+		so.project = self.project
 		so.delivery_date = frappe.utils.add_days(frappe.utils.nowdate(), 30)
 
 		# Add SO items for each ILLUMENATE line
@@ -103,7 +106,7 @@ class ilLProjectFixtureSchedule(Document):
 			parts.append(configured_fixture.fixture_template)
 
 		if configured_fixture.manufacturable_overall_length_mm:
-			length_ft = configured_fixture.manufacturable_overall_length_mm / 304.8
+			length_ft = configured_fixture.manufacturable_overall_length_mm / MM_PER_FOOT
 			parts.append(f"{length_ft:.2f}ft ({configured_fixture.manufacturable_overall_length_mm}mm)")
 
 		if configured_fixture.finish:

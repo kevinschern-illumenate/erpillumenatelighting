@@ -72,6 +72,12 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		for order in test_orders:
 			frappe.delete_doc("Sales Order", order, force=True)
 
+		# Delete test configured fixtures created during tests
+		test_config_hashes = ["_test_config_hash_22222222"]
+		for config_hash in test_config_hashes:
+			if frappe.db.exists("ilL-Configured-Fixture", config_hash):
+				frappe.delete_doc("ilL-Configured-Fixture", config_hash, force=True)
+
 	def test_create_sales_order_basic(self):
 		"""Test basic Sales Order creation from fixture schedule"""
 		# Create a schedule with ILLUMENATE lines
@@ -252,9 +258,6 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(so.items[1].qty, 4)
 		self.assertEqual(so.items[1].ill_configured_fixture, config_hash_2)
 		self.assertEqual(so.items[1].ill_mfg_length_mm, 1995)
-
-		# Clean up
-		frappe.delete_doc("ilL-Configured-Fixture", config_hash_2, force=True)
 
 	def test_create_sales_order_description_includes_details(self):
 		"""Test that SO item description includes location and notes"""
