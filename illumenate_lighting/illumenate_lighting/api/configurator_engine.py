@@ -17,12 +17,14 @@ Request Schema:
         "finish_code": str,                      # Required: Finish option code
         "lens_appearance_code": str,             # Required: Lens appearance option code
         "mounting_method_code": str,             # Required: Mounting method option code
-        "endcap_style_code": str,                # Required: Endcap style option code
+        "endcap_style_start_code": str,          # Required: Endcap style option code for start end
+        "endcap_style_end_code": str,            # Required: Endcap style option code for end end
         "endcap_color_code": str,                # Required: Endcap color option code
         "power_feed_type_code": str,             # Required: Power feed type option code
         "environment_rating_code": str,          # Required: Environment rating option code
         "tape_offering_id": str,                 # Required: Tape offering ID or code
         "requested_overall_length_mm": int,      # Required: Requested overall length in millimeters
+        "dimming_protocol_code": str,            # Optional: User's desired dimming protocol (filters drivers by input_protocol)
         "qty": int                               # Optional: Quantity (default: 1)
     }
 
@@ -38,7 +40,9 @@ Response Schema:
         ],
         "computed": {                             # Computed/calculated values
             # Task 3.1: Length Math
-            "endcap_allowance_mm_per_side": float,
+            "endcap_allowance_start_mm": float,
+            "endcap_allowance_end_mm": float,
+            "total_endcap_allowance_mm": float,
             "leader_allowance_mm_per_fixture": float,
             "internal_length_mm": int,
             "tape_cut_length_mm": int,
@@ -115,12 +119,14 @@ def validate_and_quote(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_style_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
 	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
 	requested_overall_length_mm: int,
+	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
 	"""
@@ -138,12 +144,14 @@ def validate_and_quote(
 		finish_code: Finish option code
 		lens_appearance_code: Lens appearance option code
 		mounting_method_code: Mounting method option code
-		endcap_style_code: Endcap style option code
+		endcap_style_start_code: Endcap style option code for start end
+		endcap_style_end_code: Endcap style option code for end end
 		endcap_color_code: Endcap color option code
 		power_feed_type_code: Power feed type option code
 		environment_rating_code: Environment rating option code
 		tape_offering_id: Tape offering ID or code
 		requested_overall_length_mm: Requested overall length in millimeters
+		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
 		qty: Quantity (default: 1)
 
 	Returns:
@@ -176,7 +184,9 @@ def validate_and_quote(
 		"messages": [],
 		"computed": {
 			# Task 3.1: Length Math
-			"endcap_allowance_mm_per_side": 0.0,
+			"endcap_allowance_start_mm": 0.0,
+			"endcap_allowance_end_mm": 0.0,
+			"total_endcap_allowance_mm": 0.0,
 			"leader_allowance_mm_per_fixture": 0.0,
 			"internal_length_mm": 0,
 			"tape_cut_length_mm": 0,
@@ -202,7 +212,8 @@ def validate_and_quote(
 		"resolved_items": {
 			"profile_item": None,
 			"lens_item": None,
-			"endcap_item": None,
+			"endcap_item_start": None,
+			"endcap_item_end": None,
 			"mounting_item": None,
 			"leader_item": None,
 			"driver_plan": {"status": "suggested", "drivers": []},
@@ -217,7 +228,8 @@ def validate_and_quote(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
-		endcap_style_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
 		endcap_color_code,
 		power_feed_type_code,
 		environment_rating_code,
@@ -236,7 +248,8 @@ def validate_and_quote(
 		fixture_template_code,
 		tape_offering_id,
 		requested_overall_length_mm,
-		endcap_style_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
 		power_feed_type_code,
 		lens_appearance_code,
 		finish_code,
@@ -252,7 +265,8 @@ def validate_and_quote(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
-		endcap_style_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
 		endcap_color_code,
 		environment_rating_code,
 		power_feed_type_code,
@@ -274,6 +288,7 @@ def validate_and_quote(
 		runs_count=computed_result["runs_count"],
 		total_watts=computed_result["total_watts"],
 		tape_offering_doc=validation_result.get("tape_offering_doc"),
+		dimming_protocol_code=dimming_protocol_code,
 	)
 	response["messages"].extend(driver_messages)
 	response["resolved_items"]["driver_plan"] = driver_plan_result
@@ -286,7 +301,8 @@ def validate_and_quote(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
-		endcap_style_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
 		power_feed_type_code,
 		environment_rating_code,
 		tape_offering_id,
@@ -302,7 +318,8 @@ def validate_and_quote(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
-		endcap_style_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
 		endcap_color_code,
 		power_feed_type_code,
 		environment_rating_code,
@@ -323,7 +340,8 @@ def _validate_configuration(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_style_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
 	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
@@ -369,7 +387,8 @@ def _validate_configuration(
 		"finish_code": finish_code,
 		"lens_appearance_code": lens_appearance_code,
 		"mounting_method_code": mounting_method_code,
-		"endcap_style_code": endcap_style_code,
+		"endcap_style_start_code": endcap_style_start_code,
+		"endcap_style_end_code": endcap_style_end_code,
 		"endcap_color_code": endcap_color_code,
 		"power_feed_type_code": power_feed_type_code,
 		"environment_rating_code": environment_rating_code,
@@ -396,7 +415,8 @@ def _validate_configuration(
 		"Finish": ("finish", finish_code, "finish_code", "ilL-Attribute-Finish"),
 		"Lens Appearance": ("lens_appearance", lens_appearance_code, "lens_appearance_code", "ilL-Attribute-Lens Appearance"),
 		"Mounting Method": ("mounting_method", mounting_method_code, "mounting_method_code", "ilL-Attribute-Mounting Method"),
-		"Endcap Style": ("endcap_style", endcap_style_code, "endcap_style_code", "ilL-Attribute-Endcap Style"),
+		"Endcap Style Start": ("endcap_style", endcap_style_start_code, "endcap_style_start_code", "ilL-Attribute-Endcap Style"),
+		"Endcap Style End": ("endcap_style", endcap_style_end_code, "endcap_style_end_code", "ilL-Attribute-Endcap Style"),
 		"Power Feed Type": ("power_feed_type", power_feed_type_code, "power_feed_type_code", "ilL-Attribute-Power Feed Type"),
 		"Environment Rating": ("environment_rating", environment_rating_code, "environment_rating_code", "ilL-Attribute-Environment Rating"),
 	}
@@ -478,7 +498,8 @@ def _compute_manufacturable_outputs(
 	fixture_template_code: str,
 	tape_offering_id: str,
 	requested_overall_length_mm: int,
-	endcap_style_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
 	power_feed_type_code: str,
 	lens_appearance_code: str,
 	finish_code: str,
@@ -509,11 +530,21 @@ def _compute_manufacturable_outputs(
 	# Task 3.1: Length Math (Locked Rules)
 	# -------------------------------------------------------------------
 
-	# E = endcap_style.mm_per_side (from Endcap Style attribute)
-	endcap_allowance_mm_per_side = 0.0
-	if endcap_style_code and frappe.db.exists("ilL-Attribute-Endcap Style", endcap_style_code):
-		endcap_doc = frappe.get_doc("ilL-Attribute-Endcap Style", endcap_style_code)
-		endcap_allowance_mm_per_side = float(endcap_doc.allowance_mm_per_side or 0)
+	# Calculate endcap allowance from both start and end endcap styles
+	# E_start = endcap_style_start.mm_per_side (from Endcap Style attribute)
+	# E_end = endcap_style_end.mm_per_side (from Endcap Style attribute)
+	endcap_allowance_start_mm = 0.0
+	if endcap_style_start_code and frappe.db.exists("ilL-Attribute-Endcap Style", endcap_style_start_code):
+		endcap_doc = frappe.get_doc("ilL-Attribute-Endcap Style", endcap_style_start_code)
+		endcap_allowance_start_mm = float(endcap_doc.allowance_mm_per_side or 0)
+
+	endcap_allowance_end_mm = 0.0
+	if endcap_style_end_code and frappe.db.exists("ilL-Attribute-Endcap Style", endcap_style_end_code):
+		endcap_doc = frappe.get_doc("ilL-Attribute-Endcap Style", endcap_style_end_code)
+		endcap_allowance_end_mm = float(endcap_doc.allowance_mm_per_side or 0)
+
+	# Total endcap allowance is the sum of both ends
+	total_endcap_allowance_mm = endcap_allowance_start_mm + endcap_allowance_end_mm
 
 	# A_leader = 15mm (from template or rule default; per fixture)
 	leader_allowance_mm_per_fixture = float(template_doc.leader_allowance_mm_per_fixture or 15)
@@ -539,11 +570,10 @@ def _compute_manufacturable_outputs(
 		)
 		max_run_length_ft_voltage_drop = tape_spec_doc.voltage_drop_max_run_length_ft
 
-	# L_internal = L_req - 2E - A_leader
+	# L_internal = L_req - total_endcap_allowance - A_leader
 	L_req = float(requested_overall_length_mm)
-	E = endcap_allowance_mm_per_side
 	A_leader = leader_allowance_mm_per_fixture
-	L_internal = L_req - (2 * E) - A_leader
+	L_internal = L_req - total_endcap_allowance_mm - A_leader
 
 	# L_tape_cut = floor(L_internal / cut_increment) * cut_increment
 	# Handle edge cases: if cut_increment invalid or L_internal <= 0, L_tape_cut = 0
@@ -552,8 +582,8 @@ def _compute_manufacturable_outputs(
 	else:
 		L_tape_cut = 0 if L_internal <= 0 or cut_increment_mm <= 0 else max(0, L_internal)
 
-	# L_mfg = L_tape_cut + 2E + A_leader
-	L_mfg = L_tape_cut + (2 * E) + A_leader
+	# L_mfg = L_tape_cut + total_endcap_allowance + A_leader
+	L_mfg = L_tape_cut + total_endcap_allowance_mm + A_leader
 
 	# difference = L_req - L_mfg
 	difference_mm = int(L_req - L_mfg)
@@ -699,7 +729,9 @@ def _compute_manufacturable_outputs(
 
 	return {
 		# Task 3.1 outputs
-		"endcap_allowance_mm_per_side": endcap_allowance_mm_per_side,
+		"endcap_allowance_start_mm": endcap_allowance_start_mm,
+		"endcap_allowance_end_mm": endcap_allowance_end_mm,
+		"total_endcap_allowance_mm": total_endcap_allowance_mm,
 		"leader_allowance_mm_per_fixture": leader_allowance_mm_per_fixture,
 		"internal_length_mm": int(L_internal),
 		"tape_cut_length_mm": int(L_tape_cut),
@@ -729,7 +761,8 @@ def _resolve_items(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_style_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
 	endcap_color_code: str,
 	environment_rating_code: str,
 	power_feed_type_code: str,
@@ -747,7 +780,8 @@ def _resolve_items(
 	resolved: dict[str, Any] = {
 		"profile_item": None,
 		"lens_item": None,
-		"endcap_item": None,
+		"endcap_item_start": None,
+		"endcap_item_end": None,
 		"mounting_item": None,
 		"leader_item": None,
 		"driver_plan": {
@@ -819,40 +853,77 @@ def _resolve_items(
 
 	resolved["lens_item"] = lens_item
 
-	endcap_candidates = frappe.get_all(
+	# Resolve start endcap
+	endcap_start_candidates = frappe.get_all(
 		"ilL-Rel-Endcap-Map",
 		filters={
 			"fixture_template": fixture_template_code,
-			"endcap_style": endcap_style_code,
+			"endcap_style": endcap_style_start_code,
 			"endcap_color": endcap_color_code,
 			"is_active": 1,
 		},
 		fields=["name", "endcap_item", "power_feed_type", "environment_rating"],
 	)
 
-	endcap_item = None
-	for endcap_row in endcap_candidates:
+	endcap_item_start = None
+	for endcap_row in endcap_start_candidates:
 		if endcap_row.get("power_feed_type") and endcap_row.power_feed_type != power_feed_type_code:
 			continue
 		if endcap_row.get("environment_rating") and endcap_row.environment_rating != environment_rating_code:
 			continue
-		endcap_item = endcap_row.endcap_item
+		endcap_item_start = endcap_row.endcap_item
 		break
 
-	if not endcap_item:
+	if not endcap_item_start:
 		messages.append(
 			{
 				"severity": "error",
 				"text": (
 					f"Missing map: ilL-Rel-Endcap-Map for template '{fixture_template_code}', "
-					f"style '{endcap_style_code}', color '{endcap_color_code}'"
+					f"style '{endcap_style_start_code}', color '{endcap_color_code}' (start endcap)"
 				),
-				"field": "endcap_style_code",
+				"field": "endcap_style_start_code",
 			}
 		)
 		return resolved, messages, False
 
-	resolved["endcap_item"] = endcap_item
+	resolved["endcap_item_start"] = endcap_item_start
+
+	# Resolve end endcap
+	endcap_end_candidates = frappe.get_all(
+		"ilL-Rel-Endcap-Map",
+		filters={
+			"fixture_template": fixture_template_code,
+			"endcap_style": endcap_style_end_code,
+			"endcap_color": endcap_color_code,
+			"is_active": 1,
+		},
+		fields=["name", "endcap_item", "power_feed_type", "environment_rating"],
+	)
+
+	endcap_item_end = None
+	for endcap_row in endcap_end_candidates:
+		if endcap_row.get("power_feed_type") and endcap_row.power_feed_type != power_feed_type_code:
+			continue
+		if endcap_row.get("environment_rating") and endcap_row.environment_rating != environment_rating_code:
+			continue
+		endcap_item_end = endcap_row.endcap_item
+		break
+
+	if not endcap_item_end:
+		messages.append(
+			{
+				"severity": "error",
+				"text": (
+					f"Missing map: ilL-Rel-Endcap-Map for template '{fixture_template_code}', "
+					f"style '{endcap_style_end_code}', color '{endcap_color_code}' (end endcap)"
+				),
+				"field": "endcap_style_end_code",
+			}
+		)
+		return resolved, messages, False
+
+	resolved["endcap_item_end"] = endcap_item_end
 
 	mount_candidates = frappe.get_all(
 		"ilL-Rel-Mounting-Accessory-Map",
@@ -936,6 +1007,7 @@ def _select_driver_plan(
 	runs_count: int,
 	total_watts: float,
 	tape_offering_doc=None,
+	dimming_protocol_code: str = None,
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
 	"""
 	Select driver model and calculate quantity to satisfy fixture requirements.
@@ -952,7 +1024,8 @@ def _select_driver_plan(
 		fixture_template_code: Code of the fixture template
 		runs_count: Number of runs requiring driver outputs
 		total_watts: Total wattage load to be driven
-		tape_offering_doc: Tape offering document (for voltage and dimming protocol)
+		tape_offering_doc: Tape offering document (for voltage and input protocol)
+		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
 
 	Returns:
 		tuple: (driver_plan dict, messages list)
@@ -973,9 +1046,10 @@ def _select_driver_plan(
 		})
 		return driver_plan, messages
 
-	# Get tape voltage and dimming protocol from tape spec
+	# Get tape voltage and input protocol from tape spec
+	# tape_input_protocol is the signal the tape expects from the driver (e.g., PWM)
 	tape_voltage = None
-	dimming_protocol = None
+	tape_input_protocol = None
 	if tape_offering_doc:
 		if not frappe.db.exists("ilL-Spec-LED Tape", tape_offering_doc.tape_spec):
 			messages.append({
@@ -986,7 +1060,7 @@ def _select_driver_plan(
 		else:
 			tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
 			tape_voltage = tape_spec_doc.input_voltage  # This is the output voltage the driver needs to provide
-			dimming_protocol = tape_spec_doc.dimming_protocol
+			tape_input_protocol = tape_spec_doc.input_protocol  # The dimming signal the tape needs from the driver
 
 	# Query eligible drivers from ilL-Rel-Driver-Eligibility for this template
 	eligibility_rows = frappe.get_all(
@@ -1025,9 +1099,14 @@ def _select_driver_plan(
 		if tape_voltage and driver_spec.voltage_output and driver_spec.voltage_output != tape_voltage:
 			continue
 
-		# Filter by dimming protocol: driver's dimming_protocol must match tape's dimming_protocol
-		# (if tape has a dimming protocol requirement)
-		if dimming_protocol and driver_spec.dimming_protocol and driver_spec.dimming_protocol != dimming_protocol:
+		# Filter by protocol: driver's output_protocol must match tape's input_protocol
+		# This ensures the driver can output the signal the tape expects (e.g., PWM)
+		if tape_input_protocol and driver_spec.output_protocol and driver_spec.output_protocol != tape_input_protocol:
+			continue
+
+		# Filter by user's dimming protocol: driver's input_protocol must match user's selection
+		# This ensures the driver accepts the dimming signal the user wants to use (e.g., 0-10V, DALI)
+		if dimming_protocol_code and driver_spec.input_protocol and driver_spec.input_protocol != dimming_protocol_code:
 			continue
 
 		# Calculate usable wattage
@@ -1050,11 +1129,18 @@ def _select_driver_plan(
 
 	if not candidate_drivers:
 		driver_plan["status"] = "no_matching_drivers"
+		filter_criteria = []
+		if tape_voltage:
+			filter_criteria.append(f"voltage '{tape_voltage}'")
+		if tape_input_protocol:
+			filter_criteria.append(f"output protocol '{tape_input_protocol}'")
+		if dimming_protocol_code:
+			filter_criteria.append(f"input protocol '{dimming_protocol_code}'")
 		messages.append({
 			"severity": "warning",
 			"text": (
-				f"No drivers match voltage '{tape_voltage}' and/or "
-				f"dimming protocol '{dimming_protocol}' for template '{fixture_template_code}'"
+				f"No drivers match {' and '.join(filter_criteria) or 'requirements'} "
+				f"for template '{fixture_template_code}'"
 			),
 			"field": None,
 		})
@@ -1169,7 +1255,8 @@ def _calculate_pricing(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_style_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
@@ -1191,7 +1278,8 @@ def _calculate_pricing(
 		finish_code: Selected finish code
 		lens_appearance_code: Selected lens appearance code
 		mounting_method_code: Selected mounting method code
-		endcap_style_code: Selected endcap style code
+		endcap_style_start_code: Selected endcap style code for start end
+		endcap_style_end_code: Selected endcap style code for end end
 		power_feed_type_code: Selected power feed type code
 		environment_rating_code: Selected environment rating code
 		tape_offering_id: Selected tape offering ID
@@ -1315,7 +1403,8 @@ def _create_or_update_configured_fixture(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_style_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
 	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
@@ -1340,7 +1429,8 @@ def _create_or_update_configured_fixture(
 		"finish_code": finish_code,
 		"lens_appearance_code": lens_appearance_code,
 		"mounting_method_code": mounting_method_code,
-		"endcap_style_code": endcap_style_code,
+		"endcap_style_start_code": endcap_style_start_code,
+		"endcap_style_end_code": endcap_style_end_code,
 		"endcap_color_code": endcap_color_code,
 		"power_feed_type_code": power_feed_type_code,
 		"environment_rating_code": environment_rating_code,
@@ -1369,7 +1459,8 @@ def _create_or_update_configured_fixture(
 	doc.finish = finish_code
 	doc.lens_appearance = lens_appearance_code
 	doc.mounting_method = mounting_method_code
-	doc.endcap_style = endcap_style_code
+	doc.endcap_style_start = endcap_style_start_code
+	doc.endcap_style_end = endcap_style_end_code
 	doc.endcap_color = endcap_color_code
 	doc.power_feed_type = power_feed_type_code
 	doc.environment_rating = environment_rating_code
@@ -1377,7 +1468,7 @@ def _create_or_update_configured_fixture(
 
 	# Set length inputs/outputs
 	doc.requested_overall_length_mm = requested_overall_length_mm
-	doc.endcap_allowance_mm_per_side = computed["endcap_allowance_mm_per_side"]
+	doc.endcap_allowance_mm_per_side = computed.get("total_endcap_allowance_mm", 0)
 	doc.leader_allowance_mm = computed["leader_allowance_mm_per_fixture"]
 	doc.internal_length_mm = computed["internal_length_mm"]
 	doc.tape_cut_length_mm = computed["tape_cut_length_mm"]
@@ -1396,7 +1487,8 @@ def _create_or_update_configured_fixture(
 	# Set resolved item links (cached for downstream BOM/WO generation)
 	doc.profile_item = resolved_items.get("profile_item")
 	doc.lens_item = resolved_items.get("lens_item")
-	doc.endcap_item = resolved_items.get("endcap_item")
+	doc.endcap_item_start = resolved_items.get("endcap_item_start")
+	doc.endcap_item_end = resolved_items.get("endcap_item_end")
 	doc.mounting_item = resolved_items.get("mounting_item")
 	doc.leader_item = resolved_items.get("leader_item")
 

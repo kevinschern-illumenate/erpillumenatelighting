@@ -70,8 +70,23 @@ Allows users to configure fixtures using the Rules Engine
 								</div>
 								<div class="col-md-6">
 									<div class="form-group">
-										<label>{{ _("Endcap Style") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="endcap_style_code" required></select>
+										<label>{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="power_feed_type_code" required></select>
+									</div>
+								</div>
+							</div>
+
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Endcap Style - Start") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="endcap_style_start_code" required></select>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Endcap Style - End") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="endcap_style_end_code" required></select>
 									</div>
 								</div>
 							</div>
@@ -85,8 +100,8 @@ Allows users to configure fixtures using the Rules Engine
 								</div>
 								<div class="col-md-6">
 									<div class="form-group">
-										<label>{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="power_feed_type_code" required></select>
+										<label>{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="environment_rating_code" required></select>
 									</div>
 								</div>
 							</div>
@@ -94,15 +109,11 @@ Allows users to configure fixtures using the Rules Engine
 							<div class="row">
 								<div class="col-md-6">
 									<div class="form-group">
-										<label>{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="environment_rating_code" required></select>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group">
 										<label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
 										<select class="form-control" name="tape_offering_id" required></select>
 									</div>
+								</div>
+								<div class="col-md-6">
 								</div>
 							</div>
 
@@ -297,7 +308,7 @@ function loadTemplateOptions(template_code) {
 
 function populateOptions(options) {
 	// Populate each select with its options
-	var fields = ['finish', 'lens_appearance', 'mounting_method', 'endcap_style', 'power_feed_type', 'environment_rating'];
+	var fields = ['finish', 'lens_appearance', 'mounting_method', 'power_feed_type', 'environment_rating'];
 
 	fields.forEach(function(field) {
 		var select = $('select[name="' + field + '_code"]');
@@ -305,6 +316,18 @@ function populateOptions(options) {
 
 		if (options[field]) {
 			options[field].forEach(function(opt) {
+				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			});
+		}
+	});
+
+	// Populate endcap style selects (start and end)
+	var endcapStyleFields = ['endcap_style_start', 'endcap_style_end'];
+	endcapStyleFields.forEach(function(field) {
+		var select = $('select[name="' + field + '_code"]');
+		select.empty().append('<option value="">Select...</option>');
+		if (options.endcap_style) {
+			options.endcap_style.forEach(function(opt) {
 				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 			});
 		}
@@ -344,7 +367,8 @@ function validateAndQuote() {
 		finish_code: form.find('[name="finish_code"]').val(),
 		lens_appearance_code: form.find('[name="lens_appearance_code"]').val(),
 		mounting_method_code: form.find('[name="mounting_method_code"]').val(),
-		endcap_style_code: form.find('[name="endcap_style_code"]').val(),
+		endcap_style_start_code: form.find('[name="endcap_style_start_code"]').val(),
+		endcap_style_end_code: form.find('[name="endcap_style_end_code"]').val(),
 		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
 		power_feed_type_code: form.find('[name="power_feed_type_code"]').val(),
 		environment_rating_code: form.find('[name="environment_rating_code"]').val(),

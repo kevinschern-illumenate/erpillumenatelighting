@@ -12,7 +12,7 @@
   "input_voltage",
   "watts_per_foot",
   "voltage_drop_max_run_length_ft",
-  "dimming_protocol",
+  "input_protocol",
   "cutting_section",
   "cut_increment_mm"
  ],
@@ -51,10 +51,11 @@
    "label": "Voltage Drop Max Run Length (ft)"
   },
   {
-   "fieldname": "dimming_protocol",
+   "fieldname": "input_protocol",
    "fieldtype": "Link",
-   "label": "Dimming Protocol",
-   "options": "ilL-Attribute-Dimming Protocol"
+   "label": "Input Protocol",
+   "options": "ilL-Attribute-Dimming Protocol",
+   "description": "The dimming signal protocol this tape requires from the driver output"
   },
   {
    "fieldname": "cutting_section",

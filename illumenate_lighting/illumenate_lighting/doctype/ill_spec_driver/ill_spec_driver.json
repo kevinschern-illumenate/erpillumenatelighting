@@ -13,7 +13,8 @@
   "voltage_output",
   "outputs_count",
   "output_type",
-  "dimming_protocol",
+  "input_protocol",
+  "output_protocol",
   "column_break_gfyi",
   "max_wattage",
   "max_wattage_per_output",
@@ -61,10 +62,18 @@
    "options": "Constant Voltage\nConstant Current"
   },
   {
-   "fieldname": "dimming_protocol",
+   "fieldname": "input_protocol",
    "fieldtype": "Link",
-   "label": "Dimming Protocol",
-   "options": "ilL-Attribute-Dimming Protocol"
+   "label": "Input Protocol",
+   "options": "ilL-Attribute-Dimming Protocol",
+   "description": "The dimming signal protocol this driver accepts from the user/controller (e.g., 0-10V, DALI)"
+  },
+  {
+   "fieldname": "output_protocol",
+   "fieldtype": "Link",
+   "label": "Output Protocol",
+   "options": "ilL-Attribute-Dimming Protocol",
+   "description": "The dimming signal protocol this driver outputs to the LED tape (e.g., PWM)"
   },
   {
    "fieldname": "column_break_gfyi",

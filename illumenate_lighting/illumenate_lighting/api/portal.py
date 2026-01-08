@@ -21,8 +21,9 @@ def get_allowed_customers_for_project() -> dict:
 	Get customers that the current user can create projects for.
 
 	Returns customers that:
-	1. The user's own company (Customer linked via their Contact)
-	2. Customers that were created by contacts at the user's company
+	1. System Manager: All customers
+	2. The user's own company (Customer linked via their Contact)
+	3. Customers that were created by contacts at the user's company
 
 	Returns:
 		dict: {
@@ -34,6 +35,24 @@ def get_allowed_customers_for_project() -> dict:
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
 		_get_user_customer,
 	)
+
+	# System Manager can access all customers
+	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+	if is_system_manager:
+		all_customers = frappe.get_all(
+			"Customer",
+			fields=["name", "customer_name"],
+			order_by="customer_name asc",
+		)
+		allowed_customers = [
+			{"value": c.name, "label": c.customer_name or c.name}
+			for c in all_customers
+		]
+		return {
+			"success": True,
+			"user_customer": None,
+			"allowed_customers": allowed_customers,
+		}
 
 	user_customer = _get_user_customer(frappe.session.user)
 
@@ -362,12 +381,19 @@ def create_project(project_data: Union[str, dict]) -> dict:
 	if not project_data.get("customer"):
 		return {"success": False, "error": "Customer is required"}
 
+	# System Manager can create projects for any customer
+	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+
 	# Validate the chosen customer is in the allowed list for this user
 	allowed_result = get_allowed_customers_for_project()
 	allowed_customer_names = [c["value"] for c in allowed_result.get("allowed_customers", [])]
 
 	chosen_customer = project_data.get("customer")
-	if chosen_customer not in allowed_customer_names:
+
+	# System Manager bypass: allow any valid customer
+	if is_system_manager and frappe.db.exists("Customer", chosen_customer):
+		pass  # Allow the chosen customer
+	elif chosen_customer not in allowed_customer_names:
 		# If user doesn't have access to this customer, use their own company
 		if user_customer:
 			chosen_customer = user_customer

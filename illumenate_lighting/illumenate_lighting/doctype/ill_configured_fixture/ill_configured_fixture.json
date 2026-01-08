@@ -15,7 +15,8 @@
   "finish",
   "lens_appearance",
   "mounting_method",
-  "endcap_style",
+  "endcap_style_start",
+  "endcap_style_end",
   "column_break_options",
   "endcap_color",
   "power_feed_type",
@@ -42,7 +43,8 @@
   "resolved_items_section",
   "profile_item",
   "lens_item",
-  "endcap_item",
+  "endcap_item_start",
+  "endcap_item_end",
   "column_break_resolved_items",
   "mounting_item",
   "leader_item",
@@ -116,9 +118,15 @@
    "options": "ilL-Attribute-Mounting Method"
   },
   {
-   "fieldname": "endcap_style",
+   "fieldname": "endcap_style_start",
    "fieldtype": "Link",
-   "label": "Endcap Style",
+   "label": "Endcap Style - Start",
+   "options": "ilL-Attribute-Endcap Style"
+  },
+  {
+   "fieldname": "endcap_style_end",
+   "fieldtype": "Link",
+   "label": "Endcap Style - End",
    "options": "ilL-Attribute-Endcap Style"
   },
   {
@@ -261,9 +269,15 @@
    "options": "Item"
   },
   {
-   "fieldname": "endcap_item",
+   "fieldname": "endcap_item_start",
    "fieldtype": "Link",
-   "label": "Endcap Item",
+   "label": "Endcap Item - Start",
+   "options": "Item"
+  },
+  {
+   "fieldname": "endcap_item_end",
+   "fieldtype": "Link",
+   "label": "Endcap Item - End",
    "options": "Item"
   },
   {
