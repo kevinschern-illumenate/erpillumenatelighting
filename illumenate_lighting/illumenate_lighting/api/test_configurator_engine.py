@@ -44,7 +44,7 @@ class TestConfiguratorEngine(FrappeTestCase):
 			"doctype": "ilL-Attribute-Endcap Style",
 			"label": self.endcap_style_code,
 			"code": self.endcap_style_code,
-			"allowance_mm_per_side": 15,  # Epic 3 Task 3.1: E = endcap_style.mm_per_side
+			"allowance_mm_per_side": 15,  # Epic 3 Task 3.1: E = endcap_style.allowance_mm_per_side
 		})
 		self._ensure(
 			{"doctype": "ilL-Attribute-Endcap Color", "code": self.endcap_color_code, "display_name": self.endcap_color_code}

@@ -573,12 +573,12 @@ def _compute_manufacturable_outputs(
 		segment_index = i + 1
 		if segment_index < segments_count:
 			# Full stock segment
-			profile_cut_len = profile_stock_len_mm
+			profile_cut_len = min(profile_stock_len_mm, remaining_length)
 		else:
-			# Last segment (remainder)
-			profile_cut_len = remaining_length
+			# Last segment (remainder) - ensure it's at least 0
+			profile_cut_len = max(0, remaining_length)
 
-		remaining_length -= profile_cut_len
+		remaining_length = max(0, remaining_length - profile_cut_len)
 
 		# For MVP, lens segmentation mirrors profile segmentation
 		# (lens stick type mirrors profile; continuous can be deferred)
@@ -605,6 +605,8 @@ def _compute_manufacturable_outputs(
 	total_ft = L_tape_cut / MM_PER_FOOT
 
 	# Compute watts-based max run length: max_run_ft_by_watts = MAX_WATTS_PER_RUN / watts_per_ft
+	# Note: If watts_per_ft is 0 or negative (invalid), we use infinity which results in
+	# a single run for the entire tape. Validation should catch invalid tape specs upstream.
 	if watts_per_ft > 0:
 		max_run_ft_by_watts = MAX_WATTS_PER_RUN / watts_per_ft
 	else:
@@ -639,10 +641,10 @@ def _compute_manufacturable_outputs(
 			# Full run
 			run_len_mm = min(max_run_mm, remaining_tape_mm)
 		else:
-			# Last run (remainder)
-			run_len_mm = remaining_tape_mm
+			# Last run (remainder) - ensure it's at least 0
+			run_len_mm = max(0, remaining_tape_mm)
 
-		remaining_tape_mm -= run_len_mm
+		remaining_tape_mm = max(0, remaining_tape_mm - run_len_mm)
 
 		# Calculate watts for this run
 		run_ft = run_len_mm / MM_PER_FOOT
