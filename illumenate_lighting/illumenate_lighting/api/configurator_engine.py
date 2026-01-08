@@ -977,9 +977,16 @@ def _select_driver_plan(
 	tape_voltage = None
 	dimming_protocol = None
 	if tape_offering_doc:
-		tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
-		tape_voltage = tape_spec_doc.input_voltage  # This is the output voltage the driver needs to provide
-		dimming_protocol = tape_spec_doc.dimming_protocol
+		if not frappe.db.exists("ilL-Spec-LED Tape", tape_offering_doc.tape_spec):
+			messages.append({
+				"severity": "warning",
+				"text": f"Tape spec '{tape_offering_doc.tape_spec}' not found for driver selection",
+				"field": None,
+			})
+		else:
+			tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
+			tape_voltage = tape_spec_doc.input_voltage  # This is the output voltage the driver needs to provide
+			dimming_protocol = tape_spec_doc.dimming_protocol
 
 	# Query eligible drivers from ilL-Rel-Driver-Eligibility for this template
 	eligibility_rows = frappe.get_all(
@@ -1009,7 +1016,10 @@ def _select_driver_plan(
 		if not frappe.db.exists("ilL-Spec-Driver", driver_spec_name):
 			continue
 
-		driver_spec = frappe.get_doc("ilL-Spec-Driver", driver_spec_name)
+		try:
+			driver_spec = frappe.get_doc("ilL-Spec-Driver", driver_spec_name)
+		except Exception:
+			continue  # Skip if driver spec cannot be loaded
 
 		# Filter by voltage: driver's voltage_output must match tape's input_voltage
 		if tape_voltage and driver_spec.voltage_output and driver_spec.voltage_output != tape_voltage:
@@ -1078,7 +1088,9 @@ def _select_driver_plan(
 		outputs_per_driver = candidate["outputs_count"]
 		w_usable_per_driver = candidate["w_usable"]
 
-		if outputs_per_driver <= 0 or w_usable_per_driver <= 0:
+		# Use a minimum threshold to prevent division issues with extremely small values
+		MIN_THRESHOLD = 0.001
+		if outputs_per_driver < MIN_THRESHOLD or w_usable_per_driver < MIN_THRESHOLD:
 			continue  # Skip invalid drivers
 
 		# Calculate quantity needed for outputs constraint
