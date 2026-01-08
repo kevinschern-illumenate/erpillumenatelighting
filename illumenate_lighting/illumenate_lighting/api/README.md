@@ -77,19 +77,46 @@ Each message in the `messages` array has:
 
 ### Computed Object
 
+The computed object contains all calculated values from the Epic 3 computation layer.
+
+#### Task 3.1: Length Math (Locked Rules)
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `endcap_allowance_mm_per_side` | float | Endcap allowance per side in millimeters |
-| `leader_allowance_mm_per_fixture` | float | Leader cable allowance per fixture in millimeters |
-| `internal_length_mm` | integer | Internal length (excluding endcaps) in millimeters |
-| `tape_cut_length_mm` | integer | LED tape cut length in millimeters |
-| `manufacturable_overall_length_mm` | integer | Actual manufacturable overall length in millimeters |
-| `difference_mm` | integer | Difference between requested and manufacturable length |
+| `endcap_allowance_mm_per_side` | float | E = endcap_style.mm_per_side from Endcap Style attribute |
+| `leader_allowance_mm_per_fixture` | float | A_leader = 15mm default or from template |
+| `internal_length_mm` | integer | L_internal = L_req - 2E - A_leader |
+| `tape_cut_length_mm` | integer | L_tape_cut = floor(L_internal / cut_increment) * cut_increment |
+| `manufacturable_overall_length_mm` | integer | L_mfg = L_tape_cut + 2E + A_leader |
+| `difference_mm` | integer | Difference = L_req - L_mfg |
+| `requested_overall_length_mm` | integer | Original requested length |
+
+#### Task 3.2: Segmentation Plan (Profile + Lens)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `profile_stock_len_mm` | integer | Profile stock length from spec or template default |
+| `segments_count` | integer | ceil(L_mfg / profile_stock_len_mm) |
 | `segments` | array | Array of segment objects (cut plan) |
-| `runs` | array | Array of run objects (run plan) |
-| `runs_count` | integer | Total number of runs |
+
+#### Task 3.3: Run Splitting (Voltage-Drop + 85W Limit)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `runs_count` | integer | ceil(total_ft / max_run_ft_effective) |
+| `leader_qty` | integer | Leader cable quantity (= runs_count) |
 | `total_watts` | float | Total wattage of the fixture |
-| `assembly_mode` | string | "ASSEMBLED" or "SHIP_PIECES" |
+| `max_run_ft_by_watts` | float | 85W / watts_per_ft |
+| `max_run_ft_by_voltage_drop` | float | From tape spec (null if not provided) |
+| `max_run_ft_effective` | float | min(max_run_ft_by_watts, max_run_ft_by_voltage_drop) |
+| `runs` | array | Array of run objects (run plan) |
+
+#### Task 3.4: Assembly Mode Rule
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `assembly_mode` | string | "ASSEMBLED" if L_mfg <= assembled_max_len_mm, else "SHIP_PIECES" |
+| `assembled_max_len_mm` | integer | Maximum length for assembled shipping |
 
 #### Segment Object
 

@@ -37,12 +37,17 @@ Response Schema:
             }
         ],
         "computed": {                             # Computed/calculated values
+            # Task 3.1: Length Math
             "endcap_allowance_mm_per_side": float,
             "leader_allowance_mm_per_fixture": float,
             "internal_length_mm": int,
             "tape_cut_length_mm": int,
             "manufacturable_overall_length_mm": int,
             "difference_mm": int,                 # requested - manufacturable
+            "requested_overall_length_mm": int,   # Original request
+            # Task 3.2: Segmentation Plan
+            "segments_count": int,
+            "profile_stock_len_mm": int,
             "segments": [                         # Cut plan
                 {
                     "segment_index": int,
@@ -51,6 +56,13 @@ Response Schema:
                     "notes": str
                 }
             ],
+            # Task 3.3: Run Splitting
+            "runs_count": int,
+            "leader_qty": int,
+            "total_watts": float,
+            "max_run_ft_by_watts": float,         # 85W / watts_per_ft
+            "max_run_ft_by_voltage_drop": float,  # From tape spec (optional)
+            "max_run_ft_effective": float,        # min of above two
             "runs": [                             # Run plan
                 {
                     "run_index": int,
@@ -60,9 +72,9 @@ Response Schema:
                     "leader_len_mm": int
                 }
             ],
-            "runs_count": int,
-            "total_watts": float,
-            "assembly_mode": str                  # "ASSEMBLED" or "SHIP_PIECES"
+            # Task 3.4: Assembly Mode
+            "assembly_mode": str,                 # "ASSEMBLED" or "SHIP_PIECES"
+            "assembled_max_len_mm": int
         },
         "resolved_items": {                       # Resolved item codes/IDs
             "profile_item": str,
@@ -89,6 +101,7 @@ Response Schema:
 
 import hashlib
 import json
+import math
 from typing import Any
 
 import frappe
@@ -162,17 +175,29 @@ def validate_and_quote(
 		"is_valid": True,
 		"messages": [],
 		"computed": {
+			# Task 3.1: Length Math
 			"endcap_allowance_mm_per_side": 0.0,
 			"leader_allowance_mm_per_fixture": 0.0,
 			"internal_length_mm": 0,
 			"tape_cut_length_mm": 0,
 			"manufacturable_overall_length_mm": 0,
 			"difference_mm": 0,
+			"requested_overall_length_mm": 0,
+			# Task 3.2: Segmentation Plan
+			"segments_count": 0,
+			"profile_stock_len_mm": 0,
 			"segments": [],
-			"runs": [],
+			# Task 3.3: Run Splitting
 			"runs_count": 0,
+			"leader_qty": 0,
 			"total_watts": 0.0,
+			"max_run_ft_by_watts": None,
+			"max_run_ft_by_voltage_drop": None,
+			"max_run_ft_effective": None,
+			"runs": [],
+			# Task 3.4: Assembly Mode
 			"assembly_mode": "ASSEMBLED",
+			"assembled_max_len_mm": 0,
 		},
 		"resolved_items": {
 			"profile_item": None,
@@ -213,6 +238,10 @@ def validate_and_quote(
 		requested_overall_length_mm,
 		endcap_style_code,
 		power_feed_type_code,
+		lens_appearance_code,
+		finish_code,
+		template_doc=validation_result.get("template_doc"),
+		tape_offering_doc=validation_result.get("tape_offering_doc"),
 	)
 
 	response["computed"].update(computed_result)
@@ -436,69 +465,234 @@ def _compute_manufacturable_outputs(
 	requested_overall_length_mm: int,
 	endcap_style_code: str,
 	power_feed_type_code: str,
+	lens_appearance_code: str,
+	finish_code: str,
+	template_doc=None,
+	tape_offering_doc=None,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable dimensions, segments, and runs.
 
+	Implements Epic 3 computation layer:
+	- Task 3.1: Length math (locked rules)
+	- Task 3.2: Segmentation plan (profile + lens)
+	- Task 3.3: Run splitting (min of voltage-drop max length and 85W limit)
+	- Task 3.4: Assembly mode rule
+
 	Returns:
 		dict: Computed values including dimensions, segments, runs, watts, etc.
 	"""
-	# Placeholder computations - these should be replaced with actual business logic
-	# based on the fixture template, tape specs, and other factors
+	# Constants
+	MAX_WATTS_PER_RUN = 85.0
+	MM_PER_FOOT = 304.8
 
-	# Example: endcap allowance (would come from endcap spec)
-	endcap_allowance_mm_per_side = 15.0  # Placeholder
+	# Get template doc if not passed
+	if template_doc is None:
+		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Example: leader allowance (would come from power feed type)
-	leader_allowance_mm_per_fixture = 150.0  # Placeholder
+	# -------------------------------------------------------------------
+	# Task 3.1: Length Math (Locked Rules)
+	# -------------------------------------------------------------------
 
-	# Calculate internal length
-	internal_length_mm = int(requested_overall_length_mm - (2 * endcap_allowance_mm_per_side))
+	# E = endcap_style.mm_per_side (from Endcap Style attribute)
+	endcap_allowance_mm_per_side = 0.0
+	if endcap_style_code and frappe.db.exists("ilL-Attribute-Endcap Style", endcap_style_code):
+		endcap_doc = frappe.get_doc("ilL-Attribute-Endcap Style", endcap_style_code)
+		endcap_allowance_mm_per_side = float(endcap_doc.allowance_mm_per_side or 0)
 
-	# Calculate tape cut length (would factor in leader allowance)
-	tape_cut_length_mm = int(internal_length_mm - leader_allowance_mm_per_fixture)
+	# A_leader = 15mm (from template or rule default; per fixture)
+	leader_allowance_mm_per_fixture = float(template_doc.leader_allowance_mm_per_fixture or 15)
 
-	# For v1, assume single segment and single run
-	segments = [
-		{
-			"segment_index": 1,
-			"profile_cut_len_mm": internal_length_mm,
-			"lens_cut_len_mm": internal_length_mm,
-			"notes": "Single segment configuration",
-		}
-	]
+	# Get cut_increment_mm from tape spec or offering override
+	cut_increment_mm = 50.0  # Default cut increment
+	tape_spec_doc = None
+	watts_per_ft = 5.0  # Default watts per foot
+	max_run_length_ft_voltage_drop = None
 
-	runs = [
-		{
-			"run_index": 1,
-			"run_len_mm": tape_cut_length_mm,
-			"run_watts": tape_cut_length_mm * 0.01,  # Placeholder: 10W per meter
+	if tape_offering_doc:
+		tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
+		# Use offering override if set, otherwise use tape spec value
+		cut_increment_mm = float(
+			tape_offering_doc.cut_increment_mm_override
+			or tape_spec_doc.cut_increment_mm
+			or 50.0
+		)
+		watts_per_ft = float(
+			tape_offering_doc.watts_per_ft_override
+			or tape_spec_doc.watts_per_foot
+			or 5.0
+		)
+		max_run_length_ft_voltage_drop = tape_spec_doc.voltage_drop_max_run_length_ft
+
+	# L_internal = L_req - 2E - A_leader
+	L_req = float(requested_overall_length_mm)
+	E = endcap_allowance_mm_per_side
+	A_leader = leader_allowance_mm_per_fixture
+	L_internal = L_req - (2 * E) - A_leader
+
+	# L_tape_cut = floor(L_internal / cut_increment) * cut_increment
+	if cut_increment_mm > 0 and L_internal > 0:
+		L_tape_cut = math.floor(L_internal / cut_increment_mm) * cut_increment_mm
+	else:
+		L_tape_cut = max(0, L_internal)
+
+	# L_mfg = L_tape_cut + 2E + A_leader
+	L_mfg = L_tape_cut + (2 * E) + A_leader
+
+	# difference = L_req - L_mfg
+	difference_mm = int(L_req - L_mfg)
+
+	# -------------------------------------------------------------------
+	# Task 3.2: Segmentation Plan (Profile + Lens)
+	# -------------------------------------------------------------------
+
+	# profile_stock_len_mm (from Profile Spec or template default)
+	profile_stock_len_mm = float(template_doc.default_profile_stock_len_mm or 2000)
+
+	# Try to get from profile spec if available
+	profile_family = template_doc.default_profile_family or fixture_template_code
+	profile_rows = frappe.get_all(
+		"ilL-Spec-Profile",
+		filters={"family": profile_family, "variant_code": finish_code, "is_active": 1},
+		fields=["stock_length_mm"],
+		limit=1,
+	)
+	if profile_rows and profile_rows[0].stock_length_mm:
+		profile_stock_len_mm = float(profile_rows[0].stock_length_mm)
+
+	# segments_count = ceil(L_mfg / stock_len)
+	if profile_stock_len_mm > 0 and L_mfg > 0:
+		segments_count = math.ceil(L_mfg / profile_stock_len_mm)
+	else:
+		segments_count = 1
+
+	# Create segments[] cut plan (N-1 full stock, last remainder)
+	segments = []
+	remaining_length = L_mfg
+	for i in range(segments_count):
+		segment_index = i + 1
+		if segment_index < segments_count:
+			# Full stock segment
+			profile_cut_len = profile_stock_len_mm
+		else:
+			# Last segment (remainder)
+			profile_cut_len = remaining_length
+
+		remaining_length -= profile_cut_len
+
+		# For MVP, lens segmentation mirrors profile segmentation
+		# (lens stick type mirrors profile; continuous can be deferred)
+		lens_cut_len = profile_cut_len
+
+		notes = ""
+		if segment_index < segments_count:
+			notes = f"Full stock segment ({int(profile_stock_len_mm)}mm)"
+		else:
+			notes = f"Remainder segment ({int(profile_cut_len)}mm)"
+
+		segments.append({
+			"segment_index": segment_index,
+			"profile_cut_len_mm": int(profile_cut_len),
+			"lens_cut_len_mm": int(lens_cut_len),
+			"notes": notes,
+		})
+
+	# -------------------------------------------------------------------
+	# Task 3.3: Run Splitting (min of voltage-drop max length and 85W limit)
+	# -------------------------------------------------------------------
+
+	# Convert tape length to feet: total_ft = mm_to_ft(L_tape_cut_mm)
+	total_ft = L_tape_cut / MM_PER_FOOT
+
+	# Compute watts-based max run length: max_run_ft_by_watts = MAX_WATTS_PER_RUN / watts_per_ft
+	if watts_per_ft > 0:
+		max_run_ft_by_watts = MAX_WATTS_PER_RUN / watts_per_ft
+	else:
+		max_run_ft_by_watts = float("inf")
+
+	# Compute effective max run length
+	max_run_ft_by_voltage_drop = None
+	if max_run_length_ft_voltage_drop and max_run_length_ft_voltage_drop > 0:
+		max_run_ft_by_voltage_drop = float(max_run_length_ft_voltage_drop)
+		max_run_ft_effective = min(max_run_ft_by_watts, max_run_ft_by_voltage_drop)
+	else:
+		max_run_ft_effective = max_run_ft_by_watts
+
+	# Compute run count: runs_count = ceil(total_ft / max_run_ft_effective)
+	if max_run_ft_effective > 0 and total_ft > 0:
+		runs_count = math.ceil(total_ft / max_run_ft_effective)
+	else:
+		runs_count = 1
+
+	# Produce runs[] using "full runs then remainder" strategy
+	runs = []
+	remaining_tape_mm = L_tape_cut
+	max_run_mm = max_run_ft_effective * MM_PER_FOOT
+
+	for i in range(runs_count):
+		run_index = i + 1
+		if run_index < runs_count:
+			# Full run
+			run_len_mm = min(max_run_mm, remaining_tape_mm)
+		else:
+			# Last run (remainder)
+			run_len_mm = remaining_tape_mm
+
+		remaining_tape_mm -= run_len_mm
+
+		# Calculate watts for this run
+		run_ft = run_len_mm / MM_PER_FOOT
+		run_watts = run_ft * watts_per_ft
+
+		runs.append({
+			"run_index": run_index,
+			"run_len_mm": int(run_len_mm),
+			"run_watts": round(run_watts, 2),
 			"leader_item": None,  # Will be resolved in _resolve_items
 			"leader_len_mm": int(leader_allowance_mm_per_fixture),
-		}
-	]
+		})
 
-	runs_count = len(runs)
+	# Leader cable rule (locked): leader_qty = runs_count
+	leader_qty = runs_count
+
+	# Total watts
 	total_watts = sum(run["run_watts"] for run in runs)
 
-	# Manufacturable length is what we can actually make
-	manufacturable_overall_length_mm = requested_overall_length_mm
+	# -------------------------------------------------------------------
+	# Task 3.4: Assembly Mode Rule
+	# -------------------------------------------------------------------
 
-	# Difference between requested and manufacturable
-	difference_mm = requested_overall_length_mm - manufacturable_overall_length_mm
+	# assembled if L_mfg <= assembled_max_len_mm, else ship in pieces
+	assembled_max_len_mm = float(template_doc.assembled_max_len_mm or 2590)  # ~8.5ft default
+	if L_mfg <= assembled_max_len_mm:
+		assembly_mode = "ASSEMBLED"
+	else:
+		assembly_mode = "SHIP_PIECES"
 
 	return {
+		# Task 3.1 outputs
 		"endcap_allowance_mm_per_side": endcap_allowance_mm_per_side,
 		"leader_allowance_mm_per_fixture": leader_allowance_mm_per_fixture,
-		"internal_length_mm": internal_length_mm,
-		"tape_cut_length_mm": tape_cut_length_mm,
-		"manufacturable_overall_length_mm": manufacturable_overall_length_mm,
+		"internal_length_mm": int(L_internal),
+		"tape_cut_length_mm": int(L_tape_cut),
+		"manufacturable_overall_length_mm": int(L_mfg),
 		"difference_mm": difference_mm,
+		"requested_overall_length_mm": int(L_req),
+		# Task 3.2 outputs
 		"segments": segments,
+		"segments_count": segments_count,
+		"profile_stock_len_mm": int(profile_stock_len_mm),
+		# Task 3.3 outputs
 		"runs": runs,
 		"runs_count": runs_count,
-		"total_watts": total_watts,
-		"assembly_mode": "ASSEMBLED",
+		"leader_qty": leader_qty,
+		"total_watts": round(total_watts, 2),
+		"max_run_ft_by_watts": round(max_run_ft_by_watts, 2) if max_run_ft_by_watts != float("inf") else None,
+		"max_run_ft_by_voltage_drop": round(max_run_ft_by_voltage_drop, 2) if max_run_ft_by_voltage_drop else None,
+		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
+		# Task 3.4 outputs
+		"assembly_mode": assembly_mode,
+		"assembled_max_len_mm": int(assembled_max_len_mm),
 	}
 
 
