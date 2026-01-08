@@ -531,10 +531,11 @@ def _compute_manufacturable_outputs(
 	L_internal = L_req - (2 * E) - A_leader
 
 	# L_tape_cut = floor(L_internal / cut_increment) * cut_increment
+	# Handle edge cases: if cut_increment invalid or L_internal <= 0, L_tape_cut = 0
 	if cut_increment_mm > 0 and L_internal > 0:
 		L_tape_cut = math.floor(L_internal / cut_increment_mm) * cut_increment_mm
 	else:
-		L_tape_cut = max(0, L_internal)
+		L_tape_cut = 0 if L_internal <= 0 or cut_increment_mm <= 0 else max(0, L_internal)
 
 	# L_mfg = L_tape_cut + 2E + A_leader
 	L_mfg = L_tape_cut + (2 * E) + A_leader
@@ -561,8 +562,11 @@ def _compute_manufacturable_outputs(
 		profile_stock_len_mm = float(profile_rows[0].stock_length_mm)
 
 	# segments_count = ceil(L_mfg / stock_len)
+	# Handle edge case: if L_mfg is 0 or negative, no segments are needed
 	if profile_stock_len_mm > 0 and L_mfg > 0:
 		segments_count = math.ceil(L_mfg / profile_stock_len_mm)
+	elif L_mfg <= 0:
+		segments_count = 0
 	else:
 		segments_count = 1
 
@@ -621,17 +625,20 @@ def _compute_manufacturable_outputs(
 		max_run_ft_effective = max_run_ft_by_watts
 
 	# Compute run count: runs_count = ceil(total_ft / max_run_ft_effective)
-	if max_run_ft_effective > 0 and max_run_ft_effective != float("inf") and total_ft > 0:
+	# Handle edge case: if L_tape_cut is 0 or negative, no runs are needed
+	if L_tape_cut <= 0:
+		runs_count = 0
+	elif max_run_ft_effective > 0 and max_run_ft_effective != float("inf") and total_ft > 0:
 		runs_count = math.ceil(total_ft / max_run_ft_effective)
 	else:
 		runs_count = 1
 
 	# Produce runs[] using "full runs then remainder" strategy
 	runs = []
-	remaining_tape_mm = L_tape_cut
+	remaining_tape_mm = max(0, L_tape_cut)
 	# Guard against infinite max_run_mm
 	if max_run_ft_effective == float("inf") or max_run_ft_effective <= 0:
-		max_run_mm = L_tape_cut  # Single run for entire tape
+		max_run_mm = max(0, L_tape_cut)  # Single run for entire tape
 	else:
 		max_run_mm = max_run_ft_effective * MM_PER_FOOT
 
