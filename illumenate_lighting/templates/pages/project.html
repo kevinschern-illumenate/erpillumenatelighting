@@ -186,6 +186,15 @@ $('#createProjectForm').on('submit', function(e) {
 	e.preventDefault();
 
 	var form = $(this);
+	var submitBtn = form.find('button[type="submit"]');
+
+	// Prevent double submission
+	if (submitBtn.prop('disabled')) {
+		return;
+	}
+
+	submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+
 	var data = {
 		project_name: form.find('[name="project_name"]').val(),
 		customer: form.find('[name="customer"]').val(),
@@ -213,7 +222,11 @@ $('#createProjectForm').on('submit', function(e) {
 					indicator: 'red',
 					message: r.message.error || 'Error creating project'
 				});
+				submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Project');
 			}
+		},
+		error: function() {
+			submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Project');
 		}
 	});
 });
