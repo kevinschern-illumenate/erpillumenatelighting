@@ -16,6 +16,16 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 			customer.customer_type = "Company"
 			customer.insert(ignore_permissions=True)
 
+		# Create test ilL-Project
+		self.project_name = "_Test ilL Project for Schedule"
+		if frappe.db.exists("ilL-Project", {"project_name": self.project_name}):
+			self.project = frappe.get_doc("ilL-Project", {"project_name": self.project_name})
+		else:
+			self.project = frappe.new_doc("ilL-Project")
+			self.project.project_name = self.project_name
+			self.project.customer = self.customer_name
+			self.project.insert(ignore_permissions=True)
+
 		# Create test item for configured fixture
 		self.item_code = "_Test Configured Fixture Item"
 		if not frappe.db.exists("Item", self.item_code):
@@ -83,6 +93,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		# Create a schedule with ILLUMENATE lines
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule Basic"
+		schedule.ill_project = self.project.name
 		schedule.customer = self.customer_name
 		schedule.status = "READY"
 		schedule.append("lines", {
@@ -135,6 +146,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		# Create a schedule with mixed lines
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule Mixed"
+		schedule.ill_project = self.project.name
 		schedule.customer = self.customer_name
 		schedule.status = "READY"
 
@@ -165,28 +177,11 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(len(so.items), 1)
 		self.assertEqual(so.items[0].ill_configured_fixture, self.config_hash)
 
-	def test_create_sales_order_no_customer_throws(self):
-		"""Test that missing customer throws an error"""
-		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
-		schedule.schedule_name = "_Test Schedule No Customer"
-		schedule.customer = None
-		schedule.status = "READY"
-		schedule.append("lines", {
-			"line_id": "L1",
-			"qty": 1,
-			"manufacturer_type": "ILLUMENATE",
-			"configured_fixture": self.config_hash,
-		})
-		schedule.insert(ignore_permissions=True)
-
-		# Attempt to create Sales Order - should throw
-		with self.assertRaises(frappe.exceptions.ValidationError):
-			schedule.create_sales_order()
-
 	def test_create_sales_order_no_illumenate_lines_throws(self):
 		"""Test that schedule with no ILLUMENATE lines throws an error"""
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule No ILL Lines"
+		schedule.ill_project = self.project.name
 		schedule.customer = self.customer_name
 		schedule.status = "READY"
 		schedule.append("lines", {
@@ -222,6 +217,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		# Create schedule with multiple ILLUMENATE lines
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule Multi"
+		schedule.ill_project = self.project.name
 		schedule.customer = self.customer_name
 		schedule.status = "READY"
 
@@ -263,6 +259,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		"""Test that SO item description includes location and notes"""
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule Description"
+		schedule.ill_project = self.project.name
 		schedule.customer = self.customer_name
 		schedule.status = "READY"
 		schedule.append("lines", {
@@ -284,3 +281,57 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertIn("Reception Desk", description)
 		self.assertIn("Under cabinet mount", description)
 		self.assertIn(self.template_code, description)
+
+	def test_schedule_inherits_customer_from_project(self):
+		"""Test that schedule auto-syncs customer from linked project"""
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Inherit Customer"
+		schedule.ill_project = self.project.name
+		# Intentionally leave customer blank
+		schedule.customer = None
+		schedule.insert(ignore_permissions=True)
+
+		# Customer should be synced from project
+		self.assertEqual(schedule.customer, self.customer_name)
+
+	def test_duplicate_line(self):
+		"""Test duplicate_line method"""
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Duplicate Line"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "DRAFT"
+		schedule.append("lines", {
+			"line_id": "L1",
+			"qty": 3,
+			"location": "Main Hall",
+			"manufacturer_type": "ILLUMENATE",
+			"configured_fixture": self.config_hash,
+		})
+		schedule.insert(ignore_permissions=True)
+
+		# Duplicate the line
+		new_idx = schedule.duplicate_line(0)
+
+		# Reload and verify
+		schedule.reload()
+		self.assertEqual(len(schedule.lines), 2)
+		self.assertEqual(schedule.lines[1].qty, 3)
+		self.assertEqual(schedule.lines[1].location, "Main Hall")
+		self.assertIn("(copy)", schedule.lines[1].line_id)
+
+	def test_request_quote(self):
+		"""Test request_quote method"""
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Request Quote"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "READY"
+		schedule.insert(ignore_permissions=True)
+
+		# Request quote
+		schedule.request_quote()
+
+		# Verify status changed
+		schedule.reload()
+		self.assertEqual(schedule.status, "QUOTED")

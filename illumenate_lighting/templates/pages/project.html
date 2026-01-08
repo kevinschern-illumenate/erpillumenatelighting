@@ -1,0 +1,142 @@
+{#
+Portal Project Detail Page
+Displays a single project with its schedules and actions
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ project.project_name }}{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			<li class="breadcrumb-item active" aria-current="page">{{ project.project_name }}</li>
+		</ol>
+	</nav>
+
+	<!-- Project Header -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-body">
+					<div class="d-flex justify-content-between align-items-start">
+						<div>
+							<h1 class="mb-2">{{ project.project_name }}</h1>
+							<p class="text-muted mb-2">
+								<strong>{{ _("Customer") }}:</strong> {{ project.customer }}
+								{% if project.is_private %}
+								<span class="badge badge-secondary ml-2">
+									<i class="fa fa-lock"></i> {{ _("Private") }}
+								</span>
+								{% endif %}
+							</p>
+							<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else 'secondary' }}">
+								{{ project.status }}
+							</span>
+						</div>
+						{% if can_edit %}
+						<div class="btn-group">
+							<a href="/portal/projects/{{ project.name }}/collaborators" class="btn btn-outline-secondary">
+								<i class="fa fa-users"></i> {{ _("Collaborators") }}
+							</a>
+						</div>
+						{% endif %}
+					</div>
+					{% if project.description %}
+					<hr>
+					<div class="project-description">
+						{{ project.description | safe }}
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Tabs -->
+	<ul class="nav nav-tabs mb-4" role="tablist">
+		<li class="nav-item">
+			<a class="nav-link active" id="schedules-tab" data-toggle="tab" href="#schedules" role="tab">
+				<i class="fa fa-list"></i> {{ _("Fixture Schedules") }}
+			</a>
+		</li>
+		<li class="nav-item">
+			<a class="nav-link" id="files-tab" data-toggle="tab" href="#files" role="tab">
+				<i class="fa fa-file"></i> {{ _("Files") }}
+			</a>
+		</li>
+	</ul>
+
+	<div class="tab-content">
+		<!-- Schedules Tab -->
+		<div class="tab-pane fade show active" id="schedules" role="tabpanel">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h4>{{ _("Fixture Schedules") }}</h4>
+				{% if can_edit %}
+				<a href="/portal/projects/{{ project.name }}/schedules/new" class="btn btn-primary">
+					<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+				</a>
+				{% endif %}
+			</div>
+
+			{% if schedules %}
+			<div class="list-group">
+				{% for schedule in schedules %}
+				<a href="/portal/schedules/{{ schedule.name }}" class="list-group-item list-group-item-action">
+					<div class="d-flex w-100 justify-content-between align-items-center">
+						<div>
+							<h5 class="mb-1">{{ schedule.schedule_name }}</h5>
+							<small class="text-muted">
+								{{ schedule.lines_count or 0 }} {{ _("line(s)") }}
+							</small>
+						</div>
+						<div class="text-right">
+							<span class="badge badge-{{ schedule_status_class(schedule.status) }}">
+								{{ schedule.status }}
+							</span>
+						</div>
+					</div>
+				</a>
+				{% endfor %}
+			</div>
+			{% else %}
+			<div class="text-center py-5">
+				<i class="fa fa-clipboard fa-3x text-muted mb-3"></i>
+				<p class="text-muted">{{ _("No schedules found. Create a schedule to start configuring fixtures.") }}</p>
+				{% if can_edit %}
+				<a href="/portal/projects/{{ project.name }}/schedules/new" class="btn btn-primary">
+					<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+				</a>
+				{% endif %}
+			</div>
+			{% endif %}
+		</div>
+
+		<!-- Files Tab -->
+		<div class="tab-pane fade" id="files" role="tabpanel">
+			<div class="text-center py-5">
+				<i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
+				<p class="text-muted">{{ _("File management coming soon.") }}</p>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+// Helper function for schedule status badge class
+function schedule_status_class(status) {
+	var classMap = {
+		'DRAFT': 'warning',
+		'READY': 'info',
+		'QUOTED': 'primary',
+		'ORDERED': 'success',
+		'CLOSED': 'secondary'
+	};
+	return classMap[status] || 'secondary';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,361 @@
+{#
+Portal Schedule Detail Page
+Displays a fixture schedule with its lines and configurator actions
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ schedule.schedule_name }}{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
+			<li class="breadcrumb-item active" aria-current="page">{{ schedule.schedule_name }}</li>
+		</ol>
+	</nav>
+
+	<!-- Schedule Header -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-body">
+					<div class="d-flex justify-content-between align-items-start">
+						<div>
+							<h1 class="mb-2">{{ schedule.schedule_name }}</h1>
+							<p class="text-muted mb-2">
+								<strong>{{ _("Project") }}:</strong> {{ project.project_name }}
+							</p>
+							<span class="badge badge-{{ schedule_status_class(schedule.status) }}">
+								{{ schedule.status }}
+							</span>
+						</div>
+						<div class="btn-group">
+							{% if can_edit and schedule.status in ['DRAFT', 'READY'] %}
+							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
+								<i class="fa fa-plus"></i> {{ _("Add Line") }}
+							</button>
+							{% endif %}
+							{% if can_edit and schedule.status == 'READY' %}
+							<button class="btn btn-success" onclick="requestQuote()">
+								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
+							</button>
+							{% endif %}
+							{% if can_edit and schedule.status == 'QUOTED' %}
+							<button class="btn btn-success" onclick="createSalesOrder()">
+								<i class="fa fa-shopping-cart"></i> {{ _("Create Order") }}
+							</button>
+							{% endif %}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Summary Panel -->
+	<div class="row mb-4">
+		<div class="col-md-3 col-sm-6">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="mb-0">{{ lines | length }}</h3>
+					<small class="text-muted">{{ _("Total Lines") }}</small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3 col-sm-6">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="mb-0">{{ total_qty }}</h3>
+					<small class="text-muted">{{ _("Total Qty") }}</small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3 col-sm-6">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="mb-0">{{ illumenate_count }}</h3>
+					<small class="text-muted">{{ _("ilLumenate Fixtures") }}</small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3 col-sm-6">
+			<div class="card text-center">
+				<div class="card-body">
+					<h3 class="mb-0">{{ other_count }}</h3>
+					<small class="text-muted">{{ _("Other Fixtures") }}</small>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Fixture Lines Table -->
+	<div class="row">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Fixture Lines") }}</h5>
+				</div>
+				<div class="card-body p-0">
+					{% if lines %}
+					<div class="table-responsive">
+						<table class="table table-hover mb-0">
+							<thead class="thead-light">
+								<tr>
+									<th>{{ _("Line ID") }}</th>
+									<th>{{ _("Type") }}</th>
+									<th class="text-center">{{ _("Qty") }}</th>
+									<th>{{ _("Location") }}</th>
+									<th>{{ _("Details") }}</th>
+									{% if can_edit %}
+									<th class="text-center">{{ _("Actions") }}</th>
+									{% endif %}
+								</tr>
+							</thead>
+							<tbody>
+								{% for line in lines %}
+								<tr>
+									<td>{{ line.line_id or line.idx }}</td>
+									<td>
+										<span class="badge badge-{{ 'primary' if line.manufacturer_type == 'ILLUMENATE' else 'secondary' }}">
+											{{ line.manufacturer_type }}
+										</span>
+									</td>
+									<td class="text-center">{{ line.qty }}</td>
+									<td>{{ line.location or '-' }}</td>
+									<td>
+										{% if line.manufacturer_type == 'ILLUMENATE' and line.configured_fixture %}
+										<a href="/portal/configure/{{ line.configured_fixture }}" class="text-primary">
+											{{ line.ill_item_code or 'Configured' }}
+										</a>
+										<br>
+										<small class="text-muted">
+											{{ line.manufacturable_length_mm }}mm
+										</small>
+										{% elif line.manufacturer_type == 'OTHER' %}
+										{{ line.manufacturer_name or '' }} {{ line.model_number or '' }}
+										{% else %}
+										<span class="text-muted">{{ _("Not configured") }}</span>
+										{% endif %}
+									</td>
+									{% if can_edit %}
+									<td class="text-center">
+										{% if line.manufacturer_type == 'ILLUMENATE' %}
+										<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-outline-primary" title="{{ _('Configure') }}">
+											<i class="fa fa-cog"></i>
+										</a>
+										{% endif %}
+										<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
+											<i class="fa fa-copy"></i>
+										</button>
+										<button class="btn btn-sm btn-outline-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
+											<i class="fa fa-trash"></i>
+										</button>
+									</td>
+									{% endif %}
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<div class="text-center py-5">
+						<i class="fa fa-list fa-3x text-muted mb-3"></i>
+						<p class="text-muted">{{ _("No fixture lines yet. Add a line to get started.") }}</p>
+						{% if can_edit %}
+						<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
+							<i class="fa fa-plus"></i> {{ _("Add Line") }}
+						</button>
+						{% endif %}
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Notes Section -->
+	{% if schedule.notes %}
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Notes") }}</h5>
+				</div>
+				<div class="card-body">
+					{{ schedule.notes }}
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+</div>
+
+<!-- Add Line Modal -->
+<div class="modal fade" id="addLineModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Add Fixture Line") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="addLineForm">
+					<div class="form-group">
+						<label>{{ _("Line ID") }}</label>
+						<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Quantity") }}</label>
+						<input type="number" class="form-control" name="qty" value="1" min="1">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Location") }}</label>
+						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Manufacturer Type") }}</label>
+						<select class="form-control" name="manufacturer_type">
+							<option value="ILLUMENATE">ilLumenate</option>
+							<option value="OTHER">Other Manufacturer</option>
+						</select>
+					</div>
+					<div class="form-group other-fields" style="display: none;">
+						<label>{{ _("Manufacturer Name") }}</label>
+						<input type="text" class="form-control" name="manufacturer_name">
+					</div>
+					<div class="form-group other-fields" style="display: none;">
+						<label>{{ _("Model Number") }}</label>
+						<input type="text" class="form-control" name="model_number">
+					</div>
+					<div class="form-group">
+						<label>{{ _("Notes") }}</label>
+						<textarea class="form-control" name="notes" rows="2"></textarea>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" onclick="addLine()">
+					<i class="fa fa-plus"></i> {{ _("Add Line") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+var schedule_name = "{{ schedule.name }}";
+
+// Toggle other manufacturer fields
+$('select[name="manufacturer_type"]').on('change', function() {
+	if ($(this).val() === 'OTHER') {
+		$('.other-fields').show();
+	} else {
+		$('.other-fields').hide();
+	}
+});
+
+function addLine() {
+	var form = $('#addLineForm');
+	var data = {
+		line_id: form.find('[name="line_id"]').val(),
+		qty: form.find('[name="qty"]').val(),
+		location: form.find('[name="location"]').val(),
+		manufacturer_type: form.find('[name="manufacturer_type"]').val(),
+		manufacturer_name: form.find('[name="manufacturer_name"]').val(),
+		model_number: form.find('[name="model_number"]').val(),
+		notes: form.find('[name="notes"]').val()
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#addLineModal').modal('hide');
+				location.reload();
+			} else {
+				frappe.msgprint(r.message.error || 'Error adding line');
+			}
+		}
+	});
+}
+
+function duplicateLine(line_idx) {
+	frappe.call({
+		method: 'frappe.client.run_doc_method',
+		args: {
+			dt: 'ilL-Project-Fixture-Schedule',
+			dn: schedule_name,
+			method: 'duplicate_line',
+			args: { line_idx: line_idx }
+		},
+		callback: function(r) {
+			location.reload();
+		}
+	});
+}
+
+function deleteLine(line_idx) {
+	frappe.confirm('Are you sure you want to delete this line?', function() {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule_line',
+			args: {
+				schedule_name: schedule_name,
+				line_idx: line_idx
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					location.reload();
+				}
+			}
+		});
+	});
+}
+
+function requestQuote() {
+	frappe.confirm('Request a quote for this schedule?', function() {
+		frappe.call({
+			method: 'frappe.client.run_doc_method',
+			args: {
+				dt: 'ilL-Project-Fixture-Schedule',
+				dn: schedule_name,
+				method: 'request_quote'
+			},
+			callback: function(r) {
+				location.reload();
+			}
+		});
+	});
+}
+
+function createSalesOrder() {
+	frappe.confirm('Create a Sales Order from this schedule?', function() {
+		frappe.call({
+			method: 'frappe.client.run_doc_method',
+			args: {
+				dt: 'ilL-Project-Fixture-Schedule',
+				dn: schedule_name,
+				method: 'create_sales_order'
+			},
+			callback: function(r) {
+				if (r.message) {
+					frappe.msgprint('Sales Order ' + r.message + ' created successfully');
+					location.reload();
+				}
+			}
+		});
+	});
+}
+</script>
+{% endblock %}
