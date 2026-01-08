@@ -221,9 +221,21 @@ Comprehensive documentation includes:
    - Current: tier_unit = msrp_unit (MSRP only placeholder)
    - Ready for: Customer -> Price List -> apply discount/multiplier
 
-3. **Driver Allocation**
-   - Current: Suggested placeholder
-   - Ready for: Driver eligibility and allocation logic
+### Completed (Epic 5)
+
+1. **Driver Auto-Selection Algorithm (Task 5.1)** ✅
+   - Query eligible drivers from ilL-Rel-Driver-Eligibility
+   - Filter by tape voltage (driver.voltage_output == tape_spec.input_voltage)
+   - Filter by dimming protocol (driver.dimming_protocol == tape_spec.dimming_protocol)
+   - Constraints: sum(outputs) >= runs_count AND sum(W_usable) >= total_watts
+   - W_usable = usable_load_factor × max_wattage (default 0.8 × W_rated = 80% capacity)
+   - Selection policy: lowest cost if cost exists, else smallest rated wattage
+   - Multi-driver support: adds multiples of same model until constraints met
+
+2. **Driver Plan Persistence (Task 5.2)** ✅
+   - Populate `drivers` child table on ilL-Configured-Fixture
+   - Store: driver_item, driver_qty, outputs_used, mapping_notes
+   - Sequential run→output mapping notes for MVP
 
 ### Integration Points
 

@@ -13,10 +13,12 @@
   "voltage_output",
   "outputs_count",
   "output_type",
+  "dimming_protocol",
   "column_break_gfyi",
   "max_wattage",
   "max_wattage_per_output",
-  "usable_load_factor"
+  "usable_load_factor",
+  "cost"
  ],
  "fields": [
   {
@@ -59,6 +61,12 @@
    "options": "Constant Voltage\nConstant Current"
   },
   {
+   "fieldname": "dimming_protocol",
+   "fieldtype": "Link",
+   "label": "Dimming Protocol",
+   "options": "ilL-Attribute-Dimming Protocol"
+  },
+  {
    "fieldname": "column_break_gfyi",
    "fieldtype": "Column Break"
   },
@@ -77,12 +85,18 @@
    "fieldname": "usable_load_factor",
    "fieldtype": "Float",
    "label": "Usable Load Factor"
+  },
+  {
+   "fieldname": "cost",
+   "fieldtype": "Currency",
+   "label": "Unit Cost",
+   "description": "Unit cost for driver selection policy (lowest cost preferred)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-07 12:59:01.082084",
+ "modified": "2026-01-08 16:20:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Spec-Driver",
