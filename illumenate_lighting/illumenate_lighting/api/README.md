@@ -408,8 +408,62 @@ Phase 3 and beyond will add:
 - Real item resolution from mapping tables
 - Dynamic pricing from price lists
 - Driver allocation logic
-- BOM generation
-- Work order creation
+- ~~BOM generation~~ ✅ Implemented via manufacturing_generator.py
+- ~~Work order creation~~ ✅ Implemented via manufacturing_generator.py
+
+## Manufacturing Artifacts Generator
+
+### `generate_manufacturing_artifacts`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.manufacturing_generator.generate_manufacturing_artifacts`
+
+**Method:** POST (Frappe Whitelisted API)
+
+**Description:** Generates manufacturing artifacts (Item, BOM, Work Order) from a Configured Fixture.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `configured_fixture_id` | string | Yes | Name of the ilL-Configured-Fixture document |
+| `qty` | integer | No | Quantity to manufacture (default: 1) |
+| `skip_if_exists` | boolean | No | Skip creation if artifacts exist (default: true) |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "messages": [...],
+  "item_code": "ILL-ABCD1234",
+  "bom_name": "BOM-ILL-ABCD1234-001",
+  "work_order_name": "MFG-WO-00001",
+  "created": {"item": true, "bom": true, "work_order": true},
+  "skipped": {"item": false, "bom": false, "work_order": false}
+}
+```
+
+### `generate_from_sales_order`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.manufacturing_generator.generate_from_sales_order`
+
+**Method:** POST (Frappe Whitelisted API)
+
+**Description:** Generates manufacturing artifacts for all configured fixtures on a Sales Order. Can be triggered via the "Generate Item/BOM/WO" button on submitted Sales Orders.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sales_order` | string | Yes | Name of the Sales Order document |
+
+#### Features Implemented
+
+- **Epic 2**: Configured Item generation with ILL-{hash} naming convention
+- **Epic 3**: BOM generation with all component roles including endcap extra pair rule
+- **Epic 5**: Work Order with traveler notes
+- **Epic 6**: Idempotency and reuse policies
+- **Epic 7**: Custom fields for functional test and serial number on Work Order
 
 ## Testing
 
@@ -421,9 +475,19 @@ A comprehensive test suite is available at `illumenate_lighting/api/test_configu
 - Configuration reuse (deduplication)
 - Response schema completeness
 
+Manufacturing generator tests at `illumenate_lighting/api/test_manufacturing_generator.py` covering:
+- Basic artifact generation
+- Item code naming convention (ILL-{hash})
+- Configuration reuse policy
+- Endcap extra pair rule (4 total)
+- Work Order traveler notes
+- Fixture link updates
+- Idempotency
+
 Run tests with:
 ```bash
 bench --site your-site run-tests --app illumenate_lighting --module illumenate_lighting.api.test_configurator_engine
+bench --site your-site run-tests --app illumenate_lighting --module illumenate_lighting.api.test_manufacturing_generator
 ```
 
 ## Support

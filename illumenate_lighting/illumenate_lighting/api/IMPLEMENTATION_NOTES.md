@@ -278,37 +278,129 @@ The API is ready for integration with:
 
 ## Next Steps
 
-For Phase 3 and beyond:
+## Phase 3 — Manufacturing Artifacts Implementation
 
-1. **Replace Placeholder Logic**
-   - Implement real dimension computation
-   - Add complex segment/run calculations
-   - Connect to mapping tables for item resolution
-   - Integrate with price lists
+### What Was Implemented
 
-2. **Enhanced Validation**
-   - Validate options against template allowed options
-   - Add business rule validation
-   - Length/dimension constraints
+#### Epic 2 — Configured Item Generation (ILL-... code + reuse rules)
 
-3. **BOM/WO Generation**
-   - Create Item records for configured fixtures
-   - Generate BOMs with resolved components
-   - Create Work Orders for manufacturing
+**Task 2.1: Implement configured Item code generator** ✅
 
-4. **Driver Allocation**
-   - Implement driver eligibility logic
-   - Calculate required drivers
-   - Allocate to runs
+- Item naming convention: `ILL-{config_hash[:8].upper()}`
+- Friendly item name: `{template_name} - {finish} - {lens} - {length}mm`
+- Item group: "Configured Fixtures"
+- UOM: "Nos" (Each)
+- Flags: `is_stock_item=1`, `has_serial_no=1` (for finished goods)
+- Reuse policy: If config_hash already has a configured_item, reuse it
 
-5. **Performance Optimization**
-   - Add caching for frequently accessed data
-   - Optimize database queries
-   - Consider async processing for complex calculations
+#### Epic 3 — BOM Generation from Configured Fixture
+
+**Task 3.1: Define BOM "roles" and deterministic BOM builder** ✅
+
+BOM roles implemented:
+- Profile (stock sticks, qty = segments_count)
+- Lens (sticks, qty = segments_count)
+- Endcaps (2 + extra pair = 4 total)
+- Mounting accessories (qty from mapping rule)
+- LED tape (total length in feet)
+- Leader cables (qty = runs_count)
+- Drivers (from driver plan)
+
+**Task 3.2: LED tape quantity modeling** ✅
+
+Implemented Option A (recommended MVP):
+- One BOM line with total length (UOM = Foot)
+- Cut/run plan in BOM remarks
+
+**Task 3.3: Endcap "extra pair" rule** ✅
+
+- Base: 2 endcaps for the fixture
+- Extra pair: +2 more for contingency
+- Total: 4 endcaps per BOM
+
+#### Epic 5 — Work Order Creation with Operations + Traveler Notes
+
+**Task 5.1: Define routing/operations template** ✅
+
+Operations defined (MVP):
+1. Cut Profile
+2. Cut Lens
+3. Cut Tape
+4. Solder/Terminate
+5. Assemble
+6. Test
+7. Label
+8. Pack
+9. Ship
+
+**Task 5.2: Traveler content generation** ✅
+
+Traveler includes:
+- Requested vs manufacturable length
+- Segment cut list (profile + lens)
+- Tape cut length and run breakdown
+- Runs count and leader qty
+- Driver model(s) + qty and mapping
+- Endcap selection and "extra pair included"
+- QC: Functional test pass/fail field prompt
+- Serial number capture prompt
+
+#### Epic 6 — Workflow Trigger Points
+
+**Task 6.1: Add button on Sales Order** ✅
+
+- Button: "Generate Item/BOM/WO" under Actions menu
+- Only shows for submitted Sales Orders with configured fixtures
+- Processes all line items with ill_configured_fixture
+- Updates fixture with links to created artifacts
+
+**Task 6.2: Idempotency + "already generated" protections** ✅
+
+- Skip if artifact already exists (configurable)
+- Validate Work Order qty matches
+- Store engine_version on configured fixture
+
+#### Epic 7 — Serial/Batch MVP Wiring
+
+**Task 7.1: Finished good serial capture plan** ✅
+
+Custom fields on Work Order:
+- `ill_functional_test_result`: Select (Pass/Fail)
+- `ill_serial_no`: Data field
+- `ill_test_notes`: Small Text
+- `ill_configured_fixture`: Link to configured fixture
+
+Custom field on Item:
+- `custom_ill_configured_fixture`: Link back to fixture
+
+### File Summary
+
+| File | Purpose |
+|------|---------|
+| manufacturing_generator.py | Manufacturing artifacts generator (Item/BOM/WO) |
+| test_manufacturing_generator.py | Test suite for manufacturing generator |
+| custom_field.json (updated) | Added Work Order and Item custom fields |
+| sales_order.js | Button for generating artifacts from SO |
+| hooks.py (updated) | Added Sales Order doctype_js hook |
+
+### Acceptance Criteria Met
+
+✅ Submitting the workflow does not create duplicate Items for the same config_hash
+✅ A single BOM is generated per configured item with all required component Items
+✅ BOM always reflects correct total tape length and is consistent with run plan
+✅ Every BOM includes the contingency endcaps (4 total)
+✅ Engine generates a driver plan deterministically for any valid configuration
+✅ Configured Fixture always carries the driver plan used to generate BOM/WO
+✅ Every WO includes operations in correct sequence
+✅ Production can build from the WO without opening the configurator
+✅ A user can run the automation on-demand, safely re-run without duplicating artifacts
+✅ No duplicate WOs or BOMs from repeated clicks
+✅ Production has a clear place to record functional test + serial number
 
 ## Support
 
 For questions about this implementation:
 - Review the API documentation: `illumenate_lighting/api/README.md`
 - Check the test suite: `illumenate_lighting/api/test_configurator_engine.py`
-- Examine the code comments in `configurator_engine.py`
+- Check the manufacturing generator tests: `illumenate_lighting/api/test_manufacturing_generator.py`
+- Examine the code comments in `configurator_engine.py` and `manufacturing_generator.py`

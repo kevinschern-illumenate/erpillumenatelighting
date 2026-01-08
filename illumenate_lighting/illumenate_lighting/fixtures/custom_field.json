@@ -80,5 +80,65 @@
 		"label": "Engine Version",
 		"insert_after": "ill_lens",
 		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_section_break",
+		"fieldtype": "Section Break",
+		"label": "ilLumenate QC",
+		"insert_after": "remarks"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_functional_test_result",
+		"fieldtype": "Select",
+		"label": "Functional Test Result",
+		"options": "\nPass\nFail",
+		"insert_after": "ill_section_break"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_serial_no",
+		"fieldtype": "Data",
+		"label": "Serial Number",
+		"insert_after": "ill_functional_test_result"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_column_break",
+		"fieldtype": "Column Break",
+		"insert_after": "ill_serial_no"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_configured_fixture",
+		"fieldtype": "Link",
+		"label": "Configured Fixture",
+		"options": "ilL-Configured-Fixture",
+		"insert_after": "ill_column_break",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_test_notes",
+		"fieldtype": "Small Text",
+		"label": "Test Notes",
+		"insert_after": "ill_configured_fixture"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Item",
+		"fieldname": "custom_ill_configured_fixture",
+		"fieldtype": "Link",
+		"label": "Configured Fixture",
+		"options": "ilL-Configured-Fixture",
+		"insert_after": "description",
+		"read_only": 1
 	}
 ]
