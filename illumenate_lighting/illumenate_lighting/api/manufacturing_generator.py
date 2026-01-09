@@ -212,6 +212,59 @@ def generate_from_sales_order(sales_order: str) -> dict[str, Any]:
 	return response
 
 
+def on_sales_order_submit(doc, method):
+	"""
+	Hook called when a Sales Order is submitted.
+	Automatically generates manufacturing artifacts (Item, BOM, Work Order)
+	for all configured fixtures on the Sales Order.
+
+	Args:
+		doc: The Sales Order document being submitted
+		method: The hook method name (on_submit)
+	"""
+	# Check if any line items have configured fixtures
+	has_configured_fixtures = False
+	for item in doc.items:
+		if item.get("ill_configured_fixture"):
+			has_configured_fixtures = True
+			break
+
+	if not has_configured_fixtures:
+		return
+
+	# Generate manufacturing artifacts
+	result = generate_from_sales_order(doc.name)
+
+	if not result["success"]:
+		# Log errors but don't block submission
+		error_messages = [
+			msg["text"] for msg in result.get("messages", [])
+			if msg.get("severity") == "error"
+		]
+		if error_messages:
+			frappe.log_error(
+				title=f"Manufacturing Generation Errors for {doc.name}",
+				message="\n".join(error_messages)
+			)
+			frappe.msgprint(
+				_("Some manufacturing artifacts could not be generated. Check Error Log for details."),
+				indicator="orange",
+				alert=True
+			)
+	else:
+		# Success message
+		created_count = sum(
+			1 for r in result.get("results", [])
+			if r.get("result", {}).get("created", {}).get("work_order")
+		)
+		if created_count > 0:
+			frappe.msgprint(
+				_(f"Created {created_count} Work Order(s) for configured fixtures."),
+				indicator="green",
+				alert=True
+			)
+
+
 def _create_or_get_configured_item(
 	fixture,
 	skip_if_exists: bool = True,
@@ -248,9 +301,9 @@ def _create_or_get_configured_item(
 			})
 			return result
 
-	# Generate item code: ILL-{config_hash_short}
-	config_hash_short = fixture.config_hash[:8].upper()
-	item_code = f"ILL-{config_hash_short}"
+	# Use the fixture name (part number) as the item code
+	# The fixture name is now formatted as: ILL-{Profile}-{LED}-{CCT}-{Output}-{Lens}-{Mount}-{Finish}-{Length}
+	item_code = fixture.name
 
 	# Check if item already exists
 	if frappe.db.exists("Item", item_code):
@@ -276,11 +329,12 @@ def _create_or_get_configured_item(
 		"ilL-Fixture-Template", fixture.fixture_template, "template_name"
 	) or fixture.fixture_template
 
+	length_mm = fixture.manufacturable_overall_length_mm or fixture.requested_overall_length_mm or 0
 	item_name = (
 		f"{template_name} - "
 		f"{fixture.finish or 'STD'} - "
 		f"{fixture.lens_appearance or 'STD'} - "
-		f"{fixture.manufacturable_overall_length_mm}mm"
+		f"{length_mm}mm"
 	)
 
 	# Ensure item group exists
@@ -406,15 +460,26 @@ def _create_or_get_bom(
 			})
 
 	# --- Role 3: Endcaps (with extra pair rule - Task 3.3) ---
-	if fixture.endcap_item:
-		# Base: 2 endcaps for the fixture + extra pair (2 more) = 4 total
-		endcap_qty = 4  # 2 for use + 2 extra (1 pair contingency)
+	# Start endcap
+	if fixture.endcap_item_start:
+		# 2 endcaps: 1 for use + 1 extra
 		bom_items.append({
-			"item_code": fixture.endcap_item,
-			"qty": endcap_qty,
+			"item_code": fixture.endcap_item_start,
+			"qty": 2,
 			"uom": "Nos",
 			"stock_uom": "Nos",
 		})
+	# End endcap (if different from start)
+	if fixture.endcap_item_end and fixture.endcap_item_end != fixture.endcap_item_start:
+		bom_items.append({
+			"item_code": fixture.endcap_item_end,
+			"qty": 2,
+			"uom": "Nos",
+			"stock_uom": "Nos",
+		})
+	elif fixture.endcap_item_end == fixture.endcap_item_start and fixture.endcap_item_start:
+		# Same endcap for both ends, add 2 more (total 4)
+		bom_items[-1]["qty"] = 4
 
 	# --- Role 4: Mounting Accessories ---
 	if fixture.mounting_item:
@@ -637,54 +702,74 @@ def _ensure_item_group_exists(group_name: str):
 
 def _generate_item_description(fixture) -> str:
 	"""Generate a detailed description for the configured Item."""
+	length_mm = fixture.manufacturable_overall_length_mm or fixture.requested_overall_length_mm or 0
+	requested_mm = fixture.requested_overall_length_mm or 0
 	lines = [
 		f"Configured Fixture: {fixture.name}",
-		f"Template: {fixture.fixture_template}",
-		f"Length: {fixture.manufacturable_overall_length_mm}mm (requested: {fixture.requested_overall_length_mm}mm)",
-		f"Finish: {fixture.finish}",
-		f"Lens: {fixture.lens_appearance}",
-		f"Mounting: {fixture.mounting_method}",
-		f"Endcaps: {fixture.endcap_style} / {fixture.endcap_color}",
-		f"Environment: {fixture.environment_rating}",
-		f"Runs: {fixture.runs_count}",
-		f"Total Watts: {fixture.total_watts}W",
-		f"Assembly Mode: {fixture.assembly_mode}",
+		f"Template: {fixture.fixture_template or 'N/A'}",
+		f"Length: {length_mm}mm (requested: {requested_mm}mm)",
+		f"Finish: {fixture.finish or 'N/A'}",
+		f"Lens: {fixture.lens_appearance or 'N/A'}",
+		f"Mounting: {fixture.mounting_method or 'N/A'}",
+		f"Endcaps: {fixture.endcap_style_start or 'N/A'} / {fixture.endcap_style_end or 'N/A'} ({fixture.endcap_color or 'N/A'})",
+		f"Environment: {fixture.environment_rating or 'N/A'}",
+		f"Runs: {fixture.runs_count or 0}",
+		f"Total Watts: {fixture.total_watts or 0}W",
+		f"Assembly Mode: {fixture.assembly_mode or 'N/A'}",
 	]
 	return "\n".join(lines)
 
 
 def _generate_bom_remarks(fixture) -> str:
 	"""Generate BOM remarks with run plan details (Task 3.2 Option A)."""
+	tape_cut_length = fixture.tape_cut_length_mm or 0
+	runs_count = fixture.runs_count or 0
+
 	lines = [
 		"=== RUN PLAN / CUT INSTRUCTIONS ===",
-		f"Tape Cut Length: {fixture.tape_cut_length_mm}mm ({fixture.tape_cut_length_mm / 304.8:.2f}ft)",
-		f"Number of Runs: {fixture.runs_count}",
+		f"Tape Cut Length: {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
+		f"Number of Runs: {runs_count}",
 		"",
 		"Run Breakdown:",
 	]
 
-	for run in fixture.runs:
-		lines.append(
-			f"  Run {run.run_index}: {run.run_len_mm}mm ({run.run_len_mm / 304.8:.2f}ft) - {run.run_watts}W"
-		)
+	if fixture.runs:
+		for run in fixture.runs:
+			run_len = run.run_len_mm or 0
+			run_watts = run.run_watts or 0
+			lines.append(
+				f"  Run {run.run_index}: {run_len}mm ({run_len / 304.8:.2f}ft) - {run_watts}W"
+			)
+	else:
+		lines.append("  No run data available")
 
 	lines.extend([
 		"",
 		"=== SEGMENT PLAN ===",
 	])
 
-	for segment in fixture.segments:
-		lines.append(
-			f"  Segment {segment.segment_index}: Profile {segment.profile_cut_len_mm}mm, Lens {segment.lens_cut_len_mm}mm"
-		)
-		if segment.notes:
-			lines.append(f"    Note: {segment.notes}")
+	if fixture.segments:
+		for segment in fixture.segments:
+			profile_len = segment.profile_cut_len_mm or 0
+			lens_len = segment.lens_cut_len_mm or 0
+			lines.append(
+				f"  Segment {segment.segment_index}: Profile {profile_len}mm, Lens {lens_len}mm"
+			)
+			if segment.notes:
+				lines.append(f"    Note: {segment.notes}")
+	else:
+		lines.append("  No segment data available")
 
 	return "\n".join(lines)
 
 
 def _generate_traveler_notes(fixture) -> str:
 	"""Generate comprehensive traveler notes for the Work Order (Task 5.2)."""
+	requested_length = fixture.requested_overall_length_mm or 0
+	mfg_length = fixture.manufacturable_overall_length_mm or 0
+	tape_cut_length = fixture.tape_cut_length_mm or 0
+	runs_count = fixture.runs_count or 0
+
 	lines = [
 		"=" * 60,
 		"MANUFACTURING TRAVELER",
@@ -692,40 +777,46 @@ def _generate_traveler_notes(fixture) -> str:
 		"",
 		"--- FIXTURE IDENTITY ---",
 		f"Config ID: {fixture.name}",
-		f"Template: {fixture.fixture_template}",
+		f"Template: {fixture.fixture_template or 'N/A'}",
 		f"Engine Version: {fixture.engine_version or ENGINE_VERSION}",
 		"",
 		"--- LENGTH SPECIFICATIONS ---",
-		f"Requested Length: {fixture.requested_overall_length_mm}mm",
-		f"Manufacturable Length: {fixture.manufacturable_overall_length_mm}mm",
-		f"Tape Cut Length: {fixture.tape_cut_length_mm}mm ({fixture.tape_cut_length_mm / 304.8:.2f}ft)",
-		f"Difference: {fixture.requested_overall_length_mm - fixture.manufacturable_overall_length_mm}mm",
+		f"Requested Length: {requested_length}mm",
+		f"Manufacturable Length: {mfg_length}mm",
+		f"Tape Cut Length: {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
+		f"Difference: {requested_length - mfg_length}mm",
 		"",
 		"--- SEGMENT CUT LIST ---",
 	]
 
-	for segment in fixture.segments:
-		lines.append(f"Segment {segment.segment_index}:")
-		lines.append(f"  Profile: {segment.profile_cut_len_mm}mm")
-		lines.append(f"  Lens: {segment.lens_cut_len_mm}mm")
-		if segment.notes:
-			lines.append(f"  Notes: {segment.notes}")
+	if fixture.segments:
+		for segment in fixture.segments:
+			lines.append(f"Segment {segment.segment_index}:")
+			lines.append(f"  Profile: {segment.profile_cut_len_mm or 0}mm")
+			lines.append(f"  Lens: {segment.lens_cut_len_mm or 0}mm")
+			if segment.notes:
+				lines.append(f"  Notes: {segment.notes}")
+	else:
+		lines.append("  No segment data available")
 
 	lines.extend([
 		"",
 		"--- TAPE CUT & RUN BREAKDOWN ---",
-		f"Total Tape Length: {fixture.tape_cut_length_mm}mm",
-		f"Number of Runs: {fixture.runs_count}",
+		f"Total Tape Length: {tape_cut_length}mm",
+		f"Number of Runs: {runs_count}",
 	])
 
-	for run in fixture.runs:
-		lines.append(f"  Run {run.run_index}: {run.run_len_mm}mm - {run.run_watts}W")
+	if fixture.runs:
+		for run in fixture.runs:
+			lines.append(f"  Run {run.run_index}: {run.run_len_mm or 0}mm - {run.run_watts or 0}W")
+	else:
+		lines.append("  No run data available")
 
 	lines.extend([
 		"",
 		f"--- LEADER CABLES ---",
-		f"Leader Item: {fixture.leader_item}",
-		f"Leader Qty: {fixture.runs_count} (one per run)",
+		f"Leader Item: {fixture.leader_item or 'N/A'}",
+		f"Leader Qty: {runs_count} (one per run)",
 	])
 
 	# Driver information
@@ -735,9 +826,9 @@ def _generate_traveler_notes(fixture) -> str:
 	])
 	if fixture.drivers:
 		for driver in fixture.drivers:
-			lines.append(f"Driver: {driver.driver_item}")
-			lines.append(f"  Qty: {driver.driver_qty}")
-			lines.append(f"  Outputs Used: {driver.outputs_used}")
+			lines.append(f"Driver: {driver.driver_item or 'N/A'}")
+			lines.append(f"  Qty: {driver.driver_qty or 0}")
+			lines.append(f"  Outputs Used: {driver.outputs_used or 'N/A'}")
 			if driver.mapping_notes:
 				lines.append(f"  Mapping: {driver.mapping_notes}")
 	else:
@@ -747,9 +838,11 @@ def _generate_traveler_notes(fixture) -> str:
 	lines.extend([
 		"",
 		"--- ENDCAPS ---",
-		f"Style: {fixture.endcap_style}",
-		f"Color: {fixture.endcap_color}",
-		f"Item: {fixture.endcap_item}",
+		f"Start Style: {fixture.endcap_style_start or 'N/A'}",
+		f"End Style: {fixture.endcap_style_end or 'N/A'}",
+		f"Color: {fixture.endcap_color or 'N/A'}",
+		f"Start Item: {fixture.endcap_item_start or 'N/A'}",
+		f"End Item: {fixture.endcap_item_end or 'N/A'}",
 		"Qty: 4 (2 for fixture + 2 extra pair included)",
 	])
 

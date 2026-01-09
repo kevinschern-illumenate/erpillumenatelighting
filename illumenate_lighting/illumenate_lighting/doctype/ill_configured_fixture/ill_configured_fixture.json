@@ -1,7 +1,7 @@
 {
  "actions": [],
- "allow_rename": 1,
- "autoname": "autoname",
+ "allow_rename": 0,
+ "autoname": "",
  "creation": "2026-01-07 21:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -73,7 +73,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Config Hash",
-   "reqd": 1,
+   "read_only": 1,
    "unique": 1
   },
   {
@@ -380,7 +380,7 @@
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Configured-Fixture",
- "naming_rule": "Autoname",
+ "naming_rule": "By script",
  "owner": "Administrator",
  "permissions": [
   {

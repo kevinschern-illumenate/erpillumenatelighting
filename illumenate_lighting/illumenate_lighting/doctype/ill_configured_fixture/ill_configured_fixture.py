@@ -1,6 +1,9 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
+import hashlib
+import json
+
 import frappe
 from frappe.model.document import Document
 
@@ -11,6 +14,14 @@ class ilLConfiguredFixture(Document):
 		Generate part number in format:
 		ILL-{Profile Series}-{LED Package Code}-{CCT Code}-{Fixture Output Code}-{Lens Code}-{Mounting Code}-{Finish Code}-{Length in inches}
 		"""
+		self.name = self._generate_part_number()
+
+	def before_save(self):
+		"""Compute config_hash before saving."""
+		self.config_hash = self._compute_config_hash()
+
+	def _generate_part_number(self) -> str:
+		"""Build the part number from linked doctypes."""
 		parts = ["ILL"]
 
 		# Profile Series from Fixture Template's default_profile_family
@@ -19,7 +30,7 @@ class ilLConfiguredFixture(Document):
 			profile_family = frappe.db.get_value(
 				"ilL-Fixture-Template", self.fixture_template, "default_profile_family"
 			) or ""
-		parts.append(profile_family)
+		parts.append(profile_family or "XX")
 
 		# LED Package Code - get from tape_offering -> led_package (the doc name IS the code)
 		led_package_code = ""
@@ -27,7 +38,7 @@ class ilLConfiguredFixture(Document):
 			led_package_code = frappe.db.get_value(
 				"ilL-Rel-Tape Offering", self.tape_offering, "led_package"
 			) or ""
-		parts.append(led_package_code)
+		parts.append(led_package_code or "XX")
 
 		# CCT Code from tape_offering -> cct -> code
 		cct_code = ""
@@ -37,11 +48,11 @@ class ilLConfiguredFixture(Document):
 			)
 			if cct_name:
 				cct_code = frappe.db.get_value("ilL-Attribute-CCT", cct_name, "code") or ""
-		parts.append(cct_code)
+		parts.append(cct_code or "XX")
 
 		# Fixture Output Code = Output Level sku_code based on (tape output level * lens transmission %)
 		fixture_output_code = self._get_fixture_output_code()
-		parts.append(fixture_output_code)
+		parts.append(fixture_output_code or "XX")
 
 		# Lens Code from lens_appearance
 		lens_code = ""
@@ -49,7 +60,7 @@ class ilLConfiguredFixture(Document):
 			lens_code = frappe.db.get_value(
 				"ilL-Attribute-Lens Appearance", self.lens_appearance, "code"
 			) or ""
-		parts.append(lens_code)
+		parts.append(lens_code or "XX")
 
 		# Mounting Code from mounting_method
 		mounting_code = ""
@@ -57,7 +68,7 @@ class ilLConfiguredFixture(Document):
 			mounting_code = frappe.db.get_value(
 				"ilL-Attribute-Mounting Method", self.mounting_method, "code"
 			) or ""
-		parts.append(mounting_code)
+		parts.append(mounting_code or "XX")
 
 		# Finish Code from finish
 		finish_code = ""
@@ -65,15 +76,15 @@ class ilLConfiguredFixture(Document):
 			finish_code = frappe.db.get_value(
 				"ilL-Attribute-Finish", self.finish, "code"
 			) or ""
-		parts.append(finish_code)
+		parts.append(finish_code or "XX")
 
 		# Requested Length in inches (convert from mm)
-		length_inches = ""
+		length_inches = "0"
 		if self.requested_overall_length_mm:
-			length_inches = str(round(self.requested_overall_length_mm / 25.4, 2))
+			length_inches = f"{self.requested_overall_length_mm / 25.4:.1f}"
 		parts.append(length_inches)
 
-		self.name = "-".join(parts)
+		return "-".join(parts)
 
 	def _get_fixture_output_code(self) -> str:
 		"""
@@ -116,3 +127,21 @@ class ilLConfiguredFixture(Document):
 		# Find closest match
 		closest = min(fixture_output_levels, key=lambda x: abs((x.value or 0) - fixture_output_value))
 		return closest.sku_code or ""
+
+	def _compute_config_hash(self) -> str:
+		"""Return a SHA-256 hash of the configuration fields for deduplication."""
+		config_data = {
+			"fixture_template": self.fixture_template,
+			"tape_offering": self.tape_offering,
+			"lens_appearance": self.lens_appearance,
+			"mounting_method": self.mounting_method,
+			"finish": self.finish,
+			"environment_rating": self.environment_rating,
+			"power_feed_type": self.power_feed_type,
+			"endcap_style_start": self.endcap_style_start,
+			"endcap_style_end": self.endcap_style_end,
+			"endcap_color": self.endcap_color,
+			"requested_overall_length_mm": self.requested_overall_length_mm,
+		}
+		config_str = json.dumps(config_data, sort_keys=True)
+		return hashlib.sha256(config_str.encode()).hexdigest()

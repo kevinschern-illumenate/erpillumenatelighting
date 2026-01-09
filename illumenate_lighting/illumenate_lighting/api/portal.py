@@ -944,7 +944,9 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 	"""
 	Create a new Customer from the portal.
 
-	Portal users can create customers that they will then be linked to.
+	Portal users can create customers (e.g., end-clients for projects) without
+	being linked as a contact to them. The customer is just created and made
+	available for project assignment. The creator is tracked via the 'owner' field.
 
 	Args:
 		customer_data: Dict with customer fields (customer_name, customer_type, territory, etc.)
@@ -976,39 +978,11 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 
 		customer.insert(ignore_permissions=True)
 
-		# Link the current user to this customer via Contact
-		user = frappe.session.user
-		user_doc = frappe.get_doc("User", user)
-
-		# Check if user already has a Contact, if not create one
-		existing_contact = frappe.db.get_value(
-			"Dynamic Link",
-			{"link_doctype": "User", "link_name": user, "parenttype": "Contact"},
-			"parent"
-		)
-
-		if existing_contact:
-			# Add the new customer link to existing contact
-			contact = frappe.get_doc("Contact", existing_contact)
-			contact.append("links", {
-				"link_doctype": "Customer",
-				"link_name": customer.name
-			})
-			contact.save(ignore_permissions=True)
-		else:
-			# Create a new contact for the user
-			contact = frappe.new_doc("Contact")
-			contact.first_name = user_doc.first_name or user_doc.name.split("@")[0]
-			contact.last_name = user_doc.last_name or ""
-			contact.email_id = user_doc.email
-			contact.user = user
-
-			# Link to the new customer
-			contact.append("links", {
-				"link_doctype": "Customer",
-				"link_name": customer.name
-			})
-			contact.insert(ignore_permissions=True)
+		# NOTE: We intentionally do NOT link the current user to this customer.
+		# The user's primary company association should remain unchanged.
+		# The 'owner' field on the Customer record tracks who created it,
+		# which is used in get_allowed_customers_for_project() to give the
+		# creator access to this customer for project assignment.
 
 		return {"success": True, "customer_name": customer.name}
 	except Exception as e:
