@@ -603,10 +603,29 @@ def save_configured_fixture_to_schedule(
 		line.configured_fixture = configured_fixture_id
 		line.manufacturable_length_mm = int(manufacturable_length_mm)
 
-		# Get item code from configured fixture if available
+		# Get configured fixture document
 		configured_fixture = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+
+		# Get or create the configured item for this fixture
 		if configured_fixture.configured_item:
 			line.ill_item_code = configured_fixture.configured_item
+		else:
+			# Auto-create the configured item for this fixture
+			from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+				_create_or_get_configured_item,
+				_update_fixture_links,
+			)
+
+			item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
+			if item_result.get("success") and item_result.get("item_code"):
+				line.ill_item_code = item_result["item_code"]
+				# Update the fixture with the new item code
+				_update_fixture_links(
+					configured_fixture,
+					item_code=item_result["item_code"],
+					bom_name=None,
+					work_order_name=None,
+				)
 
 		schedule.save()
 		return {"success": True, "line_idx": len(schedule.lines) - 1 if line_idx is None else line_idx}

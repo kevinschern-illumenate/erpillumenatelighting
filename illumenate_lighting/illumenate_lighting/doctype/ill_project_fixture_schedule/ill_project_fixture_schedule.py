@@ -80,17 +80,39 @@ class ilLProjectFixtureSchedule(Document):
 			if configured_fixture.fixture_template:
 				template_code = configured_fixture.fixture_template
 
-			# Get the configured item or use a placeholder
+			# Get the configured item or create one if it doesn't exist
 			# The configured_item is the sellable Item linked from the configured fixture
 			item_code = configured_fixture.configured_item
 			if not item_code:
-				# If no configured item yet, use a placeholder or error
-				frappe.throw(
-					_(
-						"Line {0}: Configured Fixture {1} does not have a configured Item. "
-						"Please ensure the fixture has been fully configured."
-					).format(line.line_id or line.idx, line.configured_fixture)
+				# Auto-create the configured item for this fixture
+				from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+					_create_or_get_configured_item,
+					_update_fixture_links,
 				)
+
+				item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
+				if item_result.get("success") and item_result.get("item_code"):
+					item_code = item_result["item_code"]
+					# Update the fixture with the new item code
+					_update_fixture_links(
+						configured_fixture,
+						item_code=item_code,
+						bom_name=None,
+						work_order_name=None,
+					)
+					# Also update the cached item code on the schedule line
+					line.ill_item_code = item_code
+				else:
+					frappe.throw(
+						_(
+							"Line {0}: Failed to create configured Item for fixture {1}. "
+							"{2}"
+						).format(
+							line.line_id or line.idx,
+							line.configured_fixture,
+							"; ".join(m.get("text", "") for m in item_result.get("messages", [])),
+						)
+					)
 
 			so_item = so.append("items", {})
 			so_item.item_code = item_code
