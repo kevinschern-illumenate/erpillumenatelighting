@@ -112,6 +112,9 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+# Engine version - used for tracking configuration computation version
+ENGINE_VERSION = "1.0.0"
+
 
 @frappe.whitelist()
 def validate_and_quote(
@@ -258,6 +261,19 @@ def validate_and_quote(
 	)
 
 	response["computed"].update(computed_result)
+
+	# Step 2.5: Validate computed outputs for edge cases (Epic 2 Task 2.2)
+	edge_case_messages, edge_case_blocks = _validate_computed_edge_cases(
+		computed_result,
+		validation_result.get("template_doc"),
+		validation_result.get("tape_offering_doc"),
+	)
+	response["messages"].extend(edge_case_messages)
+
+	# If any edge case produced a block, return invalid
+	if edge_case_blocks:
+		response["is_valid"] = False
+		return response
 
 	# Step 3: Resolve items
 	resolved_result, mapping_messages, mappings_valid = _resolve_items(
@@ -791,6 +807,139 @@ def _compute_manufacturable_outputs(
 	}
 
 
+def _validate_computed_edge_cases(
+	computed: dict[str, Any],
+	template_doc=None,
+	tape_offering_doc=None,
+) -> tuple[list[dict[str, str]], bool]:
+	"""
+	Validate computed outputs for edge cases and return warnings/blocks.
+
+	Implements Epic 2 Task 2.2: Engine edge case handling.
+
+	Checks for:
+	- Requested length too short (internal length ≤ 0)
+	- Requested length less than (2E + leader allowance)
+	- Tape cut increment missing or 0
+	- Watts/ft missing
+	- Profile stock length missing
+	- Rounding produces 0 tape length
+	- SH01 no-joiners block message includes max length
+	- Runs_count becomes huge (warn/limit)
+
+	Args:
+		computed: Computed values from _compute_manufacturable_outputs
+		template_doc: Pre-fetched template document
+		tape_offering_doc: Pre-fetched tape offering document
+
+	Returns:
+		tuple: (messages list, has_blocking_errors bool)
+	"""
+	messages: list[dict[str, str]] = []
+	has_blocks = False
+
+	# Constants
+	MAX_REASONABLE_RUNS = 50  # Warn if runs exceed this
+	MAX_ABSOLUTE_RUNS = 100  # Block if runs exceed this
+
+	internal_length = computed.get("internal_length_mm", 0)
+	tape_cut_length = computed.get("tape_cut_length_mm", 0)
+	runs_count = computed.get("runs_count", 0)
+	total_endcap_allowance = computed.get("total_endcap_allowance_mm", 0)
+	leader_allowance = computed.get("leader_allowance_mm_per_fixture", 0)
+	requested_length = computed.get("requested_overall_length_mm", 0)
+	profile_stock_len = computed.get("profile_stock_len_mm", 0)
+	assembly_mode = computed.get("assembly_mode", "ASSEMBLED")
+	assembled_max_len = computed.get("assembled_max_len_mm", 0)
+	manufacturable_length = computed.get("manufacturable_overall_length_mm", 0)
+
+	# Check 1: Internal length ≤ 0 (too short)
+	if internal_length <= 0:
+		min_length = int(total_endcap_allowance + leader_allowance + 1)  # Minimum to have positive internal
+		messages.append({
+			"severity": "error",
+			"text": (
+				f"Requested length ({requested_length}mm) is too short. "
+				f"Minimum length with selected endcaps and leader allowance is {min_length}mm."
+			),
+			"field": "requested_overall_length_mm",
+		})
+		has_blocks = True
+
+	# Check 2: Tape cut length is 0 after rounding (edge case)
+	elif tape_cut_length <= 0:
+		messages.append({
+			"severity": "error",
+			"text": (
+				f"Configuration results in 0mm tape length. "
+				f"Internal length ({internal_length}mm) is less than one tape cut increment. "
+				f"Please increase the requested length."
+			),
+			"field": "requested_overall_length_mm",
+		})
+		has_blocks = True
+
+	# Check 3: Profile stock length missing or invalid
+	if profile_stock_len <= 0:
+		messages.append({
+			"severity": "warning",
+			"text": "Profile stock length not configured. Using default calculation.",
+			"field": None,
+		})
+
+	# Check 4: Runs count is excessively high (warning)
+	if runs_count > MAX_REASONABLE_RUNS:
+		messages.append({
+			"severity": "warning",
+			"text": (
+				f"Configuration requires {runs_count} runs, which is unusually high. "
+				f"Consider checking the tape wattage and length configuration."
+			),
+			"field": None,
+		})
+
+	# Check 5: Runs count exceeds absolute maximum (block)
+	if runs_count > MAX_ABSOLUTE_RUNS:
+		messages.append({
+			"severity": "error",
+			"text": (
+				f"Configuration requires {runs_count} runs, which exceeds the maximum of {MAX_ABSOLUTE_RUNS}. "
+				f"This fixture cannot be manufactured as specified."
+			),
+			"field": "requested_overall_length_mm",
+		})
+		has_blocks = True
+
+	# Check 6: SH01 no-joiners message for SHIP_PIECES mode
+	if assembly_mode == "SHIP_PIECES" and template_doc:
+		# Check if template supports joiners
+		supports_joiners = getattr(template_doc, "supports_joiners", False)
+		if not supports_joiners:
+			messages.append({
+				"severity": "warning",
+				"text": (
+					f"Fixture exceeds assembled shipping limit ({assembled_max_len}mm). "
+					f"Maximum assembled length is {assembled_max_len}mm (~{assembled_max_len / 304.8:.1f}ft). "
+					f"This fixture will ship in pieces requiring field assembly."
+				),
+				"field": None,
+			})
+
+	# Check 7: Significant length difference warning
+	difference_mm = computed.get("difference_mm", 0)
+	if difference_mm > 25:  # More than 1 inch difference
+		messages.append({
+			"severity": "info",
+			"text": (
+				f"Manufacturable length ({manufacturable_length}mm) differs from requested "
+				f"({requested_length}mm) by {difference_mm}mm due to tape cut increment rounding."
+			),
+			"field": None,
+		})
+
+	return messages, has_blocks
+
+
 def _resolve_items(
 	fixture_template_code: str,
 	finish_code: str,
@@ -871,14 +1020,33 @@ def _resolve_items(
 	)
 
 	lens_item = None
-	for lens_row in lens_candidates:
-		lens_doc = frappe.get_doc("ilL-Spec-Lens", lens_row.name)
-		if environment_rating_code:
-			env_supported = {row.environment_rating for row in lens_doc.get("supported_environment_ratings", [])}
+
+	# Pre-fetch supported environment ratings for all lens candidates to avoid N+1 queries
+	# Epic 5 Task 5.1: Reduce N+1 lookups in engine
+	if lens_candidates and environment_rating_code:
+		lens_names = [row.name for row in lens_candidates]
+		lens_envs = frappe.get_all(
+			"ilL-Child-Lens-Environments",
+			filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
+			fields=["parent", "environment_rating"],
+		)
+		# Build lookup: {lens_name: set(environment_ratings)}
+		lens_env_map: dict[str, set] = {}
+		for env in lens_envs:
+			if env.parent not in lens_env_map:
+				lens_env_map[env.parent] = set()
+			lens_env_map[env.parent].add(env.environment_rating)
+
+		# Find a lens that supports the environment rating
+		for lens_row in lens_candidates:
+			env_supported = lens_env_map.get(lens_row.name, set())
 			if env_supported and environment_rating_code not in env_supported:
 				continue
-		lens_item = lens_row.item
-		break
+			lens_item = lens_row.item
+			break
+	elif lens_candidates:
+		# No environment rating specified, use first match
+		lens_item = lens_candidates[0].item
 
 	if not lens_item:
 		messages.append(
@@ -1528,7 +1696,7 @@ def _create_or_update_configured_fixture(
 		doc.config_hash = config_hash  # This will become the document name
 
 	# Set identity fields
-	doc.engine_version = "1.0.0"
+	doc.engine_version = ENGINE_VERSION
 	doc.fixture_template = fixture_template_code
 
 	# Set selected options

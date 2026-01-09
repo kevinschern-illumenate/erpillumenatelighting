@@ -529,13 +529,15 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.pdf"
 
-		# Save file
+		# Save file - priced exports are saved as private files to require authentication for access.
+		# Non-priced exports remain public as they don't contain sensitive pricing data.
+		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
 		file_doc = save_file(
 			filename,
 			pdf_content,
 			"ilL-Export-Job",
 			job_name,
-			is_private=0,
+			is_private=1 if priced else 0,
 		)
 
 		# Update job with output file
@@ -604,13 +606,15 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.csv"
 
-		# Save file
+		# Save file - priced exports are saved as private files to require authentication for access.
+		# Non-priced exports remain public as they don't contain sensitive pricing data.
+		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
 		file_doc = save_file(
 			filename,
 			csv_content.encode("utf-8"),
 			"ilL-Export-Job",
 			job_name,
-			is_private=0,
+			is_private=1 if priced else 0,
 		)
 
 		# Update job with output file
@@ -701,3 +705,105 @@ def check_pricing_permission() -> dict:
 		dict: {"has_permission": bool}
 	"""
 	return {"has_permission": _check_pricing_permission()}
+
+
+@frappe.whitelist()
+def download_export_file(export_job_id: str) -> dict:
+	"""
+	Secure download endpoint for export files.
+
+	Validates permissions before providing access to the file.
+	Epic 3 Task 3.2: Direct-download leakage prevention.
+
+	Args:
+		export_job_id: Name of the ilL-Export-Job
+
+	Returns:
+		dict: {
+			"success": bool,
+			"download_url": str (if authorized),
+			"error": str (if not authorized)
+		}
+	"""
+	if not frappe.db.exists("ilL-Export-Job", export_job_id):
+		return {"success": False, "error": _("Export job not found")}
+
+	export_job = frappe.get_doc("ilL-Export-Job", export_job_id)
+
+	# Check schedule access
+	has_access, error = _check_schedule_access(export_job.schedule)
+	if not has_access:
+		return {"success": False, "error": error}
+
+	# Check if this is a priced export and user has pricing permission
+	if export_job.export_type in ["PDF_PRICED", "CSV_PRICED"]:
+		if not _check_pricing_permission():
+			return {"success": False, "error": _("You don't have permission to download priced exports")}
+
+	# Check if export is complete
+	if export_job.status != "COMPLETE":
+		return {"success": False, "error": _("Export is not ready for download")}
+
+	if not export_job.output_file:
+		return {"success": False, "error": _("No output file available")}
+
+	return {
+		"success": True,
+		"download_url": export_job.output_file,
+		"export_type": export_job.export_type,
+		"created_on": export_job.created_on,
+	}
+
+
+@frappe.whitelist()
+def validate_file_access(file_url: str) -> dict:
+	"""
+	Validate if current user can access a specific file.
+
+	This is used to check file access before serving private files.
+	Epic 3 Task 3.2: Direct-download leakage prevention.
+
+	Args:
+		file_url: The file URL to validate
+
+	Returns:
+		dict: {"has_access": bool, "reason": str}
+	"""
+	# Extract file doc from URL
+	file_doc = frappe.db.get_value(
+		"File",
+		{"file_url": file_url},
+		["name", "is_private", "attached_to_doctype", "attached_to_name"],
+		as_dict=True,
+	)
+
+	if not file_doc:
+		return {"has_access": False, "reason": "File not found"}
+
+	# Public files are always accessible
+	if not file_doc.is_private:
+		return {"has_access": True, "reason": "Public file"}
+
+	# For private files attached to export jobs, validate export access
+	if file_doc.attached_to_doctype == "ilL-Export-Job":
+		export_job = frappe.get_doc("ilL-Export-Job", file_doc.attached_to_name)
+
+		# Check schedule access
+		has_access, error = _check_schedule_access(export_job.schedule)
+		if not has_access:
+			return {"has_access": False, "reason": error}
+
+		# Check pricing permission for priced exports
+		if export_job.export_type in ["PDF_PRICED", "CSV_PRICED"]:
+			if not _check_pricing_permission():
+				return {"has_access": False, "reason": "Pricing permission required"}
+
+		return {"has_access": True, "reason": "Authorized via export job access"}
+
+	# For other private files, use default Frappe permission check
+	try:
+		frappe.get_doc("File", file_doc.name).check_permission("read")
+		return {"has_access": True, "reason": "Standard file permission"}
+	except frappe.PermissionError:
+		return {"has_access": False, "reason": "No file permission"}
+
