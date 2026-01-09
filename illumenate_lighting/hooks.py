@@ -29,8 +29,8 @@ app_license = "mit"
 # app_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
 
 # include js, css files in header of web template
-# web_include_css = "/assets/illumenate_lighting/css/illumenate_lighting.css"
-# web_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
+web_include_css = "/assets/illumenate_lighting/css/portal.css"
+web_include_js = "/assets/illumenate_lighting/js/portal.js"
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "illumenate_lighting/public/scss/website"
@@ -67,13 +67,41 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # Website Route Rules
 # -------------------
 website_route_rules = [
+	# Portal main pages
+	{"from_route": "/portal", "to_route": "portal"},
+	{"from_route": "/portal/", "to_route": "portal"},
+
+	# Projects
 	{"from_route": "/portal/projects", "to_route": "projects"},
 	{"from_route": "/portal/projects/<project>", "to_route": "project"},
 	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
+
+	# Schedules
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
+
+	# Configurator
 	{"from_route": "/portal/configure", "to_route": "configure"},
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
+
+	# Orders
+	{"from_route": "/portal/orders", "to_route": "orders"},
+	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
+
+	# Drawings
+	{"from_route": "/portal/drawings", "to_route": "drawings"},
+	{"from_route": "/portal/drawings/<drawing>", "to_route": "drawing_detail"},
+
+	# Resources
+	{"from_route": "/portal/resources", "to_route": "resources"},
+
+	# Support
+	{"from_route": "/portal/support", "to_route": "support"},
+	{"from_route": "/portal/support/faq", "to_route": "support"},
+
+	# Account
+	{"from_route": "/portal/account", "to_route": "account"},
+	{"from_route": "/portal/account/notifications", "to_route": "account"},
 ]
 
 # Generators

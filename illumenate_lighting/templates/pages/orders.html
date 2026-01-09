@@ -1,0 +1,327 @@
+{#
+Portal Orders Page
+View and track sales orders with production and shipment status
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("My Orders") }}{% endblock %}
+
+{% block style %}
+<style>
+.portal-page {
+	padding: 2rem 0;
+}
+.page-header {
+	margin-bottom: 2rem;
+}
+.order-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	margin-bottom: 1rem;
+	overflow: hidden;
+	transition: all 0.2s ease;
+}
+.order-card:hover {
+	box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+.order-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1.25rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+	background: #fafbfc;
+}
+.order-id {
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: #333;
+	text-decoration: none;
+}
+.order-id:hover {
+	color: #1976d2;
+}
+.order-body {
+	padding: 1.25rem 1.5rem;
+}
+.order-details {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 1rem;
+}
+.detail-item {
+	display: flex;
+	flex-direction: column;
+}
+.detail-label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	color: #888;
+	margin-bottom: 0.25rem;
+}
+.detail-value {
+	font-weight: 500;
+	color: #333;
+}
+.order-progress {
+	padding: 1rem 1.5rem;
+	background: #f8f9fa;
+	border-top: 1px solid #f0f0f0;
+}
+.progress-steps {
+	display: flex;
+	justify-content: space-between;
+	position: relative;
+}
+.progress-steps::before {
+	content: '';
+	position: absolute;
+	top: 15px;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: #e0e0e0;
+	z-index: 0;
+}
+.progress-step {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	position: relative;
+	z-index: 1;
+	flex: 1;
+}
+.step-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: #e0e0e0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #888;
+	font-size: 0.8rem;
+	margin-bottom: 0.5rem;
+}
+.step-icon.completed {
+	background: #4caf50;
+	color: white;
+}
+.step-icon.active {
+	background: #1976d2;
+	color: white;
+	animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.4); }
+	50% { box-shadow: 0 0 0 8px rgba(25, 118, 210, 0); }
+}
+.step-label {
+	font-size: 0.7rem;
+	color: #666;
+	text-align: center;
+}
+.filter-bar {
+	background: white;
+	border-radius: 8px;
+	padding: 1rem 1.5rem;
+	margin-bottom: 1.5rem;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.filter-tabs {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+.filter-tab {
+	padding: 0.5rem 1rem;
+	border-radius: 20px;
+	border: 1px solid #e0e0e0;
+	background: white;
+	color: #666;
+	font-size: 0.875rem;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+.filter-tab:hover {
+	border-color: #1976d2;
+	color: #1976d2;
+}
+.filter-tab.active {
+	background: #1976d2;
+	border-color: #1976d2;
+	color: white;
+}
+.empty-state {
+	text-align: center;
+	padding: 4rem 2rem;
+	background: white;
+	border-radius: 12px;
+}
+.empty-state i {
+	font-size: 4rem;
+	color: #ccc;
+	margin-bottom: 1rem;
+}
+.empty-state h4 {
+	color: #666;
+	margin-bottom: 0.5rem;
+}
+.empty-state p {
+	color: #999;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-3">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
+			<li class="breadcrumb-item active">{{ _("Orders") }}</li>
+		</ol>
+	</nav>
+
+	<!-- Page Header -->
+	<div class="page-header d-flex justify-content-between align-items-center">
+		<div>
+			<h1>{{ _("My Orders") }}</h1>
+			<p class="text-muted mb-0">{{ _("Track your orders and shipments") }}</p>
+		</div>
+		<a href="/portal/projects" class="btn btn-primary">
+			<i class="fa fa-plus"></i> {{ _("Start New Order") }}
+		</a>
+	</div>
+
+	<!-- Filter Bar -->
+	<div class="filter-bar">
+		<div class="filter-tabs">
+			<button class="filter-tab active" data-filter="all">{{ _("All Orders") }}</button>
+			<button class="filter-tab" data-filter="active">{{ _("In Production") }}</button>
+			<button class="filter-tab" data-filter="shipping">{{ _("Ready to Ship") }}</button>
+			<button class="filter-tab" data-filter="completed">{{ _("Completed") }}</button>
+		</div>
+	</div>
+
+	<!-- Orders List -->
+	<div id="ordersList">
+		{% if orders %}
+		{% for order in orders %}
+		<div class="order-card" data-status="{{ order.status }}">
+			<div class="order-header">
+				<a href="/portal/orders/{{ order.name }}" class="order-id">
+					<i class="fa fa-file-text-o"></i> {{ order.name }}
+				</a>
+				<span class="badge badge-{{ order_status_class(order.status) }}">
+					{{ order.status }}
+				</span>
+			</div>
+			<div class="order-body">
+				<div class="order-details">
+					<div class="detail-item">
+						<span class="detail-label">{{ _("Order Date") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(order.transaction_date) }}</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">{{ _("Delivery Date") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(order.delivery_date) if order.delivery_date else "-" }}</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">{{ _("Items") }}</span>
+						<span class="detail-value">{{ order.total_qty | int }} {{ _("items") }}</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">{{ _("Total") }}</span>
+						<span class="detail-value">{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) }}</span>
+					</div>
+					{% if order.po_no %}
+					<div class="detail-item">
+						<span class="detail-label">{{ _("PO Number") }}</span>
+						<span class="detail-value">{{ order.po_no }}</span>
+					</div>
+					{% endif %}
+				</div>
+			</div>
+			<div class="order-progress">
+				<div class="progress-steps">
+					<div class="progress-step">
+						<div class="step-icon {{ 'completed' if order.docstatus >= 1 else '' }}">
+							<i class="fa fa-check"></i>
+						</div>
+						<span class="step-label">{{ _("Confirmed") }}</span>
+					</div>
+					<div class="progress-step">
+						<div class="step-icon {{ 'completed' if order.status in ['To Deliver', 'To Deliver and Bill', 'To Bill', 'Completed'] and order.production_started else '' }} {{ 'active' if order.status == 'To Deliver and Bill' and not order.production_started else '' }}">
+							<i class="fa fa-cogs"></i>
+						</div>
+						<span class="step-label">{{ _("In Production") }}</span>
+					</div>
+					<div class="progress-step">
+						<div class="step-icon {{ 'completed' if order.per_delivered >= 100 else '' }} {{ 'active' if order.status == 'To Deliver' else '' }}">
+							<i class="fa fa-truck"></i>
+						</div>
+						<span class="step-label">{{ _("Shipped") }}</span>
+					</div>
+					<div class="progress-step">
+						<div class="step-icon {{ 'completed' if order.status == 'Completed' else '' }}">
+							<i class="fa fa-check-circle"></i>
+						</div>
+						<span class="step-label">{{ _("Completed") }}</span>
+					</div>
+				</div>
+			</div>
+		</div>
+		{% endfor %}
+		{% else %}
+		<div class="empty-state">
+			<i class="fa fa-shopping-cart"></i>
+			<h4>{{ _("No orders yet") }}</h4>
+			<p>{{ _("When you place orders, they will appear here for tracking.") }}</p>
+			<a href="/portal/projects" class="btn btn-primary mt-3">
+				<i class="fa fa-plus"></i> {{ _("Start a Project") }}
+			</a>
+		</div>
+		{% endif %}
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// Filter functionality
+	const filterTabs = document.querySelectorAll('.filter-tab');
+	const orderCards = document.querySelectorAll('.order-card');
+
+	filterTabs.forEach(tab => {
+		tab.addEventListener('click', function() {
+			// Update active tab
+			filterTabs.forEach(t => t.classList.remove('active'));
+			this.classList.add('active');
+
+			const filter = this.dataset.filter;
+
+			// Filter orders
+			orderCards.forEach(card => {
+				const status = card.dataset.status;
+				let show = false;
+
+				if (filter === 'all') {
+					show = true;
+				} else if (filter === 'active') {
+					show = ['To Deliver and Bill', 'To Deliver'].includes(status);
+				} else if (filter === 'shipping') {
+					show = status === 'To Bill';
+				} else if (filter === 'completed') {
+					show = ['Completed', 'Closed'].includes(status);
+				}
+
+				card.style.display = show ? 'block' : 'none';
+			});
+		});
+	});
+});
+</script>
+{% endblock %}

@@ -1,0 +1,455 @@
+{#
+Portal Order Detail Page
+Detailed view of a single sales order with tracking and items
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ order.name if order else _("Order") }}{% endblock %}
+
+{% block style %}
+<style>
+.portal-page {
+	padding: 2rem 0;
+}
+.order-header-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+}
+.order-header-top {
+	background: linear-gradient(135deg, #388e3c 0%, #4caf50 100%);
+	color: white;
+	padding: 2rem;
+}
+.order-header-top h1 {
+	margin: 0 0 0.5rem 0;
+}
+.order-header-details {
+	padding: 1.5rem 2rem;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 1.5rem;
+}
+.detail-group {
+	display: flex;
+	flex-direction: column;
+}
+.detail-label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	color: #888;
+	margin-bottom: 0.25rem;
+}
+.detail-value {
+	font-size: 1.1rem;
+	font-weight: 500;
+	color: #333;
+}
+.order-progress-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	padding: 2rem;
+	margin-bottom: 1.5rem;
+}
+.progress-timeline {
+	display: flex;
+	justify-content: space-between;
+	position: relative;
+	margin: 2rem 0;
+}
+.progress-timeline::before {
+	content: '';
+	position: absolute;
+	top: 24px;
+	left: 0;
+	right: 0;
+	height: 4px;
+	background: #e0e0e0;
+	z-index: 0;
+}
+.progress-timeline::after {
+	content: '';
+	position: absolute;
+	top: 24px;
+	left: 0;
+	width: {{ progress_percent }}%;
+	height: 4px;
+	background: #4caf50;
+	z-index: 1;
+	transition: width 0.5s ease;
+}
+.timeline-step {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	position: relative;
+	z-index: 2;
+	flex: 1;
+}
+.step-circle {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: #e0e0e0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.25rem;
+	color: #888;
+	margin-bottom: 0.75rem;
+}
+.step-circle.completed {
+	background: #4caf50;
+	color: white;
+}
+.step-circle.active {
+	background: #1976d2;
+	color: white;
+	animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.4); }
+	50% { box-shadow: 0 0 0 12px rgba(25, 118, 210, 0); }
+}
+.step-title {
+	font-weight: 500;
+	font-size: 0.9rem;
+	margin-bottom: 0.25rem;
+}
+.step-date {
+	font-size: 0.75rem;
+	color: #888;
+}
+.items-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+}
+.items-header {
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.items-table {
+	width: 100%;
+}
+.items-table th {
+	padding: 0.75rem 1.5rem;
+	background: #fafafa;
+	font-weight: 600;
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	color: #666;
+	border-bottom: 1px solid #f0f0f0;
+}
+.items-table td {
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+}
+.items-table tr:last-child td {
+	border-bottom: none;
+}
+.item-name {
+	font-weight: 500;
+}
+.item-code {
+	font-size: 0.85rem;
+	color: #888;
+}
+.shipment-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	overflow: hidden;
+}
+.shipment-header {
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+}
+.shipment-item {
+	padding: 1.25rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.shipment-item:last-child {
+	border-bottom: none;
+}
+.shipment-info h6 {
+	margin-bottom: 0.25rem;
+}
+.shipment-meta {
+	font-size: 0.85rem;
+	color: #666;
+}
+.tracking-link {
+	font-family: monospace;
+	font-size: 0.9rem;
+}
+.sidebar-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	padding: 1.5rem;
+	margin-bottom: 1rem;
+}
+.sidebar-card h5 {
+	margin-bottom: 1rem;
+	font-weight: 600;
+}
+.action-btn {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: #f5f5f5;
+	border-radius: 8px;
+	margin-bottom: 0.5rem;
+	text-decoration: none;
+	color: #333;
+	transition: all 0.2s;
+}
+.action-btn:hover {
+	background: #e0e0e0;
+	text-decoration: none;
+	color: #333;
+}
+.action-btn i {
+	width: 24px;
+	text-align: center;
+	color: #666;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-3">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/orders">{{ _("Orders") }}</a></li>
+			<li class="breadcrumb-item active">{{ order.name }}</li>
+		</ol>
+	</nav>
+
+	{% if not order %}
+	<div class="text-center py-5">
+		<i class="fa fa-exclamation-circle fa-3x text-muted mb-3"></i>
+		<h4>{{ _("Order not found") }}</h4>
+		<a href="/portal/orders" class="btn btn-primary mt-3">{{ _("Back to Orders") }}</a>
+	</div>
+	{% else %}
+
+	<div class="row">
+		<div class="col-lg-8">
+			<!-- Order Header -->
+			<div class="order-header-card">
+				<div class="order-header-top">
+					<div class="d-flex justify-content-between align-items-center">
+						<div>
+							<h1>{{ order.name }}</h1>
+							<p class="mb-0 opacity-75">{{ order.customer_name }}</p>
+						</div>
+						<span class="badge badge-light text-dark px-3 py-2">
+							{{ order.status }}
+						</span>
+					</div>
+				</div>
+				<div class="order-header-details">
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Order Date") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(order.transaction_date) }}</span>
+					</div>
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Expected Delivery") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(order.delivery_date) if order.delivery_date else "-" }}</span>
+					</div>
+					<div class="detail-group">
+						<span class="detail-label">{{ _("PO Number") }}</span>
+						<span class="detail-value">{{ order.po_no or "-" }}</span>
+					</div>
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Total") }}</span>
+						<span class="detail-value">{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) }}</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Progress Timeline -->
+			<div class="order-progress-card">
+				<h5 class="mb-4"><i class="fa fa-tasks"></i> {{ _("Order Progress") }}</h5>
+				<div class="progress-timeline">
+					<div class="timeline-step">
+						<div class="step-circle {{ 'completed' if order.docstatus >= 1 else '' }}">
+							<i class="fa fa-check"></i>
+						</div>
+						<span class="step-title">{{ _("Confirmed") }}</span>
+						<span class="step-date">{{ frappe.utils.format_date(order.transaction_date) }}</span>
+					</div>
+					<div class="timeline-step">
+						<div class="step-circle {{ 'completed' if production_started else '' }} {{ 'active' if order.status in ['To Deliver and Bill'] and not production_complete else '' }}">
+							<i class="fa fa-cogs"></i>
+						</div>
+						<span class="step-title">{{ _("In Production") }}</span>
+						<span class="step-date">{{ production_date or "-" }}</span>
+					</div>
+					<div class="timeline-step">
+						<div class="step-circle {{ 'completed' if order.per_delivered >= 100 else '' }} {{ 'active' if order.per_delivered > 0 and order.per_delivered < 100 else '' }}">
+							<i class="fa fa-truck"></i>
+						</div>
+						<span class="step-title">{{ _("Shipped") }}</span>
+						<span class="step-date">{% if deliveries %}{{ frappe.utils.format_date(deliveries[0].posting_date) }}{% else %}-{% endif %}</span>
+					</div>
+					<div class="timeline-step">
+						<div class="step-circle {{ 'completed' if order.status == 'Completed' else '' }}">
+							<i class="fa fa-check-circle"></i>
+						</div>
+						<span class="step-title">{{ _("Completed") }}</span>
+						<span class="step-date">-</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Order Items -->
+			<div class="items-card">
+				<div class="items-header">
+					<h5 class="mb-0"><i class="fa fa-list"></i> {{ _("Order Items") }}</h5>
+					<span class="text-muted">{{ items | length }} {{ _("item(s)") }}</span>
+				</div>
+				<table class="items-table">
+					<thead>
+						<tr>
+							<th>{{ _("Item") }}</th>
+							<th class="text-center">{{ _("Qty") }}</th>
+							<th class="text-right">{{ _("Rate") }}</th>
+							<th class="text-right">{{ _("Amount") }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for item in items %}
+						<tr>
+							<td>
+								<div class="item-name">{{ item.item_name }}</div>
+								<div class="item-code">{{ item.item_code }}</div>
+							</td>
+							<td class="text-center">{{ item.qty | int }}</td>
+							<td class="text-right">{{ frappe.format_value(item.rate, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
+							<td class="text-right">{{ frappe.format_value(item.amount, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+
+			<!-- Shipments -->
+			{% if deliveries %}
+			<div class="shipment-card">
+				<div class="shipment-header">
+					<h5 class="mb-0"><i class="fa fa-truck"></i> {{ _("Shipments") }}</h5>
+				</div>
+				{% for delivery in deliveries %}
+				<div class="shipment-item">
+					<div class="shipment-info">
+						<h6>{{ delivery.name }}</h6>
+						<div class="shipment-meta">
+							{{ frappe.utils.format_date(delivery.posting_date) }}
+							{% if delivery.transporter %}• {{ delivery.transporter }}{% endif %}
+						</div>
+					</div>
+					<div>
+						{% if delivery.tracking_no %}
+						<a href="#" class="tracking-link">
+							<i class="fa fa-external-link"></i> {{ delivery.tracking_no }}
+						</a>
+						{% else %}
+						<span class="text-muted">{{ _("No tracking") }}</span>
+						{% endif %}
+					</div>
+				</div>
+				{% endfor %}
+			</div>
+			{% endif %}
+		</div>
+
+		<!-- Sidebar -->
+		<div class="col-lg-4">
+			<!-- Actions -->
+			<div class="sidebar-card">
+				<h5><i class="fa fa-bolt"></i> {{ _("Quick Actions") }}</h5>
+				<a href="#" class="action-btn" onclick="downloadInvoice()">
+					<i class="fa fa-file-pdf-o"></i>
+					<span>{{ _("Download Invoice") }}</span>
+				</a>
+				<a href="#" class="action-btn" onclick="downloadPackingSlip()">
+					<i class="fa fa-list-alt"></i>
+					<span>{{ _("Packing Slip") }}</span>
+				</a>
+				<a href="/portal/drawings" class="action-btn">
+					<i class="fa fa-pencil-square-o"></i>
+					<span>{{ _("Request Drawing") }}</span>
+				</a>
+				<a href="/portal/support" class="action-btn">
+					<i class="fa fa-question-circle"></i>
+					<span>{{ _("Get Support") }}</span>
+				</a>
+			</div>
+
+			<!-- Order Summary -->
+			<div class="sidebar-card">
+				<h5>{{ _("Order Summary") }}</h5>
+				<table class="w-100">
+					<tr>
+						<td class="py-2">{{ _("Subtotal") }}</td>
+						<td class="text-right py-2">{{ frappe.format_value(order.total, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
+					</tr>
+					{% if order.discount_amount %}
+					<tr>
+						<td class="py-2">{{ _("Discount") }}</td>
+						<td class="text-right py-2 text-success">-{{ frappe.format_value(order.discount_amount, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
+					</tr>
+					{% endif %}
+					<tr>
+						<td class="py-2">{{ _("Tax") }}</td>
+						<td class="text-right py-2">{{ frappe.format_value(order.total_taxes_and_charges or 0, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
+					</tr>
+					<tr class="border-top">
+						<td class="py-2"><strong>{{ _("Total") }}</strong></td>
+						<td class="text-right py-2"><strong>{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) }}</strong></td>
+					</tr>
+				</table>
+			</div>
+
+			<!-- Delivery Status -->
+			<div class="sidebar-card">
+				<h5>{{ _("Delivery Status") }}</h5>
+				<div class="progress mb-2" style="height: 8px;">
+					<div class="progress-bar bg-success" style="width: {{ order.per_delivered }}%"></div>
+				</div>
+				<p class="text-muted mb-0">{{ order.per_delivered | int }}% {{ _("delivered") }}</p>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+function downloadInvoice() {
+	frappe.msgprint('{{ _("Invoice download coming soon!") }}');
+}
+
+function downloadPackingSlip() {
+	frappe.msgprint('{{ _("Packing slip download coming soon!") }}');
+}
+</script>
+{% endblock %}

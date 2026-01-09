@@ -777,3 +777,297 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 	except Exception as e:
 		frappe.log_error(f"Error creating customer: {str(e)}")
 		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_drawing_request(request_data: Union[str, dict]) -> dict:
+	"""
+	Create a new drawing request from the portal.
+
+	Args:
+		request_data: Dict with request fields (drawing_type, project, description, priority, etc.)
+
+	Returns:
+		dict: {"success": True/False, "request_name": name, "error": "message if error"}
+	"""
+	# Parse request_data if it's a string
+	if isinstance(request_data, str):
+		request_data = json.loads(request_data)
+
+	if not request_data.get("description"):
+		return {"success": False, "error": "Description is required"}
+
+	try:
+		# Check if Drawing Request doctype exists, if not create the request as an Issue
+		if frappe.db.table_exists("ilL-Drawing-Request"):
+			doc = frappe.new_doc("ilL-Drawing-Request")
+			doc.drawing_type = request_data.get("drawing_type", "shop_drawing")
+			doc.project = request_data.get("project") if request_data.get("project") != "_custom" else None
+			doc.custom_reference = request_data.get("custom_reference")
+			doc.fixture_reference = request_data.get("fixture_reference")
+			doc.description = request_data.get("description")
+			doc.priority = request_data.get("priority", "normal")
+			doc.status = "Pending"
+			doc.requested_by = frappe.session.user
+			doc.insert()
+			return {"success": True, "request_name": doc.name}
+		else:
+			# Fallback: Create as an Issue with drawing request info
+			doc = frappe.new_doc("Issue")
+			drawing_type = request_data.get("drawing_type", "shop_drawing")
+			doc.subject = f"Drawing Request: {drawing_type.replace('_', ' ').title()}"
+			doc.description = f"""
+**Drawing Type:** {drawing_type.replace('_', ' ').title()}
+**Project:** {request_data.get('project') or request_data.get('custom_reference') or 'N/A'}
+**Fixture Reference:** {request_data.get('fixture_reference') or 'N/A'}
+**Priority:** {request_data.get('priority', 'normal').title()}
+
+**Description:**
+{request_data.get('description')}
+"""
+			doc.raised_by = frappe.session.user
+			doc.insert(ignore_permissions=True)
+			return {"success": True, "request_name": doc.name}
+	except Exception as e:
+		frappe.log_error(f"Error creating drawing request: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
+	"""
+	Create a support ticket from the portal.
+
+	Args:
+		ticket_data: Dict with ticket fields (category, subject, description, order, etc.)
+
+	Returns:
+		dict: {"success": True/False, "ticket_name": name, "error": "message if error"}
+	"""
+	# Parse ticket_data if it's a string
+	if isinstance(ticket_data, str):
+		ticket_data = json.loads(ticket_data)
+
+	if not ticket_data.get("subject"):
+		return {"success": False, "error": "Subject is required"}
+
+	if not ticket_data.get("description"):
+		return {"success": False, "error": "Description is required"}
+
+	try:
+		doc = frappe.new_doc("Issue")
+		doc.subject = ticket_data.get("subject")
+		doc.description = f"""
+**Category:** {ticket_data.get('category', 'Other').title()}
+**Related Order:** {ticket_data.get('order') or 'N/A'}
+
+**Description:**
+{ticket_data.get('description')}
+"""
+		doc.raised_by = frappe.session.user
+
+		# Try to set priority if the field exists
+		category_priority_map = {
+			"order": "Medium",
+			"technical": "Medium",
+			"returns": "High",
+			"billing": "High",
+			"other": "Low",
+		}
+		doc.priority = category_priority_map.get(ticket_data.get("category"), "Medium")
+
+		doc.insert(ignore_permissions=True)
+		return {"success": True, "ticket_name": doc.name}
+	except Exception as e:
+		frappe.log_error(f"Error creating support ticket: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def update_user_profile(profile_data: Union[str, dict]) -> dict:
+	"""
+	Update the current user's profile information.
+
+	Args:
+		profile_data: Dict with profile fields (first_name, last_name, phone, job_title)
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	# Parse profile_data if it's a string
+	if isinstance(profile_data, str):
+		profile_data = json.loads(profile_data)
+
+	try:
+		user = frappe.get_doc("User", frappe.session.user)
+
+		if "first_name" in profile_data:
+			user.first_name = profile_data.get("first_name")
+		if "last_name" in profile_data:
+			user.last_name = profile_data.get("last_name")
+		if "phone" in profile_data:
+			user.phone = profile_data.get("phone")
+
+		user.save()
+		return {"success": True}
+	except Exception as e:
+		frappe.log_error(f"Error updating user profile: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def save_notification_preferences(preferences: Union[str, dict]) -> dict:
+	"""
+	Save notification preferences for the current user.
+
+	Args:
+		preferences: Dict with notification preference booleans
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	# Parse preferences if it's a string
+	if isinstance(preferences, str):
+		preferences = json.loads(preferences)
+
+	try:
+		# Store preferences in user's custom fields or a settings doctype
+		# For now, we'll store as a comment on the user for MVP
+		user = frappe.session.user
+
+		# Check if there's a custom doctype for notification prefs
+		# If not, store in User's bio field or similar as JSON
+		# This is a placeholder implementation
+		frappe.cache().hset("portal_notification_prefs", user, json.dumps(preferences))
+
+		return {"success": True}
+	except Exception as e:
+		frappe.log_error(f"Error saving notification preferences: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_order_details(order_name: str) -> dict:
+	"""
+	Get detailed information about a sales order for the portal.
+
+	Args:
+		order_name: Name of the Sales Order
+
+	Returns:
+		dict: Order details including items and status
+	"""
+	if not frappe.db.exists("Sales Order", order_name):
+		return {"success": False, "error": "Order not found"}
+
+	# Verify user has access to this order's customer
+	order = frappe.get_doc("Sales Order", order_name)
+
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+	)
+	user_customer = _get_user_customer(frappe.session.user)
+
+	# Check if System Manager or customer matches
+	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+	if not is_system_manager and order.customer != user_customer:
+		return {"success": False, "error": "You don't have permission to view this order"}
+
+	# Get order items
+	items = []
+	for item in order.items:
+		items.append({
+			"item_code": item.item_code,
+			"item_name": item.item_name,
+			"qty": item.qty,
+			"rate": item.rate,
+			"amount": item.amount,
+			"delivery_date": item.delivery_date,
+			"configured_fixture": item.get("ill_configured_fixture"),
+		})
+
+	# Get delivery notes linked to this order
+	delivery_notes = frappe.get_all(
+		"Delivery Note Item",
+		filters={"against_sales_order": order_name, "docstatus": 1},
+		fields=["parent"],
+		distinct=True,
+	)
+	deliveries = []
+	for dn in delivery_notes:
+		dn_doc = frappe.get_doc("Delivery Note", dn.parent)
+		deliveries.append({
+			"name": dn_doc.name,
+			"posting_date": dn_doc.posting_date,
+			"status": dn_doc.status,
+			"tracking_no": dn_doc.get("tracking_no"),
+			"transporter": dn_doc.get("transporter_name"),
+		})
+
+	return {
+		"success": True,
+		"order": {
+			"name": order.name,
+			"transaction_date": order.transaction_date,
+			"delivery_date": order.delivery_date,
+			"status": order.status,
+			"grand_total": order.grand_total,
+			"currency": order.currency,
+			"customer": order.customer,
+			"customer_name": order.customer_name,
+			"po_no": order.po_no,
+			"per_delivered": order.per_delivered,
+			"per_billed": order.per_billed,
+		},
+		"items": items,
+		"deliveries": deliveries,
+	}
+
+
+@frappe.whitelist()
+def get_portal_notifications() -> dict:
+	"""
+	Get notifications and alerts for the current portal user.
+
+	Returns:
+		dict: List of notifications
+	"""
+	notifications = []
+
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+	)
+	customer = _get_user_customer(frappe.session.user)
+
+	if customer:
+		# Check for quotes ready
+		quoted_schedules = frappe.db.count(
+			"ilL-Project-Fixture-Schedule",
+			{"status": "QUOTED"}
+		)
+		if quoted_schedules > 0:
+			notifications.append({
+				"type": "quote",
+				"title": _("Quotes Ready"),
+				"message": _("{0} schedule(s) have quotes ready for review").format(quoted_schedules),
+				"link": "/portal/projects",
+				"icon": "fa-file-text-o",
+				"color": "success",
+			})
+
+		# Check for orders ready to ship
+		ready_orders = frappe.db.count(
+			"Sales Order",
+			{"customer": customer, "status": "To Deliver", "docstatus": 1}
+		)
+		if ready_orders > 0:
+			notifications.append({
+				"type": "shipping",
+				"title": _("Orders Ready to Ship"),
+				"message": _("{0} order(s) are ready for shipment").format(ready_orders),
+				"link": "/portal/orders",
+				"icon": "fa-truck",
+				"color": "info",
+			})
+
+	return {"success": True, "notifications": notifications}
