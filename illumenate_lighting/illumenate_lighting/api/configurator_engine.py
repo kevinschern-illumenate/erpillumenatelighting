@@ -1696,7 +1696,7 @@ def _create_or_update_configured_fixture(
 		doc.config_hash = config_hash  # This will become the document name
 
 	# Set identity fields
-	doc.engine_version = "1.0.0"
+	doc.engine_version = ENGINE_VERSION
 	doc.fixture_template = fixture_template_code
 
 	# Set selected options
