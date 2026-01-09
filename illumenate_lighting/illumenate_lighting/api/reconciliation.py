@@ -70,7 +70,10 @@ def check_artifact_sync(configured_fixture_id: str) -> dict[str, Any]:
 		result["mismatches"].extend(wo_mismatches)
 
 	# Check 4: Engine version
-	current_engine_version = "1.0.0"  # Should match ENGINE_VERSION in configurator_engine
+	# Import ENGINE_VERSION from configurator_engine to avoid version string duplication
+	from illumenate_lighting.illumenate_lighting.api.configurator_engine import ENGINE_VERSION
+
+	current_engine_version = ENGINE_VERSION
 	if fixture.engine_version and fixture.engine_version != current_engine_version:
 		result["mismatches"].append({
 			"type": "engine_version",

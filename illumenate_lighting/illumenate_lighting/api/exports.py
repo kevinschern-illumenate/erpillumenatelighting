@@ -529,8 +529,9 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.pdf"
 
-		# Save file - priced exports are private to prevent unauthorized URL access
-		# Epic 3 Task 3.2: Direct-download leakage prevention
+		# Save file - priced exports are saved as private files to require authentication for access.
+		# Non-priced exports remain public as they don't contain sensitive pricing data.
+		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
 		file_doc = save_file(
 			filename,
 			pdf_content,
@@ -605,8 +606,9 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.csv"
 
-		# Save file - priced exports are private to prevent unauthorized URL access
-		# Epic 3 Task 3.2: Direct-download leakage prevention
+		# Save file - priced exports are saved as private files to require authentication for access.
+		# Non-priced exports remain public as they don't contain sensitive pricing data.
+		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
 		file_doc = save_file(
 			filename,
 			csv_content.encode("utf-8"),

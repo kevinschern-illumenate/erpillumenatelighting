@@ -112,6 +112,9 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+# Engine version - used for tracking configuration computation version
+ENGINE_VERSION = "1.0.0"
+
 
 @frappe.whitelist()
 def validate_and_quote(

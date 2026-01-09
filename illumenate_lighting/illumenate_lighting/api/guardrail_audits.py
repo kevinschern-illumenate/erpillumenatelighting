@@ -159,10 +159,10 @@ def _get_allowed_options(template) -> dict[str, list]:
 		elif opt.option_type == "Lens Appearance" and opt.lens_appearance:
 			options["lens_appearances"].append(opt.lens_appearance)
 
-	# Get endcap colors from attribute doctype (usually global)
+	# Get endcap colors from attribute doctype (all colors are available globally)
 	endcap_colors = frappe.get_all(
 		"ilL-Attribute-Endcap Color",
-		filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Endcap Color", "is_active") else {},
+		filters={},
 		fields=["name", "code"],
 	)
 	options["endcap_colors"] = [c.name for c in endcap_colors]
