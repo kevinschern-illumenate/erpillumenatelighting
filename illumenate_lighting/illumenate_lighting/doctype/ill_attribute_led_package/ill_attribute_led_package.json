@@ -6,6 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "code",
   "spectrum_type",
   "notes",
   "column_break_qnot",
@@ -13,6 +14,13 @@
   "is_pixel"
  ],
  "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "LED Package Code",
+   "reqd": 1
+  },
   {
    "fieldname": "spectrum_type",
    "fieldtype": "Select",

@@ -32,12 +32,16 @@ class ilLConfiguredFixture(Document):
 			) or ""
 		parts.append(profile_family or "XX")
 
-		# LED Package Code - get from tape_offering -> led_package (the doc name IS the code)
+		# LED Package Code - get from tape_offering -> led_package -> code
 		led_package_code = ""
 		if self.tape_offering:
-			led_package_code = frappe.db.get_value(
+			led_package_name = frappe.db.get_value(
 				"ilL-Rel-Tape Offering", self.tape_offering, "led_package"
-			) or ""
+			)
+			if led_package_name:
+				led_package_code = frappe.db.get_value(
+					"ilL-Attribute-LED Package", led_package_name, "code"
+				) or ""
 		parts.append(led_package_code or "XX")
 
 		# Environment Code from environment_rating
