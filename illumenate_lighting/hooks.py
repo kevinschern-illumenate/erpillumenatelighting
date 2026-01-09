@@ -61,7 +61,8 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 
 # website user home page (by Role)
 role_home_page = {
-	"Dealer": "portal"
+	"Dealer": "portal",
+	"Website User": "portal",
 }
 
 # Website Route Rules
