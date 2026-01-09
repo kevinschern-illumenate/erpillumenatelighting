@@ -40,16 +40,27 @@ class ilLProjectFixtureSchedule(Document):
 		"""
 		Create a Sales Order from this fixture schedule.
 
-		Creates a Sales Order for the schedule's customer with SO lines for
-		manufacturer_type = ILLUMENATE only. Each SO line links to the chosen
+		Creates a Sales Order for the owner's company (the dealer who created the
+		project), not the end-client customer. The end-client is stored in the
+		project's 'customer' field for reference. Each SO line links to the chosen
 		ilL-Configured-Fixture and copies qty, location/notes, and key computed
 		fields into custom SO Item fields for quick visibility.
 
 		Returns:
 			str: Name of the created Sales Order document
 		"""
-		if not self.customer:
-			frappe.throw(_("Customer is required to create a Sales Order"))
+		# Get the project to access owner_customer
+		if not self.ill_project:
+			frappe.throw(_("Project is required to create a Sales Order"))
+
+		project = frappe.get_doc("ilL-Project", self.ill_project)
+
+		# Use owner_customer (the dealer's company) for the Sales Order
+		# Fall back to the project's customer if owner_customer is not set
+		so_customer = project.owner_customer or self.customer
+
+		if not so_customer:
+			frappe.throw(_("Owner Company is required to create a Sales Order"))
 
 		# Filter lines to only ILLUMENATE manufacturer type with configured fixtures
 		illumenate_lines = [
@@ -64,9 +75,13 @@ class ilLProjectFixtureSchedule(Document):
 
 		# Create Sales Order
 		so = frappe.new_doc("Sales Order")
-		so.customer = self.customer
+		so.customer = so_customer
 		so.project = self.project
 		so.delivery_date = frappe.utils.add_days(frappe.utils.nowdate(), 30)
+
+		# Store the end-client reference in remarks if different from SO customer
+		if project.customer and project.customer != so_customer:
+			so.remarks = _("End-Client: {0}").format(project.customer)
 
 		# Add SO items for each ILLUMENATE line
 		for line in illumenate_lines:
