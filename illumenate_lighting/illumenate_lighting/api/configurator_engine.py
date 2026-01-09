@@ -1017,14 +1017,33 @@ def _resolve_items(
 	)
 
 	lens_item = None
-	for lens_row in lens_candidates:
-		lens_doc = frappe.get_doc("ilL-Spec-Lens", lens_row.name)
-		if environment_rating_code:
-			env_supported = {row.environment_rating for row in lens_doc.get("supported_environment_ratings", [])}
+
+	# Pre-fetch supported environment ratings for all lens candidates to avoid N+1 queries
+	# Epic 5 Task 5.1: Reduce N+1 lookups in engine
+	if lens_candidates and environment_rating_code:
+		lens_names = [row.name for row in lens_candidates]
+		lens_envs = frappe.get_all(
+			"ilL-Child-Lens-Environments",
+			filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
+			fields=["parent", "environment_rating"],
+		)
+		# Build lookup: {lens_name: set(environment_ratings)}
+		lens_env_map: dict[str, set] = {}
+		for env in lens_envs:
+			if env.parent not in lens_env_map:
+				lens_env_map[env.parent] = set()
+			lens_env_map[env.parent].add(env.environment_rating)
+
+		# Find a lens that supports the environment rating
+		for lens_row in lens_candidates:
+			env_supported = lens_env_map.get(lens_row.name, set())
 			if env_supported and environment_rating_code not in env_supported:
 				continue
-		lens_item = lens_row.item
-		break
+			lens_item = lens_row.item
+			break
+	elif lens_candidates:
+		# No environment rating specified, use first match
+		lens_item = lens_candidates[0].item
 
 	if not lens_item:
 		messages.append(
