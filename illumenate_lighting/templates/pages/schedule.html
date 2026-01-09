@@ -16,6 +16,22 @@ Also handles new schedule creation when is_new is True
 .action-buttons .btn i {
 	pointer-events: none;
 }
+.fixture-details {
+	line-height: 1.4;
+}
+.fixture-details .small span {
+	white-space: nowrap;
+}
+.fixture-details .small i {
+	width: 14px;
+	text-align: center;
+}
+.fixture-details strong {
+	font-size: 0.95rem;
+}
+.table td {
+	vertical-align: middle;
+}
 </style>
 {% endblock %}
 
@@ -190,7 +206,7 @@ Also handles new schedule creation when is_new is True
 									<th>{{ _("Type") }}</th>
 									<th class="text-center">{{ _("Qty") }}</th>
 									<th>{{ _("Location") }}</th>
-									<th>{{ _("Details") }}</th>
+									<th>{{ _("Fixture Details") }}</th>
 									{% if can_edit %}
 									<th class="text-center">{{ _("Actions") }}</th>
 									{% endif %}
@@ -202,24 +218,91 @@ Also handles new schedule creation when is_new is True
 									<td>{{ line.line_id or line.idx }}</td>
 									<td>
 										<span class="badge badge-{{ 'primary' if line.manufacturer_type == 'ILLUMENATE' else 'secondary' }}">
-											{{ line.manufacturer_type }}
+											{{ 'ilLumenate' if line.manufacturer_type == 'ILLUMENATE' else 'Other' }}
 										</span>
 									</td>
 									<td class="text-center">{{ line.qty }}</td>
 									<td>{{ line.location or '-' }}</td>
 									<td>
 										{% if line.manufacturer_type == 'ILLUMENATE' and line.configured_fixture %}
-										<a href="/portal/configure/{{ line.configured_fixture }}" class="text-primary">
-											{{ line.ill_item_code or 'Configured' }}
-										</a>
-										<br>
-										<small class="text-muted">
-											{{ line.manufacturable_length_mm }}mm
-										</small>
+										{% set cf_details = lines_json[loop.index0].cf_details if lines_json[loop.index0] and lines_json[loop.index0].cf_details else {} %}
+										<div class="fixture-details">
+											<strong class="text-primary">{{ cf_details.part_number or line.ill_item_code or 'Configured' }}</strong>
+											<div class="small text-muted mt-1">
+												{% if cf_details.estimated_delivered_output %}
+												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.estimated_delivered_output }} lm/ft est.</span>
+												{% endif %}
+												{% if cf_details.cct %}
+												<span class="mr-2"><i class="fa fa-thermometer-half"></i> {{ cf_details.cct }}</span>
+												{% endif %}
+												{% if cf_details.led_package %}
+												<span class="mr-2"><i class="fa fa-microchip"></i> {{ cf_details.led_package }}</span>
+												{% endif %}
+											</div>
+											<div class="small text-muted">
+												{% if cf_details.power_supply %}
+												<span class="mr-2"><i class="fa fa-plug"></i> {{ cf_details.power_supply }}</span>
+												{% endif %}
+												{% if cf_details.driver_input_voltage %}
+												<span class="mr-2"><i class="fa fa-bolt"></i> {{ cf_details.driver_input_voltage }}</span>
+												{% endif %}
+												{% if cf_details.finish %}
+												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ cf_details.finish }}</span>
+												{% endif %}
+											</div>
+											{% if line.manufacturable_length_mm %}
+											<div class="small text-muted">
+												<i class="fa fa-arrows-h"></i> {{ line.manufacturable_length_mm }}mm
+											</div>
+											{% endif %}
+										</div>
 										{% elif line.manufacturer_type == 'OTHER' %}
-										{{ line.manufacturer_name or '' }} {{ line.model_number or '' }}
-										{% else %}
+										<div class="fixture-details">
+											{% if line.manufacturer_name %}
+											<strong>{{ line.manufacturer_name }}</strong>
+											{% endif %}
+											{% if line.fixture_model_number %}
+											<span class="text-muted"> - {{ line.fixture_model_number }}</span>
+											{% endif %}
+											<div class="small text-muted mt-1">
+												{% if line.trim_info %}
+												<span class="mr-2"><i class="fa fa-th"></i> {{ line.trim_info }}</span>
+												{% endif %}
+												{% if line.housing_model_number %}
+												<span class="mr-2"><i class="fa fa-cube"></i> {{ line.housing_model_number }}</span>
+												{% endif %}
+											</div>
+											<div class="small text-muted">
+												{% if line.driver_model_number %}
+												<span class="mr-2"><i class="fa fa-plug"></i> {{ line.driver_model_number }}</span>
+												{% endif %}
+												{% if line.lamp_info %}
+												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ line.lamp_info }}</span>
+												{% endif %}
+											</div>
+											<div class="small text-muted">
+												{% if line.dimming_protocol %}
+												<span class="mr-2"><i class="fa fa-sliders"></i> {{ line.dimming_protocol }}</span>
+												{% endif %}
+												{% if line.input_voltage %}
+												<span class="mr-2"><i class="fa fa-bolt"></i> {{ line.input_voltage }}</span>
+												{% endif %}
+												{% if line.other_finish %}
+												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ line.other_finish }}</span>
+												{% endif %}
+											</div>
+											{% if line.spec_sheet %}
+											<div class="small mt-1">
+												<a href="{{ line.spec_sheet }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">
+													<i class="fa fa-file-pdf-o"></i> {{ _("Spec Sheet") }}
+												</a>
+											</div>
+											{% endif %}
+										</div>
+										{% elif line.manufacturer_type == 'ILLUMENATE' %}
 										<span class="text-muted">{{ _("Not configured") }}</span>
+										{% else %}
+										<span class="text-muted">-</span>
 										{% endif %}
 									</td>
 									{% if can_edit %}
@@ -318,7 +401,7 @@ Also handles new schedule creation when is_new is True
 
 <!-- Add Line Modal -->
 <div class="modal fade" id="addLineModal" tabindex="-1" role="dialog">
-	<div class="modal-dialog" role="document">
+	<div class="modal-dialog modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
 				<h5 class="modal-title">{{ _("Add Fixture Line") }}</h5>
@@ -328,33 +411,111 @@ Also handles new schedule creation when is_new is True
 			</div>
 			<div class="modal-body">
 				<form id="addLineForm">
-					<div class="form-group">
-						<label>{{ _("Line ID") }}</label>
-						<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
-					</div>
-					<div class="form-group">
-						<label>{{ _("Quantity") }}</label>
-						<input type="number" class="form-control" name="qty" value="1" min="1">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Line ID") }}</label>
+								<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Quantity") }}</label>
+								<input type="number" class="form-control" name="qty" value="1" min="1">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Manufacturer Type") }}</label>
+								<select class="form-control" name="manufacturer_type">
+									<option value="ILLUMENATE">ilLumenate</option>
+									<option value="OTHER">Other Manufacturer</option>
+								</select>
+							</div>
+						</div>
 					</div>
 					<div class="form-group">
 						<label>{{ _("Location") }}</label>
 						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
 					</div>
-					<div class="form-group">
-						<label>{{ _("Manufacturer Type") }}</label>
-						<select class="form-control" name="manufacturer_type">
-							<option value="ILLUMENATE">ilLumenate</option>
-							<option value="OTHER">Other Manufacturer</option>
-						</select>
+
+					<!-- Other Manufacturer Fields -->
+					<div class="other-fields" style="display: none;">
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("Other Manufacturer Details") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
+									<input type="text" class="form-control" name="manufacturer_name">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Fixture Model Number") }}</label>
+									<input type="text" class="form-control" name="fixture_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Trim Information") }}</label>
+									<input type="text" class="form-control" name="trim_info">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Housing Model Number") }}</label>
+									<input type="text" class="form-control" name="housing_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Driver Model Number") }}</label>
+									<input type="text" class="form-control" name="driver_model_number">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Lamp Information") }}</label>
+									<input type="text" class="form-control" name="lamp_info">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Dimming Protocol") }}</label>
+									<input type="text" class="form-control" name="dimming_protocol" placeholder="e.g., 0-10V, DALI, Triac...">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Input Voltage") }}</label>
+									<input type="text" class="form-control" name="input_voltage" placeholder="e.g., 120V, 277V...">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Finish") }}</label>
+									<input type="text" class="form-control" name="other_finish">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Spec Sheet") }}</label>
+									<input type="file" class="form-control-file" name="spec_sheet_file" id="add_spec_sheet_file">
+									<small class="text-muted">{{ _("Upload a spec sheet PDF or image") }}</small>
+								</div>
+							</div>
+						</div>
 					</div>
-					<div class="form-group other-fields" style="display: none;">
-						<label>{{ _("Manufacturer Name") }}</label>
-						<input type="text" class="form-control" name="manufacturer_name">
-					</div>
-					<div class="form-group other-fields" style="display: none;">
-						<label>{{ _("Model Number") }}</label>
-						<input type="text" class="form-control" name="model_number">
-					</div>
+
 					<div class="form-group">
 						<label>{{ _("Notes") }}</label>
 						<textarea class="form-control" name="notes" rows="2"></textarea>
@@ -373,7 +534,7 @@ Also handles new schedule creation when is_new is True
 
 <!-- Edit Line Modal -->
 <div class="modal fade" id="editLineModal" tabindex="-1" role="dialog">
-	<div class="modal-dialog" role="document">
+	<div class="modal-dialog modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
 				<h5 class="modal-title">{{ _("Edit Fixture Line") }}</h5>
@@ -384,26 +545,109 @@ Also handles new schedule creation when is_new is True
 			<div class="modal-body">
 				<form id="editLineForm">
 					<input type="hidden" name="edit_line_idx" id="edit_line_idx">
-					<div class="form-group">
-						<label>{{ _("Line ID") }}</label>
-						<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
-					</div>
-					<div class="form-group">
-						<label>{{ _("Quantity") }}</label>
-						<input type="number" class="form-control" name="edit_qty" id="edit_qty" value="1" min="1">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Line ID") }}</label>
+								<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Quantity") }}</label>
+								<input type="number" class="form-control" name="edit_qty" id="edit_qty" value="1" min="1">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Manufacturer Type") }}</label>
+								<input type="text" class="form-control" id="edit_manufacturer_type" readonly>
+							</div>
+						</div>
 					</div>
 					<div class="form-group">
 						<label>{{ _("Location") }}</label>
 						<input type="text" class="form-control" name="edit_location" id="edit_location" placeholder="e.g., Kitchen, Office...">
 					</div>
-					<div class="form-group edit-other-fields" style="display: none;">
-						<label>{{ _("Manufacturer Name") }}</label>
-						<input type="text" class="form-control" name="edit_manufacturer_name" id="edit_manufacturer_name">
+
+					<!-- Other Manufacturer Fields -->
+					<div class="edit-other-fields" style="display: none;">
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("Other Manufacturer Details") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
+									<input type="text" class="form-control" name="edit_manufacturer_name" id="edit_manufacturer_name">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Fixture Model Number") }}</label>
+									<input type="text" class="form-control" name="edit_fixture_model_number" id="edit_fixture_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Trim Information") }}</label>
+									<input type="text" class="form-control" name="edit_trim_info" id="edit_trim_info">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Housing Model Number") }}</label>
+									<input type="text" class="form-control" name="edit_housing_model_number" id="edit_housing_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Driver Model Number") }}</label>
+									<input type="text" class="form-control" name="edit_driver_model_number" id="edit_driver_model_number">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Lamp Information") }}</label>
+									<input type="text" class="form-control" name="edit_lamp_info" id="edit_lamp_info">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Dimming Protocol") }}</label>
+									<input type="text" class="form-control" name="edit_dimming_protocol" id="edit_dimming_protocol">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Input Voltage") }}</label>
+									<input type="text" class="form-control" name="edit_input_voltage" id="edit_input_voltage">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Finish") }}</label>
+									<input type="text" class="form-control" name="edit_other_finish" id="edit_other_finish">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Spec Sheet") }}</label>
+									<div id="edit_spec_sheet_current" class="mb-2"></div>
+									<input type="file" class="form-control-file" name="edit_spec_sheet_file" id="edit_spec_sheet_file">
+									<small class="text-muted">{{ _("Upload a new spec sheet to replace existing") }}</small>
+								</div>
+							</div>
+						</div>
 					</div>
-					<div class="form-group edit-other-fields" style="display: none;">
-						<label>{{ _("Model Number") }}</label>
-						<input type="text" class="form-control" name="edit_model_number" id="edit_model_number">
-					</div>
+
 					<div class="form-group">
 						<label>{{ _("Notes") }}</label>
 						<textarea class="form-control" name="edit_notes" id="edit_notes" rows="2"></textarea>
@@ -485,18 +729,80 @@ $('select[name="manufacturer_type"]').on('change', function() {
 	}
 });
 
+// File upload helper function
+function uploadFile(fileInput, callback) {
+	var file = fileInput.files[0];
+	if (!file) {
+		callback(null);
+		return;
+	}
+
+	var formData = new FormData();
+	formData.append('file', file);
+	formData.append('is_private', 0);
+	formData.append('folder', 'Home/Attachments');
+
+	$.ajax({
+		url: '/api/method/upload_file',
+		type: 'POST',
+		data: formData,
+		processData: false,
+		contentType: false,
+		headers: {
+			'X-Frappe-CSRF-Token': frappe.csrf_token
+		},
+		success: function(r) {
+			if (r.message && r.message.file_url) {
+				callback(r.message.file_url);
+			} else {
+				callback(null);
+			}
+		},
+		error: function() {
+			callback(null);
+		}
+	});
+}
+
 function addLine() {
 	var form = $('#addLineForm');
+	var manufacturerType = form.find('[name="manufacturer_type"]').val();
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
 		qty: form.find('[name="qty"]').val(),
 		location: form.find('[name="location"]').val(),
-		manufacturer_type: form.find('[name="manufacturer_type"]').val(),
-		manufacturer_name: form.find('[name="manufacturer_name"]').val(),
-		model_number: form.find('[name="model_number"]').val(),
+		manufacturer_type: manufacturerType,
 		notes: form.find('[name="notes"]').val()
 	};
 
+	// Add Other manufacturer fields if applicable
+	if (manufacturerType === 'OTHER') {
+		data.manufacturer_name = form.find('[name="manufacturer_name"]').val();
+		data.fixture_model_number = form.find('[name="fixture_model_number"]').val();
+		data.trim_info = form.find('[name="trim_info"]').val();
+		data.housing_model_number = form.find('[name="housing_model_number"]').val();
+		data.driver_model_number = form.find('[name="driver_model_number"]').val();
+		data.lamp_info = form.find('[name="lamp_info"]').val();
+		data.dimming_protocol = form.find('[name="dimming_protocol"]').val();
+		data.input_voltage = form.find('[name="input_voltage"]').val();
+		data.other_finish = form.find('[name="other_finish"]').val();
+	}
+
+	// Handle file upload if present
+	var fileInput = document.getElementById('add_spec_sheet_file');
+	if (manufacturerType === 'OTHER' && fileInput && fileInput.files.length > 0) {
+		uploadFile(fileInput, function(fileUrl) {
+			if (fileUrl) {
+				data.spec_sheet = fileUrl;
+			}
+			submitAddLine(data);
+		});
+	} else {
+		submitAddLine(data);
+	}
+}
+
+function submitAddLine(data) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
 		args: {
@@ -547,12 +853,30 @@ function editLine(line_idx) {
 	$('#edit_qty').val(line.qty || 1);
 	$('#edit_location').val(line.location || '');
 	$('#edit_notes').val(line.notes || '');
+	$('#edit_manufacturer_type').val(line.manufacturer_type || 'ILLUMENATE');
 
 	// Show/hide other manufacturer fields
 	if (line.manufacturer_type === 'OTHER') {
 		$('.edit-other-fields').show();
 		$('#edit_manufacturer_name').val(line.manufacturer_name || '');
-		$('#edit_model_number').val(line.model_number || '');
+		$('#edit_fixture_model_number').val(line.fixture_model_number || '');
+		$('#edit_trim_info').val(line.trim_info || '');
+		$('#edit_housing_model_number').val(line.housing_model_number || '');
+		$('#edit_driver_model_number').val(line.driver_model_number || '');
+		$('#edit_lamp_info').val(line.lamp_info || '');
+		$('#edit_dimming_protocol').val(line.dimming_protocol || '');
+		$('#edit_input_voltage').val(line.input_voltage || '');
+		$('#edit_other_finish').val(line.other_finish || '');
+
+		// Show current spec sheet if exists
+		if (line.spec_sheet) {
+			$('#edit_spec_sheet_current').html(
+				'<a href="' + line.spec_sheet + '" target="_blank" class="btn btn-sm btn-outline-secondary">' +
+				'<i class="fa fa-file-pdf-o"></i> Current Spec Sheet</a>'
+			);
+		} else {
+			$('#edit_spec_sheet_current').html('<span class="text-muted">No spec sheet uploaded</span>');
+		}
 	} else {
 		$('.edit-other-fields').hide();
 	}
@@ -562,15 +886,43 @@ function editLine(line_idx) {
 
 function saveEditLine() {
 	var line_idx = $('#edit_line_idx').val();
+	var line = lineData[line_idx];
 	var line_data = {
 		line_id: $('#edit_line_id').val(),
 		qty: $('#edit_qty').val(),
 		location: $('#edit_location').val(),
-		notes: $('#edit_notes').val(),
-		manufacturer_name: $('#edit_manufacturer_name').val(),
-		model_number: $('#edit_model_number').val()
+		notes: $('#edit_notes').val()
 	};
 
+	// Add Other manufacturer fields if applicable
+	if (line && line.manufacturer_type === 'OTHER') {
+		line_data.manufacturer_name = $('#edit_manufacturer_name').val();
+		line_data.fixture_model_number = $('#edit_fixture_model_number').val();
+		line_data.trim_info = $('#edit_trim_info').val();
+		line_data.housing_model_number = $('#edit_housing_model_number').val();
+		line_data.driver_model_number = $('#edit_driver_model_number').val();
+		line_data.lamp_info = $('#edit_lamp_info').val();
+		line_data.dimming_protocol = $('#edit_dimming_protocol').val();
+		line_data.input_voltage = $('#edit_input_voltage').val();
+		line_data.other_finish = $('#edit_other_finish').val();
+
+		// Handle file upload if present
+		var fileInput = document.getElementById('edit_spec_sheet_file');
+		if (fileInput && fileInput.files.length > 0) {
+			uploadFile(fileInput, function(fileUrl) {
+				if (fileUrl) {
+					line_data.spec_sheet = fileUrl;
+				}
+				submitEditLine(line_idx, line_data);
+			});
+			return;
+		}
+	}
+
+	submitEditLine(line_idx, line_data);
+}
+
+function submitEditLine(line_idx, line_data) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_line',
 		args: {

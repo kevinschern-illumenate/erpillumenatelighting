@@ -241,7 +241,15 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 
 		if line.manufacturer_type == "OTHER":
 			line.manufacturer_name = line_data.get("manufacturer_name")
-			line.model_number = line_data.get("model_number")
+			line.fixture_model_number = line_data.get("fixture_model_number")
+			line.trim_info = line_data.get("trim_info")
+			line.housing_model_number = line_data.get("housing_model_number")
+			line.driver_model_number = line_data.get("driver_model_number")
+			line.lamp_info = line_data.get("lamp_info")
+			line.dimming_protocol = line_data.get("dimming_protocol")
+			line.input_voltage = line_data.get("input_voltage")
+			line.other_finish = line_data.get("other_finish")
+			line.spec_sheet = line_data.get("spec_sheet")
 
 		schedule.save()
 		return {"success": True, "line_idx": len(schedule.lines) - 1}
@@ -390,11 +398,154 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 		if line.manufacturer_type == "OTHER":
 			if "manufacturer_name" in line_data:
 				line.manufacturer_name = line_data.get("manufacturer_name")
-			if "model_number" in line_data:
-				line.model_number = line_data.get("model_number")
+			if "fixture_model_number" in line_data:
+				line.fixture_model_number = line_data.get("fixture_model_number")
+			if "trim_info" in line_data:
+				line.trim_info = line_data.get("trim_info")
+			if "housing_model_number" in line_data:
+				line.housing_model_number = line_data.get("housing_model_number")
+			if "driver_model_number" in line_data:
+				line.driver_model_number = line_data.get("driver_model_number")
+			if "lamp_info" in line_data:
+				line.lamp_info = line_data.get("lamp_info")
+			if "dimming_protocol" in line_data:
+				line.dimming_protocol = line_data.get("dimming_protocol")
+			if "input_voltage" in line_data:
+				line.input_voltage = line_data.get("input_voltage")
+			if "other_finish" in line_data:
+				line.other_finish = line_data.get("other_finish")
+			if "spec_sheet" in line_data:
+				line.spec_sheet = line_data.get("spec_sheet")
 
 		schedule.save()
 		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_configured_fixture_details(configured_fixture_id: str) -> dict:
+	"""
+	Get detailed information about a configured fixture for portal display.
+
+	Fetches computed values from linked doctypes including:
+	- Part Number
+	- Estimated Delivered Output (LED tape output * lens transmission)
+	- CCT (from LED tape)
+	- Lamp/LED Package
+	- Power Supply/Driver info
+	- Finish
+	- Input Voltage
+
+	Args:
+		configured_fixture_id: ID of the ilL-Configured-Fixture
+
+	Returns:
+		dict: {"success": True/False, "details": {...}, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+
+		details = {
+			"config_hash": cf.config_hash,
+			"part_number": cf.configured_item or cf.config_hash,
+			"finish": None,
+			"lens_appearance": None,
+			"cct": None,
+			"led_package": None,
+			"output_level": None,
+			"estimated_delivered_output": None,
+			"power_supply": None,
+			"driver_input_voltage": None,
+			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
+			"total_watts": cf.total_watts,
+		}
+
+		# Get finish display name
+		if cf.finish:
+			finish_doc = frappe.db.get_value(
+				"ilL-Attribute-Finish",
+				cf.finish,
+				["code", "display_name"],
+				as_dict=True,
+			)
+			if finish_doc:
+				details["finish"] = finish_doc.display_name or finish_doc.code or cf.finish
+
+		# Get lens appearance and transmission
+		lens_transmission = 100  # Default 100% if not found
+		if cf.lens_appearance:
+			lens_doc = frappe.db.get_value(
+				"ilL-Attribute-Lens Appearance",
+				cf.lens_appearance,
+				["label", "transmission"],
+				as_dict=True,
+			)
+			if lens_doc:
+				details["lens_appearance"] = lens_doc.label or cf.lens_appearance
+				if lens_doc.transmission:
+					lens_transmission = lens_doc.transmission
+
+		# Get tape offering details (CCT, LED Package, Output Level)
+		if cf.tape_offering:
+			tape_offering = frappe.db.get_value(
+				"ilL-Rel-Tape Offering",
+				cf.tape_offering,
+				["cct", "led_package", "output_level", "tape_spec"],
+				as_dict=True,
+			)
+			if tape_offering:
+				details["cct"] = tape_offering.cct
+				details["led_package"] = tape_offering.led_package
+
+				# Get output level numeric value for calculation
+				if tape_offering.output_level:
+					output_level_doc = frappe.db.get_value(
+						"ilL-Attribute-Output Level",
+						tape_offering.output_level,
+						["output_level_name", "value"],
+						as_dict=True,
+					)
+					if output_level_doc:
+						details["output_level"] = output_level_doc.output_level_name
+						# Calculate estimated delivered output (output_level * lens_transmission)
+						if output_level_doc.value:
+							delivered = (output_level_doc.value * lens_transmission) / 100
+							details["estimated_delivered_output"] = round(delivered, 1)
+
+		# Get driver/power supply info from drivers child table
+		if cf.drivers:
+			driver_items = []
+			driver_input_voltages = []
+			for driver_alloc in cf.drivers:
+				if driver_alloc.driver_item:
+					# Get driver spec details
+					driver_spec = frappe.db.get_value(
+						"ilL-Spec-Driver",
+						driver_alloc.driver_item,
+						["item", "input_voltage", "max_wattage"],
+						as_dict=True,
+					)
+					if driver_spec:
+						item_name = frappe.db.get_value("Item", driver_alloc.driver_item, "item_name")
+						if driver_alloc.driver_qty > 1:
+							driver_items.append(f"{item_name} x{driver_alloc.driver_qty}")
+						else:
+							driver_items.append(item_name or driver_alloc.driver_item)
+						if driver_spec.input_voltage:
+							driver_input_voltages.append(driver_spec.input_voltage)
+
+			if driver_items:
+				details["power_supply"] = ", ".join(driver_items)
+			if driver_input_voltages:
+				# Remove duplicates and join
+				unique_voltages = list(dict.fromkeys(driver_input_voltages))
+				details["driver_input_voltage"] = ", ".join(unique_voltages)
+
+		return {"success": True, "details": details}
 	except Exception as e:
 		return {"success": False, "error": str(e)}
 

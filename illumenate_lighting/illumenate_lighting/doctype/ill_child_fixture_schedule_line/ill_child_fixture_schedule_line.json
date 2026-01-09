@@ -18,8 +18,16 @@
   "manufacturable_length_mm",
   "other_section",
   "manufacturer_name",
-  "model_number",
-  "attachments"
+  "fixture_model_number",
+  "trim_info",
+  "housing_model_number",
+  "column_break_other",
+  "driver_model_number",
+  "lamp_info",
+  "dimming_protocol",
+  "input_voltage",
+  "other_finish",
+  "spec_sheet"
  ],
  "fields": [
   {
@@ -102,15 +110,62 @@
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='OTHER'",
-   "fieldname": "model_number",
+   "fieldname": "fixture_model_number",
    "fieldtype": "Data",
-   "label": "Model Number"
+   "label": "Fixture Model Number"
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='OTHER'",
-   "fieldname": "attachments",
+   "fieldname": "trim_info",
+   "fieldtype": "Data",
+   "label": "Trim Information"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "housing_model_number",
+   "fieldtype": "Data",
+   "label": "Housing Model Number"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "column_break_other",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "driver_model_number",
+   "fieldtype": "Data",
+   "label": "Driver Model Number"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "lamp_info",
+   "fieldtype": "Data",
+   "label": "Lamp Information"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "dimming_protocol",
+   "fieldtype": "Data",
+   "label": "Dimming Protocol"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "input_voltage",
+   "fieldtype": "Data",
+   "label": "Input Voltage"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "other_finish",
+   "fieldtype": "Data",
+   "label": "Finish"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "fieldname": "spec_sheet",
    "fieldtype": "Attach",
-   "label": "Attachments"
+   "label": "Spec Sheet"
   }
  ],
  "grid_page_length": 50,
