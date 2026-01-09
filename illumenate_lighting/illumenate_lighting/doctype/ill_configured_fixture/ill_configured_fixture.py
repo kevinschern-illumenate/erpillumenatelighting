@@ -12,7 +12,7 @@ class ilLConfiguredFixture(Document):
 	def autoname(self):
 		"""
 		Generate part number in format:
-		ILL-{Profile Series}-{LED Package Code}-{CCT Code}-{Fixture Output Code}-{Lens Code}-{Mounting Code}-{Finish Code}-{Length in inches}
+		ILL-{Profile Series}-{LED Package Code}-{Environment Code}-{CCT Code}-{Fixture Output Code}-{Lens Code}-{Mounting Code}-{Finish Code}-{Length in inches}
 		"""
 		self.name = self._generate_part_number()
 
@@ -39,6 +39,14 @@ class ilLConfiguredFixture(Document):
 				"ilL-Rel-Tape Offering", self.tape_offering, "led_package"
 			) or ""
 		parts.append(led_package_code or "XX")
+
+		# Environment Code from environment_rating
+		environment_code = ""
+		if self.environment_rating:
+			environment_code = frappe.db.get_value(
+				"ilL-Attribute-Environment Rating", self.environment_rating, "code"
+			) or ""
+		parts.append(environment_code or "XX")
 
 		# CCT Code from tape_offering -> cct -> code
 		cct_code = ""
