@@ -1036,7 +1036,7 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 
 	try:
 		# Check if Document Request doctype exists, if not create the request as an Issue
-		if frappe.db.table_exists("tabilL-Document-Request"):
+		if frappe.db.exists("DocType", "ilL-Document-Request"):
 			# Map drawing_type to a request type
 			drawing_type = request_data.get("drawing_type", "shop_drawing")
 			request_type = _get_or_create_request_type(drawing_type)

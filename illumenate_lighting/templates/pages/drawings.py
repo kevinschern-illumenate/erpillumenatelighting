@@ -33,7 +33,7 @@ def get_context(context):
 	context.all_requests = []
 	context.pending_count = 0
 
-	if frappe.db.table_exists("tabilL-Document-Request"):
+	if frappe.db.exists("DocType", "ilL-Document-Request"):
 		# Pending requests (Submitted or In Progress status)
 		context.pending_requests = frappe.get_all(
 			"ilL-Document-Request",

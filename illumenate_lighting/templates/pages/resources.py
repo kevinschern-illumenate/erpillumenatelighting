@@ -23,7 +23,7 @@ def get_context(context):
 	context.spec_sheets = []
 
 	# Try to get product list from fixture templates
-	if frappe.db.table_exists("ilL-Fixture-Template"):
+	if frappe.db.exists("DocType", "ilL-Fixture-Template"):
 		templates = frappe.get_all(
 			"ilL-Fixture-Template",
 			filters={"is_active": 1},
