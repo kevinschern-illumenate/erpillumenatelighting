@@ -1071,3 +1071,430 @@ def get_portal_notifications() -> dict:
 			})
 
 	return {"success": True, "notifications": notifications}
+
+
+# =============================================================================
+# DEALER-SPECIFIC API FUNCTIONS
+# =============================================================================
+
+
+@frappe.whitelist()
+def get_user_role_info() -> dict:
+	"""
+	Get role information for the current user.
+
+	Returns:
+		dict: {
+			"is_dealer": bool,
+			"is_internal": bool,
+			"user_customer": str or None,
+			"can_invite_collaborators": bool,
+			"can_create_customers": bool,
+		}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	is_dealer = _is_dealer_user(frappe.session.user)
+	is_internal = _is_internal_user(frappe.session.user)
+	user_customer = _get_user_customer(frappe.session.user)
+
+	return {
+		"success": True,
+		"is_dealer": is_dealer,
+		"is_internal": is_internal,
+		"user_customer": user_customer,
+		"can_invite_collaborators": is_dealer or is_internal,
+		"can_create_customers": is_dealer or is_internal,
+		"can_create_contacts": is_dealer or is_internal,
+	}
+
+
+@frappe.whitelist()
+def invite_project_collaborator(
+	project_name: str,
+	email: str,
+	first_name: str = None,
+	last_name: str = None,
+	access_level: str = "VIEW",
+	send_invite: int = 1,
+) -> dict:
+	"""
+	Invite an external collaborator to a specific project.
+
+	Dealers can invite external collaborators. These collaborators:
+	- Only have access to the specific project(s) they are invited to
+	- Do not have the Dealer role
+	- Cannot see other projects or company data
+
+	Args:
+		project_name: The project to invite the collaborator to
+		email: Email address of the collaborator
+		first_name: First name (used if creating new user)
+		last_name: Last name (used if creating new user)
+		access_level: VIEW or EDIT
+		send_invite: 1 to send invitation email, 0 to skip
+
+	Returns:
+		dict: {"success": True/False, "user": email, "is_new_user": bool, "error": str}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_dealer_user,
+		_is_internal_user,
+		has_permission as project_has_permission,
+	)
+
+	# Check if caller has permission to invite collaborators
+	is_dealer = _is_dealer_user(frappe.session.user)
+	is_internal = _is_internal_user(frappe.session.user)
+
+	if not is_dealer and not is_internal:
+		return {"success": False, "error": "You don't have permission to invite collaborators"}
+
+	# Validate project exists
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "error": "Project not found"}
+
+	project = frappe.get_doc("ilL-Project", project_name)
+
+	# Check permission on project
+	if not project_has_permission(project, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to manage this project"}
+
+	# Validate email
+	email = email.strip().lower()
+	if not frappe.utils.validate_email_address(email):
+		return {"success": False, "error": "Invalid email address"}
+
+	# Check if user already exists
+	is_new_user = False
+	if frappe.db.exists("User", email):
+		user = frappe.get_doc("User", email)
+	else:
+		# Create new user
+		is_new_user = True
+		try:
+			user = frappe.new_doc("User")
+			user.email = email
+			user.first_name = first_name or email.split("@")[0]
+			user.last_name = last_name or ""
+			user.send_welcome_email = int(send_invite)
+			user.enabled = 1
+			# New collaborators get Website User role only (no Dealer role)
+			user.append("roles", {"role": "Website User"})
+			user.insert(ignore_permissions=True)
+		except Exception as e:
+			frappe.log_error(f"Error creating user for collaborator: {str(e)}")
+			return {"success": False, "error": f"Failed to create user: {str(e)}"}
+
+	# Check if already a collaborator on this project
+	existing_collab = None
+	for c in project.collaborators or []:
+		if c.user == email:
+			existing_collab = c
+			break
+
+	if existing_collab:
+		# Update existing collaborator
+		existing_collab.access_level = access_level
+		existing_collab.is_active = 1
+	else:
+		# Add new collaborator
+		project.append("collaborators", {
+			"user": email,
+			"access_level": access_level,
+			"is_active": 1,
+		})
+
+	try:
+		project.save(ignore_permissions=True)
+	except Exception as e:
+		return {"success": False, "error": f"Failed to add collaborator: {str(e)}"}
+
+	# Send invitation email if requested and user already existed (new users get welcome email)
+	if send_invite and not is_new_user:
+		_send_collaborator_invite_email(project, user.name, access_level)
+
+	return {
+		"success": True,
+		"user": email,
+		"is_new_user": is_new_user,
+		"access_level": access_level,
+	}
+
+
+def _send_collaborator_invite_email(project, user_email: str, access_level: str):
+	"""
+	Send an email notification to a collaborator about project access.
+
+	Args:
+		project: The ilL-Project document
+		user_email: Email of the collaborator
+		access_level: VIEW or EDIT
+	"""
+	try:
+		project_url = frappe.utils.get_url(f"/portal/projects/{project.name}")
+		access_text = "view" if access_level == "VIEW" else "view and edit"
+
+		frappe.sendmail(
+			recipients=[user_email],
+			subject=_("You've been invited to collaborate on {0}").format(project.project_name),
+			message=_("""
+<p>Hello,</p>
+
+<p>You have been invited to collaborate on the project <strong>{project_name}</strong>.</p>
+
+<p>You can now {access_text} this project. Click the link below to access it:</p>
+
+<p><a href="{project_url}">{project_url}</a></p>
+
+<p>Best regards,<br>
+ilLumenate Lighting Team</p>
+""").format(
+				project_name=project.project_name,
+				access_text=access_text,
+				project_url=project_url,
+			),
+			delayed=False,
+		)
+	except Exception as e:
+		frappe.log_error(f"Failed to send collaborator invite email: {str(e)}")
+
+
+@frappe.whitelist()
+def remove_project_collaborator(project_name: str, user_email: str) -> dict:
+	"""
+	Remove a collaborator from a project.
+
+	Args:
+		project_name: The project name
+		user_email: Email of the collaborator to remove
+
+	Returns:
+		dict: {"success": True/False, "error": str}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user,
+		_is_internal_user,
+		has_permission as project_has_permission,
+	)
+
+	# Check if caller has permission
+	is_dealer = _is_dealer_user(frappe.session.user)
+	is_internal = _is_internal_user(frappe.session.user)
+
+	if not is_dealer and not is_internal and frappe.session.user != frappe.db.get_value("ilL-Project", project_name, "owner"):
+		return {"success": False, "error": "You don't have permission to manage collaborators"}
+
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "error": "Project not found"}
+
+	project = frappe.get_doc("ilL-Project", project_name)
+
+	if not project_has_permission(project, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to manage this project"}
+
+	# Find and deactivate the collaborator
+	found = False
+	for c in project.collaborators or []:
+		if c.user == user_email:
+			c.is_active = 0
+			found = True
+			break
+
+	if not found:
+		return {"success": False, "error": "Collaborator not found on this project"}
+
+	try:
+		project.save(ignore_permissions=True)
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_company_contacts() -> dict:
+	"""
+	Get all contacts associated with the dealer's company.
+
+	Dealers can see all contacts linked to their Customer.
+
+	Returns:
+		dict: {"success": True, "contacts": [...]}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+	is_dealer = _is_dealer_user(frappe.session.user)
+
+	if is_internal:
+		# Internal users see all contacts
+		contacts = frappe.get_all(
+			"Contact",
+			fields=["name", "first_name", "last_name", "email_id", "phone", "user"],
+			order_by="first_name asc",
+		)
+	elif is_dealer:
+		# Dealers see contacts linked to their company
+		user_customer = _get_user_customer(frappe.session.user)
+		if not user_customer:
+			return {"success": True, "contacts": []}
+
+		# Get contacts linked to the user's customer
+		linked_contact_names = frappe.db.sql("""
+			SELECT DISTINCT dl.parent
+			FROM `tabDynamic Link` dl
+			WHERE dl.parenttype = 'Contact'
+				AND dl.link_doctype = 'Customer'
+				AND dl.link_name = %(customer)s
+		""", {"customer": user_customer}, pluck="parent")
+
+		if not linked_contact_names:
+			return {"success": True, "contacts": []}
+
+		contacts = frappe.get_all(
+			"Contact",
+			filters={"name": ["in", linked_contact_names]},
+			fields=["name", "first_name", "last_name", "email_id", "phone", "user"],
+			order_by="first_name asc",
+		)
+	else:
+		# Regular portal users only see their own contact
+		return {"success": True, "contacts": []}
+
+	return {"success": True, "contacts": contacts}
+
+
+@frappe.whitelist()
+def create_contact(contact_data: Union[str, dict]) -> dict:
+	"""
+	Create a new contact for the dealer's company.
+
+	Dealers can create contacts that are automatically linked to their Customer.
+
+	Args:
+		contact_data: Dict with contact fields (first_name, last_name, email_id, phone, etc.)
+
+	Returns:
+		dict: {"success": True/False, "contact_name": name, "error": str}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+	is_dealer = _is_dealer_user(frappe.session.user)
+
+	if not is_dealer and not is_internal:
+		return {"success": False, "error": "You don't have permission to create contacts"}
+
+	if isinstance(contact_data, str):
+		contact_data = json.loads(contact_data)
+
+	if not contact_data.get("first_name"):
+		return {"success": False, "error": "First name is required"}
+
+	user_customer = _get_user_customer(frappe.session.user)
+
+	try:
+		contact = frappe.new_doc("Contact")
+		contact.first_name = contact_data.get("first_name")
+		contact.last_name = contact_data.get("last_name", "")
+		contact.email_id = contact_data.get("email_id", "")
+		contact.phone = contact_data.get("phone", "")
+		contact.company_name = contact_data.get("company_name", "")
+		contact.designation = contact_data.get("designation", "")
+
+		# Link to user's customer (for dealers)
+		if user_customer and not is_internal:
+			contact.append("links", {
+				"link_doctype": "Customer",
+				"link_name": user_customer,
+			})
+
+		# If a specific customer was provided and user is internal, use that
+		if is_internal and contact_data.get("customer"):
+			contact.append("links", {
+				"link_doctype": "Customer",
+				"link_name": contact_data.get("customer"),
+			})
+
+		contact.insert(ignore_permissions=True)
+		return {"success": True, "contact_name": contact.name}
+	except Exception as e:
+		frappe.log_error(f"Error creating contact: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_company_customers() -> dict:
+	"""
+	Get customers that the dealer's company has created or is linked to.
+
+	Dealers see customers that:
+	1. Were created by users at their company
+	2. Have contacts from their company
+
+	Returns:
+		dict: {"success": True, "customers": [...]}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+	is_dealer = _is_dealer_user(frappe.session.user)
+
+	if is_internal:
+		# Internal users see all customers
+		customers = frappe.get_all(
+			"Customer",
+			fields=["name", "customer_name", "customer_type", "territory"],
+			order_by="customer_name asc",
+			limit=500,
+		)
+		return {"success": True, "customers": customers}
+
+	if not is_dealer:
+		# Regular portal users only see their own customer
+		user_customer = _get_user_customer(frappe.session.user)
+		if user_customer:
+			customer = frappe.get_doc("Customer", user_customer)
+			return {"success": True, "customers": [{
+				"name": customer.name,
+				"customer_name": customer.customer_name,
+				"customer_type": customer.customer_type,
+				"territory": customer.territory,
+			}]}
+		return {"success": True, "customers": []}
+
+	# Dealer: get allowed customers using the existing logic
+	result = get_allowed_customers_for_project()
+	if not result.get("success"):
+		return {"success": True, "customers": []}
+
+	allowed_names = [c["value"] for c in result.get("allowed_customers", [])]
+	if not allowed_names:
+		return {"success": True, "customers": []}
+
+	customers = frappe.get_all(
+		"Customer",
+		filters={"name": ["in", allowed_names]},
+		fields=["name", "customer_name", "customer_type", "territory"],
+		order_by="customer_name asc",
+	)
+
+	return {"success": True, "customers": customers}
+

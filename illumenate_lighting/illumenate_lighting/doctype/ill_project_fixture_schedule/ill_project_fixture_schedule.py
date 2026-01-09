@@ -9,6 +9,23 @@ from frappe.model.document import Document
 MM_PER_FOOT = 304.8
 
 
+# Import permission helpers from project module
+def _is_internal_user(user=None):
+	"""Check if user has internal/admin access."""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_internal_user as project_is_internal,
+	)
+	return project_is_internal(user)
+
+
+def _is_dealer_user(user=None):
+	"""Check if user has Dealer role."""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user as project_is_dealer,
+	)
+	return project_is_dealer(user)
+
+
 class ilLProjectFixtureSchedule(Document):
 	def validate(self):
 		"""Validate schedule data and sync customer from project."""
@@ -193,6 +210,7 @@ def get_permission_query_conditions(user=None):
 	Schedule inherits project privacy rules:
 	- If inherits_project_privacy is True, uses linked ilL-Project's access rules
 	- Internal roles see all schedules
+	- Dealers see all schedules for their company
 
 	Args:
 		user: The user to check permissions for. Defaults to current user.
@@ -203,8 +221,8 @@ def get_permission_query_conditions(user=None):
 	if not user:
 		user = frappe.session.user
 
-	# System Manager and Administrator have full access
-	if "System Manager" in frappe.get_roles(user) or user == "Administrator":
+	# Internal users have full access
+	if _is_internal_user(user):
 		return ""
 
 	# Import project permission helper
@@ -213,6 +231,7 @@ def get_permission_query_conditions(user=None):
 	)
 
 	user_customer = _get_user_customer(user)
+	is_dealer = _is_dealer_user(user)
 
 	if not user_customer:
 		# User has no customer link - can only see schedules they own
@@ -220,9 +239,20 @@ def get_permission_query_conditions(user=None):
 			`tabilL-Project-Fixture-Schedule`.owner = {frappe.db.escape(user)}
 		)"""
 
-	# Build conditions that check project access
+	if is_dealer:
+		# Dealers see all schedules for their company (via project link)
+		return f"""(
+			`tabilL-Project-Fixture-Schedule`.owner = {frappe.db.escape(user)}
+			OR `tabilL-Project-Fixture-Schedule`.customer = {frappe.db.escape(user_customer)}
+			OR `tabilL-Project-Fixture-Schedule`.ill_project IN (
+				SELECT p.name FROM `tabilL-Project` p
+				WHERE p.owner_customer = {frappe.db.escape(user_customer)}
+			)
+		)"""
+
+	# Non-dealer portal user: apply privacy rules
 	# Schedule is accessible if:
-	# 1. inherits_project_privacy = 1 AND linked project is accessible (project is non-private and same customer, or user is owner/collaborator)
+	# 1. inherits_project_privacy = 1 AND linked project is accessible
 	# 2. inherits_project_privacy = 0 AND schedule.is_private = 0 AND schedule.customer = user_customer
 	# 3. Owner always has access
 	return f"""(
@@ -239,7 +269,7 @@ def get_permission_query_conditions(user=None):
 			AND `tabilL-Project-Fixture-Schedule`.ill_project IN (
 				SELECT p.name FROM `tabilL-Project` p
 				WHERE (
-					p.customer = {frappe.db.escape(user_customer)} AND p.is_private = 0
+					p.owner_customer = {frappe.db.escape(user_customer)} AND p.is_private = 0
 				) OR (
 					p.is_private = 1 AND (
 						p.owner = {frappe.db.escape(user)}
@@ -259,6 +289,7 @@ def has_permission(doc, ptype="read", user=None):
 	Check if user has permission to access this specific schedule.
 
 	Schedule inherits project privacy rules when inherits_project_privacy is True.
+	Dealers have access to all schedules for their company.
 
 	Args:
 		doc: The ilL-Project-Fixture-Schedule document
@@ -271,8 +302,8 @@ def has_permission(doc, ptype="read", user=None):
 	if not user:
 		user = frappe.session.user
 
-	# System Manager and Administrator have full access
-	if "System Manager" in frappe.get_roles(user) or user == "Administrator":
+	# Internal users have full access
+	if _is_internal_user(user):
 		return True
 
 	# Owner always has full access
@@ -285,15 +316,20 @@ def has_permission(doc, ptype="read", user=None):
 		has_permission as project_has_permission,
 	)
 
+	user_customer = _get_user_customer(user)
+	is_dealer = _is_dealer_user(user)
+
 	# If inherits project privacy, delegate to project permission check
 	if doc.inherits_project_privacy and doc.ill_project:
 		project = frappe.get_doc("ilL-Project", doc.ill_project)
 		return project_has_permission(project, ptype, user)
 
-	# Schedule-level privacy check (when not inheriting from project)
-	user_customer = _get_user_customer(user)
+	# Dealers can access all schedules for their company
+	if is_dealer and user_customer and user_customer == doc.customer:
+		return True
 
-	# If schedule is not private and user is from same customer
+	# Schedule-level privacy check (when not inheriting from project)
+	# Non-dealer users can only access non-private schedules
 	if not doc.is_private:
 		if user_customer and user_customer == doc.customer:
 			return True

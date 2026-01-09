@@ -60,9 +60,9 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # home_page = "login"
 
 # website user home page (by Role)
-# role_home_page = {
-# 	"Role": "home_page"
-# }
+role_home_page = {
+	"Dealer": "portal"
+}
 
 # Website Route Rules
 # -------------------
@@ -123,7 +123,14 @@ website_route_rules = [
 # ------------
 
 # before_install = "illumenate_lighting.install.before_install"
-# after_install = "illumenate_lighting.install.after_install"
+after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
+
+# Fixtures
+# --------
+# Fixtures are records that get inserted during app installation
+fixtures = [
+	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
+]
 
 # Uninstallation
 # ------------

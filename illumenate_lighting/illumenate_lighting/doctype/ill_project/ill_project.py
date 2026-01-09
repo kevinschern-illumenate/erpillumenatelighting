@@ -7,6 +7,30 @@ from frappe.model.document import Document
 from frappe.utils import now
 
 
+# Roles that have internal/admin access
+INTERNAL_ROLES = {"System Manager", "Administrator"}
+
+# Roles that have dealer-level access (can create/manage their company's data)
+DEALER_ROLES = {"Dealer"}
+
+
+def _is_internal_user(user=None):
+	"""Check if user has internal/admin access."""
+	if not user:
+		user = frappe.session.user
+	if user == "Administrator":
+		return True
+	user_roles = set(frappe.get_roles(user))
+	return bool(user_roles & INTERNAL_ROLES)
+
+
+def _is_dealer_user(user=None):
+	"""Check if user has Dealer role."""
+	if not user:
+		user = frappe.session.user
+	return "Dealer" in frappe.get_roles(user)
+
+
 class ilLProject(Document):
 	def before_insert(self):
 		"""Set timestamps on collaborator rows and owner_customer before insert."""
@@ -45,9 +69,10 @@ def get_permission_query_conditions(user=None):
 
 	Rules:
 	- Internal roles (System Manager, etc.) see all projects
-	- Portal users see:
-	  - All projects where customer == user_customer AND is_private == 0
-	  - Plus projects where is_private == 1 AND (owner == user OR user in collaborators)
+	- Dealer users see projects where:
+	  - owner_customer == user_customer (their company's projects)
+	  - OR user is owner/collaborator
+	- External collaborators see only projects they are collaborators on
 
 	Args:
 		user: The user to check permissions for. Defaults to current user.
@@ -58,12 +83,15 @@ def get_permission_query_conditions(user=None):
 	if not user:
 		user = frappe.session.user
 
-	# System Manager and Administrator have full access
-	if "System Manager" in frappe.get_roles(user) or user == "Administrator":
+	# Internal users have full access
+	if _is_internal_user(user):
 		return ""
 
 	# Get customer linked to this user (via Contact -> Customer link)
 	user_customer = _get_user_customer(user)
+
+	# Check if user is a Dealer
+	is_dealer = _is_dealer_user(user)
 
 	if not user_customer:
 		# User has no customer link - can only see projects they own or are collaborators on
@@ -75,9 +103,20 @@ def get_permission_query_conditions(user=None):
 			)
 		)"""
 
-	# User has a customer link - apply company-visible + private access rules
-	# Visibility is based on owner_customer (the company that created the project),
-	# not the customer field (which may be a downstream customer)
+	if is_dealer:
+		# Dealers see all their company's projects (private and non-private)
+		# Plus any projects they are collaborators on at other companies
+		return f"""(
+			`tabilL-Project`.owner_customer = {frappe.db.escape(user_customer)}
+			OR `tabilL-Project`.owner = {frappe.db.escape(user)}
+			OR `tabilL-Project`.name IN (
+				SELECT parent FROM `tabilL-Child-Project-Collaborator`
+				WHERE user = {frappe.db.escape(user)} AND is_active = 1
+			)
+		)"""
+
+	# Non-dealer portal user with customer link - apply company-visible + private access rules
+	# Visibility is based on owner_customer (the company that created the project)
 	return f"""(
 		(
 			`tabilL-Project`.owner_customer = {frappe.db.escape(user_customer)}
@@ -102,9 +141,11 @@ def has_permission(doc, ptype="read", user=None):
 
 	Rules:
 	- Internal roles (System Manager, etc.) always allowed
-	- Portal user can view:
-	  - Non-private projects where customer == user_customer
+	- Dealers can access all projects for their company
+	- Regular portal users can view:
+	  - Non-private projects where owner_customer == user_customer
 	  - Private projects where owner == user OR user in collaborators
+	- External collaborators can only access projects they are collaborators on
 
 	Args:
 		doc: The ilL-Project document
@@ -117,8 +158,8 @@ def has_permission(doc, ptype="read", user=None):
 	if not user:
 		user = frappe.session.user
 
-	# System Manager and Administrator have full access
-	if "System Manager" in frappe.get_roles(user) or user == "Administrator":
+	# Internal users have full access
+	if _is_internal_user(user):
 		return True
 
 	# Owner always has full access
@@ -139,12 +180,18 @@ def has_permission(doc, ptype="read", user=None):
 			return False
 		return True
 
-	# For non-private projects, check if user is from the same owner company
-	if not doc.is_private:
-		user_customer = _get_user_customer(user)
-		if user_customer and user_customer == doc.owner_customer:
-			# Company-visible: user from same owner company can read/write
+	# Check user's company/customer link
+	user_customer = _get_user_customer(user)
+	is_dealer = _is_dealer_user(user)
+
+	if user_customer and user_customer == doc.owner_customer:
+		if is_dealer:
+			# Dealers can access all their company's projects (private or not)
 			return True
+		else:
+			# Non-dealer users can only access non-private projects
+			if not doc.is_private:
+				return True
 
 	return False
 
