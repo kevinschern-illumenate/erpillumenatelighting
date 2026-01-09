@@ -33,17 +33,17 @@ def get_context(context):
 	context.all_requests = []
 	context.pending_count = 0
 
-	if frappe.db.table_exists("ilL-Drawing-Request"):
-		# Pending requests
+	if frappe.db.table_exists("tabilL-Document-Request"):
+		# Pending requests (Submitted or In Progress status)
 		context.pending_requests = frappe.get_all(
-			"ilL-Drawing-Request",
-			filters={"status": ["in", ["Pending", "In Progress"]]},
+			"ilL-Document-Request",
+			filters={"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]},
 			fields=[
 				"name",
-				"drawing_type",
+				"request_type",
 				"description",
 				"project",
-				"custom_reference",
+				"fixture_or_product_text",
 				"priority",
 				"status",
 				"creation",
@@ -51,24 +51,26 @@ def get_context(context):
 			order_by="creation desc",
 		)
 
-		# Add project names
+		# Add project names and type display
 		for req in context.pending_requests:
 			if req.project:
 				req.project_name = frappe.db.get_value("ilL-Project", req.project, "project_name")
-			req.drawing_type_display = _get_drawing_type_display(req.drawing_type)
+			req.drawing_type = _request_type_to_drawing_type(req.request_type)
+			req.drawing_type_display = req.request_type or _("Request")
+			req.custom_reference = req.fixture_or_product_text
 
 		context.pending_count = len(context.pending_requests)
 
 		# Completed requests
 		context.completed_requests = frappe.get_all(
-			"ilL-Drawing-Request",
-			filters={"status": "Completed"},
+			"ilL-Document-Request",
+			filters={"status": ["in", ["Completed", "Closed"]]},
 			fields=[
 				"name",
-				"drawing_type",
+				"request_type",
 				"description",
 				"project",
-				"custom_reference",
+				"fixture_or_product_text",
 				"status",
 				"creation",
 				"modified",
@@ -80,19 +82,21 @@ def get_context(context):
 		for req in context.completed_requests:
 			if req.project:
 				req.project_name = frappe.db.get_value("ilL-Project", req.project, "project_name")
-			req.drawing_type_display = _get_drawing_type_display(req.drawing_type)
+			req.drawing_type = _request_type_to_drawing_type(req.request_type)
+			req.drawing_type_display = req.request_type or _("Request")
+			req.custom_reference = req.fixture_or_product_text
 			# Check if there are file attachments
 			req.has_attachments = frappe.db.count(
 				"File",
-				{"attached_to_doctype": "ilL-Drawing-Request", "attached_to_name": req.name}
+				{"attached_to_doctype": "ilL-Document-Request", "attached_to_name": req.name}
 			) > 0
 
 		# All requests
 		context.all_requests = frappe.get_all(
-			"ilL-Drawing-Request",
+			"ilL-Document-Request",
 			fields=[
 				"name",
-				"drawing_type",
+				"request_type",
 				"description",
 				"project",
 				"status",
@@ -105,7 +109,8 @@ def get_context(context):
 		for req in context.all_requests:
 			if req.project:
 				req.project_name = frappe.db.get_value("ilL-Project", req.project, "project_name")
-			req.drawing_type_display = _get_drawing_type_display(req.drawing_type)
+			req.drawing_type = _request_type_to_drawing_type(req.request_type)
+			req.drawing_type_display = req.request_type or _("Request")
 
 	# Helper function for icons
 	context.drawing_type_icon = _drawing_type_icon
@@ -125,6 +130,19 @@ def _get_drawing_type_display(drawing_type):
 		"ies_file": _("IES File"),
 	}
 	return type_map.get(drawing_type, drawing_type)
+
+
+def _request_type_to_drawing_type(request_type):
+	"""Convert request type name to drawing_type key for icon lookup."""
+	if not request_type:
+		return "other"
+	type_map = {
+		"Shop Drawing": "shop_drawing",
+		"Spec Sheet": "spec_sheet",
+		"Installation Guide": "installation",
+		"IES File": "ies_file",
+	}
+	return type_map.get(request_type, "other")
 
 
 def _drawing_type_icon(drawing_type):

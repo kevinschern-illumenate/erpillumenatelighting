@@ -798,18 +798,25 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": "Description is required"}
 
 	try:
-		# Check if Drawing Request doctype exists, if not create the request as an Issue
-		if frappe.db.table_exists("ilL-Drawing-Request"):
-			doc = frappe.new_doc("ilL-Drawing-Request")
-			doc.drawing_type = request_data.get("drawing_type", "shop_drawing")
+		# Check if Document Request doctype exists, if not create the request as an Issue
+		if frappe.db.table_exists("tabilL-Document-Request"):
+			# Map drawing_type to a request type
+			drawing_type = request_data.get("drawing_type", "shop_drawing")
+			request_type = _get_or_create_request_type(drawing_type)
+
+			doc = frappe.new_doc("ilL-Document-Request")
+			doc.request_type = request_type
 			doc.project = request_data.get("project") if request_data.get("project") != "_custom" else None
-			doc.custom_reference = request_data.get("custom_reference")
-			doc.fixture_reference = request_data.get("fixture_reference")
+			doc.fixture_or_product_text = request_data.get("fixture_reference") or request_data.get("custom_reference")
 			doc.description = request_data.get("description")
-			doc.priority = request_data.get("priority", "normal")
-			doc.status = "Pending"
-			doc.requested_by = frappe.session.user
-			doc.insert()
+			# Map priority values
+			priority_map = {"low": "Normal", "normal": "Normal", "high": "High", "rush": "Rush"}
+			doc.priority = priority_map.get(request_data.get("priority", "normal").lower(), "Normal")
+			doc.status = "Submitted"
+			doc.requester_user = frappe.session.user
+			doc.created_from_portal = 1
+			doc.insert(ignore_permissions=True)
+			frappe.db.commit()
 			return {"success": True, "request_name": doc.name}
 		else:
 			# Fallback: Create as an Issue with drawing request info
@@ -827,10 +834,44 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 """
 			doc.raised_by = frappe.session.user
 			doc.insert(ignore_permissions=True)
+			frappe.db.commit()
 			return {"success": True, "request_name": doc.name}
 	except Exception as e:
 		frappe.log_error(f"Error creating drawing request: {str(e)}")
 		return {"success": False, "error": str(e)}
+
+
+def _get_or_create_request_type(drawing_type: str) -> str:
+	"""
+	Get or create a request type based on drawing_type.
+
+	Args:
+		drawing_type: The type of drawing (shop_drawing, spec_sheet, etc.)
+
+	Returns:
+		str: The name of the request type
+	"""
+	type_name_map = {
+		"shop_drawing": "Shop Drawing",
+		"spec_sheet": "Spec Sheet",
+		"installation": "Installation Guide",
+		"ies_file": "IES File",
+	}
+	type_name = type_name_map.get(drawing_type, drawing_type.replace("_", " ").title())
+
+	# Check if the request type exists
+	if frappe.db.exists("ilL-Request-Type", type_name):
+		return type_name
+
+	# Create the request type if it doesn't exist
+	request_type_doc = frappe.new_doc("ilL-Request-Type")
+	request_type_doc.type_name = type_name
+	request_type_doc.category = "Drawing"
+	request_type_doc.is_active = 1
+	request_type_doc.portal_label = type_name
+	request_type_doc.insert(ignore_permissions=True)
+	frappe.db.commit()
+	return type_name
 
 
 @frappe.whitelist()

@@ -105,14 +105,14 @@ def _get_portal_stats():
 		)
 
 	# Count drawing requests if the doctype exists
-	if frappe.db.table_exists("ilL-Drawing-Request"):
+	if frappe.db.table_exists("tabilL-Document-Request"):
 		stats["pending_drawings"] = frappe.db.count(
-			"ilL-Drawing-Request",
-			{"status": ["in", ["Pending", "In Progress"]]}
+			"ilL-Document-Request",
+			{"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]}
 		)
 		stats["ready_drawings"] = frappe.db.count(
-			"ilL-Drawing-Request",
-			{"status": "Completed"}
+			"ilL-Document-Request",
+			{"status": ["in", ["Completed", "Closed"]]}
 		)
 
 	return stats
