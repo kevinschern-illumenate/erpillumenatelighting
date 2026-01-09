@@ -120,24 +120,14 @@ Allows users to configure fixtures using the Rules Engine
 							<hr>
 							<h6 class="mb-3">{{ _("Dimensions") }}</h6>
 
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Requested Length") }} <span class="text-danger">*</span></label>
-										<div class="input-group">
-											<input type="number" class="form-control" name="requested_overall_length_mm" min="1" required>
-											<select class="custom-select" name="length_unit" style="max-width: 80px;">
-												<option value="mm" selected>mm</option>
-												<option value="in">in</option>
-											</select>
-										</div>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Quantity") }}</label>
-										<input type="number" class="form-control" name="qty" value="1" min="1">
-									</div>
+							<div class="form-group">
+								<label>{{ _("Requested Length") }} <span class="text-danger">*</span></label>
+								<div class="input-group">
+									<input type="number" class="form-control" name="requested_overall_length_mm" min="1" required>
+									<select class="custom-select" name="length_unit" style="max-width: 80px;">
+										<option value="mm" selected>mm</option>
+										<option value="in">in</option>
+									</select>
 								</div>
 							</div>
 						</div>
@@ -373,8 +363,7 @@ function validateAndQuote() {
 		power_feed_type_code: form.find('[name="power_feed_type_code"]').val(),
 		environment_rating_code: form.find('[name="environment_rating_code"]').val(),
 		tape_offering_id: form.find('[name="tape_offering_id"]').val(),
-		requested_overall_length_mm: length,
-		qty: form.find('[name="qty"]').val() || 1
+		requested_overall_length_mm: length
 	};
 
 	frappe.call({
