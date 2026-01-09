@@ -64,10 +64,14 @@ def get_context(context):
 	illumenate_count = sum(1 for line in lines if line.manufacturer_type == "ILLUMENATE")
 	other_count = sum(1 for line in lines if line.manufacturer_type == "OTHER")
 
-	# Create JSON-serializable line data for JavaScript with enriched details
+	# Create enriched line data for template display
+	# We'll add cf_details directly to each line for easy access in the template
+	lines_with_details = []
 	lines_json = []
 	for line in lines:
-		line_data = {
+		# Create a dict representation with all needed fields
+		line_dict = {
+			"idx": line.idx,
 			"line_id": line.line_id,
 			"qty": line.qty,
 			"location": line.location,
@@ -87,18 +91,20 @@ def get_context(context):
 			"input_voltage": line.input_voltage,
 			"other_finish": line.other_finish,
 			"spec_sheet": line.spec_sheet,
+			"cf_details": {},
 		}
 
 		# For ilLumenate fixtures, fetch enriched details from configured fixture
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
-			line_data["cf_details"] = cf_details
+			line_dict["cf_details"] = cf_details
 
-		lines_json.append(line_data)
+		lines_with_details.append(line_dict)
+		lines_json.append(line_dict)
 
 	context.schedule = schedule
 	context.project = project
-	context.lines = lines
+	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
 	context.can_view_pricing = can_view_pricing
@@ -234,21 +240,35 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			driver_input_voltages = []
 			for driver_alloc in cf.drivers:
 				if driver_alloc.driver_item:
-					# Get driver spec details
+					# driver_alloc.driver_item is the Item code
+					# Get item_name from Item doctype
+					item_name = frappe.db.get_value("Item", driver_alloc.driver_item, "item_name")
+
+					# Find the ilL-Spec-Driver linked to this Item
 					driver_spec = frappe.db.get_value(
 						"ilL-Spec-Driver",
-						driver_alloc.driver_item,
-						["item", "input_voltage", "max_wattage"],
+						{"item": driver_alloc.driver_item},
+						["input_voltage", "max_wattage"],
 						as_dict=True,
 					)
-					if driver_spec:
-						item_name = frappe.db.get_value("Item", driver_alloc.driver_item, "item_name")
-						if driver_alloc.driver_qty > 1:
-							driver_items.append(f"{item_name} x{driver_alloc.driver_qty}")
-						else:
-							driver_items.append(item_name or driver_alloc.driver_item)
-						if driver_spec.input_voltage:
-							driver_input_voltages.append(driver_spec.input_voltage)
+
+					# Build driver display string
+					display_name = item_name or driver_alloc.driver_item
+					if driver_alloc.driver_qty > 1:
+						driver_items.append(f"{display_name} x{driver_alloc.driver_qty}")
+					else:
+						driver_items.append(display_name)
+
+					# Get input voltage from driver spec
+					if driver_spec and driver_spec.input_voltage:
+						driver_input_voltages.append(driver_spec.input_voltage)
+
+			if driver_items:
+				details["power_supply"] = ", ".join(driver_items)
+			if driver_input_voltages:
+				# Remove duplicates and join
+				unique_voltages = list(dict.fromkeys(driver_input_voltages))
+				details["driver_input_voltage"] = ", ".join(unique_voltages)
 
 			if driver_items:
 				details["power_supply"] = ", ".join(driver_items)
