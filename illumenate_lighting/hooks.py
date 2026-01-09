@@ -88,15 +88,8 @@ website_route_rules = [
 	{"from_route": "/portal/orders", "to_route": "orders"},
 	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
 
-	# Document Requests (Drawings, Resources, etc.)
-	{"from_route": "/portal/requests", "to_route": "requests"},
-	{"from_route": "/portal/requests/new", "to_route": "request_new"},
-	{"from_route": "/portal/requests/new/<request_type>", "to_route": "request_new"},
-	{"from_route": "/portal/requests/<request>", "to_route": "request_detail"},
-
-	# Drawings (legacy routes - redirect to requests)
-	{"from_route": "/portal/drawings", "to_route": "requests"},
-	{"from_route": "/portal/drawings/<drawing>", "to_route": "request_detail"},
+	# Drawings
+	{"from_route": "/portal/drawings", "to_route": "drawings"},
 
 	# Resources
 	{"from_route": "/portal/resources", "to_route": "resources"},

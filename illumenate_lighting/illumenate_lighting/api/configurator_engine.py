@@ -1026,7 +1026,7 @@ def _resolve_items(
 	if lens_candidates and environment_rating_code:
 		lens_names = [row.name for row in lens_candidates]
 		lens_envs = frappe.get_all(
-			"ilL-Child-Lens-Environments",
+			"ilL-Child-Lens Environments",
 			filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
 			fields=["parent", "environment_rating"],
 		)
