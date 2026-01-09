@@ -27,14 +27,14 @@ def get_context(context):
 		templates = frappe.get_all(
 			"ilL-Fixture-Template",
 			filters={"is_active": 1},
-			fields=["template_code", "template_name", "description"],
+			fields=["template_code", "template_name", "notes"],
 			order_by="template_code",
 			limit=20,
 		)
 		for t in templates:
 			context.spec_sheets.append({
 				"name": f"{t.template_code} - {t.template_name}",
-				"description": t.description or _("Product specification sheet"),
+				"description": t.notes or _("Product specification sheet"),
 				"url": f"/resources/specs/{t.template_code}",
 				"size": "1.2 MB",
 			})
