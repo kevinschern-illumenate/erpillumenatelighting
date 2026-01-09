@@ -80,9 +80,38 @@ Also handles new schedule creation when is_new is True
 							<p class="text-muted mb-2">
 								<strong>{{ _("Project") }}:</strong> {{ project.project_name }}
 							</p>
-							<span class="badge badge-{{ schedule_status_class(schedule.status) }}">
-								{{ schedule.status }}
-							</span>
+							<div class="d-flex align-items-center gap-2">
+								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge">
+									{{ schedule.status }}
+								</span>
+								{% if can_edit and schedule.status not in ['ORDERED', 'CLOSED'] %}
+								<div class="dropdown d-inline-block ml-2">
+									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+										<i class="fa fa-exchange"></i> {{ _("Change Status") }}
+									</button>
+									<div class="dropdown-menu" aria-labelledby="statusDropdown">
+										{% if schedule.status != 'DRAFT' %}
+										<a class="dropdown-item" href="#" onclick="changeStatus('DRAFT'); return false;">
+											<i class="fa fa-pencil text-warning"></i> {{ _("DRAFT") }}
+											<small class="text-muted d-block">{{ _("Continue editing") }}</small>
+										</a>
+										{% endif %}
+										{% if schedule.status != 'READY' %}
+										<a class="dropdown-item" href="#" onclick="changeStatus('READY'); return false;">
+											<i class="fa fa-check-circle text-info"></i> {{ _("READY") }}
+											<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
+										</a>
+										{% endif %}
+										{% if (is_dealer or is_internal) and schedule.status != 'QUOTED' %}
+										<a class="dropdown-item" href="#" onclick="changeStatus('QUOTED'); return false;">
+											<i class="fa fa-file-text text-primary"></i> {{ _("QUOTED") }}
+											<small class="text-muted d-block">{{ _("Quote provided") }}</small>
+										</a>
+										{% endif %}
+									</div>
+								</div>
+								{% endif %}
+							</div>
 						</div>
 						<div class="btn-group">
 							{% if can_edit and schedule.status in ['DRAFT', 'READY'] %}
@@ -110,33 +139,33 @@ Also handles new schedule creation when is_new is True
 
 	<!-- Summary Panel -->
 	<div class="row mb-4">
-		<div class="col-md-3 col-sm-6">
-			<div class="card text-center">
-				<div class="card-body">
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
 					<h3 class="mb-0">{{ lines | length }}</h3>
 					<small class="text-muted">{{ _("Total Lines") }}</small>
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-sm-6">
-			<div class="card text-center">
-				<div class="card-body">
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
 					<h3 class="mb-0">{{ total_qty }}</h3>
 					<small class="text-muted">{{ _("Total Qty") }}</small>
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-sm-6">
-			<div class="card text-center">
-				<div class="card-body">
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
 					<h3 class="mb-0">{{ illumenate_count }}</h3>
 					<small class="text-muted">{{ _("ilLumenate Fixtures") }}</small>
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-sm-6">
-			<div class="card text-center">
-				<div class="card-body">
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
 					<h3 class="mb-0">{{ other_count }}</h3>
 					<small class="text-muted">{{ _("Other Fixtures") }}</small>
 				</div>
@@ -204,11 +233,11 @@ Also handles new schedule creation when is_new is True
 											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit') }}">
 												<i class="fa fa-pencil"></i> {{ _('Edit') }}
 											</button>
-											<button class="btn btn-sm btn-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
-												<i class="fa fa-copy"></i>
-											</button>
-											<button class="btn btn-sm btn-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
-												<i class="fa fa-trash"></i>
+												<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
+													<i class="fa fa-copy"></i> {{ _('Duplicate') }}
+												</button>
+												<button class="btn btn-sm btn-outline-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
+													<i class="fa fa-trash"></i> {{ _('Delete') }}
 											</button>
 										</div>
 									</td>
@@ -571,6 +600,38 @@ function deleteLine(line_idx) {
 			callback: function(r) {
 				if (r.message && r.message.success) {
 					location.reload();
+				}
+			}
+		});
+	});
+}
+
+function changeStatus(new_status) {
+	var statusLabels = {
+		'DRAFT': 'Draft',
+		'READY': 'Ready',
+		'QUOTED': 'Quoted'
+	};
+	frappe.confirm('Change schedule status to ' + statusLabels[new_status] + '?', function() {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_status',
+			args: {
+				schedule_name: schedule_name,
+				new_status: new_status
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.show_alert({
+						message: 'Status updated to ' + new_status,
+						indicator: 'green'
+					});
+					location.reload();
+				} else {
+					frappe.msgprint({
+						title: 'Error',
+						indicator: 'red',
+						message: r.message.error || 'Error updating status'
+					});
 				}
 			}
 		});

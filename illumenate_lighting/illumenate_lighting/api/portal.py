@@ -672,6 +672,73 @@ def request_schedule_quote(schedule_name: str) -> dict:
 
 
 @frappe.whitelist()
+def update_schedule_status(schedule_name: str, new_status: str) -> dict:
+	"""
+	Update the status of a fixture schedule.
+
+	Status transitions allowed:
+	- DRAFT -> READY (by anyone with write permission)
+	- READY -> DRAFT (by anyone with write permission)
+	- READY -> QUOTED (by internal/dealer users only)
+	- QUOTED -> READY (by internal/dealer users only - e.g., to revise quote)
+	- ORDERED and CLOSED statuses cannot be set via portal
+
+	Args:
+		schedule_name: Name of the schedule
+		new_status: New status to set (DRAFT, READY, QUOTED)
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to update this schedule"}
+
+	# Validate status value
+	valid_statuses = ["DRAFT", "READY", "QUOTED"]
+	if new_status not in valid_statuses:
+		return {"success": False, "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}
+
+	current_status = schedule.status
+	is_privileged = _is_dealer_user(frappe.session.user) or _is_internal_user(frappe.session.user)
+
+	# Define allowed transitions
+	allowed_transitions = {
+		"DRAFT": ["READY"],
+		"READY": ["DRAFT", "QUOTED"] if is_privileged else ["DRAFT"],
+		"QUOTED": ["READY"] if is_privileged else [],
+	}
+
+	# Check if transition is allowed
+	if new_status == current_status:
+		return {"success": True}  # No change needed
+
+	if current_status not in allowed_transitions:
+		return {"success": False, "error": f"Cannot change status from {current_status}"}
+
+	if new_status not in allowed_transitions.get(current_status, []):
+		return {"success": False, "error": f"Cannot change status from {current_status} to {new_status}"}
+
+	try:
+		schedule.db_set("status", new_status)
+		frappe.db.commit()
+		return {"success": True, "new_status": new_status}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def create_schedule_sales_order(schedule_name: str) -> dict:
 	"""
 	Create a Sales Order from a fixture schedule.
