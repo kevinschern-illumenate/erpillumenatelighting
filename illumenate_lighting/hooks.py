@@ -88,9 +88,15 @@ website_route_rules = [
 	{"from_route": "/portal/orders", "to_route": "orders"},
 	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
 
-	# Drawings
-	{"from_route": "/portal/drawings", "to_route": "drawings"},
-	{"from_route": "/portal/drawings/<drawing>", "to_route": "drawing_detail"},
+	# Document Requests (Drawings, Resources, etc.)
+	{"from_route": "/portal/requests", "to_route": "requests"},
+	{"from_route": "/portal/requests/new", "to_route": "request_new"},
+	{"from_route": "/portal/requests/new/<request_type>", "to_route": "request_new"},
+	{"from_route": "/portal/requests/<request>", "to_route": "request_detail"},
+
+	# Drawings (legacy routes - redirect to requests)
+	{"from_route": "/portal/drawings", "to_route": "requests"},
+	{"from_route": "/portal/drawings/<drawing>", "to_route": "request_detail"},
 
 	# Resources
 	{"from_route": "/portal/resources", "to_route": "resources"},
@@ -130,6 +136,8 @@ after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
 # Fixtures are records that get inserted during app installation
 fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
+	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
+	{"dt": "ILL Request Type"},
 ]
 
 # Uninstallation
@@ -167,11 +175,13 @@ fixtures = [
 permission_query_conditions = {
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
+	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
 }
 
 has_permission = {
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
+	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
 }
 
 # DocType Class
