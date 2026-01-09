@@ -79,7 +79,7 @@
 	color: var(--ill-gray-900);
 	padding: var(--ill-space-8) 0;
 	min-height: 100vh;
-	background: var(--ill-gray-50);
+	background: white;
 }
 
 /* ============================================
@@ -330,6 +330,11 @@
 .portal-empty-state-text {
 	color: var(--ill-gray-500);
 	margin-bottom: var(--ill-space-6);
+}
+
+.portal-empty-state .btn {
+	padding: 0.5rem 1.25rem;
+	font-size: 0.9rem;
 }
 
 /* ============================================
