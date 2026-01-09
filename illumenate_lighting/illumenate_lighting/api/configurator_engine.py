@@ -1371,12 +1371,19 @@ def _calculate_pricing(
 		"Finish": ("finish", finish_code),
 		"Lens Appearance": ("lens_appearance", lens_appearance_code),
 		"Mounting Method": ("mounting_method", mounting_method_code),
-		"Endcap Style": ("endcap_style", endcap_style_code),
 		"Power Feed Type": ("power_feed_type", power_feed_type_code),
 		"Environment Rating": ("environment_rating", environment_rating_code),
 	}
 
+	# Handle endcap styles separately - both use "Endcap Style" option_type
+	endcap_style_adders = [
+		("Endcap Style (Start)", "endcap_style", endcap_style_start_code),
+		("Endcap Style (End)", "endcap_style", endcap_style_end_code),
+	]
+
 	total_option_adders = 0.0
+
+	# Process standard options
 	for option_type, (field_name, selected_value) in option_map.items():
 		if not selected_value:
 			continue
@@ -1400,6 +1407,33 @@ def _calculate_pricing(
 			adder_breakdown.append({
 				"component": field_name,
 				"description": f"{option_type} ({selected_value})",
+				"amount": round(option_adder, 2),
+			})
+
+	# Process endcap style adders (both start and end use "Endcap Style" option_type)
+	for label, field_name, selected_value in endcap_style_adders:
+		if not selected_value:
+			continue
+
+		# Find the matching allowed option row in template
+		matching_rows = [
+			row
+			for row in template_doc.get("allowed_options", [])
+			if row.option_type == "Endcap Style"
+			and row.get(field_name) == selected_value
+			and row.is_active
+		]
+
+		option_adder = 0.0
+		if matching_rows:
+			# Use the msrp_adder from the allowed option row
+			option_adder = float(matching_rows[0].msrp_adder or 0)
+
+		total_option_adders += option_adder
+		if option_adder != 0:
+			adder_breakdown.append({
+				"component": field_name,
+				"description": f"{label} ({selected_value})",
 				"amount": round(option_adder, 2),
 			})
 
