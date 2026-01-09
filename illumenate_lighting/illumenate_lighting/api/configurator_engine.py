@@ -828,9 +828,16 @@ def _resolve_items(
 	template_doc = template_doc or frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 	profile_family = template_doc.default_profile_family or fixture_template_code
 
+	# finish_code is actually the finish_name (primary key of ilL-Attribute-Finish)
+	# We need to get the actual code for matching with profile variant_code
+	finish_variant_code = frappe.db.get_value("ilL-Attribute-Finish", finish_code, "code")
+	if not finish_variant_code:
+		# Fall back to using the finish_code directly if no code field is set
+		finish_variant_code = finish_code
+
 	profile_rows = frappe.get_all(
 		"ilL-Spec-Profile",
-		filters={"family": profile_family, "variant_code": finish_code, "is_active": 1},
+		filters={"family": profile_family, "variant_code": finish_variant_code, "is_active": 1},
 		fields=["name", "item", "lens_interface"],
 		limit=1,
 	)
@@ -839,7 +846,7 @@ def _resolve_items(
 		messages.append(
 			{
 				"severity": "error",
-				"text": f"Missing map: ilL-Spec-Profile for family '{profile_family}' and finish '{finish_code}'",
+				"text": f"Missing map: ilL-Spec-Profile for family '{profile_family}' and variant code '{finish_variant_code}' (finish: '{finish_code}')",
 				"field": "finish_code",
 			}
 		)
