@@ -69,6 +69,7 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 website_route_rules = [
 	{"from_route": "/portal/projects", "to_route": "projects"},
 	{"from_route": "/portal/projects/<project>", "to_route": "project"},
+	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
 	{"from_route": "/portal/configure", "to_route": "configure"},
