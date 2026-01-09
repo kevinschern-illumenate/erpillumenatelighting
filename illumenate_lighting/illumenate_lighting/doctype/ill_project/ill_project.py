@@ -200,18 +200,30 @@ def _get_user_customer(user):
 	"""
 	Get the Customer linked to this user via Contact.
 
+	Searches for a Contact linked to this user in the following order:
+	1. Contact with user field set to this user
+	2. Contact with email_id matching the user's email
+
 	Args:
 		user: The user email/name
 
 	Returns:
 		str or None: The Customer name if found, None otherwise
 	"""
-	# First check if user has a Contact with a Customer link
+	# First check if user has a Contact with user field set
 	contact = frappe.db.get_value(
 		"Contact",
 		{"user": user},
 		["name"],
 	)
+
+	# If not found via user field, try to find by email_id
+	if not contact:
+		contact = frappe.db.get_value(
+			"Contact",
+			{"email_id": user},
+			["name"],
+		)
 
 	if contact:
 		# Get the Customer link from Dynamic Link

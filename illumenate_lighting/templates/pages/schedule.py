@@ -43,6 +43,14 @@ def get_context(context):
 	from illumenate_lighting.illumenate_lighting.api.exports import _check_pricing_permission
 	can_view_pricing = _check_pricing_permission(frappe.session.user)
 
+	# Check if user is a dealer (can create sales orders directly without quote)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user,
+		_is_internal_user,
+	)
+	is_dealer = _is_dealer_user(frappe.session.user)
+	is_internal = _is_internal_user(frappe.session.user)
+
 	# Get project
 	project = None
 	if schedule.ill_project:
@@ -78,6 +86,8 @@ def get_context(context):
 	context.lines_json = lines_json
 	context.can_edit = can_edit
 	context.can_view_pricing = can_view_pricing
+	context.is_dealer = is_dealer
+	context.is_internal = is_internal
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count
 	context.other_count = other_count

@@ -90,12 +90,17 @@ Also handles new schedule creation when is_new is True
 								<i class="fa fa-plus"></i> {{ _("Add Line") }}
 							</button>
 							{% endif %}
-							{% if can_edit and schedule.status == 'READY' %}
+							{% if can_edit and schedule.status == 'READY' and not (is_dealer or is_internal) %}
 							<button class="btn btn-success" onclick="requestQuote()">
 								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
 							</button>
 							{% endif %}
-							{% if can_edit and schedule.status == 'QUOTED' %}
+							{% if can_edit and schedule.status in ['READY', 'QUOTED'] and (is_dealer or is_internal) %}
+							<button class="btn btn-success" onclick="createSalesOrder()">
+								<i class="fa fa-shopping-cart"></i> {{ _("Convert to Sales Order") }}
+							</button>
+							{% endif %}
+							{% if can_edit and schedule.status == 'QUOTED' and not (is_dealer or is_internal) %}
 							<button class="btn btn-success" onclick="createSalesOrder()">
 								<i class="fa fa-shopping-cart"></i> {{ _("Create Order") }}
 							</button>
