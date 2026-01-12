@@ -439,6 +439,18 @@ Also handles new schedule creation when is_new is True
 						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
 					</div>
 
+					<!-- ilLumenate Configure Button -->
+					<div class="illumenate-fields" style="display: block;">
+						<hr>
+						<div class="alert alert-info">
+							<i class="fa fa-info-circle"></i> 
+							{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
+						</div>
+						<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
+							<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
+						</button>
+					</div>
+
 					<!-- Other Manufacturer Fields -->
 					<div class="other-fields" style="display: none;">
 						<hr>
@@ -524,7 +536,7 @@ Also handles new schedule creation when is_new is True
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
-				<button type="button" class="btn btn-primary" onclick="addLine()">
+				<button type="button" class="btn btn-primary" id="addLineBtn" onclick="addLine()">
 					<i class="fa fa-plus"></i> {{ _("Add Line") }}
 				</button>
 			</div>
@@ -720,14 +732,20 @@ $('#createScheduleForm').on('submit', function(e) {
 {% else %}
 var schedule_name = "{{ schedule.name }}";
 
-// Toggle other manufacturer fields
+// Toggle other manufacturer fields and ilLumenate fields
 $('select[name="manufacturer_type"]').on('change', function() {
 	if ($(this).val() === 'OTHER') {
 		$('.other-fields').show();
+		$('.illumenate-fields').hide();
 	} else {
 		$('.other-fields').hide();
+		$('.illumenate-fields').show();
 	}
 });
+
+// Initialize the visibility on page load (default is ILLUMENATE)
+$('.illumenate-fields').show();
+$('.other-fields').hide();
 
 // File upload helper function
 function uploadFile(fileInput, callback) {
@@ -816,6 +834,56 @@ function submitAddLine(data) {
 			} else {
 				frappe.msgprint(r.message.error || 'Error adding line');
 			}
+		}
+	});
+}
+
+function configureFromAddModal() {
+	var form = $('#addLineForm');
+	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	
+	// Only allow configuring for ILLUMENATE manufacturer
+	if (manufacturerType !== 'ILLUMENATE') {
+		frappe.msgprint('Configure is only available for ilLumenate fixtures');
+		return;
+	}
+
+	// Prepare line data
+	var data = {
+		line_id: form.find('[name="line_id"]').val(),
+		qty: form.find('[name="qty"]').val(),
+		location: form.find('[name="location"]').val(),
+		manufacturer_type: manufacturerType,
+		notes: form.find('[name="notes"]').val()
+	};
+
+	// Disable the configure button to prevent double clicks
+	$('#configureFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
+
+	// Add the line first, then redirect to configure
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				// Get the newly added line index (should be the last one)
+				var newLineIdx = r.message.line_idx !== undefined ? r.message.line_idx : (r.message.line_count - 1);
+				
+				// Close the modal
+				$('#addLineModal').modal('hide');
+				
+				// Redirect to configure page with schedule and line index
+				window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx;
+			} else {
+				frappe.msgprint(r.message.error || 'Error adding line');
+				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+			}
+		},
+		error: function() {
+			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
 		}
 	});
 }
