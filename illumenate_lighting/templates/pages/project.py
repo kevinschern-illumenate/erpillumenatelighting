@@ -59,6 +59,7 @@ def get_context(context):
 	context.schedule_status_class = schedule_status_class
 	context.title = project.project_name
 	context.no_cache = 1
+	context.frappe = frappe  # Make frappe available in template
 
 	return context
 
