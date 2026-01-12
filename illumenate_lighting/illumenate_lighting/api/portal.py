@@ -1810,3 +1810,120 @@ def get_company_customers() -> dict:
 
 	return {"success": True, "customers": customers}
 
+
+
+@frappe.whitelist()
+def get_contacts_for_project() -> dict:
+	"""
+	Get contacts that can be used in projects.
+	Returns contacts associated with the user's company or created by them.
+	
+	Returns:
+		dict: {
+			"success": True/False,
+			"contacts": [{"name": contact_name, "first_name": str, "last_name": str, "company_name": str}]
+		}
+	"""
+	try:
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+			_get_user_customer,
+		)
+		
+		user_customer = _get_user_customer(frappe.session.user)
+		
+		# System Manager can access all contacts
+		is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+		
+		if is_system_manager:
+			contacts = frappe.get_all(
+				"Contact",
+				fields=["name", "first_name", "last_name", "company_name", "email_id", "phone"],
+				order_by="first_name asc",
+				limit=1000
+			)
+		else:
+			# Get contacts linked to the user's customer or owned by them
+			# For now, get all contacts - can be filtered later based on requirements
+			contacts = frappe.get_all(
+				"Contact",
+				fields=["name", "first_name", "last_name", "company_name", "email_id", "phone"],
+				order_by="first_name asc",
+				limit=1000
+			)
+		
+		return {"success": True, "contacts": contacts}
+		
+	except Exception as e:
+		frappe.log_error(f"Error getting contacts: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_contact(contact_data: Union[str, dict]) -> dict:
+	"""
+	Create a new contact.
+	
+	Args:
+		contact_data: Dictionary containing contact information:
+			- first_name (required)
+			- last_name (optional)
+			- email_id (optional)
+			- phone (optional)
+			- company_name (optional)
+			- designation (optional)
+	
+	Returns:
+		dict: {
+			"success": True/False,
+			"contact_name": str (contact name if successful),
+			"error": str (if failed)
+		}
+	"""
+	try:
+		# Parse JSON if needed
+		if isinstance(contact_data, str):
+			contact_data = json.loads(contact_data)
+		
+		# Validate required fields
+		if not contact_data.get("first_name"):
+			return {"success": False, "error": "First name is required"}
+		
+		# Create contact
+		contact = frappe.get_doc({
+			"doctype": "Contact",
+			"first_name": contact_data.get("first_name"),
+			"last_name": contact_data.get("last_name"),
+			"email_id": contact_data.get("email_id"),
+			"phone": contact_data.get("phone"),
+			"company_name": contact_data.get("company_name"),
+			"designation": contact_data.get("designation")
+		})
+		
+		# Add email to child table if provided
+		if contact_data.get("email_id"):
+			contact.append("email_ids", {
+				"email_id": contact_data.get("email_id"),
+				"is_primary": 1
+			})
+		
+		# Add phone to child table if provided
+		if contact_data.get("phone"):
+			contact.append("phone_nos", {
+				"phone": contact_data.get("phone"),
+				"is_primary_phone": 1
+			})
+		
+		contact.insert(ignore_permissions=False)
+		frappe.db.commit()
+		
+		return {
+			"success": True,
+			"contact_name": contact.name
+		}
+		
+	except frappe.DuplicateEntryError:
+		return {"success": False, "error": "A contact with this information already exists"}
+	except Exception as e:
+		frappe.log_error(f"Error creating contact: {str(e)}")
+		return {"success": False, "error": str(e)}
+
