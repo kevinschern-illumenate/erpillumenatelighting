@@ -21,12 +21,12 @@ def get_context(context):
 
 	request_name = frappe.form_dict.get("request")
 
-	if not request_name or not frappe.db.exists("ilL-Document-Request", request_name):
+	if not request_name:
 		context.request = None
 		context.title = _("Request Not Found")
 		return context
 
-	# Get request details via API
+	# Get request details via API (handles existence check and permissions)
 	from illumenate_lighting.illumenate_lighting.api.document_requests import get_request_detail
 
 	result = get_request_detail(request_name)
