@@ -91,6 +91,7 @@ website_route_rules = [
 
 	# Drawings
 	{"from_route": "/portal/drawings", "to_route": "drawings"},
+	{"from_route": "/portal/drawings/<request>", "to_route": "drawing_detail"},
 
 	# Resources
 	{"from_route": "/portal/resources", "to_route": "resources"},
