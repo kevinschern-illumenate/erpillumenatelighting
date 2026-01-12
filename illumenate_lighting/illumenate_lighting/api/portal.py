@@ -14,23 +14,10 @@ from typing import Union
 import frappe
 from frappe import _
 
-
-def _parse_positive_int(value, default: int = 1, minimum: int = 1) -> int:
-	"""
-	Parse a value as a positive integer with bounds checking.
-
-	Args:
-		value: Value to parse
-		default: Default value if parsing fails
-		minimum: Minimum allowed value
-
-	Returns:
-		int: Parsed integer, at least the minimum value
-	"""
-	try:
-		return max(minimum, int(value))
-	except (ValueError, TypeError):
-		return default
+from illumenate_lighting.illumenate_lighting.utils import (
+	parse_positive_int,
+	VALID_ACCESS_LEVELS,
+)
 
 
 @frappe.whitelist()
@@ -255,7 +242,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	try:
 		line = schedule.append("lines", {})
 		line.line_id = line_data.get("line_id")
-		line.qty = _parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
+		line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
 		line.location = line_data.get("location")
 		line.manufacturer_type = line_data.get("manufacturer_type", "ILLUMENATE")
 		line.notes = line_data.get("notes")
@@ -424,7 +411,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 		if "line_id" in line_data:
 			line.line_id = line_data.get("line_id")
 		if "qty" in line_data:
-			line.qty = _parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
+			line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
 		if "location" in line_data:
 			line.location = line_data.get("location")
 		if "notes" in line_data:
@@ -1467,9 +1454,8 @@ def invite_project_collaborator(
 	)
 
 	# Validate access_level
-	valid_access_levels = ["VIEW", "EDIT"]
-	if access_level not in valid_access_levels:
-		return {"success": False, "error": f"Invalid access_level. Must be one of: {', '.join(valid_access_levels)}"}
+	if access_level not in VALID_ACCESS_LEVELS:
+		return {"success": False, "error": f"Invalid access_level. Must be one of: {', '.join(VALID_ACCESS_LEVELS)}"}
 
 	# Check if caller has permission to invite collaborators
 	is_dealer = _is_dealer_user(frappe.session.user)
