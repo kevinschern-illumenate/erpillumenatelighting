@@ -15,6 +15,28 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+# Pagination constants
+DEFAULT_PAGE_SIZE = 20
+MAX_PAGE_SIZE = 100
+
+
+def _parse_positive_int(value, default: int = 1, minimum: int = 1) -> int:
+	"""
+	Parse a value as a positive integer with bounds checking.
+
+	Args:
+		value: Value to parse
+		default: Default value if parsing fails
+		minimum: Minimum allowed value
+
+	Returns:
+		int: Parsed integer, at least the minimum value
+	"""
+	try:
+		return max(minimum, int(value))
+	except (ValueError, TypeError):
+		return default
+
 
 @frappe.whitelist()
 def get_request_types() -> dict:
@@ -283,7 +305,7 @@ def submit_request(request_name: str) -> dict:
 def list_requests(
 	tab: str = "all",
 	page: int = 1,
-	page_size: int = 20,
+	page_size: int = DEFAULT_PAGE_SIZE,
 	search: str = None,
 ) -> dict:
 	"""
@@ -305,12 +327,8 @@ def list_requests(
 		}
 	"""
 	# Validate and sanitize pagination parameters
-	try:
-		page = max(1, int(page))
-		page_size = max(1, min(100, int(page_size)))  # Limit page_size to 1-100
-	except (ValueError, TypeError):
-		page = 1
-		page_size = 20
+	page = _parse_positive_int(page, default=1, minimum=1)
+	page_size = min(MAX_PAGE_SIZE, _parse_positive_int(page_size, default=DEFAULT_PAGE_SIZE, minimum=1))
 
 	filters = {"hide_from_portal": 0}
 

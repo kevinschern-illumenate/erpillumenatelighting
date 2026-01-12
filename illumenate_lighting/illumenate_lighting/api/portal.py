@@ -15,6 +15,24 @@ import frappe
 from frappe import _
 
 
+def _parse_positive_int(value, default: int = 1, minimum: int = 1) -> int:
+	"""
+	Parse a value as a positive integer with bounds checking.
+
+	Args:
+		value: Value to parse
+		default: Default value if parsing fails
+		minimum: Minimum allowed value
+
+	Returns:
+		int: Parsed integer, at least the minimum value
+	"""
+	try:
+		return max(minimum, int(value))
+	except (ValueError, TypeError):
+		return default
+
+
 @frappe.whitelist()
 def get_allowed_customers_for_project() -> dict:
 	"""
@@ -237,10 +255,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	try:
 		line = schedule.append("lines", {})
 		line.line_id = line_data.get("line_id")
-		try:
-			line.qty = max(1, int(line_data.get("qty", 1)))
-		except (ValueError, TypeError):
-			line.qty = 1
+		line.qty = _parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
 		line.location = line_data.get("location")
 		line.manufacturer_type = line_data.get("manufacturer_type", "ILLUMENATE")
 		line.notes = line_data.get("notes")
@@ -409,10 +424,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 		if "line_id" in line_data:
 			line.line_id = line_data.get("line_id")
 		if "qty" in line_data:
-			try:
-				line.qty = max(1, int(line_data.get("qty", 1)))
-			except (ValueError, TypeError):
-				line.qty = 1
+			line.qty = _parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
 		if "location" in line_data:
 			line.location = line_data.get("location")
 		if "notes" in line_data:
