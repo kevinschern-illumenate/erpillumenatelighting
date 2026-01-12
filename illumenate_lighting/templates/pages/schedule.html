@@ -227,7 +227,27 @@ Also handles new schedule creation when is_new is True
 										{% if line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
 										{% set cf_details = line.get('cf_details', {}) %}
 										<div class="fixture-details">
-											<strong class="text-primary">{{ cf_details.get('part_number') or line.get('ill_item_code') or 'Configured' }}</strong>
+											<strong class="text-primary">
+												{{ cf_details.get('part_number') or line.get('ill_item_code') or 'Configured' }}
+												{% if cf_details.get('is_multi_segment') %}
+													<span class="badge badge-info ml-1" title="{{ _('Multi-segment fixture with jumper cables') }}">J</span>
+												{% endif %}
+											</strong>
+											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
+											<div class="small text-info mt-1 build-description">
+												<i class="fa fa-link"></i> 
+												<em>{{ cf_details.get('user_segment_count', 0) }} segment(s) with jumper cables</em>
+												<button type="button" class="btn btn-xs btn-link p-0 ml-1" 
+														data-toggle="popover" 
+														data-placement="bottom" 
+														data-html="true"
+														data-trigger="focus"
+														title="{{ _('Build Details') }}"
+														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description', '') | replace('\n', '<br>') }}</pre>">
+													<i class="fa fa-info-circle"></i>
+												</button>
+											</div>
+											{% endif %}
 											<div class="small text-muted mt-1">
 												{% if cf_details.get('estimated_delivered_output') %}
 												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.get('estimated_delivered_output') }} lm/ft est.</span>
@@ -253,6 +273,9 @@ Also handles new schedule creation when is_new is True
 											{% if line.get('manufacturable_length_mm') %}
 											<div class="small text-muted">
 												<i class="fa fa-arrows-h"></i> {{ line.get('manufacturable_length_mm') }}mm
+												{% if cf_details.get('is_multi_segment') %}
+													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
+												{% endif %}
 											</div>
 											{% endif %}
 										</div>
@@ -731,6 +754,9 @@ $('#createScheduleForm').on('submit', function(e) {
 });
 {% else %}
 var schedule_name = "{{ schedule.name }}";
+
+// Initialize Bootstrap popovers for build description
+$('[data-toggle="popover"]').popover();
 
 // Toggle other manufacturer fields and ilLumenate fields
 $('select[name="manufacturer_type"]').on('change', function() {

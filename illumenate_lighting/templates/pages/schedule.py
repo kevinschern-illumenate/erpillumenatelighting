@@ -180,6 +180,12 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			"driver_input_voltage": None,
 			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
 			"total_watts": cf.total_watts,
+			# Multi-segment fields
+			"is_multi_segment": cf.is_multi_segment if hasattr(cf, "is_multi_segment") else 0,
+			"user_segment_count": cf.user_segment_count if hasattr(cf, "user_segment_count") else 0,
+			"build_description": cf.build_description if hasattr(cf, "build_description") else "",
+			"total_endcaps": cf.total_endcaps if hasattr(cf, "total_endcaps") else 0,
+			"total_mounting_accessories": cf.total_mounting_accessories if hasattr(cf, "total_mounting_accessories") else 0,
 		}
 
 		# Get finish display name

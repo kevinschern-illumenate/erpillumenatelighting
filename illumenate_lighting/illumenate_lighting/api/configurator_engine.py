@@ -351,6 +351,779 @@ def validate_and_quote(
 	return response
 
 
+@frappe.whitelist()
+def validate_and_quote_multisegment(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_color_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	segments_json: str,
+	dimming_protocol_code: str = None,
+	qty: int = 1,
+) -> dict[str, Any]:
+	"""
+	Validate and quote a multi-segment fixture configuration.
+
+	This handles fixtures with multiple user-defined segments connected by jumper cables.
+	Each segment can have a different length. The first segment starts with a leader cable,
+	and subsequent segments inherit their start from the prior segment's end (jumper).
+	The fixture must end with an Endcap on the final segment.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		finish_code: Finish option code
+		lens_appearance_code: Lens appearance option code
+		mounting_method_code: Mounting method option code
+		endcap_color_code: Endcap color option code
+		environment_rating_code: Environment rating option code
+		tape_offering_id: Tape offering ID or code
+		segments_json: JSON string array of segment definitions
+		dimming_protocol_code: User's desired dimming protocol
+		qty: Quantity (default: 1)
+
+	Returns:
+		dict: Response containing validation status, computed values, resolved items,
+		      pricing, and configured fixture ID
+	"""
+	# Parse segments
+	try:
+		segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
+		qty = int(qty) if qty else 1
+	except (ValueError, TypeError, json.JSONDecodeError) as e:
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": f"Invalid segments data: {str(e)}",
+					"field": "segments_json",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+		}
+
+	if not segments or len(segments) == 0:
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "At least one segment is required",
+					"field": "segments_json",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+		}
+
+	# Validate last segment ends with Endcap
+	last_segment = segments[-1]
+	if last_segment.get("end_type") != "Endcap":
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "The fixture must end with an Endcap on the last segment",
+					"field": "segments_json",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+		}
+
+	# Initialize response structure
+	response = {
+		"is_valid": True,
+		"messages": [],
+		"computed": {
+			"total_requested_length_mm": 0,
+			"manufacturable_overall_length_mm": 0,
+			"user_segment_count": len(segments),
+			"segments_count": 0,
+			"runs_count": 0,
+			"total_watts": 0.0,
+			"total_endcaps": 0,
+			"total_mounting_accessories": 0,
+			"assembly_mode": "ASSEMBLED",
+			"build_description": "",
+			"segments": [],
+			"runs": [],
+		},
+		"resolved_items": {
+			"profile_item": None,
+			"lens_item": None,
+			"endcap_item_start": None,
+			"endcap_item_end": None,
+			"mounting_item": None,
+			"leader_item": None,
+			"driver_plan": {"status": "suggested", "drivers": []},
+		},
+		"pricing": {"msrp_unit": 0.0, "tier_unit": 0.0, "adder_breakdown": []},
+		"configured_fixture_id": None,
+	}
+
+	# Step 1: Basic validation
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		response["is_valid"] = False
+		response["messages"].append({
+			"severity": "error",
+			"text": f"Fixture template '{fixture_template_code}' not found",
+			"field": "fixture_template_code",
+		})
+		return response
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	if not template_doc.is_active:
+		response["is_valid"] = False
+		response["messages"].append({
+			"severity": "error",
+			"text": f"Fixture template '{fixture_template_code}' is inactive",
+			"field": "fixture_template_code",
+		})
+		return response
+
+	# Validate tape offering
+	if not frappe.db.exists("ilL-Rel-Tape Offering", tape_offering_id):
+		response["is_valid"] = False
+		response["messages"].append({
+			"severity": "error",
+			"text": f"Tape offering '{tape_offering_id}' not found",
+			"field": "tape_offering_id",
+		})
+		return response
+
+	tape_offering_doc = frappe.get_doc("ilL-Rel-Tape Offering", tape_offering_id)
+
+	# Step 2: Compute multi-segment outputs
+	computed_result = _compute_multisegment_outputs(
+		fixture_template_code,
+		tape_offering_id,
+		segments,
+		environment_rating_code,
+		endcap_color_code,
+		finish_code,
+		lens_appearance_code,
+		template_doc=template_doc,
+		tape_offering_doc=tape_offering_doc,
+	)
+
+	response["computed"].update(computed_result)
+
+	if computed_result.get("has_errors"):
+		response["is_valid"] = False
+		response["messages"].extend(computed_result.get("error_messages", []))
+		return response
+
+	# Step 3: Resolve items for multi-segment
+	resolved_result, mapping_messages, mappings_valid = _resolve_multisegment_items(
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_color_code,
+		environment_rating_code,
+		segments,
+		template_doc=template_doc,
+		tape_offering_doc=tape_offering_doc,
+	)
+
+	response["messages"].extend(mapping_messages)
+	if not mappings_valid:
+		response["is_valid"] = False
+		response["resolved_items"].update(resolved_result)
+		return response
+
+	response["resolved_items"].update(resolved_result)
+
+	# Step 4: Calculate pricing
+	# For multi-segment, use the first segment's start power feed type
+	first_segment = segments[0]
+	start_power_feed_type = first_segment.get("start_power_feed_type", "")
+
+	pricing_result = _calculate_pricing(
+		fixture_template_code,
+		resolved_result,
+		computed_result,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		"FEED_THROUGH",  # Default endcap style for multi-segment
+		"SOLID",  # Default endcap style for multi-segment
+		start_power_feed_type,
+		environment_rating_code,
+		tape_offering_id,
+		qty,
+		template_doc=template_doc,
+	)
+
+	response["pricing"].update(pricing_result)
+
+	# Step 5: Create configured fixture document
+	fixture_id = _create_or_update_multisegment_fixture(
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_color_code,
+		environment_rating_code,
+		tape_offering_id,
+		segments,
+		response["computed"],
+		response["resolved_items"],
+		response["pricing"],
+	)
+
+	response["configured_fixture_id"] = fixture_id
+
+	if response["is_valid"]:
+		response["messages"].append({
+			"severity": "info",
+			"text": "Multi-segment configuration validated successfully",
+			"field": None,
+		})
+
+	return response
+
+
+def _compute_multisegment_outputs(
+	fixture_template_code: str,
+	tape_offering_id: str,
+	segments: list,
+	environment_rating_code: str,
+	endcap_color_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	template_doc=None,
+	tape_offering_doc=None,
+) -> dict[str, Any]:
+	"""
+	Compute manufacturable outputs for a multi-segment fixture.
+
+	This processes each user-defined segment, calculates tape runs, profile/lens
+	segments, endcaps, and mounting accessories needed for the build.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		tape_offering_id: Tape offering ID
+		segments: List of user-defined segments
+		environment_rating_code: Environment rating code
+		endcap_color_code: Endcap color code
+		finish_code: Finish code
+		lens_appearance_code: Lens appearance code
+		template_doc: Pre-fetched template document
+		tape_offering_doc: Pre-fetched tape offering document
+
+	Returns:
+		dict: Computed values for the multi-segment fixture
+	"""
+	# Constants
+	MAX_WATTS_PER_RUN = 85.0
+	MM_PER_FOOT = 304.8
+
+	# Get template and tape docs if not passed
+	if template_doc is None:
+		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	if tape_offering_doc is None:
+		tape_offering_doc = frappe.get_doc("ilL-Rel-Tape Offering", tape_offering_id)
+
+	# Get tape spec for calculations
+	tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
+	cut_increment_mm = float(
+		tape_offering_doc.cut_increment_mm_override
+		or tape_spec_doc.cut_increment_mm
+		or 50.0
+	)
+	watts_per_ft = float(
+		tape_offering_doc.watts_per_ft_override
+		or tape_spec_doc.watts_per_foot
+		or 5.0
+	)
+	max_run_length_ft_voltage_drop = tape_spec_doc.voltage_drop_max_run_length_ft
+
+	# Get profile stock length
+	profile_stock_len_mm = float(template_doc.default_profile_stock_len_mm or 2000)
+	leader_allowance_mm = float(template_doc.leader_allowance_mm_per_fixture or 15)
+	assembled_max_len_mm = float(template_doc.assembled_max_len_mm or 2590)
+
+	# Compute max run length
+	if watts_per_ft > 0:
+		max_run_ft_by_watts = MAX_WATTS_PER_RUN / watts_per_ft
+	else:
+		max_run_ft_by_watts = float("inf")
+
+	if max_run_length_ft_voltage_drop and max_run_length_ft_voltage_drop > 0:
+		max_run_ft_effective = min(max_run_ft_by_watts, float(max_run_length_ft_voltage_drop))
+	else:
+		max_run_ft_effective = max_run_ft_by_watts
+
+	max_run_mm = max_run_ft_effective * MM_PER_FOOT if max_run_ft_effective != float("inf") else float("inf")
+
+	# Process each user segment
+	total_requested_length = 0
+	total_manufacturable_length = 0
+	total_tape_length = 0
+	total_watts = 0.0
+	total_runs = 0
+	total_endcaps = 0
+	all_runs = []
+	all_segments = []
+	build_description_parts = []
+
+	error_messages = []
+	has_errors = False
+
+	for idx, user_seg in enumerate(segments):
+		seg_index = idx + 1
+		requested_len = int(user_seg.get("requested_length_mm", 0))
+		end_type = user_seg.get("end_type", "Endcap")
+		start_power_feed = user_seg.get("start_power_feed_type", "")
+		start_cable_len = int(user_seg.get("start_leader_cable_length_mm", 300))
+		end_power_feed = user_seg.get("end_power_feed_type", "") if end_type == "Jumper" else ""
+		end_cable_len = int(user_seg.get("end_jumper_cable_length_mm", 300)) if end_type == "Jumper" else 0
+
+		if requested_len <= 0:
+			error_messages.append({
+				"severity": "error",
+				"text": f"Segment {seg_index}: Requested length must be greater than 0",
+				"field": "segments_json",
+			})
+			has_errors = True
+			continue
+
+		total_requested_length += requested_len
+
+		# Calculate endcap allowances for this segment
+		# Start endcap: feed-through if power feed type is "END", otherwise solid
+		# End endcap: solid if end_type is Endcap, otherwise no endcap (jumper continues)
+		start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
+		end_endcap_type = "Solid" if end_type == "Endcap" else ""
+
+		# Standard endcap allowance (can be made configurable per template)
+		endcap_allowance_per_side = 5.0  # mm
+
+		# Calculate internal length for this segment
+		# For first segment: subtract start endcap allowance
+		# For last segment (Endcap): subtract end endcap allowance
+		total_endcap_allowance = 0.0
+		if idx == 0:
+			total_endcap_allowance += endcap_allowance_per_side
+		if end_type == "Endcap":
+			total_endcap_allowance += endcap_allowance_per_side
+
+		internal_len = requested_len - total_endcap_allowance - leader_allowance_mm
+
+		if internal_len <= 0:
+			error_messages.append({
+				"severity": "error",
+				"text": f"Segment {seg_index}: Length too short after endcap and cable allowances",
+				"field": "segments_json",
+			})
+			has_errors = True
+			continue
+
+		# Calculate tape cut length
+		if cut_increment_mm > 0:
+			tape_cut_len = math.floor(internal_len / cut_increment_mm) * cut_increment_mm
+		else:
+			tape_cut_len = internal_len
+
+		if tape_cut_len <= 0:
+			error_messages.append({
+				"severity": "error",
+				"text": f"Segment {seg_index}: Results in 0mm tape length",
+				"field": "segments_json",
+			})
+			has_errors = True
+			continue
+
+		# Calculate manufacturable length for this segment
+		mfg_len = tape_cut_len + total_endcap_allowance + leader_allowance_mm
+		total_manufacturable_length += mfg_len
+		total_tape_length += tape_cut_len
+
+		# Calculate runs for this segment
+		segment_ft = tape_cut_len / MM_PER_FOOT
+		if max_run_mm != float("inf") and max_run_mm > 0:
+			segment_runs_count = math.ceil(tape_cut_len / max_run_mm)
+		else:
+			segment_runs_count = 1
+
+		# Create runs for this segment
+		remaining_tape = tape_cut_len
+		for run_idx in range(segment_runs_count):
+			run_len = min(max_run_mm if max_run_mm != float("inf") else remaining_tape, remaining_tape)
+			remaining_tape -= run_len
+			run_watts = (run_len / MM_PER_FOOT) * watts_per_ft
+			total_watts += run_watts
+			total_runs += 1
+
+			all_runs.append({
+				"run_index": total_runs,
+				"segment_index": seg_index,
+				"run_len_mm": int(run_len),
+				"run_watts": round(run_watts, 2),
+				"leader_item": None,
+				"leader_len_mm": int(leader_allowance_mm),
+			})
+
+		# Count endcaps for this segment
+		# Start: always has an endcap (feed-through or solid)
+		# End: endcap only if end_type is Endcap
+		segment_endcaps = 1 if end_type == "Endcap" else 0
+		if idx == 0:
+			segment_endcaps += 1  # Start endcap for first segment
+		total_endcaps += segment_endcaps
+
+		# Create segment record for manufacturing
+		all_segments.append({
+			"segment_index": seg_index,
+			"profile_cut_len_mm": int(mfg_len),
+			"lens_cut_len_mm": int(mfg_len),
+			"tape_cut_len_mm": int(tape_cut_len),
+			"start_endcap_type": start_endcap_type if idx == 0 else "",
+			"end_endcap_type": end_endcap_type,
+			"start_leader_len_mm": start_cable_len if idx == 0 else 0,
+			"end_jumper_len_mm": end_cable_len,
+			"notes": f"Segment {seg_index}: {int(mfg_len)}mm",
+		})
+
+		# Build description
+		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
+		if idx == 0:
+			desc_parts.append(f"Start: {start_power_feed}, {start_cable_len}mm leader")
+		if end_type == "Jumper":
+			desc_parts.append(f"End: {end_power_feed}, {end_cable_len}mm jumper")
+		else:
+			desc_parts.append("End: Solid Endcap")
+		build_description_parts.append(" | ".join(desc_parts))
+
+	# Calculate mounting accessories (based on total length, typically every 600mm)
+	mounting_spacing_mm = 600  # Standard mounting clip spacing
+	total_mounting_accessories = math.ceil(total_manufacturable_length / mounting_spacing_mm) if total_manufacturable_length > 0 else 0
+
+	# Determine assembly mode
+	if total_manufacturable_length <= assembled_max_len_mm:
+		assembly_mode = "ASSEMBLED"
+	else:
+		assembly_mode = "SHIP_PIECES"
+
+	return {
+		"total_requested_length_mm": total_requested_length,
+		"manufacturable_overall_length_mm": int(total_manufacturable_length),
+		"user_segment_count": len(segments),
+		"segments_count": len(all_segments),
+		"runs_count": total_runs,
+		"total_tape_length_mm": int(total_tape_length),
+		"total_watts": round(total_watts, 2),
+		"total_endcaps": total_endcaps,
+		"total_mounting_accessories": total_mounting_accessories,
+		"assembly_mode": assembly_mode,
+		"assembled_max_len_mm": int(assembled_max_len_mm),
+		"segments": all_segments,
+		"runs": all_runs,
+		"build_description": "\n".join(build_description_parts),
+		"has_errors": has_errors,
+		"error_messages": error_messages,
+	}
+
+
+def _resolve_multisegment_items(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_color_code: str,
+	environment_rating_code: str,
+	segments: list,
+	template_doc=None,
+	tape_offering_doc=None,
+) -> tuple[dict[str, Any], list[dict[str, str]], bool]:
+	"""
+	Resolve items for a multi-segment fixture.
+
+	Returns:
+		tuple: (resolved_items, messages, is_valid)
+	"""
+	messages: list[dict[str, str]] = []
+	is_valid = True
+	resolved: dict[str, Any] = {
+		"profile_item": None,
+		"lens_item": None,
+		"endcap_item_start": None,
+		"endcap_item_end": None,
+		"mounting_item": None,
+		"leader_item": None,
+		"driver_plan": {"status": "suggested", "drivers": []},
+	}
+
+	if template_doc is None:
+		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Resolve profile item
+	profile_family = template_doc.default_profile_family or fixture_template_code
+	finish_variant_code = frappe.db.get_value("ilL-Attribute-Finish", finish_code, "code") or finish_code
+
+	profile_rows = frappe.get_all(
+		"ilL-Spec-Profile",
+		filters={"family": profile_family, "variant_code": finish_variant_code, "is_active": 1},
+		fields=["name", "item", "lens_interface"],
+		limit=1,
+	)
+
+	if profile_rows:
+		resolved["profile_item"] = profile_rows[0].item
+		lens_interface = profile_rows[0].lens_interface
+	else:
+		messages.append({
+			"severity": "error",
+			"text": f"No profile found for family '{profile_family}' and finish '{finish_code}'",
+			"field": "finish_code",
+		})
+		is_valid = False
+		lens_interface = None
+
+	# Resolve lens item
+	if lens_interface:
+		lens_rows = frappe.get_all(
+			"ilL-Spec-Lens",
+			filters={"lens_interface": lens_interface, "appearance": lens_appearance_code, "is_active": 1},
+			fields=["item"],
+			limit=1,
+		)
+		if lens_rows:
+			resolved["lens_item"] = lens_rows[0].item
+		else:
+			messages.append({
+				"severity": "warning",
+				"text": f"No lens found for interface '{lens_interface}' and appearance '{lens_appearance_code}'",
+				"field": "lens_appearance_code",
+			})
+
+	# Resolve mounting item
+	mount_candidates = frappe.get_all(
+		"ilL-Rel-Mounting-Accessory-Map",
+		filters={
+			"fixture_template": fixture_template_code,
+			"mounting_method": mounting_method_code,
+			"is_active": 1,
+		},
+		fields=["accessory_item", "environment_rating"],
+	)
+
+	for mount_row in mount_candidates:
+		if mount_row.get("environment_rating") and mount_row.environment_rating != environment_rating_code:
+			continue
+		resolved["mounting_item"] = mount_row.accessory_item
+		break
+
+	if not resolved["mounting_item"]:
+		messages.append({
+			"severity": "warning",
+			"text": f"No mounting accessory found for method '{mounting_method_code}'",
+			"field": "mounting_method_code",
+		})
+
+	# Resolve endcap items
+	# For multi-segment: start endcap is feed-through for first segment
+	# End endcap is solid for the last segment
+	first_segment = segments[0] if segments else {}
+	start_power_feed = first_segment.get("start_power_feed_type", "")
+
+	# Determine start endcap style based on power feed type
+	start_endcap_style = "FEED_THROUGH" if start_power_feed and start_power_feed.upper() == "END" else "SOLID"
+
+	# Get endcap item for start
+	start_endcap_candidates = frappe.get_all(
+		"ilL-Rel-Endcap-Map",
+		filters={
+			"fixture_template": fixture_template_code,
+			"endcap_color": endcap_color_code,
+			"is_active": 1,
+		},
+		fields=["endcap_item", "endcap_style", "power_feed_type"],
+	)
+
+	for ec_row in start_endcap_candidates:
+		if ec_row.get("endcap_style") == start_endcap_style:
+			resolved["endcap_item_start"] = ec_row.endcap_item
+			break
+		if not resolved["endcap_item_start"]:
+			resolved["endcap_item_start"] = ec_row.endcap_item
+
+	# End endcap is always solid
+	for ec_row in start_endcap_candidates:
+		if ec_row.get("endcap_style") == "SOLID":
+			resolved["endcap_item_end"] = ec_row.endcap_item
+			break
+		if not resolved["endcap_item_end"]:
+			resolved["endcap_item_end"] = ec_row.endcap_item
+
+	# Resolve leader cable item
+	if tape_offering_doc:
+		leader_candidates = frappe.get_all(
+			"ilL-Rel-Leader-Cable-Map",
+			filters={
+				"tape_spec": tape_offering_doc.tape_spec,
+				"is_active": 1,
+			},
+			fields=["leader_item", "power_feed_type", "environment_rating"],
+		)
+
+		for leader_row in leader_candidates:
+			if leader_row.get("environment_rating") and leader_row.environment_rating != environment_rating_code:
+				continue
+			resolved["leader_item"] = leader_row.leader_item
+			break
+
+	return resolved, messages, is_valid
+
+
+def _create_or_update_multisegment_fixture(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_color_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	user_segments: list,
+	computed: dict,
+	resolved_items: dict,
+	pricing: dict,
+) -> str:
+	"""
+	Create or update a multi-segment configured fixture document.
+
+	Returns:
+		str: Name of the configured fixture document
+	"""
+	# Generate config hash for deduplication
+	config_data = {
+		"fixture_template_code": fixture_template_code,
+		"finish_code": finish_code,
+		"lens_appearance_code": lens_appearance_code,
+		"mounting_method_code": mounting_method_code,
+		"endcap_color_code": endcap_color_code,
+		"environment_rating_code": environment_rating_code,
+		"tape_offering_id": tape_offering_id,
+		"user_segments": user_segments,
+	}
+	config_json = json.dumps(config_data, sort_keys=True)
+	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:16]
+
+	# Check for existing fixture with same hash
+	existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
+
+	if existing:
+		doc = frappe.get_doc("ilL-Configured-Fixture", existing)
+	else:
+		doc = frappe.new_doc("ilL-Configured-Fixture")
+		doc.config_hash = config_hash
+
+	# Set values
+	doc.engine_version = ENGINE_VERSION
+	doc.is_multi_segment = 1
+	doc.fixture_template = fixture_template_code
+	doc.finish = finish_code
+	doc.lens_appearance = lens_appearance_code
+	doc.mounting_method = mounting_method_code
+	doc.endcap_color = endcap_color_code
+	doc.environment_rating = environment_rating_code
+	doc.tape_offering = tape_offering_id
+
+	# Use first segment's start power feed type
+	first_segment = user_segments[0] if user_segments else {}
+	doc.power_feed_type = first_segment.get("start_power_feed_type", "")
+
+	# Set length data
+	doc.requested_overall_length_mm = computed.get("total_requested_length_mm", 0)
+	doc.manufacturable_overall_length_mm = computed.get("manufacturable_overall_length_mm", 0)
+	doc.tape_cut_length_mm = computed.get("total_tape_length_mm", 0)
+
+	# Set computed outputs
+	doc.runs_count = computed.get("runs_count", 0)
+	doc.total_watts = computed.get("total_watts", 0.0)
+	doc.user_segment_count = computed.get("user_segment_count", 0)
+	doc.assembly_mode = computed.get("assembly_mode", "ASSEMBLED")
+	doc.build_description = computed.get("build_description", "")
+	doc.total_endcaps = computed.get("total_endcaps", 0)
+	doc.total_mounting_accessories = computed.get("total_mounting_accessories", 0)
+
+	# Set resolved items
+	doc.profile_item = resolved_items.get("profile_item")
+	doc.lens_item = resolved_items.get("lens_item")
+	doc.endcap_item_start = resolved_items.get("endcap_item_start")
+	doc.endcap_item_end = resolved_items.get("endcap_item_end")
+	doc.mounting_item = resolved_items.get("mounting_item")
+	doc.leader_item = resolved_items.get("leader_item")
+
+	# Clear and set user segments
+	doc.user_segments = []
+	for user_seg in user_segments:
+		doc.append("user_segments", {
+			"segment_index": user_seg.get("segment_index", 0),
+			"requested_length_mm": user_seg.get("requested_length_mm", 0),
+			"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
+			"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
+			"end_type": user_seg.get("end_type", "Endcap"),
+			"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
+			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
+		})
+
+	# Clear and set computed segments
+	doc.segments = []
+	for seg in computed.get("segments", []):
+		doc.append("segments", {
+			"segment_index": seg.get("segment_index", 0),
+			"profile_cut_len_mm": seg.get("profile_cut_len_mm", 0),
+			"lens_cut_len_mm": seg.get("lens_cut_len_mm", 0),
+			"tape_cut_len_mm": seg.get("tape_cut_len_mm", 0),
+			"start_endcap_type": seg.get("start_endcap_type", ""),
+			"end_endcap_type": seg.get("end_endcap_type", ""),
+			"start_leader_len_mm": seg.get("start_leader_len_mm", 0),
+			"end_jumper_len_mm": seg.get("end_jumper_len_mm", 0),
+			"notes": seg.get("notes", ""),
+		})
+
+	# Clear and set runs
+	doc.runs = []
+	for run in computed.get("runs", []):
+		doc.append("runs", {
+			"run_index": run.get("run_index", 0),
+			"run_len_mm": run.get("run_len_mm", 0),
+			"run_watts": run.get("run_watts", 0.0),
+			"leader_item": run.get("leader_item") or resolved_items.get("leader_item"),
+			"leader_len_mm": run.get("leader_len_mm", 0),
+		})
+
+	# Append pricing snapshot
+	doc.append("pricing_snapshot", {
+		"msrp_unit": pricing.get("msrp_unit", 0.0),
+		"tier_unit": pricing.get("tier_unit", 0.0),
+		"adder_breakdown_json": json.dumps(pricing.get("adder_breakdown", [])),
+		"timestamp": now(),
+	})
+
+	# Save document
+	if existing:
+		doc.save()
+	else:
+		doc.insert()
+
+	return doc.name
+
+
 def _validate_configuration(
 	fixture_template_code: str,
 	finish_code: str,

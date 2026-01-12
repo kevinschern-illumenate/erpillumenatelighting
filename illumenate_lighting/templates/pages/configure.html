@@ -1,10 +1,54 @@
 {#
 Portal Configurator Page
-Allows users to configure fixtures using the Rules Engine
+Allows users to configure fixtures using segment-based configuration
 #}
 {% extends "templates/web.html" %}
 
 {% block title %}{{ _("Configure Fixture") }}{% endblock %}
+
+{% block style %}
+<style>
+.segment-card {
+	border: 1px solid #dee2e6;
+	border-radius: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+.segment-card .card-header {
+	background-color: #f8f9fa;
+	padding: 0.5rem 1rem;
+}
+.segment-card .card-body {
+	padding: 0.75rem 1rem;
+}
+.segment-inherited {
+	background-color: #e9ecef;
+	padding: 0.25rem 0.5rem;
+	border-radius: 0.25rem;
+	font-size: 0.85rem;
+	color: #6c757d;
+}
+.segment-inherited i {
+	margin-right: 0.25rem;
+}
+.end-type-toggle {
+	display: flex;
+	gap: 0.5rem;
+}
+.end-type-toggle .btn {
+	flex: 1;
+}
+.end-type-toggle .btn.active {
+	background-color: #0d6efd;
+	color: white;
+}
+.jumper-fields, .endcap-fields {
+	padding: 0.5rem;
+	background: #f8f9fa;
+	border-radius: 0.25rem;
+	margin-top: 0.5rem;
+}
+</style>
+{% endblock %}
 
 {% block page_content %}
 <div class="container portal-page">
@@ -22,7 +66,7 @@ Allows users to configure fixtures using the Rules Engine
 	<div class="row">
 		<!-- Configurator Form -->
 		<div class="col-lg-7">
-			<div class="card">
+			<div class="card mb-3">
 				<div class="card-header">
 					<h5 class="mb-0">{{ _("Fixture Configuration") }}</h5>
 				</div>
@@ -70,81 +114,59 @@ Allows users to configure fixtures using the Rules Engine
 								</div>
 								<div class="col-md-6">
 									<div class="form-group">
-										<label>{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="power_feed_type_code" required></select>
-									</div>
-								</div>
-							</div>
-
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Endcap Style - Start") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="endcap_style_start_code" required></select>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Endcap Style - End") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="endcap_style_end_code" required></select>
-									</div>
-								</div>
-							</div>
-
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group">
 										<label>{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
 										<select class="form-control" name="endcap_color_code" required></select>
 									</div>
 								</div>
+							</div>
+
+							<div class="row">
 								<div class="col-md-6">
 									<div class="form-group">
 										<label>{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
 										<select class="form-control" name="environment_rating_code" required></select>
 									</div>
 								</div>
-							</div>
-
-							<div class="row">
 								<div class="col-md-6">
 									<div class="form-group">
 										<label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
 										<select class="form-control" name="tape_offering_id" required></select>
 									</div>
 								</div>
-								<div class="col-md-6">
-								</div>
 							</div>
-
-							<hr>
-							<h6 class="mb-3">{{ _("Dimensions") }}</h6>
-
-							<div class="form-group">
-								<label>{{ _("Requested Length") }} <span class="text-danger">*</span></label>
-								<div class="input-group">
-									<input type="number" class="form-control" name="requested_overall_length_mm" min="1" required>
-									<select class="custom-select" name="length_unit" style="max-width: 80px;">
-										<option value="mm" selected>mm</option>
-										<option value="in">in</option>
-									</select>
-								</div>
-							</div>
-						</div>
-
-						<hr>
-						<div class="d-flex justify-content-between">
-							<button type="button" class="btn btn-primary" onclick="validateAndQuote()">
-								<i class="fa fa-calculator"></i> {{ _("Calculate") }}
-							</button>
-							{% if can_save %}
-							<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" disabled>
-								<i class="fa fa-save"></i> {{ _("Save to Schedule") }}
-							</button>
-							{% endif %}
 						</div>
 					</form>
 				</div>
+			</div>
+
+			<!-- Segments Card -->
+			<div class="card mb-3" id="segmentsCard" style="display: none;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Fixture Segments") }}</h5>
+					<span class="badge badge-info" id="segmentCountBadge">0 {{ _("segments") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">
+						{{ _("Define each segment of your fixture. The first segment starts with a leader cable. Connect segments with jumper cables, or cap the fixture with an endcap.") }}
+					</p>
+					<div id="segmentsList"></div>
+					
+					<div id="addSegmentHint" class="text-center py-3 text-muted" style="display: none;">
+						<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
+					</div>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
+				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
+					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+				</button>
+				{% if can_save %}
+				<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" disabled>
+					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+				</button>
+				{% endif %}
 			</div>
 		</div>
 
@@ -165,23 +187,19 @@ Allows users to configure fixtures using the Rules Engine
 
 					<!-- Length Results -->
 					<div id="lengthResults" style="display: none;">
-						<h6>{{ _("Length Calculation") }}</h6>
+						<h6>{{ _("Length Summary") }}</h6>
 						<table class="table table-sm">
 							<tr>
-								<td>{{ _("Requested Length") }}</td>
+								<td>{{ _("Total Requested Length") }}</td>
 								<td class="text-right"><span id="requestedLength">-</span></td>
 							</tr>
 							<tr>
-								<td>{{ _("Manufacturable Length") }}</td>
+								<td>{{ _("Total Manufacturable Length") }}</td>
 								<td class="text-right"><strong><span id="mfgLength">-</span></strong></td>
 							</tr>
 							<tr>
-								<td>{{ _("Difference") }}</td>
-								<td class="text-right"><span id="difference">-</span></td>
-							</tr>
-							<tr>
-								<td>{{ _("Tape Cut Length") }}</td>
-								<td class="text-right"><span id="tapeCutLength">-</span></td>
+								<td>{{ _("Segment Count") }}</td>
+								<td class="text-right"><span id="segmentCountResult">-</span></td>
 							</tr>
 						</table>
 						<hr>
@@ -192,16 +210,20 @@ Allows users to configure fixtures using the Rules Engine
 						<h6>{{ _("Manufacturing Summary") }}</h6>
 						<table class="table table-sm">
 							<tr>
-								<td>{{ _("Segments") }}</td>
-								<td class="text-right"><span id="segmentsCount">-</span></td>
+								<td>{{ _("Profile/Lens Segments") }}</td>
+								<td class="text-right"><span id="profileSegmentsCount">-</span></td>
 							</tr>
 							<tr>
-								<td>{{ _("Runs") }}</td>
+								<td>{{ _("LED Tape Runs") }}</td>
 								<td class="text-right"><span id="runsCount">-</span></td>
 							</tr>
 							<tr>
-								<td>{{ _("Leader Qty") }}</td>
-								<td class="text-right"><span id="leaderQty">-</span></td>
+								<td>{{ _("Endcaps") }}</td>
+								<td class="text-right"><span id="endcapsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Mounting Accessories") }}</td>
+								<td class="text-right"><span id="mountingCount">-</span></td>
 							</tr>
 							<tr>
 								<td>{{ _("Total Watts") }}</td>
@@ -212,6 +234,13 @@ Allows users to configure fixtures using the Rules Engine
 								<td class="text-right"><span id="assemblyMode">-</span></td>
 							</tr>
 						</table>
+						<hr>
+					</div>
+
+					<!-- Build Description -->
+					<div id="buildDescriptionPanel" style="display: none;">
+						<h6>{{ _("Build Description") }}</h6>
+						<div id="buildDescription" class="small bg-light p-2 rounded" style="white-space: pre-wrap;"></div>
 						<hr>
 					</div>
 
@@ -242,13 +271,120 @@ Allows users to configure fixtures using the Rules Engine
 
 					<div id="noResults" class="text-center py-4">
 						<i class="fa fa-calculator fa-3x text-muted mb-3"></i>
-						<p class="text-muted">{{ _("Click 'Calculate' to see results") }}</p>
+						<p class="text-muted">{{ _("Configure segments and click 'Calculate & Validate' to see results") }}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 </div>
+
+<!-- Segment Template -->
+<template id="segmentTemplate">
+	<div class="segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Segment") }} <span class="segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" onclick="removeSegment(this)" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- Start Section (for first segment or inherited from prior) -->
+			<div class="segment-start mb-3">
+				<div class="row">
+					<div class="col-12">
+						<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
+					</div>
+				</div>
+				<!-- First segment: user selects power feed type and leader cable length -->
+				<div class="first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Leader Cable Length (mm)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_mm" value="300" min="0">
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- Subsequent segments: inherited from prior segment -->
+				<div class="inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
+				</div>
+			</div>
+
+			<!-- Segment Length -->
+			<div class="segment-length mb-3">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Requested Length (mm)") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="requested_length_mm" min="100" required placeholder="e.g., 1200">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="length_unit">
+								<option value="mm" selected>mm</option>
+								<option value="in">inches</option>
+							</select>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="segment-end">
+				<div class="row">
+					<div class="col-12">
+						<label class="small font-weight-bold">{{ _("Segment End") }}</label>
+					</div>
+				</div>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Endcap" onclick="setEndType(this, 'Endcap')">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap (Cap Fixture)") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Jumper" onclick="setEndType(this, 'Jumper')">
+						<i class="fa fa-link"></i> {{ _("Jumper (Continue to Next)") }}
+					</button>
+				</div>
+				<input type="hidden" name="end_type" value="Endcap">
+
+				<!-- Endcap Fields (shown when end type is Endcap) -->
+				<div class="endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with a solid endcap") }}
+					</div>
+				</div>
+
+				<!-- Jumper Fields (shown when end type is Jumper) -->
+				<div class="jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (mm)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_mm" value="300" min="0">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
 {% endblock %}
 
 {% block script %}
@@ -256,6 +392,8 @@ Allows users to configure fixtures using the Rules Engine
 var schedule_name = "{{ schedule.name if schedule else '' }}";
 var line_idx = {{ line_idx if line_idx is not none else 'null' }};
 var currentResult = null;
+var templateOptions = null;
+var segmentCount = 0;
 var MM_PER_INCH = 25.4;
 
 // Load template options when template is selected
@@ -264,23 +402,16 @@ $('select[name="fixture_template_code"]').on('change', function() {
 	if (template) {
 		loadTemplateOptions(template);
 		$('#templateOptions').show();
+		$('#segmentsCard').show();
+		$('#actionButtons').show();
+		// Initialize first segment if none exist
+		if (segmentCount === 0) {
+			addSegment(true);
+		}
 	} else {
 		$('#templateOptions').hide();
-	}
-});
-
-// Convert length units
-$('select[name="length_unit"]').on('change', function() {
-	var lengthInput = $('input[name="requested_overall_length_mm"]');
-	var currentValue = parseFloat(lengthInput.val());
-	var unit = $(this).val();
-
-	if (unit === 'in' && currentValue) {
-		// Convert mm to inches for display
-		lengthInput.val((currentValue / MM_PER_INCH).toFixed(2));
-	} else if (unit === 'mm' && currentValue) {
-		// Convert inches to mm
-		lengthInput.val(Math.round(currentValue * MM_PER_INCH));
+		$('#segmentsCard').hide();
+		$('#actionButtons').hide();
 	}
 });
 
@@ -290,34 +421,25 @@ function loadTemplateOptions(template_code) {
 		args: { template_code: template_code },
 		callback: function(r) {
 			if (r.message) {
+				templateOptions = r.message;
 				populateOptions(r.message);
+				// Populate power feed options in existing segments
+				$('.segment-card').each(function() {
+					populateSegmentPowerFeedOptions($(this));
+				});
 			}
 		}
 	});
 }
 
 function populateOptions(options) {
-	// Populate each select with its options
-	var fields = ['finish', 'lens_appearance', 'mounting_method', 'power_feed_type', 'environment_rating'];
-
+	// Populate base options
+	var fields = ['finish', 'lens_appearance', 'mounting_method', 'environment_rating'];
 	fields.forEach(function(field) {
 		var select = $('select[name="' + field + '_code"]');
 		select.empty().append('<option value="">Select...</option>');
-
 		if (options[field]) {
 			options[field].forEach(function(opt) {
-				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
-			});
-		}
-	});
-
-	// Populate endcap style selects (start and end)
-	var endcapStyleFields = ['endcap_style_start', 'endcap_style_end'];
-	endcapStyleFields.forEach(function(field) {
-		var select = $('select[name="' + field + '_code"]');
-		select.empty().append('<option value="">Select...</option>');
-		if (options.endcap_style) {
-			options.endcap_style.forEach(function(opt) {
 				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 			});
 		}
@@ -342,32 +464,281 @@ function populateOptions(options) {
 	}
 }
 
+function populateSegmentPowerFeedOptions(segmentCard) {
+	if (!templateOptions || !templateOptions.power_feed_type) return;
+	
+	['start_power_feed_type', 'end_power_feed_type'].forEach(function(fieldName) {
+		var select = segmentCard.find('[name="' + fieldName + '"]');
+		select.empty().append('<option value="">Select...</option>');
+		templateOptions.power_feed_type.forEach(function(opt) {
+			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	});
+}
+
+function addSegment(isFirst) {
+	segmentCount++;
+	var template = document.getElementById('segmentTemplate');
+	var clone = template.content.cloneNode(true);
+	var card = clone.querySelector('.segment-card');
+	
+	card.dataset.segmentIndex = segmentCount;
+	card.querySelector('.segment-number').textContent = segmentCount;
+	
+	if (isFirst) {
+		// First segment: show power feed type and leader cable selection
+		card.querySelector('.first-segment-start').style.display = 'block';
+		card.querySelector('.inherited-start').style.display = 'none';
+	} else {
+		// Subsequent segments: show inherited from prior
+		card.querySelector('.first-segment-start').style.display = 'none';
+		card.querySelector('.inherited-start').style.display = 'block';
+		// Can be removed
+		card.querySelector('.remove-segment-btn').style.display = 'inline-block';
+		
+		// Copy power feed and jumper length from prior segment's end
+		var priorSegment = $('#segmentsList .segment-card').last();
+		if (priorSegment.length) {
+			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
+			var priorJumperLen = priorSegment.find('[name="end_jumper_cable_length_mm"]').val();
+			
+			// Store inherited values as data attributes
+			card.dataset.inheritedPowerFeedType = priorEndPFT || '';
+			card.dataset.inheritedCableLength = priorJumperLen || '300';
+			
+			// Update inherited text
+			var inheritedText = 'From prior segment: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLen || '300') + 'mm jumper';
+			card.querySelector('.inherited-text').textContent = inheritedText;
+		}
+	}
+	
+	document.getElementById('segmentsList').appendChild(clone);
+	
+	var segmentCard = $('#segmentsList .segment-card').last();
+	if (templateOptions) {
+		populateSegmentPowerFeedOptions(segmentCard);
+	}
+	
+	// Set default end type to Endcap
+	setEndType(segmentCard.find('.end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+	
+	// Bind length unit change
+	segmentCard.find('[name="length_unit"]').on('change', function() {
+		convertSegmentLength(segmentCard, $(this).val());
+	});
+	
+	updateUI();
+}
+
+function removeSegment(btn) {
+	var card = $(btn).closest('.segment-card');
+	var index = parseInt(card.data('segment-index'));
+	
+	// Only allow removing if it's not the first segment
+	if (index <= 1) {
+		frappe.msgprint('Cannot remove the first segment');
+		return;
+	}
+	
+	// Remove this segment and all following segments
+	var segmentsToRemove = [];
+	$('.segment-card').each(function() {
+		if (parseInt($(this).data('segment-index')) >= index) {
+			segmentsToRemove.push($(this));
+		}
+	});
+	
+	segmentsToRemove.forEach(function(s) {
+		s.remove();
+		segmentCount--;
+	});
+	
+	// Update the prior segment's end type to Endcap
+	var lastSegment = $('#segmentsList .segment-card').last();
+	if (lastSegment.length) {
+		setEndType(lastSegment.find('.end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+	}
+	
+	updateUI();
+}
+
+function setEndType(btn, type) {
+	var card = $(btn).closest('.segment-card');
+	var endTypeInput = card.find('[name="end_type"]');
+	
+	// Update button states
+	card.find('.end-type-btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+	$(btn).removeClass('btn-outline-secondary').addClass('active btn-primary');
+	
+	endTypeInput.val(type);
+	
+	if (type === 'Endcap') {
+		card.find('.endcap-fields').show();
+		card.find('.jumper-fields').hide();
+		
+		// Remove any segments after this one
+		var currentIndex = parseInt(card.data('segment-index'));
+		var segmentsToRemove = [];
+		$('.segment-card').each(function() {
+			if (parseInt($(this).data('segment-index')) > currentIndex) {
+				segmentsToRemove.push($(this));
+			}
+		});
+		segmentsToRemove.forEach(function(s) {
+			s.remove();
+			segmentCount--;
+		});
+		
+		$('#addSegmentHint').hide();
+	} else {
+		// Jumper
+		card.find('.endcap-fields').hide();
+		card.find('.jumper-fields').show();
+		
+		// Auto-add next segment if this is the last one
+		var currentIndex = parseInt(card.data('segment-index'));
+		var hasNextSegment = false;
+		$('.segment-card').each(function() {
+			if (parseInt($(this).data('segment-index')) > currentIndex) {
+				hasNextSegment = true;
+			}
+		});
+		
+		if (!hasNextSegment) {
+			// Wait a moment then add the next segment
+			setTimeout(function() {
+				addSegment(false);
+			}, 100);
+		}
+	}
+	
+	updateUI();
+}
+
+function convertSegmentLength(segmentCard, newUnit) {
+	var lengthInput = segmentCard.find('[name="requested_length_mm"]');
+	var currentValue = parseFloat(lengthInput.val());
+	
+	if (!currentValue) return;
+	
+	if (newUnit === 'in') {
+		// Convert mm to inches for display
+		lengthInput.val((currentValue / MM_PER_INCH).toFixed(2));
+	} else {
+		// Convert inches to mm
+		lengthInput.val(Math.round(currentValue * MM_PER_INCH));
+	}
+}
+
+function updateUI() {
+	// Update segment count badge
+	$('#segmentCountBadge').text(segmentCount + ' segment' + (segmentCount !== 1 ? 's' : ''));
+	
+	// Check if fixture is complete (last segment ends with Endcap)
+	var lastSegment = $('#segmentsList .segment-card').last();
+	var isComplete = lastSegment.length && lastSegment.find('[name="end_type"]').val() === 'Endcap';
+	
+	// Enable/disable calculate button based on completeness
+	$('#calculateBtn').prop('disabled', !isComplete);
+	
+	// Update segment numbers
+	$('.segment-card').each(function(index) {
+		$(this).attr('data-segment-index', index + 1);
+		$(this).find('.segment-number').text(index + 1);
+		
+		// Show/hide remove button (can't remove first segment)
+		if (index === 0) {
+			$(this).find('.remove-segment-btn').hide();
+		} else {
+			$(this).find('.remove-segment-btn').show();
+		}
+	});
+	
+	// Update inherited values display
+	$('.segment-card').each(function(index) {
+		if (index > 0) {
+			var priorSegment = $('.segment-card').eq(index - 1);
+			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
+			var priorJumperLen = priorSegment.find('[name="end_jumper_cable_length_mm"]').val();
+			
+			$(this)[0].dataset.inheritedPowerFeedType = priorEndPFT || '';
+			$(this)[0].dataset.inheritedCableLength = priorJumperLen || '300';
+			
+			var inheritedText = 'From prior: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLen || '300') + 'mm';
+			$(this).find('.inherited-text').text(inheritedText);
+		}
+	});
+	
+	segmentCount = $('.segment-card').length;
+}
+
+function collectSegments() {
+	var segments = [];
+	$('.segment-card').each(function(index) {
+		var card = $(this);
+		
+		// Get length in mm
+		var length = parseFloat(card.find('[name="requested_length_mm"]').val()) || 0;
+		var unit = card.find('[name="length_unit"]').val();
+		if (unit === 'in') {
+			length = Math.round(length * MM_PER_INCH);
+		}
+		
+		var segment = {
+			segment_index: index + 1,
+			requested_length_mm: length,
+			end_type: card.find('[name="end_type"]').val()
+		};
+		
+		if (index === 0) {
+			// First segment: get start power feed and leader cable
+			segment.start_power_feed_type = card.find('[name="start_power_feed_type"]').val();
+			segment.start_leader_cable_length_mm = parseInt(card.find('[name="start_leader_cable_length_mm"]').val()) || 300;
+		} else {
+			// Inherited from prior segment
+			segment.start_power_feed_type = card[0].dataset.inheritedPowerFeedType || '';
+			segment.start_leader_cable_length_mm = parseInt(card[0].dataset.inheritedCableLength) || 300;
+		}
+		
+		if (segment.end_type === 'Jumper') {
+			segment.end_power_feed_type = card.find('[name="end_power_feed_type"]').val();
+			segment.end_jumper_cable_length_mm = parseInt(card.find('[name="end_jumper_cable_length_mm"]').val()) || 300;
+		}
+		
+		segments.push(segment);
+	});
+	return segments;
+}
+
 function validateAndQuote() {
 	var form = $('#configuratorForm');
-
-	// Get length in mm
-	var length = parseFloat(form.find('[name="requested_overall_length_mm"]').val());
-	var unit = form.find('[name="length_unit"]').val();
-	if (unit === 'in') {
-		length = Math.round(length * MM_PER_INCH);
+	var segments = collectSegments();
+	
+	if (segments.length === 0) {
+		frappe.msgprint('Please add at least one segment');
+		return;
 	}
-
+	
+	// Check if last segment ends with Endcap
+	var lastSegment = segments[segments.length - 1];
+	if (lastSegment.end_type !== 'Endcap') {
+		frappe.msgprint('The fixture must end with an Endcap. Please select Endcap on the last segment.');
+		return;
+	}
+	
 	var data = {
 		fixture_template_code: form.find('[name="fixture_template_code"]').val(),
 		finish_code: form.find('[name="finish_code"]').val(),
 		lens_appearance_code: form.find('[name="lens_appearance_code"]').val(),
 		mounting_method_code: form.find('[name="mounting_method_code"]').val(),
-		endcap_style_start_code: form.find('[name="endcap_style_start_code"]').val(),
-		endcap_style_end_code: form.find('[name="endcap_style_end_code"]').val(),
 		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
-		power_feed_type_code: form.find('[name="power_feed_type_code"]').val(),
 		environment_rating_code: form.find('[name="environment_rating_code"]').val(),
 		tape_offering_id: form.find('[name="tape_offering_id"]').val(),
-		requested_overall_length_mm: length
+		segments_json: JSON.stringify(segments)
 	};
-
+	
 	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote',
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
 		args: data,
 		callback: function(r) {
 			if (r.message) {
@@ -380,7 +751,7 @@ function validateAndQuote() {
 
 function displayResults(result) {
 	$('#noResults').hide();
-
+	
 	// Update validation status
 	var statusBadge = $('#validationStatus');
 	if (result.is_valid) {
@@ -390,7 +761,7 @@ function displayResults(result) {
 		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
 		$('#saveBtn').prop('disabled', true);
 	}
-
+	
 	// Display messages
 	if (result.messages && result.messages.length > 0) {
 		$('#messagesPanel').show();
@@ -402,23 +773,29 @@ function displayResults(result) {
 	} else {
 		$('#messagesPanel').hide();
 	}
-
+	
 	// Display length results
 	if (result.computed) {
 		$('#lengthResults').show();
-		$('#requestedLength').text(result.computed.requested_overall_length_mm + ' mm');
+		$('#requestedLength').text(result.computed.total_requested_length_mm + ' mm');
 		$('#mfgLength').text(result.computed.manufacturable_overall_length_mm + ' mm');
-		$('#difference').text(result.computed.difference_mm + ' mm');
-		$('#tapeCutLength').text(result.computed.tape_cut_length_mm + ' mm');
-
+		$('#segmentCountResult').text(result.computed.user_segment_count);
+		
 		$('#manufacturingResults').show();
-		$('#segmentsCount').text(result.computed.segments_count);
+		$('#profileSegmentsCount').text(result.computed.segments_count);
 		$('#runsCount').text(result.computed.runs_count);
-		$('#leaderQty').text(result.computed.leader_qty);
+		$('#endcapsCount').text(result.computed.total_endcaps);
+		$('#mountingCount').text(result.computed.total_mounting_accessories);
 		$('#totalWatts').text(result.computed.total_watts + ' W');
 		$('#assemblyMode').text(result.computed.assembly_mode);
+		
+		// Display build description
+		if (result.computed.build_description) {
+			$('#buildDescriptionPanel').show();
+			$('#buildDescription').text(result.computed.build_description);
+		}
 	}
-
+	
 	// Display driver plan
 	if (result.resolved_items && result.resolved_items.driver_plan) {
 		var dp = result.resolved_items.driver_plan;
@@ -434,13 +811,13 @@ function displayResults(result) {
 			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
 		}
 	}
-
+	
 	// Display pricing
 	if (result.pricing) {
 		$('#pricingResults').show();
 		$('#msrpUnit').text('$' + result.pricing.msrp_unit.toFixed(2));
 		$('#tierUnit').text('$' + result.pricing.tier_unit.toFixed(2));
-
+		
 		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
 			var breakdownHtml = '<details><summary class="text-muted">Price Breakdown</summary><table class="table table-sm mt-2">';
 			result.pricing.adder_breakdown.forEach(function(adder) {
@@ -457,7 +834,7 @@ function saveToSchedule() {
 		frappe.msgprint('Cannot save: configuration is not valid or no schedule specified');
 		return;
 	}
-
+	
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_configured_fixture_to_schedule',
 		args: {
@@ -487,6 +864,11 @@ function saveToSchedule() {
 $(document).ready(function() {
 	loadTemplateOptions("{{ selected_template }}");
 	$('#templateOptions').show();
+	$('#segmentsCard').show();
+	$('#actionButtons').show();
+	if (segmentCount === 0) {
+		addSegment(true);
+	}
 });
 {% endif %}
 </script>
