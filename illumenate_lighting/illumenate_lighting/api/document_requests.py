@@ -15,6 +15,12 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+from illumenate_lighting.illumenate_lighting.utils import (
+	parse_positive_int,
+	DEFAULT_PAGE_SIZE,
+	MAX_PAGE_SIZE,
+)
+
 
 @frappe.whitelist()
 def get_request_types() -> dict:
@@ -144,7 +150,10 @@ def create_request(request_data: Union[str, dict]) -> dict:
 		dict: {"success": True/False, "request_name": name, "error": str}
 	"""
 	if isinstance(request_data, str):
-		request_data = json.loads(request_data)
+		try:
+			request_data = json.loads(request_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid request_data format"}
 
 	# Validate required fields
 	if not request_data.get("request_type"):
@@ -280,7 +289,7 @@ def submit_request(request_name: str) -> dict:
 def list_requests(
 	tab: str = "all",
 	page: int = 1,
-	page_size: int = 20,
+	page_size: int = DEFAULT_PAGE_SIZE,
 	search: str = None,
 ) -> dict:
 	"""
@@ -301,6 +310,10 @@ def list_requests(
 			"page_size": int
 		}
 	"""
+	# Validate and sanitize pagination parameters
+	page = parse_positive_int(page, default=1, minimum=1)
+	page_size = min(MAX_PAGE_SIZE, parse_positive_int(page_size, default=DEFAULT_PAGE_SIZE, minimum=1))
+
 	filters = {"hide_from_portal": 0}
 
 	# Apply tab filter

@@ -14,6 +14,11 @@ from typing import Union
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.utils import (
+	parse_positive_int,
+	VALID_ACCESS_LEVELS,
+)
+
 
 @frappe.whitelist()
 def get_allowed_customers_for_project() -> dict:
@@ -228,13 +233,16 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 
 	# Parse line_data if it's a string (from form submission)
 	if isinstance(line_data, str):
-		line_data = json.loads(line_data)
+		try:
+			line_data = json.loads(line_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid line_data format"}
 
 	# Add the line
 	try:
 		line = schedule.append("lines", {})
 		line.line_id = line_data.get("line_id")
-		line.qty = int(line_data.get("qty", 1))
+		line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
 		line.location = line_data.get("location")
 		line.manufacturer_type = line_data.get("manufacturer_type", "ILLUMENATE")
 		line.notes = line_data.get("notes")
@@ -287,7 +295,11 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 	if schedule.status not in ["DRAFT", "READY"]:
 		return {"success": False, "error": "Cannot delete lines from a schedule in this status"}
 
-	line_idx = int(line_idx)
+	try:
+		line_idx = int(line_idx)
+	except (ValueError, TypeError):
+		return {"success": False, "error": "Invalid line index"}
+
 	if line_idx < 0 or line_idx >= len(schedule.lines):
 		return {"success": False, "error": "Invalid line index"}
 
@@ -330,7 +342,11 @@ def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 	if schedule.status not in ["DRAFT", "READY"]:
 		return {"success": False, "error": "Cannot duplicate lines in a schedule in this status"}
 
-	line_idx = int(line_idx)
+	try:
+		line_idx = int(line_idx)
+	except (ValueError, TypeError):
+		return {"success": False, "error": "Invalid line index"}
+
 	if line_idx < 0 or line_idx >= len(schedule.lines):
 		return {"success": False, "error": "Invalid line index"}
 
@@ -375,9 +391,16 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 
 	# Parse line_data if it's a string (from form submission)
 	if isinstance(line_data, str):
-		line_data = json.loads(line_data)
+		try:
+			line_data = json.loads(line_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid line_data format"}
 
-	line_idx = int(line_idx)
+	try:
+		line_idx = int(line_idx)
+	except (ValueError, TypeError):
+		return {"success": False, "error": "Invalid line index"}
+
 	if line_idx < 0 or line_idx >= len(schedule.lines):
 		return {"success": False, "error": "Invalid line index"}
 
@@ -388,7 +411,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 		if "line_id" in line_data:
 			line.line_id = line_data.get("line_id")
 		if "qty" in line_data:
-			line.qty = int(line_data.get("qty", 1))
+			line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
 		if "location" in line_data:
 			line.location = line_data.get("location")
 		if "notes" in line_data:
@@ -589,7 +612,10 @@ def save_configured_fixture_to_schedule(
 
 	try:
 		if line_idx is not None:
-			line_idx = int(line_idx)
+			try:
+				line_idx = int(line_idx)
+			except (ValueError, TypeError):
+				return {"success": False, "error": "Invalid line index"}
 			if line_idx < 0 or line_idx >= len(schedule.lines):
 				return {"success": False, "error": "Invalid line index"}
 			line = schedule.lines[line_idx]
@@ -601,7 +627,10 @@ def save_configured_fixture_to_schedule(
 
 		# Update line with configured fixture
 		line.configured_fixture = configured_fixture_id
-		line.manufacturable_length_mm = int(manufacturable_length_mm)
+		try:
+			line.manufacturable_length_mm = int(manufacturable_length_mm)
+		except (ValueError, TypeError):
+			return {"success": False, "error": "Invalid manufacturable_length_mm"}
 
 		# Get configured fixture document
 		configured_fixture = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
@@ -646,7 +675,10 @@ def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	# Parse project_data if it's a string
 	if isinstance(project_data, str):
-		project_data = json.loads(project_data)
+		try:
+			project_data = json.loads(project_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid project_data format"}
 
 	# Get user's customer
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
@@ -704,7 +736,10 @@ def create_schedule(schedule_data: Union[str, dict]) -> dict:
 	"""
 	# Parse schedule_data if it's a string
 	if isinstance(schedule_data, str):
-		schedule_data = json.loads(schedule_data)
+		try:
+			schedule_data = json.loads(schedule_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid schedule_data format"}
 
 	# Validate project exists and user has access
 	project_name = schedule_data.get("ill_project")
@@ -761,7 +796,10 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 
 	# Parse collaborators if string
 	if isinstance(collaborators, str):
-		collaborators = json.loads(collaborators)
+		try:
+			collaborators = json.loads(collaborators)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid collaborators format"}
 
 	try:
 		# Clear existing collaborators
@@ -956,7 +994,10 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 	"""
 	# Parse customer_data if it's a string
 	if isinstance(customer_data, str):
-		customer_data = json.loads(customer_data)
+		try:
+			customer_data = json.loads(customer_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid customer_data format"}
 
 	if not customer_data.get("customer_name"):
 		return {"success": False, "error": "Customer name is required"}
@@ -1003,7 +1044,10 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 	"""
 	# Parse request_data if it's a string
 	if isinstance(request_data, str):
-		request_data = json.loads(request_data)
+		try:
+			request_data = json.loads(request_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid request_data format"}
 
 	if not request_data.get("description"):
 		return {"success": False, "error": "Description is required"}
@@ -1098,7 +1142,10 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 	"""
 	# Parse ticket_data if it's a string
 	if isinstance(ticket_data, str):
-		ticket_data = json.loads(ticket_data)
+		try:
+			ticket_data = json.loads(ticket_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid ticket_data format"}
 
 	if not ticket_data.get("subject"):
 		return {"success": False, "error": "Subject is required"}
@@ -1148,7 +1195,10 @@ def update_user_profile(profile_data: Union[str, dict]) -> dict:
 	"""
 	# Parse profile_data if it's a string
 	if isinstance(profile_data, str):
-		profile_data = json.loads(profile_data)
+		try:
+			profile_data = json.loads(profile_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid profile_data format"}
 
 	try:
 		user = frappe.get_doc("User", frappe.session.user)
@@ -1180,7 +1230,10 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	# Parse preferences if it's a string
 	if isinstance(preferences, str):
-		preferences = json.loads(preferences)
+		try:
+			preferences = json.loads(preferences)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid preferences format"}
 
 	try:
 		# Store preferences in user's custom fields or a settings doctype
@@ -1399,6 +1452,10 @@ def invite_project_collaborator(
 		_is_internal_user,
 		has_permission as project_has_permission,
 	)
+
+	# Validate access_level
+	if access_level not in VALID_ACCESS_LEVELS:
+		return {"success": False, "error": f"Invalid access_level. Must be one of: {', '.join(VALID_ACCESS_LEVELS)}"}
 
 	# Check if caller has permission to invite collaborators
 	is_dealer = _is_dealer_user(frappe.session.user)
@@ -1651,7 +1708,10 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": "You don't have permission to create contacts"}
 
 	if isinstance(contact_data, str):
-		contact_data = json.loads(contact_data)
+		try:
+			contact_data = json.loads(contact_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid contact_data format"}
 
 	if not contact_data.get("first_name"):
 		return {"success": False, "error": "First name is required"}
