@@ -144,7 +144,10 @@ def create_request(request_data: Union[str, dict]) -> dict:
 		dict: {"success": True/False, "request_name": name, "error": str}
 	"""
 	if isinstance(request_data, str):
-		request_data = json.loads(request_data)
+		try:
+			request_data = json.loads(request_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid request_data format"}
 
 	# Validate required fields
 	if not request_data.get("request_type"):
@@ -301,6 +304,14 @@ def list_requests(
 			"page_size": int
 		}
 	"""
+	# Validate and sanitize pagination parameters
+	try:
+		page = max(1, int(page))
+		page_size = max(1, min(100, int(page_size)))  # Limit page_size to 1-100
+	except (ValueError, TypeError):
+		page = 1
+		page_size = 20
+
 	filters = {"hide_from_portal": 0}
 
 	# Apply tab filter
