@@ -893,22 +893,45 @@ def _resolve_multisegment_items(
 		is_valid = False
 		lens_interface = None
 
-	# Resolve lens item
-	if lens_interface:
-		lens_rows = frappe.get_all(
-			"ilL-Spec-Lens",
-			filters={"lens_interface": lens_interface, "appearance": lens_appearance_code, "is_active": 1},
-			fields=["item"],
-			limit=1,
+	# Resolve lens item - match by lens_appearance only (like existing code)
+	lens_candidates = frappe.get_all(
+		"ilL-Spec-Lens",
+		filters={"lens_appearance": lens_appearance_code},
+		fields=["name", "item"],
+	)
+
+	lens_item = None
+	if lens_candidates and environment_rating_code:
+		# Check for environment rating compatibility
+		lens_names = [row.name for row in lens_candidates]
+		lens_envs = frappe.get_all(
+			"ilL-Child-Lens Environments",
+			filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
+			fields=["parent", "environment_rating"],
 		)
-		if lens_rows:
-			resolved["lens_item"] = lens_rows[0].item
-		else:
-			messages.append({
-				"severity": "warning",
-				"text": f"No lens found for interface '{lens_interface}' and appearance '{lens_appearance_code}'",
-				"field": "lens_appearance_code",
-			})
+		lens_env_map: dict[str, set] = {}
+		for env in lens_envs:
+			if env.parent not in lens_env_map:
+				lens_env_map[env.parent] = set()
+			lens_env_map[env.parent].add(env.environment_rating)
+
+		for lens_row in lens_candidates:
+			env_supported = lens_env_map.get(lens_row.name, set())
+			if env_supported and environment_rating_code not in env_supported:
+				continue
+			lens_item = lens_row.item
+			break
+	elif lens_candidates:
+		lens_item = lens_candidates[0].item
+
+	if lens_item:
+		resolved["lens_item"] = lens_item
+	else:
+		messages.append({
+			"severity": "warning",
+			"text": f"No lens found for appearance '{lens_appearance_code}'",
+			"field": "lens_appearance_code",
+		})
 
 	# Resolve mounting item
 	mount_candidates = frappe.get_all(
