@@ -13,13 +13,17 @@ def parse_positive_int(value, default: int = 1, minimum: int = 1) -> int:
 	"""
 	Parse a value as a positive integer with bounds checking.
 
+	This function is designed for defensive input handling where invalid
+	or out-of-range values should be silently corrected rather than raising errors.
+
 	Args:
 		value: Value to parse
 		default: Default value if parsing fails
-		minimum: Minimum allowed value
+		minimum: Minimum allowed value (result will be clamped to this)
 
 	Returns:
-		int: Parsed integer, at least the minimum value
+		int: Parsed integer, at least the minimum value. If parsing fails,
+		     returns the default value.
 	"""
 	try:
 		return max(minimum, int(value))
