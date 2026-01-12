@@ -313,10 +313,10 @@ Also handles new project creation when is_new is True
 								{{ project.location }}
 							</p>
 							{% endif %}
-							{% if project.project_manager %}
+							{% if project.project_manager and contact_details.get('project_manager') %}
 							<p class="mb-2">
 								<strong>{{ _("Project Manager") }}:</strong> 
-								{% set pm = frappe.get_doc("Contact", project.project_manager) %}
+								{% set pm = contact_details.project_manager %}
 								{{ pm.first_name }} {% if pm.last_name %}{{ pm.last_name }}{% endif %}
 								{% if pm.company_name %}<small class="text-muted">({{ pm.company_name }})</small>{% endif %}
 							</p>
@@ -324,26 +324,26 @@ Also handles new project creation when is_new is True
 						</div>
 						<div class="col-md-6">
 							<h6 class="text-muted mb-3">{{ _("Project Contacts") }}</h6>
-							{% if project.architect %}
+							{% if project.architect and contact_details.get('architect') %}
 							<p class="mb-2">
 								<strong>{{ _("Architect") }}:</strong> 
-								{% set arch = frappe.get_doc("Contact", project.architect) %}
+								{% set arch = contact_details.architect %}
 								{{ arch.first_name }} {% if arch.last_name %}{{ arch.last_name }}{% endif %}
 								{% if arch.company_name %}<small class="text-muted">({{ arch.company_name }})</small>{% endif %}
 							</p>
 							{% endif %}
-							{% if project.lighting_designer %}
+							{% if project.lighting_designer and contact_details.get('lighting_designer') %}
 							<p class="mb-2">
 								<strong>{{ _("Lighting Designer") }}:</strong> 
-								{% set ld = frappe.get_doc("Contact", project.lighting_designer) %}
+								{% set ld = contact_details.lighting_designer %}
 								{{ ld.first_name }} {% if ld.last_name %}{{ ld.last_name }}{% endif %}
 								{% if ld.company_name %}<small class="text-muted">({{ ld.company_name }})</small>{% endif %}
 							</p>
 							{% endif %}
-							{% if project.general_contractor %}
+							{% if project.general_contractor and contact_details.get('general_contractor') %}
 							<p class="mb-2">
 								<strong>{{ _("General Contractor") }}:</strong> 
-								{% set gc = frappe.get_doc("Contact", project.general_contractor) %}
+								{% set gc = contact_details.general_contractor %}
 								{{ gc.first_name }} {% if gc.last_name %}{{ gc.last_name }}{% endif %}
 								{% if gc.company_name %}<small class="text-muted">({{ gc.company_name }})</small>{% endif %}
 							</p>

@@ -53,6 +53,22 @@ def get_context(context):
 			{"parent": schedule.name},
 		)
 
+	# Pre-load contact details to avoid template errors if contacts are deleted
+	contact_fields = ["project_manager", "architect", "lighting_designer", "general_contractor"]
+	contact_details = {}
+	for field in contact_fields:
+		if project.get(field):
+			try:
+				contact = frappe.get_doc("Contact", project.get(field))
+				contact_details[field] = {
+					"first_name": contact.first_name,
+					"last_name": contact.last_name,
+					"company_name": contact.company_name
+				}
+			except Exception:
+				# Contact may have been deleted
+				contact_details[field] = None
+
 	context.project = project
 	context.schedules = schedules
 	context.can_edit = can_edit
@@ -60,6 +76,7 @@ def get_context(context):
 	context.title = project.project_name
 	context.no_cache = 1
 	context.frappe = frappe  # Make frappe available in template
+	context.contact_details = contact_details  # Pre-loaded contact details
 
 	return context
 

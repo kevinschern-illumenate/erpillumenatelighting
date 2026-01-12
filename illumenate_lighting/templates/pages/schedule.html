@@ -869,8 +869,8 @@ function configureFromAddModal() {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
-				// Get the newly added line index (should be the last one)
-				var newLineIdx = r.message.line_idx !== undefined ? r.message.line_idx : (r.message.line_count - 1);
+				// Get the newly added line index
+				var newLineIdx = r.message.line_idx;
 				
 				// Close the modal
 				$('#addLineModal').modal('hide');
