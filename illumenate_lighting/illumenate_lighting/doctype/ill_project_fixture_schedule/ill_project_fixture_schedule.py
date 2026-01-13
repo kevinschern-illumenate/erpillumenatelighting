@@ -8,6 +8,9 @@ from frappe.model.document import Document
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
 
+# Default price list for configured fixture pricing
+DEFAULT_SELLING_PRICE_LIST = "Standard Selling"
+
 
 # Import permission helpers from project module
 def _is_internal_user(user=None):
@@ -38,17 +41,26 @@ class ilLProjectFixtureSchedule(Document):
 	@frappe.whitelist()
 	def create_sales_order(self):
 		"""
-		Create a Sales Order from this fixture schedule.
+		Convert this fixture schedule to a Sales Order.
 
-		Creates a Sales Order for the owner's company (the dealer who created the
-		project), not the end-client customer. The end-client is stored in the
-		project's 'customer' field for reference. Each SO line links to the chosen
-		ilL-Configured-Fixture and copies qty, location/notes, and key computed
-		fields into custom SO Item fields for quick visibility.
+		This is the main workflow for dealers: when the schedule is in READY status,
+		they click "Convert to Sales Order" which:
+		1. Creates configured Items for each fixture (if they don't exist)
+		2. Checks if Items already exist and updates pricing if there are discrepancies
+		3. Creates BOMs for each configured fixture (if they don't exist)
+		4. Checks if BOMs already exist and updates if there are discrepancies
+		5. Creates the Sales Order with all line items
+
+		The Sales Order is created for the owner's company (the dealer), not the
+		end-client customer. The end-client is stored for reference.
 
 		Returns:
 			str: Name of the created Sales Order document
 		"""
+		# Validate status is READY
+		if self.status != "READY":
+			frappe.throw(_("Schedule must be in READY status to convert to Sales Order"))
+
 		# Get the project to access owner_customer
 		if not self.ill_project:
 			frappe.throw(_("Project is required to create a Sales Order"))
@@ -73,6 +85,19 @@ class ilLProjectFixtureSchedule(Document):
 				_("No ilLumenate fixture lines with configured fixtures found in this schedule")
 			)
 
+		# Import manufacturing generator functions
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_bom,
+			_create_or_get_configured_item,
+			_update_fixture_links,
+		)
+
+		# Track messages for user feedback
+		items_created = 0
+		items_updated = 0
+		boms_created = 0
+		boms_updated = 0
+
 		# Create Sales Order
 		so = frappe.new_doc("Sales Order")
 		so.customer = so_customer
@@ -95,28 +120,17 @@ class ilLProjectFixtureSchedule(Document):
 			if configured_fixture.fixture_template:
 				template_code = configured_fixture.fixture_template
 
-			# Get the configured item or create one if it doesn't exist
-			# The configured_item is the sellable Item linked from the configured fixture
+			# Step 1: Get or create the configured Item
 			item_code = configured_fixture.configured_item
-			if not item_code:
-				# Auto-create the configured item for this fixture
-				from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-					_create_or_get_configured_item,
-					_update_fixture_links,
-				)
+			item_existed = bool(item_code and frappe.db.exists("Item", item_code))
 
+			if not item_existed:
+				# Auto-create the configured item for this fixture
 				item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
 				if item_result.get("success") and item_result.get("item_code"):
 					item_code = item_result["item_code"]
-					# Update the fixture with the new item code
-					_update_fixture_links(
-						configured_fixture,
-						item_code=item_code,
-						bom_name=None,
-						work_order_name=None,
-					)
-					# Also update the cached item code on the schedule line
-					line.ill_item_code = item_code
+					if item_result.get("created"):
+						items_created += 1
 				else:
 					frappe.throw(
 						_(
@@ -128,7 +142,47 @@ class ilLProjectFixtureSchedule(Document):
 							"; ".join(m.get("text", "") for m in item_result.get("messages", [])),
 						)
 					)
+			else:
+				# Item exists - check for pricing discrepancies and update if needed
+				updated = self._check_and_update_item_pricing(item_code, configured_fixture)
+				if updated:
+					items_updated += 1
 
+			# Step 2: Get or create the BOM
+			bom_name = configured_fixture.bom
+			bom_existed = bool(bom_name and frappe.db.exists("BOM", bom_name))
+
+			if not bom_existed:
+				# Auto-create the BOM for this fixture
+				bom_result = _create_or_get_bom(configured_fixture, item_code, skip_if_exists=True)
+				if bom_result.get("success") and bom_result.get("bom_name"):
+					bom_name = bom_result["bom_name"]
+					if bom_result.get("created"):
+						boms_created += 1
+				elif not bom_result.get("success"):
+					# Log warning but don't block SO creation
+					frappe.log_error(
+						title=f"BOM Creation Warning for {line.configured_fixture}",
+						message="; ".join(m.get("text", "") for m in bom_result.get("messages", []))
+					)
+			else:
+				# BOM exists - check for discrepancies and update if needed
+				updated = self._check_and_update_bom(bom_name, configured_fixture)
+				if updated:
+					boms_updated += 1
+
+			# Update fixture links if we created new artifacts
+			if not item_existed or not bom_existed:
+				_update_fixture_links(
+					configured_fixture,
+					item_code=item_code,
+					bom_name=bom_name,
+					work_order_name=None,
+				)
+				# Also update the cached item code on the schedule line
+				line.ill_item_code = item_code
+
+			# Add line to Sales Order
 			so_item = so.append("items", {})
 			so_item.item_code = item_code
 			so_item.qty = line.qty or 1
@@ -150,15 +204,212 @@ class ilLProjectFixtureSchedule(Document):
 		# Update schedule status to ORDERED
 		self.db_set("status", "ORDERED")
 
+		# Build success message
+		msg_parts = [_("Sales Order {0} created successfully").format(
+			frappe.utils.get_link_to_form("Sales Order", so.name)
+		)]
+		if items_created > 0:
+			msg_parts.append(_("{0} Item(s) created").format(items_created))
+		if items_updated > 0:
+			msg_parts.append(_("{0} Item(s) updated").format(items_updated))
+		if boms_created > 0:
+			msg_parts.append(_("{0} BOM(s) created").format(boms_created))
+		if boms_updated > 0:
+			msg_parts.append(_("{0} BOM(s) updated").format(boms_updated))
+
 		frappe.msgprint(
-			_("Sales Order {0} created successfully").format(
-				frappe.utils.get_link_to_form("Sales Order", so.name)
-			),
+			". ".join(msg_parts),
 			indicator="green",
 			alert=True,
 		)
 
 		return so.name
+
+	def _check_and_update_item_pricing(self, item_code, configured_fixture):
+		"""
+		Check if Item pricing matches the configured fixture and update if needed.
+
+		Args:
+			item_code: The Item code to check
+			configured_fixture: The ilL-Configured-Fixture document
+
+		Returns:
+			bool: True if the Item was updated, False otherwise
+		"""
+		# Get the latest pricing from the configured fixture's pricing snapshot
+		if not configured_fixture.pricing_snapshot:
+			return False
+
+		latest_pricing = configured_fixture.pricing_snapshot[-1]
+		fixture_msrp = latest_pricing.msrp_unit
+
+		# Check current Item pricing (standard_rate in Item Price)
+		current_price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
+			"price_list_rate"
+		)
+
+		# If no price exists or prices don't match, update
+		if current_price is None or abs(float(current_price) - float(fixture_msrp)) > 0.01:
+			# Create or update Item Price
+			if current_price is not None:
+				# Update existing price
+				frappe.db.set_value(
+					"Item Price",
+					{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
+					"price_list_rate",
+					fixture_msrp
+				)
+			else:
+				# Check if price list exists
+				if frappe.db.exists("Price List", DEFAULT_SELLING_PRICE_LIST):
+					# Create new Item Price
+					item_price = frappe.new_doc("Item Price")
+					item_price.item_code = item_code
+					item_price.price_list = DEFAULT_SELLING_PRICE_LIST
+					item_price.selling = 1
+					item_price.price_list_rate = fixture_msrp
+					item_price.insert(ignore_permissions=True)
+				else:
+					# Log warning if price list doesn't exist
+					frappe.log_error(
+						title=f"Item Price Not Created for {item_code}",
+						message=f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist. Item pricing could not be set."
+					)
+
+			return True
+
+		return False
+
+	def _check_and_update_bom(self, bom_name, configured_fixture):
+		"""
+		Check if BOM matches the configured fixture and update if there are discrepancies.
+
+		Checks for:
+		- Missing components
+		- Quantity mismatches
+		- Extra components that should not be there
+
+		Args:
+			bom_name: The BOM name to check
+			configured_fixture: The ilL-Configured-Fixture document
+
+		Returns:
+			bool: True if the BOM was updated (or needs regeneration), False otherwise
+		"""
+		if not frappe.db.exists("BOM", bom_name):
+			return False
+
+		bom = frappe.get_doc("BOM", bom_name)
+
+		# Build expected BOM items from configured fixture
+		expected_items = {}
+
+		# Calculate segments count once for reuse
+		segments_count = len(configured_fixture.segments) if configured_fixture.segments else 1
+
+		# Profile
+		if configured_fixture.profile_item:
+			expected_items[configured_fixture.profile_item] = segments_count
+
+		# Lens
+		if configured_fixture.lens_item:
+			expected_items[configured_fixture.lens_item] = segments_count
+
+		# Endcaps (4 total with extra pair rule)
+		if configured_fixture.endcap_item_start:
+			if configured_fixture.endcap_item_start == configured_fixture.endcap_item_end:
+				expected_items[configured_fixture.endcap_item_start] = 4
+			else:
+				expected_items[configured_fixture.endcap_item_start] = 2
+				if configured_fixture.endcap_item_end:
+					expected_items[configured_fixture.endcap_item_end] = 2
+
+		# Mounting
+		if configured_fixture.mounting_item:
+			# Use mounting qty from fixture if available, default to 2
+			mounting_qty = configured_fixture.total_mounting_accessories or 2
+			expected_items[configured_fixture.mounting_item] = mounting_qty
+
+		# Leader cables
+		if configured_fixture.leader_item:
+			expected_items[configured_fixture.leader_item] = configured_fixture.runs_count or 1
+
+		# Check for discrepancies
+		# Handle case where bom.items may be None or empty
+		bom_items = {item.item_code: item.qty for item in (bom.items or [])}
+		has_discrepancy = False
+
+		for item_code, expected_qty in expected_items.items():
+			if item_code not in bom_items:
+				has_discrepancy = True
+				break
+			if abs(bom_items[item_code] - expected_qty) > 0.001:
+				has_discrepancy = True
+				break
+
+		if not has_discrepancy:
+			return False
+
+		# Verify configured_item exists before proceeding
+		item_code = configured_fixture.configured_item
+		if not item_code:
+			frappe.log_error(
+				title=f"BOM Update Failed for {configured_fixture.name}",
+				message="Cannot update BOM: configured_item is not set on the fixture"
+			)
+			return False
+
+		# Import manufacturing generator for BOM creation
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_bom,
+		)
+
+		# Handle based on BOM status
+		if bom.docstatus == 0:
+			# Draft BOM - delete and recreate
+			frappe.delete_doc("BOM", bom_name, force=True)
+
+			# Clear the BOM link from fixture
+			configured_fixture.bom = None
+			configured_fixture.save(ignore_permissions=True)
+
+			# Create new BOM
+			bom_result = _create_or_get_bom(
+				configured_fixture,
+				item_code,
+				skip_if_exists=False
+			)
+
+			if bom_result.get("success") and bom_result.get("bom_name"):
+				configured_fixture.bom = bom_result["bom_name"]
+				configured_fixture.save(ignore_permissions=True)
+				return True
+
+		elif bom.docstatus == 1:
+			# Submitted BOM - deactivate and create new one
+			bom.is_active = 0
+			bom.is_default = 0
+			bom.save(ignore_permissions=True)
+
+			# Clear the BOM link from fixture so a new one will be created
+			configured_fixture.bom = None
+			configured_fixture.save(ignore_permissions=True)
+
+			# Create new BOM
+			bom_result = _create_or_get_bom(
+				configured_fixture,
+				item_code,
+				skip_if_exists=False
+			)
+
+			if bom_result.get("success") and bom_result.get("bom_name"):
+				configured_fixture.bom = bom_result["bom_name"]
+				configured_fixture.save(ignore_permissions=True)
+				return True
+
+		return False
 
 	@frappe.whitelist()
 	def request_quote(self):
