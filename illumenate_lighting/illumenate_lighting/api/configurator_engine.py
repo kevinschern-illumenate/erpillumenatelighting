@@ -1100,7 +1100,7 @@ def _create_or_update_multisegment_fixture(
 	Returns:
 		str: Name of the configured fixture document
 	"""
-	# Generate config hash for deduplication
+	# Generate config hash for deduplication - use 32 chars like single-segment fixtures
 	config_data = {
 		"fixture_template_code": fixture_template_code,
 		"finish_code": finish_code,
@@ -1110,9 +1110,10 @@ def _create_or_update_multisegment_fixture(
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
 		"user_segments": user_segments,
+		"is_multi_segment": True,
 	}
 	config_json = json.dumps(config_data, sort_keys=True)
-	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:16]
+	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:32]
 
 	# Check for existing fixture with same hash
 	existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
@@ -2550,15 +2551,14 @@ def _create_or_update_configured_fixture(
 	# Generate hash: first 32 hex characters (128 bits of entropy) from SHA-256 for collision resistance
 	config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()[:32]
 
-	# Check if this configuration already exists
-	# Note: The document name IS the config_hash (autoname: "field:config_hash" in DocType)
-	existing = frappe.db.exists("ilL-Configured-Fixture", config_hash)
+	# Check if this configuration already exists by config_hash field
+	existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
 
 	if existing:
-		doc = frappe.get_doc("ilL-Configured-Fixture", config_hash)
+		doc = frappe.get_doc("ilL-Configured-Fixture", existing)
 	else:
 		doc = frappe.new_doc("ilL-Configured-Fixture")
-		doc.config_hash = config_hash  # This will become the document name
+		doc.config_hash = config_hash
 
 	# Set identity fields
 	doc.engine_version = ENGINE_VERSION
