@@ -104,8 +104,13 @@ class TestilLConfiguredFixture(FrappeTestCase):
 		})
 		fixture.insert(ignore_permissions=True)
 
-		# Part number should NOT contain "-J" for single-segment fixtures
-		self.assertNotIn("-J-", fixture.name, f"Single-segment fixture name should not contain '-J': {fixture.name}")
+		# Part number should NOT contain "-J" pattern for single-segment fixtures
+		# Check that it doesn't contain the multi-segment pattern "-J-" or end with "-J"
+		self.assertNotIn("-J-", fixture.name, f"Single-segment fixture name should not contain '-J-': {fixture.name}")
+		self.assertFalse(
+			fixture.name.endswith("-J"),
+			f"Single-segment fixture name should not end with '-J': {fixture.name}"
+		)
 
 		# Clean up
 		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
