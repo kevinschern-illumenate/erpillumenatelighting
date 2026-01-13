@@ -1100,6 +1100,13 @@ def _create_or_update_multisegment_fixture(
 	Returns:
 		str: Name of the configured fixture document
 	"""
+	# Determine if this is truly a multi-segment fixture
+	# A fixture is multi-segment only if it has jumper cables connecting segments
+	# (i.e., any segment ends with "Jumper" type, or there are multiple segments)
+	# A single segment ending with "Endcap" is NOT multi-segment
+	has_jumper = any(seg.get("end_type") == "Jumper" for seg in user_segments)
+	is_multi_segment = len(user_segments) > 1 or has_jumper
+
 	# Generate config hash for deduplication - use 32 chars like single-segment fixtures
 	config_data = {
 		"fixture_template_code": fixture_template_code,
@@ -1110,7 +1117,7 @@ def _create_or_update_multisegment_fixture(
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
 		"user_segments": user_segments,
-		"is_multi_segment": True,
+		"is_multi_segment": is_multi_segment,
 	}
 	config_json = json.dumps(config_data, sort_keys=True)
 	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:32]
@@ -1126,7 +1133,7 @@ def _create_or_update_multisegment_fixture(
 
 	# Set values
 	doc.engine_version = ENGINE_VERSION
-	doc.is_multi_segment = 1
+	doc.is_multi_segment = 1 if is_multi_segment else 0
 	doc.fixture_template = fixture_template_code
 	doc.finish = finish_code
 	doc.lens_appearance = lens_appearance_code
