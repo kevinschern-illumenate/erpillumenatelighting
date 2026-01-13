@@ -48,6 +48,7 @@ Portal Multi-Segment Configurator Page
                             <div class="col-md-4"><div class="form-group"><label>Mounting</label><select class="form-control" name="mounting_method_code" required></select></div></div>
                             <div class="col-md-4"><div class="form-group"><label>Environment</label><select class="form-control" name="environment_rating_code" required></select></div></div>
                             <div class="col-md-4"><div class="form-group"><label>Endcap Color</label><select class="form-control" name="endcap_color_code" required></select></div></div>
+                            <div class="col-md-4"><div class="form-group"><label>Length Unit</label><select class="form-control" name="length_unit" id="globalLengthUnit"><option value="in" selected>inches</option><option value="ft_in">feet + inches</option><option value="mm">mm</option></select></div></div>
                         </div>
                     </form>
                 </div>
@@ -109,7 +110,19 @@ Portal Multi-Segment Configurator Page
         </div>
         <div class="card-body py-2">
             <div class="row">
-                <div class="col-md-4"><div class="form-group mb-2"><label class="small">Length (mm)</label><input type="number" class="form-control form-control-sm" name="segment_length_mm" min="100" required></div></div>
+                <div class="col-md-4">
+                    <div class="form-group mb-2 length-single-input">
+                        <label class="small">Length <span class="length-unit-label">(in)</span></label>
+                        <input type="number" class="form-control form-control-sm" name="segment_length_mm" min="1" step="0.1" required>
+                    </div>
+                    <div class="form-group mb-2 length-ft-in-input" style="display: none;">
+                        <label class="small">Length (ft + in)</label>
+                        <div class="d-flex">
+                            <input type="number" class="form-control form-control-sm mr-1" name="segment_length_feet" min="0" placeholder="ft" style="width: 45%;">
+                            <input type="number" class="form-control form-control-sm" name="segment_length_inches" min="0" max="11.99" step="0.1" placeholder="in" style="width: 45%;">
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-4"><div class="form-group mb-2"><label class="small">Start Connection</label><select class="form-control form-control-sm" name="start_connection_type" onchange="updateConnectionFields(this)"><option value="Endcap">Endcap</option><option value="Leader Cable">Leader Cable</option><option value="Jumper Cable">Jumper Cable</option></select></div></div>
                 <div class="col-md-4"><div class="form-group mb-2"><label class="small">End Connection</label><select class="form-control form-control-sm" name="end_connection_type" onchange="updateConnectionFields(this)"><option value="Endcap">Endcap</option><option value="Leader Cable">Leader Cable</option><option value="Jumper Cable">Jumper Cable</option></select></div></div>
             </div>
@@ -129,6 +142,9 @@ var line_idx = {{ line_idx if line_idx is not none else 'null' }};
 var currentResult = null;
 var templateOptions = null;
 var segmentCount = 0;
+var MM_PER_INCH = 25.4;
+var MM_PER_FOOT = 304.8;
+var INCHES_PER_FOOT = 12;
 
 $("select[name='fixture_template_code']").on('change', function() {
     var template = $(this).val();
@@ -196,8 +212,32 @@ function addSegment() {
     if (templateOptions) populateSegmentEndcapStyles(segmentCard);
     updateConnectionFields(startConn);
     updateConnectionFields(endConn);
+    updateSegmentLengthUI(segmentCard);
     updateSegmentNumbers();
 }
+
+function updateSegmentLengthUI(segmentCard) {
+    var unit = $('#globalLengthUnit').val();
+    var singleInput = segmentCard.find('.length-single-input');
+    var ftInInput = segmentCard.find('.length-ft-in-input');
+    var unitLabel = segmentCard.find('.length-unit-label');
+    
+    if (unit === 'ft_in') {
+        singleInput.hide();
+        ftInInput.show();
+    } else {
+        singleInput.show();
+        ftInInput.hide();
+        unitLabel.text('(' + (unit === 'mm' ? 'mm' : 'in') + ')');
+    }
+}
+
+// When global unit changes, update all segments
+$('#globalLengthUnit').on('change', function() {
+    $('.segment-card').each(function() {
+        updateSegmentLengthUI($(this));
+    });
+});
 
 function removeSegment(btn) { $(btn).closest('.segment-card').remove(); segmentCount = $('.segment-card').length; updateSegmentNumbers(); }
 
@@ -235,10 +275,24 @@ function updateConnectionFields(selectEl) {
 
 function collectSegments() {
     var segments = [];
+    var unit = $('#globalLengthUnit').val();
+    
     $('.segment-card').each(function(index) {
         var card = $(this);
         var startConn = card.find('[name="start_connection_type"]').val();
         var endConn = card.find('[name="end_connection_type"]').val();
+
+        // Get length in mm based on unit
+        var lengthMm = 0;
+        if (unit === 'mm') {
+            lengthMm = parseFloat(card.find('[name="segment_length_mm"]').val()) || 0;
+        } else if (unit === 'in') {
+            lengthMm = Math.round((parseFloat(card.find('[name="segment_length_mm"]').val()) || 0) * MM_PER_INCH);
+        } else if (unit === 'ft_in') {
+            var feet = parseFloat(card.find('[name="segment_length_feet"]').val()) || 0;
+            var inches = parseFloat(card.find('[name="segment_length_inches"]').val()) || 0;
+            lengthMm = Math.round((feet * INCHES_PER_FOOT + inches) * MM_PER_INCH);
+        }
 
         // Map end_connection_type to end_type expected by API
         // The API expects "Endcap" or "Jumper"
@@ -251,7 +305,7 @@ function collectSegments() {
 
         segments.push({
             segment_index: index + 1,
-            requested_length_mm: parseInt(card.find('[name="segment_length_mm"]').val()) || 0,
+            requested_length_mm: lengthMm,
             end_type: endType,
             start_power_feed_type: startPowerFeed,
             start_leader_cable_length_mm: parseInt(card.find('[name="start_cable_length_mm"]').val()) || 300,
