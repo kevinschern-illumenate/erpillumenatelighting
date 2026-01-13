@@ -17,8 +17,14 @@ class ilLConfiguredFixture(Document):
 		self.name = self._generate_part_number()
 
 	def before_save(self):
-		"""Compute config_hash before saving."""
-		self.config_hash = self._compute_config_hash()
+		"""Compute config_hash before saving if not already set.
+
+		The config_hash is normally set by the configurator engine when creating
+		fixtures. This method only computes it if not already set (e.g., for
+		manually created fixtures).
+		"""
+		if not self.config_hash:
+			self.config_hash = self._compute_config_hash()
 
 	def _generate_part_number(self) -> str:
 		"""Build the part number from linked doctypes."""
@@ -96,7 +102,47 @@ class ilLConfiguredFixture(Document):
 			length_inches = f"{self.requested_overall_length_mm / 25.4:.1f}"
 		parts.append(length_inches)
 
+		# Add "-J" suffix for multi-segment (jointed) fixtures
+		if self.is_multi_segment:
+			parts.append("J")
+
+		# For multi-segment fixtures, add a short hash suffix to differentiate
+		# different segment configurations with the same total length
+		# (e.g., 3x4ft vs 1x12ft vs 4x3ft all equal 120" but are different builds)
+		if self.is_multi_segment and self.user_segments:
+			segment_config_hash = self._compute_segment_config_hash()
+			if segment_config_hash:
+				parts.append(segment_config_hash)
+
 		return "-".join(parts)
+
+	def _compute_segment_config_hash(self) -> str:
+		"""
+		Compute a short hash of the segment configuration for part number uniqueness.
+
+		This ensures that fixtures with the same options and total length but different
+		segment layouts (e.g., 3x4ft vs 1x12ft) get unique part numbers.
+
+		Returns:
+			str: First 4 characters of the SHA-256 hash of segment configuration
+		"""
+		if not self.user_segments:
+			return ""
+
+		# Build segment config data for hashing
+		segment_data = []
+		for seg in self.user_segments:
+			segment_data.append({
+				"segment_index": seg.segment_index,
+				"requested_length_mm": seg.requested_length_mm,
+				"end_type": seg.end_type,
+				"start_power_feed_type": seg.start_power_feed_type,
+				"end_power_feed_type": seg.end_power_feed_type,
+			})
+
+		config_str = json.dumps(segment_data, sort_keys=True)
+		# Use first 4 hex characters for brevity in part number
+		return hashlib.sha256(config_str.encode()).hexdigest()[:4].upper()
 
 	def _get_fixture_output_code(self) -> str:
 		"""
@@ -141,7 +187,12 @@ class ilLConfiguredFixture(Document):
 		return closest.sku_code or ""
 
 	def _compute_config_hash(self) -> str:
-		"""Return a SHA-256 hash of the configuration fields for deduplication."""
+		"""Return a SHA-256 hash of the configuration fields for deduplication.
+
+		For multi-segment fixtures, this includes the user segment configuration
+		to differentiate fixtures with the same total length but different segment
+		layouts (e.g., 3x4ft vs 1x12ft).
+		"""
 		config_data = {
 			"fixture_template": self.fixture_template,
 			"tape_offering": self.tape_offering,
@@ -154,6 +205,23 @@ class ilLConfiguredFixture(Document):
 			"endcap_style_end": self.endcap_style_end,
 			"endcap_color": self.endcap_color,
 			"requested_overall_length_mm": self.requested_overall_length_mm,
+			"is_multi_segment": 1 if self.is_multi_segment else 0,
 		}
+
+		# Include user segment configuration for multi-segment fixtures
+		if self.is_multi_segment and self.user_segments:
+			segment_data = []
+			for seg in self.user_segments:
+				segment_data.append({
+					"segment_index": seg.segment_index,
+					"requested_length_mm": seg.requested_length_mm,
+					"end_type": seg.end_type,
+					"start_power_feed_type": seg.start_power_feed_type,
+					"end_power_feed_type": seg.end_power_feed_type,
+					"start_leader_cable_length_mm": seg.start_leader_cable_length_mm,
+					"end_jumper_cable_length_mm": seg.end_jumper_cable_length_mm,
+				})
+			config_data["user_segments"] = segment_data
+
 		config_str = json.dumps(config_data, sort_keys=True)
 		return hashlib.sha256(config_str.encode()).hexdigest()
