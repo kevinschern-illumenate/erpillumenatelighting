@@ -1916,6 +1916,208 @@ class TestConfiguratorEngine(FrappeTestCase):
 		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
 		self.assertTrue(any("Leader-Cable-Map" in text for text in error_texts))
 
+	# =========================================================================
+	# Multi-Segment Tape Run Optimization Tests
+	# =========================================================================
+
+	def test_multisegment_two_segments_under_max_run_equals_one_run(self):
+		"""
+		Test that two 6ft segments (12ft total) under max run of 16ft equals 1 tape run.
+
+		This is the core fix for the issue: multiple segments connected by jumpers
+		should be treated as a single continuous tape run when total length is under
+		the max run limit.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		# Create 2 segments of ~6ft (1829mm) each
+		# Total: 12ft < max run of 16ft, so should be 1 run
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,  # ~6ft
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,  # ~6ft
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		computed = result["computed"]
+
+		# Key assertion: 2 segments with total tape length < max run should = 1 run
+		self.assertEqual(computed["user_segment_count"], 2)
+		self.assertEqual(computed["runs_count"], 1, "Two 6ft segments (12ft) under 16ft max should be 1 run")
+		self.assertEqual(computed["leader_qty"], 1, "1 run should require 1 leader cable")
+
+	def test_multisegment_total_exceeds_max_run_creates_multiple_runs(self):
+		"""
+		Test that segments totaling > max run length create multiple runs.
+
+		Example: 3 segments of 6ft each = 18ft total > 16ft max run = 2 runs
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		# Create 3 segments of ~6ft (1829mm) each
+		# Total: 18ft > max run of 16ft, so should be 2 runs
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,  # ~6ft
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,  # ~6ft
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 3,
+				"requested_length_mm": 1829,  # ~6ft
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		computed = result["computed"]
+
+		# 3 segments of ~6ft = ~18ft total tape length
+		# Max run = 16ft, so need ceil(18/16) = 2 runs
+		self.assertEqual(computed["user_segment_count"], 3)
+		self.assertGreaterEqual(computed["runs_count"], 2, "Three 6ft segments (18ft) over 16ft max should be >= 2 runs")
+
+	def test_multisegment_driver_plan_included(self):
+		"""Test that multi-segment configurations include driver plan in response."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		# Create a driver spec for this test
+		driver_item_code = "TEST-DRIVER-MS"
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"voltage_output": self.output_voltage_code,
+				"outputs_count": 4,
+				"max_wattage": 100.0,
+				"usable_load_factor": 0.8,
+				"dimming_protocol": None,
+				"cost": 50.0,
+			},
+			ignore_links=True,
+		)
+
+		# Create driver eligibility mapping
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Driver-Eligibility",
+				"fixture_template": self.template_code,
+				"driver_spec": driver_item_code,
+				"is_allowed": 1,
+				"is_active": 1,
+				"priority": 0,
+			},
+			ignore_links=True,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+
+		# Verify driver plan is included in response
+		driver_plan = result["resolved_items"]["driver_plan"]
+		self.assertIn(driver_plan["status"], ["selected", "no_eligible_drivers", "no_matching_drivers"])
+
+		# If a driver was selected, verify it has the expected structure
+		if driver_plan["status"] == "selected":
+			self.assertGreaterEqual(len(driver_plan["drivers"]), 1)
+			driver = driver_plan["drivers"][0]
+			self.assertIn("item_code", driver)
+			self.assertIn("qty", driver)
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests
