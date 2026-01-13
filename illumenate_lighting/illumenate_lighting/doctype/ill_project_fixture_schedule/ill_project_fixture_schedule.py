@@ -271,6 +271,12 @@ class ilLProjectFixtureSchedule(Document):
 					item_price.selling = 1
 					item_price.price_list_rate = fixture_msrp
 					item_price.insert(ignore_permissions=True)
+				else:
+					# Log warning if price list doesn't exist
+					frappe.log_error(
+						title=f"Item Price Not Created for {item_code}",
+						message=f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist. Item pricing could not be set."
+					)
 
 			return True
 
@@ -331,7 +337,8 @@ class ilLProjectFixtureSchedule(Document):
 			expected_items[configured_fixture.leader_item] = configured_fixture.runs_count or 1
 
 		# Check for discrepancies
-		bom_items = {item.item_code: item.qty for item in bom.items}
+		# Handle case where bom.items may be None or empty
+		bom_items = {item.item_code: item.qty for item in (bom.items or [])}
 		has_discrepancy = False
 
 		for item_code, expected_qty in expected_items.items():
@@ -345,19 +352,43 @@ class ilLProjectFixtureSchedule(Document):
 		if not has_discrepancy:
 			return False
 
-		# If BOM is submitted, we can't modify it directly
-		# Instead, we deactivate it and create a new one
-		if bom.docstatus == 1:
-			# Verify configured_item exists before proceeding
-			item_code = configured_fixture.configured_item
-			if not item_code:
-				frappe.log_error(
-					title=f"BOM Update Failed for {configured_fixture.name}",
-					message="Cannot update BOM: configured_item is not set on the fixture"
-				)
-				return False
+		# Verify configured_item exists before proceeding
+		item_code = configured_fixture.configured_item
+		if not item_code:
+			frappe.log_error(
+				title=f"BOM Update Failed for {configured_fixture.name}",
+				message="Cannot update BOM: configured_item is not set on the fixture"
+			)
+			return False
 
-			# Deactivate old BOM
+		# Import manufacturing generator for BOM creation
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_bom,
+		)
+
+		# Handle based on BOM status
+		if bom.docstatus == 0:
+			# Draft BOM - delete and recreate
+			frappe.delete_doc("BOM", bom_name, force=True)
+
+			# Clear the BOM link from fixture
+			configured_fixture.bom = None
+			configured_fixture.save(ignore_permissions=True)
+
+			# Create new BOM
+			bom_result = _create_or_get_bom(
+				configured_fixture,
+				item_code,
+				skip_if_exists=False
+			)
+
+			if bom_result.get("success") and bom_result.get("bom_name"):
+				configured_fixture.bom = bom_result["bom_name"]
+				configured_fixture.save(ignore_permissions=True)
+				return True
+
+		elif bom.docstatus == 1:
+			# Submitted BOM - deactivate and create new one
 			bom.is_active = 0
 			bom.is_default = 0
 			bom.save(ignore_permissions=True)
@@ -367,10 +398,6 @@ class ilLProjectFixtureSchedule(Document):
 			configured_fixture.save(ignore_permissions=True)
 
 			# Create new BOM
-			from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-				_create_or_get_bom,
-			)
-
 			bom_result = _create_or_get_bom(
 				configured_fixture,
 				item_code,
