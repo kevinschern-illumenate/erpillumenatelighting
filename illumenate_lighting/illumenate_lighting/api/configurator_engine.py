@@ -546,6 +546,17 @@ def validate_and_quote_multisegment(
 
 	response["resolved_items"].update(resolved_result)
 
+	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
+	driver_plan_result, driver_messages = _select_driver_plan(
+		fixture_template_code,
+		runs_count=computed_result["runs_count"],
+		total_watts=computed_result["total_watts"],
+		tape_offering_doc=tape_offering_doc,
+		dimming_protocol_code=dimming_protocol_code,
+	)
+	response["messages"].extend(driver_messages)
+	response["resolved_items"]["driver_plan"] = driver_plan_result
+
 	# Step 4: Calculate pricing
 	# For multi-segment, use the first segment's start power feed type
 	first_segment = segments[0]
@@ -669,19 +680,21 @@ def _compute_multisegment_outputs(
 
 	max_run_mm = max_run_ft_effective * MM_PER_FOOT if max_run_ft_effective != float("inf") else float("inf")
 
-	# Process each user segment
+	# ==========================================================================
+	# PHASE 1: Process each user segment to calculate segment data
+	# ==========================================================================
 	total_requested_length = 0
 	total_manufacturable_length = 0
 	total_tape_length = 0
-	total_watts = 0.0
-	total_runs = 0
 	total_endcaps = 0
-	all_runs = []
 	all_segments = []
 	build_description_parts = []
 
 	error_messages = []
 	has_errors = False
+
+	# Collect segment data first
+	segment_data_list = []
 
 	for idx, user_seg in enumerate(segments):
 		seg_index = idx + 1
@@ -752,30 +765,20 @@ def _compute_multisegment_outputs(
 		total_manufacturable_length += mfg_len
 		total_tape_length += tape_cut_len
 
-		# Calculate runs for this segment
-		segment_ft = tape_cut_len / MM_PER_FOOT
-		if max_run_mm != float("inf") and max_run_mm > 0:
-			segment_runs_count = math.ceil(tape_cut_len / max_run_mm)
-		else:
-			segment_runs_count = 1
-
-		# Create runs for this segment
-		remaining_tape = tape_cut_len
-		for run_idx in range(segment_runs_count):
-			run_len = min(max_run_mm if max_run_mm != float("inf") else remaining_tape, remaining_tape)
-			remaining_tape -= run_len
-			run_watts = (run_len / MM_PER_FOOT) * watts_per_ft
-			total_watts += run_watts
-			total_runs += 1
-
-			all_runs.append({
-				"run_index": total_runs,
-				"segment_index": seg_index,
-				"run_len_mm": int(run_len),
-				"run_watts": round(run_watts, 2),
-				"leader_item": None,
-				"leader_len_mm": int(leader_allowance_mm),
-			})
+		# Store segment data for later use in run calculation
+		segment_data_list.append({
+			"seg_index": seg_index,
+			"tape_cut_len": tape_cut_len,
+			"mfg_len": mfg_len,
+			"start_endcap_type": start_endcap_type if idx == 0 else "",
+			"end_endcap_type": end_endcap_type,
+			"end_type": end_type,
+			"start_power_feed": start_power_feed,
+			"start_cable_len": start_cable_len,
+			"end_power_feed": end_power_feed,
+			"end_cable_len": end_cable_len,
+			"total_endcap_allowance": total_endcap_allowance,
+		})
 
 		# Count endcaps for this segment
 		# Start: always has an endcap (feed-through or solid)
@@ -808,6 +811,65 @@ def _compute_multisegment_outputs(
 			desc_parts.append("End: Solid Endcap")
 		build_description_parts.append(" | ".join(desc_parts))
 
+	# ==========================================================================
+	# PHASE 2: Calculate runs based on TOTAL tape length across all segments
+	# ==========================================================================
+	# Multi-segment fixtures connected by jumper cables form continuous tape runs.
+	# The total tape length determines how many discrete runs are needed, not
+	# the individual segment lengths.
+
+	all_runs = []
+	total_runs = 0
+	total_watts = 0.0
+
+	if not has_errors and total_tape_length > 0:
+		# Calculate total runs needed based on total tape length
+		if max_run_mm != float("inf") and max_run_mm > 0:
+			total_runs_needed = math.ceil(total_tape_length / max_run_mm)
+		else:
+			total_runs_needed = 1
+
+		# Distribute runs across the fixture using the "optimize" strategy:
+		# Use maximum-length runs where possible, then fill remainder
+		remaining_tape_to_process = total_tape_length
+		current_run_index = 0
+
+		for run_num in range(total_runs_needed):
+			current_run_index += 1
+
+			# For all but the last run, use max run length
+			if run_num < total_runs_needed - 1:
+				run_len = max_run_mm if max_run_mm != float("inf") else remaining_tape_to_process
+			else:
+				# Last run gets the remainder
+				run_len = remaining_tape_to_process
+
+			remaining_tape_to_process -= run_len
+			run_watts = (run_len / MM_PER_FOOT) * watts_per_ft
+			total_watts += run_watts
+
+			# Determine which segment this run starts in
+			# Calculate the start position of this run (how much tape has been processed before this run)
+			tape_processed_before_run = total_tape_length - remaining_tape_to_process - run_len
+			cumulative_segment_len = 0
+			assigned_segment = 1
+			for seg_data in segment_data_list:
+				cumulative_segment_len += seg_data["tape_cut_len"]
+				if cumulative_segment_len > tape_processed_before_run:
+					assigned_segment = seg_data["seg_index"]
+					break
+
+			all_runs.append({
+				"run_index": current_run_index,
+				"segment_index": assigned_segment,
+				"run_len_mm": int(run_len),
+				"run_watts": round(run_watts, 2),
+				"leader_item": None,
+				"leader_len_mm": int(leader_allowance_mm),
+			})
+
+		total_runs = total_runs_needed
+
 	# Calculate mounting accessories (based on total length, typically every 600mm)
 	mounting_spacing_mm = 600  # Standard mounting clip spacing
 	total_mounting_accessories = math.ceil(total_manufacturable_length / mounting_spacing_mm) if total_manufacturable_length > 0 else 0
@@ -824,12 +886,19 @@ def _compute_multisegment_outputs(
 		"user_segment_count": len(segments),
 		"segments_count": len(all_segments),
 		"runs_count": total_runs,
+		# Each run requires one leader cable. Leader cables connect from driver outputs to tape runs.
+		"leader_qty": total_runs,
 		"total_tape_length_mm": int(total_tape_length),
 		"total_watts": round(total_watts, 2),
 		"total_endcaps": total_endcaps,
 		"total_mounting_accessories": total_mounting_accessories,
 		"assembly_mode": assembly_mode,
 		"assembled_max_len_mm": int(assembled_max_len_mm),
+		# Run calculation metadata
+		"max_run_ft_by_watts": round(max_run_ft_by_watts, 2) if max_run_ft_by_watts != float("inf") else None,
+		"max_run_ft_by_voltage_drop": round(float(max_run_length_ft_voltage_drop), 2) if max_run_length_ft_voltage_drop else None,
+		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
+		"max_run_mm": round(max_run_mm, 2) if max_run_mm != float("inf") else None,
 		"segments": all_segments,
 		"runs": all_runs,
 		"build_description": "\n".join(build_description_parts),

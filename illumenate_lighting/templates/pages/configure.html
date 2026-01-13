@@ -324,17 +324,33 @@ Allows users to configure fixtures using segment-based configuration
 				<div class="row">
 					<div class="col-md-6">
 						<div class="form-group mb-2">
-							<label class="small font-weight-bold">{{ _("Requested Length (mm)") }} <span class="text-danger">*</span></label>
-							<input type="number" class="form-control" name="requested_length_mm" min="100" required placeholder="e.g., 1200">
+							<label class="small font-weight-bold">{{ _("Requested Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Unit") }}</label>
 							<select class="form-control" name="length_unit">
-								<option value="mm" selected>mm</option>
-								<option value="in">inches</option>
+								<option value="in" selected>inches</option>
+								<option value="ft_in">feet + inches</option>
+								<option value="mm">mm</option>
 							</select>
+						</div>
+					</div>
+				</div>
+				<!-- Feet + Inches input (shown when unit is ft_in) -->
+				<div class="row feet-inches-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
 						</div>
 					</div>
 				</div>
@@ -395,6 +411,8 @@ var currentResult = null;
 var templateOptions = null;
 var segmentCount = 0;
 var MM_PER_INCH = 25.4;
+var MM_PER_FOOT = 304.8;
+var INCHES_PER_FOOT = 12;
 
 // Load template options when template is selected
 $('select[name="fixture_template_code"]').on('change', function() {
@@ -522,10 +540,8 @@ function addSegment(isFirst) {
 	// Set default end type to Endcap
 	setEndType(segmentCard.find('.end-type-btn[data-type="Endcap"]')[0], 'Endcap');
 	
-	// Bind length unit change
-	segmentCard.find('[name="length_unit"]').on('change', function() {
-		convertSegmentLength(segmentCard, $(this).val());
-	});
+	// Setup unit change handler for length conversion
+	setupUnitChangeHandler(segmentCard);
 	
 	updateUI();
 }
@@ -615,18 +631,65 @@ function setEndType(btn, type) {
 	updateUI();
 }
 
-function convertSegmentLength(segmentCard, newUnit) {
+function convertSegmentLength(segmentCard, newUnit, oldUnit) {
 	var lengthInput = segmentCard.find('[name="requested_length_mm"]');
-	var currentValue = parseFloat(lengthInput.val());
+	var feetInchesRow = segmentCard.find('.feet-inches-row');
+	var feetInput = segmentCard.find('[name="length_feet"]');
+	var inchesInput = segmentCard.find('[name="length_inches"]');
 	
-	if (!currentValue) return;
+	// First, get current value in mm
+	var currentMm = 0;
+	if (oldUnit === 'mm') {
+		currentMm = parseFloat(lengthInput.val()) || 0;
+	} else if (oldUnit === 'in') {
+		currentMm = (parseFloat(lengthInput.val()) || 0) * MM_PER_INCH;
+	} else if (oldUnit === 'ft_in') {
+		var feet = parseFloat(feetInput.val()) || 0;
+		var inches = parseFloat(inchesInput.val()) || 0;
+		currentMm = (feet * INCHES_PER_FOOT + inches) * MM_PER_INCH;
+	}
 	
-	if (newUnit === 'in') {
-		// Convert mm to inches for display
-		lengthInput.val((currentValue / MM_PER_INCH).toFixed(2));
+	// Now convert to new unit
+	if (newUnit === 'mm') {
+		lengthInput.val(Math.round(currentMm));
+		lengthInput.closest('.form-group').show();
+		feetInchesRow.hide();
+	} else if (newUnit === 'in') {
+		lengthInput.val((currentMm / MM_PER_INCH).toFixed(2));
+		lengthInput.closest('.form-group').show();
+		feetInchesRow.hide();
+	} else if (newUnit === 'ft_in') {
+		// Hide the single input, show feet+inches
+		lengthInput.closest('.form-group').hide();
+		feetInchesRow.show();
+		
+		var totalInches = currentMm / MM_PER_INCH;
+		var feet = Math.floor(totalInches / INCHES_PER_FOOT);
+		var inches = totalInches % INCHES_PER_FOOT;
+		feetInput.val(feet);
+		inchesInput.val(inches.toFixed(2));
+	}
+}
+
+function setupUnitChangeHandler(segmentCard) {
+	var unitSelect = segmentCard.find('[name="length_unit"]');
+	// Store current unit in data attribute for persistence
+	unitSelect.data('lastUnit', unitSelect.val());
+	
+	unitSelect.on('change', function() {
+		var newUnit = $(this).val();
+		var lastUnit = $(this).data('lastUnit') || 'in';
+		convertSegmentLength(segmentCard, newUnit, lastUnit);
+		$(this).data('lastUnit', newUnit);
+	});
+	
+	// Initialize feet+inches row visibility
+	var currentUnit = unitSelect.val();
+	if (currentUnit === 'ft_in') {
+		segmentCard.find('[name="requested_length_mm"]').closest('.form-group').hide();
+		segmentCard.find('.feet-inches-row').show();
 	} else {
-		// Convert inches to mm
-		lengthInput.val(Math.round(currentValue * MM_PER_INCH));
+		segmentCard.find('.feet-inches-row').hide();
 	}
 }
 
@@ -677,11 +740,17 @@ function collectSegments() {
 	$('.segment-card').each(function(index) {
 		var card = $(this);
 		
-		// Get length in mm
-		var length = parseFloat(card.find('[name="requested_length_mm"]').val()) || 0;
+		// Get length in mm based on unit
+		var length = 0;
 		var unit = card.find('[name="length_unit"]').val();
-		if (unit === 'in') {
-			length = Math.round(length * MM_PER_INCH);
+		if (unit === 'mm') {
+			length = parseFloat(card.find('[name="requested_length_mm"]').val()) || 0;
+		} else if (unit === 'in') {
+			length = Math.round((parseFloat(card.find('[name="requested_length_mm"]').val()) || 0) * MM_PER_INCH);
+		} else if (unit === 'ft_in') {
+			var feet = parseFloat(card.find('[name="length_feet"]').val()) || 0;
+			var inches = parseFloat(card.find('[name="length_inches"]').val()) || 0;
+			length = Math.round((feet * INCHES_PER_FOOT + inches) * MM_PER_INCH);
 		}
 		
 		var segment = {
