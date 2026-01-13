@@ -303,7 +303,8 @@ function displayResults(result) {
     } else { $("#messagesPanel").hide(); }
     if (result.computed) {
         $("#summaryResults").show();
-        // Use user_segment_count if defined, otherwise fall back to segment_count
+        // Use user_segment_count (count of user-defined segments) if available,
+        // otherwise fall back to segments_count (count of computed manufacturing segments)
         var segCount = result.computed.user_segment_count !== undefined ? result.computed.user_segment_count : result.computed.segment_count;
         $("#segmentCount").text(segCount);
         $("#totalLength").text(result.computed.total_requested_length_mm + ' mm');

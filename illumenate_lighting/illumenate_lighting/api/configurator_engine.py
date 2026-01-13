@@ -886,7 +886,8 @@ def _compute_multisegment_outputs(
 		"user_segment_count": len(segments),
 		"segments_count": len(all_segments),
 		"runs_count": total_runs,
-		"leader_qty": total_runs,  # One leader cable per run
+		# Each run requires one leader cable. Leader cables connect from driver outputs to tape runs.
+		"leader_qty": total_runs,
 		"total_tape_length_mm": int(total_tape_length),
 		"total_watts": round(total_watts, 2),
 		"total_endcaps": total_endcaps,
