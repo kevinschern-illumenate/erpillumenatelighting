@@ -102,17 +102,43 @@ class ilLConfiguredFixture(Document):
 			length_inches = f"{self.requested_overall_length_mm / 25.4:.1f}"
 		parts.append(length_inches)
 
-		# Add "-J" suffix for multi-segment (jointed) fixtures
+		# Add suffix based on fixture complexity
 		if self.is_multi_segment:
+			# Multi-segment (jointed) fixtures: -J-{hash}
 			parts.append("J")
-
-		# For multi-segment fixtures, add a short hash suffix to differentiate
-		# different segment configurations with the same total length
-		# (e.g., 3x4ft vs 1x12ft vs 4x3ft all equal 120" but are different builds)
-		if self.is_multi_segment and self.user_segments:
-			segment_config_hash = self._compute_segment_config_hash()
-			if segment_config_hash:
-				parts.append(segment_config_hash)
+			# Add a short hash suffix to differentiate different segment configurations
+			# with the same total length (e.g., 3x4ft vs 1x12ft vs 4x3ft all equal 120")
+			if self.user_segments:
+				segment_config_hash = self._compute_segment_config_hash()
+				if segment_config_hash:
+					parts.append(segment_config_hash)
+		else:
+			# Single-segment fixtures: {feed_type}{cable_length_ft}-C
+			# Get power feed type code
+			feed_type_code = ""
+			if self.power_feed_type:
+				feed_type_code = frappe.db.get_value(
+					"ilL-Attribute-Power Feed Type", self.power_feed_type, "code"
+				) or self.power_feed_type or ""
+			
+			# Get leader cable length in feet (from first segment or leader_cable_length_mm field)
+			cable_length_ft = 0
+			if self.user_segments and len(self.user_segments) > 0:
+				first_seg = self.user_segments[0]
+				if first_seg.start_leader_cable_length_mm:
+					cable_length_ft = round(first_seg.start_leader_cable_length_mm / 304.8, 1)
+			elif hasattr(self, 'leader_cable_length_mm') and self.leader_cable_length_mm:
+				cable_length_ft = round(self.leader_cable_length_mm / 304.8, 1)
+			
+			# Format cable length (remove .0 if whole number)
+			if cable_length_ft == int(cable_length_ft):
+				cable_length_str = str(int(cable_length_ft))
+			else:
+				cable_length_str = f"{cable_length_ft:.1f}"
+			
+			# Build suffix: {feed_type}{cable_length}-C
+			parts.append(f"{feed_type_code}{cable_length_str}")
+			parts.append("C")
 
 		return "-".join(parts)
 
