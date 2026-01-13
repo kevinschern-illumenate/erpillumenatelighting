@@ -47,6 +47,64 @@ Allows users to configure fixtures using segment-based configuration
 	border-radius: 0.25rem;
 	margin-top: 0.5rem;
 }
+
+/* Pill Button Selector Styles */
+.pill-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.pill-selector .pill-option {
+	display: inline-block;
+	padding: 0.375rem 0.75rem;
+	font-size: 0.875rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: #495057;
+	background-color: #fff;
+	border: 1px solid #ced4da;
+	border-radius: 2rem;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+	user-select: none;
+}
+.pill-selector .pill-option:hover {
+	background-color: #e9ecef;
+	border-color: #adb5bd;
+}
+.pill-selector .pill-option.active {
+	background-color: #0d6efd;
+	border-color: #0d6efd;
+	color: #fff;
+}
+.pill-selector .pill-option.active:hover {
+	background-color: #0b5ed7;
+	border-color: #0a58ca;
+}
+.pill-selector .pill-option input[type="radio"] {
+	display: none;
+}
+.option-group {
+	margin-bottom: 1rem;
+}
+.option-group label.option-label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+}
+/* Hide select when showing pills (desktop) */
+.option-group .select-fallback {
+	display: none;
+}
+/* On mobile, show select and hide pills */
+@media (max-width: 767.98px) {
+	.option-group .pill-selector {
+		display: none !important;
+	}
+	.option-group .select-fallback {
+		display: block !important;
+	}
+}
 </style>
 {% endblock %}
 
@@ -90,49 +148,45 @@ Allows users to configure fixtures using segment-based configuration
 							<hr>
 							<h6 class="mb-3">{{ _("Options") }}</h6>
 
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Finish") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="finish_code" required></select>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="lens_appearance_code" required></select>
-									</div>
-								</div>
+							<!-- Finish -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="finish_code"></div>
+								<select class="form-control select-fallback" name="finish_code" required></select>
 							</div>
 
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="mounting_method_code" required></select>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="endcap_color_code" required></select>
-									</div>
-								</div>
+							<!-- Lens Appearance -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="lens_appearance_code"></div>
+								<select class="form-control select-fallback" name="lens_appearance_code" required></select>
 							</div>
 
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="environment_rating_code" required></select>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group">
-										<label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
-										<select class="form-control" name="tape_offering_id" required></select>
-									</div>
-								</div>
+							<!-- Mounting Method -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="mounting_method_code"></div>
+								<select class="form-control select-fallback" name="mounting_method_code" required></select>
+							</div>
+
+							<!-- Endcap Color -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="endcap_color_code"></div>
+								<select class="form-control select-fallback" name="endcap_color_code" required></select>
+							</div>
+
+							<!-- Environment Rating -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="environment_rating_code"></div>
+								<select class="form-control select-fallback" name="environment_rating_code" required></select>
+							</div>
+
+							<!-- Tape Offering (always dropdown due to many options) -->
+							<div class="form-group">
+								<label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
+								<select class="form-control" name="tape_offering_id" required></select>
 							</div>
 						</div>
 					</form>
@@ -451,33 +505,93 @@ function loadTemplateOptions(template_code) {
 }
 
 function populateOptions(options) {
-	// Populate base options
-	var fields = ['finish', 'lens_appearance', 'mounting_method', 'environment_rating'];
-	fields.forEach(function(field) {
-		var select = $('select[name="' + field + '_code"]');
-		select.empty().append('<option value="">Select...</option>');
-		if (options[field]) {
-			options[field].forEach(function(opt) {
-				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+	// Fields that use pill selectors
+	var pillFields = {
+		'finish': 'finish_code',
+		'lens_appearance': 'lens_appearance_code',
+		'mounting_method': 'mounting_method_code',
+		'environment_rating': 'environment_rating_code'
+	};
+	
+	// Populate pill selectors and their fallback selects
+	Object.keys(pillFields).forEach(function(optionKey) {
+		var fieldName = pillFields[optionKey];
+		var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+		var selectFallback = $('select[name="' + fieldName + '"]');
+		
+		// Clear existing
+		pillContainer.empty();
+		selectFallback.empty().append('<option value="">Select...</option>');
+		
+		if (options[optionKey]) {
+			options[optionKey].forEach(function(opt) {
+				// Add pill button
+				var pill = $('<label class="pill-option">' +
+					'<input type="radio" name="' + fieldName + '_pill" value="' + opt.value + '">' +
+					opt.label +
+				'</label>');
+				pill.on('click', function() {
+					// Update pill selection
+					pillContainer.find('.pill-option').removeClass('active');
+					$(this).addClass('active');
+					// Sync to hidden select
+					selectFallback.val(opt.value).trigger('change');
+				});
+				pillContainer.append(pill);
+				
+				// Add to fallback select
+				selectFallback.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 			});
 		}
 	});
+	
+	// When select changes (mobile), sync to pills
+	Object.values(pillFields).forEach(function(fieldName) {
+		$('select[name="' + fieldName + '"]').off('change.pillSync').on('change.pillSync', function() {
+			var value = $(this).val();
+			var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+			pillContainer.find('.pill-option').removeClass('active');
+			pillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
+		});
+	});
 
-	// Populate tape offerings
+	// Populate endcap colors (also uses pills)
+	var colorPillContainer = $('.pill-selector[data-field="endcap_color_code"]');
+	var colorSelect = $('select[name="endcap_color_code"]');
+	colorPillContainer.empty();
+	colorSelect.empty().append('<option value="">Select...</option>');
+	if (options.endcap_colors) {
+		options.endcap_colors.forEach(function(opt) {
+			// Add pill button
+			var pill = $('<label class="pill-option">' +
+				'<input type="radio" name="endcap_color_code_pill" value="' + opt.value + '">' +
+				opt.label +
+			'</label>');
+			pill.on('click', function() {
+				colorPillContainer.find('.pill-option').removeClass('active');
+				$(this).addClass('active');
+				colorSelect.val(opt.value).trigger('change');
+			});
+			colorPillContainer.append(pill);
+			
+			// Add to fallback select
+			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	}
+	
+	// Sync color select to pills
+	colorSelect.off('change.pillSync').on('change.pillSync', function() {
+		var value = $(this).val();
+		colorPillContainer.find('.pill-option').removeClass('active');
+		colorPillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
+	});
+
+	// Populate tape offerings (always dropdown)
 	var tapeSelect = $('select[name="tape_offering_id"]');
 	tapeSelect.empty().append('<option value="">Select...</option>');
 	if (options.tape_offerings) {
 		options.tape_offerings.forEach(function(opt) {
 			tapeSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
-		});
-	}
-
-	// Populate endcap colors
-	var colorSelect = $('select[name="endcap_color_code"]');
-	colorSelect.empty().append('<option value="">Select...</option>');
-	if (options.endcap_colors) {
-		options.endcap_colors.forEach(function(opt) {
-			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 		});
 	}
 }
