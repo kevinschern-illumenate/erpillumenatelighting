@@ -303,7 +303,9 @@ function displayResults(result) {
     } else { $("#messagesPanel").hide(); }
     if (result.computed) {
         $("#summaryResults").show();
-        $("#segmentCount").text(result.computed.user_segment_count || result.computed.segment_count);
+        // Use user_segment_count if defined, otherwise fall back to segment_count
+        var segCount = result.computed.user_segment_count !== undefined ? result.computed.user_segment_count : result.computed.segment_count;
+        $("#segmentCount").text(segCount);
         $("#totalLength").text(result.computed.total_requested_length_mm + ' mm');
         $("#totalTape").text(result.computed.total_tape_length_mm + ' mm');
         $("#totalRuns").text(result.computed.runs_count);

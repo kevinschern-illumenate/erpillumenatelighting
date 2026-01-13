@@ -831,7 +831,7 @@ def _compute_multisegment_outputs(
 
 		# Distribute runs across the fixture using the "optimize" strategy:
 		# Use maximum-length runs where possible, then fill remainder
-		remaining_total_tape = total_tape_length
+		remaining_tape_to_process = total_tape_length
 		current_run_index = 0
 
 		for run_num in range(total_runs_needed):
@@ -839,25 +839,23 @@ def _compute_multisegment_outputs(
 
 			# For all but the last run, use max run length
 			if run_num < total_runs_needed - 1:
-				run_len = max_run_mm if max_run_mm != float("inf") else remaining_total_tape
+				run_len = max_run_mm if max_run_mm != float("inf") else remaining_tape_to_process
 			else:
 				# Last run gets the remainder
-				run_len = remaining_total_tape
+				run_len = remaining_tape_to_process
 
-			remaining_total_tape -= run_len
+			remaining_tape_to_process -= run_len
 			run_watts = (run_len / MM_PER_FOOT) * watts_per_ft
 			total_watts += run_watts
 
-			# Determine which segment(s) this run spans
-			# For now, we assign segment_index based on where the run falls
-			# by tracking cumulative tape length
-			cumulative_len = 0
+			# Determine which segment this run starts in
+			# Calculate the start position of this run (how much tape has been processed before this run)
+			tape_processed_before_run = total_tape_length - remaining_tape_to_process - run_len
+			cumulative_segment_len = 0
 			assigned_segment = 1
 			for seg_data in segment_data_list:
-				cumulative_len += seg_data["tape_cut_len"]
-				# This run is assigned to the segment where the run's start position falls
-				# For simplicity, we assign based on the run's contribution to the total
-				if cumulative_len >= (total_tape_length - remaining_total_tape - run_len):
+				cumulative_segment_len += seg_data["tape_cut_len"]
+				if cumulative_segment_len > tape_processed_before_run:
 					assigned_segment = seg_data["seg_index"]
 					break
 
