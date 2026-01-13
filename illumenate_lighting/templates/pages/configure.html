@@ -298,6 +298,13 @@ Allows users to configure fixtures using segment-based configuration
 						<hr>
 					</div>
 
+					<!-- LED Run Details -->
+					<div id="ledRunDetailsPanel" style="display: none;">
+						<h6>{{ _("LED Run Details") }}</h6>
+						<div id="ledRunDetails" class="small"></div>
+						<hr>
+					</div>
+
 					<!-- Driver Plan -->
 					<div id="driverResults" style="display: none;">
 						<h6>{{ _("Driver Plan") }}</h6>
@@ -984,6 +991,34 @@ function displayResults(result) {
 		if (result.computed.build_description) {
 			$('#buildDescriptionPanel').show();
 			$('#buildDescription').text(result.computed.build_description);
+		}
+		
+		// Display LED run details for complex fixtures
+		if (result.computed.runs && result.computed.runs.length > 0) {
+			$('#ledRunDetailsPanel').show();
+			var runsHtml = '<table class="table table-sm table-bordered mb-0">';
+			runsHtml += '<thead class="thead-light"><tr>';
+			runsHtml += '<th>{{ _("Run") }}</th>';
+			runsHtml += '<th>{{ _("Segment") }}</th>';
+			runsHtml += '<th>{{ _("Length") }}</th>';
+			runsHtml += '<th>{{ _("Watts") }}</th>';
+			runsHtml += '</tr></thead><tbody>';
+			
+			result.computed.runs.forEach(function(run) {
+				var lengthIn = (run.run_len_mm / MM_PER_INCH).toFixed(1);
+				var lengthFt = (run.run_len_mm / MM_PER_FOOT).toFixed(2);
+				runsHtml += '<tr>';
+				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
+				runsHtml += '<td class="text-center">' + run.segment_index + '</td>';
+				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
+				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
+				runsHtml += '</tr>';
+			});
+			
+			runsHtml += '</tbody></table>';
+			$('#ledRunDetails').html(runsHtml);
+		} else {
+			$('#ledRunDetailsPanel').hide();
 		}
 	}
 	
