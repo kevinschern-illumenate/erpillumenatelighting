@@ -8,6 +8,9 @@ from frappe.model.document import Document
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
 
+# Default price list for configured fixture pricing
+DEFAULT_SELLING_PRICE_LIST = "Standard Selling"
+
 
 # Import permission helpers from project module
 def _is_internal_user(user=None):
@@ -243,7 +246,7 @@ class ilLProjectFixtureSchedule(Document):
 		# Check current Item pricing (standard_rate in Item Price)
 		current_price = frappe.db.get_value(
 			"Item Price",
-			{"item_code": item_code, "selling": 1, "price_list": "Standard Selling"},
+			{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
 			"price_list_rate"
 		)
 
@@ -254,17 +257,17 @@ class ilLProjectFixtureSchedule(Document):
 				# Update existing price
 				frappe.db.set_value(
 					"Item Price",
-					{"item_code": item_code, "selling": 1, "price_list": "Standard Selling"},
+					{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
 					"price_list_rate",
 					fixture_msrp
 				)
 			else:
-				# Check if "Standard Selling" price list exists
-				if frappe.db.exists("Price List", "Standard Selling"):
+				# Check if price list exists
+				if frappe.db.exists("Price List", DEFAULT_SELLING_PRICE_LIST):
 					# Create new Item Price
 					item_price = frappe.new_doc("Item Price")
 					item_price.item_code = item_code
-					item_price.price_list = "Standard Selling"
+					item_price.price_list = DEFAULT_SELLING_PRICE_LIST
 					item_price.selling = 1
 					item_price.price_list_rate = fixture_msrp
 					item_price.insert(ignore_permissions=True)
@@ -280,7 +283,7 @@ class ilLProjectFixtureSchedule(Document):
 		Checks for:
 		- Missing components
 		- Quantity mismatches
-		- Extra components that shouldn't be there
+		- Extra components that should not be there
 
 		Args:
 			bom_name: The BOM name to check
@@ -297,14 +300,15 @@ class ilLProjectFixtureSchedule(Document):
 		# Build expected BOM items from configured fixture
 		expected_items = {}
 
+		# Calculate segments count once for reuse
+		segments_count = len(configured_fixture.segments) if configured_fixture.segments else 1
+
 		# Profile
 		if configured_fixture.profile_item:
-			segments_count = len(configured_fixture.segments) if configured_fixture.segments else 1
 			expected_items[configured_fixture.profile_item] = segments_count
 
 		# Lens
 		if configured_fixture.lens_item:
-			segments_count = len(configured_fixture.segments) if configured_fixture.segments else 1
 			expected_items[configured_fixture.lens_item] = segments_count
 
 		# Endcaps (4 total with extra pair rule)
@@ -344,6 +348,15 @@ class ilLProjectFixtureSchedule(Document):
 		# If BOM is submitted, we can't modify it directly
 		# Instead, we deactivate it and create a new one
 		if bom.docstatus == 1:
+			# Verify configured_item exists before proceeding
+			item_code = configured_fixture.configured_item
+			if not item_code:
+				frappe.log_error(
+					title=f"BOM Update Failed for {configured_fixture.name}",
+					message="Cannot update BOM: configured_item is not set on the fixture"
+				)
+				return False
+
 			# Deactivate old BOM
 			bom.is_active = 0
 			bom.is_default = 0
@@ -360,7 +373,7 @@ class ilLProjectFixtureSchedule(Document):
 
 			bom_result = _create_or_get_bom(
 				configured_fixture,
-				configured_fixture.configured_item,
+				item_code,
 				skip_if_exists=False
 			)
 
