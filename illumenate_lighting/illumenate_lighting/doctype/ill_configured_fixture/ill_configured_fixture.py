@@ -13,7 +13,15 @@ class ilLConfiguredFixture(Document):
 		"""
 		Generate part number in format:
 		ILL-{Profile Series}-{LED Package Code}-{Environment Code}-{CCT Code}-{Fixture Output Code}-{Lens Code}-{Mounting Code}-{Finish Code}-{Length in inches}
+		
+		If the document already has a name (e.g., loaded from database or name pre-set),
+		keep the existing name to avoid duplicate errors.
 		"""
+		# If name is already set and exists in database, keep it
+		if self.name and frappe.db.exists("ilL-Configured-Fixture", self.name):
+			return
+		
+		# Generate new part number
 		self.name = self._generate_part_number()
 
 	def before_save(self):

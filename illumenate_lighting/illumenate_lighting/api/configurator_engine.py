@@ -2708,8 +2708,11 @@ def _create_or_update_configured_fixture(
 
 	# Save the document
 	if existing:
-		doc.save()
+		doc.save(ignore_permissions=True)
 	else:
-		doc.insert()
+		# For new documents, pre-set the name to avoid autoname regeneration issues
+		if not doc.name:
+			doc.name = doc._generate_part_number()
+		doc.insert(ignore_permissions=True)
 
 	return doc.name
