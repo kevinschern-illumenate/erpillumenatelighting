@@ -324,18 +324,47 @@ def _create_or_get_configured_item(
 			})
 			return result
 
-	# Generate friendly item name
+	# Generate friendly item name with length in inches and multi-segment info
 	template_name = frappe.db.get_value(
 		"ilL-Fixture-Template", fixture.fixture_template, "template_name"
 	) or fixture.fixture_template
 
 	length_mm = fixture.manufacturable_overall_length_mm or fixture.requested_overall_length_mm or 0
-	item_name = (
-		f"{template_name} - "
-		f"{fixture.finish or 'STD'} - "
-		f"{fixture.lens_appearance or 'STD'} - "
-		f"{length_mm}mm"
-	)
+	length_inches = length_mm / 25.4
+	
+	# Format length in inches (use decimal if not whole, otherwise integer)
+	if length_inches == int(length_inches):
+		length_str = f'{int(length_inches)}"'
+	else:
+		length_str = f'{length_inches:.1f}"'
+	
+	# Build item name with multi-segment and jumper info
+	is_multi_segment = getattr(fixture, 'is_multi_segment', 0) or 0
+	user_segment_count = getattr(fixture, 'user_segment_count', 1) or 1
+	
+	name_parts = [
+		template_name,
+		fixture.finish or 'STD',
+		fixture.lens_appearance or 'STD',
+		length_str,
+	]
+	
+	# Add multi-segment indicator if applicable
+	if is_multi_segment:
+		# Count jumper connections from user_segments
+		jumper_count = 0
+		if hasattr(fixture, 'user_segments') and fixture.user_segments:
+			jumper_count = sum(
+				1 for seg in fixture.user_segments 
+				if getattr(seg, 'end_type', '') == 'Jumper'
+			)
+		
+		if jumper_count > 0:
+			name_parts.append(f"{user_segment_count}seg+{jumper_count}J")
+		else:
+			name_parts.append(f"{user_segment_count}seg")
+	
+	item_name = " - ".join(name_parts)
 
 	# Ensure item group exists
 	_ensure_item_group_exists(CONFIGURED_ITEM_GROUP)
@@ -434,6 +463,10 @@ def _create_or_get_bom(
 
 	# Build BOM items list
 	bom_items = []
+	
+	# Determine if this is a multi-segment fixture
+	is_multi_segment = fixture.is_multi_segment if hasattr(fixture, 'is_multi_segment') else 0
+	user_segment_count = fixture.user_segment_count if hasattr(fixture, 'user_segment_count') else 1
 
 	# --- Role 1: Profile ---
 	if fixture.profile_item:
@@ -459,27 +492,39 @@ def _create_or_get_bom(
 				"stock_uom": "Nos",
 			})
 
-	# --- Role 3: Endcaps (with extra pair rule - Task 3.3) ---
-	# Start endcap
-	if fixture.endcap_item_start:
-		# 2 endcaps: 1 for use + 1 extra
+	# --- Role 3: Endcaps (properly counted for multi-segment fixtures) ---
+	# For multi-segment fixtures, calculate endcaps based on segment configuration
+	endcap_counts = _calculate_endcap_quantities(fixture)
+	
+	# Add feed-through endcaps (start endcap)
+	if endcap_counts.get("feed_through_qty", 0) > 0 and fixture.endcap_item_start:
 		bom_items.append({
 			"item_code": fixture.endcap_item_start,
-			"qty": 2,
+			"qty": endcap_counts["feed_through_qty"],
 			"uom": "Nos",
 			"stock_uom": "Nos",
 		})
-	# End endcap (if different from start)
-	if fixture.endcap_item_end and fixture.endcap_item_end != fixture.endcap_item_start:
-		bom_items.append({
-			"item_code": fixture.endcap_item_end,
-			"qty": 2,
-			"uom": "Nos",
-			"stock_uom": "Nos",
-		})
-	elif fixture.endcap_item_end == fixture.endcap_item_start and fixture.endcap_item_start:
-		# Same endcap for both ends, add 2 more (total 4)
-		bom_items[-1]["qty"] = 4
+	
+	# Add solid endcaps (end endcap)
+	if endcap_counts.get("solid_qty", 0) > 0 and fixture.endcap_item_end:
+		# Check if already added same item as feed-through
+		existing_endcap_idx = None
+		for idx, item in enumerate(bom_items):
+			if item["item_code"] == fixture.endcap_item_end:
+				existing_endcap_idx = idx
+				break
+		
+		if existing_endcap_idx is not None and fixture.endcap_item_end == fixture.endcap_item_start:
+			# Same item for both - add to existing quantity
+			bom_items[existing_endcap_idx]["qty"] += endcap_counts["solid_qty"]
+		else:
+			# Different item - add new line
+			bom_items.append({
+				"item_code": fixture.endcap_item_end,
+				"qty": endcap_counts["solid_qty"],
+				"uom": "Nos",
+				"stock_uom": "Nos",
+			})
 
 	# --- Role 4: Mounting Accessories ---
 	if fixture.mounting_item:
@@ -492,11 +537,12 @@ def _create_or_get_bom(
 				"stock_uom": "Nos",
 			})
 
-	# --- Role 5: LED Tape (Task 3.2 - Option A: total length in one line) ---
+	# --- Role 5: LED Tape (calculate from ALL segments for multi-segment) ---
 	tape_item = _get_tape_item(fixture)
 	if tape_item:
-		# Convert tape_cut_length_mm to feet (or meters based on UOM)
-		tape_length_ft = (fixture.tape_cut_length_mm or 0) / 304.8
+		# For multi-segment fixtures, sum tape from all segments
+		total_tape_mm = _calculate_total_tape_length(fixture)
+		tape_length_ft = total_tape_mm / 304.8
 		if tape_length_ft > 0:
 			bom_items.append({
 				"item_code": tape_item,
@@ -516,7 +562,19 @@ def _create_or_get_bom(
 			"stock_uom": "Nos",
 		})
 
-	# --- Role 7: Drivers ---
+	# --- Role 7: Jumper Cables (for multi-segment fixtures) ---
+	if is_multi_segment and fixture.segments:
+		jumper_items = _calculate_jumper_cable_items(fixture)
+		for jumper_item in jumper_items:
+			if jumper_item.get("item_code") and jumper_item.get("qty", 0) > 0:
+				bom_items.append({
+					"item_code": jumper_item["item_code"],
+					"qty": jumper_item["qty"],
+					"uom": "Nos",
+					"stock_uom": "Nos",
+				})
+
+	# --- Role 8: Drivers ---
 	if fixture.drivers:
 		for driver in fixture.drivers:
 			if driver.driver_item and driver.driver_qty > 0:
@@ -704,10 +762,17 @@ def _generate_item_description(fixture) -> str:
 	"""Generate a detailed description for the configured Item."""
 	length_mm = fixture.manufacturable_overall_length_mm or fixture.requested_overall_length_mm or 0
 	requested_mm = fixture.requested_overall_length_mm or 0
+	length_inches = length_mm / 25.4
+	requested_inches = requested_mm / 25.4
+	
+	# Check for multi-segment
+	is_multi_segment = getattr(fixture, 'is_multi_segment', 0) or 0
+	user_segment_count = getattr(fixture, 'user_segment_count', 1) or 1
+	
 	lines = [
 		f"Configured Fixture: {fixture.name}",
 		f"Template: {fixture.fixture_template or 'N/A'}",
-		f"Length: {length_mm}mm (requested: {requested_mm}mm)",
+		f"Length: {length_inches:.1f}\" / {length_mm}mm (requested: {requested_inches:.1f}\" / {requested_mm}mm)",
 		f"Finish: {fixture.finish or 'N/A'}",
 		f"Lens: {fixture.lens_appearance or 'N/A'}",
 		f"Mounting: {fixture.mounting_method or 'N/A'}",
@@ -717,6 +782,26 @@ def _generate_item_description(fixture) -> str:
 		f"Total Watts: {fixture.total_watts or 0}W",
 		f"Assembly Mode: {fixture.assembly_mode or 'N/A'}",
 	]
+	
+	# Add multi-segment info if applicable
+	if is_multi_segment:
+		lines.append(f"Multi-Segment: Yes ({user_segment_count} segments)")
+		
+		# Count jumpers from user_segments
+		jumper_count = 0
+		if hasattr(fixture, 'user_segments') and fixture.user_segments:
+			jumper_count = sum(
+				1 for seg in fixture.user_segments 
+				if getattr(seg, 'end_type', '') == 'Jumper'
+			)
+		if jumper_count > 0:
+			lines.append(f"Jumper Connections: {jumper_count}")
+		
+		# Add build description if available
+		build_desc = getattr(fixture, 'build_description', None)
+		if build_desc:
+			lines.append(f"\nBuild Description:\n{build_desc}")
+	
 	return "\n".join(lines)
 
 
@@ -724,21 +809,43 @@ def _generate_bom_remarks(fixture) -> str:
 	"""Generate BOM remarks with run plan details (Task 3.2 Option A)."""
 	tape_cut_length = fixture.tape_cut_length_mm or 0
 	runs_count = fixture.runs_count or 0
+	is_multi_segment = getattr(fixture, 'is_multi_segment', 0) or 0
+	user_segment_count = getattr(fixture, 'user_segment_count', 1) or 1
+
+	# Convert to inches for readability
+	tape_cut_inches = tape_cut_length / 25.4
 
 	lines = [
 		"=== RUN PLAN / CUT INSTRUCTIONS ===",
-		f"Tape Cut Length: {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
+		f"Total Tape Length: {tape_cut_inches:.1f}\" / {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
 		f"Number of Runs: {runs_count}",
-		"",
-		"Run Breakdown:",
 	]
+	
+	# Add multi-segment summary
+	if is_multi_segment:
+		lines.append(f"Multi-Segment Fixture: {user_segment_count} segments")
+		
+		# Count jumper connections
+		jumper_count = 0
+		if hasattr(fixture, 'user_segments') and fixture.user_segments:
+			jumper_count = sum(
+				1 for seg in fixture.user_segments 
+				if getattr(seg, 'end_type', '') == 'Jumper'
+			)
+		if jumper_count > 0:
+			lines.append(f"Jumper Connections: {jumper_count}")
+	
+	lines.extend(["", "Run Breakdown:"])
 
 	if fixture.runs:
 		for run in fixture.runs:
 			run_len = run.run_len_mm or 0
+			run_len_inches = run_len / 25.4
 			run_watts = run.run_watts or 0
+			segment_idx = getattr(run, 'segment_index', None)
+			segment_info = f" (Segment {segment_idx})" if segment_idx else ""
 			lines.append(
-				f"  Run {run.run_index}: {run_len}mm ({run_len / 304.8:.2f}ft) - {run_watts}W"
+				f"  Run {run.run_index}: {run_len_inches:.1f}\" / {run_len}mm ({run_len / 304.8:.2f}ft) - {run_watts}W{segment_info}"
 			)
 	else:
 		lines.append("  No run data available")
@@ -752,13 +859,41 @@ def _generate_bom_remarks(fixture) -> str:
 		for segment in fixture.segments:
 			profile_len = segment.profile_cut_len_mm or 0
 			lens_len = segment.lens_cut_len_mm or 0
+			tape_len = getattr(segment, 'tape_cut_len_mm', 0) or 0
+			profile_inches = profile_len / 25.4
+			lens_inches = lens_len / 25.4
+			tape_inches = tape_len / 25.4
+			
 			lines.append(
-				f"  Segment {segment.segment_index}: Profile {profile_len}mm, Lens {lens_len}mm"
+				f"  Segment {segment.segment_index}: Profile {profile_inches:.1f}\", Lens {lens_inches:.1f}\", Tape {tape_inches:.1f}\""
 			)
+			
+			# Show endcap info
+			start_type = getattr(segment, 'start_endcap_type', '') or ''
+			end_type = getattr(segment, 'end_endcap_type', '') or ''
+			if start_type or end_type:
+				lines.append(f"    Endcaps: Start={start_type or 'None'}, End={end_type or 'Jumper'}")
+			
+			# Show jumper info
+			end_jumper_len = getattr(segment, 'end_jumper_len_mm', 0) or 0
+			if end_jumper_len > 0:
+				jumper_inches = end_jumper_len / 25.4
+				lines.append(f"    End Jumper: {jumper_inches:.1f}\" / {end_jumper_len}mm")
+			
 			if segment.notes:
 				lines.append(f"    Note: {segment.notes}")
 	else:
 		lines.append("  No segment data available")
+	
+	# Add endcap summary
+	lines.extend([
+		"",
+		"=== ENDCAP SUMMARY ===",
+	])
+	
+	endcap_counts = _calculate_endcap_quantities(fixture)
+	lines.append(f"  Feed-Through Endcaps: {endcap_counts.get('feed_through_qty', 0)} (includes spares)")
+	lines.append(f"  Solid Endcaps: {endcap_counts.get('solid_qty', 0)} (includes spares)")
 
 	return "\n".join(lines)
 
@@ -769,6 +904,15 @@ def _generate_traveler_notes(fixture) -> str:
 	mfg_length = fixture.manufacturable_overall_length_mm or 0
 	tape_cut_length = fixture.tape_cut_length_mm or 0
 	runs_count = fixture.runs_count or 0
+	
+	# Convert to inches
+	requested_inches = requested_length / 25.4
+	mfg_inches = mfg_length / 25.4
+	tape_inches = tape_cut_length / 25.4
+	
+	# Check for multi-segment
+	is_multi_segment = getattr(fixture, 'is_multi_segment', 0) or 0
+	user_segment_count = getattr(fixture, 'user_segment_count', 1) or 1
 
 	lines = [
 		"=" * 60,
@@ -779,21 +923,57 @@ def _generate_traveler_notes(fixture) -> str:
 		f"Config ID: {fixture.name}",
 		f"Template: {fixture.fixture_template or 'N/A'}",
 		f"Engine Version: {fixture.engine_version or ENGINE_VERSION}",
+	]
+	
+	# Add multi-segment indicator
+	if is_multi_segment:
+		lines.append(f"Multi-Segment Fixture: {user_segment_count} segments")
+		
+		# Count jumpers
+		jumper_count = 0
+		if hasattr(fixture, 'user_segments') and fixture.user_segments:
+			jumper_count = sum(
+				1 for seg in fixture.user_segments 
+				if getattr(seg, 'end_type', '') == 'Jumper'
+			)
+		if jumper_count > 0:
+			lines.append(f"Jumper Connections: {jumper_count}")
+	
+	lines.extend([
 		"",
 		"--- LENGTH SPECIFICATIONS ---",
-		f"Requested Length: {requested_length}mm",
-		f"Manufacturable Length: {mfg_length}mm",
-		f"Tape Cut Length: {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
-		f"Difference: {requested_length - mfg_length}mm",
+		f"Requested Length: {requested_inches:.1f}\" / {requested_length}mm",
+		f"Manufacturable Length: {mfg_inches:.1f}\" / {mfg_length}mm",
+		f"Tape Cut Length: {tape_inches:.1f}\" / {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
+		f"Difference: {(requested_length - mfg_length) / 25.4:.2f}\" / {requested_length - mfg_length}mm",
 		"",
 		"--- SEGMENT CUT LIST ---",
-	]
+	])
 
 	if fixture.segments:
 		for segment in fixture.segments:
+			profile_mm = segment.profile_cut_len_mm or 0
+			lens_mm = segment.lens_cut_len_mm or 0
+			tape_mm = getattr(segment, 'tape_cut_len_mm', 0) or 0
 			lines.append(f"Segment {segment.segment_index}:")
-			lines.append(f"  Profile: {segment.profile_cut_len_mm or 0}mm")
-			lines.append(f"  Lens: {segment.lens_cut_len_mm or 0}mm")
+			lines.append(f"  Profile: {profile_mm / 25.4:.1f}\" / {profile_mm}mm")
+			lines.append(f"  Lens: {lens_mm / 25.4:.1f}\" / {lens_mm}mm")
+			if tape_mm > 0:
+				lines.append(f"  Tape: {tape_mm / 25.4:.1f}\" / {tape_mm}mm")
+			
+			# Show endcap info for this segment
+			start_type = getattr(segment, 'start_endcap_type', '') or ''
+			end_type = getattr(segment, 'end_endcap_type', '') or ''
+			if start_type:
+				lines.append(f"  Start Endcap: {start_type}")
+			if end_type:
+				lines.append(f"  End Endcap: {end_type}")
+			elif is_multi_segment and segment.segment_index < user_segment_count:
+				# This segment connects to next via jumper
+				end_jumper_len = getattr(segment, 'end_jumper_len_mm', 0) or 0
+				if end_jumper_len > 0:
+					lines.append(f"  End: Jumper Cable ({end_jumper_len / 25.4:.1f}\" / {end_jumper_len}mm)")
+			
 			if segment.notes:
 				lines.append(f"  Notes: {segment.notes}")
 	else:
@@ -802,13 +982,17 @@ def _generate_traveler_notes(fixture) -> str:
 	lines.extend([
 		"",
 		"--- TAPE CUT & RUN BREAKDOWN ---",
-		f"Total Tape Length: {tape_cut_length}mm",
+		f"Total Tape Length: {tape_inches:.1f}\" / {tape_cut_length}mm ({tape_cut_length / 304.8:.2f}ft)",
 		f"Number of Runs: {runs_count}",
 	])
 
 	if fixture.runs:
 		for run in fixture.runs:
-			lines.append(f"  Run {run.run_index}: {run.run_len_mm or 0}mm - {run.run_watts or 0}W")
+			run_mm = run.run_len_mm or 0
+			run_inches = run_mm / 25.4
+			segment_idx = getattr(run, 'segment_index', None)
+			segment_info = f" (Segment {segment_idx})" if segment_idx else ""
+			lines.append(f"  Run {run.run_index}: {run_inches:.1f}\" / {run_mm}mm - {run.run_watts or 0}W{segment_info}")
 	else:
 		lines.append("  No run data available")
 
@@ -835,16 +1019,29 @@ def _generate_traveler_notes(fixture) -> str:
 		lines.append("No drivers configured")
 
 	# Endcap information
+	endcap_counts = _calculate_endcap_quantities(fixture)
 	lines.extend([
 		"",
 		"--- ENDCAPS ---",
 		f"Start Style: {fixture.endcap_style_start or 'N/A'}",
 		f"End Style: {fixture.endcap_style_end or 'N/A'}",
 		f"Color: {fixture.endcap_color or 'N/A'}",
-		f"Start Item: {fixture.endcap_item_start or 'N/A'}",
-		f"End Item: {fixture.endcap_item_end or 'N/A'}",
-		"Qty: 4 (2 for fixture + 2 extra pair included)",
+		f"Start/Feed-Through Item: {fixture.endcap_item_start or 'N/A'}",
+		f"End/Solid Item: {fixture.endcap_item_end or 'N/A'}",
+		f"Feed-Through Qty: {endcap_counts.get('feed_through_qty', 0)} (includes spares)",
+		f"Solid Qty: {endcap_counts.get('solid_qty', 0)} (includes spares)",
 	])
+	
+	# Jumper cable information (for multi-segment)
+	if is_multi_segment:
+		jumper_items = _calculate_jumper_cable_items(fixture)
+		if jumper_items:
+			lines.extend([
+				"",
+				"--- JUMPER CABLES ---",
+			])
+			for jumper in jumper_items:
+				lines.append(f"  Item: {jumper.get('item_code', 'N/A')}, Qty: {jumper.get('qty', 0)}")
 
 	# QC Section (Epic 7)
 	lines.extend([
@@ -934,3 +1131,185 @@ def _get_tape_item(fixture) -> Optional[str]:
 		return None
 
 	return frappe.db.get_value("ilL-Spec-LED Tape", tape_offering, "item")
+
+
+def _calculate_endcap_quantities(fixture) -> dict:
+	"""
+	Calculate accurate endcap quantities for multi-segment fixtures.
+	
+	For multi-segment fixtures:
+	- First segment start: Feed-through if power comes in, otherwise solid
+	- Segment ends with Jumper: No endcap (jumper cable connects to next)
+	- Last segment end: Always solid endcap
+	- Include extra pair rule: +2 endcaps for spares
+	
+	Returns:
+		dict: {"feed_through_qty": int, "solid_qty": int}
+	"""
+	is_multi_segment = fixture.is_multi_segment if hasattr(fixture, 'is_multi_segment') else 0
+	
+	if not is_multi_segment:
+		# Single-segment fixture: 1 feed-through start + 1 solid end + extras
+		# With extra pair rule: 2 of each (1 use + 1 spare)
+		return {
+			"feed_through_qty": 2,  # 1 for use + 1 spare
+			"solid_qty": 2,         # 1 for use + 1 spare
+		}
+	
+	# Multi-segment fixture: count from segments
+	feed_through_count = 0
+	solid_count = 0
+	
+	if fixture.segments:
+		for idx, segment in enumerate(fixture.segments):
+			# Start endcap: only for first segment
+			if idx == 0:
+				start_type = getattr(segment, 'start_endcap_type', '') or ''
+				if start_type == "Feed-Through":
+					feed_through_count += 1
+				else:
+					# Default to solid if not specified or unknown
+					solid_count += 1
+			
+			# End endcap: only if this segment ends with an endcap (not jumper)
+			end_type = getattr(segment, 'end_endcap_type', '') or ''
+			if end_type == "Solid":
+				solid_count += 1
+			elif end_type == "Feed-Through":
+				feed_through_count += 1
+			# If end_type is empty, it's a jumper connection (no endcap)
+	else:
+		# No segments defined - use defaults
+		# Check if we have total_endcaps set
+		total_endcaps = getattr(fixture, 'total_endcaps', 0) or 2
+		# Assume first is feed-through, rest are solid
+		feed_through_count = 1
+		solid_count = max(0, total_endcaps - 1)
+	
+	# Apply extra pair rule: add spares
+	# Each type used gets +1 spare (minimum 2 each if any are used)
+	if feed_through_count > 0:
+		feed_through_count = max(feed_through_count + 1, 2)  # At least 2 (1 use + 1 spare)
+	if solid_count > 0:
+		solid_count = max(solid_count + 1, 2)  # At least 2 (1 use + 1 spare)
+	
+	return {
+		"feed_through_qty": feed_through_count,
+		"solid_qty": solid_count,
+	}
+
+
+def _calculate_total_tape_length(fixture) -> float:
+	"""
+	Calculate total tape length from all segments for multi-segment fixtures.
+	
+	Returns:
+		float: Total tape length in mm
+	"""
+	is_multi_segment = fixture.is_multi_segment if hasattr(fixture, 'is_multi_segment') else 0
+	
+	if not is_multi_segment or not fixture.segments:
+		# Single-segment: use tape_cut_length_mm
+		return fixture.tape_cut_length_mm or 0
+	
+	# Multi-segment: sum tape from all segments
+	total_tape_mm = 0
+	for segment in fixture.segments:
+		tape_len = getattr(segment, 'tape_cut_len_mm', 0) or 0
+		total_tape_mm += tape_len
+	
+	# If segments don't have tape lengths, fall back to fixture total
+	if total_tape_mm == 0:
+		total_tape_mm = fixture.tape_cut_length_mm or 0
+	
+	return total_tape_mm
+
+
+def _calculate_jumper_cable_items(fixture) -> list:
+	"""
+	Calculate jumper cable items needed for multi-segment fixtures.
+	
+	Jumper cables connect segments in a multi-segment fixture.
+	Each segment that ends with "Jumper" type needs a jumper cable.
+	
+	Returns:
+		list: List of {"item_code": str, "qty": int} for jumper cables
+	"""
+	jumper_items = []
+	
+	if not fixture.segments:
+		return jumper_items
+	
+	# Group jumper cables by item and length
+	jumper_by_item = {}
+	
+	for segment in fixture.segments:
+		# Check if this segment ends with a jumper (connects to next segment)
+		end_jumper_item = getattr(segment, 'end_jumper_item', None)
+		end_jumper_len = getattr(segment, 'end_jumper_len_mm', 0) or 0
+		
+		if end_jumper_item and end_jumper_len > 0:
+			if end_jumper_item not in jumper_by_item:
+				jumper_by_item[end_jumper_item] = 0
+			jumper_by_item[end_jumper_item] += 1
+	
+	# If no jumper items found on segments, try to determine from user_segments
+	if not jumper_by_item and hasattr(fixture, 'user_segments') and fixture.user_segments:
+		# Count segments that end with Jumper
+		jumper_count = sum(
+			1 for seg in fixture.user_segments 
+			if getattr(seg, 'end_type', '') == 'Jumper'
+		)
+		
+		if jumper_count > 0:
+			# Try to get default jumper cable item from leader cable mappings
+			# Jumpers typically use same family as leaders but different length
+			default_jumper_item = _get_default_jumper_item(fixture)
+			if default_jumper_item:
+				jumper_by_item[default_jumper_item] = jumper_count
+	
+	# Convert to list format
+	for item_code, qty in jumper_by_item.items():
+		jumper_items.append({
+			"item_code": item_code,
+			"qty": qty,
+		})
+	
+	return jumper_items
+
+
+def _get_default_jumper_item(fixture) -> Optional[str]:
+	"""
+	Get default jumper cable item for a fixture.
+	
+	Looks up the leader cable mapping and returns a jumper cable item
+	(jumpers are similar to leaders but for inter-segment connections).
+	
+	Returns:
+		str or None: Item code for jumper cable
+	"""
+	# First try to use the leader_item as jumper (they're often the same)
+	if fixture.leader_item:
+		return fixture.leader_item
+	
+	# Otherwise look up from mapping
+	if not fixture.fixture_template:
+		return None
+	
+	# Get leader cable mapping which may have jumper info
+	leader_map = frappe.db.get_value(
+		"ilL-Rel-Leader-Cable-Map",
+		{
+			"fixture_template": fixture.fixture_template,
+			"is_active": 1,
+		},
+		["leader_cable_item", "jumper_cable_item"],
+		as_dict=True,
+	)
+	
+	if leader_map:
+		# Prefer dedicated jumper item, fall back to leader
+		return leader_map.get("jumper_cable_item") or leader_map.get("leader_cable_item")
+	
+	return None
+

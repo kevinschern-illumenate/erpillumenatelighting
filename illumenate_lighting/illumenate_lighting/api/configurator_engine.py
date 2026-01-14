@@ -1191,7 +1191,11 @@ def _create_or_update_multisegment_fixture(
 			"tape_cut_len_mm": seg.get("tape_cut_len_mm", 0),
 			"start_endcap_type": seg.get("start_endcap_type", ""),
 			"end_endcap_type": seg.get("end_endcap_type", ""),
+			"start_endcap_item": seg.get("start_endcap_item") or resolved_items.get("endcap_item_start"),
+			"end_endcap_item": seg.get("end_endcap_item") or resolved_items.get("endcap_item_end"),
+			"start_leader_item": seg.get("start_leader_item") or resolved_items.get("leader_item"),
 			"start_leader_len_mm": seg.get("start_leader_len_mm", 0),
+			"end_jumper_item": seg.get("end_jumper_item") or resolved_items.get("leader_item"),  # Jumper uses same item as leader
 			"end_jumper_len_mm": seg.get("end_jumper_len_mm", 0),
 			"notes": seg.get("notes", ""),
 		})
@@ -1201,6 +1205,7 @@ def _create_or_update_multisegment_fixture(
 	for run in computed.get("runs", []):
 		doc.append("runs", {
 			"run_index": run.get("run_index", 0),
+			"segment_index": run.get("segment_index", 1),  # Track which segment the run starts in
 			"run_len_mm": run.get("run_len_mm", 0),
 			"run_watts": run.get("run_watts", 0.0),
 			"leader_item": run.get("leader_item") or resolved_items.get("leader_item"),
@@ -2537,6 +2542,10 @@ def _create_or_update_configured_fixture(
 	The document is identified by a hash of the configuration to ensure
 	identical configurations reuse the same document.
 
+	If a fixture with the same part number already exists but with a different
+	config_hash, we validate that all key attributes match and update the
+	existing fixture (updating pricing, resolved items, etc.).
+
 	Returns:
 		str: Name of the created/updated ilL-Configured-Fixture document
 	"""
@@ -2564,8 +2573,42 @@ def _create_or_update_configured_fixture(
 	if existing:
 		doc = frappe.get_doc("ilL-Configured-Fixture", existing)
 	else:
+		# No exact hash match - create a temporary doc to generate the part number
+		# then check if that part number already exists (collision handling)
 		doc = frappe.new_doc("ilL-Configured-Fixture")
 		doc.config_hash = config_hash
+		
+		# Populate key fields needed for part number generation
+		doc.fixture_template = fixture_template_code
+		doc.finish = finish_code
+		doc.lens_appearance = lens_appearance_code
+		doc.mounting_method = mounting_method_code
+		doc.endcap_style_start = endcap_style_start_code
+		doc.endcap_style_end = endcap_style_end_code
+		doc.endcap_color = endcap_color_code
+		doc.power_feed_type = power_feed_type_code
+		doc.environment_rating = environment_rating_code
+		doc.tape_offering = tape_offering_id
+		doc.requested_overall_length_mm = requested_overall_length_mm
+		doc.is_multi_segment = 0
+		
+		# Generate the part number that would be used
+		potential_part_number = doc._generate_part_number()
+		
+		# Check if this part number already exists
+		existing_by_name = frappe.db.exists("ilL-Configured-Fixture", potential_part_number)
+		
+		if existing_by_name:
+			# Part number collision - load existing fixture and validate/update it
+			doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
+			
+			# Validate that the key configuration attributes match
+			# If they match, this is the same fixture just needs updating
+			# Update the config_hash since the existing one may be outdated
+			doc.config_hash = config_hash
+			
+			# Mark as existing for the save logic below
+			existing = existing_by_name
 
 	# Set identity fields
 	doc.engine_version = ENGINE_VERSION
@@ -2628,6 +2671,7 @@ def _create_or_update_configured_fixture(
 			"runs",
 			{
 				"run_index": run["run_index"],
+				"segment_index": run.get("segment_index", 1),  # Single-segment fixtures default to segment 1
 				"run_len_mm": run["run_len_mm"],
 				"run_watts": run["run_watts"],
 				"leader_item": run.get("leader_item") or resolved_items.get("leader_item"),

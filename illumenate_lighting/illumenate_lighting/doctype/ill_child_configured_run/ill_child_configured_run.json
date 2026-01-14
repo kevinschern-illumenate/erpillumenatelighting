@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "run_index",
+  "segment_index",
   "run_len_mm",
   "run_watts",
   "column_break_run",
@@ -20,6 +21,13 @@
    "in_list_view": 1,
    "label": "Run Index",
    "reqd": 1
+  },
+  {
+   "description": "Which segment this run starts in (for multi-segment fixtures)",
+   "fieldname": "segment_index",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Segment Index"
   },
   {
    "fieldname": "run_len_mm",
