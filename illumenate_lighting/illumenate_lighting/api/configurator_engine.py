@@ -1125,8 +1125,42 @@ def _create_or_update_multisegment_fixture(
 	# Check for existing fixture with same hash
 	existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
 
+	# If not found by hash, also check by generated part number (to handle duplicates)
+	# Create a temporary doc to generate the part number
+	if not existing:
+		temp_doc = frappe.new_doc("ilL-Configured-Fixture")
+		temp_doc.fixture_template = fixture_template_code
+		temp_doc.finish = finish_code
+		temp_doc.lens_appearance = lens_appearance_code
+		temp_doc.mounting_method = mounting_method_code
+		temp_doc.endcap_color = endcap_color_code
+		temp_doc.environment_rating = environment_rating_code
+		temp_doc.tape_offering = tape_offering_id
+		temp_doc.is_multi_segment = 1 if is_multi_segment else 0
+		temp_doc.requested_overall_length_mm = computed.get("total_requested_length_mm", 0)
+		# Set power feed type and user segments for part number generation
+		first_segment = user_segments[0] if user_segments else {}
+		temp_doc.power_feed_type = first_segment.get("start_power_feed_type", "")
+		for user_seg in user_segments:
+			temp_doc.append("user_segments", {
+				"segment_index": user_seg.get("segment_index", 0),
+				"requested_length_mm": user_seg.get("requested_length_mm", 0),
+				"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
+				"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
+				"end_type": user_seg.get("end_type", "Endcap"),
+				"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
+				"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
+			})
+		# Generate the part number that would be used
+		generated_part_number = temp_doc._generate_part_number()
+		# Check if this part number already exists
+		if frappe.db.exists("ilL-Configured-Fixture", generated_part_number):
+			existing = generated_part_number
+
 	if existing:
 		doc = frappe.get_doc("ilL-Configured-Fixture", existing)
+		# Update config_hash if configuration changed
+		doc.config_hash = config_hash
 	else:
 		doc = frappe.new_doc("ilL-Configured-Fixture")
 		doc.config_hash = config_hash
