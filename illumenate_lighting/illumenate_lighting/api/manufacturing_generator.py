@@ -1135,63 +1135,89 @@ def _get_tape_item(fixture) -> Optional[str]:
 
 def _calculate_endcap_quantities(fixture) -> dict:
 	"""
-	Calculate accurate endcap quantities for multi-segment fixtures.
+	Calculate accurate endcap quantities based on actual fixture configuration.
+	
+	The fixture has endcap_style_start and endcap_style_end fields that indicate
+	whether each position needs a FEED_THROUGH or SOLID endcap.
+	
+	For single-segment fixtures:
+	- Start endcap: Based on endcap_style_start (FEED_THROUGH if END feed, else SOLID)
+	- End endcap: Based on endcap_style_end (usually SOLID)
+	- Extra pair rule: +1 of each type used as spares
 	
 	For multi-segment fixtures:
-	- First segment start: Feed-through if power comes in, otherwise solid
+	- First segment start: Based on segment's start_endcap_type
 	- Segment ends with Jumper: No endcap (jumper cable connects to next)
-	- Last segment end: Always solid endcap
-	- Include extra pair rule: +2 endcaps for spares
+	- Last segment end: Based on segment's end_endcap_type
+	- Extra pair rule: +1 of each type used as spares
 	
 	Returns:
 		dict: {"feed_through_qty": int, "solid_qty": int}
 	"""
 	is_multi_segment = fixture.is_multi_segment if hasattr(fixture, 'is_multi_segment') else 0
 	
-	if not is_multi_segment:
-		# Single-segment fixture: 1 feed-through start + 1 solid end + extras
-		# With extra pair rule: 2 of each (1 use + 1 spare)
-		return {
-			"feed_through_qty": 2,  # 1 for use + 1 spare
-			"solid_qty": 2,         # 1 for use + 1 spare
-		}
-	
-	# Multi-segment fixture: count from segments
 	feed_through_count = 0
 	solid_count = 0
 	
-	if fixture.segments:
-		for idx, segment in enumerate(fixture.segments):
-			# Start endcap: only for first segment
-			if idx == 0:
-				start_type = getattr(segment, 'start_endcap_type', '') or ''
-				if start_type == "Feed-Through":
-					feed_through_count += 1
-				else:
-					# Default to solid if not specified or unknown
-					solid_count += 1
-			
-			# End endcap: only if this segment ends with an endcap (not jumper)
-			end_type = getattr(segment, 'end_endcap_type', '') or ''
-			if end_type == "Solid":
-				solid_count += 1
-			elif end_type == "Feed-Through":
-				feed_through_count += 1
-			# If end_type is empty, it's a jumper connection (no endcap)
+	if not is_multi_segment:
+		# Single-segment fixture: check configured endcap styles
+		start_style = getattr(fixture, 'endcap_style_start', '') or ''
+		end_style = getattr(fixture, 'endcap_style_end', '') or ''
+		
+		# Count start endcap type
+		if start_style.upper() == "FEED_THROUGH":
+			feed_through_count += 1
+		else:
+			# Default to solid if not specified or SOLID
+			solid_count += 1
+		
+		# Count end endcap type
+		if end_style.upper() == "FEED_THROUGH":
+			feed_through_count += 1
+		else:
+			# Default to solid if not specified or SOLID
+			solid_count += 1
 	else:
-		# No segments defined - use defaults
-		# Check if we have total_endcaps set
-		total_endcaps = getattr(fixture, 'total_endcaps', 0) or 2
-		# Assume first is feed-through, rest are solid
-		feed_through_count = 1
-		solid_count = max(0, total_endcaps - 1)
+		# Multi-segment fixture: count from segments
+		if fixture.segments:
+			for idx, segment in enumerate(fixture.segments):
+				# Start endcap: only for first segment
+				if idx == 0:
+					start_type = getattr(segment, 'start_endcap_type', '') or ''
+					if start_type == "Feed-Through":
+						feed_through_count += 1
+					else:
+						# Default to solid if not specified or unknown
+						solid_count += 1
+				
+				# End endcap: only if this segment ends with an endcap (not jumper)
+				end_type = getattr(segment, 'end_endcap_type', '') or ''
+				if end_type == "Solid":
+					solid_count += 1
+				elif end_type == "Feed-Through":
+					feed_through_count += 1
+				# If end_type is empty, it's a jumper connection (no endcap)
+		else:
+			# No segments defined - use fixture-level styles or defaults
+			start_style = getattr(fixture, 'endcap_style_start', '') or ''
+			end_style = getattr(fixture, 'endcap_style_end', '') or ''
+			
+			if start_style.upper() == "FEED_THROUGH":
+				feed_through_count += 1
+			else:
+				solid_count += 1
+			
+			if end_style.upper() == "FEED_THROUGH":
+				feed_through_count += 1
+			else:
+				solid_count += 1
 	
-	# Apply extra pair rule: add spares
-	# Each type used gets +1 spare (minimum 2 each if any are used)
+	# Apply extra pair rule: add +1 spare for each type used
+	# This gives an extra pair (1 of each type) as spares
 	if feed_through_count > 0:
-		feed_through_count = max(feed_through_count + 1, 2)  # At least 2 (1 use + 1 spare)
+		feed_through_count += 1  # +1 spare
 	if solid_count > 0:
-		solid_count = max(solid_count + 1, 2)  # At least 2 (1 use + 1 spare)
+		solid_count += 1  # +1 spare
 	
 	return {
 		"feed_through_qty": feed_through_count,
