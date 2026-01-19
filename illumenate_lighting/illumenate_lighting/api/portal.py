@@ -161,6 +161,9 @@ def get_template_options(template_code: str) -> dict:
 		"environment_rating": [],
 		"tape_offerings": [],
 		"endcap_colors": [],
+		# New cascading configurator options
+		"led_packages": [],
+		"ccts": [],
 	}
 
 	# Parse allowed options from template
@@ -172,7 +175,16 @@ def get_template_options(template_code: str) -> dict:
 		if option_type == "Finish" and row.finish:
 			options["finish"].append({"value": row.finish, "label": row.finish})
 		elif option_type == "Lens Appearance" and row.lens_appearance:
-			options["lens_appearance"].append({"value": row.lens_appearance, "label": row.lens_appearance})
+			# Get lens transmission for cascading configurator
+			lens_transmission = 100
+			if frappe.db.exists("ilL-Attribute-Lens Appearance", row.lens_appearance):
+				lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
+				lens_transmission = lens_doc.transmission or 100
+			options["lens_appearance"].append({
+				"value": row.lens_appearance,
+				"label": row.lens_appearance,
+				"transmission": lens_transmission,
+			})
 		elif option_type == "Mounting Method" and row.mounting_method:
 			options["mounting_method"].append({"value": row.mounting_method, "label": row.mounting_method})
 		elif option_type == "Endcap Style" and row.endcap_style:
@@ -187,6 +199,49 @@ def get_template_options(template_code: str) -> dict:
 		if row.tape_offering:
 			options["tape_offerings"].append({"value": row.tape_offering, "label": row.tape_offering})
 
+	# Extract LED packages from tape offerings (for cascading configurator)
+	tape_offering_names = [row.tape_offering for row in template.get("allowed_tape_offerings", []) if row.tape_offering]
+	if tape_offering_names:
+		tape_offerings = frappe.get_all(
+			"ilL-Rel-Tape Offering",
+			filters={"name": ["in", tape_offering_names], "is_active": 1},
+			fields=["led_package", "cct"],
+			distinct=True,
+		)
+
+		# Get unique LED packages
+		led_package_codes = list({t.led_package for t in tape_offerings if t.led_package})
+		if led_package_codes:
+			led_packages = frappe.get_all(
+				"ilL-Attribute-LED Package",
+				filters={"name": ["in", led_package_codes]},
+				fields=["name", "code", "spectrum_type"],
+			)
+			for pkg in led_packages:
+				options["led_packages"].append({
+					"value": pkg.name,
+					"label": pkg.name,
+					"code": pkg.code,
+					"spectrum_type": pkg.spectrum_type,
+				})
+
+		# Get unique CCTs
+		cct_codes = list({t.cct for t in tape_offerings if t.cct})
+		if cct_codes:
+			ccts = frappe.get_all(
+				"ilL-Attribute-CCT",
+				filters={"name": ["in", cct_codes], "is_active": 1},
+				fields=["name", "code", "label", "kelvin", "sort_order"],
+				order_by="sort_order asc, kelvin asc",
+			)
+			for cct in ccts:
+				options["ccts"].append({
+					"value": cct.name,
+					"label": cct.label or cct.name,
+					"code": cct.code,
+					"kelvin": cct.kelvin,
+				})
+
 	# Get all endcap colors (not template-specific in MVP)
 	endcap_colors = frappe.get_all(
 		"ilL-Attribute-Endcap Color",
@@ -199,6 +254,7 @@ def get_template_options(template_code: str) -> dict:
 		})
 
 	return options
+
 
 
 @frappe.whitelist()

@@ -493,3 +493,245 @@ bench --site your-site run-tests --app illumenate_lighting --module illumenate_l
 ## Support
 
 For questions or issues with this API, please contact the ilLumenate Lighting development team or create an issue in the repository.
+
+---
+
+## Cascading Configurator API
+
+The Cascading Configurator API provides a new workflow where fixture outputs are dynamically filtered based on user selections, and the tape offering is automatically selected based on the user's desired output level.
+
+### Configurator Flow
+
+1. User selects **Fixture Template**
+2. User selects **LED Package** (derived from linked tapes)
+3. User selects **Environment Rating** (from template allowed options)
+4. User selects **CCT** (filtered by LED Package and Environment Rating)
+5. User selects **Lens Appearance** (from template allowed options)
+6. User selects **Mounting Method** (from template allowed options)
+7. User selects **Finish** (from template allowed options)
+8. User selects **Delivered Output** (computed: tape lm/ft × lens transmission %)
+9. System auto-selects the matching tape offering
+
+### `get_led_packages_for_template`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.get_led_packages_for_template`
+
+Returns LED Package options based on tapes linked to the fixture template.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "led_packages": [
+    {"value": "LED-PKG-1", "label": "LED-PKG-1", "code": "LP1", "spectrum_type": "Static White"}
+  ],
+  "error": null
+}
+```
+
+### `get_environment_ratings_for_template`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.get_environment_ratings_for_template`
+
+Returns Environment Rating options from the template's allowed options.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "environment_ratings": [
+    {"value": "Indoor", "label": "Indoor", "code": "I"}
+  ],
+  "error": null
+}
+```
+
+### `get_ccts_for_template`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.get_ccts_for_template`
+
+Returns CCT options filtered by LED Package and Environment Rating.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+| `led_package_code` | string | No | Selected LED Package for filtering |
+| `environment_rating_code` | string | No | Selected Environment Rating for filtering |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "ccts": [
+    {"value": "3000K", "label": "3000K", "code": "30", "kelvin": 3000}
+  ],
+  "error": null
+}
+```
+
+### `get_delivered_outputs_for_template`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.get_delivered_outputs_for_template`
+
+Calculates fixture output options based on compatible tapes and lens transmission.
+
+**Formula:** `delivered_output = tape_lm_ft × (lens_transmission% / 100)` rounded to nearest 50.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+| `led_package_code` | string | Yes | Selected LED Package |
+| `environment_rating_code` | string | Yes | Selected Environment Rating |
+| `cct_code` | string | Yes | Selected CCT |
+| `lens_appearance_code` | string | Yes | Selected Lens Appearance |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "delivered_outputs": [
+    {"value": 50, "label": "50 lm/ft", "tape_output_lm_ft": 100, "transmission_pct": 56.0, "matching_tape_count": 1},
+    {"value": 100, "label": "100 lm/ft", "tape_output_lm_ft": 200, "transmission_pct": 56.0, "matching_tape_count": 1}
+  ],
+  "compatible_tapes": ["TAPE-100-3000K", "TAPE-200-3000K"],
+  "lens_transmission_pct": 56.0,
+  "error": null
+}
+```
+
+### `auto_select_tape_for_configuration`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.auto_select_tape_for_configuration`
+
+Automatically selects the tape offering based on user selections.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+| `led_package_code` | string | Yes | Selected LED Package |
+| `environment_rating_code` | string | Yes | Selected Environment Rating |
+| `cct_code` | string | Yes | Selected CCT |
+| `lens_appearance_code` | string | Yes | Selected Lens Appearance |
+| `delivered_output_value` | integer | Yes | User's selected delivered output (lm/ft) |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "tape_offering_id": "TAPE-SPEC-100LM-3000K-90CRI-LP1",
+  "tape_details": {
+    "output_level": "100 lm/ft",
+    "output_value_lm_ft": 100,
+    "tape_spec": "TAPE-SPEC",
+    "cri": "90 CRI",
+    "sdcm": "SDCM-2"
+  },
+  "error": null
+}
+```
+
+### `validate_and_quote_with_output`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_with_output`
+
+Alternative entry point that uses the cascading configurator flow. Auto-selects tape based on output choice, then calls standard validate_and_quote.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+| `finish_code` | string | Yes | Finish option code |
+| `lens_appearance_code` | string | Yes | Lens appearance option code |
+| `mounting_method_code` | string | Yes | Mounting method option code |
+| `endcap_style_start_code` | string | Yes | Endcap style code for start end |
+| `endcap_style_end_code` | string | Yes | Endcap style code for end end |
+| `endcap_color_code` | string | Yes | Endcap color option code |
+| `power_feed_type_code` | string | Yes | Power feed type option code |
+| `environment_rating_code` | string | Yes | Environment rating option code |
+| `led_package_code` | string | Yes | LED Package code |
+| `cct_code` | string | Yes | CCT code |
+| `delivered_output_value` | integer | Yes | User's selected delivered output (lm/ft) |
+| `requested_overall_length_mm` | integer | Yes | Requested overall length in millimeters |
+| `dimming_protocol_code` | string | No | Dimming protocol code (optional) |
+| `qty` | integer | No | Quantity (default: 1) |
+
+#### Response
+
+Same as `validate_and_quote` with additional fields:
+
+```json
+{
+  "is_valid": true,
+  "messages": [...],
+  "computed": {...},
+  "resolved_items": {...},
+  "pricing": {...},
+  "configured_fixture_id": "...",
+  "auto_selected_tape": {
+    "tape_offering_id": "TAPE-SPEC-100LM-3000K-90CRI-LP1",
+    "tape_details": {...},
+    "delivered_output_lm_ft": 50,
+    "led_package": "LED-PKG-1",
+    "cct": "3000K"
+  }
+}
+```
+
+### `get_cascading_options_for_template`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template`
+
+Convenience function that returns all cascading options in one call.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+| `led_package_code` | string | No | Selected LED Package for filtering |
+| `environment_rating_code` | string | No | Selected Environment Rating for filtering |
+| `cct_code` | string | No | Selected CCT for filtering |
+| `lens_appearance_code` | string | No | Selected Lens Appearance for filtering |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "options": {
+    "led_packages": [...],
+    "environment_ratings": [...],
+    "ccts": [...],
+    "lens_appearances": [...],
+    "mountings": [...],
+    "finishes": [...],
+    "delivered_outputs": [...]
+  },
+  "error": null
+}
+```
+

@@ -2128,3 +2128,323 @@ class TestConfiguratorEngine(FrappeTestCase):
 		for fixture_name in test_fixtures:
 			frappe.delete_doc("ilL-Configured-Fixture", fixture_name, force=True)
 		# Note: frappe.db.commit() is not needed - test framework handles transactions automatically
+
+
+class TestCascadingConfiguratorAPI(FrappeTestCase):
+	"""Test cases for the cascading configurator API (auto-select tape based on output)"""
+
+	def setUp(self):
+		"""Set up test data for cascading configurator tests"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			get_led_packages_for_template,
+			get_environment_ratings_for_template,
+			get_ccts_for_template,
+			get_delivered_outputs_for_template,
+			auto_select_tape_for_configuration,
+			get_cascading_options_for_template,
+		)
+		self.get_led_packages_for_template = get_led_packages_for_template
+		self.get_environment_ratings_for_template = get_environment_ratings_for_template
+		self.get_ccts_for_template = get_ccts_for_template
+		self.get_delivered_outputs_for_template = get_delivered_outputs_for_template
+		self.auto_select_tape_for_configuration = auto_select_tape_for_configuration
+		self.get_cascading_options_for_template = get_cascading_options_for_template
+
+		self.template_code = "CASCADE-TEST-TEMPLATE"
+		self.finish_code = "CASCADE-FINISH"
+		self.lens_appearance_white = "CASCADE-LENS-WHITE"
+		self.lens_appearance_clear = "CASCADE-LENS-CLEAR"
+		self.environment_rating = "CASCADE-ENV-INDOOR"
+		self.led_package = "CASCADE-LED-PKG"
+		self.cct_3000k = "CASCADE-CCT-3000K"
+		self.cct_4000k = "CASCADE-CCT-4000K"
+		self.output_100 = "CASCADE-OUT-100"
+		self.output_200 = "CASCADE-OUT-200"
+		self.output_300 = "CASCADE-OUT-300"
+
+		# Create attributes
+		self._ensure({"doctype": "ilL-Attribute-Finish", "finish_name": self.finish_code, "code": "FIN"})
+		self._ensure({
+			"doctype": "ilL-Attribute-Lens Appearance",
+			"label": self.lens_appearance_white,
+			"code": "W",
+			"transmission": 56.0,  # 56% transmission
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-Lens Appearance",
+			"label": self.lens_appearance_clear,
+			"code": "C",
+			"transmission": 90.0,  # 90% transmission
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-Environment Rating",
+			"label": self.environment_rating,
+			"code": "I",
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-LED Package",
+			"name": self.led_package,
+			"code": "LP",
+			"spectrum_type": "Static White",
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-CCT",
+			"cct_name": self.cct_3000k,
+			"code": "30",
+			"kelvin": 3000,
+			"is_active": 1,
+			"sort_order": 1,
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-CCT",
+			"cct_name": self.cct_4000k,
+			"code": "40",
+			"kelvin": 4000,
+			"is_active": 1,
+			"sort_order": 2,
+		})
+		self._ensure({"doctype": "ilL-Attribute-CRI", "cri_name": "CASCADE-CRI-90", "code": "90"})
+		self._ensure({"doctype": "ilL-Attribute-SDCM", "sdcm_name": "CASCADE-SDCM-2", "code": "2", "value": 2})
+
+		# Create output levels (lumen per foot values)
+		self._ensure({
+			"doctype": "ilL-Attribute-Output Level",
+			"output_level_name": self.output_100,
+			"value": 100,
+			"sku_code": "100",
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-Output Level",
+			"output_level_name": self.output_200,
+			"value": 200,
+			"sku_code": "200",
+		})
+		self._ensure({
+			"doctype": "ilL-Attribute-Output Level",
+			"output_level_name": self.output_300,
+			"value": 300,
+			"sku_code": "300",
+		})
+
+		# Create tape spec
+		self._ensure({
+			"doctype": "ilL-Spec-LED Tape",
+			"item": "CASCADE-TAPE-SPEC",
+			"watts_per_foot": 5.0,
+			"cut_increment_mm": 50,
+		}, ignore_links=True)
+
+		# Create tape offerings with different outputs
+		self.tape_offering_100 = self._ensure({
+			"doctype": "ilL-Rel-Tape Offering",
+			"tape_spec": "CASCADE-TAPE-SPEC",
+			"cct": self.cct_3000k,
+			"cri": "CASCADE-CRI-90",
+			"sdcm": "CASCADE-SDCM-2",
+			"led_package": self.led_package,
+			"output_level": self.output_100,
+			"is_active": 1,
+		}, ignore_links=True)
+
+		self.tape_offering_200 = self._ensure({
+			"doctype": "ilL-Rel-Tape Offering",
+			"tape_spec": "CASCADE-TAPE-SPEC",
+			"cct": self.cct_3000k,
+			"cri": "CASCADE-CRI-90",
+			"sdcm": "CASCADE-SDCM-2",
+			"led_package": self.led_package,
+			"output_level": self.output_200,
+			"is_active": 1,
+		}, ignore_links=True)
+
+		self.tape_offering_300 = self._ensure({
+			"doctype": "ilL-Rel-Tape Offering",
+			"tape_spec": "CASCADE-TAPE-SPEC",
+			"cct": self.cct_4000k,
+			"cri": "CASCADE-CRI-90",
+			"sdcm": "CASCADE-SDCM-2",
+			"led_package": self.led_package,
+			"output_level": self.output_300,
+			"is_active": 1,
+		}, ignore_links=True)
+
+		# Create fixture template
+		self._ensure({
+			"doctype": "ilL-Fixture-Template",
+			"template_code": self.template_code,
+			"template_name": "Cascade Test Template",
+			"is_active": 1,
+			"default_profile_family": "CASCADE-PROFILE",
+			"default_profile_stock_len_mm": 2000,
+			"assembled_max_len_mm": 2590,
+			"allowed_options": [
+				{"option_type": "Finish", "finish": self.finish_code, "is_active": 1},
+				{"option_type": "Lens Appearance", "lens_appearance": self.lens_appearance_white, "is_active": 1},
+				{"option_type": "Lens Appearance", "lens_appearance": self.lens_appearance_clear, "is_active": 1},
+				{"option_type": "Environment Rating", "environment_rating": self.environment_rating, "is_active": 1},
+			],
+			"allowed_tape_offerings": [
+				{"tape_offering": self.tape_offering_100.name, "environment_rating": self.environment_rating},
+				{"tape_offering": self.tape_offering_200.name, "environment_rating": self.environment_rating},
+				{"tape_offering": self.tape_offering_300.name, "environment_rating": self.environment_rating},
+			],
+		}, ignore_links=True)
+
+	def _ensure(self, doc_dict, ignore_links=False):
+		"""Ensure a document exists, creating or updating as needed"""
+		doctype = doc_dict.get("doctype")
+		name = doc_dict.get("name")
+		if not name:
+			if doctype == "ilL-Fixture-Template":
+				name = doc_dict.get("template_code")
+			elif doctype == "ilL-Attribute-Finish":
+				name = doc_dict.get("finish_name")
+			elif doctype in ["ilL-Attribute-Lens Appearance", "ilL-Attribute-Mounting Method", "ilL-Attribute-Endcap Style", "ilL-Attribute-Power Feed Type", "ilL-Attribute-Environment Rating"]:
+				name = doc_dict.get("label")
+			elif doctype == "ilL-Attribute-CCT":
+				name = doc_dict.get("cct_name")
+			elif doctype == "ilL-Attribute-CRI":
+				name = doc_dict.get("cri_name")
+			elif doctype == "ilL-Attribute-SDCM":
+				name = doc_dict.get("sdcm_name")
+			elif doctype == "ilL-Attribute-Output Level":
+				name = doc_dict.get("output_level_name")
+			elif doctype == "ilL-Spec-LED Tape":
+				name = doc_dict.get("item")
+			elif doctype == "ilL-Rel-Tape Offering":
+				# Let autoname handle it
+				pass
+
+		if name and frappe.db.exists(doctype, name):
+			doc = frappe.get_doc(doctype, name)
+			for key, value in doc_dict.items():
+				if key != "doctype" and hasattr(doc, key):
+					setattr(doc, key, value)
+			doc.save(ignore_permissions=True)
+			return doc
+		else:
+			doc = frappe.get_doc(doc_dict)
+			doc.flags.ignore_links = ignore_links
+			doc.insert(ignore_permissions=True)
+			return doc
+
+	def test_get_led_packages_for_template(self):
+		"""Test that LED packages are derived from linked tape offerings"""
+		result = self.get_led_packages_for_template(self.template_code)
+
+		self.assertTrue(result["success"])
+		self.assertGreaterEqual(len(result["led_packages"]), 1)
+
+		led_pkg_values = [p["value"] for p in result["led_packages"]]
+		self.assertIn(self.led_package, led_pkg_values)
+
+	def test_get_led_packages_for_nonexistent_template(self):
+		"""Test error handling for non-existent template"""
+		result = self.get_led_packages_for_template("NONEXISTENT-TEMPLATE")
+
+		self.assertFalse(result["success"])
+		self.assertIsNotNone(result["error"])
+
+	def test_get_environment_ratings_for_template(self):
+		"""Test that environment ratings come from template allowed options"""
+		result = self.get_environment_ratings_for_template(self.template_code)
+
+		self.assertTrue(result["success"])
+		self.assertGreaterEqual(len(result["environment_ratings"]), 1)
+
+		env_values = [e["value"] for e in result["environment_ratings"]]
+		self.assertIn(self.environment_rating, env_values)
+
+	def test_get_ccts_filtered_by_led_package(self):
+		"""Test that CCTs are filtered based on LED package selection"""
+		result = self.get_ccts_for_template(
+			fixture_template_code=self.template_code,
+			led_package_code=self.led_package,
+		)
+
+		self.assertTrue(result["success"])
+		self.assertGreaterEqual(len(result["ccts"]), 1)
+
+		cct_values = [c["value"] for c in result["ccts"]]
+		self.assertIn(self.cct_3000k, cct_values)
+
+	def test_get_delivered_outputs_calculation(self):
+		"""Test that delivered outputs are calculated correctly with lens transmission"""
+		result = self.get_delivered_outputs_for_template(
+			fixture_template_code=self.template_code,
+			led_package_code=self.led_package,
+			environment_rating_code=self.environment_rating,
+			cct_code=self.cct_3000k,
+			lens_appearance_code=self.lens_appearance_white,  # 56% transmission
+		)
+
+		self.assertTrue(result["success"])
+		self.assertGreater(len(result["delivered_outputs"]), 0)
+
+		# With 56% transmission:
+		# 100 lm/ft tape * 0.56 = 56 lm/ft -> rounded to 50
+		# 200 lm/ft tape * 0.56 = 112 lm/ft -> rounded to 100
+		output_values = [o["value"] for o in result["delivered_outputs"]]
+		# Check that outputs are rounded to nearest 50
+		for val in output_values:
+			self.assertEqual(val % 50, 0, f"Output {val} should be rounded to nearest 50")
+
+	def test_auto_select_tape_for_configuration(self):
+		"""Test that tape is auto-selected based on delivered output choice"""
+		# First get the delivered outputs
+		outputs_result = self.get_delivered_outputs_for_template(
+			fixture_template_code=self.template_code,
+			led_package_code=self.led_package,
+			environment_rating_code=self.environment_rating,
+			cct_code=self.cct_3000k,
+			lens_appearance_code=self.lens_appearance_white,  # 56% transmission
+		)
+
+		self.assertTrue(outputs_result["success"])
+		self.assertGreater(len(outputs_result["delivered_outputs"]), 0)
+
+		# Select the first available output
+		selected_output = outputs_result["delivered_outputs"][0]["value"]
+
+		# Auto-select the tape
+		tape_result = self.auto_select_tape_for_configuration(
+			fixture_template_code=self.template_code,
+			led_package_code=self.led_package,
+			environment_rating_code=self.environment_rating,
+			cct_code=self.cct_3000k,
+			lens_appearance_code=self.lens_appearance_white,
+			delivered_output_value=selected_output,
+		)
+
+		self.assertTrue(tape_result["success"])
+		self.assertIsNotNone(tape_result["tape_offering_id"])
+		self.assertIsNotNone(tape_result["tape_details"])
+
+	def test_get_cascading_options_all_at_once(self):
+		"""Test the convenience function that returns all cascading options"""
+		result = self.get_cascading_options_for_template(
+			fixture_template_code=self.template_code,
+			led_package_code=self.led_package,
+			environment_rating_code=self.environment_rating,
+			cct_code=self.cct_3000k,
+			lens_appearance_code=self.lens_appearance_white,
+		)
+
+		self.assertTrue(result["success"])
+		self.assertIn("led_packages", result["options"])
+		self.assertIn("environment_ratings", result["options"])
+		self.assertIn("ccts", result["options"])
+		self.assertIn("lens_appearances", result["options"])
+		self.assertIn("delivered_outputs", result["options"])
+
+		# With all selections made, delivered_outputs should be populated
+		self.assertGreater(len(result["options"]["delivered_outputs"]), 0)
+
+	def tearDown(self):
+		"""Clean up test data"""
+		# Clean up configured fixtures
+		test_fixtures = frappe.get_all(
+			"ilL-Configured-Fixture", filters={"fixture_template": self.template_code}, pluck="name"
+		)
+		for fixture_name in test_fixtures:
+			frappe.delete_doc("ilL-Configured-Fixture", fixture_name, force=True)

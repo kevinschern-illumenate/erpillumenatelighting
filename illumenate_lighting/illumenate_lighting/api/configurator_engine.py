@@ -352,6 +352,152 @@ def validate_and_quote(
 
 
 @frappe.whitelist()
+def validate_and_quote_with_output(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	endcap_color_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	led_package_code: str,
+	cct_code: str,
+	delivered_output_value: int,
+	requested_overall_length_mm: int,
+	dimming_protocol_code: str = None,
+	qty: int = 1,
+) -> dict[str, Any]:
+	"""
+	Validate and quote a fixture configuration using the new cascading configurator flow.
+
+	This is an alternative entry point that uses the new flow where:
+	- User selects LED Package, Environment Rating, CCT, Lens Appearance
+	- User selects a delivered output value (computed lm/ft after lens transmission)
+	- The tape offering is auto-selected based on these parameters
+
+	The flow automatically determines the tape offering based on selections, then
+	delegates to the standard validate_and_quote function.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		finish_code: Finish option code
+		lens_appearance_code: Lens appearance option code
+		mounting_method_code: Mounting method option code
+		endcap_style_start_code: Endcap style option code for start end
+		endcap_style_end_code: Endcap style option code for end end
+		endcap_color_code: Endcap color option code
+		power_feed_type_code: Power feed type option code
+		environment_rating_code: Environment rating option code
+		led_package_code: LED Package code (new cascading flow)
+		cct_code: CCT code (new cascading flow)
+		delivered_output_value: User's selected delivered output in lm/ft (rounded to 50)
+		requested_overall_length_mm: Requested overall length in millimeters
+		dimming_protocol_code: User's desired dimming protocol (optional)
+		qty: Quantity (default: 1)
+
+	Returns:
+		dict: Response containing validation status, computed values, resolved items,
+		      pricing, configured fixture ID, and auto-selected tape details
+	"""
+	# Convert string inputs to proper types
+	try:
+		requested_overall_length_mm = int(requested_overall_length_mm)
+		delivered_output_value = int(delivered_output_value)
+		qty = int(qty) if qty else 1
+	except (ValueError, TypeError):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "Invalid numeric value for length, output, or qty",
+					"field": "requested_overall_length_mm",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+			"auto_selected_tape": None,
+		}
+
+	# Auto-select the tape based on the configuration
+	tape_result = auto_select_tape_for_configuration(
+		fixture_template_code=fixture_template_code,
+		led_package_code=led_package_code,
+		environment_rating_code=environment_rating_code,
+		cct_code=cct_code,
+		lens_appearance_code=lens_appearance_code,
+		delivered_output_value=delivered_output_value,
+	)
+
+	if not tape_result.get("success") or not tape_result.get("tape_offering_id"):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": tape_result.get("error") or "Could not determine tape for selected configuration",
+					"field": "delivered_output_value",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+			"auto_selected_tape": None,
+		}
+
+	tape_offering_id = tape_result["tape_offering_id"]
+
+	# Call the standard validate_and_quote with the auto-selected tape
+	result = validate_and_quote(
+		fixture_template_code=fixture_template_code,
+		finish_code=finish_code,
+		lens_appearance_code=lens_appearance_code,
+		mounting_method_code=mounting_method_code,
+		endcap_style_start_code=endcap_style_start_code,
+		endcap_style_end_code=endcap_style_end_code,
+		endcap_color_code=endcap_color_code,
+		power_feed_type_code=power_feed_type_code,
+		environment_rating_code=environment_rating_code,
+		tape_offering_id=tape_offering_id,
+		requested_overall_length_mm=requested_overall_length_mm,
+		dimming_protocol_code=dimming_protocol_code,
+		qty=qty,
+	)
+
+	# Add the auto-selected tape info to the response
+	result["auto_selected_tape"] = {
+		"tape_offering_id": tape_offering_id,
+		"tape_details": tape_result.get("tape_details"),
+		"delivered_output_lm_ft": delivered_output_value,
+		"led_package": led_package_code,
+		"cct": cct_code,
+	}
+
+	# Add info message about auto-selection
+	if result.get("messages") is None:
+		result["messages"] = []
+	result["messages"].append({
+		"severity": "info",
+		"text": f"Tape '{tape_offering_id}' was automatically selected based on your output choice of {delivered_output_value} lm/ft",
+		"field": None,
+	})
+
+	if tape_result.get("warning"):
+		result["messages"].append({
+			"severity": "warning",
+			"text": tape_result["warning"],
+			"field": None,
+		})
+
+	return result
+
+
+@frappe.whitelist()
 def validate_and_quote_multisegment(
 	fixture_template_code: str,
 	finish_code: str,
@@ -2750,3 +2896,677 @@ def _create_or_update_configured_fixture(
 		doc.insert(ignore_permissions=True)
 
 	return doc.name
+
+
+# =============================================================================
+# CASCADING CONFIGURATOR API - Dynamic Option Filtering
+# =============================================================================
+# These functions support the new configurator flow where options are filtered
+# dynamically based on previous selections, and tape is auto-selected based on
+# the user's output choice.
+#
+# Flow:
+# 1. User selects fixture template
+# 2. get_led_packages_for_template -> LED Package options (from linked tapes)
+# 3. User selects LED Package
+# 4. get_environment_ratings_for_template -> Environment Rating options
+# 5. User selects Environment Rating
+# 6. get_ccts_for_template -> CCT options (filtered by LED Package + Environment)
+# 7. User selects CCT
+# 8. get_lens_appearances_for_template -> Lens Appearance options
+# 9. User selects Lens Appearance
+# 10. get_delivered_outputs_for_template -> Computed fixture output options
+# 11. User selects Output -> auto_select_tape_for_configuration
+# =============================================================================
+
+
+@frappe.whitelist()
+def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
+	"""
+	Get available LED Package options based on tapes linked to the fixture template.
+
+	This is Step 2 in the cascading configurator flow. Returns only LED Package
+	codes that are present on at least one tape offering linked to the template.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+
+	Returns:
+		dict: {
+			"success": bool,
+			"led_packages": [{"value": code, "label": label, "spectrum_type": type}],
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"success": False, "led_packages": [], "error": f"Template '{fixture_template_code}' not found"}
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Get all tape offerings linked to this template
+	tape_offering_names = [
+		row.tape_offering for row in template_doc.get("allowed_tape_offerings", [])
+		if row.tape_offering
+	]
+
+	if not tape_offering_names:
+		return {"success": True, "led_packages": [], "error": None}
+
+	# Get unique LED packages from those tape offerings
+	led_packages_from_tapes = frappe.get_all(
+		"ilL-Rel-Tape Offering",
+		filters={"name": ["in", tape_offering_names], "is_active": 1},
+		fields=["led_package"],
+		distinct=True,
+	)
+
+	led_package_codes = list({row.led_package for row in led_packages_from_tapes if row.led_package})
+
+	if not led_package_codes:
+		return {"success": True, "led_packages": [], "error": None}
+
+	# Get LED package details
+	led_packages = frappe.get_all(
+		"ilL-Attribute-LED Package",
+		filters={"name": ["in", led_package_codes]},
+		fields=["name", "code", "spectrum_type"],
+	)
+
+	result = [
+		{
+			"value": pkg.name,
+			"label": pkg.name,
+			"code": pkg.code,
+			"spectrum_type": pkg.spectrum_type,
+		}
+		for pkg in led_packages
+	]
+
+	return {"success": True, "led_packages": result, "error": None}
+
+
+@frappe.whitelist()
+def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str, Any]:
+	"""
+	Get available Environment Rating options for a fixture template.
+
+	This returns environment ratings from the template's allowed options.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+
+	Returns:
+		dict: {
+			"success": bool,
+			"environment_ratings": [{"value": code, "label": label}],
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"success": False, "environment_ratings": [], "error": f"Template '{fixture_template_code}' not found"}
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Get environment ratings from allowed options
+	env_ratings = []
+	for row in template_doc.get("allowed_options", []):
+		if row.option_type == "Environment Rating" and row.environment_rating and row.is_active:
+			env_ratings.append(row.environment_rating)
+
+	env_ratings = list(set(env_ratings))
+
+	if not env_ratings:
+		return {"success": True, "environment_ratings": [], "error": None}
+
+	# Get environment rating details
+	env_docs = frappe.get_all(
+		"ilL-Attribute-Environment Rating",
+		filters={"name": ["in", env_ratings]},
+		fields=["name", "label", "code"],
+	)
+
+	result = [
+		{
+			"value": env.name,
+			"label": env.label or env.name,
+			"code": env.code,
+		}
+		for env in env_docs
+	]
+
+	return {"success": True, "environment_ratings": result, "error": None}
+
+
+@frappe.whitelist()
+def get_ccts_for_template(
+	fixture_template_code: str,
+	led_package_code: str = None,
+	environment_rating_code: str = None,
+) -> dict[str, Any]:
+	"""
+	Get available CCT options based on compatible tapes.
+
+	Filters CCTs based on:
+	- Tapes linked to the fixture template
+	- Selected LED Package (if provided)
+	- Selected Environment Rating (if provided, checks tape offering constraints)
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		led_package_code: Selected LED Package (optional filter)
+		environment_rating_code: Selected Environment Rating (optional filter)
+
+	Returns:
+		dict: {
+			"success": bool,
+			"ccts": [{"value": code, "label": label, "kelvin": int}],
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"success": False, "ccts": [], "error": f"Template '{fixture_template_code}' not found"}
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Get tape offerings linked to this template, filtering by environment rating if specified
+	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+
+	# Build list of valid tape offering names considering environment rating constraint
+	valid_tape_offering_names = []
+	for row in allowed_tape_rows:
+		if not row.tape_offering:
+			continue
+		# If the row has an environment_rating constraint, it must match
+		if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
+			continue
+		valid_tape_offering_names.append(row.tape_offering)
+
+	if not valid_tape_offering_names:
+		return {"success": True, "ccts": [], "error": None}
+
+	# Build tape offering filter
+	tape_filters = {
+		"name": ["in", valid_tape_offering_names],
+		"is_active": 1,
+	}
+
+	# Filter by LED package if specified
+	if led_package_code:
+		tape_filters["led_package"] = led_package_code
+
+	# Get CCTs from matching tape offerings
+	tape_offerings = frappe.get_all(
+		"ilL-Rel-Tape Offering",
+		filters=tape_filters,
+		fields=["cct"],
+		distinct=True,
+	)
+
+	cct_codes = list({row.cct for row in tape_offerings if row.cct})
+
+	if not cct_codes:
+		return {"success": True, "ccts": [], "error": None}
+
+	# Get CCT details
+	ccts = frappe.get_all(
+		"ilL-Attribute-CCT",
+		filters={"name": ["in", cct_codes], "is_active": 1},
+		fields=["name", "code", "label", "kelvin", "sort_order"],
+		order_by="sort_order asc, kelvin asc",
+	)
+
+	result = [
+		{
+			"value": cct.name,
+			"label": cct.label or cct.name,
+			"code": cct.code,
+			"kelvin": cct.kelvin,
+		}
+		for cct in ccts
+	]
+
+	return {"success": True, "ccts": result, "error": None}
+
+
+@frappe.whitelist()
+def get_delivered_outputs_for_template(
+	fixture_template_code: str,
+	led_package_code: str,
+	environment_rating_code: str,
+	cct_code: str,
+	lens_appearance_code: str,
+) -> dict[str, Any]:
+	"""
+	Calculate and return available fixture output options (delivered lumens).
+
+	This is the key function that computes the delivered output options based on:
+	1. Compatible tapes (filtered by LED Package, Environment Rating, CCT)
+	2. Lens transmission percentage
+
+	The delivered output = tape lumen output × lens transmission %, rounded to nearest 50.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		led_package_code: Selected LED Package
+		environment_rating_code: Selected Environment Rating
+		cct_code: Selected CCT
+		lens_appearance_code: Selected Lens Appearance
+
+	Returns:
+		dict: {
+			"success": bool,
+			"delivered_outputs": [
+				{
+					"value": int (delivered lm/ft rounded to 50),
+					"label": str (e.g., "350 lm/ft"),
+					"tape_output_lm_ft": int,
+					"transmission_pct": float,
+					"matching_tape_count": int
+				}
+			],
+			"compatible_tapes": [tape_offering_id, ...],
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "error": f"Template '{fixture_template_code}' not found"}
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Get lens transmission percentage
+	lens_transmission = 100.0  # Default to 100% if not specified
+	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
+		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+		if lens_doc.transmission:
+			lens_transmission = float(lens_doc.transmission)
+
+	# Get tape offerings linked to this template, filtering by environment rating
+	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+
+	# Build list of valid tape offering names considering constraints
+	valid_tape_offering_names = []
+	for row in allowed_tape_rows:
+		if not row.tape_offering:
+			continue
+		# If the row has an environment_rating constraint, it must match
+		if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
+			continue
+		# If the row has a lens_appearance constraint, it must match
+		if lens_appearance_code and row.lens_appearance and row.lens_appearance != lens_appearance_code:
+			continue
+		valid_tape_offering_names.append(row.tape_offering)
+
+	if not valid_tape_offering_names:
+		return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "error": None}
+
+	# Build tape offering filter for exact matches
+	tape_filters = {
+		"name": ["in", valid_tape_offering_names],
+		"is_active": 1,
+		"led_package": led_package_code,
+		"cct": cct_code,
+	}
+
+	# Get matching tape offerings with their output levels
+	tape_offerings = frappe.get_all(
+		"ilL-Rel-Tape Offering",
+		filters=tape_filters,
+		fields=["name", "output_level", "tape_spec"],
+	)
+
+	if not tape_offerings:
+		return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "error": None}
+
+	# Get output level values (lm/ft) for each tape
+	output_level_names = list({t.output_level for t in tape_offerings if t.output_level})
+
+	output_level_values = {}
+	if output_level_names:
+		output_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"name": ["in", output_level_names]},
+			fields=["name", "value", "sku_code"],
+		)
+		output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
+
+	# Calculate delivered outputs
+	# Map: delivered_output_value -> {tape_output, transmission, matching_tapes}
+	delivered_output_map: dict[int, dict] = {}
+	compatible_tapes = []
+
+	for tape in tape_offerings:
+		if not tape.output_level or tape.output_level not in output_level_values:
+			continue
+
+		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
+		delivered_lm_ft = tape_output_lm_ft * (lens_transmission / 100.0)
+
+		# Round to nearest 50
+		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
+
+		if delivered_rounded not in delivered_output_map:
+			delivered_output_map[delivered_rounded] = {
+				"tape_output_lm_ft": tape_output_lm_ft,
+				"transmission_pct": lens_transmission,
+				"matching_tapes": [],
+			}
+		delivered_output_map[delivered_rounded]["matching_tapes"].append(tape.name)
+		compatible_tapes.append(tape.name)
+
+	# Build result sorted by output value
+	delivered_outputs = []
+	for output_val in sorted(delivered_output_map.keys()):
+		data = delivered_output_map[output_val]
+		delivered_outputs.append({
+			"value": output_val,
+			"label": f"{output_val} lm/ft",
+			"tape_output_lm_ft": data["tape_output_lm_ft"],
+			"transmission_pct": data["transmission_pct"],
+			"matching_tape_count": len(data["matching_tapes"]),
+		})
+
+	return {
+		"success": True,
+		"delivered_outputs": delivered_outputs,
+		"compatible_tapes": list(set(compatible_tapes)),
+		"lens_transmission_pct": lens_transmission,
+		"error": None,
+	}
+
+
+@frappe.whitelist()
+def auto_select_tape_for_configuration(
+	fixture_template_code: str,
+	led_package_code: str,
+	environment_rating_code: str,
+	cct_code: str,
+	lens_appearance_code: str,
+	delivered_output_value: int,
+) -> dict[str, Any]:
+	"""
+	Automatically select the tape offering based on the user's configuration choices.
+
+	This is the final step that narrows down to a single tape based on:
+	- LED Package, Environment Rating, CCT (exact match)
+	- Lens appearance (for constraint checking)
+	- Delivered output (reverse-calculated to find matching tape output)
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		led_package_code: Selected LED Package
+		environment_rating_code: Selected Environment Rating
+		cct_code: Selected CCT
+		lens_appearance_code: Selected Lens Appearance
+		delivered_output_value: User's selected delivered output (lm/ft, rounded to 50)
+
+	Returns:
+		dict: {
+			"success": bool,
+			"tape_offering_id": str or None,
+			"tape_details": {
+				"output_level": str,
+				"output_value_lm_ft": int,
+				"tape_spec": str,
+				"cri": str,
+				"sdcm": str
+			} or None,
+			"error": str (if failed or ambiguous)
+		}
+	"""
+	try:
+		delivered_output_value = int(delivered_output_value)
+	except (ValueError, TypeError):
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "Invalid delivered output value"}
+
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": f"Template '{fixture_template_code}' not found"}
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Get lens transmission percentage
+	lens_transmission = 100.0
+	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
+		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+		if lens_doc.transmission:
+			lens_transmission = float(lens_doc.transmission)
+
+	# Get valid tape offering names from template (with constraint filtering)
+	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+	valid_tape_offering_names = []
+
+	for row in allowed_tape_rows:
+		if not row.tape_offering:
+			continue
+		if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
+			continue
+		if lens_appearance_code and row.lens_appearance and row.lens_appearance != lens_appearance_code:
+			continue
+		valid_tape_offering_names.append(row.tape_offering)
+
+	if not valid_tape_offering_names:
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No compatible tapes found"}
+
+	# Get matching tape offerings
+	tape_filters = {
+		"name": ["in", valid_tape_offering_names],
+		"is_active": 1,
+		"led_package": led_package_code,
+		"cct": cct_code,
+	}
+
+	tape_offerings = frappe.get_all(
+		"ilL-Rel-Tape Offering",
+		filters=tape_filters,
+		fields=["name", "output_level", "tape_spec", "cri", "sdcm"],
+	)
+
+	if not tape_offerings:
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No matching tapes found for selection"}
+
+	# Get output level values
+	output_level_names = list({t.output_level for t in tape_offerings if t.output_level})
+	output_level_values = {}
+	if output_level_names:
+		output_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"name": ["in", output_level_names]},
+			fields=["name", "value", "sku_code"],
+		)
+		output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
+
+	# Find the tape(s) that match the delivered output
+	matching_tapes = []
+
+	for tape in tape_offerings:
+		if not tape.output_level or tape.output_level not in output_level_values:
+			continue
+
+		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
+		delivered_lm_ft = tape_output_lm_ft * (lens_transmission / 100.0)
+		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
+
+		if delivered_rounded == delivered_output_value:
+			matching_tapes.append({
+				"tape_offering_id": tape.name,
+				"output_level": tape.output_level,
+				"output_value_lm_ft": tape_output_lm_ft,
+				"tape_spec": tape.tape_spec,
+				"cri": tape.cri,
+				"sdcm": tape.sdcm,
+			})
+
+	if not matching_tapes:
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No tape matches the selected output"}
+
+	if len(matching_tapes) > 1:
+		# Multiple tapes match - this shouldn't happen with proper data, but handle gracefully
+		# Pick the first one and add a warning
+		selected = matching_tapes[0]
+		return {
+			"success": True,
+			"tape_offering_id": selected["tape_offering_id"],
+			"tape_details": {
+				"output_level": selected["output_level"],
+				"output_value_lm_ft": selected["output_value_lm_ft"],
+				"tape_spec": selected["tape_spec"],
+				"cri": selected["cri"],
+				"sdcm": selected["sdcm"],
+			},
+			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected first match.",
+			"error": None,
+		}
+
+	# Single match - perfect!
+	selected = matching_tapes[0]
+	return {
+		"success": True,
+		"tape_offering_id": selected["tape_offering_id"],
+		"tape_details": {
+			"output_level": selected["output_level"],
+			"output_value_lm_ft": selected["output_value_lm_ft"],
+			"tape_spec": selected["tape_spec"],
+			"cri": selected["cri"],
+			"sdcm": selected["sdcm"],
+		},
+		"error": None,
+	}
+
+
+@frappe.whitelist()
+def get_cascading_options_for_template(
+	fixture_template_code: str,
+	led_package_code: str = None,
+	environment_rating_code: str = None,
+	cct_code: str = None,
+	lens_appearance_code: str = None,
+) -> dict[str, Any]:
+	"""
+	Get all available options for the cascading configurator in one call.
+
+	This is a convenience function that returns all option lists filtered by
+	the current selections. Use this for progressive disclosure UI patterns.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		led_package_code: Selected LED Package (optional)
+		environment_rating_code: Selected Environment Rating (optional)
+		cct_code: Selected CCT (optional)
+		lens_appearance_code: Selected Lens Appearance (optional)
+
+	Returns:
+		dict: {
+			"success": bool,
+			"options": {
+				"led_packages": [...],
+				"environment_ratings": [...],
+				"ccts": [...],
+				"lens_appearances": [...],
+				"mountings": [...],
+				"finishes": [...],
+				"delivered_outputs": [...] (only if all required selections made)
+			},
+			"selected_tape": str or None (if output determines a single tape),
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"success": False, "options": {}, "error": f"Template '{fixture_template_code}' not found"}
+
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	options = {
+		"led_packages": [],
+		"environment_ratings": [],
+		"ccts": [],
+		"lens_appearances": [],
+		"mountings": [],
+		"finishes": [],
+		"delivered_outputs": [],
+	}
+
+	# Get LED packages
+	led_pkg_result = get_led_packages_for_template(fixture_template_code)
+	if led_pkg_result.get("success"):
+		options["led_packages"] = led_pkg_result.get("led_packages", [])
+
+	# Get environment ratings
+	env_result = get_environment_ratings_for_template(fixture_template_code)
+	if env_result.get("success"):
+		options["environment_ratings"] = env_result.get("environment_ratings", [])
+
+	# Get CCTs (filtered by LED package and environment rating if provided)
+	cct_result = get_ccts_for_template(
+		fixture_template_code,
+		led_package_code=led_package_code,
+		environment_rating_code=environment_rating_code,
+	)
+	if cct_result.get("success"):
+		options["ccts"] = cct_result.get("ccts", [])
+
+	# Get lens appearances from allowed options
+	for row in template_doc.get("allowed_options", []):
+		if row.option_type == "Lens Appearance" and row.lens_appearance and row.is_active:
+			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
+			options["lens_appearances"].append({
+				"value": row.lens_appearance,
+				"label": row.lens_appearance,
+				"code": lens_doc.code if lens_doc else "",
+				"transmission": lens_doc.transmission if lens_doc else 100,
+			})
+
+	# Deduplicate lens appearances
+	seen_lenses = set()
+	unique_lenses = []
+	for lens in options["lens_appearances"]:
+		if lens["value"] not in seen_lenses:
+			seen_lenses.add(lens["value"])
+			unique_lenses.append(lens)
+	options["lens_appearances"] = unique_lenses
+
+	# Get mountings from allowed options
+	for row in template_doc.get("allowed_options", []):
+		if row.option_type == "Mounting Method" and row.mounting_method and row.is_active:
+			options["mountings"].append({
+				"value": row.mounting_method,
+				"label": row.mounting_method,
+			})
+
+	# Deduplicate mountings
+	seen_mountings = set()
+	unique_mountings = []
+	for m in options["mountings"]:
+		if m["value"] not in seen_mountings:
+			seen_mountings.add(m["value"])
+			unique_mountings.append(m)
+	options["mountings"] = unique_mountings
+
+	# Get finishes from allowed options
+	for row in template_doc.get("allowed_options", []):
+		if row.option_type == "Finish" and row.finish and row.is_active:
+			options["finishes"].append({
+				"value": row.finish,
+				"label": row.finish,
+			})
+
+	# Deduplicate finishes
+	seen_finishes = set()
+	unique_finishes = []
+	for f in options["finishes"]:
+		if f["value"] not in seen_finishes:
+			seen_finishes.add(f["value"])
+			unique_finishes.append(f)
+	options["finishes"] = unique_finishes
+
+	# Get delivered outputs (only if all required selections are made)
+	if led_package_code and environment_rating_code and cct_code and lens_appearance_code:
+		output_result = get_delivered_outputs_for_template(
+			fixture_template_code,
+			led_package_code,
+			environment_rating_code,
+			cct_code,
+			lens_appearance_code,
+		)
+		if output_result.get("success"):
+			options["delivered_outputs"] = output_result.get("delivered_outputs", [])
+
+	return {"success": True, "options": options, "error": None}
