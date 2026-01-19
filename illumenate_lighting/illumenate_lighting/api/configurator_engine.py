@@ -498,6 +498,137 @@ def validate_and_quote_with_output(
 
 
 @frappe.whitelist()
+def validate_and_quote_multisegment_with_output(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_color_code: str,
+	environment_rating_code: str,
+	led_package_code: str,
+	cct_code: str,
+	delivered_output_value: int,
+	segments_json: str,
+	dimming_protocol_code: str = None,
+	qty: int = 1,
+) -> dict[str, Any]:
+	"""
+	Validate and quote a multi-segment fixture using the output-based cascading flow.
+
+	This combines:
+	- Multi-segment fixture support (segments with jumpers/endcaps)
+	- Output-based tape auto-selection (user picks output level, tape is auto-selected)
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		finish_code: Finish option code
+		lens_appearance_code: Lens appearance option code
+		mounting_method_code: Mounting method option code
+		endcap_color_code: Endcap color option code
+		environment_rating_code: Environment rating option code
+		led_package_code: LED Package code (new cascading flow)
+		cct_code: CCT code (new cascading flow)
+		delivered_output_value: User's selected delivered output in lm/ft (rounded to 50)
+		segments_json: JSON string array of segment definitions
+		dimming_protocol_code: User's desired dimming protocol
+		qty: Quantity (default: 1)
+
+	Returns:
+		dict: Response containing validation status, computed values, resolved items,
+		      pricing, configured fixture ID, and auto-selected tape info
+	"""
+	# Convert delivered_output_value to int
+	try:
+		delivered_output_value = int(delivered_output_value)
+		qty = int(qty) if qty else 1
+	except (ValueError, TypeError):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "Invalid numeric value for delivered_output_value or qty",
+					"field": "delivered_output_value",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+			"auto_selected_tape": None,
+		}
+
+	# Auto-select the tape based on the configuration
+	tape_result = auto_select_tape_for_configuration(
+		fixture_template_code=fixture_template_code,
+		led_package_code=led_package_code,
+		environment_rating_code=environment_rating_code,
+		cct_code=cct_code,
+		lens_appearance_code=lens_appearance_code,
+		delivered_output_value=delivered_output_value,
+	)
+
+	if not tape_result.get("success") or not tape_result.get("tape_offering_id"):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": tape_result.get("error") or "Could not determine tape for selected configuration",
+					"field": "delivered_output_value",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+			"auto_selected_tape": None,
+		}
+
+	tape_offering_id = tape_result["tape_offering_id"]
+
+	# Delegate to the standard multi-segment function
+	result = validate_and_quote_multisegment(
+		fixture_template_code=fixture_template_code,
+		finish_code=finish_code,
+		lens_appearance_code=lens_appearance_code,
+		mounting_method_code=mounting_method_code,
+		endcap_color_code=endcap_color_code,
+		environment_rating_code=environment_rating_code,
+		tape_offering_id=tape_offering_id,
+		segments_json=segments_json,
+		dimming_protocol_code=dimming_protocol_code,
+		qty=qty,
+	)
+
+	# Add auto-selected tape info
+	result["auto_selected_tape"] = {
+		"tape_offering_id": tape_offering_id,
+		"led_package_code": led_package_code,
+		"cct_code": cct_code,
+		"delivered_output_value": delivered_output_value,
+	}
+
+	# Add info message about auto-selection
+	if result.get("messages") is None:
+		result["messages"] = []
+	result["messages"].insert(0, {
+		"severity": "info",
+		"text": f"Tape '{tape_offering_id}' was automatically selected based on your output choice of {delivered_output_value} lm/ft",
+		"field": None,
+	})
+
+	if tape_result.get("warning"):
+		result["messages"].append({
+			"severity": "warning",
+			"text": tape_result["warning"],
+			"field": None,
+		})
+
+	return result
+
+
+@frappe.whitelist()
 def validate_and_quote_multisegment(
 	fixture_template_code: str,
 	finish_code: str,
@@ -3481,6 +3612,8 @@ def get_cascading_options_for_template(
 		"lens_appearances": [],
 		"mountings": [],
 		"finishes": [],
+		"endcap_colors": [],
+		"power_feed_type": [],
 		"delivered_outputs": [],
 	}
 
@@ -3556,6 +3689,40 @@ def get_cascading_options_for_template(
 			seen_finishes.add(f["value"])
 			unique_finishes.append(f)
 	options["finishes"] = unique_finishes
+
+	# Get endcap colors from allowed options
+	for row in template_doc.get("allowed_options", []):
+		if row.option_type == "Endcap Color" and row.endcap_color and row.is_active:
+			options["endcap_colors"].append({
+				"value": row.endcap_color,
+				"label": row.endcap_color,
+			})
+
+	# Deduplicate endcap colors
+	seen_colors = set()
+	unique_colors = []
+	for c in options["endcap_colors"]:
+		if c["value"] not in seen_colors:
+			seen_colors.add(c["value"])
+			unique_colors.append(c)
+	options["endcap_colors"] = unique_colors
+
+	# Get power feed types from allowed options
+	for row in template_doc.get("allowed_options", []):
+		if row.option_type == "Power Feed Type" and row.power_feed_type and row.is_active:
+			options["power_feed_type"].append({
+				"value": row.power_feed_type,
+				"label": row.power_feed_type,
+			})
+
+	# Deduplicate power feed types
+	seen_pft = set()
+	unique_pft = []
+	for p in options["power_feed_type"]:
+		if p["value"] not in seen_pft:
+			seen_pft.add(p["value"])
+			unique_pft.append(p)
+	options["power_feed_type"] = unique_pft
 
 	# Get delivered outputs (only if all required selections are made)
 	if led_package_code and environment_rating_code and cct_code and lens_appearance_code:

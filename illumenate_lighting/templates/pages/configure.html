@@ -146,27 +146,59 @@ Allows users to configure fixtures using segment-based configuration
 						<!-- Options loaded dynamically based on template -->
 						<div id="templateOptions" style="display: none;">
 							<hr>
-							<h6 class="mb-3">{{ _("Options") }}</h6>
+							<h6 class="mb-3">{{ _("Configuration Options") }}</h6>
 
-							<!-- Finish -->
+							<!-- LED Package (Step 1 - from linked tapes) -->
 							<div class="option-group">
-								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" data-field="finish_code"></div>
-								<select class="form-control select-fallback" name="finish_code" required></select>
+								<label class="option-label">{{ _("LED Package") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="led_package_code"></div>
+								<select class="form-control select-fallback" name="led_package_code" required></select>
 							</div>
 
-							<!-- Lens Appearance -->
+							<!-- Environment Rating (Step 2) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="environment_rating_code"></div>
+								<select class="form-control select-fallback" name="environment_rating_code" required></select>
+							</div>
+
+							<!-- CCT (Step 3 - filtered by LED Package + Environment) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Color Temperature (CCT)") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="cct_code"></div>
+								<select class="form-control select-fallback" name="cct_code" required></select>
+							</div>
+
+							<!-- Lens Appearance (Step 4) -->
 							<div class="option-group">
 								<label class="option-label">{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="lens_appearance_code"></div>
 								<select class="form-control select-fallback" name="lens_appearance_code" required></select>
 							</div>
 
+							<!-- Delivered Output (Step 5 - computed from tape × lens transmission) -->
+							<div class="option-group" id="outputGroup" style="display: none;">
+								<label class="option-label">{{ _("Fixture Output") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="delivered_output_value"></div>
+								<select class="form-control select-fallback" name="delivered_output_value" required></select>
+								<small class="text-muted" id="outputHelpText"></small>
+							</div>
+
+							<hr>
+							<h6 class="mb-3">{{ _("Fixture Options") }}</h6>
+
 							<!-- Mounting Method -->
 							<div class="option-group">
 								<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="mounting_method_code"></div>
 								<select class="form-control select-fallback" name="mounting_method_code" required></select>
+							</div>
+
+							<!-- Finish -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="finish_code"></div>
+								<select class="form-control select-fallback" name="finish_code" required></select>
 							</div>
 
 							<!-- Endcap Color -->
@@ -176,18 +208,8 @@ Allows users to configure fixtures using segment-based configuration
 								<select class="form-control select-fallback" name="endcap_color_code" required></select>
 							</div>
 
-							<!-- Environment Rating -->
-							<div class="option-group">
-								<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" data-field="environment_rating_code"></div>
-								<select class="form-control select-fallback" name="environment_rating_code" required></select>
-							</div>
-
-							<!-- Tape Offering (always dropdown due to many options) -->
-							<div class="form-group">
-								<label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
-								<select class="form-control" name="tape_offering_id" required></select>
-							</div>
+							<!-- Hidden field for auto-selected tape -->
+							<input type="hidden" name="tape_offering_id" value="">
 						</div>
 					</form>
 				</div>
@@ -494,14 +516,55 @@ $('select[name="fixture_template_code"]').on('change', function() {
 	}
 });
 
+// Cascading option change handlers
+$('select[name="led_package_code"]').on('change', function() {
+	updateCCTOptions();
+	updateDeliveredOutputs();
+	updateUI();
+});
+
+$('select[name="environment_rating_code"]').on('change', function() {
+	updateCCTOptions();
+	updateDeliveredOutputs();
+	updateUI();
+});
+
+$('select[name="cct_code"]').on('change', function() {
+	updateDeliveredOutputs();
+	updateUI();
+});
+
+$('select[name="lens_appearance_code"]').on('change', function() {
+	updateDeliveredOutputs();
+	updateUI();
+});
+
+$('select[name="delivered_output_value"]').on('change', function() {
+	autoSelectTape();
+	updateUI();
+});
+
+$('select[name="mounting_method_code"]').on('change', function() {
+	updateUI();
+});
+
+$('select[name="finish_code"]').on('change', function() {
+	updateUI();
+});
+
+$('select[name="endcap_color_code"]').on('change', function() {
+	updateUI();
+});
+
 function loadTemplateOptions(template_code) {
+	// Use the cascading options API
 	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_template_options',
-		args: { template_code: template_code },
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template',
+		args: { fixture_template_code: template_code },
 		callback: function(r) {
-			if (r.message) {
-				templateOptions = r.message;
-				populateOptions(r.message);
+			if (r.message && r.message.success) {
+				templateOptions = r.message.options;
+				populateOptions(r.message.options);
 				// Populate power feed options in existing segments
 				$('.segment-card').each(function() {
 					populateSegmentPowerFeedOptions($(this));
@@ -511,13 +574,146 @@ function loadTemplateOptions(template_code) {
 	});
 }
 
+function updateCCTOptions() {
+	var template_code = $('select[name="fixture_template_code"]').val();
+	var led_package = $('select[name="led_package_code"]').val();
+	var environment = $('select[name="environment_rating_code"]').val();
+	
+	if (!template_code) return;
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_ccts_for_template',
+		args: {
+			fixture_template_code: template_code,
+			led_package_code: led_package || null,
+			environment_rating_code: environment || null
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				populatePillSelector('cct_code', r.message.ccts);
+			}
+		}
+	});
+}
+
+function updateDeliveredOutputs() {
+	var template_code = $('select[name="fixture_template_code"]').val();
+	var led_package = $('select[name="led_package_code"]').val();
+	var environment = $('select[name="environment_rating_code"]').val();
+	var cct = $('select[name="cct_code"]').val();
+	var lens = $('select[name="lens_appearance_code"]').val();
+	
+	// Only fetch outputs when all required fields are selected
+	if (!template_code || !led_package || !environment || !cct || !lens) {
+		$('#outputGroup').hide();
+		$('input[name="tape_offering_id"]').val('');
+		return;
+	}
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_delivered_outputs_for_template',
+		args: {
+			fixture_template_code: template_code,
+			led_package_code: led_package,
+			environment_rating_code: environment,
+			cct_code: cct,
+			lens_appearance_code: lens
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#outputGroup').show();
+				populatePillSelector('delivered_output_value', r.message.delivered_outputs);
+				
+				// Show helpful text about lens transmission
+				var transmission = r.message.lens_transmission_pct || 100;
+				$('#outputHelpText').text('Output adjusted for ' + transmission.toFixed(0) + '% lens transmission');
+			} else {
+				$('#outputGroup').hide();
+			}
+		}
+	});
+}
+
+function autoSelectTape() {
+	var template_code = $('select[name="fixture_template_code"]').val();
+	var led_package = $('select[name="led_package_code"]').val();
+	var environment = $('select[name="environment_rating_code"]').val();
+	var cct = $('select[name="cct_code"]').val();
+	var lens = $('select[name="lens_appearance_code"]').val();
+	var output = $('select[name="delivered_output_value"]').val();
+	
+	if (!template_code || !led_package || !environment || !cct || !lens || !output) {
+		$('input[name="tape_offering_id"]').val('');
+		return;
+	}
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.auto_select_tape_for_configuration',
+		args: {
+			fixture_template_code: template_code,
+			led_package_code: led_package,
+			environment_rating_code: environment,
+			cct_code: cct,
+			lens_appearance_code: lens,
+			delivered_output_value: parseInt(output)
+		},
+		callback: function(r) {
+			if (r.message && r.message.success && r.message.tape_offering_id) {
+				$('input[name="tape_offering_id"]').val(r.message.tape_offering_id);
+			} else {
+				$('input[name="tape_offering_id"]').val('');
+				if (r.message && r.message.error) {
+					frappe.msgprint({
+						title: __('Tape Selection'),
+						message: r.message.error,
+						indicator: 'orange'
+					});
+				}
+			}
+		}
+	});
+}
+
+function populatePillSelector(fieldName, options) {
+	var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+	var selectFallback = $('select[name="' + fieldName + '"]');
+	
+	// Clear existing
+	pillContainer.empty();
+	selectFallback.empty().append('<option value="">Select...</option>');
+	
+	if (options && options.length > 0) {
+		options.forEach(function(opt) {
+			var label = opt.label || opt.value;
+			// Add pill button
+			var pill = $('<label class="pill-option">' +
+				'<input type="radio" name="' + fieldName + '_pill" value="' + opt.value + '">' +
+				label +
+			'</label>');
+			pill.on('click', function() {
+				// Update pill selection
+				pillContainer.find('.pill-option').removeClass('active');
+				$(this).addClass('active');
+				// Sync to select and trigger change
+				selectFallback.val(opt.value).trigger('change');
+			});
+			pillContainer.append(pill);
+			
+			// Add to fallback select
+			selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
+		});
+	}
+}
+
 function populateOptions(options) {
-	// Fields that use pill selectors
+	// Map API response keys to form field names
 	var pillFields = {
-		'finish': 'finish_code',
-		'lens_appearance': 'lens_appearance_code',
-		'mounting_method': 'mounting_method_code',
-		'environment_rating': 'environment_rating_code'
+		'led_packages': 'led_package_code',
+		'environment_ratings': 'environment_rating_code',
+		'ccts': 'cct_code',
+		'lens_appearances': 'lens_appearance_code',
+		'mountings': 'mounting_method_code',
+		'finishes': 'finish_code'
 	};
 	
 	// Populate pill selectors and their fallback selects
@@ -593,14 +789,11 @@ function populateOptions(options) {
 		colorPillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
 	});
 
-	// Populate tape offerings (always dropdown)
-	var tapeSelect = $('select[name="tape_offering_id"]');
-	tapeSelect.empty().append('<option value="">Select...</option>');
-	if (options.tape_offerings) {
-		options.tape_offerings.forEach(function(opt) {
-			tapeSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
-		});
-	}
+	// Hide output group initially - will be shown when all cascading selections are made
+	$('#outputGroup').hide();
+	
+	// Clear auto-selected tape offering
+	$('input[name="tape_offering_id"]').val('');
 }
 
 function populateSegmentPowerFeedOptions(segmentCard) {
@@ -820,11 +1013,24 @@ function updateUI() {
 	// Update segment count badge
 	$('#segmentCountBadge').text(segmentCount + ' segment' + (segmentCount !== 1 ? 's' : ''));
 	
-	// Check if fixture is complete (last segment ends with Endcap)
+	// Check if fixture is complete
 	var lastSegment = $('#segmentsList .segment-card').last();
-	var isComplete = lastSegment.length && lastSegment.find('[name="end_type"]').val() === 'Endcap';
+	var segmentComplete = lastSegment.length && lastSegment.find('[name="end_type"]').val() === 'Endcap';
+	
+	// Check if all required cascading fields are selected
+	var cascadingComplete = (
+		$('[name="led_package_code"]').val() &&
+		$('[name="environment_rating_code"]').val() &&
+		$('[name="cct_code"]').val() &&
+		$('[name="lens_appearance_code"]').val() &&
+		$('[name="delivered_output_value"]').val() &&
+		$('[name="mounting_method_code"]').val() &&
+		$('[name="finish_code"]').val() &&
+		$('[name="endcap_color_code"]').val()
+	);
 	
 	// Enable/disable calculate button based on completeness
+	var isComplete = segmentComplete && cascadingComplete;
 	$('#calculateBtn').prop('disabled', !isComplete);
 	
 	// Update segment numbers
@@ -924,27 +1130,57 @@ function validateAndQuote() {
 		return;
 	}
 	
+	// Check if tape was auto-selected
+	var tapeOfferingId = form.find('[name="tape_offering_id"]').val();
+	var deliveredOutputValue = form.find('[name="delivered_output_value"]').val();
+	
+	// Build request data for the output-based API
 	var data = {
 		fixture_template_code: form.find('[name="fixture_template_code"]').val(),
-		finish_code: form.find('[name="finish_code"]').val(),
+		led_package_code: form.find('[name="led_package_code"]').val(),
+		environment_rating_code: form.find('[name="environment_rating_code"]').val(),
+		cct_code: form.find('[name="cct_code"]').val(),
 		lens_appearance_code: form.find('[name="lens_appearance_code"]').val(),
+		finish_code: form.find('[name="finish_code"]').val(),
 		mounting_method_code: form.find('[name="mounting_method_code"]').val(),
 		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
-		environment_rating_code: form.find('[name="environment_rating_code"]').val(),
-		tape_offering_id: form.find('[name="tape_offering_id"]').val(),
 		segments_json: JSON.stringify(segments)
 	};
 	
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
-		args: data,
-		callback: function(r) {
-			if (r.message) {
-				currentResult = r.message;
-				displayResults(r.message);
+	// Use the output-based API if we have delivered_output_value, otherwise use tape_offering_id
+	if (deliveredOutputValue) {
+		data.delivered_output_value = parseInt(deliveredOutputValue);
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment_with_output',
+			args: data,
+			callback: function(r) {
+				if (r.message) {
+					currentResult = r.message;
+					displayResults(r.message);
+				}
 			}
-		}
-	});
+		});
+	} else if (tapeOfferingId) {
+		// Fallback to old API with tape_offering_id
+		data.tape_offering_id = tapeOfferingId;
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
+			args: data,
+			callback: function(r) {
+				if (r.message) {
+					currentResult = r.message;
+					displayResults(r.message);
+				}
+			}
+		});
+	} else {
+		frappe.msgprint({
+			title: __('Missing Selection'),
+			message: __('Please select an Output Level to continue.'),
+			indicator: 'orange'
+		});
+		return;
+	}
 }
 
 function displayResults(result) {

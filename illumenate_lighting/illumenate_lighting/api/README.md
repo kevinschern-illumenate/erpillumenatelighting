@@ -701,6 +701,52 @@ Same as `validate_and_quote` with additional fields:
 }
 ```
 
+### `validate_and_quote_multisegment_with_output`
+
+**Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment_with_output`
+
+Combines multi-segment fixture support with output-based tape auto-selection. This is the primary API for the portal configurator's new cascading flow.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `fixture_template_code` | string | Yes | Code of the fixture template |
+| `finish_code` | string | Yes | Finish option code |
+| `lens_appearance_code` | string | Yes | Lens appearance option code |
+| `mounting_method_code` | string | Yes | Mounting method option code |
+| `endcap_color_code` | string | Yes | Endcap color option code |
+| `environment_rating_code` | string | Yes | Environment rating option code |
+| `led_package_code` | string | Yes | LED Package code |
+| `cct_code` | string | Yes | CCT code |
+| `delivered_output_value` | integer | Yes | User's selected delivered output (lm/ft) |
+| `segments_json` | string | Yes | JSON array of segment definitions |
+| `dimming_protocol_code` | string | No | Dimming protocol code (optional) |
+| `qty` | integer | No | Quantity (default: 1) |
+
+#### Response
+
+Same as `validate_and_quote_multisegment` with additional `auto_selected_tape` field:
+
+```json
+{
+  "is_valid": true,
+  "messages": [
+    {"severity": "info", "text": "Tape 'TAPE-XYZ' was automatically selected..."}
+  ],
+  "computed": {...},
+  "resolved_items": {...},
+  "pricing": {...},
+  "configured_fixture_id": "...",
+  "auto_selected_tape": {
+    "tape_offering_id": "TAPE-XYZ",
+    "led_package_code": "LED-PKG-1",
+    "cct_code": "3000K",
+    "delivered_output_value": 250
+  }
+}
+```
+
 ### `get_cascading_options_for_template`
 
 **Path:** `illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template`
