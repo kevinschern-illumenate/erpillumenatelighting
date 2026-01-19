@@ -1,0 +1,1255 @@
+{#
+Portal Schedule Detail Page
+Displays a fixture schedule with its lines and configurator actions
+Also handles new schedule creation when is_new is True
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}{% endblock %}
+
+{% block style %}
+<style>
+.action-buttons .btn {
+	margin-left: 2px;
+	margin-right: 2px;
+}
+.action-buttons .btn i {
+	pointer-events: none;
+}
+.fixture-details {
+	line-height: 1.4;
+}
+.fixture-details .small span {
+	white-space: nowrap;
+}
+.fixture-details .small i {
+	width: 14px;
+	text-align: center;
+}
+.fixture-details strong {
+	font-size: 0.95rem;
+}
+.table td {
+	vertical-align: middle;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
+			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}</li>
+		</ol>
+	</nav>
+
+	{% if is_new %}
+	<!-- New Schedule Form -->
+	<div class="row">
+		<div class="col-lg-6">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Create New Fixture Schedule") }}</h5>
+				</div>
+				<div class="card-body">
+					<form id="createScheduleForm">
+						<input type="hidden" name="ill_project" value="{{ project.name }}">
+						<div class="form-group">
+							<label>{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="schedule_name" required placeholder="{{ _('e.g., Area A - Linear Fixtures') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Project") }}</label>
+							<input type="text" class="form-control" value="{{ project.project_name }}" readonly>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Notes") }}</label>
+							<textarea class="form-control" name="notes" rows="3" placeholder="{{ _('Optional notes about this schedule') }}"></textarea>
+						</div>
+						<hr>
+						<div class="d-flex justify-content-between">
+							<a href="/portal/projects/{{ project.name }}" class="btn btn-secondary">
+								<i class="fa fa-arrow-left"></i> {{ _("Cancel") }}
+							</a>
+							<button type="submit" class="btn btn-primary">
+								<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% else %}
+
+	<!-- Schedule Header -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-body">
+					<div class="d-flex justify-content-between align-items-start">
+						<div>
+							<h1 class="mb-2">{{ schedule.schedule_name }}</h1>
+							<p class="text-muted mb-2">
+								<strong>{{ _("Project") }}:</strong> {{ project.project_name }}
+							</p>
+							<div class="d-flex align-items-center gap-2">
+								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge">
+									{{ schedule.status }}
+								</span>
+								{% if can_edit and schedule.status not in ['ORDERED', 'CLOSED'] %}
+								<div class="dropdown d-inline-block ml-2">
+									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+										<i class="fa fa-exchange"></i> {{ _("Change Status") }}
+									</button>
+									<div class="dropdown-menu" aria-labelledby="statusDropdown">
+										{% if schedule.status != 'DRAFT' %}
+										<a class="dropdown-item" href="#" onclick="changeStatus('DRAFT'); return false;">
+											<i class="fa fa-pencil text-warning"></i> {{ _("DRAFT") }}
+											<small class="text-muted d-block">{{ _("Continue editing") }}</small>
+										</a>
+										{% endif %}
+										{% if schedule.status != 'READY' %}
+										<a class="dropdown-item" href="#" onclick="changeStatus('READY'); return false;">
+											<i class="fa fa-check-circle text-info"></i> {{ _("READY") }}
+											<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
+										</a>
+										{% endif %}
+										{% if (is_dealer or is_internal) and schedule.status != 'QUOTED' %}
+										<a class="dropdown-item" href="#" onclick="changeStatus('QUOTED'); return false;">
+											<i class="fa fa-file-text text-primary"></i> {{ _("QUOTED") }}
+											<small class="text-muted d-block">{{ _("Quote provided") }}</small>
+										</a>
+										{% endif %}
+									</div>
+								</div>
+								{% endif %}
+							</div>
+						</div>
+						<div class="btn-group">
+							{% if can_edit and schedule.status in ['DRAFT', 'READY'] %}
+							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
+								<i class="fa fa-plus"></i> {{ _("Add Line") }}
+							</button>
+							{% endif %}
+							{% if can_edit and schedule.status == 'READY' and not (is_dealer or is_internal) %}
+							<button class="btn btn-success" onclick="requestQuote()">
+								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
+							</button>
+							{% endif %}
+							{% set can_create_order = can_edit and ((schedule.status in ['READY', 'QUOTED'] and (is_dealer or is_internal)) or (schedule.status == 'QUOTED' and not (is_dealer or is_internal))) %}
+							{% if can_create_order %}
+							<button class="btn btn-success" onclick="createSalesOrder()">
+								<i class="fa fa-shopping-cart"></i> {{ _("Convert to Sales Order") }}
+							</button>
+							{% endif %}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Summary Panel -->
+	<div class="row mb-4">
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
+					<h3 class="mb-0">{{ lines | length }}</h3>
+					<small class="text-muted">{{ _("Total Lines") }}</small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
+					<h3 class="mb-0">{{ total_qty }}</h3>
+					<small class="text-muted">{{ _("Total Qty") }}</small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
+					<h3 class="mb-0">{{ illumenate_count }}</h3>
+					<small class="text-muted">{{ _("ilLumenate Fixtures") }}</small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+			<div class="card text-center h-100">
+				<div class="card-body d-flex flex-column justify-content-center align-items-center">
+					<h3 class="mb-0">{{ other_count }}</h3>
+					<small class="text-muted">{{ _("Other Fixtures") }}</small>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Fixture Lines Table -->
+	<div class="row">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Fixture Lines") }}</h5>
+				</div>
+				<div class="card-body p-0">
+					{% if lines %}
+					<div class="table-responsive">
+						<table class="table table-hover mb-0">
+							<thead class="thead-light">
+								<tr>
+									<th>{{ _("Line ID") }}</th>
+									<th>{{ _("Type") }}</th>
+									<th class="text-center">{{ _("Qty") }}</th>
+									<th>{{ _("Location") }}</th>
+									<th>{{ _("Fixture Details") }}</th>
+									{% if can_edit %}
+									<th class="text-center">{{ _("Actions") }}</th>
+									{% endif %}
+								</tr>
+							</thead>
+							<tbody>
+								{% for line in lines %}
+								<tr>
+									<td>{{ line.get('line_id') or line.get('idx') }}</td>
+									<td>
+										<span class="badge badge-{{ 'primary' if line.get('manufacturer_type') == 'ILLUMENATE' else 'secondary' }}">
+											{{ 'ilLumenate' if line.get('manufacturer_type') == 'ILLUMENATE' else 'Other' }}
+										</span>
+									</td>
+									<td class="text-center">{{ line.get('qty') }}</td>
+									<td>{{ line.get('location') or '-' }}</td>
+									<td>
+										{% if line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
+										{% set cf_details = line.get('cf_details', {}) %}
+										<div class="fixture-details">
+											<strong class="text-primary">
+												{{ cf_details.get('part_number') or line.get('ill_item_code') or 'Configured' }}
+												{% if cf_details.get('is_multi_segment') %}
+													<span class="badge badge-info ml-1" title="{{ _('Multi-segment fixture with jumper cables') }}">J</span>
+												{% endif %}
+											</strong>
+											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
+											<div class="small text-info mt-1 build-description">
+												<i class="fa fa-link"></i> 
+												<em>{{ cf_details.get('user_segment_count', 0) }} segment(s) with jumper cables</em>
+												<button type="button" class="btn btn-xs btn-link p-0 ml-1" 
+														data-toggle="popover" 
+														data-placement="bottom" 
+														data-html="true"
+														data-trigger="focus"
+														title="{{ _('Build Details') }}"
+														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description', '') | replace('\n', '<br>') }}</pre>">
+													<i class="fa fa-info-circle"></i>
+												</button>
+											</div>
+											{% endif %}
+											<div class="small text-muted mt-1">
+												{% if cf_details.get('estimated_delivered_output') %}
+												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.get('estimated_delivered_output') }} lm/ft est.</span>
+												{% endif %}
+												{% if cf_details.get('cct') %}
+												<span class="mr-2"><i class="fa fa-thermometer-half"></i> {{ cf_details.get('cct') }}</span>
+												{% endif %}
+												{% if cf_details.get('led_package') %}
+												<span class="mr-2"><i class="fa fa-microchip"></i> {{ cf_details.get('led_package') }}</span>
+												{% endif %}
+											</div>
+											<div class="small text-muted">
+												{% if cf_details.get('power_supply') %}
+												<span class="mr-2"><i class="fa fa-plug"></i> {{ cf_details.get('power_supply') }}</span>
+												{% endif %}
+												{% if cf_details.get('driver_input_voltage') %}
+												<span class="mr-2"><i class="fa fa-bolt"></i> {{ cf_details.get('driver_input_voltage') }}</span>
+												{% endif %}
+												{% if cf_details.get('finish') %}
+												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ cf_details.get('finish') }}</span>
+												{% endif %}
+											</div>
+											{% if line.get('manufacturable_length_mm') %}
+											<div class="small text-muted">
+												<i class="fa fa-arrows-h"></i> {{ line.get('manufacturable_length_mm') }}mm
+												{% if cf_details.get('is_multi_segment') %}
+													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
+												{% endif %}
+											</div>
+											{% endif %}
+										</div>
+										{% elif line.get('manufacturer_type') == 'OTHER' %}
+										<div class="fixture-details">
+											{% if line.get('manufacturer_name') %}
+											<strong>{{ line.get('manufacturer_name') }}</strong>
+											{% endif %}
+											{% if line.get('fixture_model_number') %}
+											<span class="text-muted"> - {{ line.get('fixture_model_number') }}</span>
+											{% endif %}
+											<div class="small text-muted mt-1">
+												{% if line.get('trim_info') %}
+												<span class="mr-2"><i class="fa fa-th"></i> {{ line.get('trim_info') }}</span>
+												{% endif %}
+												{% if line.get('housing_model_number') %}
+												<span class="mr-2"><i class="fa fa-cube"></i> {{ line.get('housing_model_number') }}</span>
+												{% endif %}
+											</div>
+											<div class="small text-muted">
+												{% if line.get('driver_model_number') %}
+												<span class="mr-2"><i class="fa fa-plug"></i> {{ line.get('driver_model_number') }}</span>
+												{% endif %}
+												{% if line.get('lamp_info') %}
+												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ line.get('lamp_info') }}</span>
+												{% endif %}
+											</div>
+											<div class="small text-muted">
+												{% if line.get('dimming_protocol') %}
+												<span class="mr-2"><i class="fa fa-sliders"></i> {{ line.get('dimming_protocol') }}</span>
+												{% endif %}
+												{% if line.get('input_voltage') %}
+												<span class="mr-2"><i class="fa fa-bolt"></i> {{ line.get('input_voltage') }}</span>
+												{% endif %}
+												{% if line.get('other_finish') %}
+												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ line.get('other_finish') }}</span>
+												{% endif %}
+											</div>
+											{% if line.get('spec_sheet') %}
+											<div class="small mt-1">
+												<a href="{{ line.get('spec_sheet') }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">
+													<i class="fa fa-file-pdf-o"></i> {{ _("Spec Sheet") }}
+												</a>
+											</div>
+											{% endif %}
+										</div>
+										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
+										<span class="text-muted">{{ _("Not configured") }}</span>
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									{% if can_edit %}
+									<td class="text-center">
+										<div class="action-buttons">
+											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
+											<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<i class="fa fa-cog"></i> {{ _('Configure') }}
+											</a>
+											{% endif %}
+											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit') }}">
+												<i class="fa fa-pencil"></i> {{ _('Edit') }}
+											</button>
+												<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
+													<i class="fa fa-copy"></i> {{ _('Duplicate') }}
+												</button>
+												<button class="btn btn-sm btn-outline-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
+													<i class="fa fa-trash"></i> {{ _('Delete') }}
+											</button>
+										</div>
+									</td>
+									{% endif %}
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<div class="text-center py-5">
+						<i class="fa fa-list fa-3x text-muted mb-3"></i>
+						<p class="text-muted">{{ _("No fixture lines yet. Add a line to get started.") }}</p>
+						{% if can_edit %}
+						<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
+							<i class="fa fa-plus"></i> {{ _("Add Line") }}
+						</button>
+						{% endif %}
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Notes Section -->
+	{% if schedule.notes %}
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Notes") }}</h5>
+				</div>
+				<div class="card-body">
+					{{ schedule.notes }}
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+
+	<!-- Exports Section -->
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Exports") }}</h5>
+					<div class="btn-group">
+						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', false)">
+							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (No Pricing)") }}
+						</button>
+						{% if can_view_pricing %}
+						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', true)">
+							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (With Pricing)") }}
+						</button>
+						{% endif %}
+						<button class="btn btn-sm btn-outline-secondary" onclick="generateExport('csv', false)">
+							<i class="fa fa-file-excel-o"></i> {{ _("CSV (No Pricing)") }}
+						</button>
+						{% if can_view_pricing %}
+						<button class="btn btn-sm btn-outline-secondary" onclick="generateExport('csv', true)">
+							<i class="fa fa-file-excel-o"></i> {{ _("CSV (With Pricing)") }}
+						</button>
+						{% endif %}
+					</div>
+				</div>
+				<div class="card-body p-0">
+					<div id="exportHistoryContainer">
+						<div class="text-center py-3">
+							<i class="fa fa-spinner fa-spin"></i> {{ _("Loading export history...") }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Add Line Modal -->
+<div class="modal fade" id="addLineModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Add Fixture Line") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="addLineForm">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Line ID") }}</label>
+								<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Quantity") }}</label>
+								<input type="number" class="form-control" name="qty" value="1" min="1">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Manufacturer Type") }}</label>
+								<select class="form-control" name="manufacturer_type">
+									<option value="ILLUMENATE">ilLumenate</option>
+									<option value="OTHER">Other Manufacturer</option>
+								</select>
+							</div>
+						</div>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Location") }}</label>
+						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
+					</div>
+
+					<!-- ilLumenate Configure Button -->
+					<div class="illumenate-fields" style="display: block;">
+						<hr>
+						<div class="alert alert-info">
+							<i class="fa fa-info-circle"></i> 
+							{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
+						</div>
+						<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
+							<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
+						</button>
+					</div>
+
+					<!-- Other Manufacturer Fields -->
+					<div class="other-fields" style="display: none;">
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("Other Manufacturer Details") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
+									<input type="text" class="form-control" name="manufacturer_name">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Fixture Model Number") }}</label>
+									<input type="text" class="form-control" name="fixture_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Trim Information") }}</label>
+									<input type="text" class="form-control" name="trim_info">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Housing Model Number") }}</label>
+									<input type="text" class="form-control" name="housing_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Driver Model Number") }}</label>
+									<input type="text" class="form-control" name="driver_model_number">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Lamp Information") }}</label>
+									<input type="text" class="form-control" name="lamp_info">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Dimming Protocol") }}</label>
+									<input type="text" class="form-control" name="dimming_protocol" placeholder="e.g., 0-10V, DALI, Triac...">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Input Voltage") }}</label>
+									<input type="text" class="form-control" name="input_voltage" placeholder="e.g., 120V, 277V...">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Finish") }}</label>
+									<input type="text" class="form-control" name="other_finish">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Spec Sheet") }}</label>
+									<input type="file" class="form-control-file" name="spec_sheet_file" id="add_spec_sheet_file">
+									<small class="text-muted">{{ _("Upload a spec sheet PDF or image") }}</small>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="form-group">
+						<label>{{ _("Notes") }}</label>
+						<textarea class="form-control" name="notes" rows="2"></textarea>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="addLineBtn" onclick="addLine()">
+					<i class="fa fa-plus"></i> {{ _("Add Line") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Edit Line Modal -->
+<div class="modal fade" id="editLineModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Edit Fixture Line") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="editLineForm">
+					<input type="hidden" name="edit_line_idx" id="edit_line_idx">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Line ID") }}</label>
+								<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Quantity") }}</label>
+								<input type="number" class="form-control" name="edit_qty" id="edit_qty" value="1" min="1">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>{{ _("Manufacturer Type") }}</label>
+								<input type="text" class="form-control" id="edit_manufacturer_type" readonly>
+							</div>
+						</div>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Location") }}</label>
+						<input type="text" class="form-control" name="edit_location" id="edit_location" placeholder="e.g., Kitchen, Office...">
+					</div>
+
+					<!-- Other Manufacturer Fields -->
+					<div class="edit-other-fields" style="display: none;">
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("Other Manufacturer Details") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
+									<input type="text" class="form-control" name="edit_manufacturer_name" id="edit_manufacturer_name">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Fixture Model Number") }}</label>
+									<input type="text" class="form-control" name="edit_fixture_model_number" id="edit_fixture_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Trim Information") }}</label>
+									<input type="text" class="form-control" name="edit_trim_info" id="edit_trim_info">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Housing Model Number") }}</label>
+									<input type="text" class="form-control" name="edit_housing_model_number" id="edit_housing_model_number">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Driver Model Number") }}</label>
+									<input type="text" class="form-control" name="edit_driver_model_number" id="edit_driver_model_number">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Lamp Information") }}</label>
+									<input type="text" class="form-control" name="edit_lamp_info" id="edit_lamp_info">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Dimming Protocol") }}</label>
+									<input type="text" class="form-control" name="edit_dimming_protocol" id="edit_dimming_protocol">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Input Voltage") }}</label>
+									<input type="text" class="form-control" name="edit_input_voltage" id="edit_input_voltage">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Finish") }}</label>
+									<input type="text" class="form-control" name="edit_other_finish" id="edit_other_finish">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Spec Sheet") }}</label>
+									<div id="edit_spec_sheet_current" class="mb-2"></div>
+									<input type="file" class="form-control-file" name="edit_spec_sheet_file" id="edit_spec_sheet_file">
+									<small class="text-muted">{{ _("Upload a new spec sheet to replace existing") }}</small>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="form-group">
+						<label>{{ _("Notes") }}</label>
+						<textarea class="form-control" name="edit_notes" id="edit_notes" rows="2"></textarea>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" onclick="saveEditLine()">
+					<i class="fa fa-save"></i> {{ _("Save Changes") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block script %}
+<script>
+{% if is_new %}
+// Handle create schedule form submission
+$('#createScheduleForm').on('submit', function(e) {
+	e.preventDefault();
+
+	var form = $(this);
+	var submitBtn = form.find('button[type="submit"]');
+
+	// Prevent double submission
+	if (submitBtn.prop('disabled')) {
+		return;
+	}
+
+	submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+
+	var data = {
+		schedule_name: form.find('[name="schedule_name"]').val(),
+		ill_project: form.find('[name="ill_project"]').val(),
+		notes: form.find('[name="notes"]').val()
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule',
+		args: {
+			schedule_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Schedule created successfully'
+				});
+				// Redirect to the new schedule
+				window.location.href = '/portal/schedules/' + r.message.schedule_name;
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error creating schedule'
+				});
+				submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Schedule');
+			}
+		},
+		error: function() {
+			submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Schedule');
+		}
+	});
+});
+{% else %}
+var schedule_name = "{{ schedule.name }}";
+
+// Initialize Bootstrap popovers for build description
+$('[data-toggle="popover"]').popover();
+
+// Toggle other manufacturer fields and ilLumenate fields
+$('select[name="manufacturer_type"]').on('change', function() {
+	if ($(this).val() === 'OTHER') {
+		$('.other-fields').show();
+		$('.illumenate-fields').hide();
+	} else {
+		$('.other-fields').hide();
+		$('.illumenate-fields').show();
+	}
+});
+
+// Initialize the visibility on page load (default is ILLUMENATE)
+$('.illumenate-fields').show();
+$('.other-fields').hide();
+
+// File upload helper function
+function uploadFile(fileInput, callback) {
+	var file = fileInput.files[0];
+	if (!file) {
+		callback(null);
+		return;
+	}
+
+	var formData = new FormData();
+	formData.append('file', file);
+	formData.append('is_private', 0);
+	formData.append('folder', 'Home/Attachments');
+
+	$.ajax({
+		url: '/api/method/upload_file',
+		type: 'POST',
+		data: formData,
+		processData: false,
+		contentType: false,
+		headers: {
+			'X-Frappe-CSRF-Token': frappe.csrf_token
+		},
+		success: function(r) {
+			if (r.message && r.message.file_url) {
+				callback(r.message.file_url);
+			} else {
+				callback(null);
+			}
+		},
+		error: function() {
+			callback(null);
+		}
+	});
+}
+
+function addLine() {
+	var form = $('#addLineForm');
+	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	var data = {
+		line_id: form.find('[name="line_id"]').val(),
+		qty: form.find('[name="qty"]').val(),
+		location: form.find('[name="location"]').val(),
+		manufacturer_type: manufacturerType,
+		notes: form.find('[name="notes"]').val()
+	};
+
+	// Add Other manufacturer fields if applicable
+	if (manufacturerType === 'OTHER') {
+		data.manufacturer_name = form.find('[name="manufacturer_name"]').val();
+		data.fixture_model_number = form.find('[name="fixture_model_number"]').val();
+		data.trim_info = form.find('[name="trim_info"]').val();
+		data.housing_model_number = form.find('[name="housing_model_number"]').val();
+		data.driver_model_number = form.find('[name="driver_model_number"]').val();
+		data.lamp_info = form.find('[name="lamp_info"]').val();
+		data.dimming_protocol = form.find('[name="dimming_protocol"]').val();
+		data.input_voltage = form.find('[name="input_voltage"]').val();
+		data.other_finish = form.find('[name="other_finish"]').val();
+	}
+
+	// Handle file upload if present
+	var fileInput = document.getElementById('add_spec_sheet_file');
+	if (manufacturerType === 'OTHER' && fileInput && fileInput.files.length > 0) {
+		uploadFile(fileInput, function(fileUrl) {
+			if (fileUrl) {
+				data.spec_sheet = fileUrl;
+			}
+			submitAddLine(data);
+		});
+	} else {
+		submitAddLine(data);
+	}
+}
+
+function submitAddLine(data) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#addLineModal').modal('hide');
+				location.reload();
+			} else {
+				frappe.msgprint(r.message.error || 'Error adding line');
+			}
+		}
+	});
+}
+
+function configureFromAddModal() {
+	var form = $('#addLineForm');
+	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	
+	// Only allow configuring for ILLUMENATE manufacturer
+	if (manufacturerType !== 'ILLUMENATE') {
+		frappe.msgprint('Configure is only available for ilLumenate fixtures');
+		return;
+	}
+
+	// Prepare line data
+	var data = {
+		line_id: form.find('[name="line_id"]').val(),
+		qty: form.find('[name="qty"]').val(),
+		location: form.find('[name="location"]').val(),
+		manufacturer_type: manufacturerType,
+		notes: form.find('[name="notes"]').val()
+	};
+
+	// Disable the configure button to prevent double clicks
+	$('#configureFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
+
+	// Add the line first, then redirect to configure
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				// Get the newly added line index
+				var newLineIdx = r.message.line_idx;
+				
+				// Close the modal
+				$('#addLineModal').modal('hide');
+				
+				// Redirect to configure page with schedule and line index
+				window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx;
+			} else {
+				frappe.msgprint(r.message.error || 'Error adding line');
+				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+			}
+		},
+		error: function() {
+			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+		}
+	});
+}
+
+function duplicateLine(line_idx) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.duplicate_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_idx: line_idx
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				location.reload();
+			} else {
+				frappe.msgprint(r.message.error || 'Error duplicating line');
+			}
+		}
+	});
+}
+
+// Line data for editing
+var lineData = {{ lines_json | tojson if lines_json else '[]' }};
+
+function editLine(line_idx) {
+	var line = lineData[line_idx];
+	if (!line) {
+		frappe.msgprint('Line not found');
+		return;
+	}
+
+	// Populate the edit form
+	$('#edit_line_idx').val(line_idx);
+	$('#edit_line_id').val(line.line_id || '');
+	$('#edit_qty').val(line.qty || 1);
+	$('#edit_location').val(line.location || '');
+	$('#edit_notes').val(line.notes || '');
+	$('#edit_manufacturer_type').val(line.manufacturer_type || 'ILLUMENATE');
+
+	// Show/hide other manufacturer fields
+	if (line.manufacturer_type === 'OTHER') {
+		$('.edit-other-fields').show();
+		$('#edit_manufacturer_name').val(line.manufacturer_name || '');
+		$('#edit_fixture_model_number').val(line.fixture_model_number || '');
+		$('#edit_trim_info').val(line.trim_info || '');
+		$('#edit_housing_model_number').val(line.housing_model_number || '');
+		$('#edit_driver_model_number').val(line.driver_model_number || '');
+		$('#edit_lamp_info').val(line.lamp_info || '');
+		$('#edit_dimming_protocol').val(line.dimming_protocol || '');
+		$('#edit_input_voltage').val(line.input_voltage || '');
+		$('#edit_other_finish').val(line.other_finish || '');
+
+		// Show current spec sheet if exists
+		if (line.spec_sheet) {
+			$('#edit_spec_sheet_current').html(
+				'<a href="' + line.spec_sheet + '" target="_blank" class="btn btn-sm btn-outline-secondary">' +
+				'<i class="fa fa-file-pdf-o"></i> Current Spec Sheet</a>'
+			);
+		} else {
+			$('#edit_spec_sheet_current').html('<span class="text-muted">No spec sheet uploaded</span>');
+		}
+	} else {
+		$('.edit-other-fields').hide();
+	}
+
+	$('#editLineModal').modal('show');
+}
+
+function saveEditLine() {
+	var line_idx = $('#edit_line_idx').val();
+	var line = lineData[line_idx];
+	var line_data = {
+		line_id: $('#edit_line_id').val(),
+		qty: $('#edit_qty').val(),
+		location: $('#edit_location').val(),
+		notes: $('#edit_notes').val()
+	};
+
+	// Add Other manufacturer fields if applicable
+	if (line && line.manufacturer_type === 'OTHER') {
+		line_data.manufacturer_name = $('#edit_manufacturer_name').val();
+		line_data.fixture_model_number = $('#edit_fixture_model_number').val();
+		line_data.trim_info = $('#edit_trim_info').val();
+		line_data.housing_model_number = $('#edit_housing_model_number').val();
+		line_data.driver_model_number = $('#edit_driver_model_number').val();
+		line_data.lamp_info = $('#edit_lamp_info').val();
+		line_data.dimming_protocol = $('#edit_dimming_protocol').val();
+		line_data.input_voltage = $('#edit_input_voltage').val();
+		line_data.other_finish = $('#edit_other_finish').val();
+
+		// Handle file upload if present
+		var fileInput = document.getElementById('edit_spec_sheet_file');
+		if (fileInput && fileInput.files.length > 0) {
+			uploadFile(fileInput, function(fileUrl) {
+				if (fileUrl) {
+					line_data.spec_sheet = fileUrl;
+				}
+				submitEditLine(line_idx, line_data);
+			});
+			return;
+		}
+	}
+
+	submitEditLine(line_idx, line_data);
+}
+
+function submitEditLine(line_idx, line_data) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_idx: line_idx,
+			line_data: line_data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#editLineModal').modal('hide');
+				location.reload();
+			} else {
+				frappe.msgprint(r.message.error || 'Error updating line');
+			}
+		}
+	});
+}
+
+function deleteLine(line_idx) {
+	frappe.confirm('Are you sure you want to delete this line?', function() {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule_line',
+			args: {
+				schedule_name: schedule_name,
+				line_idx: line_idx
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					location.reload();
+				}
+			}
+		});
+	});
+}
+
+function changeStatus(new_status) {
+	var statusLabels = {
+		'DRAFT': 'Draft',
+		'READY': 'Ready',
+		'QUOTED': 'Quoted'
+	};
+	frappe.confirm('Change schedule status to ' + statusLabels[new_status] + '?', function() {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_status',
+			args: {
+				schedule_name: schedule_name,
+				new_status: new_status
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.show_alert({
+						message: 'Status updated to ' + new_status,
+						indicator: 'green'
+					});
+					location.reload();
+				} else {
+					frappe.msgprint({
+						title: 'Error',
+						indicator: 'red',
+						message: r.message.error || 'Error updating status'
+					});
+				}
+			}
+		});
+	});
+}
+
+function requestQuote() {
+	frappe.confirm('Request a quote for this schedule?', function() {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.request_schedule_quote',
+			args: {
+				schedule_name: schedule_name
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.msgprint({
+						title: 'Success',
+						indicator: 'green',
+						message: 'Quote requested successfully'
+					});
+					location.reload();
+				} else {
+					frappe.msgprint(r.message.error || 'Error requesting quote');
+				}
+			}
+		});
+	});
+}
+
+function createSalesOrder() {
+	frappe.confirm('Create a Sales Order from this schedule?', function() {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_sales_order',
+			args: {
+				schedule_name: schedule_name
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.msgprint('Sales Order ' + r.message.sales_order + ' created successfully');
+					location.reload();
+				} else {
+					frappe.msgprint(r.message.error || 'Error creating Sales Order');
+				}
+			}
+		});
+	});
+}
+
+// Export functionality
+function generateExport(format, priced) {
+	var method = format === 'pdf'
+		? 'illumenate_lighting.illumenate_lighting.api.exports.generate_schedule_pdf'
+		: 'illumenate_lighting.illumenate_lighting.api.exports.generate_schedule_csv';
+
+	frappe.show_alert({
+		message: 'Generating ' + format.toUpperCase() + ' export...',
+		indicator: 'blue'
+	});
+
+	frappe.call({
+		method: method,
+		args: {
+			schedule_id: schedule_name,
+			priced: priced
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.show_alert({
+					message: 'Export generated successfully!',
+					indicator: 'green'
+				});
+				// Refresh export history
+				loadExportHistory();
+				// Open download in new tab
+				if (r.message.download_url) {
+					window.open(r.message.download_url, '_blank');
+				}
+			} else {
+				frappe.msgprint({
+					title: 'Export Error',
+					indicator: 'red',
+					message: r.message.error || 'Error generating export'
+				});
+			}
+		},
+		error: function() {
+			frappe.msgprint({
+				title: 'Export Error',
+				indicator: 'red',
+				message: 'Error generating export'
+			});
+		}
+	});
+}
+
+function loadExportHistory() {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.exports.get_export_history',
+		args: {
+			schedule_id: schedule_name
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				renderExportHistory(r.message.exports);
+			} else {
+				$('#exportHistoryContainer').html(
+					'<div class="text-center text-muted py-3">' +
+					'<i class="fa fa-exclamation-circle"></i> ' +
+					(r.message.error || 'Error loading export history') +
+					'</div>'
+				);
+			}
+		}
+	});
+}
+
+function renderExportHistory(exports) {
+	if (!exports || exports.length === 0) {
+		$('#exportHistoryContainer').html(
+			'<div class="text-center text-muted py-3">' +
+			'<i class="fa fa-download"></i> No exports yet. Use the buttons above to generate exports.' +
+			'</div>'
+		);
+		return;
+	}
+
+	var html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+	html += '<thead class="thead-light"><tr>';
+	html += '<th>Type</th>';
+	html += '<th>Status</th>';
+	html += '<th>Requested By</th>';
+	html += '<th>Created</th>';
+	html += '<th>Download</th>';
+	html += '</tr></thead><tbody>';
+
+	exports.forEach(function(exp) {
+		var statusClass = {
+			'QUEUED': 'warning',
+			'RUNNING': 'info',
+			'COMPLETE': 'success',
+			'FAILED': 'danger'
+		}[exp.status] || 'secondary';
+
+		var typeLabel = exp.export_type.replace('_', ' ');
+		var createdOn = exp.created_on ? frappe.datetime.prettyDate(exp.created_on) : '-';
+
+		html += '<tr>';
+		html += '<td>' + typeLabel + '</td>';
+		html += '<td><span class="badge badge-' + statusClass + '">' + exp.status + '</span></td>';
+		html += '<td>' + (exp.requested_by_name || '-') + '</td>';
+		html += '<td>' + createdOn + '</td>';
+		html += '<td>';
+		if (exp.status === 'COMPLETE' && exp.output_file) {
+			html += '<a href="' + exp.output_file + '" target="_blank" class="btn btn-sm btn-outline-primary">';
+			html += '<i class="fa fa-download"></i> Download</a>';
+		} else if (exp.status === 'FAILED') {
+			html += '<span class="text-danger"><i class="fa fa-times"></i> Failed</span>';
+		} else {
+			html += '<span class="text-muted"><i class="fa fa-clock-o"></i> Pending</span>';
+		}
+		html += '</td>';
+		html += '</tr>';
+	});
+
+	html += '</tbody></table></div>';
+	$('#exportHistoryContainer').html(html);
+}
+
+// Load export history on page load
+$(document).ready(function() {
+	loadExportHistory();
+});
+{% endif %}
+</script>
+{% endblock %}

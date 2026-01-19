@@ -1,0 +1,127 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-07 21:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "option_type",
+  "finish",
+  "lens_appearance",
+  "mounting_method",
+  "endcap_style",
+  "power_feed_type",
+  "environment_rating",
+  "column_break_opts",
+  "is_default",
+  "is_active",
+  "msrp_adder"
+ ],
+ "fields": [
+  {
+   "fieldname": "option_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Option Type",
+   "options": "Finish\nLens Appearance\nMounting Method\nEndcap Style\nPower Feed Type\nEnvironment Rating",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Finish'",
+   "fieldname": "finish",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Finish",
+   "mandatory_depends_on": "eval:doc.option_type=='Finish'",
+   "options": "ilL-Attribute-Finish"
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Lens Appearance'",
+   "fieldname": "lens_appearance",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lens Appearance",
+   "mandatory_depends_on": "eval:doc.option_type=='Lens Appearance'",
+   "options": "ilL-Attribute-Lens Appearance"
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Mounting Method'",
+   "fieldname": "mounting_method",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mounting Method",
+   "mandatory_depends_on": "eval:doc.option_type=='Mounting Method'",
+   "options": "ilL-Attribute-Mounting Method"
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Endcap Style'",
+   "fieldname": "endcap_style",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Endcap Style",
+   "mandatory_depends_on": "eval:doc.option_type=='Endcap Style'",
+   "options": "ilL-Attribute-Endcap Style"
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Power Feed Type'",
+   "fieldname": "power_feed_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Power Feed Type",
+   "mandatory_depends_on": "eval:doc.option_type=='Power Feed Type'",
+   "options": "ilL-Attribute-Power Feed Type"
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Environment Rating'",
+   "fieldname": "environment_rating",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Environment Rating",
+   "mandatory_depends_on": "eval:doc.option_type=='Environment Rating'",
+   "options": "ilL-Attribute-Environment Rating"
+  },
+  {
+   "fieldname": "column_break_opts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Default"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "default": "0",
+   "description": "MSRP price adder for this option",
+   "fieldname": "msrp_adder",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "MSRP Adder"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-07 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Template-Allowed-Option",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

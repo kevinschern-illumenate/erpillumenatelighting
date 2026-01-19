@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:label",
+ "creation": "2026-01-07 11:54:33.601121",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "label",
+  "code",
+  "notes",
+  "column_break_bqfj",
+  "style",
+  "allowance_mm_per_side",
+  "supports_feed",
+  "gasketed"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Endcap Label",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_bqfj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "style",
+   "fieldtype": "Select",
+   "label": "Style",
+   "options": "Solid\nFeed-through\nGasketed\nQuick-connect\nCable-grip"
+  },
+  {
+   "fieldname": "allowance_mm_per_side",
+   "fieldtype": "Int",
+   "label": "Allowance per Side (mm)"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_feed",
+   "fieldtype": "Check",
+   "label": "Supports Feed?"
+  },
+  {
+   "default": "0",
+   "fieldname": "gasketed",
+   "fieldtype": "Check",
+   "label": "Gasketed?"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 11:59:40.203387",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Attribute-Endcap Style",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "label, code",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

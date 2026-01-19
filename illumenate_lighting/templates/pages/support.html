@@ -1,0 +1,484 @@
+{#
+Portal Support Page
+Help center, FAQ, and support ticket submission
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Support") }}{% endblock %}
+
+{% block style %}
+<style>
+.portal-page {
+	padding: 2rem 0;
+}
+.page-header {
+	margin-bottom: 2rem;
+}
+.support-hero {
+	background: linear-gradient(135deg, #c2185b 0%, #e91e63 100%);
+	color: white;
+	padding: 2.5rem;
+	border-radius: 12px;
+	margin-bottom: 2rem;
+	text-align: center;
+}
+.support-hero h2 {
+	margin-bottom: 1rem;
+}
+.support-hero .search-box {
+	max-width: 500px;
+	margin: 0 auto;
+}
+.support-hero .form-control {
+	padding: 0.875rem 1.25rem;
+	border-radius: 25px;
+	border: none;
+	font-size: 1rem;
+}
+.contact-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+	gap: 1.5rem;
+	margin-bottom: 2rem;
+}
+.contact-card {
+	background: white;
+	border-radius: 12px;
+	padding: 1.5rem;
+	text-align: center;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	transition: all 0.2s;
+}
+.contact-card:hover {
+	box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+	transform: translateY(-2px);
+}
+.contact-card-icon {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.5rem;
+	margin: 0 auto 1rem;
+}
+.contact-card-icon.email { background: #e3f2fd; color: #1976d2; }
+.contact-card-icon.phone { background: #e8f5e9; color: #388e3c; }
+.contact-card-icon.chat { background: #fff3e0; color: #f57c00; }
+.contact-card-icon.ticket { background: #fce4ec; color: #c2185b; }
+.contact-card h5 {
+	margin-bottom: 0.5rem;
+}
+.contact-card p {
+	color: #666;
+	font-size: 0.9rem;
+	margin-bottom: 1rem;
+}
+.faq-section {
+	margin-bottom: 2rem;
+}
+.faq-category {
+	margin-bottom: 1.5rem;
+}
+.faq-category-title {
+	font-weight: 600;
+	margin-bottom: 1rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 2px solid #e0e0e0;
+}
+.faq-item {
+	background: white;
+	border-radius: 8px;
+	margin-bottom: 0.5rem;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.faq-question {
+	padding: 1rem 1.25rem;
+	cursor: pointer;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-weight: 500;
+}
+.faq-question:hover {
+	background: #fafafa;
+}
+.faq-question i {
+	transition: transform 0.2s;
+	color: #888;
+}
+.faq-item.open .faq-question i {
+	transform: rotate(180deg);
+}
+.faq-answer {
+	display: none;
+	padding: 0 1.25rem 1rem;
+	color: #666;
+	line-height: 1.6;
+}
+.faq-item.open .faq-answer {
+	display: block;
+}
+.ticket-form-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	overflow: hidden;
+}
+.ticket-form-header {
+	padding: 1.5rem;
+	background: #c2185b;
+	color: white;
+}
+.ticket-form-body {
+	padding: 1.5rem;
+}
+.ticket-list {
+	margin-top: 2rem;
+}
+.ticket-item {
+	background: white;
+	border-radius: 8px;
+	padding: 1rem 1.25rem;
+	margin-bottom: 0.75rem;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.ticket-info h6 {
+	margin-bottom: 0.25rem;
+}
+.ticket-meta {
+	font-size: 0.8rem;
+	color: #888;
+}
+.status-badge {
+	padding: 0.25rem 0.75rem;
+	border-radius: 20px;
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+.status-badge.open { background: #fff3e0; color: #ef6c00; }
+.status-badge.in-progress { background: #e3f2fd; color: #1565c2; }
+.status-badge.resolved { background: #e8f5e9; color: #2e7d32; }
+.status-badge.closed { background: #f5f5f5; color: #666; }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-3">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
+			<li class="breadcrumb-item active">{{ _("Support") }}</li>
+		</ol>
+	</nav>
+
+	<!-- Hero Section -->
+	<div class="support-hero">
+		<h2>{{ _("How can we help you?") }}</h2>
+		<p>{{ _("Search our knowledge base or contact our support team") }}</p>
+		<div class="search-box">
+			<input type="text" class="form-control" id="faqSearch" placeholder="{{ _('Search for answers...') }}">
+		</div>
+	</div>
+
+	<!-- Contact Options -->
+	<div class="contact-cards">
+		<div class="contact-card">
+			<div class="contact-card-icon email">
+				<i class="fa fa-envelope"></i>
+			</div>
+			<h5>{{ _("Email Support") }}</h5>
+			<p>{{ _("Get help via email within 24 hours") }}</p>
+			<a href="mailto:support@illumenate.lighting" class="btn btn-outline-primary btn-sm">
+				support@illumenate.lighting
+			</a>
+		</div>
+		<div class="contact-card">
+			<div class="contact-card-icon phone">
+				<i class="fa fa-phone"></i>
+			</div>
+			<h5>{{ _("Phone Support") }}</h5>
+			<p>{{ _("Mon-Fri, 8am-5pm EST") }}</p>
+			<a href="tel:+18005551234" class="btn btn-outline-success btn-sm">
+				1-800-555-1234
+			</a>
+		</div>
+		<div class="contact-card">
+			<div class="contact-card-icon chat">
+				<i class="fa fa-comments"></i>
+			</div>
+			<h5>{{ _("Live Chat") }}</h5>
+			<p>{{ _("Chat with a specialist now") }}</p>
+			<button class="btn btn-outline-warning btn-sm" onclick="openChat()">
+				{{ _("Start Chat") }}
+			</button>
+		</div>
+		<div class="contact-card">
+			<div class="contact-card-icon ticket">
+				<i class="fa fa-ticket"></i>
+			</div>
+			<h5>{{ _("Submit Ticket") }}</h5>
+			<p>{{ _("Track your support requests") }}</p>
+			<a href="#ticketForm" class="btn btn-outline-danger btn-sm">
+				{{ _("Create Ticket") }}
+			</a>
+		</div>
+	</div>
+
+	<div class="row">
+		<!-- FAQ Section -->
+		<div class="col-lg-7 mb-4">
+			<h3 class="mb-4">{{ _("Frequently Asked Questions") }}</h3>
+
+			<!-- Ordering FAQs -->
+			<div class="faq-category">
+				<h5 class="faq-category-title"><i class="fa fa-shopping-cart"></i> {{ _("Ordering & Quotes") }}</h5>
+				
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("How do I get a quote for custom fixtures?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("You can create a fixture schedule in your project and submit it for a quote. Our team will review and provide pricing within 2 business days. For complex projects, we recommend scheduling a consultation.") }}
+					</div>
+				</div>
+
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("What are the standard lead times?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("Standard lead times are 4-6 weeks for most products. Quick-ship options are available for select configurations with 2-week lead times. Custom finishes and special orders may require additional time.") }}
+					</div>
+				</div>
+
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("Do you offer sample fixtures?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("Yes! We offer sample fixtures for qualifying projects. Contact your sales representative or submit a sample request through the portal. Samples are typically available within 1-2 weeks.") }}
+					</div>
+				</div>
+			</div>
+
+			<!-- Technical FAQs -->
+			<div class="faq-category">
+				<h5 class="faq-category-title"><i class="fa fa-cogs"></i> {{ _("Technical Questions") }}</h5>
+				
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("What dimming protocols do you support?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("We support 0-10V, DALI, DMX, and Lutron EcoSystem. Driver selection in the configurator will show compatible dimming options for each fixture.") }}
+					</div>
+				</div>
+
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("Can fixtures be joined at angles?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("Yes, our joiner system supports 90°, 120°, 135°, and custom angles. Corner and T-joints are also available. Contact us for specialized geometric configurations.") }}
+					</div>
+				</div>
+
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("What IP ratings are available?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("Standard indoor fixtures are IP20. We offer IP44 for damp locations and IP65/IP67 for wet locations and outdoor use. Check the environment rating options in the configurator.") }}
+					</div>
+				</div>
+			</div>
+
+			<!-- Shipping FAQs -->
+			<div class="faq-category">
+				<h5 class="faq-category-title"><i class="fa fa-truck"></i> {{ _("Shipping & Delivery") }}</h5>
+				
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("How are fixtures packaged for shipping?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("Fixtures are carefully packaged in custom foam inserts and reinforced boxes. Long linear fixtures are shipped in protective tubes. All packages are insured against damage.") }}
+					</div>
+				</div>
+
+				<div class="faq-item">
+					<div class="faq-question">
+						{{ _("Do you ship internationally?") }}
+						<i class="fa fa-chevron-down"></i>
+					</div>
+					<div class="faq-answer">
+						{{ _("Yes, we ship to most countries. International orders may have different lead times and shipping costs. Contact us for a shipping quote to your location.") }}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Support Ticket Form -->
+		<div class="col-lg-5">
+			<div class="ticket-form-card" id="ticketForm">
+				<div class="ticket-form-header">
+					<h5 class="mb-0"><i class="fa fa-ticket"></i> {{ _("Submit a Support Request") }}</h5>
+				</div>
+				<div class="ticket-form-body">
+					<form id="supportTicketForm">
+						<div class="form-group">
+							<label>{{ _("Category") }} <span class="text-danger">*</span></label>
+							<select class="form-control" name="category" required>
+								<option value="">{{ _("Select category...") }}</option>
+								<option value="order">{{ _("Order Status / Shipping") }}</option>
+								<option value="technical">{{ _("Technical Support") }}</option>
+								<option value="returns">{{ _("Returns / Warranty") }}</option>
+								<option value="billing">{{ _("Billing / Invoice") }}</option>
+								<option value="other">{{ _("Other") }}</option>
+							</select>
+						</div>
+
+						<div class="form-group">
+							<label>{{ _("Subject") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="subject" required placeholder="{{ _('Brief description of your issue') }}">
+						</div>
+
+						<div class="form-group">
+							<label>{{ _("Related Order") }}</label>
+							<select class="form-control" name="order">
+								<option value="">{{ _("Select order (optional)...") }}</option>
+								{% for order in recent_orders %}
+								<option value="{{ order.name }}">{{ order.name }} - {{ frappe.utils.format_date(order.transaction_date) }}</option>
+								{% endfor %}
+							</select>
+						</div>
+
+						<div class="form-group">
+							<label>{{ _("Description") }} <span class="text-danger">*</span></label>
+							<textarea class="form-control" name="description" rows="5" required placeholder="{{ _('Please describe your issue in detail...') }}"></textarea>
+						</div>
+
+						<div class="form-group">
+							<label>{{ _("Attachments") }}</label>
+							<input type="file" class="form-control-file" name="attachments" multiple>
+							<small class="form-text text-muted">{{ _("Upload photos, documents, or other files") }}</small>
+						</div>
+
+						<button type="submit" class="btn btn-danger btn-block">
+							<i class="fa fa-paper-plane"></i> {{ _("Submit Request") }}
+						</button>
+					</form>
+				</div>
+			</div>
+
+			<!-- Recent Tickets -->
+			{% if tickets %}
+			<div class="ticket-list">
+				<h5>{{ _("Your Recent Tickets") }}</h5>
+				{% for ticket in tickets %}
+				<div class="ticket-item">
+					<div class="ticket-info">
+						<h6>{{ ticket.subject }}</h6>
+						<div class="ticket-meta">
+							#{{ ticket.name }} • {{ frappe.utils.format_date(ticket.creation) }}
+						</div>
+					</div>
+					<span class="status-badge {{ ticket.status | lower | replace(' ', '-') }}">
+						{{ ticket.status }}
+					</span>
+				</div>
+				{% endfor %}
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// FAQ toggle
+	document.querySelectorAll('.faq-question').forEach(question => {
+		question.addEventListener('click', function() {
+			const item = this.parentElement;
+			item.classList.toggle('open');
+		});
+	});
+
+	// FAQ search
+	const faqSearch = document.getElementById('faqSearch');
+	const faqItems = document.querySelectorAll('.faq-item');
+
+	faqSearch.addEventListener('input', function() {
+		const query = this.value.toLowerCase();
+
+		faqItems.forEach(item => {
+			const question = item.querySelector('.faq-question').textContent.toLowerCase();
+			const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
+			const match = question.includes(query) || answer.includes(query);
+			item.style.display = match ? 'block' : 'none';
+
+			if (match && query.length > 2) {
+				item.classList.add('open');
+			}
+		});
+	});
+
+	// Support ticket form
+	const form = document.getElementById('supportTicketForm');
+	form.addEventListener('submit', function(e) {
+		e.preventDefault();
+
+		const formData = new FormData(form);
+		const data = Object.fromEntries(formData.entries());
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.create_support_ticket',
+			args: { ticket_data: JSON.stringify(data) },
+			freeze: true,
+			freeze_message: '{{ _("Submitting request...") }}',
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.msgprint({
+						title: '{{ _("Ticket Submitted") }}',
+						indicator: 'green',
+						message: '{{ _("Your support request has been submitted. We will respond within 24 hours.") }}'
+					});
+					form.reset();
+					setTimeout(() => location.reload(), 2000);
+				} else {
+					frappe.msgprint({
+						title: '{{ _("Error") }}',
+						indicator: 'red',
+						message: r.message?.error || '{{ _("An error occurred") }}'
+					});
+				}
+			}
+		});
+	});
+});
+
+function openChat() {
+	// Placeholder for chat integration (Intercom, Zendesk, etc.)
+	frappe.msgprint({
+		title: '{{ _("Live Chat") }}',
+		indicator: 'blue',
+		message: '{{ _("Live chat is coming soon! Please use email or phone support for now.") }}'
+	});
+}
+</script>
+{% endblock %}

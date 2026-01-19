@@ -1,0 +1,348 @@
+{#
+Portal Project Collaborators Page
+Manage collaborators for a project
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Collaborators") }} - {{ project.project_name }}{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
+			<li class="breadcrumb-item active" aria-current="page">{{ _("Collaborators") }}</li>
+		</ol>
+	</nav>
+
+	<!-- Page Header -->
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<div>
+			<h2>{{ _("Manage Collaborators") }}</h2>
+			<p class="text-muted mb-0">
+				{{ _("Control who can view and edit this project") }}
+			</p>
+		</div>
+		<a href="/portal/projects/{{ project.name }}" class="btn btn-secondary">
+			<i class="fa fa-arrow-left"></i> {{ _("Back to Project") }}
+		</a>
+	</div>
+
+	<!-- Privacy Status -->
+	<div class="card mb-4">
+		<div class="card-body">
+			<div class="d-flex justify-content-between align-items-center">
+				<div>
+					<h5 class="mb-1">
+						{% if project.is_private %}
+						<i class="fa fa-lock text-warning"></i> {{ _("Private Project") }}
+						{% else %}
+						<i class="fa fa-building text-info"></i> {{ _("Company Visible") }}
+						{% endif %}
+					</h5>
+					<p class="text-muted mb-0">
+						{% if project.is_private %}
+						{{ _("Only you and listed collaborators can access this project") }}
+						{% else %}
+						{{ _("All users at") }} <strong>{{ project.customer }}</strong> {{ _("can view this project") }}
+						{% endif %}
+					</p>
+				</div>
+				{% if can_manage %}
+				<div class="custom-control custom-switch">
+					<input type="checkbox" class="custom-control-input" id="privacyToggle" 
+						{% if project.is_private %}checked{% endif %}>
+					<label class="custom-control-label" for="privacyToggle">{{ _("Private") }}</label>
+				</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+
+	<!-- Owner Info -->
+	<div class="card mb-4">
+		<div class="card-header">
+			<h5 class="mb-0"><i class="fa fa-user-circle"></i> {{ _("Project Owner") }}</h5>
+		</div>
+		<div class="card-body">
+			<div class="d-flex align-items-center">
+				<div class="avatar avatar-lg mr-3">
+					<i class="fa fa-user fa-2x text-muted"></i>
+				</div>
+				<div>
+					<h6 class="mb-0">{{ frappe.get_doc("User", project.owner).full_name or project.owner }}</h6>
+					<small class="text-muted">{{ project.owner }}</small>
+					<span class="badge badge-primary ml-2">{{ _("Owner") }}</span>
+				</div>
+			</div>
+			<small class="text-muted d-block mt-2">
+				{{ _("The owner always has full access and can manage collaborators") }}
+			</small>
+		</div>
+	</div>
+
+	<!-- Collaborators List -->
+	<div class="card mb-4">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<h5 class="mb-0"><i class="fa fa-users"></i> {{ _("Collaborators") }}</h5>
+			{% if can_manage %}
+			<button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCollaboratorModal">
+				<i class="fa fa-plus"></i> {{ _("Add Collaborator") }}
+			</button>
+			{% endif %}
+		</div>
+		<div class="card-body">
+			{% if collaborators %}
+			<div class="table-responsive">
+				<table class="table table-hover mb-0">
+					<thead>
+						<tr>
+							<th>{{ _("User") }}</th>
+							<th>{{ _("Access Level") }}</th>
+							<th>{{ _("Status") }}</th>
+							<th>{{ _("Added On") }}</th>
+							{% if can_manage %}
+							<th class="text-right">{{ _("Actions") }}</th>
+							{% endif %}
+						</tr>
+					</thead>
+					<tbody id="collaboratorsList">
+						{% for collab in collaborators %}
+						<tr data-user="{{ collab.user }}">
+							<td>
+								<div>
+									<strong>{{ collab.full_name }}</strong>
+									<br><small class="text-muted">{{ collab.email }}</small>
+								</div>
+							</td>
+							<td>
+								{% if can_manage %}
+								<select class="form-control form-control-sm access-level-select" data-user="{{ collab.user }}" style="width: auto;">
+									<option value="VIEW" {% if collab.access_level == "VIEW" %}selected{% endif %}>{{ _("View Only") }}</option>
+									<option value="EDIT" {% if collab.access_level == "EDIT" %}selected{% endif %}>{{ _("Can Edit") }}</option>
+								</select>
+								{% else %}
+								<span class="badge badge-{{ 'success' if collab.access_level == 'EDIT' else 'secondary' }}">
+									{{ _("Can Edit") if collab.access_level == "EDIT" else _("View Only") }}
+								</span>
+								{% endif %}
+							</td>
+							<td>
+								{% if collab.is_active %}
+								<span class="badge badge-success">{{ _("Active") }}</span>
+								{% else %}
+								<span class="badge badge-secondary">{{ _("Inactive") }}</span>
+								{% endif %}
+							</td>
+							<td>
+								<small>{{ frappe.utils.format_date(collab.added_on) if collab.added_on else "-" }}</small>
+							</td>
+							{% if can_manage %}
+							<td class="text-right">
+								<button type="button" class="btn btn-danger btn-sm remove-collaborator" data-user="{{ collab.user }}" title="{{ _('Remove') }}">
+									<i class="fa fa-trash"></i>
+								</button>
+							</td>
+							{% endif %}
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+			{% else %}
+			<div class="text-center py-4">
+				<i class="fa fa-users fa-3x text-muted mb-3"></i>
+				<p class="text-muted">{{ _("No collaborators added yet.") }}</p>
+				{% if can_manage %}
+				<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addCollaboratorModal">
+					<i class="fa fa-plus"></i> {{ _("Add Collaborator") }}
+				</button>
+				{% endif %}
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+<!-- Add Collaborator Modal -->
+{% if can_manage %}
+<div class="modal fade" id="addCollaboratorModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Add Collaborator") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="addCollaboratorForm">
+					<div class="form-group">
+						<label>{{ _("Select User") }} <span class="text-danger">*</span></label>
+						<select class="form-control" name="user" id="newCollaboratorUser" required>
+							<option value="">{{ _("Choose a user...") }}</option>
+							{% for user in available_users %}
+							<option value="{{ user.value }}">{{ user.label }}</option>
+							{% endfor %}
+						</select>
+						{% if not available_users %}
+						<small class="text-muted">{{ _("No users available to add") }}</small>
+						{% endif %}
+					</div>
+					<div class="form-group">
+						<label>{{ _("Access Level") }}</label>
+						<select class="form-control" name="access_level" id="newCollaboratorAccess">
+							<option value="VIEW">{{ _("View Only") }} - {{ _("Can view but not edit") }}</option>
+							<option value="EDIT">{{ _("Can Edit") }} - {{ _("Can view and edit the project") }}</option>
+						</select>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" onclick="addCollaborator()" {% if not available_users %}disabled{% endif %}>
+					<i class="fa fa-plus"></i> {{ _("Add") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block script %}
+<script>
+var projectName = "{{ project.name }}";
+
+{% if can_manage %}
+// Toggle privacy setting
+$('#privacyToggle').on('change', function() {
+	var isPrivate = $(this).is(':checked') ? 1 : 0;
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.toggle_project_privacy',
+		args: {
+			project_name: projectName,
+			is_private: isPrivate
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: isPrivate ? 'Project is now private' : 'Project is now visible to company'
+				});
+				// Reload to update UI
+				setTimeout(function() {
+					window.location.reload();
+				}, 1000);
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error updating privacy setting'
+				});
+				// Revert toggle
+				$('#privacyToggle').prop('checked', !isPrivate);
+			}
+		}
+	});
+});
+
+// Handle access level change
+$('.access-level-select').on('change', function() {
+	saveCollaborators();
+});
+
+// Remove collaborator
+$('.remove-collaborator').on('click', function() {
+	var user = $(this).data('user');
+	
+	if (confirm('Are you sure you want to remove this collaborator?')) {
+		$('tr[data-user="' + user + '"]').remove();
+		saveCollaborators();
+	}
+});
+
+// Add collaborator
+function addCollaborator() {
+	var user = $('#newCollaboratorUser').val();
+	var accessLevel = $('#newCollaboratorAccess').val();
+	
+	if (!user) {
+		frappe.msgprint({
+			title: 'Error',
+			indicator: 'red',
+			message: 'Please select a user'
+		});
+		return;
+	}
+	
+	// Get current collaborators and add new one
+	var collaborators = getCurrentCollaborators();
+	collaborators.push({
+		user: user,
+		access_level: accessLevel,
+		is_active: 1
+	});
+	
+	saveCollaborators(collaborators, function() {
+		$('#addCollaboratorModal').modal('hide');
+		window.location.reload();
+	});
+}
+
+// Get current collaborators from the table
+function getCurrentCollaborators() {
+	var collaborators = [];
+	$('#collaboratorsList tr').each(function() {
+		var user = $(this).data('user');
+		var accessLevel = $(this).find('.access-level-select').val();
+		if (user) {
+			collaborators.push({
+				user: user,
+				access_level: accessLevel,
+				is_active: 1
+			});
+		}
+	});
+	return collaborators;
+}
+
+// Save collaborators
+function saveCollaborators(collaborators, callback) {
+	if (!collaborators) {
+		collaborators = getCurrentCollaborators();
+	}
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_project_collaborators',
+		args: {
+			project_name: projectName,
+			collaborators: collaborators
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Collaborators updated'
+				});
+				if (callback) {
+					callback();
+				}
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error updating collaborators'
+				});
+			}
+		}
+	});
+}
+{% endif %}
+</script>
+{% endblock %}

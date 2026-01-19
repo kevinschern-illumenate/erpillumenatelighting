@@ -1,0 +1,11 @@
+[
+ {
+  "doctype": "ilL-Spec-LED Tape",
+  "item": "TAPE-SH01-24V-5W",
+  "input_voltage": "24V",
+  "watts_per_foot": 5,
+  "cut_increment_mm": 50,
+  "voltage_drop_max_run_length_ft": 16,
+  "is_active": 1
+ }
+]

@@ -1,0 +1,13 @@
+[
+ {
+  "doctype": "ilL-Spec-Driver",
+  "item": "DRIVER-SH01-100W",
+  "voltage_output": "24V",
+  "outputs_count": 4,
+  "max_wattage": 100,
+  "usable_load_factor": 0.8,
+  "dimming_protocol": null,
+  "cost": 75,
+  "is_active": 1
+ }
+]

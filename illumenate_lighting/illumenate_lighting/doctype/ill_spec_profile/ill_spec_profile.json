@@ -1,0 +1,153 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:item",
+ "creation": "2026-01-07 12:08:42.768897",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_sb",
+  "item",
+  "family",
+  "variant_code",
+  "column_break_jrss",
+  "is_active",
+  "stocking_cutting_sb",
+  "stock_length_mm",
+  "max_assembled_length_mm",
+  "column_break_shfd",
+  "is_cuttable",
+  "compatibility_section",
+  "supported_environment_ratings",
+  "supports_joiners",
+  "joiner_system",
+  "lens_interface"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_sb",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "family",
+   "fieldtype": "Data",
+   "label": "Family"
+  },
+  {
+   "fieldname": "variant_code",
+   "fieldtype": "Data",
+   "label": "Variant Code"
+  },
+  {
+   "fieldname": "column_break_jrss",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active?"
+  },
+  {
+   "fieldname": "stocking_cutting_sb",
+   "fieldtype": "Section Break",
+   "label": "Stocking & Cutting"
+  },
+  {
+   "fieldname": "stock_length_mm",
+   "fieldtype": "Int",
+   "label": "Stock Length (mm)"
+  },
+  {
+   "fieldname": "max_assembled_length_mm",
+   "fieldtype": "Int",
+   "label": "Max Assembled Length (mm)"
+  },
+  {
+   "fieldname": "column_break_shfd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cuttable",
+   "fieldtype": "Check",
+   "label": "Is Cuttable?"
+  },
+  {
+   "fieldname": "compatibility_section",
+   "fieldtype": "Section Break",
+   "label": "Compatibility"
+  },
+  {
+   "fieldname": "supported_environment_ratings",
+   "fieldtype": "Table",
+   "label": "Supported Environment Ratings",
+   "options": "ilL-Child-Profile Environment"
+  },
+  {
+   "default": "0",
+   "fieldname": "supports_joiners",
+   "fieldtype": "Check",
+   "label": "Supports Joiners?"
+  },
+  {
+   "fieldname": "joiner_system",
+   "fieldtype": "Link",
+   "label": "Joiner System",
+   "options": "ilL-Attribute-Joiner System"
+  },
+  {
+   "fieldname": "lens_interface",
+   "fieldtype": "Link",
+   "label": "Lens Interface",
+   "options": "ilL-Attribute-Lens Interface Type"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 12:29:30.395128",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

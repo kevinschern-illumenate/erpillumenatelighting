@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:label",
+ "creation": "2026-01-07 11:26:11.290220",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "label",
+  "protocol",
+  "code",
+  "column_break_sfnu",
+  "signal_type",
+  "requires_interface",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Protocol Label",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "protocol",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Protocol",
+   "options": "0-10V\nTRIAC\nELV\nMLV\nDALI\nDMX512\nDMX/RDM\nSPI\nPWM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Protocol Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_sfnu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "signal_type",
+   "fieldtype": "Select",
+   "label": "Signal Type",
+   "options": "Analog\nPhase-cut\nDigital"
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_interface",
+   "fieldtype": "Check",
+   "label": "Requires Interface?"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 11:38:19.002967",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Attribute-Dimming Protocol",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

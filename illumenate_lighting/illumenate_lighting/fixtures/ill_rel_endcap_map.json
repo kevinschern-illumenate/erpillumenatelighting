@@ -1,0 +1,62 @@
+[
+ {
+  "doctype": "ilL-Rel-Endcap-Map",
+  "fixture_template": "SH01",
+  "endcap_style": "Hole",
+  "endcap_color": "GRY",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "endcap_item": "ENDCAP-SH01-HOLE-GRY",
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Rel-Endcap-Map",
+  "fixture_template": "SH01",
+  "endcap_style": "No-Hole",
+  "endcap_color": "GRY",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "endcap_item": "ENDCAP-SH01-NOHOLE-GRY",
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Rel-Endcap-Map",
+  "fixture_template": "SH01",
+  "endcap_style": "Hole",
+  "endcap_color": "BLK",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "endcap_item": "ENDCAP-SH01-HOLE-BLK",
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Rel-Endcap-Map",
+  "fixture_template": "SH01",
+  "endcap_style": "No-Hole",
+  "endcap_color": "BLK",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "endcap_item": "ENDCAP-SH01-NOHOLE-BLK",
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Rel-Endcap-Map",
+  "fixture_template": "SH01",
+  "endcap_style": "Hole",
+  "endcap_color": "WHT",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "endcap_item": "ENDCAP-SH01-HOLE-WHT",
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Rel-Endcap-Map",
+  "fixture_template": "SH01",
+  "endcap_style": "No-Hole",
+  "endcap_color": "WHT",
+  "power_feed_type": null,
+  "environment_rating": null,
+  "endcap_item": "ENDCAP-SH01-NOHOLE-WHT",
+  "is_active": 1
+ }
+]

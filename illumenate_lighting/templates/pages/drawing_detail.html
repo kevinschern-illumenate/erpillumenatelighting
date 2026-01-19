@@ -1,0 +1,474 @@
+{#
+Portal Drawing Detail Page
+Detailed view of a single document request
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ request.name if request else _("Request") }}{% endblock %}
+
+{% block style %}
+<style>
+.portal-page {
+	padding: 2rem 0;
+}
+.request-header-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+}
+.request-header-top {
+	background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
+	color: white;
+	padding: 2rem;
+}
+.request-header-top h1 {
+	margin: 0 0 0.5rem 0;
+}
+.request-header-details {
+	padding: 1.5rem 2rem;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 1.5rem;
+}
+.detail-group {
+	display: flex;
+	flex-direction: column;
+}
+.detail-label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	color: #888;
+	margin-bottom: 0.25rem;
+}
+.detail-value {
+	font-size: 1.1rem;
+	font-weight: 500;
+	color: #333;
+}
+.content-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+}
+.content-header {
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.content-body {
+	padding: 1.5rem;
+}
+.status-badge {
+	padding: 0.35rem 1rem;
+	border-radius: 20px;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+.status-badge.secondary { background: #e0e0e0; color: #666; }
+.status-badge.warning { background: #fff3e0; color: #ef6c00; }
+.status-badge.info { background: #e3f2fd; color: #1565c2; }
+.status-badge.success { background: #e8f5e9; color: #2e7d32; }
+.status-badge.danger { background: #ffebee; color: #c62828; }
+.priority-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.25rem 0.75rem;
+	border-radius: 4px;
+	font-size: 0.8rem;
+}
+.priority-badge.rush { background: #ffebee; color: #c62828; }
+.priority-badge.high { background: #fff3e0; color: #ef6c00; }
+.priority-badge.normal { background: #f5f5f5; color: #666; }
+.deliverable-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem;
+	border-bottom: 1px solid #f0f0f0;
+}
+.deliverable-item:last-child {
+	border-bottom: none;
+}
+.deliverable-info {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+.deliverable-icon {
+	width: 40px;
+	height: 40px;
+	background: #fff3e0;
+	border-radius: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #f57c00;
+}
+.deliverable-meta {
+	font-size: 0.85rem;
+	color: #666;
+}
+.attachment-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.75rem 1rem;
+	background: #fafafa;
+	border-radius: 8px;
+	margin-bottom: 0.5rem;
+}
+.attachment-name {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.custom-field-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 0.75rem 0;
+	border-bottom: 1px solid #f5f5f5;
+}
+.custom-field-row:last-child {
+	border-bottom: none;
+}
+.sidebar-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	padding: 1.5rem;
+	margin-bottom: 1rem;
+}
+.sidebar-card h5 {
+	margin-bottom: 1rem;
+	font-weight: 600;
+}
+.action-btn {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: #f5f5f5;
+	border-radius: 8px;
+	margin-bottom: 0.5rem;
+	text-decoration: none;
+	color: #333;
+	transition: all 0.2s;
+}
+.action-btn:hover {
+	background: #e0e0e0;
+	text-decoration: none;
+	color: #333;
+}
+.action-btn i {
+	width: 24px;
+	text-align: center;
+	color: #666;
+}
+.description-content {
+	line-height: 1.6;
+	color: #333;
+}
+.timeline-section {
+	padding: 1rem 0;
+}
+.timeline-item {
+	display: flex;
+	gap: 1rem;
+	padding: 0.5rem 0;
+}
+.timeline-dot {
+	width: 12px;
+	height: 12px;
+	background: #ddd;
+	border-radius: 50%;
+	margin-top: 0.25rem;
+}
+.timeline-dot.active {
+	background: #4caf50;
+}
+.timeline-content {
+	flex: 1;
+}
+.timeline-label {
+	font-weight: 500;
+	color: #333;
+}
+.timeline-date {
+	font-size: 0.85rem;
+	color: #888;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-3">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/drawings">{{ _("Drawings") }}</a></li>
+			<li class="breadcrumb-item active">{{ request.name if request else _("Request") }}</li>
+		</ol>
+	</nav>
+
+	{% if not request %}
+	<div class="text-center py-5">
+		<i class="fa fa-exclamation-circle fa-3x text-muted mb-3"></i>
+		<h4>{{ _("Request not found") }}</h4>
+		<p class="text-muted">{{ _("The drawing request you're looking for doesn't exist or you don't have permission to view it.") }}</p>
+		<a href="/portal/drawings" class="btn btn-primary mt-3">{{ _("Back to Drawings") }}</a>
+	</div>
+	{% else %}
+
+	<div class="row">
+		<div class="col-lg-8">
+			<!-- Request Header -->
+			<div class="request-header-card">
+				<div class="request-header-top">
+					<div class="d-flex justify-content-between align-items-start">
+						<div>
+							<h1>
+								<i class="fa fa-{{ drawing_type_icon(request.request_type) }}"></i>
+								{{ request.name }}
+							</h1>
+							<p class="mb-0 opacity-75">
+								{{ request_type_info.label or request.request_type or _("Document Request") }}
+							</p>
+						</div>
+						<span class="status-badge {{ status_class }}">
+							{{ request.status }}
+						</span>
+					</div>
+				</div>
+				<div class="request-header-details">
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Created") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(request.creation) }}</span>
+					</div>
+					{% if request.requested_due_date %}
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Requested Due Date") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(request.requested_due_date) }}</span>
+					</div>
+					{% endif %}
+					{% if project_info %}
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Project") }}</span>
+						<span class="detail-value">
+							<a href="/portal/projects/{{ project_info.name }}">{{ project_info.project_name }}</a>
+						</span>
+					</div>
+					{% endif %}
+					{% if request.fixture_or_product_text %}
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Fixture/Product") }}</span>
+						<span class="detail-value">{{ request.fixture_or_product_text }}</span>
+					</div>
+					{% endif %}
+					<div class="detail-group">
+						<span class="detail-label">{{ _("Priority") }}</span>
+						<span class="priority-badge {{ request.priority | lower }}">
+							{% if request.priority == 'Rush' %}
+							<i class="fa fa-exclamation-circle"></i>
+							{% elif request.priority == 'High' %}
+							<i class="fa fa-flag"></i>
+							{% endif %}
+							{{ request.priority }}
+						</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Description -->
+			<div class="content-card">
+				<div class="content-header">
+					<h5 class="mb-0"><i class="fa fa-file-text-o"></i> {{ _("Description") }}</h5>
+				</div>
+				<div class="content-body">
+					<div class="description-content">
+						{{ request.description | safe }}
+					</div>
+				</div>
+			</div>
+
+			<!-- Custom Fields -->
+			{% if custom_fields %}
+			<div class="content-card">
+				<div class="content-header">
+					<h5 class="mb-0"><i class="fa fa-list-alt"></i> {{ _("Additional Details") }}</h5>
+				</div>
+				<div class="content-body">
+					{% for field in custom_fields %}
+					<div class="custom-field-row">
+						<span class="text-muted">{{ field.label }}</span>
+						<span class="font-weight-medium">{{ field.value or "-" }}</span>
+					</div>
+					{% endfor %}
+				</div>
+			</div>
+			{% endif %}
+
+			<!-- Deliverables -->
+			{% if deliverables %}
+			<div class="content-card">
+				<div class="content-header">
+					<h5 class="mb-0"><i class="fa fa-download"></i> {{ _("Deliverables") }}</h5>
+					<span class="badge badge-success">{{ deliverables | length }} {{ _("file(s)") }}</span>
+				</div>
+				{% for deliverable in deliverables %}
+				<div class="deliverable-item">
+					<div class="deliverable-info">
+						<div class="deliverable-icon">
+							<i class="fa fa-file-pdf-o"></i>
+						</div>
+						<div>
+							<div class="font-weight-medium">{{ deliverable.filename or _("File") }}</div>
+							<div class="deliverable-meta">
+								{% if deliverable.deliverable_type %}{{ deliverable.deliverable_type }} • {% endif %}
+								{% if deliverable.version %}v{{ deliverable.version }} • {% endif %}
+								{{ frappe.utils.format_date(deliverable.published_on) if deliverable.published_on else "" }}
+							</div>
+							{% if deliverable.notes %}
+							<div class="text-muted small mt-1">{{ deliverable.notes }}</div>
+							{% endif %}
+						</div>
+					</div>
+					<a href="{{ deliverable.file }}" class="btn btn-sm btn-success" target="_blank" download>
+						<i class="fa fa-download"></i> {{ _("Download") }}
+					</a>
+				</div>
+				{% endfor %}
+			</div>
+			{% endif %}
+
+			<!-- Attachments (User uploaded) -->
+			{% if attachments %}
+			<div class="content-card">
+				<div class="content-header">
+					<h5 class="mb-0"><i class="fa fa-paperclip"></i> {{ _("Attachments") }}</h5>
+				</div>
+				<div class="content-body">
+					{% for attachment in attachments %}
+					<div class="attachment-item">
+						<div class="attachment-name">
+							<i class="fa fa-file-o text-muted"></i>
+							<span>{{ attachment.file_name }}</span>
+						</div>
+						<a href="{{ attachment.file_url }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+							<i class="fa fa-external-link"></i>
+						</a>
+					</div>
+					{% endfor %}
+				</div>
+			</div>
+			{% endif %}
+		</div>
+
+		<!-- Sidebar -->
+		<div class="col-lg-4">
+			<!-- Status Timeline -->
+			<div class="sidebar-card">
+				<h5><i class="fa fa-clock-o"></i> {{ _("Status Timeline") }}</h5>
+				<div class="timeline-section">
+					<div class="timeline-item">
+						<div class="timeline-dot active"></div>
+						<div class="timeline-content">
+							<div class="timeline-label">{{ _("Created") }}</div>
+							<div class="timeline-date">{{ frappe.utils.format_datetime(request.creation) }}</div>
+						</div>
+					</div>
+					{% if request.status in ["Submitted", "In Progress", "Waiting on Customer", "Completed", "Closed"] %}
+					<div class="timeline-item">
+						<div class="timeline-dot active"></div>
+						<div class="timeline-content">
+							<div class="timeline-label">{{ _("Submitted") }}</div>
+						</div>
+					</div>
+					{% endif %}
+					{% if request.status in ["In Progress", "Waiting on Customer", "Completed", "Closed"] %}
+					<div class="timeline-item">
+						<div class="timeline-dot active"></div>
+						<div class="timeline-content">
+							<div class="timeline-label">{{ _("In Progress") }}</div>
+						</div>
+					</div>
+					{% endif %}
+					{% if request.completed_on %}
+					<div class="timeline-item">
+						<div class="timeline-dot active"></div>
+						<div class="timeline-content">
+							<div class="timeline-label">{{ _("Completed") }}</div>
+							<div class="timeline-date">{{ frappe.utils.format_datetime(request.completed_on) }}</div>
+						</div>
+					</div>
+					{% endif %}
+				</div>
+			</div>
+
+			<!-- Quick Actions -->
+			<div class="sidebar-card">
+				<h5><i class="fa fa-bolt"></i> {{ _("Quick Actions") }}</h5>
+				<a href="/portal/drawings" class="action-btn">
+					<i class="fa fa-arrow-left"></i>
+					<span>{{ _("Back to Requests") }}</span>
+				</a>
+				{% if deliverables %}
+				<a href="{{ deliverables[0].file }}" class="action-btn" target="_blank" download>
+					<i class="fa fa-download"></i>
+					<span>{{ _("Download Latest") }}</span>
+				</a>
+				{% endif %}
+				<a href="/portal/drawings" class="action-btn">
+					<i class="fa fa-plus"></i>
+					<span>{{ _("New Request") }}</span>
+				</a>
+				<a href="/portal/support" class="action-btn">
+					<i class="fa fa-question-circle"></i>
+					<span>{{ _("Get Support") }}</span>
+				</a>
+			</div>
+
+			<!-- Request Info -->
+			<div class="sidebar-card">
+				<h5>{{ _("Request Info") }}</h5>
+				<table class="w-100">
+					<tr>
+						<td class="py-2 text-muted">{{ _("Request ID") }}</td>
+						<td class="text-right py-2"><code>{{ request.name }}</code></td>
+					</tr>
+					<tr>
+						<td class="py-2 text-muted">{{ _("Type") }}</td>
+						<td class="text-right py-2">{{ request_type_info.label or request.request_type or "-" }}</td>
+					</tr>
+					<tr>
+						<td class="py-2 text-muted">{{ _("Status") }}</td>
+						<td class="text-right py-2">{{ request.status }}</td>
+					</tr>
+					{% if request.sla_deadline %}
+					<tr>
+						<td class="py-2 text-muted">{{ _("SLA Deadline") }}</td>
+						<td class="text-right py-2">{{ frappe.utils.format_datetime(request.sla_deadline) }}</td>
+					</tr>
+					{% endif %}
+				</table>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// Add any interactive functionality here if needed
+});
+</script>
+{% endblock %}
