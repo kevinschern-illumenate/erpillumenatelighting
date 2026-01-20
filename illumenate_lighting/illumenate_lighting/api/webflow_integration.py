@@ -10,8 +10,9 @@ Implements a hybrid sync approach where base catalog syncs every 6 hours via n8n
 while real-time stock/pricing is fetched client-side via JavaScript.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
+import json
 
 import frappe
 from frappe import _
@@ -666,7 +667,7 @@ def get_active_products_for_webflow(
 
 
 @frappe.whitelist()
-def get_products_by_codes(item_codes: List[str]) -> dict:
+def get_products_by_codes(item_codes: Union[List[str], str]) -> dict:
 	"""
 	Bulk fetch products by list of item codes (authenticated endpoint).
 	
@@ -686,8 +687,15 @@ def get_products_by_codes(item_codes: List[str]) -> dict:
 	try:
 		# Handle JSON string input
 		if isinstance(item_codes, str):
-			import json
-			item_codes = json.loads(item_codes)
+			try:
+				item_codes = json.loads(item_codes)
+			except (ValueError, json.JSONDecodeError) as e:
+				return {
+					"success": False,
+					"error": f"Invalid JSON string for item_codes: {str(e)}",
+					"products": [],
+					"count": 0,
+				}
 		
 		if not isinstance(item_codes, list):
 			return {
