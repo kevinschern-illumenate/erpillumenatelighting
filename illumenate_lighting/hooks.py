@@ -287,6 +287,20 @@ doc_events = {
 # 	"illumenate_lighting.auth.validate"
 # ]
 
+# CORS Configuration
+# ------------------
+# Configure CORS for Webflow domains
+website_cors = {
+	"allowed_origins": [
+		"https://www.illumenatelighting.com",
+		"https://illumenatelighting.webflow.io",
+	],
+	"allowed_methods": ["GET", "POST", "OPTIONS"],
+	"allowed_headers": ["Content-Type", "Authorization"],
+	"expose_headers": ["Content-Length"],
+	"max_age": 86400,
+}
+
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
