@@ -3370,12 +3370,14 @@ def get_delivered_outputs_for_template(
 
 	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Get lens transmission percentage
-	lens_transmission = 100.0  # Default to 100% if not specified
+	# Get lens transmission as a decimal (0.56 = 56%)
+	# Database stores as decimal, so 0.56 means 56% transmission
+	lens_transmission_decimal = 1.0  # Default to 100% if not specified
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
-			lens_transmission = float(lens_doc.transmission)
+			# Value is stored as decimal (0.56 for 56%)
+			lens_transmission_decimal = float(lens_doc.transmission)
 
 	# Get tape offerings linked to this template, filtering by environment rating
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -3438,7 +3440,8 @@ def get_delivered_outputs_for_template(
 			continue
 
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		delivered_lm_ft = tape_output_lm_ft * (lens_transmission / 100.0)
+		# Transmission is already a decimal (0.56 = 56%), so multiply directly
+		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
 		# Round to nearest 50
 		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
@@ -3446,7 +3449,7 @@ def get_delivered_outputs_for_template(
 		if delivered_rounded not in delivered_output_map:
 			delivered_output_map[delivered_rounded] = {
 				"tape_output_lm_ft": tape_output_lm_ft,
-				"transmission_pct": lens_transmission,
+				"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 				"matching_tapes": [],
 			}
 		delivered_output_map[delivered_rounded]["matching_tapes"].append(tape.name)
@@ -3541,12 +3544,13 @@ def auto_select_tape_for_configuration(
 
 	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Get lens transmission percentage
-	lens_transmission = 100.0
+	# Get lens transmission as a decimal (0.56 = 56%)
+	lens_transmission_decimal = 1.0
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
-			lens_transmission = float(lens_doc.transmission)
+			# Value is stored as decimal (0.56 for 56%)
+			lens_transmission_decimal = float(lens_doc.transmission)
 
 	# Get valid tape offering names from template (with constraint filtering)
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -3602,7 +3606,8 @@ def auto_select_tape_for_configuration(
 			continue
 
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		delivered_lm_ft = tape_output_lm_ft * (lens_transmission / 100.0)
+		# Transmission is already a decimal (0.56 = 56%), so multiply directly
+		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
 
 		if delivered_rounded == delivered_output_value:
