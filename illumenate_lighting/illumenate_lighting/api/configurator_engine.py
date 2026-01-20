@@ -3134,10 +3134,16 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 	if not tape_offering_names:
 		return {"success": True, "led_packages": [], "error": None}
 
+	# Build tape offering filter - only add is_active filter if active records exist
+	tape_filters = {"name": ["in", tape_offering_names]}
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
+
 	# Get unique LED packages from those tape offerings
 	led_packages_from_tapes = frappe.get_all(
 		"ilL-Rel-Tape Offering",
-		filters={"name": ["in", tape_offering_names], "is_active": 1},
+		filters=tape_filters,
 		fields=["led_package"],
 		distinct=True,
 	)
@@ -3266,11 +3272,15 @@ def get_ccts_for_template(
 	if not valid_tape_offering_names:
 		return {"success": True, "ccts": [], "error": None}
 
-	# Build tape offering filter
+	# Build tape offering filter - only add is_active filter if active records exist
 	tape_filters = {
 		"name": ["in", valid_tape_offering_names],
-		"is_active": 1,
 	}
+	
+	# Check if any tape offerings have is_active = 1
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
 
 	# Filter by LED package if specified
 	if led_package_code:
@@ -3289,10 +3299,15 @@ def get_ccts_for_template(
 	if not cct_codes:
 		return {"success": True, "ccts": [], "error": None}
 
-	# Get CCT details
+	# Get CCT details - only filter by is_active if active CCTs exist
+	cct_filters = {"name": ["in", cct_codes]}
+	active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
+	if active_cct_count > 0:
+		cct_filters["is_active"] = 1
+		
 	ccts = frappe.get_all(
 		"ilL-Attribute-CCT",
-		filters={"name": ["in", cct_codes], "is_active": 1},
+		filters=cct_filters,
 		fields=["name", "code", "label", "kelvin", "sort_order"],
 		order_by="sort_order asc, kelvin asc",
 	)
@@ -3381,13 +3396,15 @@ def get_delivered_outputs_for_template(
 	if not valid_tape_offering_names:
 		return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "error": None}
 
-	# Build tape offering filter for exact matches
+	# Build tape offering filter for exact matches - only add is_active if active records exist
 	tape_filters = {
 		"name": ["in", valid_tape_offering_names],
-		"is_active": 1,
 		"led_package": led_package_code,
 		"cct": cct_code,
 	}
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
 
 	# Get matching tape offerings with their output levels
 	tape_offerings = frappe.get_all(
@@ -3547,13 +3564,15 @@ def auto_select_tape_for_configuration(
 	if not valid_tape_offering_names:
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No compatible tapes found"}
 
-	# Get matching tape offerings
+	# Get matching tape offerings - only add is_active if active records exist
 	tape_filters = {
 		"name": ["in", valid_tape_offering_names],
-		"is_active": 1,
 		"led_package": led_package_code,
 		"cct": cct_code,
 	}
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
 
 	tape_offerings = frappe.get_all(
 		"ilL-Rel-Tape Offering",
@@ -3741,12 +3760,20 @@ def get_cascading_options_for_template(
 
 	# Fallback: If no CCTs from tape offerings, get all active CCTs
 	if not options["ccts"]:
+		# First try with is_active filter
 		all_ccts = frappe.get_all(
 			"ilL-Attribute-CCT",
 			filters={"is_active": 1},
 			fields=["name", "code", "label", "kelvin", "sort_order"],
 			order_by="sort_order asc, kelvin asc",
 		)
+		# If no active CCTs, get all CCTs (is_active may not be set)
+		if not all_ccts:
+			all_ccts = frappe.get_all(
+				"ilL-Attribute-CCT",
+				fields=["name", "code", "label", "kelvin", "sort_order"],
+				order_by="sort_order asc, kelvin asc",
+			)
 		options["ccts"] = [
 			{
 				"value": cct.name,
