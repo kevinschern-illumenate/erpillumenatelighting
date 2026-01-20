@@ -44,7 +44,7 @@
    "fieldname": "connection_type",
    "fieldtype": "Select",
    "label": "Connection Type",
-   "options": "Flying Leads\nDC Jack"
+    "options": "Press Fit\nSnap On\nInjection Molded"
   },
   {
    "fieldname": "directionality",
