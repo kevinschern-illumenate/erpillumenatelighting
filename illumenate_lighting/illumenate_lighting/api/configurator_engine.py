@@ -3396,6 +3396,25 @@ def get_delivered_outputs_for_template(
 			"matching_tape_count": len(data["matching_tapes"]),
 		})
 
+	# Fallback: If no delivered outputs from tape offerings, get all fixture-level output levels
+	if not delivered_outputs:
+		all_output_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"is_fixture_level": 1},
+			fields=["name", "value", "sku_code", "output_level_name"],
+			order_by="value asc",
+		)
+		for ol in all_output_levels:
+			# Apply lens transmission
+			delivered_val = int(round((ol.value * lens_transmission / 100.0) / 50.0) * 50)
+			delivered_outputs.append({
+				"value": delivered_val,
+				"label": f"{delivered_val} lm/ft",
+				"tape_output_lm_ft": ol.value,
+				"transmission_pct": lens_transmission,
+				"matching_tape_count": 0,  # No specific tape match
+			})
+
 	return {
 		"success": True,
 		"delivered_outputs": delivered_outputs,
@@ -3622,10 +3641,43 @@ def get_cascading_options_for_template(
 	if led_pkg_result.get("success"):
 		options["led_packages"] = led_pkg_result.get("led_packages", [])
 
+	# Fallback: If no LED packages from tape offerings, get all active ones
+	if not options["led_packages"]:
+		all_led_pkgs = frappe.get_all(
+			"ilL-Attribute-LED Package",
+			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-LED Package", "is_active") else {},
+			fields=["name", "code", "spectrum_type"],
+		)
+		options["led_packages"] = [
+			{
+				"value": pkg.name,
+				"label": pkg.name,
+				"code": pkg.code,
+				"spectrum_type": pkg.spectrum_type,
+			}
+			for pkg in all_led_pkgs
+		]
+
 	# Get environment ratings
 	env_result = get_environment_ratings_for_template(fixture_template_code)
 	if env_result.get("success"):
 		options["environment_ratings"] = env_result.get("environment_ratings", [])
+
+	# Fallback: If no environment ratings from allowed options, get all active ones
+	if not options["environment_ratings"]:
+		all_env_ratings = frappe.get_all(
+			"ilL-Attribute-Environment Rating",
+			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Environment Rating", "is_active") else {},
+			fields=["name", "label", "code"],
+		)
+		options["environment_ratings"] = [
+			{
+				"value": env.name,
+				"label": env.label or env.name,
+				"code": env.code,
+			}
+			for env in all_env_ratings
+		]
 
 	# Get CCTs (filtered by LED package and environment rating if provided)
 	cct_result = get_ccts_for_template(
@@ -3635,6 +3687,24 @@ def get_cascading_options_for_template(
 	)
 	if cct_result.get("success"):
 		options["ccts"] = cct_result.get("ccts", [])
+
+	# Fallback: If no CCTs from tape offerings, get all active CCTs
+	if not options["ccts"]:
+		all_ccts = frappe.get_all(
+			"ilL-Attribute-CCT",
+			filters={"is_active": 1},
+			fields=["name", "code", "label", "kelvin", "sort_order"],
+			order_by="sort_order asc, kelvin asc",
+		)
+		options["ccts"] = [
+			{
+				"value": cct.name,
+				"label": cct.label or cct.name,
+				"code": cct.code,
+				"kelvin": cct.kelvin,
+			}
+			for cct in all_ccts
+		]
 
 	# Get lens appearances from allowed options
 	for row in template_doc.get("allowed_options", []):
@@ -3656,6 +3726,23 @@ def get_cascading_options_for_template(
 			unique_lenses.append(lens)
 	options["lens_appearances"] = unique_lenses
 
+	# Fallback: If no lens appearances from allowed options, get all active ones
+	if not options["lens_appearances"]:
+		all_lenses = frappe.get_all(
+			"ilL-Attribute-Lens Appearance",
+			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Lens Appearance", "is_active") else {},
+			fields=["name", "code", "transmission"],
+		)
+		options["lens_appearances"] = [
+			{
+				"value": lens.name,
+				"label": lens.name,
+				"code": lens.code,
+				"transmission": lens.transmission if lens.transmission else 100,
+			}
+			for lens in all_lenses
+		]
+
 	# Get mountings from allowed options
 	for row in template_doc.get("allowed_options", []):
 		if row.option_type == "Mounting Method" and row.mounting_method and row.is_active:
@@ -3672,6 +3759,21 @@ def get_cascading_options_for_template(
 			seen_mountings.add(m["value"])
 			unique_mountings.append(m)
 	options["mountings"] = unique_mountings
+
+	# Fallback: If no mountings from allowed options, get all active ones
+	if not options["mountings"]:
+		all_mountings = frappe.get_all(
+			"ilL-Attribute-Mounting Method",
+			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Mounting Method", "is_active") else {},
+			fields=["name", "code"],
+		)
+		options["mountings"] = [
+			{
+				"value": m.name,
+				"label": m.name,
+			}
+			for m in all_mountings
+		]
 
 	# Get finishes from allowed options
 	for row in template_doc.get("allowed_options", []):
@@ -3690,22 +3792,33 @@ def get_cascading_options_for_template(
 			unique_finishes.append(f)
 	options["finishes"] = unique_finishes
 
-	# Get endcap colors from allowed options
-	for row in template_doc.get("allowed_options", []):
-		if row.option_type == "Endcap Color" and row.endcap_color and row.is_active:
-			options["endcap_colors"].append({
-				"value": row.endcap_color,
-				"label": row.endcap_color,
-			})
+	# Fallback: If no finishes from allowed options, get all active ones
+	if not options["finishes"]:
+		all_finishes = frappe.get_all(
+			"ilL-Attribute-Finish",
+			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Finish", "is_active") else {},
+			fields=["name", "code", "display_name"],
+		)
+		options["finishes"] = [
+			{
+				"value": f.name,
+				"label": f.display_name or f.name,
+			}
+			for f in all_finishes
+		]
 
-	# Deduplicate endcap colors
-	seen_colors = set()
-	unique_colors = []
-	for c in options["endcap_colors"]:
-		if c["value"] not in seen_colors:
-			seen_colors.add(c["value"])
-			unique_colors.append(c)
-	options["endcap_colors"] = unique_colors
+	# Get endcap colors - fetch all active ones (not template-specific in MVP)
+	endcap_colors = frappe.get_all(
+		"ilL-Attribute-Endcap Color",
+		filters={"is_active": 1},
+		fields=["code", "display_name", "sort_order"],
+		order_by="sort_order asc, code asc",
+	)
+	for color in endcap_colors:
+		options["endcap_colors"].append({
+			"value": color.code,
+			"label": color.display_name or color.code,
+		})
 
 	# Get power feed types from allowed options
 	for row in template_doc.get("allowed_options", []):
@@ -3723,6 +3836,21 @@ def get_cascading_options_for_template(
 			seen_pft.add(p["value"])
 			unique_pft.append(p)
 	options["power_feed_type"] = unique_pft
+
+	# Fallback: If no power feed types from allowed options, get all active ones
+	if not options["power_feed_type"]:
+		all_pft = frappe.get_all(
+			"ilL-Attribute-Power Feed Type",
+			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Power Feed Type", "is_active") else {},
+			fields=["name", "code"],
+		)
+		options["power_feed_type"] = [
+			{
+				"value": pft.name,
+				"label": pft.name,
+			}
+			for pft in all_pft
+		]
 
 	# Get delivered outputs (only if all required selections are made)
 	if led_package_code and environment_rating_code and cct_code and lens_appearance_code:

@@ -562,12 +562,20 @@ function loadTemplateOptions(template_code) {
 		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template',
 		args: { fixture_template_code: template_code },
 		callback: function(r) {
+			console.log('Cascading options response:', r.message);
 			if (r.message && r.message.success) {
 				templateOptions = r.message.options;
+				console.log('Template options:', templateOptions);
 				populateOptions(r.message.options);
 				// Populate power feed options in existing segments
 				$('.segment-card').each(function() {
 					populateSegmentPowerFeedOptions($(this));
+				});
+			} else if (r.message && r.message.error) {
+				frappe.msgprint({
+					title: __('Error Loading Options'),
+					message: r.message.error,
+					indicator: 'red'
 				});
 			}
 		}
@@ -603,6 +611,14 @@ function updateDeliveredOutputs() {
 	var cct = $('select[name="cct_code"]').val();
 	var lens = $('select[name="lens_appearance_code"]').val();
 	
+	console.log('updateDeliveredOutputs called with:', {
+		template_code: template_code,
+		led_package: led_package,
+		environment: environment,
+		cct: cct,
+		lens: lens
+	});
+	
 	// Only fetch outputs when all required fields are selected
 	if (!template_code || !led_package || !environment || !cct || !lens) {
 		$('#outputGroup').hide();
@@ -620,6 +636,7 @@ function updateDeliveredOutputs() {
 			lens_appearance_code: lens
 		},
 		callback: function(r) {
+			console.log('Delivered outputs response:', r.message);
 			if (r.message && r.message.success) {
 				$('#outputGroup').show();
 				populatePillSelector('delivered_output_value', r.message.delivered_outputs);
@@ -629,6 +646,7 @@ function updateDeliveredOutputs() {
 				$('#outputHelpText').text('Output adjusted for ' + transmission.toFixed(0) + '% lens transmission');
 			} else {
 				$('#outputGroup').hide();
+				console.log('No outputs available or error:', r.message);
 			}
 		}
 	});
