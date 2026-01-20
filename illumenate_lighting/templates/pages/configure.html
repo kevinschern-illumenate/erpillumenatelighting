@@ -497,87 +497,103 @@ var MM_PER_INCH = 25.4;
 var MM_PER_FOOT = 304.8;
 var INCHES_PER_FOOT = 12;
 
-// Load template options when template is selected
-$('select[name="fixture_template_code"]').on('change', function() {
-	var template = $(this).val();
-	if (template) {
-		loadTemplateOptions(template);
-		$('#templateOptions').show();
-		$('#segmentsCard').show();
-		$('#actionButtons').show();
-		// Initialize first segment if none exist
-		if (segmentCount === 0) {
-			addSegment(true);
+console.log('Configurator script loaded');
+
+// Wrap event handlers in ready to ensure DOM is available
+$(function() {
+	console.log('DOM ready - attaching event handlers');
+	
+	// Load template options when template is selected
+	$('select[name="fixture_template_code"]').on('change', function() {
+		var template = $(this).val();
+		console.log('Template changed to:', template);
+		if (template) {
+			loadTemplateOptions(template);
+			$('#templateOptions').show();
+			$('#segmentsCard').show();
+			$('#actionButtons').show();
+			// Initialize first segment if none exist
+			if (segmentCount === 0) {
+				addSegment(true);
+			}
+		} else {
+			$('#templateOptions').hide();
+			$('#segmentsCard').hide();
+			$('#actionButtons').hide();
 		}
-	} else {
-		$('#templateOptions').hide();
-		$('#segmentsCard').hide();
-		$('#actionButtons').hide();
-	}
-});
+	});
 
-// Cascading option change handlers
-$('select[name="led_package_code"]').on('change', function() {
-	updateCCTOptions();
-	updateDeliveredOutputs();
-	updateUI();
-});
+	// Cascading option change handlers
+	$('select[name="led_package_code"]').on('change', function() {
+		updateCCTOptions();
+		updateDeliveredOutputs();
+		updateUI();
+	});
 
-$('select[name="environment_rating_code"]').on('change', function() {
-	updateCCTOptions();
-	updateDeliveredOutputs();
-	updateUI();
-});
+	$('select[name="environment_rating_code"]').on('change', function() {
+		updateCCTOptions();
+		updateDeliveredOutputs();
+		updateUI();
+	});
 
-$('select[name="cct_code"]').on('change', function() {
-	updateDeliveredOutputs();
-	updateUI();
-});
+	$('select[name="cct_code"]').on('change', function() {
+		updateDeliveredOutputs();
+		updateUI();
+	});
 
-$('select[name="lens_appearance_code"]').on('change', function() {
-	updateDeliveredOutputs();
-	updateUI();
-});
+	$('select[name="lens_appearance_code"]').on('change', function() {
+		updateDeliveredOutputs();
+		updateUI();
+	});
 
-$('select[name="delivered_output_value"]').on('change', function() {
-	autoSelectTape();
-	updateUI();
-});
+	$('select[name="delivered_output_value"]').on('change', function() {
+		autoSelectTape();
+		updateUI();
+	});
 
-$('select[name="mounting_method_code"]').on('change', function() {
-	updateUI();
-});
+	$('select[name="mounting_method_code"]').on('change', function() {
+		updateUI();
+	});
 
-$('select[name="finish_code"]').on('change', function() {
-	updateUI();
-});
+	$('select[name="finish_code"]').on('change', function() {
+		updateUI();
+	});
 
-$('select[name="endcap_color_code"]').on('change', function() {
-	updateUI();
+	$('select[name="endcap_color_code"]').on('change', function() {
+		updateUI();
+	});
 });
 
 function loadTemplateOptions(template_code) {
+	console.log('loadTemplateOptions called with:', template_code);
 	// Use the cascading options API
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template',
 		args: { fixture_template_code: template_code },
+		async: false,  // Make synchronous for debugging
 		callback: function(r) {
-			console.log('Cascading options response:', r.message);
+			console.log('API response:', r);
 			if (r.message && r.message.success) {
 				templateOptions = r.message.options;
-				console.log('Template options:', templateOptions);
+				console.log('Template options received:', templateOptions);
 				populateOptions(r.message.options);
 				// Populate power feed options in existing segments
 				$('.segment-card').each(function() {
 					populateSegmentPowerFeedOptions($(this));
 				});
 			} else if (r.message && r.message.error) {
+				console.error('API error:', r.message.error);
 				frappe.msgprint({
 					title: __('Error Loading Options'),
 					message: r.message.error,
 					indicator: 'red'
 				});
+			} else {
+				console.error('Unexpected response:', r);
 			}
+		},
+		error: function(r) {
+			console.error('API call failed:', r);
 		}
 	});
 }
@@ -724,6 +740,8 @@ function populatePillSelector(fieldName, options) {
 }
 
 function populateOptions(options) {
+	console.log('populateOptions called with:', options);
+	
 	// Map API response keys to form field names
 	var pillFields = {
 		'led_packages': 'led_package_code',
@@ -740,11 +758,15 @@ function populateOptions(options) {
 		var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
 		var selectFallback = $('select[name="' + fieldName + '"]');
 		
+		console.log('Processing field:', optionKey, '-> ', fieldName, 'data:', options[optionKey]);
+		console.log('pillContainer found:', pillContainer.length, 'selectFallback found:', selectFallback.length);
+		
 		// Clear existing
 		pillContainer.empty();
 		selectFallback.empty().append('<option value="">Select...</option>');
 		
-		if (options[optionKey]) {
+		if (options[optionKey] && options[optionKey].length > 0) {
+			console.log('Adding', options[optionKey].length, 'options for', fieldName);
 			options[optionKey].forEach(function(opt) {
 				// Add pill button
 				var pill = $('<label class="pill-option">' +
@@ -763,6 +785,8 @@ function populateOptions(options) {
 				// Add to fallback select
 				selectFallback.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 			});
+		} else {
+			console.log('No options for', fieldName);
 		}
 	});
 	
@@ -1341,7 +1365,8 @@ function saveToSchedule() {
 
 // Load template options if pre-selected
 {% if selected_template %}
-$(document).ready(function() {
+$(function() {
+	console.log('Pre-selected template detected: {{ selected_template }}');
 	loadTemplateOptions("{{ selected_template }}");
 	$('#templateOptions').show();
 	$('#segmentsCard').show();

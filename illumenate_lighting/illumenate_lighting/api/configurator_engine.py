@@ -117,6 +117,57 @@ ENGINE_VERSION = "1.0.0"
 
 
 @frappe.whitelist()
+def debug_template_data(fixture_template_code: str) -> dict[str, Any]:
+	"""
+	Debug endpoint to inspect template data and linked tape offerings.
+	
+	Use this in browser console:
+	frappe.call({method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.debug_template_data', 
+	             args: {fixture_template_code: 'YOUR-TEMPLATE'}, callback: console.log});
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"error": f"Template '{fixture_template_code}' not found"}
+	
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	
+	# Get tape offerings from template
+	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+	tape_offering_names = [row.tape_offering for row in allowed_tape_rows if row.tape_offering]
+	
+	# Get tape offering details
+	tape_offerings = []
+	if tape_offering_names:
+		tape_offerings = frappe.get_all(
+			"ilL-Rel-Tape Offering",
+			filters={"name": ["in", tape_offering_names]},
+			fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level", "is_active"],
+		)
+	
+	# Get allowed options
+	allowed_options = []
+	for row in template_doc.get("allowed_options", []):
+		allowed_options.append({
+			"option_type": row.option_type,
+			"finish": row.finish,
+			"lens_appearance": row.lens_appearance,
+			"mounting_method": row.mounting_method,
+			"endcap_style": row.endcap_style,
+			"power_feed_type": row.power_feed_type,
+			"environment_rating": row.environment_rating,
+			"is_active": row.is_active,
+		})
+	
+	return {
+		"template_code": fixture_template_code,
+		"template_name": template_doc.template_name,
+		"tape_offering_rows": [{"tape_offering": r.tape_offering} for r in allowed_tape_rows],
+		"tape_offering_names": tape_offering_names,
+		"tape_offerings": tape_offerings,
+		"allowed_options": allowed_options,
+	}
+
+
+@frappe.whitelist()
 def validate_and_quote(
 	fixture_template_code: str,
 	finish_code: str,
@@ -3083,10 +3134,16 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 	if not tape_offering_names:
 		return {"success": True, "led_packages": [], "error": None}
 
+	# Build tape offering filter - only add is_active filter if active records exist
+	tape_filters = {"name": ["in", tape_offering_names]}
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
+
 	# Get unique LED packages from those tape offerings
 	led_packages_from_tapes = frappe.get_all(
 		"ilL-Rel-Tape Offering",
-		filters={"name": ["in", tape_offering_names], "is_active": 1},
+		filters=tape_filters,
 		fields=["led_package"],
 		distinct=True,
 	)
@@ -3215,11 +3272,15 @@ def get_ccts_for_template(
 	if not valid_tape_offering_names:
 		return {"success": True, "ccts": [], "error": None}
 
-	# Build tape offering filter
+	# Build tape offering filter - only add is_active filter if active records exist
 	tape_filters = {
 		"name": ["in", valid_tape_offering_names],
-		"is_active": 1,
 	}
+	
+	# Check if any tape offerings have is_active = 1
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
 
 	# Filter by LED package if specified
 	if led_package_code:
@@ -3238,10 +3299,15 @@ def get_ccts_for_template(
 	if not cct_codes:
 		return {"success": True, "ccts": [], "error": None}
 
-	# Get CCT details
+	# Get CCT details - only filter by is_active if active CCTs exist
+	cct_filters = {"name": ["in", cct_codes]}
+	active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
+	if active_cct_count > 0:
+		cct_filters["is_active"] = 1
+		
 	ccts = frappe.get_all(
 		"ilL-Attribute-CCT",
-		filters={"name": ["in", cct_codes], "is_active": 1},
+		filters=cct_filters,
 		fields=["name", "code", "label", "kelvin", "sort_order"],
 		order_by="sort_order asc, kelvin asc",
 	)
@@ -3299,129 +3365,144 @@ def get_delivered_outputs_for_template(
 			"error": str (if failed)
 		}
 	"""
-	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
-		return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "error": f"Template '{fixture_template_code}' not found"}
+	try:
+		if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Get lens transmission percentage
-	lens_transmission = 100.0  # Default to 100% if not specified
-	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
-		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
-		if lens_doc.transmission:
-			lens_transmission = float(lens_doc.transmission)
+		# Get lens transmission as a decimal (0.56 = 56%)
+		# Database stores as decimal, so 0.56 means 56% transmission
+		lens_transmission_decimal = 1.0  # Default to 100% if not specified
+		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
+			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+			if lens_doc.transmission:
+				# Value is stored as decimal (0.56 for 56%)
+				lens_transmission_decimal = float(lens_doc.transmission)
 
-	# Get tape offerings linked to this template, filtering by environment rating
-	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+		# Get tape offerings linked to this template, filtering by environment rating
+		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
 
-	# Build list of valid tape offering names considering constraints
-	valid_tape_offering_names = []
-	for row in allowed_tape_rows:
-		if not row.tape_offering:
-			continue
-		# If the row has an environment_rating constraint, it must match
-		if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
-			continue
-		# If the row has a lens_appearance constraint, it must match
-		if lens_appearance_code and row.lens_appearance and row.lens_appearance != lens_appearance_code:
-			continue
-		valid_tape_offering_names.append(row.tape_offering)
+		# Build list of valid tape offering names considering constraints
+		valid_tape_offering_names = []
+		for row in allowed_tape_rows:
+			if not row.tape_offering:
+				continue
+			# If the row has an environment_rating constraint, it must match
+			if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
+				continue
+			# If the row has a lens_appearance constraint, it must match
+			if lens_appearance_code and row.lens_appearance and row.lens_appearance != lens_appearance_code:
+				continue
+			valid_tape_offering_names.append(row.tape_offering)
 
-	if not valid_tape_offering_names:
-		return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "error": None}
+		if not valid_tape_offering_names:
+			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_decimal * 100, "error": None}
 
-	# Build tape offering filter for exact matches
-	tape_filters = {
-		"name": ["in", valid_tape_offering_names],
-		"is_active": 1,
-		"led_package": led_package_code,
-		"cct": cct_code,
-	}
+		# Build tape offering filter for exact matches - only add is_active if active records exist
+		tape_filters = {
+			"name": ["in", valid_tape_offering_names],
+			"led_package": led_package_code,
+			"cct": cct_code,
+		}
+		active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+		if active_count > 0:
+			tape_filters["is_active"] = 1
 
-	# Get matching tape offerings with their output levels
-	tape_offerings = frappe.get_all(
-		"ilL-Rel-Tape Offering",
-		filters=tape_filters,
-		fields=["name", "output_level", "tape_spec"],
-	)
-
-	if not tape_offerings:
-		return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "error": None}
-
-	# Get output level values (lm/ft) for each tape
-	output_level_names = list({t.output_level for t in tape_offerings if t.output_level})
-
-	output_level_values = {}
-	if output_level_names:
-		output_levels = frappe.get_all(
-			"ilL-Attribute-Output Level",
-			filters={"name": ["in", output_level_names]},
-			fields=["name", "value", "sku_code"],
+		# Get matching tape offerings with their output levels
+		tape_offerings = frappe.get_all(
+			"ilL-Rel-Tape Offering",
+			filters=tape_filters,
+			fields=["name", "output_level", "tape_spec"],
 		)
-		output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
-	# Calculate delivered outputs
-	# Map: delivered_output_value -> {tape_output, transmission, matching_tapes}
-	delivered_output_map: dict[int, dict] = {}
-	compatible_tapes = []
+		if not tape_offerings:
+			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_decimal * 100, "error": None}
 
-	for tape in tape_offerings:
-		if not tape.output_level or tape.output_level not in output_level_values:
-			continue
+		# Get output level values (lm/ft) for each tape
+		output_level_names = list({t.output_level for t in tape_offerings if t.output_level})
 
-		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		delivered_lm_ft = tape_output_lm_ft * (lens_transmission / 100.0)
+		output_level_values = {}
+		if output_level_names:
+			output_levels = frappe.get_all(
+				"ilL-Attribute-Output Level",
+				filters={"name": ["in", output_level_names]},
+				fields=["name", "value", "sku_code"],
+			)
+			output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
-		# Round to nearest 50
-		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
+		# Calculate delivered outputs
+		# Map: delivered_output_value -> {tape_output, transmission, matching_tapes}
+		delivered_output_map: dict[int, dict] = {}
+		compatible_tapes = []
 
-		if delivered_rounded not in delivered_output_map:
-			delivered_output_map[delivered_rounded] = {
-				"tape_output_lm_ft": tape_output_lm_ft,
-				"transmission_pct": lens_transmission,
-				"matching_tapes": [],
-			}
-		delivered_output_map[delivered_rounded]["matching_tapes"].append(tape.name)
-		compatible_tapes.append(tape.name)
+		for tape in tape_offerings:
+			if not tape.output_level or tape.output_level not in output_level_values:
+				continue
 
-	# Build result sorted by output value
-	delivered_outputs = []
-	for output_val in sorted(delivered_output_map.keys()):
-		data = delivered_output_map[output_val]
-		delivered_outputs.append({
-			"value": output_val,
-			"label": f"{output_val} lm/ft",
-			"tape_output_lm_ft": data["tape_output_lm_ft"],
-			"transmission_pct": data["transmission_pct"],
-			"matching_tape_count": len(data["matching_tapes"]),
-		})
+			tape_output_lm_ft = output_level_values[tape.output_level]["value"]
+			# Transmission is already a decimal (0.56 = 56%), so multiply directly
+			delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
-	# Fallback: If no delivered outputs from tape offerings, get all fixture-level output levels
-	if not delivered_outputs:
-		all_output_levels = frappe.get_all(
-			"ilL-Attribute-Output Level",
-			filters={"is_fixture_level": 1},
-			fields=["name", "value", "sku_code", "output_level_name"],
-			order_by="value asc",
-		)
-		for ol in all_output_levels:
-			# Apply lens transmission
-			delivered_val = int(round((ol.value * lens_transmission / 100.0) / 50.0) * 50)
+			# Round to nearest 50
+			delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
+
+			if delivered_rounded not in delivered_output_map:
+				delivered_output_map[delivered_rounded] = {
+					"tape_output_lm_ft": tape_output_lm_ft,
+					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
+					"matching_tapes": [],
+				}
+			delivered_output_map[delivered_rounded]["matching_tapes"].append(tape.name)
+			compatible_tapes.append(tape.name)
+
+		# Build result sorted by output value
+		delivered_outputs = []
+		for output_val in sorted(delivered_output_map.keys()):
+			data = delivered_output_map[output_val]
 			delivered_outputs.append({
-				"value": delivered_val,
-				"label": f"{delivered_val} lm/ft",
-				"tape_output_lm_ft": ol.value,
-				"transmission_pct": lens_transmission,
-				"matching_tape_count": 0,  # No specific tape match
+				"value": output_val,
+				"label": f"{output_val} lm/ft",
+				"tape_output_lm_ft": data["tape_output_lm_ft"],
+				"transmission_pct": data["transmission_pct"],
+				"matching_tape_count": len(data["matching_tapes"]),
 			})
 
-	return {
-		"success": True,
-		"delivered_outputs": delivered_outputs,
-		"compatible_tapes": list(set(compatible_tapes)),
-		"lens_transmission_pct": lens_transmission,
-		"error": None,
-	}
+		# Fallback: If no delivered outputs from tape offerings, get all fixture-level output levels
+		if not delivered_outputs:
+			all_output_levels = frappe.get_all(
+				"ilL-Attribute-Output Level",
+				filters={"is_fixture_level": 1},
+				fields=["name", "value", "sku_code", "output_level_name"],
+				order_by="value asc",
+			)
+			for ol in all_output_levels:
+				# Apply lens transmission (already a decimal)
+				delivered_val = int(round((ol.value * lens_transmission_decimal) / 50.0) * 50)
+				delivered_outputs.append({
+					"value": delivered_val,
+					"label": f"{delivered_val} lm/ft",
+					"tape_output_lm_ft": ol.value,
+					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
+					"matching_tape_count": 0,  # No specific tape match
+				})
+
+		return {
+			"success": True,
+			"delivered_outputs": delivered_outputs,
+			"compatible_tapes": list(set(compatible_tapes)),
+			"lens_transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
+			"error": None,
+		}
+	except Exception as e:
+		frappe.log_error(f"get_delivered_outputs_for_template error: {str(e)}", "Configurator Error")
+		return {
+			"success": False,
+			"delivered_outputs": [],
+			"compatible_tapes": [],
+			"lens_transmission_pct": 100,
+			"error": str(e),
+		}
 
 
 @frappe.whitelist()
@@ -3473,12 +3554,13 @@ def auto_select_tape_for_configuration(
 
 	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Get lens transmission percentage
-	lens_transmission = 100.0
+	# Get lens transmission as a decimal (0.56 = 56%)
+	lens_transmission_decimal = 1.0
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
-			lens_transmission = float(lens_doc.transmission)
+			# Value is stored as decimal (0.56 for 56%)
+			lens_transmission_decimal = float(lens_doc.transmission)
 
 	# Get valid tape offering names from template (with constraint filtering)
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -3496,13 +3578,15 @@ def auto_select_tape_for_configuration(
 	if not valid_tape_offering_names:
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No compatible tapes found"}
 
-	# Get matching tape offerings
+	# Get matching tape offerings - only add is_active if active records exist
 	tape_filters = {
 		"name": ["in", valid_tape_offering_names],
-		"is_active": 1,
 		"led_package": led_package_code,
 		"cct": cct_code,
 	}
+	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+	if active_count > 0:
+		tape_filters["is_active"] = 1
 
 	tape_offerings = frappe.get_all(
 		"ilL-Rel-Tape Offering",
@@ -3532,7 +3616,8 @@ def auto_select_tape_for_configuration(
 			continue
 
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		delivered_lm_ft = tape_output_lm_ft * (lens_transmission / 100.0)
+		# Transmission is already a decimal (0.56 = 56%), so multiply directly
+		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
 
 		if delivered_rounded == delivered_output_value:
@@ -3690,12 +3775,20 @@ def get_cascading_options_for_template(
 
 	# Fallback: If no CCTs from tape offerings, get all active CCTs
 	if not options["ccts"]:
+		# First try with is_active filter
 		all_ccts = frappe.get_all(
 			"ilL-Attribute-CCT",
 			filters={"is_active": 1},
 			fields=["name", "code", "label", "kelvin", "sort_order"],
 			order_by="sort_order asc, kelvin asc",
 		)
+		# If no active CCTs, get all CCTs (is_active may not be set)
+		if not all_ccts:
+			all_ccts = frappe.get_all(
+				"ilL-Attribute-CCT",
+				fields=["name", "code", "label", "kelvin", "sort_order"],
+				order_by="sort_order asc, kelvin asc",
+			)
 		options["ccts"] = [
 			{
 				"value": cct.name,
