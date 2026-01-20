@@ -117,6 +117,57 @@ ENGINE_VERSION = "1.0.0"
 
 
 @frappe.whitelist()
+def debug_template_data(fixture_template_code: str) -> dict[str, Any]:
+	"""
+	Debug endpoint to inspect template data and linked tape offerings.
+	
+	Use this in browser console:
+	frappe.call({method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.debug_template_data', 
+	             args: {fixture_template_code: 'YOUR-TEMPLATE'}, callback: console.log});
+	"""
+	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
+		return {"error": f"Template '{fixture_template_code}' not found"}
+	
+	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	
+	# Get tape offerings from template
+	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+	tape_offering_names = [row.tape_offering for row in allowed_tape_rows if row.tape_offering]
+	
+	# Get tape offering details
+	tape_offerings = []
+	if tape_offering_names:
+		tape_offerings = frappe.get_all(
+			"ilL-Rel-Tape Offering",
+			filters={"name": ["in", tape_offering_names]},
+			fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level", "is_active"],
+		)
+	
+	# Get allowed options
+	allowed_options = []
+	for row in template_doc.get("allowed_options", []):
+		allowed_options.append({
+			"option_type": row.option_type,
+			"finish": row.finish,
+			"lens_appearance": row.lens_appearance,
+			"mounting_method": row.mounting_method,
+			"endcap_style": row.endcap_style,
+			"power_feed_type": row.power_feed_type,
+			"environment_rating": row.environment_rating,
+			"is_active": row.is_active,
+		})
+	
+	return {
+		"template_code": fixture_template_code,
+		"template_name": template_doc.template_name,
+		"tape_offering_rows": [{"tape_offering": r.tape_offering} for r in allowed_tape_rows],
+		"tape_offering_names": tape_offering_names,
+		"tape_offerings": tape_offerings,
+		"allowed_options": allowed_options,
+	}
+
+
+@frappe.whitelist()
 def validate_and_quote(
 	fixture_template_code: str,
 	finish_code: str,
