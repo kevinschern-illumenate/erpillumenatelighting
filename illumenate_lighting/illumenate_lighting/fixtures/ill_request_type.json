@@ -1,0 +1,387 @@
+[
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "Shop Drawing",
+    "category": "Drawing",
+    "is_active": 1,
+    "portal_label": "Shop Drawing Request",
+    "portal_icon": "file-text",
+    "description": "Request a detailed shop drawing showing fixture dimensions, mounting details, and installation specifications for your project.",
+    "sla_hours": 48,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 1,
+    "show_description": 1,
+    "allow_attachments": 1,
+    "custom_fields": [
+      {
+        "field_key": "drawing_format",
+        "label": "Preferred Format",
+        "fieldtype": "Select",
+        "options": "PDF\nDWG\nDXF\nRevit (RFA)",
+        "mandatory": 1,
+        "help_text": "Select your preferred drawing file format",
+        "sort_order": 1
+      },
+      {
+        "field_key": "scale",
+        "label": "Drawing Scale",
+        "fieldtype": "Select",
+        "options": "1:1\n1:2\n1:4\n1:10\nAs Required",
+        "mandatory": 0,
+        "help_text": "Preferred drawing scale (if applicable)",
+        "sort_order": 2
+      },
+      {
+        "field_key": "include_wiring",
+        "label": "Include Wiring Diagram",
+        "fieldtype": "Check",
+        "mandatory": 0,
+        "help_text": "Check if you need wiring diagrams included",
+        "sort_order": 3
+      },
+      {
+        "field_key": "quantity",
+        "label": "Quantity",
+        "fieldtype": "Int",
+        "mandatory": 0,
+        "help_text": "Number of fixtures (for schedule reference)",
+        "sort_order": 4
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "Specification Sheet",
+    "category": "Specification",
+    "is_active": 1,
+    "portal_label": "Spec Sheet Request",
+    "portal_icon": "clipboard",
+    "description": "Request a detailed specification sheet with technical data, performance characteristics, and ordering information.",
+    "sla_hours": 24,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 0,
+    "show_description": 1,
+    "allow_attachments": 0,
+    "custom_fields": [
+      {
+        "field_key": "spec_format",
+        "label": "Format",
+        "fieldtype": "Select",
+        "options": "PDF\nWord Document",
+        "mandatory": 1,
+        "help_text": "Select your preferred document format",
+        "sort_order": 1
+      },
+      {
+        "field_key": "include_photometrics",
+        "label": "Include Photometric Data",
+        "fieldtype": "Check",
+        "mandatory": 0,
+        "help_text": "Include photometric performance data in the spec sheet",
+        "sort_order": 2
+      },
+      {
+        "field_key": "include_dimming_curves",
+        "label": "Include Dimming Curves",
+        "fieldtype": "Check",
+        "mandatory": 0,
+        "help_text": "Include dimming performance curves",
+        "sort_order": 3
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "IES File",
+    "category": "Technical",
+    "is_active": 1,
+    "portal_label": "IES/Photometric File Request",
+    "portal_icon": "sun",
+    "description": "Request IES photometric data files for lighting design software (AGi32, DIALux, Relux, etc.).",
+    "sla_hours": 24,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 0,
+    "show_description": 1,
+    "allow_attachments": 0,
+    "custom_fields": [
+      {
+        "field_key": "file_format",
+        "label": "File Format",
+        "fieldtype": "Select",
+        "options": "IES (.ies)\nEULUMDAT (.ldt)\nBoth",
+        "mandatory": 1,
+        "help_text": "Select the photometric file format you need",
+        "sort_order": 1
+      },
+      {
+        "field_key": "software_used",
+        "label": "Lighting Software",
+        "fieldtype": "Select",
+        "options": "AGi32\nDIALux\nRelux\nVisual\nElumtools\nOther",
+        "mandatory": 0,
+        "help_text": "Which lighting calculation software are you using?",
+        "sort_order": 2
+      },
+      {
+        "field_key": "specific_configuration",
+        "label": "Specific Configuration Notes",
+        "fieldtype": "Small Text",
+        "mandatory": 0,
+        "help_text": "Describe any specific fixture configuration (lens, output level, etc.)",
+        "sort_order": 3
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "Installation Guide",
+    "category": "Technical",
+    "is_active": 1,
+    "portal_label": "Installation Guide Request",
+    "portal_icon": "tool",
+    "description": "Request installation instructions and mounting guides for specific fixtures or systems.",
+    "sla_hours": 24,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 0,
+    "show_description": 1,
+    "allow_attachments": 0,
+    "custom_fields": [
+      {
+        "field_key": "guide_format",
+        "label": "Format",
+        "fieldtype": "Select",
+        "options": "PDF\nPrinted (mail)",
+        "mandatory": 1,
+        "help_text": "How would you like to receive the installation guide?",
+        "sort_order": 1
+      },
+      {
+        "field_key": "mounting_type",
+        "label": "Mounting Type",
+        "fieldtype": "Select",
+        "options": "Surface\nRecessed\nSuspended\nTrack\nAll Applicable",
+        "mandatory": 0,
+        "help_text": "Specific mounting configuration (if applicable)",
+        "sort_order": 2
+      },
+      {
+        "field_key": "quantity_copies",
+        "label": "Number of Copies",
+        "fieldtype": "Int",
+        "mandatory": 0,
+        "help_text": "Number of printed copies needed (if printed format selected)",
+        "depends_on": "eval:doc.guide_format=='Printed (mail)'",
+        "sort_order": 3
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "3D Model",
+    "category": "Drawing",
+    "is_active": 1,
+    "portal_label": "3D Model Request",
+    "portal_icon": "box",
+    "description": "Request 3D models for BIM integration, renderings, or visualization purposes.",
+    "sla_hours": 72,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 1,
+    "show_description": 1,
+    "allow_attachments": 1,
+    "custom_fields": [
+      {
+        "field_key": "model_format",
+        "label": "Model Format",
+        "fieldtype": "Select",
+        "options": "Revit Family (RFA)\nSketchUp (SKP)\nSTEP\n3DS\nOBJ\nMultiple Formats",
+        "mandatory": 1,
+        "help_text": "Select your preferred 3D model format",
+        "sort_order": 1
+      },
+      {
+        "field_key": "lod_level",
+        "label": "Level of Detail",
+        "fieldtype": "Select",
+        "options": "LOD 100 (Conceptual)\nLOD 200 (Schematic)\nLOD 300 (Detailed)\nLOD 400 (Fabrication)",
+        "mandatory": 0,
+        "help_text": "Required level of detail for BIM models",
+        "sort_order": 2
+      },
+      {
+        "field_key": "include_photometric_web",
+        "label": "Include Photometric Web",
+        "fieldtype": "Check",
+        "mandatory": 0,
+        "help_text": "Include photometric distribution visualization in the model",
+        "sort_order": 3
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "Custom Quote",
+    "category": "Commercial",
+    "is_active": 1,
+    "portal_label": "Custom Quotation Request",
+    "portal_icon": "dollar-sign",
+    "description": "Request a custom quotation for modified fixtures, special finishes, or project-specific requirements.",
+    "sla_hours": 48,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 1,
+    "show_description": 1,
+    "allow_attachments": 1,
+    "custom_fields": [
+      {
+        "field_key": "modification_type",
+        "label": "Type of Modification",
+        "fieldtype": "Select",
+        "options": "Custom Finish\nCustom Length\nSpecial Mounting\nModified Output\nOther",
+        "mandatory": 1,
+        "help_text": "What type of customization do you need?",
+        "sort_order": 1
+      },
+      {
+        "field_key": "estimated_quantity",
+        "label": "Estimated Quantity",
+        "fieldtype": "Int",
+        "mandatory": 1,
+        "help_text": "Approximate quantity for quoting purposes",
+        "sort_order": 2
+      },
+      {
+        "field_key": "target_ship_date",
+        "label": "Target Ship Date",
+        "fieldtype": "Date",
+        "mandatory": 0,
+        "help_text": "When do you need the product delivered?",
+        "sort_order": 3
+      },
+      {
+        "field_key": "budget_range",
+        "label": "Budget Range",
+        "fieldtype": "Select",
+        "options": "Under $5,000\n$5,000 - $15,000\n$15,000 - $50,000\nOver $50,000\nNot Specified",
+        "mandatory": 0,
+        "help_text": "Approximate project budget (helps us tailor options)",
+        "sort_order": 4
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "Technical Support",
+    "category": "Support",
+    "is_active": 1,
+    "portal_label": "Technical Support Request",
+    "portal_icon": "help-circle",
+    "description": "Request technical assistance with installation, configuration, dimming compatibility, or troubleshooting.",
+    "sla_hours": 24,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 1,
+    "show_description": 1,
+    "allow_attachments": 1,
+    "custom_fields": [
+      {
+        "field_key": "support_category",
+        "label": "Support Category",
+        "fieldtype": "Select",
+        "options": "Installation Issue\nDimming Compatibility\nDriver Programming\nControl Integration\nProduct Defect\nGeneral Question",
+        "mandatory": 1,
+        "help_text": "What type of support do you need?",
+        "sort_order": 1
+      },
+      {
+        "field_key": "urgency",
+        "label": "Urgency",
+        "fieldtype": "Select",
+        "options": "Low - General inquiry\nMedium - Project delayed\nHigh - Job site waiting\nCritical - System down",
+        "mandatory": 1,
+        "help_text": "How urgent is this request?",
+        "sort_order": 2
+      },
+      {
+        "field_key": "contact_method",
+        "label": "Preferred Contact Method",
+        "fieldtype": "Select",
+        "options": "Email\nPhone Call\nVideo Call",
+        "mandatory": 0,
+        "help_text": "How would you prefer we contact you?",
+        "sort_order": 3
+      },
+      {
+        "field_key": "best_time",
+        "label": "Best Time to Contact",
+        "fieldtype": "Data",
+        "mandatory": 0,
+        "help_text": "e.g., 'Mornings EST' or 'After 2pm PST'",
+        "sort_order": 4
+      }
+    ]
+  },
+  {
+    "doctype": "ILL Request Type",
+    "type_name": "Sample Request",
+    "category": "Commercial",
+    "is_active": 1,
+    "portal_label": "Product Sample Request",
+    "portal_icon": "package",
+    "description": "Request a physical product sample for evaluation, mockup, or client presentation.",
+    "sla_hours": 72,
+    "auto_create_task": 1,
+    "show_fixture_selector": 1,
+    "show_project_selector": 1,
+    "show_description": 1,
+    "allow_attachments": 0,
+    "custom_fields": [
+      {
+        "field_key": "sample_purpose",
+        "label": "Purpose of Sample",
+        "fieldtype": "Select",
+        "options": "Client Presentation\nMockup/Installation Test\nFinish Approval\nPhotometric Evaluation\nOther",
+        "mandatory": 1,
+        "help_text": "What will the sample be used for?",
+        "sort_order": 1
+      },
+      {
+        "field_key": "sample_length",
+        "label": "Sample Length (if linear)",
+        "fieldtype": "Select",
+        "options": "1 foot\n2 feet\n4 feet\nFull Length\nN/A",
+        "mandatory": 0,
+        "help_text": "For linear fixtures, what length sample do you need?",
+        "sort_order": 2
+      },
+      {
+        "field_key": "return_sample",
+        "label": "Will Return Sample",
+        "fieldtype": "Check",
+        "mandatory": 0,
+        "help_text": "Check if you will return the sample after evaluation",
+        "sort_order": 3
+      },
+      {
+        "field_key": "ship_to_address",
+        "label": "Ship To Address",
+        "fieldtype": "Small Text",
+        "mandatory": 1,
+        "help_text": "Full shipping address for the sample",
+        "sort_order": 4
+      },
+      {
+        "field_key": "needed_by",
+        "label": "Needed By Date",
+        "fieldtype": "Date",
+        "mandatory": 0,
+        "help_text": "When do you need the sample?",
+        "sort_order": 5
+      }
+    ]
+  }
+]

@@ -1,0 +1,681 @@
+{#
+Portal Account Settings Page
+User profile, notifications, and account preferences
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Account Settings") }}{% endblock %}
+
+{% block style %}
+<style>
+.portal-page {
+	padding: 2rem 0;
+}
+.page-header {
+	margin-bottom: 2rem;
+}
+.settings-nav {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	overflow: hidden;
+}
+.settings-nav-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1rem 1.25rem;
+	border-bottom: 1px solid #f0f0f0;
+	color: #333;
+	text-decoration: none;
+	transition: all 0.2s;
+}
+.settings-nav-item:last-child {
+	border-bottom: none;
+}
+.settings-nav-item:hover {
+	background: #fafafa;
+	color: #333;
+	text-decoration: none;
+}
+.settings-nav-item.active {
+	background: #e3f2fd;
+	color: #1976d2;
+	border-left: 3px solid #1976d2;
+}
+.settings-nav-item i {
+	width: 20px;
+	text-align: center;
+	color: #888;
+}
+.settings-nav-item.active i {
+	color: #1976d2;
+}
+.settings-card {
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+	overflow: hidden;
+}
+.settings-card-header {
+	padding: 1.25rem 1.5rem;
+	border-bottom: 1px solid #f0f0f0;
+	background: #fafbfc;
+}
+.settings-card-header h5 {
+	margin: 0;
+	font-weight: 600;
+}
+.settings-card-body {
+	padding: 1.5rem;
+}
+.profile-avatar {
+	width: 100px;
+	height: 100px;
+	border-radius: 50%;
+	background: #e0e0e0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 2.5rem;
+	color: #888;
+	margin-bottom: 1rem;
+}
+.profile-avatar img {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+.company-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 1rem;
+	background: #e3f2fd;
+	border-radius: 20px;
+	color: #1976d2;
+	font-weight: 500;
+}
+.notification-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1rem 0;
+	border-bottom: 1px solid #f0f0f0;
+}
+.notification-item:last-child {
+	border-bottom: none;
+}
+.notification-info h6 {
+	margin-bottom: 0.25rem;
+}
+.notification-info p {
+	color: #666;
+	font-size: 0.85rem;
+	margin: 0;
+}
+.toggle-switch {
+	position: relative;
+	width: 50px;
+	height: 26px;
+}
+.toggle-switch input {
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+.toggle-slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: #ccc;
+	border-radius: 26px;
+	transition: 0.3s;
+}
+.toggle-slider:before {
+	position: absolute;
+	content: "";
+	height: 20px;
+	width: 20px;
+	left: 3px;
+	bottom: 3px;
+	background: white;
+	border-radius: 50%;
+	transition: 0.3s;
+}
+.toggle-switch input:checked + .toggle-slider {
+	background: #1976d2;
+}
+.toggle-switch input:checked + .toggle-slider:before {
+	transform: translateX(24px);
+}
+.security-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1rem;
+	background: #fafafa;
+	border-radius: 8px;
+	margin-bottom: 0.75rem;
+}
+.security-item h6 {
+	margin-bottom: 0.25rem;
+}
+.security-item p {
+	color: #666;
+	font-size: 0.85rem;
+	margin: 0;
+}
+.danger-zone {
+	border: 1px solid #ffcdd2;
+	border-radius: 8px;
+	padding: 1.5rem;
+	background: #fff8f8;
+}
+.danger-zone h6 {
+	color: #c62828;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-3">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
+			<li class="breadcrumb-item active">{{ _("Account") }}</li>
+		</ol>
+	</nav>
+
+	<!-- Page Header -->
+	<div class="page-header">
+		<h1>{{ _("Account Settings") }}</h1>
+		<p class="text-muted">{{ _("Manage your profile and preferences") }}</p>
+	</div>
+
+	<div class="row">
+		<!-- Settings Navigation -->
+		<div class="col-lg-3 mb-4">
+			<div class="settings-nav">
+				<a href="#profile" class="settings-nav-item active" data-section="profile">
+					<i class="fa fa-user"></i> {{ _("Profile") }}
+				</a>
+				<a href="#company" class="settings-nav-item" data-section="company">
+					<i class="fa fa-building"></i> {{ _("Company") }}
+				</a>
+				<a href="#notifications" class="settings-nav-item" data-section="notifications">
+					<i class="fa fa-bell"></i> {{ _("Notifications") }}
+				</a>
+				<a href="#security" class="settings-nav-item" data-section="security">
+					<i class="fa fa-lock"></i> {{ _("Security") }}
+				</a>
+				<a href="#preferences" class="settings-nav-item" data-section="preferences">
+					<i class="fa fa-cog"></i> {{ _("Preferences") }}
+				</a>
+			</div>
+		</div>
+
+		<!-- Settings Content -->
+		<div class="col-lg-9">
+			<!-- Profile Section -->
+			<div class="settings-card mb-4" id="profile">
+				<div class="settings-card-header">
+					<h5><i class="fa fa-user"></i> {{ _("Profile Information") }}</h5>
+				</div>
+				<div class="settings-card-body">
+					<div class="row">
+						<div class="col-md-3 text-center mb-4">
+							<div class="profile-avatar mx-auto">
+								{% if user.user_image %}
+								<img src="{{ user.user_image }}" alt="Profile">
+								{% else %}
+								<i class="fa fa-user"></i>
+								{% endif %}
+							</div>
+							<button class="btn btn-sm btn-outline-primary" onclick="changeAvatar()">
+								{{ _("Change Photo") }}
+							</button>
+						</div>
+						<div class="col-md-9">
+							<form id="profileForm">
+								<div class="row">
+									<div class="col-md-6">
+										<div class="form-group">
+											<label>{{ _("First Name") }}</label>
+											<input type="text" class="form-control" name="first_name" value="{{ user.first_name or '' }}">
+										</div>
+									</div>
+									<div class="col-md-6">
+										<div class="form-group">
+											<label>{{ _("Last Name") }}</label>
+											<input type="text" class="form-control" name="last_name" value="{{ user.last_name or '' }}">
+										</div>
+									</div>
+								</div>
+								<div class="form-group">
+									<label>{{ _("Email") }}</label>
+									<input type="email" class="form-control" value="{{ user.email }}" readonly>
+									<small class="form-text text-muted">{{ _("Contact support to change your email address") }}</small>
+								</div>
+								<div class="form-group">
+									<label>{{ _("Phone") }}</label>
+									<input type="tel" class="form-control" name="phone" value="{{ user.phone or '' }}">
+								</div>
+								<div class="form-group">
+									<label>{{ _("Job Title") }}</label>
+									<input type="text" class="form-control" name="job_title" value="{{ user.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
+								</div>
+								<button type="submit" class="btn btn-primary">
+									<i class="fa fa-save"></i> {{ _("Save Changes") }}
+								</button>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Company Section -->
+			<div class="settings-card mb-4" id="company">
+				<div class="settings-card-header">
+					<h5><i class="fa fa-building"></i> {{ _("Company Information") }}</h5>
+				</div>
+				<div class="settings-card-body">
+					{% if customer %}
+					<div class="mb-4">
+						<span class="company-badge">
+							<i class="fa fa-building"></i>
+							{{ customer.customer_name }}
+						</span>
+					</div>
+					<div class="row">
+						<div class="col-md-6">
+							<p class="mb-2"><strong>{{ _("Company Type") }}:</strong> {{ customer.customer_type or "-" }}</p>
+							<p class="mb-2"><strong>{{ _("Territory") }}:</strong> {{ customer.territory or "-" }}</p>
+						</div>
+						<div class="col-md-6">
+							<p class="mb-2"><strong>{{ _("Customer Group") }}:</strong> {{ customer.customer_group or "-" }}</p>
+							<p class="mb-2"><strong>{{ _("Currency") }}:</strong> {{ customer.default_currency or "USD" }}</p>
+						</div>
+					</div>
+					<hr>
+					<p class="text-muted mb-0">
+						<i class="fa fa-info-circle"></i> 
+						{{ _("To update company information, please contact your account manager or support.") }}
+					</p>
+					{% else %}
+					<div class="text-center py-4">
+						<i class="fa fa-building fa-3x text-muted mb-3"></i>
+						<h5>{{ _("No company linked") }}</h5>
+						<p class="text-muted">{{ _("Your account is not linked to a company yet.") }}</p>
+						<button class="btn btn-primary" data-toggle="modal" data-target="#createCompanyModal">
+							<i class="fa fa-plus"></i> {{ _("Create Company Profile") }}
+						</button>
+					</div>
+					{% endif %}
+				</div>
+			</div>
+
+			<!-- Notifications Section -->
+			<div class="settings-card mb-4" id="notifications">
+				<div class="settings-card-header">
+					<h5><i class="fa fa-bell"></i> {{ _("Notification Preferences") }}</h5>
+				</div>
+				<div class="settings-card-body">
+					<div class="notification-item">
+						<div class="notification-info">
+							<h6>{{ _("Order Updates") }}</h6>
+							<p>{{ _("Get notified when your order status changes") }}</p>
+						</div>
+						<label class="toggle-switch">
+							<input type="checkbox" name="notify_orders" checked>
+							<span class="toggle-slider"></span>
+						</label>
+					</div>
+					<div class="notification-item">
+						<div class="notification-info">
+							<h6>{{ _("Quote Ready") }}</h6>
+							<p>{{ _("Receive notifications when quotes are ready") }}</p>
+						</div>
+						<label class="toggle-switch">
+							<input type="checkbox" name="notify_quotes" checked>
+							<span class="toggle-slider"></span>
+						</label>
+					</div>
+					<div class="notification-item">
+						<div class="notification-info">
+							<h6>{{ _("Drawing Requests") }}</h6>
+							<p>{{ _("Get notified when drawings are completed") }}</p>
+						</div>
+						<label class="toggle-switch">
+							<input type="checkbox" name="notify_drawings" checked>
+							<span class="toggle-slider"></span>
+						</label>
+					</div>
+					<div class="notification-item">
+						<div class="notification-info">
+							<h6>{{ _("Shipment Tracking") }}</h6>
+							<p>{{ _("Receive shipping updates and tracking info") }}</p>
+						</div>
+						<label class="toggle-switch">
+							<input type="checkbox" name="notify_shipping" checked>
+							<span class="toggle-slider"></span>
+						</label>
+					</div>
+					<div class="notification-item">
+						<div class="notification-info">
+							<h6>{{ _("Marketing & News") }}</h6>
+							<p>{{ _("Product updates, promotions, and industry news") }}</p>
+						</div>
+						<label class="toggle-switch">
+							<input type="checkbox" name="notify_marketing">
+							<span class="toggle-slider"></span>
+						</label>
+					</div>
+					<hr>
+					<button class="btn btn-primary" onclick="saveNotificationPrefs()">
+						<i class="fa fa-save"></i> {{ _("Save Preferences") }}
+					</button>
+				</div>
+			</div>
+
+			<!-- Security Section -->
+			<div class="settings-card mb-4" id="security">
+				<div class="settings-card-header">
+					<h5><i class="fa fa-lock"></i> {{ _("Security") }}</h5>
+				</div>
+				<div class="settings-card-body">
+					<div class="security-item">
+						<div>
+							<h6>{{ _("Password") }}</h6>
+							<p>{{ _("Last changed") }}: {{ _("Unknown") }}</p>
+						</div>
+						<button class="btn btn-outline-primary btn-sm" onclick="changePassword()">
+							{{ _("Change Password") }}
+						</button>
+					</div>
+					<div class="security-item">
+						<div>
+							<h6>{{ _("Two-Factor Authentication") }}</h6>
+							<p>{{ _("Add an extra layer of security to your account") }}</p>
+						</div>
+						<button class="btn btn-outline-primary btn-sm" onclick="setup2FA()">
+							{{ _("Enable") }}
+						</button>
+					</div>
+					<div class="security-item">
+						<div>
+							<h6>{{ _("Active Sessions") }}</h6>
+							<p>{{ _("Manage devices where you're logged in") }}</p>
+						</div>
+						<button class="btn btn-outline-primary btn-sm" onclick="viewSessions()">
+							{{ _("View") }}
+						</button>
+					</div>
+
+					<hr>
+
+					<div class="danger-zone">
+						<h6><i class="fa fa-exclamation-triangle"></i> {{ _("Danger Zone") }}</h6>
+						<p class="mb-3">{{ _("Permanently delete your account and all associated data.") }}</p>
+						<button class="btn btn-outline-danger btn-sm" onclick="deleteAccount()">
+							{{ _("Delete Account") }}
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Preferences Section -->
+			<div class="settings-card mb-4" id="preferences">
+				<div class="settings-card-header">
+					<h5><i class="fa fa-cog"></i> {{ _("Preferences") }}</h5>
+				</div>
+				<div class="settings-card-body">
+					<div class="form-group">
+						<label>{{ _("Language") }}</label>
+						<select class="form-control" name="language">
+							<option value="en" selected>English</option>
+							<option value="es">Español</option>
+							<option value="fr">Français</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Units") }}</label>
+						<select class="form-control" name="units">
+							<option value="imperial">{{ _("Imperial (inches, feet)") }}</option>
+							<option value="metric">{{ _("Metric (mm, meters)") }}</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Date Format") }}</label>
+						<select class="form-control" name="date_format">
+							<option value="mm/dd/yyyy">MM/DD/YYYY</option>
+							<option value="dd/mm/yyyy">DD/MM/YYYY</option>
+							<option value="yyyy-mm-dd">YYYY-MM-DD</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Timezone") }}</label>
+						<select class="form-control" name="timezone">
+							<option value="America/New_York">{{ _("Eastern Time (ET)") }}</option>
+							<option value="America/Chicago">{{ _("Central Time (CT)") }}</option>
+							<option value="America/Denver">{{ _("Mountain Time (MT)") }}</option>
+							<option value="America/Los_Angeles">{{ _("Pacific Time (PT)") }}</option>
+						</select>
+					</div>
+					<button class="btn btn-primary" onclick="savePreferences()">
+						<i class="fa fa-save"></i> {{ _("Save Preferences") }}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Create Company Modal -->
+<div class="modal fade" id="createCompanyModal" tabindex="-1">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Create Company Profile") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="createCompanyForm">
+					<div class="form-group">
+						<label>{{ _("Company Name") }} <span class="text-danger">*</span></label>
+						<input type="text" class="form-control" name="customer_name" required>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Company Type") }}</label>
+						<select class="form-control" name="customer_type">
+							<option value="Company">{{ _("Company") }}</option>
+							<option value="Individual">{{ _("Individual") }}</option>
+						</select>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" onclick="createCompany()">{{ _("Create") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// Settings navigation
+	const navItems = document.querySelectorAll('.settings-nav-item');
+	navItems.forEach(item => {
+		item.addEventListener('click', function(e) {
+			e.preventDefault();
+			navItems.forEach(i => i.classList.remove('active'));
+			this.classList.add('active');
+
+			const section = this.dataset.section;
+			document.getElementById(section).scrollIntoView({ behavior: 'smooth' });
+		});
+	});
+
+	// Profile form
+	document.getElementById('profileForm').addEventListener('submit', function(e) {
+		e.preventDefault();
+		const formData = new FormData(this);
+		const data = Object.fromEntries(formData.entries());
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.update_user_profile',
+			args: { profile_data: JSON.stringify(data) },
+			freeze: true,
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.msgprint({
+						title: '{{ _("Success") }}',
+						indicator: 'green',
+						message: '{{ _("Profile updated successfully") }}'
+					});
+				} else {
+					frappe.msgprint({
+						title: '{{ _("Error") }}',
+						indicator: 'red',
+						message: r.message?.error || '{{ _("An error occurred") }}'
+					});
+				}
+			}
+		});
+	});
+});
+
+function changeAvatar() {
+	frappe.msgprint('{{ _("Avatar upload coming soon!") }}');
+}
+
+function saveNotificationPrefs() {
+	const prefs = {};
+	document.querySelectorAll('#notifications input[type="checkbox"]').forEach(input => {
+		prefs[input.name] = input.checked;
+	});
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_notification_preferences',
+		args: { preferences: JSON.stringify(prefs) },
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: '{{ _("Success") }}',
+					indicator: 'green',
+					message: '{{ _("Notification preferences saved") }}'
+				});
+			}
+		}
+	});
+}
+
+function changePassword() {
+	frappe.prompt([
+		{
+			fieldname: 'old_password',
+			fieldtype: 'Password',
+			label: '{{ _("Current Password") }}',
+			reqd: 1
+		},
+		{
+			fieldname: 'new_password',
+			fieldtype: 'Password',
+			label: '{{ _("New Password") }}',
+			reqd: 1
+		},
+		{
+			fieldname: 'confirm_password',
+			fieldtype: 'Password',
+			label: '{{ _("Confirm New Password") }}',
+			reqd: 1
+		}
+	], function(values) {
+		if (values.new_password !== values.confirm_password) {
+			frappe.msgprint('{{ _("Passwords do not match") }}');
+			return;
+		}
+		frappe.call({
+			method: 'frappe.core.doctype.user.user.update_password',
+			args: {
+				old_password: values.old_password,
+				new_password: values.new_password
+			},
+			callback: function(r) {
+				if (!r.exc) {
+					frappe.msgprint({
+						title: '{{ _("Success") }}',
+						indicator: 'green',
+						message: '{{ _("Password changed successfully") }}'
+					});
+				}
+			}
+		});
+	}, '{{ _("Change Password") }}', '{{ _("Update") }}');
+}
+
+function setup2FA() {
+	frappe.msgprint('{{ _("Two-factor authentication setup coming soon!") }}');
+}
+
+function viewSessions() {
+	frappe.msgprint('{{ _("Session management coming soon!") }}');
+}
+
+function deleteAccount() {
+	frappe.confirm(
+		'{{ _("Are you sure you want to delete your account? This action cannot be undone.") }}',
+		function() {
+			frappe.msgprint('{{ _("Please contact support to delete your account.") }}');
+		}
+	);
+}
+
+function savePreferences() {
+	frappe.msgprint({
+		title: '{{ _("Success") }}',
+		indicator: 'green',
+		message: '{{ _("Preferences saved") }}'
+	});
+}
+
+function createCompany() {
+	const form = document.getElementById('createCompanyForm');
+	const formData = new FormData(form);
+	const data = Object.fromEntries(formData.entries());
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_customer',
+		args: { customer_data: JSON.stringify(data) },
+		freeze: true,
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: '{{ _("Success") }}',
+					indicator: 'green',
+					message: '{{ _("Company created successfully") }}'
+				});
+				$('#createCompanyModal').modal('hide');
+				setTimeout(() => location.reload(), 1500);
+			} else {
+				frappe.msgprint({
+					title: '{{ _("Error") }}',
+					indicator: 'red',
+					message: r.message?.error || '{{ _("An error occurred") }}'
+				});
+			}
+		}
+	});
+}
+</script>
+{% endblock %}

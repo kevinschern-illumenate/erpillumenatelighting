@@ -1,0 +1,111 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-09 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "field_key",
+  "label",
+  "column_break_value",
+  "value_text",
+  "value_long_text",
+  "value_int",
+  "value_float",
+  "value_date",
+  "value_check",
+  "value_link_doctype",
+  "value_link_name",
+  "value_json",
+  "raw_display"
+ ],
+ "fields": [
+  {
+   "fieldname": "field_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Field Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "fieldname": "column_break_value",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "value_text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Value (Text)"
+  },
+  {
+   "fieldname": "value_long_text",
+   "fieldtype": "Long Text",
+   "label": "Value (Long Text)"
+  },
+  {
+   "fieldname": "value_int",
+   "fieldtype": "Int",
+   "label": "Value (Integer)"
+  },
+  {
+   "fieldname": "value_float",
+   "fieldtype": "Float",
+   "label": "Value (Decimal)"
+  },
+  {
+   "fieldname": "value_date",
+   "fieldtype": "Date",
+   "label": "Value (Date)"
+  },
+  {
+   "default": "0",
+   "fieldname": "value_check",
+   "fieldtype": "Check",
+   "label": "Value (Check)"
+  },
+  {
+   "fieldname": "value_link_doctype",
+   "fieldtype": "Data",
+   "label": "Link DocType"
+  },
+  {
+   "fieldname": "value_link_name",
+   "fieldtype": "Data",
+   "label": "Link Value"
+  },
+  {
+   "description": "Fallback for complex values",
+   "fieldname": "value_json",
+   "fieldtype": "Code",
+   "label": "Value (JSON)",
+   "options": "JSON"
+  },
+  {
+   "description": "Human-readable display value",
+   "fieldname": "raw_display",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Display Value"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-09 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Request-Field-Value",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

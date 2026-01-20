@@ -29,8 +29,8 @@ app_license = "mit"
 # app_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
 
 # include js, css files in header of web template
-# web_include_css = "/assets/illumenate_lighting/css/illumenate_lighting.css"
-# web_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
+web_include_css = "/assets/illumenate_lighting/css/portal.css"
+web_include_js = "/assets/illumenate_lighting/js/portal.js"
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "illumenate_lighting/public/scss/website"
@@ -43,7 +43,7 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -60,9 +60,50 @@ app_license = "mit"
 # home_page = "login"
 
 # website user home page (by Role)
-# role_home_page = {
-# 	"Role": "home_page"
-# }
+role_home_page = {
+	"Dealer": "portal",
+	"Website User": "portal",
+}
+
+# Website Route Rules
+# -------------------
+website_route_rules = [
+	# Portal main pages
+	{"from_route": "/portal", "to_route": "portal"},
+	{"from_route": "/portal/", "to_route": "portal"},
+
+	# Projects
+	{"from_route": "/portal/projects", "to_route": "projects"},
+	{"from_route": "/portal/projects/<project>", "to_route": "project"},
+	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
+	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
+
+	# Schedules
+	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
+
+	# Configurator
+	{"from_route": "/portal/configure", "to_route": "configure"},
+	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
+
+	# Orders
+	{"from_route": "/portal/orders", "to_route": "orders"},
+	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
+
+	# Drawings
+	{"from_route": "/portal/drawings", "to_route": "drawings"},
+	{"from_route": "/portal/drawings/<request>", "to_route": "drawing_detail"},
+
+	# Resources
+	{"from_route": "/portal/resources", "to_route": "resources"},
+
+	# Support
+	{"from_route": "/portal/support", "to_route": "support"},
+	{"from_route": "/portal/support/faq", "to_route": "support"},
+
+	# Account
+	{"from_route": "/portal/account", "to_route": "account"},
+	{"from_route": "/portal/account/notifications", "to_route": "account"},
+]
 
 # Generators
 # ----------
@@ -83,7 +124,16 @@ app_license = "mit"
 # ------------
 
 # before_install = "illumenate_lighting.install.before_install"
-# after_install = "illumenate_lighting.install.after_install"
+after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
+
+# Fixtures
+# --------
+# Fixtures are records that get inserted during app installation
+fixtures = [
+	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
+	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
+	{"dt": "ILL Request Type"},
+]
 
 # Uninstallation
 # ------------
@@ -117,13 +167,17 @@ app_license = "mit"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
+	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
+	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
+}
+
+has_permission = {
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
+	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
+	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
+}
 
 # DocType Class
 # ---------------
@@ -137,13 +191,11 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Sales Order": {
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
@@ -235,6 +287,20 @@ app_license = "mit"
 # 	"illumenate_lighting.auth.validate"
 # ]
 
+# CORS Configuration
+# ------------------
+# Configure CORS for Webflow domains
+website_cors = {
+	"allowed_origins": [
+		"https://www.illumenatelighting.com",
+		"https://illumenatelighting.webflow.io",
+	],
+	"allowed_methods": ["GET", "POST", "OPTIONS"],
+	"allowed_headers": ["Content-Type", "Authorization"],
+	"expose_headers": ["Content-Length"],
+	"max_age": 86400,
+}
+
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
@@ -246,4 +312,3 @@ app_license = "mit"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

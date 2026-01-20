@@ -1,0 +1,147 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:cct_name",
+ "creation": "2026-01-06 12:04:36.560476",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "general_info_sb",
+  "cct_name",
+  "code",
+  "label",
+  "column_break_lgsm",
+  "kelvin",
+  "sort_order",
+  "is_active",
+  "aesthetics_visuals_sb",
+  "hex_color",
+  "column_break_chus",
+  "sample_photo",
+  "engineering_performance_sb",
+  "lumen_multiplier",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_info_sb",
+   "fieldtype": "Section Break",
+   "label": "General Info"
+  },
+  {
+   "fieldname": "cct_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "CCT Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_lgsm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "aesthetics_visuals_sb",
+   "fieldtype": "Section Break",
+   "label": "Aesthetic & Visuals"
+  },
+  {
+   "fieldname": "column_break_chus",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "engineering_performance_sb",
+   "fieldtype": "Section Break",
+   "label": "Engineering & Performance"
+  },
+  {
+   "fieldname": "lumen_multiplier",
+   "fieldtype": "Float",
+   "label": "Lumen Multiplier"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "CCT Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "kelvin",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Kelvin Value",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hex_color",
+   "fieldtype": "Color",
+   "label": "Hex Color"
+  },
+  {
+   "fieldname": "sample_photo",
+   "fieldtype": "Attach Image",
+   "label": "Sample Photo"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active?"
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label",
+   "placeholder": "Warm / Neutral / Cool"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 11:30:06.436890",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Attribute-CCT",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "code, kelvin",
+ "sort_field": "cct_name",
+ "sort_order": "ASC",
+ "states": []
+}

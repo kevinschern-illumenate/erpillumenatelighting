@@ -1,0 +1,120 @@
+{
+ "creation": "2026-01-09 10:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Workflow",
+ "document_type": "ilL-Document-Request",
+ "is_active": 1,
+ "modified": "2026-01-09 10:00:00.000000",
+ "modified_by": "Administrator",
+ "name": "ilL Document Request Workflow",
+ "owner": "Administrator",
+ "send_email_alert": 0,
+ "states": [
+  {
+   "allow_edit": "All",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "Draft"
+  },
+  {
+   "allow_edit": "System Manager",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "Submitted"
+  },
+  {
+   "allow_edit": "System Manager",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "In Progress"
+  },
+  {
+   "allow_edit": "System Manager",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "Waiting on Customer"
+  },
+  {
+   "allow_edit": "System Manager",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "Completed"
+  },
+  {
+   "allow_edit": "System Manager",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "Closed"
+  },
+  {
+   "allow_edit": "System Manager",
+   "doc_status": "0",
+   "is_optional_state": 0,
+   "state": "Cancelled"
+  }
+ ],
+ "transitions": [
+  {
+   "action": "Submit Request",
+   "allowed": "All",
+   "next_state": "Submitted",
+   "state": "Draft"
+  },
+  {
+   "action": "Start Work",
+   "allowed": "System Manager",
+   "next_state": "In Progress",
+   "state": "Submitted"
+  },
+  {
+   "action": "Request Info",
+   "allowed": "System Manager",
+   "next_state": "Waiting on Customer",
+   "state": "In Progress"
+  },
+  {
+   "action": "Resume Work",
+   "allowed": "System Manager",
+   "next_state": "In Progress",
+   "state": "Waiting on Customer"
+  },
+  {
+   "action": "Complete",
+   "allowed": "System Manager",
+   "next_state": "Completed",
+   "state": "In Progress"
+  },
+  {
+   "action": "Close",
+   "allowed": "System Manager",
+   "next_state": "Closed",
+   "state": "Completed"
+  },
+  {
+   "action": "Cancel",
+   "allowed": "System Manager",
+   "next_state": "Cancelled",
+   "state": "Draft"
+  },
+  {
+   "action": "Cancel",
+   "allowed": "System Manager",
+   "next_state": "Cancelled",
+   "state": "Submitted"
+  },
+  {
+   "action": "Cancel",
+   "allowed": "System Manager",
+   "next_state": "Cancelled",
+   "state": "In Progress"
+  },
+  {
+   "action": "Reopen",
+   "allowed": "System Manager",
+   "next_state": "In Progress",
+   "state": "Completed"
+  }
+ ],
+ "workflow_name": "ilL Document Request Workflow",
+ "workflow_state_field": "status"
+}

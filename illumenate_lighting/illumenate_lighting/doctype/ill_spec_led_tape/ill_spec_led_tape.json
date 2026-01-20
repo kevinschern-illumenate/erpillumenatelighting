@@ -1,0 +1,108 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:item",
+ "creation": "2026-01-07 12:44:50.161718",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "item",
+  "electrical_section",
+  "input_voltage",
+  "watts_per_foot",
+  "voltage_drop_max_run_length_ft",
+  "input_protocol",
+  "cutting_section",
+  "cut_increment_mm"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Tape Item",
+   "options": "Item",
+   "unique": 1
+  },
+  {
+   "fieldname": "electrical_section",
+   "fieldtype": "Section Break",
+   "label": "Electrical"
+  },
+  {
+   "fieldname": "input_voltage",
+   "fieldtype": "Link",
+   "label": "Input Voltage",
+   "options": "ilL-Attribute-Output Voltage"
+  },
+  {
+   "fieldname": "watts_per_foot",
+   "fieldtype": "Float",
+   "label": "W/ft"
+  },
+  {
+   "fieldname": "voltage_drop_max_run_length_ft",
+   "fieldtype": "Float",
+   "label": "Voltage Drop Max Run Length (ft)"
+  },
+  {
+   "fieldname": "input_protocol",
+   "fieldtype": "Link",
+   "label": "Input Protocol",
+   "options": "ilL-Attribute-Dimming Protocol",
+   "description": "The dimming signal protocol this tape requires from the driver output"
+  },
+  {
+   "fieldname": "cutting_section",
+   "fieldtype": "Section Break",
+   "label": "Cutting"
+  },
+  {
+   "fieldname": "cut_increment_mm",
+   "fieldtype": "Float",
+   "label": "Cut Increment (mm)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 12:49:20.205228",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-LED Tape",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,24 @@
+[
+ {
+  "doctype": "ilL-Rel-Mounting-Accessory-Map",
+  "fixture_template": "SH01",
+  "mounting_method": "Metal Clip",
+  "environment_rating": null,
+  "accessory_item": "MOUNT-SH01-CLIP",
+  "qty_rule_type": "PER_FIXTURE",
+  "qty_rule_value": 1,
+  "min_qty": 0,
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Rel-Mounting-Accessory-Map",
+  "fixture_template": "SH01",
+  "mounting_method": "Metal Pivot",
+  "environment_rating": null,
+  "accessory_item": "MOUNT-SH01-PIVOT",
+  "qty_rule_type": "PER_FIXTURE",
+  "qty_rule_value": 1,
+  "min_qty": 0,
+  "is_active": 1
+ }
+]

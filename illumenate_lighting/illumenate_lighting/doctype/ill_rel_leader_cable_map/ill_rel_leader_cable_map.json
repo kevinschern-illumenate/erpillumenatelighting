@@ -1,0 +1,128 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{tape_spec}-{power_feed_type}-{leader_item}",
+ "creation": "2026-01-07 21:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mapping_section",
+  "tape_spec",
+  "power_feed_type",
+  "column_break_mapping",
+  "environment_rating",
+  "leader_cable_attribute",
+  "result_section",
+  "leader_item",
+  "default_length_mm",
+  "column_break_result",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "mapping_section",
+   "fieldtype": "Section Break",
+   "label": "Mapping Criteria"
+  },
+  {
+   "fieldname": "tape_spec",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tape Spec",
+   "options": "ilL-Spec-LED Tape",
+   "reqd": 1
+  },
+  {
+   "fieldname": "power_feed_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Power Feed Type",
+   "options": "ilL-Attribute-Power Feed Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_mapping",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "environment_rating",
+   "fieldtype": "Link",
+   "label": "Environment Rating",
+   "options": "ilL-Attribute-Environment Rating"
+  },
+  {
+   "fieldname": "leader_cable_attribute",
+   "fieldtype": "Link",
+   "label": "Leader Cable Attribute",
+   "options": "ilL-Attribute-Leader Cable"
+  },
+  {
+   "fieldname": "result_section",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "leader_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Leader Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_length_mm",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Default Length (mm)"
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-07 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Rel-Leader-Cable-Map",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "tape_spec, power_feed_type, leader_item",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

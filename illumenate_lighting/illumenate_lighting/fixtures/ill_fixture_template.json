@@ -1,0 +1,85 @@
+[
+ {
+  "doctype": "ilL-Fixture-Template",
+  "template_code": "SH01",
+  "template_name": "SH01 Linear Fixture",
+  "is_active": 1,
+  "default_profile_family": "SH01",
+  "default_profile_stock_len_mm": 2000,
+  "assembled_max_len_mm": 2590,
+  "leader_allowance_mm_per_fixture": 15,
+  "notes": "SH01 fixture template - 8.5ft assembled max length rule",
+  "allowed_options": [
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Finish",
+    "finish": "Silver",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Finish",
+    "finish": "Black",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Finish",
+    "finish": "White",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Lens Appearance",
+    "lens_appearance": "White",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Lens Appearance",
+    "lens_appearance": "Frosted",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Lens Appearance",
+    "lens_appearance": "Clear",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Mounting Method",
+    "mounting_method": "Metal Clip",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Mounting Method",
+    "mounting_method": "Metal Pivot",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Endcap Style",
+    "endcap_style": "Hole",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "doctype": "ilL-Child-Template-Allowed-Option",
+    "option_type": "Endcap Style",
+    "endcap_style": "No-Hole",
+    "is_default": 0,
+    "is_active": 1
+   }
+  ]
+ }
+]

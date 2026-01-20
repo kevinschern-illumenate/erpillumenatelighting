@@ -1,0 +1,493 @@
+{#
+Portal Configurator Page
+Allows users to configure fixtures using the Rules Engine
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Configure Fixture") }}{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			{% if schedule %}
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			{% endif %}
+			<li class="breadcrumb-item active" aria-current="page">{{ _("Configure Fixture") }}</li>
+		</ol>
+	</nav>
+
+	<div class="row">
+		<!-- Configurator Form -->
+		<div class="col-lg-7">
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Fixture Configuration") }}</h5>
+				</div>
+				<div class="card-body">
+					<form id="configuratorForm">
+						<!-- Template Selection -->
+						<div class="form-group">
+							<label>{{ _("Fixture Template") }} <span class="text-danger">*</span></label>
+							<select class="form-control" name="fixture_template_code" required>
+								<option value="">{{ _("Select Template...") }}</option>
+								{% for template in templates %}
+								<option value="{{ template.template_code }}" {% if template.template_code == selected_template %}selected{% endif %}>
+									{{ template.template_name }} ({{ template.template_code }})
+								</option>
+								{% endfor %}
+							</select>
+						</div>
+
+						<!-- Options loaded dynamically based on template -->
+						<div id="templateOptions" style="display: none;">
+							<hr>
+							<h6 class="mb-3">{{ _("Options") }}</h6>
+
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Finish") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="finish_code" required></select>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="lens_appearance_code" required></select>
+									</div>
+								</div>
+							</div>
+
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="mounting_method_code" required></select>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="power_feed_type_code" required></select>
+									</div>
+								</div>
+							</div>
+
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Endcap Style - Start") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="endcap_style_start_code" required></select>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Endcap Style - End") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="endcap_style_end_code" required></select>
+									</div>
+								</div>
+							</div>
+
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="endcap_color_code" required></select>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="environment_rating_code" required></select>
+									</div>
+								</div>
+							</div>
+
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group">
+										<label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
+										<select class="form-control" name="tape_offering_id" required></select>
+									</div>
+								</div>
+								<div class="col-md-6">
+								</div>
+							</div>
+
+							<hr>
+							<h6 class="mb-3">{{ _("Dimensions") }}</h6>
+
+							<div class="form-group">
+								<label>{{ _("Requested Length") }} <span class="text-danger">*</span></label>
+								<div class="input-group">
+									<input type="number" class="form-control" name="requested_overall_length_mm" min="1" required>
+									<select class="custom-select" name="length_unit" style="max-width: 80px;">
+										<option value="mm" selected>mm</option>
+										<option value="in">in</option>
+									</select>
+								</div>
+							</div>
+						</div>
+
+						<hr>
+						<div class="d-flex justify-content-between">
+							<button type="button" class="btn btn-primary" onclick="validateAndQuote()">
+								<i class="fa fa-calculator"></i> {{ _("Calculate") }}
+							</button>
+							{% if can_save %}
+							<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" disabled>
+								<i class="fa fa-save"></i> {{ _("Save to Schedule") }}
+							</button>
+							{% endif %}
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<!-- Results Panel -->
+		<div class="col-lg-5">
+			<div class="card">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Results") }}</h5>
+					<span id="validationStatus" class="badge badge-secondary">{{ _("Not Calculated") }}</span>
+				</div>
+				<div class="card-body">
+					<!-- Messages -->
+					<div id="messagesPanel" style="display: none;">
+						<h6>{{ _("Messages") }}</h6>
+						<div id="messagesList"></div>
+						<hr>
+					</div>
+
+					<!-- Length Results -->
+					<div id="lengthResults" style="display: none;">
+						<h6>{{ _("Length Calculation") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("Requested Length") }}</td>
+								<td class="text-right"><span id="requestedLength">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Manufacturable Length") }}</td>
+								<td class="text-right"><strong><span id="mfgLength">-</span></strong></td>
+							</tr>
+							<tr>
+								<td>{{ _("Difference") }}</td>
+								<td class="text-right"><span id="difference">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Tape Cut Length") }}</td>
+								<td class="text-right"><span id="tapeCutLength">-</span></td>
+							</tr>
+						</table>
+						<hr>
+					</div>
+
+					<!-- Manufacturing Summary -->
+					<div id="manufacturingResults" style="display: none;">
+						<h6>{{ _("Manufacturing Summary") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("Segments") }}</td>
+								<td class="text-right"><span id="segmentsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Runs") }}</td>
+								<td class="text-right"><span id="runsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Leader Qty") }}</td>
+								<td class="text-right"><span id="leaderQty">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Total Watts") }}</td>
+								<td class="text-right"><span id="totalWatts">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Assembly Mode") }}</td>
+								<td class="text-right"><span id="assemblyMode">-</span></td>
+							</tr>
+						</table>
+						<hr>
+					</div>
+
+					<!-- Driver Plan -->
+					<div id="driverResults" style="display: none;">
+						<h6>{{ _("Driver Plan") }}</h6>
+						<div id="driverPlan"></div>
+						<hr>
+					</div>
+
+					<!-- Pricing -->
+					{% if show_pricing %}
+					<div id="pricingResults" style="display: none;">
+						<h6>{{ _("Pricing") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("MSRP (Unit)") }}</td>
+								<td class="text-right"><strong><span id="msrpUnit">-</span></strong></td>
+							</tr>
+							<tr>
+								<td>{{ _("Tier Price (Unit)") }}</td>
+								<td class="text-right"><span id="tierUnit">-</span></td>
+							</tr>
+						</table>
+						<div id="adderBreakdown"></div>
+					</div>
+					{% endif %}
+
+					<div id="noResults" class="text-center py-4">
+						<i class="fa fa-calculator fa-3x text-muted mb-3"></i>
+						<p class="text-muted">{{ _("Click 'Calculate' to see results") }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+var schedule_name = "{{ schedule.name if schedule else '' }}";
+var line_idx = {{ line_idx if line_idx is not none else 'null' }};
+var currentResult = null;
+var MM_PER_INCH = 25.4;
+
+// Load template options when template is selected
+$('select[name="fixture_template_code"]').on('change', function() {
+	var template = $(this).val();
+	if (template) {
+		loadTemplateOptions(template);
+		$('#templateOptions').show();
+	} else {
+		$('#templateOptions').hide();
+	}
+});
+
+// Convert length units
+$('select[name="length_unit"]').on('change', function() {
+	var lengthInput = $('input[name="requested_overall_length_mm"]');
+	var currentValue = parseFloat(lengthInput.val());
+	var unit = $(this).val();
+
+	if (unit === 'in' && currentValue) {
+		// Convert mm to inches for display
+		lengthInput.val((currentValue / MM_PER_INCH).toFixed(2));
+	} else if (unit === 'mm' && currentValue) {
+		// Convert inches to mm
+		lengthInput.val(Math.round(currentValue * MM_PER_INCH));
+	}
+});
+
+function loadTemplateOptions(template_code) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_template_options',
+		args: { template_code: template_code },
+		callback: function(r) {
+			if (r.message) {
+				populateOptions(r.message);
+			}
+		}
+	});
+}
+
+function populateOptions(options) {
+	// Populate each select with its options
+	var fields = ['finish', 'lens_appearance', 'mounting_method', 'power_feed_type', 'environment_rating'];
+
+	fields.forEach(function(field) {
+		var select = $('select[name="' + field + '_code"]');
+		select.empty().append('<option value="">Select...</option>');
+
+		if (options[field]) {
+			options[field].forEach(function(opt) {
+				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			});
+		}
+	});
+
+	// Populate endcap style selects (start and end)
+	var endcapStyleFields = ['endcap_style_start', 'endcap_style_end'];
+	endcapStyleFields.forEach(function(field) {
+		var select = $('select[name="' + field + '_code"]');
+		select.empty().append('<option value="">Select...</option>');
+		if (options.endcap_style) {
+			options.endcap_style.forEach(function(opt) {
+				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			});
+		}
+	});
+
+	// Populate tape offerings
+	var tapeSelect = $('select[name="tape_offering_id"]');
+	tapeSelect.empty().append('<option value="">Select...</option>');
+	if (options.tape_offerings) {
+		options.tape_offerings.forEach(function(opt) {
+			tapeSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	}
+
+	// Populate endcap colors
+	var colorSelect = $('select[name="endcap_color_code"]');
+	colorSelect.empty().append('<option value="">Select...</option>');
+	if (options.endcap_colors) {
+		options.endcap_colors.forEach(function(opt) {
+			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	}
+}
+
+function validateAndQuote() {
+	var form = $('#configuratorForm');
+
+	// Get length in mm
+	var length = parseFloat(form.find('[name="requested_overall_length_mm"]').val());
+	var unit = form.find('[name="length_unit"]').val();
+	if (unit === 'in') {
+		length = Math.round(length * MM_PER_INCH);
+	}
+
+	var data = {
+		fixture_template_code: form.find('[name="fixture_template_code"]').val(),
+		finish_code: form.find('[name="finish_code"]').val(),
+		lens_appearance_code: form.find('[name="lens_appearance_code"]').val(),
+		mounting_method_code: form.find('[name="mounting_method_code"]').val(),
+		endcap_style_start_code: form.find('[name="endcap_style_start_code"]').val(),
+		endcap_style_end_code: form.find('[name="endcap_style_end_code"]').val(),
+		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
+		power_feed_type_code: form.find('[name="power_feed_type_code"]').val(),
+		environment_rating_code: form.find('[name="environment_rating_code"]').val(),
+		tape_offering_id: form.find('[name="tape_offering_id"]').val(),
+		requested_overall_length_mm: length
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote',
+		args: data,
+		callback: function(r) {
+			if (r.message) {
+				currentResult = r.message;
+				displayResults(r.message);
+			}
+		}
+	});
+}
+
+function displayResults(result) {
+	$('#noResults').hide();
+
+	// Update validation status
+	var statusBadge = $('#validationStatus');
+	if (result.is_valid) {
+		statusBadge.removeClass('badge-secondary badge-danger').addClass('badge-success').text('Valid');
+		$('#saveBtn').prop('disabled', false);
+	} else {
+		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
+		$('#saveBtn').prop('disabled', true);
+	}
+
+	// Display messages
+	if (result.messages && result.messages.length > 0) {
+		$('#messagesPanel').show();
+		var messagesList = $('#messagesList').empty();
+		result.messages.forEach(function(msg) {
+			var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
+			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + msg.text + '</div>');
+		});
+	} else {
+		$('#messagesPanel').hide();
+	}
+
+	// Display length results
+	if (result.computed) {
+		$('#lengthResults').show();
+		$('#requestedLength').text(result.computed.requested_overall_length_mm + ' mm');
+		$('#mfgLength').text(result.computed.manufacturable_overall_length_mm + ' mm');
+		$('#difference').text(result.computed.difference_mm + ' mm');
+		$('#tapeCutLength').text(result.computed.tape_cut_length_mm + ' mm');
+
+		$('#manufacturingResults').show();
+		$('#segmentsCount').text(result.computed.segments_count);
+		$('#runsCount').text(result.computed.runs_count);
+		$('#leaderQty').text(result.computed.leader_qty);
+		$('#totalWatts').text(result.computed.total_watts + ' W');
+		$('#assemblyMode').text(result.computed.assembly_mode);
+	}
+
+	// Display driver plan
+	if (result.resolved_items && result.resolved_items.driver_plan) {
+		var dp = result.resolved_items.driver_plan;
+		$('#driverResults').show();
+		if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
+			var driverHtml = '<table class="table table-sm">';
+			dp.drivers.forEach(function(d) {
+				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
+			});
+			driverHtml += '</table>';
+			$('#driverPlan').html(driverHtml);
+		} else {
+			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
+		}
+	}
+
+	// Display pricing
+	if (result.pricing) {
+		$('#pricingResults').show();
+		$('#msrpUnit').text('$' + result.pricing.msrp_unit.toFixed(2));
+		$('#tierUnit').text('$' + result.pricing.tier_unit.toFixed(2));
+
+		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
+			var breakdownHtml = '<details><summary class="text-muted">Price Breakdown</summary><table class="table table-sm mt-2">';
+			result.pricing.adder_breakdown.forEach(function(adder) {
+				breakdownHtml += '<tr><td>' + adder.component + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
+			});
+			breakdownHtml += '</table></details>';
+			$('#adderBreakdown').html(breakdownHtml);
+		}
+	}
+}
+
+function saveToSchedule() {
+	if (!currentResult || !currentResult.is_valid || !schedule_name) {
+		frappe.msgprint('Cannot save: configuration is not valid or no schedule specified');
+		return;
+	}
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_configured_fixture_to_schedule',
+		args: {
+			schedule_name: schedule_name,
+			line_idx: line_idx,
+			configured_fixture_id: currentResult.configured_fixture_id,
+			manufacturable_length_mm: currentResult.computed.manufacturable_overall_length_mm
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Configuration saved to schedule'
+				});
+				// Redirect back to schedule
+				window.location.href = '/portal/schedules/' + schedule_name;
+			} else {
+				frappe.msgprint(r.message.error || 'Error saving configuration');
+			}
+		}
+	});
+}
+
+// Load template options if pre-selected
+{% if selected_template %}
+$(document).ready(function() {
+	loadTemplateOptions("{{ selected_template }}");
+	$('#templateOptions').show();
+});
+{% endif %}
+</script>
+{% endblock %}

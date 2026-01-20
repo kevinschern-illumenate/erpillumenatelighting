@@ -1,0 +1,144 @@
+[
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_configured_fixture",
+		"fieldtype": "Link",
+		"label": "Configured Fixture",
+		"options": "ilL-Configured-Fixture",
+		"insert_after": "item_code",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_template_code",
+		"fieldtype": "Data",
+		"label": "Template Code",
+		"insert_after": "ill_configured_fixture",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_requested_length_mm",
+		"fieldtype": "Int",
+		"label": "Requested Length (mm)",
+		"insert_after": "ill_template_code",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_mfg_length_mm",
+		"fieldtype": "Int",
+		"label": "Mfg Length (mm)",
+		"insert_after": "ill_requested_length_mm",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_runs_count",
+		"fieldtype": "Int",
+		"label": "Runs Count",
+		"insert_after": "ill_mfg_length_mm",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_total_watts",
+		"fieldtype": "Float",
+		"label": "Total Watts",
+		"insert_after": "ill_runs_count",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_finish",
+		"fieldtype": "Data",
+		"label": "Finish",
+		"insert_after": "ill_total_watts",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_lens",
+		"fieldtype": "Data",
+		"label": "Lens",
+		"insert_after": "ill_finish",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_engine_version",
+		"fieldtype": "Data",
+		"label": "Engine Version",
+		"insert_after": "ill_lens",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_section_break",
+		"fieldtype": "Section Break",
+		"label": "ilLumenate QC",
+		"insert_after": "remarks"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_functional_test_result",
+		"fieldtype": "Select",
+		"label": "Functional Test Result",
+		"options": "\nPass\nFail",
+		"insert_after": "ill_section_break"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_serial_no",
+		"fieldtype": "Data",
+		"label": "Serial Number",
+		"insert_after": "ill_functional_test_result"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_column_break",
+		"fieldtype": "Column Break",
+		"insert_after": "ill_serial_no"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_configured_fixture",
+		"fieldtype": "Link",
+		"label": "Configured Fixture",
+		"options": "ilL-Configured-Fixture",
+		"insert_after": "ill_column_break",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Work Order",
+		"fieldname": "ill_test_notes",
+		"fieldtype": "Small Text",
+		"label": "Test Notes",
+		"insert_after": "ill_configured_fixture"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Item",
+		"fieldname": "custom_ill_configured_fixture",
+		"fieldtype": "Link",
+		"label": "Configured Fixture",
+		"options": "ilL-Configured-Fixture",
+		"insert_after": "description",
+		"read_only": 1
+	}
+]

@@ -1,0 +1,10 @@
+[
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "fixture_template": "SH01",
+  "driver_spec": "DRIVER-SH01-100W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 0
+ }
+]

@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-12 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "segment_index",
+  "requested_length_mm",
+  "column_break_dims",
+  "start_power_feed_type",
+  "start_leader_cable_length_mm",
+  "column_break_start",
+  "end_type",
+  "end_power_feed_type",
+  "end_jumper_cable_length_mm",
+  "section_break_endcaps",
+  "start_endcap_style",
+  "start_endcap_type",
+  "column_break_endcaps",
+  "end_endcap_style",
+  "end_endcap_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "segment_index",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Segment #",
+   "reqd": 1
+  },
+  {
+   "fieldname": "requested_length_mm",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Requested Length (mm)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_dims",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "start_power_feed_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Start Power Feed Type",
+   "options": "ilL-Attribute-Power Feed Type"
+  },
+  {
+   "default": "300",
+   "description": "Length of the leader cable at the start of this segment (for first segment) or jumper coming from prior segment",
+   "fieldname": "start_leader_cable_length_mm",
+   "fieldtype": "Int",
+   "label": "Start Cable Length (mm)"
+  },
+  {
+   "fieldname": "column_break_start",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Endcap",
+   "description": "Whether the end of this segment is capped with an Endcap or continues with a Jumper to the next segment",
+   "fieldname": "end_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "End Type",
+   "options": "Endcap\nJumper",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.end_type=='Jumper'",
+   "fieldname": "end_power_feed_type",
+   "fieldtype": "Link",
+   "label": "End Power Feed Type",
+   "options": "ilL-Attribute-Power Feed Type"
+  },
+  {
+   "default": "300",
+   "depends_on": "eval:doc.end_type=='Jumper'",
+   "description": "Length of the jumper cable exiting this segment to the next",
+   "fieldname": "end_jumper_cable_length_mm",
+   "fieldtype": "Int",
+   "label": "End Jumper Length (mm)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_endcaps",
+   "fieldtype": "Section Break",
+   "label": "Endcap Details (Computed)"
+  },
+  {
+   "description": "Endcap style for start - auto-determined based on power feed type",
+   "fieldname": "start_endcap_style",
+   "fieldtype": "Link",
+   "label": "Start Endcap Style",
+   "options": "ilL-Attribute-Endcap Style",
+   "read_only": 1
+  },
+  {
+   "description": "Feed-through or Solid based on power feed type",
+   "fieldname": "start_endcap_type",
+   "fieldtype": "Select",
+   "label": "Start Endcap Type",
+   "options": "\nFeed-Through\nSolid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_endcaps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.end_type=='Endcap'",
+   "description": "Endcap style for end (only when end_type=Endcap)",
+   "fieldname": "end_endcap_style",
+   "fieldtype": "Link",
+   "label": "End Endcap Style",
+   "options": "ilL-Attribute-Endcap Style",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.end_type=='Endcap'",
+   "description": "Always Solid when capping the fixture",
+   "fieldname": "end_endcap_type",
+   "fieldtype": "Select",
+   "label": "End Endcap Type",
+   "options": "\nFeed-Through\nSolid",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-12 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-User-Segment",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "segment_index",
+ "sort_order": "ASC",
+ "states": []
+}

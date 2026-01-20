@@ -1,0 +1,400 @@
+{#
+Portal Multi-Segment Configurator Page
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Configure Multi-Segment Fixture") }}{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+            {% if schedule %}
+            <li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active">{{ _("Configure Multi-Segment Fixture") }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header"><h5 class="mb-0">{{ _("Base Configuration") }}</h5></div>
+                <div class="card-body">
+                    <form id="baseConfigForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>{{ _("Fixture Template") }} <span class="text-danger">*</span></label>
+                                    <select class="form-control" name="fixture_template_code" required>
+                                        <option value="">{{ _("Select Template...") }}</option>
+                                        {% for template in templates %}
+                                        <option value="{{ template.template_code }}">{{ template.template_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>{{ _("Tape Offering") }} <span class="text-danger">*</span></label>
+                                    <select class="form-control" name="tape_offering_id" required></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" id="baseOptions" style="display: none;">
+                            <div class="col-md-4"><div class="form-group"><label>Finish</label><select class="form-control" name="finish_code" required></select></div></div>
+                            <div class="col-md-4"><div class="form-group"><label>Lens</label><select class="form-control" name="lens_appearance_code" required></select></div></div>
+                            <div class="col-md-4"><div class="form-group"><label>Mounting</label><select class="form-control" name="mounting_method_code" required></select></div></div>
+                            <div class="col-md-4"><div class="form-group"><label>Environment</label><select class="form-control" name="environment_rating_code" required></select></div></div>
+                            <div class="col-md-4"><div class="form-group"><label>Endcap Color</label><select class="form-control" name="endcap_color_code" required></select></div></div>
+                            <div class="col-md-4"><div class="form-group"><label>Length Unit</label><select class="form-control" name="length_unit" id="globalLengthUnit"><option value="in" selected>inches</option><option value="ft_in">feet + inches</option><option value="mm">mm</option></select></div></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3" id="segmentsCard" style="display: none;">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="mb-0">{{ _("Segments") }}</h5>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="addSegment()"><i class="fa fa-plus"></i> Add</button>
+                </div>
+                <div class="card-body"><div id="segmentsList"></div></div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <button type="button" class="btn btn-primary" onclick="calculateConfiguration()"><i class="fa fa-calculator"></i> Calculate</button>
+                {% if can_save %}<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" disabled><i class="fa fa-save"></i> Save</button>{% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="mb-0">Results</h5>
+                    <span id="validationStatus" class="badge badge-secondary">Not Calculated</span>
+                </div>
+                <div class="card-body">
+                    <div id="messagesPanel" style="display: none;"><h6>Messages</h6><div id="messagesList"></div><hr></div>
+                    <div id="summaryResults" style="display: none;">
+                        <h6>Summary</h6>
+                        <table class="table table-sm">
+                            <tr><td>Segments</td><td class="text-right"><span id="segmentCount">-</span></td></tr>
+                            <tr><td>Total Length</td><td class="text-right"><span id="totalLength">-</span></td></tr>
+                            <tr><td>Total Tape</td><td class="text-right"><span id="totalTape">-</span></td></tr>
+                            <tr><td>Total Runs</td><td class="text-right"><span id="totalRuns">-</span></td></tr>
+                            <tr><td>Total Watts</td><td class="text-right"><span id="totalWatts">-</span></td></tr>
+                            <tr><td>Assembly Mode</td><td class="text-right"><span id="assemblyMode">-</span></td></tr>
+                        </table>
+                        <div id="driverPlanSection" style="display: none;">
+                            <h6 class="mt-3">Driver Plan</h6>
+                            <table class="table table-sm">
+                                <tr><td>Status</td><td class="text-right"><span id="driverStatus">-</span></td></tr>
+                                <tr id="driverDetailsRow" style="display: none;"><td>Driver</td><td class="text-right"><span id="driverDetails">-</span></td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    {% if show_pricing %}<div id="pricingResults" style="display: none;"><hr><h6>Pricing</h6><table class="table table-sm"><tr><td>MSRP</td><td class="text-right"><strong><span id="msrpUnit">-</span></strong></td></tr></table></div>{% endif %}
+                    <div id="noResults" class="text-center py-4"><i class="fa fa-puzzle-piece fa-3x text-muted mb-3"></i><p class="text-muted">Configure segments and click Calculate</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<template id="segmentTemplate">
+    <div class="segment-card card mb-2" data-segment-index="">
+        <div class="card-header py-2 d-flex justify-content-between">
+            <strong>Segment <span class="segment-number"></span></strong>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSegment(this)"><i class="fa fa-trash"></i></button>
+        </div>
+        <div class="card-body py-2">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group mb-2 length-single-input">
+                        <label class="small">Length <span class="length-unit-label">(in)</span></label>
+                        <input type="number" class="form-control form-control-sm" name="segment_length_mm" min="1" step="0.1" required>
+                    </div>
+                    <div class="form-group mb-2 length-ft-in-input" style="display: none;">
+                        <label class="small">Length (ft + in)</label>
+                        <div class="d-flex">
+                            <input type="number" class="form-control form-control-sm mr-1" name="segment_length_feet" min="0" placeholder="ft" style="width: 45%;">
+                            <input type="number" class="form-control form-control-sm" name="segment_length_inches" min="0" max="11.99" step="0.1" placeholder="in" style="width: 45%;">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4"><div class="form-group mb-2"><label class="small">Start Connection</label><select class="form-control form-control-sm" name="start_connection_type" onchange="updateConnectionFields(this)"><option value="Endcap">Endcap</option><option value="Leader Cable">Leader Cable</option><option value="Jumper Cable">Jumper Cable</option></select></div></div>
+                <div class="col-md-4"><div class="form-group mb-2"><label class="small">End Connection</label><select class="form-control form-control-sm" name="end_connection_type" onchange="updateConnectionFields(this)"><option value="Endcap">Endcap</option><option value="Leader Cable">Leader Cable</option><option value="Jumper Cable">Jumper Cable</option></select></div></div>
+            </div>
+            <div class="row start-endcap-fields"><div class="col-md-6"><div class="form-group mb-2"><label class="small">Start Endcap Style</label><select class="form-control form-control-sm" name="start_endcap_style"></select></div></div></div>
+            <div class="row start-cable-fields" style="display: none;"><div class="col-md-6"><div class="form-group mb-2"><label class="small">Start Cable Length (mm)</label><input type="number" class="form-control form-control-sm" name="start_cable_length_mm" value="300"></div></div></div>
+            <div class="row end-endcap-fields"><div class="col-md-6"><div class="form-group mb-2"><label class="small">End Endcap Style</label><select class="form-control form-control-sm" name="end_endcap_style"></select></div></div></div>
+            <div class="row end-cable-fields" style="display: none;"><div class="col-md-6"><div class="form-group mb-2"><label class="small">End Cable Length (mm)</label><input type="number" class="form-control form-control-sm" name="end_cable_length_mm" value="300"></div></div></div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block script %}
+<script>
+var schedule_name = "{{ schedule.name if schedule else '' }}";
+var line_idx = {{ line_idx if line_idx is not none else 'null' }};
+var currentResult = null;
+var templateOptions = null;
+var segmentCount = 0;
+var MM_PER_INCH = 25.4;
+var MM_PER_FOOT = 304.8;
+var INCHES_PER_FOOT = 12;
+
+$("select[name='fixture_template_code']").on('change', function() {
+    var template = $(this).val();
+    if (template) {
+        loadTemplateOptions(template);
+        $("#baseOptions").show();
+        $("#segmentsCard").show();
+        if (segmentCount === 0) addSegment();
+    } else {
+        $("#baseOptions").hide();
+        $("#segmentsCard").hide();
+    }
+});
+
+function loadTemplateOptions(template_code) {
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.get_template_options',
+        args: { template_code: template_code },
+        callback: function(r) {
+            if (r.message) {
+                templateOptions = r.message;
+                populateBaseOptions(r.message);
+                $(".segment-card").each(function() { populateSegmentEndcapStyles($(this)); });
+            }
+        }
+    });
+}
+
+function populateBaseOptions(options) {
+    var fields = ['finish', 'lens_appearance', 'mounting_method', 'environment_rating'];
+    fields.forEach(function(field) {
+        var select = $("select[name='" + field + "_code']");
+        select.empty().append('<option value="">Select...</option>');
+        if (options[field]) {
+            options[field].forEach(function(opt) {
+                select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+            });
+        }
+    });
+    var tapeSelect = $("select[name='tape_offering_id']");
+    tapeSelect.empty().append('<option value="">Select...</option>');
+    if (options.tape_offerings) {
+        options.tape_offerings.forEach(function(opt) { tapeSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>'); });
+    }
+    var colorSelect = $("select[name='endcap_color_code']");
+    colorSelect.empty().append('<option value="">Select...</option>');
+    if (options.endcap_colors) {
+        options.endcap_colors.forEach(function(opt) { colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>'); });
+    }
+}
+
+function addSegment() {
+    segmentCount++;
+    var template = document.getElementById('segmentTemplate');
+    var clone = template.content.cloneNode(true);
+    var card = clone.querySelector('.segment-card');
+    card.dataset.segmentIndex = segmentCount;
+    card.querySelector('.segment-number').textContent = segmentCount;
+    var startConn = card.querySelector('[name="start_connection_type"]');
+    var endConn = card.querySelector('[name="end_connection_type"]');
+    if (segmentCount === 1) { startConn.value = 'Leader Cable'; } else { startConn.value = 'Jumper Cable'; }
+    endConn.value = 'Endcap';
+    document.getElementById('segmentsList').appendChild(clone);
+    var segmentCard = $("#segmentsList .segment-card").last();
+    if (templateOptions) populateSegmentEndcapStyles(segmentCard);
+    updateConnectionFields(startConn);
+    updateConnectionFields(endConn);
+    updateSegmentLengthUI(segmentCard);
+    updateSegmentNumbers();
+}
+
+function updateSegmentLengthUI(segmentCard) {
+    var unit = $('#globalLengthUnit').val();
+    var singleInput = segmentCard.find('.length-single-input');
+    var ftInInput = segmentCard.find('.length-ft-in-input');
+    var unitLabel = segmentCard.find('.length-unit-label');
+    
+    if (unit === 'ft_in') {
+        singleInput.hide();
+        ftInInput.show();
+    } else {
+        singleInput.show();
+        ftInInput.hide();
+        unitLabel.text('(' + (unit === 'mm' ? 'mm' : 'in') + ')');
+    }
+}
+
+// When global unit changes, update all segments
+$('#globalLengthUnit').on('change', function() {
+    $('.segment-card').each(function() {
+        updateSegmentLengthUI($(this));
+    });
+});
+
+function removeSegment(btn) { $(btn).closest('.segment-card').remove(); segmentCount = $('.segment-card').length; updateSegmentNumbers(); }
+
+function updateSegmentNumbers() {
+    $('.segment-card').each(function(index) {
+        $(this).attr('data-segment-index', index + 1);
+        $(this).find('.segment-number').text(index + 1);
+    });
+}
+
+function populateSegmentEndcapStyles(segmentCard) {
+    if (!templateOptions || !templateOptions.endcap_style) return;
+    ['start', 'end'].forEach(function(pos) {
+        var select = segmentCard.find('[name="' + pos + '_endcap_style"]');
+        select.empty().append('<option value="">Select...</option>');
+        templateOptions.endcap_style.forEach(function(opt) {
+            select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+        });
+    });
+}
+
+function updateConnectionFields(selectEl) {
+    var card = $(selectEl).closest('.segment-card');
+    var fieldName = $(selectEl).attr('name');
+    var value = $(selectEl).val();
+    var prefix = fieldName.startsWith('start') ? 'start' : 'end';
+    if (value === 'Endcap') {
+        card.find('.' + prefix + '-endcap-fields').show();
+        card.find('.' + prefix + '-cable-fields').hide();
+    } else {
+        card.find('.' + prefix + '-endcap-fields').hide();
+        card.find('.' + prefix + '-cable-fields').show();
+    }
+}
+
+function collectSegments() {
+    var segments = [];
+    var unit = $('#globalLengthUnit').val();
+    
+    $('.segment-card').each(function(index) {
+        var card = $(this);
+        var startConn = card.find('[name="start_connection_type"]').val();
+        var endConn = card.find('[name="end_connection_type"]').val();
+
+        // Get length in mm based on unit
+        var lengthMm = 0;
+        if (unit === 'mm') {
+            lengthMm = parseFloat(card.find('[name="segment_length_mm"]').val()) || 0;
+        } else if (unit === 'in') {
+            lengthMm = Math.round((parseFloat(card.find('[name="segment_length_mm"]').val()) || 0) * MM_PER_INCH);
+        } else if (unit === 'ft_in') {
+            var feet = parseFloat(card.find('[name="segment_length_feet"]').val()) || 0;
+            var inches = parseFloat(card.find('[name="segment_length_inches"]').val()) || 0;
+            lengthMm = Math.round((feet * INCHES_PER_FOOT + inches) * MM_PER_INCH);
+        }
+
+        // Map end_connection_type to end_type expected by API
+        // The API expects "Endcap" or "Jumper"
+        var endType = endConn === 'Jumper Cable' ? 'Jumper' : 'Endcap';
+
+        // Determine power feed type based on connection type
+        // Leader Cable/Jumper Cable typically means "END" power feed type
+        var startPowerFeed = (startConn === 'Leader Cable' || startConn === 'Jumper Cable') ? 'END' : '';
+        var endPowerFeed = (endConn === 'Jumper Cable') ? 'END' : '';
+
+        segments.push({
+            segment_index: index + 1,
+            requested_length_mm: lengthMm,
+            end_type: endType,
+            start_power_feed_type: startPowerFeed,
+            start_leader_cable_length_mm: parseInt(card.find('[name="start_cable_length_mm"]').val()) || 300,
+            end_power_feed_type: endPowerFeed,
+            end_jumper_cable_length_mm: parseInt(card.find('[name="end_cable_length_mm"]').val()) || 300
+        });
+    });
+    return segments;
+}
+
+function calculateConfiguration() {
+    var form = $("#baseConfigForm");
+    var segments = collectSegments();
+    if (segments.length === 0) { frappe.msgprint('Please add at least one segment'); return; }
+    var data = {
+        fixture_template_code: form.find('[name="fixture_template_code"]').val(),
+        finish_code: form.find('[name="finish_code"]').val(),
+        lens_appearance_code: form.find('[name="lens_appearance_code"]').val(),
+        mounting_method_code: form.find('[name="mounting_method_code"]').val(),
+        environment_rating_code: form.find('[name="environment_rating_code"]').val(),
+        endcap_color_code: form.find('[name="endcap_color_code"]').val(),
+        tape_offering_id: form.find('[name="tape_offering_id"]').val(),
+        segments_json: JSON.stringify(segments)
+    };
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
+        args: data,
+        callback: function(r) { if (r.message) { currentResult = r.message; displayResults(r.message); } }
+    });
+}
+
+function displayResults(result) {
+    $("#noResults").hide();
+    var statusBadge = $("#validationStatus");
+    if (result.is_valid) {
+        statusBadge.removeClass('badge-secondary badge-danger').addClass('badge-success').text('Valid');
+        $("#saveBtn").prop('disabled', false);
+    } else {
+        statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
+        $("#saveBtn").prop('disabled', true);
+    }
+    if (result.messages && result.messages.length > 0) {
+        $("#messagesPanel").show();
+        var messagesList = $("#messagesList").empty();
+        result.messages.forEach(function(msg) {
+            var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
+            messagesList.append('<div class="alert alert-' + alertClass + ' py-1 mb-1 small">' + msg.text + '</div>');
+        });
+    } else { $("#messagesPanel").hide(); }
+    if (result.computed) {
+        $("#summaryResults").show();
+        // Use user_segment_count (count of user-defined segments) if available,
+        // otherwise fall back to segments_count (count of computed manufacturing segments)
+        var segCount = result.computed.user_segment_count !== undefined ? result.computed.user_segment_count : result.computed.segment_count;
+        $("#segmentCount").text(segCount);
+        $("#totalLength").text(result.computed.total_requested_length_mm + ' mm');
+        $("#totalTape").text(result.computed.total_tape_length_mm + ' mm');
+        $("#totalRuns").text(result.computed.runs_count);
+        $("#totalWatts").text(result.computed.total_watts + ' W');
+        $("#assemblyMode").text(result.computed.assembly_mode);
+    }
+    // Display driver plan
+    if (result.resolved_items && result.resolved_items.driver_plan) {
+        var dp = result.resolved_items.driver_plan;
+        $("#driverPlanSection").show();
+        $("#driverStatus").text(dp.status || 'none');
+        if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
+            var driver = dp.drivers[0];
+            $("#driverDetailsRow").show();
+            $("#driverDetails").text(driver.item_code + ' × ' + driver.qty);
+        } else {
+            $("#driverDetailsRow").hide();
+        }
+    } else {
+        $("#driverPlanSection").hide();
+    }
+    if (result.pricing) { $("#pricingResults").show(); $("#msrpUnit").text('$' + result.pricing.msrp_unit.toFixed(2)); }
+}
+
+function saveToSchedule() {
+    if (!currentResult || !currentResult.is_valid || !schedule_name) { frappe.msgprint('Cannot save'); return; }
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.save_configured_fixture_to_schedule',
+        args: { schedule_name: schedule_name, line_idx: line_idx, configured_fixture_id: currentResult.configured_fixture_id, manufacturable_length_mm: currentResult.computed.total_profile_length_mm },
+        callback: function(r) {
+            if (r.message && r.message.success) { frappe.msgprint({title: 'Success', indicator: 'green', message: 'Saved'}); window.location.href = '/portal/schedules/' + schedule_name; }
+            else { frappe.msgprint(r.message.error || 'Error'); }
+        }
+    });
+}
+</script>
+{% endblock %}
