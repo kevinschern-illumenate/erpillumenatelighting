@@ -776,9 +776,40 @@ def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
         "selected": bool(selections.get("cct"))
     })
     
-    # Output
+    # Output - Calculate fixture-level output (tape output × lens transmission)
     output_code = "xx"
-    if selections.get("output_level"):
+    if selections.get("output_level") and selections.get("lens_appearance"):
+        # Get tape output level value
+        tape_output_value = frappe.db.get_value(
+            "ilL-Attribute-Output Level",
+            selections["output_level"],
+            "value"
+        ) or 0
+        
+        # Get lens transmission percentage
+        lens_transmission = frappe.db.get_value(
+            "ilL-Attribute-Lens Appearance",
+            selections["lens_appearance"],
+            "transmission"
+        ) or 100
+        
+        # Calculate fixture output = tape output × (transmission / 100)
+        fixture_output_value = int(round(tape_output_value * (lens_transmission / 100)))
+        
+        # Find closest fixture-level output level
+        fixture_output_levels = frappe.get_all(
+            "ilL-Attribute-Output Level",
+            filters={"is_fixture_level": 1},
+            fields=["name", "value", "sku_code"],
+            order_by="value asc"
+        )
+        
+        if fixture_output_levels:
+            # Find closest match by value
+            closest = min(fixture_output_levels, key=lambda x: abs((x.value or 0) - fixture_output_value))
+            output_code = closest.sku_code or "xx"
+    elif selections.get("output_level"):
+        # Fallback: if no lens selected yet, use tape output level code
         output_code = frappe.db.get_value(
             "ilL-Attribute-Output Level",
             selections["output_level"],
