@@ -27,7 +27,10 @@
   "allowed_options_section",
   "allowed_options",
   "allowed_tape_offerings_section",
-  "allowed_tape_offerings"
+  "allowed_tape_offerings",
+  "webflow_section",
+  "webflow_product",
+  "default_profile_spec"
  ],
  "fields": [
   {
@@ -155,6 +158,27 @@
    "fieldtype": "Table",
    "label": "Allowed Tape Offerings",
    "options": "ilL-Child-Template-Allowed-TapeOffering"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "webflow_section",
+   "fieldtype": "Section Break",
+   "label": "Webflow Integration"
+  },
+  {
+   "description": "Backlink to the Webflow product that references this template",
+   "fieldname": "webflow_product",
+   "fieldtype": "Link",
+   "label": "Webflow Product",
+   "options": "ilL-Webflow-Product",
+   "read_only": 1
+  },
+  {
+   "description": "Used to pull dimensions for Webflow export",
+   "fieldname": "default_profile_spec",
+   "fieldtype": "Link",
+   "label": "Default Profile Spec",
+   "options": "ilL-Spec-Profile"
   }
  ],
  "grid_page_length": 50,

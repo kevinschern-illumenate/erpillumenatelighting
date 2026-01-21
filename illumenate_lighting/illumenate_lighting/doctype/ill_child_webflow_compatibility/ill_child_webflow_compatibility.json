@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-21 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "related_product",
+  "relationship_type",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "related_product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Related Product",
+   "options": "ilL-Webflow-Product",
+   "reqd": 1
+  },
+  {
+   "fieldname": "relationship_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Relationship Type",
+   "options": "Works With\nRequires\nRecommended With\nReplaces\nAlternative To",
+   "reqd": 1
+  },
+  {
+   "description": "Additional context, e.g., 'Required for wet locations'",
+   "fieldname": "notes",
+   "fieldtype": "Data",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-21 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Webflow-Compatibility",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}

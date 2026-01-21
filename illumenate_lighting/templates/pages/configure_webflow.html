@@ -1,0 +1,505 @@
+{#
+Portal Configurator Page (Webflow-Compatible)
+Follows the horizontal step flow matching the Webflow configurator UI:
+Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Length → Start Feed → End Feed
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Configure Fixture") }}{% endblock %}
+
+{% block style %}
+<style>
+/* Configurator Progress Bar */
+.configurator-progress {
+	display: flex;
+	justify-content: space-between;
+	padding: 1rem 0;
+	margin-bottom: 1.5rem;
+	border-bottom: 1px solid #dee2e6;
+	overflow-x: auto;
+}
+.progress-step {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 80px;
+	padding: 0 0.5rem;
+}
+.progress-step .step-number {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: #e9ecef;
+	color: #6c757d;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.75rem;
+	font-weight: 600;
+	margin-bottom: 0.25rem;
+}
+.progress-step.active .step-number {
+	background: #0d6efd;
+	color: white;
+}
+.progress-step.completed .step-number {
+	background: #198754;
+	color: white;
+}
+.progress-step .step-label {
+	font-size: 0.7rem;
+	color: #6c757d;
+	text-align: center;
+}
+.progress-step.active .step-label {
+	color: #0d6efd;
+	font-weight: 500;
+}
+
+/* Part Number Preview */
+.part-number-preview {
+	font-family: 'Courier New', monospace;
+	font-size: 1.25rem;
+	background: #f8f9fa;
+	padding: 1rem;
+	border-radius: 0.5rem;
+	border: 2px solid #dee2e6;
+	margin-bottom: 1rem;
+	text-align: center;
+}
+.part-number-preview .segment {
+	display: inline;
+}
+.part-number-preview .segment.unselected {
+	color: #adb5bd;
+}
+.part-number-preview .segment.selected {
+	color: #212529;
+	font-weight: 600;
+}
+.part-number-preview .segment.locked {
+	color: #0d6efd;
+}
+
+/* Pill Button Selector Styles */
+.pill-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.pill-selector .pill {
+	display: inline-block;
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: #495057;
+	background-color: #fff;
+	border: 1px solid #ced4da;
+	border-radius: 2rem;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+	user-select: none;
+}
+.pill-selector .pill:hover {
+	background-color: #e9ecef;
+	border-color: #adb5bd;
+}
+.pill-selector .pill.active {
+	background-color: #0d6efd;
+	border-color: #0d6efd;
+	color: #fff;
+}
+.pill-selector .pill.active:hover {
+	background-color: #0b5ed7;
+	border-color: #0a58ca;
+}
+.pill-selector .pill.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Config Section Styles */
+.config-section {
+	margin-bottom: 1.5rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid #f0f0f0;
+}
+.config-section h4 {
+	font-size: 1rem;
+	font-weight: 600;
+	margin-bottom: 0.75rem;
+	color: #333;
+}
+.config-section.locked h4 {
+	color: #6c757d;
+}
+.config-section .series-display {
+	background: #e7f1ff;
+	border: 1px solid #b6d4fe;
+	padding: 0.75rem 1rem;
+	border-radius: 0.5rem;
+}
+.config-section .series-display .series-name {
+	font-weight: 600;
+	color: #0d6efd;
+}
+
+/* Feed Configuration Styles */
+.feed-config {
+	display: flex;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+.feed-config .feed-direction,
+.feed-config .feed-length {
+	flex: 1;
+	min-width: 150px;
+}
+.feed-config label {
+	font-size: 0.875rem;
+	font-weight: 500;
+	margin-bottom: 0.5rem;
+	display: block;
+}
+
+/* Length Input Styles */
+.length-input-group {
+	display: flex;
+	gap: 0.5rem;
+}
+.length-input-group input {
+	flex: 2;
+}
+.length-input-group select {
+	flex: 1;
+}
+
+/* Complex Fixture Banner */
+.complex-fixture-banner {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	padding: 1rem;
+	border-radius: 0.5rem;
+	margin-top: 1.5rem;
+}
+.complex-fixture-banner a {
+	color: white;
+	text-decoration: underline;
+}
+
+/* Hidden select for mobile fallback */
+.option-group .select-fallback {
+	display: none;
+}
+@media (max-width: 767.98px) {
+	.option-group .pill-selector {
+		display: none !important;
+	}
+	.option-group .select-fallback {
+		display: block !important;
+	}
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			{% if schedule %}
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			{% endif %}
+			<li class="breadcrumb-item active" aria-current="page">{{ _("Configure Fixture") }}</li>
+		</ol>
+	</nav>
+
+	<div class="row">
+		<!-- Configurator Form -->
+		<div class="col-lg-8">
+			<div class="card mb-3">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Fixture Configuration") }}</h5>
+					<span class="badge badge-info" id="progressBadge">0%</span>
+				</div>
+				<div class="card-body">
+					<!-- Part Number Preview -->
+					<div class="part-number-preview" id="partNumberPreview">
+						<span class="segment locked">ILL-XX-XX</span><span class="segment unselected">-xx-xx-xx-xx-xx-xx</span>
+					</div>
+
+					<!-- Progress Steps -->
+					<div class="configurator-progress" id="progressSteps">
+						<div class="progress-step completed" data-step="0">
+							<span class="step-number">✓</span>
+							<span class="step-label">Series</span>
+						</div>
+						<div class="progress-step" data-step="1">
+							<span class="step-number">1</span>
+							<span class="step-label">Dry/Wet</span>
+						</div>
+						<div class="progress-step" data-step="2">
+							<span class="step-number">2</span>
+							<span class="step-label">CCT</span>
+						</div>
+						<div class="progress-step" data-step="3">
+							<span class="step-number">3</span>
+							<span class="step-label">Output</span>
+						</div>
+						<div class="progress-step" data-step="4">
+							<span class="step-number">4</span>
+							<span class="step-label">Lens</span>
+						</div>
+						<div class="progress-step" data-step="5">
+							<span class="step-number">5</span>
+							<span class="step-label">Mounting</span>
+						</div>
+						<div class="progress-step" data-step="6">
+							<span class="step-number">6</span>
+							<span class="step-label">Finish</span>
+						</div>
+						<div class="progress-step" data-step="7">
+							<span class="step-number">7</span>
+							<span class="step-label">Length</span>
+						</div>
+						<div class="progress-step" data-step="8">
+							<span class="step-number">8</span>
+							<span class="step-label">Start Feed</span>
+						</div>
+						<div class="progress-step" data-step="9">
+							<span class="step-number">9</span>
+							<span class="step-label">End Feed</span>
+						</div>
+					</div>
+
+					<form id="configuratorForm">
+						<div class="configurator-sections">
+							
+							<!-- Section 0: Series (Read-only, from URL/template) -->
+							<div class="config-section locked" id="seriesSection">
+								<h4><i class="fa fa-lock text-muted mr-2"></i>{{ _("Series") }}</h4>
+								<div class="series-display">
+									<span class="series-name" id="seriesName">{{ _("Select a template...") }}</span>
+									<span class="series-code text-muted ml-2" id="seriesCode"></span>
+								</div>
+								<select class="form-control mt-2" name="fixture_template_code" id="fixtureTemplateSelect">
+									<option value="">{{ _("Select Template...") }}</option>
+									{% for template in templates %}
+									<option value="{{ template.template_code }}" 
+											data-name="{{ template.template_name }}"
+											{% if template.template_code == selected_template %}selected{% endif %}>
+										{{ template.template_name }} ({{ template.template_code }})
+									</option>
+									{% endfor %}
+								</select>
+								<input type="hidden" name="product_slug" value="{{ product_slug or '' }}">
+							</div>
+							
+							<!-- Section 1: Environment (Dry/Wet) -->
+							<div class="config-section" id="environmentSection" style="display: none;">
+								<h4>{{ _("Dry/Wet") }}</h4>
+								<div class="pill-selector" data-field="environment_rating"></div>
+								<select class="form-control select-fallback" name="environment_rating"></select>
+							</div>
+							
+							<!-- Section 2: CCT -->
+							<div class="config-section" id="cctSection" style="display: none;">
+								<h4>{{ _("CCT") }}</h4>
+								<div class="pill-selector" data-field="cct"></div>
+								<select class="form-control select-fallback" name="cct"></select>
+							</div>
+							
+							<!-- Section 3: Output -->
+							<div class="config-section" id="outputSection" style="display: none;">
+								<h4>{{ _("Output") }}</h4>
+								<div class="pill-selector" data-field="output_level"></div>
+								<select class="form-control select-fallback" name="output_level"></select>
+							</div>
+							
+							<!-- Section 4: Lens -->
+							<div class="config-section" id="lensSection" style="display: none;">
+								<h4>{{ _("Lens") }}</h4>
+								<div class="pill-selector" data-field="lens_appearance"></div>
+								<select class="form-control select-fallback" name="lens_appearance"></select>
+							</div>
+							
+							<!-- Section 5: Mounting -->
+							<div class="config-section" id="mountingSection" style="display: none;">
+								<h4>{{ _("Mounting") }}</h4>
+								<div class="pill-selector" data-field="mounting_method"></div>
+								<select class="form-control select-fallback" name="mounting_method"></select>
+							</div>
+							
+							<!-- Section 6: Finish -->
+							<div class="config-section" id="finishSection" style="display: none;">
+								<h4>{{ _("Finish") }}</h4>
+								<div class="pill-selector" data-field="finish"></div>
+								<select class="form-control select-fallback" name="finish"></select>
+							</div>
+							
+							<!-- Section 7: Length -->
+							<div class="config-section" id="lengthSection" style="display: none;">
+								<h4>{{ _("Length") }}</h4>
+								<div class="length-input-group">
+									<input type="number" name="length_value" class="form-control" 
+										   min="12" max="360" step="0.5" placeholder="50">
+									<select name="length_unit" class="form-select form-control">
+										<option value="inches" selected>inches</option>
+										<option value="ft">ft</option>
+										<option value="mm">mm</option>
+									</select>
+								</div>
+								<small class="text-muted mt-1 d-block" id="lengthNote">{{ _("Maximum length is 30 ft") }}</small>
+							</div>
+							
+							<!-- Section 8: Start Feed Direction & Length -->
+							<div class="config-section" id="startFeedSection" style="display: none;">
+								<h4>{{ _("Start Feed Direction & Length") }}</h4>
+								<div class="feed-config">
+									<div class="feed-direction">
+										<label>{{ _("Direction") }}</label>
+										<div class="pill-selector" data-field="start_feed_direction">
+											<button type="button" class="pill" data-value="End">{{ _("End") }}</button>
+											<button type="button" class="pill" data-value="Back">{{ _("Back") }}</button>
+										</div>
+									</div>
+									<div class="feed-length">
+										<label>{{ _("Length") }}</label>
+										<div class="input-group">
+											<input type="number" name="start_feed_length_ft" class="form-control"
+												   min="2" max="30" step="1" value="2" placeholder="2">
+											<span class="input-group-text">ft</span>
+										</div>
+									</div>
+								</div>
+							</div>
+							
+							<!-- Section 9: End Feed Direction & Length -->
+							<div class="config-section" id="endFeedSection" style="display: none;">
+								<h4>{{ _("End Feed Direction & Length") }}</h4>
+								<div class="feed-config">
+									<div class="feed-direction">
+										<label>{{ _("Direction") }}</label>
+										<div class="pill-selector" data-field="end_feed_direction">
+											<button type="button" class="pill" data-value="End">{{ _("End") }}</button>
+											<button type="button" class="pill" data-value="Back">{{ _("Back") }}</button>
+										</div>
+									</div>
+									<div class="feed-length">
+										<label>{{ _("Length") }}</label>
+										<div class="input-group">
+											<input type="number" name="end_feed_length_ft" class="form-control"
+												   min="2" max="30" step="1" value="2" placeholder="2">
+											<span class="input-group-text">ft</span>
+										</div>
+									</div>
+								</div>
+							</div>
+							
+							<!-- Hidden fields for compatibility -->
+							<input type="hidden" name="tape_offering_id" value="">
+							<input type="hidden" name="led_package" value="">
+							
+						</div>
+
+						<!-- Complex Fixture Banner -->
+						<div class="complex-fixture-banner" id="complexFixtureBanner" style="display: none;">
+							<strong><i class="fa fa-info-circle mr-2"></i>{{ _("Have a complex jumper fixture?") }}</strong>
+							<p class="mb-0 mt-1">
+								{{ _("Use our") }} <a href="/portal/projects" id="fixtureCoordinatorLink">{{ _("Fixture Coordinator") }}</a> 
+								{{ _("for multi-segment configurations with custom jumpers.") }}
+							</p>
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="d-flex justify-content-between" id="actionButtons">
+				<button type="button" class="btn btn-outline-secondary" onclick="resetConfiguration()">
+					<i class="fa fa-refresh"></i> {{ _("Reset") }}
+				</button>
+				<div>
+					<button type="button" class="btn btn-primary mr-2" id="validateBtn" onclick="validateConfiguration()" disabled>
+						<i class="fa fa-check-circle"></i> {{ _("Validate") }}
+					</button>
+					{% if can_save %}
+					<button type="button" class="btn btn-success" id="addToScheduleBtn" onclick="addToSchedule()" disabled>
+						<i class="fa fa-plus"></i> {{ _("Add to Schedule") }}
+					</button>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+
+		<!-- Results Panel -->
+		<div class="col-lg-4">
+			<div class="card sticky-top" style="top: 1rem;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Configuration Summary") }}</h5>
+					<span id="validationStatus" class="badge badge-secondary">{{ _("Incomplete") }}</span>
+				</div>
+				<div class="card-body">
+					<!-- Summary List -->
+					<div id="configSummary">
+						<div class="text-center text-muted py-4" id="summaryPlaceholder">
+							<i class="fa fa-list fa-2x mb-2"></i>
+							<p>{{ _("Select options to see summary") }}</p>
+						</div>
+						<ul class="list-group list-group-flush" id="summaryList" style="display: none;"></ul>
+					</div>
+
+					<!-- Pricing Preview -->
+					{% if show_pricing %}
+					<div id="pricingPreview" class="mt-3" style="display: none;">
+						<hr>
+						<h6>{{ _("Estimated Pricing") }}</h6>
+						<table class="table table-sm mb-0">
+							<tr>
+								<td>{{ _("Base Price") }}</td>
+								<td class="text-right"><span id="basePrice">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Length Price") }}</td>
+								<td class="text-right"><span id="lengthPrice">-</span></td>
+							</tr>
+							<tr class="font-weight-bold">
+								<td>{{ _("Total MSRP") }}</td>
+								<td class="text-right"><span id="totalMsrp">-</span></td>
+							</tr>
+						</table>
+						<small class="text-muted">{{ _("Final quote provided upon order.") }}</small>
+					</div>
+					{% endif %}
+
+					<!-- Validation Messages -->
+					<div id="validationMessages" class="mt-3" style="display: none;">
+						<hr>
+						<div id="messagesList"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="/assets/illumenate_lighting/js/webflow_configurator.js"></script>
+<script>
+// Initialize configurator with context
+var configuratorContext = {
+	schedule_name: "{{ schedule.name if schedule else '' }}",
+	product_slug: "{{ product_slug or '' }}",
+	session_id: "{{ session_id or '' }}",
+	can_save: {{ 'true' if can_save else 'false' }},
+	show_pricing: {{ 'true' if show_pricing else 'false' }}
+};
+
+$(function() {
+	initWebflowConfigurator(configuratorContext);
+});
+</script>
+{% endblock %}

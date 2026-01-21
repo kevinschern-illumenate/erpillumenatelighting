@@ -10,6 +10,9 @@
   "item",
   "electrical_section",
   "input_voltage",
+  "input_voltage_min",
+  "input_voltage_max",
+  "input_voltage_type",
   "voltage_output",
   "outputs_count",
   "output_type",
@@ -19,7 +22,15 @@
   "max_wattage",
   "max_wattage_per_output",
   "usable_load_factor",
-  "cost"
+  "cost",
+  "dimensions_section",
+  "width_mm",
+  "height_mm",
+  "depth_mm",
+  "column_break_dimensions",
+  "weight_grams",
+  "certifications_section",
+  "certifications"
  ],
  "fields": [
   {
@@ -42,7 +53,26 @@
   {
    "fieldname": "input_voltage",
    "fieldtype": "Data",
-   "label": "Input Voltage"
+   "label": "Input Voltage",
+   "description": "Legacy field - use structured voltage fields instead"
+  },
+  {
+   "description": "Minimum input voltage (e.g., 100)",
+   "fieldname": "input_voltage_min",
+   "fieldtype": "Int",
+   "label": "Input Voltage Min"
+  },
+  {
+   "description": "Maximum input voltage (e.g., 277)",
+   "fieldname": "input_voltage_max",
+   "fieldtype": "Int",
+   "label": "Input Voltage Max"
+  },
+  {
+   "fieldname": "input_voltage_type",
+   "fieldtype": "Select",
+   "label": "Input Voltage Type",
+   "options": "VAC\nVDC"
   },
   {
    "fieldname": "voltage_output",
@@ -100,6 +130,47 @@
    "fieldtype": "Currency",
    "label": "Unit Cost",
    "description": "Unit cost for driver selection policy (lowest cost preferred)"
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Physical Dimensions"
+  },
+  {
+   "fieldname": "width_mm",
+   "fieldtype": "Float",
+   "label": "Width (mm)"
+  },
+  {
+   "fieldname": "height_mm",
+   "fieldtype": "Float",
+   "label": "Height (mm)"
+  },
+  {
+   "fieldname": "depth_mm",
+   "fieldtype": "Float",
+   "label": "Depth (mm)"
+  },
+  {
+   "fieldname": "column_break_dimensions",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight_grams",
+   "fieldtype": "Float",
+   "label": "Weight (grams)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "certifications_section",
+   "fieldtype": "Section Break",
+   "label": "Certifications"
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification"
   }
  ],
  "grid_page_length": 50,
