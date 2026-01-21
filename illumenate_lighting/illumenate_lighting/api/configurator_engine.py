@@ -1355,16 +1355,17 @@ def _resolve_multisegment_items(
 		})
 
 	# Resolve endcap items
-	# For multi-segment: start endcap is feed-through for first segment
-	# End endcap is solid for the last segment
+	# For multi-segment: start endcap needs feed-through if there's a leader cable feeding in
+	# End endcap is solid for the last segment (no power passing through)
 	first_segment = segments[0] if segments else {}
 	start_power_feed = first_segment.get("start_power_feed_type", "")
 
-	# Determine start endcap style based on power feed type
-	start_endcap_style = "FEED_THROUGH" if start_power_feed and start_power_feed.upper() == "END" else "SOLID"
+	# Determine if start endcap needs to support feed-through
+	# If there's a power feed type specified for start, we need a feed-through endcap
+	start_needs_feed = bool(start_power_feed)
 
-	# Get endcap item for start
-	start_endcap_candidates = frappe.get_all(
+	# Get all endcap candidates for this template and color
+	endcap_candidates = frappe.get_all(
 		"ilL-Rel-Endcap-Map",
 		filters={
 			"fixture_template": fixture_template_code,
@@ -1374,20 +1375,63 @@ def _resolve_multisegment_items(
 		fields=["endcap_item", "endcap_style", "power_feed_type"],
 	)
 
-	for ec_row in start_endcap_candidates:
-		if ec_row.get("endcap_style") == start_endcap_style:
-			resolved["endcap_item_start"] = ec_row.endcap_item
-			break
-		if not resolved["endcap_item_start"]:
-			resolved["endcap_item_start"] = ec_row.endcap_item
+	# Build lookup of endcap styles to check supports_feed property
+	endcap_style_names = list({ec.endcap_style for ec in endcap_candidates if ec.endcap_style})
+	endcap_style_info = {}
+	if endcap_style_names:
+		style_docs = frappe.get_all(
+			"ilL-Attribute-Endcap Style",
+			filters={"name": ["in", endcap_style_names]},
+			fields=["name", "style", "supports_feed"],
+		)
+		endcap_style_info = {s.name: s for s in style_docs}
 
-	# End endcap is always solid
-	for ec_row in start_endcap_candidates:
-		if ec_row.get("endcap_style") == "SOLID":
-			resolved["endcap_item_end"] = ec_row.endcap_item
+	# Find start endcap: if start needs feed, look for one with supports_feed=1 or style containing "Feed"
+	# Otherwise, look for a solid endcap
+	start_endcap_found = None
+	start_endcap_fallback = None
+	for ec_row in endcap_candidates:
+		if not ec_row.endcap_style:
+			continue
+		style_info = endcap_style_info.get(ec_row.endcap_style, {})
+		supports_feed = style_info.get("supports_feed", 0)
+		style_name = style_info.get("style", "") or ""
+
+		if start_needs_feed:
+			# Looking for feed-through endcap
+			if supports_feed or "feed" in style_name.lower():
+				start_endcap_found = ec_row.endcap_item
+				break
+			if not start_endcap_fallback:
+				start_endcap_fallback = ec_row.endcap_item
+		else:
+			# Looking for solid endcap
+			if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
+				start_endcap_found = ec_row.endcap_item
+				break
+			if not start_endcap_fallback:
+				start_endcap_fallback = ec_row.endcap_item
+
+	resolved["endcap_item_start"] = start_endcap_found or start_endcap_fallback
+
+	# Find end endcap: always solid (no power passing through the end)
+	end_endcap_found = None
+	end_endcap_fallback = None
+	for ec_row in endcap_candidates:
+		if not ec_row.endcap_style:
+			continue
+		style_info = endcap_style_info.get(ec_row.endcap_style, {})
+		supports_feed = style_info.get("supports_feed", 0)
+		style_name = style_info.get("style", "") or ""
+
+		# Looking for solid endcap
+		if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
+			end_endcap_found = ec_row.endcap_item
 			break
-		if not resolved["endcap_item_end"]:
-			resolved["endcap_item_end"] = ec_row.endcap_item
+		if not end_endcap_fallback:
+			end_endcap_fallback = ec_row.endcap_item
+
+	resolved["endcap_item_end"] = end_endcap_found or end_endcap_fallback
 
 	# Resolve leader cable item
 	if tape_offering_doc:
@@ -1573,6 +1617,21 @@ def _create_or_update_multisegment_fixture(
 			"leader_item": run.get("leader_item") or resolved_items.get("leader_item"),
 			"leader_len_mm": run.get("leader_len_mm", 0),
 		})
+
+	# Set driver allocations
+	doc.drivers = []
+	driver_plan = resolved_items.get("driver_plan", {})
+	if driver_plan.get("status") == "selected" and driver_plan.get("drivers"):
+		for driver_alloc in driver_plan["drivers"]:
+			doc.append(
+				"drivers",
+				{
+					"driver_item": driver_alloc.get("item_code"),
+					"driver_qty": driver_alloc.get("qty", 1),
+					"outputs_used": driver_alloc.get("outputs_used", 0),
+					"mapping_notes": driver_alloc.get("mapping_notes", ""),
+				},
+			)
 
 	# Append pricing snapshot
 	doc.append("pricing_snapshot", {
