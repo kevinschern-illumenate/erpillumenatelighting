@@ -8,6 +8,15 @@ Displays all projects accessible to the current user
 
 {% block page_content %}
 <div class="container portal-page">
+	{# DEBUG SECTION - Remove after troubleshooting #}
+	{% if debug_info %}
+	<div class="alert alert-info mb-4">
+		<h5>Debug Info (remove after troubleshooting)</h5>
+		<pre style="font-size: 12px; max-height: 200px; overflow: auto;">{{ debug_info | tojson(indent=2) }}</pre>
+	</div>
+	{% endif %}
+	{# END DEBUG SECTION #}
+
 	<div class="row mb-4">
 		<div class="col-12">
 			<div class="d-flex justify-content-between align-items-center">
