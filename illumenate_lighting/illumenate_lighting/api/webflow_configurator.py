@@ -1007,19 +1007,43 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
 # =============================================================================
 
 def _get_configurable_product(product_slug: str):
-    """Get a configurable Webflow product by slug."""
-    if not frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
-        return None
+    """
+    Get a configurable Webflow product by slug, or create a virtual product
+    from a fixture template code if no product exists.
     
-    product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+    This allows the configurator to work with:
+    1. Webflow products (product_slug matches ilL-Webflow-Product.product_slug)
+    2. Direct template codes (product_slug matches ilL-Fixture-Template.name)
+    """
+    # First, try to find a Webflow product
+    if frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
+        product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+        
+        is_configurable = getattr(product, 'is_configurable', False)
+        fixture_template = getattr(product, 'fixture_template', None)
+        
+        if is_configurable and fixture_template:
+            return product
     
-    is_configurable = getattr(product, 'is_configurable', False)
-    fixture_template = getattr(product, 'fixture_template', None)
+    # Fallback: treat product_slug as a fixture template code
+    if frappe.db.exists("ilL-Fixture-Template", product_slug):
+        template = frappe.get_doc("ilL-Fixture-Template", product_slug)
+        
+        # Create a virtual product-like object for compatibility
+        class VirtualProduct:
+            pass
+        
+        virtual = VirtualProduct()
+        virtual.product_slug = product_slug
+        virtual.product_name = template.template_name
+        virtual.fixture_template = template.name
+        virtual.is_configurable = True
+        virtual.min_length_mm = getattr(template, 'min_length_mm', None)
+        virtual.max_length_mm = getattr(template, 'max_length_mm', None)
+        
+        return virtual
     
-    if not is_configurable or not fixture_template:
-        return None
-    
-    return product
+    return None
 
 
 def _calculate_pricing_preview(template, selections: dict, tape_offering_id: str) -> dict:
