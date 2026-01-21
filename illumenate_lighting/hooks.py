@@ -75,7 +75,7 @@ website_route_rules = [
 	{"from_route": "/portal/debug", "to_route": "portal_debug"},
 
 	# Projects
-	{"from_route": "/portal/projects", "to_route": "projects"},
+	{"from_route": "/portal/projects", "to_route": "ill_projects"},
 	{"from_route": "/portal/projects/<project>", "to_route": "project"},
 	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
