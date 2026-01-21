@@ -2381,13 +2381,13 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 		self.assertTrue(result["success"])
 		self.assertGreater(len(result["delivered_outputs"]), 0)
 
-		# With 56% transmission:
-		# 100 lm/ft tape * 0.56 = 56 lm/ft -> rounded to 50
-		# 200 lm/ft tape * 0.56 = 112 lm/ft -> rounded to 100
-		output_values = [o["value"] for o in result["delivered_outputs"]]
-		# Check that outputs are rounded to nearest 50
-		for val in output_values:
-			self.assertEqual(val % 50, 0, f"Output {val} should be rounded to nearest 50")
+		# With lens transmission, delivered outputs are matched to closest fixture-level output levels
+		# Each output should have output_level (link) and output_level_name fields
+		for output in result["delivered_outputs"]:
+			self.assertIn("value", output)
+			self.assertIn("output_level", output)
+			self.assertIn("output_level_name", output)
+			self.assertIn("sku_code", output)
 
 	def test_auto_select_tape_for_configuration(self):
 		"""Test that tape is auto-selected based on delivered output choice"""
