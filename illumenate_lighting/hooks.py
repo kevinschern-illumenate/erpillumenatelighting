@@ -72,7 +72,6 @@ website_route_rules = [
 	# Portal main pages
 	{"from_route": "/portal", "to_route": "portal"},
 	{"from_route": "/portal/", "to_route": "portal"},
-	{"from_route": "/portal/debug", "to_route": "portal_debug"},
 
 	# Projects
 	{"from_route": "/portal/projects", "to_route": "ill_projects"},
