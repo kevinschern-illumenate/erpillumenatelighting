@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-21 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "option_step",
+  "option_type",
+  "option_label",
+  "option_description",
+  "column_break_config",
+  "is_required",
+  "depends_on_step",
+  "allowed_values_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "option_step",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Step Order",
+   "reqd": 1
+  },
+  {
+   "fieldname": "option_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Option Type",
+   "options": "LED Package\nCCT\nOutput Level\nLens Appearance\nFinish\nMounting Method\nEnvironment Rating\nPower Feed Type\nEndcap Style\nEndcap Color",
+   "reqd": 1
+  },
+  {
+   "description": "Display label override, e.g., 'Choose Your Color Temperature'",
+   "fieldname": "option_label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Option Label"
+  },
+  {
+   "description": "Helper text shown to user for this step",
+   "fieldname": "option_description",
+   "fieldtype": "Small Text",
+   "label": "Option Description"
+  },
+  {
+   "fieldname": "column_break_config",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_required",
+   "fieldtype": "Check",
+   "label": "Is Required"
+  },
+  {
+   "description": "Step number this option depends on (for cascading dependencies)",
+   "fieldname": "depends_on_step",
+   "fieldtype": "Int",
+   "label": "Depends on Step"
+  },
+  {
+   "description": "Cached allowed values for Webflow export. JSON array of {value, label, code, is_default}",
+   "fieldname": "allowed_values_json",
+   "fieldtype": "JSON",
+   "label": "Allowed Values (JSON)"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-21 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Webflow-Configurator-Option",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "option_step",
+ "sort_order": "ASC",
+ "states": []
+}

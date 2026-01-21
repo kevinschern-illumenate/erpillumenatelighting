@@ -1,0 +1,77 @@
+[
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Linear Fixtures",
+    "category_slug": "linear-fixtures",
+    "display_order": 10,
+    "description": "Configurable linear LED lighting fixtures for architectural applications",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Drivers & Power",
+    "category_slug": "drivers-power",
+    "display_order": 20,
+    "description": "LED drivers, power supplies, and electrical components",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Controls",
+    "category_slug": "controls",
+    "display_order": 30,
+    "description": "Dimmers, controllers, and lighting control systems",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Extrusion Kits",
+    "category_slug": "extrusion-kits",
+    "display_order": 40,
+    "description": "Complete aluminum extrusion kits for DIY installation",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Components",
+    "category_slug": "components",
+    "display_order": 50,
+    "description": "Individual components including LED tape, lenses, and profiles",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "LED Tape",
+    "category_slug": "led-tape",
+    "parent_category": "components",
+    "display_order": 51,
+    "description": "LED tape and strip lighting products",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Profiles",
+    "category_slug": "profiles",
+    "parent_category": "components",
+    "display_order": 52,
+    "description": "Aluminum extrusion profiles for LED mounting",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Lenses",
+    "category_slug": "lenses",
+    "parent_category": "components",
+    "display_order": 53,
+    "description": "Diffuser lenses for LED profiles",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Webflow-Category",
+    "category_name": "Accessories",
+    "category_slug": "accessories",
+    "display_order": 60,
+    "description": "Mounting accessories, connectors, and installation hardware",
+    "is_active": 1
+  }
+]

@@ -1,0 +1,142 @@
+[
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "24V DC",
+    "certification_code": "24VDC",
+    "description": "24 Volt DC low voltage system",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "Driver"},
+      {"product_type": "LED Tape"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "UL Dry Rated",
+    "certification_code": "UL-DRY",
+    "certification_body": "Underwriters Laboratories",
+    "description": "Suitable for dry indoor locations",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "UL Damp Rated",
+    "certification_code": "UL-DAMP",
+    "certification_body": "Underwriters Laboratories",
+    "description": "Suitable for damp locations with moisture exposure",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "UL Wet Rated",
+    "certification_code": "UL-WET",
+    "certification_body": "Underwriters Laboratories",
+    "description": "Suitable for wet locations and outdoor use",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "ETL Listed",
+    "certification_code": "ETL",
+    "certification_body": "Intertek",
+    "description": "ETL Listed for safety compliance",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "Driver"},
+      {"product_type": "Controller"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "IP20",
+    "certification_code": "IP20",
+    "description": "Protected against solid objects over 12mm, no water protection",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "LED Tape"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "IP65",
+    "certification_code": "IP65",
+    "description": "Dust tight and protected against water jets",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "LED Tape"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "IP67",
+    "certification_code": "IP67",
+    "description": "Dust tight and protected against temporary immersion",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "LED Tape"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "Class 2",
+    "certification_code": "CLASS2",
+    "description": "Class 2 power-limited circuit",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Driver"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "RoHS Compliant",
+    "certification_code": "ROHS",
+    "description": "Compliant with Restriction of Hazardous Substances Directive",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "Driver"},
+      {"product_type": "Controller"},
+      {"product_type": "LED Tape"},
+      {"product_type": "Component"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "FCC Certified",
+    "certification_code": "FCC",
+    "certification_body": "Federal Communications Commission",
+    "description": "FCC certified for electromagnetic compatibility",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Controller"},
+      {"product_type": "Driver"}
+    ]
+  },
+  {
+    "doctype": "ilL-Attribute-Certification",
+    "certification_name": "CE Marked",
+    "certification_code": "CE",
+    "description": "Conformité Européenne - meets EU safety standards",
+    "is_active": 1,
+    "applies_to_types": [
+      {"product_type": "Fixture Template"},
+      {"product_type": "Driver"},
+      {"product_type": "Controller"},
+      {"product_type": "LED Tape"}
+    ]
+  }
+]

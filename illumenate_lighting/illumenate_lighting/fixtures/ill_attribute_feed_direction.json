@@ -1,0 +1,16 @@
+[
+  {
+    "doctype": "ilL-Attribute-Feed-Direction",
+    "direction_name": "End",
+    "code": "E",
+    "description": "Power feed exits from the end of the fixture (inline with the fixture axis)",
+    "is_active": 1
+  },
+  {
+    "doctype": "ilL-Attribute-Feed-Direction",
+    "direction_name": "Back",
+    "code": "B",
+    "description": "Power feed exits from the back of the fixture (perpendicular to the fixture axis)",
+    "is_active": 1
+  }
+]

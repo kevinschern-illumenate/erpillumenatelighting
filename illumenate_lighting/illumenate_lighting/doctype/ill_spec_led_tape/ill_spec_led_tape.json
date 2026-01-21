@@ -13,8 +13,14 @@
   "watts_per_foot",
   "voltage_drop_max_run_length_ft",
   "input_protocol",
+  "optical_section",
+  "lumens_per_foot",
+  "cri_typical",
+  "led_pitch_mm",
   "cutting_section",
-  "cut_increment_mm"
+  "cut_increment_mm",
+  "dimming_section",
+  "supported_dimming_protocols"
  ],
  "fields": [
   {
@@ -58,6 +64,29 @@
    "description": "The dimming signal protocol this tape requires from the driver output"
   },
   {
+   "fieldname": "optical_section",
+   "fieldtype": "Section Break",
+   "label": "Optical"
+  },
+  {
+   "description": "Tape output in lumens per foot before lens",
+   "fieldname": "lumens_per_foot",
+   "fieldtype": "Float",
+   "label": "Lumens per Foot"
+  },
+  {
+   "description": "Typical CRI value (e.g., 90)",
+   "fieldname": "cri_typical",
+   "fieldtype": "Int",
+   "label": "CRI (Typical)"
+  },
+  {
+   "description": "LED spacing in millimeters",
+   "fieldname": "led_pitch_mm",
+   "fieldtype": "Float",
+   "label": "LED Pitch (mm)"
+  },
+  {
    "fieldname": "cutting_section",
    "fieldtype": "Section Break",
    "label": "Cutting"
@@ -66,6 +95,19 @@
    "fieldname": "cut_increment_mm",
    "fieldtype": "Float",
    "label": "Cut Increment (mm)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "dimming_section",
+   "fieldtype": "Section Break",
+   "label": "Dimming Compatibility"
+  },
+  {
+   "description": "Dimming protocols supported by this tape",
+   "fieldname": "supported_dimming_protocols",
+   "fieldtype": "Table",
+   "label": "Supported Dimming Protocols",
+   "options": "ilL-Child-Tape-Dimming-Protocol"
   }
  ],
  "grid_page_length": 50,

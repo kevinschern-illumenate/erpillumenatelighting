@@ -85,6 +85,8 @@ website_route_rules = [
 	# Configurator
 	{"from_route": "/portal/configure", "to_route": "configure"},
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
+	{"from_route": "/portal/configure-webflow", "to_route": "configure_webflow"},
+	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
 
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
@@ -134,6 +136,11 @@ fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
 	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
 	{"dt": "ILL Request Type"},
+	# Webflow integration fixtures (Phase 1)
+	{"dt": "ilL-Attribute-Certification"},
+	{"dt": "ilL-Webflow-Category"},
+	# Webflow configurator fixtures (Phase 2)
+	{"dt": "ilL-Attribute-Feed-Direction"},
 ]
 
 # Uninstallation

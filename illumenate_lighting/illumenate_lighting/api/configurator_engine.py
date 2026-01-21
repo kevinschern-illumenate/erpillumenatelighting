@@ -1355,16 +1355,17 @@ def _resolve_multisegment_items(
 		})
 
 	# Resolve endcap items
-	# For multi-segment: start endcap is feed-through for first segment
-	# End endcap is solid for the last segment
+	# For multi-segment: start endcap needs feed-through if there's a leader cable feeding in
+	# End endcap is solid for the last segment (no power passing through)
 	first_segment = segments[0] if segments else {}
 	start_power_feed = first_segment.get("start_power_feed_type", "")
 
-	# Determine start endcap style based on power feed type
-	start_endcap_style = "FEED_THROUGH" if start_power_feed and start_power_feed.upper() == "END" else "SOLID"
+	# Determine if start endcap needs to support feed-through
+	# If there's a power feed type specified for start, we need a feed-through endcap
+	start_needs_feed = bool(start_power_feed)
 
-	# Get endcap item for start
-	start_endcap_candidates = frappe.get_all(
+	# Get all endcap candidates for this template and color
+	endcap_candidates = frappe.get_all(
 		"ilL-Rel-Endcap-Map",
 		filters={
 			"fixture_template": fixture_template_code,
@@ -1374,20 +1375,63 @@ def _resolve_multisegment_items(
 		fields=["endcap_item", "endcap_style", "power_feed_type"],
 	)
 
-	for ec_row in start_endcap_candidates:
-		if ec_row.get("endcap_style") == start_endcap_style:
-			resolved["endcap_item_start"] = ec_row.endcap_item
-			break
-		if not resolved["endcap_item_start"]:
-			resolved["endcap_item_start"] = ec_row.endcap_item
+	# Build lookup of endcap styles to check supports_feed property
+	endcap_style_names = list({ec.endcap_style for ec in endcap_candidates if ec.endcap_style})
+	endcap_style_info = {}
+	if endcap_style_names:
+		style_docs = frappe.get_all(
+			"ilL-Attribute-Endcap Style",
+			filters={"name": ["in", endcap_style_names]},
+			fields=["name", "style", "supports_feed"],
+		)
+		endcap_style_info = {s.name: s for s in style_docs}
 
-	# End endcap is always solid
-	for ec_row in start_endcap_candidates:
-		if ec_row.get("endcap_style") == "SOLID":
-			resolved["endcap_item_end"] = ec_row.endcap_item
+	# Find start endcap: if start needs feed, look for one with supports_feed=1 or style containing "Feed"
+	# Otherwise, look for a solid endcap
+	start_endcap_found = None
+	start_endcap_fallback = None
+	for ec_row in endcap_candidates:
+		if not ec_row.endcap_style:
+			continue
+		style_info = endcap_style_info.get(ec_row.endcap_style, {})
+		supports_feed = style_info.get("supports_feed", 0)
+		style_name = style_info.get("style", "") or ""
+
+		if start_needs_feed:
+			# Looking for feed-through endcap
+			if supports_feed or "feed" in style_name.lower():
+				start_endcap_found = ec_row.endcap_item
+				break
+			if not start_endcap_fallback:
+				start_endcap_fallback = ec_row.endcap_item
+		else:
+			# Looking for solid endcap
+			if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
+				start_endcap_found = ec_row.endcap_item
+				break
+			if not start_endcap_fallback:
+				start_endcap_fallback = ec_row.endcap_item
+
+	resolved["endcap_item_start"] = start_endcap_found or start_endcap_fallback
+
+	# Find end endcap: always solid (no power passing through the end)
+	end_endcap_found = None
+	end_endcap_fallback = None
+	for ec_row in endcap_candidates:
+		if not ec_row.endcap_style:
+			continue
+		style_info = endcap_style_info.get(ec_row.endcap_style, {})
+		supports_feed = style_info.get("supports_feed", 0)
+		style_name = style_info.get("style", "") or ""
+
+		# Looking for solid endcap
+		if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
+			end_endcap_found = ec_row.endcap_item
 			break
-		if not resolved["endcap_item_end"]:
-			resolved["endcap_item_end"] = ec_row.endcap_item
+		if not end_endcap_fallback:
+			end_endcap_fallback = ec_row.endcap_item
+
+	resolved["endcap_item_end"] = end_endcap_found or end_endcap_fallback
 
 	# Resolve leader cable item
 	if tape_offering_doc:
@@ -1573,6 +1617,21 @@ def _create_or_update_multisegment_fixture(
 			"leader_item": run.get("leader_item") or resolved_items.get("leader_item"),
 			"leader_len_mm": run.get("leader_len_mm", 0),
 		})
+
+	# Set driver allocations
+	doc.drivers = []
+	driver_plan = resolved_items.get("driver_plan", {})
+	if driver_plan.get("status") == "selected" and driver_plan.get("drivers"):
+		for driver_alloc in driver_plan["drivers"]:
+			doc.append(
+				"drivers",
+				{
+					"driver_item": driver_alloc.get("item_code"),
+					"driver_qty": driver_alloc.get("qty", 1),
+					"outputs_used": driver_alloc.get("outputs_used", 0),
+					"mapping_notes": driver_alloc.get("mapping_notes", ""),
+				},
+			)
 
 	# Append pricing snapshot
 	doc.append("pricing_snapshot", {
@@ -3325,6 +3384,32 @@ def get_ccts_for_template(
 	return {"success": True, "ccts": result, "error": None}
 
 
+def _find_closest_fixture_output_level(delivered_lm_ft: float, fixture_output_levels: list) -> dict | None:
+	"""
+	Find the closest fixture-level output level from the ilL-Attribute-Output Level list.
+
+	Args:
+		delivered_lm_ft: The calculated delivered lumens per foot
+		fixture_output_levels: List of dicts with 'name', 'value', 'sku_code', 'output_level_name'
+
+	Returns:
+		The closest matching output level dict, or None if list is empty
+	"""
+	if not fixture_output_levels:
+		return None
+
+	closest = None
+	min_diff = float('inf')
+
+	for level in fixture_output_levels:
+		diff = abs(level["value"] - delivered_lm_ft)
+		if diff < min_diff:
+			min_diff = diff
+			closest = level
+
+	return closest
+
+
 @frappe.whitelist()
 def get_delivered_outputs_for_template(
 	fixture_template_code: str,
@@ -3339,8 +3424,10 @@ def get_delivered_outputs_for_template(
 	This is the key function that computes the delivered output options based on:
 	1. Compatible tapes (filtered by LED Package, Environment Rating, CCT)
 	2. Lens transmission percentage
+	3. Fixture-level output levels from ilL-Attribute-Output Level
 
-	The delivered output = tape lumen output × lens transmission %, rounded to nearest 50.
+	The delivered output = tape lumen output × lens transmission %, matched to closest
+	fixture-level output from ilL-Attribute-Output Level (is_fixture_level=1).
 
 	Args:
 		fixture_template_code: Code of the fixture template
@@ -3354,8 +3441,11 @@ def get_delivered_outputs_for_template(
 			"success": bool,
 			"delivered_outputs": [
 				{
-					"value": int (delivered lm/ft rounded to 50),
+					"value": int (delivered lm/ft matched to fixture output level),
 					"label": str (e.g., "350 lm/ft"),
+					"output_level": str (link to ilL-Attribute-Output Level),
+					"output_level_name": str (display name),
+					"sku_code": str,
 					"tape_output_lm_ft": int,
 					"transmission_pct": float,
 					"matching_tape_count": int
@@ -3370,6 +3460,17 @@ def get_delivered_outputs_for_template(
 			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": f"Template '{fixture_template_code}' not found"}
 
 		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+		# Fetch all fixture-level output levels upfront for matching
+		fixture_output_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"is_fixture_level": 1},
+			fields=["name", "value", "sku_code", "output_level_name"],
+			order_by="value asc",
+		)
+
+		if not fixture_output_levels:
+			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": "No fixture-level output levels defined in ilL-Attribute-Output Level"}
 
 		# Get lens transmission as a decimal (0.56 = 56%)
 		# Database stores as decimal, so 0.56 means 56% transmission
@@ -3432,8 +3533,8 @@ def get_delivered_outputs_for_template(
 			output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
 		# Calculate delivered outputs
-		# Map: delivered_output_value -> {tape_output, transmission, matching_tapes}
-		delivered_output_map: dict[int, dict] = {}
+		# Map: output_level_name -> {output_level_link, value, sku_code, tape_output, transmission, matching_tapes}
+		delivered_output_map: dict[str, dict] = {}
 		compatible_tapes = []
 
 		for tape in tape_offerings:
@@ -3444,45 +3545,51 @@ def get_delivered_outputs_for_template(
 			# Transmission is already a decimal (0.56 = 56%), so multiply directly
 			delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
-			# Round to nearest 50
-			delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
+			# Find closest fixture-level output level instead of rounding to 50
+			closest_level = _find_closest_fixture_output_level(delivered_lm_ft, fixture_output_levels)
+			if not closest_level:
+				continue
 
-			if delivered_rounded not in delivered_output_map:
-				delivered_output_map[delivered_rounded] = {
+			output_level_key = closest_level["name"]
+
+			if output_level_key not in delivered_output_map:
+				delivered_output_map[output_level_key] = {
+					"output_level": closest_level["name"],
+					"output_level_name": closest_level["output_level_name"],
+					"value": closest_level["value"],
+					"sku_code": closest_level["sku_code"],
 					"tape_output_lm_ft": tape_output_lm_ft,
 					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tapes": [],
 				}
-			delivered_output_map[delivered_rounded]["matching_tapes"].append(tape.name)
+			delivered_output_map[output_level_key]["matching_tapes"].append(tape.name)
 			compatible_tapes.append(tape.name)
 
 		# Build result sorted by output value
 		delivered_outputs = []
-		for output_val in sorted(delivered_output_map.keys()):
-			data = delivered_output_map[output_val]
+		for output_level_key in sorted(delivered_output_map.keys(), key=lambda k: delivered_output_map[k]["value"]):
+			data = delivered_output_map[output_level_key]
 			delivered_outputs.append({
-				"value": output_val,
-				"label": f"{output_val} lm/ft",
+				"value": data["value"],
+				"label": f"{data['value']} lm/ft",
+				"output_level": data["output_level"],
+				"output_level_name": data["output_level_name"],
+				"sku_code": data["sku_code"],
 				"tape_output_lm_ft": data["tape_output_lm_ft"],
 				"transmission_pct": data["transmission_pct"],
 				"matching_tape_count": len(data["matching_tapes"]),
 			})
 
-		# Fallback: If no delivered outputs from tape offerings, get all fixture-level output levels
+		# Fallback: If no delivered outputs from tape offerings, use all fixture-level output levels
 		if not delivered_outputs:
-			all_output_levels = frappe.get_all(
-				"ilL-Attribute-Output Level",
-				filters={"is_fixture_level": 1},
-				fields=["name", "value", "sku_code", "output_level_name"],
-				order_by="value asc",
-			)
-			for ol in all_output_levels:
-				# Apply lens transmission (already a decimal)
-				delivered_val = int(round((ol.value * lens_transmission_decimal) / 50.0) * 50)
+			for ol in fixture_output_levels:
 				delivered_outputs.append({
-					"value": delivered_val,
-					"label": f"{delivered_val} lm/ft",
-					"tape_output_lm_ft": ol.value,
+					"value": ol["value"],
+					"label": f"{ol['value']} lm/ft",
+					"output_level": ol["name"],
+					"output_level_name": ol["output_level_name"],
+					"sku_code": ol["sku_code"],
+					"tape_output_lm_ft": ol["value"],
 					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tape_count": 0,  # No specific tape match
 				})
@@ -3520,7 +3627,7 @@ def auto_select_tape_for_configuration(
 	This is the final step that narrows down to a single tape based on:
 	- LED Package, Environment Rating, CCT (exact match)
 	- Lens appearance (for constraint checking)
-	- Delivered output (reverse-calculated to find matching tape output)
+	- Delivered output (matched to closest fixture-level output from ilL-Attribute-Output Level)
 
 	Args:
 		fixture_template_code: Code of the fixture template
@@ -3528,7 +3635,7 @@ def auto_select_tape_for_configuration(
 		environment_rating_code: Selected Environment Rating
 		cct_code: Selected CCT
 		lens_appearance_code: Selected Lens Appearance
-		delivered_output_value: User's selected delivered output (lm/ft, rounded to 50)
+		delivered_output_value: User's selected delivered output value (from fixture output level)
 
 	Returns:
 		dict: {
@@ -3537,6 +3644,7 @@ def auto_select_tape_for_configuration(
 			"tape_details": {
 				"output_level": str,
 				"output_value_lm_ft": int,
+				"fixture_output_level": str (link to ilL-Attribute-Output Level),
 				"tape_spec": str,
 				"cri": str,
 				"sdcm": str
@@ -3553,6 +3661,17 @@ def auto_select_tape_for_configuration(
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": f"Template '{fixture_template_code}' not found"}
 
 	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+
+	# Fetch all fixture-level output levels for matching
+	fixture_output_levels = frappe.get_all(
+		"ilL-Attribute-Output Level",
+		filters={"is_fixture_level": 1},
+		fields=["name", "value", "sku_code", "output_level_name"],
+		order_by="value asc",
+	)
+
+	if not fixture_output_levels:
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No fixture-level output levels defined"}
 
 	# Get lens transmission as a decimal (0.56 = 56%)
 	lens_transmission_decimal = 1.0
@@ -3618,13 +3737,20 @@ def auto_select_tape_for_configuration(
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
 		# Transmission is already a decimal (0.56 = 56%), so multiply directly
 		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
-		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
 
-		if delivered_rounded == delivered_output_value:
+		# Find closest fixture-level output level instead of rounding to 50
+		closest_level = _find_closest_fixture_output_level(delivered_lm_ft, fixture_output_levels)
+		if not closest_level:
+			continue
+
+		# Match if the closest level's value equals the selected delivered output
+		if closest_level["value"] == delivered_output_value:
 			matching_tapes.append({
 				"tape_offering_id": tape.name,
 				"output_level": tape.output_level,
 				"output_value_lm_ft": tape_output_lm_ft,
+				"fixture_output_level": closest_level["name"],
+				"fixture_output_level_name": closest_level["output_level_name"],
 				"tape_spec": tape.tape_spec,
 				"cri": tape.cri,
 				"sdcm": tape.sdcm,
@@ -3643,6 +3769,8 @@ def auto_select_tape_for_configuration(
 			"tape_details": {
 				"output_level": selected["output_level"],
 				"output_value_lm_ft": selected["output_value_lm_ft"],
+				"fixture_output_level": selected["fixture_output_level"],
+				"fixture_output_level_name": selected["fixture_output_level_name"],
 				"tape_spec": selected["tape_spec"],
 				"cri": selected["cri"],
 				"sdcm": selected["sdcm"],
@@ -3659,6 +3787,8 @@ def auto_select_tape_for_configuration(
 		"tape_details": {
 			"output_level": selected["output_level"],
 			"output_value_lm_ft": selected["output_value_lm_ft"],
+			"fixture_output_level": selected["fixture_output_level"],
+			"fixture_output_level_name": selected["fixture_output_level_name"],
 			"tape_spec": selected["tape_spec"],
 			"cri": selected["cri"],
 			"sdcm": selected["sdcm"],

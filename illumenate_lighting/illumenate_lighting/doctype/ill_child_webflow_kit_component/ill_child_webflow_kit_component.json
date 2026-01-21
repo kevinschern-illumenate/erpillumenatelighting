@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-21 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "component_type",
+  "component_item",
+  "component_spec_doctype",
+  "component_spec_name",
+  "column_break_kit",
+  "quantity",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "component_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Component Type",
+   "options": "Profile\nLens\nEndcap Set\nMounting Kit\nJoiner\nHardware",
+   "reqd": 1
+  },
+  {
+   "fieldname": "component_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Component Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "component_spec_doctype",
+   "fieldtype": "Select",
+   "label": "Spec DocType",
+   "options": "\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Accessory"
+  },
+  {
+   "fieldname": "component_spec_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Spec Reference",
+   "options": "component_spec_doctype"
+  },
+  {
+   "fieldname": "column_break_kit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Quantity"
+  },
+  {
+   "description": "Additional notes, e.g., '8ft length', 'Pack of 10'",
+   "fieldname": "notes",
+   "fieldtype": "Data",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-21 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Webflow-Kit-Component",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}
