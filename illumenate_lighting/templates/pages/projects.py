@@ -5,6 +5,12 @@ import frappe
 
 no_cache = 1
 
+# Page access control - requires login but no specific role
+# The get_context function handles permission logic
+def get_list_context(context):
+	"""Allow website users to access this page."""
+	return context
+
 
 def get_context(context):
 	"""Get context for the projects list portal page."""
