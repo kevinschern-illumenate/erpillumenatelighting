@@ -187,6 +187,11 @@ has_permission = {
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
 }
 
+# Website/Portal Permissions
+has_website_permission = {
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_website_permission",
+}
+
 # DocType Class
 # ---------------
 # Override standard doctype classes

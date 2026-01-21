@@ -196,6 +196,25 @@ def has_permission(doc, ptype="read", user=None):
 	return False
 
 
+def has_website_permission(doc, ptype="read", user=None, verbose=False):
+	"""
+	Check if a website/portal user has permission to access this project.
+
+	This is called for portal pages accessing ilL-Project documents.
+	Uses the same logic as has_permission.
+
+	Args:
+		doc: The ilL-Project document
+		ptype: Permission type (read, write, etc.)
+		user: The user to check permissions for. Defaults to current user.
+		verbose: Whether to log verbose output
+
+	Returns:
+		bool: True if user has permission, False otherwise
+	"""
+	return has_permission(doc, ptype, user)
+
+
 def _get_user_customer(user):
 	"""
 	Get the Customer linked to this user via Contact.
