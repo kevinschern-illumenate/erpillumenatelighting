@@ -248,34 +248,52 @@ Also handles new schedule creation when is_new is True
 												</button>
 											</div>
 											{% endif %}
+											<!-- Length in inches -->
+											{% if cf_details.get('manufacturable_length_inches') %}
 											<div class="small text-muted mt-1">
-												{% if cf_details.get('estimated_delivered_output') %}
-												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.get('estimated_delivered_output') }} lm/ft est.</span>
-												{% endif %}
-												{% if cf_details.get('cct') %}
-												<span class="mr-2"><i class="fa fa-thermometer-half"></i> {{ cf_details.get('cct') }}</span>
-												{% endif %}
-												{% if cf_details.get('led_package') %}
-												<span class="mr-2"><i class="fa fa-microchip"></i> {{ cf_details.get('led_package') }}</span>
-												{% endif %}
-											</div>
-											<div class="small text-muted">
-												{% if cf_details.get('power_supply') %}
-												<span class="mr-2"><i class="fa fa-plug"></i> {{ cf_details.get('power_supply') }}</span>
-												{% endif %}
-												{% if cf_details.get('driver_input_voltage') %}
-												<span class="mr-2"><i class="fa fa-bolt"></i> {{ cf_details.get('driver_input_voltage') }}</span>
-												{% endif %}
-												{% if cf_details.get('finish') %}
-												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ cf_details.get('finish') }}</span>
-												{% endif %}
-											</div>
-											{% if line.get('manufacturable_length_mm') %}
-											<div class="small text-muted">
-												<i class="fa fa-arrows-h"></i> {{ line.get('manufacturable_length_mm') }}mm
+												<i class="fa fa-arrows-h"></i> <strong>{{ cf_details.get('manufacturable_length_inches') }}"</strong>
 												{% if cf_details.get('is_multi_segment') %}
 													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
 												{% endif %}
+											</div>
+											{% endif %}
+											<!-- CCT, CRI, Delivered Lumens -->
+											<div class="small text-muted mt-1">
+												{% if cf_details.get('cct') %}
+												<span class="mr-2"><i class="fa fa-thermometer-half"></i> {{ cf_details.get('cct') }}</span>
+												{% endif %}
+												{% if cf_details.get('cri') %}
+												<span class="mr-2"><i class="fa fa-star"></i> {{ cf_details.get('cri') }}</span>
+												{% endif %}
+												{% if cf_details.get('estimated_delivered_output') %}
+												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.get('estimated_delivered_output') }} lm/ft</span>
+												{% endif %}
+											</div>
+											<!-- Wattage and Input Voltages -->
+											<div class="small text-muted">
+												{% if cf_details.get('total_watts') %}
+												<span class="mr-2"><i class="fa fa-bolt"></i> {{ cf_details.get('total_watts') }}W est.</span>
+												{% endif %}
+												{% if cf_details.get('fixture_input_voltage') %}
+												<span class="mr-2"><i class="fa fa-flash"></i> Fixture: {{ cf_details.get('fixture_input_voltage') }}</span>
+												{% endif %}
+												{% if cf_details.get('driver_input_voltage') %}
+												<span class="mr-2"><i class="fa fa-plug"></i> PS Input: {{ cf_details.get('driver_input_voltage') }}</span>
+												{% endif %}
+											</div>
+											<!-- Power Supply Details -->
+											{% if cf_details.get('power_supply') %}
+											<div class="small text-muted">
+												<i class="fa fa-battery-full"></i> {{ cf_details.get('power_supply') }}
+												{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %}
+												<span class="badge badge-secondary ml-1">{{ cf_details.get('power_supply_qty') }} units</span>
+												{% endif %}
+											</div>
+											{% endif %}
+											<!-- Finish -->
+											{% if cf_details.get('finish') %}
+											<div class="small text-muted">
+												<i class="fa fa-paint-brush"></i> {{ cf_details.get('finish') }}
 											</div>
 											{% endif %}
 										</div>

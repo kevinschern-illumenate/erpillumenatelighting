@@ -473,8 +473,8 @@ class ilLProjectFixtureSchedule(Document):
 			parts.append(configured_fixture.fixture_template)
 
 		if configured_fixture.manufacturable_overall_length_mm:
-			length_ft = configured_fixture.manufacturable_overall_length_mm / MM_PER_FOOT
-			parts.append(f"{length_ft:.2f}ft ({configured_fixture.manufacturable_overall_length_mm}mm)")
+			length_inches = configured_fixture.manufacturable_overall_length_mm / 25.4
+			parts.append(f'{length_inches:.1f}"')
 
 		if configured_fixture.finish:
 			parts.append(configured_fixture.finish)

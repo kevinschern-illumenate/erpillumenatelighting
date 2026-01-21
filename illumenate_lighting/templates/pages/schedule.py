@@ -168,17 +168,25 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 	try:
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
 
+		# Calculate length in inches
+		length_mm = cf.manufacturable_overall_length_mm or 0
+		length_inches = length_mm / 25.4 if length_mm else 0
+		
 		details = {
 			"part_number": cf.configured_item or cf.config_hash,
 			"finish": None,
 			"lens_appearance": None,
 			"cct": None,
+			"cri": None,
 			"led_package": None,
 			"output_level": None,
 			"estimated_delivered_output": None,
 			"power_supply": None,
+			"power_supply_qty": None,
 			"driver_input_voltage": None,
-			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
+			"fixture_input_voltage": None,
+			"manufacturable_length_mm": length_mm,
+			"manufacturable_length_inches": round(length_inches, 1) if length_inches else None,
 			"total_watts": cf.total_watts,
 			# Multi-segment fields
 			"is_multi_segment": cf.is_multi_segment if hasattr(cf, "is_multi_segment") else 0,
@@ -213,17 +221,38 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				if lens_doc.transmission:
 					lens_transmission = lens_doc.transmission
 
-		# Get tape offering details (CCT, LED Package, Output Level)
+		# Get tape offering details (CCT, LED Package, Output Level, CRI)
 		if cf.tape_offering:
 			tape_offering = frappe.db.get_value(
 				"ilL-Rel-Tape Offering",
 				cf.tape_offering,
-				["cct", "led_package", "output_level", "tape_spec"],
+				["cct", "led_package", "output_level", "tape_spec", "cri"],
 				as_dict=True,
 			)
 			if tape_offering:
 				details["cct"] = tape_offering.cct
 				details["led_package"] = tape_offering.led_package
+				
+				# Get CRI display value
+				if tape_offering.cri:
+					cri_doc = frappe.db.get_value(
+						"ilL-Attribute-CRI",
+						tape_offering.cri,
+						["cri_name", "code"],
+						as_dict=True,
+					)
+					if cri_doc:
+						details["cri"] = cri_doc.cri_name or cri_doc.code or tape_offering.cri
+				
+				# Get fixture input voltage from tape spec
+				if tape_offering.tape_spec:
+					tape_spec_voltage = frappe.db.get_value(
+						"ilL-Spec-LED Tape",
+						tape_offering.tape_spec,
+						"input_voltage",
+					)
+					if tape_spec_voltage:
+						details["fixture_input_voltage"] = tape_spec_voltage
 
 				# Get output level numeric value for calculation
 				if tape_offering.output_level:
@@ -244,6 +273,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		if cf.drivers:
 			driver_items = []
 			driver_input_voltages = []
+			total_driver_qty = 0
 			for driver_alloc in cf.drivers:
 				if driver_alloc.driver_item:
 					# driver_alloc.driver_item is the Item code
@@ -258,10 +288,12 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 						as_dict=True,
 					)
 
-					# Build driver display string
+					# Build driver display string with part number
+					driver_qty = driver_alloc.driver_qty or 1
+					total_driver_qty += driver_qty
 					display_name = item_name or driver_alloc.driver_item
-					if driver_alloc.driver_qty > 1:
-						driver_items.append(f"{display_name} x{driver_alloc.driver_qty}")
+					if driver_qty > 1:
+						driver_items.append(f"{display_name} x{driver_qty}")
 					else:
 						driver_items.append(display_name)
 
@@ -271,13 +303,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 
 			if driver_items:
 				details["power_supply"] = ", ".join(driver_items)
-			if driver_input_voltages:
-				# Remove duplicates and join
-				unique_voltages = list(dict.fromkeys(driver_input_voltages))
-				details["driver_input_voltage"] = ", ".join(unique_voltages)
-
-			if driver_items:
-				details["power_supply"] = ", ".join(driver_items)
+				details["power_supply_qty"] = total_driver_qty
 			if driver_input_voltages:
 				# Remove duplicates and join
 				unique_voltages = list(dict.fromkeys(driver_input_voltages))
