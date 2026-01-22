@@ -1484,9 +1484,12 @@ function configureFromAddModal() {
 	var form = $('#addLineForm');
 	var manufacturerType = form.find('[name="manufacturer_type"]').val();
 	var productType = form.find('[name="product_type"]').val();
+	var $productTypeSelected = form.find('[name="product_type"] option:selected');
+	var rawIsFixtureType = $productTypeSelected.data('is-fixture-type');
+	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
 	
-	// Only allow configuring for ILLUMENATE manufacturer with Linear Fixture
-	if (manufacturerType !== 'ILLUMENATE' || productType !== 'Linear Fixture') {
+	// Only allow configuring for ILLUMENATE manufacturer with fixture types (e.g., Linear Fixtures)
+	if (manufacturerType !== 'ILLUMENATE' || !isFixtureType) {
 		frappe.msgprint('Configure is only available for ilLumenate Linear Fixtures');
 		return;
 	}

@@ -99,7 +99,7 @@
    "fieldname": "product_type",
    "fieldtype": "Select",
    "label": "Product Type",
-   "options": "\nLinear Fixture"
+   "options": "\nLinear Fixture\nLinear Fixtures"
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type",
