@@ -67,6 +67,7 @@ def _check_pricing_permission(user: str = None) -> bool:
 	- System Manager role
 	- Administrator user
 	- Users with 'Can View Pricing' role (custom role)
+	- Users with 'Dealer' role
 
 	Args:
 		user: User to check (defaults to current user)
@@ -84,6 +85,10 @@ def _check_pricing_permission(user: str = None) -> bool:
 
 	# Check for custom pricing permission role
 	if "Can View Pricing" in user_roles:
+		return True
+
+	# Dealers have pricing permission
+	if "Dealer" in user_roles:
 		return True
 
 	# Default: portal users without special roles cannot see pricing
@@ -312,6 +317,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			fixture = fixtures_map.get(line.configured_fixture)
 			if fixture:
 				line_data["template_code"] = fixture.fixture_template or ""
+				line_data["configured_fixture_name"] = line.configured_fixture
 				line_data["config_summary"] = _build_config_summary_from_dict(fixture)
 				line_data["requested_length_mm"] = fixture.requested_overall_length_mm or 0
 				line_data["manufacturable_length_mm"] = fixture.manufacturable_overall_length_mm or 0
@@ -450,13 +456,11 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# Table header
 	html_parts.append("<table>")
 	html_parts.append("<thead><tr>")
-	html_parts.append("<th>Line ID</th>")
+	html_parts.append("<th>Fixture Type</th>")
 	html_parts.append("<th>Type</th>")
 	html_parts.append("<th>Qty</th>")
 	html_parts.append("<th>Location</th>")
 	html_parts.append("<th>Description</th>")
-	html_parts.append("<th>Req. Length (mm)</th>")
-	html_parts.append("<th>Mfg. Length (mm)</th>")
 	html_parts.append("<th>Notes</th>")
 	if include_pricing:
 		html_parts.append("<th class='text-right'>Unit Price</th>")
@@ -475,7 +479,14 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 
 		# Description column
 		if line["manufacturer_type"] == "ILLUMENATE":
-			description = f"<strong>{line['template_code']}</strong>"
+			# Use configured fixture part number instead of template code
+			part_number = line.get("configured_fixture_name") or line["template_code"]
+			description = f"<strong>{part_number}</strong>"
+			# Add manufactured length in inches below the part number
+			mfg_length_mm = line.get("manufacturable_length_mm", 0)
+			if mfg_length_mm:
+				length_inches = mfg_length_mm / 25.4
+				description += f"<br><small>Length: {length_inches:.1f}\"</small>"
 			if line["config_summary"]:
 				description += f"<br><small>{line['config_summary']}</small>"
 			# Add fixture details - each on its own line
@@ -510,8 +521,6 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 				description += f"<br><small>Spec Sheet: {line['spec_sheet']}</small>"
 
 		html_parts.append(f"<td>{description}</td>")
-		html_parts.append(f"<td>{line['requested_length_mm']}</td>")
-		html_parts.append(f"<td>{line['manufacturable_length_mm']}</td>")
 		html_parts.append(f"<td>{line['notes']}</td>")
 
 		if include_pricing:
@@ -525,7 +534,7 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# Total row for priced exports
 	if include_pricing:
 		schedule_total = schedule_data.get("schedule_total", 0)
-		colspan = 9
+		colspan = 7
 		html_parts.append(f"<tr class='total-row'>")
 		html_parts.append(f"<td colspan='{colspan}' class='text-right'>Schedule Total:</td>")
 		html_parts.append(f"<td class='text-right'>${schedule_total:.2f}</td>")
