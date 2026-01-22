@@ -25,7 +25,7 @@ class ilLConfiguredFixture(Document):
 		self.name = self._generate_part_number()
 
 	def before_save(self):
-		"""Compute config_hash before saving if not already set.
+		"""Compute config_hash and estimated_delivered_output before saving.
 
 		The config_hash is normally set by the configurator engine when creating
 		fixtures. This method only computes it if not already set (e.g., for
@@ -33,6 +33,53 @@ class ilLConfiguredFixture(Document):
 		"""
 		if not self.config_hash:
 			self.config_hash = self._compute_config_hash()
+		
+		# Always calculate estimated delivered output
+		self._calculate_estimated_delivered_output()
+
+	def _calculate_estimated_delivered_output(self):
+		"""
+		Calculate and store the estimated delivered output (lm/ft).
+		
+		Formula: tape_output_lm_ft × (lens_transmission_pct / 100)
+		
+		This pulls the tape's output level value (lm/ft) and multiplies by
+		the lens transmission percentage to get estimated fixture output.
+		"""
+		if not self.tape_offering or not self.lens_appearance:
+			self.estimated_delivered_output = None
+			return
+
+		# Get tape output level data
+		output_level_name = frappe.db.get_value(
+			"ilL-Rel-Tape Offering", self.tape_offering, "output_level"
+		)
+		if not output_level_name:
+			self.estimated_delivered_output = None
+			return
+
+		tape_output_data = frappe.db.get_value(
+			"ilL-Attribute-Output Level",
+			output_level_name,
+			["value"],
+			as_dict=True
+		)
+		if not tape_output_data or not tape_output_data.value:
+			self.estimated_delivered_output = None
+			return
+
+		tape_output_lm_ft = tape_output_data.value
+
+		# Get lens transmission % (stored as 0-100 in Percent fieldtype)
+		lens_transmission = frappe.db.get_value(
+			"ilL-Attribute-Lens Appearance", self.lens_appearance, "transmission"
+		)
+		# Default to 100% if not specified
+		if not lens_transmission:
+			lens_transmission = 100
+
+		# Calculate: tape output × (transmission / 100)
+		self.estimated_delivered_output = round(tape_output_lm_ft * (lens_transmission / 100), 1)
 
 	def _generate_part_number(self) -> str:
 		"""Build the part number from linked doctypes."""

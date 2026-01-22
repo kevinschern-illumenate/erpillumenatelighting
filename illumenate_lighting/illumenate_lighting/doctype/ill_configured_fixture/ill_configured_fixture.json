@@ -36,6 +36,7 @@
   "computed_outputs_section",
   "runs_count",
   "total_watts",
+  "estimated_delivered_output",
   "user_segment_count",
   "column_break_computed",
   "assembly_mode",
@@ -240,6 +241,13 @@
    "fieldname": "total_watts",
    "fieldtype": "Float",
    "label": "Total Watts"
+  },
+  {
+   "description": "Estimated delivered lumens per foot (tape output × lens transmission %)",
+   "fieldname": "estimated_delivered_output",
+   "fieldtype": "Float",
+   "label": "Est. Delivered Output (lm/ft)",
+   "read_only": 1
   },
   {
    "description": "Number of user-defined segments in the fixture",

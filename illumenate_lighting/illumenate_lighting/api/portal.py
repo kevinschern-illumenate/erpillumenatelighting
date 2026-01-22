@@ -536,7 +536,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 			"cct": None,
 			"led_package": None,
 			"output_level": None,
-			"estimated_delivered_output": None,
+			"estimated_delivered_output": cf.estimated_delivered_output if hasattr(cf, "estimated_delivered_output") else None,
 			"power_supply": None,
 			"driver_input_voltage": None,
 			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
@@ -580,7 +580,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 				details["cct"] = tape_offering.cct
 				details["led_package"] = tape_offering.led_package
 
-				# Get output level numeric value for calculation
+				# Get output level display name
 				if tape_offering.output_level:
 					output_level_doc = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
@@ -590,8 +590,8 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
-						# Calculate estimated delivered output (output_level * lens_transmission)
-						if output_level_doc.value:
+						# Fallback: calculate estimated delivered output if not stored on fixture
+						if not details["estimated_delivered_output"] and output_level_doc.value:
 							delivered = (output_level_doc.value * lens_transmission) / 100
 							details["estimated_delivered_output"] = round(delivered, 1)
 
