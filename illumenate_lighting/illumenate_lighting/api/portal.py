@@ -305,14 +305,21 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 			order_by="item_group_name asc",
 		)
 
+		# DEBUG: Log what we got
+		frappe.log_error(f"Product types from DB: {product_types}", "get_product_types Debug")
+
 		# Define which item groups should show fixture templates instead of items
 		# Match by checking if name contains "Linear Fixture" (case-insensitive)
 		def is_fixture_group(name):
 			name_lower = (name or "").lower()
-			return "linear fixture" in name_lower or "linear fixtures" in name_lower
+			is_fixture = "linear fixture" in name_lower or "linear fixtures" in name_lower
+			frappe.log_error(f"is_fixture_group check: name='{name}', name_lower='{name_lower}', is_fixture={is_fixture}", "get_product_types Debug")
+			return is_fixture
 
 		result = []
 		for pt in product_types:
+			fixture_check = is_fixture_group(pt.name) or is_fixture_group(pt.item_group_name)
+			frappe.log_error(f"Product type: name={pt.name}, item_group_name={pt.item_group_name}, is_fixture_type={fixture_check}", "get_product_types Debug")
 			# Add the parent group
 			result.append({
 				"value": pt.name,
@@ -732,6 +739,9 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
 	"""
+	# DEBUG: Log incoming data
+	frappe.log_error(f"add_schedule_line called with line_data: {line_data}", "DEBUG: add_schedule_line input")
+	
 	# Validate schedule exists
 	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
 		return {"success": False, "error": "Schedule not found"}
@@ -777,6 +787,8 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.accessory_item_name = line_data.get("accessory_item_name")
 			# For accessories, set configuration_status to Configured since no config needed
 			line.configuration_status = "Configured"
+			# DEBUG: Log accessory data being set
+			frappe.log_error(f"ACCESSORY line set: accessory_product_type={line.accessory_product_type}, accessory_item={line.accessory_item}, accessory_item_name={line.accessory_item_name}", "DEBUG: ACCESSORY line")
 
 		if line.manufacturer_type == "OTHER":
 			line.manufacturer_name = line_data.get("manufacturer_name")
