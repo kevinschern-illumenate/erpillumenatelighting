@@ -163,6 +163,10 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 	Returns dict with computed values for portal display.
 	"""
 	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		frappe.log_error(
+			f"Configured fixture not found: {configured_fixture_id}",
+			"Schedule Display - Missing Fixture"
+		)
 		return {}
 
 	try:
@@ -310,5 +314,9 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				details["driver_input_voltage"] = ", ".join(unique_voltages)
 
 		return details
-	except Exception:
+	except Exception as e:
+		frappe.log_error(
+			f"Error getting fixture display details for {configured_fixture_id}: {str(e)}",
+			"Schedule Display - Error"
+		)
 		return {}

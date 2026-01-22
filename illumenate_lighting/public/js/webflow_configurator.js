@@ -110,6 +110,9 @@ function onTemplateSelected(templateCode) {
     $('#seriesName').text(templateName);
     $('#seriesCode').text(templateCode);
     
+    // Show loading state
+    $('#environmentSection').show().find('.pill-selector').html('<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Loading options...</span>');
+    
     // Find or create product slug for API calls
     // For now, use template code as slug if no product
     var productSlug = WebflowConfigurator.productSlug || templateCode;
@@ -122,15 +125,20 @@ function onTemplateSelected(templateCode) {
             if (r.message && r.message.success) {
                 handleInitResponse(r.message);
             } else {
+                console.log('API returned error, using fallback:', r.message);
                 // Fallback - load options directly from template
                 loadOptionsFromTemplate(templateCode);
             }
         },
-        error: function() {
+        error: function(err) {
+            console.error('API call failed, using fallback:', err);
             // Fallback - load options directly from template
             loadOptionsFromTemplate(templateCode);
         }
     });
+    
+    // Update progress after template selection
+    updateProgress();
 }
 
 /**
@@ -180,12 +188,18 @@ function handleInitResponse(data) {
     if (data.length_config) {
         $('input[name="length_value"]').attr('min', data.length_config.min_inches);
         $('input[name="length_value"]').attr('max', data.length_config.max_inches);
-        $('input[name="length_value"]').val(data.length_config.default_inches || 50);
+        // Set placeholder instead of value so it doesn't count as completed
+        $('input[name="length_value"]').attr('placeholder', data.length_config.default_inches || 50);
         $('#lengthNote').text(data.length_config.max_run_note || 'Maximum length is 30 ft');
+        // Store default for later use
+        WebflowConfigurator.lengthConfig.default_inches = data.length_config.default_inches || 50;
     }
     
     // Show all sections
     showAllSections();
+    
+    // Update progress indicators
+    updateProgress();
     
     // Update part number preview
     updatePartNumberPreview();
@@ -295,6 +309,7 @@ function processTemplateOptions(template) {
     
     showAllSections();
     updatePartNumberPreview();
+    updateProgress();
 }
 
 /**
@@ -504,24 +519,32 @@ function updateProgress() {
     CONFIGURATOR_STEPS.forEach(function(step, index) {
         var $stepEl = $('.progress-step[data-step="' + index + '"]');
         
+        // For locked steps (series), check if actually selected
         if (step.locked) {
-            $stepEl.addClass('completed');
-            completed++;
+            if (isStepCompleted(step.name)) {
+                $stepEl.addClass('completed').removeClass('active');
+                $stepEl.find('.step-number').text('✓');
+                completed++;
+            } else {
+                $stepEl.removeClass('completed').addClass('active');
+                $stepEl.find('.step-number').text(index + 1);
+            }
         } else if (isStepCompleted(step.name)) {
             $stepEl.addClass('completed').removeClass('active');
             $stepEl.find('.step-number').text('✓');
             completed++;
         } else {
             $stepEl.removeClass('completed active');
-            $stepEl.find('.step-number').text(index);
+            $stepEl.find('.step-number').text(index + 1);
         }
     });
     
     // Find first incomplete step and mark as active
+    var foundActive = false;
     CONFIGURATOR_STEPS.forEach(function(step, index) {
-        if (!step.locked && !isStepCompleted(step.name)) {
+        if (!foundActive && !isStepCompleted(step.name)) {
             $('.progress-step[data-step="' + index + '"]').addClass('active');
-            return false;
+            foundActive = true;
         }
     });
     
@@ -537,13 +560,17 @@ function isStepCompleted(stepName) {
         case 'series':
             return !!$('#fixtureTemplateSelect').val();
         case 'length':
-            return !!$('input[name="length_value"]').val();
+            // Check that length has a value and that the configurator is initialized
+            var lengthVal = $('input[name="length_value"]').val();
+            return WebflowConfigurator.isInitialized && !!lengthVal && lengthVal !== '';
         case 'start_feed':
+            var startFeedVal = $('input[name="start_feed_length_ft"]').val();
             return !!WebflowConfigurator.selections['start_feed_direction'] && 
-                   !!$('input[name="start_feed_length_ft"]').val();
+                   !!startFeedVal && startFeedVal !== '';
         case 'end_feed':
+            var endFeedVal = $('input[name="end_feed_length_ft"]').val();
             return !!WebflowConfigurator.selections['end_feed_direction'] && 
-                   !!$('input[name="end_feed_length_ft"]').val();
+                   !!endFeedVal && endFeedVal !== '';
         default:
             return !!WebflowConfigurator.selections[stepName];
     }
@@ -1002,26 +1029,54 @@ function resetConfiguration() {
         function() {
             // Clear all selections
             WebflowConfigurator.selections = {};
+            WebflowConfigurator.seriesInfo = null;
+            WebflowConfigurator.options = {};
+            WebflowConfigurator.isInitialized = false;
+            WebflowConfigurator.lengthConfig = {};
+            
+            // Reset template dropdown
+            $('#fixtureTemplateSelect').val('');
+            $('#seriesName').text(__('Select a template...'));
+            $('#seriesCode').text('');
             
             // Clear all pill selections
             $('.pill-selector .pill').removeClass('active');
+            $('.pill-selector').each(function() {
+                $(this).empty();
+            });
             
-            // Reset inputs
-            $('input[name="length_value"]').val('50');
+            // Reset inputs to empty/placeholder state
+            $('input[name="length_value"]').val('').attr('placeholder', '50');
             $('select[name="length_unit"]').val('inches');
-            $('input[name="start_feed_length_ft"]').val('2');
-            $('input[name="end_feed_length_ft"]').val('2');
+            $('input[name="start_feed_length_ft"]').val('').attr('placeholder', '2');
+            $('input[name="end_feed_length_ft"]').val('').attr('placeholder', '2');
             
-            // Reset UI
-            updateProgress();
-            updatePartNumberPreview();
-            updateSummary();
-            updateValidateButton();
+            // Hide all sections
+            hideAllSections();
+            
+            // Reset progress steps to initial state
+            $('.progress-step').removeClass('completed active');
+            $('.progress-step').each(function(index) {
+                $(this).find('.step-number').text(index);
+            });
+            $('.progress-step[data-step="0"]').find('.step-number').text('1');
+            
+            // Reset UI elements
+            $('#progressBadge').text('0%');
+            $('#partNumberPreview').html('<span class="segment locked">ILL-XX-XX</span><span class="segment unselected">-xx-xx-xx-xx-xx-xx</span>');
             
             $('#validationMessages').hide();
             $('#pricingPreview').hide();
             $('#validationStatus').removeClass('badge-success badge-danger badge-info')
                 .addClass('badge-secondary').text(__('Incomplete'));
+            
+            // Disable buttons
+            $('#validateBtn').prop('disabled', true);
+            $('#addToScheduleBtn').prop('disabled', true);
+            
+            // Clear summary
+            $('#summaryList').hide().empty();
+            $('#summaryPlaceholder').show();
         }
     );
 }

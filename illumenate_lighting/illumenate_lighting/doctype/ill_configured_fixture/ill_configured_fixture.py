@@ -182,20 +182,29 @@ class ilLConfiguredFixture(Document):
 		"""
 		Calculate fixture output code based on tape output level value * lens transmission %.
 		Returns the sku_code of the matching fixture-level output level.
+		Falls back to the tape output level's sku_code if no fixture-level outputs are defined.
 		"""
 		if not self.tape_offering or not self.lens_appearance:
 			return ""
 
-		# Get tape output level value
+		# Get tape output level data
 		output_level_name = frappe.db.get_value(
 			"ilL-Rel-Tape Offering", self.tape_offering, "output_level"
 		)
 		if not output_level_name:
 			return ""
 
-		tape_output_value = frappe.db.get_value(
-			"ilL-Attribute-Output Level", output_level_name, "value"
-		) or 0
+		tape_output_data = frappe.db.get_value(
+			"ilL-Attribute-Output Level", 
+			output_level_name, 
+			["value", "sku_code"],
+			as_dict=True
+		)
+		if not tape_output_data:
+			return ""
+		
+		tape_output_value = tape_output_data.get("value") or 0
+		tape_output_sku = tape_output_data.get("sku_code") or ""
 
 		# Get lens transmission %
 		lens_transmission = frappe.db.get_value(
@@ -214,11 +223,12 @@ class ilLConfiguredFixture(Document):
 		)
 
 		if not fixture_output_levels:
-			return ""
+			# Fallback: no fixture-level outputs defined, use tape output sku_code
+			return tape_output_sku
 
 		# Find closest match
 		closest = min(fixture_output_levels, key=lambda x: abs((x.value or 0) - fixture_output_value))
-		return closest.sku_code or ""
+		return closest.sku_code or tape_output_sku
 
 	def _compute_config_hash(self) -> str:
 		"""Return a SHA-256 hash of the configuration fields for deduplication.

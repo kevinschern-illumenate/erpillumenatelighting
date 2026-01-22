@@ -251,40 +251,52 @@ Also handles new schedule creation when is_new is True
 											<!-- Length in inches -->
 											{% if cf_details.get('manufacturable_length_inches') %}
 											<div class="small text-muted mt-1">
-												<i class="fa fa-arrows-h"></i> <strong>{{ cf_details.get('manufacturable_length_inches') }}"</strong>
+												<i class="fa fa-arrows-h"></i> Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"</strong>
 												{% if cf_details.get('is_multi_segment') %}
 													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
 												{% endif %}
 											</div>
 											{% endif %}
-											<!-- CCT, CRI, Delivered Lumens -->
-											<div class="small text-muted mt-1">
-												{% if cf_details.get('cct') %}
-												<span class="mr-2"><i class="fa fa-thermometer-half"></i> {{ cf_details.get('cct') }}</span>
-												{% endif %}
-												{% if cf_details.get('cri') %}
-												<span class="mr-2"><i class="fa fa-star"></i> {{ cf_details.get('cri') }}</span>
-												{% endif %}
-												{% if cf_details.get('estimated_delivered_output') %}
-												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.get('estimated_delivered_output') }} lm/ft</span>
-												{% endif %}
-											</div>
-											<!-- Wattage and Input Voltages -->
+											<!-- CCT -->
+											{% if cf_details.get('cct') %}
 											<div class="small text-muted">
-												{% if cf_details.get('total_watts') %}
-												<span class="mr-2"><i class="fa fa-bolt"></i> {{ cf_details.get('total_watts') }}W est.</span>
-												{% endif %}
-												{% if cf_details.get('fixture_input_voltage') %}
-												<span class="mr-2"><i class="fa fa-flash"></i> Fixture: {{ cf_details.get('fixture_input_voltage') }}</span>
-												{% endif %}
-												{% if cf_details.get('driver_input_voltage') %}
-												<span class="mr-2"><i class="fa fa-plug"></i> PS Input: {{ cf_details.get('driver_input_voltage') }}</span>
-												{% endif %}
+												<i class="fa fa-thermometer-half"></i> CCT: {{ cf_details.get('cct') }}
 											</div>
+											{% endif %}
+											<!-- CRI -->
+											{% if cf_details.get('cri') %}
+											<div class="small text-muted">
+												<i class="fa fa-star"></i> CRI: {{ cf_details.get('cri') }}
+											</div>
+											{% endif %}
+											<!-- Delivered Lumens -->
+											{% if cf_details.get('estimated_delivered_output') %}
+											<div class="small text-muted">
+												<i class="fa fa-lightbulb-o"></i> Output: {{ cf_details.get('estimated_delivered_output') }} lm/ft
+											</div>
+											{% endif %}
+											<!-- Wattage -->
+											{% if cf_details.get('total_watts') %}
+											<div class="small text-muted">
+												<i class="fa fa-bolt"></i> Power: {{ cf_details.get('total_watts') }}W est.
+											</div>
+											{% endif %}
+											<!-- Fixture Input Voltage -->
+											{% if cf_details.get('fixture_input_voltage') %}
+											<div class="small text-muted">
+												<i class="fa fa-flash"></i> Fixture Voltage: {{ cf_details.get('fixture_input_voltage') }}
+											</div>
+											{% endif %}
+											<!-- Driver Input Voltage -->
+											{% if cf_details.get('driver_input_voltage') %}
+											<div class="small text-muted">
+												<i class="fa fa-plug"></i> PS Input: {{ cf_details.get('driver_input_voltage') }}
+											</div>
+											{% endif %}
 											<!-- Power Supply Details -->
 											{% if cf_details.get('power_supply') %}
 											<div class="small text-muted">
-												<i class="fa fa-battery-full"></i> {{ cf_details.get('power_supply') }}
+												<i class="fa fa-battery-full"></i> Power Supply: {{ cf_details.get('power_supply') }}
 												{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %}
 												<span class="badge badge-secondary ml-1">{{ cf_details.get('power_supply_qty') }} units</span>
 												{% endif %}
@@ -293,7 +305,13 @@ Also handles new schedule creation when is_new is True
 											<!-- Finish -->
 											{% if cf_details.get('finish') %}
 											<div class="small text-muted">
-												<i class="fa fa-paint-brush"></i> {{ cf_details.get('finish') }}
+												<i class="fa fa-paint-brush"></i> Finish: {{ cf_details.get('finish') }}
+											</div>
+											{% endif %}
+											<!-- Show message if no details available -->
+											{% if not cf_details.get('cct') and not cf_details.get('cri') and not cf_details.get('finish') and not cf_details.get('manufacturable_length_inches') %}
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> Details pending - reconfigure to complete
 											</div>
 											{% endif %}
 										</div>
@@ -303,35 +321,29 @@ Also handles new schedule creation when is_new is True
 											<strong>{{ line.get('manufacturer_name') }}</strong>
 											{% endif %}
 											{% if line.get('fixture_model_number') %}
-											<span class="text-muted"> - {{ line.get('fixture_model_number') }}</span>
+											<div class="small text-muted mt-1"><i class="fa fa-tag"></i> <strong>{{ line.get('fixture_model_number') }}</strong></div>
 											{% endif %}
-											<div class="small text-muted mt-1">
-												{% if line.get('trim_info') %}
-												<span class="mr-2"><i class="fa fa-th"></i> {{ line.get('trim_info') }}</span>
-												{% endif %}
-												{% if line.get('housing_model_number') %}
-												<span class="mr-2"><i class="fa fa-cube"></i> {{ line.get('housing_model_number') }}</span>
-												{% endif %}
-											</div>
-											<div class="small text-muted">
-												{% if line.get('driver_model_number') %}
-												<span class="mr-2"><i class="fa fa-plug"></i> {{ line.get('driver_model_number') }}</span>
-												{% endif %}
-												{% if line.get('lamp_info') %}
-												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ line.get('lamp_info') }}</span>
-												{% endif %}
-											</div>
-											<div class="small text-muted">
-												{% if line.get('dimming_protocol') %}
-												<span class="mr-2"><i class="fa fa-sliders"></i> {{ line.get('dimming_protocol') }}</span>
-												{% endif %}
-												{% if line.get('input_voltage') %}
-												<span class="mr-2"><i class="fa fa-bolt"></i> {{ line.get('input_voltage') }}</span>
-												{% endif %}
-												{% if line.get('other_finish') %}
-												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ line.get('other_finish') }}</span>
-												{% endif %}
-											</div>
+											{% if line.get('trim_info') %}
+											<div class="small text-muted"><i class="fa fa-th"></i> Trim: {{ line.get('trim_info') }}</div>
+											{% endif %}
+											{% if line.get('housing_model_number') %}
+											<div class="small text-muted"><i class="fa fa-cube"></i> Housing: {{ line.get('housing_model_number') }}</div>
+											{% endif %}
+											{% if line.get('driver_model_number') %}
+											<div class="small text-muted"><i class="fa fa-plug"></i> Driver: {{ line.get('driver_model_number') }}</div>
+											{% endif %}
+											{% if line.get('lamp_info') %}
+											<div class="small text-muted"><i class="fa fa-lightbulb-o"></i> Lamp: {{ line.get('lamp_info') }}</div>
+											{% endif %}
+											{% if line.get('dimming_protocol') %}
+											<div class="small text-muted"><i class="fa fa-sliders"></i> Dimming: {{ line.get('dimming_protocol') }}</div>
+											{% endif %}
+											{% if line.get('input_voltage') %}
+											<div class="small text-muted"><i class="fa fa-bolt"></i> Voltage: {{ line.get('input_voltage') }}</div>
+											{% endif %}
+											{% if line.get('other_finish') %}
+											<div class="small text-muted"><i class="fa fa-paint-brush"></i> Finish: {{ line.get('other_finish') }}</div>
+											{% endif %}
 											{% if line.get('spec_sheet') %}
 											<div class="small mt-1">
 												<a href="{{ line.get('spec_sheet') }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">

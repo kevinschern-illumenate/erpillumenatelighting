@@ -62,15 +62,19 @@ def add_to_schedule(
     if not product_slug:
         return {"success": False, "error": "Missing product_slug in configuration"}
     
-    if not frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
-        return {"success": False, "error": f"Product not found: {product_slug}"}
+    # First try to find a Webflow product
+    template = None
+    if frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
+        product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+        if product.fixture_template:
+            template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
     
-    product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+    # Fallback: treat product_slug as a fixture template code
+    if not template and frappe.db.exists("ilL-Fixture-Template", product_slug):
+        template = frappe.get_doc("ilL-Fixture-Template", product_slug)
     
-    if not product.fixture_template:
-        return {"success": False, "error": "Product has no fixture template"}
-    
-    template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
+    if not template:
+        return {"success": False, "error": f"Product or template not found: {product_slug}"}
     
     # Resolve tape offering from selections
     from illumenate_lighting.illumenate_lighting.api.webflow_configurator import _resolve_tape_offering
