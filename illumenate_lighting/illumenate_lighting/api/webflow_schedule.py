@@ -77,21 +77,9 @@ def add_to_schedule(
     if not template:
         return {"success": False, "error": f"Product or template not found: {product_slug}"}
     
-    # Log config for debugging
-    frappe.log_error(
-        f"add_to_schedule called with config: {json.dumps(config)}\nTemplate: {template.name}",
-        "Schedule Add - Debug"
-    )
-    
     # Resolve tape offering from selections
     from illumenate_lighting.illumenate_lighting.api.webflow_configurator import _resolve_tape_offering
     tape_offering_id = _resolve_tape_offering(template, config)
-    
-    # Log tape offering resolution
-    frappe.log_error(
-        f"Resolved tape_offering_id: {tape_offering_id}\nFor env={config.get('environment_rating')}, cct={config.get('cct')}, output={config.get('output_level')}",
-        "Schedule Add - Tape Offering"
-    )
     
     if not tape_offering_id:
         return {"success": False, "error": "Could not resolve tape offering for this configuration"}
@@ -130,12 +118,6 @@ def add_to_schedule(
             qty=quantity
         )
         
-        # Log engine result for debugging
-        frappe.log_error(
-            f"Engine result: is_valid={engine_result.get('is_valid')}, configured_fixture_id={engine_result.get('configured_fixture_id')}",
-            "Schedule Add - Engine Result"
-        )
-        
         if not engine_result.get("is_valid"):
             return {
                 "success": False,
@@ -145,10 +127,6 @@ def add_to_schedule(
         configured_fixture_id = engine_result.get("configured_fixture_id")
         
         if not configured_fixture_id:
-            frappe.log_error(
-                f"Engine returned is_valid=True but no configured_fixture_id. Result: {engine_result}",
-                "Schedule Add - Missing Fixture ID"
-            )
             return {
                 "success": False,
                 "error": "Configuration engine did not create a fixture"
@@ -183,12 +161,6 @@ def add_to_schedule(
         "notes": notes or "",
         "ill_item_code": part_number,
     })
-    
-    # Log what we're saving to the line
-    frappe.log_error(
-        f"Added line: fixture_type_id={fixture_type_id}, configured_fixture={configured_fixture_id}, part_number={part_number}",
-        "Schedule Add - Line Added"
-    )
     
     schedule.save()
     frappe.db.commit()

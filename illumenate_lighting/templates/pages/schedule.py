@@ -164,20 +164,13 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 	"""
 	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
 		frappe.log_error(
-			f"Configured fixture not found: {configured_fixture_id}",
-			"Schedule Display - Missing Fixture"
+			message=f"Fixture ID: {configured_fixture_id}",
+			title="Missing Configured Fixture"
 		)
 		return {}
 
 	try:
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
-		
-		# Log key fields for debugging
-		frappe.log_error(
-			f"Fixture {configured_fixture_id}: tape_offering={cf.tape_offering}, finish={cf.finish}, "
-			f"lens_appearance={cf.lens_appearance}, manufacturable_overall_length_mm={cf.manufacturable_overall_length_mm}",
-			"Schedule Display - Fixture Fields"
-		)
 
 		# Calculate length in inches
 		length_mm = cf.manufacturable_overall_length_mm or 0
@@ -217,6 +210,9 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			)
 			if finish_doc:
 				details["finish"] = finish_doc.display_name or finish_doc.code or cf.finish
+			else:
+				# Fallback to raw value
+				details["finish"] = cf.finish
 
 		# Get lens appearance and transmission
 		lens_transmission = 100  # Default 100% if not found
@@ -231,6 +227,9 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				details["lens_appearance"] = lens_doc.label or cf.lens_appearance
 				if lens_doc.transmission:
 					lens_transmission = lens_doc.transmission
+			else:
+				# Fallback to raw value
+				details["lens_appearance"] = cf.lens_appearance
 
 		# Get tape offering details (CCT, LED Package, Output Level, CRI)
 		if cf.tape_offering:
@@ -254,6 +253,8 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 					)
 					if cri_doc:
 						details["cri"] = cri_doc.cri_name or cri_doc.code or tape_offering.cri
+					else:
+						details["cri"] = tape_offering.cri
 				
 				# Get fixture input voltage from tape spec
 				if tape_offering.tape_spec:
@@ -279,6 +280,17 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 						if output_level_doc.value:
 							delivered = (output_level_doc.value * lens_transmission) / 100
 							details["estimated_delivered_output"] = round(delivered, 1)
+					else:
+						# Fallback to raw value
+						details["output_level"] = tape_offering.output_level
+			else:
+				# Tape offering doc not found - try to parse CCT from tape_offering name
+				# Format is typically: LED-HD-SW-I-30K-750-3M-WH
+				# Try to extract CCT (e.g., "30K")
+				import re
+				cct_match = re.search(r'(\d{2}K)', cf.tape_offering)
+				if cct_match:
+					details["cct"] = cct_match.group(1)
 
 		# Get driver/power supply info from drivers child table
 		if cf.drivers:
@@ -323,7 +335,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		return details
 	except Exception as e:
 		frappe.log_error(
-			f"Error getting fixture display details for {configured_fixture_id}: {str(e)}",
-			"Schedule Display - Error"
+			message=f"Fixture: {configured_fixture_id}\nError: {str(e)}",
+			title="Schedule Display Error"
 		)
 		return {}
