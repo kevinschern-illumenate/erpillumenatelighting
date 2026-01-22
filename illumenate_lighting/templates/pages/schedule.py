@@ -82,6 +82,10 @@ def get_context(context):
 			"configured_fixture": line.configured_fixture,
 			"ill_item_code": line.ill_item_code,
 			"manufacturable_length_mm": line.manufacturable_length_mm,
+			# ilLumenate fixture fields
+			"product_type": line.product_type,
+			"fixture_template": line.fixture_template,
+			"fixture_template_name": None,  # Will be populated below
 			# Accessory/Component fields
 			"accessory_product_type": line.accessory_product_type,
 			"accessory_item": line.accessory_item,
@@ -104,6 +108,16 @@ def get_context(context):
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
 			line_dict["cf_details"] = cf_details
+
+		# For ilLumenate fixtures with a fixture template, fetch the template name
+		if line.manufacturer_type == "ILLUMENATE" and line.fixture_template:
+			template_name = frappe.db.get_value(
+				"ilL-Fixture-Template",
+				line.fixture_template,
+				"template_name"
+			)
+			if template_name:
+				line_dict["fixture_template_name"] = template_name
 
 		# For accessory/component items, fetch item description
 		if line.manufacturer_type == "ACCESSORY" and line.accessory_item:

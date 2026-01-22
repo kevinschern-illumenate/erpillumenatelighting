@@ -403,7 +403,14 @@ Also handles new schedule creation when is_new is True
 											{% endif %}
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
-										<span class="text-muted">{{ _("Not configured") }}</span>
+										<div class="fixture-details">
+											{% if line.get('fixture_template_name') or line.get('fixture_template') %}
+											<strong>{{ line.get('fixture_template_name') or line.get('fixture_template') }}</strong>
+											{% endif %}
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+											</div>
+										</div>
 										{% else %}
 										<span class="text-muted">-</span>
 										{% endif %}
