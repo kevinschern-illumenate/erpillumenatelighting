@@ -367,7 +367,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 
 
 @frappe.whitelist()
-def get_items_by_product_type(product_type: str) -> dict:
+def get_items_by_product_type(product_type: str, exclude_variants: bool = True) -> dict:
 	"""
 	Get items within a specific product type (Item Group).
 
@@ -377,6 +377,7 @@ def get_items_by_product_type(product_type: str) -> dict:
 
 	Args:
 		product_type: The Item Group name to fetch items from
+		exclude_variants: If True, only return template items (not variant items)
 
 	Returns:
 		dict: {
@@ -388,7 +389,9 @@ def get_items_by_product_type(product_type: str) -> dict:
 					"description": str,
 					"stock_uom": str,
 					"image": str or None,
-					"standard_rate": float
+					"standard_rate": float,
+					"has_variants": bool,  # True if this item is a template with variants
+					"variant_of": str or None  # Parent template if this is a variant
 				}
 			]
 		}
@@ -413,14 +416,21 @@ def get_items_by_product_type(product_type: str) -> dict:
 				break
 			item_groups.extend(new_groups)
 
+		# Build filters
+		filters = {
+			"item_group": ["in", item_groups],
+			"disabled": 0,
+			"is_sales_item": 1,
+		}
+
+		# If exclude_variants is True, only get non-variant items (templates and regular items)
+		if exclude_variants:
+			filters["variant_of"] = ["is", "not set"]
+
 		# Fetch items from these groups
 		items = frappe.get_all(
 			"Item",
-			filters={
-				"item_group": ["in", item_groups],
-				"disabled": 0,
-				"is_sales_item": 1,
-			},
+			filters=filters,
 			fields=[
 				"item_code",
 				"item_name",
@@ -428,6 +438,8 @@ def get_items_by_product_type(product_type: str) -> dict:
 				"stock_uom",
 				"image",
 				"standard_rate",
+				"has_variants",
+				"variant_of",
 			],
 			order_by="item_name asc",
 		)
@@ -441,6 +453,8 @@ def get_items_by_product_type(product_type: str) -> dict:
 				"stock_uom": item.stock_uom or "Nos",
 				"image": item.image,
 				"standard_rate": float(item.standard_rate or 0),
+				"has_variants": bool(item.has_variants),
+				"variant_of": item.variant_of or None,
 			})
 
 		return {"success": True, "items": result}
@@ -448,6 +462,227 @@ def get_items_by_product_type(product_type: str) -> dict:
 	except Exception as e:
 		frappe.log_error(f"Error fetching items for product type {product_type}: {str(e)}")
 		return {"success": False, "error": str(e), "items": []}
+
+
+@frappe.whitelist()
+def get_item_variant_attributes(template_item: str) -> dict:
+	"""
+	Get the available variant attributes for a template item.
+
+	This returns the attributes and their possible values that can be used
+	to configure a variant of the given template item.
+
+	Args:
+		template_item: The item_code of the template item
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"template_item": str,
+			"attributes": [
+				{
+					"attribute": str,  # Attribute name (e.g., "Color", "Size")
+					"values": [str]    # List of possible values
+				}
+			]
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required", "attributes": []}
+
+		# Check if item exists and has variants
+		item = frappe.db.get_value(
+			"Item",
+			template_item,
+			["item_code", "item_name", "has_variants"],
+			as_dict=True,
+		)
+
+		if not item:
+			return {"success": False, "error": "Item not found", "attributes": []}
+
+		if not item.has_variants:
+			return {"success": True, "template_item": template_item, "attributes": [], "message": "Item has no variants"}
+
+		# Get the item attributes for this template
+		item_doc = frappe.get_doc("Item", template_item)
+		attributes = []
+
+		for attr in item_doc.get("attributes", []):
+			# Get all possible values for this attribute
+			attr_values = frappe.get_all(
+				"Item Attribute Value",
+				filters={"parent": attr.attribute},
+				fields=["attribute_value", "abbr"],
+				order_by="idx asc",
+			)
+
+			# If the template has specific allowed values, filter to those
+			if attr.numeric_values:
+				# For numeric attributes, we need a different approach
+				values = [{
+					"value": str(attr.from_range) + " - " + str(attr.to_range),
+					"abbr": "",
+					"is_numeric": True,
+					"from_range": attr.from_range,
+					"to_range": attr.to_range,
+					"increment": attr.increment,
+				}]
+			else:
+				values = [
+					{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
+					for v in attr_values
+				]
+
+			attributes.append({
+				"attribute": attr.attribute,
+				"values": values,
+			})
+
+		return {
+			"success": True,
+			"template_item": template_item,
+			"item_name": item.item_name,
+			"attributes": attributes,
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching variant attributes for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e), "attributes": []}
+
+
+@frappe.whitelist()
+def get_item_variants(template_item: str) -> dict:
+	"""
+	Get all variants of a template item with their attribute values.
+
+	Args:
+		template_item: The item_code of the template item
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"template_item": str,
+			"variants": [
+				{
+					"item_code": str,
+					"item_name": str,
+					"attributes": {attribute_name: attribute_value, ...},
+					"standard_rate": float,
+					"image": str or None
+				}
+			]
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required", "variants": []}
+
+		# Check if item exists and has variants
+		if not frappe.db.get_value("Item", template_item, "has_variants"):
+			return {"success": True, "template_item": template_item, "variants": []}
+
+		# Get all variants of this template
+		variants = frappe.get_all(
+			"Item",
+			filters={
+				"variant_of": template_item,
+				"disabled": 0,
+			},
+			fields=["item_code", "item_name", "standard_rate", "image"],
+			order_by="item_name asc",
+		)
+
+		result = []
+		for variant in variants:
+			# Get the attribute values for this variant
+			variant_doc = frappe.get_doc("Item", variant.item_code)
+			attributes = {}
+			for attr in variant_doc.get("attributes", []):
+				attributes[attr.attribute] = attr.attribute_value
+
+			result.append({
+				"item_code": variant.item_code,
+				"item_name": variant.item_name,
+				"attributes": attributes,
+				"standard_rate": float(variant.standard_rate or 0),
+				"image": variant.image,
+			})
+
+		return {"success": True, "template_item": template_item, "variants": result}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching variants for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e), "variants": []}
+
+
+@frappe.whitelist()
+def find_matching_variant(template_item: str, selected_attributes: Union[str, dict]) -> dict:
+	"""
+	Find a variant that matches the selected attribute values.
+
+	Args:
+		template_item: The item_code of the template item
+		selected_attributes: Dict of {attribute_name: attribute_value} or JSON string
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"found": True/False,
+			"variant": {
+				"item_code": str,
+				"item_name": str,
+				"standard_rate": float,
+				"image": str or None
+			} or None
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required"}
+
+		# Parse selected_attributes if it's a string
+		if isinstance(selected_attributes, str):
+			selected_attributes = json.loads(selected_attributes)
+
+		if not selected_attributes:
+			return {"success": False, "error": "Selected attributes are required"}
+
+		# Get all variants of this template
+		variants_result = get_item_variants(template_item)
+		if not variants_result.get("success"):
+			return variants_result
+
+		variants = variants_result.get("variants", [])
+
+		# Find the variant that matches all selected attributes
+		for variant in variants:
+			variant_attrs = variant.get("attributes", {})
+			# Check if all selected attributes match
+			matches = True
+			for attr_name, attr_value in selected_attributes.items():
+				if variant_attrs.get(attr_name) != attr_value:
+					matches = False
+					break
+
+			if matches:
+				return {
+					"success": True,
+					"found": True,
+					"variant": {
+						"item_code": variant["item_code"],
+						"item_name": variant["item_name"],
+						"standard_rate": variant["standard_rate"],
+						"image": variant["image"],
+					},
+				}
+
+		return {"success": True, "found": False, "variant": None, "message": "No matching variant found"}
+
+	except Exception as e:
+		frappe.log_error(f"Error finding variant for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e)}
 
 
 @frappe.whitelist()

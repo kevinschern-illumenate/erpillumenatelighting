@@ -220,7 +220,7 @@ Also handles new schedule creation when is_new is True
 										{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<span class="badge badge-primary">ilLumenate</span>
 										{% elif line.get('manufacturer_type') == 'ACCESSORY' %}
-										<span class="badge badge-success">Accessory</span>
+										<span class="badge badge-primary">ilLumenate</span>
 										{% else %}
 										<span class="badge badge-secondary">Other</span>
 										{% endif %}
@@ -534,8 +534,7 @@ Also handles new schedule creation when is_new is True
 							<div class="form-group">
 								<label>{{ _("Manufacturer Type") }}</label>
 								<select class="form-control" name="manufacturer_type">
-									<option value="ILLUMENATE">ilLumenate Fixture</option>
-									<option value="ACCESSORY">Accessory / Component</option>
+									<option value="ILLUMENATE">ilLumenate Lighting</option>
 									<option value="OTHER">Other Manufacturer</option>
 								</select>
 							</div>
@@ -546,71 +545,88 @@ Also handles new schedule creation when is_new is True
 						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
 					</div>
 
-					<!-- ilLumenate Configure Section -->
+					<!-- ilLumenate Lighting Section (Combined Fixtures + Components) -->
 					<div class="illumenate-fields" style="display: block;">
 						<hr>
-						<h6 class="text-muted mb-3">{{ _("ilLumenate Fixture Selection") }}</h6>
+						<h6 class="text-muted mb-3">{{ _("ilLumenate Product Selection") }}</h6>
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Product Type") }}</label>
+									<label>{{ _("Product Category") }}</label>
 									<select class="form-control" name="product_type" id="add_product_type">
-										<option value="">{{ _("Select Product Type...") }}</option>
-										<option value="Linear Fixture">{{ _("Linear Fixture") }}</option>
+										<option value="">{{ _("Select Product Category...") }}</option>
 									</select>
 								</div>
 							</div>
 							<div class="col-md-6">
+								<!-- Fixture Template dropdown (shown when Linear Fixture selected) -->
 								<div class="form-group fixture-template-group" style="display: none;">
 									<label>{{ _("Fixture Template") }}</label>
 									<select class="form-control" name="fixture_template" id="add_fixture_template">
 										<option value="">{{ _("Select Fixture Template...") }}</option>
 									</select>
 								</div>
-							</div>
-						</div>
-						<div class="alert alert-info">
-							<i class="fa fa-info-circle"></i> 
-							{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
-						</div>
-						<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
-							<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
-						</button>
-					</div>
-
-					<!-- Accessory/Component Fields -->
-					<div class="accessory-fields" style="display: none;">
-						<hr>
-						<h6 class="text-muted mb-3">{{ _("Accessory / Component Selection") }}</h6>
-						<div class="row">
-							<div class="col-md-6">
-								<div class="form-group">
-									<label>{{ _("Product Category") }}</label>
-									<select class="form-control" name="accessory_product_type" id="add_accessory_product_type">
-										<option value="">{{ _("Select Product Category...") }}</option>
-									</select>
-								</div>
-							</div>
-							<div class="col-md-6">
-								<div class="form-group accessory-item-group" style="display: none;">
+								<!-- Item dropdown (shown when non-Linear Fixture category selected) -->
+								<div class="form-group item-selection-group" style="display: none;">
 									<label>{{ _("Item") }}</label>
-									<select class="form-control" name="accessory_item" id="add_accessory_item">
+									<select class="form-control" name="selected_item" id="add_selected_item">
 										<option value="">{{ _("Select Item...") }}</option>
 									</select>
 								</div>
 							</div>
 						</div>
-						<div class="accessory-item-details" style="display: none;">
+
+						<!-- Item details display -->
+						<div class="selected-item-details" style="display: none;">
 							<div class="alert alert-light">
 								<div class="row">
 									<div class="col-md-8">
-										<strong id="add_accessory_item_name"></strong>
-										<p class="mb-0 text-muted small" id="add_accessory_item_desc"></p>
+										<strong id="add_selected_item_name"></strong>
+										<p class="mb-0 text-muted small" id="add_selected_item_desc"></p>
 									</div>
 									<div class="col-md-4 text-right">
-										<span class="badge badge-info" id="add_accessory_item_uom"></span>
+										<span class="badge badge-info" id="add_selected_item_uom"></span>
+										<span class="badge badge-warning" id="add_selected_item_has_variants" style="display: none;">Has Options</span>
 									</div>
 								</div>
+							</div>
+						</div>
+
+						<!-- Linear Fixture configure section -->
+						<div class="fixture-configure-section" style="display: none;">
+							<div class="alert alert-info">
+								<i class="fa fa-info-circle"></i> 
+								{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
+							</div>
+							<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
+							</button>
+						</div>
+
+						<!-- Item with variants configure section -->
+						<div class="item-configure-section" style="display: none;">
+							<div class="alert alert-info">
+								<i class="fa fa-cog"></i> 
+								{{ _("This item has configurable options. Click Configure to select the specific variant.") }}
+							</div>
+							<button type="button" class="btn btn-success btn-block" id="configureItemBtn" onclick="openItemVariantModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure Options") }}
+							</button>
+							<!-- Hidden field to store selected variant -->
+							<input type="hidden" name="selected_variant" id="add_selected_variant">
+							<div class="selected-variant-display" style="display: none; margin-top: 10px;">
+								<div class="alert alert-success">
+									<i class="fa fa-check-circle"></i> 
+									<strong>{{ _("Selected:") }}</strong> <span id="selected_variant_name"></span>
+								</div>
+							</div>
+						</div>
+
+						<!-- No configure needed (direct item add) -->
+						<div class="item-direct-section" style="display: none;">
+							<div class="alert alert-success">
+								<i class="fa fa-check-circle"></i> 
+								{{ _("This item will be added directly to your schedule.") }}
 							</div>
 						</div>
 					</div>
@@ -824,10 +840,10 @@ Also handles new schedule creation when is_new is True
 						</div>
 					</div>
 
-					<!-- Accessory Fields (read-only display in edit mode) -->
+					<!-- ilLumenate Item Fields (read-only display in edit mode) -->
 					<div class="edit-accessory-fields" style="display: none;">
 						<hr>
-						<h6 class="text-muted mb-3">{{ _("Accessory / Component") }}</h6>
+						<h6 class="text-muted mb-3">{{ _("ilLumenate Product") }}</h6>
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
@@ -857,6 +873,51 @@ Also handles new schedule creation when is_new is True
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 				<button type="button" class="btn btn-primary" onclick="saveEditLine()">
 					<i class="fa fa-save"></i> {{ _("Save Changes") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Item Variant Configuration Modal -->
+<div class="modal fade" id="itemVariantModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Configure Item Options") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="variant-config-loading text-center" style="display: none;">
+					<i class="fa fa-spinner fa-spin fa-2x"></i>
+					<p class="mt-2">{{ _("Loading options...") }}</p>
+				</div>
+				<div class="variant-config-content">
+					<div class="alert alert-info">
+						<strong id="variant_template_name"></strong>
+						<p class="mb-0 small text-muted" id="variant_template_desc">{{ _("Select your preferred options below:") }}</p>
+					</div>
+					<div id="variant_attributes_container">
+						<!-- Attribute dropdowns will be dynamically inserted here -->
+					</div>
+					<div class="variant-match-status" style="display: none; margin-top: 15px;">
+						<div class="alert alert-success variant-found" style="display: none;">
+							<i class="fa fa-check-circle"></i> 
+							<strong>{{ _("Matched:") }}</strong> <span id="matched_variant_name"></span>
+						</div>
+						<div class="alert alert-warning variant-not-found" style="display: none;">
+							<i class="fa fa-exclamation-triangle"></i> 
+							{{ _("No matching variant found for the selected options. Please try a different combination.") }}
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="confirmVariantBtn" onclick="confirmVariantSelection()" disabled>
+					<i class="fa fa-check"></i> {{ _("Confirm Selection") }}
 				</button>
 			</div>
 		</div>
@@ -929,32 +990,31 @@ $('#addLineModal').on('show.bs.modal', function() {
 	// Reset to default ilLumenate view
 	$('select[name="manufacturer_type"]').val('ILLUMENATE');
 	$('.illumenate-fields').show();
-	$('.accessory-fields').hide();
 	$('.other-fields').hide();
-	// Reset product type and fixture template
+	// Reset product type and related fields
 	$('#add_product_type').val('');
 	$('.fixture-template-group').hide();
+	$('.item-selection-group').hide();
+	$('.selected-item-details').hide();
+	$('.fixture-configure-section').hide();
+	$('.item-configure-section').hide();
+	$('.item-direct-section').hide();
+	$('.selected-variant-display').hide();
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
-	// Reset accessory fields
-	$('#add_accessory_product_type').val('');
-	$('.accessory-item-group').hide();
-	$('#add_accessory_item').html('<option value="">{{ _("Select Item...") }}</option>');
-	$('.accessory-item-details').hide();
-	// Load accessory product types
-	loadAccessoryProductTypes();
+	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
+	$('#add_selected_variant').val('');
+	// Load product categories
+	loadProductCategories();
 });
 
 // Toggle manufacturer type fields
 $('select[name="manufacturer_type"]').on('change', function() {
 	var mfgType = $(this).val();
 	$('.illumenate-fields').hide();
-	$('.accessory-fields').hide();
 	$('.other-fields').hide();
 	
 	if (mfgType === 'ILLUMENATE') {
 		$('.illumenate-fields').show();
-	} else if (mfgType === 'ACCESSORY') {
-		$('.accessory-fields').show();
 	} else if (mfgType === 'OTHER') {
 		$('.other-fields').show();
 	}
@@ -962,19 +1022,35 @@ $('select[name="manufacturer_type"]').on('change', function() {
 
 // Initialize the visibility on page load (default is ILLUMENATE)
 $('.illumenate-fields').show();
-$('.accessory-fields').hide();
 $('.other-fields').hide();
 
-// Handle product type selection to show/hide fixture template field
+// Handle product type selection to show appropriate fields
 $('#add_product_type').on('change', function() {
 	var productType = $(this).val();
-	if (productType) {
+	
+	// Hide all conditional sections first
+	$('.fixture-template-group').hide();
+	$('.item-selection-group').hide();
+	$('.selected-item-details').hide();
+	$('.fixture-configure-section').hide();
+	$('.item-configure-section').hide();
+	$('.item-direct-section').hide();
+	$('.selected-variant-display').hide();
+	$('#add_selected_variant').val('');
+	
+	if (!productType) {
+		return;
+	}
+	
+	// Check if this is "Linear Fixture" - show fixture template dropdown
+	if (productType === 'Linear Fixture') {
 		$('.fixture-template-group').show();
-		// Load fixture templates based on product type
+		$('.fixture-configure-section').show();
 		loadFixtureTemplates(productType);
 	} else {
-		$('.fixture-template-group').hide();
-		$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
+		// For all other product types, show item selection dropdown
+		$('.item-selection-group').show();
+		loadItemsForProductType(productType);
 	}
 });
 
@@ -1002,8 +1078,8 @@ function loadFixtureTemplates(productType) {
 	});
 }
 
-// Load accessory product types (Item Groups under Products)
-function loadAccessoryProductTypes() {
+// Load product categories (Item Groups under Products)
+function loadProductCategories() {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_product_types',
 		callback: function(r) {
@@ -1020,36 +1096,23 @@ function loadAccessoryProductTypes() {
 					options += '<option value="' + pt.value + '">' + indent + pt.label + '</option>';
 				});
 			}
-			$('#add_accessory_product_type').html(options);
-			$('#edit_accessory_product_type').html(options);
+			$('#add_product_type').html(options);
 		},
 		error: function() {
-			console.error('Error loading product types');
+			console.error('Error loading product categories');
 		}
 	});
 }
 
-// Handle accessory product type selection
-$('#add_accessory_product_type').on('change', function() {
-	var productType = $(this).val();
-	if (productType) {
-		$('.accessory-item-group').show();
-		loadAccessoryItems(productType, '#add_accessory_item');
-	} else {
-		$('.accessory-item-group').hide();
-		$('#add_accessory_item').html('<option value="">{{ _("Select Item...") }}</option>');
-		$('.accessory-item-details').hide();
-	}
-});
-
-// Load items for a product type
-function loadAccessoryItems(productType, selector) {
-	$(selector).html('<option value="">{{ _("Loading...") }}</option>');
+// Load items for a product type (excluding variants)
+function loadItemsForProductType(productType) {
+	$('#add_selected_item').html('<option value="">{{ _("Loading...") }}</option>');
 	
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_items_by_product_type',
 		args: {
-			product_type: productType
+			product_type: productType,
+			exclude_variants: 1
 		},
 		callback: function(r) {
 			var options = '<option value="">{{ _("Select Item...") }}</option>';
@@ -1059,33 +1122,207 @@ function loadAccessoryItems(productType, selector) {
 						'data-name="' + (item.item_name || '') + '" ' +
 						'data-desc="' + (item.description || '').substring(0, 100) + '" ' +
 						'data-uom="' + (item.stock_uom || 'Nos') + '" ' +
-						'data-rate="' + (item.standard_rate || 0) + '">' + 
+						'data-rate="' + (item.standard_rate || 0) + '" ' +
+						'data-has-variants="' + (item.has_variants ? '1' : '0') + '">' + 
 						item.item_name + ' (' + item.item_code + ')' +
+						(item.has_variants ? ' ⚙' : '') +
 						'</option>';
 				});
 			}
-			$(selector).html(options);
+			$('#add_selected_item').html(options);
 		},
 		error: function() {
-			$(selector).html('<option value="">{{ _("Error loading items") }}</option>');
+			$('#add_selected_item').html('<option value="">{{ _("Error loading items") }}</option>');
 		}
 	});
 }
 
-// Handle accessory item selection
-$('#add_accessory_item').on('change', function() {
+// Handle item selection
+$('#add_selected_item').on('change', function() {
 	var $selected = $(this).find('option:selected');
 	var itemCode = $(this).val();
 	
-	if (itemCode) {
-		$('#add_accessory_item_name').text($selected.data('name') || itemCode);
-		$('#add_accessory_item_desc').text($selected.data('desc') || '');
-		$('#add_accessory_item_uom').text($selected.data('uom') || 'Nos');
-		$('.accessory-item-details').show();
+	// Hide all item-related sections first
+	$('.selected-item-details').hide();
+	$('.item-configure-section').hide();
+	$('.item-direct-section').hide();
+	$('.selected-variant-display').hide();
+	$('#add_selected_variant').val('');
+	
+	if (!itemCode) {
+		return;
+	}
+	
+	// Show item details
+	$('#add_selected_item_name').text($selected.data('name') || itemCode);
+	$('#add_selected_item_desc').text($selected.data('desc') || '');
+	$('#add_selected_item_uom').text($selected.data('uom') || 'Nos');
+	$('.selected-item-details').show();
+	
+	// Check if item has variants
+	var hasVariants = $selected.data('has-variants') === '1' || $selected.data('has-variants') === 1;
+	
+	if (hasVariants) {
+		// Show badge and configure button
+		$('#add_selected_item_has_variants').show();
+		$('.item-configure-section').show();
 	} else {
-		$('.accessory-item-details').hide();
+		// No variants - direct add
+		$('#add_selected_item_has_variants').hide();
+		$('.item-direct-section').show();
 	}
 });
+
+// Store current template item for variant selection
+var currentTemplateItem = null;
+var currentVariantMatch = null;
+
+// Open item variant configuration modal
+function openItemVariantModal() {
+	var itemCode = $('#add_selected_item').val();
+	var $selected = $('#add_selected_item option:selected');
+	
+	if (!itemCode) {
+		frappe.msgprint({
+			title: '{{ _("Selection Required") }}',
+			indicator: 'orange',
+			message: '{{ _("Please select an item first.") }}'
+		});
+		return;
+	}
+	
+	currentTemplateItem = itemCode;
+	currentVariantMatch = null;
+	
+	// Show loading state
+	$('.variant-config-loading').show();
+	$('.variant-config-content').hide();
+	$('#confirmVariantBtn').prop('disabled', true);
+	$('.variant-match-status').hide();
+	
+	// Set template name in modal
+	$('#variant_template_name').text($selected.data('name') || itemCode);
+	
+	// Open modal
+	$('#itemVariantModal').modal('show');
+	
+	// Load variant attributes
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_item_variant_attributes',
+		args: {
+			template_item: itemCode
+		},
+		callback: function(r) {
+			$('.variant-config-loading').hide();
+			$('.variant-config-content').show();
+			
+			if (r.message && r.message.success && r.message.attributes && r.message.attributes.length > 0) {
+				// Build attribute dropdowns
+				var html = '';
+				r.message.attributes.forEach(function(attr, index) {
+					html += '<div class="form-group">';
+					html += '<label>' + attr.attribute + '</label>';
+					html += '<select class="form-control variant-attribute-select" data-attribute="' + attr.attribute + '">';
+					html += '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+					attr.values.forEach(function(val) {
+						if (val.is_numeric) {
+							html += '<option value="' + val.value + '">' + val.value + '</option>';
+						} else {
+							html += '<option value="' + val.value + '">' + val.value + '</option>';
+						}
+					});
+					html += '</select>';
+					html += '</div>';
+				});
+				$('#variant_attributes_container').html(html);
+				
+				// Add change handler to check for matching variants
+				$('.variant-attribute-select').on('change', checkVariantMatch);
+			} else {
+				$('#variant_attributes_container').html('<div class="alert alert-warning">{{ _("No configurable options available for this item.") }}</div>');
+			}
+		},
+		error: function() {
+			$('.variant-config-loading').hide();
+			$('.variant-config-content').show();
+			$('#variant_attributes_container').html('<div class="alert alert-danger">{{ _("Error loading options. Please try again.") }}</div>');
+		}
+	});
+}
+
+// Check if selected attributes match a variant
+function checkVariantMatch() {
+	// Collect all selected attribute values
+	var selectedAttributes = {};
+	var allSelected = true;
+	
+	$('.variant-attribute-select').each(function() {
+		var attr = $(this).data('attribute');
+		var val = $(this).val();
+		if (val) {
+			selectedAttributes[attr] = val;
+		} else {
+			allSelected = false;
+		}
+	});
+	
+	// Only check for match if all attributes are selected
+	if (!allSelected) {
+		$('.variant-match-status').hide();
+		$('#confirmVariantBtn').prop('disabled', true);
+		currentVariantMatch = null;
+		return;
+	}
+	
+	// Find matching variant
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.find_matching_variant',
+		args: {
+			template_item: currentTemplateItem,
+			selected_attributes: selectedAttributes
+		},
+		callback: function(r) {
+			$('.variant-match-status').show();
+			
+			if (r.message && r.message.success && r.message.found) {
+				// Match found
+				$('.variant-found').show();
+				$('.variant-not-found').hide();
+				$('#matched_variant_name').text(r.message.variant.item_name + ' (' + r.message.variant.item_code + ')');
+				$('#confirmVariantBtn').prop('disabled', false);
+				currentVariantMatch = r.message.variant;
+			} else {
+				// No match
+				$('.variant-found').hide();
+				$('.variant-not-found').show();
+				$('#confirmVariantBtn').prop('disabled', true);
+				currentVariantMatch = null;
+			}
+		}
+	});
+}
+
+// Confirm variant selection
+function confirmVariantSelection() {
+	if (!currentVariantMatch) {
+		frappe.msgprint({
+			title: '{{ _("No Match") }}',
+			indicator: 'orange',
+			message: '{{ _("Please select options that match an available variant.") }}'
+		});
+		return;
+	}
+	
+	// Store the selected variant
+	$('#add_selected_variant').val(currentVariantMatch.item_code);
+	
+	// Update the display
+	$('#selected_variant_name').text(currentVariantMatch.item_name + ' (' + currentVariantMatch.item_code + ')');
+	$('.selected-variant-display').show();
+	
+	// Close modal
+	$('#itemVariantModal').modal('hide');
+}
 
 // File upload helper function
 function uploadFile(fileInput, callback) {
@@ -1125,6 +1362,8 @@ function uploadFile(fileInput, callback) {
 function addLine() {
 	var form = $('#addLineForm');
 	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	var productType = form.find('[name="product_type"]').val();
+	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
 		qty: form.find('[name="qty"]').val(),
@@ -1133,28 +1372,54 @@ function addLine() {
 		notes: form.find('[name="notes"]').val()
 	};
 
-	// Add ilLumenate-specific fields
+	// Handle ilLumenate products
 	if (manufacturerType === 'ILLUMENATE') {
-		data.product_type = form.find('[name="product_type"]').val();
-		data.fixture_template = form.find('[name="fixture_template"]').val();
-		data.configuration_status = 'Pending';
-	}
-
-	// Add Accessory-specific fields
-	if (manufacturerType === 'ACCESSORY') {
-		var accessoryItem = form.find('[name="accessory_item"]').val();
-		if (!accessoryItem) {
-			frappe.msgprint({
-				title: '{{ _("Selection Required") }}',
-				indicator: 'orange',
-				message: '{{ _("Please select an item before adding the line.") }}'
-			});
-			return;
+		data.product_type = productType;
+		
+		if (productType === 'Linear Fixture') {
+			// Linear Fixture path - uses fixture template and configurator
+			data.fixture_template = form.find('[name="fixture_template"]').val();
+			data.configuration_status = 'Pending';
+		} else if (productType) {
+			// Other product types - uses item selection (potentially with variants)
+			var selectedItem = form.find('[name="selected_item"]').val();
+			var selectedVariant = form.find('[name="selected_variant"]').val();
+			
+			if (!selectedItem) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select an item before adding the line.") }}'
+				});
+				return;
+			}
+			
+			// Check if item has variants and if one was selected
+			var $selectedOption = form.find('[name="selected_item"] option:selected');
+			var hasVariants = $selectedOption.data('has-variants') === '1' || $selectedOption.data('has-variants') === 1;
+			
+			if (hasVariants && !selectedVariant) {
+				frappe.msgprint({
+					title: '{{ _("Configuration Required") }}',
+					indicator: 'orange',
+					message: '{{ _("This item has options. Please click \"Configure Options\" to select your preferred variant.") }}'
+				});
+				return;
+			}
+			
+			// Use ACCESSORY manufacturer type internally for items (keeps data model compatibility)
+			data.manufacturer_type = 'ACCESSORY';
+			data.accessory_product_type = productType;
+			
+			// If variant was selected, use that; otherwise use the template item
+			if (selectedVariant) {
+				data.accessory_item = selectedVariant;
+				data.accessory_item_name = $('#selected_variant_name').text().split(' (')[0];
+			} else {
+				data.accessory_item = selectedItem;
+				data.accessory_item_name = $selectedOption.data('name') || '';
+			}
 		}
-		data.accessory_product_type = form.find('[name="accessory_product_type"]').val();
-		data.accessory_item = accessoryItem;
-		var $selectedItem = form.find('[name="accessory_item"] option:selected');
-		data.accessory_item_name = $selectedItem.data('name') || '';
 	}
 
 	// Add Other manufacturer fields if applicable
@@ -1205,27 +1470,18 @@ function submitAddLine(data) {
 function configureFromAddModal() {
 	var form = $('#addLineForm');
 	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	var productType = form.find('[name="product_type"]').val();
 	
-	// Only allow configuring for ILLUMENATE manufacturer
-	if (manufacturerType !== 'ILLUMENATE') {
-		frappe.msgprint('Configure is only available for ilLumenate fixtures');
+	// Only allow configuring for ILLUMENATE manufacturer with Linear Fixture
+	if (manufacturerType !== 'ILLUMENATE' || productType !== 'Linear Fixture') {
+		frappe.msgprint('Configure is only available for ilLumenate Linear Fixtures');
 		return;
 	}
 
-	// Get product type and fixture template
-	var productType = form.find('[name="product_type"]').val();
+	// Get fixture template
 	var fixtureTemplate = form.find('[name="fixture_template"]').val();
 
-	// Validate that product type and fixture template are selected
-	if (!productType) {
-		frappe.msgprint({
-			title: 'Selection Required',
-			indicator: 'orange',
-			message: 'Please select a Product Type before configuring.'
-		});
-		return;
-	}
-
+	// Validate that fixture template is selected
 	if (!fixtureTemplate) {
 		frappe.msgprint({
 			title: 'Selection Required',
