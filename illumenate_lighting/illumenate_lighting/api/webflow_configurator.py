@@ -789,15 +789,15 @@ def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
         tape_output_value = (tape_output_data.get("value") if tape_output_data else 0) or 0
         tape_output_sku = (tape_output_data.get("sku_code") if tape_output_data else None)
         
-        # Get lens transmission percentage
+        # Get lens transmission as decimal (0.56 = 56%)
         lens_transmission = frappe.db.get_value(
             "ilL-Attribute-Lens Appearance",
             selections["lens_appearance"],
             "transmission"
-        ) or 100
+        ) or 1.0
         
-        # Calculate fixture output = tape output × (transmission / 100)
-        fixture_output_value = int(round(tape_output_value * (lens_transmission / 100)))
+        # Calculate fixture output = tape output × transmission (decimal)
+        fixture_output_value = int(round(tape_output_value * lens_transmission))
         
         # Find closest fixture-level output level
         fixture_output_levels = frappe.get_all(

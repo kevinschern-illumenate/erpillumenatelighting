@@ -555,7 +555,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 				details["finish"] = finish_doc.display_name or finish_doc.code or cf.finish
 
 		# Get lens appearance and transmission
-		lens_transmission = 100  # Default 100% if not found
+		lens_transmission = 1.0  # Default 100% if not found (as decimal)
 		if cf.lens_appearance:
 			lens_doc = frappe.db.get_value(
 				"ilL-Attribute-Lens Appearance",
@@ -592,7 +592,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 						details["output_level"] = output_level_doc.output_level_name
 						# Fallback: calculate estimated delivered output if not stored on fixture
 						if not details["estimated_delivered_output"] and output_level_doc.value:
-							delivered = (output_level_doc.value * lens_transmission) / 100
+							delivered = output_level_doc.value * lens_transmission
 							details["estimated_delivered_output"] = round(delivered, 1)
 
 		# Get driver/power supply info from drivers child table

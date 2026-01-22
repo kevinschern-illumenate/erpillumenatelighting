@@ -41,10 +41,10 @@ class ilLConfiguredFixture(Document):
 		"""
 		Calculate and store the estimated delivered output (lm/ft).
 		
-		Formula: tape_output_lm_ft × (lens_transmission_pct / 100)
+		Formula: tape_output_lm_ft × lens_transmission (decimal)
 		
 		This pulls the tape's output level value (lm/ft) and multiplies by
-		the lens transmission percentage to get estimated fixture output.
+		the lens transmission (stored as decimal, e.g., 0.56 = 56%).
 		"""
 		if not self.tape_offering or not self.lens_appearance:
 			self.estimated_delivered_output = None
@@ -70,16 +70,16 @@ class ilLConfiguredFixture(Document):
 
 		tape_output_lm_ft = tape_output_data.value
 
-		# Get lens transmission % (stored as 0-100 in Percent fieldtype)
+		# Get lens transmission as decimal (stored as 0.56 = 56%)
 		lens_transmission = frappe.db.get_value(
 			"ilL-Attribute-Lens Appearance", self.lens_appearance, "transmission"
 		)
-		# Default to 100% if not specified
+		# Default to 1.0 (100%) if not specified
 		if not lens_transmission:
-			lens_transmission = 100
+			lens_transmission = 1.0
 
-		# Calculate: tape output × (transmission / 100)
-		self.estimated_delivered_output = round(tape_output_lm_ft * (lens_transmission / 100), 1)
+		# Calculate: tape output × transmission (decimal)
+		self.estimated_delivered_output = round(tape_output_lm_ft * lens_transmission, 1)
 
 	def _generate_part_number(self) -> str:
 		"""Build the part number from linked doctypes."""
@@ -253,13 +253,13 @@ class ilLConfiguredFixture(Document):
 		tape_output_value = tape_output_data.get("value") or 0
 		tape_output_sku = tape_output_data.get("sku_code") or ""
 
-		# Get lens transmission %
+		# Get lens transmission as decimal (0.56 = 56%)
 		lens_transmission = frappe.db.get_value(
 			"ilL-Attribute-Lens Appearance", self.lens_appearance, "transmission"
-		) or 100
+		) or 1.0
 
-		# Calculate fixture output = tape output * (transmission / 100)
-		fixture_output_value = int(round(tape_output_value * (lens_transmission / 100)))
+		# Calculate fixture output = tape output * transmission (decimal)
+		fixture_output_value = int(round(tape_output_value * lens_transmission))
 
 		# Find the closest fixture-level output level by value
 		fixture_output_levels = frappe.get_all(

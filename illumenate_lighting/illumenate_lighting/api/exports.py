@@ -151,8 +151,8 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
 		details = {}
 
-		# Get lens transmission for output calculation
-		lens_transmission = 100
+		# Get lens transmission as decimal for output calculation (0.56 = 56%)
+		lens_transmission = 1.0
 		if cf.lens_appearance:
 			lens_doc = frappe.db.get_value(
 				"ilL-Attribute-Lens Appearance",
@@ -196,7 +196,7 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 						as_dict=True,
 					)
 					if tape_spec_data and tape_spec_data.lumens_per_foot:
-						delivered = (tape_spec_data.lumens_per_foot * lens_transmission) / 100
+						delivered = tape_spec_data.lumens_per_foot * lens_transmission
 						details["estimated_delivered_output"] = round(delivered, 1)
 
 				# Get output level display name (for reference only)

@@ -3472,13 +3472,13 @@ def get_delivered_outputs_for_template(
 		if not fixture_output_levels:
 			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": "No fixture-level output levels defined in ilL-Attribute-Output Level"}
 
-		# Get lens transmission percentage (stored as 0-100, e.g., 56 = 56%)
-		lens_transmission_pct = 100  # Default to 100% if not specified
+		# Get lens transmission as decimal (stored as 0.56 = 56%)
+		lens_transmission_decimal = 1.0  # Default to 100% if not specified
 		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 			if lens_doc.transmission:
-				# Value is stored as percentage (56 for 56%)
-				lens_transmission_pct = float(lens_doc.transmission)
+				# Value is stored as decimal (0.56 for 56%)
+				lens_transmission_decimal = float(lens_doc.transmission)
 
 		# Get tape offerings linked to this template, filtering by environment rating
 		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -3497,7 +3497,7 @@ def get_delivered_outputs_for_template(
 			valid_tape_offering_names.append(row.tape_offering)
 
 		if not valid_tape_offering_names:
-			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_pct, "error": None}
+			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_decimal * 100, "error": None}
 
 		# Build tape offering filter for exact matches - only add is_active if active records exist
 		tape_filters = {
@@ -3517,7 +3517,7 @@ def get_delivered_outputs_for_template(
 		)
 
 		if not tape_offerings:
-			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_pct, "error": None}
+			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_decimal * 100, "error": None}
 
 		# Get output level values (lm/ft) for each tape
 		output_level_names = list({t.output_level for t in tape_offerings if t.output_level})
@@ -3541,8 +3541,8 @@ def get_delivered_outputs_for_template(
 				continue
 
 			tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-			# Calculate delivered lumens: tape output × (transmission% / 100)
-			delivered_lm_ft = tape_output_lm_ft * (lens_transmission_pct / 100)
+			# Calculate delivered lumens: tape output × transmission (decimal)
+			delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
 			# Find closest fixture-level output level instead of rounding to 50
 			closest_level = _find_closest_fixture_output_level(delivered_lm_ft, fixture_output_levels)
@@ -3558,7 +3558,7 @@ def get_delivered_outputs_for_template(
 					"value": closest_level["value"],
 					"sku_code": closest_level["sku_code"],
 					"tape_output_lm_ft": tape_output_lm_ft,
-					"transmission_pct": lens_transmission_pct,
+					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tapes": [],
 				}
 			delivered_output_map[output_level_key]["matching_tapes"].append(tape.name)
@@ -3589,7 +3589,7 @@ def get_delivered_outputs_for_template(
 					"output_level_name": ol["output_level_name"],
 					"sku_code": ol["sku_code"],
 					"tape_output_lm_ft": ol["value"],
-					"transmission_pct": lens_transmission_pct,
+					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tape_count": 0,  # No specific tape match
 				})
 
@@ -3597,7 +3597,7 @@ def get_delivered_outputs_for_template(
 			"success": True,
 			"delivered_outputs": delivered_outputs,
 			"compatible_tapes": list(set(compatible_tapes)),
-			"lens_transmission_pct": lens_transmission_pct,
+			"lens_transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 			"error": None,
 		}
 	except Exception as e:
@@ -3672,13 +3672,13 @@ def auto_select_tape_for_configuration(
 	if not fixture_output_levels:
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No fixture-level output levels defined"}
 
-	# Get lens transmission percentage (stored as 0-100, e.g., 56 = 56%)
-	lens_transmission_pct = 100  # Default to 100% if not specified
+	# Get lens transmission as decimal (stored as 0.56 = 56%)
+	lens_transmission_decimal = 1.0  # Default to 100% if not specified
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
-			# Value is stored as percentage (56 for 56%)
-			lens_transmission_pct = float(lens_doc.transmission)
+			# Value is stored as decimal (0.56 for 56%)
+			lens_transmission_decimal = float(lens_doc.transmission)
 
 	# Get valid tape offering names from template (with constraint filtering)
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -3734,8 +3734,8 @@ def auto_select_tape_for_configuration(
 			continue
 
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		# Calculate delivered lumens: tape output × (transmission% / 100)
-		delivered_lm_ft = tape_output_lm_ft * (lens_transmission_pct / 100)
+		# Calculate delivered lumens: tape output × transmission (decimal)
+		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
 		# Find closest fixture-level output level instead of rounding to 50
 		closest_level = _find_closest_fixture_output_level(delivered_lm_ft, fixture_output_levels)

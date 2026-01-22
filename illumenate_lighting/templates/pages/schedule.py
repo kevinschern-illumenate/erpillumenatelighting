@@ -215,7 +215,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				details["finish"] = cf.finish
 
 		# Get lens appearance and transmission
-		lens_transmission = 100  # Default 100% if not found
+		lens_transmission = 1.0  # Default 100% if not found (as decimal)
 		if cf.lens_appearance:
 			lens_doc = frappe.db.get_value(
 				"ilL-Attribute-Lens Appearance",
@@ -280,11 +280,11 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 						# Fallback: calculate estimated delivered output if not stored on fixture
 						# (for older fixtures that don't have the field populated)
 						if not details["estimated_delivered_output"] and output_level_doc.value:
-							delivered = (output_level_doc.value * lens_transmission) / 100
+							delivered = output_level_doc.value * lens_transmission
 							details["estimated_delivered_output"] = round(delivered, 1)
-					else:
-						# Fallback to raw value
-						details["output_level"] = tape_offering.output_level
+						else:
+							# Fallback to raw value
+							details["output_level"] = tape_offering.output_level
 			else:
 				# Tape offering doc not found - try to parse CCT from tape_offering name
 				# Format is typically: LED-HD-SW-I-30K-750-3M-WH
