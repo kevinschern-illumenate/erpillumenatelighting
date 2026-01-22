@@ -262,17 +262,29 @@ def get_template_options(template_code: str) -> dict:
 
 
 @frappe.whitelist()
-def get_product_types() -> dict:
+def get_product_types(include_subgroups: bool = True) -> dict:
 	"""
 	Get product types from Item Groups under "Products" parent.
 
 	This fetches the immediate children of the "Products" Item Group
-	to populate the product type dropdown.
+	to populate the product type dropdown. If include_subgroups is True,
+	also includes child groups (up to 2 levels deep) with visual indentation.
+
+	Args:
+		include_subgroups: Whether to include child groups with indentation
 
 	Returns:
 		dict: {
 			"success": True/False,
-			"product_types": [{"value": name, "label": display_name, "item_group": item_group_name}]
+			"product_types": [
+				{
+					"value": name,
+					"label": display_name,
+					"item_group": item_group_name,
+					"level": 0|1|2,  # Depth level for indentation
+					"parent": parent_group_name or None
+				}
+			]
 		}
 	"""
 	try:
@@ -281,7 +293,7 @@ def get_product_types() -> dict:
 			return {
 				"success": True,
 				"product_types": [
-					{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None}
+					{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}
 				],
 			}
 
@@ -295,15 +307,53 @@ def get_product_types() -> dict:
 
 		result = []
 		for pt in product_types:
+			# Add the parent group
 			result.append({
 				"value": pt.name,
 				"label": pt.item_group_name or pt.name,
 				"item_group": pt.name,
+				"level": 0,
+				"parent": None,
 			})
+
+			# If include_subgroups, fetch child groups
+			if include_subgroups:
+				child_groups = frappe.get_all(
+					"Item Group",
+					filters={"parent_item_group": pt.name},
+					fields=["name", "item_group_name"],
+					order_by="item_group_name asc",
+				)
+
+				for child in child_groups:
+					result.append({
+						"value": child.name,
+						"label": child.item_group_name or child.name,
+						"item_group": child.name,
+						"level": 1,
+						"parent": pt.name,
+					})
+
+					# Optionally get grandchild groups (level 2)
+					grandchild_groups = frappe.get_all(
+						"Item Group",
+						filters={"parent_item_group": child.name},
+						fields=["name", "item_group_name"],
+						order_by="item_group_name asc",
+					)
+
+					for grandchild in grandchild_groups:
+						result.append({
+							"value": grandchild.name,
+							"label": grandchild.item_group_name or grandchild.name,
+							"item_group": grandchild.name,
+							"level": 2,
+							"parent": child.name,
+						})
 
 		# If no child groups found, return default
 		if not result:
-			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None}]
+			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}]
 
 		return {"success": True, "product_types": result}
 
@@ -312,7 +362,7 @@ def get_product_types() -> dict:
 		return {
 			"success": False,
 			"error": str(e),
-			"product_types": [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None}],
+			"product_types": [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}],
 		}
 
 

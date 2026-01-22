@@ -1010,7 +1010,14 @@ function loadAccessoryProductTypes() {
 			var options = '<option value="">{{ _("Select Product Category...") }}</option>';
 			if (r.message && r.message.success && r.message.product_types) {
 				r.message.product_types.forEach(function(pt) {
-					options += '<option value="' + pt.value + '">' + pt.label + '</option>';
+					// Add visual indentation based on level
+					var indent = '';
+					if (pt.level === 1) {
+						indent = '└─ ';
+					} else if (pt.level === 2) {
+						indent = '    └─ ';
+					}
+					options += '<option value="' + pt.value + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_accessory_product_type').html(options);
