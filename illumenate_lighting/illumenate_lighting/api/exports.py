@@ -187,8 +187,7 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 					else:
 						details["cri"] = tape_offering.cri
 
-				# Get lumens per foot from tape spec
-				tape_lumens = None
+				# Get lumens per foot from tape spec for output calculation
 				if tape_offering.tape_spec:
 					tape_spec_data = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
@@ -197,23 +196,19 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 						as_dict=True,
 					)
 					if tape_spec_data and tape_spec_data.lumens_per_foot:
-						tape_lumens = tape_spec_data.lumens_per_foot
+						delivered = (tape_spec_data.lumens_per_foot * lens_transmission) / 100
+						details["estimated_delivered_output"] = round(delivered, 1)
 
-				# Get output level display name and value for output calculation
+				# Get output level display name (for reference only)
 				if tape_offering.output_level:
 					output_level_doc = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
 						tape_offering.output_level,
-						["output_level_name", "value"],
+						["output_level_name"],
 						as_dict=True,
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
-						# Use tape spec lumens if available, otherwise use output level value
-						lumen_value = tape_lumens if tape_lumens else output_level_doc.value
-						if lumen_value:
-							delivered = (lumen_value * lens_transmission) / 100
-							details["estimated_delivered_output"] = round(delivered, 1)
 
 		# Get power supply info from drivers child table
 		if cf.drivers:
@@ -386,7 +381,7 @@ def _build_config_summary(fixture) -> str:
 	if fixture.environment_rating:
 		parts.append(f"Env: {fixture.environment_rating}")
 
-	return " | ".join(parts) if parts else ""
+	return "<br>".join(parts) if parts else ""
 
 
 def _build_config_summary_from_dict(fixture: dict) -> str:
@@ -404,7 +399,7 @@ def _build_config_summary_from_dict(fixture: dict) -> str:
 	if fixture.get("environment_rating"):
 		parts.append(f"Env: {fixture['environment_rating']}")
 
-	return " | ".join(parts) if parts else ""
+	return "<br>".join(parts) if parts else ""
 
 
 def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) -> str:
