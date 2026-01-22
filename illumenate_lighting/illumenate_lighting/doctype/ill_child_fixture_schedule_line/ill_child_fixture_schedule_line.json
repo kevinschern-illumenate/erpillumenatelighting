@@ -12,7 +12,11 @@
   "notes",
   "column_break_line",
   "manufacturer_type",
+  "configuration_status",
   "illumenate_section",
+  "product_type",
+  "fixture_template",
+  "column_break_illumenate",
   "configured_fixture",
   "ill_item_code",
   "manufacturable_length_mm",
@@ -69,6 +73,17 @@
    "reqd": 1
   },
   {
+   "default": "Pending",
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
+   "description": "Tracks whether the fixture is fully configured",
+   "fieldname": "configuration_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Configuration Status",
+   "options": "Pending\nConfigured",
+   "read_only": 1
+  },
+  {
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
    "fieldname": "illumenate_section",
    "fieldtype": "Section Break",
@@ -76,20 +91,43 @@
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
+   "description": "Select a product type to start. Choose a fixture template below, then configure it.",
+   "fieldname": "product_type",
+   "fieldtype": "Select",
+   "label": "Product Type",
+   "options": "\nLinear Fixture"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type",
+   "description": "Select a fixture template to use as a starting point",
+   "fieldname": "fixture_template",
+   "fieldtype": "Link",
+   "label": "Fixture Template",
+   "options": "ilL-Fixture-Template"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.fixture_template",
+   "fieldname": "column_break_illumenate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.fixture_template",
+   "description": "Link to the fully configured fixture (created after completing configuration)",
    "fieldname": "configured_fixture",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Configured Fixture",
-   "mandatory_depends_on": "eval:doc.manufacturer_type=='ILLUMENATE'",
    "options": "ilL-Configured-Fixture"
   },
   {
+   "depends_on": "eval:doc.configured_fixture",
    "fieldname": "ill_item_code",
    "fieldtype": "Data",
    "label": "Item Code (Cached)",
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.configured_fixture",
    "fieldname": "manufacturable_length_mm",
    "fieldtype": "Int",
    "label": "Manufacturable Length (mm)",
