@@ -228,12 +228,6 @@ Also handles new schedule creation when is_new is True
 									<td class="text-center">{{ line.get('qty') }}</td>
 									<td>{{ line.get('location') or '-' }}</td>
 									<td>
-										<!-- DEBUG: Show raw line data -->
-										<div class="small text-danger mb-1" style="font-size: 10px;">
-											DEBUG: mfg_type={{ line.get('manufacturer_type') }}, 
-											acc_item={{ line.get('accessory_item') }}, 
-											acc_name={{ line.get('accessory_item_name') }}
-										</div>
 										{% if line.get('manufacturer_type') == 'ACCESSORY' and line.get('accessory_item') %}
 										<div class="fixture-details">
 											<strong class="text-success">{{ line.get('accessory_item_name') or line.get('accessory_item') }}</strong>
@@ -1042,13 +1036,6 @@ $('#add_product_type').on('change', function() {
 	var rawIsFixtureType = $selected.data('is-fixture-type');
 	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
 	
-	// DEBUG: Log what we're getting
-	console.log('=== Product Type Selection Debug ===' );
-	console.log('productType:', productType);
-	console.log('rawIsFixtureType:', rawIsFixtureType, 'type:', typeof rawIsFixtureType);
-	console.log('isFixtureType (computed):', isFixtureType);
-	console.log('$selected html:', $selected.prop('outerHTML'));
-	
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
 	$('.item-selection-group').hide();
@@ -1065,12 +1052,11 @@ $('#add_product_type').on('change', function() {
 	
 	// Check if this is a fixture type (e.g., "Linear Fixture") - show fixture template dropdown
 	if (isFixtureType) {
-		console.log('Showing FIXTURE TEMPLATE fields');
 		$('.fixture-template-group').show();
 		$('.fixture-configure-section').show();
 		loadFixtureTemplates(productType);
 	} else {
-		console.log('Showing ITEM SELECTION fields');
+		// For all other product types, show item selection dropdown
 		// For all other product types, show item selection dropdown
 		$('.item-selection-group').show();
 		loadItemsForProductType(productType);
@@ -1103,15 +1089,12 @@ function loadFixtureTemplates(productType) {
 
 // Load product categories (Item Groups under Products)
 function loadProductCategories() {
-	console.log('=== Loading Product Categories ===');
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_product_types',
 		callback: function(r) {
-			console.log('get_product_types response:', r.message);
 			var options = '<option value="">{{ _("Select Product Category...") }}</option>';
 			if (r.message && r.message.success && r.message.product_types) {
 				r.message.product_types.forEach(function(pt) {
-					console.log('Product type:', pt.value, 'is_fixture_type:', pt.is_fixture_type);
 					// Add visual indentation based on level
 					var indent = '';
 					if (pt.level === 1) {
@@ -1124,10 +1107,9 @@ function loadProductCategories() {
 				});
 			}
 			$('#add_product_type').html(options);
-			console.log('Options HTML:', options);
 		},
 		error: function(err) {
-			console.error('Error loading product categories:', err);
+			// Silent error - options just won't load
 		}
 	});
 }
@@ -1394,13 +1376,6 @@ function addLine() {
 	var $productTypeSelected = form.find('[name="product_type"] option:selected');
 	var isFixtureType = $productTypeSelected.data('is-fixture-type') === 1 || $productTypeSelected.data('is-fixture-type') === '1' || $productTypeSelected.data('is-fixture-type') === true;
 	
-	// DEBUG: Log what we're submitting
-	console.log('=== addLine Debug ===');
-	console.log('manufacturerType:', manufacturerType);
-	console.log('productType:', productType);
-	console.log('isFixtureType:', isFixtureType);
-	console.log('$productTypeSelected data:', $productTypeSelected.data('is-fixture-type'));
-	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
 		qty: form.find('[name="qty"]').val(),
@@ -1416,17 +1391,12 @@ function addLine() {
 		// Check if this is a fixture type using the data attribute
 		if (isFixtureType) {
 			// Linear Fixture path - uses fixture template and configurator
-			console.log('Using FIXTURE TEMPLATE path');
 			data.fixture_template = form.find('[name="fixture_template"]').val();
 			data.configuration_status = 'Pending';
 		} else if (productType) {
 			// Other product types - uses item selection (potentially with variants)
-			console.log('Using ITEM SELECTION path');
 			var selectedItem = form.find('[name="selected_item"]').val();
 			var selectedVariant = form.find('[name="selected_variant"]').val();
-			
-			console.log('selectedItem:', selectedItem);
-			console.log('selectedVariant:', selectedVariant);
 			
 			if (!selectedItem) {
 				frappe.msgprint({
@@ -1462,14 +1432,7 @@ function addLine() {
 				data.accessory_item = selectedItem;
 				data.accessory_item_name = $selectedOption.data('name') || '';
 			}
-			
-			console.log('Final data.accessory_item:', data.accessory_item);
-			console.log('Final data.accessory_item_name:', data.accessory_item_name);
-			console.log('Final data.accessory_product_type:', data.accessory_product_type);
 		}
-	}
-	
-	console.log('Final data object:', data);
 	}
 
 	// Add Other manufacturer fields if applicable

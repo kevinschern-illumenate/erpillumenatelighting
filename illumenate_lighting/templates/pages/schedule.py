@@ -100,14 +100,6 @@ def get_context(context):
 			"cf_details": {},
 		}
 
-		# DEBUG: Log what we're getting from the line
-		frappe.log_error(
-			f"idx: {line.idx}, mfr_type: {line.manufacturer_type}, "
-			f"acc_item: {line.accessory_item}, acc_name: {line.accessory_item_name}, "
-			f"acc_product_type: {line.accessory_product_type}",
-			"DEBUG Line"
-		)
-
 		# For ilLumenate fixtures, fetch enriched details from configured fixture
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
@@ -115,14 +107,12 @@ def get_context(context):
 
 		# For accessory/component items, fetch item description
 		if line.manufacturer_type == "ACCESSORY" and line.accessory_item:
-			frappe.log_error(f"Fetching desc for: {line.accessory_item}", "DEBUG Acc")
 			item_desc = frappe.db.get_value(
 				"Item",
 				line.accessory_item,
 				["description", "item_name"],
 				as_dict=True
 			)
-			frappe.log_error(f"Result: {item_desc}", "DEBUG Acc Result")
 			if item_desc:
 				line_dict["accessory_item_description"] = item_desc.description or ""
 				# Update item name if not set
