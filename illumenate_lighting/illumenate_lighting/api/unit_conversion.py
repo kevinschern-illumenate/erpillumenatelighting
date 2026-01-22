@@ -367,6 +367,20 @@ def add_inch_values_to_computed(computed: dict) -> dict:
             if 'end_jumper_len_mm' in segment:
                 segment['end_jumper_len_in'] = mm_to_inches(segment['end_jumper_len_mm'])
     
+    # Process user_segments array if present (multi-segment fixtures)
+    if 'user_segments' in computed and isinstance(computed['user_segments'], list):
+        for segment in computed['user_segments']:
+            if 'profile_cut_len_mm' in segment:
+                segment['profile_cut_len_in'] = mm_to_inches(segment['profile_cut_len_mm'])
+            if 'lens_cut_len_mm' in segment:
+                segment['lens_cut_len_in'] = mm_to_inches(segment['lens_cut_len_mm'])
+            if 'tape_cut_len_mm' in segment:
+                segment['tape_cut_len_in'] = mm_to_inches(segment['tape_cut_len_mm'])
+            if 'start_leader_len_mm' in segment:
+                segment['start_leader_len_in'] = mm_to_inches(segment['start_leader_len_mm'])
+            if 'end_jumper_len_mm' in segment:
+                segment['end_jumper_len_in'] = mm_to_inches(segment['end_jumper_len_mm'])
+    
     # Process runs array if present
     if 'runs' in computed and isinstance(computed['runs'], list):
         for run in computed['runs']:
@@ -376,6 +390,45 @@ def add_inch_values_to_computed(computed: dict) -> dict:
                 run['leader_len_in'] = mm_to_inches(run['leader_len_mm'])
     
     return computed
+
+
+def convert_build_description_to_inches(build_description: Optional[str]) -> str:
+    """
+    Convert a build description from mm to inches for public display.
+
+    Takes a build description string that contains mm measurements and converts
+    all mm values to inches. Used to create a user-friendly display version
+    while keeping the original mm version for internal BOM use.
+
+    Args:
+        build_description: Build description string with mm values
+            Example: "Seg 1: 8761mm | Start: END, 300mm leader | End: END, 300mm jumper"
+
+    Returns:
+        Build description with inches values
+            Example: "Seg 1: 345.0\" | Start: END, 11.8\" leader | End: END, 11.8\" jumper"
+
+    Examples:
+        >>> convert_build_description_to_inches("Seg 1: 1000mm | Start: END, 300mm leader")
+        'Seg 1: 39.4" | Start: END, 11.8" leader'
+        >>> convert_build_description_to_inches("Seg 2: 2500mm | End: Solid Endcap")
+        'Seg 2: 98.4" | End: Solid Endcap'
+    """
+    import re
+    
+    if not build_description:
+        return ""
+    
+    def replace_mm(match):
+        mm_value = float(match.group(1))
+        inches_value = round(mm_value / MM_PER_INCH, 1)
+        return f'{inches_value}"'
+    
+    # Replace patterns like "1234mm" with "48.6""
+    # Match number followed by "mm" (with optional space before mm)
+    result = re.sub(r'(\d+(?:\.\d+)?)\s*mm', replace_mm, build_description)
+    
+    return result
 
 
 # Convenience constants for use in templates and JavaScript

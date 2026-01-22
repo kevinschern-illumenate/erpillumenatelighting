@@ -244,7 +244,7 @@ Also handles new schedule creation when is_new is True
 														data-html="true"
 														data-trigger="focus"
 														title="{{ _('Build Details') }}"
-														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description', '') | replace('\n', '<br>') }}</pre>">
+														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | replace('\n', '<br>') }}</pre>">
 													<i class="fa fa-info-circle"></i>
 												</button>
 											</div>
@@ -303,7 +303,7 @@ Also handles new schedule creation when is_new is True
 											<!-- Feed or Build Description (show Build Description for jumpered fixtures instead of Feed) -->
 											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
 											<div class="small text-muted">
-												<i class="fa fa-link"></i> Build: {{ cf_details.get('build_description') | replace('\n', '; ') }}
+												<i class="fa fa-link"></i> Build: {{ cf_details.get('build_description_display') | replace('\n', '; ') }}
 											</div>
 											{% elif cf_details.get('power_feed_type') %}
 											<div class="small text-muted">

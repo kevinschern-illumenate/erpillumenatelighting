@@ -3,6 +3,8 @@
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
+
 no_cache = 1
 
 
@@ -199,6 +201,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			"is_multi_segment": cf.is_multi_segment if hasattr(cf, "is_multi_segment") else 0,
 			"user_segment_count": cf.user_segment_count if hasattr(cf, "user_segment_count") else 0,
 			"build_description": cf.build_description if hasattr(cf, "build_description") else "",
+			"build_description_display": convert_build_description_to_inches(cf.build_description if hasattr(cf, "build_description") else ""),
 			"total_endcaps": cf.total_endcaps if hasattr(cf, "total_endcaps") else 0,
 			"total_mounting_accessories": cf.total_mounting_accessories if hasattr(cf, "total_mounting_accessories") else 0,
 		}

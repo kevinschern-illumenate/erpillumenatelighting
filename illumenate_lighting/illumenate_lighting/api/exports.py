@@ -24,6 +24,8 @@ from frappe import _
 from frappe.utils import now, nowdate
 from frappe.utils.file_manager import save_file
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
+
 
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
@@ -567,8 +569,8 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 
 			# Feed or Build Description (show Build Description for jumpered fixtures instead of Feed)
 			if line.get("is_multi_segment") and line.get("build_description"):
-				# For jumpered fixtures, show build description instead of feed
-				build_desc = line.get("build_description", "").replace("\n", "; ")
+				# For jumpered fixtures, show build description in inches instead of feed
+				build_desc = convert_build_description_to_inches(line.get("build_description", "")).replace("\n", "; ")
 				description += f"<br><small>Build: {build_desc}</small>"
 			elif line.get("power_feed_type"):
 				description += f"<br><small>Feed: {line['power_feed_type']}</small>"

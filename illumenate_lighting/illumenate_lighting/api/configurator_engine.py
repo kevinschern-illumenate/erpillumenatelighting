@@ -1126,7 +1126,8 @@ def _compute_multisegment_outputs(
 	total_tape_length = 0
 	total_endcaps = 0
 	all_segments = []
-	build_description_parts = []
+	build_description_parts = []  # mm version for internal/BOM use
+	build_description_display_parts = []  # inches version for public display
 
 	error_messages = []
 	has_errors = False
@@ -1239,7 +1240,7 @@ def _compute_multisegment_outputs(
 			"notes": f"Segment {seg_index}: {int(mfg_len)}mm",
 		})
 
-		# Build description
+		# Build description (mm for internal use / BOM)
 		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
 		if idx == 0:
 			desc_parts.append(f"Start: {start_power_feed}, {start_cable_len}mm leader")
@@ -1248,6 +1249,19 @@ def _compute_multisegment_outputs(
 		else:
 			desc_parts.append("End: Solid Endcap")
 		build_description_parts.append(" | ".join(desc_parts))
+
+		# Build description display (inches for public display)
+		mfg_len_in = round(mfg_len / 25.4, 1)
+		start_cable_len_in = round(start_cable_len / 25.4, 1)
+		end_cable_len_in = round(end_cable_len / 25.4, 1)
+		desc_parts_display = [f"Seg {seg_index}: {mfg_len_in}\""]
+		if idx == 0:
+			desc_parts_display.append(f"Start: {start_power_feed}, {start_cable_len_in}\" leader")
+		if end_type == "Jumper":
+			desc_parts_display.append(f"End: {end_power_feed}, {end_cable_len_in}\" jumper")
+		else:
+			desc_parts_display.append("End: Solid Endcap")
+		build_description_display_parts.append(" | ".join(desc_parts_display))
 
 	# ==========================================================================
 	# PHASE 2: Calculate runs based on TOTAL tape length across all segments
@@ -1318,11 +1332,54 @@ def _compute_multisegment_outputs(
 	else:
 		assembly_mode = "SHIP_PIECES"
 
+	# ==========================================================================
+	# PHASE 3: Calculate profile/lens segments (cut plan based on stock length)
+	# ==========================================================================
+	# Profile and lens stock comes in standard lengths (e.g., 2000mm).
+	# Calculate how many stock pieces are needed and the cut plan.
+	profile_lens_segments = []
+	profile_lens_segments_count = 0
+
+	if profile_stock_len_mm > 0 and total_manufacturable_length > 0:
+		profile_lens_segments_count = math.ceil(total_manufacturable_length / profile_stock_len_mm)
+
+		# Create cut plan: N-1 full stock segments, last is remainder
+		remaining_length = total_manufacturable_length
+		for i in range(profile_lens_segments_count):
+			segment_index = i + 1
+			if segment_index < profile_lens_segments_count:
+				# Full stock segment
+				cut_len = min(profile_stock_len_mm, remaining_length)
+				notes = f"Full stock segment ({int(profile_stock_len_mm)}mm)"
+			else:
+				# Last segment (remainder)
+				cut_len = max(0, remaining_length)
+				notes = f"Remainder segment ({int(cut_len)}mm)"
+
+			remaining_length = max(0, remaining_length - cut_len)
+
+			profile_lens_segments.append({
+				"segment_index": segment_index,
+				"profile_cut_len_mm": int(cut_len),
+				"lens_cut_len_mm": int(cut_len),
+				"notes": notes,
+			})
+	elif total_manufacturable_length > 0:
+		# No stock length defined, treat as single segment
+		profile_lens_segments_count = 1
+		profile_lens_segments.append({
+			"segment_index": 1,
+			"profile_cut_len_mm": int(total_manufacturable_length),
+			"lens_cut_len_mm": int(total_manufacturable_length),
+			"notes": f"Single segment ({int(total_manufacturable_length)}mm)",
+		})
+
 	return {
 		"total_requested_length_mm": total_requested_length,
 		"manufacturable_overall_length_mm": int(total_manufacturable_length),
 		"user_segment_count": len(segments),
-		"segments_count": len(all_segments),
+		"segments_count": profile_lens_segments_count,
+		"profile_lens_segments_count": profile_lens_segments_count,
 		"runs_count": total_runs,
 		# Each run requires one leader cable. Leader cables connect from driver outputs to tape runs.
 		"leader_qty": total_runs,
@@ -1332,14 +1389,17 @@ def _compute_multisegment_outputs(
 		"total_mounting_accessories": total_mounting_accessories,
 		"assembly_mode": assembly_mode,
 		"assembled_max_len_mm": int(assembled_max_len_mm),
+		"profile_stock_len_mm": int(profile_stock_len_mm),
 		# Run calculation metadata
 		"max_run_ft_by_watts": round(max_run_ft_by_watts, 2) if max_run_ft_by_watts != float("inf") else None,
 		"max_run_ft_by_voltage_drop": round(float(max_run_length_ft_voltage_drop), 2) if max_run_length_ft_voltage_drop else None,
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
 		"max_run_mm": round(max_run_mm, 2) if max_run_mm != float("inf") else None,
-		"segments": all_segments,
+		"segments": profile_lens_segments,
+		"user_segments": all_segments,
 		"runs": all_runs,
 		"build_description": "\n".join(build_description_parts),
+		"build_description_display": "\n".join(build_description_display_parts),
 		"has_errors": has_errors,
 		"error_messages": error_messages,
 	}
@@ -1697,9 +1757,9 @@ def _create_or_update_multisegment_fixture(
 			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 		})
 
-	# Clear and set computed segments
+	# Clear and set computed segments (user-defined segments with details)
 	doc.segments = []
-	for seg in computed.get("segments", []):
+	for seg in computed.get("user_segments", []):
 		doc.append("segments", {
 			"segment_index": seg.get("segment_index", 0),
 			"profile_cut_len_mm": seg.get("profile_cut_len_mm", 0),

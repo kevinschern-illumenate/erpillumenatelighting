@@ -1268,10 +1268,10 @@ function displayResults(result) {
 		$('#totalWatts').text(result.computed.total_watts + ' W');
 		$('#assemblyMode').text(result.computed.assembly_mode);
 		
-		// Display build description
-		if (result.computed.build_description) {
+		// Display build description (use display version with inches for UI)
+		if (result.computed.build_description_display || result.computed.build_description) {
 			$('#buildDescriptionPanel').show();
-			$('#buildDescription').text(result.computed.build_description);
+			$('#buildDescription').text(result.computed.build_description_display || result.computed.build_description);
 		}
 		
 		// Display LED run details for complex fixtures
