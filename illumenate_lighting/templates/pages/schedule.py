@@ -256,30 +256,32 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 					else:
 						details["cri"] = tape_offering.cri
 				
-				# Get fixture input voltage from tape spec
+				# Get fixture input voltage and lumens per foot from tape spec
 				if tape_offering.tape_spec:
-					tape_spec_voltage = frappe.db.get_value(
+					tape_spec_data = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
 						tape_offering.tape_spec,
-						"input_voltage",
+						["input_voltage", "lumens_per_foot"],
+						as_dict=True,
 					)
-					if tape_spec_voltage:
-						details["fixture_input_voltage"] = tape_spec_voltage
+					if tape_spec_data:
+						if tape_spec_data.input_voltage:
+							details["fixture_input_voltage"] = tape_spec_data.input_voltage
+						# Calculate estimated delivered lumens (tape lumens * lens transmission)
+						if tape_spec_data.lumens_per_foot:
+							delivered = (tape_spec_data.lumens_per_foot * lens_transmission) / 100
+							details["estimated_delivered_output"] = round(delivered, 1)
 
-				# Get output level numeric value for calculation
+				# Get output level display name
 				if tape_offering.output_level:
 					output_level_doc = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
 						tape_offering.output_level,
-						["output_level_name", "value"],
+						["output_level_name"],
 						as_dict=True,
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
-						# Calculate estimated delivered output (output_level * lens_transmission)
-						if output_level_doc.value:
-							delivered = (output_level_doc.value * lens_transmission) / 100
-							details["estimated_delivered_output"] = round(delivered, 1)
 					else:
 						# Fallback to raw value
 						details["output_level"] = tape_offering.output_level
@@ -299,10 +301,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			total_driver_qty = 0
 			for driver_alloc in cf.drivers:
 				if driver_alloc.driver_item:
-					# driver_alloc.driver_item is the Item code
-					# Get item_name from Item doctype
-					item_name = frappe.db.get_value("Item", driver_alloc.driver_item, "item_name")
-
+					# driver_alloc.driver_item is the Item code (ID)
 					# Find the ilL-Spec-Driver linked to this Item
 					driver_spec = frappe.db.get_value(
 						"ilL-Spec-Driver",
@@ -311,14 +310,14 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 						as_dict=True,
 					)
 
-					# Build driver display string with part number
+					# Build driver display string with ID and quantity in parentheses
 					driver_qty = driver_alloc.driver_qty or 1
 					total_driver_qty += driver_qty
-					display_name = item_name or driver_alloc.driver_item
+					# Use the item code (driver_alloc.driver_item) as the display ID
 					if driver_qty > 1:
-						driver_items.append(f"{display_name} x{driver_qty}")
+						driver_items.append(f"{driver_alloc.driver_item} ({driver_qty})")
 					else:
-						driver_items.append(display_name)
+						driver_items.append(driver_alloc.driver_item)
 
 					# Get input voltage from driver spec
 					if driver_spec and driver_spec.input_voltage:

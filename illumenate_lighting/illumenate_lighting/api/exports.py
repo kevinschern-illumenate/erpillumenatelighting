@@ -137,6 +137,97 @@ def _update_export_job_status(
 	job.save(ignore_permissions=True)
 
 
+def _get_fixture_export_details(configured_fixture_id: str) -> dict:
+	"""
+	Get fixture details for export (CCT, CRI, Output, Power Supply).
+
+	Args:
+		configured_fixture_id: Name of the ilL-Configured-Fixture
+
+	Returns:
+		dict: Fixture details including cct, cri, estimated_delivered_output, power_supply
+	"""
+	try:
+		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+		details = {}
+
+		# Get lens transmission for output calculation
+		lens_transmission = 100
+		if cf.lens_appearance:
+			lens_doc = frappe.db.get_value(
+				"ilL-Attribute-Lens Appearance",
+				cf.lens_appearance,
+				["transmission"],
+				as_dict=True,
+			)
+			if lens_doc and lens_doc.transmission:
+				lens_transmission = lens_doc.transmission
+
+		# Get tape offering details (CCT, CRI, Output Level)
+		if cf.tape_offering:
+			tape_offering = frappe.db.get_value(
+				"ilL-Rel-Tape Offering",
+				cf.tape_offering,
+				["cct", "output_level", "tape_spec", "cri"],
+				as_dict=True,
+			)
+			if tape_offering:
+				details["cct"] = tape_offering.cct or ""
+
+				# Get CRI display value
+				if tape_offering.cri:
+					cri_doc = frappe.db.get_value(
+						"ilL-Attribute-CRI",
+						tape_offering.cri,
+						["cri_name"],
+						as_dict=True,
+					)
+					if cri_doc:
+						details["cri"] = cri_doc.cri_name or tape_offering.cri
+					else:
+						details["cri"] = tape_offering.cri
+
+				# Get lumens per foot from tape spec and calculate delivered output
+				if tape_offering.tape_spec:
+					tape_spec_data = frappe.db.get_value(
+						"ilL-Spec-LED Tape",
+						tape_offering.tape_spec,
+						["lumens_per_foot"],
+						as_dict=True,
+					)
+					if tape_spec_data and tape_spec_data.lumens_per_foot:
+						delivered = (tape_spec_data.lumens_per_foot * lens_transmission) / 100
+						details["estimated_delivered_output"] = round(delivered, 1)
+
+				# Get output level display name
+				if tape_offering.output_level:
+					output_level_doc = frappe.db.get_value(
+						"ilL-Attribute-Output Level",
+						tape_offering.output_level,
+						["output_level_name"],
+						as_dict=True,
+					)
+					if output_level_doc:
+						details["output_level"] = output_level_doc.output_level_name
+
+		# Get power supply info from drivers child table
+		if cf.drivers:
+			driver_items = []
+			for driver_alloc in cf.drivers:
+				if driver_alloc.driver_item:
+					driver_qty = driver_alloc.driver_qty or 1
+					if driver_qty > 1:
+						driver_items.append(f"{driver_alloc.driver_item} ({driver_qty})")
+					else:
+						driver_items.append(driver_alloc.driver_item)
+			if driver_items:
+				details["power_supply"] = ", ".join(driver_items)
+
+		return details
+	except Exception:
+		return {}
+
+
 def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dict:
 	"""
 	Gather all data needed for schedule exports.
@@ -176,11 +267,17 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				"name", "fixture_template", "finish", "lens_appearance",
 				"mounting_method", "power_feed_type", "environment_rating",
 				"requested_overall_length_mm", "manufacturable_overall_length_mm",
-				"runs_count",
+				"runs_count", "tape_offering",
 			],
 		)
 		for f in fixtures:
 			fixtures_map[f.name] = f
+
+		# Fetch additional fixture details (CCT, CRI, Output, Power Supply)
+		for fixture_id in fixture_ids:
+			if fixture_id in fixtures_map:
+				fixture_details = _get_fixture_export_details(fixture_id)
+				fixtures_map[fixture_id].update(fixture_details)
 
 		# If we need pricing, fetch pricing snapshots separately
 		if include_pricing:
@@ -219,6 +316,13 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				line_data["requested_length_mm"] = fixture.requested_overall_length_mm or 0
 				line_data["manufacturable_length_mm"] = fixture.manufacturable_overall_length_mm or 0
 				line_data["runs_count"] = fixture.runs_count or 0
+
+				# Add fixture details (CCT, CRI, Output, Power Supply)
+				line_data["cct"] = fixture.get("cct", "")
+				line_data["cri"] = fixture.get("cri", "")
+				line_data["output_level"] = fixture.get("output_level", "")
+				line_data["estimated_delivered_output"] = fixture.get("estimated_delivered_output", "")
+				line_data["power_supply"] = fixture.get("power_supply", "")
 
 				if include_pricing and fixture.get("latest_msrp_unit"):
 					unit_price = fixture["latest_msrp_unit"]
@@ -366,6 +470,18 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 			description = f"{line['template_code']}"
 			if line["config_summary"]:
 				description += f"<br><small>{line['config_summary']}</small>"
+			# Add fixture details (CCT, CRI, Output, Power Supply)
+			fixture_details = []
+			if line.get("cct"):
+				fixture_details.append(f"CCT: {line['cct']}")
+			if line.get("cri"):
+				fixture_details.append(f"CRI: {line['cri']}")
+			if line.get("estimated_delivered_output"):
+				fixture_details.append(f"Output: {line['estimated_delivered_output']} lm/ft")
+			if line.get("power_supply"):
+				fixture_details.append(f"Driver: {line['power_supply']}")
+			if fixture_details:
+				description += f"<br><small>{' | '.join(fixture_details)}</small>"
 		else:
 			description = f"{line.get('manufacturer_name', '')} {line.get('model_number', '')}"
 			if line.get("attachments"):
@@ -426,6 +542,10 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Qty",
 		"Location",
 		"Template Code / Config Summary",
+		"CCT",
+		"CRI",
+		"Output (lm/ft)",
+		"Driver",
 		"Requested Length (mm)",
 		"Manufacturable Length (mm)",
 		"Runs Count",
@@ -451,6 +571,10 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line["qty"],
 			line["location"],
 			f"{line['template_code']} {line['config_summary']}".strip(),
+			line.get("cct", ""),
+			line.get("cri", ""),
+			line.get("estimated_delivered_output", ""),
+			line.get("power_supply", ""),
 			line["requested_length_mm"],
 			line["manufacturable_length_mm"],
 			line.get("runs_count", ""),
