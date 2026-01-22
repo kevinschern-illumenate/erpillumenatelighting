@@ -176,14 +176,19 @@ def get_template_options(template_code: str) -> dict:
 			options["finish"].append({"value": row.finish, "label": row.finish})
 		elif option_type == "Lens Appearance" and row.lens_appearance:
 			# Get lens transmission for cascading configurator
-			lens_transmission = 100
+			# Transmission is stored as decimal (0.56 = 56%), convert to percentage for display
+			lens_transmission_pct = 100
+			lens_transmission_decimal = 1.0
 			if frappe.db.exists("ilL-Attribute-Lens Appearance", row.lens_appearance):
 				lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
-				lens_transmission = lens_doc.transmission or 100
+				if lens_doc.transmission:
+					lens_transmission_decimal = lens_doc.transmission
+					lens_transmission_pct = lens_doc.transmission * 100
 			options["lens_appearance"].append({
 				"value": row.lens_appearance,
 				"label": row.lens_appearance,
-				"transmission": lens_transmission,
+				"transmission": lens_transmission_decimal,  # Keep decimal for calculations
+				"transmission_pct": lens_transmission_pct,  # Percentage for display
 			})
 		elif option_type == "Mounting Method" and row.mounting_method:
 			options["mounting_method"].append({"value": row.mounting_method, "label": row.mounting_method})

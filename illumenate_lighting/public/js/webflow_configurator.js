@@ -460,7 +460,7 @@ function handleCascadingUpdate(fieldName, value) {
         // Clear downstream selections
         clearSelection('output_level');
         
-        // Fetch outputs for this environment + CCT
+        // Fetch outputs for this environment + CCT + current lens
         frappe.call({
             method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_cascading_options',
             args: {
@@ -476,6 +476,30 @@ function handleCascadingUpdate(fieldName, value) {
                 }
             }
         });
+    } else if (fieldName === 'lens_appearance') {
+        // When lens changes, recalculate output options with new transmission
+        // Only if environment and CCT are already selected
+        if (WebflowConfigurator.selections['environment_rating'] && WebflowConfigurator.selections['cct']) {
+            // Clear output selection since delivered values will change
+            clearSelection('output_level');
+            
+            // Fetch new output levels with updated lens transmission
+            frappe.call({
+                method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_cascading_options',
+                args: {
+                    product_slug: productSlug,
+                    step_name: 'lens_appearance',
+                    selections: JSON.stringify(WebflowConfigurator.selections)
+                },
+                callback: function(r) {
+                    if (r.message && r.message.success) {
+                        if (r.message.updated_options && r.message.updated_options.output_levels) {
+                            populatePillSelector('output_level', r.message.updated_options.output_levels);
+                        }
+                    }
+                }
+            });
+        }
     }
 }
 
