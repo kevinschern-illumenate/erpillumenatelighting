@@ -983,6 +983,11 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     cct = selections.get("cct")
     output_level = selections.get("output_level")
     
+    frappe.log_error(
+        f"_resolve_tape_offering: Looking for env={environment}, cct={cct}, output={output_level}",
+        "Tape Offering - Search"
+    )
+    
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
@@ -1000,11 +1005,18 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
             as_dict=True
         )
         
+        frappe.log_error(
+            f"Checking tape {tape_offering}: cct={offering_data.get('cct') if offering_data else None}, output={offering_data.get('output_level') if offering_data else None}",
+            "Tape Offering - Check"
+        )
+        
         if (offering_data and 
             offering_data.get("cct") == cct and 
             offering_data.get("output_level") == output_level):
+            frappe.log_error(f"Found match: {tape_offering}", "Tape Offering - Match")
             return tape_offering
     
+    frappe.log_error("No match found", "Tape Offering - No Match")
     return None
 
 

@@ -171,6 +171,13 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 
 	try:
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+		
+		# Log key fields for debugging
+		frappe.log_error(
+			f"Fixture {configured_fixture_id}: tape_offering={cf.tape_offering}, finish={cf.finish}, "
+			f"lens_appearance={cf.lens_appearance}, manufacturable_overall_length_mm={cf.manufacturable_overall_length_mm}",
+			"Schedule Display - Fixture Fields"
+		)
 
 		# Calculate length in inches
 		length_mm = cf.manufacturable_overall_length_mm or 0
