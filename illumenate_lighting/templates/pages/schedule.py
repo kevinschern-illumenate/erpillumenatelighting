@@ -128,8 +128,6 @@ def get_context(context):
 				# Update item name if not set
 				if not line_dict.get("accessory_item_name"):
 					line_dict["accessory_item_name"] = item_desc.item_name
-			
-			frappe.log_error(f"Final line_dict accessory fields: accessory_item={line_dict.get('accessory_item')}, accessory_item_name={line_dict.get('accessory_item_name')}, accessory_item_description={line_dict.get('accessory_item_description')}", "Accessory Debug")
 
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)
