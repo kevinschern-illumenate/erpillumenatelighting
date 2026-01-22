@@ -78,6 +78,29 @@ function bindEventHandlers() {
         handlePillClick($(this));
     });
     
+    // Select fallback changes (for mobile) - sync with pills
+    $(document).on('change', '.select-fallback', function() {
+        var $select = $(this);
+        var fieldName = $select.attr('name');
+        var value = $select.val();
+        
+        if (value) {
+            // Find corresponding pill and activate it
+            var $pill = $('.pill-selector[data-field="' + fieldName + '"] .pill[data-value="' + value + '"]');
+            if ($pill.length) {
+                handlePillClick($pill);
+            } else {
+                // If no pill found, just store the selection directly
+                WebflowConfigurator.selections[fieldName] = value;
+                handleCascadingUpdate(fieldName, value);
+                updateProgress();
+                updatePartNumberPreview();
+                updateValidateButton();
+                updateSummary();
+            }
+        }
+    });
+    
     // Length input changes
     $('input[name="length_value"]').on('change input', debounce(function() {
         updateLengthInches();
@@ -477,6 +500,10 @@ function handleCascadingUpdate(fieldName, value) {
             }
         });
     } else if (fieldName === 'lens_appearance') {
+        // When lens is selected, show the output section
+        $('#outputSection').removeClass('awaiting-lens');
+        $('#outputHint').hide();
+        
         // When lens changes, recalculate output options with new transmission
         // Only if environment and CCT are already selected
         if (WebflowConfigurator.selections['environment_rating'] && WebflowConfigurator.selections['cct']) {
@@ -517,9 +544,17 @@ function clearSelection(fieldName) {
  * Show all configuration sections
  */
 function showAllSections() {
-    $('#environmentSection, #cctSection, #outputSection').show();
+    $('#environmentSection, #cctSection').show();
+    // Output section stays hidden (awaiting-lens class) until lens is selected
+    $('#outputSection').show();
     $('#lensSection, #mountingSection, #finishSection').show();
     $('#lengthSection, #startFeedSection, #endFeedSection').show();
+    
+    // If lens was already selected, show output properly
+    if (WebflowConfigurator.selections['lens_appearance']) {
+        $('#outputSection').removeClass('awaiting-lens');
+        $('#outputHint').hide();
+    }
 }
 
 /**
@@ -530,6 +565,9 @@ function hideAllSections() {
     $('#lensSection, #mountingSection, #finishSection').hide();
     $('#lengthSection, #startFeedSection, #endFeedSection').hide();
     $('#complexFixtureBanner').hide();
+    // Reset output section to awaiting state
+    $('#outputSection').addClass('awaiting-lens');
+    $('#outputHint').show();
 }
 
 /**
