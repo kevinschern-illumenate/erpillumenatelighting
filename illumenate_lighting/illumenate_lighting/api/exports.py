@@ -187,7 +187,8 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 					else:
 						details["cri"] = tape_offering.cri
 
-				# Get lumens per foot from tape spec and calculate delivered output
+				# Get lumens per foot from tape spec
+				tape_lumens = None
 				if tape_offering.tape_spec:
 					tape_spec_data = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
@@ -196,19 +197,23 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 						as_dict=True,
 					)
 					if tape_spec_data and tape_spec_data.lumens_per_foot:
-						delivered = (tape_spec_data.lumens_per_foot * lens_transmission) / 100
-						details["estimated_delivered_output"] = round(delivered, 1)
+						tape_lumens = tape_spec_data.lumens_per_foot
 
-				# Get output level display name
+				# Get output level display name and value for output calculation
 				if tape_offering.output_level:
 					output_level_doc = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
 						tape_offering.output_level,
-						["output_level_name"],
+						["output_level_name", "value"],
 						as_dict=True,
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
+						# Use tape spec lumens if available, otherwise use output level value
+						lumen_value = tape_lumens if tape_lumens else output_level_doc.value
+						if lumen_value:
+							delivered = (lumen_value * lens_transmission) / 100
+							details["estimated_delivered_output"] = round(delivered, 1)
 
 		# Get power supply info from drivers child table
 		if cf.drivers:
@@ -342,9 +347,17 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			line_data["requested_length_mm"] = 0
 			line_data["manufacturable_length_mm"] = 0
 			line_data["runs_count"] = 0
+			# Other manufacturer fields
 			line_data["manufacturer_name"] = line.manufacturer_name or ""
-			line_data["model_number"] = line.model_number or ""
-			line_data["attachments"] = line.attachments or ""
+			line_data["fixture_model_number"] = line.fixture_model_number or ""
+			line_data["trim_info"] = line.trim_info or ""
+			line_data["housing_model_number"] = line.housing_model_number or ""
+			line_data["driver_model_number"] = line.driver_model_number or ""
+			line_data["lamp_info"] = line.lamp_info or ""
+			line_data["dimming_protocol"] = line.dimming_protocol or ""
+			line_data["input_voltage"] = line.input_voltage or ""
+			line_data["other_finish"] = line.other_finish or ""
+			line_data["spec_sheet"] = line.spec_sheet or ""
 
 		lines_data.append(line_data)
 
@@ -467,25 +480,39 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 
 		# Description column
 		if line["manufacturer_type"] == "ILLUMENATE":
-			description = f"{line['template_code']}"
+			description = f"<strong>{line['template_code']}</strong>"
 			if line["config_summary"]:
 				description += f"<br><small>{line['config_summary']}</small>"
-			# Add fixture details (CCT, CRI, Output, Power Supply)
-			fixture_details = []
+			# Add fixture details - each on its own line
 			if line.get("cct"):
-				fixture_details.append(f"CCT: {line['cct']}")
+				description += f"<br><small>CCT: {line['cct']}</small>"
 			if line.get("cri"):
-				fixture_details.append(f"CRI: {line['cri']}")
+				description += f"<br><small>CRI: {line['cri']}</small>"
 			if line.get("estimated_delivered_output"):
-				fixture_details.append(f"Output: {line['estimated_delivered_output']} lm/ft")
+				description += f"<br><small>Output: {line['estimated_delivered_output']} lm/ft</small>"
 			if line.get("power_supply"):
-				fixture_details.append(f"Driver: {line['power_supply']}")
-			if fixture_details:
-				description += f"<br><small>{' | '.join(fixture_details)}</small>"
+				description += f"<br><small>Driver: {line['power_supply']}</small>"
 		else:
-			description = f"{line.get('manufacturer_name', '')} {line.get('model_number', '')}"
-			if line.get("attachments"):
-				description += f"<br><small>Attachments: {line['attachments']}</small>"
+			# Other manufacturer - each field on its own line
+			description = f"<strong>{line.get('manufacturer_name', '')}</strong>"
+			if line.get("fixture_model_number"):
+				description += f"<br><small>Fixture: {line['fixture_model_number']}</small>"
+			if line.get("trim_info"):
+				description += f"<br><small>Trim: {line['trim_info']}</small>"
+			if line.get("housing_model_number"):
+				description += f"<br><small>Housing: {line['housing_model_number']}</small>"
+			if line.get("driver_model_number"):
+				description += f"<br><small>Driver: {line['driver_model_number']}</small>"
+			if line.get("lamp_info"):
+				description += f"<br><small>Lamp: {line['lamp_info']}</small>"
+			if line.get("dimming_protocol"):
+				description += f"<br><small>Dimming: {line['dimming_protocol']}</small>"
+			if line.get("input_voltage"):
+				description += f"<br><small>Voltage: {line['input_voltage']}</small>"
+			if line.get("other_finish"):
+				description += f"<br><small>Finish: {line['other_finish']}</small>"
+			if line.get("spec_sheet"):
+				description += f"<br><small>Spec Sheet: {line['spec_sheet']}</small>"
 
 		html_parts.append(f"<td>{description}</td>")
 		html_parts.append(f"<td>{line['requested_length_mm']}</td>")
@@ -550,8 +577,16 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Manufacturable Length (mm)",
 		"Runs Count",
 		"Notes",
+		# Other manufacturer fields
 		"Manufacturer Name",
-		"Model Number",
+		"Fixture Model",
+		"Trim",
+		"Housing Model",
+		"Driver Model",
+		"Lamp",
+		"Dimming",
+		"Voltage",
+		"Finish",
 	]
 	if include_pricing:
 		headers.extend(["Unit Price", "Line Total"])
@@ -579,8 +614,16 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line["manufacturable_length_mm"],
 			line.get("runs_count", ""),
 			line["notes"],
+			# Other manufacturer fields
 			line.get("manufacturer_name", ""),
-			line.get("model_number", ""),
+			line.get("fixture_model_number", ""),
+			line.get("trim_info", ""),
+			line.get("housing_model_number", ""),
+			line.get("driver_model_number", ""),
+			line.get("lamp_info", ""),
+			line.get("dimming_protocol", ""),
+			line.get("input_voltage", ""),
+			line.get("other_finish", ""),
 		]
 		if include_pricing:
 			row.extend([

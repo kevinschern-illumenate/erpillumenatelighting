@@ -256,7 +256,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 					else:
 						details["cri"] = tape_offering.cri
 				
-				# Get fixture input voltage and lumens per foot from tape spec
+				# Get fixture input voltage from tape spec
 				if tape_offering.tape_spec:
 					tape_spec_data = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
@@ -267,21 +267,29 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 					if tape_spec_data:
 						if tape_spec_data.input_voltage:
 							details["fixture_input_voltage"] = tape_spec_data.input_voltage
-						# Calculate estimated delivered lumens (tape lumens * lens transmission)
-						if tape_spec_data.lumens_per_foot:
-							delivered = (tape_spec_data.lumens_per_foot * lens_transmission) / 100
-							details["estimated_delivered_output"] = round(delivered, 1)
+						# Store tape spec lumens for output calculation
+						tape_lumens = tape_spec_data.lumens_per_foot
+					else:
+						tape_lumens = None
+				else:
+					tape_lumens = None
 
-				# Get output level display name
+				# Get output level display name and value
 				if tape_offering.output_level:
 					output_level_doc = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
 						tape_offering.output_level,
-						["output_level_name"],
+						["output_level_name", "value"],
 						as_dict=True,
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
+						# Calculate estimated delivered lumens
+						# Use tape spec lumens if available, otherwise use output level value
+						lumen_value = tape_lumens if tape_lumens else output_level_doc.value
+						if lumen_value:
+							delivered = (lumen_value * lens_transmission) / 100
+							details["estimated_delivered_output"] = round(delivered, 1)
 					else:
 						# Fallback to raw value
 						details["output_level"] = tape_offering.output_level
