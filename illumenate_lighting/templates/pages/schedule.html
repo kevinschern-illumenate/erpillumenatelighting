@@ -244,7 +244,7 @@ Also handles new schedule creation when is_new is True
 														data-html="true"
 														data-trigger="focus"
 														title="{{ _('Build Details') }}"
-														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | replace('\n', '<br>') }}</pre>">
+														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | replace('\"', '&quot;') | replace('\n', '<br>') }}</pre>">
 													<i class="fa fa-info-circle"></i>
 												</button>
 											</div>

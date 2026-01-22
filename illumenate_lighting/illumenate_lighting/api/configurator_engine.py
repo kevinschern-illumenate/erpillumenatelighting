@@ -1156,22 +1156,41 @@ def _compute_multisegment_outputs(
 		total_requested_length += requested_len
 
 		# Calculate endcap allowances for this segment
-		# Start endcap: feed-through if power feed type is "END", otherwise solid
-		# End endcap: solid if end_type is Endcap, otherwise no endcap (jumper continues)
-		start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
-		end_endcap_type = "Solid" if end_type == "Endcap" else ""
+		# EVERY segment end needs an endcap:
+		# - Start endcap: Feed-Through if power feed type is "END" or if this is NOT the first segment
+		#   (subsequent segments receive jumper cables from previous segment, requiring feed-through)
+		# - End endcap: Feed-Through if end_type is "Jumper" (cable exits), Solid if end_type is "Endcap"
+		#
+		# For multi-segment fixtures connected by jumper cables:
+		#   - Seg 1 Start: Feed-Through (for leader cable)
+		#   - Seg 1 End: Feed-Through (for jumper cable exiting)
+		#   - Seg 2 Start: Feed-Through (for jumper cable entering)
+		#   - Seg 2 End: Feed-Through (for jumper cable exiting)
+		#   - ... and so on ...
+		#   - Last Seg End: Solid (caps the fixture)
+		
+		# Start endcap type:
+		# - First segment (idx=0): Feed-Through if has flying lead (power feed "END"), else Solid
+		# - Subsequent segments: Always Feed-Through (receive jumper from previous segment)
+		if idx == 0:
+			start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
+		else:
+			# Segments after the first receive a jumper cable - always need feed-through
+			start_endcap_type = "Feed-Through"
+		
+		# End endcap type:
+		# - Jumper: Feed-Through (cable exits to next segment)
+		# - Endcap: Solid (caps the fixture)
+		end_endcap_type = "Feed-Through" if end_type == "Jumper" else "Solid"
 
 		# Standard endcap allowance (can be made configurable per template)
 		endcap_allowance_per_side = 5.0  # mm
 
 		# Calculate internal length for this segment
-		# For first segment: subtract start endcap allowance
-		# For last segment (Endcap): subtract end endcap allowance
-		total_endcap_allowance = 0.0
-		if idx == 0:
-			total_endcap_allowance += endcap_allowance_per_side
-		if end_type == "Endcap":
-			total_endcap_allowance += endcap_allowance_per_side
+		# EVERY segment needs endcap allowance on BOTH ends:
+		# - Start: always has an endcap (feed-through or solid)
+		# - End: always has an endcap (feed-through for jumper, solid for cap)
+		total_endcap_allowance = endcap_allowance_per_side * 2  # Both ends
 
 		internal_len = requested_len - total_endcap_allowance - leader_allowance_mm
 
@@ -1209,8 +1228,8 @@ def _compute_multisegment_outputs(
 			"seg_index": seg_index,
 			"tape_cut_len": tape_cut_len,
 			"mfg_len": mfg_len,
-			"start_endcap_type": start_endcap_type if idx == 0 else "",
-			"end_endcap_type": end_endcap_type,
+			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
+			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
 			"end_type": end_type,
 			"start_power_feed": start_power_feed,
 			"start_cable_len": start_cable_len,
@@ -1220,11 +1239,9 @@ def _compute_multisegment_outputs(
 		})
 
 		# Count endcaps for this segment
-		# Start: always has an endcap (feed-through or solid)
-		# End: endcap only if end_type is Endcap
-		segment_endcaps = 1 if end_type == "Endcap" else 0
-		if idx == 0:
-			segment_endcaps += 1  # Start endcap for first segment
+		# EVERY segment has 2 endcaps - one at start and one at end
+		# The type varies (feed-through vs solid) but each physical end needs an endcap
+		segment_endcaps = 2  # Start endcap + End endcap
 		total_endcaps += segment_endcaps
 
 		# Create segment record for manufacturing
@@ -1233,8 +1250,8 @@ def _compute_multisegment_outputs(
 			"profile_cut_len_mm": int(mfg_len),
 			"lens_cut_len_mm": int(mfg_len),
 			"tape_cut_len_mm": int(tape_cut_len),
-			"start_endcap_type": start_endcap_type if idx == 0 else "",
-			"end_endcap_type": end_endcap_type,
+			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
+			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
 			"start_leader_len_mm": start_cable_len if idx == 0 else 0,
 			"end_jumper_len_mm": end_cable_len,
 			"notes": f"Segment {seg_index}: {int(mfg_len)}mm",
