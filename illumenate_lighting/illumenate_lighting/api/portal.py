@@ -305,6 +305,12 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 			order_by="item_group_name asc",
 		)
 
+		# Define which item groups should show fixture templates instead of items
+		# Match by checking if name contains "Linear Fixture" (case-insensitive)
+		def is_fixture_group(name):
+			name_lower = (name or "").lower()
+			return "linear fixture" in name_lower or "linear fixtures" in name_lower
+
 		result = []
 		for pt in product_types:
 			# Add the parent group
@@ -314,6 +320,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 				"item_group": pt.name,
 				"level": 0,
 				"parent": None,
+				"is_fixture_type": is_fixture_group(pt.name) or is_fixture_group(pt.item_group_name),
 			})
 
 			# If include_subgroups, fetch child groups
@@ -332,6 +339,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 						"item_group": child.name,
 						"level": 1,
 						"parent": pt.name,
+						"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
 					})
 
 					# Optionally get grandchild groups (level 2)
@@ -349,11 +357,12 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 							"item_group": grandchild.name,
 							"level": 2,
 							"parent": child.name,
+							"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
 						})
 
 		# If no child groups found, return default
 		if not result:
-			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}]
+			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None, "is_fixture_type": True}]
 
 		return {"success": True, "product_types": result}
 

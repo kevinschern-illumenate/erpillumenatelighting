@@ -82,6 +82,10 @@ def get_context(context):
 			"configured_fixture": line.configured_fixture,
 			"ill_item_code": line.ill_item_code,
 			"manufacturable_length_mm": line.manufacturable_length_mm,
+			# Accessory/Component fields
+			"accessory_product_type": line.accessory_product_type,
+			"accessory_item": line.accessory_item,
+			"accessory_item_name": line.accessory_item_name,
 			# Other manufacturer fields
 			"manufacturer_name": line.manufacturer_name,
 			"fixture_model_number": line.fixture_model_number,
@@ -100,6 +104,20 @@ def get_context(context):
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
 			line_dict["cf_details"] = cf_details
+
+		# For accessory/component items, fetch item description
+		if line.manufacturer_type == "ACCESSORY" and line.accessory_item:
+			item_desc = frappe.db.get_value(
+				"Item",
+				line.accessory_item,
+				["description", "item_name"],
+				as_dict=True
+			)
+			if item_desc:
+				line_dict["accessory_item_description"] = item_desc.description or ""
+				# Update item name if not set
+				if not line_dict.get("accessory_item_name"):
+					line_dict["accessory_item_name"] = item_desc.item_name
 
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)

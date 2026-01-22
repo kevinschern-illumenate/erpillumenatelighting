@@ -234,6 +234,11 @@ Also handles new schedule creation when is_new is True
 											<div class="small text-muted">
 												<i class="fa fa-tag"></i> {{ line.get('accessory_item') }}
 											</div>
+											{% if line.get('accessory_item_description') %}
+											<div class="small text-muted mt-1">
+												{{ line.get('accessory_item_description')[:150] }}{% if line.get('accessory_item_description')|length > 150 %}...{% endif %}
+											</div>
+											{% endif %}
 											{% if line.get('accessory_product_type') %}
 											<div class="small text-muted">
 												<i class="fa fa-folder"></i> {{ line.get('accessory_product_type') }}
@@ -1027,6 +1032,8 @@ $('.other-fields').hide();
 // Handle product type selection to show appropriate fields
 $('#add_product_type').on('change', function() {
 	var productType = $(this).val();
+	var $selected = $(this).find('option:selected');
+	var isFixtureType = $selected.data('is-fixture-type') === 1 || $selected.data('is-fixture-type') === '1';
 	
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
@@ -1042,8 +1049,8 @@ $('#add_product_type').on('change', function() {
 		return;
 	}
 	
-	// Check if this is "Linear Fixture" - show fixture template dropdown
-	if (productType === 'Linear Fixture') {
+	// Check if this is a fixture type (e.g., "Linear Fixture") - show fixture template dropdown
+	if (isFixtureType) {
 		$('.fixture-template-group').show();
 		$('.fixture-configure-section').show();
 		loadFixtureTemplates(productType);
@@ -1093,7 +1100,8 @@ function loadProductCategories() {
 					} else if (pt.level === 2) {
 						indent = '    └─ ';
 					}
-					options += '<option value="' + pt.value + '">' + indent + pt.label + '</option>';
+					// Store is_fixture_type as data attribute
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
