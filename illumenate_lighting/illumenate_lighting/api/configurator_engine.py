@@ -3473,13 +3473,13 @@ def get_delivered_outputs_for_template(
 			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": "No fixture-level output levels defined in ilL-Attribute-Output Level"}
 
 		# Get lens transmission as a decimal (0.56 = 56%)
-		# Database stores as decimal, so 0.56 means 56% transmission
+		# Database stores as percentage (56 for 56%), so divide by 100 to get decimal
 		lens_transmission_decimal = 1.0  # Default to 100% if not specified
 		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 			if lens_doc.transmission:
-				# Value is stored as decimal (0.56 for 56%)
-				lens_transmission_decimal = float(lens_doc.transmission)
+				# Value is stored as percentage (56 for 56%), divide by 100 to get decimal
+				lens_transmission_decimal = float(lens_doc.transmission) / 100.0
 
 		# Get tape offerings linked to this template, filtering by environment rating
 		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -3674,12 +3674,13 @@ def auto_select_tape_for_configuration(
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No fixture-level output levels defined"}
 
 	# Get lens transmission as a decimal (0.56 = 56%)
+	# Database stores as percentage (56 for 56%), so divide by 100 to get decimal
 	lens_transmission_decimal = 1.0
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
-			# Value is stored as decimal (0.56 for 56%)
-			lens_transmission_decimal = float(lens_doc.transmission)
+			# Value is stored as percentage (56 for 56%), divide by 100 to get decimal
+			lens_transmission_decimal = float(lens_doc.transmission) / 100.0
 
 	# Get valid tape offering names from template (with constraint filtering)
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
