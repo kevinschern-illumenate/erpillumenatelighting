@@ -205,11 +205,11 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			finish_doc = frappe.db.get_value(
 				"ilL-Attribute-Finish",
 				cf.finish,
-				["code", "display_name"],
+				["code", "finish_name"],
 				as_dict=True,
 			)
 			if finish_doc:
-				details["finish"] = finish_doc.display_name or finish_doc.code or cf.finish
+				details["finish"] = finish_doc.finish_name or finish_doc.code or cf.finish
 			else:
 				# Fallback to raw value
 				details["finish"] = cf.finish
