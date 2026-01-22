@@ -435,6 +435,8 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		"table { width: 100%; border-collapse: collapse; margin-top: 10px; }",
 		"th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }",
 		"th { background-color: #f5f5f5; font-weight: bold; }",
+		".col-fixture-type { width: 50px; text-align: center; }",
+		".col-notes { width: 20%; }",
 		".text-right { text-align: right; }",
 		".total-row { font-weight: bold; background-color: #f0f0f0; }",
 		".other-manufacturer { background-color: #fffbe6; }",
@@ -456,12 +458,12 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# Table header
 	html_parts.append("<table>")
 	html_parts.append("<thead><tr>")
-	html_parts.append("<th>Fixture Type</th>")
+	html_parts.append("<th class='col-fixture-type'>Fixture<br>Type</th>")
 	html_parts.append("<th>Type</th>")
 	html_parts.append("<th>Qty</th>")
 	html_parts.append("<th>Location</th>")
 	html_parts.append("<th>Description</th>")
-	html_parts.append("<th>Notes</th>")
+	html_parts.append("<th class='col-notes'>Notes</th>")
 	if include_pricing:
 		html_parts.append("<th class='text-right'>Unit Price</th>")
 		html_parts.append("<th class='text-right'>Line Total</th>")
@@ -472,8 +474,10 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	for line in lines:
 		row_class = "other-manufacturer" if line["manufacturer_type"] == "OTHER" else ""
 		html_parts.append(f"<tr class='{row_class}'>")
-		html_parts.append(f"<td>{line['line_id']}</td>")
-		html_parts.append(f"<td>{line['manufacturer_type']}</td>")
+		html_parts.append(f"<td class='col-fixture-type'>{line['line_id']}</td>")
+		# Display manufacturer type with proper styling
+		type_display = "ilLumenate Lighting" if line["manufacturer_type"] == "ILLUMENATE" else line["manufacturer_type"]
+		html_parts.append(f"<td>{type_display}</td>")
 		html_parts.append(f"<td>{line['qty']}</td>")
 		html_parts.append(f"<td>{line['location']}</td>")
 
