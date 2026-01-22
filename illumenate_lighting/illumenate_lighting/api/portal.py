@@ -262,6 +262,145 @@ def get_template_options(template_code: str) -> dict:
 
 
 @frappe.whitelist()
+def get_product_types() -> dict:
+	"""
+	Get product types from Item Groups under "Products" parent.
+
+	This fetches the immediate children of the "Products" Item Group
+	to populate the product type dropdown.
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"product_types": [{"value": name, "label": display_name, "item_group": item_group_name}]
+		}
+	"""
+	try:
+		# Check if "Products" item group exists
+		if not frappe.db.exists("Item Group", "Products"):
+			return {
+				"success": True,
+				"product_types": [
+					{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None}
+				],
+			}
+
+		# Get immediate children of "Products" item group
+		product_types = frappe.get_all(
+			"Item Group",
+			filters={"parent_item_group": "Products"},
+			fields=["name", "item_group_name"],
+			order_by="item_group_name asc",
+		)
+
+		result = []
+		for pt in product_types:
+			result.append({
+				"value": pt.name,
+				"label": pt.item_group_name or pt.name,
+				"item_group": pt.name,
+			})
+
+		# If no child groups found, return default
+		if not result:
+			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None}]
+
+		return {"success": True, "product_types": result}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching product types: {str(e)}")
+		return {
+			"success": False,
+			"error": str(e),
+			"product_types": [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None}],
+		}
+
+
+@frappe.whitelist()
+def get_items_by_product_type(product_type: str) -> dict:
+	"""
+	Get items within a specific product type (Item Group).
+
+	This fetches all sellable items within the specified Item Group,
+	allowing customers to add accessories like profiles, lenses, etc.
+	to their fixture schedule.
+
+	Args:
+		product_type: The Item Group name to fetch items from
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"items": [
+				{
+					"item_code": str,
+					"item_name": str,
+					"description": str,
+					"stock_uom": str,
+					"image": str or None,
+					"standard_rate": float
+				}
+			]
+		}
+	"""
+	try:
+		if not product_type:
+			return {"success": False, "error": "Product type is required", "items": []}
+
+		# Fetch items from this item group and its descendants
+		# First, get all descendant item groups
+		item_groups = [product_type]
+
+		# Get child groups recursively (up to 3 levels)
+		for _ in range(3):
+			child_groups = frappe.get_all(
+				"Item Group",
+				filters={"parent_item_group": ["in", item_groups]},
+				fields=["name"],
+			)
+			new_groups = [g.name for g in child_groups if g.name not in item_groups]
+			if not new_groups:
+				break
+			item_groups.extend(new_groups)
+
+		# Fetch items from these groups
+		items = frappe.get_all(
+			"Item",
+			filters={
+				"item_group": ["in", item_groups],
+				"disabled": 0,
+				"is_sales_item": 1,
+			},
+			fields=[
+				"item_code",
+				"item_name",
+				"description",
+				"stock_uom",
+				"image",
+				"standard_rate",
+			],
+			order_by="item_name asc",
+		)
+
+		result = []
+		for item in items:
+			result.append({
+				"item_code": item.item_code,
+				"item_name": item.item_name,
+				"description": item.description or "",
+				"stock_uom": item.stock_uom or "Nos",
+				"image": item.image,
+				"standard_rate": float(item.standard_rate or 0),
+			})
+
+		return {"success": True, "items": result}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching items for product type {product_type}: {str(e)}")
+		return {"success": False, "error": str(e), "items": []}
+
+
+@frappe.whitelist()
 def get_fixture_templates(product_type: str = None) -> dict:
 	"""
 	Get available fixture templates for the portal.
@@ -337,6 +476,13 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.product_type = line_data.get("product_type")
 			line.fixture_template = line_data.get("fixture_template")
 			line.configuration_status = line_data.get("configuration_status", "Pending")
+
+		if line.manufacturer_type == "ACCESSORY":
+			line.accessory_product_type = line_data.get("accessory_product_type")
+			line.accessory_item = line_data.get("accessory_item")
+			line.accessory_item_name = line_data.get("accessory_item_name")
+			# For accessories, set configuration_status to Configured since no config needed
+			line.configuration_status = "Configured"
 
 		if line.manufacturer_type == "OTHER":
 			line.manufacturer_name = line_data.get("manufacturer_name")

@@ -20,6 +20,10 @@
   "configured_fixture",
   "ill_item_code",
   "manufacturable_length_mm",
+  "accessory_section",
+  "accessory_product_type",
+  "accessory_item",
+  "accessory_item_name",
   "other_section",
   "manufacturer_name",
   "fixture_model_number",
@@ -69,7 +73,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Manufacturer Type",
-   "options": "ILLUMENATE\nOTHER",
+   "options": "ILLUMENATE\nACCESSORY\nOTHER",
    "reqd": 1
   },
   {
@@ -131,6 +135,36 @@
    "fieldname": "manufacturable_length_mm",
    "fieldtype": "Int",
    "label": "Manufacturable Length (mm)",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ACCESSORY'",
+   "fieldname": "accessory_section",
+   "fieldtype": "Section Break",
+   "label": "Accessory / Component"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ACCESSORY'",
+   "description": "Select a product category (Item Group under Products)",
+   "fieldname": "accessory_product_type",
+   "fieldtype": "Link",
+   "label": "Product Category",
+   "options": "Item Group"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ACCESSORY' && doc.accessory_product_type",
+   "description": "Select the specific item to add",
+   "fieldname": "accessory_item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "depends_on": "eval:doc.accessory_item",
+   "fetch_from": "accessory_item.item_name",
+   "fieldname": "accessory_item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
    "read_only": 1
   },
   {
