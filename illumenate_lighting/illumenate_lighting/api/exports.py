@@ -144,17 +144,21 @@ def _update_export_job_status(
 
 def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 	"""
-	Get fixture details for export (CCT, CRI, Output, Power Supply).
+	Get fixture details for export.
 
 	Args:
 		configured_fixture_id: Name of the ilL-Configured-Fixture
 
 	Returns:
-		dict: Fixture details including cct, cri, estimated_delivered_output, power_supply
+		dict: Fixture details including cct, cri, estimated_delivered_output, power_supply,
+		       fixture_input_voltage, driver_input_voltage, total_watts
 	"""
 	try:
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
-		details = {}
+		details = {
+			"total_watts": cf.total_watts if hasattr(cf, "total_watts") else None,
+			"estimated_delivered_output": cf.estimated_delivered_output if hasattr(cf, "estimated_delivered_output") else None,
+		}
 
 		# Get lens transmission as decimal for output calculation (0.56 = 56%)
 		lens_transmission = 1.0
@@ -168,7 +172,7 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 			if lens_doc and lens_doc.transmission:
 				lens_transmission = lens_doc.transmission
 
-		# Get tape offering details (CCT, CRI, Output Level)
+		# Get tape offering details (CCT, CRI, Output Level, Input Voltage)
 		if cf.tape_offering:
 			tape_offering = frappe.db.get_value(
 				"ilL-Rel-Tape Offering",
@@ -192,17 +196,22 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 					else:
 						details["cri"] = tape_offering.cri
 
-				# Get lumens per foot from tape spec for output calculation
+				# Get lumens per foot and input voltage from tape spec
 				if tape_offering.tape_spec:
 					tape_spec_data = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
 						tape_offering.tape_spec,
-						["lumens_per_foot"],
+						["lumens_per_foot", "input_voltage"],
 						as_dict=True,
 					)
-					if tape_spec_data and tape_spec_data.lumens_per_foot:
-						delivered = tape_spec_data.lumens_per_foot * lens_transmission
-						details["estimated_delivered_output"] = round(delivered, 1)
+					if tape_spec_data:
+						# Calculate delivered output if not already stored on fixture
+						if not details.get("estimated_delivered_output") and tape_spec_data.lumens_per_foot:
+							delivered = tape_spec_data.lumens_per_foot * lens_transmission
+							details["estimated_delivered_output"] = round(delivered, 1)
+						# Get fixture input voltage (tape voltage)
+						if tape_spec_data.input_voltage:
+							details["fixture_input_voltage"] = tape_spec_data.input_voltage
 
 				# Get output level display name (for reference only)
 				if tape_offering.output_level:
@@ -218,15 +227,33 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 		# Get power supply info from drivers child table
 		if cf.drivers:
 			driver_items = []
+			driver_input_voltages = []
 			for driver_alloc in cf.drivers:
 				if driver_alloc.driver_item:
+					# Get driver spec for input voltage
+					driver_spec = frappe.db.get_value(
+						"ilL-Spec-Driver",
+						{"item": driver_alloc.driver_item},
+						["input_voltage"],
+						as_dict=True,
+					)
+
 					driver_qty = driver_alloc.driver_qty or 1
 					if driver_qty > 1:
 						driver_items.append(f"{driver_alloc.driver_item} ({driver_qty})")
 					else:
 						driver_items.append(driver_alloc.driver_item)
+
+					# Collect driver input voltage
+					if driver_spec and driver_spec.input_voltage:
+						driver_input_voltages.append(driver_spec.input_voltage)
+
 			if driver_items:
 				details["power_supply"] = ", ".join(driver_items)
+			if driver_input_voltages:
+				# Remove duplicates and join
+				unique_voltages = list(dict.fromkeys(driver_input_voltages))
+				details["driver_input_voltage"] = ", ".join(unique_voltages)
 
 		return details
 	except Exception:
@@ -323,12 +350,23 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				line_data["manufacturable_length_mm"] = fixture.manufacturable_overall_length_mm or 0
 				line_data["runs_count"] = fixture.runs_count or 0
 
-				# Add fixture details (CCT, CRI, Output, Power Supply)
+				# Add fixture details
+				# Add fixture configuration options
+				line_data["environment_rating"] = fixture.get("environment_rating", "")
+				line_data["finish"] = fixture.get("finish", "")
+				line_data["lens_appearance"] = fixture.get("lens_appearance", "")
+				line_data["mounting_method"] = fixture.get("mounting_method", "")
+				line_data["power_feed_type"] = fixture.get("power_feed_type", "")
+
+				# Add fixture details
 				line_data["cct"] = fixture.get("cct", "")
 				line_data["cri"] = fixture.get("cri", "")
 				line_data["output_level"] = fixture.get("output_level", "")
 				line_data["estimated_delivered_output"] = fixture.get("estimated_delivered_output", "")
 				line_data["power_supply"] = fixture.get("power_supply", "")
+				line_data["fixture_input_voltage"] = fixture.get("fixture_input_voltage", "")
+				line_data["driver_input_voltage"] = fixture.get("driver_input_voltage", "")
+				line_data["total_watts"] = fixture.get("total_watts", "")
 
 				if include_pricing and fixture.get("latest_msrp_unit"):
 					unit_price = fixture["latest_msrp_unit"]
@@ -483,23 +521,63 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 
 		# Description column
 		if line["manufacturer_type"] == "ILLUMENATE":
-			# Use configured fixture part number instead of template code
+			# Build description in specified order:
+			# Part number, Environment, CCT, CRI, Output, Lens, Mounting, Finish, Length,
+			# Feed, Input Voltage, PS Input Voltage, Wattage, Driver
 			part_number = line.get("configured_fixture_name") or line["template_code"]
 			description = f"<strong>{part_number}</strong>"
-			# Add manufactured length in inches below the part number
+
+			# Environment / Dry/Wet
+			if line.get("environment_rating"):
+				description += f"<br><small>Environment: {line['environment_rating']}</small>"
+
+			# CCT
+			if line.get("cct"):
+				description += f"<br><small>CCT: {line['cct']}</small>"
+
+			# CRI
+			if line.get("cri"):
+				description += f"<br><small>CRI: {line['cri']}</small>"
+
+			# Output
+			if line.get("estimated_delivered_output"):
+				description += f"<br><small>Output: {line['estimated_delivered_output']} lm/ft</small>"
+
+			# Lens
+			if line.get("lens_appearance"):
+				description += f"<br><small>Lens: {line['lens_appearance']}</small>"
+
+			# Mounting
+			if line.get("mounting_method"):
+				description += f"<br><small>Mounting: {line['mounting_method']}</small>"
+
+			# Finish
+			if line.get("finish"):
+				description += f"<br><small>Finish: {line['finish']}</small>"
+
+			# Length
 			mfg_length_mm = line.get("manufacturable_length_mm", 0)
 			if mfg_length_mm:
 				length_inches = mfg_length_mm / 25.4
 				description += f"<br><small>Length: {length_inches:.1f}\"</small>"
-			if line["config_summary"]:
-				description += f"<br><small>{line['config_summary']}</small>"
-			# Add fixture details - each on its own line
-			if line.get("cct"):
-				description += f"<br><small>CCT: {line['cct']}</small>"
-			if line.get("cri"):
-				description += f"<br><small>CRI: {line['cri']}</small>"
-			if line.get("estimated_delivered_output"):
-				description += f"<br><small>Output: {line['estimated_delivered_output']} lm/ft</small>"
+
+			# Feed
+			if line.get("power_feed_type"):
+				description += f"<br><small>Feed: {line['power_feed_type']}</small>"
+
+			# Input Voltage (fixture/tape voltage)
+			if line.get("fixture_input_voltage"):
+				description += f"<br><small>Input Voltage: {line['fixture_input_voltage']}</small>"
+
+			# PS Input Voltage (power supply/driver input voltage)
+			if line.get("driver_input_voltage"):
+				description += f"<br><small>PS Input Voltage: {line['driver_input_voltage']}</small>"
+
+			# Wattage / Power
+			if line.get("total_watts"):
+				description += f"<br><small>Wattage: {line['total_watts']}W</small>"
+
+			# Driver
 			if line.get("power_supply"):
 				description += f"<br><small>Driver: {line['power_supply']}</small>"
 		else:
