@@ -473,7 +473,7 @@ def _get_series_info(template) -> dict:
         pkg_data = frappe.db.get_value(
             "ilL-Attribute-LED Package",
             primary_led_pkg,
-            ["name", "code", "spectrum_type", "description"],
+            ["name", "code", "spectrum_type"],
             as_dict=True
         )
         if pkg_data:

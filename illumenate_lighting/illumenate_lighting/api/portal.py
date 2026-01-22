@@ -261,6 +261,31 @@ def get_template_options(template_code: str) -> dict:
 	return options
 
 
+@frappe.whitelist()
+def get_fixture_templates(product_type: str = None) -> dict:
+	"""
+	Get available fixture templates for the portal.
+
+	Args:
+		product_type: Optional filter by product type (e.g., "Linear Fixture")
+
+	Returns:
+		dict: {
+			"templates": [{"name": template_code, "template_name": name, "template_code": code}]
+		}
+	"""
+	# Get active fixture templates
+	filters = {"is_active": 1}
+
+	templates = frappe.get_all(
+		"ilL-Fixture-Template",
+		filters=filters,
+		fields=["name", "template_code", "template_name"],
+		order_by="template_name asc",
+	)
+
+	return {"templates": templates}
+
 
 @frappe.whitelist()
 def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
@@ -307,6 +332,11 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		line.location = line_data.get("location")
 		line.manufacturer_type = line_data.get("manufacturer_type", "ILLUMENATE")
 		line.notes = line_data.get("notes")
+
+		if line.manufacturer_type == "ILLUMENATE":
+			line.product_type = line_data.get("product_type")
+			line.fixture_template = line_data.get("fixture_template")
+			line.configuration_status = line_data.get("configuration_status", "Pending")
 
 		if line.manufacturer_type == "OTHER":
 			line.manufacturer_name = line_data.get("manufacturer_name")

@@ -529,9 +529,29 @@ Also handles new schedule creation when is_new is True
 						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
 					</div>
 
-					<!-- ilLumenate Configure Button -->
+					<!-- ilLumenate Configure Section -->
 					<div class="illumenate-fields" style="display: block;">
 						<hr>
+						<h6 class="text-muted mb-3">{{ _("ilLumenate Fixture Selection") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Product Type") }}</label>
+									<select class="form-control" name="product_type" id="add_product_type">
+										<option value="">{{ _("Select Product Type...") }}</option>
+										<option value="Linear Fixture">{{ _("Linear Fixture") }}</option>
+									</select>
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group fixture-template-group" style="display: none;">
+									<label>{{ _("Fixture Template") }}</label>
+									<select class="form-control" name="fixture_template" id="add_fixture_template">
+										<option value="">{{ _("Select Fixture Template...") }}</option>
+									</select>
+								</div>
+							</div>
+						</div>
 						<div class="alert alert-info">
 							<i class="fa fa-info-circle"></i> 
 							{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
@@ -825,6 +845,20 @@ var schedule_name = "{{ schedule.name }}";
 // Initialize Bootstrap popovers for build description
 $('[data-toggle="popover"]').popover();
 
+// Reset add line modal when opened
+$('#addLineModal').on('show.bs.modal', function() {
+	// Reset the form
+	$('#addLineForm')[0].reset();
+	// Reset to default ilLumenate view
+	$('select[name="manufacturer_type"]').val('ILLUMENATE');
+	$('.illumenate-fields').show();
+	$('.other-fields').hide();
+	// Reset product type and fixture template
+	$('#add_product_type').val('');
+	$('.fixture-template-group').hide();
+	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
+});
+
 // Toggle other manufacturer fields and ilLumenate fields
 $('select[name="manufacturer_type"]').on('change', function() {
 	if ($(this).val() === 'OTHER') {
@@ -839,6 +873,43 @@ $('select[name="manufacturer_type"]').on('change', function() {
 // Initialize the visibility on page load (default is ILLUMENATE)
 $('.illumenate-fields').show();
 $('.other-fields').hide();
+
+// Handle product type selection to show/hide fixture template field
+$('#add_product_type').on('change', function() {
+	var productType = $(this).val();
+	if (productType) {
+		$('.fixture-template-group').show();
+		// Load fixture templates based on product type
+		loadFixtureTemplates(productType);
+	} else {
+		$('.fixture-template-group').hide();
+		$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
+	}
+});
+
+// Load fixture templates from the server
+function loadFixtureTemplates(productType) {
+	$('#add_fixture_template').html('<option value="">{{ _("Loading...") }}</option>');
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_fixture_templates',
+		args: {
+			product_type: productType
+		},
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select Fixture Template...") }}</option>';
+			if (r.message && r.message.templates) {
+				r.message.templates.forEach(function(template) {
+					options += '<option value="' + template.name + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+				});
+			}
+			$('#add_fixture_template').html(options);
+		},
+		error: function() {
+			$('#add_fixture_template').html('<option value="">{{ _("Error loading templates") }}</option>');
+		}
+	});
+}
 
 // File upload helper function
 function uploadFile(fileInput, callback) {
@@ -885,6 +956,13 @@ function addLine() {
 		manufacturer_type: manufacturerType,
 		notes: form.find('[name="notes"]').val()
 	};
+
+	// Add ilLumenate-specific fields
+	if (manufacturerType === 'ILLUMENATE') {
+		data.product_type = form.find('[name="product_type"]').val();
+		data.fixture_template = form.find('[name="fixture_template"]').val();
+		data.configuration_status = 'Pending';
+	}
 
 	// Add Other manufacturer fields if applicable
 	if (manufacturerType === 'OTHER') {
@@ -941,12 +1019,38 @@ function configureFromAddModal() {
 		return;
 	}
 
+	// Get product type and fixture template
+	var productType = form.find('[name="product_type"]').val();
+	var fixtureTemplate = form.find('[name="fixture_template"]').val();
+
+	// Validate that product type and fixture template are selected
+	if (!productType) {
+		frappe.msgprint({
+			title: 'Selection Required',
+			indicator: 'orange',
+			message: 'Please select a Product Type before configuring.'
+		});
+		return;
+	}
+
+	if (!fixtureTemplate) {
+		frappe.msgprint({
+			title: 'Selection Required',
+			indicator: 'orange',
+			message: 'Please select a Fixture Template before configuring.'
+		});
+		return;
+	}
+
 	// Prepare line data
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
 		qty: form.find('[name="qty"]').val(),
 		location: form.find('[name="location"]').val(),
 		manufacturer_type: manufacturerType,
+		product_type: productType,
+		fixture_template: fixtureTemplate,
+		configuration_status: 'Pending',
 		notes: form.find('[name="notes"]').val()
 	};
 
@@ -968,8 +1072,8 @@ function configureFromAddModal() {
 				// Close the modal
 				$('#addLineModal').modal('hide');
 				
-				// Redirect to configure page with schedule and line index
-				window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx;
+				// Redirect to configure page with schedule, line index, and fixture template
+				window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(fixtureTemplate);
 			} else {
 				frappe.msgprint(r.message.error || 'Error adding line');
 				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
