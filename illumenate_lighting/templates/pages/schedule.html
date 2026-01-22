@@ -391,11 +391,19 @@ Also handles new schedule creation when is_new is True
 									<td class="text-center">
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
-											<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
-												<i class="fa fa-cog"></i> {{ _('Configure') }}
-											</a>
+												{% if line.get('configured_fixture') %}
+												<!-- Edit existing configuration -->
+												<a href="/portal/edit_fixture?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&fixture={{ line.get('configured_fixture') }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+												</a>
+												{% else %}
+												<!-- Create new configuration -->
+												<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+													<i class="fa fa-cog"></i> {{ _('Configure') }}
+												</a>
+												{% endif %}
 											{% endif %}
-											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit') }}">
+											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit Line Details') }}">
 												<i class="fa fa-pencil"></i> {{ _('Edit') }}
 											</button>
 												<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">

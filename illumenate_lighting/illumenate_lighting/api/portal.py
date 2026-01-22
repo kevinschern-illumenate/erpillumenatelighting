@@ -1988,3 +1988,309 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		frappe.log_error(f"Error creating contact: {str(e)}")
 		return {"success": False, "error": str(e)}
 
+
+@frappe.whitelist()
+def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
+	"""
+	Get the full configuration of an existing fixture for editing in the configurator.
+
+	This returns all the user-selected options and segment data needed to
+	pre-populate the configurator form so users can modify and re-validate
+	the fixture before saving changes.
+
+	Args:
+		configured_fixture_id: ID of the ilL-Configured-Fixture
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"configuration": {
+				"fixture_template_code": str,
+				"led_package_code": str,
+				"environment_rating_code": str,
+				"cct_code": str,
+				"lens_appearance_code": str,
+				"delivered_output_value": int,
+				"mounting_method_code": str,
+				"finish_code": str,
+				"endcap_color_code": str,
+				"segments": [...],  # User-defined segments
+				"is_multi_segment": bool
+			},
+			"fixture_details": {...},  # Display info like part number, pricing
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+
+		# Get option codes from linked doctypes
+		configuration = {
+			"fixture_template_code": cf.fixture_template,
+			"is_multi_segment": cf.is_multi_segment or 0,
+		}
+
+		# Get LED package code from tape offering
+		led_package_code = None
+		cct_code = None
+		output_level_value = None
+		if cf.tape_offering:
+			tape_data = frappe.db.get_value(
+				"ilL-Rel-Tape Offering",
+				cf.tape_offering,
+				["led_package", "cct", "output_level"],
+				as_dict=True,
+			)
+			if tape_data:
+				if tape_data.led_package:
+					led_package_code = frappe.db.get_value(
+						"ilL-Attribute-LED Package", tape_data.led_package, "code"
+					)
+				if tape_data.cct:
+					cct_code = frappe.db.get_value(
+						"ilL-Attribute-CCT", tape_data.cct, "code"
+					)
+				if tape_data.output_level:
+					output_level_value = frappe.db.get_value(
+						"ilL-Attribute-Output Level", tape_data.output_level, "value"
+					)
+
+		configuration["led_package_code"] = led_package_code
+		configuration["cct_code"] = cct_code
+
+		# Calculate delivered output from tape output * lens transmission
+		lens_transmission = 1.0
+		lens_appearance_code = None
+		if cf.lens_appearance:
+			lens_data = frappe.db.get_value(
+				"ilL-Attribute-Lens Appearance",
+				cf.lens_appearance,
+				["code", "transmission"],
+				as_dict=True,
+			)
+			if lens_data:
+				lens_appearance_code = lens_data.code
+				if lens_data.transmission:
+					lens_transmission = lens_data.transmission
+
+		configuration["lens_appearance_code"] = lens_appearance_code
+
+		# Calculate the delivered output value (what user selected)
+		if output_level_value and lens_transmission:
+			# Round to nearest 50 to match how options are presented
+			delivered = output_level_value * lens_transmission
+			delivered_rounded = round(delivered / 50) * 50
+			configuration["delivered_output_value"] = int(delivered_rounded)
+		else:
+			configuration["delivered_output_value"] = cf.estimated_delivered_output
+
+		# Get environment rating code
+		if cf.environment_rating:
+			configuration["environment_rating_code"] = frappe.db.get_value(
+				"ilL-Attribute-Environment Rating", cf.environment_rating, "code"
+			)
+		else:
+			configuration["environment_rating_code"] = None
+
+		# Get mounting method code
+		if cf.mounting_method:
+			configuration["mounting_method_code"] = frappe.db.get_value(
+				"ilL-Attribute-Mounting Method", cf.mounting_method, "code"
+			)
+		else:
+			configuration["mounting_method_code"] = None
+
+		# Get finish code
+		if cf.finish:
+			configuration["finish_code"] = frappe.db.get_value(
+				"ilL-Attribute-Finish", cf.finish, "code"
+			)
+		else:
+			configuration["finish_code"] = None
+
+		# Get endcap color code
+		if cf.endcap_color:
+			configuration["endcap_color_code"] = frappe.db.get_value(
+				"ilL-Attribute-Endcap Color", cf.endcap_color, "code"
+			)
+		else:
+			configuration["endcap_color_code"] = None
+
+		# Get power feed type code (for single segment fixtures)
+		if cf.power_feed_type:
+			configuration["power_feed_type_code"] = frappe.db.get_value(
+				"ilL-Attribute-Power Feed Type", cf.power_feed_type, "code"
+			)
+		else:
+			configuration["power_feed_type_code"] = None
+
+		# Build segments data from user_segments child table
+		segments = []
+		if cf.user_segments:
+			for seg in cf.user_segments:
+				segment_data = {
+					"segment_index": seg.segment_index,
+					"requested_length_mm": seg.requested_length_mm,
+					"end_type": seg.end_type,
+				}
+
+				# Get power feed type code for start
+				if seg.start_power_feed_type:
+					segment_data["start_power_feed_type"] = frappe.db.get_value(
+						"ilL-Attribute-Power Feed Type", seg.start_power_feed_type, "code"
+					) or seg.start_power_feed_type
+				else:
+					segment_data["start_power_feed_type"] = None
+
+				segment_data["start_leader_cable_length_mm"] = seg.start_leader_cable_length_mm or 300
+
+				# Get end power feed type code (for jumpers)
+				if seg.end_type == "Jumper" and seg.end_power_feed_type:
+					segment_data["end_power_feed_type"] = frappe.db.get_value(
+						"ilL-Attribute-Power Feed Type", seg.end_power_feed_type, "code"
+					) or seg.end_power_feed_type
+					segment_data["end_jumper_cable_length_mm"] = seg.end_jumper_cable_length_mm or 300
+				else:
+					segment_data["end_power_feed_type"] = None
+					segment_data["end_jumper_cable_length_mm"] = None
+
+				segments.append(segment_data)
+		else:
+			# Single segment fixture - build from fixture-level data
+			segment_data = {
+				"segment_index": 1,
+				"requested_length_mm": cf.requested_overall_length_mm,
+				"end_type": "Endcap",
+				"start_power_feed_type": configuration.get("power_feed_type_code"),
+				"start_leader_cable_length_mm": 300,  # Default
+			}
+			segments.append(segment_data)
+
+		configuration["segments"] = segments
+
+		# Build fixture details for display
+		fixture_details = {
+			"config_hash": cf.config_hash,
+			"part_number": cf.configured_item or cf.name,
+			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
+			"manufacturable_length_in": round(cf.manufacturable_overall_length_mm / 25.4, 1) if cf.manufacturable_overall_length_mm else None,
+			"requested_length_mm": cf.requested_overall_length_mm,
+			"requested_length_in": round(cf.requested_overall_length_mm / 25.4, 1) if cf.requested_overall_length_mm else None,
+			"total_watts": cf.total_watts,
+			"estimated_delivered_output": cf.estimated_delivered_output,
+			"runs_count": cf.runs_count,
+			"user_segment_count": cf.user_segment_count or 1,
+			"assembly_mode": cf.assembly_mode,
+			"build_description": cf.build_description,
+		}
+
+		return {
+			"success": True,
+			"configuration": configuration,
+			"fixture_details": fixture_details,
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Error getting fixture configuration: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def update_configured_fixture_on_schedule(
+	schedule_name: str,
+	line_idx: int,
+	new_configured_fixture_id: str,
+	manufacturable_length_mm: int,
+) -> dict:
+	"""
+	Update a schedule line with a new/modified configured fixture.
+
+	This is called after the user has re-validated their fixture modifications
+	and wants to save the changes back to the schedule line.
+
+	Args:
+		schedule_name: Name of the schedule
+		line_idx: Index of the line to update
+		new_configured_fixture_id: ID of the new/modified configured fixture
+		manufacturable_length_mm: Manufacturable length from validation
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	# Validate schedule exists
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "Permission denied"}
+
+	# Check schedule status allows editing
+	if schedule.status not in ["DRAFT", "READY"]:
+		return {"success": False, "error": "Cannot edit lines in a schedule in this status"}
+
+	# Validate line_idx
+	try:
+		line_idx = int(line_idx)
+	except (ValueError, TypeError):
+		return {"success": False, "error": "Invalid line index"}
+
+	if line_idx < 0 or line_idx >= len(schedule.lines):
+		return {"success": False, "error": "Invalid line index"}
+
+	# Validate the new configured fixture exists
+	if not frappe.db.exists("ilL-Configured-Fixture", new_configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		line = schedule.lines[line_idx]
+
+		# Ensure it's an ILLUMENATE line
+		if line.manufacturer_type != "ILLUMENATE":
+			return {"success": False, "error": "Can only update ILLUMENATE fixture lines"}
+
+		# Update the line with the new configured fixture
+		line.configured_fixture = new_configured_fixture_id
+		line.manufacturable_length_mm = int(manufacturable_length_mm)
+
+		# Get the configured fixture document to update item code
+		configured_fixture = frappe.get_doc("ilL-Configured-Fixture", new_configured_fixture_id)
+
+		# Get or create the configured item for this fixture
+		if configured_fixture.configured_item:
+			line.ill_item_code = configured_fixture.configured_item
+		else:
+			# Auto-create the configured item for this fixture
+			from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+				_create_or_get_configured_item,
+				_update_fixture_links,
+			)
+
+			item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
+			if item_result.get("success") and item_result.get("item_code"):
+				line.ill_item_code = item_result["item_code"]
+				# Update the fixture with the new item code
+				_update_fixture_links(
+					configured_fixture,
+					item_code=item_result["item_code"],
+					bom_name=None,
+					work_order_name=None,
+				)
+
+		schedule.save()
+		frappe.db.commit()
+
+		return {"success": True}
+
+	except Exception as e:
+		frappe.log_error(f"Error updating fixture on schedule: {str(e)}")
+		return {"success": False, "error": str(e)}

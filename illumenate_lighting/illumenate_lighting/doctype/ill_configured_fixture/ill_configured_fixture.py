@@ -159,14 +159,17 @@ class ilLConfiguredFixture(Document):
 
 		# Add suffix based on fixture complexity
 		if self.is_multi_segment:
-			# Multi-segment (jointed) fixtures: -J-{hash}
-			parts.append("J")
-			# Add a short hash suffix to differentiate different segment configurations
-			# with the same total length (e.g., 3x4ft vs 1x12ft vs 4x3ft all equal 120")
+			# Multi-segment (jointed) fixtures: -J({hash})
+			# Add a short hash suffix in parentheses to differentiate different segment
+			# configurations with the same total length (e.g., 3x4ft vs 1x12ft vs 4x3ft all equal 120")
 			if self.user_segments:
 				segment_config_hash = self._compute_segment_config_hash()
 				if segment_config_hash:
-					parts.append(segment_config_hash)
+					parts.append(f"J({segment_config_hash})")
+				else:
+					parts.append("J")
+			else:
+				parts.append("J")
 		else:
 			# Single-segment fixtures: {feed_type}{cable_length_ft}-C
 			# Get power feed type code

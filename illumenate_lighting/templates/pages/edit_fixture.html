@@ -1,0 +1,1515 @@
+{#
+Edit Fixture Configuration Page
+Allows users to modify an existing configured fixture from a schedule line
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Edit Fixture Configuration") }}{% endblock %}
+
+{% block style %}
+<style>
+.segment-card {
+	border: 1px solid #dee2e6;
+	border-radius: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+.segment-card .card-header {
+	background-color: #f8f9fa;
+	padding: 0.5rem 1rem;
+}
+.segment-card .card-body {
+	padding: 0.75rem 1rem;
+}
+.segment-inherited {
+	background-color: #e9ecef;
+	padding: 0.25rem 0.5rem;
+	border-radius: 0.25rem;
+	font-size: 0.85rem;
+	color: #6c757d;
+}
+.segment-inherited i {
+	margin-right: 0.25rem;
+}
+.end-type-toggle {
+	display: flex;
+	gap: 0.5rem;
+}
+.end-type-toggle .btn {
+	flex: 1;
+}
+.end-type-toggle .btn.active {
+	background-color: #0d6efd;
+	color: white;
+}
+.jumper-fields, .endcap-fields {
+	padding: 0.5rem;
+	background: #f8f9fa;
+	border-radius: 0.25rem;
+	margin-top: 0.5rem;
+}
+
+/* Pill Button Selector Styles */
+.pill-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.pill-selector .pill-option {
+	display: inline-block;
+	padding: 0.375rem 0.75rem;
+	font-size: 0.875rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: #495057;
+	background-color: #fff;
+	border: 1px solid #ced4da;
+	border-radius: 2rem;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+	user-select: none;
+}
+.pill-selector .pill-option:hover {
+	background-color: #e9ecef;
+	border-color: #adb5bd;
+}
+.pill-selector .pill-option.active {
+	background-color: #0d6efd;
+	border-color: #0d6efd;
+	color: #fff;
+}
+.pill-selector .pill-option.active:hover {
+	background-color: #0b5ed7;
+	border-color: #0a58ca;
+}
+.pill-selector .pill-option input[type="radio"] {
+	display: none;
+}
+.option-group {
+	margin-bottom: 1rem;
+}
+.option-group label.option-label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+}
+/* Hide select when showing pills (desktop) */
+.option-group .select-fallback {
+	display: none;
+}
+/* On mobile, show select and hide pills */
+@media (max-width: 767.98px) {
+	.option-group .pill-selector {
+		display: none !important;
+	}
+	.option-group .select-fallback {
+		display: block !important;
+	}
+}
+
+/* Edit mode styling */
+.edit-mode-banner {
+	background-color: #fff3cd;
+	border: 1px solid #ffc107;
+	border-radius: 0.25rem;
+	padding: 0.75rem 1rem;
+	margin-bottom: 1rem;
+}
+.edit-mode-banner i {
+	margin-right: 0.5rem;
+}
+.current-fixture-info {
+	background-color: #f8f9fa;
+	border-radius: 0.25rem;
+	padding: 1rem;
+	margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			{% if schedule %}
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			{% endif %}
+			<li class="breadcrumb-item active" aria-current="page">{{ _("Edit Fixture") }}</li>
+		</ol>
+	</nav>
+
+	<!-- Edit Mode Banner -->
+	<div class="edit-mode-banner">
+		<i class="fa fa-pencil-square-o"></i>
+		<strong>{{ _("Edit Mode") }}</strong> - 
+		{{ _("You are editing an existing fixture configuration. Make your changes and click 'Calculate & Validate' to verify, then 'Update Fixture' to save.") }}
+	</div>
+
+	<!-- Current Fixture Info -->
+	<div class="current-fixture-info">
+		<div class="row">
+			<div class="col-md-6">
+				<strong>{{ _("Current Part Number:") }}</strong> {{ fixture_details.part_number or 'N/A' }}
+			</div>
+			<div class="col-md-3">
+				<strong>{{ _("Length:") }}</strong> {{ fixture_details.manufacturable_length_in }}" ({{ fixture_details.manufacturable_length_mm }} mm)
+			</div>
+			<div class="col-md-3">
+				<strong>{{ _("Segments:") }}</strong> {{ fixture_details.user_segment_count }}
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
+		<!-- Configurator Form -->
+		<div class="col-lg-7">
+			<div class="card mb-3">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Fixture Configuration") }}</h5>
+				</div>
+				<div class="card-body">
+					<form id="configuratorForm">
+						<!-- Template Selection (read-only for editing) -->
+						<div class="form-group">
+							<label>{{ _("Fixture Template") }} <span class="text-danger">*</span></label>
+							<select class="form-control" name="fixture_template_code" required>
+								<option value="">{{ _("Select Template...") }}</option>
+								{% for template in templates %}
+								<option value="{{ template.template_code }}" {% if template.template_code == fixture_config.fixture_template_code %}selected{% endif %}>
+									{{ template.template_name }} ({{ template.template_code }})
+								</option>
+								{% endfor %}
+							</select>
+						</div>
+
+						<!-- Options loaded dynamically based on template -->
+						<div id="templateOptions" style="display: none;">
+							<hr>
+							<h6 class="mb-3">{{ _("Configuration Options") }}</h6>
+
+							<!-- LED Package (Step 1 - from linked tapes) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("LED Package") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="led_package_code"></div>
+								<select class="form-control select-fallback" name="led_package_code" required></select>
+							</div>
+
+							<!-- Environment Rating (Step 2) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="environment_rating_code"></div>
+								<select class="form-control select-fallback" name="environment_rating_code" required></select>
+							</div>
+
+							<!-- CCT (Step 3 - filtered by LED Package + Environment) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Color Temperature (CCT)") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="cct_code"></div>
+								<select class="form-control select-fallback" name="cct_code" required></select>
+							</div>
+
+							<!-- Lens Appearance (Step 4) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="lens_appearance_code"></div>
+								<select class="form-control select-fallback" name="lens_appearance_code" required></select>
+							</div>
+
+							<!-- Delivered Output (Step 5 - computed from tape × lens transmission) -->
+							<div class="option-group" id="outputGroup" style="display: none;">
+								<label class="option-label">{{ _("Fixture Output") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="delivered_output_value"></div>
+								<select class="form-control select-fallback" name="delivered_output_value" required></select>
+								<small class="text-muted" id="outputHelpText"></small>
+							</div>
+
+							<hr>
+							<h6 class="mb-3">{{ _("Fixture Options") }}</h6>
+
+							<!-- Mounting Method -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="mounting_method_code"></div>
+								<select class="form-control select-fallback" name="mounting_method_code" required></select>
+							</div>
+
+							<!-- Finish -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="finish_code"></div>
+								<select class="form-control select-fallback" name="finish_code" required></select>
+							</div>
+
+							<!-- Endcap Color -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="endcap_color_code"></div>
+								<select class="form-control select-fallback" name="endcap_color_code" required></select>
+							</div>
+
+							<!-- Hidden field for auto-selected tape -->
+							<input type="hidden" name="tape_offering_id" value="">
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<!-- Segments Card -->
+			<div class="card mb-3" id="segmentsCard" style="display: none;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Fixture Segments") }}</h5>
+					<span class="badge badge-info" id="segmentCountBadge">0 {{ _("segments") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">
+						{{ _("Define each segment of your fixture. The first segment starts with a leader cable. Connect segments with jumper cables, or cap the fixture with an endcap.") }}
+					</p>
+					<div id="segmentsList"></div>
+					
+					<div id="addSegmentHint" class="text-center py-3 text-muted" style="display: none;">
+						<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
+					</div>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
+				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
+					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+				</button>
+				{% if can_save %}
+				<div>
+					<a href="/portal/schedules/{{ schedule.name }}" class="btn btn-secondary mr-2">
+						<i class="fa fa-times"></i> {{ _("Cancel") }}
+					</a>
+					<button type="button" class="btn btn-success" id="saveBtn" onclick="updateFixture()" disabled>
+						<i class="fa fa-save"></i> {{ _("Update Fixture") }}
+					</button>
+				</div>
+				{% endif %}
+			</div>
+		</div>
+
+		<!-- Results Panel -->
+		<div class="col-lg-5">
+			<div class="card">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Results") }}</h5>
+					<span id="validationStatus" class="badge badge-secondary">{{ _("Not Calculated") }}</span>
+				</div>
+				<div class="card-body">
+					<!-- Messages -->
+					<div id="messagesPanel" style="display: none;">
+						<h6>{{ _("Messages") }}</h6>
+						<div id="messagesList"></div>
+						<hr>
+					</div>
+
+					<!-- Length Results -->
+					<div id="lengthResults" style="display: none;">
+						<h6>{{ _("Length Summary") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("Total Requested Length") }}</td>
+								<td class="text-right"><span id="requestedLength">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Total Manufacturable Length") }}</td>
+								<td class="text-right"><strong><span id="mfgLength">-</span></strong></td>
+							</tr>
+							<tr>
+								<td>{{ _("Segment Count") }}</td>
+								<td class="text-right"><span id="segmentCountResult">-</span></td>
+							</tr>
+						</table>
+						<hr>
+					</div>
+
+					<!-- Manufacturing Summary -->
+					<div id="manufacturingResults" style="display: none;">
+						<h6>{{ _("Manufacturing Summary") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("Profile/Lens Segments") }}</td>
+								<td class="text-right"><span id="profileSegmentsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("LED Tape Runs") }}</td>
+								<td class="text-right"><span id="runsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Endcaps") }}</td>
+								<td class="text-right"><span id="endcapsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Mounting Accessories") }}</td>
+								<td class="text-right"><span id="mountingCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Total Watts") }}</td>
+								<td class="text-right"><span id="totalWatts">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Assembly Mode") }}</td>
+								<td class="text-right"><span id="assemblyMode">-</span></td>
+							</tr>
+						</table>
+						<hr>
+					</div>
+
+					<!-- Build Description -->
+					<div id="buildDescriptionPanel" style="display: none;">
+						<h6>{{ _("Build Description") }}</h6>
+						<div id="buildDescription" class="small bg-light p-2 rounded" style="white-space: pre-wrap;"></div>
+						<hr>
+					</div>
+
+					<!-- LED Run Details -->
+					<div id="ledRunDetailsPanel" style="display: none;">
+						<h6>{{ _("LED Run Details") }}</h6>
+						<div id="ledRunDetails" class="small"></div>
+						<hr>
+					</div>
+
+					<!-- Driver Plan -->
+					<div id="driverResults" style="display: none;">
+						<h6>{{ _("Driver Plan") }}</h6>
+						<div id="driverPlan"></div>
+						<hr>
+					</div>
+
+					<!-- Pricing -->
+					{% if show_pricing %}
+					<div id="pricingResults" style="display: none;">
+						<h6>{{ _("Pricing") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("MSRP (Unit)") }}</td>
+								<td class="text-right"><strong><span id="msrpUnit">-</span></strong></td>
+							</tr>
+							<tr>
+								<td>{{ _("Tier Price (Unit)") }}</td>
+								<td class="text-right"><span id="tierUnit">-</span></td>
+							</tr>
+						</table>
+						<div id="adderBreakdown"></div>
+					</div>
+					{% endif %}
+
+					<div id="noResults" class="text-center py-4">
+						<i class="fa fa-calculator fa-3x text-muted mb-3"></i>
+						<p class="text-muted">{{ _("Make your changes and click 'Calculate & Validate' to see updated results") }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Segment Template -->
+<template id="segmentTemplate">
+	<div class="segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Segment") }} <span class="segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" onclick="removeSegment(this)" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- Start Section (for first segment or inherited from prior) -->
+			<div class="segment-start mb-3">
+				<div class="row">
+					<div class="col-12">
+						<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
+					</div>
+				</div>
+				<!-- First segment: user selects power feed type and leader cable length -->
+				<div class="first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Leader Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- Subsequent segments: inherited from prior segment -->
+				<div class="inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
+				</div>
+			</div>
+
+			<!-- Segment Length -->
+			<div class="segment-length mb-3">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Requested Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="length_unit">
+								<option value="in" selected>inches</option>
+								<option value="ft_in">feet + inches</option>
+								<option value="mm">mm</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<!-- Feet + Inches input (shown when unit is ft_in) -->
+				<div class="row feet-inches-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="segment-end">
+				<div class="row">
+					<div class="col-12">
+						<label class="small font-weight-bold">{{ _("Segment End") }}</label>
+					</div>
+				</div>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Endcap" onclick="setEndType(this, 'Endcap')">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap (Cap Fixture)") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Jumper" onclick="setEndType(this, 'Jumper')">
+						<i class="fa fa-link"></i> {{ _("Jumper (Continue to Next)") }}
+					</button>
+				</div>
+				<input type="hidden" name="end_type" value="Endcap">
+
+				<!-- Endcap Fields (shown when end type is Endcap) -->
+				<div class="endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with a solid endcap") }}
+					</div>
+				</div>
+
+				<!-- Jumper Fields (shown when end type is Jumper) -->
+				<div class="jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+{% endblock %}
+
+{% block script %}
+<script>
+var schedule_name = "{{ schedule.name if schedule else '' }}";
+var line_idx = {{ line_idx if line_idx is not none else 'null' }};
+var configured_fixture_id = "{{ configured_fixture_id }}";
+var currentResult = null;
+var templateOptions = null;
+var segmentCount = 0;
+var MM_PER_INCH = 25.4;
+var MM_PER_FOOT = 304.8;
+var INCHES_PER_FOOT = 12;
+
+// Pre-loaded fixture configuration
+var existingConfig = {{ fixture_config | tojson }};
+
+console.log('Edit Fixture script loaded');
+console.log('Existing config:', existingConfig);
+
+// Wrap event handlers in ready to ensure DOM is available
+$(function() {
+	console.log('DOM ready - attaching event handlers');
+	
+	// Load template options when template is selected
+	$('select[name="fixture_template_code"]').on('change', function() {
+		var template = $(this).val();
+		console.log('Template changed to:', template);
+		if (template) {
+			loadTemplateOptions(template, true);
+			$('#templateOptions').show();
+			$('#segmentsCard').show();
+			$('#actionButtons').show();
+		} else {
+			$('#templateOptions').hide();
+			$('#segmentsCard').hide();
+			$('#actionButtons').hide();
+		}
+	});
+
+	// Cascading option change handlers
+	$('select[name="led_package_code"]').on('change', function() {
+		updateCCTOptions();
+		updateDeliveredOutputs();
+		updateUI();
+	});
+
+	$('select[name="environment_rating_code"]').on('change', function() {
+		updateCCTOptions();
+		updateDeliveredOutputs();
+		updateUI();
+	});
+
+	$('select[name="cct_code"]').on('change', function() {
+		updateDeliveredOutputs();
+		updateUI();
+	});
+
+	$('select[name="lens_appearance_code"]').on('change', function() {
+		updateDeliveredOutputs();
+		updateUI();
+	});
+
+	$('select[name="delivered_output_value"]').on('change', function() {
+		autoSelectTape();
+		updateUI();
+	});
+
+	$('select[name="mounting_method_code"]').on('change', function() {
+		updateUI();
+	});
+
+	$('select[name="finish_code"]').on('change', function() {
+		updateUI();
+	});
+
+	$('select[name="endcap_color_code"]').on('change', function() {
+		updateUI();
+	});
+
+	// Initialize with existing configuration
+	initializeWithExistingConfig();
+});
+
+function initializeWithExistingConfig() {
+	console.log('Initializing with existing config:', existingConfig);
+	
+	if (!existingConfig || !existingConfig.fixture_template_code) {
+		console.error('No existing configuration found');
+		return;
+	}
+	
+	// Trigger template load with pre-population flag
+	var template = existingConfig.fixture_template_code;
+	loadTemplateOptions(template, true);
+	$('#templateOptions').show();
+	$('#segmentsCard').show();
+	$('#actionButtons').show();
+}
+
+function loadTemplateOptions(template_code, prePopulate) {
+	console.log('loadTemplateOptions called with:', template_code, 'prePopulate:', prePopulate);
+	// Use the cascading options API
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template',
+		args: { fixture_template_code: template_code },
+		async: false,  // Make synchronous for initial load
+		callback: function(r) {
+			console.log('API response:', r);
+			if (r.message && r.message.success) {
+				templateOptions = r.message.options;
+				console.log('Template options received:', templateOptions);
+				populateOptions(r.message.options, prePopulate);
+				
+				// Initialize segments after options are loaded
+				if (prePopulate && existingConfig.segments && existingConfig.segments.length > 0) {
+					initializeSegmentsFromConfig();
+				} else if (segmentCount === 0) {
+					addSegment(true);
+				}
+			} else if (r.message && r.message.error) {
+				console.error('API error:', r.message.error);
+				frappe.msgprint({
+					title: __('Error Loading Options'),
+					message: r.message.error,
+					indicator: 'red'
+				});
+			} else {
+				console.error('Unexpected response:', r);
+			}
+		},
+		error: function(r) {
+			console.error('API call failed:', r);
+		}
+	});
+}
+
+function initializeSegmentsFromConfig() {
+	console.log('Initializing segments from config:', existingConfig.segments);
+	
+	// Clear any existing segments
+	$('#segmentsList').empty();
+	segmentCount = 0;
+	
+	// Add each segment from the existing configuration
+	existingConfig.segments.forEach(function(segData, index) {
+		var isFirst = (index === 0);
+		addSegmentWithData(isFirst, segData);
+	});
+	
+	updateUI();
+}
+
+function addSegmentWithData(isFirst, segData) {
+	segmentCount++;
+	var template = document.getElementById('segmentTemplate');
+	var clone = template.content.cloneNode(true);
+	var card = clone.querySelector('.segment-card');
+	
+	card.dataset.segmentIndex = segmentCount;
+	card.querySelector('.segment-number').textContent = segmentCount;
+	
+	if (isFirst) {
+		// First segment: show power feed type and leader cable selection
+		card.querySelector('.first-segment-start').style.display = 'block';
+		card.querySelector('.inherited-start').style.display = 'none';
+	} else {
+		// Subsequent segments: show inherited from prior
+		card.querySelector('.first-segment-start').style.display = 'none';
+		card.querySelector('.inherited-start').style.display = 'block';
+		// Can be removed
+		card.querySelector('.remove-segment-btn').style.display = 'inline-block';
+	}
+	
+	document.getElementById('segmentsList').appendChild(clone);
+	
+	var segmentCard = $('#segmentsList .segment-card').last();
+	if (templateOptions) {
+		populateSegmentPowerFeedOptions(segmentCard);
+	}
+	
+	// Pre-populate segment data
+	if (segData) {
+		// Set length (convert from mm to inches for display)
+		var lengthInches = (segData.requested_length_mm / MM_PER_INCH).toFixed(1);
+		segmentCard.find('[name="requested_length_mm"]').val(lengthInches);
+		
+		if (isFirst) {
+			// Set power feed type for first segment
+			if (segData.start_power_feed_type) {
+				segmentCard.find('[name="start_power_feed_type"]').val(segData.start_power_feed_type);
+			}
+			// Set leader cable length (convert from mm to inches)
+			if (segData.start_leader_cable_length_mm) {
+				var leaderInches = (segData.start_leader_cable_length_mm / MM_PER_INCH).toFixed(1);
+				segmentCard.find('[name="start_leader_cable_length_in"]').val(leaderInches);
+			}
+		}
+		
+		// Set end type
+		var endType = segData.end_type || 'Endcap';
+		setEndType(segmentCard.find('.end-type-btn[data-type="' + endType + '"]')[0], endType, true);
+		
+		if (endType === 'Jumper' && segData.end_power_feed_type) {
+			segmentCard.find('[name="end_power_feed_type"]').val(segData.end_power_feed_type);
+			if (segData.end_jumper_cable_length_mm) {
+				var jumperInches = (segData.end_jumper_cable_length_mm / MM_PER_INCH).toFixed(1);
+				segmentCard.find('[name="end_jumper_cable_length_in"]').val(jumperInches);
+			}
+		}
+	} else {
+		// Set default end type to Endcap
+		setEndType(segmentCard.find('.end-type-btn[data-type="Endcap"]')[0], 'Endcap', true);
+	}
+	
+	// Setup unit change handler for length conversion
+	setupUnitChangeHandler(segmentCard);
+}
+
+function populateOptions(options, prePopulate) {
+	console.log('populateOptions called with:', options, 'prePopulate:', prePopulate);
+	
+	// Map API response keys to form field names
+	var pillFields = {
+		'led_packages': 'led_package_code',
+		'environment_ratings': 'environment_rating_code',
+		'ccts': 'cct_code',
+		'lens_appearances': 'lens_appearance_code',
+		'mountings': 'mounting_method_code',
+		'finishes': 'finish_code'
+	};
+	
+	// Populate pill selectors and their fallback selects
+	Object.keys(pillFields).forEach(function(optionKey) {
+		var fieldName = pillFields[optionKey];
+		var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+		var selectFallback = $('select[name="' + fieldName + '"]');
+		
+		// Clear existing
+		pillContainer.empty();
+		selectFallback.empty().append('<option value="">Select...</option>');
+		
+		if (options[optionKey] && options[optionKey].length > 0) {
+			options[optionKey].forEach(function(opt) {
+				// Add pill button
+				var pill = $('<label class="pill-option">' +
+					'<input type="radio" name="' + fieldName + '_pill" value="' + opt.value + '">' +
+					opt.label +
+				'</label>');
+				pill.on('click', function() {
+					// Update pill selection
+					pillContainer.find('.pill-option').removeClass('active');
+					$(this).addClass('active');
+					// Sync to hidden select
+					selectFallback.val(opt.value).trigger('change');
+				});
+				pillContainer.append(pill);
+				
+				// Add to fallback select
+				selectFallback.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			});
+			
+			// Pre-select if we have existing config
+			if (prePopulate && existingConfig[fieldName]) {
+				selectFallback.val(existingConfig[fieldName]);
+				pillContainer.find('input[value="' + existingConfig[fieldName] + '"]').closest('.pill-option').addClass('active');
+			}
+		}
+	});
+	
+	// When select changes (mobile), sync to pills
+	Object.values(pillFields).forEach(function(fieldName) {
+		$('select[name="' + fieldName + '"]').off('change.pillSync').on('change.pillSync', function() {
+			var value = $(this).val();
+			var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+			pillContainer.find('.pill-option').removeClass('active');
+			pillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
+		});
+	});
+
+	// Populate endcap colors (also uses pills)
+	var colorPillContainer = $('.pill-selector[data-field="endcap_color_code"]');
+	var colorSelect = $('select[name="endcap_color_code"]');
+	colorPillContainer.empty();
+	colorSelect.empty().append('<option value="">Select...</option>');
+	if (options.endcap_colors) {
+		options.endcap_colors.forEach(function(opt) {
+			// Add pill button
+			var pill = $('<label class="pill-option">' +
+				'<input type="radio" name="endcap_color_code_pill" value="' + opt.value + '">' +
+				opt.label +
+			'</label>');
+			pill.on('click', function() {
+				colorPillContainer.find('.pill-option').removeClass('active');
+				$(this).addClass('active');
+				colorSelect.val(opt.value).trigger('change');
+			});
+			colorPillContainer.append(pill);
+			
+			// Add to fallback select
+			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+		
+		// Pre-select if we have existing config
+		if (prePopulate && existingConfig.endcap_color_code) {
+			colorSelect.val(existingConfig.endcap_color_code);
+			colorPillContainer.find('input[value="' + existingConfig.endcap_color_code + '"]').closest('.pill-option').addClass('active');
+		}
+	}
+	
+	// Sync color select to pills
+	colorSelect.off('change.pillSync').on('change.pillSync', function() {
+		var value = $(this).val();
+		colorPillContainer.find('.pill-option').removeClass('active');
+		colorPillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
+	});
+
+	// For edit mode, we need to trigger cascading updates after pre-populating
+	if (prePopulate) {
+		// Update CCTs based on pre-selected values
+		updateCCTOptions(true);
+		// Update delivered outputs
+		setTimeout(function() {
+			updateDeliveredOutputs(true);
+		}, 100);
+	} else {
+		// Hide output group initially - will be shown when all cascading selections are made
+		$('#outputGroup').hide();
+		// Clear auto-selected tape offering
+		$('input[name="tape_offering_id"]').val('');
+	}
+}
+
+function updateCCTOptions(prePopulate) {
+	var template_code = $('select[name="fixture_template_code"]').val();
+	var led_package = $('select[name="led_package_code"]').val();
+	var environment = $('select[name="environment_rating_code"]').val();
+	
+	if (!template_code) return;
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_ccts_for_template',
+		args: {
+			fixture_template_code: template_code,
+			led_package_code: led_package || null,
+			environment_rating_code: environment || null
+		},
+		async: !prePopulate,  // Synchronous for pre-population
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				populatePillSelector('cct_code', r.message.ccts, prePopulate ? existingConfig.cct_code : null);
+			}
+		}
+	});
+}
+
+function updateDeliveredOutputs(prePopulate) {
+	var template_code = $('select[name="fixture_template_code"]').val();
+	var led_package = $('select[name="led_package_code"]').val();
+	var environment = $('select[name="environment_rating_code"]').val();
+	var cct = $('select[name="cct_code"]').val();
+	var lens = $('select[name="lens_appearance_code"]').val();
+	
+	console.log('updateDeliveredOutputs called with:', {
+		template_code: template_code,
+		led_package: led_package,
+		environment: environment,
+		cct: cct,
+		lens: lens
+	});
+	
+	// Only fetch outputs when all required fields are selected
+	if (!template_code || !led_package || !environment || !cct || !lens) {
+		$('#outputGroup').hide();
+		$('input[name="tape_offering_id"]').val('');
+		return;
+	}
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_delivered_outputs_for_template',
+		args: {
+			fixture_template_code: template_code,
+			led_package_code: led_package,
+			environment_rating_code: environment,
+			cct_code: cct,
+			lens_appearance_code: lens
+		},
+		async: !prePopulate,  // Synchronous for pre-population
+		callback: function(r) {
+			console.log('Delivered outputs response:', r.message);
+			if (r.message && r.message.success) {
+				$('#outputGroup').show();
+				populatePillSelector('delivered_output_value', r.message.delivered_outputs, prePopulate ? existingConfig.delivered_output_value : null);
+				
+				// Show helpful text about lens transmission
+				var transmission = r.message.lens_transmission_pct || 100;
+				$('#outputHelpText').text('Output adjusted for ' + transmission.toFixed(0) + '% lens transmission');
+				
+				// Auto-select tape after setting output value
+				if (prePopulate) {
+					autoSelectTape();
+				}
+			} else {
+				$('#outputGroup').hide();
+				console.log('No outputs available or error:', r.message);
+			}
+		}
+	});
+}
+
+function populatePillSelector(fieldName, options, preSelectValue) {
+	var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+	var selectFallback = $('select[name="' + fieldName + '"]');
+	
+	// Clear existing
+	pillContainer.empty();
+	selectFallback.empty().append('<option value="">Select...</option>');
+	
+	if (options && options.length > 0) {
+		options.forEach(function(opt) {
+			var label = opt.label || opt.value;
+			// Add pill button
+			var pill = $('<label class="pill-option">' +
+				'<input type="radio" name="' + fieldName + '_pill" value="' + opt.value + '">' +
+				label +
+			'</label>');
+			pill.on('click', function() {
+				// Update pill selection
+				pillContainer.find('.pill-option').removeClass('active');
+				$(this).addClass('active');
+				// Sync to select and trigger change
+				selectFallback.val(opt.value).trigger('change');
+			});
+			pillContainer.append(pill);
+			
+			// Add to fallback select
+			selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
+		});
+		
+		// Pre-select if value provided
+		if (preSelectValue) {
+			selectFallback.val(preSelectValue);
+			pillContainer.find('input[value="' + preSelectValue + '"]').closest('.pill-option').addClass('active');
+		}
+	}
+}
+
+function autoSelectTape() {
+	var template_code = $('select[name="fixture_template_code"]').val();
+	var led_package = $('select[name="led_package_code"]').val();
+	var environment = $('select[name="environment_rating_code"]').val();
+	var cct = $('select[name="cct_code"]').val();
+	var lens = $('select[name="lens_appearance_code"]').val();
+	var output = $('select[name="delivered_output_value"]').val();
+	
+	if (!template_code || !led_package || !environment || !cct || !lens || !output) {
+		$('input[name="tape_offering_id"]').val('');
+		return;
+	}
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.auto_select_tape_for_configuration',
+		args: {
+			fixture_template_code: template_code,
+			led_package_code: led_package,
+			environment_rating_code: environment,
+			cct_code: cct,
+			lens_appearance_code: lens,
+			delivered_output_value: parseInt(output)
+		},
+		callback: function(r) {
+			if (r.message && r.message.success && r.message.tape_offering_id) {
+				$('input[name="tape_offering_id"]').val(r.message.tape_offering_id);
+				updateUI();
+			} else {
+				$('input[name="tape_offering_id"]').val('');
+				if (r.message && r.message.error) {
+					frappe.msgprint({
+						title: __('Tape Selection'),
+						message: r.message.error,
+						indicator: 'orange'
+					});
+				}
+			}
+		}
+	});
+}
+
+function populateSegmentPowerFeedOptions(segmentCard) {
+	if (!templateOptions || !templateOptions.power_feed_type) return;
+	
+	['start_power_feed_type', 'end_power_feed_type'].forEach(function(fieldName) {
+		var select = segmentCard.find('[name="' + fieldName + '"]');
+		select.empty().append('<option value="">Select...</option>');
+		templateOptions.power_feed_type.forEach(function(opt) {
+			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	});
+}
+
+function addSegment(isFirst) {
+	addSegmentWithData(isFirst, null);
+	updateUI();
+}
+
+function removeSegment(btn) {
+	var card = $(btn).closest('.segment-card');
+	var index = parseInt(card.data('segment-index'));
+	
+	// Only allow removing if it's not the first segment
+	if (index <= 1) {
+		frappe.msgprint('Cannot remove the first segment');
+		return;
+	}
+	
+	// Remove this segment and all following segments
+	var segmentsToRemove = [];
+	$('.segment-card').each(function() {
+		if (parseInt($(this).data('segment-index')) >= index) {
+			segmentsToRemove.push($(this));
+		}
+	});
+	
+	segmentsToRemove.forEach(function(s) {
+		s.remove();
+		segmentCount--;
+	});
+	
+	// Update the prior segment's end type to Endcap
+	var lastSegment = $('#segmentsList .segment-card').last();
+	if (lastSegment.length) {
+		setEndType(lastSegment.find('.end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+	}
+	
+	updateUI();
+}
+
+function setEndType(btn, type, skipAutoAdd) {
+	var card = $(btn).closest('.segment-card');
+	var endTypeInput = card.find('[name="end_type"]');
+	
+	// Update button states
+	card.find('.end-type-btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+	$(btn).removeClass('btn-outline-secondary').addClass('active btn-primary');
+	
+	endTypeInput.val(type);
+	
+	if (type === 'Endcap') {
+		card.find('.endcap-fields').show();
+		card.find('.jumper-fields').hide();
+		
+		// Remove any segments after this one (unless we're initializing from config)
+		if (!skipAutoAdd) {
+			var currentIndex = parseInt(card.data('segment-index'));
+			var segmentsToRemove = [];
+			$('.segment-card').each(function() {
+				if (parseInt($(this).data('segment-index')) > currentIndex) {
+					segmentsToRemove.push($(this));
+				}
+			});
+			segmentsToRemove.forEach(function(s) {
+				s.remove();
+				segmentCount--;
+			});
+		}
+		
+		$('#addSegmentHint').hide();
+	} else {
+		// Jumper
+		card.find('.endcap-fields').hide();
+		card.find('.jumper-fields').show();
+		
+		// Auto-add next segment if this is the last one (unless we're initializing from config)
+		if (!skipAutoAdd) {
+			var currentIndex = parseInt(card.data('segment-index'));
+			var hasNextSegment = false;
+			$('.segment-card').each(function() {
+				if (parseInt($(this).data('segment-index')) > currentIndex) {
+					hasNextSegment = true;
+				}
+			});
+			
+			if (!hasNextSegment) {
+				// Wait a moment then add the next segment
+				setTimeout(function() {
+					addSegment(false);
+				}, 100);
+			}
+		}
+	}
+	
+	if (!skipAutoAdd) {
+		updateUI();
+	}
+}
+
+function setupUnitChangeHandler(segmentCard) {
+	var unitSelect = segmentCard.find('[name="length_unit"]');
+	// Store current unit in data attribute for persistence
+	unitSelect.data('lastUnit', unitSelect.val());
+	
+	unitSelect.on('change', function() {
+		var newUnit = $(this).val();
+		var lastUnit = $(this).data('lastUnit') || 'in';
+		convertSegmentLength(segmentCard, newUnit, lastUnit);
+		$(this).data('lastUnit', newUnit);
+	});
+	
+	// Initialize feet+inches row visibility
+	var currentUnit = unitSelect.val();
+	if (currentUnit === 'ft_in') {
+		segmentCard.find('[name="requested_length_mm"]').closest('.form-group').hide();
+		segmentCard.find('.feet-inches-row').show();
+	} else {
+		segmentCard.find('.feet-inches-row').hide();
+	}
+}
+
+function convertSegmentLength(segmentCard, newUnit, oldUnit) {
+	var lengthInput = segmentCard.find('[name="requested_length_mm"]');
+	var feetInchesRow = segmentCard.find('.feet-inches-row');
+	var feetInput = segmentCard.find('[name="length_feet"]');
+	var inchesInput = segmentCard.find('[name="length_inches"]');
+	
+	// First, get current value in mm
+	var currentMm = 0;
+	if (oldUnit === 'mm') {
+		currentMm = parseFloat(lengthInput.val()) || 0;
+	} else if (oldUnit === 'in') {
+		currentMm = (parseFloat(lengthInput.val()) || 0) * MM_PER_INCH;
+	} else if (oldUnit === 'ft_in') {
+		var feet = parseFloat(feetInput.val()) || 0;
+		var inches = parseFloat(inchesInput.val()) || 0;
+		currentMm = (feet * INCHES_PER_FOOT + inches) * MM_PER_INCH;
+	}
+	
+	// Now convert to new unit
+	if (newUnit === 'mm') {
+		lengthInput.val(Math.round(currentMm));
+		lengthInput.closest('.form-group').show();
+		feetInchesRow.hide();
+	} else if (newUnit === 'in') {
+		lengthInput.val((currentMm / MM_PER_INCH).toFixed(2));
+		lengthInput.closest('.form-group').show();
+		feetInchesRow.hide();
+	} else if (newUnit === 'ft_in') {
+		// Hide the single input, show feet+inches
+		lengthInput.closest('.form-group').hide();
+		feetInchesRow.show();
+		
+		var totalInches = currentMm / MM_PER_INCH;
+		var feet = Math.floor(totalInches / INCHES_PER_FOOT);
+		var inches = totalInches % INCHES_PER_FOOT;
+		feetInput.val(feet);
+		inchesInput.val(inches.toFixed(2));
+	}
+}
+
+function updateUI() {
+	// Update segment count badge
+	$('#segmentCountBadge').text(segmentCount + ' segment' + (segmentCount !== 1 ? 's' : ''));
+	
+	// Check if fixture is complete
+	var lastSegment = $('#segmentsList .segment-card').last();
+	var segmentComplete = lastSegment.length && lastSegment.find('[name="end_type"]').val() === 'Endcap';
+	
+	// Check if all required cascading fields are selected
+	var cascadingComplete = (
+		$('[name="led_package_code"]').val() &&
+		$('[name="environment_rating_code"]').val() &&
+		$('[name="cct_code"]').val() &&
+		$('[name="lens_appearance_code"]').val() &&
+		$('[name="delivered_output_value"]').val() &&
+		$('[name="mounting_method_code"]').val() &&
+		$('[name="finish_code"]').val() &&
+		$('[name="endcap_color_code"]').val()
+	);
+	
+	// Enable/disable calculate button based on completeness
+	var isComplete = segmentComplete && cascadingComplete;
+	$('#calculateBtn').prop('disabled', !isComplete);
+	
+	// Update segment numbers
+	$('.segment-card').each(function(index) {
+		$(this).attr('data-segment-index', index + 1);
+		$(this).find('.segment-number').text(index + 1);
+		
+		// Show/hide remove button (can't remove first segment)
+		if (index === 0) {
+			$(this).find('.remove-segment-btn').hide();
+		} else {
+			$(this).find('.remove-segment-btn').show();
+		}
+	});
+	
+	// Update inherited values display
+	$('.segment-card').each(function(index) {
+		if (index > 0) {
+			var priorSegment = $('.segment-card').eq(index - 1);
+			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
+			var priorJumperLenIn = priorSegment.find('[name="end_jumper_cable_length_in"]').val();
+			// Convert inches to mm for storage
+			var priorJumperLenMm = Math.round((parseFloat(priorJumperLenIn) || 12) * MM_PER_INCH);
+			
+			$(this)[0].dataset.inheritedPowerFeedType = priorEndPFT || '';
+			$(this)[0].dataset.inheritedCableLength = priorJumperLenMm;
+			
+			var inheritedText = 'From prior: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '"';
+			$(this).find('.inherited-text').text(inheritedText);
+		}
+	});
+	
+	segmentCount = $('.segment-card').length;
+}
+
+function collectSegments() {
+	var segments = [];
+	$('.segment-card').each(function(index) {
+		var card = $(this);
+		
+		// Get length in mm based on unit
+		var length = 0;
+		var unit = card.find('[name="length_unit"]').val();
+		if (unit === 'mm') {
+			length = parseFloat(card.find('[name="requested_length_mm"]').val()) || 0;
+		} else if (unit === 'in') {
+			length = Math.round((parseFloat(card.find('[name="requested_length_mm"]').val()) || 0) * MM_PER_INCH);
+		} else if (unit === 'ft_in') {
+			var feet = parseFloat(card.find('[name="length_feet"]').val()) || 0;
+			var inches = parseFloat(card.find('[name="length_inches"]').val()) || 0;
+			length = Math.round((feet * INCHES_PER_FOOT + inches) * MM_PER_INCH);
+		}
+		
+		var segment = {
+			segment_index: index + 1,
+			requested_length_mm: length,
+			end_type: card.find('[name="end_type"]').val()
+		};
+		
+		if (index === 0) {
+			// First segment: get start power feed and leader cable
+			segment.start_power_feed_type = card.find('[name="start_power_feed_type"]').val();
+			// Convert inches to mm for backend
+			var leaderInches = parseFloat(card.find('[name="start_leader_cable_length_in"]').val()) || 12;
+			segment.start_leader_cable_length_mm = Math.round(leaderInches * MM_PER_INCH);
+		} else {
+			// Inherited from prior segment
+			segment.start_power_feed_type = card[0].dataset.inheritedPowerFeedType || '';
+			segment.start_leader_cable_length_mm = parseInt(card[0].dataset.inheritedCableLength) || 300;
+		}
+		
+		if (segment.end_type === 'Jumper') {
+			segment.end_power_feed_type = card.find('[name="end_power_feed_type"]').val();
+			// Convert inches to mm for backend
+			var jumperInches = parseFloat(card.find('[name="end_jumper_cable_length_in"]').val()) || 12;
+			segment.end_jumper_cable_length_mm = Math.round(jumperInches * MM_PER_INCH);
+		}
+		
+		segments.push(segment);
+	});
+	return segments;
+}
+
+function validateAndQuote() {
+	var form = $('#configuratorForm');
+	var segments = collectSegments();
+	
+	if (segments.length === 0) {
+		frappe.msgprint('Please add at least one segment');
+		return;
+	}
+	
+	// Check if last segment ends with Endcap
+	var lastSegment = segments[segments.length - 1];
+	if (lastSegment.end_type !== 'Endcap') {
+		frappe.msgprint('The fixture must end with an Endcap. Please select Endcap on the last segment.');
+		return;
+	}
+	
+	// Check if tape was auto-selected
+	var tapeOfferingId = form.find('[name="tape_offering_id"]').val();
+	var deliveredOutputValue = form.find('[name="delivered_output_value"]').val();
+	
+	// Build request data for the output-based API
+	var data = {
+		fixture_template_code: form.find('[name="fixture_template_code"]').val(),
+		led_package_code: form.find('[name="led_package_code"]').val(),
+		environment_rating_code: form.find('[name="environment_rating_code"]').val(),
+		cct_code: form.find('[name="cct_code"]').val(),
+		lens_appearance_code: form.find('[name="lens_appearance_code"]').val(),
+		finish_code: form.find('[name="finish_code"]').val(),
+		mounting_method_code: form.find('[name="mounting_method_code"]').val(),
+		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
+		segments_json: JSON.stringify(segments)
+	};
+	
+	// Use the output-based API if we have delivered_output_value
+	if (deliveredOutputValue) {
+		data.delivered_output_value = parseInt(deliveredOutputValue);
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment_with_output',
+			args: data,
+			callback: function(r) {
+				if (r.message) {
+					currentResult = r.message;
+					displayResults(r.message);
+				}
+			}
+		});
+	} else if (tapeOfferingId) {
+		// Fallback to old API with tape_offering_id
+		data.tape_offering_id = tapeOfferingId;
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
+			args: data,
+			callback: function(r) {
+				if (r.message) {
+					currentResult = r.message;
+					displayResults(r.message);
+				}
+			}
+		});
+	} else {
+		frappe.msgprint({
+			title: __('Missing Selection'),
+			message: __('Please select an Output Level to continue.'),
+			indicator: 'orange'
+		});
+		return;
+	}
+}
+
+function displayResults(result) {
+	$('#noResults').hide();
+	
+	// Update validation status
+	var statusBadge = $('#validationStatus');
+	if (result.is_valid) {
+		statusBadge.removeClass('badge-secondary badge-danger').addClass('badge-success').text('Valid');
+		$('#saveBtn').prop('disabled', false);
+	} else {
+		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
+		$('#saveBtn').prop('disabled', true);
+	}
+	
+	// Display messages
+	if (result.messages && result.messages.length > 0) {
+		$('#messagesPanel').show();
+		var messagesList = $('#messagesList').empty();
+		result.messages.forEach(function(msg) {
+			var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
+			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + msg.text + '</div>');
+		});
+	} else {
+		$('#messagesPanel').hide();
+	}
+	
+	// Display length results
+	if (result.computed) {
+		$('#lengthResults').show();
+		// Display lengths in inches for US market (with mm in parentheses)
+		var requestedIn = result.computed.total_requested_length_in || (result.computed.total_requested_length_mm / MM_PER_INCH).toFixed(1);
+		var mfgIn = result.computed.manufacturable_overall_length_in || (result.computed.manufacturable_overall_length_mm / MM_PER_INCH).toFixed(1);
+		$('#requestedLength').text(requestedIn + '" (' + result.computed.total_requested_length_mm + ' mm)');
+		$('#mfgLength').text(mfgIn + '" (' + result.computed.manufacturable_overall_length_mm + ' mm)');
+		$('#segmentCountResult').text(result.computed.user_segment_count);
+		
+		$('#manufacturingResults').show();
+		$('#profileSegmentsCount').text(result.computed.segments_count);
+		$('#runsCount').text(result.computed.runs_count);
+		$('#endcapsCount').text(result.computed.total_endcaps);
+		$('#mountingCount').text(result.computed.total_mounting_accessories);
+		$('#totalWatts').text(result.computed.total_watts + ' W');
+		$('#assemblyMode').text(result.computed.assembly_mode);
+		
+		// Display build description (use display version with inches for UI)
+		if (result.computed.build_description_display || result.computed.build_description) {
+			$('#buildDescriptionPanel').show();
+			$('#buildDescription').text(result.computed.build_description_display || result.computed.build_description);
+		}
+		
+		// Display LED run details for complex fixtures
+		if (result.computed.runs && result.computed.runs.length > 0) {
+			$('#ledRunDetailsPanel').show();
+			var runsHtml = '<table class="table table-sm table-bordered mb-0">';
+			runsHtml += '<thead class="thead-light"><tr>';
+			runsHtml += '<th>{{ _("Run") }}</th>';
+			runsHtml += '<th>{{ _("Segment") }}</th>';
+			runsHtml += '<th>{{ _("Length") }}</th>';
+			runsHtml += '<th>{{ _("Watts") }}</th>';
+			runsHtml += '</tr></thead><tbody>';
+			
+			result.computed.runs.forEach(function(run) {
+				// Use pre-computed inch value if available, otherwise calculate
+				var lengthIn = run.run_len_in || (run.run_len_mm / MM_PER_INCH).toFixed(1);
+				var lengthFt = (run.run_len_mm / MM_PER_FOOT).toFixed(2);
+				runsHtml += '<tr>';
+				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
+				runsHtml += '<td class="text-center">' + run.segment_index + '</td>';
+				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
+				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
+				runsHtml += '</tr>';
+			});
+			
+			runsHtml += '</tbody></table>';
+			$('#ledRunDetails').html(runsHtml);
+		} else {
+			$('#ledRunDetailsPanel').hide();
+		}
+	}
+	
+	// Display driver plan
+	if (result.resolved_items && result.resolved_items.driver_plan) {
+		var dp = result.resolved_items.driver_plan;
+		$('#driverResults').show();
+		if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
+			var driverHtml = '<table class="table table-sm">';
+			dp.drivers.forEach(function(d) {
+				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
+			});
+			driverHtml += '</table>';
+			$('#driverPlan').html(driverHtml);
+		} else {
+			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
+		}
+	}
+	
+	// Display pricing
+	if (result.pricing) {
+		$('#pricingResults').show();
+		$('#msrpUnit').text('$' + result.pricing.msrp_unit.toFixed(2));
+		$('#tierUnit').text('$' + result.pricing.tier_unit.toFixed(2));
+		
+		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
+			var breakdownHtml = '<details><summary class="text-muted">Price Breakdown</summary><table class="table table-sm mt-2">';
+			result.pricing.adder_breakdown.forEach(function(adder) {
+				breakdownHtml += '<tr><td>' + adder.component + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
+			});
+			breakdownHtml += '</table></details>';
+			$('#adderBreakdown').html(breakdownHtml);
+		}
+	}
+}
+
+function updateFixture() {
+	if (!currentResult || !currentResult.is_valid || !schedule_name) {
+		frappe.msgprint('Cannot save: configuration is not valid or no schedule specified');
+		return;
+	}
+	
+	// Disable button to prevent double-clicks
+	$('#saveBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Updating...');
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_configured_fixture_on_schedule',
+		args: {
+			schedule_name: schedule_name,
+			line_idx: line_idx,
+			new_configured_fixture_id: currentResult.configured_fixture_id,
+			manufacturable_length_mm: currentResult.computed.manufacturable_overall_length_mm
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Fixture configuration updated successfully'
+				});
+				// Redirect back to schedule
+				setTimeout(function() {
+					window.location.href = '/portal/schedules/' + schedule_name;
+				}, 1000);
+			} else {
+				frappe.msgprint(r.message.error || 'Error updating fixture configuration');
+				$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save"></i> Update Fixture');
+			}
+		},
+		error: function() {
+			$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save"></i> Update Fixture');
+		}
+	});
+}
+</script>
+{% endblock %}
