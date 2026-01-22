@@ -178,6 +178,9 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		
 		details = {
 			"part_number": cf.configured_item or cf.config_hash,
+			"environment_rating": cf.environment_rating if hasattr(cf, "environment_rating") else None,
+			"mounting_method": cf.mounting_method if hasattr(cf, "mounting_method") else None,
+			"power_feed_type": cf.power_feed_type if hasattr(cf, "power_feed_type") else None,
 			"finish": None,
 			"lens_appearance": None,
 			"cct": None,

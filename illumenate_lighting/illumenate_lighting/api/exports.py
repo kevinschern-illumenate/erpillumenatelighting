@@ -513,8 +513,11 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		row_class = "other-manufacturer" if line["manufacturer_type"] == "OTHER" else ""
 		html_parts.append(f"<tr class='{row_class}'>")
 		html_parts.append(f"<td class='col-fixture-type'>{line['line_id']}</td>")
-		# Display manufacturer type with proper styling
-		type_display = "ilLumenate Lighting" if line["manufacturer_type"] == "ILLUMENATE" else line["manufacturer_type"]
+		# Display manufacturer type - ilLumenate Lighting for ILLUMENATE, actual manufacturer name for OTHER
+		if line["manufacturer_type"] == "ILLUMENATE":
+			type_display = "ilLumenate Lighting"
+		else:
+			type_display = line.get("manufacturer_name") or "Other"
 		html_parts.append(f"<td>{type_display}</td>")
 		html_parts.append(f"<td>{line['qty']}</td>")
 		html_parts.append(f"<td>{line['location']}</td>")

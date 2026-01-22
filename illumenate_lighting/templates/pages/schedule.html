@@ -227,6 +227,7 @@ Also handles new schedule creation when is_new is True
 										{% if line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
 										{% set cf_details = line.get('cf_details', {}) %}
 										<div class="fixture-details">
+											<!-- Part Number -->
 											<strong class="text-primary">
 												{{ cf_details.get('part_number') or line.get('ill_item_code') or 'Configured' }}
 												{% if cf_details.get('is_multi_segment') %}
@@ -248,13 +249,10 @@ Also handles new schedule creation when is_new is True
 												</button>
 											</div>
 											{% endif %}
-											<!-- Length in inches -->
-											{% if cf_details.get('manufacturable_length_inches') %}
-											<div class="small text-muted mt-1">
-												<i class="fa fa-arrows-h"></i> Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"</strong>
-												{% if cf_details.get('is_multi_segment') %}
-													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
-												{% endif %}
+											<!-- Environment Rating -->
+											{% if cf_details.get('environment_rating') %}
+											<div class="small text-muted">
+												<i class="fa fa-tint"></i> Environment: {{ cf_details.get('environment_rating') }}
 											</div>
 											{% endif %}
 											<!-- CCT -->
@@ -269,43 +267,70 @@ Also handles new schedule creation when is_new is True
 												<i class="fa fa-star"></i> CRI: {{ cf_details.get('cri') }}
 											</div>
 											{% endif %}
-											<!-- Delivered Lumens -->
+											<!-- Output (Delivered Lumens) -->
 											{% if cf_details.get('estimated_delivered_output') %}
 											<div class="small text-muted">
 												<i class="fa fa-lightbulb-o"></i> Output: {{ cf_details.get('estimated_delivered_output') }} lm/ft
 											</div>
 											{% endif %}
-											<!-- Wattage -->
-											{% if cf_details.get('total_watts') %}
+											<!-- Lens -->
+											{% if cf_details.get('lens_appearance') %}
 											<div class="small text-muted">
-												<i class="fa fa-bolt"></i> Power: {{ cf_details.get('total_watts') }}W est.
+												<i class="fa fa-eye"></i> Lens: {{ cf_details.get('lens_appearance') }}
 											</div>
 											{% endif %}
-											<!-- Fixture Input Voltage -->
-											{% if cf_details.get('fixture_input_voltage') %}
+											<!-- Mounting -->
+											{% if cf_details.get('mounting_method') %}
 											<div class="small text-muted">
-												<i class="fa fa-flash"></i> Fixture Voltage: {{ cf_details.get('fixture_input_voltage') }}
-											</div>
-											{% endif %}
-											<!-- Driver Input Voltage -->
-											{% if cf_details.get('driver_input_voltage') %}
-											<div class="small text-muted">
-												<i class="fa fa-plug"></i> PS Input: {{ cf_details.get('driver_input_voltage') }}
-											</div>
-											{% endif %}
-											<!-- Power Supply Details -->
-											{% if cf_details.get('power_supply') %}
-											<div class="small text-muted">
-												<i class="fa fa-battery-full"></i> Power Supply: {{ cf_details.get('power_supply') }}
-												{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %}
-												<span class="badge badge-secondary ml-1">{{ cf_details.get('power_supply_qty') }} units</span>
-												{% endif %}
+												<i class="fa fa-wrench"></i> Mounting: {{ cf_details.get('mounting_method') }}
 											</div>
 											{% endif %}
 											<!-- Finish -->
 											{% if cf_details.get('finish') %}
 											<div class="small text-muted">
 												<i class="fa fa-paint-brush"></i> Finish: {{ cf_details.get('finish') }}
+											</div>
+											{% endif %}
+											<!-- Length -->
+											{% if cf_details.get('manufacturable_length_inches') %}
+											<div class="small text-muted">
+												<i class="fa fa-arrows-h"></i> Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"</strong>
+												{% if cf_details.get('is_multi_segment') %}
+													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
+												{% endif %}
+											</div>
+											{% endif %}
+											<!-- Feed -->
+											{% if cf_details.get('power_feed_type') %}
+											<div class="small text-muted">
+												<i class="fa fa-sign-in"></i> Feed: {{ cf_details.get('power_feed_type') }}
+											</div>
+											{% endif %}
+											<!-- Input Voltage (Fixture Voltage) -->
+											{% if cf_details.get('fixture_input_voltage') %}
+											<div class="small text-muted">
+												<i class="fa fa-flash"></i> Input Voltage: {{ cf_details.get('fixture_input_voltage') }}
+											</div>
+											{% endif %}
+											<!-- PS Input Voltage (Driver Input Voltage) -->
+											{% if cf_details.get('driver_input_voltage') %}
+											<div class="small text-muted">
+												<i class="fa fa-plug"></i> PS Input Voltage: {{ cf_details.get('driver_input_voltage') }}
+											</div>
+											{% endif %}
+											<!-- Wattage / Power -->
+											{% if cf_details.get('total_watts') %}
+											<div class="small text-muted">
+												<i class="fa fa-bolt"></i> Power: {{ cf_details.get('total_watts') }}W
+											</div>
+											{% endif %}
+											<!-- Driver / Power Supply -->
+											{% if cf_details.get('power_supply') %}
+											<div class="small text-muted">
+												<i class="fa fa-battery-full"></i> Driver: {{ cf_details.get('power_supply') }}
+												{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %}
+												<span class="badge badge-secondary ml-1">{{ cf_details.get('power_supply_qty') }} units</span>
+												{% endif %}
 											</div>
 											{% endif %}
 											<!-- Show message if no details available -->
