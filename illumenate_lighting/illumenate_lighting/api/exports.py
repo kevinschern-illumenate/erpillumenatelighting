@@ -27,6 +27,7 @@ from frappe.utils.file_manager import save_file
 
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
+MM_PER_INCH = 25.4
 
 
 def _check_schedule_access(schedule_name: str, user: str = None) -> tuple[bool, str | None]:
@@ -476,7 +477,6 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		"th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }",
 		"th { background-color: #f5f5f5; font-weight: bold; }",
 		".col-fixture-type { width: 50px; text-align: center; }",
-		".col-notes { width: 20%; }",
 		".text-right { text-align: right; }",
 		".total-row { font-weight: bold; background-color: #f0f0f0; }",
 		".other-manufacturer { background-color: #fffbe6; }",
@@ -503,7 +503,6 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	html_parts.append("<th>Qty</th>")
 	html_parts.append("<th>Location</th>")
 	html_parts.append("<th>Description</th>")
-	html_parts.append("<th class='col-notes'>Notes</th>")
 	if include_pricing:
 		html_parts.append("<th class='text-right'>Unit Price</th>")
 		html_parts.append("<th class='text-right'>Line Total</th>")
@@ -612,7 +611,6 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 				description += f"<br><small>Spec Sheet: {line['spec_sheet']}</small>"
 
 		html_parts.append(f"<td>{description}</td>")
-		html_parts.append(f"<td>{line['notes']}</td>")
 
 		if include_pricing:
 			unit_price = line.get("unit_price", 0)
@@ -625,7 +623,7 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# Total row for priced exports
 	if include_pricing:
 		schedule_total = schedule_data.get("schedule_total", 0)
-		colspan = 7
+		colspan = 6
 		html_parts.append(f"<tr class='total-row'>")
 		html_parts.append(f"<td colspan='{colspan}' class='text-right'>Schedule Total:</td>")
 		html_parts.append(f"<td class='text-right'>${schedule_total:.2f}</td>")
@@ -668,8 +666,8 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"CRI",
 		"Output (lm/ft)",
 		"Driver",
-		"Requested Length (mm)",
-		"Manufacturable Length (mm)",
+		"Requested Length (in)",
+		"Manufacturable Length (in)",
 		"Runs Count",
 		"Notes",
 		# Other manufacturer fields
@@ -693,6 +691,10 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 	schedule_name = schedule.schedule_name
 
 	for line in lines:
+		# Convert lengths from mm to inches for display
+		requested_length_in = round(line["requested_length_mm"] / MM_PER_INCH, 1) if line.get("requested_length_mm") else ""
+		manufacturable_length_in = round(line["manufacturable_length_mm"] / MM_PER_INCH, 1) if line.get("manufacturable_length_mm") else ""
+		
 		row = [
 			project_name,
 			schedule_name,
@@ -705,8 +707,8 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line.get("cri", ""),
 			line.get("estimated_delivered_output", ""),
 			line.get("power_supply", ""),
-			line["requested_length_mm"],
-			line["manufacturable_length_mm"],
+			requested_length_in,
+			manufacturable_length_in,
 			line.get("runs_count", ""),
 			line["notes"],
 			# Other manufacturer fields

@@ -361,8 +361,11 @@ function displayResults(result) {
         // otherwise fall back to segments_count (count of computed manufacturing segments)
         var segCount = result.computed.user_segment_count !== undefined ? result.computed.user_segment_count : result.computed.segment_count;
         $("#segmentCount").text(segCount);
-        $("#totalLength").text(result.computed.total_requested_length_mm + ' mm');
-        $("#totalTape").text(result.computed.total_tape_length_mm + ' mm');
+        // Display lengths in inches for US market (with mm in parentheses)
+        var totalLengthIn = result.computed.total_requested_length_in || (result.computed.total_requested_length_mm / MM_PER_INCH).toFixed(1);
+        var totalTapeIn = result.computed.total_tape_length_in || (result.computed.total_tape_length_mm / MM_PER_INCH).toFixed(1);
+        $("#totalLength").text(totalLengthIn + '" (' + result.computed.total_requested_length_mm + ' mm)');
+        $("#totalTape").text(totalTapeIn + '" (' + result.computed.total_tape_length_mm + ' mm)');
         $("#totalRuns").text(result.computed.runs_count);
         $("#totalWatts").text(result.computed.total_watts + ' W');
         $("#assemblyMode").text(result.computed.assembly_mode);

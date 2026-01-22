@@ -112,6 +112,12 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+    add_inch_values_to_computed,
+    inches_to_mm,
+    mm_to_inches,
+)
+
 # Engine version - used for tracking configuration computation version
 ENGINE_VERSION = "1.0.0"
 
@@ -399,7 +405,108 @@ def validate_and_quote(
 
 	response["configured_fixture_id"] = fixture_id
 
+	# Add inch values to computed results for US market display
+	response["computed"] = add_inch_values_to_computed(response["computed"])
+
 	return response
+
+
+@frappe.whitelist()
+def validate_and_quote_inches(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	endcap_color_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	requested_overall_length_in: float,
+	dimming_protocol_code: str = None,
+	qty: int = 1,
+) -> dict[str, Any]:
+	"""
+	Validate and quote a fixture configuration with length input in inches.
+
+	This is a convenience wrapper around validate_and_quote that accepts
+	the requested length in inches instead of millimeters, making it easier
+	for US market users to work with familiar units.
+
+	The length is converted to mm internally, and the response includes
+	both mm and inch values for all computed dimensions.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		finish_code: Finish option code
+		lens_appearance_code: Lens appearance option code
+		mounting_method_code: Mounting method option code
+		endcap_style_start_code: Endcap style option code for start end
+		endcap_style_end_code: Endcap style option code for end end
+		endcap_color_code: Endcap color option code
+		power_feed_type_code: Power feed type option code
+		environment_rating_code: Environment rating option code
+		tape_offering_id: Tape offering ID or code
+		requested_overall_length_in: Requested overall length in INCHES
+		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
+		qty: Quantity (default: 1)
+
+	Returns:
+		dict: Response with validation status, computed values (in both mm and inches),
+		      resolved items, pricing, and configured fixture ID
+	"""
+	# Convert inches to mm
+	try:
+		requested_overall_length_in = float(requested_overall_length_in)
+		requested_overall_length_mm = inches_to_mm(requested_overall_length_in, round_to_int=True)
+		if not requested_overall_length_mm or requested_overall_length_mm <= 0:
+			return {
+				"is_valid": False,
+				"messages": [
+					{
+						"severity": "error",
+						"text": "Requested length must be greater than 0 inches",
+						"field": "requested_overall_length_in",
+					}
+				],
+				"computed": None,
+				"resolved_items": None,
+				"pricing": None,
+				"configured_fixture_id": None,
+			}
+	except (ValueError, TypeError):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "Invalid numeric value for requested_overall_length_in",
+					"field": "requested_overall_length_in",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+		}
+
+	# Delegate to the main function with mm value
+	return validate_and_quote(
+		fixture_template_code=fixture_template_code,
+		finish_code=finish_code,
+		lens_appearance_code=lens_appearance_code,
+		mounting_method_code=mounting_method_code,
+		endcap_style_start_code=endcap_style_start_code,
+		endcap_style_end_code=endcap_style_end_code,
+		endcap_color_code=endcap_color_code,
+		power_feed_type_code=power_feed_type_code,
+		environment_rating_code=environment_rating_code,
+		tape_offering_id=tape_offering_id,
+		requested_overall_length_mm=requested_overall_length_mm,
+		dimming_protocol_code=dimming_protocol_code,
+		qty=qty,
+	)
 
 
 @frappe.whitelist()
@@ -931,6 +1038,9 @@ def validate_and_quote_multisegment(
 			"text": "Multi-segment configuration validated successfully",
 			"field": None,
 		})
+
+	# Add inch values to computed results for US market display
+	response["computed"] = add_inch_values_to_computed(response["computed"])
 
 	return response
 

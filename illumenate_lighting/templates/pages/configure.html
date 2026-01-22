@@ -1253,8 +1253,11 @@ function displayResults(result) {
 	// Display length results
 	if (result.computed) {
 		$('#lengthResults').show();
-		$('#requestedLength').text(result.computed.total_requested_length_mm + ' mm');
-		$('#mfgLength').text(result.computed.manufacturable_overall_length_mm + ' mm');
+		// Display lengths in inches for US market (with mm in parentheses)
+		var requestedIn = result.computed.total_requested_length_in || (result.computed.total_requested_length_mm / MM_PER_INCH).toFixed(1);
+		var mfgIn = result.computed.manufacturable_overall_length_in || (result.computed.manufacturable_overall_length_mm / MM_PER_INCH).toFixed(1);
+		$('#requestedLength').text(requestedIn + '" (' + result.computed.total_requested_length_mm + ' mm)');
+		$('#mfgLength').text(mfgIn + '" (' + result.computed.manufacturable_overall_length_mm + ' mm)');
 		$('#segmentCountResult').text(result.computed.user_segment_count);
 		
 		$('#manufacturingResults').show();
@@ -1283,7 +1286,8 @@ function displayResults(result) {
 			runsHtml += '</tr></thead><tbody>';
 			
 			result.computed.runs.forEach(function(run) {
-				var lengthIn = (run.run_len_mm / MM_PER_INCH).toFixed(1);
+				// Use pre-computed inch value if available, otherwise calculate
+				var lengthIn = run.run_len_in || (run.run_len_mm / MM_PER_INCH).toFixed(1);
 				var lengthFt = (run.run_len_mm / MM_PER_FOOT).toFixed(2);
 				runsHtml += '<tr>';
 				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
