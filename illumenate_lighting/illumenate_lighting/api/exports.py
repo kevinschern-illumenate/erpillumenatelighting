@@ -299,7 +299,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				"name", "fixture_template", "finish", "lens_appearance",
 				"mounting_method", "power_feed_type", "environment_rating",
 				"requested_overall_length_mm", "manufacturable_overall_length_mm",
-				"runs_count", "tape_offering",
+				"runs_count", "tape_offering", "is_multi_segment", "build_description",
 			],
 		)
 		for f in fixtures:
@@ -367,6 +367,8 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				line_data["fixture_input_voltage"] = fixture.get("fixture_input_voltage", "")
 				line_data["driver_input_voltage"] = fixture.get("driver_input_voltage", "")
 				line_data["total_watts"] = fixture.get("total_watts", "")
+				line_data["is_multi_segment"] = fixture.get("is_multi_segment", 0)
+				line_data["build_description"] = fixture.get("build_description", "")
 
 				if include_pricing and fixture.get("latest_msrp_unit"):
 					unit_price = fixture["latest_msrp_unit"]
@@ -564,8 +566,12 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 				length_inches = mfg_length_mm / 25.4
 				description += f"<br><small>Length: {length_inches:.1f}\"</small>"
 
-			# Feed
-			if line.get("power_feed_type"):
+			# Feed or Build Description (show Build Description for jumpered fixtures instead of Feed)
+			if line.get("is_multi_segment") and line.get("build_description"):
+				# For jumpered fixtures, show build description instead of feed
+				build_desc = line.get("build_description", "").replace("\n", "; ")
+				description += f"<br><small>Build: {build_desc}</small>"
+			elif line.get("power_feed_type"):
 				description += f"<br><small>Feed: {line['power_feed_type']}</small>"
 
 			# Input Voltage (fixture/tape voltage)

@@ -300,8 +300,12 @@ Also handles new schedule creation when is_new is True
 												{% endif %}
 											</div>
 											{% endif %}
-											<!-- Feed -->
-											{% if cf_details.get('power_feed_type') %}
+											<!-- Feed or Build Description (show Build Description for jumpered fixtures instead of Feed) -->
+											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
+											<div class="small text-muted">
+												<i class="fa fa-link"></i> Build: {{ cf_details.get('build_description') | replace('\n', '; ') }}
+											</div>
+											{% elif cf_details.get('power_feed_type') %}
 											<div class="small text-muted">
 												<i class="fa fa-sign-in"></i> Feed: {{ cf_details.get('power_feed_type') }}
 											</div>
