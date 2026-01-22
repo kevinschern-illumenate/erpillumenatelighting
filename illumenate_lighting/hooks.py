@@ -87,6 +87,7 @@ website_route_rules = [
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
 	{"from_route": "/portal/configure-webflow", "to_route": "configure_webflow"},
 	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
+	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
