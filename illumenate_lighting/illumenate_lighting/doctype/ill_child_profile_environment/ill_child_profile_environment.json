@@ -1,7 +1,6 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:environment_rating",
  "creation": "2026-01-07 12:15:43.553758",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -16,9 +15,10 @@
   {
    "fieldname": "environment_rating",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Environment Rating",
    "options": "ilL-Attribute-Environment Rating",
-   "unique": 1
+   "reqd": 1
   },
   {
    "default": "0",
@@ -44,7 +44,7 @@
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Profile Environment",
- "naming_rule": "By fieldname",
+ "naming_rule": "random",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",
