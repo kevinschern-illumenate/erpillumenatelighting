@@ -38,6 +38,33 @@ class ilLProjectFixtureSchedule(Document):
 			if not self.customer or self.customer != project.customer:
 				self.customer = project.customer
 
+		# Validate that all ILLUMENATE lines are configured before READY status
+		self._validate_configuration_status()
+
+	def _validate_configuration_status(self):
+		"""
+		Validate that all ILLUMENATE lines have configured fixtures
+		before allowing status to be set to READY or beyond.
+		"""
+		if self.status not in ["READY", "QUOTED", "ORDERED"]:
+			return
+
+		unconfigured_lines = []
+		for line in self.lines:
+			if line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture:
+				line_id = line.line_id or f"Row {line.idx}"
+				unconfigured_lines.append(line_id)
+
+		if unconfigured_lines:
+			frappe.throw(
+				_("Cannot set status to {0}. The following ilLumenate lines are not fully configured: {1}. "
+				  "Please configure all fixtures before proceeding.").format(
+					self.status,
+					", ".join(unconfigured_lines)
+				),
+				title=_("Unconfigured Fixtures")
+			)
+
 	@frappe.whitelist()
 	def create_sales_order(self):
 		"""

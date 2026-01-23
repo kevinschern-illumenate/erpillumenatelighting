@@ -36,6 +36,7 @@
   "computed_outputs_section",
   "runs_count",
   "total_watts",
+  "estimated_delivered_output",
   "user_segment_count",
   "column_break_computed",
   "assembly_mode",
@@ -67,7 +68,11 @@
   "drivers_section",
   "drivers",
   "pricing_section",
-  "pricing_snapshot"
+  "pricing_snapshot",
+  "spec_documents_section",
+  "spec_sheet_link",
+  "column_break_spec_docs",
+  "spec_submittal"
  ],
  "fields": [
   {
@@ -240,6 +245,13 @@
    "fieldname": "total_watts",
    "fieldtype": "Float",
    "label": "Total Watts"
+  },
+  {
+   "description": "Estimated delivered lumens per foot (tape output × lens transmission %)",
+   "fieldname": "estimated_delivered_output",
+   "fieldtype": "Float",
+   "label": "Est. Delivered Output (lm/ft)",
+   "read_only": 1
   },
   {
    "description": "Number of user-defined segments in the fixture",
@@ -424,6 +436,30 @@
    "fieldtype": "Table",
    "label": "Pricing Snapshot",
    "options": "ilL-Child-Pricing-Snapshot"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "spec_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Documents"
+  },
+  {
+   "description": "Link to the spec sheet from the fixture template",
+   "fetch_from": "fixture_template.spec_sheet",
+   "fieldname": "spec_sheet_link",
+   "fieldtype": "Data",
+   "label": "Spec Sheet Link",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_spec_docs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Generated spec submittal PDF with filled form fields",
+   "fieldname": "spec_submittal",
+   "fieldtype": "Attach",
+   "label": "Spec Submittal"
   }
  ],
  "grid_page_length": 50,

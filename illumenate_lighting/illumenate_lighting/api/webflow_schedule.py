@@ -62,15 +62,20 @@ def add_to_schedule(
     if not product_slug:
         return {"success": False, "error": "Missing product_slug in configuration"}
     
-    if not frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
-        return {"success": False, "error": f"Product not found: {product_slug}"}
+    # First try to find a Webflow product
+    template = None
+    product = None
+    if frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
+        product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+        if product.fixture_template:
+            template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
     
-    product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+    # Fallback: treat product_slug as a fixture template code
+    if not template and frappe.db.exists("ilL-Fixture-Template", product_slug):
+        template = frappe.get_doc("ilL-Fixture-Template", product_slug)
     
-    if not product.fixture_template:
-        return {"success": False, "error": "Product has no fixture template"}
-    
-    template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
+    if not template:
+        return {"success": False, "error": f"Product or template not found: {product_slug}"}
     
     # Resolve tape offering from selections
     from illumenate_lighting.illumenate_lighting.api.webflow_configurator import _resolve_tape_offering
@@ -99,7 +104,7 @@ def add_to_schedule(
         from illumenate_lighting.illumenate_lighting.api.configurator_engine import validate_and_quote
         
         engine_result = validate_and_quote(
-            fixture_template_code=product.fixture_template,
+            fixture_template_code=template.name,
             finish_code=config.get("finish"),
             lens_appearance_code=config.get("lens_appearance"),
             mounting_method_code=config.get("mounting_method"),
@@ -120,6 +125,12 @@ def add_to_schedule(
             }
         
         configured_fixture_id = engine_result.get("configured_fixture_id")
+        
+        if not configured_fixture_id:
+            return {
+                "success": False,
+                "error": "Configuration engine did not create a fixture"
+            }
         
     except ImportError:
         # Configurator engine not available - create fixture directly
@@ -142,16 +153,13 @@ def add_to_schedule(
         fixture_type_id = _get_next_fixture_type_id(schedule)
     
     # Add line to schedule
-    line = schedule.append("fixture_lines", {
-        "fixture_type_id": fixture_type_id,
+    line = schedule.append("lines", {
+        "line_id": fixture_type_id,
         "configured_fixture": configured_fixture_id,
-        "quantity": quantity,
-        "part_number": part_number,
+        "qty": quantity,
+        "manufacturer_type": "ILLUMENATE",
         "notes": notes or "",
-        "webflow_product_slug": product_slug,
-        "configuration_json": json.dumps(config),
-        "created_from": "Webflow Configurator",
-        "created_at": now_datetime()
+        "ill_item_code": part_number,
     })
     
     schedule.save()
@@ -385,9 +393,9 @@ def _get_next_fixture_type_id(schedule) -> str:
     """
     existing_ids = set()
     
-    for line in getattr(schedule, 'fixture_lines', []) or []:
-        if getattr(line, 'fixture_type_id', None):
-            existing_ids.add(line.fixture_type_id)
+    for line in getattr(schedule, 'lines', []) or []:
+        if getattr(line, 'line_id', None):
+            existing_ids.add(line.line_id)
     
     # Generate next ID
     for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
@@ -524,8 +532,8 @@ def remove_line(line_name: str) -> dict:
         return {"success": False, "error": "Permission denied"}
     
     # Remove line
-    schedule.fixture_lines = [
-        l for l in schedule.fixture_lines if l.name != line_name
+    schedule.lines = [
+        l for l in schedule.lines if l.name != line_name
     ]
     schedule.save()
     frappe.db.commit()

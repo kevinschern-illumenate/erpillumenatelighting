@@ -189,16 +189,21 @@ Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Lengt
 }
 
 /* Hidden select for mobile fallback */
-.option-group .select-fallback {
+.config-section .select-fallback {
 	display: none;
 }
 @media (max-width: 767.98px) {
-	.option-group .pill-selector {
+	.config-section .pill-selector {
 		display: none !important;
 	}
-	.option-group .select-fallback {
+	.config-section .select-fallback {
 		display: block !important;
 	}
+}
+
+/* Output section hidden until lens selected */
+#outputSection.awaiting-lens {
+	display: none !important;
 }
 </style>
 {% endblock %}
@@ -311,9 +316,10 @@ Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Lengt
 								<select class="form-control select-fallback" name="cct"></select>
 							</div>
 							
-							<!-- Section 3: Output -->
-							<div class="config-section" id="outputSection" style="display: none;">
+							<!-- Section 3: Output (hidden until lens is selected) -->
+							<div class="config-section awaiting-lens" id="outputSection" style="display: none;">
 								<h4>{{ _("Output") }}</h4>
+								<p class="text-muted small mb-2" id="outputHint">{{ _("Select a lens first to see available output levels") }}</p>
 								<div class="pill-selector" data-field="output_level"></div>
 								<select class="form-control select-fallback" name="output_level"></select>
 							</div>

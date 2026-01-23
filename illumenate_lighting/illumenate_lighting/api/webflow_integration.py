@@ -253,10 +253,12 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 				as_dict=True
 			)
 			if lens_data:
+				# Transmission is stored as decimal (0.56 = 56%), convert to percent for API
+				trans_pct = (lens_data.transmission or 1.0) * 100
 				attributes["lens"] = {
 					"name": lens_data.label,
 					"code": lens_data.code,
-					"transmission_percent": lens_data.transmission or 100,
+					"transmission_percent": trans_pct,
 				}
 		
 		# Mounting Method

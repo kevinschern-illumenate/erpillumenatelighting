@@ -189,11 +189,22 @@ def get_cascading_options(
         result["clear_selections"] = ["cct", "output_level"]
     
     elif step_name == "cct" and env and cct:
-        # Update Output options (filtered by environment + CCT)
-        result["updated_options"]["output_levels"] = _get_output_levels_for_cct(
-            template, env, cct
+        # Update Output options (filtered by environment + CCT + lens)
+        lens = selections_dict.get("lens_appearance")
+        result["updated_options"]["output_levels"] = _get_output_levels_with_transmission(
+            template, env, cct, lens
         )
         result["clear_selections"] = ["output_level"]
+    
+    elif step_name == "lens_appearance":
+        # When lens changes, recalculate output levels with new transmission
+        lens = selections_dict.get("lens_appearance")
+        if env and cct:
+            result["updated_options"]["output_levels"] = _get_output_levels_with_transmission(
+                template, env, cct, lens
+            )
+            # Clear output selection since delivered values changed
+            result["clear_selections"] = ["output_level"]
     
     # Generate part number preview
     series_info = _get_series_info(template)
@@ -462,7 +473,7 @@ def _get_series_info(template) -> dict:
         pkg_data = frappe.db.get_value(
             "ilL-Attribute-LED Package",
             primary_led_pkg,
-            ["name", "code", "spectrum_type", "description"],
+            ["name", "code", "spectrum_type"],
             as_dict=True
         )
         if pkg_data:
@@ -591,6 +602,117 @@ def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
     return sorted(result, key=lambda x: x.get("numeric_value", 0))
 
 
+def _get_output_levels_with_transmission(template, environment: str, cct: str, lens_appearance: Optional[str] = None) -> list:
+    """
+    Get output levels as delivered lumens (tape output × lens transmission).
+    
+    This calculates the actual fixture output (delivered lumens) by:
+    1. Finding compatible tapes for environment + CCT
+    2. Getting lens transmission (decimal, e.g., 0.56 = 56%)
+    3. Calculating delivered output = tape output × transmission
+    4. Matching to fixture-level output levels
+    
+    Args:
+        template: The fixture template document
+        environment: Selected environment rating name
+        cct: Selected CCT name
+        lens_appearance: Selected lens appearance name (optional)
+    
+    Returns:
+        list: Output options with delivered lumen values
+    """
+    # Get lens transmission as decimal (stored as 0.56 = 56%)
+    lens_transmission = 1.0  # Default to 100% if no lens selected
+    if lens_appearance:
+        transmission = frappe.db.get_value(
+            "ilL-Attribute-Lens Appearance", lens_appearance, "transmission"
+        )
+        if transmission:
+            lens_transmission = float(transmission)
+    
+    # Get fixture-level output levels for matching
+    fixture_output_levels = frappe.get_all(
+        "ilL-Attribute-Output Level",
+        filters={"is_fixture_level": 1},
+        fields=["name", "value", "sku_code"],
+        order_by="value asc"
+    )
+    
+    # Get compatible tape offerings and their output levels
+    tape_output_data = {}  # output_level_name -> tape_output_value
+    
+    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+        if not getattr(tape_row, 'is_active', True):
+            continue
+        if getattr(tape_row, 'environment_rating', None) != environment:
+            continue
+        
+        tape_offering = getattr(tape_row, 'tape_offering', None)
+        if not tape_offering:
+            continue
+        
+        offering_data = frappe.db.get_value(
+            "ilL-Rel-Tape Offering",
+            tape_offering,
+            ["cct", "output_level"],
+            as_dict=True
+        )
+        
+        if offering_data and offering_data.get("cct") == cct and offering_data.get("output_level"):
+            output_level_name = offering_data.get("output_level")
+            if output_level_name not in tape_output_data:
+                # Get the tape's output level value
+                level_data = frappe.db.get_value(
+                    "ilL-Attribute-Output Level",
+                    output_level_name,
+                    ["name", "value", "sku_code"],
+                    as_dict=True
+                )
+                if level_data:
+                    tape_output_data[output_level_name] = level_data
+    
+    if not tape_output_data:
+        return []
+    
+    # Calculate delivered outputs and match to fixture-level output levels
+    result = []
+    seen_fixture_levels = set()  # Avoid duplicates if multiple tapes map to same fixture level
+    
+    for output_level_name, level_data in tape_output_data.items():
+        tape_output_value = level_data.get("value") or 0
+        # Calculate delivered lumens: tape output × transmission (decimal)
+        delivered_lm_ft = tape_output_value * lens_transmission
+        
+        # If fixture-level output levels exist, find closest match
+        if fixture_output_levels:
+            closest = min(fixture_output_levels, key=lambda x: abs((x.value or 0) - delivered_lm_ft))
+            if closest.name not in seen_fixture_levels:
+                seen_fixture_levels.add(closest.name)
+                result.append({
+                    "value": output_level_name,  # Original tape output level for tape selection
+                    "label": f"{closest.value} lm/ft",  # Displayed as delivered (fixture) output
+                    "numeric_value": closest.value,
+                    "sku_code": closest.sku_code or level_data.get("sku_code"),
+                    "tape_output_lm_ft": tape_output_value,
+                    "delivered_lm_ft": closest.value,
+                    "transmission_pct": round(lens_transmission * 100, 1)
+                })
+        else:
+            # No fixture levels defined, use raw delivered output
+            delivered_rounded = int(round(delivered_lm_ft))
+            result.append({
+                "value": output_level_name,
+                "label": f"{delivered_rounded} lm/ft",
+                "numeric_value": delivered_rounded,
+                "sku_code": level_data.get("sku_code"),
+                "tape_output_lm_ft": tape_output_value,
+                "delivered_lm_ft": delivered_rounded,
+                "transmission_pct": round(lens_transmission * 100, 1)
+            })
+    
+    return sorted(result, key=lambda x: x.get("numeric_value", 0))
+
+
 def _get_lens_appearances(template) -> list:
     """Get lens appearances with transmission percentages."""
     result = []
@@ -608,17 +730,24 @@ def _get_lens_appearances(template) -> list:
                 as_dict=True
             )
             if lens:
-                transmission = lens.get("transmission") or 100
+                # Transmission is stored as decimal (0.56 = 56%), convert to percentage for display
+                transmission_decimal = lens.get("transmission")
+                if transmission_decimal:
+                    transmission_pct = transmission_decimal * 100
+                else:
+                    transmission_pct = 100  # Default to 100% if not set
+                
                 label = f"{lens.name}"
-                if transmission < 100:
-                    label += f" - {transmission:.0f}% transmission"
+                if transmission_pct < 100:
+                    label += f" - {transmission_pct:.0f}% transmission"
                 
                 result.append({
                     "value": lens.name,
                     "label": label,
                     "short_label": lens.name,
                     "code": lens.get("code"),
-                    "transmission_pct": transmission,
+                    "transmission_pct": transmission_pct,
+                    "transmission_decimal": transmission_decimal or 1.0,
                     "is_default": getattr(opt, 'is_default', False)
                 })
     
@@ -776,9 +905,46 @@ def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
         "selected": bool(selections.get("cct"))
     })
     
-    # Output
+    # Output - Calculate fixture-level output (tape output × lens transmission)
     output_code = "xx"
-    if selections.get("output_level"):
+    if selections.get("output_level") and selections.get("lens_appearance"):
+        # Get tape output level data
+        tape_output_data = frappe.db.get_value(
+            "ilL-Attribute-Output Level",
+            selections["output_level"],
+            ["value", "sku_code"],
+            as_dict=True
+        )
+        tape_output_value = (tape_output_data.get("value") if tape_output_data else 0) or 0
+        tape_output_sku = (tape_output_data.get("sku_code") if tape_output_data else None)
+        
+        # Get lens transmission as decimal (0.56 = 56%)
+        lens_transmission = frappe.db.get_value(
+            "ilL-Attribute-Lens Appearance",
+            selections["lens_appearance"],
+            "transmission"
+        ) or 1.0
+        
+        # Calculate fixture output = tape output × transmission (decimal)
+        fixture_output_value = int(round(tape_output_value * lens_transmission))
+        
+        # Find closest fixture-level output level
+        fixture_output_levels = frappe.get_all(
+            "ilL-Attribute-Output Level",
+            filters={"is_fixture_level": 1},
+            fields=["name", "value", "sku_code"],
+            order_by="value asc"
+        )
+        
+        if fixture_output_levels:
+            # Find closest match by value
+            closest = min(fixture_output_levels, key=lambda x: abs((x.value or 0) - fixture_output_value))
+            output_code = closest.sku_code or "xx"
+        elif tape_output_sku:
+            # Fallback: no fixture-level outputs defined, use tape output sku_code
+            output_code = tape_output_sku
+    elif selections.get("output_level"):
+        # Fallback: if no lens selected yet, use tape output level code
         output_code = frappe.db.get_value(
             "ilL-Attribute-Output Level",
             selections["output_level"],
@@ -976,19 +1142,43 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
 # =============================================================================
 
 def _get_configurable_product(product_slug: str):
-    """Get a configurable Webflow product by slug."""
-    if not frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
-        return None
+    """
+    Get a configurable Webflow product by slug, or create a virtual product
+    from a fixture template code if no product exists.
     
-    product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+    This allows the configurator to work with:
+    1. Webflow products (product_slug matches ilL-Webflow-Product.product_slug)
+    2. Direct template codes (product_slug matches ilL-Fixture-Template.name)
+    """
+    # First, try to find a Webflow product
+    if frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
+        product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+        
+        is_configurable = getattr(product, 'is_configurable', False)
+        fixture_template = getattr(product, 'fixture_template', None)
+        
+        if is_configurable and fixture_template:
+            return product
     
-    is_configurable = getattr(product, 'is_configurable', False)
-    fixture_template = getattr(product, 'fixture_template', None)
+    # Fallback: treat product_slug as a fixture template code
+    if frappe.db.exists("ilL-Fixture-Template", product_slug):
+        template = frappe.get_doc("ilL-Fixture-Template", product_slug)
+        
+        # Create a virtual product-like object for compatibility
+        class VirtualProduct:
+            pass
+        
+        virtual = VirtualProduct()
+        virtual.product_slug = product_slug
+        virtual.product_name = template.template_name
+        virtual.fixture_template = template.name
+        virtual.is_configurable = True
+        virtual.min_length_mm = getattr(template, 'min_length_mm', None)
+        virtual.max_length_mm = getattr(template, 'max_length_mm', None)
+        
+        return virtual
     
-    if not is_configurable or not fixture_template:
-        return None
-    
-    return product
+    return None
 
 
 def _calculate_pricing_preview(template, selections: dict, tape_offering_id: str) -> dict:

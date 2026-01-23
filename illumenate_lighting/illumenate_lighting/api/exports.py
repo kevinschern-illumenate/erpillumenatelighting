@@ -24,9 +24,12 @@ from frappe import _
 from frappe.utils import now, nowdate
 from frappe.utils.file_manager import save_file
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
+
 
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
+MM_PER_INCH = 25.4
 
 
 def _check_schedule_access(schedule_name: str, user: str = None) -> tuple[bool, str | None]:
@@ -67,6 +70,7 @@ def _check_pricing_permission(user: str = None) -> bool:
 	- System Manager role
 	- Administrator user
 	- Users with 'Can View Pricing' role (custom role)
+	- Users with 'Dealer' role
 
 	Args:
 		user: User to check (defaults to current user)
@@ -84,6 +88,10 @@ def _check_pricing_permission(user: str = None) -> bool:
 
 	# Check for custom pricing permission role
 	if "Can View Pricing" in user_roles:
+		return True
+
+	# Dealers have pricing permission
+	if "Dealer" in user_roles:
 		return True
 
 	# Default: portal users without special roles cannot see pricing
@@ -137,6 +145,124 @@ def _update_export_job_status(
 	job.save(ignore_permissions=True)
 
 
+def _get_fixture_export_details(configured_fixture_id: str) -> dict:
+	"""
+	Get fixture details for export.
+
+	Args:
+		configured_fixture_id: Name of the ilL-Configured-Fixture
+
+	Returns:
+		dict: Fixture details including cct, cri, estimated_delivered_output, power_supply,
+		       fixture_input_voltage, driver_input_voltage, total_watts
+	"""
+	try:
+		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+		details = {
+			"total_watts": cf.total_watts if hasattr(cf, "total_watts") else None,
+			"estimated_delivered_output": cf.estimated_delivered_output if hasattr(cf, "estimated_delivered_output") else None,
+		}
+
+		# Get lens transmission as decimal for output calculation (0.56 = 56%)
+		lens_transmission = 1.0
+		if cf.lens_appearance:
+			lens_doc = frappe.db.get_value(
+				"ilL-Attribute-Lens Appearance",
+				cf.lens_appearance,
+				["transmission"],
+				as_dict=True,
+			)
+			if lens_doc and lens_doc.transmission:
+				lens_transmission = lens_doc.transmission
+
+		# Get tape offering details (CCT, CRI, Output Level, Input Voltage)
+		if cf.tape_offering:
+			tape_offering = frappe.db.get_value(
+				"ilL-Rel-Tape Offering",
+				cf.tape_offering,
+				["cct", "output_level", "tape_spec", "cri"],
+				as_dict=True,
+			)
+			if tape_offering:
+				details["cct"] = tape_offering.cct or ""
+
+				# Get CRI display value
+				if tape_offering.cri:
+					cri_doc = frappe.db.get_value(
+						"ilL-Attribute-CRI",
+						tape_offering.cri,
+						["cri_name"],
+						as_dict=True,
+					)
+					if cri_doc:
+						details["cri"] = cri_doc.cri_name or tape_offering.cri
+					else:
+						details["cri"] = tape_offering.cri
+
+				# Get lumens per foot and input voltage from tape spec
+				if tape_offering.tape_spec:
+					tape_spec_data = frappe.db.get_value(
+						"ilL-Spec-LED Tape",
+						tape_offering.tape_spec,
+						["lumens_per_foot", "input_voltage"],
+						as_dict=True,
+					)
+					if tape_spec_data:
+						# Calculate delivered output if not already stored on fixture
+						if not details.get("estimated_delivered_output") and tape_spec_data.lumens_per_foot:
+							delivered = tape_spec_data.lumens_per_foot * lens_transmission
+							details["estimated_delivered_output"] = round(delivered, 1)
+						# Get fixture input voltage (tape voltage)
+						if tape_spec_data.input_voltage:
+							details["fixture_input_voltage"] = tape_spec_data.input_voltage
+
+				# Get output level display name (for reference only)
+				if tape_offering.output_level:
+					output_level_doc = frappe.db.get_value(
+						"ilL-Attribute-Output Level",
+						tape_offering.output_level,
+						["output_level_name"],
+						as_dict=True,
+					)
+					if output_level_doc:
+						details["output_level"] = output_level_doc.output_level_name
+
+		# Get power supply info from drivers child table
+		if cf.drivers:
+			driver_items = []
+			driver_input_voltages = []
+			for driver_alloc in cf.drivers:
+				if driver_alloc.driver_item:
+					# Get driver spec for input voltage
+					driver_spec = frappe.db.get_value(
+						"ilL-Spec-Driver",
+						{"item": driver_alloc.driver_item},
+						["input_voltage"],
+						as_dict=True,
+					)
+
+					driver_qty = driver_alloc.driver_qty or 1
+					if driver_qty > 1:
+						driver_items.append(f"{driver_alloc.driver_item} ({driver_qty})")
+					else:
+						driver_items.append(driver_alloc.driver_item)
+
+					# Collect driver input voltage
+					if driver_spec and driver_spec.input_voltage:
+						driver_input_voltages.append(driver_spec.input_voltage)
+
+			if driver_items:
+				details["power_supply"] = ", ".join(driver_items)
+			if driver_input_voltages:
+				# Remove duplicates and join
+				unique_voltages = list(dict.fromkeys(driver_input_voltages))
+				details["driver_input_voltage"] = ", ".join(unique_voltages)
+
+		return details
+	except Exception:
+		return {}
+
+
 def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dict:
 	"""
 	Gather all data needed for schedule exports.
@@ -176,11 +302,17 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				"name", "fixture_template", "finish", "lens_appearance",
 				"mounting_method", "power_feed_type", "environment_rating",
 				"requested_overall_length_mm", "manufacturable_overall_length_mm",
-				"runs_count",
+				"runs_count", "tape_offering", "is_multi_segment", "build_description",
 			],
 		)
 		for f in fixtures:
 			fixtures_map[f.name] = f
+
+		# Fetch additional fixture details (CCT, CRI, Output, Power Supply)
+		for fixture_id in fixture_ids:
+			if fixture_id in fixtures_map:
+				fixture_details = _get_fixture_export_details(fixture_id)
+				fixtures_map[fixture_id].update(fixture_details)
 
 		# If we need pricing, fetch pricing snapshots separately
 		if include_pricing:
@@ -215,10 +347,31 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			fixture = fixtures_map.get(line.configured_fixture)
 			if fixture:
 				line_data["template_code"] = fixture.fixture_template or ""
+				line_data["configured_fixture_name"] = line.configured_fixture
 				line_data["config_summary"] = _build_config_summary_from_dict(fixture)
 				line_data["requested_length_mm"] = fixture.requested_overall_length_mm or 0
 				line_data["manufacturable_length_mm"] = fixture.manufacturable_overall_length_mm or 0
 				line_data["runs_count"] = fixture.runs_count or 0
+
+				# Add fixture details
+				# Add fixture configuration options
+				line_data["environment_rating"] = fixture.get("environment_rating", "")
+				line_data["finish"] = fixture.get("finish", "")
+				line_data["lens_appearance"] = fixture.get("lens_appearance", "")
+				line_data["mounting_method"] = fixture.get("mounting_method", "")
+				line_data["power_feed_type"] = fixture.get("power_feed_type", "")
+
+				# Add fixture details
+				line_data["cct"] = fixture.get("cct", "")
+				line_data["cri"] = fixture.get("cri", "")
+				line_data["output_level"] = fixture.get("output_level", "")
+				line_data["estimated_delivered_output"] = fixture.get("estimated_delivered_output", "")
+				line_data["power_supply"] = fixture.get("power_supply", "")
+				line_data["fixture_input_voltage"] = fixture.get("fixture_input_voltage", "")
+				line_data["driver_input_voltage"] = fixture.get("driver_input_voltage", "")
+				line_data["total_watts"] = fixture.get("total_watts", "")
+				line_data["is_multi_segment"] = fixture.get("is_multi_segment", 0)
+				line_data["build_description"] = fixture.get("build_description", "")
 
 				if include_pricing and fixture.get("latest_msrp_unit"):
 					unit_price = fixture["latest_msrp_unit"]
@@ -231,6 +384,61 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				line_data["requested_length_mm"] = 0
 				line_data["manufacturable_length_mm"] = line.manufacturable_length_mm or 0
 				line_data["runs_count"] = 0
+
+		elif line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture:
+			# Unconfigured ILLUMENATE fixture - has template but not yet configured
+			line_data["is_unconfigured"] = True
+			line_data["fixture_template"] = line.fixture_template or ""
+			line_data["product_type"] = line.product_type or ""
+			# Try to get the fixture template name
+			if line.fixture_template:
+				template_name = frappe.db.get_value(
+					"ilL-Fixture-Template",
+					line.fixture_template,
+					"template_name"
+				)
+				line_data["fixture_template_name"] = template_name or line.fixture_template
+			else:
+				line_data["fixture_template_name"] = ""
+			line_data["template_code"] = ""
+			line_data["config_summary"] = ""
+			line_data["requested_length_mm"] = 0
+			line_data["manufacturable_length_mm"] = 0
+			line_data["runs_count"] = 0
+
+		elif line.manufacturer_type == "ACCESSORY":
+			# Accessory/Component line - ilLumenate products that aren't configurable fixtures
+			line_data["accessory_product_type"] = line.accessory_product_type or ""
+			line_data["accessory_item"] = line.accessory_item or ""
+			line_data["accessory_item_name"] = line.accessory_item_name or ""
+			# Fetch item description if we have an item
+			if line.accessory_item:
+				item_data = frappe.db.get_value(
+					"Item",
+					line.accessory_item,
+					["item_name", "description"],
+					as_dict=True
+				)
+				if item_data:
+					line_data["accessory_item_name"] = line.accessory_item_name or item_data.item_name or ""
+					line_data["accessory_item_description"] = item_data.description or ""
+				# Try to get pricing if include_pricing
+				if include_pricing:
+					item_price = frappe.db.get_value(
+						"Item Price",
+						{"item_code": line.accessory_item, "selling": 1},
+						"price_list_rate"
+					)
+					if item_price:
+						line_data["unit_price"] = float(item_price)
+						line_data["line_total"] = float(item_price) * (line.qty or 1)
+						schedule_total += line_data["line_total"]
+			line_data["template_code"] = ""
+			line_data["config_summary"] = ""
+			line_data["requested_length_mm"] = 0
+			line_data["manufacturable_length_mm"] = 0
+			line_data["runs_count"] = 0
+
 		else:
 			# Other manufacturer line
 			line_data["template_code"] = ""
@@ -238,9 +446,17 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			line_data["requested_length_mm"] = 0
 			line_data["manufacturable_length_mm"] = 0
 			line_data["runs_count"] = 0
+			# Other manufacturer fields
 			line_data["manufacturer_name"] = line.manufacturer_name or ""
-			line_data["model_number"] = line.model_number or ""
-			line_data["attachments"] = line.attachments or ""
+			line_data["fixture_model_number"] = line.fixture_model_number or ""
+			line_data["trim_info"] = line.trim_info or ""
+			line_data["housing_model_number"] = line.housing_model_number or ""
+			line_data["driver_model_number"] = line.driver_model_number or ""
+			line_data["lamp_info"] = line.lamp_info or ""
+			line_data["dimming_protocol"] = line.dimming_protocol or ""
+			line_data["input_voltage"] = line.input_voltage or ""
+			line_data["other_finish"] = line.other_finish or ""
+			line_data["spec_sheet"] = line.spec_sheet or ""
 
 		lines_data.append(line_data)
 
@@ -269,7 +485,7 @@ def _build_config_summary(fixture) -> str:
 	if fixture.environment_rating:
 		parts.append(f"Env: {fixture.environment_rating}")
 
-	return " | ".join(parts) if parts else ""
+	return "<br>".join(parts) if parts else ""
 
 
 def _build_config_summary_from_dict(fixture: dict) -> str:
@@ -287,7 +503,7 @@ def _build_config_summary_from_dict(fixture: dict) -> str:
 	if fixture.get("environment_rating"):
 		parts.append(f"Env: {fixture['environment_rating']}")
 
-	return " | ".join(parts) if parts else ""
+	return "<br>".join(parts) if parts else ""
 
 
 def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) -> str:
@@ -317,6 +533,7 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		"table { width: 100%; border-collapse: collapse; margin-top: 10px; }",
 		"th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }",
 		"th { background-color: #f5f5f5; font-weight: bold; }",
+		".col-fixture-type { width: 50px; text-align: center; }",
 		".text-right { text-align: right; }",
 		".total-row { font-weight: bold; background-color: #f0f0f0; }",
 		".other-manufacturer { background-color: #fffbe6; }",
@@ -338,14 +555,11 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# Table header
 	html_parts.append("<table>")
 	html_parts.append("<thead><tr>")
-	html_parts.append("<th>Line ID</th>")
+	html_parts.append("<th class='col-fixture-type'>Fixture<br>Type</th>")
 	html_parts.append("<th>Type</th>")
 	html_parts.append("<th>Qty</th>")
 	html_parts.append("<th>Location</th>")
 	html_parts.append("<th>Description</th>")
-	html_parts.append("<th>Req. Length (mm)</th>")
-	html_parts.append("<th>Mfg. Length (mm)</th>")
-	html_parts.append("<th>Notes</th>")
 	if include_pricing:
 		html_parts.append("<th class='text-right'>Unit Price</th>")
 		html_parts.append("<th class='text-right'>Line Total</th>")
@@ -356,25 +570,126 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	for line in lines:
 		row_class = "other-manufacturer" if line["manufacturer_type"] == "OTHER" else ""
 		html_parts.append(f"<tr class='{row_class}'>")
-		html_parts.append(f"<td>{line['line_id']}</td>")
-		html_parts.append(f"<td>{line['manufacturer_type']}</td>")
+		html_parts.append(f"<td class='col-fixture-type'>{line['line_id']}</td>")
+		# Display manufacturer type - ilLumenate Lighting for ILLUMENATE and ACCESSORY, actual manufacturer name for OTHER
+		if line["manufacturer_type"] in ["ILLUMENATE", "ACCESSORY"]:
+			type_display = "ilLumenate Lighting"
+		else:
+			type_display = line.get("manufacturer_name") or "Other"
+		html_parts.append(f"<td>{type_display}</td>")
 		html_parts.append(f"<td>{line['qty']}</td>")
 		html_parts.append(f"<td>{line['location']}</td>")
 
 		# Description column
-		if line["manufacturer_type"] == "ILLUMENATE":
-			description = f"{line['template_code']}"
-			if line["config_summary"]:
-				description += f"<br><small>{line['config_summary']}</small>"
+		if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
+			# Configured ILLUMENATE fixture - Build description in specified order:
+			# Part number, Environment, CCT, CRI, Output, Lens, Mounting, Finish, Length,
+			# Feed, Input Voltage, PS Input Voltage, Wattage, Driver
+			part_number = line.get("configured_fixture_name") or line["template_code"]
+			description = f"<strong>{part_number}</strong>"
+
+			# Environment / Dry/Wet
+			if line.get("environment_rating"):
+				description += f"<br><small>Environment: {line['environment_rating']}</small>"
+
+			# CCT
+			if line.get("cct"):
+				description += f"<br><small>CCT: {line['cct']}</small>"
+
+			# CRI
+			if line.get("cri"):
+				description += f"<br><small>CRI: {line['cri']}</small>"
+
+			# Output
+			if line.get("estimated_delivered_output"):
+				description += f"<br><small>Output: {line['estimated_delivered_output']} lm/ft</small>"
+
+			# Lens
+			if line.get("lens_appearance"):
+				description += f"<br><small>Lens: {line['lens_appearance']}</small>"
+
+			# Mounting
+			if line.get("mounting_method"):
+				description += f"<br><small>Mounting: {line['mounting_method']}</small>"
+
+			# Finish
+			if line.get("finish"):
+				description += f"<br><small>Finish: {line['finish']}</small>"
+
+			# Length
+			mfg_length_mm = line.get("manufacturable_length_mm", 0)
+			if mfg_length_mm:
+				length_inches = mfg_length_mm / 25.4
+				description += f"<br><small>Length: {length_inches:.1f}\"</small>"
+
+			# Feed or Build Description (show Build Description for jumpered fixtures instead of Feed)
+			if line.get("is_multi_segment") and line.get("build_description"):
+				# For jumpered fixtures, show build description in inches instead of feed
+				build_desc = convert_build_description_to_inches(line.get("build_description", "")).replace("\n", "; ")
+				description += f"<br><small>Build: {build_desc}</small>"
+			elif line.get("power_feed_type"):
+				description += f"<br><small>Feed: {line['power_feed_type']}</small>"
+
+			# Input Voltage (fixture/tape voltage)
+			if line.get("fixture_input_voltage"):
+				description += f"<br><small>Input Voltage: {line['fixture_input_voltage']}</small>"
+
+			# PS Input Voltage (power supply/driver input voltage)
+			if line.get("driver_input_voltage"):
+				description += f"<br><small>PS Input Voltage: {line['driver_input_voltage']}</small>"
+
+			# Wattage / Power
+			if line.get("total_watts"):
+				description += f"<br><small>Wattage: {line['total_watts']}W</small>"
+
+			# Driver
+			if line.get("power_supply"):
+				description += f"<br><small>Driver: {line['power_supply']}</small>"
+
+		elif line["manufacturer_type"] == "ILLUMENATE" and line.get("is_unconfigured"):
+			# Unconfigured ILLUMENATE fixture - show template name with warning
+			template_name = line.get("fixture_template_name") or line.get("fixture_template") or "Unknown Template"
+			description = f"<strong>{template_name}</strong>"
+			description += "<br><small style='color: #856404;'>⚠ Not configured - configuration required</small>"
+
+		elif line["manufacturer_type"] == "ACCESSORY":
+			# Accessory/Component item
+			item_name = line.get("accessory_item_name") or line.get("accessory_item") or ""
+			description = f"<strong>{item_name}</strong>"
+			if line.get("accessory_item"):
+				description += f"<br><small>Item Code: {line['accessory_item']}</small>"
+			if line.get("accessory_item_description"):
+				# Truncate description if too long
+				item_desc = line["accessory_item_description"]
+				if len(item_desc) > 150:
+					item_desc = item_desc[:150] + "..."
+				description += f"<br><small>{item_desc}</small>"
+			if line.get("accessory_product_type"):
+				description += f"<br><small>Category: {line['accessory_product_type']}</small>"
+
 		else:
-			description = f"{line.get('manufacturer_name', '')} {line.get('model_number', '')}"
-			if line.get("attachments"):
-				description += f"<br><small>Attachments: {line['attachments']}</small>"
+			# Other manufacturer - each field on its own line
+			description = f"<strong>{line.get('manufacturer_name', '')}</strong>"
+			if line.get("fixture_model_number"):
+				description += f"<br><small>Fixture: {line['fixture_model_number']}</small>"
+			if line.get("trim_info"):
+				description += f"<br><small>Trim: {line['trim_info']}</small>"
+			if line.get("housing_model_number"):
+				description += f"<br><small>Housing: {line['housing_model_number']}</small>"
+			if line.get("driver_model_number"):
+				description += f"<br><small>Driver: {line['driver_model_number']}</small>"
+			if line.get("lamp_info"):
+				description += f"<br><small>Lamp: {line['lamp_info']}</small>"
+			if line.get("dimming_protocol"):
+				description += f"<br><small>Dimming: {line['dimming_protocol']}</small>"
+			if line.get("input_voltage"):
+				description += f"<br><small>Voltage: {line['input_voltage']}</small>"
+			if line.get("other_finish"):
+				description += f"<br><small>Finish: {line['other_finish']}</small>"
+			if line.get("spec_sheet"):
+				description += f"<br><small>Spec Sheet: {line['spec_sheet']}</small>"
 
 		html_parts.append(f"<td>{description}</td>")
-		html_parts.append(f"<td>{line['requested_length_mm']}</td>")
-		html_parts.append(f"<td>{line['manufacturable_length_mm']}</td>")
-		html_parts.append(f"<td>{line['notes']}</td>")
 
 		if include_pricing:
 			unit_price = line.get("unit_price", 0)
@@ -387,7 +702,7 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# Total row for priced exports
 	if include_pricing:
 		schedule_total = schedule_data.get("schedule_total", 0)
-		colspan = 9
+		colspan = 6
 		html_parts.append(f"<tr class='total-row'>")
 		html_parts.append(f"<td colspan='{colspan}' class='text-right'>Schedule Total:</td>")
 		html_parts.append(f"<td class='text-right'>${schedule_total:.2f}</td>")
@@ -425,13 +740,29 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Manufacturer Type",
 		"Qty",
 		"Location",
-		"Template Code / Config Summary",
-		"Requested Length (mm)",
-		"Manufacturable Length (mm)",
+		"Description",
+		"CCT",
+		"CRI",
+		"Output (lm/ft)",
+		"Driver",
+		"Requested Length (in)",
+		"Manufacturable Length (in)",
 		"Runs Count",
 		"Notes",
+		# Other manufacturer fields
 		"Manufacturer Name",
-		"Model Number",
+		"Fixture Model",
+		"Trim",
+		"Housing Model",
+		"Driver Model",
+		"Lamp",
+		"Dimming",
+		"Voltage",
+		"Finish",
+		# Accessory fields
+		"Accessory Item Code",
+		"Accessory Item Name",
+		"Accessory Category",
 	]
 	if include_pricing:
 		headers.extend(["Unit Price", "Line Total"])
@@ -443,6 +774,21 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 	schedule_name = schedule.schedule_name
 
 	for line in lines:
+		# Convert lengths from mm to inches for display
+		requested_length_in = round(line["requested_length_mm"] / MM_PER_INCH, 1) if line.get("requested_length_mm") else ""
+		manufacturable_length_in = round(line["manufacturable_length_mm"] / MM_PER_INCH, 1) if line.get("manufacturable_length_mm") else ""
+		
+		# Build description based on manufacturer type
+		if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
+			description = f"{line['template_code']} {line['config_summary']}".strip()
+		elif line["manufacturer_type"] == "ILLUMENATE" and line.get("is_unconfigured"):
+			template_name = line.get("fixture_template_name") or line.get("fixture_template") or ""
+			description = f"{template_name} (Not configured)"
+		elif line["manufacturer_type"] == "ACCESSORY":
+			description = line.get("accessory_item_name") or line.get("accessory_item") or ""
+		else:
+			description = line.get("manufacturer_name") or ""
+		
 		row = [
 			project_name,
 			schedule_name,
@@ -450,13 +796,29 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line["manufacturer_type"],
 			line["qty"],
 			line["location"],
-			f"{line['template_code']} {line['config_summary']}".strip(),
-			line["requested_length_mm"],
-			line["manufacturable_length_mm"],
+			description,
+			line.get("cct", ""),
+			line.get("cri", ""),
+			line.get("estimated_delivered_output", ""),
+			line.get("power_supply", ""),
+			requested_length_in,
+			manufacturable_length_in,
 			line.get("runs_count", ""),
 			line["notes"],
+			# Other manufacturer fields
 			line.get("manufacturer_name", ""),
-			line.get("model_number", ""),
+			line.get("fixture_model_number", ""),
+			line.get("trim_info", ""),
+			line.get("housing_model_number", ""),
+			line.get("driver_model_number", ""),
+			line.get("lamp_info", ""),
+			line.get("dimming_protocol", ""),
+			line.get("input_voltage", ""),
+			line.get("other_finish", ""),
+			# Accessory fields
+			line.get("accessory_item", ""),
+			line.get("accessory_item_name", ""),
+			line.get("accessory_product_type", ""),
 		]
 		if include_pricing:
 			row.extend([

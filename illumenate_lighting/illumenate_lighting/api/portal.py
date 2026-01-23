@@ -176,14 +176,19 @@ def get_template_options(template_code: str) -> dict:
 			options["finish"].append({"value": row.finish, "label": row.finish})
 		elif option_type == "Lens Appearance" and row.lens_appearance:
 			# Get lens transmission for cascading configurator
-			lens_transmission = 100
+			# Transmission is stored as decimal (0.56 = 56%), convert to percentage for display
+			lens_transmission_pct = 100
+			lens_transmission_decimal = 1.0
 			if frappe.db.exists("ilL-Attribute-Lens Appearance", row.lens_appearance):
 				lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
-				lens_transmission = lens_doc.transmission or 100
+				if lens_doc.transmission:
+					lens_transmission_decimal = lens_doc.transmission
+					lens_transmission_pct = lens_doc.transmission * 100
 			options["lens_appearance"].append({
 				"value": row.lens_appearance,
 				"label": row.lens_appearance,
-				"transmission": lens_transmission,
+				"transmission": lens_transmission_decimal,  # Keep decimal for calculations
+				"transmission_pct": lens_transmission_pct,  # Percentage for display
 			})
 		elif option_type == "Mounting Method" and row.mounting_method:
 			options["mounting_method"].append({"value": row.mounting_method, "label": row.mounting_method})
@@ -256,6 +261,464 @@ def get_template_options(template_code: str) -> dict:
 	return options
 
 
+@frappe.whitelist()
+def get_product_types(include_subgroups: bool = True) -> dict:
+	"""
+	Get product types from Item Groups under "Products" parent.
+
+	This fetches the immediate children of the "Products" Item Group
+	to populate the product type dropdown. If include_subgroups is True,
+	also includes child groups (up to 2 levels deep) with visual indentation.
+
+	Args:
+		include_subgroups: Whether to include child groups with indentation
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"product_types": [
+				{
+					"value": name,
+					"label": display_name,
+					"item_group": item_group_name,
+					"level": 0|1|2,  # Depth level for indentation
+					"parent": parent_group_name or None
+				}
+			]
+		}
+	"""
+	try:
+		# Check if "Products" item group exists
+		if not frappe.db.exists("Item Group", "Products"):
+			return {
+				"success": True,
+				"product_types": [
+					{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}
+				],
+			}
+
+		# Get immediate children of "Products" item group
+		product_types = frappe.get_all(
+			"Item Group",
+			filters={"parent_item_group": "Products"},
+			fields=["name", "item_group_name"],
+			order_by="item_group_name asc",
+		)
+
+		# Define which item groups should show fixture templates instead of items
+		# Match by checking if name contains "Linear Fixture" (case-insensitive)
+		def is_fixture_group(name):
+			name_lower = (name or "").lower()
+			return "linear fixture" in name_lower or "linear fixtures" in name_lower
+
+		result = []
+		for pt in product_types:
+			# Add the parent group
+			result.append({
+				"value": pt.name,
+				"label": pt.item_group_name or pt.name,
+				"item_group": pt.name,
+				"level": 0,
+				"parent": None,
+				"is_fixture_type": is_fixture_group(pt.name) or is_fixture_group(pt.item_group_name),
+			})
+
+			# If include_subgroups, fetch child groups
+			if include_subgroups:
+				child_groups = frappe.get_all(
+					"Item Group",
+					filters={"parent_item_group": pt.name},
+					fields=["name", "item_group_name"],
+					order_by="item_group_name asc",
+				)
+
+				for child in child_groups:
+					result.append({
+						"value": child.name,
+						"label": child.item_group_name or child.name,
+						"item_group": child.name,
+						"level": 1,
+						"parent": pt.name,
+						"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
+					})
+
+					# Optionally get grandchild groups (level 2)
+					grandchild_groups = frappe.get_all(
+						"Item Group",
+						filters={"parent_item_group": child.name},
+						fields=["name", "item_group_name"],
+						order_by="item_group_name asc",
+					)
+
+					for grandchild in grandchild_groups:
+						result.append({
+							"value": grandchild.name,
+							"label": grandchild.item_group_name or grandchild.name,
+							"item_group": grandchild.name,
+							"level": 2,
+							"parent": child.name,
+							"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
+						})
+
+		# If no child groups found, return default
+		if not result:
+			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None, "is_fixture_type": True}]
+
+		return {"success": True, "product_types": result}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching product types: {str(e)}")
+		return {
+			"success": False,
+			"error": str(e),
+			"product_types": [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}],
+		}
+
+
+@frappe.whitelist()
+def get_items_by_product_type(product_type: str, exclude_variants: bool = True) -> dict:
+	"""
+	Get items within a specific product type (Item Group).
+
+	This fetches all sellable items within the specified Item Group,
+	allowing customers to add accessories like profiles, lenses, etc.
+	to their fixture schedule.
+
+	Args:
+		product_type: The Item Group name to fetch items from
+		exclude_variants: If True, only return template items (not variant items)
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"items": [
+				{
+					"item_code": str,
+					"item_name": str,
+					"description": str,
+					"stock_uom": str,
+					"image": str or None,
+					"standard_rate": float,
+					"has_variants": bool,  # True if this item is a template with variants
+					"variant_of": str or None  # Parent template if this is a variant
+				}
+			]
+		}
+	"""
+	try:
+		if not product_type:
+			return {"success": False, "error": "Product type is required", "items": []}
+
+		# Fetch items from this item group and its descendants
+		# First, get all descendant item groups
+		item_groups = [product_type]
+
+		# Get child groups recursively (up to 3 levels)
+		for _ in range(3):
+			child_groups = frappe.get_all(
+				"Item Group",
+				filters={"parent_item_group": ["in", item_groups]},
+				fields=["name"],
+			)
+			new_groups = [g.name for g in child_groups if g.name not in item_groups]
+			if not new_groups:
+				break
+			item_groups.extend(new_groups)
+
+		# Build filters
+		filters = {
+			"item_group": ["in", item_groups],
+			"disabled": 0,
+			"is_sales_item": 1,
+		}
+
+		# If exclude_variants is True, only get non-variant items (templates and regular items)
+		if exclude_variants:
+			filters["variant_of"] = ["is", "not set"]
+
+		# Fetch items from these groups
+		items = frappe.get_all(
+			"Item",
+			filters=filters,
+			fields=[
+				"item_code",
+				"item_name",
+				"description",
+				"stock_uom",
+				"image",
+				"standard_rate",
+				"has_variants",
+				"variant_of",
+			],
+			order_by="item_name asc",
+		)
+
+		result = []
+		for item in items:
+			result.append({
+				"item_code": item.item_code,
+				"item_name": item.item_name,
+				"description": item.description or "",
+				"stock_uom": item.stock_uom or "Nos",
+				"image": item.image,
+				"standard_rate": float(item.standard_rate or 0),
+				"has_variants": bool(item.has_variants),
+				"variant_of": item.variant_of or None,
+			})
+
+		return {"success": True, "items": result}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching items for product type {product_type}: {str(e)}")
+		return {"success": False, "error": str(e), "items": []}
+
+
+@frappe.whitelist()
+def get_item_variant_attributes(template_item: str) -> dict:
+	"""
+	Get the available variant attributes for a template item.
+
+	This returns the attributes and their possible values that can be used
+	to configure a variant of the given template item.
+
+	Args:
+		template_item: The item_code of the template item
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"template_item": str,
+			"attributes": [
+				{
+					"attribute": str,  # Attribute name (e.g., "Color", "Size")
+					"values": [str]    # List of possible values
+				}
+			]
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required", "attributes": []}
+
+		# Check if item exists and has variants
+		item = frappe.db.get_value(
+			"Item",
+			template_item,
+			["item_code", "item_name", "has_variants"],
+			as_dict=True,
+		)
+
+		if not item:
+			return {"success": False, "error": "Item not found", "attributes": []}
+
+		if not item.has_variants:
+			return {"success": True, "template_item": template_item, "attributes": [], "message": "Item has no variants"}
+
+		# Get the item attributes for this template
+		item_doc = frappe.get_doc("Item", template_item)
+		attributes = []
+
+		for attr in item_doc.get("attributes", []):
+			# Get all possible values for this attribute
+			attr_values = frappe.get_all(
+				"Item Attribute Value",
+				filters={"parent": attr.attribute},
+				fields=["attribute_value", "abbr"],
+				order_by="idx asc",
+			)
+
+			# If the template has specific allowed values, filter to those
+			if attr.numeric_values:
+				# For numeric attributes, we need a different approach
+				values = [{
+					"value": str(attr.from_range) + " - " + str(attr.to_range),
+					"abbr": "",
+					"is_numeric": True,
+					"from_range": attr.from_range,
+					"to_range": attr.to_range,
+					"increment": attr.increment,
+				}]
+			else:
+				values = [
+					{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
+					for v in attr_values
+				]
+
+			attributes.append({
+				"attribute": attr.attribute,
+				"values": values,
+			})
+
+		return {
+			"success": True,
+			"template_item": template_item,
+			"item_name": item.item_name,
+			"attributes": attributes,
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching variant attributes for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e), "attributes": []}
+
+
+@frappe.whitelist()
+def get_item_variants(template_item: str) -> dict:
+	"""
+	Get all variants of a template item with their attribute values.
+
+	Args:
+		template_item: The item_code of the template item
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"template_item": str,
+			"variants": [
+				{
+					"item_code": str,
+					"item_name": str,
+					"attributes": {attribute_name: attribute_value, ...},
+					"standard_rate": float,
+					"image": str or None
+				}
+			]
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required", "variants": []}
+
+		# Check if item exists and has variants
+		if not frappe.db.get_value("Item", template_item, "has_variants"):
+			return {"success": True, "template_item": template_item, "variants": []}
+
+		# Get all variants of this template
+		variants = frappe.get_all(
+			"Item",
+			filters={
+				"variant_of": template_item,
+				"disabled": 0,
+			},
+			fields=["item_code", "item_name", "standard_rate", "image"],
+			order_by="item_name asc",
+		)
+
+		result = []
+		for variant in variants:
+			# Get the attribute values for this variant
+			variant_doc = frappe.get_doc("Item", variant.item_code)
+			attributes = {}
+			for attr in variant_doc.get("attributes", []):
+				attributes[attr.attribute] = attr.attribute_value
+
+			result.append({
+				"item_code": variant.item_code,
+				"item_name": variant.item_name,
+				"attributes": attributes,
+				"standard_rate": float(variant.standard_rate or 0),
+				"image": variant.image,
+			})
+
+		return {"success": True, "template_item": template_item, "variants": result}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching variants for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e), "variants": []}
+
+
+@frappe.whitelist()
+def find_matching_variant(template_item: str, selected_attributes: Union[str, dict]) -> dict:
+	"""
+	Find a variant that matches the selected attribute values.
+
+	Args:
+		template_item: The item_code of the template item
+		selected_attributes: Dict of {attribute_name: attribute_value} or JSON string
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"found": True/False,
+			"variant": {
+				"item_code": str,
+				"item_name": str,
+				"standard_rate": float,
+				"image": str or None
+			} or None
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required"}
+
+		# Parse selected_attributes if it's a string
+		if isinstance(selected_attributes, str):
+			selected_attributes = json.loads(selected_attributes)
+
+		if not selected_attributes:
+			return {"success": False, "error": "Selected attributes are required"}
+
+		# Get all variants of this template
+		variants_result = get_item_variants(template_item)
+		if not variants_result.get("success"):
+			return variants_result
+
+		variants = variants_result.get("variants", [])
+
+		# Find the variant that matches all selected attributes
+		for variant in variants:
+			variant_attrs = variant.get("attributes", {})
+			# Check if all selected attributes match
+			matches = True
+			for attr_name, attr_value in selected_attributes.items():
+				if variant_attrs.get(attr_name) != attr_value:
+					matches = False
+					break
+
+			if matches:
+				return {
+					"success": True,
+					"found": True,
+					"variant": {
+						"item_code": variant["item_code"],
+						"item_name": variant["item_name"],
+						"standard_rate": variant["standard_rate"],
+						"image": variant["image"],
+					},
+				}
+
+		return {"success": True, "found": False, "variant": None, "message": "No matching variant found"}
+
+	except Exception as e:
+		frappe.log_error(f"Error finding variant for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_fixture_templates(product_type: str = None) -> dict:
+	"""
+	Get available fixture templates for the portal.
+
+	Args:
+		product_type: Optional filter by product type (e.g., "Linear Fixture")
+
+	Returns:
+		dict: {
+			"templates": [{"name": template_code, "template_name": name, "template_code": code}]
+		}
+	"""
+	# Get active fixture templates
+	filters = {"is_active": 1}
+
+	templates = frappe.get_all(
+		"ilL-Fixture-Template",
+		filters=filters,
+		fields=["name", "template_code", "template_name"],
+		order_by="template_name asc",
+	)
+
+	return {"templates": templates}
+
 
 @frappe.whitelist()
 def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
@@ -302,6 +765,18 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		line.location = line_data.get("location")
 		line.manufacturer_type = line_data.get("manufacturer_type", "ILLUMENATE")
 		line.notes = line_data.get("notes")
+
+		if line.manufacturer_type == "ILLUMENATE":
+			line.product_type = line_data.get("product_type")
+			line.fixture_template = line_data.get("fixture_template")
+			line.configuration_status = line_data.get("configuration_status", "Pending")
+
+		if line.manufacturer_type == "ACCESSORY":
+			line.accessory_product_type = line_data.get("accessory_product_type")
+			line.accessory_item = line_data.get("accessory_item")
+			line.accessory_item_name = line_data.get("accessory_item_name")
+			# For accessories, set configuration_status to Configured since no config needed
+			line.configuration_status = "Configured"
 
 		if line.manufacturer_type == "OTHER":
 			line.manufacturer_name = line_data.get("manufacturer_name")
@@ -536,7 +1011,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 			"cct": None,
 			"led_package": None,
 			"output_level": None,
-			"estimated_delivered_output": None,
+			"estimated_delivered_output": cf.estimated_delivered_output if hasattr(cf, "estimated_delivered_output") else None,
 			"power_supply": None,
 			"driver_input_voltage": None,
 			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
@@ -555,7 +1030,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 				details["finish"] = finish_doc.display_name or finish_doc.code or cf.finish
 
 		# Get lens appearance and transmission
-		lens_transmission = 100  # Default 100% if not found
+		lens_transmission = 1.0  # Default 100% if not found (as decimal)
 		if cf.lens_appearance:
 			lens_doc = frappe.db.get_value(
 				"ilL-Attribute-Lens Appearance",
@@ -580,7 +1055,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 				details["cct"] = tape_offering.cct
 				details["led_package"] = tape_offering.led_package
 
-				# Get output level numeric value for calculation
+				# Get output level display name
 				if tape_offering.output_level:
 					output_level_doc = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
@@ -590,9 +1065,9 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
-						# Calculate estimated delivered output (output_level * lens_transmission)
-						if output_level_doc.value:
-							delivered = (output_level_doc.value * lens_transmission) / 100
+						# Fallback: calculate estimated delivered output if not stored on fixture
+						if not details["estimated_delivered_output"] and output_level_doc.value:
+							delivered = output_level_doc.value * lens_transmission
 							details["estimated_delivered_output"] = round(delivered, 1)
 
 		# Get driver/power supply info from drivers child table
@@ -1983,3 +2458,309 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		frappe.log_error(f"Error creating contact: {str(e)}")
 		return {"success": False, "error": str(e)}
 
+
+@frappe.whitelist()
+def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
+	"""
+	Get the full configuration of an existing fixture for editing in the configurator.
+
+	This returns all the user-selected options and segment data needed to
+	pre-populate the configurator form so users can modify and re-validate
+	the fixture before saving changes.
+
+	Args:
+		configured_fixture_id: ID of the ilL-Configured-Fixture
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"configuration": {
+				"fixture_template_code": str,
+				"led_package_code": str,
+				"environment_rating_code": str,
+				"cct_code": str,
+				"lens_appearance_code": str,
+				"delivered_output_value": int,
+				"mounting_method_code": str,
+				"finish_code": str,
+				"endcap_color_code": str,
+				"segments": [...],  # User-defined segments
+				"is_multi_segment": bool
+			},
+			"fixture_details": {...},  # Display info like part number, pricing
+			"error": str (if failed)
+		}
+	"""
+	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+
+		# Get option codes from linked doctypes
+		configuration = {
+			"fixture_template_code": cf.fixture_template,
+			"is_multi_segment": cf.is_multi_segment or 0,
+		}
+
+		# Get LED package code from tape offering
+		led_package_code = None
+		cct_code = None
+		output_level_value = None
+		if cf.tape_offering:
+			tape_data = frappe.db.get_value(
+				"ilL-Rel-Tape Offering",
+				cf.tape_offering,
+				["led_package", "cct", "output_level"],
+				as_dict=True,
+			)
+			if tape_data:
+				if tape_data.led_package:
+					led_package_code = frappe.db.get_value(
+						"ilL-Attribute-LED Package", tape_data.led_package, "code"
+					)
+				if tape_data.cct:
+					cct_code = frappe.db.get_value(
+						"ilL-Attribute-CCT", tape_data.cct, "code"
+					)
+				if tape_data.output_level:
+					output_level_value = frappe.db.get_value(
+						"ilL-Attribute-Output Level", tape_data.output_level, "value"
+					)
+
+		configuration["led_package_code"] = led_package_code
+		configuration["cct_code"] = cct_code
+
+		# Calculate delivered output from tape output * lens transmission
+		lens_transmission = 1.0
+		lens_appearance_code = None
+		if cf.lens_appearance:
+			lens_data = frappe.db.get_value(
+				"ilL-Attribute-Lens Appearance",
+				cf.lens_appearance,
+				["code", "transmission"],
+				as_dict=True,
+			)
+			if lens_data:
+				lens_appearance_code = lens_data.code
+				if lens_data.transmission:
+					lens_transmission = lens_data.transmission
+
+		configuration["lens_appearance_code"] = lens_appearance_code
+
+		# Calculate the delivered output value (what user selected)
+		if output_level_value and lens_transmission:
+			# Round to nearest 50 to match how options are presented
+			delivered = output_level_value * lens_transmission
+			delivered_rounded = round(delivered / 50) * 50
+			configuration["delivered_output_value"] = int(delivered_rounded)
+		else:
+			configuration["delivered_output_value"] = cf.estimated_delivered_output
+
+		# Get environment rating code
+		if cf.environment_rating:
+			configuration["environment_rating_code"] = frappe.db.get_value(
+				"ilL-Attribute-Environment Rating", cf.environment_rating, "code"
+			)
+		else:
+			configuration["environment_rating_code"] = None
+
+		# Get mounting method code
+		if cf.mounting_method:
+			configuration["mounting_method_code"] = frappe.db.get_value(
+				"ilL-Attribute-Mounting Method", cf.mounting_method, "code"
+			)
+		else:
+			configuration["mounting_method_code"] = None
+
+		# Get finish code
+		if cf.finish:
+			configuration["finish_code"] = frappe.db.get_value(
+				"ilL-Attribute-Finish", cf.finish, "code"
+			)
+		else:
+			configuration["finish_code"] = None
+
+		# Get endcap color code
+		if cf.endcap_color:
+			configuration["endcap_color_code"] = frappe.db.get_value(
+				"ilL-Attribute-Endcap Color", cf.endcap_color, "code"
+			)
+		else:
+			configuration["endcap_color_code"] = None
+
+		# Get power feed type code (for single segment fixtures)
+		if cf.power_feed_type:
+			configuration["power_feed_type_code"] = frappe.db.get_value(
+				"ilL-Attribute-Power Feed Type", cf.power_feed_type, "code"
+			)
+		else:
+			configuration["power_feed_type_code"] = None
+
+		# Build segments data from user_segments child table
+		segments = []
+		if cf.user_segments:
+			for seg in cf.user_segments:
+				segment_data = {
+					"segment_index": seg.segment_index,
+					"requested_length_mm": seg.requested_length_mm,
+					"end_type": seg.end_type,
+				}
+
+				# Get power feed type code for start
+				if seg.start_power_feed_type:
+					segment_data["start_power_feed_type"] = frappe.db.get_value(
+						"ilL-Attribute-Power Feed Type", seg.start_power_feed_type, "code"
+					) or seg.start_power_feed_type
+				else:
+					segment_data["start_power_feed_type"] = None
+
+				segment_data["start_leader_cable_length_mm"] = seg.start_leader_cable_length_mm or 300
+
+				# Get end power feed type code (for jumpers)
+				if seg.end_type == "Jumper" and seg.end_power_feed_type:
+					segment_data["end_power_feed_type"] = frappe.db.get_value(
+						"ilL-Attribute-Power Feed Type", seg.end_power_feed_type, "code"
+					) or seg.end_power_feed_type
+					segment_data["end_jumper_cable_length_mm"] = seg.end_jumper_cable_length_mm or 300
+				else:
+					segment_data["end_power_feed_type"] = None
+					segment_data["end_jumper_cable_length_mm"] = None
+
+				segments.append(segment_data)
+		else:
+			# Single segment fixture - build from fixture-level data
+			segment_data = {
+				"segment_index": 1,
+				"requested_length_mm": cf.requested_overall_length_mm,
+				"end_type": "Endcap",
+				"start_power_feed_type": configuration.get("power_feed_type_code"),
+				"start_leader_cable_length_mm": 300,  # Default
+			}
+			segments.append(segment_data)
+
+		configuration["segments"] = segments
+
+		# Build fixture details for display
+		fixture_details = {
+			"config_hash": cf.config_hash,
+			"part_number": cf.configured_item or cf.name,
+			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
+			"manufacturable_length_in": round(cf.manufacturable_overall_length_mm / 25.4, 1) if cf.manufacturable_overall_length_mm else None,
+			"requested_length_mm": cf.requested_overall_length_mm,
+			"requested_length_in": round(cf.requested_overall_length_mm / 25.4, 1) if cf.requested_overall_length_mm else None,
+			"total_watts": cf.total_watts,
+			"estimated_delivered_output": cf.estimated_delivered_output,
+			"runs_count": cf.runs_count,
+			"user_segment_count": cf.user_segment_count or 1,
+			"assembly_mode": cf.assembly_mode,
+			"build_description": cf.build_description,
+		}
+
+		return {
+			"success": True,
+			"configuration": configuration,
+			"fixture_details": fixture_details,
+		}
+
+	except Exception as e:
+		frappe.log_error(f"Error getting fixture configuration: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def update_configured_fixture_on_schedule(
+	schedule_name: str,
+	line_idx: int,
+	new_configured_fixture_id: str,
+	manufacturable_length_mm: int,
+) -> dict:
+	"""
+	Update a schedule line with a new/modified configured fixture.
+
+	This is called after the user has re-validated their fixture modifications
+	and wants to save the changes back to the schedule line.
+
+	Args:
+		schedule_name: Name of the schedule
+		line_idx: Index of the line to update
+		new_configured_fixture_id: ID of the new/modified configured fixture
+		manufacturable_length_mm: Manufacturable length from validation
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	# Validate schedule exists
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "Permission denied"}
+
+	# Check schedule status allows editing
+	if schedule.status not in ["DRAFT", "READY"]:
+		return {"success": False, "error": "Cannot edit lines in a schedule in this status"}
+
+	# Validate line_idx
+	try:
+		line_idx = int(line_idx)
+	except (ValueError, TypeError):
+		return {"success": False, "error": "Invalid line index"}
+
+	if line_idx < 0 or line_idx >= len(schedule.lines):
+		return {"success": False, "error": "Invalid line index"}
+
+	# Validate the new configured fixture exists
+	if not frappe.db.exists("ilL-Configured-Fixture", new_configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		line = schedule.lines[line_idx]
+
+		# Ensure it's an ILLUMENATE line
+		if line.manufacturer_type != "ILLUMENATE":
+			return {"success": False, "error": "Can only update ILLUMENATE fixture lines"}
+
+		# Update the line with the new configured fixture
+		line.configured_fixture = new_configured_fixture_id
+		line.manufacturable_length_mm = int(manufacturable_length_mm)
+
+		# Get the configured fixture document to update item code
+		configured_fixture = frappe.get_doc("ilL-Configured-Fixture", new_configured_fixture_id)
+
+		# Get or create the configured item for this fixture
+		if configured_fixture.configured_item:
+			line.ill_item_code = configured_fixture.configured_item
+		else:
+			# Auto-create the configured item for this fixture
+			from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+				_create_or_get_configured_item,
+				_update_fixture_links,
+			)
+
+			item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
+			if item_result.get("success") and item_result.get("item_code"):
+				line.ill_item_code = item_result["item_code"]
+				# Update the fixture with the new item code
+				_update_fixture_links(
+					configured_fixture,
+					item_code=item_result["item_code"],
+					bom_name=None,
+					work_order_name=None,
+				)
+
+		schedule.save()
+		frappe.db.commit()
+
+		return {"success": True}
+
+	except Exception as e:
+		frappe.log_error(f"Error updating fixture on schedule: {str(e)}")
+		return {"success": False, "error": str(e)}

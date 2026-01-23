@@ -112,6 +112,12 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+    add_inch_values_to_computed,
+    inches_to_mm,
+    mm_to_inches,
+)
+
 # Engine version - used for tracking configuration computation version
 ENGINE_VERSION = "1.0.0"
 
@@ -399,7 +405,108 @@ def validate_and_quote(
 
 	response["configured_fixture_id"] = fixture_id
 
+	# Add inch values to computed results for US market display
+	response["computed"] = add_inch_values_to_computed(response["computed"])
+
 	return response
+
+
+@frappe.whitelist()
+def validate_and_quote_inches(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	endcap_color_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	requested_overall_length_in: float,
+	dimming_protocol_code: str = None,
+	qty: int = 1,
+) -> dict[str, Any]:
+	"""
+	Validate and quote a fixture configuration with length input in inches.
+
+	This is a convenience wrapper around validate_and_quote that accepts
+	the requested length in inches instead of millimeters, making it easier
+	for US market users to work with familiar units.
+
+	The length is converted to mm internally, and the response includes
+	both mm and inch values for all computed dimensions.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		finish_code: Finish option code
+		lens_appearance_code: Lens appearance option code
+		mounting_method_code: Mounting method option code
+		endcap_style_start_code: Endcap style option code for start end
+		endcap_style_end_code: Endcap style option code for end end
+		endcap_color_code: Endcap color option code
+		power_feed_type_code: Power feed type option code
+		environment_rating_code: Environment rating option code
+		tape_offering_id: Tape offering ID or code
+		requested_overall_length_in: Requested overall length in INCHES
+		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
+		qty: Quantity (default: 1)
+
+	Returns:
+		dict: Response with validation status, computed values (in both mm and inches),
+		      resolved items, pricing, and configured fixture ID
+	"""
+	# Convert inches to mm
+	try:
+		requested_overall_length_in = float(requested_overall_length_in)
+		requested_overall_length_mm = inches_to_mm(requested_overall_length_in, round_to_int=True)
+		if not requested_overall_length_mm or requested_overall_length_mm <= 0:
+			return {
+				"is_valid": False,
+				"messages": [
+					{
+						"severity": "error",
+						"text": "Requested length must be greater than 0 inches",
+						"field": "requested_overall_length_in",
+					}
+				],
+				"computed": None,
+				"resolved_items": None,
+				"pricing": None,
+				"configured_fixture_id": None,
+			}
+	except (ValueError, TypeError):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "Invalid numeric value for requested_overall_length_in",
+					"field": "requested_overall_length_in",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+		}
+
+	# Delegate to the main function with mm value
+	return validate_and_quote(
+		fixture_template_code=fixture_template_code,
+		finish_code=finish_code,
+		lens_appearance_code=lens_appearance_code,
+		mounting_method_code=mounting_method_code,
+		endcap_style_start_code=endcap_style_start_code,
+		endcap_style_end_code=endcap_style_end_code,
+		endcap_color_code=endcap_color_code,
+		power_feed_type_code=power_feed_type_code,
+		environment_rating_code=environment_rating_code,
+		tape_offering_id=tape_offering_id,
+		requested_overall_length_mm=requested_overall_length_mm,
+		dimming_protocol_code=dimming_protocol_code,
+		qty=qty,
+	)
 
 
 @frappe.whitelist()
@@ -932,6 +1039,9 @@ def validate_and_quote_multisegment(
 			"field": None,
 		})
 
+	# Add inch values to computed results for US market display
+	response["computed"] = add_inch_values_to_computed(response["computed"])
+
 	return response
 
 
@@ -1016,7 +1126,8 @@ def _compute_multisegment_outputs(
 	total_tape_length = 0
 	total_endcaps = 0
 	all_segments = []
-	build_description_parts = []
+	build_description_parts = []  # mm version for internal/BOM use
+	build_description_display_parts = []  # inches version for public display
 
 	error_messages = []
 	has_errors = False
@@ -1045,22 +1156,41 @@ def _compute_multisegment_outputs(
 		total_requested_length += requested_len
 
 		# Calculate endcap allowances for this segment
-		# Start endcap: feed-through if power feed type is "END", otherwise solid
-		# End endcap: solid if end_type is Endcap, otherwise no endcap (jumper continues)
-		start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
-		end_endcap_type = "Solid" if end_type == "Endcap" else ""
+		# EVERY segment end needs an endcap:
+		# - Start endcap: Feed-Through if power feed type is "END" or if this is NOT the first segment
+		#   (subsequent segments receive jumper cables from previous segment, requiring feed-through)
+		# - End endcap: Feed-Through if end_type is "Jumper" (cable exits), Solid if end_type is "Endcap"
+		#
+		# For multi-segment fixtures connected by jumper cables:
+		#   - Seg 1 Start: Feed-Through (for leader cable)
+		#   - Seg 1 End: Feed-Through (for jumper cable exiting)
+		#   - Seg 2 Start: Feed-Through (for jumper cable entering)
+		#   - Seg 2 End: Feed-Through (for jumper cable exiting)
+		#   - ... and so on ...
+		#   - Last Seg End: Solid (caps the fixture)
+		
+		# Start endcap type:
+		# - First segment (idx=0): Feed-Through if has flying lead (power feed "END"), else Solid
+		# - Subsequent segments: Always Feed-Through (receive jumper from previous segment)
+		if idx == 0:
+			start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
+		else:
+			# Segments after the first receive a jumper cable - always need feed-through
+			start_endcap_type = "Feed-Through"
+		
+		# End endcap type:
+		# - Jumper: Feed-Through (cable exits to next segment)
+		# - Endcap: Solid (caps the fixture)
+		end_endcap_type = "Feed-Through" if end_type == "Jumper" else "Solid"
 
 		# Standard endcap allowance (can be made configurable per template)
 		endcap_allowance_per_side = 5.0  # mm
 
 		# Calculate internal length for this segment
-		# For first segment: subtract start endcap allowance
-		# For last segment (Endcap): subtract end endcap allowance
-		total_endcap_allowance = 0.0
-		if idx == 0:
-			total_endcap_allowance += endcap_allowance_per_side
-		if end_type == "Endcap":
-			total_endcap_allowance += endcap_allowance_per_side
+		# EVERY segment needs endcap allowance on BOTH ends:
+		# - Start: always has an endcap (feed-through or solid)
+		# - End: always has an endcap (feed-through for jumper, solid for cap)
+		total_endcap_allowance = endcap_allowance_per_side * 2  # Both ends
 
 		internal_len = requested_len - total_endcap_allowance - leader_allowance_mm
 
@@ -1098,8 +1228,8 @@ def _compute_multisegment_outputs(
 			"seg_index": seg_index,
 			"tape_cut_len": tape_cut_len,
 			"mfg_len": mfg_len,
-			"start_endcap_type": start_endcap_type if idx == 0 else "",
-			"end_endcap_type": end_endcap_type,
+			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
+			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
 			"end_type": end_type,
 			"start_power_feed": start_power_feed,
 			"start_cable_len": start_cable_len,
@@ -1109,11 +1239,9 @@ def _compute_multisegment_outputs(
 		})
 
 		# Count endcaps for this segment
-		# Start: always has an endcap (feed-through or solid)
-		# End: endcap only if end_type is Endcap
-		segment_endcaps = 1 if end_type == "Endcap" else 0
-		if idx == 0:
-			segment_endcaps += 1  # Start endcap for first segment
+		# EVERY segment has 2 endcaps - one at start and one at end
+		# The type varies (feed-through vs solid) but each physical end needs an endcap
+		segment_endcaps = 2  # Start endcap + End endcap
 		total_endcaps += segment_endcaps
 
 		# Create segment record for manufacturing
@@ -1122,14 +1250,14 @@ def _compute_multisegment_outputs(
 			"profile_cut_len_mm": int(mfg_len),
 			"lens_cut_len_mm": int(mfg_len),
 			"tape_cut_len_mm": int(tape_cut_len),
-			"start_endcap_type": start_endcap_type if idx == 0 else "",
-			"end_endcap_type": end_endcap_type,
+			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
+			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
 			"start_leader_len_mm": start_cable_len if idx == 0 else 0,
 			"end_jumper_len_mm": end_cable_len,
 			"notes": f"Segment {seg_index}: {int(mfg_len)}mm",
 		})
 
-		# Build description
+		# Build description (mm for internal use / BOM)
 		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
 		if idx == 0:
 			desc_parts.append(f"Start: {start_power_feed}, {start_cable_len}mm leader")
@@ -1138,6 +1266,19 @@ def _compute_multisegment_outputs(
 		else:
 			desc_parts.append("End: Solid Endcap")
 		build_description_parts.append(" | ".join(desc_parts))
+
+		# Build description display (inches for public display)
+		mfg_len_in = round(mfg_len / 25.4, 1)
+		start_cable_len_in = round(start_cable_len / 25.4, 1)
+		end_cable_len_in = round(end_cable_len / 25.4, 1)
+		desc_parts_display = [f"Seg {seg_index}: {mfg_len_in}\""]
+		if idx == 0:
+			desc_parts_display.append(f"Start: {start_power_feed}, {start_cable_len_in}\" leader")
+		if end_type == "Jumper":
+			desc_parts_display.append(f"End: {end_power_feed}, {end_cable_len_in}\" jumper")
+		else:
+			desc_parts_display.append("End: Solid Endcap")
+		build_description_display_parts.append(" | ".join(desc_parts_display))
 
 	# ==========================================================================
 	# PHASE 2: Calculate runs based on TOTAL tape length across all segments
@@ -1208,11 +1349,54 @@ def _compute_multisegment_outputs(
 	else:
 		assembly_mode = "SHIP_PIECES"
 
+	# ==========================================================================
+	# PHASE 3: Calculate profile/lens segments (cut plan based on stock length)
+	# ==========================================================================
+	# Profile and lens stock comes in standard lengths (e.g., 2000mm).
+	# Calculate how many stock pieces are needed and the cut plan.
+	profile_lens_segments = []
+	profile_lens_segments_count = 0
+
+	if profile_stock_len_mm > 0 and total_manufacturable_length > 0:
+		profile_lens_segments_count = math.ceil(total_manufacturable_length / profile_stock_len_mm)
+
+		# Create cut plan: N-1 full stock segments, last is remainder
+		remaining_length = total_manufacturable_length
+		for i in range(profile_lens_segments_count):
+			segment_index = i + 1
+			if segment_index < profile_lens_segments_count:
+				# Full stock segment
+				cut_len = min(profile_stock_len_mm, remaining_length)
+				notes = f"Full stock segment ({int(profile_stock_len_mm)}mm)"
+			else:
+				# Last segment (remainder)
+				cut_len = max(0, remaining_length)
+				notes = f"Remainder segment ({int(cut_len)}mm)"
+
+			remaining_length = max(0, remaining_length - cut_len)
+
+			profile_lens_segments.append({
+				"segment_index": segment_index,
+				"profile_cut_len_mm": int(cut_len),
+				"lens_cut_len_mm": int(cut_len),
+				"notes": notes,
+			})
+	elif total_manufacturable_length > 0:
+		# No stock length defined, treat as single segment
+		profile_lens_segments_count = 1
+		profile_lens_segments.append({
+			"segment_index": 1,
+			"profile_cut_len_mm": int(total_manufacturable_length),
+			"lens_cut_len_mm": int(total_manufacturable_length),
+			"notes": f"Single segment ({int(total_manufacturable_length)}mm)",
+		})
+
 	return {
 		"total_requested_length_mm": total_requested_length,
 		"manufacturable_overall_length_mm": int(total_manufacturable_length),
 		"user_segment_count": len(segments),
-		"segments_count": len(all_segments),
+		"segments_count": profile_lens_segments_count,
+		"profile_lens_segments_count": profile_lens_segments_count,
 		"runs_count": total_runs,
 		# Each run requires one leader cable. Leader cables connect from driver outputs to tape runs.
 		"leader_qty": total_runs,
@@ -1222,14 +1406,17 @@ def _compute_multisegment_outputs(
 		"total_mounting_accessories": total_mounting_accessories,
 		"assembly_mode": assembly_mode,
 		"assembled_max_len_mm": int(assembled_max_len_mm),
+		"profile_stock_len_mm": int(profile_stock_len_mm),
 		# Run calculation metadata
 		"max_run_ft_by_watts": round(max_run_ft_by_watts, 2) if max_run_ft_by_watts != float("inf") else None,
 		"max_run_ft_by_voltage_drop": round(float(max_run_length_ft_voltage_drop), 2) if max_run_length_ft_voltage_drop else None,
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
 		"max_run_mm": round(max_run_mm, 2) if max_run_mm != float("inf") else None,
-		"segments": all_segments,
+		"segments": profile_lens_segments,
+		"user_segments": all_segments,
 		"runs": all_runs,
 		"build_description": "\n".join(build_description_parts),
+		"build_description_display": "\n".join(build_description_display_parts),
 		"has_errors": has_errors,
 		"error_messages": error_messages,
 	}
@@ -1587,9 +1774,9 @@ def _create_or_update_multisegment_fixture(
 			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 		})
 
-	# Clear and set computed segments
+	# Clear and set computed segments (user-defined segments with details)
 	doc.segments = []
-	for seg in computed.get("segments", []):
+	for seg in computed.get("user_segments", []):
 		doc.append("segments", {
 			"segment_index": seg.get("segment_index", 0),
 			"profile_cut_len_mm": seg.get("profile_cut_len_mm", 0),
@@ -3472,8 +3659,7 @@ def get_delivered_outputs_for_template(
 		if not fixture_output_levels:
 			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": "No fixture-level output levels defined in ilL-Attribute-Output Level"}
 
-		# Get lens transmission as a decimal (0.56 = 56%)
-		# Database stores as decimal, so 0.56 means 56% transmission
+		# Get lens transmission as decimal (stored as 0.56 = 56%)
 		lens_transmission_decimal = 1.0  # Default to 100% if not specified
 		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
@@ -3542,7 +3728,7 @@ def get_delivered_outputs_for_template(
 				continue
 
 			tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-			# Transmission is already a decimal (0.56 = 56%), so multiply directly
+			# Calculate delivered lumens: tape output × transmission (decimal)
 			delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
 			# Find closest fixture-level output level instead of rounding to 50
@@ -3673,8 +3859,8 @@ def auto_select_tape_for_configuration(
 	if not fixture_output_levels:
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No fixture-level output levels defined"}
 
-	# Get lens transmission as a decimal (0.56 = 56%)
-	lens_transmission_decimal = 1.0
+	# Get lens transmission as decimal (stored as 0.56 = 56%)
+	lens_transmission_decimal = 1.0  # Default to 100% if not specified
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
@@ -3735,7 +3921,7 @@ def auto_select_tape_for_configuration(
 			continue
 
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		# Transmission is already a decimal (0.56 = 56%), so multiply directly
+		# Calculate delivered lumens: tape output × transmission (decimal)
 		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
 		# Find closest fixture-level output level instead of rounding to 50
