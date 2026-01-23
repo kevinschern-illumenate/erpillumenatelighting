@@ -182,7 +182,7 @@ def _fill_pdf_form_fields(
 	Uses pypdf to fill AcroForm fields in the PDF.
 
 	Args:
-		pdf_template_path: Path or URL to the PDF template
+		pdf_template_path: Path or URL to the PDF template (must be a Frappe file URL)
 		field_values: Dictionary mapping field names to values
 
 	Returns:
@@ -191,19 +191,21 @@ def _fill_pdf_form_fields(
 	try:
 		from pypdf import PdfReader, PdfWriter
 
-		# Get the PDF content
-		if pdf_template_path.startswith("/files/") or pdf_template_path.startswith(
-			"/private/files/"
+		# Only allow Frappe file URLs to prevent path traversal attacks
+		if not (
+			pdf_template_path.startswith("/files/")
+			or pdf_template_path.startswith("/private/files/")
 		):
-			# It's a Frappe file path
-			file_doc = frappe.get_doc(
-				"File", {"file_url": pdf_template_path}
+			frappe.log_error(
+				f"Invalid PDF template path: {pdf_template_path}. "
+				"Only Frappe file URLs are allowed.",
+				"Spec Submittal Generation Error",
 			)
-			pdf_content = file_doc.get_content()
-		else:
-			# Try to read as a file path
-			with open(pdf_template_path, "rb") as f:
-				pdf_content = f.read()
+			return None
+
+		# Get the PDF content from Frappe file system
+		file_doc = frappe.get_doc("File", {"file_url": pdf_template_path})
+		pdf_content = file_doc.get_content()
 
 		# Read the PDF
 		reader = PdfReader(io.BytesIO(pdf_content))
@@ -213,9 +215,10 @@ def _fill_pdf_form_fields(
 		for page in reader.pages:
 			writer.add_page(page)
 
-		# Update form fields
+		# Update form fields on all pages that have them
 		if reader.get_form_text_fields():
-			writer.update_page_form_field_values(writer.pages[0], field_values)
+			for page in writer.pages:
+				writer.update_page_form_field_values(page, field_values)
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()

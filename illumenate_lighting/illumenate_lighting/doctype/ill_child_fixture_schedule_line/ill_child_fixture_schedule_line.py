@@ -46,13 +46,20 @@ class ilLChildFixtureScheduleLine(Document):
 		if self.manufacturer_type == "ILLUMENATE":
 			# Priority 1: Configured fixture - get spec sheet from its template
 			if self.configured_fixture:
-				template_name = frappe.db.get_value(
-					"ilL-Configured-Fixture", self.configured_fixture, "fixture_template"
+				# Single query to get both template name and spec sheet using SQL join
+				result = frappe.db.sql(
+					"""
+					SELECT ft.spec_sheet
+					FROM `tabilL-Configured-Fixture` cf
+					INNER JOIN `tabilL-Fixture-Template` ft ON cf.fixture_template = ft.name
+					WHERE cf.name = %s
+					LIMIT 1
+					""",
+					(self.configured_fixture,),
+					as_dict=True,
 				)
-				if template_name:
-					self.linked_spec_document = frappe.db.get_value(
-						"ilL-Fixture-Template", template_name, "spec_sheet"
-					)
+				if result:
+					self.linked_spec_document = result[0].get("spec_sheet")
 			# Priority 2: Unconfigured with template override
 			elif self.fixture_template_override:
 				self.linked_spec_document = frappe.db.get_value(
