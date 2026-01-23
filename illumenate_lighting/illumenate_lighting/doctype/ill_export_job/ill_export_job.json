@@ -38,7 +38,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Export Type",
-   "options": "PDF_PRICED\nPDF_NO_PRICE\nCSV_PRICED\nCSV_NO_PRICE",
+   "options": "PDF_PRICED\nPDF_NO_PRICE\nCSV_PRICED\nCSV_NO_PRICE\nSPEC_SUBMITTAL\nSPEC_SUBMITTAL_FULL",
    "reqd": 1
   },
   {

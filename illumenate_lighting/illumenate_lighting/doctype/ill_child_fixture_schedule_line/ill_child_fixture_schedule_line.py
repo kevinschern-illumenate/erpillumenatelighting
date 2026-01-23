@@ -9,6 +9,7 @@ class ilLChildFixtureScheduleLine(Document):
 	def validate(self):
 		"""Validate and update configuration status."""
 		self.update_configuration_status()
+		self.update_linked_spec_document()
 
 	def update_configuration_status(self):
 		"""
@@ -27,6 +28,54 @@ class ilLChildFixtureScheduleLine(Document):
 		else:
 			# OTHER manufacturer type - no configuration tracking needed
 			self.configuration_status = ""
+
+	def update_linked_spec_document(self):
+		"""
+		Compute and store the linked_spec_document based on line type
+		and configuration status.
+
+		Priority order:
+		1. For configured ILLUMENATE fixtures: use spec_sheet from configured fixture's template
+		2. For unconfigured ILLUMENATE lines with fixture_template_override: use that template's spec_sheet
+		3. For unconfigured ILLUMENATE lines with fixture_template: use that template's spec_sheet
+		4. For OTHER manufacturer lines: use the attached spec_sheet
+		5. For ACCESSORY lines: no spec document
+		"""
+		self.linked_spec_document = None
+
+		if self.manufacturer_type == "ILLUMENATE":
+			# Priority 1: Configured fixture - get spec sheet from its template
+			if self.configured_fixture:
+				# Single query to get both template name and spec sheet using SQL join
+				result = frappe.db.sql(
+					"""
+					SELECT ft.spec_sheet
+					FROM `tabilL-Configured-Fixture` cf
+					INNER JOIN `tabilL-Fixture-Template` ft ON cf.fixture_template = ft.name
+					WHERE cf.name = %s
+					LIMIT 1
+					""",
+					(self.configured_fixture,),
+					as_dict=True,
+				)
+				if result:
+					self.linked_spec_document = result[0].get("spec_sheet")
+			# Priority 2: Unconfigured with template override
+			elif self.fixture_template_override:
+				self.linked_spec_document = frappe.db.get_value(
+					"ilL-Fixture-Template", self.fixture_template_override, "spec_sheet"
+				)
+			# Priority 3: Unconfigured with fixture template selected
+			elif self.fixture_template:
+				self.linked_spec_document = frappe.db.get_value(
+					"ilL-Fixture-Template", self.fixture_template, "spec_sheet"
+				)
+
+		elif self.manufacturer_type == "OTHER":
+			# Priority 4: Use attached spec sheet for OTHER manufacturers
+			self.linked_spec_document = self.spec_sheet
+
+		# ACCESSORY lines don't have spec documents
 
 	def is_fully_configured(self):
 		"""
