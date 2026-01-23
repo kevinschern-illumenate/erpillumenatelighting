@@ -35,7 +35,11 @@
   "dimming_protocol",
   "input_voltage",
   "other_finish",
-  "spec_sheet"
+  "spec_sheet",
+  "spec_documents_section",
+  "fixture_template_override",
+  "column_break_spec_line",
+  "linked_spec_document"
  ],
  "fields": [
   {
@@ -238,6 +242,32 @@
    "fieldname": "spec_sheet",
    "fieldtype": "Attach",
    "label": "Spec Sheet"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' || doc.manufacturer_type=='OTHER'",
+   "fieldname": "spec_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Documents"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.configuration_status=='Pending' && doc.product_type=='Linear Fixture'",
+   "description": "Override the spec sheet source when fixture is not yet configured",
+   "fieldname": "fixture_template_override",
+   "fieldtype": "Link",
+   "label": "Fixture Template Override",
+   "options": "ilL-Fixture-Template"
+  },
+  {
+   "fieldname": "column_break_spec_line",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Resolved spec document link based on configuration status and overrides",
+   "fieldname": "linked_spec_document",
+   "fieldtype": "Data",
+   "label": "Linked Spec Document",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

@@ -28,6 +28,10 @@
   "allowed_options",
   "allowed_tape_offerings_section",
   "allowed_tape_offerings",
+  "spec_documents_section",
+  "spec_sheet",
+  "column_break_spec_documents",
+  "spec_submittal_template",
   "webflow_section",
   "webflow_product",
   "default_profile_spec"
@@ -158,6 +162,28 @@
    "fieldtype": "Table",
    "label": "Allowed Tape Offerings",
    "options": "ilL-Child-Template-Allowed-TapeOffering"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "spec_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Documents"
+  },
+  {
+   "description": "Static product specification sheet PDF for this fixture template",
+   "fieldname": "spec_sheet",
+   "fieldtype": "Attach",
+   "label": "Spec Sheet"
+  },
+  {
+   "fieldname": "column_break_spec_documents",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Blank fillable PDF template with AcroForm fields for spec submittal generation",
+   "fieldname": "spec_submittal_template",
+   "fieldtype": "Attach",
+   "label": "Spec Submittal Template"
   },
   {
    "collapsible": 1,
