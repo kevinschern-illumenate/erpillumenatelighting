@@ -503,6 +503,12 @@ Also handles new schedule creation when is_new is True
 							<i class="fa fa-file-excel-o"></i> {{ _("CSV (With Pricing)") }}
 						</button>
 						{% endif %}
+						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL')">
+							<i class="fa fa-book"></i> {{ _("Spec Submittal") }}
+						</button>
+						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL_FULL')">
+							<i class="fa fa-files-o"></i> {{ _("Spec Submittal (Full)") }}
+						</button>
 					</div>
 				</div>
 				<div class="card-body p-0">
@@ -1776,6 +1782,57 @@ function createSalesOrder() {
 }
 
 // Export functionality
+function generateSpecSubmittal(exportType) {
+	frappe.show_alert({
+		message: 'Generating Spec Submittal packet...',
+		indicator: 'blue'
+	});
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.spec_submittal.generate_spec_submittal_packet',
+		args: {
+			schedule_name: schedule_name,
+			export_type: exportType,
+			include_cover: true
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.show_alert({
+					message: 'Spec Submittal generated successfully!',
+					indicator: 'green'
+				});
+				// Show warnings if any
+				if (r.message.warnings && r.message.warnings.length > 0) {
+					frappe.msgprint({
+						title: 'Spec Submittal Warnings',
+						indicator: 'orange',
+						message: r.message.warnings.join('<br>')
+					});
+				}
+				// Refresh export history
+				loadExportHistory();
+				// Open download in new tab
+				if (r.message.file_url) {
+					window.open(r.message.file_url, '_blank');
+				}
+			} else {
+				frappe.msgprint({
+					title: 'Spec Submittal Error',
+					indicator: 'red',
+					message: r.message.message || 'Error generating spec submittal'
+				});
+			}
+		},
+		error: function() {
+			frappe.msgprint({
+				title: 'Spec Submittal Error',
+				indicator: 'red',
+				message: 'Error generating spec submittal'
+			});
+		}
+	});
+}
+
 function generateExport(format, priced) {
 	var method = format === 'pdf'
 		? 'illumenate_lighting.illumenate_lighting.api.exports.generate_schedule_pdf'

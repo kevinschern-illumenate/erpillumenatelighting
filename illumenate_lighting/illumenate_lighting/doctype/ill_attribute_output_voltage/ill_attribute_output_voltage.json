@@ -18,13 +18,13 @@
    "fieldname": "dc_voltage",
    "fieldtype": "Select",
    "label": "DC Voltage",
-   "options": "5V\n12V\n24V\n36V\n48V"
+   "options": "\n5V\n12V\n24V\n36V\n48V"
   },
   {
    "fieldname": "ac_voltage",
    "fieldtype": "Select",
    "label": "AC Voltage",
-   "options": "12V\n120V\n240V\n277V"
+   "options": "\n12V\n120V\n240V\n277V"
   },
   {
    "fieldname": "voltage_name",
