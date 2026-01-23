@@ -16,13 +16,14 @@
   "voltage_output",
   "outputs_count",
   "output_type",
-  "input_protocol",
   "output_protocol",
   "column_break_gfyi",
   "max_wattage",
   "max_wattage_per_output",
   "usable_load_factor",
   "cost",
+  "control_section",
+  "input_protocols",
   "dimensions_section",
   "width_mm",
   "height_mm",
@@ -92,13 +93,6 @@
    "options": "Constant Voltage\nConstant Current"
   },
   {
-   "fieldname": "input_protocol",
-   "fieldtype": "Link",
-   "label": "Input Protocol",
-   "options": "ilL-Attribute-Dimming Protocol",
-   "description": "The dimming signal protocol this driver accepts from the user/controller (e.g., 0-10V, DALI)"
-  },
-  {
    "fieldname": "output_protocol",
    "fieldtype": "Link",
    "label": "Output Protocol",
@@ -130,6 +124,18 @@
    "fieldtype": "Currency",
    "label": "Unit Cost",
    "description": "Unit cost for driver selection policy (lowest cost preferred)"
+  },
+  {
+   "fieldname": "control_section",
+   "fieldtype": "Section Break",
+   "label": "Control / Dimming"
+  },
+  {
+   "fieldname": "input_protocols",
+   "fieldtype": "Table",
+   "label": "Supported Input Protocols",
+   "options": "ilL-Child-Driver-Input-Protocol",
+   "description": "Dimming signal protocols this driver accepts from user/controller (e.g., 0-10V, DALI, Triac)"
   },
   {
    "fieldname": "dimensions_section",
@@ -176,7 +182,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-08 16:20:00.000000",
+ "modified": "2026-01-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Spec-Driver",

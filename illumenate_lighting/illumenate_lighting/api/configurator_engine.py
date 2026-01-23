@@ -2800,10 +2800,13 @@ def _select_driver_plan(
 		if tape_input_protocol and driver_spec.output_protocol and driver_spec.output_protocol != tape_input_protocol:
 			continue
 
-		# Filter by user's dimming protocol: driver's input_protocol must match user's selection
+		# Filter by user's dimming protocol: driver's input_protocols must include user's selection
 		# This ensures the driver accepts the dimming signal the user wants to use (e.g., 0-10V, DALI)
-		if dimming_protocol_code and driver_spec.input_protocol and driver_spec.input_protocol != dimming_protocol_code:
-			continue
+		if dimming_protocol_code:
+			# Get the list of supported input protocols from the child table
+			supported_input_protocols = {row.protocol for row in (driver_spec.input_protocols or [])}
+			if supported_input_protocols and dimming_protocol_code not in supported_input_protocols:
+				continue
 
 		# Calculate usable wattage
 		usable_load_factor = float(driver_spec.usable_load_factor or 0.8)
