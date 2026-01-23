@@ -224,17 +224,22 @@ class ilLWebflowProduct(Document):
 				"display_order": 40
 			})
 
-		if driver.input_protocol:
-			protocol_label = frappe.db.get_value(
-				"ilL-Attribute-Dimming Protocol",
-				driver.input_protocol,
-				"label"
-			)
-			if protocol_label:
+		# Handle multiple input protocols from child table
+		if driver.input_protocols:
+			protocol_labels = []
+			for row in driver.input_protocols:
+				protocol_label = frappe.db.get_value(
+					"ilL-Attribute-Dimming Protocol",
+					row.protocol,
+					"label"
+				)
+				if protocol_label:
+					protocol_labels.append(protocol_label)
+			if protocol_labels:
 				specs_to_add.append({
 					"spec_group": "Control",
-					"spec_label": "Dimming Protocol",
-					"spec_value": protocol_label,
+					"spec_label": "Dimming Protocols",
+					"spec_value": ", ".join(protocol_labels),
 					"is_calculated": 1,
 					"display_order": 50
 				})

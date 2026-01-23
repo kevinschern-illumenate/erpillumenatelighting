@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{tape_spec}-{cct}-{cri}-{sdcm}-{led_package}-{output_level}",
+ "autoname": "format:{tape_spec}",
  "creation": "2026-01-07 21:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
