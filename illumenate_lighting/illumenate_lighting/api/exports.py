@@ -384,6 +384,61 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				line_data["requested_length_mm"] = 0
 				line_data["manufacturable_length_mm"] = line.manufacturable_length_mm or 0
 				line_data["runs_count"] = 0
+
+		elif line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture:
+			# Unconfigured ILLUMENATE fixture - has template but not yet configured
+			line_data["is_unconfigured"] = True
+			line_data["fixture_template"] = line.fixture_template or ""
+			line_data["product_type"] = line.product_type or ""
+			# Try to get the fixture template name
+			if line.fixture_template:
+				template_name = frappe.db.get_value(
+					"ilL-Fixture-Template",
+					line.fixture_template,
+					"template_name"
+				)
+				line_data["fixture_template_name"] = template_name or line.fixture_template
+			else:
+				line_data["fixture_template_name"] = ""
+			line_data["template_code"] = ""
+			line_data["config_summary"] = ""
+			line_data["requested_length_mm"] = 0
+			line_data["manufacturable_length_mm"] = 0
+			line_data["runs_count"] = 0
+
+		elif line.manufacturer_type == "ACCESSORY":
+			# Accessory/Component line - ilLumenate products that aren't configurable fixtures
+			line_data["accessory_product_type"] = line.accessory_product_type or ""
+			line_data["accessory_item"] = line.accessory_item or ""
+			line_data["accessory_item_name"] = line.accessory_item_name or ""
+			# Fetch item description if we have an item
+			if line.accessory_item:
+				item_data = frappe.db.get_value(
+					"Item",
+					line.accessory_item,
+					["item_name", "description"],
+					as_dict=True
+				)
+				if item_data:
+					line_data["accessory_item_name"] = line.accessory_item_name or item_data.item_name or ""
+					line_data["accessory_item_description"] = item_data.description or ""
+				# Try to get pricing if include_pricing
+				if include_pricing:
+					item_price = frappe.db.get_value(
+						"Item Price",
+						{"item_code": line.accessory_item, "selling": 1},
+						"price_list_rate"
+					)
+					if item_price:
+						line_data["unit_price"] = float(item_price)
+						line_data["line_total"] = float(item_price) * (line.qty or 1)
+						schedule_total += line_data["line_total"]
+			line_data["template_code"] = ""
+			line_data["config_summary"] = ""
+			line_data["requested_length_mm"] = 0
+			line_data["manufacturable_length_mm"] = 0
+			line_data["runs_count"] = 0
+
 		else:
 			# Other manufacturer line
 			line_data["template_code"] = ""
@@ -516,8 +571,8 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		row_class = "other-manufacturer" if line["manufacturer_type"] == "OTHER" else ""
 		html_parts.append(f"<tr class='{row_class}'>")
 		html_parts.append(f"<td class='col-fixture-type'>{line['line_id']}</td>")
-		# Display manufacturer type - ilLumenate Lighting for ILLUMENATE, actual manufacturer name for OTHER
-		if line["manufacturer_type"] == "ILLUMENATE":
+		# Display manufacturer type - ilLumenate Lighting for ILLUMENATE and ACCESSORY, actual manufacturer name for OTHER
+		if line["manufacturer_type"] in ["ILLUMENATE", "ACCESSORY"]:
 			type_display = "ilLumenate Lighting"
 		else:
 			type_display = line.get("manufacturer_name") or "Other"
@@ -526,8 +581,8 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		html_parts.append(f"<td>{line['location']}</td>")
 
 		# Description column
-		if line["manufacturer_type"] == "ILLUMENATE":
-			# Build description in specified order:
+		if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
+			# Configured ILLUMENATE fixture - Build description in specified order:
 			# Part number, Environment, CCT, CRI, Output, Lens, Mounting, Finish, Length,
 			# Feed, Input Voltage, PS Input Voltage, Wattage, Driver
 			part_number = line.get("configured_fixture_name") or line["template_code"]
@@ -590,6 +645,28 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 			# Driver
 			if line.get("power_supply"):
 				description += f"<br><small>Driver: {line['power_supply']}</small>"
+
+		elif line["manufacturer_type"] == "ILLUMENATE" and line.get("is_unconfigured"):
+			# Unconfigured ILLUMENATE fixture - show template name with warning
+			template_name = line.get("fixture_template_name") or line.get("fixture_template") or "Unknown Template"
+			description = f"<strong>{template_name}</strong>"
+			description += "<br><small style='color: #856404;'>⚠ Not configured - configuration required</small>"
+
+		elif line["manufacturer_type"] == "ACCESSORY":
+			# Accessory/Component item
+			item_name = line.get("accessory_item_name") or line.get("accessory_item") or ""
+			description = f"<strong>{item_name}</strong>"
+			if line.get("accessory_item"):
+				description += f"<br><small>Item Code: {line['accessory_item']}</small>"
+			if line.get("accessory_item_description"):
+				# Truncate description if too long
+				item_desc = line["accessory_item_description"]
+				if len(item_desc) > 150:
+					item_desc = item_desc[:150] + "..."
+				description += f"<br><small>{item_desc}</small>"
+			if line.get("accessory_product_type"):
+				description += f"<br><small>Category: {line['accessory_product_type']}</small>"
+
 		else:
 			# Other manufacturer - each field on its own line
 			description = f"<strong>{line.get('manufacturer_name', '')}</strong>"
@@ -663,7 +740,7 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Manufacturer Type",
 		"Qty",
 		"Location",
-		"Template Code / Config Summary",
+		"Description",
 		"CCT",
 		"CRI",
 		"Output (lm/ft)",
@@ -682,6 +759,10 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Dimming",
 		"Voltage",
 		"Finish",
+		# Accessory fields
+		"Accessory Item Code",
+		"Accessory Item Name",
+		"Accessory Category",
 	]
 	if include_pricing:
 		headers.extend(["Unit Price", "Line Total"])
@@ -697,6 +778,17 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		requested_length_in = round(line["requested_length_mm"] / MM_PER_INCH, 1) if line.get("requested_length_mm") else ""
 		manufacturable_length_in = round(line["manufacturable_length_mm"] / MM_PER_INCH, 1) if line.get("manufacturable_length_mm") else ""
 		
+		# Build description based on manufacturer type
+		if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
+			description = f"{line['template_code']} {line['config_summary']}".strip()
+		elif line["manufacturer_type"] == "ILLUMENATE" and line.get("is_unconfigured"):
+			template_name = line.get("fixture_template_name") or line.get("fixture_template") or ""
+			description = f"{template_name} (Not configured)"
+		elif line["manufacturer_type"] == "ACCESSORY":
+			description = line.get("accessory_item_name") or line.get("accessory_item") or ""
+		else:
+			description = line.get("manufacturer_name") or ""
+		
 		row = [
 			project_name,
 			schedule_name,
@@ -704,7 +796,7 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line["manufacturer_type"],
 			line["qty"],
 			line["location"],
-			f"{line['template_code']} {line['config_summary']}".strip(),
+			description,
 			line.get("cct", ""),
 			line.get("cri", ""),
 			line.get("estimated_delivered_output", ""),
@@ -723,6 +815,10 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line.get("dimming_protocol", ""),
 			line.get("input_voltage", ""),
 			line.get("other_finish", ""),
+			# Accessory fields
+			line.get("accessory_item", ""),
+			line.get("accessory_item_name", ""),
+			line.get("accessory_product_type", ""),
 		]
 		if include_pricing:
 			row.extend([
