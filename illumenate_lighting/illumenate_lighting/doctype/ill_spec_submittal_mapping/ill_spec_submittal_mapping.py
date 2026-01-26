@@ -35,7 +35,8 @@ def get_doctype_fields(doctype: str) -> list:
 		"ilL-Spec-Lens",
 		"ilL-Spec-Driver",
 		"ilL-Project-Fixture-Schedule",
-		"ilL-Project"
+		"ilL-Project",
+		"ilL-Child-Fixture-Schedule-Line"
 	]
 	
 	if doctype not in allowed_doctypes:

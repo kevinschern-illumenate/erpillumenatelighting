@@ -43,7 +43,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Source DocType",
-   "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Rel-Tape Offering\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project",
+   "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Rel-Tape Offering\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
    "reqd": 1
   },
   {

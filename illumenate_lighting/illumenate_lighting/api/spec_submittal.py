@@ -91,6 +91,7 @@ def _get_source_value(
 	fixture_template: Any = None,
 	schedule: Any = None,
 	project: Any = None,
+	schedule_line: Any = None,
 ) -> Any:
 	"""
 	Get a value from the specified source doctype and field.
@@ -102,6 +103,7 @@ def _get_source_value(
 		fixture_template: The fixture template document (if applicable)
 		schedule: The schedule document
 		project: The project document
+		schedule_line: The fixture schedule line (child table row, if applicable)
 
 	Returns:
 		The value from the source field, or None if not found
@@ -118,6 +120,9 @@ def _get_source_value(
 
 		if source_doctype == "ilL-Project" and project:
 			return getattr(project, source_field, None)
+
+		if source_doctype == "ilL-Child-Fixture-Schedule-Line" and schedule_line:
+			return getattr(schedule_line, source_field, None)
 
 		if source_doctype == "ilL-Rel-Tape Offering" and configured_fixture:
 			tape_offering = configured_fixture.tape_offering
@@ -581,10 +586,12 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		# Get the fixture template
 		template = frappe.get_doc("ilL-Fixture-Template", cf.fixture_template)
 
-		if not template.spec_submittal_template:
+		# Get the PDF template - prefer spec_submittal_template, fall back to spec_sheet
+		pdf_template = template.spec_submittal_template or template.spec_sheet
+		if not pdf_template:
 			return {
 				"success": False,
-				"message": _("Fixture template has no spec submittal template"),
+				"message": _("Fixture template has no spec submittal template or spec sheet attached"),
 			}
 
 		# Get field mappings
@@ -599,6 +606,27 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		# Get project and schedule context (if available)
 		schedule = None
 		project = None
+		schedule_line = None
+
+		# Try to find the schedule line that references this configured fixture
+		schedule_line_data = frappe.db.get_value(
+			"ilL-Child-Fixture-Schedule-Line",
+			{"configured_fixture": configured_fixture_name},
+			["name", "parent"],
+			as_dict=True,
+		)
+		if schedule_line_data:
+			schedule_line = frappe.get_doc(
+				"ilL-Child-Fixture-Schedule-Line", schedule_line_data.name
+			)
+			# Get the parent schedule
+			if schedule_line_data.parent:
+				schedule = frappe.get_doc(
+					"ilL-Project-Fixture-Schedule", schedule_line_data.parent
+				)
+				# Get the project from the schedule
+				if schedule and schedule.project:
+					project = frappe.get_doc("ilL-Project", schedule.project)
 
 		# Build field values
 		field_values = {}
@@ -610,12 +638,13 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 				fixture_template=template,
 				schedule=schedule,
 				project=project,
+				schedule_line=schedule_line,
 			)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			field_values[mapping["pdf_field_name"]] = transformed_value
 
-		# Fill the PDF
-		filled_pdf = _fill_pdf_form_fields(template.spec_submittal_template, field_values)
+		# Fill the PDF using the template we found earlier
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values)
 
 		if not filled_pdf:
 			return {
