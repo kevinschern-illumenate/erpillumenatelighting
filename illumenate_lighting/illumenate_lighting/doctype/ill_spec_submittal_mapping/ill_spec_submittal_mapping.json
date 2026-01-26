@@ -11,6 +11,8 @@
   "column_break_main",
   "source_doctype",
   "source_field",
+  "show_fields_button",
+  "available_fields_html",
   "transformation_section",
   "transformation"
  ],
@@ -45,12 +47,22 @@
    "reqd": 1
   },
   {
-   "description": "The field name on the source doctype to pull the value from",
+   "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options.",
    "fieldname": "source_field",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Source Field",
    "reqd": 1
+  },
+  {
+   "fieldname": "show_fields_button",
+   "fieldtype": "Button",
+   "label": "Show Available Fields"
+  },
+  {
+   "fieldname": "available_fields_html",
+   "fieldtype": "HTML",
+   "label": "Available Fields"
   },
   {
    "collapsible": 1,
