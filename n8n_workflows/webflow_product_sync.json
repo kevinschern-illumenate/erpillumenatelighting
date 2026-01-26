@@ -1,0 +1,396 @@
+{
+  "name": "ERPNext → Webflow Product Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 150]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.get_webflow_products",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sync_status",
+              "value": "needs_sync"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            },
+            {
+              "name": "include_child_tables",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-products",
+      "name": "Fetch Products from ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-has-products",
+              "leftValue": "={{ $json.message.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-products",
+      "name": "Has Products to Sync?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [475, 75]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "message.products",
+        "options": {}
+      },
+      "id": "split-products",
+      "name": "Split Products",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [700, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-webflow-id",
+              "leftValue": "={{ $json.webflow_item_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "exists-in-webflow",
+      "name": "Exists in Webflow?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [925, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transform ERPNext product to Webflow format\nconst product = $input.item.json;\n\n// Build specifications string\nlet specsHtml = '';\nif (product.specifications && product.specifications.length > 0) {\n  specsHtml = '<ul>';\n  for (const spec of product.specifications) {\n    specsHtml += `<li><strong>${spec.spec_label}:</strong> ${spec.spec_value}${spec.spec_unit ? ' ' + spec.spec_unit : ''}</li>`;\n  }\n  specsHtml += '</ul>';\n}\n\n// Build Webflow payload\nconst webflowData = {\n  isArchived: false,\n  isDraft: false,\n  fieldData: {\n    \"name\": product.product_name,\n    \"slug\": product.product_slug,\n    \"product-type\": product.product_type,\n    \"short-description\": product.short_description || '',\n    \"long-description\": product.long_description || '',\n    \"is-configurable\": product.is_configurable || false,\n    \"min-length-mm\": product.min_length_mm || 0,\n    \"max-length-mm\": product.max_length_mm || 0,\n    \"erp-sync-id\": product.product_slug,\n    \"specifications-html\": specsHtml\n  }\n};\n\n// Add featured image if available\nif (product.featured_image) {\n  // Note: Webflow requires publicly accessible URLs\n  // You may need to construct the full URL\n  webflowData.fieldData[\"featured-image\"] = product.featured_image;\n}\n\nreturn {\n  json: {\n    webflowData,\n    originalProduct: product\n  }\n};"
+      },
+      "id": "transform-product",
+      "name": "Transform to Webflow Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1150, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.webflow.com/v2/collections/696fc3c5c42c86528e97f413/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "id": "webflow-create",
+      "name": "Webflow: Create Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1400, -75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.webflow.com/v2/collections/696fc3c5c42c86528e97f413/items/{{ $('Split Products').item.json.webflow_item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "id": "webflow-update",
+      "name": "Webflow: Update Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1400, 75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_webflow_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $('Transform to Webflow Format').item.json.originalProduct.product_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"webflow_collection_slug\": \"products\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced-new",
+      "name": "Mark Synced (New)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, -75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_webflow_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $('Transform to Webflow Format').item.json.originalProduct.product_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"webflow_collection_slug\": \"products\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced-update",
+      "name": "Mark Synced (Update)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, 75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ERPNext → Webflow Product Sync\n\n### Credentials Required:\n\n1. **ERPNext API Key** (Header Auth):\n   - Name: `Authorization`\n   - Value: `token YOUR_API_KEY:YOUR_API_SECRET`\n\n2. **Webflow API Token** (Header Auth):\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_WEBFLOW_TOKEN`\n\n### URLs Configured:\n- ERPNext: https://illumenatelighting.v.frappe.cloud\n- Products Collection: 696fc3c5c42c86528e97f413\n\n### Customize Transform Node:\n- Edit the Code node to map your specific fields",
+        "height": 380,
+        "width": 350
+      },
+      "id": "sticky-note",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-350, -100]
+    },
+    {
+      "parameters": {
+        "content": "## Error Handling\n\nAdd error handling nodes here to call:\n`mark_webflow_error`\n\nwhen Webflow API fails",
+        "height": 120,
+        "width": 200
+      },
+      "id": "error-note",
+      "name": "Error Handling Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1400, 200]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products from ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products from ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Products from ERPNext": {
+      "main": [
+        [
+          {
+            "node": "Has Products to Sync?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Products to Sync?": {
+      "main": [
+        [
+          {
+            "node": "Split Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Products": {
+      "main": [
+        [
+          {
+            "node": "Exists in Webflow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exists in Webflow?": {
+      "main": [
+        [
+          {
+            "node": "Transform to Webflow Format",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transform to Webflow Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to Webflow Format": {
+      "main": [
+        [
+          {
+            "node": "Webflow: Create Product",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Webflow: Update Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Create Product": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced (New)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Update Product": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "webflow",
+      "createdAt": "2026-01-26T00:00:00.000Z",
+      "updatedAt": "2026-01-26T00:00:00.000Z"
+    },
+    {
+      "name": "erpnext",
+      "createdAt": "2026-01-26T00:00:00.000Z",
+      "updatedAt": "2026-01-26T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-26T00:00:00.000Z",
+  "versionId": "1"
+}

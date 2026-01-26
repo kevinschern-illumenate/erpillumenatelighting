@@ -636,15 +636,15 @@ class ilLWebflowProduct(Document):
 		watts_values = []
 		for tape_row in template.allowed_tape_offerings or []:
 			if hasattr(tape_row, 'tape_offering') and tape_row.tape_offering:
-				tape_item = frappe.db.get_value(
+				tape_spec = frappe.db.get_value(
 					"ilL-Rel-Tape Offering",
 					tape_row.tape_offering,
-					"tape_item"
+					"tape_spec"
 				)
-				if tape_item:
+				if tape_spec:
 					watts = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
-						tape_item,
+						tape_spec,
 						"watts_per_foot"
 					)
 					if watts:
@@ -665,15 +665,15 @@ class ilLWebflowProduct(Document):
 		max_runs = []
 		for tape_row in template.allowed_tape_offerings or []:
 			if hasattr(tape_row, 'tape_offering') and tape_row.tape_offering:
-				tape_item = frappe.db.get_value(
+				tape_spec = frappe.db.get_value(
 					"ilL-Rel-Tape Offering",
 					tape_row.tape_offering,
-					"tape_item"
+					"tape_spec"
 				)
-				if tape_item:
+				if tape_spec:
 					max_run = frappe.db.get_value(
 						"ilL-Spec-LED Tape",
-						tape_item,
+						tape_spec,
 						"voltage_drop_max_run_length_ft"
 					)
 					if max_run:
