@@ -15,7 +15,12 @@
   "is_active",
   "details_section",
   "description",
-  "category_image"
+  "category_image",
+  "sync_section",
+  "webflow_item_id",
+  "column_break_sync",
+  "last_synced_at",
+  "sync_status"
  ],
  "fields": [
   {
@@ -77,6 +82,38 @@
    "fieldname": "category_image",
    "fieldtype": "Attach Image",
    "label": "Category Image"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sync_section",
+   "fieldtype": "Section Break",
+   "label": "Webflow Sync Status"
+  },
+  {
+   "description": "Webflow CMS item ID (populated after sync)",
+   "fieldname": "webflow_item_id",
+   "fieldtype": "Data",
+   "label": "Webflow Item ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sync",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_synced_at",
+   "fieldtype": "Datetime",
+   "label": "Last Synced At",
+   "read_only": 1
+  },
+  {
+   "default": "Never Synced",
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Sync Status",
+   "options": "Pending\nSynced\nError\nNever Synced",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

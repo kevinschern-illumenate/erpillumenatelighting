@@ -248,13 +248,15 @@ def mark_webflow_error(
 
 @frappe.whitelist(allow_guest=False)
 def get_webflow_categories(
-    include_inactive: bool = False
+    include_inactive: bool = False,
+    sync_status: str = None
 ) -> dict:
     """
     Get Webflow categories for navigation and filtering.
     
     Args:
         include_inactive: Whether to include inactive categories
+        sync_status: Filter by sync status ("Pending", "Never Synced", "needs_sync")
     
     Returns:
         dict: {"categories": [...], "total": int}
@@ -263,13 +265,20 @@ def get_webflow_categories(
     if not include_inactive:
         filters["is_active"] = 1
     
+    if sync_status:
+        if sync_status == "needs_sync":
+            filters["sync_status"] = ["in", ["Pending", "Never Synced"]]
+        else:
+            filters["sync_status"] = sync_status
+    
     categories = frappe.get_all(
         "ilL-Webflow-Category",
         filters=filters,
         fields=[
             "name", "category_name", "category_slug",
             "parent_category", "display_order", "description",
-            "category_image", "is_active"
+            "category_image", "is_active",
+            "webflow_item_id", "last_synced_at", "sync_status"
         ],
         order_by="display_order asc"
     )
@@ -299,22 +308,96 @@ def get_webflow_categories(
 
 
 @frappe.whitelist(allow_guest=False)
-def trigger_sync(
-    product_slugs: list = None,
-    product_type: str = None
+def mark_category_synced(
+    category_slug: str,
+    webflow_item_id: str
 ) -> dict:
     """
-    Mark products as pending sync to trigger n8n workflow.
+    Mark a category as synced after n8n pushes to Webflow.
+    
+    Called by n8n after successful Webflow API call.
+    
+    Args:
+        category_slug: The category slug (document name)
+        webflow_item_id: The Webflow CMS item ID
+    
+    Returns:
+        dict: {"success": True, "synced_at": datetime}
+    """
+    if not frappe.db.exists("ilL-Webflow-Category", category_slug):
+        frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
+    
+    doc = frappe.get_doc("ilL-Webflow-Category", category_slug)
+    doc.webflow_item_id = webflow_item_id
+    doc.last_synced_at = frappe.utils.now()
+    doc.sync_status = "Synced"
+    doc.save(ignore_permissions=True)
+    
+    return {
+        "success": True,
+        "synced_at": doc.last_synced_at,
+        "category_slug": category_slug
+    }
+
+
+@frappe.whitelist(allow_guest=False)
+def mark_category_error(
+    category_slug: str,
+    error_message: str
+) -> dict:
+    """
+    Mark a category as having a sync error.
+    
+    Called by n8n when Webflow API call fails.
+    
+    Args:
+        category_slug: The category slug (document name)
+        error_message: The error message from Webflow
+    
+    Returns:
+        dict: {"success": True}
+    """
+    if not frappe.db.exists("ilL-Webflow-Category", category_slug):
+        frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
+    
+    doc = frappe.get_doc("ilL-Webflow-Category", category_slug)
+    doc.sync_status = "Error"
+    doc.save(ignore_permissions=True)
+    
+    frappe.log_error(
+        message=error_message[:1000] if error_message else "Unknown error",
+        title=f"Webflow Category Sync Error: {category_slug}"
+    )
+    
+    return {
+        "success": True,
+        "category_slug": category_slug
+    }
+
+
+@frappe.whitelist(allow_guest=False)
+def trigger_sync(
+    product_slugs: list = None,
+    product_type: str = None,
+    category_slugs: list = None,
+    sync_all_categories: bool = False
+) -> dict:
+    """
+    Mark products and/or categories as pending sync to trigger n8n workflow.
     
     Args:
         product_slugs: List of specific product slugs to sync
         product_type: Sync all products of this type
+        category_slugs: List of specific category slugs to sync
+        sync_all_categories: Sync all active categories
     
     Returns:
-        dict: {"success": True, "products_marked": int}
+        dict: {"success": True, "products_marked": int, "categories_marked": int}
     """
     products_marked = 0
+    categories_marked = 0
     
+    # Handle products
     if product_slugs:
         for slug in product_slugs:
             if frappe.db.exists("ilL-Webflow-Product", slug):
@@ -337,50 +420,96 @@ def trigger_sync(
             )
             products_marked += 1
     
+    # Handle categories
+    if category_slugs:
+        for slug in category_slugs:
+            if frappe.db.exists("ilL-Webflow-Category", slug):
+                frappe.db.set_value(
+                    "ilL-Webflow-Category", slug,
+                    "sync_status", "Pending"
+                )
+                categories_marked += 1
+    
+    elif sync_all_categories:
+        categories = frappe.get_all(
+            "ilL-Webflow-Category",
+            filters={"is_active": 1},
+            pluck="name"
+        )
+        for slug in categories:
+            frappe.db.set_value(
+                "ilL-Webflow-Category", slug,
+                "sync_status", "Pending"
+            )
+            categories_marked += 1
+    
     frappe.db.commit()
     
     return {
         "success": True,
-        "products_marked": products_marked
+        "products_marked": products_marked,
+        "categories_marked": categories_marked
     }
 
 
 @frappe.whitelist(allow_guest=False)
 def get_sync_statistics() -> dict:
     """
-    Get statistics about Webflow sync status.
+    Get statistics about Webflow sync status for products and categories.
     
     Returns:
-        dict: Counts by sync status and product type
+        dict: Counts by sync status, product type, and category stats
     """
     stats = {
-        "by_status": {},
-        "by_type": {},
-        "total_active": 0,
-        "needs_sync": 0
+        "products": {
+            "by_status": {},
+            "by_type": {},
+            "total_active": 0,
+            "needs_sync": 0
+        },
+        "categories": {
+            "by_status": {},
+            "total_active": 0,
+            "needs_sync": 0
+        }
     }
     
-    # Count by sync status
+    # Product stats - Count by sync status
     for status in ["Pending", "Synced", "Error", "Never Synced"]:
         count = frappe.db.count(
             "ilL-Webflow-Product",
             {"sync_status": status, "is_active": 1}
         )
-        stats["by_status"][status] = count
+        stats["products"]["by_status"][status] = count
         if status in ["Pending", "Never Synced"]:
-            stats["needs_sync"] += count
+            stats["products"]["needs_sync"] += count
     
-    # Count by product type
+    # Product stats - Count by product type
     for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]:
         count = frappe.db.count(
             "ilL-Webflow-Product",
             {"product_type": ptype, "is_active": 1}
         )
         if count > 0:
-            stats["by_type"][ptype] = count
+            stats["products"]["by_type"][ptype] = count
     
-    stats["total_active"] = frappe.db.count(
+    stats["products"]["total_active"] = frappe.db.count(
         "ilL-Webflow-Product",
+        {"is_active": 1}
+    )
+    
+    # Category stats - Count by sync status
+    for status in ["Pending", "Synced", "Error", "Never Synced"]:
+        count = frappe.db.count(
+            "ilL-Webflow-Category",
+            {"sync_status": status, "is_active": 1}
+        )
+        stats["categories"]["by_status"][status] = count
+        if status in ["Pending", "Never Synced"]:
+            stats["categories"]["needs_sync"] += count
+    
+    stats["categories"]["total_active"] = frappe.db.count(
+        "ilL-Webflow-Category",
         {"is_active": 1}
     )
     

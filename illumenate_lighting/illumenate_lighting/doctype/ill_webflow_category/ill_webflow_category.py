@@ -19,7 +19,10 @@ class ilLWebflowCategory(Document):
 		description: DF.SmallText | None
 		display_order: DF.Int
 		is_active: DF.Check
+		last_synced_at: DF.Datetime | None
 		parent_category: DF.Link | None
+		sync_status: DF.Literal["Pending", "Synced", "Error", "Never Synced"]
+		webflow_item_id: DF.Data | None
 	# end: auto-generated types
 
 	pass
