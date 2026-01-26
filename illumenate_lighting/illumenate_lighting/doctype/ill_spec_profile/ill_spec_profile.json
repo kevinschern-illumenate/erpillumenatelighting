@@ -15,6 +15,7 @@
   "dimensions_section",
   "width_mm",
   "height_mm",
+  "dimensions",
   "column_break_dimensions",
   "weight_per_meter_grams",
   "stocking_cutting_sb",
@@ -79,6 +80,13 @@
    "fieldname": "height_mm",
    "fieldtype": "Float",
    "label": "Height (mm)"
+  },
+  {
+   "description": "Combined dimensions (Width x Height)",
+   "fieldname": "dimensions",
+   "fieldtype": "Data",
+   "label": "Dimensions",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_dimensions",
