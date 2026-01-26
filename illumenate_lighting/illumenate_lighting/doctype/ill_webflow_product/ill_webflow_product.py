@@ -785,14 +785,14 @@ class ilLWebflowProduct(Document):
 					level_data = frappe.db.get_value(
 						"ilL-Attribute-Output Level",
 						output_level,
-						["code", "value"],
+						["sku_code", "value"],
 						as_dict=True
 					)
 					if level_data:
 						levels[output_level] = {
 							"value": output_level,
 							"label": f"{level_data.get('value', '')} lm/ft",
-							"code": level_data.get("code") or "",
+							"code": level_data.get("sku_code") or "",
 							"lm_per_ft": level_data.get("value") or 0
 						}
 		return sorted(list(levels.values()), key=lambda x: x.get("lm_per_ft", 0))

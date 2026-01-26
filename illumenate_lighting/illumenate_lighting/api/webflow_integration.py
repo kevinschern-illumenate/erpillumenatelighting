@@ -234,14 +234,14 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 			finish_data = frappe.db.get_value(
 				"ilL-Attribute-Finish",
 				cf.finish,
-				["code", "display_name", "surface_treatment"],
+				["code", "finish_name", "type"],
 				as_dict=True
 			)
 			if finish_data:
 				attributes["finish"] = {
 					"code": finish_data.code,
-					"name": finish_data.display_name or finish_data.code,
-					"surface_treatment": finish_data.surface_treatment,
+					"name": finish_data.finish_name or finish_data.code,
+					"surface_treatment": finish_data.type,
 				}
 		
 		# Lens Appearance
@@ -280,14 +280,13 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 			env_data = frappe.db.get_value(
 				"ilL-Attribute-Environment Rating",
 				cf.environment_rating,
-				["label", "code", "ip_rating"],
+				["label", "code"],
 				as_dict=True
 			)
 			if env_data:
 				attributes["environment_rating"] = {
 					"name": env_data.label,
 					"code": env_data.code,
-					"ip_rating": env_data.ip_rating,
 				}
 		
 		# Tape offering attributes (CCT, LED Package, Output Level, CRI)
@@ -305,15 +304,15 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 					cct_data = frappe.db.get_value(
 						"ilL-Attribute-CCT",
 						tape_offering.cct,
-						["cct_name", "code", "kelvin_value"],
+						["cct_name", "code", "kelvin"],
 						as_dict=True
 					)
 					if cct_data:
 						attributes["cct"] = {
 							"name": cct_data.cct_name,
 							"code": cct_data.code,
-							"kelvin": cct_data.kelvin_value,
-							"display": f"{cct_data.kelvin_value}K" if cct_data.kelvin_value else cct_data.cct_name,
+							"kelvin": cct_data.kelvin,
+							"display": f"{cct_data.kelvin}K" if cct_data.kelvin else cct_data.cct_name,
 						}
 				
 				# LED Package
@@ -321,12 +320,12 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 					led_data = frappe.db.get_value(
 						"ilL-Attribute-LED Package",
 						tape_offering.led_package,
-						["label", "code"],
+						["code", "spectrum_type"],
 						as_dict=True
 					)
 					if led_data:
 						attributes["led_package"] = {
-							"name": led_data.label,
+							"name": led_data.code,
 							"code": led_data.code,
 						}
 				
