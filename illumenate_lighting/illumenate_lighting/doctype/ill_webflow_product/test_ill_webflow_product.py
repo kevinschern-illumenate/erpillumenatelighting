@@ -124,6 +124,62 @@ class TestilLWebflowProduct(FrappeTestCase):
         # Cleanup
         product.delete()
 
+    def test_specifications_with_attribute_links(self):
+        """Test adding specifications with attribute doctype links."""
+        import json
+        
+        # Sample attribute options JSON structure
+        attribute_options = [
+            {
+                "attribute_type": "Finish",
+                "attribute_doctype": "ilL-Attribute-Finish",
+                "attribute_value": "Black Anodized",
+                "display_label": "Black Anodized",
+                "is_default": True
+            },
+            {
+                "attribute_type": "Finish",
+                "attribute_doctype": "ilL-Attribute-Finish",
+                "attribute_value": "White",
+                "display_label": "White",
+                "is_default": False
+            }
+        ]
+        
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Product with Attribute Links",
+            "product_slug": "product-attr-links-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "specifications": [
+                {
+                    "spec_group": "Physical",
+                    "spec_label": "Finish Options",
+                    "spec_value": "Black Anodized, White",
+                    "is_calculated": 0,
+                    "display_order": 1,
+                    "attribute_doctype": "ilL-Attribute-Finish",
+                    "attribute_options_json": json.dumps(attribute_options)
+                }
+            ]
+        })
+        product.insert()
+        
+        self.assertEqual(len(product.specifications), 1)
+        self.assertEqual(product.specifications[0].spec_label, "Finish Options")
+        self.assertEqual(product.specifications[0].attribute_doctype, "ilL-Attribute-Finish")
+        
+        # Verify JSON parsing works
+        parsed_options = json.loads(product.specifications[0].attribute_options_json)
+        self.assertEqual(len(parsed_options), 2)
+        self.assertEqual(parsed_options[0]["attribute_value"], "Black Anodized")
+        self.assertTrue(parsed_options[0]["is_default"])
+        
+        # Cleanup
+        product.delete()
+
     def test_sync_status_transitions(self):
         """Test sync status transitions."""
         product = frappe.get_doc({
@@ -183,6 +239,65 @@ class TestWebflowExportAPI(FrappeTestCase):
         
         self.assertIn("categories", result)
         self.assertIn("total", result)
+
+    def test_specifications_export_with_attribute_options(self):
+        """Test that specifications export includes attribute doctype and options."""
+        import json
+        from illumenate_lighting.illumenate_lighting.api.webflow_export import get_webflow_products
+        
+        # Create a product with attribute-linked specifications
+        attribute_options = [
+            {
+                "attribute_type": "Lens Appearance",
+                "attribute_doctype": "ilL-Attribute-Lens Appearance",
+                "attribute_value": "Frosted",
+                "display_label": "Frosted"
+            }
+        ]
+        
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Export Test Product",
+            "product_slug": "export-test-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "sync_status": "Pending",
+            "specifications": [
+                {
+                    "spec_group": "Optical",
+                    "spec_label": "Lens Options",
+                    "spec_value": "Frosted",
+                    "is_calculated": 0,
+                    "display_order": 1,
+                    "attribute_doctype": "ilL-Attribute-Lens Appearance",
+                    "attribute_options_json": json.dumps(attribute_options)
+                }
+            ]
+        })
+        product.insert()
+        
+        # Get the product via export API
+        result = get_webflow_products(sync_status="Pending", include_child_tables=True)
+        
+        # Find our test product
+        test_product = None
+        for p in result["products"]:
+            if p["product_slug"] == product.product_slug:
+                test_product = p
+                break
+        
+        self.assertIsNotNone(test_product)
+        self.assertEqual(len(test_product["specifications"]), 1)
+        
+        spec = test_product["specifications"][0]
+        self.assertEqual(spec["spec_label"], "Lens Options")
+        self.assertEqual(spec["attribute_doctype"], "ilL-Attribute-Lens Appearance")
+        self.assertEqual(len(spec["attribute_options"]), 1)
+        self.assertEqual(spec["attribute_options"][0]["attribute_value"], "Frosted")
+        
+        # Cleanup
+        product.delete()
 
 
 class TestilLAttributeCertification(FrappeTestCase):
