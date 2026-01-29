@@ -11,6 +11,7 @@
   "family",
   "column_break_jkbi",
   "lens_appearance",
+  "series",
   "stocking_section",
   "stock_type",
   "stock_length_mm",
@@ -33,6 +34,14 @@
    "fieldtype": "Link",
    "label": "Lens Appearance",
    "options": "ilL-Attribute-Lens Appearance"
+  },
+  {
+   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
   },
   {
    "fieldname": "stocking_section",
