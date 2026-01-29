@@ -20,9 +20,12 @@ class ilLWebflowProduct(Document):
 		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_compatibility.ill_child_webflow_compatibility import ilLChildWebflowCompatibility
 		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_gallery_image.ill_child_webflow_gallery_image import ilLChildWebflowGalleryImage
 		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_document.ill_child_webflow_document import ilLChildWebflowDocument
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_attribute_link.ill_child_webflow_attribute_link import ilLChildWebflowAttributeLink
 
 		accessory_spec: DF.Link | None
+		attribute_links: DF.Table[ilLChildWebflowAttributeLink]
 		auto_calculate_specs: DF.Check
+		auto_populate_attributes: DF.Check
 		certifications: DF.Table[ilLChildWebflowCertificationLink]
 		compatible_products: DF.Table[ilLChildWebflowCompatibility]
 		configurator_intro_text: DF.SmallText | None
@@ -57,7 +60,12 @@ class ilLWebflowProduct(Document):
 	# end: auto-generated types
 
 	def before_save(self):
-		"""Calculate specifications and configurator options before saving."""
+		"""Calculate specifications, attribute links, and configurator options before saving."""
+		# Populate attribute links from fixture template
+		if self.get("auto_populate_attributes", True):
+			self.populate_attribute_links()
+		
+		# Legacy: calculate specifications (deprecated - moving to attribute links)
 		if self.auto_calculate_specs:
 			self.calculate_specifications()
 		
@@ -65,9 +73,155 @@ class ilLWebflowProduct(Document):
 			self.populate_configurator_options()
 		
 		# Mark as pending sync if substantive changes were made
-		if self.has_value_changed("specifications") or self.has_value_changed("configurator_options"):
+		if (self.has_value_changed("attribute_links") or 
+		    self.has_value_changed("specifications") or 
+		    self.has_value_changed("configurator_options")):
 			if self.sync_status == "Synced":
 				self.sync_status = "Pending"
+
+	def populate_attribute_links(self):
+		"""Populate attribute links from the linked fixture template's allowed options and tape offerings."""
+		if self.product_type != "Fixture Template" or not self.fixture_template:
+			return
+		
+		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
+		attribute_links = []
+		display_order = 0
+		
+		# Get attributes from allowed_options (Finish, Lens Appearance, Mounting Method, etc.)
+		for opt in template.allowed_options or []:
+			if hasattr(opt, 'is_active') and not opt.is_active:
+				continue
+			
+			option_type = getattr(opt, 'option_type', None)
+			if not option_type:
+				continue
+			
+			# Map option types to their field and doctype
+			option_mapping = {
+				"Finish": ("finish", "ilL-Attribute-Finish"),
+				"Lens Appearance": ("lens_appearance", "ilL-Attribute-Lens Appearance"),
+				"Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method"),
+				"Endcap Style": ("endcap_style", "ilL-Attribute-Endcap Style"),
+				"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
+				"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
+			}
+			
+			if option_type in option_mapping:
+				field_name, doctype = option_mapping[option_type]
+				attr_value = getattr(opt, field_name, None)
+				if attr_value:
+					# Check if this attribute is already in the list
+					existing = [a for a in attribute_links 
+					            if a["attribute_doctype"] == doctype and a["attribute_name"] == attr_value]
+					if not existing:
+						display_order += 1
+						webflow_id = self._get_attribute_webflow_id(doctype, attr_value)
+						attribute_links.append({
+							"attribute_type": option_type,
+							"attribute_doctype": doctype,
+							"attribute_name": attr_value,
+							"display_label": attr_value,
+							"webflow_item_id": webflow_id,
+							"display_order": display_order
+						})
+		
+		# Get attributes from allowed_tape_offerings (CCT, Output Level, LED Package, CRI, etc.)
+		for tape_row in template.allowed_tape_offerings or []:
+			if not hasattr(tape_row, 'tape_offering') or not tape_row.tape_offering:
+				continue
+			
+			# Get the tape offering details
+			tape_offering = frappe.db.get_value(
+				"ilL-Rel-Tape Offering",
+				tape_row.tape_offering,
+				["cct", "output_level", "led_package", "cri"],
+				as_dict=True
+			)
+			if not tape_offering:
+				continue
+			
+			# CCT
+			if tape_offering.get("cct"):
+				cct_name = tape_offering.cct
+				existing = [a for a in attribute_links 
+				            if a["attribute_doctype"] == "ilL-Attribute-CCT" and a["attribute_name"] == cct_name]
+				if not existing:
+					display_order += 1
+					cct_data = frappe.db.get_value("ilL-Attribute-CCT", cct_name, ["label"], as_dict=True)
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-CCT", cct_name)
+					attribute_links.append({
+						"attribute_type": "CCT",
+						"attribute_doctype": "ilL-Attribute-CCT",
+						"attribute_name": cct_name,
+						"display_label": cct_data.get("label") if cct_data else cct_name,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order
+					})
+			
+			# Output Level
+			if tape_offering.get("output_level"):
+				level_name = tape_offering.output_level
+				existing = [a for a in attribute_links 
+				            if a["attribute_doctype"] == "ilL-Attribute-Output Level" and a["attribute_name"] == level_name]
+				if not existing:
+					display_order += 1
+					level_data = frappe.db.get_value("ilL-Attribute-Output Level", level_name, ["value"], as_dict=True)
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Level", level_name)
+					attribute_links.append({
+						"attribute_type": "Output Level",
+						"attribute_doctype": "ilL-Attribute-Output Level",
+						"attribute_name": level_name,
+						"display_label": f"{level_data.get('value', '')} lm/ft" if level_data else level_name,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order
+					})
+			
+			# LED Package
+			if tape_offering.get("led_package"):
+				pkg_name = tape_offering.led_package
+				existing = [a for a in attribute_links 
+				            if a["attribute_doctype"] == "ilL-Attribute-LED Package" and a["attribute_name"] == pkg_name]
+				if not existing:
+					display_order += 1
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-LED Package", pkg_name)
+					attribute_links.append({
+						"attribute_type": "LED Package",
+						"attribute_doctype": "ilL-Attribute-LED Package",
+						"attribute_name": pkg_name,
+						"display_label": pkg_name,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order
+					})
+			
+			# CRI
+			if tape_offering.get("cri"):
+				cri_name = tape_offering.cri
+				existing = [a for a in attribute_links 
+				            if a["attribute_doctype"] == "ilL-Attribute-CRI" and a["attribute_name"] == cri_name]
+				if not existing:
+					display_order += 1
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-CRI", cri_name)
+					attribute_links.append({
+						"attribute_type": "CRI",
+						"attribute_doctype": "ilL-Attribute-CRI",
+						"attribute_name": cri_name,
+						"display_label": cri_name,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order
+					})
+		
+		# Clear existing attribute links and add new ones
+		self.attribute_links = []
+		for link in attribute_links:
+			self.append("attribute_links", link)
+
+	def _get_attribute_webflow_id(self, doctype: str, name: str) -> str | None:
+		"""Get the Webflow item ID for an attribute if it has been synced."""
+		try:
+			return frappe.db.get_value(doctype, name, "webflow_item_id")
+		except Exception:
+			return None
 
 	def calculate_specifications(self):
 		"""Auto-populate specifications from linked source doctype."""

@@ -71,7 +71,70 @@ This collection stores the base product catalog. Products are synced from ERPNex
 | ERP Sync ID | `erp-sync-id` | Plain Text | ERPNext sync identifier |
 | Specifications HTML | `specifications-html` | Rich Text | Auto-generated specs list |
 | Specifications JSON | `specifications-json` | Plain Text | Structured specs with attribute links |
+| Attribute Links JSON | `attribute-links-json` | Plain Text | All linked attributes for filtering |
 | Featured Image | `featured-image` | Image | Main product image |
+
+#### Multi-Reference Fields (Attribute Links)
+
+These multi-reference fields link products to their applicable attribute options. When the n8n sync runs, it automatically populates these fields with Webflow item IDs from the corresponding attribute collections:
+
+| Field Name | Slug | Type | Description |
+|------------|------|------|-------------|
+| Finishes | `finishes` | Multi-Reference → Finishes | Available finish options |
+| Lens Options | `lens-options` | Multi-Reference → Lens Appearances | Available lens types |
+| Mounting Methods | `mounting-methods` | Multi-Reference → Mounting Methods | Installation options |
+| CCT Options | `cct-options` | Multi-Reference → CCT | Color temperature options |
+| Output Levels | `output-levels` | Multi-Reference → Output Levels | Lumen output options |
+| Environment Ratings | `environment-ratings` | Multi-Reference → Environment Ratings | IP ratings, wet/dry location |
+| Endcap Styles | `endcap-styles` | Multi-Reference → Endcap Styles | Endcap configuration options |
+| Power Feed Types | `power-feed-types` | Multi-Reference → Power Feed Types | Power input options |
+| LED Packages | `led-packages` | Multi-Reference → LED Packages | LED chip/package types |
+| CRI Options | `cri-options` | Multi-Reference → CRI | Color rendering options |
+
+**How Attribute Links Work:**
+
+1. In ERPNext, each Webflow Product is linked to a Fixture Template
+2. The Fixture Template has "Allowed Options" (finishes, lenses, mounting methods, etc.) and "Allowed Tape Offerings" (CCT, output levels, LED packages)
+3. When the Webflow Product is saved, it automatically pulls all applicable attributes from the template
+4. Each attribute has a `webflow_item_id` that was assigned when the attribute was synced to Webflow
+5. During product sync, the n8n workflow sends these Webflow item IDs as multi-reference field values
+6. Webflow automatically links the product to the referenced attribute items
+
+**Enabling Product Filtering:**
+
+With multi-reference fields, you can create powerful filters in Webflow:
+
+```html
+<!-- Filter products by finish -->
+<a href="/products?finish=black-anodized">Black Anodized</a>
+
+<!-- In Webflow: Create a Collection List filtered by "Finishes contains [current finish item]" -->
+```
+
+#### Attribute Links JSON Structure
+
+The `attribute-links-json` field contains all linked attributes for a product:
+
+```json
+[
+  {
+    "attribute_type": "Finish",
+    "attribute_doctype": "ilL-Attribute-Finish",
+    "attribute_name": "Black Anodized",
+    "display_label": "Black Anodized",
+    "webflow_item_id": "65abc123def456",
+    "display_order": 1
+  },
+  {
+    "attribute_type": "CCT",
+    "attribute_doctype": "ilL-Attribute-CCT",
+    "attribute_name": "3000K",
+    "display_label": "3000K Warm White",
+    "webflow_item_id": "65abc789ghi012",
+    "display_order": 2
+  }
+]
+```
 
 #### Specifications JSON Structure
 

@@ -41,7 +41,9 @@
   "documents",
   "specifications_section",
   "auto_calculate_specs",
-  "specifications",
+  "column_break_specs",
+  "auto_populate_attributes",
+  "attribute_links",
   "certifications_section",
   "certifications",
   "compatibility_section",
@@ -266,20 +268,33 @@
   {
    "fieldname": "specifications_section",
    "fieldtype": "Section Break",
-   "label": "Specifications"
+   "label": "Attribute Links"
   },
   {
    "default": "1",
-   "description": "Automatically populate specifications from linked source doctype",
+   "description": "Automatically populate attribute links from linked fixture template's allowed options and tape offerings",
+   "fieldname": "auto_populate_attributes",
+   "fieldtype": "Check",
+   "label": "Auto Populate Attributes"
+  },
+  {
+   "fieldname": "column_break_specs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "Automatically calculate specifications from linked source doctype (deprecated - use Attribute Links)",
    "fieldname": "auto_calculate_specs",
    "fieldtype": "Check",
+   "hidden": 1,
    "label": "Auto Calculate Specs"
   },
   {
-   "fieldname": "specifications",
+   "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as multi-references for filtering.",
+   "fieldname": "attribute_links",
    "fieldtype": "Table",
-   "label": "Specifications",
-   "options": "ilL-Child-Webflow-Specification"
+   "label": "Attribute Links",
+   "options": "ilL-Child-Webflow-Attribute-Link"
   },
   {
    "collapsible": 1,

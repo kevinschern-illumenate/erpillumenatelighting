@@ -163,6 +163,31 @@ def get_webflow_products(
                 for cp in doc.compatible_products
             ]
             
+            # Add attribute links for Webflow multi-reference fields
+            product["attribute_links"] = [
+                {
+                    "attribute_type": al.attribute_type,
+                    "attribute_doctype": al.attribute_doctype,
+                    "attribute_name": al.attribute_name,
+                    "display_label": al.display_label,
+                    "webflow_item_id": al.webflow_item_id,
+                    "display_order": al.display_order
+                }
+                for al in getattr(doc, 'attribute_links', [])
+            ]
+            
+            # Group attribute links by type for easier Webflow mapping
+            product["attribute_links_by_type"] = {}
+            for al in getattr(doc, 'attribute_links', []):
+                attr_type = al.attribute_type
+                if attr_type not in product["attribute_links_by_type"]:
+                    product["attribute_links_by_type"][attr_type] = []
+                product["attribute_links_by_type"][attr_type].append({
+                    "attribute_name": al.attribute_name,
+                    "display_label": al.display_label,
+                    "webflow_item_id": al.webflow_item_id
+                })
+            
             # Add category details if available
             if product.get("product_category"):
                 product["category_details"] = _get_category_details(product["product_category"])
