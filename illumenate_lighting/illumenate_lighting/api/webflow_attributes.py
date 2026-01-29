@@ -512,19 +512,6 @@ def get_attribute_webflow_item_id(attribute_type: str, doc_name: str) -> Optiona
     except Exception:
         pass
     
-    # Fallback: check if there's a webflow sync record for this attribute
-    # This could be stored in a separate sync tracking table
-    try:
-        sync_record = frappe.db.get_value(
-            "ilL-Webflow-Attribute-Sync",
-            {"attribute_type": attribute_type, "attribute_name": doc_name},
-            "webflow_item_id"
-        )
-        if sync_record:
-            return sync_record
-    except Exception:
-        pass
-    
     return None
 
 
