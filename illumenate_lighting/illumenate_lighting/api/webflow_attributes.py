@@ -31,6 +31,7 @@ Each attribute doctype maps to a corresponding Webflow CMS collection:
 - ilL-Attribute-Power Feed Type -> Power Feed Types collection
 - ilL-Attribute-Pricing Class -> Pricing Classes collection
 - ilL-Attribute-SDCM -> SDCM Options collection
+- ilL-Attribute-Series -> Series collection
 
 Endpoints:
 - get_webflow_attributes: Retrieve attributes for export to Webflow
@@ -409,6 +410,23 @@ ATTRIBUTE_DOCTYPES = {
             "sdcm-value": "sdcm",
             "description": "description"
         }
+    },
+    "series": {
+        "doctype": "ilL-Attribute-Series",
+        "name_field": "series_name",
+        "code_field": "code",
+        "slug_field": "series_name",
+        "webflow_collection_id": "",
+        "fields": ["series_name", "code", "short_description", "description", "featured_image", "sort_order", "is_active"],
+        "webflow_field_mapping": {
+            "name": "series_name",
+            "slug": "series_name",
+            "series-code": "code",
+            "short-description": "short_description",
+            "description": "description",
+            "featured-image": "featured_image",
+            "sort-order": "sort_order"
+        }
     }
 }
 
@@ -464,6 +482,37 @@ def get_attribute_config(attribute_type: str) -> Dict[str, Any]:
     if not config:
         frappe.throw(_("Unknown attribute type: {0}").format(attribute_type))
     return config
+
+
+def get_attribute_webflow_item_id(attribute_type: str, doc_name: str) -> Optional[str]:
+    """
+    Get the Webflow item ID for a specific attribute record.
+    
+    This looks up the webflow_item_id stored on the attribute record's
+    webflow sync status fields (if they exist).
+    
+    Args:
+        attribute_type: The attribute type key (e.g., "cct", "finish", "series")
+        doc_name: The attribute document name
+        
+    Returns:
+        str or None: The Webflow item ID if synced, None otherwise
+    """
+    config = ATTRIBUTE_DOCTYPES.get(attribute_type)
+    if not config:
+        return None
+    
+    doctype = config["doctype"]
+    
+    # Try to get webflow_item_id from the document if it has that field
+    try:
+        webflow_item_id = frappe.db.get_value(doctype, doc_name, "webflow_item_id")
+        if webflow_item_id:
+            return webflow_item_id
+    except Exception:
+        pass
+    
+    return None
 
 
 def slugify(text: str) -> str:
