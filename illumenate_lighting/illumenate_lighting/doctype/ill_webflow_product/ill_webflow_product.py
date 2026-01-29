@@ -843,13 +843,14 @@ class ilLWebflowProduct(Document):
 						["sku_code", "value"],
 						as_dict=True
 					)
-					options.append({
-						"attribute_type": "Output Level",
-						"attribute_doctype": "ilL-Attribute-Output Level",
-						"attribute_value": output_level,
-						"display_label": f"{level_data.get('value', '')} lm/ft" if level_data else output_level,
-						"code": level_data.get("sku_code") if level_data else ""
-					})
+					if level_data:
+						options.append({
+							"attribute_type": "Output Level",
+							"attribute_doctype": "ilL-Attribute-Output Level",
+							"attribute_value": output_level,
+							"display_label": f"{level_data.get('value', '')} lm/ft",
+							"code": level_data.get("sku_code") or ""
+						})
 		return sorted(options, key=lambda x: x.get("display_label", ""))
 
 	def _get_cct_options_with_links(self, template) -> list:
@@ -869,14 +870,15 @@ class ilLWebflowProduct(Document):
 						["code", "kelvin", "label"],
 						as_dict=True
 					)
-					options.append({
-						"attribute_type": "CCT",
-						"attribute_doctype": "ilL-Attribute-CCT",
-						"attribute_value": cct,
-						"display_label": cct_data.get("label") or cct if cct_data else cct,
-						"code": cct_data.get("code") if cct_data else "",
-						"kelvin": cct_data.get("kelvin") if cct_data else 0
-					})
+					if cct_data:
+						options.append({
+							"attribute_type": "CCT",
+							"attribute_doctype": "ilL-Attribute-CCT",
+							"attribute_value": cct,
+							"display_label": cct_data.get("label") or cct,
+							"code": cct_data.get("code") or "",
+							"kelvin": cct_data.get("kelvin") or 0
+						})
 		return sorted(options, key=lambda x: x.get("kelvin", 0))
 
 	def _get_lens_options_with_links(self, template) -> list:
