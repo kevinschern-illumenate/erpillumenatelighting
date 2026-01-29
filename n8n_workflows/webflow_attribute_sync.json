@@ -1,0 +1,691 @@
+{
+  "name": "ERPNext → Webflow Attributes Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.get_all_attributes_for_sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sync_status",
+              "value": "needs_sync"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-pending-types",
+      "name": "Get Pending Attribute Types",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-has-pending",
+              "leftValue": "={{ $json.message.total_pending }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-pending",
+      "name": "Has Pending Attributes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [550, 100]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "message.attribute_types",
+        "options": {}
+      },
+      "id": "split-types",
+      "name": "Split Attribute Types",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [800, 25]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-collection-id",
+              "leftValue": "={{ $json.webflow_collection_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-collection-id",
+      "name": "Has Webflow Collection ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1050, 25]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.get_webflow_attributes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "attribute_type",
+              "value": "={{ $json.type }}"
+            },
+            {
+              "name": "sync_status",
+              "value": "needs_sync"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-attributes",
+      "name": "Fetch Attributes from ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, -50],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-has-attributes",
+              "leftValue": "={{ $json.message.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-attributes",
+      "name": "Has Attributes to Sync?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1550, -50]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store collection info for later use\nconst response = $input.item.json;\nconst collectionId = response.message.webflow_collection_id;\nconst attributeType = response.message.attribute_type;\nconst fieldMapping = response.message.field_mapping;\nconst attributes = response.message.attributes || [];\n\n// Return items for downstream processing\nreturn attributes.map(attr => ({\n  json: {\n    ...attr,\n    _meta: {\n      collectionId,\n      attributeType,\n      fieldMapping\n    }\n  }\n}));"
+      },
+      "id": "prepare-attributes",
+      "name": "Prepare Attributes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, -125]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-webflow-id",
+              "leftValue": "={{ $json.webflow_item_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "exists-in-webflow",
+      "name": "Exists in Webflow?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2050, -125]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transform ERPNext attribute to Webflow format\nconst attr = $input.item.json;\nconst isUpdate = attr.webflow_item_id ? true : false;\nconst meta = attr._meta;\n\n// Build base field data\nconst fieldData = { ...attr.webflow_field_data };\n\n// Only include slug on create (not update)\nif (isUpdate && fieldData.slug) {\n  delete fieldData.slug;\n}\n\n// Build Webflow payload\nconst webflowData = {\n  isArchived: false,\n  isDraft: false,\n  fieldData: fieldData\n};\n\nreturn {\n  json: {\n    webflowData,\n    originalAttribute: attr,\n    collectionId: meta.collectionId,\n    attributeType: meta.attributeType,\n    isUpdate\n  }\n};"
+      },
+      "id": "transform-attribute",
+      "name": "Transform to Webflow Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, -125]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json.collectionId }}/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "id": "webflow-create",
+      "name": "Webflow: Create Attribute",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2550, -200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json.collectionId }}/items/{{ $json.originalAttribute.webflow_item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "id": "webflow-update",
+      "name": "Webflow: Update Attribute",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2550, -50],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-success-create",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "create-success",
+      "name": "Create Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2800, -200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-success-update",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "update-success",
+      "name": "Update Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2800, -50]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.mark_attribute_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced-create",
+      "name": "Mark Synced (Create)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3050, -275],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.mark_attribute_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced-update",
+      "name": "Mark Synced (Update)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3050, -125],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.mark_attribute_error",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
+        "options": {}
+      },
+      "id": "mark-error-create",
+      "name": "Mark Error (Create)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3050, -425],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.mark_attribute_error",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
+        "options": {}
+      },
+      "id": "mark-error-update",
+      "name": "Mark Error (Update)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3050, 25],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-op-end",
+      "name": "No-Op (End)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 175]
+    },
+    {
+      "parameters": {},
+      "id": "skip-no-collection",
+      "name": "Skip (No Collection ID)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1300, 100]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Attribute Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Attribute Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Attribute Types": {
+      "main": [
+        [
+          {
+            "node": "Has Pending Attributes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pending Attributes?": {
+      "main": [
+        [
+          {
+            "node": "Split Attribute Types",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No-Op (End)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Attribute Types": {
+      "main": [
+        [
+          {
+            "node": "Has Webflow Collection ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Webflow Collection ID?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Attributes from ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip (No Collection ID)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Attributes from ERPNext": {
+      "main": [
+        [
+          {
+            "node": "Has Attributes to Sync?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attributes to Sync?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Attributes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Prepare Attributes": {
+      "main": [
+        [
+          {
+            "node": "Exists in Webflow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exists in Webflow?": {
+      "main": [
+        [
+          {
+            "node": "Transform to Webflow Format",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transform to Webflow Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to Webflow Format": {
+      "main": [
+        [
+          {
+            "node": "Webflow: Create Attribute",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Webflow: Update Attribute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Create Attribute": {
+      "main": [
+        [
+          {
+            "node": "Create Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Update Attribute": {
+      "main": [
+        [
+          {
+            "node": "Update Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Successful?": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced (Create)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error (Create)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Successful?": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "ERPNext",
+      "id": "erpnext-tag"
+    },
+    {
+      "name": "Webflow",
+      "id": "webflow-tag"
+    },
+    {
+      "name": "Attributes",
+      "id": "attributes-tag"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1",
+  "meta": {
+    "instanceId": "illumenate-n8n-instance"
+  }
+}

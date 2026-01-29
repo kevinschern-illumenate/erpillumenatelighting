@@ -208,7 +208,107 @@ has_website_permission = {
 doc_events = {
 	"Sales Order": {
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
-	}
+	},
+	# Webflow sync events for attribute doctypes
+	"ilL-Attribute-CCT": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-CRI": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Certification": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Dimming Protocol": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Endcap Color": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Endcap Style": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Environment Rating": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Feed-Direction": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Finish": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-IP Rating": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Joiner Angle": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Joiner System": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Lead Time Class": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Leader Cable": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-LED Package": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Lens Appearance": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Lens Interface Type": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Mounting Method": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Output Level": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Output Voltage": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Power Feed Type": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Pricing Class": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-SDCM": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	# Webflow product and category sync events
+	"ilL-Webflow-Product": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",
+	},
+	"ilL-Webflow-Category": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_category_update",
+	},
 }
 
 # Scheduled Tasks
