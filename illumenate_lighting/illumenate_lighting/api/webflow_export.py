@@ -65,7 +65,7 @@ def get_webflow_products(
         filters=filters,
         fields=[
             "name", "product_name", "product_slug", "product_type",
-            "product_category", "is_active", "is_configurable",
+            "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "profile_spec", "lens_spec", "tape_spec", "accessory_spec",
             "short_description", "long_description", "featured_image",
@@ -191,6 +191,10 @@ def get_webflow_products(
             # Add category details if available
             if product.get("product_category"):
                 product["category_details"] = _get_category_details(product["product_category"])
+            
+            # Add series webflow_item_id if series is set
+            if product.get("series"):
+                product["series_webflow_item_id"] = _get_series_webflow_item_id(product["series"])
     
     total = frappe.db.count("ilL-Webflow-Product", filters)
     
@@ -569,3 +573,18 @@ def _get_category_details(category_name: str) -> dict:
         as_dict=True
     )
     return cat or {}
+
+
+def _get_series_webflow_item_id(series_name: str) -> str:
+    """Helper to get the Webflow item ID for a series attribute."""
+    if not series_name:
+        return None
+    
+    # Get the webflow_item_id from webflow_attributes API
+    # Series attributes are stored in ilL-Attribute-Series doctype
+    from illumenate_lighting.illumenate_lighting.api.webflow_attributes import get_attribute_webflow_item_id
+    
+    try:
+        return get_attribute_webflow_item_id("series", series_name)
+    except Exception:
+        return None

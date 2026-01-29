@@ -11,6 +11,7 @@
   "template_name",
   "column_break_identity",
   "is_active",
+  "series",
   "defaults_section",
   "default_profile_family",
   "default_profile_stock_len_mm",
@@ -67,6 +68,14 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Is Active"
+  },
+  {
+   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
   },
   {
    "fieldname": "defaults_section",

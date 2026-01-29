@@ -12,6 +12,7 @@
   "column_break_identity",
   "product_type",
   "product_category",
+  "series",
   "is_active",
   "source_reference_section",
   "fixture_template",
@@ -98,6 +99,14 @@
    "fieldtype": "Link",
    "label": "Product Category",
    "options": "ilL-Webflow-Category"
+  },
+  {
+   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
   },
   {
    "default": "1",
