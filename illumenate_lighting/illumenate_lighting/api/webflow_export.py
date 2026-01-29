@@ -93,7 +93,9 @@ def get_webflow_products(
                     "spec_unit": s.spec_unit,
                     "display_order": s.display_order,
                     "is_calculated": s.is_calculated,
-                    "show_on_card": s.show_on_card
+                    "show_on_card": s.show_on_card,
+                    "attribute_doctype": s.attribute_doctype,
+                    "attribute_options": frappe.parse_json(s.attribute_options_json) if s.attribute_options_json else []
                 }
                 for s in doc.specifications
             ]

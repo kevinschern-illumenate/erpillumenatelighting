@@ -70,7 +70,68 @@ This collection stores the base product catalog. Products are synced from ERPNex
 | Max Length (mm) | `max-length-mm` | Number | Maximum fixture length |
 | ERP Sync ID | `erp-sync-id` | Plain Text | ERPNext sync identifier |
 | Specifications HTML | `specifications-html` | Rich Text | Auto-generated specs list |
+| Specifications JSON | `specifications-json` | Plain Text | Structured specs with attribute links |
 | Featured Image | `featured-image` | Image | Main product image |
+
+#### Specifications JSON Structure
+
+The `specifications-json` field contains structured specification data that can be used for Webflow collection filtering. Each specification can include linked attribute options that reference other Webflow collections (e.g., Finishes, Lens Appearances).
+
+```json
+[
+  {
+    "spec_group": "Physical",
+    "spec_label": "Finish Options",
+    "spec_value": "Black Anodized, White, Silver",
+    "spec_unit": "",
+    "display_order": 1,
+    "show_on_card": false,
+    "attribute_doctype": "ilL-Attribute-Finish",
+    "attribute_options": [
+      {
+        "attribute_type": "Finish",
+        "attribute_doctype": "ilL-Attribute-Finish",
+        "attribute_value": "Black Anodized",
+        "display_label": "Black Anodized",
+        "is_default": true
+      },
+      {
+        "attribute_type": "Finish",
+        "attribute_doctype": "ilL-Attribute-Finish",
+        "attribute_value": "White",
+        "display_label": "White",
+        "is_default": false
+      }
+    ]
+  },
+  {
+    "spec_group": "Optical",
+    "spec_label": "Light Color (CCT)",
+    "spec_value": "2700K + 3000K + 4000K",
+    "spec_unit": "",
+    "display_order": 2,
+    "show_on_card": true,
+    "attribute_doctype": "ilL-Attribute-CCT",
+    "attribute_options": [
+      {
+        "attribute_type": "CCT",
+        "attribute_doctype": "ilL-Attribute-CCT",
+        "attribute_value": "2700K",
+        "display_label": "2700K Warm White",
+        "code": "27",
+        "kelvin": 2700
+      }
+    ]
+  }
+]
+```
+
+**Using Specifications for Filtering:**
+
+1. Create corresponding Webflow collections for each attribute type (e.g., "Finishes", "CCT Options", "Lens Types")
+2. In your Webflow CMS, parse the `specifications-json` field to extract `attribute_options`
+3. Use the `attribute_value` field to match/link to items in your attribute collections
+4. This enables filtering products by specific attribute values (e.g., "Show all products with Frosted lens option")
 
 #### Product Type Options
 
