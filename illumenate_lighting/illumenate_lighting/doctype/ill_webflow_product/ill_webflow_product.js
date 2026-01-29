@@ -5,10 +5,23 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 	refresh(frm) {
 		// Add button to recalculate specifications
 		if (!frm.is_new()) {
-			frm.add_custom_button(__("Recalculate Specs"), function() {
-				frm.set_value("auto_calculate_specs", 1);
-				frm.save();
+			frm.add_custom_button(__("Refresh Attribute Links"), function() {
+				frm.set_value("auto_populate_attributes", 1);
+				frm.save().then(() => {
+					frappe.show_alert({
+						message: __("Attribute links refreshed from fixture template"),
+						indicator: "green"
+					});
+				});
 			}, __("Actions"));
+
+			// Legacy: Recalculate specs button (hidden if not using legacy specs)
+			if (frm.doc.specifications && frm.doc.specifications.length > 0) {
+				frm.add_custom_button(__("Recalculate Specs (Legacy)"), function() {
+					frm.set_value("auto_calculate_specs", 1);
+					frm.save();
+				}, __("Actions"));
+			}
 		}
 
 		// Show sync status indicator
