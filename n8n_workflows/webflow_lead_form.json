@@ -1,0 +1,377 @@
+{
+  "name": "Webflow Form → Frappe CRM Lead",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webflow-lead-form",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webflow Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "webflow-lead-form"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-data",
+              "leftValue": "={{ $json.body }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-form-data",
+      "name": "Has Form Data?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and map Webflow form data to Frappe CRM Lead fields\nconst body = $input.first().json.body || $input.first().json;\n\n// Webflow form field mapping\n// Standard Webflow form fields → Frappe CRM Lead fields\nconst fieldMapping = {\n  // Name fields\n  'first_name': 'first_name',\n  'firstName': 'first_name',\n  'First Name': 'first_name',\n  'first-name': 'first_name',\n  'fname': 'first_name',\n  \n  'last_name': 'last_name',\n  'lastName': 'last_name',\n  'Last Name': 'last_name',\n  'last-name': 'last_name',\n  'lname': 'last_name',\n  \n  // Contact info\n  'email': 'email',\n  'Email': 'email',\n  'email_id': 'email',\n  'emailAddress': 'email',\n  \n  'phone': 'phone',\n  'Phone': 'phone',\n  'phone_number': 'phone',\n  'phoneNumber': 'phone',\n  'mobile': 'phone',\n  \n  // Company info\n  'company': 'company_name',\n  'Company': 'company_name',\n  'company_name': 'company_name',\n  'companyName': 'company_name',\n  'organization': 'company_name',\n  \n  'job_title': 'job_title',\n  'jobTitle': 'job_title',\n  'title': 'job_title',\n  'position': 'job_title',\n  \n  'website': 'website',\n  'Website': 'website',\n  'company_website': 'website',\n  \n  // UTM tracking - per your field mapping\n  'custom_campaign': 'campaign_id',\n  'campaign_id': 'campaign_id',\n  'campaignId': 'campaign_id',\n  \n  'utm_source': 'utm_source',\n  'utmSource': 'utm_source',\n  \n  'utm_medium': 'utm_medium',\n  'utmMedium': 'utm_medium',\n  \n  'utm_campaign': 'utm_campaign',\n  'utmCampaign': 'utm_campaign',\n  \n  // Webflow metadata\n  '_wf_form_id': 'webflow_form_id',\n  'formId': 'webflow_form_id',\n  \n  '_wf_submission_id': 'webflow_submission_id',\n  'submissionId': 'webflow_submission_id',\n  \n  'formName': 'form_name',\n  'form_name': 'form_name',\n};\n\n// Map fields\nconst leadData = {};\nconst processedKeys = new Set();\n\nfor (const [webflowKey, leadKey] of Object.entries(fieldMapping)) {\n  if (body[webflowKey] && !leadData[leadKey]) {\n    leadData[leadKey] = body[webflowKey];\n    processedKeys.add(webflowKey);\n  }\n}\n\n// Handle combined \"name\" field if first_name is not set\nif (!leadData.first_name && body.name) {\n  const nameParts = body.name.trim().split(/\\s+/);\n  leadData.first_name = nameParts[0];\n  if (nameParts.length > 1) {\n    leadData.last_name = nameParts.slice(1).join(' ');\n  }\n  processedKeys.add('name');\n}\n\n// Collect additional fields as form_data\nconst additionalData = {};\nfor (const [key, value] of Object.entries(body)) {\n  if (!processedKeys.has(key) && value && \n      !key.startsWith('_wf_') && \n      key !== 'accept' && \n      key !== 'g-recaptcha-response') {\n    additionalData[key] = value;\n  }\n}\n\nif (Object.keys(additionalData).length > 0) {\n  leadData.form_data = JSON.stringify(additionalData);\n}\n\n// Set default source\nif (!leadData.source) {\n  leadData.source = 'Webflow';\n}\n\n// Get form name from Webflow metadata if not set\nif (!leadData.form_name && body._wf_form) {\n  leadData.form_name = body._wf_form;\n}\n\nreturn {\n  json: leadData,\n  pairedItem: { item: 0 }\n};"
+      },
+      "id": "transform-data",
+      "name": "Transform Form Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, -75]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-first-name",
+              "leftValue": "={{ $json.first_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "check-email-or-phone",
+              "leftValue": "={{ $json.email || $json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-required",
+      "name": "Has Required Fields?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, -75]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_leads.create_lead_from_webflow",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "create-lead",
+      "name": "Create CRM Lead in ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, -150],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-success",
+              "leftValue": "={{ $json.message?.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-result",
+      "name": "Lead Created Successfully?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, -150]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, lead_name: $json.message.lead_name, message: $json.message.message }) }}"
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1500, -225]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message?.error || 'Failed to create lead', details: $json }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "error-response-api",
+      "name": "API Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1500, -75]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'Missing required fields: first_name and (email or phone)' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "validation-error",
+      "name": "Validation Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'No form data received' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "no-data-error",
+      "name": "No Data Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [500, 75]
+    },
+    {
+      "parameters": {
+        "channel": "#marketing-leads",
+        "text": ":sparkles: *New Lead from Webflow!*\n\n*Name:* {{ $('Transform Form Data').item.json.first_name }} {{ $('Transform Form Data').item.json.last_name || '' }}\n*Email:* {{ $('Transform Form Data').item.json.email || 'Not provided' }}\n*Phone:* {{ $('Transform Form Data').item.json.phone || 'Not provided' }}\n*Company:* {{ $('Transform Form Data').item.json.company_name || 'Not provided' }}\n*Source:* {{ $('Transform Form Data').item.json.utm_source || 'Direct' }}\n*Campaign:* {{ $('Transform Form Data').item.json.utm_campaign || 'None' }}\n\n*Lead ID:* {{ $json.message.lead_name }}\n<https://illumenatelighting.v.frappe.cloud/crm/leads/{{ $json.message.lead_name }}|View Lead in Frappe CRM>",
+        "otherOptions": {}
+      },
+      "id": "slack-notification",
+      "name": "Notify Marketing Team (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1750, -225],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-api",
+          "name": "Slack API"
+        }
+      },
+      "disabled": true,
+      "notes": "Enable this node and configure Slack credentials to notify your marketing team of new leads in Frappe CRM"
+    },
+    {
+      "parameters": {
+        "toEmail": "={{ $('Transform Form Data').item.json.email }}",
+        "subject": "Thank you for contacting ilLumenate Lighting",
+        "emailType": "html",
+        "message": "<html>\n<body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">\n<h2>Thank you for reaching out!</h2>\n<p>Hi {{ $('Transform Form Data').item.json.first_name }},</p>\n<p>We've received your inquiry and a member of our team will be in touch shortly.</p>\n<p>In the meantime, feel free to explore our products at <a href=\"https://illumenatelighting.com\">illumenatelighting.com</a>.</p>\n<p>Best regards,<br>The ilLumenate Lighting Team</p>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "auto-reply-email",
+      "name": "Send Auto-Reply Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1750, -375],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP"
+        }
+      },
+      "disabled": true,
+      "notes": "Enable this node and configure SMTP credentials to send auto-reply emails to leads"
+    }
+  ],
+  "connections": {
+    "Webflow Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Has Form Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Form Data?": {
+      "main": [
+        [
+          {
+            "node": "Transform Form Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Data Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Form Data": {
+      "main": [
+        [
+          {
+            "node": "Has Required Fields?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Required Fields?": {
+      "main": [
+        [
+          {
+            "node": "Create CRM Lead in ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create CRM Lead in ERPNext": {
+      "main": [
+        [
+          {
+            "node": "Lead Created Successfully?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Created Successfully?": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Auto-Reply Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Sales Team (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "API Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "webflow",
+      "createdAt": "2026-01-29T00:00:00.000Z",
+      "updatedAt": "2026-01-29T00:00:00.000Z"
+    },
+    {
+      "name": "crm",
+      "createdAt": "2026-01-29T00:00:00.000Z",
+      "updatedAt": "2026-01-29T00:00:00.000Z"
+    },
+    {
+      "name": "leads",
+      "createdAt": "2026-01-29T00:00:00.000Z",
+      "updatedAt": "2026-01-29T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-29T00:00:00.000Z",
+  "versionId": "1"
+}
