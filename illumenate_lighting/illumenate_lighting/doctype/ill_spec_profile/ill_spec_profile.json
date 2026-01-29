@@ -12,6 +12,7 @@
   "variant_code",
   "column_break_jrss",
   "is_active",
+  "series",
   "dimensions_section",
   "width_mm",
   "height_mm",
@@ -63,6 +64,14 @@
    "fieldname": "is_active",
    "fieldtype": "Check",
    "label": "Is Active?"
+  },
+  {
+   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
   },
   {
    "fieldname": "dimensions_section",
