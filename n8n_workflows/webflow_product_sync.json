@@ -134,13 +134,42 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transform ERPNext product to Webflow format\nconst product = $input.item.json;\n\n// Build specifications string\nlet specsHtml = '';\nif (product.specifications && product.specifications.length > 0) {\n  specsHtml = '<ul>';\n  for (const spec of product.specifications) {\n    specsHtml += `<li><strong>${spec.spec_label}:</strong> ${spec.spec_value}${spec.spec_unit ? ' ' + spec.spec_unit : ''}</li>`;\n  }\n  specsHtml += '</ul>';\n}\n\n// Build Webflow payload\nconst webflowData = {\n  isArchived: false,\n  isDraft: false,\n  fieldData: {\n    \"name\": product.product_name,\n    \"slug\": product.product_slug,\n    \"product-type\": product.product_type,\n    \"short-description\": product.short_description || '',\n    \"long-description\": product.long_description || '',\n    \"is-configurable\": product.is_configurable || false,\n    \"min-length-mm\": product.min_length_mm || 0,\n    \"max-length-mm\": product.max_length_mm || 0,\n    \"erp-sync-id\": product.product_slug,\n    \"specifications-html\": specsHtml\n  }\n};\n\n// Add featured image if available\nif (product.featured_image) {\n  // Note: Webflow requires publicly accessible URLs\n  // You may need to construct the full URL\n  webflowData.fieldData[\"featured-image\"] = product.featured_image;\n}\n\nreturn {\n  json: {\n    webflowData,\n    originalProduct: product\n  }\n};"
+        "jsCode": "// Transform ERPNext product to Webflow format\nconst product = $input.item.json;\nconst isUpdate = product.webflow_item_id ? true : false;\n\n// Build specifications string\nlet specsHtml = '';\nif (product.specifications && product.specifications.length > 0) {\n  specsHtml = '<ul>';\n  for (const spec of product.specifications) {\n    specsHtml += `<li><strong>${spec.spec_label}:</strong> ${spec.spec_value}${spec.spec_unit ? ' ' + spec.spec_unit : ''}</li>`;\n  }\n  specsHtml += '</ul>';\n}\n\n// Build base field data (without slug for updates)\nconst fieldData = {\n  \"name\": product.product_name,\n  \"product-type\": product.product_type,\n  \"short-description\": product.short_description || '',\n  \"long-description\": product.long_description || '',\n  \"is-configurable-3\": product.is_configurable === 1 || product.is_configurable === true,\n  \"min-length-mm\": product.min_length_mm || 0,\n  \"max-length-mm\": product.max_length_mm || 0,\n  \"erp-sync-id\": product.product_slug,\n  \"specifications-html\": specsHtml\n};\n\n// Only include slug on create (not update)\nif (!isUpdate) {\n  fieldData[\"slug\"] = product.product_slug;\n}\n\n// Build Webflow payload\nconst webflowData = {\n  isArchived: false,\n  isDraft: false,\n  fieldData: fieldData\n};\n\n// Add featured image if available\nif (product.featured_image) {\n  webflowData.fieldData[\"featured-image\"] = product.featured_image;\n}\n\nreturn {\n  json: {\n    webflowData,\n    originalProduct: product\n  }\n};"
       },
       "id": "transform-product",
       "name": "Transform to Webflow Format",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1150, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-webflow-id-for-update",
+              "leftValue": "={{ $json.originalProduct.webflow_item_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-create-update",
+      "name": "Route Create or Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1275, 0]
     },
     {
       "parameters": {
@@ -157,7 +186,7 @@
       "name": "Webflow: Create Product",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1400, -75],
+      "position": [1500, 75],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -168,7 +197,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://api.webflow.com/v2/collections/696fc3c5c42c86528e97f413/items/{{ $('Split Products').item.json.webflow_item_id }}",
+        "url": "=https://api.webflow.com/v2/collections/696fc3c5c42c86528e97f413/items/{{ $json.originalProduct.webflow_item_id }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -180,7 +209,7 @@
       "name": "Webflow: Update Product",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1400, 75],
+      "position": [1500, -75],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -203,7 +232,7 @@
       "name": "Mark Synced (New)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1650, -75],
+      "position": [1750, 75],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -226,7 +255,7 @@
       "name": "Mark Synced (Update)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1650, 75],
+      "position": [1750, -75],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -338,12 +367,25 @@
       "main": [
         [
           {
-            "node": "Webflow: Create Product",
+            "node": "Route Create or Update",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Route Create or Update": {
+      "main": [
+        [
           {
             "node": "Webflow: Update Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webflow: Create Product",
             "type": "main",
             "index": 0
           }
