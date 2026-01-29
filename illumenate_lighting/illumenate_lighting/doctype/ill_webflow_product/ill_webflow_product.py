@@ -83,12 +83,13 @@ class ilLWebflowProduct(Document):
 			self._calculate_profile_specs()
 
 	def _calculate_fixture_specs(self):
-		"""Calculate aggregated specs from fixture template."""
+		"""Calculate aggregated specs from fixture template with linked attribute options."""
 		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
 		specs_to_add = []
 
 		# Aggregate output options from allowed tape offerings
 		output_levels = self._get_allowed_output_levels(template)
+		output_level_options = self._get_output_level_options_with_links(template)
 		if output_levels:
 			specs_to_add.append({
 				"spec_group": "Performance",
@@ -96,21 +97,26 @@ class ilLWebflowProduct(Document):
 				"spec_value": ", ".join(output_levels),
 				"spec_unit": "lm/ft",
 				"is_calculated": 1,
-				"display_order": 10
+				"display_order": 10,
+				"attribute_doctype": "ilL-Attribute-Output Level",
+				"attribute_options_json": frappe.as_json(output_level_options) if output_level_options else None
 			})
 
 		# Aggregate CCT options
 		ccts = self._get_allowed_ccts(template)
+		cct_options = self._get_cct_options_with_links(template)
 		if ccts:
 			specs_to_add.append({
 				"spec_group": "Optical",
 				"spec_label": "Light Color (CCT)",
 				"spec_value": " + ".join(ccts),
 				"is_calculated": 1,
-				"display_order": 20
+				"display_order": 20,
+				"attribute_doctype": "ilL-Attribute-CCT",
+				"attribute_options_json": frappe.as_json(cct_options) if cct_options else None
 			})
 
-		# Get watts/ft range
+		# Get watts/ft range (no linked attributes for this)
 		watts_range = self._get_watts_per_ft_range(template)
 		if watts_range:
 			specs_to_add.append({
@@ -122,7 +128,7 @@ class ilLWebflowProduct(Document):
 				"display_order": 30
 			})
 
-		# Get max run length
+		# Get max run length (no linked attributes for this)
 		max_run = self._get_max_run_length(template)
 		if max_run:
 			specs_to_add.append({
@@ -134,37 +140,60 @@ class ilLWebflowProduct(Document):
 				"display_order": 40
 			})
 
-		# Get lens options
+		# Get lens options with linked attributes
 		lens_options = self._get_allowed_lens_appearances(template)
+		lens_attr_options = self._get_lens_options_with_links(template)
 		if lens_options:
 			specs_to_add.append({
 				"spec_group": "Optical",
 				"spec_label": "Lens Options",
 				"spec_value": ", ".join(lens_options),
 				"is_calculated": 1,
-				"display_order": 50
+				"display_order": 50,
+				"attribute_doctype": "ilL-Attribute-Lens Appearance",
+				"attribute_options_json": frappe.as_json(lens_attr_options) if lens_attr_options else None
 			})
 
-		# Get mounting options
+		# Get mounting options with linked attributes
 		mounting_options = self._get_allowed_mounting_methods(template)
+		mounting_attr_options = self._get_mounting_options_with_links(template)
 		if mounting_options:
 			specs_to_add.append({
 				"spec_group": "Physical",
 				"spec_label": "Mounting Options",
 				"spec_value": ", ".join(mounting_options),
 				"is_calculated": 1,
-				"display_order": 60
+				"display_order": 60,
+				"attribute_doctype": "ilL-Attribute-Mounting Method",
+				"attribute_options_json": frappe.as_json(mounting_attr_options) if mounting_attr_options else None
 			})
 
-		# Get finish options
+		# Get finish options with linked attributes
 		finish_options = self._get_allowed_finishes(template)
+		finish_attr_options = self._get_finish_options_with_links(template)
 		if finish_options:
 			specs_to_add.append({
 				"spec_group": "Physical",
 				"spec_label": "Finish Options",
 				"spec_value": ", ".join(finish_options),
 				"is_calculated": 1,
-				"display_order": 70
+				"display_order": 70,
+				"attribute_doctype": "ilL-Attribute-Finish",
+				"attribute_options_json": frappe.as_json(finish_attr_options) if finish_attr_options else None
+			})
+
+		# Get environment ratings with linked attributes
+		env_ratings = self._get_allowed_environment_ratings(template)
+		env_attr_options = self._get_environment_options_with_links(template)
+		if env_ratings:
+			specs_to_add.append({
+				"spec_group": "Environmental",
+				"spec_label": "Environment Ratings",
+				"spec_value": ", ".join(env_ratings),
+				"is_calculated": 1,
+				"display_order": 80,
+				"attribute_doctype": "ilL-Attribute-Environment Rating",
+				"attribute_options_json": frappe.as_json(env_attr_options) if env_attr_options else None
 			})
 
 		# Clear existing calculated specs and add new ones
@@ -796,3 +825,141 @@ class ilLWebflowProduct(Document):
 							"lm_per_ft": level_data.get("value") or 0
 						}
 		return sorted(list(levels.values()), key=lambda x: x.get("lm_per_ft", 0))
+
+	def _get_output_level_options_with_links(self, template) -> list:
+		"""Get output level options with doctype links for Webflow."""
+		options = []
+		for tape_row in template.allowed_tape_offerings or []:
+			if hasattr(tape_row, 'tape_offering') and tape_row.tape_offering:
+				output_level = frappe.db.get_value(
+					"ilL-Rel-Tape Offering",
+					tape_row.tape_offering,
+					"output_level"
+				)
+				if output_level and output_level not in [o["attribute_value"] for o in options]:
+					level_data = frappe.db.get_value(
+						"ilL-Attribute-Output Level",
+						output_level,
+						["sku_code", "value"],
+						as_dict=True
+					)
+					if level_data:
+						options.append({
+							"attribute_type": "Output Level",
+							"attribute_doctype": "ilL-Attribute-Output Level",
+							"attribute_value": output_level,
+							"display_label": f"{level_data.get('value', '')} lm/ft",
+							"code": level_data.get("sku_code") or ""
+						})
+		return sorted(options, key=lambda x: x.get("display_label", ""))
+
+	def _get_cct_options_with_links(self, template) -> list:
+		"""Get CCT options with doctype links for Webflow."""
+		options = []
+		for tape_row in template.allowed_tape_offerings or []:
+			if hasattr(tape_row, 'tape_offering') and tape_row.tape_offering:
+				cct = frappe.db.get_value(
+					"ilL-Rel-Tape Offering",
+					tape_row.tape_offering,
+					"cct"
+				)
+				if cct and cct not in [o["attribute_value"] for o in options]:
+					cct_data = frappe.db.get_value(
+						"ilL-Attribute-CCT",
+						cct,
+						["code", "kelvin", "label"],
+						as_dict=True
+					)
+					if cct_data:
+						options.append({
+							"attribute_type": "CCT",
+							"attribute_doctype": "ilL-Attribute-CCT",
+							"attribute_value": cct,
+							"display_label": cct_data.get("label") or cct,
+							"code": cct_data.get("code") or "",
+							"kelvin": cct_data.get("kelvin") or 0
+						})
+		return sorted(options, key=lambda x: x.get("kelvin", 0))
+
+	def _get_lens_options_with_links(self, template) -> list:
+		"""Get lens appearance options with doctype links for Webflow."""
+		options = []
+		for opt in template.allowed_options or []:
+			if hasattr(opt, 'option_type') and opt.option_type == "Lens Appearance":
+				if hasattr(opt, 'is_active') and not opt.is_active:
+					continue
+				if hasattr(opt, 'lens_appearance') and opt.lens_appearance:
+					if opt.lens_appearance not in [o["attribute_value"] for o in options]:
+						options.append({
+							"attribute_type": "Lens Appearance",
+							"attribute_doctype": "ilL-Attribute-Lens Appearance",
+							"attribute_value": opt.lens_appearance,
+							"display_label": opt.lens_appearance,
+							"is_default": getattr(opt, 'is_default', False)
+						})
+		return sorted(options, key=lambda x: x.get("display_label", ""))
+
+	def _get_mounting_options_with_links(self, template) -> list:
+		"""Get mounting method options with doctype links for Webflow."""
+		options = []
+		for opt in template.allowed_options or []:
+			if hasattr(opt, 'option_type') and opt.option_type == "Mounting Method":
+				if hasattr(opt, 'is_active') and not opt.is_active:
+					continue
+				if hasattr(opt, 'mounting_method') and opt.mounting_method:
+					if opt.mounting_method not in [o["attribute_value"] for o in options]:
+						options.append({
+							"attribute_type": "Mounting Method",
+							"attribute_doctype": "ilL-Attribute-Mounting Method",
+							"attribute_value": opt.mounting_method,
+							"display_label": opt.mounting_method,
+							"is_default": getattr(opt, 'is_default', False)
+						})
+		return sorted(options, key=lambda x: x.get("display_label", ""))
+
+	def _get_finish_options_with_links(self, template) -> list:
+		"""Get finish options with doctype links for Webflow."""
+		options = []
+		for opt in template.allowed_options or []:
+			if hasattr(opt, 'option_type') and opt.option_type == "Finish":
+				if hasattr(opt, 'is_active') and not opt.is_active:
+					continue
+				if hasattr(opt, 'finish') and opt.finish:
+					if opt.finish not in [o["attribute_value"] for o in options]:
+						options.append({
+							"attribute_type": "Finish",
+							"attribute_doctype": "ilL-Attribute-Finish",
+							"attribute_value": opt.finish,
+							"display_label": opt.finish,
+							"is_default": getattr(opt, 'is_default', False)
+						})
+		return sorted(options, key=lambda x: x.get("display_label", ""))
+
+	def _get_allowed_environment_ratings(self, template) -> list:
+		"""Get unique environment ratings from allowed options."""
+		ratings = set()
+		for opt in template.allowed_options or []:
+			if hasattr(opt, 'option_type') and opt.option_type == "Environment Rating":
+				if hasattr(opt, 'is_active') and not opt.is_active:
+					continue
+				if hasattr(opt, 'environment_rating') and opt.environment_rating:
+					ratings.add(opt.environment_rating)
+		return sorted(list(ratings))
+
+	def _get_environment_options_with_links(self, template) -> list:
+		"""Get environment rating options with doctype links for Webflow."""
+		options = []
+		for opt in template.allowed_options or []:
+			if hasattr(opt, 'option_type') and opt.option_type == "Environment Rating":
+				if hasattr(opt, 'is_active') and not opt.is_active:
+					continue
+				if hasattr(opt, 'environment_rating') and opt.environment_rating:
+					if opt.environment_rating not in [o["attribute_value"] for o in options]:
+						options.append({
+							"attribute_type": "Environment Rating",
+							"attribute_doctype": "ilL-Attribute-Environment Rating",
+							"attribute_value": opt.environment_rating,
+							"display_label": opt.environment_rating,
+							"is_default": getattr(opt, 'is_default', False)
+						})
+		return sorted(options, key=lambda x: x.get("display_label", ""))
