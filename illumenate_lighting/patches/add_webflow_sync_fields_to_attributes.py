@@ -15,6 +15,25 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
+def delete_field_if_type_mismatch(dt: str, fieldname: str, expected_fieldtype: str):
+    """
+    Delete a custom field if it exists with a different fieldtype.
+    
+    Frappe doesn't allow changing fieldtype directly, so we need to delete
+    and recreate the field if the type has changed.
+    """
+    existing = frappe.db.get_value(
+        "Custom Field",
+        {"dt": dt, "fieldname": fieldname},
+        ["name", "fieldtype"],
+        as_dict=True
+    )
+    if existing and existing.fieldtype != expected_fieldtype:
+        print(f"Removing field '{fieldname}' (type: {existing.fieldtype}) to recreate as {expected_fieldtype}")
+        frappe.delete_doc("Custom Field", existing.name, force=True)
+        frappe.db.commit()
+
+
 def execute():
     """Add Webflow sync fields to all attribute doctypes."""
     
@@ -101,6 +120,12 @@ def execute():
                 "depends_on": "eval:doc.webflow_sync_status=='Error'"
             }
         ]
+    
+    # Check for fieldtype mismatches and delete conflicting fields
+    # Frappe doesn't allow changing fieldtype directly
+    for dt, fields in custom_fields.items():
+        for field in fields:
+            delete_field_if_type_mismatch(dt, field["fieldname"], field["fieldtype"])
     
     # Create the custom fields
     create_custom_fields(custom_fields, update=True)
