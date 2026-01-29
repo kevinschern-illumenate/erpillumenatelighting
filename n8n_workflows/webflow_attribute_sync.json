@@ -237,7 +237,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ isArchived: false, isDraft: false, fieldData: { name: $json.erp_doc_name, slug: $json.slug, ...Object.fromEntries(Object.entries($json.webflow_field_data || {}).filter(([k, v]) => v !== null && v !== undefined && v !== '' && k !== 'name' && k !== 'slug')) } }) }}",
+        "jsonBody": "={{ (() => { const fd = $json.webflow_field_data || {}; const clean = { name: $json.erp_doc_name, slug: $json.slug }; for (const [k, v] of Object.entries(fd)) { if (k === 'name' || k === 'slug') continue; if (v === null || v === undefined || v === '') continue; if (k.includes('color') && (typeof v !== 'string' || !v.startsWith('#'))) continue; if (k.includes('photo') || k.includes('image')) { if (typeof v !== 'string' || !v.startsWith('http')) continue; } clean[k] = v; } return JSON.stringify({ isArchived: false, isDraft: false, fieldData: clean }); })() }}",
         "options": {}
       },
       "id": "webflow-create",
@@ -261,7 +261,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ isArchived: false, isDraft: false, fieldData: { name: $json.erp_doc_name, ...Object.fromEntries(Object.entries($json.webflow_field_data || {}).filter(([k, v]) => v !== null && v !== undefined && v !== '' && k !== 'name' && k !== 'slug')) } }) }}",
+        "jsonBody": "={{ (() => { const fd = $json.webflow_field_data || {}; const clean = { name: $json.erp_doc_name }; for (const [k, v] of Object.entries(fd)) { if (k === 'name' || k === 'slug') continue; if (v === null || v === undefined || v === '') continue; if (k.includes('color') && (typeof v !== 'string' || !v.startsWith('#'))) continue; if (k.includes('photo') || k.includes('image')) { if (typeof v !== 'string' || !v.startsWith('http')) continue; } clean[k] = v; } return JSON.stringify({ isArchived: false, isDraft: false, fieldData: clean }); })() }}",
         "options": {}
       },
       "id": "webflow-update",
