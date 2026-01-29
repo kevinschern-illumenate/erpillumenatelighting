@@ -60,8 +60,8 @@ ATTRIBUTE_DOCTYPES = {
         "code_field": "code",
         "slug_field": "cct_name",
         "webflow_collection_id": "",  # Set in Webflow Settings
-        "fields": ["cct_name", "code", "label", "kelvin", "hex_color", "sample_photo", 
-                   "lumen_multiplier", "description", "sort_order", "is_active"],
+        "fields": ["cct_name", "code", "kelvin", "hex_color", "sample_photo", 
+                   "lumen_multiplier", "description", "sort_order"],
         "webflow_field_mapping": {
             "name": "cct_name",
             "slug": "cct_name",
@@ -81,7 +81,7 @@ ATTRIBUTE_DOCTYPES = {
         "slug_field": "finish_name",
         "webflow_collection_id": "",
         "fields": ["finish_name", "code", "status", "hex_color", "texture_feel", 
-                   "image_attach", "type", "thermal_performance_factor", "moq", "notes"],
+                   "image_attach", "type", "thermal_performance_factor", "moq"],
         "webflow_field_mapping": {
             "name": "finish_name",
             "slug": "finish_name",
@@ -397,16 +397,16 @@ ATTRIBUTE_DOCTYPES = {
     },
     "sdcm": {
         "doctype": "ilL-Attribute-SDCM",
-        "name_field": "label",
-        "code_field": "code",
-        "slug_field": "label",
+        "name_field": "sdcm",
+        "code_field": "sdcm_code",
+        "slug_field": "sdcm",
         "webflow_collection_id": "",
-        "fields": ["label", "code", "sdcm_value", "description", "notes"],
+        "fields": ["sdcm", "sdcm_code", "description"],
         "webflow_field_mapping": {
-            "name": "label",
-            "slug": "label",
-            "sdcm-code": "code",
-            "sdcm-value": "sdcm_value",
+            "name": "sdcm",
+            "slug": "sdcm",
+            "sdcm-code": "sdcm_code",
+            "sdcm-value": "sdcm",
             "description": "description"
         }
     }
@@ -468,21 +468,36 @@ def get_attribute_config(attribute_type: str) -> Dict[str, Any]:
 
 def slugify(text: str) -> str:
     """
-    Convert text to a URL-safe slug.
+    Convert text to a Webflow-compatible slug.
+    
+    Webflow slugs must:
+    - Be lowercase
+    - Only contain letters, numbers, and hyphens
+    - Not start or end with a hyphen
+    - Not have consecutive hyphens
     
     Args:
         text: The text to slugify
         
     Returns:
-        str: URL-safe slug
+        str: Webflow-compatible slug
     """
     import re
     if not text:
         return ""
-    # Convert to lowercase and replace spaces with hyphens
-    slug = text.lower().strip()
-    slug = re.sub(r'[^\w\s-]', '', slug)  # Remove non-word chars
-    slug = re.sub(r'[-\s]+', '-', slug)   # Replace spaces/hyphens with single hyphen
+    # Convert to lowercase and strip
+    slug = str(text).lower().strip()
+    # Replace underscores and spaces with hyphens
+    slug = slug.replace('_', '-').replace(' ', '-')
+    # Remove any character that isn't a letter, number, or hyphen
+    slug = re.sub(r'[^a-z0-9-]', '', slug)
+    # Replace multiple consecutive hyphens with single hyphen
+    slug = re.sub(r'-+', '-', slug)
+    # Remove leading/trailing hyphens
+    slug = slug.strip('-')
+    # Ensure slug is not empty
+    if not slug:
+        slug = 'item'
     return slug
 
 
@@ -574,11 +589,56 @@ def get_webflow_attributes(
         
         # Build webflow field data
         webflow_data = {}
+        
+        # ALWAYS ensure name is set (required by Webflow)
+        # Try the configured name_field first, then fall back to doc name
+        name_value = attr.get(name_field) or attr.get("name")
+        if name_value:
+            webflow_data["name"] = str(name_value)
+        
+        # ALWAYS ensure slug is set
+        webflow_data["slug"] = attr["slug"]
+        
         for wf_field, erp_field in config["webflow_field_mapping"].items():
-            if wf_field == "slug":
-                webflow_data[wf_field] = attr["slug"]
+            # Skip name and slug as we already set them above
+            if wf_field in ["name", "slug"]:
+                continue
             elif erp_field in attr:
                 value = attr[erp_field]
+                
+                # Skip None/null values - Webflow rejects them
+                if value is None:
+                    continue
+                
+                # Skip empty strings for non-required fields (except name)
+                if value == "" and wf_field != "name":
+                    continue
+                
+                # Handle Image fields - Webflow needs full URLs, skip relative paths
+                if wf_field in ["sample-photo", "image", "badge-image"]:
+                    if not value:
+                        continue
+                    # Skip if it's a relative path (Webflow can't use these)
+                    if value.startswith("/"):
+                        # Could convert to full URL here if site_url is known
+                        # For now, skip relative paths
+                        continue
+                    # Only include if it's a full URL
+                    if not value.startswith("http"):
+                        continue
+                
+                # Handle Color fields - must be valid hex format
+                if wf_field in ["hex-color"]:
+                    if not value:
+                        continue
+                    # Ensure it starts with # and is valid hex
+                    if not str(value).startswith("#"):
+                        value = f"#{value}"
+                    # Validate hex format (skip if invalid)
+                    import re
+                    if not re.match(r'^#[0-9A-Fa-f]{6}$', str(value)):
+                        continue
+                
                 # Convert booleans for Webflow
                 if isinstance(value, int) and erp_field not in ["sort_order", "kelvin", "moq", 
                     "transmission", "watts_per_meter", "lumens_per_meter", "voltage",
@@ -588,6 +648,21 @@ def get_webflow_attributes(
                         field_type = meta.get_field(erp_field).fieldtype
                         if field_type == "Check":
                             value = bool(value)
+                
+                # Ensure numbers are proper type
+                if erp_field in ["sort_order", "kelvin", "moq", "voltage", "angle_degrees", 
+                                  "min_days", "max_days", "length_mm", "sdcm_value", "cri_value"]:
+                    try:
+                        value = int(value) if value else 0
+                    except (ValueError, TypeError):
+                        value = 0
+                elif erp_field in ["transmission", "watts_per_meter", "lumens_per_meter",
+                                    "thermal_performance_factor", "lumen_multiplier", "multiplier"]:
+                    try:
+                        value = float(value) if value else 0.0
+                    except (ValueError, TypeError):
+                        value = 0.0
+                
                 webflow_data[wf_field] = value
         
         attr["webflow_field_data"] = webflow_data
@@ -988,3 +1063,39 @@ def get_attribute_type_from_doctype(doctype: str) -> str:
         if config["doctype"] == doctype:
             return attr_type
     return None
+
+
+@frappe.whitelist(allow_guest=False)
+def reset_all_webflow_sync_status() -> dict:
+    """
+    Reset all attribute webflow sync status to 'Pending' and clear webflow_item_id.
+    Use this when you've deleted items in Webflow and need to re-sync.
+    
+    Returns:
+        dict: Summary of reset counts per doctype
+    """
+    results = {}
+    
+    for attr_type, config in ATTRIBUTE_DOCTYPES.items():
+        doctype = config["doctype"]
+        try:
+            meta = frappe.get_meta(doctype)
+            if meta.has_field("webflow_sync_status"):
+                count = frappe.db.sql(f"""
+                    UPDATE `tab{doctype}` 
+                    SET webflow_item_id = NULL,
+                        webflow_sync_status = 'Pending',
+                        webflow_last_synced = NULL,
+                        webflow_sync_error = NULL
+                """)
+                affected = frappe.db.sql(f"SELECT COUNT(*) FROM `tab{doctype}`")[0][0]
+                results[attr_type] = {"doctype": doctype, "reset_count": affected}
+        except Exception as e:
+            results[attr_type] = {"doctype": doctype, "error": str(e)}
+    
+    frappe.db.commit()
+    
+    return {
+        "message": "All attribute sync statuses reset to Pending",
+        "results": results
+    }

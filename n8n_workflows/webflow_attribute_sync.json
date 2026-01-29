@@ -192,7 +192,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Store collection info for later use\nconst response = $input.item.json;\nconst collectionId = response.message.webflow_collection_id;\nconst attributeType = response.message.attribute_type;\nconst fieldMapping = response.message.field_mapping;\nconst attributes = response.message.attributes || [];\n\n// Return items for downstream processing\nreturn attributes.map(attr => ({\n  json: {\n    ...attr,\n    _meta: {\n      collectionId,\n      attributeType,\n      fieldMapping\n    }\n  }\n}));"
+        "jsCode": "// Process ALL attribute type responses and flatten into individual items\nconst allItems = [];\n\nfor (const item of $input.all()) {\n  const response = item.json;\n  const collectionId = response.message?.webflow_collection_id || response.webflow_collection_id;\n  const attributeType = response.message?.attribute_type || response.attribute_type;\n  const fieldMapping = response.message?.field_mapping || response.field_mapping;\n  const attributes = response.message?.attributes || response.attributes || [];\n  \n  // Skip if no collection ID\n  if (!collectionId) continue;\n  \n  // Add each attribute with its metadata\n  for (const attr of attributes) {\n    allItems.push({\n      json: {\n        ...attr,\n        _meta: {\n          collectionId,\n          attributeType,\n          fieldMapping\n        }\n      }\n    });\n  }\n}\n\nreturn allItems;"
       },
       "id": "prepare-attributes",
       "name": "Prepare Attributes",
@@ -231,30 +231,20 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transform ERPNext attribute to Webflow format\nconst attr = $input.item.json;\nconst isUpdate = attr.webflow_item_id ? true : false;\nconst meta = attr._meta;\n\n// Build base field data\nconst fieldData = { ...attr.webflow_field_data };\n\n// Only include slug on create (not update)\nif (isUpdate && fieldData.slug) {\n  delete fieldData.slug;\n}\n\n// Build Webflow payload\nconst webflowData = {\n  isArchived: false,\n  isDraft: false,\n  fieldData: fieldData\n};\n\nreturn {\n  json: {\n    webflowData,\n    originalAttribute: attr,\n    collectionId: meta.collectionId,\n    attributeType: meta.attributeType,\n    isUpdate\n  }\n};"
-      },
-      "id": "transform-attribute",
-      "name": "Transform to Webflow Format",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2300, -125]
-    },
-    {
-      "parameters": {
         "method": "POST",
-        "url": "=https://api.webflow.com/v2/collections/{{ $json.collectionId }}/items",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json._meta.collectionId }}/items",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "jsonBody": "={{ JSON.stringify({ isArchived: false, isDraft: false, fieldData: { name: $json.erp_doc_name, slug: $json.slug, ...Object.fromEntries(Object.entries($json.webflow_field_data || {}).filter(([k, v]) => v !== null && v !== undefined && v !== '' && k !== 'name' && k !== 'slug')) } }) }}",
         "options": {}
       },
       "id": "webflow-create",
       "name": "Webflow: Create Attribute",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2550, -200],
+      "position": [2650, -200],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -266,19 +256,19 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://api.webflow.com/v2/collections/{{ $json.collectionId }}/items/{{ $json.originalAttribute.webflow_item_id }}",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json._meta.collectionId }}/items/{{ $json.webflow_item_id }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "jsonBody": "={{ JSON.stringify({ isArchived: false, isDraft: false, fieldData: { name: $json.erp_doc_name, ...Object.fromEntries(Object.entries($json.webflow_field_data || {}).filter(([k, v]) => v !== null && v !== undefined && v !== '' && k !== 'name' && k !== 'slug')) } }) }}",
         "options": {}
       },
       "id": "webflow-update",
       "name": "Webflow: Update Attribute",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2550, -50],
+      "position": [2650, -50],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -353,7 +343,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
         "options": {}
       },
       "id": "mark-synced-create",
@@ -376,7 +366,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
         "options": {}
       },
       "id": "mark-synced-update",
@@ -399,7 +389,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
         "options": {}
       },
       "id": "mark-error-create",
@@ -422,7 +412,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Transform to Webflow Format').item.json.attributeType }}\",\n  \"doc_name\": \"{{ $('Transform to Webflow Format').item.json.originalAttribute.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
         "options": {}
       },
       "id": "mark-error-update",
@@ -573,30 +563,14 @@
       "main": [
         [
           {
-            "node": "Transform to Webflow Format",
+            "node": "Webflow: Update Attribute",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Transform to Webflow Format",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Transform to Webflow Format": {
-      "main": [
-        [
-          {
             "node": "Webflow: Create Attribute",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Webflow: Update Attribute",
             "type": "main",
             "index": 0
           }
