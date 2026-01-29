@@ -21,10 +21,10 @@ Field Mapping (Webflow → Frappe CRM Lead):
 - First Name → first_name
 - Last Name → last_name
 - Email → email
-- Campaign ID → custom_campaign
-- UTM Source → custom_utm_source
-- UTM Medium → custom_utm_medium
-- UTM Campaign Tag → custom_utm_campaign
+- Campaign ID → webflow_campaign_id
+- UTM Source → webflow_utm_source
+- UTM Medium → webflow_utm_medium
+- UTM Campaign Tag → webflow_utm_campaign
 """
 
 from typing import Optional, Dict, Any
@@ -99,7 +99,7 @@ def create_lead_from_webflow(
         if webflow_submission_id:
             existing_lead = frappe.db.get_value(
                 "CRM Lead",
-                {"custom_webflow_submission_id": webflow_submission_id},
+                {"webflow_submission_id": webflow_submission_id},
                 "name"
             )
             if existing_lead:
@@ -141,32 +141,31 @@ def create_lead_from_webflow(
             "status": "New",
         }
         
-        # Add UTM tracking fields (these may be custom fields in CRM Lead)
-        # Standard Frappe CRM v16 fields
+        # Add UTM tracking fields (webflow_ prefixed custom fields in CRM Lead)
         if campaign_id:
-            lead_data["custom_campaign"] = campaign_id
+            lead_data["webflow_campaign_id"] = campaign_id
         if utm_source:
-            lead_data["custom_utm_source"] = utm_source
+            lead_data["webflow_utm_source"] = utm_source
         if utm_medium:
-            lead_data["custom_utm_medium"] = utm_medium
+            lead_data["webflow_utm_medium"] = utm_medium
         if utm_campaign:
-            lead_data["custom_utm_campaign"] = utm_campaign
+            lead_data["webflow_utm_campaign"] = utm_campaign
         
-        # Add Webflow tracking fields (custom fields)
+        # Add Webflow form tracking fields
         if form_name:
-            lead_data["custom_webflow_form_name"] = form_name
+            lead_data["webflow_form_name"] = form_name
         if webflow_form_id:
-            lead_data["custom_webflow_form_id"] = webflow_form_id
+            lead_data["webflow_form_id"] = webflow_form_id
         if webflow_submission_id:
-            lead_data["custom_webflow_submission_id"] = webflow_submission_id
+            lead_data["webflow_submission_id"] = webflow_submission_id
         
         # Parse and store additional form data
         if form_data:
             try:
                 additional_data = json.loads(form_data) if isinstance(form_data, str) else form_data
-                lead_data["custom_webflow_form_data"] = json.dumps(additional_data, indent=2)
+                lead_data["webflow_form_data"] = json.dumps(additional_data, indent=2)
             except (json.JSONDecodeError, TypeError):
-                lead_data["custom_webflow_form_data"] = str(form_data)
+                lead_data["webflow_form_data"] = str(form_data)
         
         # Create the lead
         lead_doc = frappe.get_doc(lead_data)
