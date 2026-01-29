@@ -72,137 +72,35 @@ This guide explains how to set up automatic lead creation in Frappe CRM v16 from
 | Phone | `mobile_no` | Required (or email) |
 | Company | `organization` | |
 | Job Title | `job_title` | |
-| Campaign ID | `custom_campaign` | Custom field |
-| UTM Source | `custom_utm_source` | Custom field |
-| UTM Medium | `custom_utm_medium` | Custom field |
-| UTM Campaign | `custom_utm_campaign` | Custom field |
+| Campaign ID | `webflow_campaign_id` | Custom field |
+| UTM Source | `webflow_utm_source` | Custom field |
+| UTM Medium | `webflow_utm_medium` | Custom field |
+| UTM Campaign | `webflow_utm_campaign` | Custom field |
 
 ## Setup Instructions
 
-### Step 1: Add Custom Fields to CRM Lead
+### Step 1: Deploy and Migrate
 
-Run the following in your Frappe/ERPNext bench console or add via Customize Form:
+The custom fields are added automatically via the patch `add_webflow_lead_fields.py` during migration.
 
-```python
-# bench console
-import frappe
-
-# Custom fields for UTM tracking and Webflow integration
-custom_fields = [
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_campaign",
-        "fieldtype": "Data",
-        "label": "Campaign ID",
-        "insert_after": "source",
-        "description": "Marketing campaign identifier"
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_utm_source",
-        "fieldtype": "Data",
-        "label": "UTM Source",
-        "insert_after": "custom_campaign",
-        "description": "Traffic source (e.g., google, facebook)"
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_utm_medium",
-        "fieldtype": "Data",
-        "label": "UTM Medium",
-        "insert_after": "custom_utm_source",
-        "description": "Marketing medium (e.g., cpc, email)"
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_utm_campaign",
-        "fieldtype": "Data",
-        "label": "UTM Campaign",
-        "insert_after": "custom_utm_medium",
-        "description": "Campaign name"
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "webflow_section_break",
-        "fieldtype": "Section Break",
-        "label": "Webflow Integration",
-        "insert_after": "custom_utm_campaign",
-        "collapsible": 1
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_webflow_form_name",
-        "fieldtype": "Data",
-        "label": "Form Name",
-        "insert_after": "webflow_section_break",
-        "read_only": 1
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_webflow_form_id",
-        "fieldtype": "Data",
-        "label": "Webflow Form ID",
-        "insert_after": "custom_webflow_form_name",
-        "read_only": 1
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_webflow_submission_id",
-        "fieldtype": "Data",
-        "label": "Webflow Submission ID",
-        "insert_after": "custom_webflow_form_id",
-        "read_only": 1,
-        "unique": 1,
-        "description": "Used for deduplication"
-    },
-    {
-        "doctype": "Custom Field",
-        "dt": "CRM Lead",
-        "fieldname": "custom_webflow_form_data",
-        "fieldtype": "Code",
-        "label": "Additional Form Data",
-        "insert_after": "custom_webflow_submission_id",
-        "read_only": 1,
-        "options": "JSON"
-    }
-]
-
-for field in custom_fields:
-    if not frappe.db.exists("Custom Field", {"dt": field["dt"], "fieldname": field["fieldname"]}):
-        doc = frappe.get_doc(field)
-        doc.insert()
-        print(f"Created: {field['fieldname']}")
-    else:
-        print(f"Exists: {field['fieldname']}")
-
-frappe.db.commit()
+```bash
+# In your Frappe bench directory
+bench migrate
 ```
 
-### Step 2: Add "Webflow" as a Lead Source
+This creates the following custom fields on CRM Lead:
+- `webflow_campaign_id` - Campaign ID
+- `webflow_utm_source` - UTM Source
+- `webflow_utm_medium` - UTM Medium
+- `webflow_utm_campaign` - UTM Campaign
+- `webflow_form_name` - Form Name
+- `webflow_form_id` - Webflow Form ID
+- `webflow_submission_id` - Webflow Submission ID (unique, for deduplication)
+- `webflow_form_data` - Additional Form Data (JSON)
 
-```python
-# bench console
-import frappe
+It also adds "Webflow" as a Lead Source if CRM Lead Source doctype exists.
 
-if frappe.db.exists("DocType", "CRM Lead Source"):
-    if not frappe.db.exists("CRM Lead Source", "Webflow"):
-        frappe.get_doc({
-            "doctype": "CRM Lead Source",
-            "source_name": "Webflow"
-        }).insert()
-        frappe.db.commit()
-        print("Added Webflow as lead source")
-```
-
-### Step 3: Import n8n Workflow
+### Step 2: Import n8n Workflow
 
 1. Open your n8n instance
 2. Go to **Workflows** → **Import from File**
@@ -212,7 +110,7 @@ if frappe.db.exists("DocType", "CRM Lead Source"):
    - Header Name: `Authorization`
    - Header Value: `token api_key:api_secret` (your ERPNext API credentials)
 
-### Step 4: Get the Webhook URL
+### Step 3: Get the Webhook URL
 
 1. Open the imported workflow in n8n
 2. Click on the **Webflow Form Webhook** node
