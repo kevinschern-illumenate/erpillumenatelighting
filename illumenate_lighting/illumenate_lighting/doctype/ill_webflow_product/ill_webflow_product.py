@@ -74,7 +74,6 @@ class ilLWebflowProduct(Document):
 		
 		# Mark as pending sync if substantive changes were made
 		if (self.has_value_changed("attribute_links") or 
-		    self.has_value_changed("specifications") or 
 		    self.has_value_changed("configurator_options")):
 			if self.sync_status == "Synced":
 				self.sync_status = "Pending"
@@ -224,7 +223,17 @@ class ilLWebflowProduct(Document):
 			return None
 
 	def calculate_specifications(self):
-		"""Auto-populate specifications from linked source doctype."""
+		"""Auto-populate specifications from linked source doctype.
+		
+		DEPRECATED: This method is no longer used as the specifications table field
+		has been removed. Attribute links are now used instead. This method is kept
+		for backwards compatibility but does nothing.
+		"""
+		# The specifications field no longer exists - this feature is deprecated
+		# Use attribute_links instead (auto-populated via populate_attribute_links)
+		if not hasattr(self, 'specifications') or self.meta.get_field('specifications') is None:
+			return
+		
 		if self.product_type == "Fixture Template" and self.fixture_template:
 			self._calculate_fixture_specs()
 		elif self.product_type == "Driver" and self.driver_spec:
