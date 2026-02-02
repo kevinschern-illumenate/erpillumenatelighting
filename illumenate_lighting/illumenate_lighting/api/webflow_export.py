@@ -85,20 +85,10 @@ def get_webflow_products(
         for product in products:
             doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
             
-            product["specifications"] = [
-                {
-                    "spec_group": s.spec_group,
-                    "spec_label": s.spec_label,
-                    "spec_value": s.spec_value,
-                    "spec_unit": s.spec_unit,
-                    "display_order": s.display_order,
-                    "is_calculated": s.is_calculated,
-                    "show_on_card": s.show_on_card,
-                    "attribute_doctype": s.attribute_doctype,
-                    "attribute_options": frappe.parse_json(s.attribute_options_json) if s.attribute_options_json else []
-                }
-                for s in doc.specifications
-            ]
+            # DEPRECATED: specifications table has been removed
+            # Return empty array for backwards compatibility with n8n workflows
+            # Use attribute_links and attribute_links_by_type instead
+            product["specifications"] = []
             
             product["certifications"] = [
                 {
