@@ -73,10 +73,12 @@ class ilLWebflowProduct(Document):
 			self.populate_configurator_options()
 		
 		# Mark as pending sync if substantive changes were made
-		if (self.has_value_changed("attribute_links") or 
-		    self.has_value_changed("configurator_options")):
-			if self.sync_status == "Synced":
-				self.sync_status = "Pending"
+		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
+		if not getattr(self, '_skip_sync_status_check', False):
+			if (self.has_value_changed("attribute_links") or 
+			    self.has_value_changed("configurator_options")):
+				if self.sync_status == "Synced":
+					self.sync_status = "Pending"
 
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked fixture template's allowed options and tape offerings."""

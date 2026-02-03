@@ -17,6 +17,32 @@ Endpoints:
 import frappe
 from frappe import _
 
+# Base URL for converting relative file paths to absolute URLs
+ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
+
+
+def _make_absolute_url(url: str) -> str:
+    """Convert relative URL to absolute URL for Webflow.
+    
+    Args:
+        url: The URL to convert (e.g., '/files/image.jpg')
+    
+    Returns:
+        Absolute URL (e.g., 'https://illumenatelighting.v.frappe.cloud/files/image.jpg')
+    """
+    if not url:
+        return url
+    
+    # Already absolute
+    if url.startswith('http://') or url.startswith('https://'):
+        return url
+    
+    # Relative URL - prepend base URL
+    if url.startswith('/'):
+        return f"{ERPNEXT_BASE_URL}{url}"
+    else:
+        return f"{ERPNEXT_BASE_URL}/{url}"
+
 
 @frappe.whitelist(allow_guest=False)
 def get_webflow_products(
@@ -85,6 +111,10 @@ def get_webflow_products(
         for product in products:
             doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
             
+            # Convert featured_image to absolute URL
+            if product.get("featured_image"):
+                product["featured_image"] = _make_absolute_url(product["featured_image"])
+            
             # DEPRECATED: specifications table has been removed
             # Return empty array for backwards compatibility with n8n workflows
             # Use attribute_links and attribute_links_by_type instead
@@ -126,7 +156,7 @@ def get_webflow_products(
             
             product["gallery_images"] = [
                 {
-                    "image": g.image,
+                    "image": _make_absolute_url(g.image),
                     "alt_text": g.alt_text,
                     "caption": g.caption,
                     "display_order": g.display_order
@@ -136,7 +166,7 @@ def get_webflow_products(
             
             product["documents"] = [
                 {
-                    "document_file": d.document_file,
+                    "document_file": _make_absolute_url(d.document_file),
                     "document_type": d.document_type,
                     "document_title": d.document_title,
                     "display_order": d.display_order
@@ -178,13 +208,17 @@ def get_webflow_products(
                     "webflow_item_id": al.webflow_item_id
                 })
             
-            # Add category details if available
+            # Add category details if available (includes webflow_item_id for reference field)
             if product.get("product_category"):
                 product["category_details"] = _get_category_details(product["product_category"])
+                product["category_webflow_item_id"] = _get_category_webflow_item_id(product["product_category"])
             
-            # Add series webflow_item_id if series is set
+            # Add full series details if series is set
             if product.get("series"):
-                product["series_webflow_item_id"] = _get_series_webflow_item_id(product["series"])
+                series_details = _get_series_details(product["series"])
+                product["series_webflow_item_id"] = series_details.get("webflow_item_id")
+                product["series_code"] = series_details.get("series_code")
+                product["series_display_name"] = series_details.get("display_name")
     
     total = frappe.db.count("ilL-Webflow-Product", filters)
     
@@ -227,7 +261,10 @@ def mark_webflow_synced(
     doc.last_synced_at = frappe.utils.now()
     doc.sync_status = "Synced"
     doc.sync_error_message = None
+    # Skip the before_save hook that would reset sync_status to Pending
+    doc._skip_sync_status_check = True
     doc.save(ignore_permissions=True)
+    frappe.db.commit()
     
     return {
         "success": True,
@@ -563,6 +600,41 @@ def _get_category_details(category_name: str) -> dict:
         as_dict=True
     )
     return cat or {}
+
+
+def _get_category_webflow_item_id(category_name: str) -> str:
+    """Helper to get the Webflow item ID for a category."""
+    if not category_name:
+        return None
+    
+    webflow_item_id = frappe.db.get_value(
+        "ilL-Webflow-Category",
+        category_name,
+        "webflow_item_id"
+    )
+    return webflow_item_id
+
+
+def _get_series_details(series_name: str) -> dict:
+    """Helper to get full series details for export."""
+    if not series_name:
+        return {}
+    
+    # Get series record with all relevant fields
+    series = frappe.db.get_value(
+        "ilL-Attribute-Series",
+        series_name,
+        ["series_name", "code", "short_description", "webflow_item_id"],
+        as_dict=True
+    )
+    if series:
+        return {
+            "series_code": series.get("code"),
+            "display_name": series.get("series_name"),
+            "short_description": series.get("short_description"),
+            "webflow_item_id": series.get("webflow_item_id")
+        }
+    return {}
 
 
 def _get_series_webflow_item_id(series_name: str) -> str:
