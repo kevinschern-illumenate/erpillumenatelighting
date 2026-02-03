@@ -126,6 +126,29 @@ class ilLWebflowProduct(Document):
 							"webflow_item_id": webflow_id,
 							"display_order": display_order
 						})
+					
+					# For Power Feed Type, also extract the linked Feed Direction
+					if option_type == "Power Feed Type":
+						feed_direction = frappe.db.get_value(
+							"ilL-Attribute-Power Feed Type",
+							attr_value,
+							"type"
+						)
+						if feed_direction:
+							# Check if this feed direction is already in the list
+							existing_fd = [a for a in attribute_links 
+							               if a["attribute_doctype"] == "ilL-Attribute-Feed-Direction" and a["attribute_name"] == feed_direction]
+							if not existing_fd:
+								display_order += 1
+								fd_webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Feed-Direction", feed_direction)
+								attribute_links.append({
+									"attribute_type": "Feed Direction",
+									"attribute_doctype": "ilL-Attribute-Feed-Direction",
+									"attribute_name": feed_direction,
+									"display_label": feed_direction,
+									"webflow_item_id": fd_webflow_id,
+									"display_order": display_order
+								})
 		
 		# Get attributes from allowed_tape_offerings (CCT, Output Level, LED Package, CRI, etc.)
 		for tape_row in template.allowed_tape_offerings or []:
