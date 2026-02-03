@@ -32,9 +32,9 @@
   },
   {
    "fieldname": "type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Feed Type",
-   "options": "End\nLeft\nRight\nBack\nCenter"
+   "options": "ilL-Attribute-Feed-Direction"
   },
   {
    "fieldname": "column_break_zbwj",
