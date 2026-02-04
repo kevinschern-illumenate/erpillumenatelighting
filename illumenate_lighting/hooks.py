@@ -144,6 +144,8 @@ fixtures = [
 	{"dt": "ilL-Attribute-Feed-Direction"},
 	# Job Title Master for CRM Lead integration
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
+	# Custom fields for CRM Lead and other DocTypes
+	{"dt": "Custom Field"},
 ]
 
 # Uninstallation
