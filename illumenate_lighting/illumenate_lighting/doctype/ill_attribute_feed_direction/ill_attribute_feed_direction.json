@@ -10,7 +10,9 @@
   "code",
   "column_break_main",
   "description",
-  "is_active"
+  "is_active",
+  "webflow_sync_sb",
+  "webflow_item_id"
  ],
  "fields": [
   {
@@ -44,6 +46,18 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Is Active"
+  },
+  {
+   "fieldname": "webflow_sync_sb",
+   "fieldtype": "Section Break",
+   "label": "Webflow Sync"
+  },
+  {
+   "description": "Webflow CMS item ID (populated after sync)",
+   "fieldname": "webflow_item_id",
+   "fieldtype": "Data",
+   "label": "Webflow Item ID",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
