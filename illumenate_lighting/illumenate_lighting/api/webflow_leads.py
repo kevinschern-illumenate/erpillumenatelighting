@@ -25,6 +25,12 @@ Field Mapping (Webflow → Frappe CRM Lead):
 - UTM Source → webflow_utm_source
 - UTM Medium → webflow_utm_medium
 - UTM Campaign Tag → webflow_utm_campaign
+- Submitted At → webflow_submitted_at
+- Subject → webflow_contact_form_subject
+- Message → webflow_contact_form_message
+- File URL → webflow_contact_form_file_url
+- Project Name → webflow_project_name
+- Products Interested → webflow_products_interested
 """
 
 from typing import Optional, Dict, Any
@@ -53,6 +59,12 @@ def create_lead_from_webflow(
     form_data: Optional[str] = None,
     webflow_form_id: Optional[str] = None,
     webflow_submission_id: Optional[str] = None,
+    submitted_at: Optional[str] = None,
+    contact_form_subject: Optional[str] = None,
+    contact_form_message: Optional[str] = None,
+    contact_form_file_url: Optional[str] = None,
+    project_name: Optional[str] = None,
+    products_interested: Optional[str] = None,
 ) -> dict:
     """
     Create a CRM Lead from Webflow form submission data.
@@ -77,6 +89,12 @@ def create_lead_from_webflow(
         form_data: JSON string of additional form fields
         webflow_form_id: Webflow form ID for tracking
         webflow_submission_id: Webflow submission ID for deduplication
+        submitted_at: Timestamp when the form was submitted
+        contact_form_subject: Subject of the contact form
+        contact_form_message: Message from the contact form
+        contact_form_file_url: URL of any uploaded file
+        project_name: Name of the project
+        products_interested: Products the lead is interested in
         
     Returns:
         dict: {
@@ -158,6 +176,20 @@ def create_lead_from_webflow(
             lead_data["webflow_form_id"] = webflow_form_id
         if webflow_submission_id:
             lead_data["webflow_submission_id"] = webflow_submission_id
+        
+        # Add Webflow Form Details fields (new custom fields)
+        if submitted_at:
+            lead_data["webflow_submitted_at"] = submitted_at
+        if contact_form_subject:
+            lead_data["webflow_contact_form_subject"] = contact_form_subject
+        if contact_form_message:
+            lead_data["webflow_contact_form_message"] = contact_form_message
+        if contact_form_file_url:
+            lead_data["webflow_contact_form_file_url"] = contact_form_file_url
+        if project_name:
+            lead_data["webflow_project_name"] = project_name
+        if products_interested:
+            lead_data["webflow_products_interested"] = products_interested
         
         # Parse and store additional form data
         if form_data:
@@ -349,6 +381,45 @@ def _map_webflow_fields(webflow_data: Dict[str, Any]) -> Dict[str, Any]:
         
         "formName": "form_name",
         "form_name": "form_name",
+        
+        # Webflow Form Details fields (contact form fields)
+        "submitted_at": "submitted_at",
+        "submittedAt": "submitted_at",
+        "Submitted At": "submitted_at",
+        "_wf_submitted_at": "submitted_at",
+        
+        "subject": "contact_form_subject",
+        "Subject": "contact_form_subject",
+        "contact_form_subject": "contact_form_subject",
+        "contact-subject": "contact_form_subject",
+        "form_subject": "contact_form_subject",
+        
+        "message": "contact_form_message",
+        "Message": "contact_form_message",
+        "contact_form_message": "contact_form_message",
+        "contact-message": "contact_form_message",
+        "form_message": "contact_form_message",
+        "comments": "contact_form_message",
+        "inquiry": "contact_form_message",
+        
+        "file_url": "contact_form_file_url",
+        "file": "contact_form_file_url",
+        "attachment": "contact_form_file_url",
+        "contact_form_file_url": "contact_form_file_url",
+        "file-url": "contact_form_file_url",
+        
+        "project_name": "project_name",
+        "projectName": "project_name",
+        "Project Name": "project_name",
+        "project-name": "project_name",
+        "project": "project_name",
+        
+        "products_interested": "products_interested",
+        "productsInterested": "products_interested",
+        "Products Interested": "products_interested",
+        "products-interested": "products_interested",
+        "interested_in": "products_interested",
+        "product_interest": "products_interested",
     }
     
     mapped = {}
