@@ -142,6 +142,8 @@ fixtures = [
 	{"dt": "ilL-Webflow-Category"},
 	# Webflow configurator fixtures (Phase 2)
 	{"dt": "ilL-Attribute-Feed-Direction"},
+	# Job Title Master for CRM Lead integration
+	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 ]
 
 # Uninstallation
