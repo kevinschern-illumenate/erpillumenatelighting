@@ -144,7 +144,7 @@ def execute():
                 migration_count += 1
         except Exception as e:
             error_count += 1
-            print(f"Error migrating lead {lead.name}: {e!s}")
+            print(f"Error migrating lead {lead.name} with job_title '{lead.job_title}': {e!s}")
 
     frappe.db.commit()
     print(f"Migration complete: {migration_count} leads migrated, {error_count} errors")
