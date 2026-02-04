@@ -140,5 +140,61 @@
 		"options": "ilL-Configured-Fixture",
 		"insert_after": "description",
 		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_form_details_section",
+		"fieldtype": "Section Break",
+		"label": "Webflow Form Details",
+		"insert_after": "source"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_submitted_at",
+		"fieldtype": "Datetime",
+		"label": "Webflow Submitted At",
+		"insert_after": "webflow_form_details_section"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_contact_form_subject",
+		"fieldtype": "Data",
+		"label": "Webflow Contact Form Subject",
+		"insert_after": "webflow_submitted_at"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_contact_form_message",
+		"fieldtype": "Long Text",
+		"label": "Webflow Contact Form Message",
+		"insert_after": "webflow_contact_form_subject"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_contact_form_file_url",
+		"fieldtype": "Data",
+		"label": "Webflow Contact Form File URL",
+		"insert_after": "webflow_contact_form_message"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_project_name",
+		"fieldtype": "Data",
+		"label": "Webflow Project Name",
+		"insert_after": "webflow_contact_form_file_url"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "CRM Lead",
+		"fieldname": "webflow_products_interested",
+		"fieldtype": "Long Text",
+		"label": "Webflow Products Interested",
+		"insert_after": "webflow_project_name"
 	}
 ]
