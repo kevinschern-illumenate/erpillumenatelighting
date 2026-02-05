@@ -1,0 +1,8 @@
+[
+	{
+		"doctype": "Campaign",
+		"name": "Newsletter Welcome",
+		"campaign_name": "Newsletter Welcome",
+		"description": "Automated welcome email series for newsletter subscribers from Webflow"
+	}
+]

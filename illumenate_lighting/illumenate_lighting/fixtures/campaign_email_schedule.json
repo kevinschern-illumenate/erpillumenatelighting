@@ -1,0 +1,8 @@
+[
+	{
+		"doctype": "Campaign Email Schedule",
+		"name": "Newsletter Welcome - Day 0",
+		"email_template": "Newsletter Welcome Email",
+		"send_after_days": 0
+	}
+]
