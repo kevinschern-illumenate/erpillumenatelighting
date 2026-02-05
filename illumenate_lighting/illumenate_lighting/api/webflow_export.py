@@ -596,7 +596,7 @@ def _get_category_details(category_name: str) -> dict:
     cat = frappe.db.get_value(
         "ilL-Webflow-Category",
         category_name,
-        ["category_name", "category_slug", "description", "category_image"],
+        ["category_name", "category_slug", "description", "category_image", "webflow_item_id"],
         as_dict=True
     )
     return cat or {}
