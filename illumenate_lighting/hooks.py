@@ -146,6 +146,10 @@ fixtures = [
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields for CRM Lead and other DocTypes
 	{"dt": "Custom Field"},
+	# Email campaign fixtures for newsletter automation
+	{"dt": "Campaign", "filters": [["name", "in", ["Newsletter Welcome"]]]},
+	{"dt": "Email Template", "filters": [["name", "in", ["Newsletter Welcome Email"]]]},
+	{"dt": "Campaign Email Schedule", "filters": [["email_template", "in", ["Newsletter Welcome Email"]]]},
 ]
 
 # Uninstallation
@@ -212,6 +216,10 @@ has_website_permission = {
 doc_events = {
 	"Sales Order": {
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
+	},
+	# CRM Lead events for newsletter automation
+	"CRM Lead": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.server_scripts.auto_enroll_newsletter_lead.auto_enroll_lead_in_newsletter_campaign",
 	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {
@@ -318,23 +326,14 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"illumenate_lighting.tasks.all"
-# 	],
-# 	"daily": [
-# 		"illumenate_lighting.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"illumenate_lighting.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"illumenate_lighting.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"illumenate_lighting.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"hourly": [
+		"erpnext.crm.doctype.email_campaign.email_campaign.send_email_to_leads_or_contacts",
+	],
+	"daily": [
+		"erpnext.crm.doctype.email_campaign.email_campaign.send_email_to_leads_or_contacts",
+	],
+}
 
 # Testing
 # -------
