@@ -204,15 +204,15 @@ ATTRIBUTE_DOCTYPES = {
     },
     "output_level": {
         "doctype": "ilL-Attribute-Output Level",
-        "name_field": "label",
-        "code_field": "code",
-        "slug_field": "label",
+        "name_field": "output_level_name",
+        "code_field": "sku_code",
+        "slug_field": "output_level_name",
         "webflow_collection_id": "",
-        "fields": ["label", "code", "watts_per_meter", "lumens_per_meter", "description", "notes"],
+        "fields": ["output_level_name", "sku_code", "value", "is_fixture_level", "is_tape_level"],
         "webflow_field_mapping": {
-            "name": "label",
-            "slug": "label",
-            "output-code": "code",
+            "name": "output_level_name",
+            "slug": "output_level_name",
+            "output-code": "sku_code",
             "watts-per-meter": "watts_per_meter",
             "lumens-per-meter": "lumens_per_meter",
             "description": "description"
@@ -220,15 +220,15 @@ ATTRIBUTE_DOCTYPES = {
     },
     "output_voltage": {
         "doctype": "ilL-Attribute-Output Voltage",
-        "name_field": "label",
-        "code_field": "code",
-        "slug_field": "label",
+        "name_field": "voltage_name",
+        "code_field": "voltage_code",
+        "slug_field": "voltage_name",
         "webflow_collection_id": "",
-        "fields": ["label", "code", "voltage", "description", "notes"],
+        "fields": ["voltage_name", "voltage_code", "dc_voltage", "ac_voltage", "is_active"],
         "webflow_field_mapping": {
-            "name": "label",
-            "slug": "label",
-            "voltage-code": "code",
+            "name": "voltage_name",
+            "slug": "voltage_name",
+            "voltage-code": "voltage_code",
             "voltage-value": "voltage",
             "description": "description"
         }
@@ -341,7 +341,7 @@ ATTRIBUTE_DOCTYPES = {
     "leader_cable": {
         "doctype": "ilL-Attribute-Leader Cable",
         "name_field": "label",
-        "code_field": "code",
+        "code_field": None,
         "slug_field": "label",
         "webflow_collection_id": "",
         "fields": ["label", "code", "length_mm", "description", "notes"],

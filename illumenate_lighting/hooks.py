@@ -306,6 +306,10 @@ doc_events = {
 		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
 	},
+	"ilL-Attribute-Series": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
 	# Webflow product and category sync events
 	"ilL-Webflow-Product": {
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",

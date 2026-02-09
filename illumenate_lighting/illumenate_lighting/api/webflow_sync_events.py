@@ -140,6 +140,7 @@ ATTRIBUTE_SYNC_DOCTYPES = [
     "ilL-Attribute-Power Feed Type",
     "ilL-Attribute-Pricing Class",
     "ilL-Attribute-SDCM",
+    "ilL-Attribute-Series",
 ]
 
 

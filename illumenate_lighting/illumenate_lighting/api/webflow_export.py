@@ -201,7 +201,7 @@ def get_webflow_products(
             # Build reverse mapping: attribute doctype -> code_field
             _doctype_to_code_field = {}
             for _cfg in ATTRIBUTE_DOCTYPES.values():
-                _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field", "code")
+                _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field") or None
 
             # Group attribute links by type for easier Webflow mapping
             product["attribute_links_by_type"] = {}
@@ -213,13 +213,14 @@ def get_webflow_products(
                 # Look up the attribute code from the linked doctype
                 attribute_code = ""
                 if al.attribute_doctype and al.attribute_name:
-                    code_field = _doctype_to_code_field.get(al.attribute_doctype, "code")
-                    try:
-                        attribute_code = frappe.db.get_value(
-                            al.attribute_doctype, al.attribute_name, code_field
-                        ) or ""
-                    except Exception:
-                        attribute_code = ""
+                    code_field = _doctype_to_code_field.get(al.attribute_doctype)
+                    if code_field:
+                        try:
+                            attribute_code = frappe.db.get_value(
+                                al.attribute_doctype, al.attribute_name, code_field
+                            ) or ""
+                        except Exception:
+                            attribute_code = ""
 
                 product["attribute_links_by_type"][attr_type].append({
                     "attribute_name": al.attribute_name,

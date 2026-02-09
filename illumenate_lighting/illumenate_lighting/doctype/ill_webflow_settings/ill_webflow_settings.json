@@ -44,6 +44,7 @@
   "collection_id_pricing_class",
   "column_break_misc3",
   "collection_id_sdcm",
+  "collection_id_series",
   "product_collections_sb",
   "collection_id_products",
   "collection_id_categories"
@@ -253,6 +254,12 @@
    "fieldname": "collection_id_sdcm",
    "fieldtype": "Data",
    "label": "SDCM Collection ID"
+  },
+  {
+   "fieldname": "collection_id_series",
+   "fieldtype": "Data",
+   "label": "Series Collection ID",
+   "description": "Webflow collection ID for Series options"
   },
   {
    "fieldname": "product_collections_sb",
