@@ -664,9 +664,10 @@ def get_webflow_attributes(
                     continue
                 
                 # Handle Image fields - Webflow needs full URLs, skip relative paths
-                if wf_field in ["sample-photo", "image", "badge-image"]:
+                if wf_field in ["sample-photo", "image", "badge-image", "featured-image"]:
                     if not value:
                         continue
+                    value = str(value)
                     # Skip if it's a relative path (Webflow can't use these)
                     if value.startswith("/"):
                         # Could convert to full URL here if site_url is known
@@ -676,6 +677,25 @@ def get_webflow_attributes(
                     if not value.startswith("http"):
                         continue
                 
+                # Handle Rich Text / HTML fields - strip HTML for Webflow
+                # Text Editor fields in ERPNext store HTML which can cause
+                # Webflow validation errors if the collection field is PlainText
+                # or if the HTML contains unsupported elements for RichText.
+                if meta.has_field(erp_field) and meta.get_field(erp_field).fieldtype in ["Text Editor", "HTML Editor"]:
+                    if value:
+                        import re as _re
+                        # Strip HTML tags to send plain text
+                        # This avoids Webflow API validation errors from
+                        # unrecognized HTML elements or PlainText field mismatches
+                        plain = _re.sub(r'<[^>]+>', '', str(value))
+                        # Decode common HTML entities
+                        plain = plain.replace('&nbsp;', ' ').replace('&amp;', '&')
+                        plain = plain.replace('&lt;', '<').replace('&gt;', '>')
+                        plain = plain.replace('&quot;', '"').replace('&#39;', "'")
+                        value = plain.strip()
+                        if not value:
+                            continue
+
                 # Handle Color fields - must be valid hex format
                 if wf_field in ["hex-color"]:
                     if not value:

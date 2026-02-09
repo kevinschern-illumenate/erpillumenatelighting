@@ -20,7 +20,9 @@
   "description",
   "webflow_sync_sb",
   "webflow_item_id",
-  "webflow_sync_status"
+  "webflow_sync_status",
+  "webflow_last_synced",
+  "webflow_sync_error"
  ],
  "fields": [
   {
@@ -108,6 +110,18 @@
    "fieldtype": "Select",
    "label": "Sync Status",
    "options": "Pending\nSynced\nError\nNever Synced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "webflow_last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "webflow_sync_error",
+   "fieldtype": "Small Text",
+   "label": "Sync Error",
    "read_only": 1
   }
  ],
