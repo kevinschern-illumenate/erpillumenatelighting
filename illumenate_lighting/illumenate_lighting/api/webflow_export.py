@@ -17,6 +17,8 @@ Endpoints:
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.webflow_attributes import ATTRIBUTE_DOCTYPES
+
 # Base URL for converting relative file paths to absolute URLs
 ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
 
@@ -196,23 +198,46 @@ def get_webflow_products(
                 for al in getattr(doc, 'attribute_links', [])
             ]
             
+            # Build reverse mapping: attribute doctype -> code_field
+            _doctype_to_code_field = {}
+            for _cfg in ATTRIBUTE_DOCTYPES.values():
+                _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field", "code")
+
             # Group attribute links by type for easier Webflow mapping
             product["attribute_links_by_type"] = {}
             for al in getattr(doc, 'attribute_links', []):
                 attr_type = al.attribute_type
                 if attr_type not in product["attribute_links_by_type"]:
                     product["attribute_links_by_type"][attr_type] = []
+
+                # Look up the attribute code from the linked doctype
+                attribute_code = ""
+                if al.attribute_doctype and al.attribute_name:
+                    code_field = _doctype_to_code_field.get(al.attribute_doctype, "code")
+                    try:
+                        attribute_code = frappe.db.get_value(
+                            al.attribute_doctype, al.attribute_name, code_field
+                        ) or ""
+                    except Exception:
+                        attribute_code = ""
+
                 product["attribute_links_by_type"][attr_type].append({
                     "attribute_name": al.attribute_name,
                     "display_label": al.display_label,
+                    "attribute_code": attribute_code,
                     "webflow_item_id": al.webflow_item_id
                 })
             
-            # Comma-separated plain text for each attribute type (for Webflow plain text fields)
+            # "name, code | name, code" plain text for each attribute type (for Webflow plain text fields)
             product["attribute_text_by_type"] = {}
             for attr_type, attrs in product["attribute_links_by_type"].items():
-                labels = [a.get("display_label") or a.get("attribute_name") or "" for a in attrs]
-                product["attribute_text_by_type"][attr_type] = ", ".join(filter(None, labels))
+                pairs = []
+                for a in attrs:
+                    label = a.get("display_label") or a.get("attribute_name") or ""
+                    code = a.get("attribute_code") or ""
+                    if label:
+                        pairs.append(f"{label}, {code}" if code else label)
+                product["attribute_text_by_type"][attr_type] = " | ".join(pairs)
             
             # Add category details if available (includes webflow_item_id for reference field)
             if product.get("product_category"):
