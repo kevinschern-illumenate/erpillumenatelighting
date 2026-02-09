@@ -208,6 +208,12 @@ def get_webflow_products(
                     "webflow_item_id": al.webflow_item_id
                 })
             
+            # Comma-separated plain text for each attribute type (for Webflow plain text fields)
+            product["attribute_text_by_type"] = {}
+            for attr_type, attrs in product["attribute_links_by_type"].items():
+                labels = [a.get("display_label") or a.get("attribute_name") or "" for a in attrs]
+                product["attribute_text_by_type"][attr_type] = ", ".join(filter(None, labels))
+            
             # Add category details if available (includes webflow_item_id for reference field)
             if product.get("product_category"):
                 product["category_details"] = _get_category_details(product["product_category"])
