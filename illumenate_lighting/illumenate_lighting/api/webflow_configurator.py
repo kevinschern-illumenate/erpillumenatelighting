@@ -840,7 +840,8 @@ def _get_feed_directions() -> list:
     # Final fallback: hardcoded based on design
     return [
         {"value": "End", "label": "End", "code": "E"},
-        {"value": "Back", "label": "Back", "code": "B"}
+        {"value": "Back", "label": "Back", "code": "B"},
+        {"value": "Endcap", "label": "Endcap", "code": "CAP"}
     ]
 
 
@@ -1016,20 +1017,26 @@ def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
         start_dir_code = _get_feed_direction_code(selections["start_feed_direction"])
         suffix_parts.append(f"{start_dir_code}{selections['start_feed_length_ft']}")
     
-    if selections.get("end_feed_direction") and selections.get("end_feed_length_ft"):
-        end_dir_code = _get_feed_direction_code(selections["end_feed_direction"])
-        suffix_parts.append(f"{end_dir_code}{selections['end_feed_length_ft']}")
+    if selections.get("end_feed_direction"):
+        if selections["end_feed_direction"] == "Endcap":
+            suffix_parts.append("CAP")
+        elif selections.get("end_feed_length_ft"):
+            end_dir_code = _get_feed_direction_code(selections["end_feed_direction"])
+            suffix_parts.append(f"{end_dir_code}{selections['end_feed_length_ft']}")
     
     if suffix_parts:
         main_pn += "-" + "-".join(suffix_parts)
     
     # Calculate completion percentage
     selectable_segments = [s for s in segments if not s.get("locked")]
+    end_feed_complete = (
+        selections.get("end_feed_direction") == "Endcap"
+        or (selections.get("end_feed_direction") and selections.get("end_feed_length_ft"))
+    )
     feed_selected = all([
         selections.get("start_feed_direction"),
         selections.get("start_feed_length_ft"),
-        selections.get("end_feed_direction"),
-        selections.get("end_feed_length_ft")
+        end_feed_complete
     ])
     length_selected = bool(selections.get("length_inches"))
     
@@ -1064,7 +1071,7 @@ def _get_feed_direction_code(direction: str) -> str:
             return code
     
     # Fallback
-    direction_codes = {"End": "E", "Back": "B"}
+    direction_codes = {"End": "E", "Back": "B", "Endcap": "CAP"}
     return direction_codes.get(direction, "X")
 
 

@@ -389,11 +389,20 @@ function populateFeedDirections(directions) {
         { value: 'Back', label: 'Back', code: 'B' }
     ];
     
+    // Add Endcap option for end feed direction only (if not already present)
+    var endDirOptions = dirOptions.slice();
+    var hasEndcap = endDirOptions.some(function(o) { return o.value === 'Endcap'; });
+    if (!hasEndcap) {
+        endDirOptions.push({ value: 'Endcap', label: 'Endcap', code: 'CAP' });
+    }
+    
     ['start_feed_direction', 'end_feed_direction'].forEach(function(fieldName) {
         var $container = $('.pill-selector[data-field="' + fieldName + '"]');
         $container.empty();
         
-        dirOptions.forEach(function(opt) {
+        // Use endDirOptions (with Endcap) for end feed, dirOptions for start feed
+        var opts = (fieldName === 'end_feed_direction') ? endDirOptions : dirOptions;
+        opts.forEach(function(opt) {
             var $pill = $('<button type="button" class="pill"></button>');
             $pill.attr('data-value', opt.value);
             $pill.attr('data-code', opt.code || '');
@@ -421,6 +430,23 @@ function handlePillClick($pill) {
     
     // Store selection
     WebflowConfigurator.selections[fieldName] = value;
+    
+    // Handle Endcap selection for end feed direction
+    if (fieldName === 'end_feed_direction') {
+        if (value === 'Endcap') {
+            // Endcap means no leader cable — set length to 0 and hide input
+            $('input[name="end_feed_length_ft"]').val('0').prop('disabled', true);
+            $('#endFeedLengthGroup').hide();
+        } else {
+            // Restore the length input for End/Back
+            var curVal = $('input[name="end_feed_length_ft"]').val();
+            if (!curVal || curVal === '0') {
+                $('input[name="end_feed_length_ft"]').val('2');
+            }
+            $('input[name="end_feed_length_ft"]').prop('disabled', false);
+            $('#endFeedLengthGroup').show();
+        }
+    }
     
     // Update progress
     updateProgress();
@@ -630,6 +656,9 @@ function isStepCompleted(stepName) {
             return !!WebflowConfigurator.selections['start_feed_direction'] && 
                    !!startFeedVal && startFeedVal !== '';
         case 'end_feed':
+            if (WebflowConfigurator.selections['end_feed_direction'] === 'Endcap') {
+                return true; // Endcap is complete without a length
+            }
             var endFeedVal = $('input[name="end_feed_length_ft"]').val();
             return !!WebflowConfigurator.selections['end_feed_direction'] && 
                    !!endFeedVal && endFeedVal !== '';
@@ -753,7 +782,7 @@ function gatherAllSelections() {
         start_feed_direction: WebflowConfigurator.selections['start_feed_direction'] || '',
         start_feed_length_ft: $('input[name="start_feed_length_ft"]').val() || '',
         end_feed_direction: WebflowConfigurator.selections['end_feed_direction'] || '',
-        end_feed_length_ft: $('input[name="end_feed_length_ft"]').val() || '',
+        end_feed_length_ft: WebflowConfigurator.selections['end_feed_direction'] === 'Endcap' ? '0' : ($('input[name="end_feed_length_ft"]').val() || ''),
         product_slug: WebflowConfigurator.productSlug || $('#fixtureTemplateSelect').val()
     };
 }
@@ -780,7 +809,11 @@ function updateValidateButton() {
     }
     
     // Check feed lengths
-    if (!$('input[name="start_feed_length_ft"]').val() || 
+    if (!$('input[name="start_feed_length_ft"]').val()) {
+        allFilled = false;
+    }
+    // End feed length not required when Endcap is selected
+    if (WebflowConfigurator.selections['end_feed_direction'] !== 'Endcap' &&
         !$('input[name="end_feed_length_ft"]').val()) {
         allFilled = false;
     }
@@ -841,11 +874,18 @@ function updateSummary() {
         });
     }
     if (WebflowConfigurator.selections['end_feed_direction']) {
-        var endLen = $('input[name="end_feed_length_ft"]').val();
-        items.push({
-            label: 'End Feed',
-            value: WebflowConfigurator.selections['end_feed_direction'] + ' - ' + endLen + ' ft'
-        });
+        if (WebflowConfigurator.selections['end_feed_direction'] === 'Endcap') {
+            items.push({
+                label: 'End Feed',
+                value: 'Endcap (capped, no leader)'
+            });
+        } else {
+            var endLen = $('input[name="end_feed_length_ft"]').val();
+            items.push({
+                label: 'End Feed',
+                value: WebflowConfigurator.selections['end_feed_direction'] + ' - ' + endLen + ' ft'
+            });
+        }
     }
     
     // Update UI
@@ -1111,7 +1151,8 @@ function resetConfiguration() {
             $('input[name="length_value"]').val('').attr('placeholder', '50');
             $('select[name="length_unit"]').val('inches');
             $('input[name="start_feed_length_ft"]').val('').attr('placeholder', '2');
-            $('input[name="end_feed_length_ft"]').val('').attr('placeholder', '2');
+            $('input[name="end_feed_length_ft"]').val('').attr('placeholder', '2').prop('disabled', false);
+            $('#endFeedLengthGroup').show();
             
             // Hide all sections
             hideAllSections();

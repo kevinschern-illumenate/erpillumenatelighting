@@ -391,18 +391,10 @@ Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Lengt
 										<div class="pill-selector" data-field="end_feed_direction">
 											<button type="button" class="pill" data-value="End">{{ _("End") }}</button>
 											<button type="button" class="pill" data-value="Back">{{ _("Back") }}</button>
-										</div>
-									</div>
-									<div class="feed-length">
-										<label>{{ _("Length") }}</label>
-										<div class="input-group">
-											<input type="number" name="end_feed_length_ft" class="form-control"
-												   min="2" max="30" step="1" value="2" placeholder="2">
-											<span class="input-group-text">ft</span>
-										</div>
-									</div>
-								</div>
-							</div>
+														<button type="button" class="pill" data-value="Endcap">{{ _("Endcap") }}</button>
+													</div>
+												</div>
+												<div class="feed-length" id="endFeedLengthGroup">
 							
 							<!-- Hidden fields for compatibility -->
 							<input type="hidden" name="tape_offering_id" value="">
