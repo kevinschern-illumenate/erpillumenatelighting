@@ -127,6 +127,27 @@
     {
       "parameters": {
         "method": "GET",
+        "url": "=https://api.webflow.com/v2/collections/{{ $json.webflow_collection_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-collection-fields",
+      "name": "Fetch Collection Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1175, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
         "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.get_webflow_attributes",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -135,7 +156,7 @@
           "parameters": [
             {
               "name": "attribute_type",
-              "value": "={{ $json.type }}"
+              "value": "={{ $('Has Webflow Collection ID?').item.json.type }}"
             },
             {
               "name": "sync_status",
@@ -192,7 +213,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process ALL attribute type responses and flatten into individual items\nconst allItems = [];\n\nfor (const item of $input.all()) {\n  const response = item.json;\n  const collectionId = response.message?.webflow_collection_id || response.webflow_collection_id;\n  const attributeType = response.message?.attribute_type || response.attribute_type;\n  const fieldMapping = response.message?.field_mapping || response.field_mapping;\n  const attributes = response.message?.attributes || response.attributes || [];\n  \n  // Skip if no collection ID\n  if (!collectionId) continue;\n  \n  // Add each attribute with its metadata\n  for (const attr of attributes) {\n    allItems.push({\n      json: {\n        ...attr,\n        _meta: {\n          collectionId,\n          attributeType,\n          fieldMapping\n        }\n      }\n    });\n  }\n}\n\nreturn allItems;"
+        "jsCode": "// Get collection field schemas from Webflow to validate field slugs\nconst collectionSchemas = {};\ntry {\n  const schemaItems = $('Fetch Collection Fields').all();\n  for (const schemaItem of schemaItems) {\n    const schema = schemaItem.json;\n    if (schema.id && schema.fields) {\n      const validSlugs = new Set(schema.fields.map(f => f.slug));\n      collectionSchemas[schema.id] = validSlugs;\n    }\n  }\n} catch (e) {\n  // If collection fields fetch failed, continue without filtering\n}\n\n// Process ALL attribute type responses and flatten into individual items\nconst allItems = [];\n\nfor (const item of $input.all()) {\n  const response = item.json;\n  const collectionId = response.message?.webflow_collection_id || response.webflow_collection_id;\n  const attributeType = response.message?.attribute_type || response.attribute_type;\n  const fieldMapping = response.message?.field_mapping || response.field_mapping;\n  const attributes = response.message?.attributes || response.attributes || [];\n  \n  // Skip if no collection ID\n  if (!collectionId) continue;\n  \n  // Get valid field slugs for this collection (if schema was fetched)\n  const validSlugs = collectionSchemas[collectionId];\n  \n  // Add each attribute with its metadata\n  for (const attr of attributes) {\n    // Filter webflow_field_data to only include fields that exist in the collection\n    if (validSlugs && attr.webflow_field_data) {\n      const filteredData = {};\n      for (const [key, value] of Object.entries(attr.webflow_field_data)) {\n        // Always include name and slug (built-in Webflow fields)\n        if (key === 'name' || key === 'slug' || validSlugs.has(key)) {\n          filteredData[key] = value;\n        }\n      }\n      attr.webflow_field_data = filteredData;\n    }\n    \n    allItems.push({\n      json: {\n        ...attr,\n        _meta: {\n          collectionId,\n          attributeType,\n          fieldMapping\n        }\n      }\n    });\n  }\n}\n\nreturn allItems;"
       },
       "id": "prepare-attributes",
       "name": "Prepare Attributes",
@@ -511,7 +532,7 @@
       "main": [
         [
           {
-            "node": "Fetch Attributes from ERPNext",
+            "node": "Fetch Collection Fields",
             "type": "main",
             "index": 0
           }
@@ -519,6 +540,17 @@
         [
           {
             "node": "Skip (No Collection ID)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Collection Fields": {
+      "main": [
+        [
+          {
+            "node": "Fetch Attributes from ERPNext",
             "type": "main",
             "index": 0
           }
