@@ -287,20 +287,22 @@ def mark_webflow_synced(
     if not frappe.db.exists("ilL-Webflow-Product", product_slug):
         frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
     
-    doc = frappe.get_doc("ilL-Webflow-Product", product_slug)
-    doc.webflow_item_id = webflow_item_id
-    doc.webflow_collection_slug = webflow_collection_slug
-    doc.last_synced_at = frappe.utils.now()
-    doc.sync_status = "Synced"
-    doc.sync_error_message = None
-    # Skip the before_save hook that would reset sync_status to Pending
-    doc._skip_sync_status_check = True
-    doc.save(ignore_permissions=True)
+    # Use set_value to update fields directly without triggering before_save,
+    # which runs heavy populate_attribute_links / populate_configurator_options
+    # logic that can fail if linked records have issues.
+    synced_at = frappe.utils.now()
+    frappe.db.set_value("ilL-Webflow-Product", product_slug, {
+        "webflow_item_id": webflow_item_id,
+        "webflow_collection_slug": webflow_collection_slug,
+        "last_synced_at": synced_at,
+        "sync_status": "Synced",
+        "sync_error_message": None,
+    }, update_modified=True)
     frappe.db.commit()
     
     return {
         "success": True,
-        "synced_at": doc.last_synced_at,
+        "synced_at": synced_at,
         "product_slug": product_slug
     }
 
@@ -325,10 +327,12 @@ def mark_webflow_error(
     if not frappe.db.exists("ilL-Webflow-Product", product_slug):
         frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
     
-    doc = frappe.get_doc("ilL-Webflow-Product", product_slug)
-    doc.sync_status = "Error"
-    doc.sync_error_message = error_message[:500] if error_message else "Unknown error"
-    doc.save(ignore_permissions=True)
+    # Use set_value to avoid triggering before_save hooks
+    frappe.db.set_value("ilL-Webflow-Product", product_slug, {
+        "sync_status": "Error",
+        "sync_error_message": (error_message[:500] if error_message else "Unknown error"),
+    }, update_modified=True)
+    frappe.db.commit()
     
     return {
         "success": True,
