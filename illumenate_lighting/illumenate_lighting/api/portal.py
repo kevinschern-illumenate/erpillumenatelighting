@@ -505,10 +505,11 @@ def get_template_options(template_code: str) -> dict:
 @frappe.whitelist()
 def get_product_types(include_subgroups: bool = True) -> dict:
 	"""
-	Get product types from Item Groups under "Products" and "Raw Materials" parents.
+	Get product types from Item Groups under the root Item Group.
 
-	This fetches the immediate children of the "Products" and "Raw Materials"
-	Item Groups to populate the product type dropdown as a nested tree view.
+	This dynamically discovers all top-level Item Groups (children of
+	"All Item Groups") and builds a nested tree for each one, including
+	categories like "Products", "Raw Materials", etc.
 	If include_subgroups is True, also includes child groups (up to 2 levels deep)
 	with visual indentation.
 
@@ -609,8 +610,29 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 
 			return items
 
-		# Build trees for both "Products" and "Raw Materials"
-		root_groups = [("Products", "Products"), ("Raw Materials", "Raw Materials")]
+		# Dynamically discover all top-level Item Groups instead of hardcoding names.
+		# In ERPNext the root is usually "All Item Groups"; find its children to use
+		# as category headers (e.g., "Products", "Raw Materials", etc.).
+		root_item_group = None
+		# Find the actual root – try common names
+		for candidate_root in ["All Item Groups", "All Products"]:
+			if frappe.db.exists("Item Group", candidate_root):
+				root_item_group = candidate_root
+				break
+
+		if root_item_group:
+			# Get all children of the root as our top-level category headers
+			root_children = frappe.get_all(
+				"Item Group",
+				filters={"parent_item_group": root_item_group},
+				fields=["name", "item_group_name"],
+				order_by="item_group_name asc",
+			)
+			root_groups = [(child.name, child.item_group_name or child.name) for child in root_children]
+		else:
+			# Fallback to the original hardcoded list
+			root_groups = [("Products", "Products"), ("Raw Materials", "Raw Materials")]
+
 		result = []
 
 		for root_name, root_label in root_groups:

@@ -1168,3 +1168,199 @@ def reset_all_webflow_sync_status() -> dict:
         "message": "All attribute sync statuses reset to Pending",
         "results": results
     }
+
+
+# ---------------------------------------------------------------------------
+# Attribute dependency discovery
+# ---------------------------------------------------------------------------
+
+def _get_attribute_doctype_names() -> list:
+    """Return the list of all ilL-Attribute-* DocType names from the registry."""
+    return [cfg["doctype"] for cfg in ATTRIBUTE_DOCTYPES.values()]
+
+
+@frappe.whitelist(allow_guest=False)
+def get_attribute_dependencies(target_doctype: str = None) -> dict:
+    """Return every DocType + field that **references** an Attribute DocType.
+
+    For each Attribute DocType the response lists all referencing (Link) fields,
+    indicating whether the reference lives directly on the parent DocType or
+    inside a child table row.
+
+    Args:
+        target_doctype: Optional – restrict results to a single attribute
+            DocType name (e.g. ``"ilL-Attribute-CCT"``).  When omitted, all
+            24 attribute DocTypes are scanned.
+
+    Returns:
+        dict with structure::
+
+            {
+                "success": True,
+                "dependencies": {
+                    "ilL-Attribute-CCT": [
+                        {
+                            "referencing_doctype": "ilL-Rel-Tape Offering",
+                            "fieldname": "cct",
+                            "fieldtype": "Link",
+                            "via_child_table": null
+                        },
+                        {
+                            "referencing_doctype": "ilL-Child-LED-Package-CCT",
+                            "fieldname": "cct",
+                            "fieldtype": "Link",
+                            "via_child_table": {
+                                "parent_doctype": "ilL-Spec-LED Tape",
+                                "table_fieldname": "supported_ccts"
+                            }
+                        },
+                        ...
+                    ],
+                    ...
+                }
+            }
+
+    The endpoint uses only two SQL queries and is safe for any logged-in user
+    because it reads DocType *metadata* (schema), not document data.
+    """
+    try:
+        attr_names = _get_attribute_doctype_names()
+
+        # Validate optional filter
+        if target_doctype:
+            if target_doctype not in attr_names:
+                return {
+                    "success": False,
+                    "error": _(
+                        "{0} is not a recognised Attribute DocType"
+                    ).format(target_doctype),
+                }
+            attr_names = [target_doctype]
+
+        # Placeholders for the IN clause
+        placeholders = ", ".join(["%s"] * len(attr_names))
+
+        # ------------------------------------------------------------------
+        # 1.  Find every Link field whose `options` points to an attribute DT
+        # ------------------------------------------------------------------
+        link_rows = frappe.db.sql(
+            f"""
+            SELECT
+                df.parent   AS referencing_doctype,
+                df.fieldname,
+                df.fieldtype,
+                df.options  AS target_doctype
+            FROM `tabDocField` df
+            WHERE df.fieldtype = 'Link'
+              AND df.options IN ({placeholders})
+            ORDER BY df.options, df.parent, df.fieldname
+            """,
+            tuple(attr_names),
+            as_dict=True,
+        )
+
+        # Also check Custom Fields (added via Customize Form or patches)
+        custom_link_rows = frappe.db.sql(
+            f"""
+            SELECT
+                cf.dt       AS referencing_doctype,
+                cf.fieldname,
+                cf.fieldtype,
+                cf.options  AS target_doctype
+            FROM `tabCustom Field` cf
+            WHERE cf.fieldtype = 'Link'
+              AND cf.options IN ({placeholders})
+            ORDER BY cf.options, cf.dt, cf.fieldname
+            """,
+            tuple(attr_names),
+            as_dict=True,
+        )
+
+        all_links = link_rows + custom_link_rows
+
+        # ------------------------------------------------------------------
+        # 2.  Build a child-doctype → parent-doctype map so we can annotate
+        #     references that sit inside a child table row.
+        #
+        #     A child DT is referenced by a Table field on its parent DT.
+        # ------------------------------------------------------------------
+        # Collect distinct referencing doctypes from step 1
+        child_candidates = {
+            r["referencing_doctype"] for r in all_links
+        }
+
+        child_to_parent: dict = {}  # child_dt -> {parent_doctype, table_fieldname}
+
+        if child_candidates:
+            child_placeholders = ", ".join(["%s"] * len(child_candidates))
+
+            # Standard DocField table references
+            table_rows = frappe.db.sql(
+                f"""
+                SELECT
+                    df.parent   AS parent_doctype,
+                    df.fieldname AS table_fieldname,
+                    df.options  AS child_doctype
+                FROM `tabDocField` df
+                WHERE df.fieldtype IN ('Table', 'Table MultiSelect')
+                  AND df.options IN ({child_placeholders})
+                """,
+                tuple(child_candidates),
+                as_dict=True,
+            )
+
+            # Custom Field table references
+            custom_table_rows = frappe.db.sql(
+                f"""
+                SELECT
+                    cf.dt       AS parent_doctype,
+                    cf.fieldname AS table_fieldname,
+                    cf.options  AS child_doctype
+                FROM `tabCustom Field` cf
+                WHERE cf.fieldtype IN ('Table', 'Table MultiSelect')
+                  AND cf.options IN ({child_placeholders})
+                """,
+                tuple(child_candidates),
+                as_dict=True,
+            )
+
+            for row in table_rows + custom_table_rows:
+                child_to_parent[row["child_doctype"]] = {
+                    "parent_doctype": row["parent_doctype"],
+                    "table_fieldname": row["table_fieldname"],
+                }
+
+        # ------------------------------------------------------------------
+        # 3.  Assemble the response, grouped by target attribute DocType
+        # ------------------------------------------------------------------
+        deps: Dict[str, list] = {name: [] for name in attr_names}
+
+        for row in all_links:
+            target = row["target_doctype"]
+            entry: Dict[str, Any] = {
+                "referencing_doctype": row["referencing_doctype"],
+                "fieldname": row["fieldname"],
+                "fieldtype": row["fieldtype"],
+                "via_child_table": None,
+            }
+
+            parent_info = child_to_parent.get(row["referencing_doctype"])
+            if parent_info:
+                entry["via_child_table"] = parent_info
+
+            deps[target].append(entry)
+
+        return {
+            "success": True,
+            "dependencies": deps,
+        }
+
+    except Exception as e:
+        frappe.log_error(
+            f"get_attribute_dependencies failed: {e}",
+            "Attribute Dependency Discovery",
+        )
+        return {
+            "success": False,
+            "error": str(e),
+        }

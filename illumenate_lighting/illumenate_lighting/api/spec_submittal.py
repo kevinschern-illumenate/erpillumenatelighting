@@ -147,10 +147,18 @@ def _get_source_value(
 					"ilL-Rel-Tape Offering", tape_offering, source_field
 				)
 
-		if source_doctype == "ilL-Spec-Profile" and fixture_template:
-			profile_spec = fixture_template.default_profile_spec
-			if profile_spec:
-				return frappe.db.get_value("ilL-Spec-Profile", profile_spec, source_field)
+		if source_doctype == "ilL-Spec-Profile":
+			# Priority 1: Configured fixture's resolved profile_item
+			# ilL-Spec-Profile is autonamed by field:item, so profile_item IS the doc name
+			if configured_fixture:
+				profile_item = getattr(configured_fixture, "profile_item", None)
+				if profile_item and frappe.db.exists("ilL-Spec-Profile", profile_item):
+					return frappe.db.get_value("ilL-Spec-Profile", profile_item, source_field)
+			# Priority 2: Fixture template's default_profile_spec
+			if fixture_template:
+				profile_spec = fixture_template.default_profile_spec
+				if profile_spec:
+					return frappe.db.get_value("ilL-Spec-Profile", profile_spec, source_field)
 
 		if source_doctype == "ilL-Spec-Lens" and configured_fixture:
 			lens_appearance = configured_fixture.lens_appearance
@@ -164,10 +172,12 @@ def _get_source_value(
 
 		if source_doctype == "ilL-Spec-Driver" and configured_fixture:
 			# Get driver from the first driver allocation if available
+			# ilL-Child-Driver-Allocation has driver_item (Link→Item), not driver_spec
+			# ilL-Spec-Driver is autonamed by field:item, so driver_item IS the doc name
 			if configured_fixture.drivers and len(configured_fixture.drivers) > 0:
-				driver_spec = configured_fixture.drivers[0].driver_spec
-				if driver_spec:
-					return frappe.db.get_value("ilL-Spec-Driver", driver_spec, source_field)
+				driver_item = configured_fixture.drivers[0].driver_item
+				if driver_item and frappe.db.exists("ilL-Spec-Driver", driver_item):
+					return frappe.db.get_value("ilL-Spec-Driver", driver_item, source_field)
 
 	except Exception:
 		pass
@@ -470,78 +480,134 @@ def _gather_line_documents(
 					warnings,
 				)
 
-				# Check for filled submittal
-				if cf.spec_submittal:
-					doc_info["spec_document_url"] = cf.spec_submittal
-					doc_info["has_submittal"] = True
-					_debug(f"Line {line.line_id}: ✓ Using existing spec_submittal: {cf.spec_submittal}", warnings)
-				else:
-					# Try to generate filled submittal on-the-fly
-					_debug(f"Line {line.line_id}: No spec_submittal on CF, trying generate_filled_submittal...", warnings)
-					result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
+				if include_all_specs:
+					# SPEC_SUBMITTAL_FULL mode: use the static spec sheet (full documentation)
+					# instead of the filled submittal (which focuses on one configured fixture)
 					_debug(
-						f"Line {line.line_id}: generate_filled_submittal result: "
-						f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
-						f"message={result.get('message')!r}",
+						f"Line {line.line_id}: FULL mode – looking for spec sheet instead of submittal",
 						warnings,
 					)
 
-					if result.get("success") and result.get("file_url"):
-						doc_info["spec_document_url"] = result["file_url"]
-						doc_info["has_submittal"] = True
-					else:
-						# No spec submittal available - fall back to spec sheet
-						# This fallback applies in all modes (SPEC_SUBMITTAL and SPEC_SUBMITTAL_FULL)
+					# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
+					spec_url = cf.spec_sheet_link
+					_debug(f"Line {line.line_id}: Check 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+
+					# 2) Direct lookup on the Fixture Template (always authoritative)
+					if not spec_url and cf.fixture_template:
+						template_data = frappe.db.get_value(
+							"ilL-Fixture-Template",
+							cf.fixture_template,
+							["spec_sheet", "spec_submittal_template"],
+							as_dict=True,
+						)
 						_debug(
-							f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
+							f"Line {line.line_id}: Check 2 – template {cf.fixture_template} → "
+							f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
+							f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
+							warnings,
+						)
+						if template_data:
+							# Prefer spec_sheet over spec_submittal_template for FULL mode
+							spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+
+					# 3) Look for ANY PDF file attached to the Fixture Template
+					if not spec_url and cf.fixture_template:
+						attached = frappe.get_all(
+							"File",
+							filters={
+								"attached_to_doctype": "ilL-Fixture-Template",
+								"attached_to_name": cf.fixture_template,
+								"file_url": ["like", "%.pdf"],
+							},
+							fields=["file_url", "file_name"],
+							order_by="creation desc",
+						)
+						_debug(
+							f"Line {line.line_id}: Check 3 – attached PDFs on template: {attached}",
+							warnings,
+						)
+						if attached:
+							spec_url = attached[0].file_url
+
+					if spec_url:
+						doc_info["spec_document_url"] = spec_url
+						_debug(f"Line {line.line_id}: ✓ Spec sheet resolved to {spec_url}", warnings)
+					else:
+						_debug(f"Line {line.line_id}: ✗ ALL spec sheet lookups exhausted – no document found", warnings)
+
+				else:
+					# SPEC_SUBMITTAL mode: use filled submittal PDF
+					# Check for existing filled submittal
+					if cf.spec_submittal:
+						doc_info["spec_document_url"] = cf.spec_submittal
+						doc_info["has_submittal"] = True
+						_debug(f"Line {line.line_id}: ✓ Using existing spec_submittal: {cf.spec_submittal}", warnings)
+					else:
+						# Try to generate filled submittal on-the-fly
+						_debug(f"Line {line.line_id}: No spec_submittal on CF, trying generate_filled_submittal...", warnings)
+						result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
+						_debug(
+							f"Line {line.line_id}: generate_filled_submittal result: "
+							f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
+							f"message={result.get('message')!r}",
 							warnings,
 						)
 
-						# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
-						spec_url = cf.spec_sheet_link
-						_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
-
-						# 2) Direct lookup on the Fixture Template (always authoritative)
-						if not spec_url and cf.fixture_template:
-							template_data = frappe.db.get_value(
-								"ilL-Fixture-Template",
-								cf.fixture_template,
-								["spec_sheet", "spec_submittal_template"],
-								as_dict=True,
-							)
-							_debug(
-								f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
-								f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
-								f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
-								warnings,
-							)
-							if template_data:
-								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-
-						# 3) Look for ANY PDF file attached to the Fixture Template
-						if not spec_url and cf.fixture_template:
-							attached = frappe.get_all(
-								"File",
-								filters={
-									"attached_to_doctype": "ilL-Fixture-Template",
-									"attached_to_name": cf.fixture_template,
-									"file_url": ["like", "%.pdf"],
-								},
-								fields=["file_url", "file_name"],
-								order_by="creation desc",
-							)
-							_debug(
-								f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
-								warnings,
-							)
-							if attached:
-								spec_url = attached[0].file_url
-
-						if spec_url:
-							doc_info["spec_document_url"] = spec_url
-							_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
+						if result.get("success") and result.get("file_url"):
+							doc_info["spec_document_url"] = result["file_url"]
+							doc_info["has_submittal"] = True
 						else:
-							_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
+							# No spec submittal available - fall back to spec sheet
+							_debug(
+								f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
+								warnings,
+							)
+
+							# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
+							spec_url = cf.spec_sheet_link
+							_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+
+							# 2) Direct lookup on the Fixture Template (always authoritative)
+							if not spec_url and cf.fixture_template:
+								template_data = frappe.db.get_value(
+									"ilL-Fixture-Template",
+									cf.fixture_template,
+									["spec_sheet", "spec_submittal_template"],
+									as_dict=True,
+								)
+								_debug(
+									f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
+									f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
+									f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
+									warnings,
+								)
+								if template_data:
+									spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+
+							# 3) Look for ANY PDF file attached to the Fixture Template
+							if not spec_url and cf.fixture_template:
+								attached = frappe.get_all(
+									"File",
+									filters={
+										"attached_to_doctype": "ilL-Fixture-Template",
+										"attached_to_name": cf.fixture_template,
+										"file_url": ["like", "%.pdf"],
+									},
+									fields=["file_url", "file_name"],
+									order_by="creation desc",
+								)
+								_debug(
+									f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
+									warnings,
+								)
+								if attached:
+									spec_url = attached[0].file_url
+
+							if spec_url:
+								doc_info["spec_document_url"] = spec_url
+								_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
+							else:
+								_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
 
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template

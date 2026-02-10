@@ -25,7 +25,7 @@ class ilLConfiguredFixture(Document):
 		self.name = self._generate_part_number()
 
 	def before_save(self):
-		"""Compute config_hash and estimated_delivered_output before saving.
+		"""Compute config_hash, estimated_delivered_output, and SKU codes before saving.
 
 		The config_hash is normally set by the configurator engine when creating
 		fixtures. This method only computes it if not already set (e.g., for
@@ -36,6 +36,9 @@ class ilLConfiguredFixture(Document):
 		
 		# Always calculate estimated delivered output
 		self._calculate_estimated_delivered_output()
+
+		# Always populate SKU codes from linked attribute records
+		self._populate_sku_codes()
 
 	def _calculate_estimated_delivered_output(self):
 		"""
@@ -80,6 +83,124 @@ class ilLConfiguredFixture(Document):
 
 		# Calculate: tape output × transmission (decimal)
 		self.estimated_delivered_output = round(tape_output_lm_ft * lens_transmission, 1)
+
+	def _populate_sku_codes(self):
+		"""
+		Populate all SKU code fields by looking up the `code` (or equivalent)
+		field from each linked attribute record. These read-only fields make
+		the abbreviations readily accessible for spec submittal form fields
+		and other downstream consumers.
+		"""
+		# Series Code — from fixture template default_profile_family
+		self.sku_series_code = ""
+		if self.fixture_template:
+			self.sku_series_code = frappe.db.get_value(
+				"ilL-Fixture-Template", self.fixture_template, "default_profile_family"
+			) or ""
+
+		# LED Package Code — tape_offering → led_package → code
+		self.sku_led_package_code = ""
+		led_package_name = None
+		if self.tape_offering:
+			led_package_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "led_package"
+			)
+			if led_package_name:
+				self.sku_led_package_code = frappe.db.get_value(
+					"ilL-Attribute-LED Package", led_package_name, "code"
+				) or ""
+
+		# Environment Code — environment_rating → code
+		self.sku_environment_code = ""
+		if self.environment_rating:
+			self.sku_environment_code = frappe.db.get_value(
+				"ilL-Attribute-Environment Rating", self.environment_rating, "code"
+			) or ""
+
+		# CCT Code — tape_offering → cct → code
+		self.sku_cct_code = ""
+		if self.tape_offering:
+			cct_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "cct"
+			)
+			if cct_name:
+				self.sku_cct_code = frappe.db.get_value(
+					"ilL-Attribute-CCT", cct_name, "code"
+				) or ""
+
+		# CRI Code — tape_offering → cri → code
+		self.sku_cri_code = ""
+		if self.tape_offering:
+			cri_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "cri"
+			)
+			if cri_name:
+				self.sku_cri_code = frappe.db.get_value(
+					"ilL-Attribute-CRI", cri_name, "code"
+				) or ""
+
+		# Tape Output Code — tape_offering → output_level → sku_code
+		self.sku_tape_output_code = ""
+		if self.tape_offering:
+			output_level_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "output_level"
+			)
+			if output_level_name:
+				self.sku_tape_output_code = frappe.db.get_value(
+					"ilL-Attribute-Output Level", output_level_name, "sku_code"
+				) or ""
+
+		# Fixture Output Code — calculated (tape output × lens transmission → closest fixture-level)
+		self.sku_fixture_output_code = self._get_fixture_output_code()
+
+		# Lens Code — lens_appearance → code
+		self.sku_lens_code = ""
+		if self.lens_appearance:
+			self.sku_lens_code = frappe.db.get_value(
+				"ilL-Attribute-Lens Appearance", self.lens_appearance, "code"
+			) or ""
+
+		# Mounting Code — mounting_method → code
+		self.sku_mounting_code = ""
+		if self.mounting_method:
+			self.sku_mounting_code = frappe.db.get_value(
+				"ilL-Attribute-Mounting Method", self.mounting_method, "code"
+			) or ""
+
+		# Finish Code — finish → code
+		self.sku_finish_code = ""
+		if self.finish:
+			self.sku_finish_code = frappe.db.get_value(
+				"ilL-Attribute-Finish", self.finish, "code"
+			) or ""
+
+		# Power Feed Code — power_feed_type → code
+		self.sku_power_feed_code = ""
+		if self.power_feed_type:
+			self.sku_power_feed_code = frappe.db.get_value(
+				"ilL-Attribute-Power Feed Type", self.power_feed_type, "code"
+			) or ""
+
+		# Endcap Style Start Code — endcap_style_start → code
+		self.sku_endcap_style_start_code = ""
+		if self.endcap_style_start:
+			self.sku_endcap_style_start_code = frappe.db.get_value(
+				"ilL-Attribute-Endcap Style", self.endcap_style_start, "code"
+			) or ""
+
+		# Endcap Style End Code — endcap_style_end → code
+		self.sku_endcap_style_end_code = ""
+		if self.endcap_style_end:
+			self.sku_endcap_style_end_code = frappe.db.get_value(
+				"ilL-Attribute-Endcap Style", self.endcap_style_end, "code"
+			) or ""
+
+		# Endcap Color Code — endcap_color → code
+		self.sku_endcap_color_code = ""
+		if self.endcap_color:
+			self.sku_endcap_color_code = frappe.db.get_value(
+				"ilL-Attribute-Endcap Color", self.endcap_color, "code"
+			) or ""
 
 	def _generate_part_number(self) -> str:
 		"""Build the part number from linked doctypes."""

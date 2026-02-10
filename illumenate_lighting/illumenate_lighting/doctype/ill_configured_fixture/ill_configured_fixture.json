@@ -23,6 +23,22 @@
   "power_feed_type",
   "environment_rating",
   "tape_offering",
+  "sku_codes_section",
+  "sku_series_code",
+  "sku_led_package_code",
+  "sku_environment_code",
+  "sku_cct_code",
+  "sku_cri_code",
+  "sku_tape_output_code",
+  "sku_fixture_output_code",
+  "column_break_sku_codes",
+  "sku_lens_code",
+  "sku_mounting_code",
+  "sku_finish_code",
+  "sku_power_feed_code",
+  "sku_endcap_style_start_code",
+  "sku_endcap_style_end_code",
+  "sku_endcap_color_code",
   "user_segments_section",
   "user_segments",
   "length_section",
@@ -175,6 +191,114 @@
    "fieldtype": "Link",
    "label": "Tape Offering",
    "options": "ilL-Rel-Tape Offering"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sku_codes_section",
+   "fieldtype": "Section Break",
+   "label": "SKU Codes"
+  },
+  {
+   "description": "Profile series code from fixture template",
+   "fieldname": "sku_series_code",
+   "fieldtype": "Data",
+   "label": "Series Code",
+   "read_only": 1
+  },
+  {
+   "description": "LED package code from tape offering",
+   "fieldname": "sku_led_package_code",
+   "fieldtype": "Data",
+   "label": "LED Package Code",
+   "read_only": 1
+  },
+  {
+   "description": "Environment rating code",
+   "fieldname": "sku_environment_code",
+   "fieldtype": "Data",
+   "label": "Environment Code",
+   "read_only": 1
+  },
+  {
+   "description": "CCT code from tape offering",
+   "fieldname": "sku_cct_code",
+   "fieldtype": "Data",
+   "label": "CCT Code",
+   "read_only": 1
+  },
+  {
+   "description": "CRI code from tape offering",
+   "fieldname": "sku_cri_code",
+   "fieldtype": "Data",
+   "label": "CRI Code",
+   "read_only": 1
+  },
+  {
+   "description": "Tape output level SKU code (raw tape output before lens)",
+   "fieldname": "sku_tape_output_code",
+   "fieldtype": "Data",
+   "label": "Tape Output Code",
+   "read_only": 1
+  },
+  {
+   "description": "Fixture output level code (tape output × lens transmission)",
+   "fieldname": "sku_fixture_output_code",
+   "fieldtype": "Data",
+   "label": "Fixture Output Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sku_codes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Lens appearance code",
+   "fieldname": "sku_lens_code",
+   "fieldtype": "Data",
+   "label": "Lens Code",
+   "read_only": 1
+  },
+  {
+   "description": "Mounting method code",
+   "fieldname": "sku_mounting_code",
+   "fieldtype": "Data",
+   "label": "Mounting Code",
+   "read_only": 1
+  },
+  {
+   "description": "Finish code",
+   "fieldname": "sku_finish_code",
+   "fieldtype": "Data",
+   "label": "Finish Code",
+   "read_only": 1
+  },
+  {
+   "description": "Power feed type code",
+   "fieldname": "sku_power_feed_code",
+   "fieldtype": "Data",
+   "label": "Power Feed Code",
+   "read_only": 1
+  },
+  {
+   "description": "Endcap style code for start end",
+   "fieldname": "sku_endcap_style_start_code",
+   "fieldtype": "Data",
+   "label": "Endcap Style Start Code",
+   "read_only": 1
+  },
+  {
+   "description": "Endcap style code for end",
+   "fieldname": "sku_endcap_style_end_code",
+   "fieldtype": "Data",
+   "label": "Endcap Style End Code",
+   "read_only": 1
+  },
+  {
+   "description": "Endcap color code",
+   "fieldname": "sku_endcap_color_code",
+   "fieldtype": "Data",
+   "label": "Endcap Color Code",
+   "read_only": 1
   },
   {
    "collapsible": 1,
