@@ -5,13 +5,14 @@
 This guide explains how product options are filtered on the Webflow website by syncing **multi-reference relationships** between ERPNext Products and Attribute collections in Webflow CMS.
 
 ### The Problem
-Previously, attribute fields on Webflow products were plain text strings (e.g. `"2700K, 3000K, 3500K"`). This made it impossible for Webflow's CMS filtering and dynamic lists to cross-reference products against their attribute options.
+Previously, attribute fields on Webflow products were plain text strings (e.g. `"2700K, 3000K, 3500K"`). While useful for display, plain text makes it impossible for Webflow's CMS filtering and dynamic lists to cross-reference products against their attribute options.
 
 ### The Solution
-Each attribute type (CCT, Finish, CRI, etc.) exists as a **separate Webflow collection**. Products link to these via **multi-reference fields**, enabling Webflow to:
-- Filter products by any combination of attributes
-- Show "available in these finishes / CCTs" on product pages
-- Build dynamic category pages with attribute facets
+Each attribute type (CCT, Finish, CRI, etc.) already has a Webflow collection synced from ERPNext. We now add **new multi-reference fields** (with `-ref` suffixed slugs) on the Products collection that link to those attribute items — enabling native Webflow CMS filtering.
+
+**The existing plain text fields are preserved unchanged.** Both run side by side:
+- Plain text fields (`cct-options-5`, `finishes-5`, etc.) → for display
+- Multi-reference fields (`cct-ref`, `finish-ref`, etc.) → for filtering
 
 ---
 
@@ -154,29 +155,21 @@ Each attribute type needs its own Webflow CMS collection:
 
 ### 2. Add Multi-Reference Fields to Products Collection
 
-In Webflow Designer, add a **Multi-Reference** field for each attribute type on the Products collection:
+In Webflow Designer, add **new** Multi-Reference fields for filtering. These are **separate from** the existing plain text fields:
 
-| Field Name         | Field Slug           | References Collection |
-|--------------------|----------------------|-----------------------|
-| CCT Options        | `cct-options-5`      | CCT Options           |
-| CRI Options        | `cris-5`             | CRI Options           |
-| Finishes           | `finishes-5`         | Finish Options        |
-| Lens Options       | `lens-options-5`     | Lens Appearances      |
-| Mounting Methods   | `mounting-methods-5` | Mounting Methods      |
-| Output Levels      | `output-levels-5`    | Output Levels         |
-| Environment Ratings| `environment-ratings-5`| Environment Ratings |
-| Feed Directions    | `feed-directions-5`  | Feed Directions       |
-| LED Packages       | `fixture-types-5`    | LED Packages          |
+| Field Name                | Field Slug              | References Collection |
+|---------------------------|-------------------------|-----------------------|
+| CRI Reference             | `cri-ref`               | CRI Options           |
+| Finish Reference          | `finish-ref`            | Finish Options        |
+| Lens Reference            | `lens-ref`              | Lens Appearances      |
+| Mounting Reference        | `mounting-ref`          | Mounting Methods      |
+| Output Level Reference    | `output-level-ref`      | Output Levels         |
+| Environment Rating Ref    | `environment-rating-ref`| Environment Ratings   |
+| Feed Direction Reference  | `feed-direction-ref`    | Feed Directions       |
+| LED Package Reference     | `led-package-ref`       | LED Packages          |
+| Dimming Reference         | `dimming-ref`           | Dimming Protocols     |
 
-> **Note:** The `-5` suffix on field slugs may vary. Check your actual Webflow collection schema.
-
-### 3. Convert Plain Text Fields to Multi-Reference
-
-If you currently have plain text fields with these slugs, you'll need to:
-1. Delete the plain text field
-2. Create a new Multi-Reference field with the same slug
-3. Re-sync all attributes first
-4. Then run the product-attribute reference sync
+> **Important:** Do NOT delete or modify the existing plain text fields. The new `-ref` fields sit alongside them.
 
 ---
 
