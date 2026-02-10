@@ -8,6 +8,7 @@
  "field_order": [
   "identity_section",
   "item",
+  "led_package",
   "electrical_section",
   "input_voltage",
   "watts_per_foot",
@@ -34,6 +35,14 @@
    "label": "Tape Item",
    "options": "Item",
    "unique": 1
+  },
+  {
+   "description": "The LED package used on this tape",
+   "fieldname": "led_package",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "LED Package",
+   "options": "ilL-Attribute-LED Package"
   },
   {
    "fieldname": "electrical_section",
@@ -113,7 +122,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-07 12:49:20.205228",
+ "modified": "2026-02-10 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Spec-LED Tape",

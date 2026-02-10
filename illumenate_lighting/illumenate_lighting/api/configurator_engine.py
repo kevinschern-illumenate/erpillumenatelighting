@@ -3481,12 +3481,16 @@ def get_ccts_for_template(
 	environment_rating_code: str = None,
 ) -> dict[str, Any]:
 	"""
-	Get available CCT options based on compatible tapes.
+	Get available CCT options based on the LED Package's compatible CCTs child table
+	and compatible tapes linked to the fixture template.
 
-	Filters CCTs based on:
-	- Tapes linked to the fixture template
-	- Selected LED Package (if provided)
-	- Selected Environment Rating (if provided, checks tape offering constraints)
+	Filtering strategy (in priority order):
+	1. If an LED Package is selected AND it has a compatible_ccts child table populated,
+	   use those CCTs as the primary source of truth.
+	2. Intersect with CCTs available on tape offerings linked to the template
+	   (filtered by LED package + environment rating) to ensure only orderable combos show.
+	3. If the LED Package has no compatible_ccts rows, fall back to tape-offering-based
+	   CCT discovery (original behaviour).
 
 	Args:
 		fixture_template_code: Code of the fixture template
@@ -3505,56 +3509,76 @@ def get_ccts_for_template(
 
 	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 
+	# -------------------------------------------------------------------
+	# Strategy 1: Use the LED Package's compatible_ccts child table
+	# -------------------------------------------------------------------
+	led_package_cct_codes = None  # None means "not specified / not populated"
+	if led_package_code and frappe.db.exists("ilL-Attribute-LED Package", led_package_code):
+		led_pkg_doc = frappe.get_doc("ilL-Attribute-LED Package", led_package_code)
+		compatible_rows = led_pkg_doc.get("compatible_ccts", [])
+		if compatible_rows:
+			led_package_cct_codes = [row.cct for row in compatible_rows if row.cct]
+
+	# -------------------------------------------------------------------
+	# Strategy 2: Get CCTs from tape offerings on the template
+	# -------------------------------------------------------------------
 	# Get tape offerings linked to this template, filtering by environment rating if specified
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
 
-	# Build list of valid tape offering names considering environment rating constraint
 	valid_tape_offering_names = []
 	for row in allowed_tape_rows:
 		if not row.tape_offering:
 			continue
-		# If the row has an environment_rating constraint, it must match
 		if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
 			continue
 		valid_tape_offering_names.append(row.tape_offering)
 
-	if not valid_tape_offering_names:
-		return {"success": True, "ccts": [], "error": None}
+	tape_cct_codes = set()
+	if valid_tape_offering_names:
+		tape_filters = {"name": ["in", valid_tape_offering_names]}
+		active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+		if active_count > 0:
+			tape_filters["is_active"] = 1
+		if led_package_code:
+			tape_filters["led_package"] = led_package_code
 
-	# Build tape offering filter - only add is_active filter if active records exist
-	tape_filters = {
-		"name": ["in", valid_tape_offering_names],
-	}
-	
-	# Check if any tape offerings have is_active = 1
-	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
-	if active_count > 0:
-		tape_filters["is_active"] = 1
+		tape_offerings = frappe.get_all(
+			"ilL-Rel-Tape Offering",
+			filters=tape_filters,
+			fields=["cct"],
+			distinct=True,
+		)
+		tape_cct_codes = {row.cct for row in tape_offerings if row.cct}
 
-	# Filter by LED package if specified
-	if led_package_code:
-		tape_filters["led_package"] = led_package_code
+	# -------------------------------------------------------------------
+	# Combine: intersect LED-package CCTs with tape-offering CCTs
+	# -------------------------------------------------------------------
+	if led_package_cct_codes is not None:
+		# LED Package has an explicit compatible_ccts list
+		if tape_cct_codes:
+			# Intersect: only show CCTs that are both on the LED Package AND on a tape offering
+			cct_codes = [c for c in led_package_cct_codes if c in tape_cct_codes]
+			if not cct_codes:
+				# If intersection is empty, trust the LED Package list
+				# (tape offerings may not be fully populated yet)
+				cct_codes = led_package_cct_codes
+		else:
+			# No tape offering data – use LED Package list as-is
+			cct_codes = led_package_cct_codes
+	else:
+		# LED Package has no compatible_ccts – use tape offerings only (original flow)
+		cct_codes = list(tape_cct_codes)
 
-	# Get CCTs from matching tape offerings
-	tape_offerings = frappe.get_all(
-		"ilL-Rel-Tape Offering",
-		filters=tape_filters,
-		fields=["cct"],
-		distinct=True,
-	)
-
-	cct_codes = list({row.cct for row in tape_offerings if row.cct})
-
+	# -------------------------------------------------------------------
+	# Fallback: if still empty, return all active CCTs
+	# -------------------------------------------------------------------
 	if not cct_codes:
-		# Fallback: If no CCTs found from tape offerings (e.g. no tapes match the
-		# selected LED package), return all active CCTs so the user can still proceed
 		all_ccts = frappe.get_all(
 			"ilL-Attribute-CCT",
 			filters={"is_active": 1},
 			fields=["name", "code", "label", "kelvin", "sort_order"],
 			order_by="sort_order asc, kelvin asc",
 		)
-		# If no active CCTs, get all CCTs (is_active may not be set)
 		if not all_ccts:
 			all_ccts = frappe.get_all(
 				"ilL-Attribute-CCT",
@@ -3572,12 +3596,14 @@ def get_ccts_for_template(
 		]
 		return {"success": True, "ccts": fallback_result, "error": None}
 
-	# Get CCT details - only filter by is_active if active CCTs exist
+	# -------------------------------------------------------------------
+	# Fetch CCT details
+	# -------------------------------------------------------------------
 	cct_filters = {"name": ["in", cct_codes]}
 	active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
 	if active_cct_count > 0:
 		cct_filters["is_active"] = 1
-		
+
 	ccts = frappe.get_all(
 		"ilL-Attribute-CCT",
 		filters=cct_filters,
