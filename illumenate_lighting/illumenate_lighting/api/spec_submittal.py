@@ -31,6 +31,22 @@ from frappe.utils.file_manager import save_file
 MM_PER_INCH = 25.4
 MM_PER_FOOT = 304.8
 
+# ── DEBUG FLAG  ─────────────────────────────────────────────────────
+# Set to True to emit detailed spec-submittal diagnostic messages.
+# These show up in the browser warnings list *and* in the Error Log.
+# TODO: remove or set False once spec-submittal flow is stable.
+SPEC_DEBUG = True
+# ────────────────────────────────────────────────────────────────────
+
+
+def _debug(msg: str, warnings: list | None = None) -> None:
+	"""Emit a debug message to the Error Log and optionally to the warnings list."""
+	if not SPEC_DEBUG:
+		return
+	frappe.log_error(title="Spec Submittal DEBUG", message=msg)
+	if warnings is not None:
+		warnings.append(f"[DEBUG] {msg}")
+
 
 def _apply_transformation(value: Any, transformation: str | None) -> str:
 	"""
@@ -196,21 +212,26 @@ def _fill_pdf_form_fields(
 	try:
 		from pypdf import PdfReader, PdfWriter
 
+		_debug(f"_fill_pdf_form_fields: pdf_template_path={pdf_template_path!r}, {len(field_values)} field values")
+
 		# Only allow Frappe file URLs to prevent path traversal attacks
 		if not (
 			pdf_template_path.startswith("/files/")
 			or pdf_template_path.startswith("/private/files/")
 		):
-			frappe.log_error(
+			msg = (
 				f"Invalid PDF template path: {pdf_template_path}. "
-				"Only Frappe file URLs are allowed.",
-				"Spec Submittal Generation Error",
+				"Only Frappe file URLs are allowed."
 			)
+			_debug(f"_fill_pdf_form_fields: FAIL – {msg}")
+			frappe.log_error(msg, "Spec Submittal Generation Error")
 			return None
 
 		# Get the PDF content from Frappe file system
+		_debug(f"_fill_pdf_form_fields: looking up File doc for {pdf_template_path!r}")
 		file_doc = frappe.get_doc("File", {"file_url": pdf_template_path})
 		pdf_content = file_doc.get_content()
+		_debug(f"_fill_pdf_form_fields: got PDF content ({len(pdf_content)} bytes)")
 
 		# Read the PDF
 		reader = PdfReader(io.BytesIO(pdf_content))
@@ -221,19 +242,28 @@ def _fill_pdf_form_fields(
 			writer.add_page(page)
 
 		# Update form fields on all pages that have them
-		if reader.get_form_text_fields():
+		form_fields = reader.get_form_text_fields()
+		_debug(
+			f"_fill_pdf_form_fields: PDF has {len(reader.pages)} pages, "
+			f"form text fields detected: {list(form_fields.keys()) if form_fields else 'NONE'}"
+		)
+		if form_fields:
 			for page in writer.pages:
 				writer.update_page_form_field_values(page, field_values)
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
 		writer.write(output)
-		return output.getvalue()
+		result_bytes = output.getvalue()
+		_debug(f"_fill_pdf_form_fields: SUCCESS – output PDF = {len(result_bytes)} bytes")
+		return result_bytes
 
 	except ImportError:
+		_debug("_fill_pdf_form_fields: FAIL – pypdf not installed")
 		frappe.log_error("pypdf not installed", "Spec Submittal Generation Error")
 		return None
 	except Exception as e:
+		_debug(f"_fill_pdf_form_fields: EXCEPTION – {e}")
 		frappe.log_error(
 			f"Error filling PDF form fields: {str(e)}", "Spec Submittal Generation Error"
 		)
@@ -287,9 +317,13 @@ def _get_pdf_bytes_from_url(file_url: str) -> bytes | None:
 		bytes: The PDF content, or None if not found
 	"""
 	try:
+		_debug(f"_get_pdf_bytes_from_url: looking up File doc with file_url={file_url!r}")
 		file_doc = frappe.get_doc("File", {"file_url": file_url})
-		return file_doc.get_content()
+		content = file_doc.get_content()
+		_debug(f"_get_pdf_bytes_from_url: got {len(content) if content else 0} bytes")
+		return content
 	except Exception as e:
+		_debug(f"_get_pdf_bytes_from_url: EXCEPTION for {file_url!r}: {e}")
 		frappe.log_error(
 			f"Error getting PDF from URL {file_url}: {str(e)}",
 			"Spec Submittal Generation Error",
@@ -353,13 +387,16 @@ def _generate_cover_page(
 		return None
 
 
-def _gather_line_documents(schedule_name: str, include_all_specs: bool = False) -> list[dict]:
+def _gather_line_documents(
+	schedule_name: str, include_all_specs: bool = False, warnings: list | None = None,
+) -> list[dict]:
 	"""
 	Gather spec documents from all lines in a schedule.
 
 	Args:
 		schedule_name: Name of the schedule to gather documents from
 		include_all_specs: If True, include static spec sheets; if False, only filled submittals
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		list: List of document info dicts with keys:
@@ -374,6 +411,8 @@ def _gather_line_documents(schedule_name: str, include_all_specs: bool = False) 
 	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
 	documents = []
 
+	_debug(f"_gather_line_documents: schedule={schedule_name}, lines count={len(schedule.lines)}, include_all_specs={include_all_specs}", warnings)
+
 	for line in schedule.lines:
 		doc_info = {
 			"line_id": line.line_id,
@@ -387,6 +426,14 @@ def _gather_line_documents(schedule_name: str, include_all_specs: bool = False) 
 			"fixture_template": None,
 		}
 
+		_debug(
+			f"Line {line.line_id}: mfr_type={line.manufacturer_type}, "
+			f"configured_fixture={line.configured_fixture}, "
+			f"fixture_template={line.fixture_template}, "
+			f"fixture_template_override={getattr(line, 'fixture_template_override', None)}",
+			warnings,
+		)
+
 		if line.manufacturer_type == "ILLUMENATE":
 			if line.configured_fixture:
 				doc_info["configured_fixture"] = line.configured_fixture
@@ -395,42 +442,132 @@ def _gather_line_documents(schedule_name: str, include_all_specs: bool = False) 
 				cf = frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
 				doc_info["fixture_template"] = cf.fixture_template
 
+				_debug(
+					f"Line {line.line_id}: CF={line.configured_fixture}, "
+					f"cf.fixture_template={cf.fixture_template}, "
+					f"cf.spec_submittal={cf.spec_submittal!r}, "
+					f"cf.spec_sheet_link={cf.spec_sheet_link!r}",
+					warnings,
+				)
+
 				# Check for filled submittal
 				if cf.spec_submittal:
 					doc_info["spec_document_url"] = cf.spec_submittal
 					doc_info["has_submittal"] = True
+					_debug(f"Line {line.line_id}: ✓ Using existing spec_submittal: {cf.spec_submittal}", warnings)
 				else:
 					# Try to generate filled submittal on-the-fly
+					_debug(f"Line {line.line_id}: No spec_submittal on CF, trying generate_filled_submittal...", warnings)
 					result = generate_filled_submittal(line.configured_fixture)
+					_debug(
+						f"Line {line.line_id}: generate_filled_submittal result: "
+						f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
+						f"message={result.get('message')!r}",
+						warnings,
+					)
+
 					if result.get("success") and result.get("file_url"):
 						doc_info["spec_document_url"] = result["file_url"]
 						doc_info["has_submittal"] = True
-					elif include_all_specs:
-						# Fall back to template spec sheet
-						if cf.spec_sheet_link:
-							doc_info["spec_document_url"] = cf.spec_sheet_link
-						elif cf.fixture_template:
-							template_spec = frappe.db.get_value(
-								"ilL-Fixture-Template", cf.fixture_template, "spec_sheet"
+					else:
+						# No spec submittal available - fall back to spec sheet
+						# This fallback applies in all modes (SPEC_SUBMITTAL and SPEC_SUBMITTAL_FULL)
+						_debug(
+							f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
+							warnings,
+						)
+
+						# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
+						spec_url = cf.spec_sheet_link
+						_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+
+						# 2) Direct lookup on the Fixture Template (always authoritative)
+						if not spec_url and cf.fixture_template:
+							template_data = frappe.db.get_value(
+								"ilL-Fixture-Template",
+								cf.fixture_template,
+								["spec_sheet", "spec_submittal_template"],
+								as_dict=True,
 							)
-							if template_spec:
-								doc_info["spec_document_url"] = template_spec
+							_debug(
+								f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
+								f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
+								f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
+								warnings,
+							)
+							if template_data:
+								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+
+						# 3) Look for ANY PDF file attached to the Fixture Template
+						if not spec_url and cf.fixture_template:
+							attached = frappe.get_all(
+								"File",
+								filters={
+									"attached_to_doctype": "ilL-Fixture-Template",
+									"attached_to_name": cf.fixture_template,
+									"file_url": ["like", "%.pdf"],
+								},
+								fields=["file_url", "file_name"],
+								order_by="creation desc",
+							)
+							_debug(
+								f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
+								warnings,
+							)
+							if attached:
+								spec_url = attached[0].file_url
+
+						if spec_url:
+							doc_info["spec_document_url"] = spec_url
+							_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
+						else:
+							_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
 
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template
 				template_name = line.fixture_template_override or line.fixture_template
+				_debug(f"Line {line.line_id}: Unconfigured ILLUMENATE, template_name={template_name}", warnings)
 				if template_name:
 					doc_info["fixture_template"] = template_name
 					template_spec = frappe.db.get_value(
 						"ilL-Fixture-Template", template_name, "spec_sheet"
 					)
+					_debug(f"Line {line.line_id}: Template spec_sheet = {template_spec!r}", warnings)
 					if template_spec:
 						doc_info["spec_document_url"] = template_spec
 
 		elif line.manufacturer_type == "OTHER" and include_all_specs:
 			# Other manufacturer - use attached spec sheet
+			_debug(f"Line {line.line_id}: OTHER mfr, spec_sheet={line.spec_sheet!r}", warnings)
 			if line.spec_sheet:
 				doc_info["spec_document_url"] = line.spec_sheet
+
+		elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
+			# Accessory / non-linear item - look for spec sheet on the Item
+			item_code = line.accessory_item
+			# Try to find a spec submittal or spec sheet attached to the item
+			# First check if the item has a spec_submittal_template or spec_sheet field
+			item_data = frappe.db.get_value(
+				"Item",
+				item_code,
+				["item_name"],
+				as_dict=True,
+			)
+			if item_data:
+				# Look for attached PDF files on this Item
+				attached_files = frappe.get_all(
+					"File",
+					filters={
+						"attached_to_doctype": "Item",
+						"attached_to_name": item_code,
+						"file_url": ["like", "%.pdf"],
+					},
+					fields=["file_url", "file_name"],
+					order_by="creation desc",
+				)
+				if attached_files:
+					# Use the first attached PDF as the spec document
+					doc_info["spec_document_url"] = attached_files[0].file_url
 
 		documents.append(doc_info)
 
@@ -482,7 +619,7 @@ def generate_spec_submittal_packet(
 		include_all_specs = export_type == "SPEC_SUBMITTAL_FULL"
 
 		# Gather documents from all lines
-		line_documents = _gather_line_documents(schedule_name, include_all_specs)
+		line_documents = _gather_line_documents(schedule_name, include_all_specs, warnings)
 
 		# Get schedule for project info
 		schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
@@ -502,10 +639,16 @@ def generate_spec_submittal_packet(
 		# Collect PDFs from each line
 		for doc_info in line_documents:
 			if doc_info["spec_document_url"]:
+				_debug(
+					f"Retrieving PDF for line {doc_info['line_id']}: {doc_info['spec_document_url']}",
+					warnings,
+				)
 				pdf_bytes = _get_pdf_bytes_from_url(doc_info["spec_document_url"])
 				if pdf_bytes:
+					_debug(f"Line {doc_info['line_id']}: ✓ Got PDF ({len(pdf_bytes)} bytes)", warnings)
 					pdf_parts.append(pdf_bytes)
 				else:
+					_debug(f"Line {doc_info['line_id']}: ✗ _get_pdf_bytes_from_url returned None", warnings)
 					warnings.append(
 						_("Could not retrieve spec document for line {0}").format(
 							doc_info["line_id"]
@@ -518,11 +661,14 @@ def generate_spec_submittal_packet(
 				)
 
 		if not pdf_parts:
+			_debug("generate_spec_submittal_packet: FAIL – no pdf_parts at all (only cover page possible)", warnings)
 			return {
 				"success": False,
 				"message": _("No spec documents found to include in packet"),
 				"warnings": warnings,
 			}
+
+		_debug(f"generate_spec_submittal_packet: merging {len(pdf_parts)} PDF parts", warnings)
 
 		# Merge all PDFs
 		merged_pdf = _merge_pdfs(pdf_parts)
@@ -580,34 +726,46 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 			- message: Status message
 	"""
 	try:
+		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}")
+
 		# Get the configured fixture
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_name)
 
 		if not cf.fixture_template:
-			return {
-				"success": False,
-				"message": _("Configured fixture has no fixture template"),
-			}
+			msg = "Configured fixture has no fixture template"
+			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			return {"success": False, "message": _(msg)}
 
 		# Get the fixture template
 		template = frappe.get_doc("ilL-Fixture-Template", cf.fixture_template)
 
+		_debug(
+			f"generate_filled_submittal: template={cf.fixture_template}, "
+			f"spec_submittal_template={template.spec_submittal_template!r}, "
+			f"spec_sheet={template.spec_sheet!r}"
+		)
+
 		# Get the PDF template - prefer spec_submittal_template, fall back to spec_sheet
 		pdf_template = template.spec_submittal_template or template.spec_sheet
 		if not pdf_template:
-			return {
-				"success": False,
-				"message": _("Fixture template has no spec submittal template or spec sheet attached"),
-			}
+			msg = (
+				f"Fixture template '{cf.fixture_template}' has no spec_submittal_template "
+				f"AND no spec_sheet attached – cannot generate filled submittal"
+			)
+			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			return {"success": False, "message": _(msg)}
+
+		_debug(f"generate_filled_submittal: using pdf_template={pdf_template!r}")
 
 		# Get field mappings
 		mappings = _gather_field_mappings(cf.fixture_template)
 
+		_debug(f"generate_filled_submittal: found {len(mappings)} field mappings")
+
 		if not mappings:
-			return {
-				"success": False,
-				"message": _("No field mappings defined for this fixture template"),
-			}
+			msg = f"No field mappings defined for fixture template '{cf.fixture_template}'"
+			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			return {"success": False, "message": _(msg)}
 
 		# Get project and schedule context (if available)
 		schedule = None
@@ -649,14 +807,20 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			field_values[mapping["pdf_field_name"]] = transformed_value
 
+		_debug(
+			f"generate_filled_submittal: field_values built ({len(field_values)} fields): "
+			f"{list(field_values.keys())}"
+		)
+
 		# Fill the PDF using the template we found earlier
 		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values)
 
 		if not filled_pdf:
-			return {
-				"success": False,
-				"message": _("Failed to fill PDF form fields"),
-			}
+			msg = f"_fill_pdf_form_fields returned None for template={pdf_template!r}"
+			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			return {"success": False, "message": _("Failed to fill PDF form fields")}
+
+		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes")
 
 		# Save the filled PDF
 		filename = f"Spec_Submittal_{configured_fixture_name}_{nowdate()}.pdf"
@@ -672,6 +836,8 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		cf.spec_submittal = file_doc.file_url
 		cf.save(ignore_permissions=True)
 
+		_debug(f"generate_filled_submittal: SUCCESS – file_url={file_doc.file_url}")
+
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
@@ -679,6 +845,7 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		}
 
 	except Exception as e:
+		_debug(f"generate_filled_submittal: EXCEPTION – {e}")
 		frappe.log_error(
 			f"Error generating filled submittal: {str(e)}",
 			"Spec Submittal Generation Error",

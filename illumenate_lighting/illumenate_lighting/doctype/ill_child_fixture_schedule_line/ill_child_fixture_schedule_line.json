@@ -24,6 +24,7 @@
   "accessory_product_type",
   "accessory_item",
   "accessory_item_name",
+  "variant_selections",
   "other_section",
   "manufacturer_name",
   "fixture_model_number",
@@ -170,6 +171,14 @@
    "fieldtype": "Data",
    "label": "Item Name",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ACCESSORY' && doc.accessory_item",
+   "description": "JSON string of variant attribute selections (e.g. {\"Color\": \"White\", \"Size\": \"12in\"})",
+   "fieldname": "variant_selections",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Variant Selections"
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='OTHER'",

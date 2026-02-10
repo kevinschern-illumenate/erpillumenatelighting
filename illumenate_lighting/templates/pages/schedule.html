@@ -234,9 +234,11 @@ Also handles new schedule creation when is_new is True
 											<div class="small text-muted">
 												<i class="fa fa-tag"></i> {{ line.get('accessory_item') }}
 											</div>
-											{% if line.get('accessory_item_description') %}
+											{% if line.get('variant_selections') %}
 											<div class="small text-muted mt-1">
-												{{ line.get('accessory_item_description')[:150] }}{% if line.get('accessory_item_description')|length > 150 %}...{% endif %}
+												{% for attr_name, attr_val in line.get('variant_selections').items() %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">{{ attr_name }}: <strong>{{ attr_val }}</strong></span>
+												{% endfor %}
 											</div>
 											{% endif %}
 											{% if line.get('accessory_product_type') %}
@@ -1100,23 +1102,32 @@ function loadFixtureTemplates(productType) {
 	});
 }
 
-// Load product categories (Item Groups under Products)
+// Load product categories (Item Groups under Products and Raw Materials)
 function loadProductCategories() {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_product_types',
 		callback: function(r) {
 			var options = '<option value="">{{ _("Select Product Category...") }}</option>';
 			if (r.message && r.message.success && r.message.product_types) {
+				var currentHeader = null;
 				r.message.product_types.forEach(function(pt) {
+					if (pt.is_header) {
+						// Render as a disabled optgroup-style header
+						options += '<option value="" disabled style="font-weight:bold; background:#f0f0f0; color:#333;">── ' + pt.label + ' ──</option>';
+						currentHeader = pt.label;
+						return;
+					}
 					// Add visual indentation based on level
 					var indent = '';
-					if (pt.level === 1) {
-						indent = '└─ ';
-					} else if (pt.level === 2) {
+					if (pt.level === 0) {
+						indent = '  ';
+					} else if (pt.level === 1) {
 						indent = '    └─ ';
+					} else if (pt.level === 2) {
+						indent = '        └─ ';
 					}
 					// Store is_fixture_type as data attribute
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '">' + indent + pt.label + '</option>';
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -1441,6 +1452,18 @@ function addLine() {
 			if (selectedVariant) {
 				data.accessory_item = selectedVariant;
 				data.accessory_item_name = $('#selected_variant_name').text().split(' (')[0];
+				// Capture the variant attribute selections for display
+				var variantSelections = {};
+				$('.variant-attribute-select').each(function() {
+					var attr = $(this).data('attribute');
+					var val = $(this).val();
+					if (attr && val) {
+						variantSelections[attr] = val;
+					}
+				});
+				if (Object.keys(variantSelections).length > 0) {
+					data.variant_selections = variantSelections;
+				}
 			} else {
 				data.accessory_item = selectedItem;
 				data.accessory_item_name = $selectedOption.data('name') || '';
@@ -1803,11 +1826,27 @@ function generateSpecSubmittal(exportType) {
 				});
 				// Show warnings if any
 				if (r.message.warnings && r.message.warnings.length > 0) {
-					frappe.msgprint({
-						title: 'Spec Submittal Warnings',
-						indicator: 'orange',
-						message: r.message.warnings.join('<br>')
-					});
+					// Split into debug vs real warnings for display
+					var debugMsgs = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') === 0; });
+					var realWarnings = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
+
+					if (realWarnings.length > 0) {
+						frappe.msgprint({
+							title: 'Spec Submittal Warnings',
+							indicator: 'orange',
+							message: realWarnings.join('<br>')
+						});
+					}
+
+					// Always show debug in a separate dialog so it's easy to read
+					if (debugMsgs.length > 0) {
+						frappe.msgprint({
+							title: 'Spec Submittal Debug Log (' + debugMsgs.length + ' entries)',
+							indicator: 'blue',
+							message: '<pre style="white-space:pre-wrap;font-size:11px;max-height:500px;overflow:auto;">' +
+								debugMsgs.join('\n') + '</pre>'
+						});
+					}
 				}
 				// Refresh export history
 				loadExportHistory();
@@ -1816,11 +1855,29 @@ function generateSpecSubmittal(exportType) {
 					window.open(r.message.file_url, '_blank');
 				}
 			} else {
+				// On failure, still show any debug info
+				var allWarnings = (r.message && r.message.warnings) || [];
+				var debugMsgs = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') === 0; });
+				var realWarnings = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
+
+				var errorHtml = '<p>' + (r.message.message || 'Error generating spec submittal') + '</p>';
+				if (realWarnings.length > 0) {
+					errorHtml += '<br><strong>Warnings:</strong><br>' + realWarnings.join('<br>');
+				}
 				frappe.msgprint({
 					title: 'Spec Submittal Error',
 					indicator: 'red',
-					message: r.message.message || 'Error generating spec submittal'
+					message: errorHtml
 				});
+
+				if (debugMsgs.length > 0) {
+					frappe.msgprint({
+						title: 'Spec Submittal Debug Log (' + debugMsgs.length + ' entries)',
+						indicator: 'blue',
+						message: '<pre style="white-space:pre-wrap;font-size:11px;max-height:500px;overflow:auto;">' +
+							debugMsgs.join('\n') + '</pre>'
+					});
+				}
 			}
 		},
 		error: function() {

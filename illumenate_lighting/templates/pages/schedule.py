@@ -133,6 +133,15 @@ def get_context(context):
 				if not line_dict.get("accessory_item_name"):
 					line_dict["accessory_item_name"] = item_desc.item_name
 
+			# Parse variant_selections JSON if present
+			variant_selections_raw = getattr(line, "variant_selections", None)
+			if variant_selections_raw:
+				import json as _json
+				try:
+					line_dict["variant_selections"] = _json.loads(variant_selections_raw)
+				except (ValueError, TypeError):
+					line_dict["variant_selections"] = {}
+
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)
 

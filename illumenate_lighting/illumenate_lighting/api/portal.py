@@ -505,11 +505,12 @@ def get_template_options(template_code: str) -> dict:
 @frappe.whitelist()
 def get_product_types(include_subgroups: bool = True) -> dict:
 	"""
-	Get product types from Item Groups under "Products" parent.
+	Get product types from Item Groups under "Products" and "Raw Materials" parents.
 
-	This fetches the immediate children of the "Products" Item Group
-	to populate the product type dropdown. If include_subgroups is True,
-	also includes child groups (up to 2 levels deep) with visual indentation.
+	This fetches the immediate children of the "Products" and "Raw Materials"
+	Item Groups to populate the product type dropdown as a nested tree view.
+	If include_subgroups is True, also includes child groups (up to 2 levels deep)
+	with visual indentation.
 
 	Args:
 		include_subgroups: Whether to include child groups with indentation
@@ -523,87 +524,123 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"label": display_name,
 					"item_group": item_group_name,
 					"level": 0|1|2,  # Depth level for indentation
-					"parent": parent_group_name or None
+					"parent": parent_group_name or None,
+					"root_group": "Products" or "Raw Materials",
+					"is_header": True/False  # If True, this is a non-selectable group header
 				}
 			]
 		}
 	"""
 	try:
-		# Check if "Products" item group exists
-		if not frappe.db.exists("Item Group", "Products"):
-			return {
-				"success": True,
-				"product_types": [
-					{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}
-				],
-			}
-
-		# Get immediate children of "Products" item group
-		product_types = frappe.get_all(
-			"Item Group",
-			filters={"parent_item_group": "Products"},
-			fields=["name", "item_group_name"],
-			order_by="item_group_name asc",
-		)
-
 		# Define which item groups should show fixture templates instead of items
 		# Match by checking if name contains "Linear Fixture" (case-insensitive)
 		def is_fixture_group(name):
 			name_lower = (name or "").lower()
 			return "linear fixture" in name_lower or "linear fixtures" in name_lower
 
-		result = []
-		for pt in product_types:
-			# Add the parent group
-			result.append({
-				"value": pt.name,
-				"label": pt.item_group_name or pt.name,
-				"item_group": pt.name,
-				"level": 0,
-				"parent": None,
-				"is_fixture_type": is_fixture_group(pt.name) or is_fixture_group(pt.item_group_name),
-			})
+		def _build_group_tree(parent_group_name, root_group_label):
+			"""Build a nested tree of item groups under a parent."""
+			if not frappe.db.exists("Item Group", parent_group_name):
+				return []
 
-			# If include_subgroups, fetch child groups
-			if include_subgroups:
-				child_groups = frappe.get_all(
-					"Item Group",
-					filters={"parent_item_group": pt.name},
-					fields=["name", "item_group_name"],
-					order_by="item_group_name asc",
-				)
+			items = []
 
-				for child in child_groups:
-					result.append({
-						"value": child.name,
-						"label": child.item_group_name or child.name,
-						"item_group": child.name,
-						"level": 1,
-						"parent": pt.name,
-						"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
-					})
+			# Get immediate children of this parent item group
+			child_groups = frappe.get_all(
+				"Item Group",
+				filters={"parent_item_group": parent_group_name},
+				fields=["name", "item_group_name"],
+				order_by="item_group_name asc",
+			)
 
-					# Optionally get grandchild groups (level 2)
-					grandchild_groups = frappe.get_all(
+			for child in child_groups:
+				# Add the child group (level 0 under parent header)
+				items.append({
+					"value": child.name,
+					"label": child.item_group_name or child.name,
+					"item_group": child.name,
+					"level": 0,
+					"parent": parent_group_name,
+					"root_group": root_group_label,
+					"is_header": False,
+					"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
+				})
+
+				# If include_subgroups, fetch sub-groups
+				if include_subgroups:
+					sub_groups = frappe.get_all(
 						"Item Group",
 						filters={"parent_item_group": child.name},
 						fields=["name", "item_group_name"],
 						order_by="item_group_name asc",
 					)
 
-					for grandchild in grandchild_groups:
-						result.append({
-							"value": grandchild.name,
-							"label": grandchild.item_group_name or grandchild.name,
-							"item_group": grandchild.name,
-							"level": 2,
+					for sub in sub_groups:
+						items.append({
+							"value": sub.name,
+							"label": sub.item_group_name or sub.name,
+							"item_group": sub.name,
+							"level": 1,
 							"parent": child.name,
-							"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
+							"root_group": root_group_label,
+							"is_header": False,
+							"is_fixture_type": is_fixture_group(sub.name) or is_fixture_group(sub.item_group_name),
 						})
 
-		# If no child groups found, return default
+						# Grandchild groups (level 2)
+						grandchild_groups = frappe.get_all(
+							"Item Group",
+							filters={"parent_item_group": sub.name},
+							fields=["name", "item_group_name"],
+							order_by="item_group_name asc",
+						)
+
+						for grandchild in grandchild_groups:
+							items.append({
+								"value": grandchild.name,
+								"label": grandchild.item_group_name or grandchild.name,
+								"item_group": grandchild.name,
+								"level": 2,
+								"parent": sub.name,
+								"root_group": root_group_label,
+								"is_header": False,
+								"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
+							})
+
+			return items
+
+		# Build trees for both "Products" and "Raw Materials"
+		root_groups = [("Products", "Products"), ("Raw Materials", "Raw Materials")]
+		result = []
+
+		for root_name, root_label in root_groups:
+			group_items = _build_group_tree(root_name, root_label)
+			if group_items:
+				# Add a non-selectable header for this root group
+				result.append({
+					"value": "__header_" + root_name,
+					"label": root_label,
+					"item_group": root_name,
+					"level": -1,
+					"parent": None,
+					"root_group": root_label,
+					"is_header": True,
+					"is_fixture_type": False,
+				})
+				result.extend(group_items)
+
+		# If no groups found, return default
 		if not result:
-			result = [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None, "is_fixture_type": True}]
+			result = [{
+				"value": "Linear Fixture",
+				"label": "Linear Fixture",
+				"item_group": None,
+				"level": 0,
+				"parent": None,
+				"root_group": "Products",
+				"is_header": False,
+				"is_fixture_type": True,
+			}]
 
 		return {"success": True, "product_types": result}
 
@@ -1016,6 +1053,13 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.accessory_product_type = line_data.get("accessory_product_type")
 			line.accessory_item = line_data.get("accessory_item")
 			line.accessory_item_name = line_data.get("accessory_item_name")
+			# Store variant attribute selections as JSON for display
+			variant_selections = line_data.get("variant_selections")
+			if variant_selections:
+				if isinstance(variant_selections, str):
+					line.variant_selections = variant_selections
+				else:
+					line.variant_selections = json.dumps(variant_selections)
 			# For accessories, set configuration_status to Configured since no config needed
 			line.configuration_status = "Configured"
 
