@@ -306,6 +306,39 @@ Allows users to modify an existing configured fixture from a schedule line
 						<hr>
 					</div>
 
+					<!-- Part Number & Description -->
+					<div id="partNumberPanel" style="display: none;">
+						<h6>{{ _("Part Number & Description") }}</h6>
+						<table class="table table-sm mb-2">
+							<tr>
+								<td class="font-weight-bold" style="width: 110px;">{{ _("Part Number") }}</td>
+								<td>
+									<div class="d-flex align-items-center">
+										<code id="partNumberValue" class="mr-2" style="font-size: 0.95rem;">-</code>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="copyToClipboard('partNumberValue')" title="Copy part number">
+											<i class="fa fa-copy"></i>
+										</button>
+									</div>
+								</td>
+							</tr>
+							<tr>
+								<td class="font-weight-bold">{{ _("Description") }}</td>
+								<td>
+									<div class="d-flex align-items-start">
+										<span id="partDescriptionValue" class="mr-2 small" style="white-space: pre-wrap;">-</span>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" onclick="copyToClipboard('partDescriptionValue')" title="Copy description">
+											<i class="fa fa-copy"></i>
+										</button>
+									</div>
+								</td>
+							</tr>
+						</table>
+						<button type="button" class="btn btn-outline-primary btn-sm btn-block mb-2" onclick="copyBothToClipboard()">
+							<i class="fa fa-clipboard"></i> {{ _("Copy Part Number + Description") }}
+						</button>
+						<hr>
+					</div>
+
 					<!-- Length Results -->
 					<div id="lengthResults" style="display: none;">
 						<h6>{{ _("Length Summary") }}</h6>
@@ -1361,6 +1394,38 @@ function validateAndQuote() {
 	}
 }
 
+function copyToClipboard(elementId) {
+	var text = document.getElementById(elementId).innerText;
+	navigator.clipboard.writeText(text).then(function() {
+		frappe.show_alert({message: __('Copied to clipboard'), indicator: 'green'}, 2);
+	}).catch(function() {
+		var textarea = document.createElement('textarea');
+		textarea.value = text;
+		document.body.appendChild(textarea);
+		textarea.select();
+		document.execCommand('copy');
+		document.body.removeChild(textarea);
+		frappe.show_alert({message: __('Copied to clipboard'), indicator: 'green'}, 2);
+	});
+}
+
+function copyBothToClipboard() {
+	var partNumber = document.getElementById('partNumberValue').innerText;
+	var description = document.getElementById('partDescriptionValue').innerText;
+	var combined = partNumber + '\n' + description;
+	navigator.clipboard.writeText(combined).then(function() {
+		frappe.show_alert({message: __('Part number and description copied to clipboard'), indicator: 'green'}, 2);
+	}).catch(function() {
+		var textarea = document.createElement('textarea');
+		textarea.value = combined;
+		document.body.appendChild(textarea);
+		textarea.select();
+		document.execCommand('copy');
+		document.body.removeChild(textarea);
+		frappe.show_alert({message: __('Part number and description copied to clipboard'), indicator: 'green'}, 2);
+	});
+}
+
 function displayResults(result) {
 	$('#noResults').hide();
 	
@@ -1372,6 +1437,16 @@ function displayResults(result) {
 	} else {
 		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
 		$('#saveBtn').prop('disabled', true);
+	}
+
+	// Display part number and description
+	if (result.configured_fixture_id) {
+		$('#partNumberPanel').show();
+		$('#partNumberValue').text(result.configured_fixture_id);
+		var desc = (result.computed && (result.computed.build_description_display || result.computed.build_description)) || '-';
+		$('#partDescriptionValue').text(desc);
+	} else {
+		$('#partNumberPanel').hide();
 	}
 	
 	// Display messages

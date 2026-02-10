@@ -399,16 +399,22 @@ def _gather_line_documents(schedule_name: str, include_all_specs: bool = False) 
 				if cf.spec_submittal:
 					doc_info["spec_document_url"] = cf.spec_submittal
 					doc_info["has_submittal"] = True
-				elif include_all_specs:
-					# Fall back to template spec sheet
-					if cf.spec_sheet_link:
-						doc_info["spec_document_url"] = cf.spec_sheet_link
-					elif cf.fixture_template:
-						template_spec = frappe.db.get_value(
-							"ilL-Fixture-Template", cf.fixture_template, "spec_sheet"
-						)
-						if template_spec:
-							doc_info["spec_document_url"] = template_spec
+				else:
+					# Try to generate filled submittal on-the-fly
+					result = generate_filled_submittal(line.configured_fixture)
+					if result.get("success") and result.get("file_url"):
+						doc_info["spec_document_url"] = result["file_url"]
+						doc_info["has_submittal"] = True
+					elif include_all_specs:
+						# Fall back to template spec sheet
+						if cf.spec_sheet_link:
+							doc_info["spec_document_url"] = cf.spec_sheet_link
+						elif cf.fixture_template:
+							template_spec = frappe.db.get_value(
+								"ilL-Fixture-Template", cf.fixture_template, "spec_sheet"
+							)
+							if template_spec:
+								doc_info["spec_document_url"] = template_spec
 
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template
@@ -625,8 +631,8 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 					"ilL-Project-Fixture-Schedule", schedule_line_data.parent
 				)
 				# Get the project from the schedule
-				if schedule and schedule.project:
-					project = frappe.get_doc("ilL-Project", schedule.project)
+				if schedule and schedule.ill_project:
+					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
 		# Build field values
 		field_values = {}
