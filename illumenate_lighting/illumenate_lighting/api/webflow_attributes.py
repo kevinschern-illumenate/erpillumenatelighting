@@ -47,6 +47,61 @@ import frappe
 from frappe import _
 
 
+# ---------------------------------------------------------------------------
+# Human-readable attribute type → ATTRIBUTE_DOCTYPES key mapping
+# The attribute_links child table uses display names like "CCT", "Finish" etc.
+# This maps those display names to the internal keys used in ATTRIBUTE_DOCTYPES.
+# ---------------------------------------------------------------------------
+ATTRIBUTE_TYPE_DISPLAY_MAP = {
+    "CCT": "cct",
+    "CRI": "cri",
+    "Finish": "finish",
+    "Dimming Protocol": "dimming_protocol",
+    "Environment Rating": "environment_rating",
+    "IP Rating": "ip_rating",
+    "LED Package": "led_package",
+    "Lens Appearance": "lens_appearance",
+    "Mounting Method": "mounting_method",
+    "Output Level": "output_level",
+    "Output Voltage": "output_voltage",
+    "Certification": "certification",
+    "Endcap Style": "endcap_style",
+    "Endcap Color": "endcap_color",
+    "Feed Direction": "feed_direction",
+    "Joiner Angle": "joiner_angle",
+    "Joiner System": "joiner_system",
+    "Lead Time Class": "lead_time_class",
+    "Leader Cable": "leader_cable",
+    "Lens Interface Type": "lens_interface_type",
+    "Power Feed Type": "power_feed_type",
+    "Pricing Class": "pricing_class",
+    "SDCM": "sdcm",
+    "Series": "series",
+}
+
+# Reverse mapping: ATTRIBUTE_DOCTYPES key → display name
+ATTRIBUTE_KEY_TO_DISPLAY = {v: k for k, v in ATTRIBUTE_TYPE_DISPLAY_MAP.items()}
+
+
+# ---------------------------------------------------------------------------
+# Mapping of attribute type display names to Webflow product multi-reference
+# field slugs.  When the product sync switches from plain-text to
+# multi-reference, these are the field slugs used in the Webflow Products
+# collection for each attribute type.
+# ---------------------------------------------------------------------------
+ATTRIBUTE_MULTIREF_FIELD_SLUGS = {
+    "CCT": "cct-options-5",
+    "CRI": "cris-5",
+    "Finish": "finishes-5",
+    "Lens Appearance": "lens-options-5",
+    "Mounting Method": "mounting-methods-5",
+    "Output Level": "output-levels-5",
+    "Environment Rating": "environment-ratings-5",
+    "Feed Direction": "feed-directions-5",
+    "LED Package": "fixture-types-5",
+}
+
+
 # Mapping of attribute doctypes to their configuration
 # Each entry contains:
 # - doctype: The ERPNext doctype name
@@ -1364,3 +1419,180 @@ def get_attribute_dependencies(target_doctype: str = None) -> dict:
             "success": False,
             "error": str(e),
         }
+
+
+# ---------------------------------------------------------------------------
+# Product ↔ Attribute multi-reference helpers
+# ---------------------------------------------------------------------------
+
+def resolve_attribute_webflow_ids(attribute_links: list) -> Dict[str, list]:
+    """
+    Resolve attribute links to Webflow Item ID arrays, grouped by type.
+
+    For each attribute in a product's ``attribute_links`` child table, look up
+    the ``webflow_item_id`` stored on the attribute record itself (set during
+    attribute sync).  Returns a dict keyed by the *display* attribute type
+    (e.g. ``"CCT"``, ``"Finish"``) whose values are lists of Webflow Item IDs.
+
+    Only attributes that have been synced (i.e. have a non-empty
+    ``webflow_item_id``) are included.
+
+    Args:
+        attribute_links: List of dicts with keys ``attribute_type``,
+            ``attribute_doctype``, ``attribute_name``, and optionally
+            ``webflow_item_id`` (from the child row itself).
+
+    Returns:
+        dict: ``{"CCT": ["wf-id-1", "wf-id-2"], "Finish": ["wf-id-3"], ...}``
+    """
+    result: Dict[str, list] = {}
+
+    for link in attribute_links:
+        attr_type = link.get("attribute_type", "")
+        attr_doctype = link.get("attribute_doctype", "")
+        attr_name = link.get("attribute_name", "")
+
+        if not attr_type or not attr_name:
+            continue
+
+        # Try the pre-stored webflow_item_id on the child row first
+        wf_id = link.get("webflow_item_id") or ""
+
+        # If not on the child row, look it up from the attribute record
+        if not wf_id and attr_doctype:
+            try:
+                wf_id = frappe.db.get_value(attr_doctype, attr_name, "webflow_item_id") or ""
+            except Exception:
+                wf_id = ""
+
+        if not wf_id:
+            continue
+
+        result.setdefault(attr_type, [])
+        if wf_id not in result[attr_type]:
+            result[attr_type].append(wf_id)
+
+    return result
+
+
+def build_product_multiref_field_data(attribute_webflow_ids: Dict[str, list]) -> Dict[str, list]:
+    """
+    Convert attribute Webflow ID arrays into Webflow product field data.
+
+    Uses ``ATTRIBUTE_MULTIREF_FIELD_SLUGS`` to map each attribute type
+    to the correct Webflow product collection field slug, then returns
+    a dict suitable for merging into ``fieldData`` of a Webflow API
+    upsert request.
+
+    Args:
+        attribute_webflow_ids: Output of :func:`resolve_attribute_webflow_ids`.
+
+    Returns:
+        dict: ``{"cct-options-5": ["id1", "id2"], "finishes-5": ["id3"], ...}``
+    """
+    field_data: Dict[str, list] = {}
+
+    for attr_type, wf_ids in attribute_webflow_ids.items():
+        slug = ATTRIBUTE_MULTIREF_FIELD_SLUGS.get(attr_type)
+        if slug and wf_ids:
+            field_data[slug] = wf_ids
+
+    return field_data
+
+
+@frappe.whitelist(allow_guest=False)
+def get_product_attribute_references(
+    product_slugs: list = None,
+    sync_status: str = None,
+    limit: int = 100,
+    offset: int = 0
+) -> dict:
+    """
+    Get products with their attribute links resolved to Webflow Item IDs.
+
+    This endpoint is designed for the n8n product-attribute reference sync
+    workflow.  For each product, it returns:
+
+    - ``attribute_webflow_ids``:  ``{type: [webflow_id, ...]}``
+    - ``multiref_field_data``:    ``{webflow_field_slug: [webflow_id, ...]}``
+    - ``webflow_item_id``:        The product's own Webflow Item ID
+
+    Only products that *already* have a ``webflow_item_id`` (i.e. have been
+    synced at least once) are returned, because we need the product's Webflow
+    Item ID to PATCH the multi-reference fields.
+
+    Args:
+        product_slugs:  Optional list of specific product slugs to fetch.
+        sync_status:    Optional filter (``"needs_sync"`` etc.).
+        limit:          Max results (default 100).
+        offset:         Pagination offset.
+
+    Returns:
+        dict with ``products``, ``total``, ``limit``, ``offset``.
+    """
+    filters: Dict[str, Any] = {"is_active": 1}
+
+    # We only want products that are already in Webflow
+    filters["webflow_item_id"] = ["is", "set"]
+
+    if product_slugs:
+        filters["name"] = ["in", product_slugs]
+
+    if sync_status:
+        if sync_status == "needs_sync":
+            filters["sync_status"] = ["in", ["Pending", "Never Synced"]]
+        else:
+            filters["sync_status"] = sync_status
+
+    products = frappe.get_all(
+        "ilL-Webflow-Product",
+        filters=filters,
+        fields=[
+            "name", "product_name", "product_slug",
+            "webflow_item_id", "sync_status"
+        ],
+        limit=limit,
+        start=offset,
+        order_by="modified desc",
+    )
+
+    result_products = []
+
+    for product in products:
+        doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
+
+        # Build attribute links list from child table
+        attr_links = [
+            {
+                "attribute_type": al.attribute_type,
+                "attribute_doctype": al.attribute_doctype,
+                "attribute_name": al.attribute_name,
+                "display_label": al.display_label,
+                "webflow_item_id": al.webflow_item_id,
+            }
+            for al in getattr(doc, "attribute_links", [])
+        ]
+
+        # Resolve to Webflow IDs
+        attr_wf_ids = resolve_attribute_webflow_ids(attr_links)
+        multiref_data = build_product_multiref_field_data(attr_wf_ids)
+
+        result_products.append({
+            "product_slug": product["product_slug"],
+            "product_name": product["product_name"],
+            "webflow_item_id": product["webflow_item_id"],
+            "attribute_webflow_ids": attr_wf_ids,
+            "multiref_field_data": multiref_data,
+            "attribute_count": sum(len(v) for v in attr_wf_ids.values()),
+            "unresolved_count": len(attr_links) - sum(len(v) for v in attr_wf_ids.values()),
+        })
+
+    total = frappe.db.count("ilL-Webflow-Product", filters)
+
+    return {
+        "products": result_products,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "multiref_field_slugs": ATTRIBUTE_MULTIREF_FIELD_SLUGS,
+    }

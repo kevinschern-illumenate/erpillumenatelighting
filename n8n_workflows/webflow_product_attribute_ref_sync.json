@@ -1,0 +1,325 @@
+{
+  "name": "ERPNext → Webflow Product-Attribute Reference Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.get_product_attribute_references",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-products",
+      "name": "Fetch Products with Attribute Refs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-has-products",
+              "leftValue": "={{ $json.message.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-products",
+      "name": "Has Products?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [525, 100]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "message.products",
+        "options": {}
+      },
+      "id": "split-products",
+      "name": "Split Products",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [750, 25]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-refs",
+              "leftValue": "={{ $json.attribute_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-attribute-refs",
+      "name": "Has Resolved Attributes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [975, 25]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the Webflow PATCH payload for multi-reference attribute fields.\n// ERPNext has already resolved the Webflow Item IDs for each attribute type.\nconst product = $input.item.json;\nconst multirefData = product.multiref_field_data || {};\n\n// Build fieldData with only the multi-reference fields that have IDs\nconst fieldData = {};\nfor (const [slug, ids] of Object.entries(multirefData)) {\n  if (ids && ids.length > 0) {\n    fieldData[slug] = ids;\n  }\n}\n\n// Include last-synced timestamp\nfieldData['last-synced'] = new Date().toISOString();\n\nconst webflowData = {\n  fieldData: fieldData\n};\n\nreturn {\n  json: {\n    webflowData,\n    product_slug: product.product_slug,\n    webflow_item_id: product.webflow_item_id,\n    attribute_count: product.attribute_count,\n    unresolved_count: product.unresolved_count,\n    _debug: {\n      multirefData,\n      fieldSlugsUsed: Object.keys(fieldData),\n      attributeWebflowIds: product.attribute_webflow_ids\n    }\n  }\n};"
+      },
+      "id": "build-payload",
+      "name": "Build Webflow Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, -50]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.webflow.com/v2/collections/696fc3c5c42c86528e97f413/items/{{ $json.webflow_item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webflowData) }}",
+        "options": {}
+      },
+      "id": "webflow-update",
+      "name": "Webflow: Update Product Refs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1425, -50],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_webflow_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $('Build Webflow Payload').item.json.product_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"webflow_collection_slug\": \"products\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced",
+      "name": "Mark Synced",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, -50],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ERPNext → Webflow Product-Attribute Reference Sync\n\nThis workflow syncs multi-reference relationships between Products\nand Attribute collections in Webflow CMS.\n\n### How it works:\n1. Fetches products that are already in Webflow (have webflow_item_id)\n2. For each product, ERPNext resolves the attribute_links to\n   Webflow Item IDs via the attribute records\n3. Sends PATCH requests to update multi-reference fields on each\n   product in Webflow\n\n### Prerequisites:\n- Attributes must be synced to Webflow first (via attribute sync workflow)\n- Products must be synced to Webflow first (via product sync workflow)\n- Webflow product fields must be configured as Multi-Reference type\n\n### Attribute Fields Synced:\n- cct-options-5 → CCT collection\n- cris-5 → CRI collection\n- finishes-5 → Finish collection\n- lens-options-5 → Lens Appearance collection\n- mounting-methods-5 → Mounting Method collection\n- output-levels-5 → Output Level collection\n- environment-ratings-5 → Environment Rating collection\n- feed-directions-5 → Feed Direction collection\n- fixture-types-5 → LED Package collection\n\n### Credentials Required:\n1. **ERPNext API Key** (Header Auth)\n2. **Webflow API Token** (Header Auth)\n\n### Products Collection: 696fc3c5c42c86528e97f413",
+        "height": 520,
+        "width": 420
+      },
+      "id": "sticky-note",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-450, -150]
+    },
+    {
+      "parameters": {
+        "content": "## Skipped\nProducts with no resolved attribute\nWebflow Item IDs are skipped.\n\nCommon reasons:\n- Attributes not yet synced to Webflow\n- No attribute links on the product",
+        "height": 160,
+        "width": 250
+      },
+      "id": "skip-note",
+      "name": "Skip Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [975, 175]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products with Attribute Refs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products with Attribute Refs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Products with Attribute Refs": {
+      "main": [
+        [
+          {
+            "node": "Has Products?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Products?": {
+      "main": [
+        [
+          {
+            "node": "Split Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Products": {
+      "main": [
+        [
+          {
+            "node": "Has Resolved Attributes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Resolved Attributes?": {
+      "main": [
+        [
+          {
+            "node": "Build Webflow Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Build Webflow Payload": {
+      "main": [
+        [
+          {
+            "node": "Webflow: Update Product Refs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Update Product Refs": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "webflow",
+      "createdAt": "2026-02-10T00:00:00.000Z",
+      "updatedAt": "2026-02-10T00:00:00.000Z"
+    },
+    {
+      "name": "erpnext",
+      "createdAt": "2026-02-10T00:00:00.000Z",
+      "updatedAt": "2026-02-10T00:00:00.000Z"
+    },
+    {
+      "name": "attributes",
+      "createdAt": "2026-02-10T00:00:00.000Z",
+      "updatedAt": "2026-02-10T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-02-10T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -17,7 +17,12 @@ Endpoints:
 import frappe
 from frappe import _
 
-from illumenate_lighting.illumenate_lighting.api.webflow_attributes import ATTRIBUTE_DOCTYPES
+from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+    ATTRIBUTE_DOCTYPES,
+    resolve_attribute_webflow_ids,
+    build_product_multiref_field_data,
+    ATTRIBUTE_MULTIREF_FIELD_SLUGS,
+)
 
 # Base URL for converting relative file paths to absolute URLs
 ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
@@ -239,6 +244,15 @@ def get_webflow_products(
                     if label:
                         pairs.append(f"{label}, {code}" if code else label)
                 product["attribute_text_by_type"][attr_type] = " | ".join(pairs)
+            
+            # Multi-reference fields: resolve attribute links to Webflow Item ID arrays
+            # This enables Webflow multi-reference fields for filtering products by attributes
+            product["attribute_webflow_ids_by_type"] = resolve_attribute_webflow_ids(
+                product["attribute_links"]
+            )
+            product["multiref_field_data"] = build_product_multiref_field_data(
+                product["attribute_webflow_ids_by_type"]
+            )
             
             # Add category details if available (includes webflow_item_id for reference field)
             if product.get("product_category"):
