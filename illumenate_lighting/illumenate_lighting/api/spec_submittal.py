@@ -196,6 +196,7 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 def _fill_pdf_form_fields(
 	pdf_template_path: str,
 	field_values: dict[str, str],
+	warnings: list | None = None,
 ) -> bytes | None:
 	"""
 	Fill form fields in a PDF template with the provided values.
@@ -205,6 +206,7 @@ def _fill_pdf_form_fields(
 	Args:
 		pdf_template_path: Path or URL to the PDF template (must be a Frappe file URL)
 		field_values: Dictionary mapping field names to values
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		bytes: The filled PDF as bytes, or None if filling failed
@@ -212,7 +214,7 @@ def _fill_pdf_form_fields(
 	try:
 		from pypdf import PdfReader, PdfWriter
 
-		_debug(f"_fill_pdf_form_fields: pdf_template_path={pdf_template_path!r}, {len(field_values)} field values")
+		_debug(f"_fill_pdf_form_fields: pdf_template_path={pdf_template_path!r}, {len(field_values)} field values", warnings)
 
 		# Only allow Frappe file URLs to prevent path traversal attacks
 		if not (
@@ -223,47 +225,65 @@ def _fill_pdf_form_fields(
 				f"Invalid PDF template path: {pdf_template_path}. "
 				"Only Frappe file URLs are allowed."
 			)
-			_debug(f"_fill_pdf_form_fields: FAIL – {msg}")
+			_debug(f"_fill_pdf_form_fields: FAIL – {msg}", warnings)
 			frappe.log_error(msg, "Spec Submittal Generation Error")
 			return None
 
 		# Get the PDF content from Frappe file system
-		_debug(f"_fill_pdf_form_fields: looking up File doc for {pdf_template_path!r}")
-		file_doc = frappe.get_doc("File", {"file_url": pdf_template_path})
+		_debug(f"_fill_pdf_form_fields: looking up File doc for {pdf_template_path!r}", warnings)
+		try:
+			file_doc = frappe.get_doc("File", {"file_url": pdf_template_path})
+		except frappe.DoesNotExistError:
+			msg = f"File doc not found for URL: {pdf_template_path}"
+			_debug(f"_fill_pdf_form_fields: FAIL – {msg}", warnings)
+			frappe.log_error(msg, "Spec Submittal Generation Error")
+			return None
+
 		pdf_content = file_doc.get_content()
-		_debug(f"_fill_pdf_form_fields: got PDF content ({len(pdf_content)} bytes)")
+		_debug(f"_fill_pdf_form_fields: got PDF content ({len(pdf_content)} bytes)", warnings)
 
 		# Read the PDF
 		reader = PdfReader(io.BytesIO(pdf_content))
-		writer = PdfWriter()
 
-		# Copy pages and fill form fields
-		for page in reader.pages:
-			writer.add_page(page)
+		# Use clone_from to properly copy the entire document structure
+		# including the AcroForm root dictionary that defines form fields.
+		# writer.add_page() only copies page objects without the AcroForm,
+		# which causes update_page_form_field_values to silently fail.
+		writer = PdfWriter(clone_from=reader)
 
-		# Update form fields on all pages that have them
-		form_fields = reader.get_form_text_fields()
+		# Detect ALL form fields (not just text – also checkboxes, dropdowns, etc.)
+		all_fields = reader.get_fields()
+		text_fields = reader.get_form_text_fields()
 		_debug(
 			f"_fill_pdf_form_fields: PDF has {len(reader.pages)} pages, "
-			f"form text fields detected: {list(form_fields.keys()) if form_fields else 'NONE'}"
+			f"all form fields: {list(all_fields.keys()) if all_fields else 'NONE'}, "
+			f"text fields: {list(text_fields.keys()) if text_fields else 'NONE'}",
+			warnings,
 		)
-		if form_fields:
+
+		if all_fields:
 			for page in writer.pages:
 				writer.update_page_form_field_values(page, field_values)
+		else:
+			_debug(
+				"_fill_pdf_form_fields: WARNING – PDF has no AcroForm fields; "
+				"the template may not be a fillable PDF",
+				warnings,
+			)
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
 		writer.write(output)
 		result_bytes = output.getvalue()
-		_debug(f"_fill_pdf_form_fields: SUCCESS – output PDF = {len(result_bytes)} bytes")
+		_debug(f"_fill_pdf_form_fields: SUCCESS – output PDF = {len(result_bytes)} bytes", warnings)
 		return result_bytes
 
 	except ImportError:
-		_debug("_fill_pdf_form_fields: FAIL – pypdf not installed")
+		_debug("_fill_pdf_form_fields: FAIL – pypdf not installed", warnings)
 		frappe.log_error("pypdf not installed", "Spec Submittal Generation Error")
 		return None
 	except Exception as e:
-		_debug(f"_fill_pdf_form_fields: EXCEPTION – {e}")
+		_debug(f"_fill_pdf_form_fields: EXCEPTION – {type(e).__name__}: {e}", warnings)
 		frappe.log_error(
 			f"Error filling PDF form fields: {str(e)}", "Spec Submittal Generation Error"
 		)
@@ -458,7 +478,7 @@ def _gather_line_documents(
 				else:
 					# Try to generate filled submittal on-the-fly
 					_debug(f"Line {line.line_id}: No spec_submittal on CF, trying generate_filled_submittal...", warnings)
-					result = generate_filled_submittal(line.configured_fixture)
+					result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
 					_debug(
 						f"Line {line.line_id}: generate_filled_submittal result: "
 						f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
@@ -709,7 +729,7 @@ def generate_spec_submittal_packet(
 
 
 @frappe.whitelist()
-def generate_filled_submittal(configured_fixture_name: str) -> dict:
+def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
 
@@ -718,6 +738,7 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 
 	Args:
 		configured_fixture_name: Name of the ilL-Configured-Fixture
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		dict: Result with keys:
@@ -726,14 +747,14 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 			- message: Status message
 	"""
 	try:
-		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}")
+		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}", warnings)
 
 		# Get the configured fixture
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_name)
 
 		if not cf.fixture_template:
 			msg = "Configured fixture has no fixture template"
-			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
 			return {"success": False, "message": _(msg)}
 
 		# Get the fixture template
@@ -742,7 +763,8 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		_debug(
 			f"generate_filled_submittal: template={cf.fixture_template}, "
 			f"spec_submittal_template={template.spec_submittal_template!r}, "
-			f"spec_sheet={template.spec_sheet!r}"
+			f"spec_sheet={template.spec_sheet!r}",
+			warnings,
 		)
 
 		# Get the PDF template - prefer spec_submittal_template, fall back to spec_sheet
@@ -752,19 +774,19 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 				f"Fixture template '{cf.fixture_template}' has no spec_submittal_template "
 				f"AND no spec_sheet attached – cannot generate filled submittal"
 			)
-			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
 			return {"success": False, "message": _(msg)}
 
-		_debug(f"generate_filled_submittal: using pdf_template={pdf_template!r}")
+		_debug(f"generate_filled_submittal: using pdf_template={pdf_template!r}", warnings)
 
 		# Get field mappings
 		mappings = _gather_field_mappings(cf.fixture_template)
 
-		_debug(f"generate_filled_submittal: found {len(mappings)} field mappings")
+		_debug(f"generate_filled_submittal: found {len(mappings)} field mappings", warnings)
 
 		if not mappings:
 			msg = f"No field mappings defined for fixture template '{cf.fixture_template}'"
-			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
 			return {"success": False, "message": _(msg)}
 
 		# Get project and schedule context (if available)
@@ -809,18 +831,19 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 
 		_debug(
 			f"generate_filled_submittal: field_values built ({len(field_values)} fields): "
-			f"{list(field_values.keys())}"
+			f"{list(field_values.keys())}",
+			warnings,
 		)
 
 		# Fill the PDF using the template we found earlier
-		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values)
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
 
 		if not filled_pdf:
-			msg = f"_fill_pdf_form_fields returned None for template={pdf_template!r}"
-			_debug(f"generate_filled_submittal: FAIL – {msg}")
+			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
+			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
 			return {"success": False, "message": _("Failed to fill PDF form fields")}
 
-		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes")
+		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
 		# Save the filled PDF
 		filename = f"Spec_Submittal_{configured_fixture_name}_{nowdate()}.pdf"
@@ -836,7 +859,7 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		cf.spec_submittal = file_doc.file_url
 		cf.save(ignore_permissions=True)
 
-		_debug(f"generate_filled_submittal: SUCCESS – file_url={file_doc.file_url}")
+		_debug(f"generate_filled_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
 		return {
 			"success": True,
@@ -845,7 +868,7 @@ def generate_filled_submittal(configured_fixture_name: str) -> dict:
 		}
 
 	except Exception as e:
-		_debug(f"generate_filled_submittal: EXCEPTION – {e}")
+		_debug(f"generate_filled_submittal: EXCEPTION – {type(e).__name__}: {e}", warnings)
 		frappe.log_error(
 			f"Error generating filled submittal: {str(e)}",
 			"Spec Submittal Generation Error",
