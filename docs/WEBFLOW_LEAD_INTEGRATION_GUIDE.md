@@ -252,6 +252,48 @@ Frappe CRM Lead                 Frappe CRM Deal                 ERPNext Customer
 └── custom_utm_campaign          └── (preserved)                 │
 ```
 
+## Automatic Welcome Email Campaign
+
+### How It Works
+
+When a lead is created from a Webflow newsletter form, the system automatically:
+
+1. Creates the Lead in Frappe CRM with all form data
+2. Enrolls the Lead in the "Newsletter Welcome" Email Campaign
+3. Sends the welcome email within the next scheduler run (hourly)
+
+### Configuration
+
+The following components work together:
+
+| Component | Purpose |
+|-----------|---------|
+| Campaign: "Newsletter Welcome" | Marketing campaign container |
+| Email Template: "Newsletter Welcome Email" | The welcome email content |
+| Campaign Email Schedule | Links template to campaign with timing |
+| Server Script (auto-enroll) | Auto-creates Email Campaign on Lead insert |
+| Scheduler Job | Processes Email Campaigns hourly |
+
+### Customizing the Welcome Email
+
+1. Go to **Email Template** → "Newsletter Welcome Email"
+2. Edit the subject and HTML content
+3. Available variables: `{{ doc.first_name }}`, `{{ doc.last_name }}`, `{{ doc.email }}`, `{{ doc.organization }}`
+
+### Monitoring
+
+- View all Email Campaigns: **CRM → Email Campaign**
+- Check scheduler logs: **Setup → Scheduled Job Log**
+- Email sending logs: **Setup → Email Queue**
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Email not sending | Check System Settings → Enable Scheduler |
+| Lead not enrolled | Verify form_name matches newsletter patterns |
+| Template not found | Run `bench migrate` to import fixtures |
+
 ## Troubleshooting
 
 ### Common Issues

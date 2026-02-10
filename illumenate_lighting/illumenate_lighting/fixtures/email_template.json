@@ -1,0 +1,9 @@
+[
+	{
+		"doctype": "Email Template",
+		"name": "Newsletter Welcome Email",
+		"subject": "Welcome to ilLumenate Lighting! ✨",
+		"use_html": 1,
+		"response_html": "<p>Hi {{ doc.first_name or 'there' }},</p><p>Thank you for subscribing to the ilLumenate Lighting newsletter!</p><p>We're excited to have you join our community. You'll be the first to know about:</p><ul><li>New product launches</li><li>Design inspiration and project spotlights</li><li>Exclusive offers and updates</li></ul><p>In the meantime, feel free to explore our website and discover how ilLumenate can transform your lighting projects.</p><p>Best regards,<br>The ilLumenate Lighting Team</p>"
+	}
+]
