@@ -121,6 +121,48 @@ Allows users to configure fixtures using segment-based configuration
 		</ol>
 	</nav>
 
+	<!-- Schedule Context Selector -->
+	<div class="card mb-3" id="scheduleContextCard">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+			<small class="text-muted" id="scheduleContextHint">{{ _("Select a project and line to save this configuration to a fixture schedule") }}</small>
+		</div>
+		<div class="card-body">
+			<div class="row">
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("Project") }}</label>
+						<select class="form-control" id="projectSelect">
+							<option value="">{{ _("Select Project...") }}</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("Fixture Schedule") }}</label>
+						<select class="form-control" id="scheduleSelect" disabled>
+							<option value="">{{ _("Select Schedule...") }}</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("Line ID") }}</label>
+						<select class="form-control" id="lineSelect" disabled>
+							<option value="">{{ _("Select Line...") }}</option>
+							<option value="__new__">{{ _("+ New Line") }}</option>
+						</select>
+					</div>
+				</div>
+			</div>
+			<!-- Line preview (shows when a line with existing data is selected) -->
+			<div id="linePreview" class="alert alert-warning mt-2" style="display: none;">
+				<strong><i class="fa fa-exclamation-triangle"></i> {{ _("Existing Line Data") }}</strong>
+				<p class="mb-0 mt-1 small" id="linePreviewText"></p>
+			</div>
+		</div>
+	</div>
+
 	<div class="row">
 		<!-- Configurator Form -->
 		<div class="col-lg-7">
@@ -238,11 +280,9 @@ Allows users to configure fixtures using segment-based configuration
 				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
-				{% if can_save %}
-				<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" disabled>
+				<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" style="display: none;" disabled>
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>
-				{% endif %}
 			</div>
 		</div>
 
@@ -488,20 +528,193 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block script %}
 <script>
-var schedule_name = "{{ schedule.name if schedule else '' }}";
+var schedule_name = "{{ schedule_name }}";
 var line_idx = {{ line_idx if line_idx is not none else 'null' }};
+var prefill_project = "{{ project_name }}";
 var currentResult = null;
 var templateOptions = null;
 var segmentCount = 0;
 var MM_PER_INCH = 25.4;
 var MM_PER_FOOT = 304.8;
 var INCHES_PER_FOOT = 12;
+var scheduleLines = [];  // Cached schedule lines
+var canSaveToSchedule = {{ 'true' if can_save else 'false' }};
 
 console.log('Configurator script loaded');
 
-// Wrap event handlers in ready to ensure DOM is available
+// =====================================================================
+// Schedule Context Selectors (Project / Schedule / Line)
+// =====================================================================
+
+function loadUserProjects() {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_user_projects_for_configurator',
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				var select = $('#projectSelect');
+				select.empty().append('<option value="">Select Project...</option>');
+				r.message.projects.forEach(function(p) {
+					select.append('<option value="' + p.value + '">' + p.label + '</option>');
+				});
+				// Pre-fill if coming from schedule page
+				if (prefill_project) {
+					select.val(prefill_project);
+					select.trigger('change');
+				}
+			}
+		}
+	});
+}
+
+function loadSchedulesForProject(project_name) {
+	$('#scheduleSelect').empty().append('<option value="">Select Schedule...</option>').prop('disabled', true);
+	$('#lineSelect').empty().append('<option value="">Select Line...</option><option value="__new__">+ New Line</option>').prop('disabled', true);
+	$('#linePreview').hide();
+	updateSaveButtonVisibility();
+
+	if (!project_name) return;
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedules_for_project',
+		args: { project_name: project_name },
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				var select = $('#scheduleSelect');
+				select.empty().append('<option value="">Select Schedule...</option>');
+				r.message.schedules.forEach(function(s) {
+					var statusBadge = s.status ? ' [' + s.status + ']' : '';
+					select.append('<option value="' + s.value + '">' + s.label + statusBadge + '</option>');
+				});
+				select.prop('disabled', false);
+
+				// Pre-fill if coming from schedule page
+				if (schedule_name) {
+					select.val(schedule_name);
+					select.trigger('change');
+				}
+			}
+		}
+	});
+}
+
+function loadScheduleLines(sched_name) {
+	$('#lineSelect').empty().append('<option value="">Select Line...</option><option value="__new__">+ New Line</option>').prop('disabled', true);
+	$('#linePreview').hide();
+	scheduleLines = [];
+	schedule_name = sched_name;
+	updateSaveButtonVisibility();
+
+	if (!sched_name) return;
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator',
+		args: { schedule_name: sched_name },
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				scheduleLines = r.message.lines;
+				canSaveToSchedule = r.message.can_save;
+
+				var select = $('#lineSelect');
+				select.empty().append('<option value="">Select Line...</option>');
+
+				r.message.lines.forEach(function(l) {
+					var typeLabel = '';
+					if (l.manufacturer_type === 'OTHER') typeLabel = ' [Other Mfg]';
+					else if (l.manufacturer_type === 'ACCESSORY') typeLabel = ' [Accessory]';
+					else if (l.configuration_status === 'Configured') typeLabel = ' [Configured]';
+					else typeLabel = ' [Pending]';
+
+					select.append('<option value="' + l.idx + '">' + l.line_id + typeLabel + '</option>');
+				});
+
+				select.append('<option value="__new__">+ New Line</option>');
+				select.prop('disabled', false);
+
+				// Pre-fill if coming from schedule page
+				if (line_idx !== null) {
+					select.val(line_idx);
+					select.trigger('change');
+				}
+
+				updateSaveButtonVisibility();
+			}
+		}
+	});
+}
+
+function showLinePreview(lineIdx) {
+	$('#linePreview').hide();
+
+	if (lineIdx === '' || lineIdx === '__new__' || lineIdx === null || lineIdx === undefined) return;
+
+	var idx = parseInt(lineIdx);
+	var line = scheduleLines.find(function(l) { return l.idx === idx; });
+	if (!line) return;
+
+	// Show preview if line has existing data
+	var hasData = (
+		line.configured_fixture ||
+		line.manufacturer_name ||
+		line.fixture_model_number ||
+		(line.manufacturer_type === 'ILLUMENATE' && line.fixture_template)
+	);
+
+	if (hasData) {
+		$('#linePreviewText').text(line.summary);
+		$('#linePreview').show();
+	}
+}
+
+function updateSaveButtonVisibility() {
+	var hasSchedule = !!$('#scheduleSelect').val();
+	var hasLine = !!$('#lineSelect').val();
+
+	if (hasSchedule && hasLine && canSaveToSchedule) {
+		$('#saveBtn').show();
+		// Only enable if we have a valid calculation result
+		if (currentResult && currentResult.is_valid) {
+			$('#saveBtn').prop('disabled', false);
+		} else {
+			$('#saveBtn').prop('disabled', true);
+		}
+	} else {
+		$('#saveBtn').hide();
+	}
+}
+
+// =====================================================================
+// DOM Ready
+// =====================================================================
+
 $(function() {
 	console.log('DOM ready - attaching event handlers');
+
+	// Load projects for the selector
+	loadUserProjects();
+
+	// Schedule context selectors
+	$('#projectSelect').on('change', function() {
+		loadSchedulesForProject($(this).val());
+	});
+
+	$('#scheduleSelect').on('change', function() {
+		loadScheduleLines($(this).val());
+	});
+
+	$('#lineSelect').on('change', function() {
+		var val = $(this).val();
+		if (val === '__new__') {
+			line_idx = null;
+			$('#linePreview').hide();
+		} else if (val) {
+			line_idx = parseInt(val);
+			showLinePreview(val);
+		} else {
+			line_idx = null;
+			$('#linePreview').hide();
+		}
+		updateSaveButtonVisibility();
+	});
 	
 	// Load template options when template is selected
 	$('select[name="fixture_template_code"]').on('change', function() {
@@ -1232,11 +1445,12 @@ function displayResults(result) {
 	var statusBadge = $('#validationStatus');
 	if (result.is_valid) {
 		statusBadge.removeClass('badge-secondary badge-danger').addClass('badge-success').text('Valid');
-		$('#saveBtn').prop('disabled', false);
 	} else {
 		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
-		$('#saveBtn').prop('disabled', true);
 	}
+
+	// Update save button based on schedule selection
+	updateSaveButtonVisibility();
 	
 	// Display messages
 	if (result.messages && result.messages.length > 0) {
@@ -1338,16 +1552,62 @@ function displayResults(result) {
 }
 
 function saveToSchedule() {
-	if (!currentResult || !currentResult.is_valid || !schedule_name) {
-		frappe.msgprint('Cannot save: configuration is not valid or no schedule specified');
+	if (!currentResult || !currentResult.is_valid) {
+		frappe.msgprint('Cannot save: configuration is not valid');
 		return;
 	}
-	
+
+	var selectedSchedule = $('#scheduleSelect').val();
+	var selectedLine = $('#lineSelect').val();
+
+	if (!selectedSchedule) {
+		frappe.msgprint('Please select a schedule to save to');
+		return;
+	}
+
+	if (!selectedLine) {
+		frappe.msgprint('Please select a line or choose "New Line"');
+		return;
+	}
+
+	var saveLine = (selectedLine === '__new__') ? null : parseInt(selectedLine);
+
+	// Check if we're overriding an existing line
+	if (saveLine !== null) {
+		var existingLine = scheduleLines.find(function(l) { return l.idx === saveLine; });
+		if (existingLine && (existingLine.configured_fixture || existingLine.manufacturer_name || existingLine.fixture_model_number)) {
+			// Show override confirmation
+			var confirmMsg = '<strong>Warning:</strong> This will override the existing data for line "' +
+				existingLine.line_id + '".<br><br>' +
+				'<strong>Current data:</strong><br>' +
+				'<div class="bg-light p-2 rounded mt-1 mb-2" style="font-size: 0.85rem;">' +
+				existingLine.summary.replace(/\|/g, '<br>') +
+				'</div>' +
+				'Are you sure you want to replace this with the new configuration?';
+
+			frappe.confirm(
+				confirmMsg,
+				function() {
+					// Yes - proceed with save
+					doSaveToSchedule(selectedSchedule, saveLine);
+				},
+				function() {
+					// No - cancel
+				}
+			);
+			return;
+		}
+	}
+
+	doSaveToSchedule(selectedSchedule, saveLine);
+}
+
+function doSaveToSchedule(scheduleName, lineIdx) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_configured_fixture_to_schedule',
 		args: {
-			schedule_name: schedule_name,
-			line_idx: line_idx,
+			schedule_name: scheduleName,
+			line_idx: lineIdx,
 			configured_fixture_id: currentResult.configured_fixture_id,
 			manufacturable_length_mm: currentResult.computed.manufacturable_overall_length_mm
 		},
@@ -1359,7 +1619,7 @@ function saveToSchedule() {
 					message: 'Configuration saved to schedule'
 				});
 				// Redirect back to schedule
-				window.location.href = '/portal/schedules/' + schedule_name;
+				window.location.href = '/portal/schedules/' + scheduleName;
 			} else {
 				frappe.msgprint(r.message.error || 'Error saving configuration');
 			}

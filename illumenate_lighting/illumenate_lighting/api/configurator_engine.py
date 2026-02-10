@@ -3546,7 +3546,31 @@ def get_ccts_for_template(
 	cct_codes = list({row.cct for row in tape_offerings if row.cct})
 
 	if not cct_codes:
-		return {"success": True, "ccts": [], "error": None}
+		# Fallback: If no CCTs found from tape offerings (e.g. no tapes match the
+		# selected LED package), return all active CCTs so the user can still proceed
+		all_ccts = frappe.get_all(
+			"ilL-Attribute-CCT",
+			filters={"is_active": 1},
+			fields=["name", "code", "label", "kelvin", "sort_order"],
+			order_by="sort_order asc, kelvin asc",
+		)
+		# If no active CCTs, get all CCTs (is_active may not be set)
+		if not all_ccts:
+			all_ccts = frappe.get_all(
+				"ilL-Attribute-CCT",
+				fields=["name", "code", "label", "kelvin", "sort_order"],
+				order_by="sort_order asc, kelvin asc",
+			)
+		fallback_result = [
+			{
+				"value": cct.name,
+				"label": cct.label or cct.name,
+				"code": cct.code,
+				"kelvin": cct.kelvin,
+			}
+			for cct in all_ccts
+		]
+		return {"success": True, "ccts": fallback_result, "error": None}
 
 	# Get CCT details - only filter by is_active if active CCTs exist
 	cct_filters = {"name": ["in", cct_codes]}

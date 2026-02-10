@@ -11,13 +11,14 @@ def get_context(context):
 	if frappe.session.user == "Guest":
 		frappe.throw("Please login to configure fixtures", frappe.PermissionError)
 
-	# Get optional schedule context
+	# Get optional schedule context (pre-fill from fixture schedule line UI)
 	schedule_name = frappe.form_dict.get("schedule")
 	line_idx = frappe.form_dict.get("line_idx")
 	template_code = frappe.form_dict.get("template")
 
 	schedule = None
 	can_save = False
+	project_name = None
 
 	if schedule_name:
 		if frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
@@ -31,6 +32,9 @@ def get_context(context):
 			if has_permission(schedule, "write", frappe.session.user):
 				can_save = True
 
+			# Get the project name for pre-filling the selector
+			project_name = schedule.ill_project
+
 	# Get available templates
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
@@ -40,16 +44,11 @@ def get_context(context):
 	)
 
 	# Determine if pricing should be shown based on user role
-	# For MVP, show pricing to all users (can be restricted later)
 	show_pricing = True
 
-	# Check if specific roles should hide pricing
-	user_roles = frappe.get_roles(frappe.session.user)
-	# Example: hide pricing for certain roles
-	# if "ilL Portal Customer" in user_roles and "ilL Dealer" not in user_roles:
-	#     show_pricing = False
-
 	context.schedule = schedule
+	context.schedule_name = schedule_name or ""
+	context.project_name = project_name or ""
 	context.line_idx = int(line_idx) if line_idx is not None else None
 	context.can_save = can_save
 	context.templates = templates

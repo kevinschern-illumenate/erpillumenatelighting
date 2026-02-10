@@ -137,6 +137,247 @@ def get_allowed_customers_for_project() -> dict:
 
 
 @frappe.whitelist()
+def get_user_projects_for_configurator() -> dict:
+	"""
+	Get projects accessible to the current user for the configurator page.
+
+	Returns projects where:
+	- The user owns the project
+	- The project's owner_customer matches the user's customer (company-level)
+	- The user is a collaborator on a private project
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"projects": [{"value": name, "label": project_name, "customer": customer}]
+		}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_internal_user,
+	)
+
+	user = frappe.session.user
+
+	# System Manager / internal users: get all active projects
+	if _is_internal_user(user):
+		projects = frappe.get_all(
+			"ilL-Project",
+			filters={"is_active": 1},
+			fields=["name", "project_name", "customer"],
+			order_by="project_name asc",
+		)
+		return {
+			"success": True,
+			"projects": [
+				{"value": p.name, "label": p.project_name or p.name, "customer": p.customer}
+				for p in projects
+			],
+		}
+
+	user_customer = _get_user_customer(user)
+
+	conditions = []
+	params = {"user": user}
+
+	if user_customer:
+		params["user_customer"] = user_customer
+		# Company-level projects (non-private) + private ones user owns or collaborates on
+		conditions.append("""
+			(
+				(`tabilL-Project`.owner_customer = %(user_customer)s AND `tabilL-Project`.is_private = 0)
+				OR `tabilL-Project`.owner = %(user)s
+				OR `tabilL-Project`.name IN (
+					SELECT parent FROM `tabilL-Child-Project-Collaborator`
+					WHERE user = %(user)s AND is_active = 1
+				)
+			)
+		""")
+	else:
+		# No customer link — only own projects or collaborations
+		conditions.append("""
+			(
+				`tabilL-Project`.owner = %(user)s
+				OR `tabilL-Project`.name IN (
+					SELECT parent FROM `tabilL-Child-Project-Collaborator`
+					WHERE user = %(user)s AND is_active = 1
+				)
+			)
+		""")
+
+	where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+	projects = frappe.db.sql(f"""
+		SELECT name, project_name, customer
+		FROM `tabilL-Project`
+		WHERE is_active = 1 AND {where_clause}
+		ORDER BY project_name ASC
+	""", params, as_dict=True)
+
+	return {
+		"success": True,
+		"projects": [
+			{"value": p.name, "label": p.project_name or p.name, "customer": p.customer}
+			for p in projects
+		],
+	}
+
+
+@frappe.whitelist()
+def get_schedules_for_project(project_name: str) -> dict:
+	"""
+	Get fixture schedules accessible to the current user for the given project.
+
+	Args:
+		project_name: Name of the ilL-Project
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"schedules": [{"value": name, "label": schedule_name, "status": status}]
+		}
+	"""
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "schedules": [], "error": "Project not found"}
+
+	# Check project-level permission
+	project = frappe.get_doc("ilL-Project", project_name)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		has_permission as project_has_permission,
+	)
+	if not project_has_permission(project, "read", frappe.session.user):
+		return {"success": False, "schedules": [], "error": "Permission denied"}
+
+	schedules = frappe.get_all(
+		"ilL-Project-Fixture-Schedule",
+		filters={"ill_project": project_name},
+		fields=["name", "schedule_name", "status"],
+		order_by="modified desc",
+	)
+
+	return {
+		"success": True,
+		"schedules": [
+			{"value": s.name, "label": s.schedule_name or s.name, "status": s.status}
+			for s in schedules
+		],
+	}
+
+
+@frappe.whitelist()
+def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
+	"""
+	Get all fixture schedule lines for a schedule, for display in the configurator.
+
+	Returns all lines including OTHER manufacturer lines so users can
+	override them with ilLumenate configurations.
+
+	Args:
+		schedule_name: Name of the ilL-Project-Fixture-Schedule
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"lines": [
+				{
+					"idx": int,
+					"line_id": str,
+					"manufacturer_type": str,
+					"qty": int,
+					"location": str,
+					"notes": str,
+					"configuration_status": str,
+					"configured_fixture": str or None,
+					"fixture_template": str or None,
+					"manufacturer_name": str or None,
+					"fixture_model_number": str or None,
+					"summary": str  -- human-readable summary of current content
+				}
+			],
+			"can_save": bool
+		}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "lines": [], "can_save": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	can_read = has_permission(schedule, "read", frappe.session.user)
+	if not can_read:
+		return {"success": False, "lines": [], "can_save": False, "error": "Permission denied"}
+
+	can_save = has_permission(schedule, "write", frappe.session.user)
+
+	lines = []
+	for idx, line in enumerate(schedule.lines or []):
+		line_data = {
+			"idx": idx,
+			"line_id": line.line_id or f"Line {idx + 1}",
+			"manufacturer_type": line.manufacturer_type or "ILLUMENATE",
+			"qty": line.qty or 1,
+			"location": line.location or "",
+			"notes": line.notes or "",
+			"configuration_status": line.configuration_status or "Pending",
+			"configured_fixture": line.configured_fixture or None,
+			"fixture_template": line.fixture_template or None,
+			"manufacturer_name": line.manufacturer_name or None,
+			"fixture_model_number": line.fixture_model_number or None,
+			"ill_item_code": line.ill_item_code or None,
+			"manufacturable_length_mm": line.manufacturable_length_mm or None,
+		}
+
+		# Build a human-readable summary of what's currently stored
+		summary_parts = []
+		if line.manufacturer_type == "ILLUMENATE":
+			if line.configured_fixture:
+				summary_parts.append(f"Configured: {line.configured_fixture}")
+				if line.ill_item_code:
+					summary_parts.append(f"Item: {line.ill_item_code}")
+				if line.manufacturable_length_mm:
+					length_in = round(line.manufacturable_length_mm / 25.4, 1)
+					summary_parts.append(f"Length: {length_in}\"")
+			elif line.fixture_template:
+				summary_parts.append(f"Template: {line.fixture_template} (not configured)")
+			else:
+				summary_parts.append("Empty ILLUMENATE line")
+		elif line.manufacturer_type == "OTHER":
+			if line.manufacturer_name:
+				summary_parts.append(f"Manufacturer: {line.manufacturer_name}")
+			if line.fixture_model_number:
+				summary_parts.append(f"Model: {line.fixture_model_number}")
+			if line.trim_info:
+				summary_parts.append(f"Trim: {line.trim_info}")
+			if line.housing_model_number:
+				summary_parts.append(f"Housing: {line.housing_model_number}")
+			if line.driver_model_number:
+				summary_parts.append(f"Driver: {line.driver_model_number}")
+			if not summary_parts:
+				summary_parts.append("Empty OTHER line")
+		elif line.manufacturer_type == "ACCESSORY":
+			if line.accessory_item:
+				summary_parts.append(f"Accessory: {line.accessory_item}")
+			else:
+				summary_parts.append("Empty ACCESSORY line")
+
+		if line.location:
+			summary_parts.append(f"Location: {line.location}")
+
+		line_data["summary"] = " | ".join(summary_parts)
+		lines.append(line_data)
+
+	return {
+		"success": True,
+		"lines": lines,
+		"can_save": can_save,
+	}
+
+
+@frappe.whitelist()
 def get_template_options(template_code: str) -> dict:
 	"""
 	Get allowed options for a fixture template.
