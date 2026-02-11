@@ -1475,6 +1475,40 @@ def resolve_attribute_webflow_ids(attribute_links: list) -> Dict[str, list]:
     return result
 
 
+def _resolve_dimming_from_driver_eligibility(fixture_template: str) -> List[Dict[str, str]]:
+    """Return dimming protocol attribute-link dicts derived from eligible drivers.
+
+    Queries ``ilL-Rel-Driver-Eligibility`` for the given fixture template,
+    collects the ``input_protocols`` from each linked ``ilL-Spec-Driver``,
+    and returns de-duplicated dicts suitable for inclusion in
+    ``attr_links_by_type["Dimming Protocol"]``.
+    """
+    eligible = frappe.get_all(
+        "ilL-Rel-Driver-Eligibility",
+        filters={"fixture_template": fixture_template, "is_active": 1},
+        fields=["driver_spec"],
+    )
+    seen: set = set()
+    links: List[Dict[str, str]] = []
+    for elig in eligible:
+        driver_doc = frappe.get_doc("ilL-Spec-Driver", elig.driver_spec)
+        for ip in getattr(driver_doc, "input_protocols", []):
+            protocol_name = ip.protocol
+            if not protocol_name or protocol_name in seen:
+                continue
+            seen.add(protocol_name)
+            proto_data = frappe.db.get_value(
+                "ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+            )
+            links.append({
+                "attribute_type": "Dimming Protocol",
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_name": protocol_name,
+                "display_label": proto_data.get("label") if proto_data else protocol_name,
+            })
+    return links
+
+
 def build_product_filter_field_data(attribute_links_by_type: Dict[str, list]) -> Dict[str, str]:
     """
     Build plain-text filter field data for Webflow from attribute links
@@ -1582,6 +1616,14 @@ def get_product_attribute_references(
                 "attribute_name": al.attribute_name,
                 "display_label": al.display_label,
             })
+
+        # Resolve dimming protocols from driver eligibility if the product
+        # is linked to a fixture template and no dimming entries exist yet.
+        fixture_template = getattr(doc, "fixture_template", None)
+        if fixture_template and "Dimming Protocol" not in attr_links_by_type:
+            dimming_links = _resolve_dimming_from_driver_eligibility(fixture_template)
+            if dimming_links:
+                attr_links_by_type["Dimming Protocol"] = dimming_links
 
         # Build plain-text filter field data
         filter_data = build_product_filter_field_data(attr_links_by_type)

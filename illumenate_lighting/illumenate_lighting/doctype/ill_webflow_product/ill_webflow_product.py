@@ -235,6 +235,38 @@ class ilLWebflowProduct(Document):
 						"display_order": display_order
 					})
 		
+		# Get dimming protocols from eligible drivers (ilL-Rel-Driver-Eligibility)
+		eligible_drivers = frappe.get_all(
+			"ilL-Rel-Driver-Eligibility",
+			filters={"fixture_template": self.fixture_template, "is_active": 1},
+			fields=["driver_spec"],
+		)
+		for elig in eligible_drivers:
+			driver_doc = frappe.get_doc("ilL-Spec-Driver", elig.driver_spec)
+			for ip in getattr(driver_doc, "input_protocols", []):
+				protocol_name = ip.protocol
+				if not protocol_name:
+					continue
+				existing = [a for a in attribute_links
+				            if a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+				            and a["attribute_name"] == protocol_name]
+				if not existing:
+					display_order += 1
+					proto_data = frappe.db.get_value(
+						"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+					)
+					webflow_id = self._get_attribute_webflow_id(
+						"ilL-Attribute-Dimming Protocol", protocol_name
+					)
+					attribute_links.append({
+						"attribute_type": "Dimming Protocol",
+						"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+						"attribute_name": protocol_name,
+						"display_label": proto_data.get("label") if proto_data else protocol_name,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order,
+					})
+
 		# Clear existing attribute links and add new ones
 		self.attribute_links = []
 		for link in attribute_links:
