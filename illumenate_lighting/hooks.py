@@ -371,7 +371,7 @@ doc_events = {
 # Request Events
 # ----------------
 # before_request = ["illumenate_lighting.utils.before_request"]
-# after_request = ["illumenate_lighting.utils.after_request"]
+after_request = ["illumenate_lighting.illumenate_lighting.utils.after_request"]
 
 # Job Events
 # ----------
@@ -411,18 +411,9 @@ doc_events = {
 
 # CORS Configuration
 # ------------------
-# Configure CORS for Webflow domains
-website_cors = {
-	"allowed_origins": [
-		"https://www.illumenatelighting.com",
-		"https://illumenatelighting.webflow.io",
-		"https://illumenate-staging.webflow.io",
-	],
-	"allowed_methods": ["GET", "POST", "OPTIONS"],
-	"allowed_headers": ["Content-Type", "Authorization", "X-Frappe-Token"],
-	"expose_headers": ["Content-Length"],
-	"max_age": 86400,
-}
+# CORS headers are injected by the after_request hook in
+# illumenate_lighting.illumenate_lighting.utils.after_request
+# Allowed origins are defined in ALLOWED_ORIGINS in that module.
 
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True

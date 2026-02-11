@@ -5,8 +5,38 @@
 Shared utility functions for ilLumenate Lighting.
 
 This module provides common helper functions used across the application,
-including input validation and parsing utilities.
+including input validation, parsing utilities, and CORS handling.
 """
+
+import frappe
+
+# ---------------------------------------------------------------------------
+# CORS – Allowed Webflow origins
+# ---------------------------------------------------------------------------
+
+ALLOWED_ORIGINS = [
+	"https://www.illumenatelighting.com",
+	"https://illumenatelighting.com",
+	"https://illumenatelighting.webflow.io",
+	"https://illumenate-staging.webflow.io",
+]
+
+
+def after_request(response):
+	"""Frappe after_request hook – inject CORS headers for allowed Webflow origins.
+
+	Args:
+		response: The werkzeug Response object passed by Frappe's after_request hook.
+	"""
+	origin = frappe.request.headers.get("Origin") if frappe.request else None
+	if not origin or origin not in ALLOWED_ORIGINS:
+		return
+
+	response.headers["Access-Control-Allow-Origin"] = origin
+	response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+	response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Frappe-Token"
+	response.headers["Access-Control-Allow-Credentials"] = "true"
+	response.headers["Vary"] = "Origin"
 
 
 def parse_positive_int(value, default: int = 1, minimum: int = 1) -> int:
