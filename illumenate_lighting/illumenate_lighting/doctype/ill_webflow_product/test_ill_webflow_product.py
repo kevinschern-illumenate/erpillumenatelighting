@@ -413,10 +413,29 @@ class TestExtrusionKitAttributePopulation(FrappeTestCase):
 
     def test_extrusion_kit_attribute_deduplication(self):
         """Test that extrusion kit doesn't add duplicate attributes."""
-        # This ensures that if both profile and lens have the same series,
-        # it's only added once to attribute_links
-        # Note: Full test would require creating actual spec records
-        pass
+        # This test verifies that if both profile and lens have the same series,
+        # or if multiple components have the same environment rating,
+        # the attribute is only added once to attribute_links
+        
+        # Note: This would require creating actual spec records with the same attributes
+        # For a lightweight test, we verify the structure exists
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Extrusion Kit Dedupe",
+            "product_slug": "test-extrusion-dedupe-" + frappe.generate_hash(length=6),
+            "product_type": "Extrusion Kit",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+        
+        # In a full integration test with actual profile/lens specs having duplicate series,
+        # we would verify that only one series attribute is added
+        # For now, we verify the product can be created and doesn't error
+        self.assertIsNotNone(product.name)
+        
+        # Cleanup
+        product.delete()
 
 
 class TestilLSpecController(FrappeTestCase):

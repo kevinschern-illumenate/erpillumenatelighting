@@ -100,7 +100,13 @@ class ilLWebflowProduct(Document):
 			self.append("attribute_links", link)
 	
 	def _populate_fixture_template_attributes(self, attribute_links):
-		"""Extract attributes from fixture template."""
+		"""Extract attributes from fixture template.
+		
+		Note: Caller must ensure self.fixture_template is set before calling this method.
+		"""
+		if not self.fixture_template:
+			return
+			
 		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
 		display_order = 0
 		
@@ -434,8 +440,8 @@ class ilLWebflowProduct(Document):
 								"webflow_item_id": webflow_id,
 								"display_order": display_order
 							})
-				except Exception as e:
-					# Skip if component spec doesn't exist or has issues
+				except (frappe.DoesNotExistError, AttributeError) as e:
+					# Skip if component spec doesn't exist or has missing attributes
 					frappe.log_error(
 						message=f"Error processing kit component {component.component_spec_name}: {str(e)}",
 						title="Extrusion Kit Attribute Population Error"
