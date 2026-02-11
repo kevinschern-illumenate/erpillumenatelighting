@@ -90,13 +90,12 @@ ATTRIBUTE_KEY_TO_DISPLAY = {v: k for k, v in ATTRIBUTE_TYPE_DISPLAY_MAP.items()}
 # E.g. "2700K,3000K,3500K" for CCT, "90+,95+" for CRI, etc.
 # ---------------------------------------------------------------------------
 ATTRIBUTE_FILTER_FIELD_SLUGS = {
-    "CCT": "cct-filter",
     "CRI": "cri-filter",
     "Finish": "finish-filter",
     "Lens Appearance": "lens-filter",
     "Mounting Method": "mounting-filter",
-    "Output Level": "output-level-filter",
-    "Environment Rating": "environment-rating-filter",
+    "Output Level": "output-levels-filter",
+    "Environment Rating": "environment-ratings-filter",
     "Feed Direction": "feed-direction-filter",
     "LED Package": "led-package-filter",
     "Dimming Protocol": "dimming-filter",
@@ -1492,7 +1491,7 @@ def build_product_filter_field_data(attribute_links_by_type: Dict[str, list]) ->
             ``attribute_name`` keys.
 
     Returns:
-        dict: ``{"cct-filter": "2700K,3000K,3500K", "cri-filter": "90+,95+"}``
+        dict: ``{"cri-filter": "90+,95+", "output-levels-filter": "100lm/ft,200lm/ft"}``
     """
     field_data: Dict[str, str] = {}
 

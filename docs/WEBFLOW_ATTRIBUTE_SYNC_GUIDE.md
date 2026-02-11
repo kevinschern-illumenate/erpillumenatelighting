@@ -189,8 +189,9 @@ Once attributes are synced to Webflow, you can reference them in your Products c
 
 In your Products collection, add Plain Text fields for each attribute type filter:
 
-- `cct-filter` → Comma-separated CCT names
 - `finish-filter` → Comma-separated Finish names
+- `output-levels-filter` → Comma-separated Output Level names
+- `environment-ratings-filter` → Comma-separated Environment Rating names
 - `dimming-filter` → Comma-separated Dimming Protocol names
 - etc.
 
