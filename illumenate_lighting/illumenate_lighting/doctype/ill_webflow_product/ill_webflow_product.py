@@ -81,12 +81,33 @@ class ilLWebflowProduct(Document):
 					self.sync_status = "Pending"
 
 	def populate_attribute_links(self):
-		"""Populate attribute links from the linked fixture template's allowed options and tape offerings."""
-		if self.product_type != "Fixture Template" or not self.fixture_template:
+		"""Populate attribute links from the linked fixture template's allowed options and tape offerings,
+		or from extrusion kit components."""
+		attribute_links = []
+		
+		# Handle Fixture Template
+		if self.product_type == "Fixture Template" and self.fixture_template:
+			self._populate_fixture_template_attributes(attribute_links)
+		# Handle Extrusion Kit
+		elif self.product_type == "Extrusion Kit":
+			self._populate_extrusion_kit_attributes(attribute_links)
+		else:
 			return
 		
+		# Clear existing attribute links and add new ones
+		self.attribute_links = []
+		for link in attribute_links:
+			self.append("attribute_links", link)
+	
+	def _populate_fixture_template_attributes(self, attribute_links):
+		"""Extract attributes from fixture template.
+		
+		Note: Caller must ensure self.fixture_template is set before calling this method.
+		"""
+		if not self.fixture_template:
+			return
+			
 		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
-		attribute_links = []
 		display_order = 0
 		
 		# Get attributes from allowed_options (Finish, Lens Appearance, Mounting Method, etc.)
@@ -268,10 +289,180 @@ class ilLWebflowProduct(Document):
 						"display_order": display_order,
 					})
 
-		# Clear existing attribute links and add new ones
-		self.attribute_links = []
-		for link in attribute_links:
-			self.append("attribute_links", link)
+	def _populate_extrusion_kit_attributes(self, attribute_links):
+		"""Extract attributes from extrusion kit profile spec, lens spec, and kit components."""
+		display_order = 0
+		
+		# Extract attributes from profile_spec if present
+		if self.profile_spec:
+			try:
+				profile = frappe.get_doc("ilL-Spec-Profile", self.profile_spec)
+			except frappe.DoesNotExistError:
+				frappe.log_error(
+					message=f"Profile spec {self.profile_spec} not found for extrusion kit {self.name}",
+					title="Extrusion Kit Profile Spec Not Found"
+				)
+				profile = None
+			
+			if profile:
+				# Series from profile
+				if profile.series:
+					display_order += 1
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", profile.series)
+					attribute_links.append({
+						"attribute_type": "Series",
+						"attribute_doctype": "ilL-Attribute-Series",
+						"attribute_name": profile.series,
+						"display_label": profile.series,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order
+					})
+				
+				# Environment Ratings from profile
+				for env in getattr(profile, 'supported_environment_ratings', []):
+					env_rating = getattr(env, 'environment_rating', None)
+					if env_rating:
+						existing = [a for a in attribute_links 
+						            if a["attribute_doctype"] == "ilL-Attribute-Environment Rating" 
+						            and a["attribute_name"] == env_rating]
+						if not existing:
+							display_order += 1
+							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Environment Rating", env_rating)
+							attribute_links.append({
+								"attribute_type": "Environment Rating",
+								"attribute_doctype": "ilL-Attribute-Environment Rating",
+								"attribute_name": env_rating,
+								"display_label": env_rating,
+								"webflow_item_id": webflow_id,
+								"display_order": display_order
+							})
+				
+				# Joiner System from profile
+				if profile.joiner_system:
+					display_order += 1
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Joiner System", profile.joiner_system)
+					attribute_links.append({
+						"attribute_type": "Joiner System",
+						"attribute_doctype": "ilL-Attribute-Joiner System",
+						"attribute_name": profile.joiner_system,
+						"display_label": profile.joiner_system,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order
+					})
+		
+		# Extract attributes from lens_spec if present
+		if self.lens_spec:
+			try:
+				lens = frappe.get_doc("ilL-Spec-Lens", self.lens_spec)
+			except frappe.DoesNotExistError:
+				frappe.log_error(
+					message=f"Lens spec {self.lens_spec} not found for extrusion kit {self.name}",
+					title="Extrusion Kit Lens Spec Not Found"
+				)
+				lens = None
+			
+			if lens:
+				# Lens Appearance
+				if lens.lens_appearance:
+					existing = [a for a in attribute_links 
+					            if a["attribute_doctype"] == "ilL-Attribute-Lens Appearance" 
+					            and a["attribute_name"] == lens.lens_appearance]
+					if not existing:
+						display_order += 1
+						webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Lens Appearance", lens.lens_appearance)
+						attribute_links.append({
+							"attribute_type": "Lens Appearance",
+							"attribute_doctype": "ilL-Attribute-Lens Appearance",
+							"attribute_name": lens.lens_appearance,
+							"display_label": lens.lens_appearance,
+							"webflow_item_id": webflow_id,
+							"display_order": display_order
+						})
+				
+				# Series from lens (if not already added from profile)
+				if lens.series:
+					existing = [a for a in attribute_links 
+					            if a["attribute_doctype"] == "ilL-Attribute-Series" 
+					            and a["attribute_name"] == lens.series]
+					if not existing:
+						display_order += 1
+						webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", lens.series)
+						attribute_links.append({
+							"attribute_type": "Series",
+							"attribute_doctype": "ilL-Attribute-Series",
+							"attribute_name": lens.series,
+							"display_label": lens.series,
+							"webflow_item_id": webflow_id,
+							"display_order": display_order
+						})
+		
+		# Extract attributes from kit_components (endcaps, mounting accessories, etc.)
+		for component in getattr(self, 'kit_components', []):
+			if not component.component_spec_doctype or not component.component_spec_name:
+				continue
+			
+			# Only process accessories (endcaps, mounting, etc.)
+			if component.component_spec_doctype == "ilL-Spec-Accessory":
+				try:
+					accessory = frappe.get_doc(component.component_spec_doctype, component.component_spec_name)
+					
+					# Endcap Style
+					if accessory.endcap_style:
+						existing = [a for a in attribute_links 
+						            if a["attribute_doctype"] == "ilL-Attribute-Endcap Style" 
+						            and a["attribute_name"] == accessory.endcap_style]
+						if not existing:
+							display_order += 1
+							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Endcap Style", accessory.endcap_style)
+							attribute_links.append({
+								"attribute_type": "Endcap Style",
+								"attribute_doctype": "ilL-Attribute-Endcap Style",
+								"attribute_name": accessory.endcap_style,
+								"display_label": accessory.endcap_style,
+								"webflow_item_id": webflow_id,
+								"display_order": display_order
+							})
+					
+					# Mounting Method
+					if accessory.mounting_method:
+						existing = [a for a in attribute_links 
+						            if a["attribute_doctype"] == "ilL-Attribute-Mounting Method" 
+						            and a["attribute_name"] == accessory.mounting_method]
+						if not existing:
+							display_order += 1
+							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Mounting Method", accessory.mounting_method)
+							attribute_links.append({
+								"attribute_type": "Mounting Method",
+								"attribute_doctype": "ilL-Attribute-Mounting Method",
+								"attribute_name": accessory.mounting_method,
+								"display_label": accessory.mounting_method,
+								"webflow_item_id": webflow_id,
+								"display_order": display_order
+							})
+					
+					# Environment Rating from accessory
+					if accessory.environment_rating:
+						existing = [a for a in attribute_links 
+						            if a["attribute_doctype"] == "ilL-Attribute-Environment Rating" 
+						            and a["attribute_name"] == accessory.environment_rating]
+						if not existing:
+							display_order += 1
+							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Environment Rating", accessory.environment_rating)
+							attribute_links.append({
+								"attribute_type": "Environment Rating",
+								"attribute_doctype": "ilL-Attribute-Environment Rating",
+								"attribute_name": accessory.environment_rating,
+								"display_label": accessory.environment_rating,
+								"webflow_item_id": webflow_id,
+								"display_order": display_order
+							})
+				except (frappe.DoesNotExistError, AttributeError) as e:
+					# Skip if component spec doesn't exist or has missing attributes
+					frappe.log_error(
+						message=f"Error processing kit component {component.component_spec_name}: {str(e)}",
+						title="Extrusion Kit Attribute Population Error"
+					)
+					continue
 
 	def _get_attribute_webflow_id(self, doctype: str, name: str) -> str | None:
 		"""Get the Webflow item ID for an attribute if it has been synced."""
