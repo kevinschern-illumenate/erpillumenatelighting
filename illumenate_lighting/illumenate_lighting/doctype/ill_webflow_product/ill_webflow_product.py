@@ -362,37 +362,39 @@ class ilLWebflowProduct(Document):
 				lens = None
 			
 			if lens:
-				existing = [a for a in attribute_links 
-				            if a["attribute_doctype"] == "ilL-Attribute-Lens Appearance" 
-				            and a["attribute_name"] == lens.lens_appearance]
-				if not existing:
-					display_order += 1
-					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Lens Appearance", lens.lens_appearance)
-					attribute_links.append({
-						"attribute_type": "Lens Appearance",
-						"attribute_doctype": "ilL-Attribute-Lens Appearance",
-						"attribute_name": lens.lens_appearance,
-						"display_label": lens.lens_appearance,
-						"webflow_item_id": webflow_id,
-						"display_order": display_order
-					})
-			
-			# Series from lens (if not already added from profile)
-			if lens.series:
-				existing = [a for a in attribute_links 
-				            if a["attribute_doctype"] == "ilL-Attribute-Series" 
-				            and a["attribute_name"] == lens.series]
-				if not existing:
-					display_order += 1
-					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", lens.series)
-					attribute_links.append({
-						"attribute_type": "Series",
-						"attribute_doctype": "ilL-Attribute-Series",
-						"attribute_name": lens.series,
-						"display_label": lens.series,
-						"webflow_item_id": webflow_id,
-						"display_order": display_order
-					})
+				# Lens Appearance
+				if lens.lens_appearance:
+					existing = [a for a in attribute_links 
+					            if a["attribute_doctype"] == "ilL-Attribute-Lens Appearance" 
+					            and a["attribute_name"] == lens.lens_appearance]
+					if not existing:
+						display_order += 1
+						webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Lens Appearance", lens.lens_appearance)
+						attribute_links.append({
+							"attribute_type": "Lens Appearance",
+							"attribute_doctype": "ilL-Attribute-Lens Appearance",
+							"attribute_name": lens.lens_appearance,
+							"display_label": lens.lens_appearance,
+							"webflow_item_id": webflow_id,
+							"display_order": display_order
+						})
+				
+				# Series from lens (if not already added from profile)
+				if lens.series:
+					existing = [a for a in attribute_links 
+					            if a["attribute_doctype"] == "ilL-Attribute-Series" 
+					            and a["attribute_name"] == lens.series]
+					if not existing:
+						display_order += 1
+						webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", lens.series)
+						attribute_links.append({
+							"attribute_type": "Series",
+							"attribute_doctype": "ilL-Attribute-Series",
+							"attribute_name": lens.series,
+							"display_label": lens.series,
+							"webflow_item_id": webflow_id,
+							"display_order": display_order
+						})
 		
 		# Extract attributes from kit_components (endcaps, mounting accessories, etc.)
 		for component in getattr(self, 'kit_components', []):

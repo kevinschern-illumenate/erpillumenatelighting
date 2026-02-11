@@ -387,7 +387,7 @@ class TestilLWebflowCategory(FrappeTestCase):
 class TestExtrusionKitAttributePopulation(FrappeTestCase):
     """Test cases for Extrusion Kit attribute population."""
 
-    def test_extrusion_kit_with_profile_spec(self):
+    def test_extrusion_kit_without_specs(self):
         """Test that extrusion kit can be created and doesn't error without specs.
         
         Note: Full integration testing with actual profile/lens spec records would require
