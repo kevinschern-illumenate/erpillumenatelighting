@@ -398,6 +398,48 @@ def create_complex_fixture_session(
 
 
 @frappe.whitelist(allow_guest=True)
+def download_spec_sheet(
+    product_slug: str,
+    selections: str,
+    project_name: str = "",
+    project_location: str = "",
+) -> dict:
+    """
+    Generate and return a spec sheet PDF from configurator selections.
+
+    Called from the Webflow product page when a user clicks "Download Spec Sheet"
+    after completing (or partially completing) the part number configurator.
+
+    Uses the existing validate_and_quote → generate_filled_submittal pipeline
+    so the output matches the spec submittals used on fixture schedules.
+
+    Args:
+        product_slug: The Webflow product slug (or fixture template code)
+        selections: JSON string of configurator selections
+        project_name: Optional project name to display on the sheet
+        project_location: Optional project location to display on the sheet
+
+    Returns:
+        dict: {success, file_url, filename, part_number} or {success, error}
+    """
+    try:
+        selections_dict = json.loads(selections) if isinstance(selections, str) else selections
+    except (json.JSONDecodeError, TypeError):
+        return {"success": False, "error": "Invalid selections JSON"}
+
+    from illumenate_lighting.illumenate_lighting.api.spec_sheet_generator import (
+        generate_from_webflow_selections,
+    )
+
+    return generate_from_webflow_selections(
+        product_slug=product_slug,
+        selections=selections_dict,
+        project_name=project_name,
+        project_location=project_location,
+    )
+
+
+@frappe.whitelist(allow_guest=True)
 def get_session(session_id: str) -> dict:
     """
     Get session data by session ID.

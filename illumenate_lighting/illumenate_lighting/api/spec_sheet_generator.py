@@ -1,0 +1,319 @@
+# Copyright (c) 2026, ilLumenate Lighting and contributors
+# For license information, please see license.txt
+
+"""
+Spec Sheet Generator for Webflow Product Pages
+
+Generates a pre-configured spec sheet (filled PDF submittal) from Webflow
+configurator selections, without requiring a project or fixture schedule.
+
+Flow:
+1. Webflow user completes configurator selections on product page
+2. User clicks "Download Spec Sheet" button
+3. This module receives selections, runs them through validate_and_quote
+   to create a Configured Fixture, then generates a filled spec submittal PDF
+4. Returns a guest-accessible PDF download URL
+
+Reuses existing infrastructure:
+- webflow_configurator._resolve_tape_offering() for tape selection
+- configurator_engine.validate_and_quote() for fixture creation
+- spec_submittal.generate_filled_submittal() for PDF generation
+"""
+
+import json
+from typing import Any
+
+import frappe
+from frappe import _
+from frappe.utils import now_datetime
+
+
+def generate_from_webflow_selections(
+    product_slug: str,
+    selections: dict,
+    project_name: str = "",
+    project_location: str = "",
+) -> dict:
+    """
+    Generate a spec sheet PDF from Webflow configurator selections.
+
+    This orchestrates the full pipeline:
+    1. Resolve product → fixture template
+    2. Map Webflow selections to configurator engine parameters
+    3. Run validate_and_quote to create a Configured Fixture
+    4. Generate filled spec submittal PDF from that fixture
+    5. Make the PDF publicly accessible and return the URL
+
+    Args:
+        product_slug: Webflow product slug or fixture template code
+        selections: Dict of configurator selections (environment_rating, cct,
+                    output_level, lens_appearance, mounting_method, finish,
+                    length_inches, start_feed_direction, etc.)
+        project_name: Optional project name for the spec sheet header
+        project_location: Optional project location for the spec sheet header
+
+    Returns:
+        dict: {success, file_url, filename, part_number} or {success, error}
+    """
+    from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
+        _get_configurable_product,
+        _get_series_info,
+        _resolve_tape_offering,
+        _generate_full_part_number,
+    )
+
+    # ── Step 1: Resolve product and template ──────────────────────────
+    product = _get_configurable_product(product_slug)
+    if not product:
+        return {"success": False, "error": "Product not found or not configurable"}
+
+    template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
+    series_info = _get_series_info(template)
+
+    # ── Step 2: Resolve tape offering from selections ─────────────────
+    tape_offering_id = _resolve_tape_offering(template, selections)
+    if not tape_offering_id:
+        return {
+            "success": False,
+            "error": "No tape offering matches your configuration. Please check your selections.",
+        }
+
+    # ── Step 3: Map Webflow selections → engine codes ─────────────────
+    engine_params = _map_selections_to_engine_codes(
+        template, selections, tape_offering_id
+    )
+    if engine_params.get("error"):
+        return {"success": False, "error": engine_params["error"]}
+
+    # ── Step 4: Run validate_and_quote to create Configured Fixture ───
+    from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+        validate_and_quote,
+    )
+
+    quote_result = validate_and_quote(
+        fixture_template_code=product.fixture_template,
+        finish_code=engine_params["finish_code"],
+        lens_appearance_code=engine_params["lens_appearance_code"],
+        mounting_method_code=engine_params["mounting_method_code"],
+        endcap_style_start_code=engine_params["endcap_style_start_code"],
+        endcap_style_end_code=engine_params["endcap_style_end_code"],
+        endcap_color_code=engine_params["endcap_color_code"],
+        power_feed_type_code=engine_params["power_feed_type_code"],
+        environment_rating_code=engine_params["environment_rating_code"],
+        tape_offering_id=tape_offering_id,
+        requested_overall_length_mm=engine_params["requested_overall_length_mm"],
+    )
+
+    if not quote_result.get("is_valid"):
+        error_msgs = [
+            m["text"]
+            for m in quote_result.get("messages", [])
+            if m.get("severity") == "error"
+        ]
+        return {
+            "success": False,
+            "error": "; ".join(error_msgs) if error_msgs else "Configuration is invalid",
+        }
+
+    configured_fixture_id = quote_result.get("configured_fixture_id")
+    if not configured_fixture_id:
+        return {
+            "success": False,
+            "error": "Could not create configured fixture for this configuration",
+        }
+
+    # ── Step 5: Generate the filled spec submittal PDF ────────────────
+    from illumenate_lighting.illumenate_lighting.api.spec_submittal import (
+        generate_filled_submittal,
+    )
+
+    submittal_result = generate_filled_submittal(configured_fixture_id)
+
+    if not submittal_result.get("success") or not submittal_result.get("file_url"):
+        # Fall back to the static spec sheet from the fixture template
+        spec_sheet_url = template.spec_sheet if hasattr(template, "spec_sheet") else None
+        if spec_sheet_url:
+            # Generate part number for the response
+            part_number = _generate_full_part_number(series_info, selections)
+            return {
+                "success": True,
+                "file_url": spec_sheet_url,
+                "filename": f"Spec_Sheet_{part_number}.pdf",
+                "part_number": part_number,
+                "note": "Static spec sheet returned (no fillable template configured for this series)",
+            }
+        return {
+            "success": False,
+            "error": submittal_result.get("message") or "Could not generate spec sheet PDF",
+        }
+
+    # ── Step 6: Make the file publicly accessible ─────────────────────
+    file_url = submittal_result["file_url"]
+    file_url = _ensure_public_file(file_url)
+
+    part_number = _generate_full_part_number(series_info, selections)
+
+    return {
+        "success": True,
+        "file_url": file_url,
+        "filename": f"Spec_Sheet_{part_number}.pdf",
+        "part_number": part_number,
+    }
+
+
+def _map_selections_to_engine_codes(
+    template, selections: dict, tape_offering_id: str
+) -> dict:
+    """
+    Map Webflow configurator selections (attribute names) to the code-based
+    parameters expected by validate_and_quote().
+
+    The Webflow configurator uses attribute document names (e.g. "Dry Rated")
+    while the engine uses codes (e.g. "DR"). This function bridges the gap
+    and supplies sensible defaults for fields the Webflow UI doesn't expose
+    (endcap style, endcap color, power feed type).
+
+    Returns:
+        dict with all engine parameter keys, or {"error": str} on failure
+    """
+    errors = []
+
+    # Direct mappings — Webflow selections use attribute names which
+    # are also the document names, so we can use them directly as codes
+    # since validate_and_quote() looks up attributes by name/code
+    finish_code = selections.get("finish", "")
+    lens_appearance_code = selections.get("lens_appearance", "")
+    mounting_method_code = selections.get("mounting_method", "")
+    environment_rating_code = selections.get("environment_rating", "")
+
+    if not finish_code:
+        errors.append("Finish is required")
+    if not lens_appearance_code:
+        errors.append("Lens appearance is required")
+    if not mounting_method_code:
+        errors.append("Mounting method is required")
+    if not environment_rating_code:
+        errors.append("Environment rating is required")
+
+    # Length: convert inches → mm
+    length_inches = selections.get("length_inches")
+    if not length_inches:
+        errors.append("Length is required")
+        requested_overall_length_mm = 0
+    else:
+        requested_overall_length_mm = int(round(float(length_inches) * 25.4))
+
+    # ── Endcap & power feed defaults ──────────────────────────────────
+    # The Webflow configurator exposes Start/End Feed Direction + Length
+    # but not endcap style, endcap color, or power feed type directly.
+    # We derive sensible defaults from the template.
+
+    # Endcap style: use the first allowed endcap style or the template default
+    endcap_style_start_code = _get_default_option(template, "Endcap Style", "endcap_style")
+    endcap_style_end_code = endcap_style_start_code  # Same for both ends by default
+
+    # Endcap color: use the first allowed endcap color or default
+    endcap_color_code = _get_default_option(template, "Endcap Color", "endcap_color")
+
+    # Power feed type: derive from Webflow's start_feed_direction
+    power_feed_type_code = _resolve_power_feed_type(selections)
+
+    if errors:
+        return {"error": "; ".join(errors)}
+
+    return {
+        "finish_code": finish_code,
+        "lens_appearance_code": lens_appearance_code,
+        "mounting_method_code": mounting_method_code,
+        "endcap_style_start_code": endcap_style_start_code,
+        "endcap_style_end_code": endcap_style_end_code,
+        "endcap_color_code": endcap_color_code,
+        "power_feed_type_code": power_feed_type_code,
+        "environment_rating_code": environment_rating_code,
+        "requested_overall_length_mm": requested_overall_length_mm,
+    }
+
+
+def _get_default_option(template, option_type: str, child_field: str) -> str:
+    """
+    Get the default (or first active) allowed option of a given type
+    from the fixture template's allowed_options child table.
+    """
+    for opt in getattr(template, "allowed_options", []) or []:
+        if (
+            getattr(opt, "option_type", None) == option_type
+            and getattr(opt, "is_active", True)
+        ):
+            # Prefer the one marked as default
+            if getattr(opt, "is_default", False):
+                return getattr(opt, child_field, "") or ""
+
+    # No default found — return the first active one
+    for opt in getattr(template, "allowed_options", []) or []:
+        if (
+            getattr(opt, "option_type", None) == option_type
+            and getattr(opt, "is_active", True)
+        ):
+            return getattr(opt, child_field, "") or ""
+
+    return ""
+
+
+def _resolve_power_feed_type(selections: dict) -> str:
+    """
+    Resolve the power feed type code from Webflow feed direction selections.
+
+    The Webflow configurator uses start_feed_direction (End/Back) while the
+    engine expects a Power Feed Type attribute name.
+    """
+    start_dir = selections.get("start_feed_direction", "")
+
+    # Try to find a matching Power Feed Type attribute
+    if start_dir and frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
+        # Try exact match first
+        if frappe.db.exists("ilL-Attribute-Power Feed Type", start_dir):
+            return start_dir
+
+        # Try matching by code
+        match = frappe.db.get_value(
+            "ilL-Attribute-Power Feed Type",
+            {"code": start_dir[:1].upper()},
+            "name",
+        )
+        if match:
+            return match
+
+        # Fallback: get the first active power feed type
+        first = frappe.db.get_value(
+            "ilL-Attribute-Power Feed Type",
+            {"is_active": 1},
+            "name",
+            order_by="name asc",
+        )
+        if first:
+            return first
+
+    return start_dir or "End"
+
+
+def _ensure_public_file(file_url: str) -> str:
+    """
+    Ensure the generated file is publicly accessible (not private).
+
+    Spec sheet downloads from Webflow need to be guest-accessible.
+    If the file is in /private/files/, copy it to /files/.
+    """
+    if not file_url or not file_url.startswith("/private/files/"):
+        return file_url
+
+    try:
+        file_doc = frappe.get_doc("File", {"file_url": file_url})
+        if file_doc.is_private:
+            file_doc.is_private = 0
+            file_doc.save(ignore_permissions=True)
+            frappe.db.commit()
+            return file_doc.file_url
+    except Exception:
+        pass
+
+    return file_url
