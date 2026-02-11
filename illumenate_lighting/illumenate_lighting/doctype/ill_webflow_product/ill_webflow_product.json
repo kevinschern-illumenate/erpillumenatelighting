@@ -35,6 +35,7 @@
   "kit_components",
   "marketing_section",
   "short_description",
+  "features",
   "long_description",
   "featured_image",
   "column_break_marketing",
@@ -245,6 +246,12 @@
    "fieldname": "short_description",
    "fieldtype": "Small Text",
    "label": "Short Description"
+  },
+  {
+   "description": "Key product features and selling points",
+   "fieldname": "features",
+   "fieldtype": "Small Text",
+   "label": "Features"
   },
   {
    "description": "Rich HTML content for product detail page",

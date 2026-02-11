@@ -100,7 +100,7 @@ def get_webflow_products(
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "profile_spec", "lens_spec", "tape_spec", "accessory_spec",
-            "short_description", "long_description", "featured_image",
+            "short_description", "features", "long_description", "featured_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
