@@ -416,6 +416,7 @@ website_cors = {
 	"allowed_origins": [
 		"https://www.illumenatelighting.com",
 		"https://illumenatelighting.webflow.io",
+		"https://illumenate-staging.webflow.io",
 	],
 	"allowed_methods": ["GET", "POST", "OPTIONS"],
 	"allowed_headers": ["Content-Type", "Authorization", "X-Frappe-Token"],

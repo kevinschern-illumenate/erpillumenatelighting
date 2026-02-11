@@ -165,26 +165,42 @@ def _map_selections_to_engine_codes(
     template, selections: dict, tape_offering_id: str
 ) -> dict:
     """
-    Map Webflow configurator selections (attribute names) to the code-based
-    parameters expected by validate_and_quote().
+    Map Webflow configurator selections to the parameters expected by
+    validate_and_quote().
 
-    The Webflow configurator uses attribute document names (e.g. "Dry Rated")
-    while the engine uses codes (e.g. "DR"). This function bridges the gap
-    and supplies sensible defaults for fields the Webflow UI doesn't expose
-    (endcap style, endcap color, power feed type).
+    The Webflow page sends radio button values which may be:
+      - ERPNext document names (e.g. "Dry Rated")
+      - Display names (e.g. "100 lm/ft")
+      - Short codes (e.g. "WH", "FR")
+
+    This function tries each value as-is first, then falls back to
+    looking up by code, then by matching against the template's
+    allowed_options child table.
 
     Returns:
         dict with all engine parameter keys, or {"error": str} on failure
     """
     errors = []
 
-    # Direct mappings — Webflow selections use attribute names which
-    # are also the document names, so we can use them directly as codes
-    # since validate_and_quote() looks up attributes by name/code
-    finish_code = selections.get("finish", "")
-    lens_appearance_code = selections.get("lens_appearance", "")
-    mounting_method_code = selections.get("mounting_method", "")
-    environment_rating_code = selections.get("environment_rating", "")
+    # ── Resolve each attribute selection ──────────────────────────────
+    # For each field, try: raw value → code lookup → allowed_options scan
+
+    finish_code = _resolve_attribute(
+        selections, "finish", "finish_code",
+        "ilL-Attribute-Finish", "code", template, "Finish", "finish",
+    )
+    lens_appearance_code = _resolve_attribute(
+        selections, "lens_appearance", "lens_appearance_code",
+        "ilL-Attribute-Lens Appearance", "code", template, "Lens Appearance", "lens_appearance",
+    )
+    mounting_method_code = _resolve_attribute(
+        selections, "mounting_method", "mounting_method_code",
+        "ilL-Attribute-Mounting Method", "code", template, "Mounting Method", "mounting_method",
+    )
+    environment_rating_code = _resolve_attribute(
+        selections, "environment_rating", "environment_rating_code",
+        "ilL-Attribute-Environment Rating", "code", template, "Environment Rating", "environment_rating",
+    )
 
     if not finish_code:
         errors.append("Finish is required")
@@ -204,18 +220,11 @@ def _map_selections_to_engine_codes(
         requested_overall_length_mm = int(round(float(length_inches) * 25.4))
 
     # ── Endcap & power feed defaults ──────────────────────────────────
-    # The Webflow configurator exposes Start/End Feed Direction + Length
-    # but not endcap style, endcap color, or power feed type directly.
-    # We derive sensible defaults from the template.
-
-    # Endcap style: use the first allowed endcap style or the template default
     endcap_style_start_code = _get_default_option(template, "Endcap Style", "endcap_style")
-    endcap_style_end_code = endcap_style_start_code  # Same for both ends by default
+    endcap_style_end_code = endcap_style_start_code
 
-    # Endcap color: use the first allowed endcap color or default
     endcap_color_code = _get_default_option(template, "Endcap Color", "endcap_color")
 
-    # Power feed type: derive from Webflow's start_feed_direction
     power_feed_type_code = _resolve_power_feed_type(selections)
 
     if errors:
@@ -232,6 +241,66 @@ def _map_selections_to_engine_codes(
         "environment_rating_code": environment_rating_code,
         "requested_overall_length_mm": requested_overall_length_mm,
     }
+
+
+def _resolve_attribute(
+    selections: dict,
+    value_key: str,
+    code_key: str,
+    doctype: str,
+    code_field: str,
+    template,
+    option_type: str,
+    child_field: str,
+) -> str:
+    """
+    Resolve a Webflow selection to an ERPNext attribute document name.
+
+    Tries in order:
+    1. The raw value — if it exists as a document name
+    2. The _code value — looked up by the code field
+    3. Scan the template's allowed_options for a match by code or name
+
+    Returns the ERPNext document name, or empty string if not resolvable.
+    """
+    raw_value = selections.get(value_key, "")
+    code_value = selections.get(code_key, "")
+
+    if not raw_value and not code_value:
+        return ""
+
+    # Try 1: raw value is already a valid document name
+    if raw_value and frappe.db.exists(doctype, raw_value):
+        return raw_value
+
+    # Try 2: look up by code (the JS sends data-code as {field}_code)
+    if code_value:
+        match = frappe.db.get_value(doctype, {code_field: code_value}, "name")
+        if match:
+            return match
+
+    # Try 3: raw value might be a code itself
+    if raw_value:
+        match = frappe.db.get_value(doctype, {code_field: raw_value}, "name")
+        if match:
+            return match
+
+    # Try 4: scan allowed_options on the template for a match
+    for opt in getattr(template, "allowed_options", []) or []:
+        if getattr(opt, "option_type", None) != option_type:
+            continue
+        if not getattr(opt, "is_active", True):
+            continue
+        attr_name = getattr(opt, child_field, "") or ""
+        if not attr_name:
+            continue
+        # Check if the code matches
+        attr_code = frappe.db.get_value(doctype, attr_name, code_field)
+        if attr_code and (attr_code == raw_value or attr_code == code_value):
+            return attr_name
+
+    # Last resort: return raw value and let validate_and_quote fail gracefully
+    return raw_value
 
 
 def _get_default_option(template, option_type: str, child_field: str) -> str:
