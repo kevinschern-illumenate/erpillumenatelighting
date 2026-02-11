@@ -8,11 +8,7 @@ This guide explains how product options are filtered on the Webflow website by s
 Previously, attribute fields on Webflow products were plain text strings (e.g. `"2700K, 3000K, 3500K"`). While useful for display, plain text makes it impossible for Webflow's CMS filtering and dynamic lists to cross-reference products against their attribute options.
 
 ### The Solution
-Each attribute type (CCT, Finish, CRI, etc.) already has a Webflow collection synced from ERPNext. We now add **new multi-reference fields** (with `-ref` suffixed slugs) on the Products collection that link to those attribute items — enabling native Webflow CMS filtering.
-
-**The existing plain text fields are preserved unchanged.** Both run side by side:
-- Plain text fields (`cct-options-5`, `finishes-5`, etc.) → for display
-- Multi-reference fields (`cct-ref`, `finish-ref`, etc.) → for filtering
+Each attribute type (CCT, Finish, CRI, etc.) already has a Webflow collection synced from ERPNext. The existing multi-reference fields on the Products collection link to those attribute items — enabling native Webflow CMS filtering.
 
 ---
 
@@ -153,23 +149,23 @@ Each attribute type needs its own Webflow CMS collection:
 - CCT Options, Finish Options, CRI Options, etc.
 - These are created by the existing attribute sync workflow
 
-### 2. Add Multi-Reference Fields to Products Collection
+### 2. Multi-Reference Fields on Products Collection
 
-In Webflow Designer, add **new** Multi-Reference fields for filtering. These are **separate from** the existing plain text fields:
+The Products collection should have Multi-Reference fields configured for filtering. These fields link to the respective attribute collections:
 
 | Field Name                | Field Slug              | References Collection |
 |---------------------------|-------------------------|-----------------------|
-| CRI Reference             | `cri-ref`               | CRI Options           |
-| Finish Reference          | `finish-ref`            | Finish Options        |
-| Lens Reference            | `lens-ref`              | Lens Appearances      |
-| Mounting Reference        | `mounting-ref`          | Mounting Methods      |
-| Output Level Reference    | `output-level-ref`      | Output Levels         |
-| Environment Rating Ref    | `environment-rating-ref`| Environment Ratings   |
-| Feed Direction Reference  | `feed-direction-ref`    | Feed Directions       |
-| LED Package Reference     | `led-package-ref`       | LED Packages          |
-| Dimming Reference         | `dimming-ref`           | Dimming Protocols     |
+| CRI Options               | `cris-5`                | CRI Options           |
+| Finish Options            | `finishes-5`            | Finish Options        |
+| Lens Options              | `lens-options-5`        | Lens Appearances      |
+| Mounting Methods          | `mounting-methods-5`    | Mounting Methods      |
+| Output Levels             | `output-levels-5`       | Output Levels         |
+| Environment Ratings       | `environment-ratings-5` | Environment Ratings   |
+| Feed Directions           | `feed-directions-5`     | Feed Directions       |
+| LED Package / Fixture Types | `fixture-types-5`     | LED Packages          |
+| Dimming Protocols         | `dimming-protocols-5`   | Dimming Protocols     |
 
-> **Important:** Do NOT delete or modify the existing plain text fields. The new `-ref` fields sit alongside them.
+> **Note:** CCT Options (`cct-options-5`) uses plain text only due to Webflow multi-reference field limits.
 
 ---
 

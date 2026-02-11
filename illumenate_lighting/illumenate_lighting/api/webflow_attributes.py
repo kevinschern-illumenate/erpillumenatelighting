@@ -90,15 +90,15 @@ ATTRIBUTE_KEY_TO_DISPLAY = {v: k for k, v in ATTRIBUTE_TYPE_DISPLAY_MAP.items()}
 # collection for each attribute type.
 # ---------------------------------------------------------------------------
 ATTRIBUTE_MULTIREF_FIELD_SLUGS = {
-    "CRI": "cri-ref",
-    "Finish": "finish-ref",
-    "Lens Appearance": "lens-ref",
-    "Mounting Method": "mounting-ref",
-    "Output Level": "output-level-ref",
-    "Environment Rating": "environment-rating-ref",
-    "Feed Direction": "feed-direction-ref",
-    "LED Package": "led-package-ref",
-    "Dimming Protocol": "dimming-ref",
+    "CRI": "cris-5",
+    "Finish": "finishes-5",
+    "Lens Appearance": "lens-options-5",
+    "Mounting Method": "mounting-methods-5",
+    "Output Level": "output-levels-5",
+    "Environment Rating": "environment-ratings-5",
+    "Feed Direction": "feed-directions-5",
+    "LED Package": "fixture-types-5",
+    "Dimming Protocol": "dimming-protocols-5",
 }
 
 
