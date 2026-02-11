@@ -399,6 +399,196 @@ bench --site your-site-name run-tests --app illumenate_lighting --module illumen
 
 ---
 
+## Webflow Portal Integration APIs
+
+The following endpoints support the Webflow ↔ ERPNext portal integration
+including authentication, dealer-gated pricing, and project/schedule management.
+
+### 6. Get User Context (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_auth.get_user_context`
+
+**Method:** POST
+
+**Authentication:** Required (session cookie or token)
+
+**Description:** Returns the authenticated user's context including role, linked customer, and API credentials. Called after successful login to populate the Webflow client session.
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "user": "dealer@example.com",
+  "full_name": "John Dealer",
+  "is_dealer": true,
+  "is_internal": false,
+  "customer": "CUST-001",
+  "customer_name": "Acme Lighting",
+  "api_key": "abc123...",
+  "api_secret": "xyz789..."
+}
+```
+
+### 7. Get Pricing (Dealer Only)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_pricing`
+
+**Method:** POST
+
+**Authentication:** Required + Dealer or Internal role
+
+**Parameters:**
+- `item_code` (required): Item code to look up pricing for
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "price": 149.99,
+  "currency": "USD",
+  "price_list": "Standard Selling"
+}
+```
+
+### 8. Get Projects (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_projects`
+
+**Method:** POST
+
+**Authentication:** Required
+
+**Description:** Returns all active ILL Projects linked to the user's Customer. Internal users see all projects.
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "projects": [
+    {
+      "name": "ILL-PROJ-2026-00001",
+      "project_name": "Downtown Office Remodel",
+      "customer": "CUST-001",
+      "status": "ACTIVE",
+      "location": "New York, NY"
+    }
+  ]
+}
+```
+
+### 9. Get Fixture Schedules (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_fixture_schedules`
+
+**Method:** POST
+
+**Authentication:** Required + Project ownership
+
+**Parameters:**
+- `project` (required): Name of the ilL-Project
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "schedules": [
+    {
+      "name": "ILL-SCHED-2026-00001",
+      "schedule_name": "Floor 1 Lighting",
+      "status": "DRAFT",
+      "line_count": 5
+    }
+  ]
+}
+```
+
+### 10. Get Line IDs (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_line_ids`
+
+**Method:** POST
+
+**Authentication:** Required + Project ownership
+
+**Parameters:**
+- `project` (required): Name of the ilL-Project
+- `fixture_schedule` (required): Name of the ilL-Project-Fixture-Schedule
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "lines": [
+    {
+      "name": "abc123",
+      "line_id": "L001",
+      "fixture_part_number": "SH01-DRY-30-MED-CLR-SUR-BLK-1000",
+      "qty": 2,
+      "location": "Conference Room A",
+      "manufacturer_type": "ILLUMENATE",
+      "configuration_status": "Configured"
+    }
+  ]
+}
+```
+
+### 11. Add Fixture to Schedule (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.add_fixture_to_schedule`
+
+**Method:** POST
+
+**Authentication:** Required + Project ownership + Schedule write permission
+
+**Parameters:**
+- `project` (required): Name of the ilL-Project
+- `fixture_schedule` (required): Name of the ilL-Project-Fixture-Schedule
+- `fixture_part_number` (required): The configured fixture part number
+- `line_id` (optional): Existing line ID to overwrite
+- `overwrite` (optional): `"1"` to overwrite existing line, `"0"` to create new (default)
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "line_id": "L001",
+  "action": "created"
+}
+```
+
+---
+
+## Webflow Client-Side Integration
+
+Include `webflow_portal.js` on Webflow pages to use the portal integration:
+
+```html
+<script src="https://your-erpnext.com/assets/illumenate_lighting/js/webflow_portal.js"></script>
+<script>
+  IllumenatePortal.init({ erpnextUrl: "https://your-erpnext.com" });
+
+  // Login
+  IllumenatePortal.login("user@example.com", "password").then(function(ctx) {
+    console.log("Logged in:", ctx.user, "Dealer:", ctx.is_dealer);
+  });
+
+  // Bind cascading dropdowns (auto-populates on selection change)
+  IllumenatePortal.bindCascadingDropdowns({
+    projectSelector: "#project-select",
+    scheduleSelector: "#schedule-select",
+    lineSelector: "#line-select",
+  });
+
+  // Fetch pricing for dealers
+  IllumenatePortal.fetchPricing("ITEM-001", document.getElementById("price-display"));
+
+  // Add fixture to schedule
+  IllumenatePortal.addFixture("PROJ-001", "SCHED-001", "SH01-xxx", "L001", true);
+</script>
+```
+
+---
+
 ## Support
 
 For issues or questions, contact:
