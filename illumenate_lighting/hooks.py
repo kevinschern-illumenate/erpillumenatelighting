@@ -418,7 +418,7 @@ website_cors = {
 		"https://illumenatelighting.webflow.io",
 	],
 	"allowed_methods": ["GET", "POST", "OPTIONS"],
-	"allowed_headers": ["Content-Type", "Authorization"],
+	"allowed_headers": ["Content-Type", "Authorization", "X-Frappe-Token"],
 	"expose_headers": ["Content-Length"],
 	"max_age": 86400,
 }
