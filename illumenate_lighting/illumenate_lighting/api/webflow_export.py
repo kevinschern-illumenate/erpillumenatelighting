@@ -19,9 +19,8 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
     ATTRIBUTE_DOCTYPES,
-    resolve_attribute_webflow_ids,
-    build_product_multiref_field_data,
-    ATTRIBUTE_MULTIREF_FIELD_SLUGS,
+    build_product_filter_field_data,
+    ATTRIBUTE_FILTER_FIELD_SLUGS,
 )
 
 # Base URL for converting relative file paths to absolute URLs
@@ -190,7 +189,7 @@ def get_webflow_products(
                 for cp in doc.compatible_products
             ]
             
-            # Add attribute links for Webflow multi-reference fields
+            # Add attribute links for Webflow filter fields
             product["attribute_links"] = [
                 {
                     "attribute_type": al.attribute_type,
@@ -245,13 +244,10 @@ def get_webflow_products(
                         pairs.append(f"{label}, {code}" if code else label)
                 product["attribute_text_by_type"][attr_type] = " | ".join(pairs)
             
-            # Multi-reference fields: resolve attribute links to Webflow Item ID arrays
-            # This enables Webflow multi-reference fields for filtering products by attributes
-            product["attribute_webflow_ids_by_type"] = resolve_attribute_webflow_ids(
-                product["attribute_links"]
-            )
-            product["multiref_field_data"] = build_product_multiref_field_data(
-                product["attribute_webflow_ids_by_type"]
+            # Filter fields: plain-text comma-separated attribute names
+            # These enable Webflow CMS filtering by attribute type
+            product["filter_field_data"] = build_product_filter_field_data(
+                product["attribute_links_by_type"]
             )
             
             # Add category details if available (includes webflow_item_id for reference field)

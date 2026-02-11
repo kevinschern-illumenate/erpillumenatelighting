@@ -185,18 +185,18 @@ curl -X GET \
 
 Once attributes are synced to Webflow, you can reference them in your Products collection.
 
-### 5.1 Create Reference Fields in Webflow
+### 5.1 Create Filter Fields in Webflow
 
-In your Products collection, add Multi-Reference fields for each attribute type:
+In your Products collection, add Plain Text fields for each attribute type filter:
 
-- `cct-options` → References CCT Options collection
-- `finish-options` → References Finish Options collection
-- `dimming-protocols` → References Dimming Protocols collection
+- `cct-filter` → Comma-separated CCT names
+- `finish-filter` → Comma-separated Finish names
+- `dimming-filter` → Comma-separated Dimming Protocol names
 - etc.
 
 ### 5.2 Update Product Sync Workflow
 
-The existing `webflow_product_sync.json` workflow can be updated to include attribute references. The product data from ERPNext includes attribute references that can be mapped to Webflow collection references.
+The existing `webflow_product_sync.json` workflow includes filter field data automatically. The `webflow_product_attribute_filter_sync.json` workflow can also be used to update filter fields independently.
 
 ## API Reference
 

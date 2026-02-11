@@ -52,7 +52,7 @@
    "label": "Display Label"
   },
   {
-   "description": "Webflow CMS item ID for this attribute (for multi-reference linking)",
+   "description": "Webflow CMS item ID for this attribute",
    "fieldname": "webflow_item_id",
    "fieldtype": "Data",
    "label": "Webflow Item ID",

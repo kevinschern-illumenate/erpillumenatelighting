@@ -299,7 +299,7 @@
    "label": "Auto Calculate Specs"
   },
   {
-   "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as multi-references for filtering.",
+   "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering.",
    "fieldname": "attribute_links",
    "fieldtype": "Table",
    "label": "Attribute Links",

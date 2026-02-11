@@ -74,35 +74,34 @@ This collection stores the base product catalog. Products are synced from ERPNex
 | Attribute Links JSON | `attribute-links-json` | Plain Text | All linked attributes for filtering |
 | Featured Image | `featured-image` | Image | Main product image |
 
-#### Multi-Reference Fields (Attribute Links)
+#### Filter Fields (for CMS filtering)
 
-These multi-reference fields link products to their applicable attribute options. When the n8n sync runs, it automatically populates these fields with Webflow item IDs from the corresponding attribute collections:
+These plain-text filter fields contain comma-separated attribute names for Webflow CMS filtering. When the n8n sync runs, it automatically builds these from the product's attribute links:
 
 | Field Name | Slug | Type | Description |
 |------------|------|------|-------------|
-| Finishes | `finishes` | Multi-Reference → Finishes | Available finish options |
-| Lens Options | `lens-options` | Multi-Reference → Lens Appearances | Available lens types |
-| Mounting Methods | `mounting-methods` | Multi-Reference → Mounting Methods | Installation options |
-| CCT Options | `cct-options` | Multi-Reference → CCT | Color temperature options |
-| Output Levels | `output-levels` | Multi-Reference → Output Levels | Lumen output options |
-| Environment Ratings | `environment-ratings` | Multi-Reference → Environment Ratings | IP ratings, wet/dry location |
-| Endcap Styles | `endcap-styles` | Multi-Reference → Endcap Styles | Endcap configuration options |
-| Power Feed Types | `power-feed-types` | Multi-Reference → Power Feed Types | Power input options |
-| LED Packages | `led-packages` | Multi-Reference → LED Packages | LED chip/package types |
-| CRI Options | `cri-options` | Multi-Reference → CRI | Color rendering options |
+| CCT Filter | `cct-filter` | Plain Text | e.g. "2700K,3000K,3500K" |
+| CRI Filter | `cri-filter` | Plain Text | e.g. "90+,95+" |
+| Finish Filter | `finish-filter` | Plain Text | e.g. "Black Anodized,White" |
+| Lens Filter | `lens-filter` | Plain Text | Available lens types |
+| Mounting Filter | `mounting-filter` | Plain Text | Installation options |
+| Output Level Filter | `output-level-filter` | Plain Text | Lumen output options |
+| Environment Rating Filter | `environment-rating-filter` | Plain Text | IP ratings, wet/dry location |
+| Feed Direction Filter | `feed-direction-filter` | Plain Text | Feed direction options |
+| LED Package Filter | `led-package-filter` | Plain Text | LED chip/package types |
+| Dimming Filter | `dimming-filter` | Plain Text | Dimming protocol options |
 
-**How Attribute Links Work:**
+**How Attribute Filter Fields Work:**
 
 1. In ERPNext, each Webflow Product is linked to a Fixture Template
 2. The Fixture Template has "Allowed Options" (finishes, lenses, mounting methods, etc.) and "Allowed Tape Offerings" (CCT, output levels, LED packages)
 3. When the Webflow Product is saved, it automatically pulls all applicable attributes from the template
-4. Each attribute has a `webflow_item_id` that was assigned when the attribute was synced to Webflow
-5. During product sync, the n8n workflow sends these Webflow item IDs as multi-reference field values
-6. Webflow automatically links the product to the referenced attribute items
+4. During product sync, the n8n workflow builds comma-separated name strings for each filter field
+5. Webflow receives plain-text filter values that can be used in CMS filtering
 
 **Enabling Product Filtering:**
 
-With multi-reference fields, you can create powerful filters in Webflow:
+With filter fields, you can create filters in Webflow using conditional visibility or custom filtering:
 
 ```html
 <!-- Filter products by finish -->

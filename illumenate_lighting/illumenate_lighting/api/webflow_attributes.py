@@ -84,21 +84,22 @@ ATTRIBUTE_KEY_TO_DISPLAY = {v: k for k, v in ATTRIBUTE_TYPE_DISPLAY_MAP.items()}
 
 
 # ---------------------------------------------------------------------------
-# Mapping of attribute type display names to Webflow product multi-reference
-# field slugs.  When the product sync switches from plain-text to
-# multi-reference, these are the field slugs used in the Webflow Products
-# collection for each attribute type.
+# Mapping of attribute type display names to Webflow product filter
+# field slugs.  These are plain-text fields on the Webflow Products
+# collection that contain comma-separated attribute names for filtering.
+# E.g. "2700K,3000K,3500K" for CCT, "90+,95+" for CRI, etc.
 # ---------------------------------------------------------------------------
-ATTRIBUTE_MULTIREF_FIELD_SLUGS = {
-    "CRI": "cri-ref",
-    "Finish": "finish-ref",
-    "Lens Appearance": "lens-ref",
-    "Mounting Method": "mounting-ref",
-    "Output Level": "output-level-ref",
-    "Environment Rating": "environment-rating-ref",
-    "Feed Direction": "feed-direction-ref",
-    "LED Package": "led-package-ref",
-    "Dimming Protocol": "dimming-ref",
+ATTRIBUTE_FILTER_FIELD_SLUGS = {
+    "CCT": "cct-filter",
+    "CRI": "cri-filter",
+    "Finish": "finish-filter",
+    "Lens Appearance": "lens-filter",
+    "Mounting Method": "mounting-filter",
+    "Output Level": "output-level-filter",
+    "Environment Rating": "environment-rating-filter",
+    "Feed Direction": "feed-direction-filter",
+    "LED Package": "led-package-filter",
+    "Dimming Protocol": "dimming-filter",
 }
 
 
@@ -1422,7 +1423,7 @@ def get_attribute_dependencies(target_doctype: str = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Product ↔ Attribute multi-reference helpers
+# Product ↔ Attribute filter field helpers
 # ---------------------------------------------------------------------------
 
 def resolve_attribute_webflow_ids(attribute_links: list) -> Dict[str, list]:
@@ -1475,27 +1476,36 @@ def resolve_attribute_webflow_ids(attribute_links: list) -> Dict[str, list]:
     return result
 
 
-def build_product_multiref_field_data(attribute_webflow_ids: Dict[str, list]) -> Dict[str, list]:
+def build_product_filter_field_data(attribute_links_by_type: Dict[str, list]) -> Dict[str, str]:
     """
-    Convert attribute Webflow ID arrays into Webflow product field data.
+    Build plain-text filter field data for Webflow from attribute links
+    grouped by type.
 
-    Uses ``ATTRIBUTE_MULTIREF_FIELD_SLUGS`` to map each attribute type
-    to the correct Webflow product collection field slug, then returns
-    a dict suitable for merging into ``fieldData`` of a Webflow API
-    upsert request.
+    Uses ``ATTRIBUTE_FILTER_FIELD_SLUGS`` to map each attribute type
+    to the correct Webflow product collection field slug.  Returns
+    comma-separated attribute names suitable for merging into
+    ``fieldData`` of a Webflow API upsert request.
 
     Args:
-        attribute_webflow_ids: Output of :func:`resolve_attribute_webflow_ids`.
+        attribute_links_by_type: Dict keyed by attribute type display name,
+            values are lists of dicts with ``display_label`` and/or
+            ``attribute_name`` keys.
 
     Returns:
-        dict: ``{"cct-options-5": ["id1", "id2"], "finishes-5": ["id3"], ...}``
+        dict: ``{"cct-filter": "2700K,3000K,3500K", "cri-filter": "90+,95+"}``
     """
-    field_data: Dict[str, list] = {}
+    field_data: Dict[str, str] = {}
 
-    for attr_type, wf_ids in attribute_webflow_ids.items():
-        slug = ATTRIBUTE_MULTIREF_FIELD_SLUGS.get(attr_type)
-        if slug and wf_ids:
-            field_data[slug] = wf_ids
+    for attr_type, attrs in attribute_links_by_type.items():
+        slug = ATTRIBUTE_FILTER_FIELD_SLUGS.get(attr_type)
+        if slug and attrs:
+            names = []
+            for a in attrs:
+                name = a.get("display_label") or a.get("attribute_name") or ""
+                if name and name not in names:
+                    names.append(name)
+            if names:
+                field_data[slug] = ",".join(names)
 
     return field_data
 
@@ -1508,18 +1518,18 @@ def get_product_attribute_references(
     offset: int = 0
 ) -> dict:
     """
-    Get products with their attribute links resolved to Webflow Item IDs.
+    Get products with their attribute links resolved to plain-text filter data.
 
-    This endpoint is designed for the n8n product-attribute reference sync
+    This endpoint is designed for the n8n product-attribute filter sync
     workflow.  For each product, it returns:
 
-    - ``attribute_webflow_ids``:  ``{type: [webflow_id, ...]}``
-    - ``multiref_field_data``:    ``{webflow_field_slug: [webflow_id, ...]}``
-    - ``webflow_item_id``:        The product's own Webflow Item ID
+    - ``filter_field_data``:  ``{webflow_field_slug: "name1,name2,..."}``
+    - ``attribute_links_by_type``:  ``{type: [{attribute_name, display_label, ...}]}``
+    - ``webflow_item_id``:    The product's own Webflow Item ID
 
     Only products that *already* have a ``webflow_item_id`` (i.e. have been
     synced at least once) are returned, because we need the product's Webflow
-    Item ID to PATCH the multi-reference fields.
+    Item ID to PATCH the filter fields.
 
     Args:
         product_slugs:  Optional list of specific product slugs to fetch.
@@ -1561,30 +1571,30 @@ def get_product_attribute_references(
     for product in products:
         doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
 
-        # Build attribute links list from child table
-        attr_links = [
-            {
+        # Build attribute links grouped by type
+        attr_links_by_type: Dict[str, list] = {}
+        for al in getattr(doc, "attribute_links", []):
+            t = al.attribute_type
+            if t not in attr_links_by_type:
+                attr_links_by_type[t] = []
+            attr_links_by_type[t].append({
                 "attribute_type": al.attribute_type,
                 "attribute_doctype": al.attribute_doctype,
                 "attribute_name": al.attribute_name,
                 "display_label": al.display_label,
-                "webflow_item_id": al.webflow_item_id,
-            }
-            for al in getattr(doc, "attribute_links", [])
-        ]
+            })
 
-        # Resolve to Webflow IDs
-        attr_wf_ids = resolve_attribute_webflow_ids(attr_links)
-        multiref_data = build_product_multiref_field_data(attr_wf_ids)
+        # Build plain-text filter field data
+        filter_data = build_product_filter_field_data(attr_links_by_type)
+        attr_count = sum(len(v) for v in attr_links_by_type.values())
 
         result_products.append({
             "product_slug": product["product_slug"],
             "product_name": product["product_name"],
             "webflow_item_id": product["webflow_item_id"],
-            "attribute_webflow_ids": attr_wf_ids,
-            "multiref_field_data": multiref_data,
-            "attribute_count": sum(len(v) for v in attr_wf_ids.values()),
-            "unresolved_count": len(attr_links) - sum(len(v) for v in attr_wf_ids.values()),
+            "attribute_links_by_type": attr_links_by_type,
+            "filter_field_data": filter_data,
+            "attribute_count": attr_count,
         })
 
     total = frappe.db.count("ilL-Webflow-Product", filters)
@@ -1594,5 +1604,5 @@ def get_product_attribute_references(
         "total": total,
         "limit": limit,
         "offset": offset,
-        "multiref_field_slugs": ATTRIBUTE_MULTIREF_FIELD_SLUGS,
+        "filter_field_slugs": ATTRIBUTE_FILTER_FIELD_SLUGS,
     }
