@@ -5,16 +5,16 @@
 This guide explains how product attributes are synced to Webflow for filtering on the website. Each attribute type gets two fields on the Webflow Products collection:
 
 1. **Display fields** (`cct-options-5`, `finishes-5`, etc.) — pipe-separated `name, code` pairs for display
-2. **Filter fields** (`cct-filter`, `finish-filter`, etc.) — comma-separated attribute names for CMS filtering
+2. **Filter fields** (`finish-filter`, `output-levels-filter`, etc.) — comma-separated attribute names for CMS filtering
 
 ### Display Field Format (e.g. `cct-options-5`)
 ```
 2700K, 27K | 3000K, 30K | 3500K, 35K
 ```
 
-### Filter Field Format (e.g. `cct-filter`)
+### Filter Field Format (e.g. `finish-filter`)
 ```
-2700K,3000K,3500K
+Black Anodized,White,Custom
 ```
 
 ---
@@ -26,12 +26,14 @@ ERPNext                          Webflow CMS
 ┌───────────────────┐            ┌───────────────────┐
 │ ilL-Webflow-Product│           │ Products Collection│
 │  ├─ attribute_links│           │                   │
-│  │  ├─ CCT: 2700K │──────────►│  cct-options-5:    │
-│  │  ├─ CCT: 3000K │           │    "2700K, 27K |   │
-│  │  ├─ Finish: BLK│           │     3000K, 30K"    │
+│  │  ├─ Output: 100│──────────►│  output-options-5: │
+│  │  ├─ Output: 200│           │    "100lm/ft, 1 |  │
+│  │  ├─ Finish: BLK│           │     200lm/ft, 2"   │
 │  │  └─ Finish: WHT│           │                   │
-│  └─ webflow_item_id│           │  cct-filter:       │
-└───────────────────┘            │    "2700K,3000K"   │
+│  └─ webflow_item_id│           │  output-levels-    │
+└───────────────────┘            │    filter:         │
+                                 │    "100lm/ft,      │
+                                 │     200lm/ft"      │
                                  │                   │
                                  │  finish-filter:    │
                                  │    "Black,White"   │
@@ -81,15 +83,14 @@ A lightweight workflow that only updates the filter fields (and display fields a
 
 ### Filter Fields (comma-separated names)
 
-| Attribute Type     | Filter Field Slug          |
+| Attribute Type     | Filter Field Slug           |
 |--------------------|----------------------------|
-| CCT                | `cct-filter`               |
 | CRI                | `cri-filter`               |
 | Finish             | `finish-filter`            |
 | Lens Appearance    | `lens-filter`              |
 | Mounting Method    | `mounting-filter`          |
-| Output Level       | `output-level-filter`      |
-| Environment Rating | `environment-rating-filter`|
+| Output Level       | `output-levels-filter`     |
+| Environment Rating | `environment-ratings-filter`|
 | Feed Direction     | `feed-direction-filter`    |
 | LED Package        | `led-package-filter`       |
 | Dimming Protocol   | `dimming-filter`           |
@@ -124,7 +125,7 @@ GET /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.g
         "product_name": "Luminaire Pro",
         "webflow_item_id": "696fc3c5c42c86528e97f414",
         "filter_field_data": {
-          "cct-filter": "2700K,3000K,3500K",
+          "output-levels-filter": "100lm/ft,200lm/ft,300lm/ft",
           "finish-filter": "Black Anodized,White",
           "lens-filter": "Frosted,Clear"
         },
@@ -133,7 +134,7 @@ GET /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.g
     ],
     "total": 15,
     "filter_field_slugs": {
-      "CCT": "cct-filter",
+      "Output Level": "output-levels-filter",
       "Finish": "finish-filter",
       "Lens Appearance": "lens-filter"
     }
@@ -159,18 +160,17 @@ Each attribute type needs its own Webflow CMS collection:
 
 In Webflow Designer, add **Plain Text** fields for filtering. These are **separate from** the existing display fields:
 
-| Field Name                 | Field Slug                 | Type       |
-|----------------------------|----------------------------|------------|
-| CCT Filter                 | `cct-filter`               | Plain Text |
-| CRI Filter                 | `cri-filter`               | Plain Text |
-| Finish Filter              | `finish-filter`            | Plain Text |
-| Lens Filter                | `lens-filter`              | Plain Text |
-| Mounting Filter            | `mounting-filter`          | Plain Text |
-| Output Level Filter        | `output-level-filter`      | Plain Text |
-| Environment Rating Filter  | `environment-rating-filter`| Plain Text |
-| Feed Direction Filter      | `feed-direction-filter`    | Plain Text |
-| LED Package Filter         | `led-package-filter`       | Plain Text |
-| Dimming Filter             | `dimming-filter`           | Plain Text |
+| Field Name                 | Field Slug                  | Type       |
+|----------------------------|-----------------------------|------------|
+| CRI Filter                 | `cri-filter`                | Plain Text |
+| Finish Filter              | `finish-filter`             | Plain Text |
+| Lens Filter                | `lens-filter`               | Plain Text |
+| Mounting Filter            | `mounting-filter`           | Plain Text |
+| Output Level Filter        | `output-levels-filter`      | Plain Text |
+| Environment Rating Filter  | `environment-ratings-filter`| Plain Text |
+| Feed Direction Filter      | `feed-direction-filter`     | Plain Text |
+| LED Package Filter         | `led-package-filter`        | Plain Text |
+| Dimming Filter             | `dimming-filter`            | Plain Text |
 
 > **Important:** Do NOT delete or modify the existing display fields. The `-filter` fields sit alongside them.
 
