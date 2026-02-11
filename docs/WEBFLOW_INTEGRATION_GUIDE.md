@@ -64,6 +64,7 @@ This collection stores the base product catalog. Products are synced from ERPNex
 | Slug | `slug` | Plain Text | URL slug (auto-created by Webflow) |
 | Product Type | `product-type` | Option | Type of product |
 | Short Description | `short-description` | Plain Text | Brief product description |
+| Features | `features` | Plain Text | Key product features and selling points |
 | Long Description | `long-description` | Rich Text | Full product description |
 | Is Configurable | `is-configurable` | Switch | Whether product has configurator |
 | Min Length (mm) | `min-length-mm` | Number | Minimum fixture length |
@@ -234,6 +235,7 @@ These fields are populated by the n8n sync and should be bound directly to CMS f
 
 - **Product Name** → `name`
 - **Short Description** → `short-description`
+- **Features** → `features`
 - **Long Description** → `long-description`
 - **Featured Image** → `featured-image`
 - **Specifications** → `specifications-html`
