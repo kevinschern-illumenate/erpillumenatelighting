@@ -84,14 +84,13 @@ class ilLWebflowProduct(Document):
 		"""Populate attribute links from the linked fixture template's allowed options and tape offerings,
 		or from extrusion kit components."""
 		attribute_links = []
-		display_order = 0
 		
 		# Handle Fixture Template
 		if self.product_type == "Fixture Template" and self.fixture_template:
-			self._populate_fixture_template_attributes(attribute_links, display_order)
+			self._populate_fixture_template_attributes(attribute_links)
 		# Handle Extrusion Kit
 		elif self.product_type == "Extrusion Kit":
-			self._populate_extrusion_kit_attributes(attribute_links, display_order)
+			self._populate_extrusion_kit_attributes(attribute_links)
 		else:
 			return
 		
@@ -100,7 +99,7 @@ class ilLWebflowProduct(Document):
 		for link in attribute_links:
 			self.append("attribute_links", link)
 	
-	def _populate_fixture_template_attributes(self, attribute_links, display_order):
+	def _populate_fixture_template_attributes(self, attribute_links):
 		"""Extract attributes from fixture template."""
 		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
 		display_order = 0
@@ -284,8 +283,10 @@ class ilLWebflowProduct(Document):
 						"display_order": display_order,
 					})
 
-	def _populate_extrusion_kit_attributes(self, attribute_links, display_order):
+	def _populate_extrusion_kit_attributes(self, attribute_links):
 		"""Extract attributes from extrusion kit profile spec, lens spec, and kit components."""
+		display_order = 0
+		
 		# Extract attributes from profile_spec if present
 		if self.profile_spec:
 			profile = frappe.get_doc("ilL-Spec-Profile", self.profile_spec)
