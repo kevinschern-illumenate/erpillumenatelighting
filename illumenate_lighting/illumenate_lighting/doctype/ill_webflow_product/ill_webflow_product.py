@@ -247,10 +247,11 @@ class ilLWebflowProduct(Document):
 				protocol_name = ip.protocol
 				if not protocol_name:
 					continue
-				existing = [a for a in attribute_links
-				            if a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
-				            and a["attribute_name"] == protocol_name]
-				if not existing:
+				if not any(
+					a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+					and a["attribute_name"] == protocol_name
+					for a in attribute_links
+				):
 					display_order += 1
 					proto_data = frappe.db.get_value(
 						"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
