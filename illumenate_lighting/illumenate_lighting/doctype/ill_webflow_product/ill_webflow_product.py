@@ -34,6 +34,7 @@ class ilLWebflowProduct(Document):
 		documents: DF.Table[ilLChildWebflowDocument]
 		driver_spec: DF.Link | None
 		featured_image: DF.AttachImage | None
+		features: DF.SmallText | None
 		fixture_template: DF.Link | None
 		gallery_images: DF.Table[ilLChildWebflowGalleryImage]
 		is_active: DF.Check
