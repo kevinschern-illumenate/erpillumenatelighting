@@ -80,13 +80,12 @@ These plain-text filter fields contain comma-separated attribute names for Webfl
 
 | Field Name | Slug | Type | Description |
 |------------|------|------|-------------|
-| CCT Filter | `cct-filter` | Plain Text | e.g. "2700K,3000K,3500K" |
 | CRI Filter | `cri-filter` | Plain Text | e.g. "90+,95+" |
 | Finish Filter | `finish-filter` | Plain Text | e.g. "Black Anodized,White" |
 | Lens Filter | `lens-filter` | Plain Text | Available lens types |
 | Mounting Filter | `mounting-filter` | Plain Text | Installation options |
-| Output Level Filter | `output-level-filter` | Plain Text | Lumen output options |
-| Environment Rating Filter | `environment-rating-filter` | Plain Text | IP ratings, wet/dry location |
+| Output Level Filter | `output-levels-filter` | Plain Text | Lumen output options |
+| Environment Rating Filter | `environment-ratings-filter` | Plain Text | IP ratings, wet/dry location |
 | Feed Direction Filter | `feed-direction-filter` | Plain Text | Feed direction options |
 | LED Package Filter | `led-package-filter` | Plain Text | LED chip/package types |
 | Dimming Filter | `dimming-filter` | Plain Text | Dimming protocol options |
