@@ -223,9 +223,9 @@ def _map_selections_to_engine_codes(
     endcap_style_start_code = _get_default_option(template, "Endcap Style", "endcap_style")
     endcap_style_end_code = endcap_style_start_code
 
-    endcap_color_code = _get_default_option(template, "Endcap Color", "endcap_color")
+    endcap_color_code = _resolve_endcap_color(template, finish_code)
 
-    power_feed_type_code = _resolve_power_feed_type(selections)
+    power_feed_type_code = _resolve_power_feed_type(selections, template)
 
     if errors:
         return {"error": "; ".join(errors)}
@@ -328,41 +328,96 @@ def _get_default_option(template, option_type: str, child_field: str) -> str:
     return ""
 
 
-def _resolve_power_feed_type(selections: dict) -> str:
+def _resolve_endcap_color(template, finish_code: str) -> str:
     """
-    Resolve the power feed type code from Webflow feed direction selections.
+    Resolve a default endcap color for the fixture template.
 
-    The Webflow configurator uses start_feed_direction (End/Back) while the
-    engine expects a Power Feed Type attribute name.
+    Endcap Color is NOT stored in the template's allowed_options child table.
+    Instead it lives in ilL-Rel-Endcap-Map rows keyed by template + style.
+    We pick the first active endcap-map row for this template (preferring
+    is_default), or fall back to the first active ilL-Attribute-Endcap Color.
     """
-    start_dir = selections.get("start_feed_direction", "")
+    template_code = getattr(template, "template_code", None) or template.name
 
-    # Try to find a matching Power Feed Type attribute
-    if start_dir and frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
-        # Try exact match first
-        if frappe.db.exists("ilL-Attribute-Power Feed Type", start_dir):
-            return start_dir
+    # Try the endcap map for this template
+    endcap_map_row = frappe.db.get_value(
+        "ilL-Rel-Endcap-Map",
+        {"fixture_template": template_code, "is_active": 1},
+        "endcap_color",
+        order_by="is_default DESC, name ASC",
+    )
+    if endcap_map_row:
+        return endcap_map_row
 
-        # Try matching by code
+    # Fallback: first active endcap color record
+    first_color = frappe.db.get_value(
+        "ilL-Attribute-Endcap Color",
+        {"is_active": 1},
+        "name",
+        order_by="sort_order ASC, name ASC",
+    )
+    return first_color or ""
+
+
+def _resolve_power_feed_type(selections: dict, template=None) -> str:
+    """
+    Resolve the power feed type from Webflow feed direction selections.
+
+    The Webflow configurator may send start_feed_direction ("End" / "Back")
+    but often omits it entirely.  The engine expects the *name* (primary key)
+    of an ilL-Attribute-Power Feed Type document.
+
+    Resolution order:
+    1. Exact document-name match on the raw selection value
+    2. Lookup by ``code`` field  (e.g. "E" for End)
+    3. Lookup by linked Feed Direction (``type`` field → ilL-Attribute-Feed-Direction)
+    4. Lookup via the template's allowed_options for Power Feed Type (prefer default)
+    5. First Power Feed Type record in the database
+    """
+    start_dir = selections.get("start_feed_direction", "") or ""
+
+    if not frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
+        return start_dir or ""
+
+    # 1. Exact match on document name
+    if start_dir and frappe.db.exists("ilL-Attribute-Power Feed Type", start_dir):
+        return start_dir
+
+    # 2. Match by code (e.g. "E")
+    code_to_try = start_dir[:1].upper() if start_dir else "E"  # default "E" = End feed
+    match = frappe.db.get_value(
+        "ilL-Attribute-Power Feed Type",
+        {"code": code_to_try},
+        "name",
+    )
+    if match:
+        return match
+
+    # 3. Match by Feed Direction link  (type → ilL-Attribute-Feed-Direction)
+    #    Feed Direction "End" has code "E"
+    if start_dir:
         match = frappe.db.get_value(
             "ilL-Attribute-Power Feed Type",
-            {"code": start_dir[:1].upper()},
+            {"type": start_dir},
             "name",
         )
         if match:
             return match
 
-        # Fallback: get the first active power feed type
-        first = frappe.db.get_value(
-            "ilL-Attribute-Power Feed Type",
-            {"is_active": 1},
-            "name",
-            order_by="name asc",
-        )
-        if first:
-            return first
+    # 4. Template's allowed_options for Power Feed Type
+    if template:
+        pft = _get_default_option(template, "Power Feed Type", "power_feed_type")
+        if pft:
+            return pft
 
-    return start_dir or "End"
+    # 5. Absolute fallback — first record in the table
+    first = frappe.db.get_value(
+        "ilL-Attribute-Power Feed Type",
+        {},
+        "name",
+        order_by="name ASC",
+    )
+    return first or ""
 
 
 def _ensure_public_file(file_url: str) -> str:
