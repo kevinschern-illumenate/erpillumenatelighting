@@ -282,12 +282,27 @@ def _fill_pdf_form_fields(
 				warnings,
 			)
 
-		# Flatten the PDF by removing form field annotations
+		# Flatten the PDF by removing form field annotations (Widget type)
 		# This makes the form fields non-editable by converting them to static content
+		# while preserving other annotations like links
 		_debug("_fill_pdf_form_fields: Flattening PDF by removing form field annotations", warnings)
 		for page in writer.pages:
 			if "/Annots" in page:
-				del page["/Annots"]
+				# Filter out Widget annotations (form fields) but keep other annotations
+				annots = page["/Annots"]
+				filtered_annots = []
+				for annot_ref in annots:
+					annot = annot_ref.get_object()
+					# Keep annotations that are not form field widgets
+					if annot.get("/Subtype") != "/Widget":
+						filtered_annots.append(annot_ref)
+				
+				# Update the page's annotations array
+				if filtered_annots:
+					page["/Annots"] = filtered_annots
+				else:
+					# Remove the /Annots key entirely if no annotations remain
+					del page["/Annots"]
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
