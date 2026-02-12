@@ -2047,6 +2047,9 @@ def update_user_profile(profile_data: Union[str, dict]) -> dict:
 			user.last_name = profile_data.get("last_name")
 		if "phone" in profile_data:
 			user.phone = profile_data.get("phone")
+		if "job_title" in profile_data:
+			# Update job_title on the linked Contact, not on User
+			_update_contact_job_title(frappe.session.user, profile_data.get("job_title"))
 
 		user.save()
 		return {"success": True}
@@ -2055,10 +2058,85 @@ def update_user_profile(profile_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": str(e)}
 
 
+def _update_contact_job_title(user, job_title):
+	"""Update job_title on the Contact linked to this user."""
+	contacts = frappe.get_all(
+		"Contact",
+		filters={"user": user},
+		fields=["name"],
+		limit=1,
+	)
+	if contacts:
+		frappe.db.set_value("Contact", contacts[0].name, "designation", job_title)
+
+
+def _get_or_create_portal_settings(user=None):
+	"""
+	Get or create the ilL-Portal-User-Settings record for a user.
+
+	Args:
+		user: User email. Defaults to current session user.
+
+	Returns:
+		Document: The ilL-Portal-User-Settings document.
+	"""
+	if not user:
+		user = frappe.session.user
+
+	settings_name = frappe.db.get_value(
+		"ilL-Portal-User-Settings", {"user": user}, "name"
+	)
+
+	if settings_name:
+		return frappe.get_doc("ilL-Portal-User-Settings", settings_name)
+
+	# Create with defaults
+	settings = frappe.new_doc("ilL-Portal-User-Settings")
+	settings.user = user
+	settings.insert(ignore_permissions=True)
+	frappe.db.commit()
+	return settings
+
+
+@frappe.whitelist()
+def get_account_settings() -> dict:
+	"""
+	Get the current user's portal account settings.
+
+	Returns all notification preferences and display preferences
+	persisted in the ilL-Portal-User-Settings DocType.
+
+	Returns:
+		dict: {"success": True, "settings": { ... }}
+	"""
+	try:
+		settings = _get_or_create_portal_settings()
+		return {
+			"success": True,
+			"settings": {
+				"notify_orders": bool(settings.notify_orders),
+				"notify_quotes": bool(settings.notify_quotes),
+				"notify_drawings": bool(settings.notify_drawings),
+				"notify_shipping": bool(settings.notify_shipping),
+				"notify_marketing": bool(settings.notify_marketing),
+				"language": settings.language or "en",
+				"units": settings.units or "imperial",
+				"date_format": settings.date_format or "mm/dd/yyyy",
+				"timezone": settings.timezone or "America/New_York",
+			},
+		}
+	except Exception as e:
+		frappe.log_error(f"Error getting account settings: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
 @frappe.whitelist()
 def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	Save notification preferences for the current user.
+
+	Persists to the ilL-Portal-User-Settings DocType so prefs are
+	visible in /desk and survive cache clears.
 
 	Args:
 		preferences: Dict with notification preference booleans
@@ -2066,26 +2144,64 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
 	"""
-	# Parse preferences if it's a string
 	if isinstance(preferences, str):
 		try:
 			preferences = json.loads(preferences)
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid preferences format"}
 
+	notification_fields = [
+		"notify_orders", "notify_quotes", "notify_drawings",
+		"notify_shipping", "notify_marketing",
+	]
+
 	try:
-		# Store preferences in user's custom fields or a settings doctype
-		# For now, we'll store as a comment on the user for MVP
-		user = frappe.session.user
+		settings = _get_or_create_portal_settings()
+		for field in notification_fields:
+			if field in preferences:
+				setattr(settings, field, 1 if preferences[field] else 0)
 
-		# Check if there's a custom doctype for notification prefs
-		# If not, store in User's bio field or similar as JSON
-		# This is a placeholder implementation
-		frappe.cache().hset("portal_notification_prefs", user, json.dumps(preferences))
-
+		settings.save(ignore_permissions=True)
+		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		frappe.log_error(f"Error saving notification preferences: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def save_portal_preferences(preferences: Union[str, dict]) -> dict:
+	"""
+	Save display/locale preferences for the current user.
+
+	Persists language, units, date_format, and timezone to the
+	ilL-Portal-User-Settings DocType.
+
+	Args:
+		preferences: Dict with preference values
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if isinstance(preferences, str):
+		try:
+			preferences = json.loads(preferences)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid preferences format"}
+
+	preference_fields = ["language", "units", "date_format", "timezone"]
+
+	try:
+		settings = _get_or_create_portal_settings()
+		for field in preference_fields:
+			if field in preferences:
+				setattr(settings, field, preferences[field])
+
+		settings.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"success": True}
+	except Exception as e:
+		frappe.log_error(f"Error saving portal preferences: {str(e)}")
 		return {"success": False, "error": str(e)}
 
 

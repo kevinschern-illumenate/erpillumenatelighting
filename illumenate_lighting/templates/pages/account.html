@@ -231,8 +231,8 @@ User profile, notifications, and account preferences
 					<div class="row">
 						<div class="col-md-3 text-center mb-4">
 							<div class="profile-avatar mx-auto">
-								{% if user.user_image %}
-								<img src="{{ user.user_image }}" alt="Profile">
+								{% if user_profile.user_image %}
+								<img src="{{ user_profile.user_image }}" alt="Profile">
 								{% else %}
 								<i class="fa fa-user"></i>
 								{% endif %}
@@ -247,28 +247,28 @@ User profile, notifications, and account preferences
 									<div class="col-md-6">
 										<div class="form-group">
 											<label>{{ _("First Name") }}</label>
-											<input type="text" class="form-control" name="first_name" value="{{ user.first_name or '' }}">
+											<input type="text" class="form-control" name="first_name" value="{{ user_profile.first_name or '' }}">
 										</div>
 									</div>
 									<div class="col-md-6">
 										<div class="form-group">
 											<label>{{ _("Last Name") }}</label>
-											<input type="text" class="form-control" name="last_name" value="{{ user.last_name or '' }}">
+											<input type="text" class="form-control" name="last_name" value="{{ user_profile.last_name or '' }}">
 										</div>
 									</div>
 								</div>
 								<div class="form-group">
 									<label>{{ _("Email") }}</label>
-									<input type="email" class="form-control" value="{{ user.email }}" readonly>
+									<input type="email" class="form-control" value="{{ user_profile.email or '' }}" readonly>
 									<small class="form-text text-muted">{{ _("Contact support to change your email address") }}</small>
 								</div>
 								<div class="form-group">
 									<label>{{ _("Phone") }}</label>
-									<input type="tel" class="form-control" name="phone" value="{{ user.phone or '' }}">
+									<input type="tel" class="form-control" name="phone" value="{{ user_profile.phone or '' }}">
 								</div>
 								<div class="form-group">
 									<label>{{ _("Job Title") }}</label>
-									<input type="text" class="form-control" name="job_title" value="{{ user.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
+									<input type="text" class="form-control" name="job_title" value="{{ user_profile.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
 								</div>
 								<button type="submit" class="btn btn-primary">
 									<i class="fa fa-save"></i> {{ _("Save Changes") }}
@@ -332,7 +332,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when your order status changes") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_orders" checked>
+							<input type="checkbox" name="notify_orders" {{ 'checked' if portal_settings.notify_orders else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -342,7 +342,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive notifications when quotes are ready") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_quotes" checked>
+							<input type="checkbox" name="notify_quotes" {{ 'checked' if portal_settings.notify_quotes else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -352,7 +352,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when drawings are completed") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_drawings" checked>
+							<input type="checkbox" name="notify_drawings" {{ 'checked' if portal_settings.notify_drawings else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -362,7 +362,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive shipping updates and tracking info") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_shipping" checked>
+							<input type="checkbox" name="notify_shipping" {{ 'checked' if portal_settings.notify_shipping else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -372,7 +372,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Product updates, promotions, and industry news") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_marketing">
+							<input type="checkbox" name="notify_marketing" {{ 'checked' if portal_settings.notify_marketing else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -437,34 +437,38 @@ User profile, notifications, and account preferences
 				<div class="settings-card-body">
 					<div class="form-group">
 						<label>{{ _("Language") }}</label>
-						<select class="form-control" name="language">
-							<option value="en" selected>English</option>
-							<option value="es">Español</option>
-							<option value="fr">Français</option>
+						<select class="form-control" name="language" id="pref_language">
+							<option value="en" {{ 'selected' if portal_settings.language == 'en' else '' }}>English</option>
+							<option value="es" {{ 'selected' if portal_settings.language == 'es' else '' }}>Español</option>
+							<option value="fr" {{ 'selected' if portal_settings.language == 'fr' else '' }}>Français</option>
 						</select>
 					</div>
 					<div class="form-group">
 						<label>{{ _("Units") }}</label>
-						<select class="form-control" name="units">
-							<option value="imperial">{{ _("Imperial (inches, feet)") }}</option>
-							<option value="metric">{{ _("Metric (mm, meters)") }}</option>
+						<select class="form-control" name="units" id="pref_units">
+							<option value="imperial" {{ 'selected' if portal_settings.units == 'imperial' else '' }}>{{ _("Imperial (inches, feet)") }}</option>
+							<option value="metric" {{ 'selected' if portal_settings.units == 'metric' else '' }}>{{ _("Metric (mm, meters)") }}</option>
 						</select>
 					</div>
 					<div class="form-group">
 						<label>{{ _("Date Format") }}</label>
-						<select class="form-control" name="date_format">
-							<option value="mm/dd/yyyy">MM/DD/YYYY</option>
-							<option value="dd/mm/yyyy">DD/MM/YYYY</option>
-							<option value="yyyy-mm-dd">YYYY-MM-DD</option>
+						<select class="form-control" name="date_format" id="pref_date_format">
+							<option value="mm/dd/yyyy" {{ 'selected' if portal_settings.date_format == 'mm/dd/yyyy' else '' }}>MM/DD/YYYY</option>
+							<option value="dd/mm/yyyy" {{ 'selected' if portal_settings.date_format == 'dd/mm/yyyy' else '' }}>DD/MM/YYYY</option>
+							<option value="yyyy-mm-dd" {{ 'selected' if portal_settings.date_format == 'yyyy-mm-dd' else '' }}>YYYY-MM-DD</option>
 						</select>
 					</div>
 					<div class="form-group">
 						<label>{{ _("Timezone") }}</label>
-						<select class="form-control" name="timezone">
-							<option value="America/New_York">{{ _("Eastern Time (ET)") }}</option>
-							<option value="America/Chicago">{{ _("Central Time (CT)") }}</option>
-							<option value="America/Denver">{{ _("Mountain Time (MT)") }}</option>
-							<option value="America/Los_Angeles">{{ _("Pacific Time (PT)") }}</option>
+						<select class="form-control" name="timezone" id="pref_timezone">
+							<option value="America/New_York" {{ 'selected' if portal_settings.timezone == 'America/New_York' else '' }}>{{ _("Eastern Time (ET)") }}</option>
+							<option value="America/Chicago" {{ 'selected' if portal_settings.timezone == 'America/Chicago' else '' }}>{{ _("Central Time (CT)") }}</option>
+							<option value="America/Denver" {{ 'selected' if portal_settings.timezone == 'America/Denver' else '' }}>{{ _("Mountain Time (MT)") }}</option>
+							<option value="America/Los_Angeles" {{ 'selected' if portal_settings.timezone == 'America/Los_Angeles' else '' }}>{{ _("Pacific Time (PT)") }}</option>
+							<option value="America/Anchorage" {{ 'selected' if portal_settings.timezone == 'America/Anchorage' else '' }}>{{ _("Alaska Time (AKT)") }}</option>
+							<option value="Pacific/Honolulu" {{ 'selected' if portal_settings.timezone == 'Pacific/Honolulu' else '' }}>{{ _("Hawaii Time (HT)") }}</option>
+							<option value="America/Phoenix" {{ 'selected' if portal_settings.timezone == 'America/Phoenix' else '' }}>{{ _("Arizona (no DST)") }}</option>
+							<option value="America/Puerto_Rico" {{ 'selected' if portal_settings.timezone == 'America/Puerto_Rico' else '' }}>{{ _("Atlantic Time (AT)") }}</option>
 						</select>
 					</div>
 					<button class="btn btn-primary" onclick="savePreferences()">
@@ -568,12 +572,19 @@ function saveNotificationPrefs() {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_notification_preferences',
 		args: { preferences: JSON.stringify(prefs) },
+		freeze: true,
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				frappe.msgprint({
 					title: '{{ _("Success") }}',
 					indicator: 'green',
 					message: '{{ _("Notification preferences saved") }}'
+				});
+			} else {
+				frappe.msgprint({
+					title: '{{ _("Error") }}',
+					indicator: 'red',
+					message: r.message?.error || '{{ _("An error occurred") }}'
 				});
 			}
 		}
@@ -642,10 +653,32 @@ function deleteAccount() {
 }
 
 function savePreferences() {
-	frappe.msgprint({
-		title: '{{ _("Success") }}',
-		indicator: 'green',
-		message: '{{ _("Preferences saved") }}'
+	const prefs = {
+		language: document.getElementById('pref_language').value,
+		units: document.getElementById('pref_units').value,
+		date_format: document.getElementById('pref_date_format').value,
+		timezone: document.getElementById('pref_timezone').value
+	};
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_portal_preferences',
+		args: { preferences: JSON.stringify(prefs) },
+		freeze: true,
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: '{{ _("Success") }}',
+					indicator: 'green',
+					message: '{{ _("Preferences saved") }}'
+				});
+			} else {
+				frappe.msgprint({
+					title: '{{ _("Error") }}',
+					indicator: 'red',
+					message: r.message?.error || '{{ _("An error occurred") }}'
+				});
+			}
+		}
 	});
 }
 
