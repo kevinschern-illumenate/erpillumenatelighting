@@ -209,9 +209,10 @@ def _fill_pdf_form_fields(
 	warnings: list | None = None,
 ) -> bytes | None:
 	"""
-	Fill form fields in a PDF template with the provided values.
+	Fill form fields in a PDF template with the provided values and flatten the result.
 
-	Uses pypdf to fill AcroForm fields in the PDF.
+	Uses pypdf to fill AcroForm fields in the PDF, then flattens the PDF by removing
+	form field annotations to make the fields non-editable.
 
 	Args:
 		pdf_template_path: Path or URL to the PDF template (must be a Frappe file URL)
@@ -219,7 +220,7 @@ def _fill_pdf_form_fields(
 		warnings: Optional list that debug messages are appended to
 
 	Returns:
-		bytes: The filled PDF as bytes, or None if filling failed
+		bytes: The filled and flattened PDF as bytes, or None if filling failed
 	"""
 	try:
 		from pypdf import PdfReader, PdfWriter
