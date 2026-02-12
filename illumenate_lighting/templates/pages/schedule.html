@@ -1152,9 +1152,13 @@ function loadItemsForProductType(productType) {
 			var options = '<option value="">{{ _("Select Item...") }}</option>';
 			if (r.message && r.message.success && r.message.items) {
 				r.message.items.forEach(function(item) {
+					// Strip HTML tags from description for safe use in data attribute
+					var cleanDesc = (item.description || '').replace(/<[^>]*>/g, '').substring(0, 100);
+					// Escape special characters for HTML attribute
+					var safeDesc = cleanDesc.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 					options += '<option value="' + item.item_code + '" ' +
 						'data-name="' + (item.item_name || '') + '" ' +
-						'data-desc="' + (item.description || '').substring(0, 100) + '" ' +
+						'data-desc="' + safeDesc + '" ' +
 						'data-uom="' + (item.stock_uom || 'Nos') + '" ' +
 						'data-rate="' + (item.standard_rate || 0) + '" ' +
 						'data-has-variants="' + (item.has_variants ? '1' : '0') + '">' + 
@@ -1284,7 +1288,7 @@ function openItemVariantModal() {
 	});
 }
 
-// Check if selected attributes match a variant
+// Check if selected attributes match a variant and filter remaining dropdowns
 function checkVariantMatch() {
 	// Collect all selected attribute values
 	var selectedAttributes = {};
@@ -1300,6 +1304,41 @@ function checkVariantMatch() {
 		}
 	});
 	
+	// Filter remaining dropdowns based on current selections
+	if (Object.keys(selectedAttributes).length > 0) {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_filtered_variant_attributes',
+			args: {
+				template_item: currentTemplateItem,
+				selected_attributes: selectedAttributes
+			},
+			async: false,
+			callback: function(r) {
+				if (r.message && r.message.success && r.message.attributes) {
+					r.message.attributes.forEach(function(attr) {
+						var $select = $('.variant-attribute-select[data-attribute="' + attr.attribute + '"]');
+						var currentVal = $select.val();
+						var validValues = attr.values.map(function(v) { return v.value; });
+						
+						// Rebuild options preserving current selection
+						var opts = '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+						attr.values.forEach(function(val) {
+							var selected = (val.value === currentVal) ? ' selected' : '';
+							opts += '<option value="' + val.value + '"' + selected + '>' + val.value + '</option>';
+						});
+						$select.html(opts);
+						
+						// If current value is no longer valid, reset it
+						if (currentVal && validValues.indexOf(currentVal) === -1) {
+							$select.val('');
+							allSelected = false;
+						}
+					});
+				}
+			}
+		});
+	}
+	
 	// Only check for match if all attributes are selected
 	if (!allSelected) {
 		$('.variant-match-status').hide();
@@ -1307,6 +1346,16 @@ function checkVariantMatch() {
 		currentVariantMatch = null;
 		return;
 	}
+	
+	// Re-collect after potential resets
+	selectedAttributes = {};
+	$('.variant-attribute-select').each(function() {
+		var attr = $(this).data('attribute');
+		var val = $(this).val();
+		if (val) {
+			selectedAttributes[attr] = val;
+		}
+	});
 	
 	// Find matching variant
 	frappe.call({
