@@ -281,6 +281,13 @@ def _fill_pdf_form_fields(
 				warnings,
 			)
 
+		# Flatten the PDF by removing form field annotations
+		# This makes the form fields non-editable by converting them to static content
+		_debug("_fill_pdf_form_fields: Flattening PDF by removing form field annotations", warnings)
+		for page in writer.pages:
+			if "/Annots" in page:
+				del page["/Annots"]
+
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
 		writer.write(output)
