@@ -101,8 +101,8 @@ website_route_rules = [
 	{"from_route": "/portal/resources", "to_route": "resources"},
 
 	# Support
-	{"from_route": "/portal/support", "to_route": "support"},
-	{"from_route": "/portal/support/faq", "to_route": "support"},
+	{"from_route": "/portal/support", "to_route": "ill_support"},
+	{"from_route": "/portal/support/faq", "to_route": "ill_support"},
 
 	# Account
 	{"from_route": "/portal/account", "to_route": "account"},
