@@ -816,18 +816,24 @@ def get_item_variant_attributes(template_item: str) -> dict:
 
 		# Get the item attributes for this template
 		item_doc = frappe.get_doc("Item", template_item)
+
+		# Collect attribute values actually used by existing variants
+		variants = frappe.get_all(
+			"Item",
+			filters={"variant_of": template_item, "disabled": 0},
+			fields=["item_code"],
+		)
+
+		# Build a map of attribute -> set of values used across all variants
+		variant_attr_values = {}
+		for variant in variants:
+			variant_doc = frappe.get_doc("Item", variant.item_code)
+			for va in variant_doc.get("attributes", []):
+				variant_attr_values.setdefault(va.attribute, set()).add(va.attribute_value)
+
 		attributes = []
 
 		for attr in item_doc.get("attributes", []):
-			# Get all possible values for this attribute
-			attr_values = frappe.get_all(
-				"Item Attribute Value",
-				filters={"parent": attr.attribute},
-				fields=["attribute_value", "abbr"],
-				order_by="idx asc",
-			)
-
-			# If the template has specific allowed values, filter to those
 			if attr.numeric_values:
 				# For numeric attributes, we need a different approach
 				values = [{
@@ -839,9 +845,20 @@ def get_item_variant_attributes(template_item: str) -> dict:
 					"increment": attr.increment,
 				}]
 			else:
+				# Get all possible values for this attribute (for ordering)
+				attr_values = frappe.get_all(
+					"Item Attribute Value",
+					filters={"parent": attr.attribute},
+					fields=["attribute_value", "abbr"],
+					order_by="idx asc",
+				)
+
+				# Filter to only values that exist in actual variants
+				used_values = variant_attr_values.get(attr.attribute, set())
 				values = [
 					{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
 					for v in attr_values
+					if v.attribute_value in used_values
 				]
 
 			attributes.append({
@@ -858,6 +875,99 @@ def get_item_variant_attributes(template_item: str) -> dict:
 
 	except Exception as e:
 		frappe.log_error(f"Error fetching variant attributes for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e), "attributes": []}
+
+
+@frappe.whitelist()
+def get_filtered_variant_attributes(template_item: str, selected_attributes: Union[str, dict] = None) -> dict:
+	"""
+	Get variant attribute values filtered by currently selected attributes.
+
+	Given the current selections, returns only the attribute values that would
+	still lead to a valid variant match. This enables cascading dropdown filtering.
+
+	Args:
+		template_item: The item_code of the template item
+		selected_attributes: Dict of {attribute_name: attribute_value} for currently selected attributes
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"attributes": [
+				{
+					"attribute": str,
+					"values": [{"value": str, "abbr": str}]
+				}
+			]
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required", "attributes": []}
+
+		if isinstance(selected_attributes, str):
+			selected_attributes = json.loads(selected_attributes) if selected_attributes else {}
+		if not selected_attributes:
+			selected_attributes = {}
+
+		# Get all variants with their attributes
+		variants = frappe.get_all(
+			"Item",
+			filters={"variant_of": template_item, "disabled": 0},
+			fields=["item_code"],
+		)
+
+		variant_attr_list = []
+		for variant in variants:
+			variant_doc = frappe.get_doc("Item", variant.item_code)
+			attrs = {}
+			for va in variant_doc.get("attributes", []):
+				attrs[va.attribute] = va.attribute_value
+			variant_attr_list.append(attrs)
+
+		# Get template attributes for ordering
+		item_doc = frappe.get_doc("Item", template_item)
+		template_attrs = [attr.attribute for attr in item_doc.get("attributes", [])]
+
+		attributes = []
+		for attr_name in template_attrs:
+			# For each attribute, find which values are still valid given the other selections
+			valid_values = set()
+			for variant_attrs in variant_attr_list:
+				# Check if this variant matches all OTHER selected attributes
+				matches_others = True
+				for sel_attr, sel_val in selected_attributes.items():
+					if sel_attr == attr_name:
+						continue  # Skip the current attribute
+					if variant_attrs.get(sel_attr) != sel_val:
+						matches_others = False
+						break
+				if matches_others and attr_name in variant_attrs:
+					valid_values.add(variant_attrs[attr_name])
+
+			# Get ordered attribute values
+			attr_values = frappe.get_all(
+				"Item Attribute Value",
+				filters={"parent": attr_name},
+				fields=["attribute_value", "abbr"],
+				order_by="idx asc",
+			)
+
+			values = [
+				{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
+				for v in attr_values
+				if v.attribute_value in valid_values
+			]
+
+			attributes.append({
+				"attribute": attr_name,
+				"values": values,
+			})
+
+		return {"success": True, "attributes": attributes}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching filtered variant attributes for {template_item}: {str(e)}")
 		return {"success": False, "error": str(e), "attributes": []}
 
 
