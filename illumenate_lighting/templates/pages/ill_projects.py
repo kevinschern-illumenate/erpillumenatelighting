@@ -12,8 +12,9 @@ def get_context(context):
 		frappe.local.flags.redirect_location = "/login"
 		raise frappe.Redirect
 
-	# Get projects accessible to this user using permission hooks
-	projects = frappe.get_all(
+	# Get projects accessible to this user (frappe.get_list applies
+	# get_permission_query_conditions, unlike frappe.get_all which ignores permissions)
+	projects = frappe.get_list(
 		"ilL-Project",
 		fields=["name", "project_name", "customer", "status", "is_private", "modified"],
 		order_by="modified desc",

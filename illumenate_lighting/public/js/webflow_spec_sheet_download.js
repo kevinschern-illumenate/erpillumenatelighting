@@ -69,15 +69,17 @@
     }
 
     // 2. Read length from the card display (shows raw inches typed by user)
+    //    Webflow auto-formats with a decimal, so the user types e.g. 5000
+    //    to represent 50.00 inches.  Divide by 100 to get real inches.
     var lengthCard = document.getElementById('length-card-display');
     if (lengthCard && lengthCard.innerText && lengthCard.innerText !== 'XX') {
-      sel.length_inches = parseFloat(lengthCard.innerText) || 0;
+      sel.length_inches = (parseFloat(lengthCard.innerText) || 0) / 100;
     } else {
       // Fallback: read from input directly
       var lengthInput = document.getElementById('length-input');
       if (lengthInput && lengthInput.value) {
         var raw = lengthInput.value.replace(/[^0-9.]/g, '');
-        sel.length_inches = parseFloat(raw) || 0;
+        sel.length_inches = (parseFloat(raw) || 0) / 100;
       }
     }
 
