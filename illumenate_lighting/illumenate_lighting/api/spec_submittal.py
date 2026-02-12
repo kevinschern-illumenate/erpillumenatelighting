@@ -209,9 +209,10 @@ def _fill_pdf_form_fields(
 	warnings: list | None = None,
 ) -> bytes | None:
 	"""
-	Fill form fields in a PDF template with the provided values.
+	Fill form fields in a PDF template with the provided values and flatten the result.
 
-	Uses pypdf to fill AcroForm fields in the PDF.
+	Uses pypdf to fill AcroForm fields in the PDF, then flattens the PDF by removing
+	form field annotations to make the fields non-editable.
 
 	Args:
 		pdf_template_path: Path or URL to the PDF template (must be a Frappe file URL)
@@ -219,7 +220,7 @@ def _fill_pdf_form_fields(
 		warnings: Optional list that debug messages are appended to
 
 	Returns:
-		bytes: The filled PDF as bytes, or None if filling failed
+		bytes: The filled and flattened PDF as bytes, or None if filling failed
 	"""
 	try:
 		from pypdf import PdfReader, PdfWriter
@@ -280,6 +281,28 @@ def _fill_pdf_form_fields(
 				"the template may not be a fillable PDF",
 				warnings,
 			)
+
+		# Flatten the PDF by removing form field annotations (Widget type)
+		# This makes the form fields non-editable by converting them to static content
+		# while preserving other annotations like links
+		_debug("_fill_pdf_form_fields: Flattening PDF by removing form field annotations", warnings)
+		for page in writer.pages:
+			if "/Annots" in page:
+				# Filter out Widget annotations (form fields) but keep other annotations
+				annots = page["/Annots"]
+				filtered_annots = []
+				for annot_ref in annots:
+					annot = annot_ref.get_object()
+					# Keep annotations that are not form field widgets
+					if annot.get("/Subtype") != "/Widget":
+						filtered_annots.append(annot_ref)
+
+				# Update the page's annotations array
+				if filtered_annots:
+					page["/Annots"] = filtered_annots
+				else:
+					# Remove the /Annots key entirely if no annotations remain
+					del page["/Annots"]
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
