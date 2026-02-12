@@ -1799,8 +1799,14 @@ class TestConfiguratorEngine(FrappeTestCase):
 		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
 		self.assertTrue(any("Endcap-Map" in text for text in error_texts))
 
-	def test_missing_mounting_map_returns_error(self):
-		"""Test that missing mounting accessory map returns proper error message"""
+	def test_missing_mounting_map_returns_warning(self):
+		"""Test that missing mounting accessory map returns a warning but still valid.
+
+		Some mounting methods (e.g. screw-through-back-of-profile) do not use
+		separate mounting accessories at all.  The configurator should treat this
+		gracefully: return is_valid=True, emit a warning, set mounting_item to
+		None, and report 0 mounting accessories.
+		"""
 		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
 			validate_and_quote,
 		)
@@ -1834,9 +1840,22 @@ class TestConfiguratorEngine(FrappeTestCase):
 			qty=1,
 		)
 
-		self.assertFalse(result["is_valid"])
-		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
-		self.assertTrue(any("Mounting-Accessory-Map" in text for text in error_texts))
+		# Should still be valid — missing mounting map is not a hard error
+		self.assertTrue(result["is_valid"])
+
+		# Should have a warning about no mounting accessories
+		warning_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "warning"]
+		self.assertTrue(
+			any("does not include separate mounting accessories" in text for text in warning_texts),
+			f"Expected mounting-accessories warning in messages, got: {warning_texts}",
+		)
+
+		# mounting_item should be None
+		self.assertIsNone(result["resolved_items"]["mounting_item"])
+
+		# total_mounting_accessories should be 0 (if present in computed)
+		if "total_mounting_accessories" in result.get("computed", {}):
+			self.assertEqual(result["computed"]["total_mounting_accessories"], 0)
 
 	def test_missing_lens_map_returns_error(self):
 		"""Test that missing lens map returns proper error message"""

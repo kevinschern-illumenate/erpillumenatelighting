@@ -355,6 +355,11 @@ def validate_and_quote(
 
 	response["resolved_items"].update(resolved_result)
 
+	# If no mounting accessory resolved (e.g. screw-through-back method),
+	# ensure total_mounting_accessories is 0 since there's nothing to ship.
+	if not resolved_result.get("mounting_item"):
+		response["computed"]["total_mounting_accessories"] = 0
+
 	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
 	driver_plan_result, driver_messages = _select_driver_plan(
 		fixture_template_code,
@@ -981,6 +986,11 @@ def validate_and_quote_multisegment(
 
 	response["resolved_items"].update(resolved_result)
 
+	# If no mounting accessory resolved (e.g. screw-through-back method),
+	# ensure total_mounting_accessories is 0 since there's nothing to ship.
+	if not resolved_result.get("mounting_item"):
+		response["computed"]["total_mounting_accessories"] = 0
+
 	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
 	driver_plan_result, driver_messages = _select_driver_plan(
 		fixture_template_code,
@@ -1535,9 +1545,15 @@ def _resolve_multisegment_items(
 		break
 
 	if not resolved["mounting_item"]:
+		# Some mounting methods (e.g. screw-through-back) don't use separate
+		# mounting accessories.  Treat this as a gentle informational warning.
 		messages.append({
 			"severity": "warning",
-			"text": f"No mounting accessory found for method '{mounting_method_code}'",
+			"text": (
+				f"This mounting method ('{mounting_method_code}') does not include "
+				f"separate mounting accessories. 0 mounting accessories will be "
+				f"listed for this build."
+			),
 			"field": "mounting_method_code",
 		})
 
@@ -2654,17 +2670,20 @@ def _resolve_items(
 		break
 
 	if not mounting_item:
+		# Some mounting methods (e.g. screw-through-back) don't use separate
+		# mounting accessories.  Treat this as a non-blocking informational
+		# warning rather than a hard error so the configurator can proceed.
 		messages.append(
 			{
-				"severity": "error",
+				"severity": "warning",
 				"text": (
-					f"Missing map: ilL-Rel-Mounting-Accessory-Map for template '{fixture_template_code}' "
-					f"and mounting '{mounting_method_code}'"
+					f"This mounting method ('{mounting_method_code}') does not include "
+					f"separate mounting accessories. 0 mounting accessories will be "
+					f"listed for this build."
 				),
 				"field": "mounting_method_code",
 			}
 		)
-		return resolved, messages, False
 
 	resolved["mounting_item"] = mounting_item
 
