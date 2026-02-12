@@ -296,7 +296,7 @@ def _fill_pdf_form_fields(
 					# Keep annotations that are not form field widgets
 					if annot.get("/Subtype") != "/Widget":
 						filtered_annots.append(annot_ref)
-				
+
 				# Update the page's annotations array
 				if filtered_annots:
 					page["/Annots"] = filtered_annots
