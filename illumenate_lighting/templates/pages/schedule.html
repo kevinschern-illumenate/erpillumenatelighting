@@ -1288,76 +1288,23 @@ function openItemVariantModal() {
 	});
 }
 
-// Check if selected attributes match a variant and filter remaining dropdowns
-function checkVariantMatch() {
-	// Collect all selected attribute values
-	var selectedAttributes = {};
-	var allSelected = true;
-	
+// Collect all selected attribute values from variant dropdowns
+function collectSelectedAttributes() {
+	var result = {attributes: {}, allSelected: true};
 	$('.variant-attribute-select').each(function() {
 		var attr = $(this).data('attribute');
 		var val = $(this).val();
 		if (val) {
-			selectedAttributes[attr] = val;
+			result.attributes[attr] = val;
 		} else {
-			allSelected = false;
+			result.allSelected = false;
 		}
 	});
-	
-	// Filter remaining dropdowns based on current selections
-	if (Object.keys(selectedAttributes).length > 0) {
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_filtered_variant_attributes',
-			args: {
-				template_item: currentTemplateItem,
-				selected_attributes: selectedAttributes
-			},
-			async: false,
-			callback: function(r) {
-				if (r.message && r.message.success && r.message.attributes) {
-					r.message.attributes.forEach(function(attr) {
-						var $select = $('.variant-attribute-select[data-attribute="' + attr.attribute + '"]');
-						var currentVal = $select.val();
-						var validValues = attr.values.map(function(v) { return v.value; });
-						
-						// Rebuild options preserving current selection
-						var opts = '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
-						attr.values.forEach(function(val) {
-							var selected = (val.value === currentVal) ? ' selected' : '';
-							opts += '<option value="' + val.value + '"' + selected + '>' + val.value + '</option>';
-						});
-						$select.html(opts);
-						
-						// If current value is no longer valid, reset it
-						if (currentVal && validValues.indexOf(currentVal) === -1) {
-							$select.val('');
-							allSelected = false;
-						}
-					});
-				}
-			}
-		});
-	}
-	
-	// Only check for match if all attributes are selected
-	if (!allSelected) {
-		$('.variant-match-status').hide();
-		$('#confirmVariantBtn').prop('disabled', true);
-		currentVariantMatch = null;
-		return;
-	}
-	
-	// Re-collect after potential resets
-	selectedAttributes = {};
-	$('.variant-attribute-select').each(function() {
-		var attr = $(this).data('attribute');
-		var val = $(this).val();
-		if (val) {
-			selectedAttributes[attr] = val;
-		}
-	});
-	
-	// Find matching variant
+	return result;
+}
+
+// Try to find a matching variant after all attributes are selected
+function findMatchingVariant(selectedAttributes) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.find_matching_variant',
 		args: {
@@ -1383,6 +1330,60 @@ function checkVariantMatch() {
 			}
 		}
 	});
+}
+
+// Check if selected attributes match a variant and filter remaining dropdowns
+function checkVariantMatch() {
+	var collected = collectSelectedAttributes();
+	var selectedAttributes = collected.attributes;
+	
+	// Filter remaining dropdowns based on current selections
+	if (Object.keys(selectedAttributes).length > 0) {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_filtered_variant_attributes',
+			args: {
+				template_item: currentTemplateItem,
+				selected_attributes: selectedAttributes
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && r.message.attributes) {
+					r.message.attributes.forEach(function(attr) {
+						var $select = $('.variant-attribute-select[data-attribute="' + attr.attribute + '"]');
+						var currentVal = $select.val();
+						var validValues = attr.values.map(function(v) { return v.value; });
+						
+						// Rebuild options preserving current selection
+						var opts = '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+						attr.values.forEach(function(val) {
+							var selected = (val.value === currentVal) ? ' selected' : '';
+							opts += '<option value="' + val.value + '"' + selected + '>' + val.value + '</option>';
+						});
+						$select.html(opts);
+						
+						// If current value is no longer valid, reset it
+						if (currentVal && validValues.indexOf(currentVal) === -1) {
+							$select.val('');
+						}
+					});
+				}
+				
+				// After filtering, re-check if all are selected and find match
+				var updated = collectSelectedAttributes();
+				if (!updated.allSelected) {
+					$('.variant-match-status').hide();
+					$('#confirmVariantBtn').prop('disabled', true);
+					currentVariantMatch = null;
+					return;
+				}
+				findMatchingVariant(updated.attributes);
+			}
+		});
+	} else {
+		// Nothing selected yet
+		$('.variant-match-status').hide();
+		$('#confirmVariantBtn').prop('disabled', true);
+		currentVariantMatch = null;
+	}
 }
 
 // Confirm variant selection
