@@ -2654,8 +2654,12 @@ def get_company_customers() -> dict:
 def get_contacts_for_project() -> dict:
 	"""
 	Get contacts that can be used in projects.
-	Returns contacts associated with the user's company or created by them.
-	
+
+	Returns contacts that:
+	1. System Manager: All contacts
+	2. Non-System Manager: Contacts linked to the user's own customer
+	   or linked to customers created by users at the user's company
+
 	Returns:
 		dict: {
 			"success": True/False,
@@ -2672,22 +2676,76 @@ def get_contacts_for_project() -> dict:
 		# System Manager can access all contacts
 		is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
 		
+		contact_fields = ["name", "first_name", "last_name", "company_name", "email_id", "phone"]
+		
 		if is_system_manager:
 			contacts = frappe.get_all(
 				"Contact",
-				fields=["name", "first_name", "last_name", "company_name", "email_id", "phone"],
+				fields=contact_fields,
 				order_by="first_name asc",
 				limit=1000
 			)
+		elif not user_customer:
+			contacts = []
 		else:
-			# Get contacts linked to the user's customer or owned by them
-			# For now, get all contacts - can be filtered later based on requirements
-			contacts = frappe.get_all(
-				"Contact",
-				fields=["name", "first_name", "last_name", "company_name", "email_id", "phone"],
-				order_by="first_name asc",
-				limit=1000
-			)
+			# Get the allowed customers (same logic as get_allowed_customers_for_project)
+			allowed_customer_names = set()
+			allowed_customer_names.add(user_customer)
+
+			# Get all contacts linked to the user's company (Customer)
+			company_contacts = frappe.db.sql("""
+				SELECT DISTINCT c.name as contact_name, c.user
+				FROM `tabContact` c
+				INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
+					AND dl.parenttype = 'Contact'
+					AND dl.link_doctype = 'Customer'
+					AND dl.link_name = %(user_customer)s
+			""", {"user_customer": user_customer}, as_dict=True)
+
+			contact_names = [c.contact_name for c in company_contacts]
+
+			if contact_names:
+				# Get customers linked to contacts at the user's company
+				linked_customers = frappe.db.sql("""
+					SELECT DISTINCT dl.link_name as customer_name
+					FROM `tabDynamic Link` dl
+					WHERE dl.parenttype = 'Contact'
+						AND dl.link_doctype = 'Customer'
+						AND dl.parent IN (
+							SELECT c.name FROM `tabContact` c
+							INNER JOIN `tabDynamic Link` dl2 ON dl2.parent = c.name
+								AND dl2.parenttype = 'Contact'
+								AND dl2.link_doctype = 'Customer'
+								AND dl2.link_name = %(user_customer)s
+						)
+				""", {"user_customer": user_customer}, as_dict=True)
+
+				for row in linked_customers:
+					allowed_customer_names.add(row.customer_name)
+
+				# Also get customers created by users at this company
+				company_users = [c.user for c in company_contacts if c.user]
+				if company_users:
+					created_customers = frappe.get_all(
+						"Customer",
+						filters={"owner": ["in", company_users]},
+						pluck="name",
+					)
+					for cust in created_customers:
+						allowed_customer_names.add(cust)
+
+			# Get contacts linked to any of the allowed customers
+			contacts = frappe.db.sql("""
+				SELECT DISTINCT c.name, c.first_name, c.last_name,
+					c.company_name, c.email_id, c.phone
+				FROM `tabContact` c
+				INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
+					AND dl.parenttype = 'Contact'
+					AND dl.link_doctype = 'Customer'
+					AND dl.link_name IN %(allowed_customers)s
+				ORDER BY c.first_name ASC
+				LIMIT 1000
+			""", {"allowed_customers": list(allowed_customer_names)}, as_dict=True)
 		
 		return {"success": True, "contacts": contacts}
 		
