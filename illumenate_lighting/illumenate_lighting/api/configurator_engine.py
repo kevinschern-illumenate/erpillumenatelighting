@@ -669,9 +669,9 @@ def validate_and_quote_multisegment_with_output(
 	endcap_color_code: str,
 	environment_rating_code: str,
 	led_package_code: str,
-	cct_code: str,
-	delivered_output_value: int,
-	segments_json: str,
+	cct_code: str = None,
+	delivered_output_value: int = None,
+	segments_json: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -3722,8 +3722,8 @@ def get_delivered_outputs_for_template(
 	fixture_template_code: str,
 	led_package_code: str,
 	environment_rating_code: str,
-	cct_code: str,
-	lens_appearance_code: str,
+	cct_code: str = None,
+	lens_appearance_code: str = None,
 ) -> dict[str, Any]:
 	"""
 	Calculate and return available fixture output options (delivered lumens).
@@ -3823,8 +3823,8 @@ def get_delivered_outputs_for_template(
 			"name": ["in", valid_tape_offering_names],
 			"led_package": led_package_code,
 		}
-		# For multi-CCT packages, don't filter by CCT
-		if not is_multi_cct:
+		# For multi-CCT packages, don't filter by CCT; also skip if cct_code not provided
+		if not is_multi_cct and cct_code:
 			tape_filters["cct"] = cct_code
 		active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
 		if active_count > 0:
@@ -3937,9 +3937,9 @@ def auto_select_tape_for_configuration(
 	fixture_template_code: str,
 	led_package_code: str,
 	environment_rating_code: str,
-	cct_code: str,
-	lens_appearance_code: str,
-	delivered_output_value: int,
+	cct_code: str = None,
+	lens_appearance_code: str = None,
+	delivered_output_value: int = None,
 ) -> dict[str, Any]:
 	"""
 	Automatically select the tape offering based on the user's configuration choices.
@@ -4035,7 +4035,8 @@ def auto_select_tape_for_configuration(
 		"led_package": led_package_code,
 	}
 	# For multi-CCT packages, don't filter by CCT (tape has generic CCT like "Tunable White")
-	if not is_multi_cct:
+	# Also skip if cct_code not provided
+	if not is_multi_cct and cct_code:
 		tape_filters["cct"] = cct_code
 	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
 	if active_count > 0:
