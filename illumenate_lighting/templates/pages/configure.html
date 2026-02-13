@@ -572,6 +572,7 @@ var MM_PER_FOOT = 304.8;
 var INCHES_PER_FOOT = 12;
 var scheduleLines = [];  // Cached schedule lines
 var canSaveToSchedule = {{ 'true' if can_save else 'false' }};
+var isPopulating = false;  // Flag to suppress cascading events during populateOptions
 
 console.log('Configurator script loaded');
 
@@ -771,41 +772,49 @@ $(function() {
 
 	// Cascading option change handlers
 	$('select[name="led_package_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateCCTOptions();
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="environment_rating_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateCCTOptions();
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="cct_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="lens_appearance_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="delivered_output_value"]').on('change', function() {
+		if (isPopulating) return;
 		autoSelectTape();
 		updateUI();
 	});
 
 	$('select[name="mounting_method_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateUI();
 	});
 
 	$('select[name="finish_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateUI();
 	});
 
 	$('select[name="endcap_color_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateUI();
 	});
 });
@@ -987,6 +996,7 @@ function populatePillSelector(fieldName, options) {
 
 function populateOptions(options) {
 	console.log('populateOptions called with:', options);
+	isPopulating = true;  // Suppress cascading change events during population
 	
 	// Map API response keys to form field names
 	var pillFields = {
@@ -1082,6 +1092,31 @@ function populateOptions(options) {
 	
 	// Clear auto-selected tape offering
 	$('input[name="tape_offering_id"]').val('');
+
+	// Auto-select single-option fields and trigger cascading
+	isPopulating = false;  // Re-enable cascading before auto-selection
+	
+	var cascadingFields = ['led_packages', 'environment_ratings', 'ccts', 'lens_appearances', 'mountings', 'finishes'];
+	cascadingFields.forEach(function(optionKey) {
+		var fieldName = pillFields[optionKey];
+		if (options[optionKey] && options[optionKey].length === 1) {
+			var onlyValue = options[optionKey][0].value;
+			var selectFallback = $('select[name="' + fieldName + '"]');
+			var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+			selectFallback.val(onlyValue).trigger('change');
+			pillContainer.find('.pill-option').first().addClass('active');
+			console.log('Auto-selected single option for', fieldName, ':', onlyValue);
+		}
+	});
+
+	// Also auto-select endcap color if only one option
+	if (options.endcap_colors && options.endcap_colors.length === 1) {
+		var colorSelect = $('select[name="endcap_color_code"]');
+		var colorPillContainer = $('.pill-selector[data-field="endcap_color_code"]');
+		colorSelect.val(options.endcap_colors[0].value).trigger('change');
+		colorPillContainer.find('.pill-option').first().addClass('active');
+		console.log('Auto-selected single endcap color:', options.endcap_colors[0].value);
+	}
 }
 
 function populateSegmentPowerFeedOptions(segmentCard) {

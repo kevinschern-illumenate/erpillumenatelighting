@@ -534,6 +534,28 @@ def _get_series_info(template) -> dict:
 
 
 # =============================================================================
+# MULTI-CCT (TUNABLE WHITE) HELPERS
+# =============================================================================
+
+# Spectrum types where the tape offering carries a generic CCT (e.g. "Tunable White")
+# but the LED Package's compatible_ccts lists the individual CCTs users can choose.
+_MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
+
+
+def _is_multi_cct_template(template) -> bool:
+    """Check if any LED package on this template's tapes is a multi-CCT type."""
+    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+        tape_offering = getattr(tape_row, 'tape_offering', None)
+        if tape_offering:
+            led_pkg = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, "led_package")
+            if led_pkg:
+                spectrum_type = frappe.db.get_value("ilL-Attribute-LED Package", led_pkg, "spectrum_type") or ""
+                if spectrum_type in _MULTI_CCT_SPECTRUM_TYPES:
+                    return True
+    return False
+
+
+# =============================================================================
 # CASCADING OPTION FUNCTIONS
 # =============================================================================
 
@@ -565,7 +587,63 @@ def _get_environment_ratings(template) -> list:
 
 
 def _get_ccts_for_environment(template, environment: str) -> list:
-    """Get CCTs available for the selected environment."""
+    """Get CCTs available for the selected environment.
+    
+    For multi-CCT LED packages (Tunable White, Dim to Warm, etc.), returns the
+    individual CCTs from the LED Package's compatible_ccts table rather than the
+    tape offering's generic CCT (e.g. "Tunable White").
+    """
+    MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
+    
+    # ── Determine LED packages and check for multi-CCT spectrum types ──
+    led_packages_on_env = set()
+    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+        if not getattr(tape_row, 'is_active', True):
+            continue
+        if getattr(tape_row, 'environment_rating', None) != environment:
+            continue
+        tape_offering = getattr(tape_row, 'tape_offering', None)
+        if tape_offering:
+            pkg = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, "led_package")
+            if pkg:
+                led_packages_on_env.add(pkg)
+    
+    # Check if any LED package is multi-CCT
+    multi_cct_ccts = []
+    for pkg_name in led_packages_on_env:
+        pkg_data = frappe.db.get_value(
+            "ilL-Attribute-LED Package", pkg_name,
+            ["name", "spectrum_type"], as_dict=True
+        )
+        if pkg_data and (pkg_data.get("spectrum_type") or "") in MULTI_CCT_SPECTRUM_TYPES:
+            # Get individual CCTs from LED Package's compatible_ccts table
+            pkg_doc = frappe.get_doc("ilL-Attribute-LED Package", pkg_name)
+            for row in pkg_doc.get("compatible_ccts", []):
+                if row.cct:
+                    cct_data = frappe.db.get_value(
+                        "ilL-Attribute-CCT", row.cct,
+                        ["name", "code", "kelvin", "description"], as_dict=True
+                    )
+                    if cct_data:
+                        multi_cct_ccts.append({
+                            "value": cct_data.name,
+                            "label": cct_data.name,
+                            "code": cct_data.get("code"),
+                            "kelvin": cct_data.get("kelvin"),
+                            "description": cct_data.get("description")
+                        })
+    
+    if multi_cct_ccts:
+        # Deduplicate by value
+        seen = set()
+        unique = []
+        for c in multi_cct_ccts:
+            if c["value"] not in seen:
+                seen.add(c["value"])
+                unique.append(c)
+        return sorted(unique, key=lambda x: x.get("kelvin") or 0)
+    
+    # ── Standard flow: get CCTs directly from tape offerings ──
     ccts = set()
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
@@ -602,7 +680,12 @@ def _get_ccts_for_environment(template, environment: str) -> list:
 
 
 def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
-    """Get output levels available for the selected environment + CCT."""
+    """Get output levels available for the selected environment + CCT.
+    
+    For multi-CCT packages (Tunable White, etc.), the tape's CCT won't match
+    the user-selected individual CCT, so we skip the CCT filter.
+    """
+    is_multi_cct = _is_multi_cct_template(template)
     output_levels = set()
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
@@ -622,7 +705,9 @@ def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
             as_dict=True
         )
         
-        if offering_data and offering_data.get("cct") == cct and offering_data.get("output_level"):
+        # For multi-CCT packages, skip the exact CCT check on tape offerings
+        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
+        if offering_data and cct_matches and offering_data.get("output_level"):
             output_levels.add(offering_data.get("output_level"))
     
     result = []
@@ -654,6 +739,9 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     3. Calculating delivered output = tape output × transmission
     4. Matching to fixture-level output levels
     
+    For multi-CCT packages (Tunable White, etc.), the tape's CCT won't match
+    the user-selected individual CCT, so we skip the CCT filter.
+    
     Args:
         template: The fixture template document
         environment: Selected environment rating name
@@ -681,6 +769,7 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     )
     
     # Get compatible tape offerings and their output levels
+    is_multi_cct = _is_multi_cct_template(template)
     tape_output_data = {}  # output_level_name -> tape_output_value
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
@@ -700,7 +789,9 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
             as_dict=True
         )
         
-        if offering_data and offering_data.get("cct") == cct and offering_data.get("output_level"):
+        # For multi-CCT packages, skip the exact CCT check on tape offerings
+        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
+        if offering_data and cct_matches and offering_data.get("output_level"):
             output_level_name = offering_data.get("output_level")
             if output_level_name not in tape_output_data:
                 # Get the tape's output level value
@@ -1122,10 +1213,15 @@ def _get_feed_direction_code(direction: str) -> str:
 # =============================================================================
 
 def _validate_option_compatibility(template, selections: dict) -> dict:
-    """Validate that a tape offering exists for the selected combination."""
+    """Validate that a tape offering exists for the selected combination.
+    
+    For multi-CCT packages (Tunable White, etc.), skips the exact CCT match
+    since the tape carries a generic CCT while the user selects individual CCTs.
+    """
     environment = selections.get("environment_rating")
     cct = selections.get("cct")
     output_level = selections.get("output_level")
+    is_multi_cct = _is_multi_cct_template(template)
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
@@ -1144,8 +1240,9 @@ def _validate_option_compatibility(template, selections: dict) -> dict:
             as_dict=True
         )
         
+        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
         if (offering_data and 
-            offering_data.get("cct") == cct and 
+            cct_matches and 
             offering_data.get("output_level") == output_level):
             return {"is_valid": True}
     
@@ -1156,10 +1253,15 @@ def _validate_option_compatibility(template, selections: dict) -> dict:
 
 
 def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
-    """Find the tape offering ID for the selected combination."""
+    """Find the tape offering ID for the selected combination.
+    
+    For multi-CCT packages (Tunable White, etc.), skips the exact CCT match
+    since the tape carries a generic CCT while the user selects individual CCTs.
+    """
     environment = selections.get("environment_rating")
     cct = selections.get("cct")
     output_level = selections.get("output_level")
+    is_multi_cct = _is_multi_cct_template(template)
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
@@ -1178,8 +1280,9 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
             as_dict=True
         )
         
+        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
         if (offering_data and 
-            offering_data.get("cct") == cct and 
+            cct_matches and 
             offering_data.get("output_level") == output_level):
             return tape_offering
     
