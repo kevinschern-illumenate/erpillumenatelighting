@@ -1,137 +1,144 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "format:{fixture_template}-{endcap_style}-{endcap_color}",
- "creation": "2026-01-07 21:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "mapping_section",
-  "fixture_template",
-  "endcap_style",
-  "endcap_color",
-  "column_break_mapping",
-  "power_feed_type",
-  "environment_rating",
-  "result_section",
-  "endcap_item",
-  "column_break_result",
-  "is_default",
-  "is_active"
- ],
- "fields": [
-  {
-   "fieldname": "mapping_section",
-   "fieldtype": "Section Break",
-   "label": "Mapping Criteria"
-  },
-  {
-   "fieldname": "fixture_template",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Fixture Template",
-   "options": "ilL-Fixture-Template",
-   "reqd": 1
-  },
-  {
-   "fieldname": "endcap_style",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Endcap Style",
-   "options": "ilL-Attribute-Endcap Style",
-   "reqd": 1
-  },
-  {
-   "fieldname": "endcap_color",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Endcap Color",
-   "options": "ilL-Attribute-Endcap Color",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_mapping",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "power_feed_type",
-   "fieldtype": "Link",
-   "label": "Power Feed Type",
-   "options": "ilL-Attribute-Power Feed Type"
-  },
-  {
-   "fieldname": "environment_rating",
-   "fieldtype": "Link",
-   "label": "Environment Rating",
-   "options": "ilL-Attribute-Environment Rating"
-  },
-  {
-   "fieldname": "result_section",
-   "fieldtype": "Section Break",
-   "label": "Result"
-  },
-  {
-   "fieldname": "endcap_item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Endcap Item",
-   "options": "Item",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_result",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_default",
-   "fieldtype": "Check",
-   "label": "Is Default"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Active"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 21:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Rel-Endcap-Map",
- "naming_rule": "Expression",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "fixture_template, endcap_style, endcap_color",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "format:{fixture_template}-{endcap_style}-{endcap_color}",
+    "creation":  "2026-01-07 21:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "mapping_section",
+                        "fixture_template",
+                        "endcap_style",
+                        "endcap_color",
+                        "column_break_mapping",
+                        "power_feed_type",
+                        "environment_rating",
+                        "result_section",
+                        "endcap_item",
+                        "column_break_result",
+                        "is_default",
+                        "is_active"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "mapping_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Mapping Criteria"
+                   },
+                   {
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Fixture Template",
+                       "options":  "ilL-Fixture-Template",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "endcap_style",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Endcap Style",
+                       "options":  "ilL-Attribute-Endcap Style",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "endcap_color",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Endcap Color",
+                       "options":  "ilL-Attribute-Endcap Color",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_mapping",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "power_feed_type",
+                       "fieldtype":  "Link",
+                       "label":  "Power Feed Type",
+                       "options":  "ilL-Attribute-Power Feed Type"
+                   },
+                   {
+                       "fieldname":  "environment_rating",
+                       "fieldtype":  "Link",
+                       "label":  "Environment Rating",
+                       "options":  "ilL-Attribute-Environment Rating"
+                   },
+                   {
+                       "fieldname":  "result_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Result"
+                   },
+                   {
+                       "fieldname":  "endcap_item",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Endcap Item",
+                       "options":  "Item",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_result",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "is_default",
+                       "fieldtype":  "Check",
+                       "label":  "Is Default"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Active"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 21:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Rel-Endcap-Map",
+    "naming_rule":  "Expression",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "fixture_template, endcap_style, endcap_color",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }

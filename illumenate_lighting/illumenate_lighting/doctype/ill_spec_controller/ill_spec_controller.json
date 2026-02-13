@@ -1,245 +1,252 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:item",
- "creation": "2026-01-21 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "identity_section",
-  "item",
-  "controller_name",
-  "column_break_identity",
-  "controller_type",
-  "is_active",
-  "electrical_section",
-  "input_voltage_min",
-  "input_voltage_max",
-  "input_voltage_type",
-  "column_break_electrical",
-  "max_load_watts",
-  "max_load_amps",
-  "standby_power_watts",
-  "control_section",
-  "channels",
-  "zones",
-  "column_break_control",
-  "input_protocols",
-  "output_protocols",
-  "wireless_protocols",
-  "physical_section",
-  "width_mm",
-  "height_mm",
-  "depth_mm",
-  "column_break_physical",
-  "weight_grams",
-  "mounting_type",
-  "compatibility_section",
-  "compatible_drivers",
-  "notes"
- ],
- "fields": [
-  {
-   "fieldname": "identity_section",
-   "fieldtype": "Section Break",
-   "label": "Identity"
-  },
-  {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Controller Item",
-   "options": "Item",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "controller_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Controller Name"
-  },
-  {
-   "fieldname": "column_break_identity",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "controller_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Controller Type",
-   "options": "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater",
-   "reqd": 1
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active"
-  },
-  {
-   "fieldname": "electrical_section",
-   "fieldtype": "Section Break",
-   "label": "Electrical"
-  },
-  {
-   "description": "Minimum input voltage (e.g., 100)",
-   "fieldname": "input_voltage_min",
-   "fieldtype": "Int",
-   "label": "Input Voltage Min"
-  },
-  {
-   "description": "Maximum input voltage (e.g., 277)",
-   "fieldname": "input_voltage_max",
-   "fieldtype": "Int",
-   "label": "Input Voltage Max"
-  },
-  {
-   "fieldname": "input_voltage_type",
-   "fieldtype": "Select",
-   "label": "Input Voltage Type",
-   "options": "VAC\nVDC"
-  },
-  {
-   "fieldname": "column_break_electrical",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "max_load_watts",
-   "fieldtype": "Float",
-   "label": "Max Load (Watts)"
-  },
-  {
-   "fieldname": "max_load_amps",
-   "fieldtype": "Float",
-   "label": "Max Load (Amps)"
-  },
-  {
-   "fieldname": "standby_power_watts",
-   "fieldtype": "Float",
-   "label": "Standby Power (Watts)"
-  },
-  {
-   "fieldname": "control_section",
-   "fieldtype": "Section Break",
-   "label": "Control"
-  },
-  {
-   "description": "Number of control channels",
-   "fieldname": "channels",
-   "fieldtype": "Int",
-   "label": "Channels"
-  },
-  {
-   "description": "Number of zones",
-   "fieldname": "zones",
-   "fieldtype": "Int",
-   "label": "Zones"
-  },
-  {
-   "fieldname": "column_break_control",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Dimming protocols this controller accepts as input",
-   "fieldname": "input_protocols",
-   "fieldtype": "Table",
-   "label": "Input Protocols",
-   "options": "ilL-Child-Controller-Protocol"
-  },
-  {
-   "description": "Dimming protocols this controller outputs",
-   "fieldname": "output_protocols",
-   "fieldtype": "Table",
-   "label": "Output Protocols",
-   "options": "ilL-Child-Controller-Protocol"
-  },
-  {
-   "description": "Wireless communication protocols supported",
-   "fieldname": "wireless_protocols",
-   "fieldtype": "Table",
-   "label": "Wireless Protocols",
-   "options": "ilL-Child-Wireless-Protocol"
-  },
-  {
-   "fieldname": "physical_section",
-   "fieldtype": "Section Break",
-   "label": "Physical Dimensions"
-  },
-  {
-   "fieldname": "width_mm",
-   "fieldtype": "Float",
-   "label": "Width (mm)"
-  },
-  {
-   "fieldname": "height_mm",
-   "fieldtype": "Float",
-   "label": "Height (mm)"
-  },
-  {
-   "fieldname": "depth_mm",
-   "fieldtype": "Float",
-   "label": "Depth (mm)"
-  },
-  {
-   "fieldname": "column_break_physical",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "weight_grams",
-   "fieldtype": "Float",
-   "label": "Weight (grams)"
-  },
-  {
-   "fieldname": "mounting_type",
-   "fieldtype": "Select",
-   "label": "Mounting Type",
-   "options": "Wall Mount\nIn-Wall\nSurface\nDIN Rail\nPortable"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "compatibility_section",
-   "fieldtype": "Section Break",
-   "label": "Compatibility"
-  },
-  {
-   "description": "Drivers known to be compatible with this controller",
-   "fieldname": "compatible_drivers",
-   "fieldtype": "Table",
-   "label": "Compatible Drivers",
-   "options": "ilL-Child-Compatible-Driver"
-  },
-  {
-   "fieldname": "notes",
-   "fieldtype": "Small Text",
-   "label": "Notes"
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-21 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Spec-Controller",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "creation",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:item",
+    "creation":  "2026-01-21 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "identity_section",
+                        "item",
+                        "controller_name",
+                        "column_break_identity",
+                        "controller_type",
+                        "is_active",
+                        "electrical_section",
+                        "input_voltage_min",
+                        "input_voltage_max",
+                        "input_voltage_type",
+                        "column_break_electrical",
+                        "max_load_watts",
+                        "max_load_amps",
+                        "standby_power_watts",
+                        "control_section",
+                        "channels",
+                        "zones",
+                        "column_break_control",
+                        "input_protocols",
+                        "output_protocols",
+                        "wireless_protocols",
+                        "physical_section",
+                        "width_mm",
+                        "height_mm",
+                        "depth_mm",
+                        "column_break_physical",
+                        "weight_grams",
+                        "mounting_type",
+                        "compatibility_section",
+                        "compatible_drivers",
+                        "notes"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "identity_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Identity"
+                   },
+                   {
+                       "fieldname":  "item",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Controller Item",
+                       "options":  "Item",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "controller_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Controller Name"
+                   },
+                   {
+                       "fieldname":  "column_break_identity",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "controller_type",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Controller Type",
+                       "options":  "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater",
+                       "reqd":  1
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "label":  "Is Active"
+                   },
+                   {
+                       "fieldname":  "electrical_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Electrical"
+                   },
+                   {
+                       "description":  "Minimum input voltage (e.g., 100)",
+                       "fieldname":  "input_voltage_min",
+                       "fieldtype":  "Int",
+                       "label":  "Input Voltage Min"
+                   },
+                   {
+                       "description":  "Maximum input voltage (e.g., 277)",
+                       "fieldname":  "input_voltage_max",
+                       "fieldtype":  "Int",
+                       "label":  "Input Voltage Max"
+                   },
+                   {
+                       "fieldname":  "input_voltage_type",
+                       "fieldtype":  "Select",
+                       "label":  "Input Voltage Type",
+                       "options":  "VAC\nVDC"
+                   },
+                   {
+                       "fieldname":  "column_break_electrical",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "max_load_watts",
+                       "fieldtype":  "Float",
+                       "label":  "Max Load (Watts)"
+                   },
+                   {
+                       "fieldname":  "max_load_amps",
+                       "fieldtype":  "Float",
+                       "label":  "Max Load (Amps)"
+                   },
+                   {
+                       "fieldname":  "standby_power_watts",
+                       "fieldtype":  "Float",
+                       "label":  "Standby Power (Watts)"
+                   },
+                   {
+                       "fieldname":  "control_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Control"
+                   },
+                   {
+                       "description":  "Number of control channels",
+                       "fieldname":  "channels",
+                       "fieldtype":  "Int",
+                       "label":  "Channels"
+                   },
+                   {
+                       "description":  "Number of zones",
+                       "fieldname":  "zones",
+                       "fieldtype":  "Int",
+                       "label":  "Zones"
+                   },
+                   {
+                       "fieldname":  "column_break_control",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Dimming protocols this controller accepts as input",
+                       "fieldname":  "input_protocols",
+                       "fieldtype":  "Table",
+                       "label":  "Input Protocols",
+                       "options":  "ilL-Child-Controller-Protocol"
+                   },
+                   {
+                       "description":  "Dimming protocols this controller outputs",
+                       "fieldname":  "output_protocols",
+                       "fieldtype":  "Table",
+                       "label":  "Output Protocols",
+                       "options":  "ilL-Child-Controller-Protocol"
+                   },
+                   {
+                       "description":  "Wireless communication protocols supported",
+                       "fieldname":  "wireless_protocols",
+                       "fieldtype":  "Table",
+                       "label":  "Wireless Protocols",
+                       "options":  "ilL-Child-Wireless-Protocol"
+                   },
+                   {
+                       "fieldname":  "physical_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Physical Dimensions"
+                   },
+                   {
+                       "fieldname":  "width_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Width (mm)"
+                   },
+                   {
+                       "fieldname":  "height_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Height (mm)"
+                   },
+                   {
+                       "fieldname":  "depth_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Depth (mm)"
+                   },
+                   {
+                       "fieldname":  "column_break_physical",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "weight_grams",
+                       "fieldtype":  "Float",
+                       "label":  "Weight (grams)"
+                   },
+                   {
+                       "fieldname":  "mounting_type",
+                       "fieldtype":  "Select",
+                       "label":  "Mounting Type",
+                       "options":  "Wall Mount\nIn-Wall\nSurface\nDIN Rail\nPortable"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "compatibility_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Compatibility"
+                   },
+                   {
+                       "description":  "Drivers known to be compatible with this controller",
+                       "fieldname":  "compatible_drivers",
+                       "fieldtype":  "Table",
+                       "label":  "Compatible Drivers",
+                       "options":  "ilL-Child-Compatible-Driver"
+                   },
+                   {
+                       "fieldname":  "notes",
+                       "fieldtype":  "Small Text",
+                       "label":  "Notes"
+                   }
+               ],
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-21 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Spec-Controller",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "creation",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

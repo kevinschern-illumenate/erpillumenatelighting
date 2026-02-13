@@ -1,251 +1,256 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "naming_series:",
- "creation": "2026-01-08 18:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "naming_series",
-  "project_name",
-  "customer",
-  "column_break_identity",
-  "status",
-  "is_active",
-  "owner_customer",
-  "description_section",
-  "description",
-  "project_details_section",
-  "estimated_start_date",
-  "location",
-  "column_break_details",
-  "project_manager",
-  "contacts_section",
-  "architect",
-  "lighting_designer",
-  "column_break_contacts",
-  "general_contractor",
-  "privacy_section",
-  "is_private",
-  "column_break_privacy",
-  "collaborators",
-  "erp_links_section",
-  "erp_project"
- ],
- "fields": [
-  {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Series",
-   "options": "ILL-PROJ-.YYYY.-.#####"
-  },
-  {
-   "fieldname": "project_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Project Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "customer",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Customer",
-   "options": "Customer",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_identity",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "ACTIVE",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "options": "ACTIVE\nON_HOLD\nCOMPLETED\nARCHIVED"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active"
-  },
-  {
-   "description": "The company (Customer) of the user who created this project. Used for visibility - all users at this company can view non-private projects.",
-   "fieldname": "owner_customer",
-   "fieldtype": "Link",
-   "label": "Owner Company",
-   "options": "Customer",
-   "read_only": 1
-  },
-  {
-   "fieldname": "description_section",
-   "fieldtype": "Section Break",
-   "label": "Description"
-  },
-  {
-   "fieldname": "description",
-   "fieldtype": "Text Editor",
-   "label": "Description"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "project_details_section",
-   "fieldtype": "Section Break",
-   "label": "Project Details"
-  },
-  {
-   "fieldname": "estimated_start_date",
-   "fieldtype": "Date",
-   "label": "Estimated Start Date"
-  },
-  {
-   "fieldname": "location",
-   "fieldtype": "Small Text",
-   "label": "Location"
-  },
-  {
-   "fieldname": "column_break_details",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Project manager from your organization",
-   "fieldname": "project_manager",
-   "fieldtype": "Link",
-   "label": "Project Manager",
-   "options": "Contact"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "contacts_section",
-   "fieldtype": "Section Break",
-   "label": "Project Contacts"
-  },
-  {
-   "description": "Architect contact for this project",
-   "fieldname": "architect",
-   "fieldtype": "Link",
-   "label": "Architect",
-   "options": "Contact"
-  },
-  {
-   "description": "Lighting designer contact for this project",
-   "fieldname": "lighting_designer",
-   "fieldtype": "Link",
-   "label": "Lighting Designer",
-   "options": "Contact"
-  },
-  {
-   "fieldname": "column_break_contacts",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "General contractor contact for this project",
-   "fieldname": "general_contractor",
-   "fieldtype": "Link",
-   "label": "General Contractor",
-   "options": "Contact"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "privacy_section",
-   "fieldtype": "Section Break",
-   "label": "Privacy & Access"
-  },
-  {
-   "default": "0",
-   "description": "When checked, only the owner and explicitly added collaborators can view this project. Otherwise, all portal users for the same Customer can view it.",
-   "fieldname": "is_private",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Private"
-  },
-  {
-   "fieldname": "column_break_privacy",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.is_private",
-   "description": "Users who can access this private project",
-   "fieldname": "collaborators",
-   "fieldtype": "Table",
-   "label": "Collaborators",
-   "options": "ilL-Child-Project-Collaborator"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "erp_links_section",
-   "fieldtype": "Section Break",
-   "label": "ERP Links"
-  },
-  {
-   "description": "Link to ERPNext Project (optional)",
-   "fieldname": "erp_project",
-   "fieldtype": "Link",
-   "label": "ERP Project",
-   "options": "Project"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [
-  {
-   "link_doctype": "ilL-Project-Fixture-Schedule",
-   "link_fieldname": "ill_project"
-  }
- ],
- "modified": "2026-01-12 00:42:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Project",
- "naming_rule": "By \"Naming Series\" field",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Dealer",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Customer",
-   "share": 1,
-   "write": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "project_name, customer",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "naming_series:",
+    "creation":  "2026-01-08 18:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "naming_series",
+                        "project_name",
+                        "customer",
+                        "column_break_identity",
+                        "status",
+                        "is_active",
+                        "owner_customer",
+                        "description_section",
+                        "description",
+                        "project_details_section",
+                        "estimated_start_date",
+                        "location",
+                        "column_break_details",
+                        "project_manager",
+                        "contacts_section",
+                        "architect",
+                        "lighting_designer",
+                        "column_break_contacts",
+                        "general_contractor",
+                        "privacy_section",
+                        "is_private",
+                        "column_break_privacy",
+                        "collaborators",
+                        "erp_links_section",
+                        "erp_project"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "naming_series",
+                       "fieldtype":  "Select",
+                       "label":  "Series",
+                       "options":  "ILL-PROJ-.YYYY.-.#####"
+                   },
+                   {
+                       "fieldname":  "project_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Project Name",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "customer",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Customer",
+                       "options":  "Customer",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_identity",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "ACTIVE",
+                       "fieldname":  "status",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Status",
+                       "options":  "ACTIVE\nON_HOLD\nCOMPLETED\nARCHIVED"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "label":  "Is Active"
+                   },
+                   {
+                       "description":  "The company (Customer) of the user who created this project. Used for visibility - all users at this company can view non-private projects.",
+                       "fieldname":  "owner_customer",
+                       "fieldtype":  "Link",
+                       "label":  "Owner Company",
+                       "options":  "Customer",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "description_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Description"
+                   },
+                   {
+                       "fieldname":  "description",
+                       "fieldtype":  "Text Editor",
+                       "label":  "Description"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "project_details_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Project Details"
+                   },
+                   {
+                       "fieldname":  "estimated_start_date",
+                       "fieldtype":  "Date",
+                       "label":  "Estimated Start Date"
+                   },
+                   {
+                       "fieldname":  "location",
+                       "fieldtype":  "Small Text",
+                       "label":  "Location"
+                   },
+                   {
+                       "fieldname":  "column_break_details",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Project manager from your organization",
+                       "fieldname":  "project_manager",
+                       "fieldtype":  "Link",
+                       "label":  "Project Manager",
+                       "options":  "Contact"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "contacts_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Project Contacts"
+                   },
+                   {
+                       "description":  "Architect contact for this project",
+                       "fieldname":  "architect",
+                       "fieldtype":  "Link",
+                       "label":  "Architect",
+                       "options":  "Contact"
+                   },
+                   {
+                       "description":  "Lighting designer contact for this project",
+                       "fieldname":  "lighting_designer",
+                       "fieldtype":  "Link",
+                       "label":  "Lighting Designer",
+                       "options":  "Contact"
+                   },
+                   {
+                       "fieldname":  "column_break_contacts",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "General contractor contact for this project",
+                       "fieldname":  "general_contractor",
+                       "fieldtype":  "Link",
+                       "label":  "General Contractor",
+                       "options":  "Contact"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "privacy_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Privacy \u0026 Access"
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "When checked, only the owner and explicitly added collaborators can view this project. Otherwise, all portal users for the same Customer can view it.",
+                       "fieldname":  "is_private",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Private"
+                   },
+                   {
+                       "fieldname":  "column_break_privacy",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "depends_on":  "eval:doc.is_private",
+                       "description":  "Users who can access this private project",
+                       "fieldname":  "collaborators",
+                       "fieldtype":  "Table",
+                       "label":  "Collaborators",
+                       "options":  "ilL-Child-Project-Collaborator"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "erp_links_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "ERP Links"
+                   },
+                   {
+                       "description":  "Link to ERPNext Project (optional)",
+                       "fieldname":  "erp_project",
+                       "fieldtype":  "Link",
+                       "label":  "ERP Project",
+                       "options":  "Project"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+                  {
+                      "link_doctype":  "ilL-Project-Fixture-Schedule",
+                      "link_fieldname":  "ill_project"
+                  }
+              ],
+    "modified":  "2026-01-12 00:42:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Project",
+    "naming_rule":  "By \"Naming Series\" field",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "Dealer",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "Customer",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "project_name, customer",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

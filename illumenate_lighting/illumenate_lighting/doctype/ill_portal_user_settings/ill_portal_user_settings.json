@@ -1,180 +1,187 @@
-{
- "actions": [],
- "autoname": "field:user",
- "creation": "2026-02-12 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "user_section",
-  "user",
-  "column_break_user",
-  "user_full_name",
-  "notification_preferences_sb",
-  "notify_orders",
-  "notify_quotes",
-  "notify_drawings",
-  "column_break_notify",
-  "notify_shipping",
-  "notify_marketing",
-  "preferences_sb",
-  "language",
-  "units",
-  "column_break_prefs",
-  "date_format",
-  "timezone"
- ],
- "fields": [
-  {
-   "fieldname": "user_section",
-   "fieldtype": "Section Break",
-   "label": "User"
-  },
-  {
-   "fieldname": "user",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "User",
-   "options": "User",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "column_break_user",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fetch_from": "user.full_name",
-   "fieldname": "user_full_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Full Name",
-   "read_only": 1
-  },
-  {
-   "fieldname": "notification_preferences_sb",
-   "fieldtype": "Section Break",
-   "label": "Notification Preferences"
-  },
-  {
-   "default": "1",
-   "description": "Get notified when order status changes",
-   "fieldname": "notify_orders",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Order Updates"
-  },
-  {
-   "default": "1",
-   "description": "Receive notifications when quotes are ready",
-   "fieldname": "notify_quotes",
-   "fieldtype": "Check",
-   "label": "Quote Ready"
-  },
-  {
-   "default": "1",
-   "description": "Get notified when drawings are completed",
-   "fieldname": "notify_drawings",
-   "fieldtype": "Check",
-   "label": "Drawing Requests"
-  },
-  {
-   "fieldname": "column_break_notify",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "1",
-   "description": "Receive shipping updates and tracking info",
-   "fieldname": "notify_shipping",
-   "fieldtype": "Check",
-   "label": "Shipment Tracking"
-  },
-  {
-   "default": "0",
-   "description": "Product updates, promotions, and industry news",
-   "fieldname": "notify_marketing",
-   "fieldtype": "Check",
-   "label": "Marketing & News"
-  },
-  {
-   "fieldname": "preferences_sb",
-   "fieldtype": "Section Break",
-   "label": "Preferences"
-  },
-  {
-   "default": "en",
-   "fieldname": "language",
-   "fieldtype": "Select",
-   "label": "Language",
-   "options": "en\nes\nfr"
-  },
-  {
-   "default": "imperial",
-   "fieldname": "units",
-   "fieldtype": "Select",
-   "label": "Units",
-   "options": "imperial\nmetric"
-  },
-  {
-   "fieldname": "column_break_prefs",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "mm/dd/yyyy",
-   "fieldname": "date_format",
-   "fieldtype": "Select",
-   "label": "Date Format",
-   "options": "mm/dd/yyyy\ndd/mm/yyyy\nyyyy-mm-dd"
-  },
-  {
-   "default": "America/New_York",
-   "fieldname": "timezone",
-   "fieldtype": "Select",
-   "label": "Timezone",
-   "options": "America/New_York\nAmerica/Chicago\nAmerica/Denver\nAmerica/Los_Angeles\nAmerica/Anchorage\nPacific/Honolulu\nAmerica/Phoenix\nAmerica/Puerto_Rico\nEurope/London\nEurope/Paris\nEurope/Berlin\nAsia/Dubai\nAsia/Shanghai\nAsia/Tokyo\nAustralia/Sydney"
-  }
- ],
- "index_web_pages_for_search": 0,
- "links": [],
- "modified": "2026-02-12 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Portal-User-Settings",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "read": 1,
-   "role": "Dealer",
-   "write": 1
-  },
-  {
-   "create": 1,
-   "read": 1,
-   "role": "Website User",
-   "write": 1
-  },
-  {
-   "create": 1,
-   "read": 1,
-   "role": "Customer",
-   "write": 1
-  }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "autoname":  "field:user",
+    "creation":  "2026-02-12 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "user_section",
+                        "user",
+                        "column_break_user",
+                        "user_full_name",
+                        "notification_preferences_sb",
+                        "notify_orders",
+                        "notify_quotes",
+                        "notify_drawings",
+                        "column_break_notify",
+                        "notify_shipping",
+                        "notify_marketing",
+                        "preferences_sb",
+                        "language",
+                        "units",
+                        "column_break_prefs",
+                        "date_format",
+                        "timezone"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "user_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "User"
+                   },
+                   {
+                       "fieldname":  "user",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "User",
+                       "options":  "User",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "column_break_user",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fetch_from":  "user.full_name",
+                       "fieldname":  "user_full_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Full Name",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "notification_preferences_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Notification Preferences"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Get notified when order status changes",
+                       "fieldname":  "notify_orders",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Order Updates"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Receive notifications when quotes are ready",
+                       "fieldname":  "notify_quotes",
+                       "fieldtype":  "Check",
+                       "label":  "Quote Ready"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Get notified when drawings are completed",
+                       "fieldname":  "notify_drawings",
+                       "fieldtype":  "Check",
+                       "label":  "Drawing Requests"
+                   },
+                   {
+                       "fieldname":  "column_break_notify",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Receive shipping updates and tracking info",
+                       "fieldname":  "notify_shipping",
+                       "fieldtype":  "Check",
+                       "label":  "Shipment Tracking"
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "Product updates, promotions, and industry news",
+                       "fieldname":  "notify_marketing",
+                       "fieldtype":  "Check",
+                       "label":  "Marketing \u0026 News"
+                   },
+                   {
+                       "fieldname":  "preferences_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Preferences"
+                   },
+                   {
+                       "default":  "en",
+                       "fieldname":  "language",
+                       "fieldtype":  "Select",
+                       "label":  "Language",
+                       "options":  "en\nes\nfr"
+                   },
+                   {
+                       "default":  "imperial",
+                       "fieldname":  "units",
+                       "fieldtype":  "Select",
+                       "label":  "Units",
+                       "options":  "imperial\nmetric"
+                   },
+                   {
+                       "fieldname":  "column_break_prefs",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "mm/dd/yyyy",
+                       "fieldname":  "date_format",
+                       "fieldtype":  "Select",
+                       "label":  "Date Format",
+                       "options":  "mm/dd/yyyy\ndd/mm/yyyy\nyyyy-mm-dd"
+                   },
+                   {
+                       "default":  "America/New_York",
+                       "fieldname":  "timezone",
+                       "fieldtype":  "Select",
+                       "label":  "Timezone",
+                       "options":  "America/New_York\nAmerica/Chicago\nAmerica/Denver\nAmerica/Los_Angeles\nAmerica/Anchorage\nPacific/Honolulu\nAmerica/Phoenix\nAmerica/Puerto_Rico\nEurope/London\nEurope/Paris\nEurope/Berlin\nAsia/Dubai\nAsia/Shanghai\nAsia/Tokyo\nAustralia/Sydney"
+                   }
+               ],
+    "index_web_pages_for_search":  0,
+    "links":  [
+
+              ],
+    "modified":  "2026-02-12 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Portal-User-Settings",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "read":  1,
+                            "role":  "Dealer",
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "read":  1,
+                            "role":  "Website User",
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "read":  1,
+                            "role":  "Customer",
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

@@ -1,327 +1,334 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "naming_series:",
- "creation": "2026-01-09 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "naming_series",
-  "request_type",
-  "status",
-  "column_break_identity",
-  "priority",
-  "requester_user",
-  "created_from_portal",
-  "reference_section",
-  "project",
-  "reference_doctype",
-  "reference_name",
-  "column_break_reference",
-  "fixture_or_product_text",
-  "item",
-  "request_details_section",
-  "description",
-  "requested_due_date",
-  "custom_field_values",
-  "internal_section",
-  "assigned_to",
-  "department",
-  "column_break_internal",
-  "sla_deadline",
-  "completed_on",
-  "task_link",
-  "requester_info_section",
-  "requester_contact",
-  "requester_customer",
-  "column_break_requester",
-  "owner_customer",
-  "portal_section",
-  "portal_status_group",
-  "hide_from_portal",
-  "deliverables_section",
-  "deliverables",
-  "comments_section",
-  "request_comments"
- ],
- "fields": [
-  {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Series",
-   "options": "ILL-REQ-.YYYY.-.#####"
-  },
-  {
-   "fieldname": "request_type",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Request Type",
-   "options": "ilL-Request-Type",
-   "reqd": 1
-  },
-  {
-   "default": "Draft",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "options": "Draft\nSubmitted\nIn Progress\nWaiting on Customer\nCompleted\nClosed\nCancelled",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_identity",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "Normal",
-   "fieldname": "priority",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Priority",
-   "options": "Normal\nHigh\nRush"
-  },
-  {
-   "fieldname": "requester_user",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Requester",
-   "options": "User",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "created_from_portal",
-   "fieldtype": "Check",
-   "label": "Created from Portal",
-   "read_only": 1
-  },
-  {
-   "fieldname": "reference_section",
-   "fieldtype": "Section Break",
-   "label": "Reference"
-  },
-  {
-   "fieldname": "project",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Project",
-   "options": "ilL-Project"
-  },
-  {
-   "description": "Link to a specific document type",
-   "fieldname": "reference_doctype",
-   "fieldtype": "Link",
-   "label": "Reference DocType",
-   "options": "DocType"
-  },
-  {
-   "fieldname": "reference_name",
-   "fieldtype": "Dynamic Link",
-   "label": "Reference Document",
-   "options": "reference_doctype"
-  },
-  {
-   "fieldname": "column_break_reference",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Fixture or product description/reference",
-   "fieldname": "fixture_or_product_text",
-   "fieldtype": "Data",
-   "label": "Fixture/Product"
-  },
-  {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "label": "Item",
-   "options": "Item"
-  },
-  {
-   "fieldname": "request_details_section",
-   "fieldtype": "Section Break",
-   "label": "Request Details"
-  },
-  {
-   "fieldname": "description",
-   "fieldtype": "Text Editor",
-   "label": "Description",
-   "reqd": 1
-  },
-  {
-   "fieldname": "requested_due_date",
-   "fieldtype": "Date",
-   "label": "Requested Due Date"
-  },
-  {
-   "description": "Values for custom fields defined on the request type",
-   "fieldname": "custom_field_values",
-   "fieldtype": "Table",
-   "label": "Custom Field Values",
-   "options": "ilL-Request-Field-Value"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "internal_section",
-   "fieldtype": "Section Break",
-   "label": "Internal Tracking"
-  },
-  {
-   "fieldname": "assigned_to",
-   "fieldtype": "Link",
-   "label": "Assigned To",
-   "options": "User"
-  },
-  {
-   "fieldname": "department",
-   "fieldtype": "Link",
-   "label": "Department",
-   "options": "Department"
-  },
-  {
-   "fieldname": "column_break_internal",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "sla_deadline",
-   "fieldtype": "Datetime",
-   "label": "SLA Deadline",
-   "read_only": 1
-  },
-  {
-   "fieldname": "completed_on",
-   "fieldtype": "Datetime",
-   "label": "Completed On",
-   "read_only": 1
-  },
-  {
-   "fieldname": "task_link",
-   "fieldtype": "Link",
-   "label": "Linked Task",
-   "options": "Task",
-   "read_only": 1
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "requester_info_section",
-   "fieldtype": "Section Break",
-   "label": "Requester Information"
-  },
-  {
-   "fieldname": "requester_contact",
-   "fieldtype": "Link",
-   "label": "Requester Contact",
-   "options": "Contact"
-  },
-  {
-   "fieldname": "requester_customer",
-   "fieldtype": "Link",
-   "label": "Requester Customer",
-   "options": "Customer"
-  },
-  {
-   "fieldname": "column_break_requester",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Customer of the user who created this request (for access control)",
-   "fieldname": "owner_customer",
-   "fieldtype": "Link",
-   "label": "Owner Customer",
-   "options": "Customer",
-   "read_only": 1
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "portal_section",
-   "fieldtype": "Section Break",
-   "label": "Portal Settings"
-  },
-  {
-   "description": "Computed from status for portal tab filtering",
-   "fieldname": "portal_status_group",
-   "fieldtype": "Select",
-   "label": "Portal Status Group",
-   "options": "\nPending\nCompleted",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "hide_from_portal",
-   "fieldtype": "Check",
-   "label": "Hide from Portal"
-  },
-  {
-   "fieldname": "deliverables_section",
-   "fieldtype": "Section Break",
-   "label": "Deliverables"
-  },
-  {
-   "description": "Files uploaded by internal team for the requester",
-   "fieldname": "deliverables",
-   "fieldtype": "Table",
-   "label": "Deliverables",
-   "options": "ilL-Request-Deliverable"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "comments_section",
-   "fieldtype": "Section Break",
-   "label": "Comments"
-  },
-  {
-   "fieldname": "request_comments",
-   "fieldtype": "Text Editor",
-   "label": "Internal Notes"
-  }
- ],
- "index_web_pages_for_search": 1,
- "is_submittable": 0,
- "links": [],
- "modified": "2026-01-09 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Document-Request",
- "naming_rule": "By \"Naming Series\" field",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "role": "Dealer",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "print": 1,
-   "read": 1,
-   "role": "All",
-   "write": 1
-  }
- ],
- "search_fields": "request_type, project, requester_user, status",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "naming_series:",
+    "creation":  "2026-01-09 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "naming_series",
+                        "request_type",
+                        "status",
+                        "column_break_identity",
+                        "priority",
+                        "requester_user",
+                        "created_from_portal",
+                        "reference_section",
+                        "project",
+                        "reference_doctype",
+                        "reference_name",
+                        "column_break_reference",
+                        "fixture_or_product_text",
+                        "item",
+                        "request_details_section",
+                        "description",
+                        "requested_due_date",
+                        "custom_field_values",
+                        "internal_section",
+                        "assigned_to",
+                        "department",
+                        "column_break_internal",
+                        "sla_deadline",
+                        "completed_on",
+                        "task_link",
+                        "requester_info_section",
+                        "requester_contact",
+                        "requester_customer",
+                        "column_break_requester",
+                        "owner_customer",
+                        "portal_section",
+                        "portal_status_group",
+                        "hide_from_portal",
+                        "deliverables_section",
+                        "deliverables",
+                        "comments_section",
+                        "request_comments"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "naming_series",
+                       "fieldtype":  "Select",
+                       "label":  "Series",
+                       "options":  "ILL-REQ-.YYYY.-.#####"
+                   },
+                   {
+                       "fieldname":  "request_type",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Request Type",
+                       "options":  "ilL-Request-Type",
+                       "reqd":  1
+                   },
+                   {
+                       "default":  "Draft",
+                       "fieldname":  "status",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Status",
+                       "options":  "Draft\nSubmitted\nIn Progress\nWaiting on Customer\nCompleted\nClosed\nCancelled",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "column_break_identity",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "Normal",
+                       "fieldname":  "priority",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Priority",
+                       "options":  "Normal\nHigh\nRush"
+                   },
+                   {
+                       "fieldname":  "requester_user",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Requester",
+                       "options":  "User",
+                       "read_only":  1
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "created_from_portal",
+                       "fieldtype":  "Check",
+                       "label":  "Created from Portal",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "reference_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Reference"
+                   },
+                   {
+                       "fieldname":  "project",
+                       "fieldtype":  "Link",
+                       "in_standard_filter":  1,
+                       "label":  "Project",
+                       "options":  "ilL-Project"
+                   },
+                   {
+                       "description":  "Link to a specific document type",
+                       "fieldname":  "reference_doctype",
+                       "fieldtype":  "Link",
+                       "label":  "Reference DocType",
+                       "options":  "DocType"
+                   },
+                   {
+                       "fieldname":  "reference_name",
+                       "fieldtype":  "Dynamic Link",
+                       "label":  "Reference Document",
+                       "options":  "reference_doctype"
+                   },
+                   {
+                       "fieldname":  "column_break_reference",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Fixture or product description/reference",
+                       "fieldname":  "fixture_or_product_text",
+                       "fieldtype":  "Data",
+                       "label":  "Fixture/Product"
+                   },
+                   {
+                       "fieldname":  "item",
+                       "fieldtype":  "Link",
+                       "label":  "Item",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "request_details_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Request Details"
+                   },
+                   {
+                       "fieldname":  "description",
+                       "fieldtype":  "Text Editor",
+                       "label":  "Description",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "requested_due_date",
+                       "fieldtype":  "Date",
+                       "label":  "Requested Due Date"
+                   },
+                   {
+                       "description":  "Values for custom fields defined on the request type",
+                       "fieldname":  "custom_field_values",
+                       "fieldtype":  "Table",
+                       "label":  "Custom Field Values",
+                       "options":  "ilL-Request-Field-Value"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "internal_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Internal Tracking"
+                   },
+                   {
+                       "fieldname":  "assigned_to",
+                       "fieldtype":  "Link",
+                       "label":  "Assigned To",
+                       "options":  "User"
+                   },
+                   {
+                       "fieldname":  "department",
+                       "fieldtype":  "Link",
+                       "label":  "Department",
+                       "options":  "Department"
+                   },
+                   {
+                       "fieldname":  "column_break_internal",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "sla_deadline",
+                       "fieldtype":  "Datetime",
+                       "label":  "SLA Deadline",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "completed_on",
+                       "fieldtype":  "Datetime",
+                       "label":  "Completed On",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "task_link",
+                       "fieldtype":  "Link",
+                       "label":  "Linked Task",
+                       "options":  "Task",
+                       "read_only":  1
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "requester_info_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Requester Information"
+                   },
+                   {
+                       "fieldname":  "requester_contact",
+                       "fieldtype":  "Link",
+                       "label":  "Requester Contact",
+                       "options":  "Contact"
+                   },
+                   {
+                       "fieldname":  "requester_customer",
+                       "fieldtype":  "Link",
+                       "label":  "Requester Customer",
+                       "options":  "Customer"
+                   },
+                   {
+                       "fieldname":  "column_break_requester",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Customer of the user who created this request (for access control)",
+                       "fieldname":  "owner_customer",
+                       "fieldtype":  "Link",
+                       "label":  "Owner Customer",
+                       "options":  "Customer",
+                       "read_only":  1
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "portal_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Portal Settings"
+                   },
+                   {
+                       "description":  "Computed from status for portal tab filtering",
+                       "fieldname":  "portal_status_group",
+                       "fieldtype":  "Select",
+                       "label":  "Portal Status Group",
+                       "options":  "\nPending\nCompleted",
+                       "read_only":  1
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "hide_from_portal",
+                       "fieldtype":  "Check",
+                       "label":  "Hide from Portal"
+                   },
+                   {
+                       "fieldname":  "deliverables_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Deliverables"
+                   },
+                   {
+                       "description":  "Files uploaded by internal team for the requester",
+                       "fieldname":  "deliverables",
+                       "fieldtype":  "Table",
+                       "label":  "Deliverables",
+                       "options":  "ilL-Request-Deliverable"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "comments_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Comments"
+                   },
+                   {
+                       "fieldname":  "request_comments",
+                       "fieldtype":  "Text Editor",
+                       "label":  "Internal Notes"
+                   }
+               ],
+    "index_web_pages_for_search":  1,
+    "is_submittable":  0,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-09 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Document-Request",
+    "naming_rule":  "By \"Naming Series\" field",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "role":  "Dealer",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "email":  1,
+                            "print":  1,
+                            "read":  1,
+                            "role":  "All",
+                            "write":  1
+                        }
+                    ],
+    "search_fields":  "request_type, project, requester_user, status",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

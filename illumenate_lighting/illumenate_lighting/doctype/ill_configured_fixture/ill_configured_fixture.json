@@ -1,639 +1,646 @@
-{
- "actions": [],
- "allow_rename": 0,
- "autoname": "",
- "creation": "2026-01-07 21:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "identity_section",
-  "config_hash",
-  "engine_version",
-  "is_multi_segment",
-  "column_break_identity",
-  "fixture_template",
-  "selected_options_section",
-  "finish",
-  "lens_appearance",
-  "mounting_method",
-  "endcap_style_start",
-  "endcap_style_end",
-  "column_break_options",
-  "endcap_color",
-  "power_feed_type",
-  "environment_rating",
-  "tape_offering",
-  "sku_codes_section",
-  "sku_series_code",
-  "sku_led_package_code",
-  "sku_environment_code",
-  "sku_cct_code",
-  "sku_cri_code",
-  "sku_tape_output_code",
-  "sku_fixture_output_code",
-  "column_break_sku_codes",
-  "sku_lens_code",
-  "sku_mounting_code",
-  "sku_finish_code",
-  "sku_power_feed_code",
-  "sku_endcap_style_start_code",
-  "sku_endcap_style_end_code",
-  "sku_endcap_color_code",
-  "user_segments_section",
-  "user_segments",
-  "length_section",
-  "requested_overall_length_mm",
-  "endcap_allowance_mm_per_side",
-  "leader_allowance_mm",
-  "column_break_length",
-  "internal_length_mm",
-  "tape_cut_length_mm",
-  "manufacturable_overall_length_mm",
-  "computed_outputs_section",
-  "runs_count",
-  "total_watts",
-  "estimated_delivered_output",
-  "user_segment_count",
-  "column_break_computed",
-  "assembly_mode",
-  "build_description",
-  "run_metadata_section",
-  "max_run_ft_by_watts",
-  "max_run_ft_by_voltage_drop",
-  "column_break_run_metadata",
-  "max_run_ft_effective",
-  "resolved_items_section",
-  "profile_item",
-  "lens_item",
-  "endcap_item_start",
-  "endcap_item_end",
-  "column_break_resolved_items",
-  "mounting_item",
-  "leader_item",
-  "total_endcaps",
-  "total_mounting_accessories",
-  "erp_links_section",
-  "configured_item",
-  "bom",
-  "column_break_erp",
-  "work_order",
-  "segments_section",
-  "segments",
-  "runs_section",
-  "runs",
-  "drivers_section",
-  "drivers",
-  "pricing_section",
-  "pricing_snapshot",
-  "spec_documents_section",
-  "spec_sheet_link",
-  "column_break_spec_docs",
-  "spec_submittal"
- ],
- "fields": [
-  {
-   "fieldname": "identity_section",
-   "fieldtype": "Section Break",
-   "label": "Identity"
-  },
-  {
-   "fieldname": "config_hash",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Config Hash",
-   "read_only": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "engine_version",
-   "fieldtype": "Data",
-   "label": "Engine Version"
-  },
-  {
-   "default": "0",
-   "description": "Indicates if this is a multi-segment (jointed) fixture",
-   "fieldname": "is_multi_segment",
-   "fieldtype": "Check",
-   "label": "Multi-Segment Fixture"
-  },
-  {
-   "fieldname": "column_break_identity",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "fixture_template",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Fixture Template",
-   "options": "ilL-Fixture-Template",
-   "reqd": 1
-  },
-  {
-   "fieldname": "selected_options_section",
-   "fieldtype": "Section Break",
-   "label": "Selected Options"
-  },
-  {
-   "fieldname": "finish",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Finish",
-   "options": "ilL-Attribute-Finish"
-  },
-  {
-   "fieldname": "lens_appearance",
-   "fieldtype": "Link",
-   "label": "Lens Appearance",
-   "options": "ilL-Attribute-Lens Appearance"
-  },
-  {
-   "fieldname": "mounting_method",
-   "fieldtype": "Link",
-   "label": "Mounting Method",
-   "options": "ilL-Attribute-Mounting Method"
-  },
-  {
-   "fieldname": "endcap_style_start",
-   "fieldtype": "Link",
-   "label": "Endcap Style - Start",
-   "options": "ilL-Attribute-Endcap Style"
-  },
-  {
-   "fieldname": "endcap_style_end",
-   "fieldtype": "Link",
-   "label": "Endcap Style - End",
-   "options": "ilL-Attribute-Endcap Style"
-  },
-  {
-   "fieldname": "column_break_options",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "endcap_color",
-   "fieldtype": "Link",
-   "label": "Endcap Color",
-   "options": "ilL-Attribute-Endcap Color"
-  },
-  {
-   "fieldname": "power_feed_type",
-   "fieldtype": "Link",
-   "label": "Power Feed Type",
-   "options": "ilL-Attribute-Power Feed Type"
-  },
-  {
-   "fieldname": "environment_rating",
-   "fieldtype": "Link",
-   "label": "Environment Rating",
-   "options": "ilL-Attribute-Environment Rating"
-  },
-  {
-   "fieldname": "tape_offering",
-   "fieldtype": "Link",
-   "label": "Tape Offering",
-   "options": "ilL-Rel-Tape Offering"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "sku_codes_section",
-   "fieldtype": "Section Break",
-   "label": "SKU Codes"
-  },
-  {
-   "description": "Profile series code from fixture template",
-   "fieldname": "sku_series_code",
-   "fieldtype": "Data",
-   "label": "Series Code",
-   "read_only": 1
-  },
-  {
-   "description": "LED package code from tape offering",
-   "fieldname": "sku_led_package_code",
-   "fieldtype": "Data",
-   "label": "LED Package Code",
-   "read_only": 1
-  },
-  {
-   "description": "Environment rating code",
-   "fieldname": "sku_environment_code",
-   "fieldtype": "Data",
-   "label": "Environment Code",
-   "read_only": 1
-  },
-  {
-   "description": "CCT code from tape offering",
-   "fieldname": "sku_cct_code",
-   "fieldtype": "Data",
-   "label": "CCT Code",
-   "read_only": 1
-  },
-  {
-   "description": "CRI code from tape offering",
-   "fieldname": "sku_cri_code",
-   "fieldtype": "Data",
-   "label": "CRI Code",
-   "read_only": 1
-  },
-  {
-   "description": "Tape output level SKU code (raw tape output before lens)",
-   "fieldname": "sku_tape_output_code",
-   "fieldtype": "Data",
-   "label": "Tape Output Code",
-   "read_only": 1
-  },
-  {
-   "description": "Fixture output level code (tape output × lens transmission)",
-   "fieldname": "sku_fixture_output_code",
-   "fieldtype": "Data",
-   "label": "Fixture Output Code",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_sku_codes",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Lens appearance code",
-   "fieldname": "sku_lens_code",
-   "fieldtype": "Data",
-   "label": "Lens Code",
-   "read_only": 1
-  },
-  {
-   "description": "Mounting method code",
-   "fieldname": "sku_mounting_code",
-   "fieldtype": "Data",
-   "label": "Mounting Code",
-   "read_only": 1
-  },
-  {
-   "description": "Finish code",
-   "fieldname": "sku_finish_code",
-   "fieldtype": "Data",
-   "label": "Finish Code",
-   "read_only": 1
-  },
-  {
-   "description": "Power feed type code",
-   "fieldname": "sku_power_feed_code",
-   "fieldtype": "Data",
-   "label": "Power Feed Code",
-   "read_only": 1
-  },
-  {
-   "description": "Endcap style code for start end",
-   "fieldname": "sku_endcap_style_start_code",
-   "fieldtype": "Data",
-   "label": "Endcap Style Start Code",
-   "read_only": 1
-  },
-  {
-   "description": "Endcap style code for end",
-   "fieldname": "sku_endcap_style_end_code",
-   "fieldtype": "Data",
-   "label": "Endcap Style End Code",
-   "read_only": 1
-  },
-  {
-   "description": "Endcap color code",
-   "fieldname": "sku_endcap_color_code",
-   "fieldtype": "Data",
-   "label": "Endcap Color Code",
-   "read_only": 1
-  },
-  {
-   "collapsible": 1,
-   "depends_on": "eval:doc.is_multi_segment",
-   "fieldname": "user_segments_section",
-   "fieldtype": "Section Break",
-   "label": "User-Defined Segments"
-  },
-  {
-   "depends_on": "eval:doc.is_multi_segment",
-   "description": "User-defined segment configuration with lengths and connection types",
-   "fieldname": "user_segments",
-   "fieldtype": "Table",
-   "label": "User Segments",
-   "options": "ilL-Child-User-Segment"
-  },
-  {
-   "fieldname": "length_section",
-   "fieldtype": "Section Break",
-   "label": "Length Inputs/Outputs"
-  },
-  {
-   "fieldname": "requested_overall_length_mm",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Requested Overall Length (mm)"
-  },
-  {
-   "fieldname": "endcap_allowance_mm_per_side",
-   "fieldtype": "Float",
-   "label": "Endcap Allowance per Side (mm)"
-  },
-  {
-   "fieldname": "leader_allowance_mm",
-   "fieldtype": "Float",
-   "label": "Leader Allowance (mm)"
-  },
-  {
-   "fieldname": "column_break_length",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "internal_length_mm",
-   "fieldtype": "Int",
-   "label": "Internal Length (mm)"
-  },
-  {
-   "fieldname": "tape_cut_length_mm",
-   "fieldtype": "Int",
-   "label": "Tape Cut Length (mm)"
-  },
-  {
-   "fieldname": "manufacturable_overall_length_mm",
-   "fieldtype": "Int",
-   "label": "Manufacturable Overall Length (mm)"
-  },
-  {
-   "fieldname": "computed_outputs_section",
-   "fieldtype": "Section Break",
-   "label": "Computed Outputs"
-  },
-  {
-   "fieldname": "runs_count",
-   "fieldtype": "Int",
-   "label": "Runs Count"
-  },
-  {
-   "fieldname": "total_watts",
-   "fieldtype": "Float",
-   "label": "Total Watts"
-  },
-  {
-   "description": "Estimated delivered lumens per foot (tape output × lens transmission %)",
-   "fieldname": "estimated_delivered_output",
-   "fieldtype": "Float",
-   "label": "Est. Delivered Output (lm/ft)",
-   "read_only": 1
-  },
-  {
-   "description": "Number of user-defined segments in the fixture",
-   "fieldname": "user_segment_count",
-   "fieldtype": "Int",
-   "label": "User Segment Count"
-  },
-  {
-   "fieldname": "column_break_computed",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "assembly_mode",
-   "fieldtype": "Select",
-   "label": "Assembly Mode",
-   "options": "ASSEMBLED\nSHIP_PIECES"
-  },
-  {
-   "description": "Detailed build description showing segment lengths and jumper configuration",
-   "fieldname": "build_description",
-   "fieldtype": "Small Text",
-   "label": "Build Description"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "run_metadata_section",
-   "fieldtype": "Section Break",
-   "label": "Run Metadata"
-  },
-  {
-   "description": "Max run length based on 85W power limit",
-   "fieldname": "max_run_ft_by_watts",
-   "fieldtype": "Float",
-   "label": "Max Run (ft) by Watts"
-  },
-  {
-   "description": "Max run length based on voltage drop limit from tape spec",
-   "fieldname": "max_run_ft_by_voltage_drop",
-   "fieldtype": "Float",
-   "label": "Max Run (ft) by Voltage Drop"
-  },
-  {
-   "fieldname": "column_break_run_metadata",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Effective max run length (minimum of watts and voltage drop limits)",
-   "fieldname": "max_run_ft_effective",
-   "fieldtype": "Float",
-   "label": "Max Run (ft) Effective"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "resolved_items_section",
-   "fieldtype": "Section Break",
-   "label": "Resolved Items"
-  },
-  {
-   "fieldname": "profile_item",
-   "fieldtype": "Link",
-   "label": "Profile Item",
-   "options": "Item"
-  },
-  {
-   "fieldname": "lens_item",
-   "fieldtype": "Link",
-   "label": "Lens Item",
-   "options": "Item"
-  },
-  {
-   "fieldname": "endcap_item_start",
-   "fieldtype": "Link",
-   "label": "Endcap Item - Start",
-   "options": "Item"
-  },
-  {
-   "fieldname": "endcap_item_end",
-   "fieldtype": "Link",
-   "label": "Endcap Item - End",
-   "options": "Item"
-  },
-  {
-   "fieldname": "column_break_resolved_items",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "mounting_item",
-   "fieldtype": "Link",
-   "label": "Mounting Item",
-   "options": "Item"
-  },
-  {
-   "fieldname": "leader_item",
-   "fieldtype": "Link",
-   "label": "Leader Item",
-   "options": "Item"
-  },
-  {
-   "description": "Total number of endcaps needed for the fixture build",
-   "fieldname": "total_endcaps",
-   "fieldtype": "Int",
-   "label": "Total Endcaps"
-  },
-  {
-   "description": "Total number of mounting accessories needed for the fixture build",
-   "fieldname": "total_mounting_accessories",
-   "fieldtype": "Int",
-   "label": "Total Mounting Accessories"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "erp_links_section",
-   "fieldtype": "Section Break",
-   "label": "ERP Links"
-  },
-  {
-   "fieldname": "configured_item",
-   "fieldtype": "Link",
-   "label": "Configured Item",
-   "options": "Item"
-  },
-  {
-   "fieldname": "bom",
-   "fieldtype": "Link",
-   "label": "BOM",
-   "options": "BOM"
-  },
-  {
-   "fieldname": "column_break_erp",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "work_order",
-   "fieldtype": "Link",
-   "label": "Work Order",
-   "options": "Work Order"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "segments_section",
-   "fieldtype": "Section Break",
-   "label": "Segments"
-  },
-  {
-   "fieldname": "segments",
-   "fieldtype": "Table",
-   "label": "Segments",
-   "options": "ilL-Child-Configured-Segment"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "runs_section",
-   "fieldtype": "Section Break",
-   "label": "Runs"
-  },
-  {
-   "fieldname": "runs",
-   "fieldtype": "Table",
-   "label": "Runs",
-   "options": "ilL-Child-Configured-Run"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "drivers_section",
-   "fieldtype": "Section Break",
-   "label": "Drivers"
-  },
-  {
-   "fieldname": "drivers",
-   "fieldtype": "Table",
-   "label": "Drivers",
-   "options": "ilL-Child-Driver-Allocation"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "pricing_section",
-   "fieldtype": "Section Break",
-   "label": "Pricing"
-  },
-  {
-   "fieldname": "pricing_snapshot",
-   "fieldtype": "Table",
-   "label": "Pricing Snapshot",
-   "options": "ilL-Child-Pricing-Snapshot"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "spec_documents_section",
-   "fieldtype": "Section Break",
-   "label": "Spec Documents"
-  },
-  {
-   "description": "Link to the spec sheet from the fixture template",
-   "fetch_from": "fixture_template.spec_sheet",
-   "fieldname": "spec_sheet_link",
-   "fieldtype": "Data",
-   "label": "Spec Sheet Link",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_spec_docs",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Generated spec submittal PDF with filled form fields",
-   "fieldname": "spec_submittal",
-   "fieldtype": "Attach",
-   "label": "Spec Submittal"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 21:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Configured-Fixture",
- "naming_rule": "By script",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Dealer",
-   "share": 1,
-   "write": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "config_hash, fixture_template",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  0,
+    "autoname":  "",
+    "creation":  "2026-01-07 21:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "identity_section",
+                        "config_hash",
+                        "engine_version",
+                        "is_multi_segment",
+                        "column_break_identity",
+                        "fixture_template",
+                        "selected_options_section",
+                        "finish",
+                        "lens_appearance",
+                        "mounting_method",
+                        "endcap_style_start",
+                        "endcap_style_end",
+                        "column_break_options",
+                        "endcap_color",
+                        "power_feed_type",
+                        "environment_rating",
+                        "tape_offering",
+                        "sku_codes_section",
+                        "sku_series_code",
+                        "sku_led_package_code",
+                        "sku_environment_code",
+                        "sku_cct_code",
+                        "sku_cri_code",
+                        "sku_tape_output_code",
+                        "sku_fixture_output_code",
+                        "column_break_sku_codes",
+                        "sku_lens_code",
+                        "sku_mounting_code",
+                        "sku_finish_code",
+                        "sku_power_feed_code",
+                        "sku_endcap_style_start_code",
+                        "sku_endcap_style_end_code",
+                        "sku_endcap_color_code",
+                        "user_segments_section",
+                        "user_segments",
+                        "length_section",
+                        "requested_overall_length_mm",
+                        "endcap_allowance_mm_per_side",
+                        "leader_allowance_mm",
+                        "column_break_length",
+                        "internal_length_mm",
+                        "tape_cut_length_mm",
+                        "manufacturable_overall_length_mm",
+                        "computed_outputs_section",
+                        "runs_count",
+                        "total_watts",
+                        "estimated_delivered_output",
+                        "user_segment_count",
+                        "column_break_computed",
+                        "assembly_mode",
+                        "build_description",
+                        "run_metadata_section",
+                        "max_run_ft_by_watts",
+                        "max_run_ft_by_voltage_drop",
+                        "column_break_run_metadata",
+                        "max_run_ft_effective",
+                        "resolved_items_section",
+                        "profile_item",
+                        "lens_item",
+                        "endcap_item_start",
+                        "endcap_item_end",
+                        "column_break_resolved_items",
+                        "mounting_item",
+                        "leader_item",
+                        "total_endcaps",
+                        "total_mounting_accessories",
+                        "erp_links_section",
+                        "configured_item",
+                        "bom",
+                        "column_break_erp",
+                        "work_order",
+                        "segments_section",
+                        "segments",
+                        "runs_section",
+                        "runs",
+                        "drivers_section",
+                        "drivers",
+                        "pricing_section",
+                        "pricing_snapshot",
+                        "spec_documents_section",
+                        "spec_sheet_link",
+                        "column_break_spec_docs",
+                        "spec_submittal"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "identity_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Identity"
+                   },
+                   {
+                       "fieldname":  "config_hash",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Config Hash",
+                       "read_only":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "engine_version",
+                       "fieldtype":  "Data",
+                       "label":  "Engine Version"
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "Indicates if this is a multi-segment (jointed) fixture",
+                       "fieldname":  "is_multi_segment",
+                       "fieldtype":  "Check",
+                       "label":  "Multi-Segment Fixture"
+                   },
+                   {
+                       "fieldname":  "column_break_identity",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Fixture Template",
+                       "options":  "ilL-Fixture-Template",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "selected_options_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Selected Options"
+                   },
+                   {
+                       "fieldname":  "finish",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Finish",
+                       "options":  "ilL-Attribute-Finish"
+                   },
+                   {
+                       "fieldname":  "lens_appearance",
+                       "fieldtype":  "Link",
+                       "label":  "Lens Appearance",
+                       "options":  "ilL-Attribute-Lens Appearance"
+                   },
+                   {
+                       "fieldname":  "mounting_method",
+                       "fieldtype":  "Link",
+                       "label":  "Mounting Method",
+                       "options":  "ilL-Attribute-Mounting Method"
+                   },
+                   {
+                       "fieldname":  "endcap_style_start",
+                       "fieldtype":  "Link",
+                       "label":  "Endcap Style - Start",
+                       "options":  "ilL-Attribute-Endcap Style"
+                   },
+                   {
+                       "fieldname":  "endcap_style_end",
+                       "fieldtype":  "Link",
+                       "label":  "Endcap Style - End",
+                       "options":  "ilL-Attribute-Endcap Style"
+                   },
+                   {
+                       "fieldname":  "column_break_options",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "endcap_color",
+                       "fieldtype":  "Link",
+                       "label":  "Endcap Color",
+                       "options":  "ilL-Attribute-Endcap Color"
+                   },
+                   {
+                       "fieldname":  "power_feed_type",
+                       "fieldtype":  "Link",
+                       "label":  "Power Feed Type",
+                       "options":  "ilL-Attribute-Power Feed Type"
+                   },
+                   {
+                       "fieldname":  "environment_rating",
+                       "fieldtype":  "Link",
+                       "label":  "Environment Rating",
+                       "options":  "ilL-Attribute-Environment Rating"
+                   },
+                   {
+                       "fieldname":  "tape_offering",
+                       "fieldtype":  "Link",
+                       "label":  "Tape Offering",
+                       "options":  "ilL-Rel-Tape Offering"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "sku_codes_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "SKU Codes"
+                   },
+                   {
+                       "description":  "Profile series code from fixture template",
+                       "fieldname":  "sku_series_code",
+                       "fieldtype":  "Data",
+                       "label":  "Series Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "LED package code from tape offering",
+                       "fieldname":  "sku_led_package_code",
+                       "fieldtype":  "Data",
+                       "label":  "LED Package Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Environment rating code",
+                       "fieldname":  "sku_environment_code",
+                       "fieldtype":  "Data",
+                       "label":  "Environment Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "CCT code from tape offering",
+                       "fieldname":  "sku_cct_code",
+                       "fieldtype":  "Data",
+                       "label":  "CCT Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "CRI code from tape offering",
+                       "fieldname":  "sku_cri_code",
+                       "fieldtype":  "Data",
+                       "label":  "CRI Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Tape output level SKU code (raw tape output before lens)",
+                       "fieldname":  "sku_tape_output_code",
+                       "fieldtype":  "Data",
+                       "label":  "Tape Output Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Fixture output level code (tape output Ã— lens transmission)",
+                       "fieldname":  "sku_fixture_output_code",
+                       "fieldtype":  "Data",
+                       "label":  "Fixture Output Code",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "column_break_sku_codes",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Lens appearance code",
+                       "fieldname":  "sku_lens_code",
+                       "fieldtype":  "Data",
+                       "label":  "Lens Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Mounting method code",
+                       "fieldname":  "sku_mounting_code",
+                       "fieldtype":  "Data",
+                       "label":  "Mounting Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Finish code",
+                       "fieldname":  "sku_finish_code",
+                       "fieldtype":  "Data",
+                       "label":  "Finish Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Power feed type code",
+                       "fieldname":  "sku_power_feed_code",
+                       "fieldtype":  "Data",
+                       "label":  "Power Feed Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Endcap style code for start end",
+                       "fieldname":  "sku_endcap_style_start_code",
+                       "fieldtype":  "Data",
+                       "label":  "Endcap Style Start Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Endcap style code for end",
+                       "fieldname":  "sku_endcap_style_end_code",
+                       "fieldtype":  "Data",
+                       "label":  "Endcap Style End Code",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Endcap color code",
+                       "fieldname":  "sku_endcap_color_code",
+                       "fieldtype":  "Data",
+                       "label":  "Endcap Color Code",
+                       "read_only":  1
+                   },
+                   {
+                       "collapsible":  1,
+                       "depends_on":  "eval:doc.is_multi_segment",
+                       "fieldname":  "user_segments_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "User-Defined Segments"
+                   },
+                   {
+                       "depends_on":  "eval:doc.is_multi_segment",
+                       "description":  "User-defined segment configuration with lengths and connection types",
+                       "fieldname":  "user_segments",
+                       "fieldtype":  "Table",
+                       "label":  "User Segments",
+                       "options":  "ilL-Child-User-Segment"
+                   },
+                   {
+                       "fieldname":  "length_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Length Inputs/Outputs"
+                   },
+                   {
+                       "fieldname":  "requested_overall_length_mm",
+                       "fieldtype":  "Int",
+                       "in_list_view":  1,
+                       "label":  "Requested Overall Length (mm)"
+                   },
+                   {
+                       "fieldname":  "endcap_allowance_mm_per_side",
+                       "fieldtype":  "Float",
+                       "label":  "Endcap Allowance per Side (mm)"
+                   },
+                   {
+                       "fieldname":  "leader_allowance_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Leader Allowance (mm)"
+                   },
+                   {
+                       "fieldname":  "column_break_length",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "internal_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Internal Length (mm)"
+                   },
+                   {
+                       "fieldname":  "tape_cut_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Tape Cut Length (mm)"
+                   },
+                   {
+                       "fieldname":  "manufacturable_overall_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Manufacturable Overall Length (mm)"
+                   },
+                   {
+                       "fieldname":  "computed_outputs_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Computed Outputs"
+                   },
+                   {
+                       "fieldname":  "runs_count",
+                       "fieldtype":  "Int",
+                       "label":  "Runs Count"
+                   },
+                   {
+                       "fieldname":  "total_watts",
+                       "fieldtype":  "Float",
+                       "label":  "Total Watts"
+                   },
+                   {
+                       "description":  "Estimated delivered lumens per foot (tape output Ã— lens transmission %)",
+                       "fieldname":  "estimated_delivered_output",
+                       "fieldtype":  "Float",
+                       "label":  "Est. Delivered Output (lm/ft)",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Number of user-defined segments in the fixture",
+                       "fieldname":  "user_segment_count",
+                       "fieldtype":  "Int",
+                       "label":  "User Segment Count"
+                   },
+                   {
+                       "fieldname":  "column_break_computed",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "assembly_mode",
+                       "fieldtype":  "Select",
+                       "label":  "Assembly Mode",
+                       "options":  "ASSEMBLED\nSHIP_PIECES"
+                   },
+                   {
+                       "description":  "Detailed build description showing segment lengths and jumper configuration",
+                       "fieldname":  "build_description",
+                       "fieldtype":  "Small Text",
+                       "label":  "Build Description"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "run_metadata_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Run Metadata"
+                   },
+                   {
+                       "description":  "Max run length based on 85W power limit",
+                       "fieldname":  "max_run_ft_by_watts",
+                       "fieldtype":  "Float",
+                       "label":  "Max Run (ft) by Watts"
+                   },
+                   {
+                       "description":  "Max run length based on voltage drop limit from tape spec",
+                       "fieldname":  "max_run_ft_by_voltage_drop",
+                       "fieldtype":  "Float",
+                       "label":  "Max Run (ft) by Voltage Drop"
+                   },
+                   {
+                       "fieldname":  "column_break_run_metadata",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Effective max run length (minimum of watts and voltage drop limits)",
+                       "fieldname":  "max_run_ft_effective",
+                       "fieldtype":  "Float",
+                       "label":  "Max Run (ft) Effective"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "resolved_items_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Resolved Items"
+                   },
+                   {
+                       "fieldname":  "profile_item",
+                       "fieldtype":  "Link",
+                       "label":  "Profile Item",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "lens_item",
+                       "fieldtype":  "Link",
+                       "label":  "Lens Item",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "endcap_item_start",
+                       "fieldtype":  "Link",
+                       "label":  "Endcap Item - Start",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "endcap_item_end",
+                       "fieldtype":  "Link",
+                       "label":  "Endcap Item - End",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "column_break_resolved_items",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "mounting_item",
+                       "fieldtype":  "Link",
+                       "label":  "Mounting Item",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "leader_item",
+                       "fieldtype":  "Link",
+                       "label":  "Leader Item",
+                       "options":  "Item"
+                   },
+                   {
+                       "description":  "Total number of endcaps needed for the fixture build",
+                       "fieldname":  "total_endcaps",
+                       "fieldtype":  "Int",
+                       "label":  "Total Endcaps"
+                   },
+                   {
+                       "description":  "Total number of mounting accessories needed for the fixture build",
+                       "fieldname":  "total_mounting_accessories",
+                       "fieldtype":  "Int",
+                       "label":  "Total Mounting Accessories"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "erp_links_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "ERP Links"
+                   },
+                   {
+                       "fieldname":  "configured_item",
+                       "fieldtype":  "Link",
+                       "label":  "Configured Item",
+                       "options":  "Item"
+                   },
+                   {
+                       "fieldname":  "bom",
+                       "fieldtype":  "Link",
+                       "label":  "BOM",
+                       "options":  "BOM"
+                   },
+                   {
+                       "fieldname":  "column_break_erp",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "work_order",
+                       "fieldtype":  "Link",
+                       "label":  "Work Order",
+                       "options":  "Work Order"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "segments_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Segments"
+                   },
+                   {
+                       "fieldname":  "segments",
+                       "fieldtype":  "Table",
+                       "label":  "Segments",
+                       "options":  "ilL-Child-Configured-Segment"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "runs_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Runs"
+                   },
+                   {
+                       "fieldname":  "runs",
+                       "fieldtype":  "Table",
+                       "label":  "Runs",
+                       "options":  "ilL-Child-Configured-Run"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "drivers_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Drivers"
+                   },
+                   {
+                       "fieldname":  "drivers",
+                       "fieldtype":  "Table",
+                       "label":  "Drivers",
+                       "options":  "ilL-Child-Driver-Allocation"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "pricing_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Pricing"
+                   },
+                   {
+                       "fieldname":  "pricing_snapshot",
+                       "fieldtype":  "Table",
+                       "label":  "Pricing Snapshot",
+                       "options":  "ilL-Child-Pricing-Snapshot"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_documents_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Documents"
+                   },
+                   {
+                       "description":  "Link to the spec sheet from the fixture template",
+                       "fetch_from":  "fixture_template.spec_sheet",
+                       "fieldname":  "spec_sheet_link",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Link",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "column_break_spec_docs",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Generated spec submittal PDF with filled form fields",
+                       "fieldname":  "spec_submittal",
+                       "fieldtype":  "Attach",
+                       "label":  "Spec Submittal"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 21:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Configured-Fixture",
+    "naming_rule":  "By script",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        },
+                        {
+                            "create":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "Dealer",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "config_hash, fixture_template",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

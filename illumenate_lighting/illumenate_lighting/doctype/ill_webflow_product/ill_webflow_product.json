@@ -1,405 +1,412 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:product_slug",
- "creation": "2026-01-21 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "identity_section",
-  "product_name",
-  "product_slug",
-  "column_break_identity",
-  "product_type",
-  "product_category",
-  "series",
-  "is_active",
-  "source_reference_section",
-  "fixture_template",
-  "driver_spec",
-  "controller_spec",
-  "column_break_source",
-  "profile_spec",
-  "lens_spec",
-  "tape_spec",
-  "accessory_spec",
-  "configurator_section",
-  "is_configurable",
-  "configurator_intro_text",
-  "column_break_configurator",
-  "min_length_mm",
-  "max_length_mm",
-  "length_increment_mm",
-  "configurator_options",
-  "kit_components_section",
-  "kit_components",
-  "marketing_section",
-  "short_description",
-  "long_description",
-  "featured_image",
-  "column_break_marketing",
-  "gallery_images",
-  "documents",
-  "specifications_section",
-  "auto_calculate_specs",
-  "column_break_specs",
-  "auto_populate_attributes",
-  "attribute_links",
-  "certifications_section",
-  "certifications",
-  "compatibility_section",
-  "compatible_products",
-  "sync_section",
-  "webflow_item_id",
-  "webflow_collection_slug",
-  "column_break_sync",
-  "last_synced_at",
-  "sync_status",
-  "sync_error_message"
- ],
- "fields": [
-  {
-   "fieldname": "identity_section",
-   "fieldtype": "Section Break",
-   "label": "Identity"
-  },
-  {
-   "description": "Display name for the product (e.g., 'SH01 Linear Fixture')",
-   "fieldname": "product_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Product Name",
-   "reqd": 1
-  },
-  {
-   "description": "URL-friendly slug (e.g., 'sh01-linear-fixture')",
-   "fieldname": "product_slug",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Product Slug",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "column_break_identity",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "product_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Product Type",
-   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nComponent\nAccessory",
-   "reqd": 1
-  },
-  {
-   "description": "Optional taxonomy category for navigation/filtering",
-   "fieldname": "product_category",
-   "fieldtype": "Link",
-   "label": "Product Category",
-   "options": "ilL-Webflow-Category"
-  },
-  {
-   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
-   "fieldname": "series",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Series",
-   "options": "ilL-Attribute-Series"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active"
-  },
-  {
-   "fieldname": "source_reference_section",
-   "fieldtype": "Section Break",
-   "label": "Source Reference"
-  },
-  {
-   "depends_on": "eval:doc.product_type=='Fixture Template'",
-   "fieldname": "fixture_template",
-   "fieldtype": "Link",
-   "label": "Fixture Template",
-   "options": "ilL-Fixture-Template"
-  },
-  {
-   "depends_on": "eval:doc.product_type=='Driver'",
-   "fieldname": "driver_spec",
-   "fieldtype": "Link",
-   "label": "Driver Spec",
-   "options": "ilL-Spec-Driver"
-  },
-  {
-   "depends_on": "eval:doc.product_type=='Controller'",
-   "fieldname": "controller_spec",
-   "fieldtype": "Link",
-   "label": "Controller Spec",
-   "options": "ilL-Spec-Controller"
-  },
-  {
-   "fieldname": "column_break_source",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:['Component', 'Extrusion Kit'].includes(doc.product_type)",
-   "fieldname": "profile_spec",
-   "fieldtype": "Link",
-   "label": "Profile Spec",
-   "options": "ilL-Spec-Profile"
-  },
-  {
-   "depends_on": "eval:doc.product_type=='Component'",
-   "fieldname": "lens_spec",
-   "fieldtype": "Link",
-   "label": "Lens Spec",
-   "options": "ilL-Spec-Lens"
-  },
-  {
-   "depends_on": "eval:doc.product_type=='LED Tape'",
-   "fieldname": "tape_spec",
-   "fieldtype": "Link",
-   "label": "LED Tape Spec",
-   "options": "ilL-Spec-LED Tape"
-  },
-  {
-   "depends_on": "eval:doc.product_type=='Accessory'",
-   "fieldname": "accessory_spec",
-   "fieldtype": "Link",
-   "label": "Accessory Spec",
-   "options": "ilL-Spec-Accessory"
-  },
-  {
-   "collapsible": 1,
-   "depends_on": "eval:doc.product_type=='Fixture Template'",
-   "fieldname": "configurator_section",
-   "fieldtype": "Section Break",
-   "label": "Configurator Settings"
-  },
-  {
-   "default": "0",
-   "description": "Enable web configurator for this product",
-   "fieldname": "is_configurable",
-   "fieldtype": "Check",
-   "label": "Is Configurable"
-  },
-  {
-   "description": "Intro text shown at start of configurator (e.g., 'Build your custom SH01 fixture...')",
-   "fieldname": "configurator_intro_text",
-   "fieldtype": "Small Text",
-   "label": "Configurator Intro Text"
-  },
-  {
-   "fieldname": "column_break_configurator",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Minimum configurable length in mm",
-   "fieldname": "min_length_mm",
-   "fieldtype": "Int",
-   "label": "Min Length (mm)"
-  },
-  {
-   "description": "Maximum configurable length in mm",
-   "fieldname": "max_length_mm",
-   "fieldtype": "Int",
-   "label": "Max Length (mm)"
-  },
-  {
-   "description": "Step size for length selector in mm",
-   "fieldname": "length_increment_mm",
-   "fieldtype": "Int",
-   "label": "Length Increment (mm)"
-  },
-  {
-   "description": "Configuration steps and allowed values for each option",
-   "fieldname": "configurator_options",
-   "fieldtype": "Table",
-   "label": "Configurator Options",
-   "options": "ilL-Child-Webflow-Configurator-Option"
-  },
-  {
-   "collapsible": 1,
-   "depends_on": "eval:doc.product_type=='Extrusion Kit'",
-   "fieldname": "kit_components_section",
-   "fieldtype": "Section Break",
-   "label": "Kit Components"
-  },
-  {
-   "description": "Components included in this extrusion kit",
-   "fieldname": "kit_components",
-   "fieldtype": "Table",
-   "label": "Kit Components",
-   "options": "ilL-Child-Webflow-Kit-Component"
-  },
-  {
-   "fieldname": "marketing_section",
-   "fieldtype": "Section Break",
-   "label": "Marketing Content"
-  },
-  {
-   "description": "Tagline or subtitle for the product",
-   "fieldname": "short_description",
-   "fieldtype": "Small Text",
-   "label": "Short Description"
-  },
-  {
-   "description": "Rich HTML content for product detail page",
-   "fieldname": "long_description",
-   "fieldtype": "Text Editor",
-   "label": "Long Description"
-  },
-  {
-   "fieldname": "featured_image",
-   "fieldtype": "Attach Image",
-   "label": "Featured Image"
-  },
-  {
-   "fieldname": "column_break_marketing",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "gallery_images",
-   "fieldtype": "Table",
-   "label": "Gallery Images",
-   "options": "ilL-Child-Webflow-Gallery-Image"
-  },
-  {
-   "description": "Spec sheets, IES files, installation guides, etc.",
-   "fieldname": "documents",
-   "fieldtype": "Table",
-   "label": "Documents",
-   "options": "ilL-Child-Webflow-Document"
-  },
-  {
-   "fieldname": "specifications_section",
-   "fieldtype": "Section Break",
-   "label": "Attribute Links"
-  },
-  {
-   "default": "1",
-   "description": "Automatically populate attribute links from linked fixture template's allowed options and tape offerings",
-   "fieldname": "auto_populate_attributes",
-   "fieldtype": "Check",
-   "label": "Auto Populate Attributes"
-  },
-  {
-   "fieldname": "column_break_specs",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "1",
-   "description": "Automatically calculate specifications from linked source doctype (deprecated - use Attribute Links)",
-   "fieldname": "auto_calculate_specs",
-   "fieldtype": "Check",
-   "hidden": 1,
-   "label": "Auto Calculate Specs"
-  },
-  {
-   "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering.",
-   "fieldname": "attribute_links",
-   "fieldtype": "Table",
-   "label": "Attribute Links",
-   "options": "ilL-Child-Webflow-Attribute-Link"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "certifications_section",
-   "fieldtype": "Section Break",
-   "label": "Certifications"
-  },
-  {
-   "fieldname": "certifications",
-   "fieldtype": "Table",
-   "label": "Certifications",
-   "options": "ilL-Child-Webflow-Certification-Link"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "compatibility_section",
-   "fieldtype": "Section Break",
-   "label": "Compatibility"
-  },
-  {
-   "description": "Related products for cross-selling and compatibility info",
-   "fieldname": "compatible_products",
-   "fieldtype": "Table",
-   "label": "Compatible Products",
-   "options": "ilL-Child-Webflow-Compatibility"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "sync_section",
-   "fieldtype": "Section Break",
-   "label": "Webflow Sync Status"
-  },
-  {
-   "description": "Webflow CMS item ID (populated after sync)",
-   "fieldname": "webflow_item_id",
-   "fieldtype": "Data",
-   "label": "Webflow Item ID",
-   "read_only": 1
-  },
-  {
-   "description": "Webflow collection slug (e.g., 'fixtures', 'drivers')",
-   "fieldname": "webflow_collection_slug",
-   "fieldtype": "Data",
-   "label": "Webflow Collection Slug",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_sync",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "last_synced_at",
-   "fieldtype": "Datetime",
-   "label": "Last Synced At",
-   "read_only": 1
-  },
-  {
-   "default": "Never Synced",
-   "fieldname": "sync_status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Sync Status",
-   "options": "Pending\nSynced\nError\nNever Synced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "sync_error_message",
-   "fieldtype": "Small Text",
-   "label": "Sync Error Message",
-   "read_only": 1
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-21 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Webflow-Product",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:product_slug",
+    "creation":  "2026-01-21 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "identity_section",
+                        "product_name",
+                        "product_slug",
+                        "column_break_identity",
+                        "product_type",
+                        "product_category",
+                        "series",
+                        "is_active",
+                        "source_reference_section",
+                        "fixture_template",
+                        "driver_spec",
+                        "controller_spec",
+                        "column_break_source",
+                        "profile_spec",
+                        "lens_spec",
+                        "tape_spec",
+                        "accessory_spec",
+                        "configurator_section",
+                        "is_configurable",
+                        "configurator_intro_text",
+                        "column_break_configurator",
+                        "min_length_mm",
+                        "max_length_mm",
+                        "length_increment_mm",
+                        "configurator_options",
+                        "kit_components_section",
+                        "kit_components",
+                        "marketing_section",
+                        "short_description",
+                        "long_description",
+                        "featured_image",
+                        "column_break_marketing",
+                        "gallery_images",
+                        "documents",
+                        "specifications_section",
+                        "auto_calculate_specs",
+                        "column_break_specs",
+                        "auto_populate_attributes",
+                        "attribute_links",
+                        "certifications_section",
+                        "certifications",
+                        "compatibility_section",
+                        "compatible_products",
+                        "sync_section",
+                        "webflow_item_id",
+                        "webflow_collection_slug",
+                        "column_break_sync",
+                        "last_synced_at",
+                        "sync_status",
+                        "sync_error_message"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "identity_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Identity"
+                   },
+                   {
+                       "description":  "Display name for the product (e.g., \u0027SH01 Linear Fixture\u0027)",
+                       "fieldname":  "product_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Product Name",
+                       "reqd":  1
+                   },
+                   {
+                       "description":  "URL-friendly slug (e.g., \u0027sh01-linear-fixture\u0027)",
+                       "fieldname":  "product_slug",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Product Slug",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "column_break_identity",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "product_type",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "in_standard_filter":  1,
+                       "label":  "Product Type",
+                       "options":  "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nComponent\nAccessory",
+                       "reqd":  1
+                   },
+                   {
+                       "description":  "Optional taxonomy category for navigation/filtering",
+                       "fieldname":  "product_category",
+                       "fieldtype":  "Link",
+                       "label":  "Product Category",
+                       "options":  "ilL-Webflow-Category"
+                   },
+                   {
+                       "description":  "Product series for filtering (e.g., \u0027SH01\u0027, \u0027SL02\u0027)",
+                       "fieldname":  "series",
+                       "fieldtype":  "Link",
+                       "in_standard_filter":  1,
+                       "label":  "Series",
+                       "options":  "ilL-Attribute-Series"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "label":  "Is Active"
+                   },
+                   {
+                       "fieldname":  "source_reference_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Source Reference"
+                   },
+                   {
+                       "depends_on":  "eval:doc.product_type==\u0027Fixture Template\u0027",
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Link",
+                       "label":  "Fixture Template",
+                       "options":  "ilL-Fixture-Template"
+                   },
+                   {
+                       "depends_on":  "eval:doc.product_type==\u0027Driver\u0027",
+                       "fieldname":  "driver_spec",
+                       "fieldtype":  "Link",
+                       "label":  "Driver Spec",
+                       "options":  "ilL-Spec-Driver"
+                   },
+                   {
+                       "depends_on":  "eval:doc.product_type==\u0027Controller\u0027",
+                       "fieldname":  "controller_spec",
+                       "fieldtype":  "Link",
+                       "label":  "Controller Spec",
+                       "options":  "ilL-Spec-Controller"
+                   },
+                   {
+                       "fieldname":  "column_break_source",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "depends_on":  "eval:[\u0027Component\u0027, \u0027Extrusion Kit\u0027].includes(doc.product_type)",
+                       "fieldname":  "profile_spec",
+                       "fieldtype":  "Link",
+                       "label":  "Profile Spec",
+                       "options":  "ilL-Spec-Profile"
+                   },
+                   {
+                       "depends_on":  "eval:doc.product_type==\u0027Component\u0027",
+                       "fieldname":  "lens_spec",
+                       "fieldtype":  "Link",
+                       "label":  "Lens Spec",
+                       "options":  "ilL-Spec-Lens"
+                   },
+                   {
+                       "depends_on":  "eval:doc.product_type==\u0027LED Tape\u0027",
+                       "fieldname":  "tape_spec",
+                       "fieldtype":  "Link",
+                       "label":  "LED Tape Spec",
+                       "options":  "ilL-Spec-LED Tape"
+                   },
+                   {
+                       "depends_on":  "eval:doc.product_type==\u0027Accessory\u0027",
+                       "fieldname":  "accessory_spec",
+                       "fieldtype":  "Link",
+                       "label":  "Accessory Spec",
+                       "options":  "ilL-Spec-Accessory"
+                   },
+                   {
+                       "collapsible":  1,
+                       "depends_on":  "eval:doc.product_type==\u0027Fixture Template\u0027",
+                       "fieldname":  "configurator_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Configurator Settings"
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "Enable web configurator for this product",
+                       "fieldname":  "is_configurable",
+                       "fieldtype":  "Check",
+                       "label":  "Is Configurable"
+                   },
+                   {
+                       "description":  "Intro text shown at start of configurator (e.g., \u0027Build your custom SH01 fixture...\u0027)",
+                       "fieldname":  "configurator_intro_text",
+                       "fieldtype":  "Small Text",
+                       "label":  "Configurator Intro Text"
+                   },
+                   {
+                       "fieldname":  "column_break_configurator",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Minimum configurable length in mm",
+                       "fieldname":  "min_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Min Length (mm)"
+                   },
+                   {
+                       "description":  "Maximum configurable length in mm",
+                       "fieldname":  "max_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Max Length (mm)"
+                   },
+                   {
+                       "description":  "Step size for length selector in mm",
+                       "fieldname":  "length_increment_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Length Increment (mm)"
+                   },
+                   {
+                       "description":  "Configuration steps and allowed values for each option",
+                       "fieldname":  "configurator_options",
+                       "fieldtype":  "Table",
+                       "label":  "Configurator Options",
+                       "options":  "ilL-Child-Webflow-Configurator-Option"
+                   },
+                   {
+                       "collapsible":  1,
+                       "depends_on":  "eval:doc.product_type==\u0027Extrusion Kit\u0027",
+                       "fieldname":  "kit_components_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Kit Components"
+                   },
+                   {
+                       "description":  "Components included in this extrusion kit",
+                       "fieldname":  "kit_components",
+                       "fieldtype":  "Table",
+                       "label":  "Kit Components",
+                       "options":  "ilL-Child-Webflow-Kit-Component"
+                   },
+                   {
+                       "fieldname":  "marketing_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Marketing Content"
+                   },
+                   {
+                       "description":  "Tagline or subtitle for the product",
+                       "fieldname":  "short_description",
+                       "fieldtype":  "Small Text",
+                       "label":  "Short Description"
+                   },
+                   {
+                       "description":  "Rich HTML content for product detail page",
+                       "fieldname":  "long_description",
+                       "fieldtype":  "Text Editor",
+                       "label":  "Long Description"
+                   },
+                   {
+                       "fieldname":  "featured_image",
+                       "fieldtype":  "Attach Image",
+                       "label":  "Featured Image"
+                   },
+                   {
+                       "fieldname":  "column_break_marketing",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "gallery_images",
+                       "fieldtype":  "Table",
+                       "label":  "Gallery Images",
+                       "options":  "ilL-Child-Webflow-Gallery-Image"
+                   },
+                   {
+                       "description":  "Spec sheets, IES files, installation guides, etc.",
+                       "fieldname":  "documents",
+                       "fieldtype":  "Table",
+                       "label":  "Documents",
+                       "options":  "ilL-Child-Webflow-Document"
+                   },
+                   {
+                       "fieldname":  "specifications_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Attribute Links"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Automatically populate attribute links from linked fixture template\u0027s allowed options and tape offerings",
+                       "fieldname":  "auto_populate_attributes",
+                       "fieldtype":  "Check",
+                       "label":  "Auto Populate Attributes"
+                   },
+                   {
+                       "fieldname":  "column_break_specs",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Automatically calculate specifications from linked source doctype (deprecated - use Attribute Links)",
+                       "fieldname":  "auto_calculate_specs",
+                       "fieldtype":  "Check",
+                       "hidden":  1,
+                       "label":  "Auto Calculate Specs"
+                   },
+                   {
+                       "description":  "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering.",
+                       "fieldname":  "attribute_links",
+                       "fieldtype":  "Table",
+                       "label":  "Attribute Links",
+                       "options":  "ilL-Child-Webflow-Attribute-Link"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "certifications_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Certifications"
+                   },
+                   {
+                       "fieldname":  "certifications",
+                       "fieldtype":  "Table",
+                       "label":  "Certifications",
+                       "options":  "ilL-Child-Webflow-Certification-Link"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "compatibility_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Compatibility"
+                   },
+                   {
+                       "description":  "Related products for cross-selling and compatibility info",
+                       "fieldname":  "compatible_products",
+                       "fieldtype":  "Table",
+                       "label":  "Compatible Products",
+                       "options":  "ilL-Child-Webflow-Compatibility"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "sync_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Webflow Sync Status"
+                   },
+                   {
+                       "description":  "Webflow CMS item ID (populated after sync)",
+                       "fieldname":  "webflow_item_id",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Item ID",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Webflow collection slug (e.g., \u0027fixtures\u0027, \u0027drivers\u0027)",
+                       "fieldname":  "webflow_collection_slug",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Collection Slug",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "column_break_sync",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "last_synced_at",
+                       "fieldtype":  "Datetime",
+                       "label":  "Last Synced At",
+                       "read_only":  1
+                   },
+                   {
+                       "default":  "Never Synced",
+                       "fieldname":  "sync_status",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Sync Status",
+                       "options":  "Pending\nSynced\nError\nNever Synced",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "sync_error_message",
+                       "fieldtype":  "Small Text",
+                       "label":  "Sync Error Message",
+                       "read_only":  1
+                   }
+               ],
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-21 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Webflow-Product",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

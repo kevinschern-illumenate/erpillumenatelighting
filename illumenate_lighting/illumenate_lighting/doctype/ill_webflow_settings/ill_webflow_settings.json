@@ -1,309 +1,316 @@
-{
- "actions": [],
- "allow_rename": 0,
- "creation": "2026-01-29 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "general_settings_sb",
-  "site_id",
-  "api_token_configured",
-  "column_break_general",
-  "n8n_webhook_url",
-  "sync_enabled",
-  "attribute_collections_sb",
-  "collection_id_cct",
-  "collection_id_finish",
-  "collection_id_dimming_protocol",
-  "column_break_attr1",
-  "collection_id_cri",
-  "collection_id_environment_rating",
-  "collection_id_ip_rating",
-  "column_break_attr2",
-  "collection_id_led_package",
-  "collection_id_lens_appearance",
-  "collection_id_mounting_method",
-  "column_break_attr3",
-  "collection_id_output_level",
-  "collection_id_output_voltage",
-  "collection_id_certification",
-  "endcap_joiner_collections_sb",
-  "collection_id_endcap_style",
-  "collection_id_endcap_color",
-  "column_break_endcap",
-  "collection_id_joiner_angle",
-  "collection_id_joiner_system",
-  "misc_collections_sb",
-  "collection_id_feed_direction",
-  "collection_id_lead_time_class",
-  "column_break_misc1",
-  "collection_id_leader_cable",
-  "collection_id_lens_interface_type",
-  "column_break_misc2",
-  "collection_id_power_feed_type",
-  "collection_id_pricing_class",
-  "column_break_misc3",
-  "collection_id_sdcm",
-  "collection_id_series",
-  "product_collections_sb",
-  "collection_id_products",
-  "collection_id_categories"
- ],
- "fields": [
-  {
-   "fieldname": "general_settings_sb",
-   "fieldtype": "Section Break",
-   "label": "General Settings"
-  },
-  {
-   "fieldname": "site_id",
-   "fieldtype": "Data",
-   "label": "Webflow Site ID",
-   "description": "The Webflow site ID for API calls"
-  },
-  {
-   "default": "0",
-   "fieldname": "api_token_configured",
-   "fieldtype": "Check",
-   "label": "API Token Configured in n8n?",
-   "description": "Check this once you've configured the Webflow API token in n8n credentials"
-  },
-  {
-   "fieldname": "column_break_general",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "n8n_webhook_url",
-   "fieldtype": "Data",
-   "label": "n8n Webhook URL",
-   "description": "Optional: Webhook URL to trigger immediate sync"
-  },
-  {
-   "default": "1",
-   "fieldname": "sync_enabled",
-   "fieldtype": "Check",
-   "label": "Sync Enabled",
-   "description": "Enable/disable automatic Webflow synchronization"
-  },
-  {
-   "fieldname": "attribute_collections_sb",
-   "fieldtype": "Section Break",
-   "label": "Attribute Collections (Core)"
-  },
-  {
-   "fieldname": "collection_id_cct",
-   "fieldtype": "Data",
-   "label": "CCT Collection ID",
-   "description": "Webflow collection ID for CCT options"
-  },
-  {
-   "fieldname": "collection_id_finish",
-   "fieldtype": "Data",
-   "label": "Finish Collection ID",
-   "description": "Webflow collection ID for Finish options"
-  },
-  {
-   "fieldname": "collection_id_dimming_protocol",
-   "fieldtype": "Data",
-   "label": "Dimming Protocol Collection ID",
-   "description": "Webflow collection ID for Dimming Protocol options"
-  },
-  {
-   "fieldname": "column_break_attr1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_cri",
-   "fieldtype": "Data",
-   "label": "CRI Collection ID",
-   "description": "Webflow collection ID for CRI options"
-  },
-  {
-   "fieldname": "collection_id_environment_rating",
-   "fieldtype": "Data",
-   "label": "Environment Rating Collection ID",
-   "description": "Webflow collection ID for Environment Rating options"
-  },
-  {
-   "fieldname": "collection_id_ip_rating",
-   "fieldtype": "Data",
-   "label": "IP Rating Collection ID",
-   "description": "Webflow collection ID for IP Rating options"
-  },
-  {
-   "fieldname": "column_break_attr2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_led_package",
-   "fieldtype": "Data",
-   "label": "LED Package Collection ID",
-   "description": "Webflow collection ID for LED Package options"
-  },
-  {
-   "fieldname": "collection_id_lens_appearance",
-   "fieldtype": "Data",
-   "label": "Lens Appearance Collection ID",
-   "description": "Webflow collection ID for Lens Appearance options"
-  },
-  {
-   "fieldname": "collection_id_mounting_method",
-   "fieldtype": "Data",
-   "label": "Mounting Method Collection ID",
-   "description": "Webflow collection ID for Mounting Method options"
-  },
-  {
-   "fieldname": "column_break_attr3",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_output_level",
-   "fieldtype": "Data",
-   "label": "Output Level Collection ID",
-   "description": "Webflow collection ID for Output Level options"
-  },
-  {
-   "fieldname": "collection_id_output_voltage",
-   "fieldtype": "Data",
-   "label": "Output Voltage Collection ID",
-   "description": "Webflow collection ID for Output Voltage options"
-  },
-  {
-   "fieldname": "collection_id_certification",
-   "fieldtype": "Data",
-   "label": "Certification Collection ID",
-   "description": "Webflow collection ID for Certification options"
-  },
-  {
-   "fieldname": "endcap_joiner_collections_sb",
-   "fieldtype": "Section Break",
-   "label": "Endcap & Joiner Collections"
-  },
-  {
-   "fieldname": "collection_id_endcap_style",
-   "fieldtype": "Data",
-   "label": "Endcap Style Collection ID"
-  },
-  {
-   "fieldname": "collection_id_endcap_color",
-   "fieldtype": "Data",
-   "label": "Endcap Color Collection ID"
-  },
-  {
-   "fieldname": "column_break_endcap",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_joiner_angle",
-   "fieldtype": "Data",
-   "label": "Joiner Angle Collection ID"
-  },
-  {
-   "fieldname": "collection_id_joiner_system",
-   "fieldtype": "Data",
-   "label": "Joiner System Collection ID"
-  },
-  {
-   "fieldname": "misc_collections_sb",
-   "fieldtype": "Section Break",
-   "label": "Miscellaneous Collections"
-  },
-  {
-   "fieldname": "collection_id_feed_direction",
-   "fieldtype": "Data",
-   "label": "Feed Direction Collection ID"
-  },
-  {
-   "fieldname": "collection_id_lead_time_class",
-   "fieldtype": "Data",
-   "label": "Lead Time Class Collection ID"
-  },
-  {
-   "fieldname": "column_break_misc1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_leader_cable",
-   "fieldtype": "Data",
-   "label": "Leader Cable Collection ID"
-  },
-  {
-   "fieldname": "collection_id_lens_interface_type",
-   "fieldtype": "Data",
-   "label": "Lens Interface Type Collection ID"
-  },
-  {
-   "fieldname": "column_break_misc2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_power_feed_type",
-   "fieldtype": "Data",
-   "label": "Power Feed Type Collection ID"
-  },
-  {
-   "fieldname": "collection_id_pricing_class",
-   "fieldtype": "Data",
-   "label": "Pricing Class Collection ID"
-  },
-  {
-   "fieldname": "column_break_misc3",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "collection_id_sdcm",
-   "fieldtype": "Data",
-   "label": "SDCM Collection ID"
-  },
-  {
-   "fieldname": "collection_id_series",
-   "fieldtype": "Data",
-   "label": "Series Collection ID",
-   "description": "Webflow collection ID for Series options"
-  },
-  {
-   "fieldname": "product_collections_sb",
-   "fieldtype": "Section Break",
-   "label": "Product Collections"
-  },
-  {
-   "fieldname": "collection_id_products",
-   "fieldtype": "Data",
-   "label": "Products Collection ID",
-   "description": "Webflow collection ID for main Products collection"
-  },
-  {
-   "fieldname": "collection_id_categories",
-   "fieldtype": "Data",
-   "label": "Categories Collection ID",
-   "description": "Webflow collection ID for Categories/Navigation collection"
-  }
- ],
- "index_web_pages_for_search": 1,
- "issingle": 1,
- "links": [],
- "modified": "2026-01-29 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Webflow-Settings",
- "naming_rule": "Expression (old style)",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  0,
+    "creation":  "2026-01-29 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "general_settings_sb",
+                        "site_id",
+                        "api_token_configured",
+                        "column_break_general",
+                        "n8n_webhook_url",
+                        "sync_enabled",
+                        "attribute_collections_sb",
+                        "collection_id_cct",
+                        "collection_id_finish",
+                        "collection_id_dimming_protocol",
+                        "column_break_attr1",
+                        "collection_id_cri",
+                        "collection_id_environment_rating",
+                        "collection_id_ip_rating",
+                        "column_break_attr2",
+                        "collection_id_led_package",
+                        "collection_id_lens_appearance",
+                        "collection_id_mounting_method",
+                        "column_break_attr3",
+                        "collection_id_output_level",
+                        "collection_id_output_voltage",
+                        "collection_id_certification",
+                        "endcap_joiner_collections_sb",
+                        "collection_id_endcap_style",
+                        "collection_id_endcap_color",
+                        "column_break_endcap",
+                        "collection_id_joiner_angle",
+                        "collection_id_joiner_system",
+                        "misc_collections_sb",
+                        "collection_id_feed_direction",
+                        "collection_id_lead_time_class",
+                        "column_break_misc1",
+                        "collection_id_leader_cable",
+                        "collection_id_lens_interface_type",
+                        "column_break_misc2",
+                        "collection_id_power_feed_type",
+                        "collection_id_pricing_class",
+                        "column_break_misc3",
+                        "collection_id_sdcm",
+                        "collection_id_series",
+                        "product_collections_sb",
+                        "collection_id_products",
+                        "collection_id_categories"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "general_settings_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "General Settings"
+                   },
+                   {
+                       "fieldname":  "site_id",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Site ID",
+                       "description":  "The Webflow site ID for API calls"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "api_token_configured",
+                       "fieldtype":  "Check",
+                       "label":  "API Token Configured in n8n?",
+                       "description":  "Check this once you\u0027ve configured the Webflow API token in n8n credentials"
+                   },
+                   {
+                       "fieldname":  "column_break_general",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "n8n_webhook_url",
+                       "fieldtype":  "Data",
+                       "label":  "n8n Webhook URL",
+                       "description":  "Optional: Webhook URL to trigger immediate sync"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "sync_enabled",
+                       "fieldtype":  "Check",
+                       "label":  "Sync Enabled",
+                       "description":  "Enable/disable automatic Webflow synchronization"
+                   },
+                   {
+                       "fieldname":  "attribute_collections_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Attribute Collections (Core)"
+                   },
+                   {
+                       "fieldname":  "collection_id_cct",
+                       "fieldtype":  "Data",
+                       "label":  "CCT Collection ID",
+                       "description":  "Webflow collection ID for CCT options"
+                   },
+                   {
+                       "fieldname":  "collection_id_finish",
+                       "fieldtype":  "Data",
+                       "label":  "Finish Collection ID",
+                       "description":  "Webflow collection ID for Finish options"
+                   },
+                   {
+                       "fieldname":  "collection_id_dimming_protocol",
+                       "fieldtype":  "Data",
+                       "label":  "Dimming Protocol Collection ID",
+                       "description":  "Webflow collection ID for Dimming Protocol options"
+                   },
+                   {
+                       "fieldname":  "column_break_attr1",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_cri",
+                       "fieldtype":  "Data",
+                       "label":  "CRI Collection ID",
+                       "description":  "Webflow collection ID for CRI options"
+                   },
+                   {
+                       "fieldname":  "collection_id_environment_rating",
+                       "fieldtype":  "Data",
+                       "label":  "Environment Rating Collection ID",
+                       "description":  "Webflow collection ID for Environment Rating options"
+                   },
+                   {
+                       "fieldname":  "collection_id_ip_rating",
+                       "fieldtype":  "Data",
+                       "label":  "IP Rating Collection ID",
+                       "description":  "Webflow collection ID for IP Rating options"
+                   },
+                   {
+                       "fieldname":  "column_break_attr2",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_led_package",
+                       "fieldtype":  "Data",
+                       "label":  "LED Package Collection ID",
+                       "description":  "Webflow collection ID for LED Package options"
+                   },
+                   {
+                       "fieldname":  "collection_id_lens_appearance",
+                       "fieldtype":  "Data",
+                       "label":  "Lens Appearance Collection ID",
+                       "description":  "Webflow collection ID for Lens Appearance options"
+                   },
+                   {
+                       "fieldname":  "collection_id_mounting_method",
+                       "fieldtype":  "Data",
+                       "label":  "Mounting Method Collection ID",
+                       "description":  "Webflow collection ID for Mounting Method options"
+                   },
+                   {
+                       "fieldname":  "column_break_attr3",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_output_level",
+                       "fieldtype":  "Data",
+                       "label":  "Output Level Collection ID",
+                       "description":  "Webflow collection ID for Output Level options"
+                   },
+                   {
+                       "fieldname":  "collection_id_output_voltage",
+                       "fieldtype":  "Data",
+                       "label":  "Output Voltage Collection ID",
+                       "description":  "Webflow collection ID for Output Voltage options"
+                   },
+                   {
+                       "fieldname":  "collection_id_certification",
+                       "fieldtype":  "Data",
+                       "label":  "Certification Collection ID",
+                       "description":  "Webflow collection ID for Certification options"
+                   },
+                   {
+                       "fieldname":  "endcap_joiner_collections_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Endcap \u0026 Joiner Collections"
+                   },
+                   {
+                       "fieldname":  "collection_id_endcap_style",
+                       "fieldtype":  "Data",
+                       "label":  "Endcap Style Collection ID"
+                   },
+                   {
+                       "fieldname":  "collection_id_endcap_color",
+                       "fieldtype":  "Data",
+                       "label":  "Endcap Color Collection ID"
+                   },
+                   {
+                       "fieldname":  "column_break_endcap",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_joiner_angle",
+                       "fieldtype":  "Data",
+                       "label":  "Joiner Angle Collection ID"
+                   },
+                   {
+                       "fieldname":  "collection_id_joiner_system",
+                       "fieldtype":  "Data",
+                       "label":  "Joiner System Collection ID"
+                   },
+                   {
+                       "fieldname":  "misc_collections_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Miscellaneous Collections"
+                   },
+                   {
+                       "fieldname":  "collection_id_feed_direction",
+                       "fieldtype":  "Data",
+                       "label":  "Feed Direction Collection ID"
+                   },
+                   {
+                       "fieldname":  "collection_id_lead_time_class",
+                       "fieldtype":  "Data",
+                       "label":  "Lead Time Class Collection ID"
+                   },
+                   {
+                       "fieldname":  "column_break_misc1",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_leader_cable",
+                       "fieldtype":  "Data",
+                       "label":  "Leader Cable Collection ID"
+                   },
+                   {
+                       "fieldname":  "collection_id_lens_interface_type",
+                       "fieldtype":  "Data",
+                       "label":  "Lens Interface Type Collection ID"
+                   },
+                   {
+                       "fieldname":  "column_break_misc2",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_power_feed_type",
+                       "fieldtype":  "Data",
+                       "label":  "Power Feed Type Collection ID"
+                   },
+                   {
+                       "fieldname":  "collection_id_pricing_class",
+                       "fieldtype":  "Data",
+                       "label":  "Pricing Class Collection ID"
+                   },
+                   {
+                       "fieldname":  "column_break_misc3",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "collection_id_sdcm",
+                       "fieldtype":  "Data",
+                       "label":  "SDCM Collection ID"
+                   },
+                   {
+                       "fieldname":  "collection_id_series",
+                       "fieldtype":  "Data",
+                       "label":  "Series Collection ID",
+                       "description":  "Webflow collection ID for Series options"
+                   },
+                   {
+                       "fieldname":  "product_collections_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Product Collections"
+                   },
+                   {
+                       "fieldname":  "collection_id_products",
+                       "fieldtype":  "Data",
+                       "label":  "Products Collection ID",
+                       "description":  "Webflow collection ID for main Products collection"
+                   },
+                   {
+                       "fieldname":  "collection_id_categories",
+                       "fieldtype":  "Data",
+                       "label":  "Categories Collection ID",
+                       "description":  "Webflow collection ID for Categories/Navigation collection"
+                   }
+               ],
+    "index_web_pages_for_search":  1,
+    "issingle":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-29 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Webflow-Settings",
+    "naming_rule":  "Expression (old style)",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

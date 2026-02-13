@@ -1,104 +1,111 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "format:{fixture_template}-{driver_spec}",
- "creation": "2026-01-07 21:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "mapping_section",
-  "fixture_template",
-  "driver_spec",
-  "column_break_mapping",
-  "is_allowed",
-  "priority",
-  "is_active"
- ],
- "fields": [
-  {
-   "fieldname": "mapping_section",
-   "fieldtype": "Section Break",
-   "label": "Driver Eligibility"
-  },
-  {
-   "fieldname": "fixture_template",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Fixture Template",
-   "options": "ilL-Fixture-Template",
-   "reqd": 1
-  },
-  {
-   "fieldname": "driver_spec",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Driver Spec",
-   "options": "ilL-Spec-Driver",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_mapping",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_allowed",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Allowed"
-  },
-  {
-   "default": "0",
-   "description": "Lower value = higher priority (preferred)",
-   "fieldname": "priority",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Priority"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Active"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 21:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Rel-Driver-Eligibility",
- "naming_rule": "Expression",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "fixture_template, driver_spec",
- "sort_field": "priority",
- "sort_order": "ASC",
- "states": []
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "format:{fixture_template}-{driver_spec}",
+    "creation":  "2026-01-07 21:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "mapping_section",
+                        "fixture_template",
+                        "driver_spec",
+                        "column_break_mapping",
+                        "is_allowed",
+                        "priority",
+                        "is_active"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "mapping_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Driver Eligibility"
+                   },
+                   {
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Fixture Template",
+                       "options":  "ilL-Fixture-Template",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "driver_spec",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Driver Spec",
+                       "options":  "ilL-Spec-Driver",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_mapping",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_allowed",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Allowed"
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "Lower value = higher priority (preferred)",
+                       "fieldname":  "priority",
+                       "fieldtype":  "Int",
+                       "in_list_view":  1,
+                       "label":  "Priority"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Active"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 21:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Rel-Driver-Eligibility",
+    "naming_rule":  "Expression",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "fixture_template, driver_spec",
+    "sort_field":  "priority",
+    "sort_order":  "ASC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }

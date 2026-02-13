@@ -1,90 +1,97 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:label",
- "creation": "2026-01-07 12:01:30.986439",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "label",
-  "default_adder",
-  "multiplier",
-  "column_break_jedl",
-  "code",
-  "notes"
- ],
- "fields": [
-  {
-   "fieldname": "label",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Class Label",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "default_adder",
-   "fieldtype": "Int",
-   "label": "Default Adder"
-  },
-  {
-   "fieldname": "multiplier",
-   "fieldtype": "Float",
-   "label": "Multiplier"
-  },
-  {
-   "fieldname": "column_break_jedl",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "notes",
-   "fieldtype": "Small Text",
-   "label": "Notes"
-  },
-  {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Class Code",
-   "reqd": 1
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 12:03:48.894798",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Attribute-Pricing Class",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "label, code",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:label",
+    "creation":  "2026-01-07 12:01:30.986439",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "label",
+                        "default_adder",
+                        "multiplier",
+                        "column_break_jedl",
+                        "code",
+                        "notes"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "label",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Class Label",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "default_adder",
+                       "fieldtype":  "Int",
+                       "label":  "Default Adder"
+                   },
+                   {
+                       "fieldname":  "multiplier",
+                       "fieldtype":  "Float",
+                       "label":  "Multiplier"
+                   },
+                   {
+                       "fieldname":  "column_break_jedl",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "notes",
+                       "fieldtype":  "Small Text",
+                       "label":  "Notes"
+                   },
+                   {
+                       "fieldname":  "code",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Class Code",
+                       "reqd":  1
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 12:03:48.894798",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Attribute-Pricing Class",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "label, code",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }

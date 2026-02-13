@@ -1,167 +1,174 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:series_name",
- "creation": "2026-01-29 22:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "general_info_sb",
-  "series_name",
-  "code",
-  "column_break_general",
-  "is_active",
-  "sort_order",
-  "marketing_sb",
-  "short_description",
-  "column_break_marketing",
-  "featured_image",
-  "details_sb",
-  "description",
-  "webflow_sync_sb",
-  "webflow_item_id",
-  "webflow_sync_status",
-  "webflow_last_synced",
-  "webflow_sync_error"
- ],
- "fields": [
-  {
-   "fieldname": "general_info_sb",
-   "fieldtype": "Section Break",
-   "label": "General Info"
-  },
-  {
-   "fieldname": "series_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Series Name",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Series Code",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_general",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Active"
-  },
-  {
-   "default": "0",
-   "fieldname": "sort_order",
-   "fieldtype": "Int",
-   "label": "Sort Order"
-  },
-  {
-   "fieldname": "marketing_sb",
-   "fieldtype": "Section Break",
-   "label": "Marketing"
-  },
-  {
-   "fieldname": "short_description",
-   "fieldtype": "Small Text",
-   "label": "Short Description"
-  },
-  {
-   "fieldname": "column_break_marketing",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "featured_image",
-   "fieldtype": "Attach Image",
-   "label": "Featured Image"
-  },
-  {
-   "fieldname": "details_sb",
-   "fieldtype": "Section Break",
-   "label": "Details"
-  },
-  {
-   "fieldname": "description",
-   "fieldtype": "Text Editor",
-   "label": "Description"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "webflow_sync_sb",
-   "fieldtype": "Section Break",
-   "label": "Webflow Sync"
-  },
-  {
-   "description": "Webflow CMS item ID (populated after sync)",
-   "fieldname": "webflow_item_id",
-   "fieldtype": "Data",
-   "label": "Webflow Item ID",
-   "read_only": 1
-  },
-  {
-   "default": "Never Synced",
-   "fieldname": "webflow_sync_status",
-   "fieldtype": "Select",
-   "label": "Sync Status",
-   "options": "Pending\nSynced\nError\nNever Synced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "webflow_last_synced",
-   "fieldtype": "Datetime",
-   "label": "Last Synced",
-   "read_only": 1
-  },
-  {
-   "fieldname": "webflow_sync_error",
-   "fieldtype": "Small Text",
-   "label": "Sync Error",
-   "read_only": 1
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-29 22:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Attribute-Series",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "code, short_description",
- "sort_field": "sort_order",
- "sort_order": "ASC",
- "states": [],
- "track_changes": 1
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:series_name",
+    "creation":  "2026-01-29 22:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "general_info_sb",
+                        "series_name",
+                        "code",
+                        "column_break_general",
+                        "is_active",
+                        "sort_order",
+                        "marketing_sb",
+                        "short_description",
+                        "column_break_marketing",
+                        "featured_image",
+                        "details_sb",
+                        "description",
+                        "webflow_sync_sb",
+                        "webflow_item_id",
+                        "webflow_sync_status",
+                        "webflow_last_synced",
+                        "webflow_sync_error"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "general_info_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "General Info"
+                   },
+                   {
+                       "fieldname":  "series_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Series Name",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "code",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Series Code",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_general",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Active"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "sort_order",
+                       "fieldtype":  "Int",
+                       "label":  "Sort Order"
+                   },
+                   {
+                       "fieldname":  "marketing_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Marketing"
+                   },
+                   {
+                       "fieldname":  "short_description",
+                       "fieldtype":  "Small Text",
+                       "label":  "Short Description"
+                   },
+                   {
+                       "fieldname":  "column_break_marketing",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "featured_image",
+                       "fieldtype":  "Attach Image",
+                       "label":  "Featured Image"
+                   },
+                   {
+                       "fieldname":  "details_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Details"
+                   },
+                   {
+                       "fieldname":  "description",
+                       "fieldtype":  "Text Editor",
+                       "label":  "Description"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "webflow_sync_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Webflow Sync"
+                   },
+                   {
+                       "description":  "Webflow CMS item ID (populated after sync)",
+                       "fieldname":  "webflow_item_id",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Item ID",
+                       "read_only":  1
+                   },
+                   {
+                       "default":  "Never Synced",
+                       "fieldname":  "webflow_sync_status",
+                       "fieldtype":  "Select",
+                       "label":  "Sync Status",
+                       "options":  "Pending\nSynced\nError\nNever Synced",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "webflow_last_synced",
+                       "fieldtype":  "Datetime",
+                       "label":  "Last Synced",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "webflow_sync_error",
+                       "fieldtype":  "Small Text",
+                       "label":  "Sync Error",
+                       "read_only":  1
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-29 22:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Attribute-Series",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "code, short_description",
+    "sort_field":  "sort_order",
+    "sort_order":  "ASC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

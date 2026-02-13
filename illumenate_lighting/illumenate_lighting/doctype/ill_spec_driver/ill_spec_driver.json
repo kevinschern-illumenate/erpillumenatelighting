@@ -1,219 +1,226 @@
-{
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:item",
- "creation": "2026-01-07 12:49:43.036344",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "identity_section",
-  "item",
-  "electrical_section",
-  "input_voltage",
-  "input_voltage_min",
-  "input_voltage_max",
-  "input_voltage_type",
-  "voltage_output",
-  "outputs_count",
-  "output_type",
-  "output_protocol",
-  "column_break_gfyi",
-  "max_wattage",
-  "max_wattage_per_output",
-  "usable_load_factor",
-  "cost",
-  "control_section",
-  "input_protocols",
-  "dimensions_section",
-  "width_mm",
-  "height_mm",
-  "depth_mm",
-  "column_break_dimensions",
-  "weight_grams",
-  "certifications_section",
-  "certifications"
- ],
- "fields": [
-  {
-   "fieldname": "identity_section",
-   "fieldtype": "Section Break",
-   "label": "Identity"
-  },
-  {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "label": "Driver Item",
-   "options": "Item",
-   "unique": 1
-  },
-  {
-   "fieldname": "electrical_section",
-   "fieldtype": "Section Break",
-   "label": "Electrical"
-  },
-  {
-   "fieldname": "input_voltage",
-   "fieldtype": "Data",
-   "label": "Input Voltage",
-   "description": "Legacy field - use structured voltage fields instead"
-  },
-  {
-   "description": "Minimum input voltage (e.g., 100)",
-   "fieldname": "input_voltage_min",
-   "fieldtype": "Int",
-   "label": "Input Voltage Min"
-  },
-  {
-   "description": "Maximum input voltage (e.g., 277)",
-   "fieldname": "input_voltage_max",
-   "fieldtype": "Int",
-   "label": "Input Voltage Max"
-  },
-  {
-   "fieldname": "input_voltage_type",
-   "fieldtype": "Select",
-   "label": "Input Voltage Type",
-   "options": "VAC\nVDC"
-  },
-  {
-   "fieldname": "voltage_output",
-   "fieldtype": "Link",
-   "label": "Voltage Output",
-   "options": "ilL-Attribute-Output Voltage"
-  },
-  {
-   "fieldname": "outputs_count",
-   "fieldtype": "Int",
-   "label": "Outputs"
-  },
-  {
-   "fieldname": "output_type",
-   "fieldtype": "Select",
-   "label": "Output Type",
-   "options": "Constant Voltage\nConstant Current"
-  },
-  {
-   "fieldname": "output_protocol",
-   "fieldtype": "Link",
-   "label": "Output Protocol",
-   "options": "ilL-Attribute-Dimming Protocol",
-   "description": "The dimming signal protocol this driver outputs to the LED tape (e.g., PWM)"
-  },
-  {
-   "fieldname": "column_break_gfyi",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "max_wattage",
-   "fieldtype": "Float",
-   "label": "Max Wattage (W)"
-  },
-  {
-   "fieldname": "max_wattage_per_output",
-   "fieldtype": "Float",
-   "label": "Max Wattage per Output"
-  },
-  {
-   "default": "0.8",
-   "fieldname": "usable_load_factor",
-   "fieldtype": "Float",
-   "label": "Usable Load Factor"
-  },
-  {
-   "fieldname": "cost",
-   "fieldtype": "Currency",
-   "label": "Unit Cost",
-   "description": "Unit cost for driver selection policy (lowest cost preferred)"
-  },
-  {
-   "fieldname": "control_section",
-   "fieldtype": "Section Break",
-   "label": "Control / Dimming"
-  },
-  {
-   "fieldname": "input_protocols",
-   "fieldtype": "Table",
-   "label": "Supported Input Protocols",
-   "options": "ilL-Child-Driver-Input-Protocol",
-   "description": "Dimming signal protocols this driver accepts from user/controller (e.g., 0-10V, DALI, Triac)"
-  },
-  {
-   "fieldname": "dimensions_section",
-   "fieldtype": "Section Break",
-   "label": "Physical Dimensions"
-  },
-  {
-   "fieldname": "width_mm",
-   "fieldtype": "Float",
-   "label": "Width (mm)"
-  },
-  {
-   "fieldname": "height_mm",
-   "fieldtype": "Float",
-   "label": "Height (mm)"
-  },
-  {
-   "fieldname": "depth_mm",
-   "fieldtype": "Float",
-   "label": "Depth (mm)"
-  },
-  {
-   "fieldname": "column_break_dimensions",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "weight_grams",
-   "fieldtype": "Float",
-   "label": "Weight (grams)"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "certifications_section",
-   "fieldtype": "Section Break",
-   "label": "Certifications"
-  },
-  {
-   "fieldname": "certifications",
-   "fieldtype": "Table",
-   "label": "Certifications",
-   "options": "ilL-Child-Spec-Certification"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-23 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Spec-Driver",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+﻿{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:item",
+    "creation":  "2026-01-07 12:49:43.036344",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "identity_section",
+                        "item",
+                        "electrical_section",
+                        "input_voltage",
+                        "input_voltage_min",
+                        "input_voltage_max",
+                        "input_voltage_type",
+                        "voltage_output",
+                        "outputs_count",
+                        "output_type",
+                        "output_protocol",
+                        "column_break_gfyi",
+                        "max_wattage",
+                        "max_wattage_per_output",
+                        "usable_load_factor",
+                        "cost",
+                        "control_section",
+                        "input_protocols",
+                        "dimensions_section",
+                        "width_mm",
+                        "height_mm",
+                        "depth_mm",
+                        "column_break_dimensions",
+                        "weight_grams",
+                        "certifications_section",
+                        "certifications"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "identity_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Identity"
+                   },
+                   {
+                       "fieldname":  "item",
+                       "fieldtype":  "Link",
+                       "label":  "Driver Item",
+                       "options":  "Item",
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "electrical_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Electrical"
+                   },
+                   {
+                       "fieldname":  "input_voltage",
+                       "fieldtype":  "Data",
+                       "label":  "Input Voltage",
+                       "description":  "Legacy field - use structured voltage fields instead"
+                   },
+                   {
+                       "description":  "Minimum input voltage (e.g., 100)",
+                       "fieldname":  "input_voltage_min",
+                       "fieldtype":  "Int",
+                       "label":  "Input Voltage Min"
+                   },
+                   {
+                       "description":  "Maximum input voltage (e.g., 277)",
+                       "fieldname":  "input_voltage_max",
+                       "fieldtype":  "Int",
+                       "label":  "Input Voltage Max"
+                   },
+                   {
+                       "fieldname":  "input_voltage_type",
+                       "fieldtype":  "Select",
+                       "label":  "Input Voltage Type",
+                       "options":  "VAC\nVDC"
+                   },
+                   {
+                       "fieldname":  "voltage_output",
+                       "fieldtype":  "Link",
+                       "label":  "Voltage Output",
+                       "options":  "ilL-Attribute-Output Voltage"
+                   },
+                   {
+                       "fieldname":  "outputs_count",
+                       "fieldtype":  "Int",
+                       "label":  "Outputs"
+                   },
+                   {
+                       "fieldname":  "output_type",
+                       "fieldtype":  "Select",
+                       "label":  "Output Type",
+                       "options":  "Constant Voltage\nConstant Current"
+                   },
+                   {
+                       "fieldname":  "output_protocol",
+                       "fieldtype":  "Link",
+                       "label":  "Output Protocol",
+                       "options":  "ilL-Attribute-Dimming Protocol",
+                       "description":  "The dimming signal protocol this driver outputs to the LED tape (e.g., PWM)"
+                   },
+                   {
+                       "fieldname":  "column_break_gfyi",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "max_wattage",
+                       "fieldtype":  "Float",
+                       "label":  "Max Wattage (W)"
+                   },
+                   {
+                       "fieldname":  "max_wattage_per_output",
+                       "fieldtype":  "Float",
+                       "label":  "Max Wattage per Output"
+                   },
+                   {
+                       "default":  "0.8",
+                       "fieldname":  "usable_load_factor",
+                       "fieldtype":  "Float",
+                       "label":  "Usable Load Factor"
+                   },
+                   {
+                       "fieldname":  "cost",
+                       "fieldtype":  "Currency",
+                       "label":  "Unit Cost",
+                       "description":  "Unit cost for driver selection policy (lowest cost preferred)"
+                   },
+                   {
+                       "fieldname":  "control_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Control / Dimming"
+                   },
+                   {
+                       "fieldname":  "input_protocols",
+                       "fieldtype":  "Table",
+                       "label":  "Supported Input Protocols",
+                       "options":  "ilL-Child-Driver-Input-Protocol",
+                       "description":  "Dimming signal protocols this driver accepts from user/controller (e.g., 0-10V, DALI, Triac)"
+                   },
+                   {
+                       "fieldname":  "dimensions_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Physical Dimensions"
+                   },
+                   {
+                       "fieldname":  "width_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Width (mm)"
+                   },
+                   {
+                       "fieldname":  "height_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Height (mm)"
+                   },
+                   {
+                       "fieldname":  "depth_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Depth (mm)"
+                   },
+                   {
+                       "fieldname":  "column_break_dimensions",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "weight_grams",
+                       "fieldtype":  "Float",
+                       "label":  "Weight (grams)"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "certifications_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Certifications"
+                   },
+                   {
+                       "fieldname":  "certifications",
+                       "fieldtype":  "Table",
+                       "label":  "Certifications",
+                       "options":  "ilL-Child-Spec-Certification"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-23 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Spec-Driver",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }
