@@ -73,9 +73,22 @@ def generate_from_webflow_selections(
     # ── Step 2: Resolve tape offering from selections ─────────────────
     tape_offering_id = _resolve_tape_offering(template, selections)
     if not tape_offering_id:
+        frappe.log_error(
+            title="Spec Sheet - No Tape Offering Found",
+            message=(
+                f"_resolve_tape_offering returned None for "
+                f"template={product.fixture_template}, "
+                f"selections={selections!r}"
+            ),
+        )
         return {
             "success": False,
-            "error": "No tape offering matches your configuration. Please check your selections.",
+            "error": (
+                "No tape offering matches your configuration. "
+                f"Environment={selections.get('environment_rating')!r}, "
+                f"Output={selections.get('output_level')!r}. "
+                "Please check your selections."
+            ),
         }
 
     # ── Step 3: Map Webflow selections → engine codes ─────────────────

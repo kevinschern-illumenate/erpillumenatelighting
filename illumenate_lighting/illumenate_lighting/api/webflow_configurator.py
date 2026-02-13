@@ -600,7 +600,7 @@ def _get_ccts_for_environment(template, environment: str) -> list:
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         tape_offering = getattr(tape_row, 'tape_offering', None)
         if tape_offering:
@@ -649,7 +649,7 @@ def _get_ccts_for_environment(template, environment: str) -> list:
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -691,7 +691,7 @@ def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -775,7 +775,7 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -1217,16 +1217,22 @@ def _validate_option_compatibility(template, selections: dict) -> dict:
     
     For multi-CCT packages (Tunable White, etc.), skips the exact CCT match
     since the tape carries a generic CCT while the user selects individual CCTs.
+    
+    Uses flexible matching for environment rating and output level to handle
+    Webflow page radio values that may be display labels/codes rather than
+    exact ERPNext document names.
     """
     environment = selections.get("environment_rating")
+    env_code = selections.get("environment_rating_code")
     cct = selections.get("cct")
     output_level = selections.get("output_level")
+    output_level_code = selections.get("output_level_code")
     is_multi_cct = _is_multi_cct_template(template)
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment, env_code):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -1243,7 +1249,7 @@ def _validate_option_compatibility(template, selections: dict) -> dict:
         cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
         if (offering_data and 
             cct_matches and 
-            offering_data.get("output_level") == output_level):
+            _output_level_matches(offering_data.get("output_level"), output_level, output_level_code)):
             return {"is_valid": True}
     
     return {
@@ -1257,16 +1263,28 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     
     For multi-CCT packages (Tunable White, etc.), skips the exact CCT match
     since the tape carries a generic CCT while the user selects individual CCTs.
+    
+    Uses flexible matching for environment rating and output level to handle
+    Webflow page radio values that may be display labels/codes rather than
+    exact ERPNext document names.
     """
     environment = selections.get("environment_rating")
+    env_code = selections.get("environment_rating_code")
     cct = selections.get("cct")
     output_level = selections.get("output_level")
+    output_level_code = selections.get("output_level_code")
     is_multi_cct = _is_multi_cct_template(template)
+    
+    frappe.logger().info(
+        f"_resolve_tape_offering: env={environment!r}, env_code={env_code!r}, "
+        f"cct={cct!r}, output={output_level!r}, output_code={output_level_code!r}, "
+        f"is_multi_cct={is_multi_cct}"
+    )
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment, env_code):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -1279,14 +1297,115 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
             ["cct", "output_level"],
             as_dict=True
         )
+        if not offering_data:
+            continue
         
-        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
-        if (offering_data and 
-            cct_matches and 
-            offering_data.get("output_level") == output_level):
+        cct_matches = is_multi_cct or (offering_data.get("cct") == cct)
+        if (cct_matches and 
+            _output_level_matches(offering_data.get("output_level"), output_level, output_level_code)):
+            frappe.logger().info(f"_resolve_tape_offering: matched tape_offering={tape_offering}")
             return tape_offering
+        
+        frappe.logger().debug(
+            f"_resolve_tape_offering: skipped {tape_offering} "
+            f"(cct_match={cct_matches}, tape_output={offering_data.get('output_level')!r})"
+        )
     
+    frappe.logger().warning(
+        f"_resolve_tape_offering: no tape found for template={template.name}, "
+        f"env={environment!r}, output={output_level!r}"
+    )
     return None
+
+
+def _env_matches(tape_row, environment: str, env_code: str = None) -> bool:
+    """Check if a template's allowed tape offering row matches the environment selection.
+    
+    Matching rules:
+    1. If the child row has no environment_rating set → matches any (wildcard)
+    2. Exact name match
+    3. Match by environment rating code
+    """
+    row_env = getattr(tape_row, 'environment_rating', None)
+    
+    # If the child row has no env set, treat as wildcard (matches any)
+    if not row_env:
+        return True
+    
+    # No selection → only match if row also has no env (handled above)
+    if not environment:
+        return False
+    
+    # Direct name match
+    if row_env == environment:
+        return True
+    
+    # Match by code: compare the row's env rating code with the selection code
+    if env_code:
+        row_env_code = frappe.db.get_value(
+            "ilL-Attribute-Environment Rating", row_env, "code"
+        )
+        if row_env_code and row_env_code == env_code:
+            return True
+    
+    return False
+
+
+def _output_level_matches(tape_output_level: str, selected_output: str, selected_code: str = None) -> bool:
+    """Check if a tape offering's output level matches the user selection.
+    
+    Matching rules:
+    1. Exact document name match
+    2. Match by sku_code (e.g., "100" matches Output Level with sku_code "100")
+    3. Match by label format: tape's "{value} lm/ft" vs selected_output
+    
+    This handles Webflow pages that may send display labels or codes
+    instead of exact ERPNext document names.
+    """
+    if not tape_output_level:
+        return False
+    
+    if not selected_output and not selected_code:
+        return False
+    
+    # 1. Direct name match
+    if selected_output and tape_output_level == selected_output:
+        return True
+    
+    # Fetch the output level details for further matching
+    ol_data = frappe.db.get_value(
+        "ilL-Attribute-Output Level",
+        tape_output_level,
+        ["value", "sku_code", "output_level_name"],
+        as_dict=True
+    )
+    if not ol_data:
+        return False
+    
+    # 2. Match by sku_code (e.g., selection sends code "100")
+    if selected_code and ol_data.sku_code:
+        if ol_data.sku_code == selected_code:
+            return True
+    
+    # 3. Match by label format: "{value} lm/ft"
+    if selected_output and ol_data.value is not None:
+        label = f"{ol_data.value} lm/ft"
+        if label == selected_output:
+            return True
+        # Also try just the numeric part: "100" vs "100"
+        try:
+            selected_numeric = selected_output.replace(" lm/ft", "").strip()
+            if selected_numeric == str(ol_data.value):
+                return True
+        except (ValueError, AttributeError):
+            pass
+    
+    # 4. Match raw value against output_level_name
+    if selected_output and ol_data.output_level_name:
+        if ol_data.output_level_name == selected_output:
+            return True
+    
+    return False
 
 
 # =============================================================================
