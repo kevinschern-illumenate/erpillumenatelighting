@@ -282,29 +282,20 @@ def _fill_pdf_form_fields(
 				warnings,
 			)
 
-		# Flatten the PDF by removing form field annotations (Widget type)
-		# This makes the form fields non-editable by converting them to static content
-		# while preserving other annotations like links
-		from pypdf.generic import ArrayObject, NameObject
+		# Make form fields read-only instead of removing them.
+		# Removing Widget annotations strips the appearance streams that
+		# contain the visible filled text.  Setting the ReadOnly bit (bit 1
+		# of /Ff) preserves the rendered values while preventing editing.
+		from pypdf.generic import NameObject, NumberObject
 
-		_debug("_fill_pdf_form_fields: Flattening PDF by removing form field annotations", warnings)
+		_debug("_fill_pdf_form_fields: Setting form fields to read-only", warnings)
 		for page in writer.pages:
 			if "/Annots" in page:
-				# Filter out Widget annotations (form fields) but keep other annotations
-				annots = page["/Annots"]
-				filtered_annots = []
-				for annot_ref in annots:
+				for annot_ref in page["/Annots"]:
 					annot = annot_ref.get_object()
-					# Keep annotations that are not form field widgets
-					if annot.get("/Subtype") != "/Widget":
-						filtered_annots.append(annot_ref)
-
-				# Update the page's annotations array
-				if filtered_annots:
-					page[NameObject("/Annots")] = ArrayObject(filtered_annots)
-				else:
-					# Remove the /Annots key entirely if no annotations remain
-					del page["/Annots"]
+					if annot.get("/Subtype") == "/Widget":
+						ff = int(annot.get("/Ff", 0))
+						annot[NameObject("/Ff")] = NumberObject(ff | 1)  # ReadOnly bit
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
