@@ -19,6 +19,8 @@ ALLOWED_ORIGINS = [
 	"https://illumenatelighting.com",
 	"https://illumenatelighting.webflow.io",
 	"https://illumenate-staging.webflow.io",
+	"https://illumenate.lighting",
+	"https://www.illumenate.lighting",
 ]
 
 
