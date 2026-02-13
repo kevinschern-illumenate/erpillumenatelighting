@@ -285,6 +285,8 @@ def _fill_pdf_form_fields(
 		# Flatten the PDF by removing form field annotations (Widget type)
 		# This makes the form fields non-editable by converting them to static content
 		# while preserving other annotations like links
+		from pypdf.generic import ArrayObject, NameObject
+
 		_debug("_fill_pdf_form_fields: Flattening PDF by removing form field annotations", warnings)
 		for page in writer.pages:
 			if "/Annots" in page:
@@ -299,7 +301,7 @@ def _fill_pdf_form_fields(
 
 				# Update the page's annotations array
 				if filtered_annots:
-					page["/Annots"] = filtered_annots
+					page[NameObject("/Annots")] = ArrayObject(filtered_annots)
 				else:
 					# Remove the /Annots key entirely if no annotations remain
 					del page["/Annots"]
