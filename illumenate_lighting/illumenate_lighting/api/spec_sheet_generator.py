@@ -127,13 +127,27 @@ def generate_from_webflow_selections(
         generate_filled_submittal,
     )
 
-    submittal_result = generate_filled_submittal(configured_fixture_id)
+    # Check whether a fillable submittal template is configured.
+    # Only fall back to the static spec sheet when there is genuinely
+    # no submittal template *and* no field mappings — i.e. the series
+    # was never set up for filled submittals.
+    has_submittal_template = bool(
+        getattr(template, "spec_submittal_template", None)
+    )
+    has_field_mappings = bool(
+        frappe.db.count(
+            "ilL-Spec-Submittal-Mapping",
+            filters={"fixture_template": template.name},
+        )
+    )
 
-    if not submittal_result.get("success") or not submittal_result.get("file_url"):
-        # Fall back to the static spec sheet from the fixture template
-        spec_sheet_url = template.spec_sheet if hasattr(template, "spec_sheet") else None
+    if not has_submittal_template and not has_field_mappings:
+        # No submittal infrastructure configured — return static spec
+        # sheet if available.
+        spec_sheet_url = (
+            template.spec_sheet if hasattr(template, "spec_sheet") else None
+        )
         if spec_sheet_url:
-            # Generate part number for the response
             part_number = _generate_full_part_number(series_info, selections)
             return {
                 "success": True,
@@ -144,7 +158,26 @@ def generate_from_webflow_selections(
             }
         return {
             "success": False,
-            "error": submittal_result.get("message") or "Could not generate spec sheet PDF",
+            "error": "No spec submittal template or spec sheet configured for this series",
+        }
+
+    submittal_result = generate_filled_submittal(configured_fixture_id)
+
+    if not submittal_result.get("success") or not submittal_result.get("file_url"):
+        # Submittal generation failed even though the template IS
+        # configured — surface the real error instead of silently
+        # falling back to the static spec sheet.
+        error_detail = submittal_result.get("message") or "Unknown error"
+        frappe.log_error(
+            title="Spec Submittal Generation Failed",
+            message=(
+                f"generate_filled_submittal returned failure for "
+                f"configured_fixture={configured_fixture_id}: {error_detail}"
+            ),
+        )
+        return {
+            "success": False,
+            "error": f"Could not generate filled spec submittal: {error_detail}",
         }
 
     # ── Step 6: Make the file publicly accessible ─────────────────────
