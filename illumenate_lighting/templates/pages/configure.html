@@ -886,9 +886,16 @@ function updateCCTOptions() {
 			console.log('updateCCTOptions response:', r.message);
 			if (r.message && r.message.success) {
 				var ccts = r.message.ccts || [];
-				console.log('updateCCTOptions received', ccts.length, 'CCTs');
+				var apiIsMultiCCT = r.message.is_multi_cct || false;
+				console.log('updateCCTOptions received', ccts.length, 'CCTs, is_multi_cct:', apiIsMultiCCT);
 				if (ccts.length > 0) {
 					populatePillSelector('cct_code', ccts);
+				} else if (apiIsMultiCCT) {
+					// Multi-CCT package but no compatible_ccts defined on the LED Package.
+					// Clear stale static-white CCTs rather than keeping wrong options.
+					console.warn('updateCCTOptions: multi-CCT package has no compatible CCTs defined. '
+						+ 'Please add compatible CCTs to the LED Package document.');
+					populatePillSelector('cct_code', []);
 				} else {
 					console.warn('updateCCTOptions: API returned empty CCTs, keeping existing pills');
 				}

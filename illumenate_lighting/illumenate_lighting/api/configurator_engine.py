@@ -3573,6 +3573,12 @@ def get_ccts_for_template(
 		if compatible_rows:
 			led_package_cct_codes = [row.cct for row in compatible_rows if row.cct]
 
+	frappe.logger().info(
+		f"get_ccts_for_template: resolved_led_package={resolved_led_package_code}, "
+		f"is_multi_cct={is_multi_cct_package}, "
+		f"compatible_cct_codes={led_package_cct_codes}"
+	)
+
 	# -------------------------------------------------------------------
 	# For multi-CCT packages (Tunable White, etc.), trust the LED Package's
 	# compatible_ccts list directly. The tape offerings carry a generic CCT
@@ -3661,21 +3667,31 @@ def get_ccts_for_template(
 			}
 			for cct in all_ccts
 		]
-		return {"success": True, "ccts": fallback_result, "error": None}
+		return {"success": True, "ccts": fallback_result, "is_multi_cct": is_multi_cct_package, "error": None}
 
 	# -------------------------------------------------------------------
 	# Fetch CCT details
 	# -------------------------------------------------------------------
 	cct_filters = {"name": ["in", cct_codes]}
-	active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
-	if active_cct_count > 0:
-		cct_filters["is_active"] = 1
+	# For multi-CCT packages, the LED Package's compatible_ccts is the
+	# source of truth — skip the is_active filter so we don't accidentally
+	# exclude CCTs that are valid for this package but haven't been marked
+	# active (the active flag is mainly for static-white catalogue use).
+	if not is_multi_cct_package:
+		active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
+		if active_cct_count > 0:
+			cct_filters["is_active"] = 1
 
 	ccts = frappe.get_all(
 		"ilL-Attribute-CCT",
 		filters=cct_filters,
 		fields=["name", "code", "label", "kelvin", "sort_order"],
 		order_by="sort_order asc, kelvin asc",
+	)
+
+	frappe.logger().info(
+		f"get_ccts_for_template: cct_codes={cct_codes}, "
+		f"filters={cct_filters}, found={len(ccts)} CCTs"
 	)
 
 	result = [
@@ -3688,7 +3704,7 @@ def get_ccts_for_template(
 		for cct in ccts
 	]
 
-	return {"success": True, "ccts": result, "error": None}
+	return {"success": True, "ccts": result, "is_multi_cct": is_multi_cct_package, "error": None}
 
 
 def _find_closest_fixture_output_level(delivered_lm_ft: float, fixture_output_levels: list) -> dict | None:
@@ -4230,16 +4246,56 @@ def get_cascading_options_for_template(
 		]
 
 	# Get CCTs (filtered by LED package and environment rating if provided)
+	# Determine which LED package to pass. If not explicitly provided,
+	# infer from the template so the CCT call knows about multi-CCT packages.
+	resolved_pkg_for_cct = led_package_code
+	if not resolved_pkg_for_cct and options["led_packages"] and len(options["led_packages"]) == 1:
+		resolved_pkg_for_cct = options["led_packages"][0]["value"]
+
 	cct_result = get_ccts_for_template(
 		fixture_template_code,
-		led_package_code=led_package_code,
+		led_package_code=resolved_pkg_for_cct,
 		environment_rating_code=environment_rating_code,
 	)
+	is_multi_cct = cct_result.get("is_multi_cct", False)
 	if cct_result.get("success"):
 		options["ccts"] = cct_result.get("ccts", [])
 
-	# Fallback: If no CCTs from tape offerings, get all active CCTs
-	if not options["ccts"]:
+	# Fallback: If no CCTs from get_ccts_for_template, try to get CCTs
+	# from the LED Package's compatible_ccts directly (handles multi-CCT
+	# packages whose CCTs may not be marked is_active).
+	if not options["ccts"] and resolved_pkg_for_cct:
+		try:
+			pkg_doc = frappe.get_doc("ilL-Attribute-LED Package", resolved_pkg_for_cct)
+			compat_rows = pkg_doc.get("compatible_ccts", [])
+			if compat_rows:
+				compat_cct_names = [r.cct for r in compat_rows if r.cct]
+				if compat_cct_names:
+					# Fetch without is_active filter – these are explicitly listed on the package
+					compat_ccts = frappe.get_all(
+						"ilL-Attribute-CCT",
+						filters={"name": ["in", compat_cct_names]},
+						fields=["name", "code", "label", "kelvin", "sort_order"],
+						order_by="sort_order asc, kelvin asc",
+					)
+					if compat_ccts:
+						options["ccts"] = [
+							{
+								"value": cct.name,
+								"label": cct.label or cct.name,
+								"code": cct.code,
+								"kelvin": cct.kelvin,
+							}
+							for cct in compat_ccts
+						]
+						is_multi_cct = True
+		except Exception:
+			pass
+
+	# Final fallback: only for non-multi-CCT packages, get all active CCTs.
+	# For multi-CCT packages we deliberately leave ccts empty rather than
+	# showing static-white CCTs that don't apply.
+	if not options["ccts"] and not is_multi_cct:
 		# First try with is_active filter
 		all_ccts = frappe.get_all(
 			"ilL-Attribute-CCT",
