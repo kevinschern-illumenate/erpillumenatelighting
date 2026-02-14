@@ -243,12 +243,14 @@ Allows users to configure fixtures using segment-based configuration
 								<select class="form-control select-fallback" name="finish_code" required></select>
 							</div>
 
-							<!-- Endcap Color -->
-							<div class="option-group">
-								<label class="option-label">{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" data-field="endcap_color_code"></div>
-								<select class="form-control select-fallback" name="endcap_color_code" required></select>
+							<!-- Endcap Color (auto-resolved from finish) -->
+							<div class="option-group" id="endcapColorDisplay" style="display: none;">
+								<label class="option-label">{{ _("Endcap Color") }}</label>
+								<div class="endcap-color-info text-muted small">
+									<i class="fa fa-info-circle"></i> <span id="endcapColorLabel">Auto-selected based on finish</span>
+								</div>
 							</div>
+							<input type="hidden" name="endcap_color_code" value="">
 
 							<!-- Hidden field for auto-selected tape -->
 							<input type="hidden" name="tape_offering_id" value="">
@@ -823,14 +825,39 @@ $(function() {
 
 	$('select[name="finish_code"]').on('change', function() {
 		if (isPopulating) return;
-		updateUI();
-	});
-
-	$('select[name="endcap_color_code"]').on('change', function() {
-		if (isPopulating) return;
+		// Auto-resolve endcap color from finish
+		autoResolveEndcapColor();
 		updateUI();
 	});
 });
+
+function autoResolveEndcapColor() {
+	var finishCode = $('select[name="finish_code"]').val() || $('.pill-selector[data-field="finish_code"] .pill-option.active input').val();
+	if (!finishCode || !templateOptions || !templateOptions.finish_endcap_color_map) {
+		$('[name="endcap_color_code"]').val('');
+		$('#endcapColorDisplay').hide();
+		return;
+	}
+
+	var mapping = templateOptions.finish_endcap_color_map[finishCode];
+	if (mapping) {
+		$('[name="endcap_color_code"]').val(mapping.endcap_color_code);
+		$('#endcapColorLabel').text('Endcap Color: ' + mapping.endcap_color_label);
+		$('#endcapColorDisplay').show();
+		console.log('Auto-resolved endcap color from finish:', finishCode, '->', mapping.endcap_color_code);
+	} else {
+		// Fallback: if no mapping, use the first endcap color
+		if (templateOptions.endcap_colors && templateOptions.endcap_colors.length > 0) {
+			$('[name="endcap_color_code"]').val(templateOptions.endcap_colors[0].value);
+			$('#endcapColorLabel').text('Endcap Color: ' + templateOptions.endcap_colors[0].label + ' (default)');
+			$('#endcapColorDisplay').show();
+			console.log('Using default endcap color (no finish mapping):', templateOptions.endcap_colors[0].value);
+		} else {
+			$('[name="endcap_color_code"]').val('');
+			$('#endcapColorDisplay').hide();
+		}
+	}
+}
 
 function loadTemplateOptions(template_code) {
 	console.log('loadTemplateOptions called with:', template_code);
@@ -1099,36 +1126,8 @@ function populateOptions(options) {
 		});
 	});
 
-	// Populate endcap colors (also uses pills)
-	var colorPillContainer = $('.pill-selector[data-field="endcap_color_code"]');
-	var colorSelect = $('select[name="endcap_color_code"]');
-	colorPillContainer.empty();
-	colorSelect.empty().append('<option value="">Select...</option>');
-	if (options.endcap_colors) {
-		options.endcap_colors.forEach(function(opt) {
-			// Add pill button
-			var pill = $('<label class="pill-option">' +
-				'<input type="radio" name="endcap_color_code_pill" value="' + opt.value + '">' +
-				opt.label +
-			'</label>');
-			pill.on('click', function() {
-				colorPillContainer.find('.pill-option').removeClass('active');
-				$(this).addClass('active');
-				colorSelect.val(opt.value).trigger('change');
-			});
-			colorPillContainer.append(pill);
-			
-			// Add to fallback select
-			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
-		});
-	}
-	
-	// Sync color select to pills
-	colorSelect.off('change.pillSync').on('change.pillSync', function() {
-		var value = $(this).val();
-		colorPillContainer.find('.pill-option').removeClass('active');
-		colorPillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
-	});
+	// Endcap color is now auto-resolved from finish via ilL-Rel-Finish Endcap Color
+	// No pill selector needed — hidden field is set by autoResolveEndcapColor()
 
 	// Hide output group initially - will be shown when all cascading selections are made
 	$('#outputGroup').hide();
@@ -1165,14 +1164,8 @@ function populateOptions(options) {
 		}
 	});
 
-	// Also auto-select endcap color if only one option
-	if (options.endcap_colors && options.endcap_colors.length === 1) {
-		var colorSelect = $('select[name="endcap_color_code"]');
-		var colorPillContainer = $('.pill-selector[data-field="endcap_color_code"]');
-		colorSelect.val(options.endcap_colors[0].value).trigger('change');
-		colorPillContainer.find('.pill-option').first().addClass('active');
-		console.log('Auto-selected single endcap color:', options.endcap_colors[0].value);
-	}
+	// Auto-resolve endcap color from finish (after finish may have been auto-selected above)
+	autoResolveEndcapColor();
 }
 
 function populateSegmentPowerFeedOptions(segmentCard) {

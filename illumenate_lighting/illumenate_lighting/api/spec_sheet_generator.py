@@ -378,14 +378,24 @@ def _resolve_endcap_color(template, finish_code: str) -> str:
     """
     Resolve a default endcap color for the fixture template.
 
-    Endcap Color is NOT stored in the template's allowed_options child table.
-    Instead it lives in ilL-Rel-Endcap-Map rows keyed by template + style.
-    We pick the first active endcap-map row for this template (preferring
-    is_default), or fall back to the first active ilL-Attribute-Endcap Color.
+    Endcap color is resolved from the ilL-Rel-Finish Endcap Color doctype
+    which maps finish → endcap_color. Falls back to ilL-Rel-Endcap-Map rows
+    keyed by template, or the first active ilL-Attribute-Endcap Color.
     """
+    # Primary: resolve from ilL-Rel-Finish Endcap Color mapping
+    if finish_code:
+        finish_endcap = frappe.db.get_value(
+            "ilL-Rel-Finish Endcap Color",
+            {"finish": finish_code, "is_active": 1},
+            "endcap_color",
+            order_by="is_default DESC, modified DESC",
+        )
+        if finish_endcap:
+            return finish_endcap
+
     template_code = getattr(template, "template_code", None) or template.name
 
-    # Try the endcap map for this template
+    # Fallback: try the endcap map for this template
     endcap_map_row = frappe.db.get_value(
         "ilL-Rel-Endcap-Map",
         {"fixture_template": template_code, "is_active": 1},
