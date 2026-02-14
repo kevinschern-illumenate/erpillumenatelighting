@@ -1970,7 +1970,7 @@ def _validate_configuration(
 	# endcap_color_code is auto-resolved from finish via ilL-Rel-Finish Endcap Color
 	# but still validate it's present (should have been resolved by caller)
 	if not endcap_color_code:
-		messages.append({"severity": "error", "text": "endcap_color_code could not be resolved from finish. Please create a mapping in ilL-Rel-Finish Endcap Color.", "field": "endcap_color_code"})
+		messages.append({"severity": "error", "text": "Endcap color could not be auto-resolved from the selected finish. Please ensure a mapping exists in ilL-Rel-Finish Endcap Color for this finish.", "field": "endcap_color_code"})
 		is_valid = False
 
 	for field_name, field_value in required_fields.items():
