@@ -1,0 +1,112 @@
+{
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "format:{finish}-{endcap_color}",
+    "creation":  "2026-02-14 05:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "mapping_section",
+                        "finish",
+                        "column_break_mapping",
+                        "endcap_color",
+                        "status_section",
+                        "is_default",
+                        "column_break_status",
+                        "is_active"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "mapping_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Mapping"
+                   },
+                   {
+                       "fieldname":  "finish",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Finish",
+                       "options":  "ilL-Attribute-Finish",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_mapping",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "endcap_color",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Endcap Color",
+                       "options":  "ilL-Attribute-Endcap Color",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "status_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Status"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "is_default",
+                       "fieldtype":  "Check",
+                       "label":  "Is Default"
+                   },
+                   {
+                       "fieldname":  "column_break_status",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Active"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-02-14 05:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Rel-Finish Endcap Color",
+    "naming_rule":  "Expression",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "finish, endcap_color",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
+}
