@@ -19,7 +19,7 @@ Request Schema:
         "mounting_method_code": str,             # Required: Mounting method option code
         "endcap_style_start_code": str,          # Required: Endcap style option code for start end
         "endcap_style_end_code": str,            # Required: Endcap style option code for end end
-        "endcap_color_code": str,                # Required: Endcap color option code
+        "endcap_color_code": str,                # Optional: Auto-resolved from finish via ilL-Rel-Finish Endcap Color
         "power_feed_type_code": str,             # Required: Power feed type option code
         "environment_rating_code": str,          # Required: Environment rating option code
         "tape_offering_id": str,                 # Required: Tape offering ID or code
@@ -122,6 +122,43 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 ENGINE_VERSION = "1.0.0"
 
 
+def resolve_endcap_color_from_finish(finish_code: str) -> str:
+	"""
+	Resolve the endcap color from the finish using the ilL-Rel-Finish Endcap Color doctype.
+
+	When a user selects a finish (e.g. "Anodized Silver"), this function looks up the
+	corresponding endcap color (e.g. "Grey") from the relationship doctype.
+
+	Args:
+		finish_code: The finish name/code (primary key of ilL-Attribute-Finish)
+
+	Returns:
+		str: The endcap color code (primary key of ilL-Attribute-Endcap Color), or empty string
+	"""
+	if not finish_code:
+		return ""
+
+	# Look up the endcap color from the ilL-Rel-Finish Endcap Color doctype
+	endcap_color = frappe.db.get_value(
+		"ilL-Rel-Finish Endcap Color",
+		{"finish": finish_code, "is_active": 1},
+		"endcap_color",
+		order_by="is_default DESC, modified DESC",
+	)
+
+	if endcap_color:
+		return endcap_color
+
+	# Fallback: first active endcap color record
+	first_color = frappe.db.get_value(
+		"ilL-Attribute-Endcap Color",
+		{"is_active": 1},
+		"name",
+		order_by="sort_order ASC, name ASC",
+	)
+	return first_color or ""
+
+
 @frappe.whitelist()
 def debug_template_data(fixture_template_code: str) -> dict[str, Any]:
 	"""
@@ -181,11 +218,11 @@ def validate_and_quote(
 	mounting_method_code: str,
 	endcap_style_start_code: str,
 	endcap_style_end_code: str,
-	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
 	requested_overall_length_mm: int,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -206,7 +243,7 @@ def validate_and_quote(
 		mounting_method_code: Mounting method option code
 		endcap_style_start_code: Endcap style option code for start end
 		endcap_style_end_code: Endcap style option code for end end
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		power_feed_type_code: Power feed type option code
 		environment_rating_code: Environment rating option code
 		tape_offering_id: Tape offering ID or code
@@ -218,6 +255,10 @@ def validate_and_quote(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, and configured fixture ID
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
 	# Convert string inputs to proper types if needed (Frappe passes all as strings from HTTP)
 	try:
 		requested_overall_length_mm = int(requested_overall_length_mm)
@@ -424,11 +465,11 @@ def validate_and_quote_inches(
 	mounting_method_code: str,
 	endcap_style_start_code: str,
 	endcap_style_end_code: str,
-	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
 	requested_overall_length_in: float,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -449,7 +490,7 @@ def validate_and_quote_inches(
 		mounting_method_code: Mounting method option code
 		endcap_style_start_code: Endcap style option code for start end
 		endcap_style_end_code: Endcap style option code for end end
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		power_feed_type_code: Power feed type option code
 		environment_rating_code: Environment rating option code
 		tape_offering_id: Tape offering ID or code
@@ -461,6 +502,9 @@ def validate_and_quote_inches(
 		dict: Response with validation status, computed values (in both mm and inches),
 		      resolved items, pricing, and configured fixture ID
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
 	# Convert inches to mm
 	try:
 		requested_overall_length_in = float(requested_overall_length_in)
@@ -522,13 +566,13 @@ def validate_and_quote_with_output(
 	mounting_method_code: str,
 	endcap_style_start_code: str,
 	endcap_style_end_code: str,
-	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	led_package_code: str,
 	cct_code: str,
 	delivered_output_value: int,
 	requested_overall_length_mm: int,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -550,7 +594,7 @@ def validate_and_quote_with_output(
 		mounting_method_code: Mounting method option code
 		endcap_style_start_code: Endcap style option code for start end
 		endcap_style_end_code: Endcap style option code for end end
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		power_feed_type_code: Power feed type option code
 		environment_rating_code: Environment rating option code
 		led_package_code: LED Package code (new cascading flow)
@@ -564,6 +608,9 @@ def validate_and_quote_with_output(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, configured fixture ID, and auto-selected tape details
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
 	# Convert string inputs to proper types
 	try:
 		requested_overall_length_mm = int(requested_overall_length_mm)
@@ -666,9 +713,9 @@ def validate_and_quote_multisegment_with_output(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_color_code: str,
 	environment_rating_code: str,
 	led_package_code: str,
+	endcap_color_code: str = None,
 	cct_code: str = None,
 	delivered_output_value: int = None,
 	segments_json: str = None,
@@ -687,7 +734,7 @@ def validate_and_quote_multisegment_with_output(
 		finish_code: Finish option code
 		lens_appearance_code: Lens appearance option code
 		mounting_method_code: Mounting method option code
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		environment_rating_code: Environment rating option code
 		led_package_code: LED Package code (new cascading flow)
 		cct_code: CCT code (new cascading flow)
@@ -700,6 +747,10 @@ def validate_and_quote_multisegment_with_output(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, configured fixture ID, and auto-selected tape info
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
 	# Convert delivered_output_value to int
 	try:
 		delivered_output_value = int(delivered_output_value)
@@ -797,10 +848,10 @@ def validate_and_quote_multisegment(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_color_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
 	segments_json: str,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -817,7 +868,7 @@ def validate_and_quote_multisegment(
 		finish_code: Finish option code
 		lens_appearance_code: Lens appearance option code
 		mounting_method_code: Mounting method option code
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		environment_rating_code: Environment rating option code
 		tape_offering_id: Tape offering ID or code
 		segments_json: JSON string array of segment definitions
@@ -828,6 +879,10 @@ def validate_and_quote_multisegment(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, and configured fixture ID
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
 	# Parse segments
 	try:
 		segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
@@ -1149,8 +1204,10 @@ def _compute_multisegment_outputs(
 		seg_index = idx + 1
 		requested_len = int(user_seg.get("requested_length_mm", 0))
 		end_type = user_seg.get("end_type", "Endcap")
+		start_feed_direction = user_seg.get("start_feed_direction", "")
 		start_power_feed = user_seg.get("start_power_feed_type", "")
 		start_cable_len = int(user_seg.get("start_leader_cable_length_mm", 300))
+		end_feed_direction = user_seg.get("end_feed_direction", "") if end_type == "Jumper" else ""
 		end_power_feed = user_seg.get("end_power_feed_type", "") if end_type == "Jumper" else ""
 		end_cable_len = int(user_seg.get("end_jumper_cable_length_mm", 300)) if end_type == "Jumper" else 0
 
@@ -1270,9 +1327,11 @@ def _compute_multisegment_outputs(
 		# Build description (mm for internal use / BOM)
 		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
 		if idx == 0:
-			desc_parts.append(f"Start: {start_power_feed}, {start_cable_len}mm leader")
+			start_desc = f"Start: {start_feed_direction + ' ' if start_feed_direction else ''}{start_power_feed}, {start_cable_len}mm leader"
+			desc_parts.append(start_desc)
 		if end_type == "Jumper":
-			desc_parts.append(f"End: {end_power_feed}, {end_cable_len}mm jumper")
+			end_desc = f"End: {end_feed_direction + ' ' if end_feed_direction else ''}{end_power_feed}, {end_cable_len}mm jumper"
+			desc_parts.append(end_desc)
 		else:
 			desc_parts.append("End: Solid Endcap")
 		build_description_parts.append(" | ".join(desc_parts))
@@ -1283,9 +1342,11 @@ def _compute_multisegment_outputs(
 		end_cable_len_in = round(end_cable_len / 25.4, 1)
 		desc_parts_display = [f"Seg {seg_index}: {mfg_len_in}\""]
 		if idx == 0:
-			desc_parts_display.append(f"Start: {start_power_feed}, {start_cable_len_in}\" leader")
+			start_desc_display = f"Start: {start_feed_direction + ' ' if start_feed_direction else ''}{start_power_feed}, {start_cable_len_in}\" leader"
+			desc_parts_display.append(start_desc_display)
 		if end_type == "Jumper":
-			desc_parts_display.append(f"End: {end_power_feed}, {end_cable_len_in}\" jumper")
+			end_desc_display = f"End: {end_feed_direction + ' ' if end_feed_direction else ''}{end_power_feed}, {end_cable_len_in}\" jumper"
+			desc_parts_display.append(end_desc_display)
 		else:
 			desc_parts_display.append("End: Solid Endcap")
 		build_description_display_parts.append(" | ".join(desc_parts_display))
@@ -1720,9 +1781,11 @@ def _create_or_update_multisegment_fixture(
 			temp_doc.append("user_segments", {
 				"segment_index": user_seg.get("segment_index", 0),
 				"requested_length_mm": user_seg.get("requested_length_mm", 0),
+				"start_feed_direction": user_seg.get("start_feed_direction", ""),
 				"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
 				"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
 				"end_type": user_seg.get("end_type", "Endcap"),
+				"end_feed_direction": user_seg.get("end_feed_direction", ""),
 				"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
 				"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 			})
@@ -1783,9 +1846,11 @@ def _create_or_update_multisegment_fixture(
 		doc.append("user_segments", {
 			"segment_index": user_seg.get("segment_index", 0),
 			"requested_length_mm": user_seg.get("requested_length_mm", 0),
+			"start_feed_direction": user_seg.get("start_feed_direction", ""),
 			"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
 			"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
 			"end_type": user_seg.get("end_type", "Endcap"),
+			"end_feed_direction": user_seg.get("end_feed_direction", ""),
 			"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
 			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 		})
@@ -1907,11 +1972,16 @@ def _validate_configuration(
 		"mounting_method_code": mounting_method_code,
 		"endcap_style_start_code": endcap_style_start_code,
 		"endcap_style_end_code": endcap_style_end_code,
-		"endcap_color_code": endcap_color_code,
 		"power_feed_type_code": power_feed_type_code,
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
 	}
+
+	# endcap_color_code is auto-resolved from finish via ilL-Rel-Finish Endcap Color
+	# but still validate it's present (should have been resolved by caller)
+	if not endcap_color_code:
+		messages.append({"severity": "error", "text": "Endcap color could not be auto-resolved from the selected finish. Please ensure a mapping exists in ilL-Rel-Finish Endcap Color for this finish.", "field": "endcap_color_code"})
+		is_valid = False
 
 	for field_name, field_value in required_fields.items():
 		if not field_value:
@@ -4198,6 +4268,7 @@ def get_cascading_options_for_template(
 		"mountings": [],
 		"finishes": [],
 		"endcap_colors": [],
+		"finish_endcap_color_map": {},
 		"power_feed_type": [],
 		"delivered_outputs": [],
 	}
@@ -4421,7 +4492,7 @@ def get_cascading_options_for_template(
 			for f in all_finishes
 		]
 
-	# Get endcap colors - fetch all active ones (not template-specific in MVP)
+	# Get endcap colors - fetch all active ones (kept for backward compatibility)
 	endcap_colors = frappe.get_all(
 		"ilL-Attribute-Endcap Color",
 		filters={"is_active": 1},
@@ -4433,6 +4504,24 @@ def get_cascading_options_for_template(
 			"value": color.code,
 			"label": color.display_name or color.code,
 		})
+
+	# Build finish → endcap color mapping from ilL-Rel-Finish Endcap Color
+	finish_endcap_mappings = frappe.get_all(
+		"ilL-Rel-Finish Endcap Color",
+		filters={"is_active": 1},
+		fields=["finish", "endcap_color", "is_default"],
+		order_by="is_default DESC, modified DESC",
+	)
+	for mapping in finish_endcap_mappings:
+		if mapping.finish not in options["finish_endcap_color_map"]:
+			# Get the endcap color code
+			ec_code = frappe.db.get_value("ilL-Attribute-Endcap Color", mapping.endcap_color, "code")
+			ec_display = frappe.db.get_value("ilL-Attribute-Endcap Color", mapping.endcap_color, "display_name")
+			options["finish_endcap_color_map"][mapping.finish] = {
+				"endcap_color": mapping.endcap_color,
+				"endcap_color_code": ec_code or mapping.endcap_color,
+				"endcap_color_label": ec_display or ec_code or mapping.endcap_color,
+			}
 
 	# Get power feed types from allowed options
 	for row in template_doc.get("allowed_options", []):
@@ -4464,6 +4553,26 @@ def get_cascading_options_for_template(
 				"label": pft.name,
 			}
 			for pft in all_pft
+		]
+
+	# Get feed direction options
+	if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+		feed_dirs = frappe.get_all(
+			"ilL-Attribute-Feed-Direction",
+			filters={"is_active": 1},
+			fields=["direction_name as name", "code"],
+			order_by="direction_name",
+		)
+		options["feed_directions"] = [
+			{"value": d.name, "label": d.name, "code": d.code}
+			for d in feed_dirs
+		]
+	else:
+		options["feed_directions"] = [
+			{"value": "End", "label": "End", "code": "E"},
+			{"value": "Back", "label": "Back", "code": "B"},
+			{"value": "Left", "label": "Left", "code": "L"},
+			{"value": "Right", "label": "Right", "code": "R"},
 		]
 
 	# Get delivered outputs (only if all required selections are made)

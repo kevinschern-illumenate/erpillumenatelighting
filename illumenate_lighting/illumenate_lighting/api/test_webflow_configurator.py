@@ -354,6 +354,9 @@ class TestPartNumberGeneration(unittest.TestCase):
         # Test fallback codes
         self.assertEqual(_get_feed_direction_code("End"), "E")
         self.assertEqual(_get_feed_direction_code("Back"), "B")
+        self.assertEqual(_get_feed_direction_code("Left"), "L")
+        self.assertEqual(_get_feed_direction_code("Right"), "R")
+        self.assertEqual(_get_feed_direction_code("Endcap"), "CAP")
         self.assertEqual(_get_feed_direction_code("Unknown"), "X")
 
 
@@ -436,6 +439,12 @@ class TestHelperFunctions(unittest.TestCase):
         values = [d["value"] for d in directions]
         self.assertIn("End", values)
         self.assertIn("Back", values)
+        
+        # Check structure includes code
+        for d in directions:
+            self.assertIn("value", d)
+            self.assertIn("label", d)
+            self.assertIn("code", d)
     
     def test_build_configuration_summary(self):
         """Test building configuration summary."""
@@ -464,6 +473,38 @@ class TestHelperFunctions(unittest.TestCase):
         length_item = next((i for i in summary if i["field"] == "length_inches"), None)
         if length_item:
             self.assertIn("inches", length_item["value"])
+    
+    def test_build_configuration_summary_with_feed_direction(self):
+        """Test building configuration summary includes feed direction."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
+            _build_configuration_summary
+        )
+        
+        selections = {
+            "environment_rating": "Indoor",
+            "cct": "3000K",
+            "length_inches": 48,
+            "start_feed_direction": "Back",
+            "start_feed_length_ft": 4,
+            "end_feed_direction": "End",
+            "end_feed_length_ft": 2
+        }
+        
+        summary = _build_configuration_summary(selections)
+        
+        # Check that feed directions are in the summary
+        fields = [item["field"] for item in summary]
+        self.assertIn("start_feed_direction", fields)
+        self.assertIn("end_feed_direction", fields)
+        
+        # Check feed direction values
+        start_dir = next((i for i in summary if i["field"] == "start_feed_direction"), None)
+        self.assertIsNotNone(start_dir)
+        self.assertEqual(start_dir["value"], "Back")
+        
+        end_dir = next((i for i in summary if i["field"] == "end_feed_direction"), None)
+        self.assertIsNotNone(end_dir)
+        self.assertEqual(end_dir["value"], "End")
 
 
 def run_tests():

@@ -46,7 +46,7 @@
                        "fieldname":  "connection_type",
                        "fieldtype":  "Select",
                        "label":  "Connection Type",
-                       "options":  "Press Fit\nSnap On\nInjection Molded"
+                       "options":  "Soldered\nPress Fit\nSnap On\nInjection Molded"
                    },
                    {
                        "fieldname":  "directionality",
