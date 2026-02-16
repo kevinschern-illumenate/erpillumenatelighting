@@ -399,10 +399,10 @@ Also handles new project creation when is_new is True
 							{{ schedule.status }}
 						</span>
 						{% if can_edit %}
-						<button class="btn btn-sm btn-outline-secondary mr-1" onclick="event.stopPropagation(); openRenameModal('{{ schedule.name }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Rename') }}">
+						<button class="btn btn-sm btn-outline-secondary mr-1" onclick="event.stopPropagation(); openRenameModal('{{ schedule.name | e }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Rename') }}">
 							<i class="fa fa-pencil"></i>
 						</button>
-						<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); confirmDeleteSchedule('{{ schedule.name }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
+						<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); confirmDeleteSchedule('{{ schedule.name | e }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
 							<i class="fa fa-trash"></i>
 						</button>
 						{% endif %}
