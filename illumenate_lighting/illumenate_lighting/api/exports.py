@@ -1023,7 +1023,11 @@ def get_export_history(schedule_id: str) -> dict:
 	filters = {"schedule": schedule_id}
 	if not can_view_pricing:
 		# Filter out priced exports for users without pricing permission
-		filters["export_type"] = ["in", ["PDF_NO_PRICE", "CSV_NO_PRICE"]]
+		# Spec submittals don't contain pricing, so always include them
+		filters["export_type"] = ["in", [
+			"PDF_NO_PRICE", "CSV_NO_PRICE",
+			"SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL",
+		]]
 
 	exports = frappe.get_all(
 		"ilL-Export-Job",
@@ -1059,7 +1063,106 @@ def get_export_history(schedule_id: str) -> dict:
 
 
 @frappe.whitelist()
-def check_pricing_permission() -> dict:
+def get_project_export_files(project_name: str) -> dict:
+	"""
+	Get all exported documents across all fixture schedules for a project.
+
+	Aggregates completed export jobs from every schedule belonging to the
+	given project so they can be listed in the project-level Files tab.
+
+	Args:
+		project_name: Name of the ilL-Project
+
+	Returns:
+		dict: {
+			"success": bool,
+			"files": list of export file dicts,
+			"error": str (if failed)
+		}
+	"""
+	if frappe.session.user == "Guest":
+		return {"success": False, "error": _("Please login to view project files")}
+
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "error": _("Project not found")}
+
+	# Check project permission
+	project = frappe.get_doc("ilL-Project", project_name)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		has_permission,
+	)
+
+	if not has_permission(project, "read", frappe.session.user):
+		return {"success": False, "error": _("You don't have permission to view this project")}
+
+	# Get all schedules for this project
+	schedule_names = frappe.get_all(
+		"ilL-Project-Fixture-Schedule",
+		filters={"ill_project": project_name},
+		pluck="name",
+	)
+
+	if not schedule_names:
+		return {"success": True, "files": []}
+
+	# Get user pricing permission
+	can_view_pricing = _check_pricing_permission()
+
+	# Build filters for export jobs
+	filters = {
+		"schedule": ["in", schedule_names],
+		"status": "COMPLETE",
+	}
+	if not can_view_pricing:
+		filters["export_type"] = ["in", [
+			"PDF_NO_PRICE", "CSV_NO_PRICE",
+			"SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL",
+		]]
+
+	exports = frappe.get_all(
+		"ilL-Export-Job",
+		filters=filters,
+		fields=[
+			"name", "schedule", "export_type", "status",
+			"requested_by", "created_on", "output_file",
+		],
+		order_by="created_on desc",
+		limit=100,
+	)
+
+	# Batch fetch schedule names for display
+	schedule_name_map = {}
+	if schedule_names:
+		schedules = frappe.get_all(
+			"ilL-Project-Fixture-Schedule",
+			filters={"name": ["in", schedule_names]},
+			fields=["name", "schedule_name"],
+		)
+		schedule_name_map = {s.name: s.schedule_name for s in schedules}
+
+	# Batch fetch user names
+	user_ids = list({exp.requested_by for exp in exports if exp.requested_by})
+	user_names_map = {}
+	if user_ids:
+		users = frappe.get_all(
+			"User",
+			filters={"name": ["in", user_ids]},
+			fields=["name", "full_name"],
+		)
+		user_names_map = {u.name: u.full_name for u in users}
+
+	# Enrich exports with display data
+	for export in exports:
+		export["schedule_display_name"] = schedule_name_map.get(export.schedule, export.schedule)
+		if export.requested_by:
+			export["requested_by_name"] = user_names_map.get(export.requested_by) or export.requested_by
+		else:
+			export["requested_by_name"] = ""
+
+	return {
+		"success": True,
+		"files": exports,
+	}
 	"""
 	Check if current user has pricing permission.
 

@@ -702,11 +702,14 @@ def generate_spec_submittal_packet(
 	"""
 	warnings = []
 	pdf_parts = []
+	job_name = None
 
 	try:
 		# Validate schedule access
 		from illumenate_lighting.illumenate_lighting.api.exports import (
 			_check_schedule_access,
+			_create_export_job,
+			_update_export_job_status,
 		)
 
 		has_access, error = _check_schedule_access(schedule_name)
@@ -717,8 +720,13 @@ def generate_spec_submittal_packet(
 				"warnings": [],
 			}
 
+		# Create export job record for tracking
+		job_name = _create_export_job(schedule_name, export_type)
+
 		# Determine if we should include all spec sheets
 		include_all_specs = export_type == "SPEC_SUBMITTAL_FULL"
+
+		_update_export_job_status(job_name, "RUNNING")
 
 		# Gather documents from all lines
 		line_documents = _gather_line_documents(schedule_name, include_all_specs, warnings)
@@ -764,6 +772,7 @@ def generate_spec_submittal_packet(
 
 		if not pdf_parts:
 			_debug("generate_spec_submittal_packet: FAIL – no pdf_parts at all (only cover page possible)", warnings)
+			_update_export_job_status(job_name, "FAILED", error_log="No spec documents found")
 			return {
 				"success": False,
 				"message": _("No spec documents found to include in packet"),
@@ -775,6 +784,7 @@ def generate_spec_submittal_packet(
 		# Merge all PDFs
 		merged_pdf = _merge_pdfs(pdf_parts)
 		if not merged_pdf:
+			_update_export_job_status(job_name, "FAILED", error_log="Failed to merge PDF documents")
 			return {
 				"success": False,
 				"message": _("Failed to merge PDF documents"),
@@ -791,6 +801,8 @@ def generate_spec_submittal_packet(
 			is_private=1,
 		)
 
+		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
+
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
@@ -803,6 +815,11 @@ def generate_spec_submittal_packet(
 			f"Error generating spec submittal packet: {str(e)}",
 			"Spec Submittal Generation Error",
 		)
+		if job_name:
+			from illumenate_lighting.illumenate_lighting.api.exports import (
+				_update_export_job_status,
+			)
+			_update_export_job_status(job_name, "FAILED", error_log=str(e))
 		return {
 			"success": False,
 			"message": _("Error generating spec submittal packet: {0}").format(str(e)),
