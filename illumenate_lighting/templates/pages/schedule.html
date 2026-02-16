@@ -9,9 +9,13 @@ Also handles new schedule creation when is_new is True
 
 {% block style %}
 <style>
+.action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
 .action-buttons .btn {
-	margin-left: 2px;
-	margin-right: 2px;
+	margin: 0;
 }
 .action-buttons .btn i {
 	pointer-events: none;
