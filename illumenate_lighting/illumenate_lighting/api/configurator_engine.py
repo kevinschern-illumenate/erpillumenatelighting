@@ -1204,8 +1204,10 @@ def _compute_multisegment_outputs(
 		seg_index = idx + 1
 		requested_len = int(user_seg.get("requested_length_mm", 0))
 		end_type = user_seg.get("end_type", "Endcap")
+		start_feed_direction = user_seg.get("start_feed_direction", "")
 		start_power_feed = user_seg.get("start_power_feed_type", "")
 		start_cable_len = int(user_seg.get("start_leader_cable_length_mm", 300))
+		end_feed_direction = user_seg.get("end_feed_direction", "") if end_type == "Jumper" else ""
 		end_power_feed = user_seg.get("end_power_feed_type", "") if end_type == "Jumper" else ""
 		end_cable_len = int(user_seg.get("end_jumper_cable_length_mm", 300)) if end_type == "Jumper" else 0
 
@@ -1325,9 +1327,11 @@ def _compute_multisegment_outputs(
 		# Build description (mm for internal use / BOM)
 		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
 		if idx == 0:
-			desc_parts.append(f"Start: {start_power_feed}, {start_cable_len}mm leader")
+			start_desc = f"Start: {start_feed_direction + ' ' if start_feed_direction else ''}{start_power_feed}, {start_cable_len}mm leader"
+			desc_parts.append(start_desc)
 		if end_type == "Jumper":
-			desc_parts.append(f"End: {end_power_feed}, {end_cable_len}mm jumper")
+			end_desc = f"End: {end_feed_direction + ' ' if end_feed_direction else ''}{end_power_feed}, {end_cable_len}mm jumper"
+			desc_parts.append(end_desc)
 		else:
 			desc_parts.append("End: Solid Endcap")
 		build_description_parts.append(" | ".join(desc_parts))
@@ -1338,9 +1342,11 @@ def _compute_multisegment_outputs(
 		end_cable_len_in = round(end_cable_len / 25.4, 1)
 		desc_parts_display = [f"Seg {seg_index}: {mfg_len_in}\""]
 		if idx == 0:
-			desc_parts_display.append(f"Start: {start_power_feed}, {start_cable_len_in}\" leader")
+			start_desc_display = f"Start: {start_feed_direction + ' ' if start_feed_direction else ''}{start_power_feed}, {start_cable_len_in}\" leader"
+			desc_parts_display.append(start_desc_display)
 		if end_type == "Jumper":
-			desc_parts_display.append(f"End: {end_power_feed}, {end_cable_len_in}\" jumper")
+			end_desc_display = f"End: {end_feed_direction + ' ' if end_feed_direction else ''}{end_power_feed}, {end_cable_len_in}\" jumper"
+			desc_parts_display.append(end_desc_display)
 		else:
 			desc_parts_display.append("End: Solid Endcap")
 		build_description_display_parts.append(" | ".join(desc_parts_display))
@@ -1775,9 +1781,11 @@ def _create_or_update_multisegment_fixture(
 			temp_doc.append("user_segments", {
 				"segment_index": user_seg.get("segment_index", 0),
 				"requested_length_mm": user_seg.get("requested_length_mm", 0),
+				"start_feed_direction": user_seg.get("start_feed_direction", ""),
 				"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
 				"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
 				"end_type": user_seg.get("end_type", "Endcap"),
+				"end_feed_direction": user_seg.get("end_feed_direction", ""),
 				"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
 				"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 			})
@@ -1838,9 +1846,11 @@ def _create_or_update_multisegment_fixture(
 		doc.append("user_segments", {
 			"segment_index": user_seg.get("segment_index", 0),
 			"requested_length_mm": user_seg.get("requested_length_mm", 0),
+			"start_feed_direction": user_seg.get("start_feed_direction", ""),
 			"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
 			"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
 			"end_type": user_seg.get("end_type", "Endcap"),
+			"end_feed_direction": user_seg.get("end_feed_direction", ""),
 			"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
 			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 		})
@@ -4543,6 +4553,26 @@ def get_cascading_options_for_template(
 				"label": pft.name,
 			}
 			for pft in all_pft
+		]
+
+	# Get feed direction options
+	if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+		feed_dirs = frappe.get_all(
+			"ilL-Attribute-Feed-Direction",
+			filters={"is_active": 1},
+			fields=["direction_name as name", "code"],
+			order_by="direction_name",
+		)
+		options["feed_directions"] = [
+			{"value": d.name, "label": d.name, "code": d.code}
+			for d in feed_dirs
+		]
+	else:
+		options["feed_directions"] = [
+			{"value": "End", "label": "End", "code": "E"},
+			{"value": "Back", "label": "Back", "code": "B"},
+			{"value": "Left", "label": "Left", "code": "L"},
+			{"value": "Right", "label": "Right", "code": "R"},
 		]
 
 	# Get delivered outputs (only if all required selections are made)

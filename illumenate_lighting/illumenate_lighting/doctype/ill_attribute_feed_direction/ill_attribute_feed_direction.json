@@ -31,7 +31,7 @@
                        "in_list_view":  1,
                        "label":  "Code",
                        "reqd":  1,
-                       "description":  "Single character code for part number (E=End, B=Back)"
+                       "description":  "Single character code for part number (E=End, B=Back, L=Left, R=Right)"
                    },
                    {
                        "fieldname":  "column_break_main",

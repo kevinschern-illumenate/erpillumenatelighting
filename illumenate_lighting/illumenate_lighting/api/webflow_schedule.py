@@ -330,7 +330,7 @@ def _map_feed_direction_to_power_feed(direction: str) -> str:
     Map feed direction from configurator to power feed type code.
     
     Args:
-        direction: Feed direction ("End" or "Back")
+        direction: Feed direction ("End", "Back", "Left", or "Right")
     
     Returns:
         str: Power feed type code
@@ -340,7 +340,9 @@ def _map_feed_direction_to_power_feed(direction: str) -> str:
         # Map based on direction
         mapping = {
             "End": ["End Feed", "End", "E"],
-            "Back": ["Back Feed", "Back", "B", "Center"]
+            "Back": ["Back Feed", "Back", "B", "Center"],
+            "Left": ["Left Feed", "Left", "L"],
+            "Right": ["Right Feed", "Right", "R"]
         }
         
         for code in mapping.get(direction, [direction]):
