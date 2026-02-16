@@ -246,12 +246,12 @@ def get_user_schedules() -> dict:
         SELECT 
             s.name,
             s.schedule_name,
-            s.project,
+            s.ill_project,
             p.project_name,
             s.status,
             s.creation
         FROM `tabilL-Project-Fixture-Schedule` s
-        LEFT JOIN `tabilL-Project` p ON p.name = s.project
+        LEFT JOIN `tabilL-Project` p ON p.name = s.ill_project
         WHERE (
             s.owner = %(user)s
             OR EXISTS (
@@ -260,7 +260,7 @@ def get_user_schedules() -> dict:
             )
             OR EXISTS (
                 SELECT 1 FROM `tabilL-Child-Project-Collaborator` pc
-                WHERE pc.parent = s.project AND pc.user = %(user)s
+                WHERE pc.parent = s.ill_project AND pc.user = %(user)s
             )
         )
         AND s.status IN ('Draft', 'In Progress')
@@ -300,7 +300,7 @@ def create_quick_project_and_schedule(
         
         # Create schedule
         schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
-        schedule.project = project.name
+        schedule.ill_project = project.name
         schedule.schedule_name = schedule_name or "Main Schedule"
         schedule.status = "Draft"
         schedule.insert()

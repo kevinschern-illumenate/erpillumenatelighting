@@ -35,7 +35,7 @@ MM_PER_FOOT = 304.8
 # Set to True to emit detailed spec-submittal diagnostic messages.
 # These show up in the browser warnings list *and* in the Error Log.
 # TODO: remove or set False once spec-submittal flow is stable.
-SPEC_DEBUG = True
+SPEC_DEBUG = False
 # ────────────────────────────────────────────────────────────────────
 
 

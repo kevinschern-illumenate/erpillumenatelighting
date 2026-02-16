@@ -493,7 +493,10 @@ def _ensure_public_file(file_url: str) -> str:
             file_doc.save(ignore_permissions=True)
             frappe.db.commit()
             return file_doc.file_url
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.log_error(
+            title="Spec Sheet: Failed to make file public",
+            message=f"Could not make file public: {file_url}. Error: {e}",
+        )
 
     return file_url
