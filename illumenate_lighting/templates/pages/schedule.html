@@ -9,9 +9,13 @@ Also handles new schedule creation when is_new is True
 
 {% block style %}
 <style>
+.action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
 .action-buttons .btn {
-	margin-left: 2px;
-	margin-right: 2px;
+	margin: 0;
 }
 .action-buttons .btn i {
 	pointer-events: none;
@@ -31,6 +35,87 @@ Also handles new schedule creation when is_new is True
 }
 .table td {
 	vertical-align: middle;
+}
+/* Constrain Actions column width */
+.fixture-lines-table th.col-actions,
+.fixture-lines-table td.col-actions {
+	max-width: 175px;
+	width: 175px;
+}
+/* Let Fixture Details column take remaining space */
+.fixture-lines-table th.col-fixture-details,
+.fixture-lines-table td.col-fixture-details {
+	width: 100%;
+}
+
+/* Mobile/Tablet Card Layout */
+@media (max-width: 768px) {
+	.fixture-lines-table thead {
+		display: none;
+	}
+	.fixture-lines-table tbody tr {
+		display: block;
+		border: 1px solid var(--ill-gray-200, #eee);
+		border-radius: var(--ill-radius-md, 8px);
+		margin-bottom: var(--ill-space-4, 1rem);
+		box-shadow: var(--ill-shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+		overflow: hidden;
+	}
+	.fixture-lines-table tbody tr:hover {
+		background: transparent;
+	}
+	.fixture-lines-table tbody td {
+		display: block;
+		border-bottom: none;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-4, 1rem);
+	}
+	/* Card header area: Line ID, Type, QTY, Location on top */
+	.fixture-lines-table tbody td.col-line-id,
+	.fixture-lines-table tbody td.col-type,
+	.fixture-lines-table tbody td.col-qty,
+	.fixture-lines-table tbody td.col-location {
+		display: inline-block;
+		width: auto;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-3, 0.75rem);
+		vertical-align: middle;
+	}
+	.fixture-lines-table tbody td.col-line-id {
+		padding-left: var(--ill-space-4, 1rem);
+		font-weight: 600;
+	}
+	.fixture-lines-table tbody td.col-line-id::before,
+	.fixture-lines-table tbody td.col-type::before,
+	.fixture-lines-table tbody td.col-qty::before,
+	.fixture-lines-table tbody td.col-location::before {
+		content: attr(data-label) ": ";
+		font-weight: 600;
+		color: var(--ill-gray-600, #757575);
+		font-size: var(--ill-font-size-xs, 0.75rem);
+		text-transform: uppercase;
+	}
+	/* Card body: Fixture Details */
+	.fixture-lines-table tbody td.col-fixture-details {
+		display: block;
+		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+		max-width: none;
+		width: auto;
+	}
+	/* Card footer: Actions */
+	.fixture-lines-table tbody td.col-actions {
+		display: block;
+		max-width: none;
+		width: auto;
+		background: var(--ill-gray-50, #fafafa);
+		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+		text-align: left;
+	}
+	.fixture-lines-table tbody td.col-actions .action-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ill-space-2, 0.5rem);
+	}
 }
 </style>
 {% endblock %}
@@ -199,24 +284,24 @@ Also handles new schedule creation when is_new is True
 				<div class="card-body p-0">
 					{% if lines %}
 					<div class="table-responsive">
-						<table class="table table-hover mb-0">
+						<table class="table table-hover mb-0 fixture-lines-table">
 							<thead class="thead-light">
 								<tr>
 									<th>{{ _("Line ID") }}</th>
 									<th>{{ _("Type") }}</th>
 									<th class="text-center">{{ _("Qty") }}</th>
 									<th>{{ _("Location") }}</th>
-									<th>{{ _("Fixture Details") }}</th>
+									<th class="col-fixture-details">{{ _("Fixture Details") }}</th>
 									{% if can_edit %}
-									<th class="text-center">{{ _("Actions") }}</th>
+									<th class="text-center col-actions">{{ _("Actions") }}</th>
 									{% endif %}
 								</tr>
 							</thead>
 							<tbody>
 								{% for line in lines %}
 								<tr>
-									<td>{{ line.get('line_id') or line.get('idx') }}</td>
-									<td>
+									<td class="col-line-id" data-label="{{ _('Line') }}">{{ line.get('line_id') or line.get('idx') }}</td>
+									<td class="col-type" data-label="{{ _('Type') }}">
 										{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<span class="badge badge-primary">ilLumenate</span>
 										{% elif line.get('manufacturer_type') == 'ACCESSORY' %}
@@ -225,9 +310,9 @@ Also handles new schedule creation when is_new is True
 										<span class="badge badge-secondary">Other</span>
 										{% endif %}
 									</td>
-									<td class="text-center">{{ line.get('qty') }}</td>
-									<td>{{ line.get('location') or '-' }}</td>
-									<td>
+									<td class="text-center col-qty" data-label="{{ _('Qty') }}">{{ line.get('qty') }}</td>
+									<td class="col-location" data-label="{{ _('Location') }}">{{ line.get('location') or '-' }}</td>
+									<td class="col-fixture-details">
 										{% if line.get('manufacturer_type') == 'ACCESSORY' and line.get('accessory_item') %}
 										<div class="fixture-details">
 											<strong class="text-success">{{ line.get('accessory_item_name') or line.get('accessory_item') }}</strong>
@@ -389,7 +474,7 @@ Also handles new schedule creation when is_new is True
 										{% endif %}
 									</td>
 									{% if can_edit %}
-									<td class="text-center">
+									<td class="text-center col-actions">
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 												{% if line.get('configured_fixture') %}
