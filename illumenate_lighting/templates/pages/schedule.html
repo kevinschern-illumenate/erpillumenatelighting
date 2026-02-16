@@ -2034,7 +2034,15 @@ function renderExportHistory(exports) {
 			'FAILED': 'danger'
 		}[exp.status] || 'secondary';
 
-		var typeLabel = exp.export_type.replace('_', ' ');
+		var typeLabelMap = {
+			'PDF_PRICED': 'PDF (With Pricing)',
+			'PDF_NO_PRICE': 'PDF (No Pricing)',
+			'CSV_PRICED': 'CSV (With Pricing)',
+			'CSV_NO_PRICE': 'CSV (No Pricing)',
+			'SPEC_SUBMITTAL': 'Spec Submittal',
+			'SPEC_SUBMITTAL_FULL': 'Spec Submittal (Full)'
+		};
+		var typeLabel = typeLabelMap[exp.export_type] || exp.export_type.replace(/_/g, ' ');
 		var createdOn = exp.created_on ? frappe.datetime.prettyDate(exp.created_on) : '-';
 
 		html += '<tr>';

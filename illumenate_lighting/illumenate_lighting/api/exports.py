@@ -1163,6 +1163,10 @@ def get_project_export_files(project_name: str) -> dict:
 		"success": True,
 		"files": exports,
 	}
+
+
+@frappe.whitelist()
+def check_pricing_permission() -> dict:
 	"""
 	Check if current user has pricing permission.
 

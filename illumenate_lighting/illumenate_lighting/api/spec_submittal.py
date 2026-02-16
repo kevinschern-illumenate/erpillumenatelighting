@@ -816,9 +816,6 @@ def generate_spec_submittal_packet(
 			"Spec Submittal Generation Error",
 		)
 		if job_name:
-			from illumenate_lighting.illumenate_lighting.api.exports import (
-				_update_export_job_status,
-			)
 			_update_export_job_status(job_name, "FAILED", error_log=str(e))
 		return {
 			"success": False,
