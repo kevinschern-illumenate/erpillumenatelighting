@@ -228,10 +228,16 @@ def _store_field_value(field_value, fieldtype: str, value):
 		field_value.value_long_text = str(value) if value else ""
 		field_value.raw_display = str(value)[:100] if value else ""
 	elif fieldtype == "Int":
-		field_value.value_int = int(value) if value else 0
+		try:
+			field_value.value_int = int(value) if value else 0
+		except (ValueError, TypeError):
+			field_value.value_int = 0
 		field_value.raw_display = str(value) if value else ""
 	elif fieldtype == "Float":
-		field_value.value_float = float(value) if value else 0
+		try:
+			field_value.value_float = float(value) if value else 0
+		except (ValueError, TypeError):
+			field_value.value_float = 0
 		field_value.raw_display = str(value) if value else ""
 	elif fieldtype == "Date":
 		field_value.value_date = value
