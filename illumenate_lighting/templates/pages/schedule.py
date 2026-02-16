@@ -219,8 +219,20 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		length_mm = cf.manufacturable_overall_length_mm or 0
 		length_inches = length_mm / 25.4 if length_mm else 0
 		
+		# Get fixture template code and name for SPEC display
+		fixture_template_code = cf.fixture_template or None
+		fixture_template_name = None
+		if fixture_template_code:
+			fixture_template_name = frappe.db.get_value(
+				"ilL-Fixture-Template",
+				fixture_template_code,
+				"template_name"
+			)
+
 		details = {
 			"part_number": cf.configured_item or cf.config_hash,
+			"fixture_template_code": fixture_template_code,
+			"fixture_template_name": fixture_template_name,
 			"environment_rating": cf.environment_rating if hasattr(cf, "environment_rating") else None,
 			"mounting_method": cf.mounting_method if hasattr(cf, "mounting_method") else None,
 			"power_feed_type": cf.power_feed_type if hasattr(cf, "power_feed_type") else None,
