@@ -10,11 +10,13 @@
   "requested_length_mm",
   "column_break_dims",
   "start_feed_direction",
+  "start_feed_direction_code",
   "start_power_feed_type",
   "start_leader_cable_length_mm",
   "column_break_start",
   "end_type",
   "end_feed_direction",
+  "end_feed_direction_code",
   "end_power_feed_type",
   "end_jumper_cable_length_mm",
   "section_break_endcaps",
@@ -51,6 +53,13 @@
    "description": "Direction of the power feed at the start of this segment (End, Back, Left, Right)"
   },
   {
+   "description": "Code for start feed direction (auto-populated from selected direction)",
+   "fieldname": "start_feed_direction_code",
+   "fieldtype": "Data",
+   "label": "Start Feed Direction Code",
+   "read_only": 1
+  },
+  {
    "fieldname": "start_power_feed_type",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -85,6 +94,14 @@
    "label": "End Feed Direction",
    "options": "ilL-Attribute-Feed-Direction",
    "description": "Direction of the power feed at the end of this segment (for jumper connections)"
+  },
+  {
+   "depends_on": "eval:doc.end_type=='Jumper'",
+   "description": "Code for end feed direction (auto-populated from selected direction)",
+   "fieldname": "end_feed_direction_code",
+   "fieldtype": "Data",
+   "label": "End Feed Direction Code",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.end_type=='Jumper'",

@@ -31,6 +31,10 @@ class ilLConfiguredFixture(Document):
 		fixtures. This method only computes it if not already set (e.g., for
 		manually created fixtures).
 		"""
+		# For single-segment fixtures, feed_direction_end is always "Endcap"
+		if not self.is_multi_segment:
+			self.feed_direction_end = "Endcap"
+
 		if not self.config_hash:
 			self.config_hash = self._compute_config_hash()
 		
@@ -202,6 +206,18 @@ class ilLConfiguredFixture(Document):
 				"ilL-Attribute-Endcap Color", self.endcap_color, "code"
 			) or ""
 
+		# Feed Direction Start Code — feed_direction_start → code
+		self.sku_feed_direction_start_code = ""
+		if not self.is_multi_segment and self.feed_direction_start:
+			self.sku_feed_direction_start_code = frappe.db.get_value(
+				"ilL-Attribute-Feed-Direction", self.feed_direction_start, "code"
+			) or ""
+
+		# Feed Direction End Code — always "C" for single-segment (Endcap)
+		self.sku_feed_direction_end_code = ""
+		if not self.is_multi_segment:
+			self.sku_feed_direction_end_code = "C"
+
 	def _generate_part_number(self) -> str:
 		"""Build the part number from linked doctypes."""
 		parts = ["ILL"]
@@ -343,6 +359,8 @@ class ilLConfiguredFixture(Document):
 				"end_type": seg.end_type,
 				"start_power_feed_type": seg.start_power_feed_type,
 				"end_power_feed_type": seg.end_power_feed_type,
+				"start_feed_direction": seg.start_feed_direction or "",
+				"end_feed_direction": seg.end_feed_direction or "",
 			})
 
 		config_str = json.dumps(segment_data, sort_keys=True)
@@ -421,6 +439,8 @@ class ilLConfiguredFixture(Document):
 			"endcap_color": self.endcap_color,
 			"requested_overall_length_mm": self.requested_overall_length_mm,
 			"is_multi_segment": 1 if self.is_multi_segment else 0,
+			"feed_direction_start": self.feed_direction_start or "",
+			"feed_direction_end": self.feed_direction_end or "",
 		}
 
 		# Include user segment configuration for multi-segment fixtures
@@ -435,6 +455,8 @@ class ilLConfiguredFixture(Document):
 					"end_power_feed_type": seg.end_power_feed_type,
 					"start_leader_cable_length_mm": seg.start_leader_cable_length_mm,
 					"end_jumper_cable_length_mm": seg.end_jumper_cable_length_mm,
+					"start_feed_direction": seg.start_feed_direction or "",
+					"end_feed_direction": seg.end_feed_direction or "",
 				})
 			config_data["user_segments"] = segment_data
 
