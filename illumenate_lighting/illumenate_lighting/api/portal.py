@@ -1760,6 +1760,81 @@ def create_schedule(schedule_data: Union[str, dict]) -> dict:
 
 
 @frappe.whitelist()
+def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
+	"""
+	Rename an existing ilL-Project-Fixture-Schedule.
+
+	Args:
+		schedule_name: Name (ID) of the schedule to rename
+		new_schedule_name: New display name for the schedule
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not new_schedule_name or not new_schedule_name.strip():
+		return {"success": False, "error": "Schedule name cannot be empty"}
+
+	new_schedule_name = new_schedule_name.strip()
+
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to rename this schedule"}
+
+	try:
+		schedule.schedule_name = new_schedule_name
+		schedule.save()
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def delete_schedule(schedule_name: str) -> dict:
+	"""
+	Delete an existing ilL-Project-Fixture-Schedule.
+
+	Only schedules in DRAFT status can be deleted.
+
+	Args:
+		schedule_name: Name (ID) of the schedule to delete
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to delete this schedule"}
+
+	# Only allow deletion of DRAFT schedules
+	if schedule.status != "DRAFT":
+		return {"success": False, "error": "Only schedules in DRAFT status can be deleted"}
+
+	try:
+		frappe.delete_doc("ilL-Project-Fixture-Schedule", schedule_name)
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def update_project_collaborators(project_name: str, collaborators: Union[str, list]) -> dict:
 	"""
 	Update collaborators for a project.
