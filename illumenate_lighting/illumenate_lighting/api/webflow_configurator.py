@@ -974,6 +974,8 @@ def _get_feed_directions() -> list:
     return [
         {"value": "End", "label": "End", "code": "E"},
         {"value": "Back", "label": "Back", "code": "B"},
+        {"value": "Left", "label": "Left", "code": "L"},
+        {"value": "Right", "label": "Right", "code": "R"},
         {"value": "Endcap", "label": "Endcap", "code": "CAP"}
     ]
 
@@ -1204,7 +1206,7 @@ def _get_feed_direction_code(direction: str) -> str:
             return code
     
     # Fallback
-    direction_codes = {"End": "E", "Back": "B", "Endcap": "CAP"}
+    direction_codes = {"End": "E", "Back": "B", "Left": "L", "Right": "R", "Endcap": "CAP"}
     return direction_codes.get(direction, "X")
 
 

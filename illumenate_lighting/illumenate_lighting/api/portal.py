@@ -440,6 +440,26 @@ def get_template_options(template_code: str) -> dict:
 		elif option_type == "Environment Rating" and row.environment_rating:
 			options["environment_rating"].append({"value": row.environment_rating, "label": row.environment_rating})
 
+	# Get feed direction options from ilL-Attribute-Feed-Direction
+	if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+		feed_dirs = frappe.get_all(
+			"ilL-Attribute-Feed-Direction",
+			filters={"is_active": 1},
+			fields=["direction_name as name", "code"],
+			order_by="direction_name",
+		)
+		options["feed_directions"] = [
+			{"value": d.name, "label": d.name, "code": d.code}
+			for d in feed_dirs
+		]
+	else:
+		options["feed_directions"] = [
+			{"value": "End", "label": "End", "code": "E"},
+			{"value": "Back", "label": "Back", "code": "B"},
+			{"value": "Left", "label": "Left", "code": "L"},
+			{"value": "Right", "label": "Right", "code": "R"},
+		]
+
 	# Get tape offerings from template
 	for row in template.get("allowed_tape_offerings", []):
 		if row.tape_offering:
@@ -3224,6 +3244,9 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 				else:
 					segment_data["start_power_feed_type"] = None
 
+				# Get feed direction for start
+				segment_data["start_feed_direction"] = getattr(seg, "start_feed_direction", None) or None
+
 				segment_data["start_leader_cable_length_mm"] = seg.start_leader_cable_length_mm or 300
 
 				# Get end power feed type code (for jumpers)
@@ -3232,9 +3255,11 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 						"ilL-Attribute-Power Feed Type", seg.end_power_feed_type, "code"
 					) or seg.end_power_feed_type
 					segment_data["end_jumper_cable_length_mm"] = seg.end_jumper_cable_length_mm or 300
+					segment_data["end_feed_direction"] = getattr(seg, "end_feed_direction", None) or None
 				else:
 					segment_data["end_power_feed_type"] = None
 					segment_data["end_jumper_cable_length_mm"] = None
+					segment_data["end_feed_direction"] = None
 
 				segments.append(segment_data)
 		else:

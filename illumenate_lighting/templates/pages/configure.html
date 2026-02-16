@@ -454,16 +454,22 @@ Allows users to configure fixtures using segment-based configuration
 						<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
 					</div>
 				</div>
-				<!-- First segment: user selects power feed type and leader cable length -->
+				<!-- First segment: user selects feed direction, power feed type and leader cable length -->
 				<div class="first-segment-start" style="display: none;">
 					<div class="row">
-						<div class="col-md-6">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
 								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
 							</div>
 						</div>
-						<div class="col-md-6">
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Leader Cable Length (in)") }}</label>
 								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
@@ -541,13 +547,19 @@ Allows users to configure fixtures using segment-based configuration
 				<!-- Jumper Fields (shown when end type is Jumper) -->
 				<div class="jumper-fields" style="display: none;">
 					<div class="row">
-						<div class="col-md-6">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
 								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
 							</div>
 						</div>
-						<div class="col-md-6">
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
 								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
@@ -1178,6 +1190,23 @@ function populateSegmentPowerFeedOptions(segmentCard) {
 			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 		});
 	});
+
+	// Populate feed direction dropdowns
+	var feedDirs = (templateOptions.feed_directions && templateOptions.feed_directions.length > 0)
+		? templateOptions.feed_directions
+		: [
+			{value: 'End', label: 'End'},
+			{value: 'Back', label: 'Back'},
+			{value: 'Left', label: 'Left'},
+			{value: 'Right', label: 'Right'}
+		];
+	['start_feed_direction', 'end_feed_direction'].forEach(function(fieldName) {
+		var select = segmentCard.find('[name="' + fieldName + '"]');
+		select.empty().append('<option value="">Select...</option>');
+		feedDirs.forEach(function(opt) {
+			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	});
 }
 
 function addSegment(isFirst) {
@@ -1200,20 +1229,22 @@ function addSegment(isFirst) {
 		// Can be removed
 		card.querySelector('.remove-segment-btn').style.display = 'inline-block';
 		
-		// Copy power feed and jumper length from prior segment's end
+		// Copy feed direction, power feed and jumper length from prior segment's end
 		var priorSegment = $('#segmentsList .segment-card').last();
 		if (priorSegment.length) {
+			var priorEndFeedDir = priorSegment.find('[name="end_feed_direction"]').val();
 			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
 			var priorJumperLenIn = priorSegment.find('[name="end_jumper_cable_length_in"]').val();
 			// Convert inches to mm for storage in data attribute
 			var priorJumperLenMm = Math.round((parseFloat(priorJumperLenIn) || 12) * MM_PER_INCH);
 			
 			// Store inherited values as data attributes (in mm for backend)
+			card.dataset.inheritedFeedDirection = priorEndFeedDir || '';
 			card.dataset.inheritedPowerFeedType = priorEndPFT || '';
 			card.dataset.inheritedCableLength = priorJumperLenMm;
 			
 			// Update inherited text (display in inches)
-			var inheritedText = 'From prior segment: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '" jumper';
+			var inheritedText = 'From prior segment: ' + (priorEndFeedDir ? priorEndFeedDir + ' ' : '') + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '" jumper';
 			card.querySelector('.inherited-text').textContent = inheritedText;
 		}
 	}
@@ -1424,15 +1455,17 @@ function updateUI() {
 	$('.segment-card').each(function(index) {
 		if (index > 0) {
 			var priorSegment = $('.segment-card').eq(index - 1);
+			var priorEndFeedDir = priorSegment.find('[name="end_feed_direction"]').val();
 			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
 			var priorJumperLenIn = priorSegment.find('[name="end_jumper_cable_length_in"]').val();
 			// Convert inches to mm for storage
 			var priorJumperLenMm = Math.round((parseFloat(priorJumperLenIn) || 12) * MM_PER_INCH);
 			
+			$(this)[0].dataset.inheritedFeedDirection = priorEndFeedDir || '';
 			$(this)[0].dataset.inheritedPowerFeedType = priorEndPFT || '';
 			$(this)[0].dataset.inheritedCableLength = priorJumperLenMm;
 			
-			var inheritedText = 'From prior: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '"';
+			var inheritedText = 'From prior: ' + (priorEndFeedDir ? priorEndFeedDir + ' ' : '') + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '"';
 			$(this).find('.inherited-text').text(inheritedText);
 		}
 	});
@@ -1465,18 +1498,21 @@ function collectSegments() {
 		};
 		
 		if (index === 0) {
-			// First segment: get start power feed and leader cable
+			// First segment: get start feed direction, power feed and leader cable
+			segment.start_feed_direction = card.find('[name="start_feed_direction"]').val();
 			segment.start_power_feed_type = card.find('[name="start_power_feed_type"]').val();
 			// Convert inches to mm for backend
 			var leaderInches = parseFloat(card.find('[name="start_leader_cable_length_in"]').val()) || 12;
 			segment.start_leader_cable_length_mm = Math.round(leaderInches * MM_PER_INCH);
 		} else {
 			// Inherited from prior segment
+			segment.start_feed_direction = card[0].dataset.inheritedFeedDirection || '';
 			segment.start_power_feed_type = card[0].dataset.inheritedPowerFeedType || '';
 			segment.start_leader_cable_length_mm = parseInt(card[0].dataset.inheritedCableLength) || 300;
 		}
 		
 		if (segment.end_type === 'Jumper') {
+			segment.end_feed_direction = card.find('[name="end_feed_direction"]').val();
 			segment.end_power_feed_type = card.find('[name="end_power_feed_type"]').val();
 			// Convert inches to mm for backend
 			var jumperInches = parseFloat(card.find('[name="end_jumper_cable_length_in"]').val()) || 12;
