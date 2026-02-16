@@ -385,21 +385,29 @@ Also handles new project creation when is_new is True
 			{% if schedules %}
 			<div class="list-group">
 				{% for schedule in schedules %}
-				<a href="/portal/schedules/{{ schedule.name }}" class="list-group-item list-group-item-action">
-					<div class="d-flex w-100 justify-content-between align-items-center">
+				<div class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center">
+					<a href="/portal/schedules/{{ schedule.name }}" class="text-decoration-none text-reset flex-grow-1">
 						<div>
 							<h5 class="mb-1">{{ schedule.schedule_name }}</h5>
 							<small class="text-muted">
 								{{ schedule.lines_count or 0 }} {{ _("line(s)") }}
 							</small>
 						</div>
-						<div class="text-right">
-							<span class="badge badge-{{ schedule_status_class(schedule.status) }}">
-								{{ schedule.status }}
-							</span>
-						</div>
+					</a>
+					<div class="d-flex align-items-center ml-3">
+						<span class="badge badge-{{ schedule_status_class(schedule.status) }} mr-2">
+							{{ schedule.status }}
+						</span>
+						{% if can_edit %}
+						<button class="btn btn-sm btn-outline-secondary mr-1" onclick="event.stopPropagation(); openRenameModal('{{ schedule.name }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Rename') }}">
+							<i class="fa fa-pencil"></i>
+						</button>
+						<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); confirmDeleteSchedule('{{ schedule.name }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
+							<i class="fa fa-trash"></i>
+						</button>
+						{% endif %}
 					</div>
-				</a>
+				</div>
 				{% endfor %}
 			</div>
 			{% else %}
@@ -420,6 +428,35 @@ Also handles new project creation when is_new is True
 			<div class="text-center py-5">
 				<i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
 				<p class="text-muted">{{ _("File management coming soon.") }}</p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Rename Schedule Modal -->
+	<div class="modal fade" id="renameScheduleModal" tabindex="-1" role="dialog">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">{{ _("Rename Schedule") }}</h5>
+					<button type="button" class="close" data-dismiss="modal">
+						<span>&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<form id="renameScheduleForm">
+						<input type="hidden" id="renameScheduleId">
+						<div class="form-group">
+							<label>{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" id="renameScheduleName" required>
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+					<button type="button" class="btn btn-primary" onclick="renameSchedule()">
+						<i class="fa fa-check"></i> {{ _("Rename") }}
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -706,6 +743,95 @@ function schedule_status_class(status) {
 		'CLOSED': 'secondary'
 	};
 	return classMap[status] || 'secondary';
+}
+
+// Open rename modal with current schedule name
+function openRenameModal(scheduleName, currentName) {
+	$('#renameScheduleId').val(scheduleName);
+	$('#renameScheduleName').val(currentName);
+	$('#renameScheduleModal').modal('show');
+}
+
+// Rename schedule via API
+function renameSchedule() {
+	var scheduleName = $('#renameScheduleId').val();
+	var newName = $('#renameScheduleName').val().trim();
+
+	if (!newName) {
+		frappe.msgprint({
+			title: 'Error',
+			indicator: 'red',
+			message: 'Schedule name cannot be empty'
+		});
+		return;
+	}
+
+	var renameBtn = $('#renameScheduleModal .btn-primary');
+	renameBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Renaming...');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.rename_schedule',
+		args: {
+			schedule_name: scheduleName,
+			new_schedule_name: newName
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#renameScheduleModal').modal('hide');
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Schedule renamed successfully'
+				});
+				window.location.reload();
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error renaming schedule'
+				});
+			}
+			renameBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Rename');
+		},
+		error: function() {
+			renameBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Rename');
+		}
+	});
+}
+
+// Confirm and delete schedule
+function confirmDeleteSchedule(scheduleName, displayName) {
+	frappe.confirm(
+		'Are you sure you want to delete the schedule "' + displayName + '"? This action cannot be undone.',
+		function() {
+			deleteSchedule(scheduleName);
+		}
+	);
+}
+
+function deleteSchedule(scheduleName) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule',
+		args: {
+			schedule_name: scheduleName
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Schedule deleted successfully'
+				});
+				window.location.reload();
+			} else {
+				frappe.msgprint({
+					title: 'Error',
+					indicator: 'red',
+					message: r.message.error || 'Error deleting schedule'
+				});
+			}
+		}
+	});
 }
 {% endif %}
 </script>
