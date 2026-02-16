@@ -425,9 +425,13 @@ Also handles new project creation when is_new is True
 
 		<!-- Files Tab -->
 		<div class="tab-pane fade" id="files" role="tabpanel">
-			<div class="text-center py-5">
-				<i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
-				<p class="text-muted">{{ _("File management coming soon.") }}</p>
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h4>{{ _("Exported Documents") }}</h4>
+			</div>
+			<div id="projectFilesContainer">
+				<div class="text-center py-3">
+					<i class="fa fa-spinner fa-spin"></i> {{ _("Loading exported documents...") }}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -745,93 +749,171 @@ function schedule_status_class(status) {
 	return classMap[status] || 'secondary';
 }
 
+// Load project files when Files tab is shown
+$('a[data-toggle="tab"][href="#files"]').on('shown.bs.tab', function() {
+    loadProjectFiles();
+});
+
+function loadProjectFiles() {
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.exports.get_project_export_files',
+        args: {
+            project_name: '{{ project.name }}'
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                renderProjectFiles(r.message.files);
+            } else {
+                $('#projectFilesContainer').html(
+                    '<div class="text-center text-muted py-3">' +
+                    '<i class="fa fa-exclamation-circle"></i> ' +
+                    (r.message && r.message.error ? r.message.error : 'Error loading files') +
+                    '</div>'
+                );
+            }
+        }
+    });
+}
+
+function renderProjectFiles(files) {
+    if (!files || files.length === 0) {
+        $('#projectFilesContainer').html(
+            '<div class="text-center text-muted py-5">' +
+            '<i class="fa fa-folder-open fa-3x mb-3 d-block"></i>' +
+            'No exported documents yet. Export documents from your fixture schedules to see them here.' +
+            '</div>'
+        );
+        return;
+    }
+
+    var html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+    html += '<thead class="thead-light"><tr>';
+    html += '<th>Type</th>';
+    html += '<th>Fixture Schedule</th>';
+    html += '<th>Requested By</th>';
+    html += '<th>Created</th>';
+    html += '<th>Download</th>';
+    html += '</tr></thead><tbody>';
+
+    files.forEach(function(file) {
+        var typeLabelMap = {
+            'PDF_PRICED': 'PDF (With Pricing)',
+            'PDF_NO_PRICE': 'PDF (No Pricing)',
+            'CSV_PRICED': 'CSV (With Pricing)',
+            'CSV_NO_PRICE': 'CSV (No Pricing)',
+            'SPEC_SUBMITTAL': 'Spec Submittal',
+            'SPEC_SUBMITTAL_FULL': 'Spec Submittal (Full)'
+        };
+        var typeLabel = typeLabelMap[file.export_type] || file.export_type.replace(/_/g, ' ');
+        var createdOn = file.created_on ? frappe.datetime.prettyDate(file.created_on) : '-';
+
+        html += '<tr>';
+        html += '<td>' + typeLabel + '</td>';
+        html += '<td><a href="/portal/schedules/' + file.schedule + '">' + file.schedule_display_name + '</a></td>';
+        html += '<td>' + (file.requested_by_name || '-') + '</td>';
+        html += '<td>' + createdOn + '</td>';
+        html += '<td>';
+        if (file.output_file) {
+            html += '<a href="' + file.output_file + '" target="_blank" class="btn btn-sm btn-outline-primary">';
+            html += '<i class="fa fa-download"></i> Download</a>';
+        } else {
+            html += '<span class="text-muted">-</span>';
+        }
+        html += '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    $('#projectFilesContainer').html(html);
+}
+
 // Open rename modal with current schedule name
 function openRenameModal(scheduleName, currentName) {
-	$('#renameScheduleId').val(scheduleName);
-	$('#renameScheduleName').val(currentName);
-	$('#renameScheduleModal').modal('show');
+    $('#renameScheduleId').val(scheduleName);
+    $('#renameScheduleName').val(currentName);
+    $('#renameScheduleModal').modal('show');
 }
 
 // Rename schedule via API
 function renameSchedule() {
-	var scheduleName = $('#renameScheduleId').val();
-	var newName = $('#renameScheduleName').val().trim();
+    var scheduleName = $('#renameScheduleId').val();
+    var newName = $('#renameScheduleName').val().trim();
 
-	if (!newName) {
-		frappe.msgprint({
-			title: 'Error',
-			indicator: 'red',
-			message: 'Schedule name cannot be empty'
-		});
-		return;
-	}
+    if (!newName) {
+        frappe.msgprint({
+            title: 'Error',
+            indicator: 'red',
+            message: 'Schedule name cannot be empty'
+        });
+        return;
+    }
 
-	var renameBtn = $('#renameScheduleModal .btn-primary');
-	renameBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Renaming...');
+    var renameBtn = $('#renameScheduleModal .btn-primary');
+    renameBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Renaming...');
 
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.rename_schedule',
-		args: {
-			schedule_name: scheduleName,
-			new_schedule_name: newName
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				$('#renameScheduleModal').modal('hide');
-				frappe.msgprint({
-					title: 'Success',
-					indicator: 'green',
-					message: 'Schedule renamed successfully'
-				});
-				window.location.reload();
-			} else {
-				frappe.msgprint({
-					title: 'Error',
-					indicator: 'red',
-					message: r.message.error || 'Error renaming schedule'
-				});
-			}
-			renameBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Rename');
-		},
-		error: function() {
-			renameBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Rename');
-		}
-	});
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.rename_schedule',
+        args: {
+            schedule_name: scheduleName,
+            new_schedule_name: newName
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                $('#renameScheduleModal').modal('hide');
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Schedule renamed successfully'
+                });
+                window.location.reload();
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error renaming schedule'
+                });
+            }
+            renameBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Rename');
+        },
+        error: function() {
+            renameBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Rename');
+        }
+    });
 }
 
 // Confirm and delete schedule
 function confirmDeleteSchedule(scheduleName, displayName) {
-	frappe.confirm(
-		'Are you sure you want to delete the schedule "' + displayName + '"? This action cannot be undone.',
-		function() {
-			deleteSchedule(scheduleName);
-		}
-	);
+    frappe.confirm(
+        'Are you sure you want to delete the schedule "' + displayName + '"? This action cannot be undone.',
+        function() {
+            deleteSchedule(scheduleName);
+        }
+    );
 }
 
 function deleteSchedule(scheduleName) {
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule',
-		args: {
-			schedule_name: scheduleName
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.msgprint({
-					title: 'Success',
-					indicator: 'green',
-					message: 'Schedule deleted successfully'
-				});
-				window.location.reload();
-			} else {
-				frappe.msgprint({
-					title: 'Error',
-					indicator: 'red',
-					message: r.message.error || 'Error deleting schedule'
-				});
-			}
-		}
-	});
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule',
+        args: {
+            schedule_name: scheduleName
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Schedule deleted successfully'
+                });
+                window.location.reload();
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error deleting schedule'
+                });
+            }
+        }
+    });
 }
 {% endif %}
 </script>
