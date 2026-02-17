@@ -117,6 +117,26 @@ Also handles new schedule creation when is_new is True
 		gap: var(--ill-space-2, 0.5rem);
 	}
 }
+
+/* Export buttons responsive layout */
+.export-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.export-buttons .btn {
+	border-radius: var(--ill-radius-sm, 4px);
+}
+@media (max-width: 768px) {
+	.export-buttons {
+		width: 100%;
+		gap: var(--ill-space-2, 0.5rem);
+	}
+	.export-buttons .btn {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+}
 </style>
 {% endblock %}
 
@@ -542,9 +562,9 @@ Also handles new schedule creation when is_new is True
 	<div class="row mt-4">
 		<div class="col-12">
 			<div class="card">
-				<div class="card-header d-flex justify-content-between align-items-center">
+				<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 					<h5 class="mb-0">{{ _("Exports") }}</h5>
-					<div class="btn-group">
+					<div class="export-buttons">
 						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', false)">
 							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (No Pricing)") }}
 						</button>
