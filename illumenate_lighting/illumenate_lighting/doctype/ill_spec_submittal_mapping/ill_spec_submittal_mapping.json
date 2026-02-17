@@ -16,7 +16,10 @@
                         "show_fields_button",
                         "available_fields_html",
                         "transformation_section",
-                        "transformation"
+                        "transformation",
+                        "column_break_transform",
+                        "prefix",
+                        "suffix"
                     ],
     "fields":  [
                    {
@@ -78,6 +81,22 @@
                        "fieldtype":  "Select",
                        "label":  "Transformation",
                        "options":  "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT"
+                   },
+                   {
+                       "fieldname":  "column_break_transform",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Text to prepend before the value (applied after transformation)",
+                       "fieldname":  "prefix",
+                       "fieldtype":  "Data",
+                       "label":  "Prefix"
+                   },
+                   {
+                       "description":  "Text to append after the value (applied after transformation)",
+                       "fieldname":  "suffix",
+                       "fieldtype":  "Data",
+                       "label":  "Suffix"
                    }
                ],
     "grid_page_length":  50,

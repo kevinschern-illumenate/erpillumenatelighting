@@ -100,6 +100,29 @@ def _apply_transformation(value: Any, transformation: str | None) -> str:
 	return str(value)
 
 
+def _apply_prefix_suffix(value: str, prefix: str | None, suffix: str | None) -> str:
+	"""
+	Apply prefix and/or suffix to a transformed value.
+
+	Args:
+		value: The already-transformed value string
+		prefix: Text to prepend before the value
+		suffix: Text to append after the value
+
+	Returns:
+		str: The value with prefix and/or suffix applied
+	"""
+	if not value:
+		return value
+
+	result = value
+	if prefix:
+		result = prefix + result
+	if suffix:
+		result = result + suffix
+	return result
+
+
 def _get_source_value(
 	source_doctype: str,
 	source_field: str,
@@ -194,12 +217,12 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 
 	Returns:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
-			  source_field, and transformation
+			  source_field, transformation, prefix, and suffix
 	"""
 	return frappe.get_all(
 		"ilL-Spec-Submittal-Mapping",
 		filters={"fixture_template": fixture_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation"],
+		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"],
 	)
 
 
@@ -923,6 +946,9 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 				schedule_line=schedule_line,
 			)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+			transformed_value = _apply_prefix_suffix(
+				transformed_value, mapping.get("prefix"), mapping.get("suffix")
+			)
 			field_values[mapping["pdf_field_name"]] = transformed_value
 
 		_debug(
