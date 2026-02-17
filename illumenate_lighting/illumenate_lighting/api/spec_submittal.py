@@ -404,11 +404,6 @@ def _generate_cover_page(
 			project_id = project_name or schedule.ill_project
 			project = frappe.get_doc("ilL-Project", project_id)
 
-		# Resolve the full name of whoever owns the schedule (for "Quoted By")
-		quoted_by_name = ""
-		if schedule.owner:
-			quoted_by_name = frappe.db.get_value("User", schedule.owner, "full_name") or ""
-
 		# Prepare context for template
 		context = {
 			"schedule": schedule,
@@ -417,7 +412,6 @@ def _generate_cover_page(
 			"generation_date": nowdate() if include_date else None,
 			"generation_datetime": now() if include_date else None,
 			"company_name": "ilLumenate Lighting",
-			"quoted_by": quoted_by_name,
 		}
 
 		# Render the cover page template

@@ -4,202 +4,206 @@
 	<meta charset="UTF-8">
 	<title>Spec Submittal Packet - {{ schedule.schedule_name }}</title>
 	<style>
-		@page {
-			size: letter portrait;
-			margin: 0;
-		}
-		* {
-			margin: 0;
-			padding: 0;
-			box-sizing: border-box;
-		}
 		body {
 			font-family: Arial, Helvetica, sans-serif;
 			margin: 0;
-			padding: 0;
+			padding: 40px;
 			color: #333;
-			width: 100%;
-			height: 100%;
-			position: relative;
-			overflow: hidden;
 		}
-
-		/* ── Page wrapper ─────────────────────────────── */
-		.page-wrapper {
-			position: relative;
-			width: 100%;
-			height: 279mm; /* letter height */
-			overflow: hidden;
+		.header {
+			text-align: center;
+			margin-bottom: 40px;
+			border-bottom: 2px solid #1a365d;
+			padding-bottom: 20px;
 		}
-
-		/* ── Top white section ────────────────────────── */
-		.top-section {
-			position: relative;
-			width: 100%;
-			height: 42%;
-			background: #ffffff;
-			z-index: 1;
-		}
-
-		/* ── Logo area (top-left) ─────────────────────── */
-		.logo-area {
-			position: absolute;
-			top: 30px;
-			left: 35px;
-			z-index: 10;
-		}
-		.logo-area img {
-			width: 220px;
-			height: auto;
-		}
-
-		/* ── Contact info (top-right) ─────────────────── */
-		.contact-info {
-			position: absolute;
-			top: 30px;
-			right: 35px;
-			text-align: right;
-			font-size: 11px;
-			line-height: 1.6;
-			color: #333;
-			z-index: 10;
-		}
-
-		/* ── Background photo (bottom portion) ────────── */
-		.photo-section {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: 100%;
-			height: 62%;
-			z-index: 1;
-			overflow: hidden;
-		}
-		.photo-section img {
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-			object-position: center top;
-			display: block;
-		}
-		/* Fallback when no image is provided */
-		.photo-section-fallback {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: 100%;
-			height: 62%;
-			z-index: 1;
-			background: linear-gradient(135deg, #1a365d 0%, #2d4a7a 50%, #1a365d 100%);
-		}
-
-		/* ── Golden info card ─────────────────────────── */
-		.info-card-wrapper {
-			position: absolute;
-			top: 120px;
-			right: 50px;
-			z-index: 20;
-		}
-		.info-card-border {
-			border: 1px solid #b0b0b0;
-			padding: 6px;
-			display: inline-block;
-		}
-		.info-card {
-			background-color: #f2c14e;
-			width: 320px;
-			padding: 35px 30px 40px 30px;
-		}
-		.info-card .field-group {
-			margin-bottom: 22px;
-		}
-		.info-card .field-group:last-child {
-			margin-bottom: 0;
-		}
-		.info-card .field-label {
-			font-size: 10px;
+		.company-name {
+			font-size: 24px;
 			font-weight: bold;
-			text-transform: uppercase;
-			letter-spacing: 1.5px;
-			color: #333;
-			margin-bottom: 4px;
+			color: #1a365d;
+			margin-bottom: 10px;
 		}
-		.info-card .field-value {
-			font-size: 16px;
-			color: #333;
-			margin-top: 2px;
-			word-wrap: break-word;
-		}
-		.info-card .field-value.large {
+		.document-title {
 			font-size: 20px;
+			color: #4a5568;
+			margin-top: 20px;
 		}
-
-		/* ── Blue accent stripe ───────────────────────── */
-		.blue-stripe {
-			position: absolute;
-			left: 0;
-			top: 38%;
-			width: 48%;
-			height: 8%;
-			background-color: #4a90d9;
-			z-index: 5;
+		.project-info {
+			margin: 30px 0;
+			padding: 20px;
+			background-color: #f7fafc;
+			border-radius: 8px;
+		}
+		.project-info h2 {
+			font-size: 16px;
+			color: #1a365d;
+			margin-top: 0;
+			margin-bottom: 15px;
+			border-bottom: 1px solid #e2e8f0;
+			padding-bottom: 10px;
+		}
+		.info-row {
+			display: flex;
+			margin-bottom: 8px;
+		}
+		.info-label {
+			font-weight: bold;
+			width: 150px;
+			color: #4a5568;
+		}
+		.info-value {
+			flex: 1;
+		}
+		.fixture-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 30px;
+		}
+		.fixture-table th {
+			background-color: #1a365d;
+			color: white;
+			padding: 12px 8px;
+			text-align: left;
+			font-size: 12px;
+		}
+		.fixture-table td {
+			padding: 10px 8px;
+			border-bottom: 1px solid #e2e8f0;
+			font-size: 11px;
+		}
+		.fixture-table tr:nth-child(even) {
+			background-color: #f7fafc;
+		}
+		.fixture-table tr:hover {
+			background-color: #edf2f7;
+		}
+		.status-configured {
+			color: #38a169;
+			font-weight: bold;
+		}
+		.status-pending {
+			color: #d69e2e;
+			font-weight: bold;
+		}
+		.status-other {
+			color: #4a5568;
+		}
+		.footer {
+			margin-top: 40px;
+			padding-top: 20px;
+			border-top: 1px solid #e2e8f0;
+			text-align: center;
+			font-size: 10px;
+			color: #718096;
+		}
+		.toc-title {
+			font-size: 16px;
+			color: #1a365d;
+			margin-top: 30px;
+			margin-bottom: 15px;
+		}
+		.has-spec {
+			color: #38a169;
+		}
+		.no-spec {
+			color: #e53e3e;
+		}
+		.page-break {
+			page-break-after: always;
 		}
 	</style>
 </head>
 <body>
-	<div class="page-wrapper">
+	<div class="header">
+		<div class="company-name">{{ company_name }}</div>
+		<div class="document-title">Spec Submittal Packet</div>
+	</div>
 
-		<!-- Top white area -->
-		<div class="top-section">
-			<!-- Logo -->
-			<div class="logo-area">
-				<img src="/assets/illumenate_lighting/images/ilLumenate Logo_SW_Black_Main.png" alt="ilLumenate Lighting" />
-			</div>
-
-			<!-- Contact info -->
-			<div class="contact-info">
-				+1 (425) 381-2447<br>
-				sales@ilLumenate.lighting<br>
-				PO BOX 297 Bothell, WA 98041
-			</div>
+	<div class="project-info">
+		<h2>Project Information</h2>
+		{% if project %}
+		<div class="info-row">
+			<span class="info-label">Project Name:</span>
+			<span class="info-value">{{ project.project_name }}</span>
 		</div>
-
-		<!-- Blue accent stripe -->
-		<div class="blue-stripe"></div>
-
-		<!-- Background photo -->
-		<div class="photo-section">
-			<img src="/assets/illumenate_lighting/images/cover_photo.jpg" alt="" />
+		{% if project.customer %}
+		<div class="info-row">
+			<span class="info-label">Customer:</span>
+			<span class="info-value">{{ project.customer }}</span>
 		</div>
-
-		<!-- Golden info card (overlaps both sections) -->
-		<div class="info-card-wrapper">
-			<div class="info-card-border">
-				<div class="info-card">
-					<div class="field-group">
-						<div class="field-label">Project</div>
-						<div class="field-value">
-							{% if project and project.project_name %}
-								{{ project.project_name }}
-							{% endif %}
-						</div>
-					</div>
-					<div class="field-group">
-						<div class="field-label">Schedule #</div>
-						<div class="field-value large">{{ schedule.name }}</div>
-					</div>
-					<div class="field-group">
-						<div class="field-label">Created On</div>
-						<div class="field-value large">{{ generation_datetime or '' }}</div>
-					</div>
-					<div class="field-group">
-						<div class="field-label">Quoted By</div>
-						<div class="field-value">{{ quoted_by or '' }}</div>
-					</div>
-				</div>
-			</div>
+		{% endif %}
+		{% endif %}
+		<div class="info-row">
+			<span class="info-label">Schedule Name:</span>
+			<span class="info-value">{{ schedule.schedule_name }}</span>
 		</div>
+		{% if generation_date %}
+		<div class="info-row">
+			<span class="info-label">Generated:</span>
+			<span class="info-value">{{ generation_date }}</span>
+		</div>
+		{% endif %}
+	</div>
 
+	<h3 class="toc-title">Fixture Schedule - Table of Contents</h3>
+	
+	<table class="fixture-table">
+		<thead>
+			<tr>
+				<th>Line ID</th>
+				<th>Qty</th>
+				<th>Location</th>
+				<th>Type</th>
+				<th>Status</th>
+				<th>Spec Sheet</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for line in fixture_lines %}
+			<tr>
+				<td><strong>{{ line.line_id or '-' }}</strong></td>
+				<td>{{ line.qty or 1 }}</td>
+				<td>{{ line.location or '-' }}</td>
+				<td>
+					{% if line.manufacturer_type == 'ILLUMENATE' %}
+						ilLumenate
+					{% elif line.manufacturer_type == 'ACCESSORY' %}
+						Accessory
+					{% else %}
+						Other Mfr.
+					{% endif %}
+				</td>
+				<td>
+					{% if line.manufacturer_type == 'ILLUMENATE' %}
+						{% if line.configured_fixture %}
+							<span class="status-configured">Configured</span>
+						{% else %}
+							<span class="status-pending">Pending</span>
+						{% endif %}
+					{% elif line.manufacturer_type == 'OTHER' %}
+						<span class="status-other">External</span>
+					{% else %}
+						<span class="status-other">-</span>
+					{% endif %}
+				</td>
+				<td>
+					{% if line.spec_document_url %}
+						<span class="has-spec">✓ Included</span>
+					{% elif line.manufacturer_type == 'ACCESSORY' %}
+						<span class="status-other">N/A</span>
+					{% else %}
+						<span class="no-spec">✗ Missing</span>
+					{% endif %}
+				</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+
+	<div class="footer">
+		<p>This document was automatically generated by {{ company_name }} ERP System</p>
+		{% if generation_datetime %}
+		<p>Generated on {{ generation_datetime }}</p>
+		{% endif %}
 	</div>
 </body>
 </html>
