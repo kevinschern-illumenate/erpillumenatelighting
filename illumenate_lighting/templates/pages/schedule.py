@@ -66,6 +66,28 @@ def get_context(context):
 	illumenate_count = sum(1 for line in lines if line.manufacturer_type == "ILLUMENATE")
 	other_count = sum(1 for line in lines if line.manufacturer_type == "OTHER")
 
+	# If user can view pricing, pre-fetch pricing data for configured fixtures
+	pricing_map = {}  # configured_fixture_id -> unit_price
+	schedule_total = 0.0
+	if can_view_pricing:
+		# Collect all configured fixture IDs for batch pricing lookup
+		cf_ids = [
+			line.configured_fixture for line in lines
+			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+		]
+		if cf_ids:
+			# Batch fetch all pricing snapshots in a single query
+			all_snapshots = frappe.get_all(
+				"ilL-Child-Pricing-Snapshot",
+				filters={"parent": ["in", cf_ids], "parenttype": "ilL-Configured-Fixture"},
+				fields=["parent", "msrp_unit", "timestamp"],
+				order_by="timestamp desc",
+			)
+			# Pick the latest snapshot per parent
+			for snap in all_snapshots:
+				if snap.parent not in pricing_map and snap.msrp_unit:
+					pricing_map[snap.parent] = float(snap.msrp_unit)
+
 	# Create enriched line data for template display
 	# We'll add cf_details directly to each line for easy access in the template
 	lines_with_details = []
@@ -142,10 +164,30 @@ def get_context(context):
 				except (ValueError, TypeError):
 					line_dict["variant_selections"] = {}
 
+		# Populate pricing if user can view pricing
+		if can_view_pricing:
+			unit_price = None
+			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+				unit_price = pricing_map.get(line.configured_fixture)
+			elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
+				item_price = frappe.db.get_value(
+					"Item Price",
+					{"item_code": line.accessory_item, "selling": 1},
+					"price_list_rate",
+				)
+				if item_price:
+					unit_price = float(item_price)
+
+			if unit_price:
+				line_dict["unit_price"] = unit_price
+				line_dict["line_total"] = unit_price * (line.qty or 1)
+				schedule_total += line_dict["line_total"]
+
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)
 
 	context.schedule = schedule
+	context.schedule_total = schedule_total
 	context.project = project
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
