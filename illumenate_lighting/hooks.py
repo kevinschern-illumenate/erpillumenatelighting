@@ -146,6 +146,8 @@ fixtures = [
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields for CRM Lead and other DocTypes
 	{"dt": "Custom Field"},
+	# Workspace for sidebar navigation
+	{"dt": "Workspace", "filters": [["module", "=", "ilLumenate Lighting"]]},
 ]
 
 # Uninstallation
