@@ -48,6 +48,12 @@ Also handles new schedule creation when is_new is True
 	width: 100%;
 }
 
+/* Pricing columns */
+.fixture-lines-table th.col-pricing,
+.fixture-lines-table td.col-pricing {
+	white-space: nowrap;
+}
+
 /* Mobile/Tablet Card Layout */
 @media (max-width: 768px) {
 	.fixture-lines-table thead {
@@ -86,12 +92,20 @@ Also handles new schedule creation when is_new is True
 	.fixture-lines-table tbody td.col-line-id::before,
 	.fixture-lines-table tbody td.col-type::before,
 	.fixture-lines-table tbody td.col-qty::before,
-	.fixture-lines-table tbody td.col-location::before {
+	.fixture-lines-table tbody td.col-location::before,
+	.fixture-lines-table tbody td.col-pricing::before {
 		content: attr(data-label) ": ";
 		font-weight: 600;
 		color: var(--ill-gray-600, #757575);
 		font-size: var(--ill-font-size-xs, 0.75rem);
 		text-transform: uppercase;
+	}
+	.fixture-lines-table tbody td.col-pricing {
+		display: inline-block;
+		width: auto;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-3, 0.75rem);
+		vertical-align: middle;
+		text-align: left;
 	}
 	/* Card body: Fixture Details */
 	.fixture-lines-table tbody td.col-fixture-details {
@@ -312,6 +326,10 @@ Also handles new schedule creation when is_new is True
 									<th class="text-center">{{ _("Qty") }}</th>
 									<th>{{ _("Location") }}</th>
 									<th class="col-fixture-details">{{ _("Fixture Details") }}</th>
+									{% if can_view_pricing %}
+									<th class="text-right col-pricing">{{ _("Unit Price") }}</th>
+									<th class="text-right col-pricing">{{ _("Line Total") }}</th>
+									{% endif %}
 									{% if can_edit %}
 									<th class="text-center col-actions">{{ _("Actions") }}</th>
 									{% endif %}
@@ -493,6 +511,22 @@ Also handles new schedule creation when is_new is True
 										<span class="text-muted">-</span>
 										{% endif %}
 									</td>
+									{% if can_view_pricing %}
+									<td class="text-right col-pricing" data-label="{{ _('Unit Price') }}">
+										{% if line.get('unit_price') %}
+										${{ "%.2f" | format(line.get('unit_price')) }}
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									<td class="text-right col-pricing" data-label="{{ _('Line Total') }}">
+										{% if line.get('line_total') %}
+										${{ "%.2f" | format(line.get('line_total')) }}
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									{% endif %}
 									{% if can_edit %}
 									<td class="text-center col-actions">
 										<div class="action-buttons">
@@ -524,6 +558,19 @@ Also handles new schedule creation when is_new is True
 								</tr>
 								{% endfor %}
 							</tbody>
+							{% if can_view_pricing and schedule_total %}
+							<tfoot>
+								<tr class="font-weight-bold">
+									<td colspan="4" class="text-right">{{ _("Schedule Total:") }}</td>
+									<td></td>
+									<td></td>
+									<td class="text-right">${{ "%.2f" | format(schedule_total) }}</td>
+									{% if can_edit %}
+									<td></td>
+									{% endif %}
+								</tr>
+							</tfoot>
+							{% endif %}
 						</table>
 					</div>
 					{% else %}
