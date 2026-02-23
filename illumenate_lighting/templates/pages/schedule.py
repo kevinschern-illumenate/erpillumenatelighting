@@ -76,16 +76,17 @@ def get_context(context):
 			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
 		]
 		if cf_ids:
-			for cf_id in cf_ids:
-				snapshots = frappe.get_all(
-					"ilL-Child-Pricing-Snapshot",
-					filters={"parent": cf_id, "parenttype": "ilL-Configured-Fixture"},
-					fields=["msrp_unit"],
-					order_by="timestamp desc",
-					limit=1,
-				)
-				if snapshots and snapshots[0].msrp_unit:
-					pricing_map[cf_id] = float(snapshots[0].msrp_unit)
+			# Batch fetch all pricing snapshots in a single query
+			all_snapshots = frappe.get_all(
+				"ilL-Child-Pricing-Snapshot",
+				filters={"parent": ["in", cf_ids], "parenttype": "ilL-Configured-Fixture"},
+				fields=["parent", "msrp_unit", "timestamp"],
+				order_by="timestamp desc",
+			)
+			# Pick the latest snapshot per parent
+			for snap in all_snapshots:
+				if snap.parent not in pricing_map and snap.msrp_unit:
+					pricing_map[snap.parent] = float(snap.msrp_unit)
 
 	# Create enriched line data for template display
 	# We'll add cf_details directly to each line for easy access in the template
