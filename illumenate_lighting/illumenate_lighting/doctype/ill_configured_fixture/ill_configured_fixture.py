@@ -44,6 +44,10 @@ class ilLConfiguredFixture(Document):
 		# Always populate SKU codes from linked attribute records
 		self._populate_sku_codes()
 
+		# Populate feed direction codes in user segments for multi-segment fixtures
+		if self.is_multi_segment:
+			self._populate_user_segment_feed_direction_codes()
+
 	def _calculate_estimated_delivered_output(self):
 		"""
 		Calculate and store the estimated delivered output (lm/ft).
@@ -217,6 +221,30 @@ class ilLConfiguredFixture(Document):
 		self.sku_feed_direction_end_code = ""
 		if not self.is_multi_segment:
 			self.sku_feed_direction_end_code = "C"
+
+	def _populate_user_segment_feed_direction_codes(self):
+		"""
+		Populate feed direction codes in user segment child rows.
+
+		For each user segment, look up the ``code`` field from the linked
+		``ilL-Attribute-Feed-Direction`` record and store it in the
+		corresponding code field.  Clears the code when no direction is
+		selected or the end type is not Jumper.
+		"""
+		for seg in (self.user_segments or []):
+			# Start feed direction code
+			seg.start_feed_direction_code = ""
+			if seg.start_feed_direction:
+				seg.start_feed_direction_code = frappe.db.get_value(
+					"ilL-Attribute-Feed-Direction", seg.start_feed_direction, "code"
+				) or ""
+
+			# End feed direction code (only relevant for Jumper connections)
+			seg.end_feed_direction_code = ""
+			if seg.end_type == "Jumper" and seg.end_feed_direction:
+				seg.end_feed_direction_code = frappe.db.get_value(
+					"ilL-Attribute-Feed-Direction", seg.end_feed_direction, "code"
+				) or ""
 
 	def _generate_part_number(self) -> str:
 		"""Build the part number from linked doctypes."""
