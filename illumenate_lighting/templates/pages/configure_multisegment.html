@@ -127,9 +127,9 @@ Portal Multi-Segment Configurator Page
                 <div class="col-md-4"><div class="form-group mb-2"><label class="small">End Connection</label><select class="form-control form-control-sm" name="end_connection_type" onchange="updateConnectionFields(this)"><option value="Endcap">Endcap</option><option value="Leader Cable">Leader Cable</option><option value="Jumper Cable">Jumper Cable</option></select></div></div>
             </div>
             <div class="row start-endcap-fields"><div class="col-md-6"><div class="form-group mb-2"><label class="small">Start Endcap Style</label><select class="form-control form-control-sm" name="start_endcap_style"></select></div></div></div>
-            <div class="row start-cable-fields" style="display: none;"><div class="col-md-6"><div class="form-group mb-2"><label class="small">Start Cable Length (mm)</label><input type="number" class="form-control form-control-sm" name="start_cable_length_mm" value="300"></div></div></div>
+            <div class="row start-cable-fields" style="display: none;"><div class="col-md-6"><div class="form-group mb-2"><label class="small">Start Feed Direction</label><select class="form-control form-control-sm" name="start_feed_direction"></select></div></div><div class="col-md-6"><div class="form-group mb-2"><label class="small">Start Cable Length (mm)</label><input type="number" class="form-control form-control-sm" name="start_cable_length_mm" value="300"></div></div></div>
             <div class="row end-endcap-fields"><div class="col-md-6"><div class="form-group mb-2"><label class="small">End Endcap Style</label><select class="form-control form-control-sm" name="end_endcap_style"></select></div></div></div>
-            <div class="row end-cable-fields" style="display: none;"><div class="col-md-6"><div class="form-group mb-2"><label class="small">End Cable Length (mm)</label><input type="number" class="form-control form-control-sm" name="end_cable_length_mm" value="300"></div></div></div>
+            <div class="row end-cable-fields" style="display: none;"><div class="col-md-6"><div class="form-group mb-2"><label class="small">End Feed Direction</label><select class="form-control form-control-sm" name="end_feed_direction"></select></div></div><div class="col-md-6"><div class="form-group mb-2"><label class="small">End Cable Length (mm)</label><input type="number" class="form-control form-control-sm" name="end_cable_length_mm" value="300"></div></div></div>
         </div>
     </div>
 </template>
@@ -167,7 +167,7 @@ function loadTemplateOptions(template_code) {
             if (r.message) {
                 templateOptions = r.message;
                 populateBaseOptions(r.message);
-                $(".segment-card").each(function() { populateSegmentEndcapStyles($(this)); });
+                $(".segment-card").each(function() { populateSegmentEndcapStyles($(this)); populateSegmentFeedDirections($(this)); });
             }
         }
     });
@@ -210,6 +210,7 @@ function addSegment() {
     document.getElementById('segmentsList').appendChild(clone);
     var segmentCard = $("#segmentsList .segment-card").last();
     if (templateOptions) populateSegmentEndcapStyles(segmentCard);
+    if (templateOptions) populateSegmentFeedDirections(segmentCard);
     updateConnectionFields(startConn);
     updateConnectionFields(endConn);
     updateSegmentLengthUI(segmentCard);
@@ -254,6 +255,24 @@ function populateSegmentEndcapStyles(segmentCard) {
         var select = segmentCard.find('[name="' + pos + '_endcap_style"]');
         select.empty().append('<option value="">Select...</option>');
         templateOptions.endcap_style.forEach(function(opt) {
+            select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+        });
+    });
+}
+
+function populateSegmentFeedDirections(segmentCard) {
+    var feedDirs = (templateOptions && templateOptions.feed_directions && templateOptions.feed_directions.length > 0)
+        ? templateOptions.feed_directions
+        : [
+            {value: 'End', label: 'End'},
+            {value: 'Back', label: 'Back'},
+            {value: 'Left', label: 'Left'},
+            {value: 'Right', label: 'Right'}
+        ];
+    ['start_feed_direction', 'end_feed_direction'].forEach(function(fieldName) {
+        var select = segmentCard.find('[name="' + fieldName + '"]');
+        select.empty().append('<option value="">Select...</option>');
+        feedDirs.forEach(function(opt) {
             select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
         });
     });
@@ -307,8 +326,10 @@ function collectSegments() {
             segment_index: index + 1,
             requested_length_mm: lengthMm,
             end_type: endType,
+            start_feed_direction: card.find('[name="start_feed_direction"]').val() || '',
             start_power_feed_type: startPowerFeed,
             start_leader_cable_length_mm: parseInt(card.find('[name="start_cable_length_mm"]').val()) || 300,
+            end_feed_direction: card.find('[name="end_feed_direction"]').val() || '',
             end_power_feed_type: endPowerFeed,
             end_jumper_cable_length_mm: parseInt(card.find('[name="end_cable_length_mm"]').val()) || 300
         });
