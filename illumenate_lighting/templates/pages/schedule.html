@@ -719,6 +719,11 @@ Also handles new schedule creation when is_new is True
 							</div>
 						</div>
 
+						<!-- Product image preview (shared for fixture templates and items) -->
+						<div class="product-image-preview text-center" id="add_product_image_container" style="display: none;">
+							<img id="add_product_image" src="" alt="{{ _('Product Preview') }}" style="max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px; border: 1px solid var(--ill-gray-200, #eee); padding: 8px; background: #fff;">
+						</div>
+
 						<!-- Item details display -->
 						<div class="selected-item-details" style="display: none;">
 							<div class="alert alert-light">
@@ -1143,6 +1148,8 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
+	$('#add_product_image_container').hide();
+	$('#add_product_image').attr('src', '');
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	$('#add_selected_variant').val('');
@@ -1183,6 +1190,8 @@ $('#add_product_type').on('change', function() {
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
 	$('#add_selected_variant').val('');
+	$('#add_product_image_container').hide();
+	$('#add_product_image').attr('src', '');
 	
 	if (!productType) {
 		return;
@@ -1214,7 +1223,7 @@ function loadFixtureTemplates(productType) {
 			var options = '<option value="">{{ _("Select Fixture Template...") }}</option>';
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
-					options += '<option value="' + template.name + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+					options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '">' + template.template_name + ' (' + template.template_code + ')</option>';
 				});
 			}
 			$('#add_fixture_template').html(options);
@@ -1224,6 +1233,19 @@ function loadFixtureTemplates(productType) {
 		}
 	});
 }
+
+// Handle fixture template selection to show product image preview
+$('#add_fixture_template').on('change', function() {
+	var $selected = $(this).find('option:selected');
+	var imageUrl = $selected.data('image');
+	if (imageUrl) {
+		$('#add_product_image').attr('src', imageUrl);
+		$('#add_product_image_container').show();
+	} else {
+		$('#add_product_image').attr('src', '');
+		$('#add_product_image_container').hide();
+	}
+});
 
 // Load product categories (Item Groups under Products and Raw Materials)
 function loadProductCategories() {
@@ -1284,7 +1306,8 @@ function loadItemsForProductType(productType) {
 						'data-desc="' + safeDesc + '" ' +
 						'data-uom="' + (item.stock_uom || 'Nos') + '" ' +
 						'data-rate="' + (item.standard_rate || 0) + '" ' +
-						'data-has-variants="' + (item.has_variants ? '1' : '0') + '">' + 
+						'data-has-variants="' + (item.has_variants ? '1' : '0') + '" ' +
+						'data-image="' + (item.image || '') + '">' + 
 						item.item_name + ' (' + item.item_code + ')' +
 						(item.has_variants ? ' ⚙' : '') +
 						'</option>';
@@ -1309,6 +1332,8 @@ $('#add_selected_item').on('change', function() {
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
 	$('#add_selected_variant').val('');
+	$('#add_product_image_container').hide();
+	$('#add_product_image').attr('src', '');
 	
 	if (!itemCode) {
 		return;
@@ -1319,6 +1344,13 @@ $('#add_selected_item').on('change', function() {
 	$('#add_selected_item_desc').text($selected.data('desc') || '');
 	$('#add_selected_item_uom').text($selected.data('uom') || 'Nos');
 	$('.selected-item-details').show();
+
+	// Show product image preview if available
+	var imageUrl = $selected.data('image');
+	if (imageUrl) {
+		$('#add_product_image').attr('src', imageUrl);
+		$('#add_product_image_container').show();
+	}
 	
 	// Check if item has variants
 	var hasVariants = $selected.data('has-variants') === '1' || $selected.data('has-variants') === 1;
