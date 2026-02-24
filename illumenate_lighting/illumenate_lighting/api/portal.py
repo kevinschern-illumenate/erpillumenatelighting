@@ -1152,7 +1152,7 @@ def get_fixture_templates(product_type: str = None) -> dict:
 
 	Returns:
 		dict: {
-			"templates": [{"name": template_code, "template_name": name, "template_code": code}]
+			"templates": [{"name": template_code, "template_name": name, "template_code": code, "image": url or None}]
 		}
 	"""
 	# Get active fixture templates
@@ -1161,11 +1161,31 @@ def get_fixture_templates(product_type: str = None) -> dict:
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
 		filters=filters,
-		fields=["name", "template_code", "template_name"],
+		fields=["name", "template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
 	)
 
-	return {"templates": templates}
+	# Batch-fetch featured images for templates that have a linked Webflow product
+	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
+	webflow_product_images = {}
+	if webflow_product_names:
+		webflow_products = frappe.get_all(
+			"ilL-Webflow-Product",
+			filters={"name": ["in", webflow_product_names]},
+			fields=["name", "featured_image"],
+		)
+		webflow_product_images = {r.name: r.featured_image for r in webflow_products if r.featured_image}
+
+	result = []
+	for t in templates:
+		result.append({
+			"name": t.name,
+			"template_code": t.template_code,
+			"template_name": t.template_name,
+			"image": webflow_product_images.get(t.webflow_product) if t.webflow_product else None,
+		})
+
+	return {"templates": result}
 
 
 @frappe.whitelist()
