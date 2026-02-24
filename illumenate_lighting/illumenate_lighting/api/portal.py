@@ -1649,6 +1649,58 @@ def save_configured_fixture_to_schedule(
 
 
 @frappe.whitelist()
+def build_configured_fixture_and_item(configured_fixture_id: str) -> dict:
+	"""
+	Build a configured fixture's Item (and update fixture links).
+
+	Only accessible to System Manager users. This allows creating the
+	configured Item directly from the portal Configure page without
+	needing to create a Sales Order first.
+
+	Args:
+		configured_fixture_id: Name of the ilL-Configured-Fixture document
+
+	Returns:
+		dict: {"success": True/False, "item_code": str, "error": "message if error"}
+	"""
+	# Only System Managers can use this endpoint
+	if "System Manager" not in frappe.get_roles(frappe.session.user):
+		return {"success": False, "error": "Only System Managers can build configured fixtures and items"}
+
+	# Validate configured fixture exists
+	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_configured_item,
+			_update_fixture_links,
+		)
+
+		fixture = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+
+		item_result = _create_or_get_configured_item(fixture, skip_if_exists=True)
+		if not item_result.get("success"):
+			error_msgs = [m["text"] for m in item_result.get("messages", []) if m.get("severity") == "error"]
+			return {"success": False, "error": "; ".join(error_msgs) or "Failed to create item"}
+
+		item_code = item_result["item_code"]
+
+		# Update the fixture with the item link
+		_update_fixture_links(fixture, item_code=item_code, bom_name=None, work_order_name=None)
+
+		return {
+			"success": True,
+			"item_code": item_code,
+			"created": item_result.get("created", False),
+			"skipped": item_result.get("skipped", False),
+			"messages": item_result.get("messages", []),
+		}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
