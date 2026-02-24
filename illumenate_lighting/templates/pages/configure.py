@@ -46,11 +46,15 @@ def get_context(context):
 	# Determine if pricing should be shown based on user role
 	show_pricing = True
 
+	# Check if user is a System Manager (for build item button)
+	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+
 	context.schedule = schedule
 	context.schedule_name = schedule_name or ""
 	context.project_name = project_name or ""
 	context.line_idx = int(line_idx) if line_idx is not None else None
 	context.can_save = can_save
+	context.is_system_manager = is_system_manager
 	context.templates = templates
 	context.selected_template = template_code
 	context.show_pricing = show_pricing

@@ -24,13 +24,14 @@ def get_context(context):
 	context.user_name = user_doc.first_name or user_doc.full_name or user_doc.name.split("@")[0]
 
 	# Get user's customer
+	customer = _get_user_customer(frappe.session.user)
 	context.customer_name = _get_user_customer_name(frappe.session.user)
 
-	# Get statistics
-	context.stats = _get_portal_stats()
+	# Get statistics (filtered by customer)
+	context.stats = _get_portal_stats(customer)
 
-	# Get recent projects
-	context.recent_projects = frappe.get_all(
+	# Get recent projects (respects permission_query_conditions)
+	context.recent_projects = frappe.get_list(
 		"ilL-Project",
 		fields=["name", "project_name", "customer", "status", "modified"],
 		order_by="modified desc",
@@ -38,7 +39,6 @@ def get_context(context):
 	)
 
 	# Get recent orders
-	customer = _get_user_customer(frappe.session.user)
 	if customer:
 		context.recent_orders = frappe.get_all(
 			"Sales Order",
@@ -75,8 +75,12 @@ def _get_user_customer_name(user):
 	return None
 
 
-def _get_portal_stats():
-	"""Get statistics for the portal dashboard."""
+def _get_portal_stats(customer=None):
+	"""Get statistics for the portal dashboard, scoped to the user's customer."""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_internal_user,
+	)
+
 	stats = {
 		"active_projects": 0,
 		"total_schedules": 0,
@@ -86,14 +90,24 @@ def _get_portal_stats():
 		"ready_drawings": 0,
 	}
 
-	# Count active projects
-	stats["active_projects"] = frappe.db.count("ilL-Project", {"status": "ACTIVE"})
+	is_internal = _is_internal_user(frappe.session.user)
 
-	# Count schedules
-	stats["total_schedules"] = frappe.db.count("ilL-Project-Fixture-Schedule")
+	if is_internal:
+		# Internal users see global counts
+		stats["active_projects"] = frappe.db.count("ilL-Project", {"status": "ACTIVE"})
+		stats["total_schedules"] = frappe.db.count("ilL-Project-Fixture-Schedule")
+	elif customer:
+		# Portal users see only their customer's counts
+		stats["active_projects"] = frappe.db.count(
+			"ilL-Project",
+			{"status": "ACTIVE", "owner_customer": customer},
+		)
+		stats["total_schedules"] = frappe.db.count(
+			"ilL-Project-Fixture-Schedule",
+			{"customer": customer},
+		)
 
 	# Count orders by status
-	customer = _get_user_customer(frappe.session.user)
 	if customer:
 		stats["pending_orders"] = frappe.db.count(
 			"Sales Order",
@@ -103,17 +117,36 @@ def _get_portal_stats():
 			"Sales Order",
 			{"customer": customer, "status": ["in", ["To Bill", "Completed"]], "docstatus": 1}
 		)
+	elif is_internal:
+		stats["pending_orders"] = frappe.db.count(
+			"Sales Order",
+			{"status": ["in", ["To Deliver and Bill", "To Deliver"]], "docstatus": 1}
+		)
+		stats["ready_orders"] = frappe.db.count(
+			"Sales Order",
+			{"status": ["in", ["To Bill", "Completed"]], "docstatus": 1}
+		)
 
 	# Count drawing requests if the doctype exists
 	if frappe.db.exists("DocType", "ilL-Document-Request"):
-		stats["pending_drawings"] = frappe.db.count(
-			"ilL-Document-Request",
-			{"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]}
-		)
-		stats["ready_drawings"] = frappe.db.count(
-			"ilL-Document-Request",
-			{"status": ["in", ["Completed", "Closed"]]}
-		)
+		if is_internal:
+			stats["pending_drawings"] = frappe.db.count(
+				"ilL-Document-Request",
+				{"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]}
+			)
+			stats["ready_drawings"] = frappe.db.count(
+				"ilL-Document-Request",
+				{"status": ["in", ["Completed", "Closed"]]}
+			)
+		elif customer:
+			stats["pending_drawings"] = frappe.db.count(
+				"ilL-Document-Request",
+				{"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]], "owner_customer": customer}
+			)
+			stats["ready_drawings"] = frappe.db.count(
+				"ilL-Document-Request",
+				{"status": ["in", ["Completed", "Closed"]], "owner_customer": customer}
+			)
 
 	return stats
 

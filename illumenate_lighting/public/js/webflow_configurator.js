@@ -263,7 +263,9 @@ function processTemplateOptions(template) {
         finishes: [],
         feed_directions: [
             { value: 'End', label: 'End', code: 'E' },
-            { value: 'Back', label: 'Back', code: 'B' }
+            { value: 'Back', label: 'Back', code: 'B' },
+            { value: 'Left', label: 'Left', code: 'L' },
+            { value: 'Right', label: 'Right', code: 'R' }
         ]
     };
     
@@ -386,7 +388,9 @@ function populatePillSelector(fieldName, options) {
 function populateFeedDirections(directions) {
     var dirOptions = directions || [
         { value: 'End', label: 'End', code: 'E' },
-        { value: 'Back', label: 'Back', code: 'B' }
+        { value: 'Back', label: 'Back', code: 'B' },
+        { value: 'Left', label: 'Left', code: 'L' },
+        { value: 'Right', label: 'Right', code: 'R' }
     ];
     
     // Add Endcap option for end feed direction only (if not already present)

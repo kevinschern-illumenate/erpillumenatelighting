@@ -1,120 +1,146 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "format:{fixture_template}-{pdf_field_name}",
- "creation": "2026-01-23 00:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "fixture_template",
-  "pdf_field_name",
-  "column_break_main",
-  "source_doctype",
-  "source_field",
-  "show_fields_button",
-  "available_fields_html",
-  "transformation_section",
-  "transformation"
- ],
- "fields": [
-  {
-   "fieldname": "fixture_template",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Fixture Template",
-   "options": "ilL-Fixture-Template",
-   "reqd": 1
-  },
-  {
-   "description": "The name of the form field in the fillable PDF template",
-   "fieldname": "pdf_field_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "PDF Field Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_main",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "The DocType to pull the source value from",
-   "fieldname": "source_doctype",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Source DocType",
-   "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Rel-Tape Offering\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
-   "reqd": 1
-  },
-  {
-   "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options.",
-   "fieldname": "source_field",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Source Field",
-   "reqd": 1
-  },
-  {
-   "fieldname": "show_fields_button",
-   "fieldtype": "Button",
-   "label": "Show Available Fields"
-  },
-  {
-   "fieldname": "available_fields_html",
-   "fieldtype": "HTML",
-   "label": "Available Fields"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "transformation_section",
-   "fieldtype": "Section Break",
-   "label": "Transformation"
-  },
-  {
-   "description": "Optional transformation to apply to the source value before filling",
-   "fieldname": "transformation",
-   "fieldtype": "Select",
-   "label": "Transformation",
-   "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-23 00:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Spec-Submittal-Mapping",
- "naming_rule": "Expression",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "fixture_template, pdf_field_name, source_field",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "format:{fixture_template}-{pdf_field_name}",
+    "creation":  "2026-01-23 00:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "fixture_template",
+                        "pdf_field_name",
+                        "column_break_main",
+                        "source_doctype",
+                        "source_field",
+                        "show_fields_button",
+                        "available_fields_html",
+                        "transformation_section",
+                        "transformation",
+                        "column_break_transform",
+                        "prefix",
+                        "suffix"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Fixture Template",
+                       "options":  "ilL-Fixture-Template",
+                       "reqd":  1
+                   },
+                   {
+                       "description":  "The name of the form field in the fillable PDF template",
+                       "fieldname":  "pdf_field_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "PDF Field Name",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_main",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "The DocType to pull the source value from",
+                       "fieldname":  "source_doctype",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Source DocType",
+                       "options":  "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Rel-Tape Offering\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+                       "reqd":  1
+                   },
+                   {
+                       "description":  "The field name on the source doctype. Click the \u0027Show Available Fields\u0027 button to see options.",
+                       "fieldname":  "source_field",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Source Field",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "show_fields_button",
+                       "fieldtype":  "Button",
+                       "label":  "Show Available Fields"
+                   },
+                   {
+                       "fieldname":  "available_fields_html",
+                       "fieldtype":  "HTML",
+                       "label":  "Available Fields"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "transformation_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Transformation"
+                   },
+                   {
+                       "description":  "Optional transformation to apply to the source value before filling",
+                       "fieldname":  "transformation",
+                       "fieldtype":  "Select",
+                       "label":  "Transformation",
+                       "options":  "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT"
+                   },
+                   {
+                       "fieldname":  "column_break_transform",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Text to prepend before the value (applied after transformation)",
+                       "fieldname":  "prefix",
+                       "fieldtype":  "Data",
+                       "label":  "Prefix"
+                   },
+                   {
+                       "description":  "Text to append after the value (applied after transformation)",
+                       "fieldname":  "suffix",
+                       "fieldtype":  "Data",
+                       "label":  "Suffix"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-23 00:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Spec-Submittal-Mapping",
+    "naming_rule":  "Expression",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "fixture_template, pdf_field_name, source_field",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

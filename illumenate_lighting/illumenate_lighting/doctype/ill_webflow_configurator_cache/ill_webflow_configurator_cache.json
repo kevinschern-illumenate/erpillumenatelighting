@@ -1,132 +1,139 @@
 {
- "actions": [],
- "allow_rename": 0,
- "autoname": "field:cache_key",
- "creation": "2026-01-21 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "cache_key",
-  "product_slug",
-  "step_name",
-  "column_break_main",
-  "is_valid",
-  "hit_count",
-  "data_section",
-  "selections_json",
-  "options_json",
-  "timestamps_section",
-  "created_at",
-  "expires_at",
-  "column_break_timestamps",
-  "last_accessed"
- ],
- "fields": [
-  {
-   "fieldname": "cache_key",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Cache Key",
-   "reqd": 1,
-   "unique": 1,
-   "description": "MD5 hash of product_slug + step + selections"
-  },
-  {
-   "fieldname": "product_slug",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Product Slug"
-  },
-  {
-   "fieldname": "step_name",
-   "fieldtype": "Data",
-   "label": "Step Name"
-  },
-  {
-   "fieldname": "column_break_main",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_valid",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Valid"
-  },
-  {
-   "default": "0",
-   "fieldname": "hit_count",
-   "fieldtype": "Int",
-   "label": "Hit Count",
-   "description": "Number of times this cache entry was used"
-  },
-  {
-   "fieldname": "data_section",
-   "fieldtype": "Section Break",
-   "label": "Cache Data"
-  },
-  {
-   "fieldname": "selections_json",
-   "fieldtype": "JSON",
-   "label": "Selections JSON",
-   "description": "The user selections that generated this cache"
-  },
-  {
-   "fieldname": "options_json",
-   "fieldtype": "JSON",
-   "label": "Options JSON",
-   "description": "The cached options result"
-  },
-  {
-   "fieldname": "timestamps_section",
-   "fieldtype": "Section Break",
-   "label": "Timestamps"
-  },
-  {
-   "fieldname": "created_at",
-   "fieldtype": "Datetime",
-   "label": "Created At"
-  },
-  {
-   "fieldname": "expires_at",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Expires At"
-  },
-  {
-   "fieldname": "column_break_timestamps",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "last_accessed",
-   "fieldtype": "Datetime",
-   "label": "Last Accessed"
-  }
- ],
- "index_web_pages_for_search": 0,
- "links": [],
- "modified": "2026-01-21 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Webflow-Configurator-Cache",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "created_at",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 0
+    "actions":  [
+
+                ],
+    "allow_rename":  0,
+    "autoname":  "field:cache_key",
+    "creation":  "2026-01-21 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "cache_key",
+                        "product_slug",
+                        "step_name",
+                        "column_break_main",
+                        "is_valid",
+                        "hit_count",
+                        "data_section",
+                        "selections_json",
+                        "options_json",
+                        "timestamps_section",
+                        "created_at",
+                        "expires_at",
+                        "column_break_timestamps",
+                        "last_accessed"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "cache_key",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Cache Key",
+                       "reqd":  1,
+                       "unique":  1,
+                       "description":  "MD5 hash of product_slug + step + selections"
+                   },
+                   {
+                       "fieldname":  "product_slug",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Product Slug"
+                   },
+                   {
+                       "fieldname":  "step_name",
+                       "fieldtype":  "Data",
+                       "label":  "Step Name"
+                   },
+                   {
+                       "fieldname":  "column_break_main",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_valid",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Valid"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "hit_count",
+                       "fieldtype":  "Int",
+                       "label":  "Hit Count",
+                       "description":  "Number of times this cache entry was used"
+                   },
+                   {
+                       "fieldname":  "data_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Cache Data"
+                   },
+                   {
+                       "fieldname":  "selections_json",
+                       "fieldtype":  "JSON",
+                       "label":  "Selections JSON",
+                       "description":  "The user selections that generated this cache"
+                   },
+                   {
+                       "fieldname":  "options_json",
+                       "fieldtype":  "JSON",
+                       "label":  "Options JSON",
+                       "description":  "The cached options result"
+                   },
+                   {
+                       "fieldname":  "timestamps_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Timestamps"
+                   },
+                   {
+                       "fieldname":  "created_at",
+                       "fieldtype":  "Datetime",
+                       "label":  "Created At"
+                   },
+                   {
+                       "fieldname":  "expires_at",
+                       "fieldtype":  "Datetime",
+                       "in_list_view":  1,
+                       "label":  "Expires At"
+                   },
+                   {
+                       "fieldname":  "column_break_timestamps",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "last_accessed",
+                       "fieldtype":  "Datetime",
+                       "label":  "Last Accessed"
+                   }
+               ],
+    "index_web_pages_for_search":  0,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-21 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Webflow-Configurator-Cache",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "created_at",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  0,
+    "allow_import":  1
 }

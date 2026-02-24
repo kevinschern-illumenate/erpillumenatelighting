@@ -1,130 +1,137 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:item",
- "creation": "2026-01-07 12:37:33.067621",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "identity_sb",
-  "item",
-  "family",
-  "column_break_jkbi",
-  "lens_appearance",
-  "series",
-  "stocking_section",
-  "stock_type",
-  "stock_length_mm",
-  "continuous_max_length_mm",
-  "compatibility_section",
-  "supported_environment_ratings"
- ],
- "fields": [
-  {
-   "fieldname": "identity_sb",
-   "fieldtype": "Section Break",
-   "label": "Identity"
-  },
-  {
-   "fieldname": "column_break_jkbi",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "lens_appearance",
-   "fieldtype": "Link",
-   "label": "Lens Appearance",
-   "options": "ilL-Attribute-Lens Appearance"
-  },
-  {
-   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
-   "fieldname": "series",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Series",
-   "options": "ilL-Attribute-Series"
-  },
-  {
-   "fieldname": "stocking_section",
-   "fieldtype": "Section Break",
-   "label": "Stocking"
-  },
-  {
-   "fieldname": "stock_type",
-   "fieldtype": "Select",
-   "label": "Stock Type",
-   "options": "Stick\nContinuous Roll"
-  },
-  {
-   "fieldname": "stock_length_mm",
-   "fieldtype": "Int",
-   "label": "Stock Length (mm)"
-  },
-  {
-   "fieldname": "continuous_max_length_mm",
-   "fieldtype": "Int",
-   "label": "Continuous Max Length (mm)"
-  },
-  {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Lens Item",
-   "options": "Item",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "family",
-   "fieldtype": "Data",
-   "label": "Lens Family"
-  },
-  {
-   "fieldname": "compatibility_section",
-   "fieldtype": "Section Break",
-   "label": "Compatibility"
-  },
-  {
-   "fieldname": "supported_environment_ratings",
-   "fieldtype": "Table",
-   "label": "Supported Environment Ratings",
-   "options": "ilL-Child-Lens Environments"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 12:43:59.877924",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Spec-Lens",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:item",
+    "creation":  "2026-01-07 12:37:33.067621",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "identity_sb",
+                        "item",
+                        "family",
+                        "column_break_jkbi",
+                        "lens_appearance",
+                        "series",
+                        "stocking_section",
+                        "stock_type",
+                        "stock_length_mm",
+                        "continuous_max_length_mm",
+                        "compatibility_section",
+                        "supported_environment_ratings"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "identity_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Identity"
+                   },
+                   {
+                       "fieldname":  "column_break_jkbi",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "lens_appearance",
+                       "fieldtype":  "Link",
+                       "label":  "Lens Appearance",
+                       "options":  "ilL-Attribute-Lens Appearance"
+                   },
+                   {
+                       "description":  "Product series for filtering (e.g., \u0027SH01\u0027, \u0027SL02\u0027)",
+                       "fieldname":  "series",
+                       "fieldtype":  "Link",
+                       "in_standard_filter":  1,
+                       "label":  "Series",
+                       "options":  "ilL-Attribute-Series"
+                   },
+                   {
+                       "fieldname":  "stocking_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Stocking"
+                   },
+                   {
+                       "fieldname":  "stock_type",
+                       "fieldtype":  "Select",
+                       "label":  "Stock Type",
+                       "options":  "Stick\nContinuous Roll"
+                   },
+                   {
+                       "fieldname":  "stock_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Stock Length (mm)"
+                   },
+                   {
+                       "fieldname":  "continuous_max_length_mm",
+                       "fieldtype":  "Int",
+                       "label":  "Continuous Max Length (mm)"
+                   },
+                   {
+                       "fieldname":  "item",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Lens Item",
+                       "options":  "Item",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "family",
+                       "fieldtype":  "Data",
+                       "label":  "Lens Family"
+                   },
+                   {
+                       "fieldname":  "compatibility_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Compatibility"
+                   },
+                   {
+                       "fieldname":  "supported_environment_ratings",
+                       "fieldtype":  "Table",
+                       "label":  "Supported Environment Ratings",
+                       "options":  "ilL-Child-Lens Environments"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 12:43:59.877924",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Spec-Lens",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }

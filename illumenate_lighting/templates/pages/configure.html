@@ -243,12 +243,14 @@ Allows users to configure fixtures using segment-based configuration
 								<select class="form-control select-fallback" name="finish_code" required></select>
 							</div>
 
-							<!-- Endcap Color -->
-							<div class="option-group">
-								<label class="option-label">{{ _("Endcap Color") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" data-field="endcap_color_code"></div>
-								<select class="form-control select-fallback" name="endcap_color_code" required></select>
+							<!-- Endcap Color (auto-resolved from finish) -->
+							<div class="option-group" id="endcapColorDisplay" style="display: none;">
+								<label class="option-label">{{ _("Endcap Color") }}</label>
+								<div class="endcap-color-info text-muted small">
+									<i class="fa fa-info-circle"></i> <span id="endcapColorLabel">Auto-selected based on finish</span>
+								</div>
 							</div>
+							<input type="hidden" name="endcap_color_code" value="">
 
 							<!-- Hidden field for auto-selected tape -->
 							<input type="hidden" name="tape_offering_id" value="">
@@ -280,6 +282,11 @@ Allows users to configure fixtures using segment-based configuration
 				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
+				{% if is_system_manager %}
+				<button type="button" class="btn btn-warning" id="buildItemBtn" onclick="buildConfiguredFixtureAndItem()" style="display: none;" disabled>
+					<i class="fa fa-wrench"></i> {{ _("Build Configured Fixture & Item") }}
+				</button>
+				{% endif %}
 				<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" style="display: none;" disabled>
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>
@@ -452,16 +459,22 @@ Allows users to configure fixtures using segment-based configuration
 						<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
 					</div>
 				</div>
-				<!-- First segment: user selects power feed type and leader cable length -->
+				<!-- First segment: user selects feed direction, power feed type and leader cable length -->
 				<div class="first-segment-start" style="display: none;">
 					<div class="row">
-						<div class="col-md-6">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
 								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
 							</div>
 						</div>
-						<div class="col-md-6">
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Leader Cable Length (in)") }}</label>
 								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
@@ -539,13 +552,19 @@ Allows users to configure fixtures using segment-based configuration
 				<!-- Jumper Fields (shown when end type is Jumper) -->
 				<div class="jumper-fields" style="display: none;">
 					<div class="row">
-						<div class="col-md-6">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
 								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
 							</div>
 						</div>
-						<div class="col-md-6">
+						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
 								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
@@ -572,6 +591,10 @@ var MM_PER_FOOT = 304.8;
 var INCHES_PER_FOOT = 12;
 var scheduleLines = [];  // Cached schedule lines
 var canSaveToSchedule = {{ 'true' if can_save else 'false' }};
+var isSystemManager = {{ 'true' if is_system_manager else 'false' }};
+var isPopulating = false;  // Flag to suppress cascading events during populateOptions
+var isMultiCCT = false;  // Track whether the current LED package is multi-CCT (Tunable White, etc.)
+var MULTI_CCT_SPECTRUM_TYPES = ['Tunable White', 'Dim to Warm', 'RGB+TW', 'RGBTW', 'RGB+W', 'RGBW'];
 
 console.log('Configurator script loaded');
 
@@ -713,6 +736,15 @@ function updateSaveButtonVisibility() {
 	} else {
 		$('#saveBtn').hide();
 	}
+
+	// Show/enable Build Item button for System Managers when config is valid
+	if (isSystemManager) {
+		if (currentResult && currentResult.is_valid && currentResult.configured_fixture_id) {
+			$('#buildItemBtn').show().prop('disabled', false);
+		} else {
+			$('#buildItemBtn').show().prop('disabled', true);
+		}
+	}
 }
 
 // =====================================================================
@@ -771,44 +803,88 @@ $(function() {
 
 	// Cascading option change handlers
 	$('select[name="led_package_code"]').on('change', function() {
+		if (isPopulating) return;
+		// Re-detect multi-CCT based on selected LED package
+		var selectedPkg = $(this).val();
+		if (templateOptions && templateOptions.led_packages) {
+			isMultiCCT = false;
+			templateOptions.led_packages.forEach(function(pkg) {
+				if (pkg.value === selectedPkg && pkg.spectrum_type && MULTI_CCT_SPECTRUM_TYPES.indexOf(pkg.spectrum_type) !== -1) {
+					isMultiCCT = true;
+				}
+			});
+			console.log('LED package changed, isMultiCCT:', isMultiCCT);
+		}
 		updateCCTOptions();
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="environment_rating_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateCCTOptions();
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="cct_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="lens_appearance_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateDeliveredOutputs();
 		updateUI();
 	});
 
 	$('select[name="delivered_output_value"]').on('change', function() {
+		if (isPopulating) return;
 		autoSelectTape();
 		updateUI();
 	});
 
 	$('select[name="mounting_method_code"]').on('change', function() {
+		if (isPopulating) return;
 		updateUI();
 	});
 
 	$('select[name="finish_code"]').on('change', function() {
-		updateUI();
-	});
-
-	$('select[name="endcap_color_code"]').on('change', function() {
+		if (isPopulating) return;
+		// Auto-resolve endcap color from finish
+		autoResolveEndcapColor();
 		updateUI();
 	});
 });
+
+function autoResolveEndcapColor() {
+	var finishCode = $('select[name="finish_code"]').val() || $('.pill-selector[data-field="finish_code"] .pill-option.active input').val();
+	if (!finishCode || !templateOptions || !templateOptions.finish_endcap_color_map) {
+		$('[name="endcap_color_code"]').val('');
+		$('#endcapColorDisplay').hide();
+		return;
+	}
+
+	var mapping = templateOptions.finish_endcap_color_map[finishCode];
+	if (mapping) {
+		$('[name="endcap_color_code"]').val(mapping.endcap_color_code);
+		$('#endcapColorLabel').text('Endcap Color: ' + mapping.endcap_color_label);
+		$('#endcapColorDisplay').show();
+		console.log('Auto-resolved endcap color from finish:', finishCode, '->', mapping.endcap_color_code);
+	} else {
+		// Fallback: if no mapping, use the first endcap color
+		if (templateOptions.endcap_colors && templateOptions.endcap_colors.length > 0) {
+			$('[name="endcap_color_code"]').val(templateOptions.endcap_colors[0].value);
+			$('#endcapColorLabel').text('Endcap Color: ' + templateOptions.endcap_colors[0].label + ' (default)');
+			$('#endcapColorDisplay').show();
+			console.log('Using default endcap color (no finish mapping):', templateOptions.endcap_colors[0].value);
+		} else {
+			$('[name="endcap_color_code"]').val('');
+			$('#endcapColorDisplay').hide();
+		}
+	}
+}
 
 function loadTemplateOptions(template_code) {
 	console.log('loadTemplateOptions called with:', template_code);
@@ -848,9 +924,11 @@ function updateCCTOptions() {
 	var template_code = $('select[name="fixture_template_code"]').val();
 	var led_package = $('select[name="led_package_code"]').val();
 	var environment = $('select[name="environment_rating_code"]').val();
-	
+
+	console.log('updateCCTOptions called with:', {template_code: template_code, led_package: led_package, environment: environment});
+
 	if (!template_code) return;
-	
+
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_ccts_for_template',
 		args: {
@@ -859,9 +937,28 @@ function updateCCTOptions() {
 			environment_rating_code: environment || null
 		},
 		callback: function(r) {
+			console.log('updateCCTOptions response:', r.message);
 			if (r.message && r.message.success) {
-				populatePillSelector('cct_code', r.message.ccts);
+				var ccts = r.message.ccts || [];
+				var apiIsMultiCCT = r.message.is_multi_cct || false;
+				console.log('updateCCTOptions received', ccts.length, 'CCTs, is_multi_cct:', apiIsMultiCCT);
+				if (ccts.length > 0) {
+					populatePillSelector('cct_code', ccts);
+				} else if (apiIsMultiCCT) {
+					// Multi-CCT package but no compatible_ccts defined on the LED Package.
+					// Clear stale static-white CCTs rather than keeping wrong options.
+					console.warn('updateCCTOptions: multi-CCT package has no compatible CCTs defined. '
+						+ 'Please add compatible CCTs to the LED Package document.');
+					populatePillSelector('cct_code', []);
+				} else {
+					console.warn('updateCCTOptions: API returned empty CCTs, keeping existing pills');
+				}
+			} else {
+				console.warn('updateCCTOptions: API call did not succeed, keeping existing pills');
 			}
+		},
+		error: function(r) {
+			console.error('updateCCTOptions API call failed:', r);
 		}
 	});
 }
@@ -872,29 +969,37 @@ function updateDeliveredOutputs() {
 	var environment = $('select[name="environment_rating_code"]').val();
 	var cct = $('select[name="cct_code"]').val();
 	var lens = $('select[name="lens_appearance_code"]').val();
-	
+
 	console.log('updateDeliveredOutputs called with:', {
 		template_code: template_code,
 		led_package: led_package,
 		environment: environment,
 		cct: cct,
-		lens: lens
+		lens: lens,
+		isMultiCCT: isMultiCCT
 	});
-	
+
+	// For multi-CCT packages (Tunable White, etc.), CCT is not required to show outputs
+	// because the tape offering output is the same regardless of selected CCT.
+	var cctRequired = !isMultiCCT;
+
 	// Only fetch outputs when all required fields are selected
-	if (!template_code || !led_package || !environment || !cct || !lens) {
+	if (!template_code || !led_package || !environment || !lens || (cctRequired && !cct)) {
 		$('#outputGroup').hide();
 		$('input[name="tape_offering_id"]').val('');
 		return;
 	}
 	
+	// For multi-CCT packages, pass cct as null if not selected (API handles this)
+	var cctArg = cct || null;
+
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_delivered_outputs_for_template',
 		args: {
 			fixture_template_code: template_code,
 			led_package_code: led_package,
 			environment_rating_code: environment,
-			cct_code: cct,
+			cct_code: cctArg,
 			lens_appearance_code: lens
 		},
 		callback: function(r) {
@@ -922,7 +1027,8 @@ function autoSelectTape() {
 	var lens = $('select[name="lens_appearance_code"]').val();
 	var output = $('select[name="delivered_output_value"]').val();
 	
-	if (!template_code || !led_package || !environment || !cct || !lens || !output) {
+	var cctRequired = !isMultiCCT;
+	if (!template_code || !led_package || !environment || !lens || !output || (cctRequired && !cct)) {
 		$('input[name="tape_offering_id"]').val('');
 		return;
 	}
@@ -933,7 +1039,7 @@ function autoSelectTape() {
 			fixture_template_code: template_code,
 			led_package_code: led_package,
 			environment_rating_code: environment,
-			cct_code: cct,
+			cct_code: cct || null,
 			lens_appearance_code: lens,
 			delivered_output_value: parseInt(output)
 		},
@@ -987,6 +1093,7 @@ function populatePillSelector(fieldName, options) {
 
 function populateOptions(options) {
 	console.log('populateOptions called with:', options);
+	isPopulating = true;  // Suppress cascading change events during population
 	
 	// Map API response keys to form field names
 	var pillFields = {
@@ -1046,42 +1153,46 @@ function populateOptions(options) {
 		});
 	});
 
-	// Populate endcap colors (also uses pills)
-	var colorPillContainer = $('.pill-selector[data-field="endcap_color_code"]');
-	var colorSelect = $('select[name="endcap_color_code"]');
-	colorPillContainer.empty();
-	colorSelect.empty().append('<option value="">Select...</option>');
-	if (options.endcap_colors) {
-		options.endcap_colors.forEach(function(opt) {
-			// Add pill button
-			var pill = $('<label class="pill-option">' +
-				'<input type="radio" name="endcap_color_code_pill" value="' + opt.value + '">' +
-				opt.label +
-			'</label>');
-			pill.on('click', function() {
-				colorPillContainer.find('.pill-option').removeClass('active');
-				$(this).addClass('active');
-				colorSelect.val(opt.value).trigger('change');
-			});
-			colorPillContainer.append(pill);
-			
-			// Add to fallback select
-			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
-		});
-	}
-	
-	// Sync color select to pills
-	colorSelect.off('change.pillSync').on('change.pillSync', function() {
-		var value = $(this).val();
-		colorPillContainer.find('.pill-option').removeClass('active');
-		colorPillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
-	});
+	// Endcap color is now auto-resolved from finish via ilL-Rel-Finish Endcap Color
+	// No pill selector needed — hidden field is set by autoResolveEndcapColor()
 
 	// Hide output group initially - will be shown when all cascading selections are made
 	$('#outputGroup').hide();
 	
 	// Clear auto-selected tape offering
 	$('input[name="tape_offering_id"]').val('');
+
+	// Detect multi-CCT LED package (Tunable White, Dim to Warm, etc.)
+	// For multi-CCT packages, outputs can be shown without explicit CCT selection.
+	isMultiCCT = false;
+	if (options.led_packages && options.led_packages.length > 0) {
+		// Check if any (or the only) LED package is multi-CCT
+		options.led_packages.forEach(function(pkg) {
+			if (pkg.spectrum_type && MULTI_CCT_SPECTRUM_TYPES.indexOf(pkg.spectrum_type) !== -1) {
+				isMultiCCT = true;
+			}
+		});
+		console.log('isMultiCCT:', isMultiCCT, '(spectrum types:', options.led_packages.map(function(p) { return p.spectrum_type; }), ')');
+	}
+
+	// Auto-select single-option fields and trigger cascading
+	isPopulating = false;  // Re-enable cascading before auto-selection
+	
+	var cascadingFields = ['led_packages', 'environment_ratings', 'ccts', 'lens_appearances', 'mountings', 'finishes'];
+	cascadingFields.forEach(function(optionKey) {
+		var fieldName = pillFields[optionKey];
+		if (options[optionKey] && options[optionKey].length === 1) {
+			var onlyValue = options[optionKey][0].value;
+			var selectFallback = $('select[name="' + fieldName + '"]');
+			var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+			selectFallback.val(onlyValue).trigger('change');
+			pillContainer.find('.pill-option').first().addClass('active');
+			console.log('Auto-selected single option for', fieldName, ':', onlyValue);
+		}
+	});
+
+	// Auto-resolve endcap color from finish (after finish may have been auto-selected above)
+	autoResolveEndcapColor();
 }
 
 function populateSegmentPowerFeedOptions(segmentCard) {
@@ -1091,6 +1202,23 @@ function populateSegmentPowerFeedOptions(segmentCard) {
 		var select = segmentCard.find('[name="' + fieldName + '"]');
 		select.empty().append('<option value="">Select...</option>');
 		templateOptions.power_feed_type.forEach(function(opt) {
+			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	});
+
+	// Populate feed direction dropdowns
+	var feedDirs = (templateOptions.feed_directions && templateOptions.feed_directions.length > 0)
+		? templateOptions.feed_directions
+		: [
+			{value: 'End', label: 'End'},
+			{value: 'Back', label: 'Back'},
+			{value: 'Left', label: 'Left'},
+			{value: 'Right', label: 'Right'}
+		];
+	['start_feed_direction', 'end_feed_direction'].forEach(function(fieldName) {
+		var select = segmentCard.find('[name="' + fieldName + '"]');
+		select.empty().append('<option value="">Select...</option>');
+		feedDirs.forEach(function(opt) {
 			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 		});
 	});
@@ -1116,20 +1244,22 @@ function addSegment(isFirst) {
 		// Can be removed
 		card.querySelector('.remove-segment-btn').style.display = 'inline-block';
 		
-		// Copy power feed and jumper length from prior segment's end
+		// Copy feed direction, power feed and jumper length from prior segment's end
 		var priorSegment = $('#segmentsList .segment-card').last();
 		if (priorSegment.length) {
+			var priorEndFeedDir = priorSegment.find('[name="end_feed_direction"]').val();
 			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
 			var priorJumperLenIn = priorSegment.find('[name="end_jumper_cable_length_in"]').val();
 			// Convert inches to mm for storage in data attribute
 			var priorJumperLenMm = Math.round((parseFloat(priorJumperLenIn) || 12) * MM_PER_INCH);
 			
 			// Store inherited values as data attributes (in mm for backend)
+			card.dataset.inheritedFeedDirection = priorEndFeedDir || '';
 			card.dataset.inheritedPowerFeedType = priorEndPFT || '';
 			card.dataset.inheritedCableLength = priorJumperLenMm;
 			
 			// Update inherited text (display in inches)
-			var inheritedText = 'From prior segment: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '" jumper';
+			var inheritedText = 'From prior segment: ' + (priorEndFeedDir ? priorEndFeedDir + ' ' : '') + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '" jumper';
 			card.querySelector('.inherited-text').textContent = inheritedText;
 		}
 	}
@@ -1306,10 +1436,12 @@ function updateUI() {
 	var segmentComplete = lastSegment.length && lastSegment.find('[name="end_type"]').val() === 'Endcap';
 	
 	// Check if all required cascading fields are selected
+	// For multi-CCT packages (Tunable White, etc.), CCT is optional for output calculation
+	var cctComplete = isMultiCCT || !!$('[name="cct_code"]').val();
 	var cascadingComplete = (
 		$('[name="led_package_code"]').val() &&
 		$('[name="environment_rating_code"]').val() &&
-		$('[name="cct_code"]').val() &&
+		cctComplete &&
 		$('[name="lens_appearance_code"]').val() &&
 		$('[name="delivered_output_value"]').val() &&
 		$('[name="mounting_method_code"]').val() &&
@@ -1338,15 +1470,17 @@ function updateUI() {
 	$('.segment-card').each(function(index) {
 		if (index > 0) {
 			var priorSegment = $('.segment-card').eq(index - 1);
+			var priorEndFeedDir = priorSegment.find('[name="end_feed_direction"]').val();
 			var priorEndPFT = priorSegment.find('[name="end_power_feed_type"]').val();
 			var priorJumperLenIn = priorSegment.find('[name="end_jumper_cable_length_in"]').val();
 			// Convert inches to mm for storage
 			var priorJumperLenMm = Math.round((parseFloat(priorJumperLenIn) || 12) * MM_PER_INCH);
 			
+			$(this)[0].dataset.inheritedFeedDirection = priorEndFeedDir || '';
 			$(this)[0].dataset.inheritedPowerFeedType = priorEndPFT || '';
 			$(this)[0].dataset.inheritedCableLength = priorJumperLenMm;
 			
-			var inheritedText = 'From prior: ' + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '"';
+			var inheritedText = 'From prior: ' + (priorEndFeedDir ? priorEndFeedDir + ' ' : '') + (priorEndPFT || 'N/A') + ', ' + (priorJumperLenIn || '12') + '"';
 			$(this).find('.inherited-text').text(inheritedText);
 		}
 	});
@@ -1379,18 +1513,21 @@ function collectSegments() {
 		};
 		
 		if (index === 0) {
-			// First segment: get start power feed and leader cable
+			// First segment: get start feed direction, power feed and leader cable
+			segment.start_feed_direction = card.find('[name="start_feed_direction"]').val();
 			segment.start_power_feed_type = card.find('[name="start_power_feed_type"]').val();
 			// Convert inches to mm for backend
 			var leaderInches = parseFloat(card.find('[name="start_leader_cable_length_in"]').val()) || 12;
 			segment.start_leader_cable_length_mm = Math.round(leaderInches * MM_PER_INCH);
 		} else {
 			// Inherited from prior segment
+			segment.start_feed_direction = card[0].dataset.inheritedFeedDirection || '';
 			segment.start_power_feed_type = card[0].dataset.inheritedPowerFeedType || '';
 			segment.start_leader_cable_length_mm = parseInt(card[0].dataset.inheritedCableLength) || 300;
 		}
 		
 		if (segment.end_type === 'Jumper') {
+			segment.end_feed_direction = card.find('[name="end_feed_direction"]').val();
 			segment.end_power_feed_type = card.find('[name="end_power_feed_type"]').val();
 			// Convert inches to mm for backend
 			var jumperInches = parseFloat(card.find('[name="end_jumper_cable_length_in"]').val()) || 12;
@@ -1625,6 +1762,45 @@ function displayResults(result) {
 			$('#adderBreakdown').html(breakdownHtml);
 		}
 	}
+}
+
+function buildConfiguredFixtureAndItem() {
+	if (!currentResult || !currentResult.is_valid || !currentResult.configured_fixture_id) {
+		frappe.msgprint(__('Cannot build: configuration is not valid or missing fixture ID'));
+		return;
+	}
+
+	$('#buildItemBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Building...');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.build_configured_fixture_and_item',
+		args: {
+			configured_fixture_id: currentResult.configured_fixture_id
+		},
+		callback: function(r) {
+			$('#buildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Fixture & Item');
+			if (r.message && r.message.success) {
+				var msg = r.message.created
+					? __('Created Item: {0}', [r.message.item_code])
+					: __('Item already exists: {0}', [r.message.item_code]);
+				frappe.msgprint({
+					title: __('Build Successful'),
+					message: msg,
+					indicator: 'green'
+				});
+			} else {
+				frappe.msgprint({
+					title: __('Build Failed'),
+					message: (r.message && r.message.error) || __('An error occurred'),
+					indicator: 'red'
+				});
+			}
+			$('#buildItemBtn').prop('disabled', false);
+		},
+		error: function() {
+			$('#buildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Fixture & Item').prop('disabled', false);
+		}
+	});
 }
 
 function saveToSchedule() {

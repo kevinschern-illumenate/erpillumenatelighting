@@ -73,9 +73,22 @@ def generate_from_webflow_selections(
     # ── Step 2: Resolve tape offering from selections ─────────────────
     tape_offering_id = _resolve_tape_offering(template, selections)
     if not tape_offering_id:
+        frappe.log_error(
+            title="Spec Sheet - No Tape Offering Found",
+            message=(
+                f"_resolve_tape_offering returned None for "
+                f"template={product.fixture_template}, "
+                f"selections={selections!r}"
+            ),
+        )
         return {
             "success": False,
-            "error": "No tape offering matches your configuration. Please check your selections.",
+            "error": (
+                "No tape offering matches your configuration. "
+                f"Environment={selections.get('environment_rating')!r}, "
+                f"Output={selections.get('output_level')!r}. "
+                "Please check your selections."
+            ),
         }
 
     # ── Step 3: Map Webflow selections → engine codes ─────────────────
@@ -127,13 +140,27 @@ def generate_from_webflow_selections(
         generate_filled_submittal,
     )
 
-    submittal_result = generate_filled_submittal(configured_fixture_id)
+    # Check whether a fillable submittal template is configured.
+    # Only fall back to the static spec sheet when there is genuinely
+    # no submittal template *and* no field mappings — i.e. the series
+    # was never set up for filled submittals.
+    has_submittal_template = bool(
+        getattr(template, "spec_submittal_template", None)
+    )
+    has_field_mappings = bool(
+        frappe.db.count(
+            "ilL-Spec-Submittal-Mapping",
+            filters={"fixture_template": template.name},
+        )
+    )
 
-    if not submittal_result.get("success") or not submittal_result.get("file_url"):
-        # Fall back to the static spec sheet from the fixture template
-        spec_sheet_url = template.spec_sheet if hasattr(template, "spec_sheet") else None
+    if not has_submittal_template and not has_field_mappings:
+        # No submittal infrastructure configured — return static spec
+        # sheet if available.
+        spec_sheet_url = (
+            template.spec_sheet if hasattr(template, "spec_sheet") else None
+        )
         if spec_sheet_url:
-            # Generate part number for the response
             part_number = _generate_full_part_number(series_info, selections)
             return {
                 "success": True,
@@ -144,7 +171,26 @@ def generate_from_webflow_selections(
             }
         return {
             "success": False,
-            "error": submittal_result.get("message") or "Could not generate spec sheet PDF",
+            "error": "No spec submittal template or spec sheet configured for this series",
+        }
+
+    submittal_result = generate_filled_submittal(configured_fixture_id)
+
+    if not submittal_result.get("success") or not submittal_result.get("file_url"):
+        # Submittal generation failed even though the template IS
+        # configured — surface the real error instead of silently
+        # falling back to the static spec sheet.
+        error_detail = submittal_result.get("message") or "Unknown error"
+        frappe.log_error(
+            title="Spec Submittal Generation Failed",
+            message=(
+                f"generate_filled_submittal returned failure for "
+                f"configured_fixture={configured_fixture_id}: {error_detail}"
+            ),
+        )
+        return {
+            "success": False,
+            "error": f"Could not generate filled spec submittal: {error_detail}",
         }
 
     # ── Step 6: Make the file publicly accessible ─────────────────────
@@ -165,26 +211,42 @@ def _map_selections_to_engine_codes(
     template, selections: dict, tape_offering_id: str
 ) -> dict:
     """
-    Map Webflow configurator selections (attribute names) to the code-based
-    parameters expected by validate_and_quote().
+    Map Webflow configurator selections to the parameters expected by
+    validate_and_quote().
 
-    The Webflow configurator uses attribute document names (e.g. "Dry Rated")
-    while the engine uses codes (e.g. "DR"). This function bridges the gap
-    and supplies sensible defaults for fields the Webflow UI doesn't expose
-    (endcap style, endcap color, power feed type).
+    The Webflow page sends radio button values which may be:
+      - ERPNext document names (e.g. "Dry Rated")
+      - Display names (e.g. "100 lm/ft")
+      - Short codes (e.g. "WH", "FR")
+
+    This function tries each value as-is first, then falls back to
+    looking up by code, then by matching against the template's
+    allowed_options child table.
 
     Returns:
         dict with all engine parameter keys, or {"error": str} on failure
     """
     errors = []
 
-    # Direct mappings — Webflow selections use attribute names which
-    # are also the document names, so we can use them directly as codes
-    # since validate_and_quote() looks up attributes by name/code
-    finish_code = selections.get("finish", "")
-    lens_appearance_code = selections.get("lens_appearance", "")
-    mounting_method_code = selections.get("mounting_method", "")
-    environment_rating_code = selections.get("environment_rating", "")
+    # ── Resolve each attribute selection ──────────────────────────────
+    # For each field, try: raw value → code lookup → allowed_options scan
+
+    finish_code = _resolve_attribute(
+        selections, "finish", "finish_code",
+        "ilL-Attribute-Finish", "code", template, "Finish", "finish",
+    )
+    lens_appearance_code = _resolve_attribute(
+        selections, "lens_appearance", "lens_appearance_code",
+        "ilL-Attribute-Lens Appearance", "code", template, "Lens Appearance", "lens_appearance",
+    )
+    mounting_method_code = _resolve_attribute(
+        selections, "mounting_method", "mounting_method_code",
+        "ilL-Attribute-Mounting Method", "code", template, "Mounting Method", "mounting_method",
+    )
+    environment_rating_code = _resolve_attribute(
+        selections, "environment_rating", "environment_rating_code",
+        "ilL-Attribute-Environment Rating", "code", template, "Environment Rating", "environment_rating",
+    )
 
     if not finish_code:
         errors.append("Finish is required")
@@ -204,19 +266,12 @@ def _map_selections_to_engine_codes(
         requested_overall_length_mm = int(round(float(length_inches) * 25.4))
 
     # ── Endcap & power feed defaults ──────────────────────────────────
-    # The Webflow configurator exposes Start/End Feed Direction + Length
-    # but not endcap style, endcap color, or power feed type directly.
-    # We derive sensible defaults from the template.
-
-    # Endcap style: use the first allowed endcap style or the template default
     endcap_style_start_code = _get_default_option(template, "Endcap Style", "endcap_style")
-    endcap_style_end_code = endcap_style_start_code  # Same for both ends by default
+    endcap_style_end_code = endcap_style_start_code
 
-    # Endcap color: use the first allowed endcap color or default
-    endcap_color_code = _get_default_option(template, "Endcap Color", "endcap_color")
+    endcap_color_code = _resolve_endcap_color(template, finish_code)
 
-    # Power feed type: derive from Webflow's start_feed_direction
-    power_feed_type_code = _resolve_power_feed_type(selections)
+    power_feed_type_code = _resolve_power_feed_type(selections, template)
 
     if errors:
         return {"error": "; ".join(errors)}
@@ -232,6 +287,66 @@ def _map_selections_to_engine_codes(
         "environment_rating_code": environment_rating_code,
         "requested_overall_length_mm": requested_overall_length_mm,
     }
+
+
+def _resolve_attribute(
+    selections: dict,
+    value_key: str,
+    code_key: str,
+    doctype: str,
+    code_field: str,
+    template,
+    option_type: str,
+    child_field: str,
+) -> str:
+    """
+    Resolve a Webflow selection to an ERPNext attribute document name.
+
+    Tries in order:
+    1. The raw value — if it exists as a document name
+    2. The _code value — looked up by the code field
+    3. Scan the template's allowed_options for a match by code or name
+
+    Returns the ERPNext document name, or empty string if not resolvable.
+    """
+    raw_value = selections.get(value_key, "")
+    code_value = selections.get(code_key, "")
+
+    if not raw_value and not code_value:
+        return ""
+
+    # Try 1: raw value is already a valid document name
+    if raw_value and frappe.db.exists(doctype, raw_value):
+        return raw_value
+
+    # Try 2: look up by code (the JS sends data-code as {field}_code)
+    if code_value:
+        match = frappe.db.get_value(doctype, {code_field: code_value}, "name")
+        if match:
+            return match
+
+    # Try 3: raw value might be a code itself
+    if raw_value:
+        match = frappe.db.get_value(doctype, {code_field: raw_value}, "name")
+        if match:
+            return match
+
+    # Try 4: scan allowed_options on the template for a match
+    for opt in getattr(template, "allowed_options", []) or []:
+        if getattr(opt, "option_type", None) != option_type:
+            continue
+        if not getattr(opt, "is_active", True):
+            continue
+        attr_name = getattr(opt, child_field, "") or ""
+        if not attr_name:
+            continue
+        # Check if the code matches
+        attr_code = frappe.db.get_value(doctype, attr_name, code_field)
+        if attr_code and (attr_code == raw_value or attr_code == code_value):
+            return attr_name
+
+    # Last resort: return raw value and let validate_and_quote fail gracefully
+    return raw_value
 
 
 def _get_default_option(template, option_type: str, child_field: str) -> str:
@@ -259,41 +374,106 @@ def _get_default_option(template, option_type: str, child_field: str) -> str:
     return ""
 
 
-def _resolve_power_feed_type(selections: dict) -> str:
+def _resolve_endcap_color(template, finish_code: str) -> str:
     """
-    Resolve the power feed type code from Webflow feed direction selections.
+    Resolve a default endcap color for the fixture template.
 
-    The Webflow configurator uses start_feed_direction (End/Back) while the
-    engine expects a Power Feed Type attribute name.
+    Endcap color is resolved from the ilL-Rel-Finish Endcap Color doctype
+    which maps finish → endcap_color. Falls back to ilL-Rel-Endcap-Map rows
+    keyed by template, or the first active ilL-Attribute-Endcap Color.
     """
-    start_dir = selections.get("start_feed_direction", "")
+    # Primary: resolve from ilL-Rel-Finish Endcap Color mapping
+    if finish_code:
+        finish_endcap = frappe.db.get_value(
+            "ilL-Rel-Finish Endcap Color",
+            {"finish": finish_code, "is_active": 1},
+            "endcap_color",
+            order_by="is_default DESC, modified DESC",
+        )
+        if finish_endcap:
+            return finish_endcap
 
-    # Try to find a matching Power Feed Type attribute
-    if start_dir and frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
-        # Try exact match first
-        if frappe.db.exists("ilL-Attribute-Power Feed Type", start_dir):
-            return start_dir
+    template_code = getattr(template, "template_code", None) or template.name
 
-        # Try matching by code
+    # Fallback: try the endcap map for this template
+    endcap_map_row = frappe.db.get_value(
+        "ilL-Rel-Endcap-Map",
+        {"fixture_template": template_code, "is_active": 1},
+        "endcap_color",
+        order_by="is_default DESC, name ASC",
+    )
+    if endcap_map_row:
+        return endcap_map_row
+
+    # Fallback: first active endcap color record
+    first_color = frappe.db.get_value(
+        "ilL-Attribute-Endcap Color",
+        {"is_active": 1},
+        "name",
+        order_by="sort_order ASC, name ASC",
+    )
+    return first_color or ""
+
+
+def _resolve_power_feed_type(selections: dict, template=None) -> str:
+    """
+    Resolve the power feed type from Webflow feed direction selections.
+
+    The Webflow configurator may send start_feed_direction ("End" / "Back")
+    but often omits it entirely.  The engine expects the *name* (primary key)
+    of an ilL-Attribute-Power Feed Type document.
+
+    Resolution order:
+    1. Exact document-name match on the raw selection value
+    2. Lookup by ``code`` field  (e.g. "E" for End)
+    3. Lookup by linked Feed Direction (``type`` field → ilL-Attribute-Feed-Direction)
+    4. Lookup via the template's allowed_options for Power Feed Type (prefer default)
+    5. First Power Feed Type record in the database
+    """
+    start_dir = selections.get("start_feed_direction", "") or ""
+
+    if not frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
+        return start_dir or ""
+
+    # 1. Exact match on document name
+    if start_dir and frappe.db.exists("ilL-Attribute-Power Feed Type", start_dir):
+        return start_dir
+
+    # 2. Match by code (e.g. "E")
+    code_to_try = start_dir[:1].upper() if start_dir else "E"  # default "E" = End feed
+    match = frappe.db.get_value(
+        "ilL-Attribute-Power Feed Type",
+        {"code": code_to_try},
+        "name",
+    )
+    if match:
+        return match
+
+    # 3. Match by Feed Direction link  (type → ilL-Attribute-Feed-Direction)
+    #    Feed Direction "End" has code "E"
+    if start_dir:
         match = frappe.db.get_value(
             "ilL-Attribute-Power Feed Type",
-            {"code": start_dir[:1].upper()},
+            {"type": start_dir},
             "name",
         )
         if match:
             return match
 
-        # Fallback: get the first active power feed type
-        first = frappe.db.get_value(
-            "ilL-Attribute-Power Feed Type",
-            {"is_active": 1},
-            "name",
-            order_by="name asc",
-        )
-        if first:
-            return first
+    # 4. Template's allowed_options for Power Feed Type
+    if template:
+        pft = _get_default_option(template, "Power Feed Type", "power_feed_type")
+        if pft:
+            return pft
 
-    return start_dir or "End"
+    # 5. Absolute fallback — first record in the table
+    first = frappe.db.get_value(
+        "ilL-Attribute-Power Feed Type",
+        {},
+        "name",
+        order_by="name ASC",
+    )
+    return first or ""
 
 
 def _ensure_public_file(file_url: str) -> str:
@@ -313,7 +493,10 @@ def _ensure_public_file(file_url: str) -> str:
             file_doc.save(ignore_permissions=True)
             frappe.db.commit()
             return file_doc.file_url
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.log_error(
+            title="Spec Sheet: Failed to make file public",
+            message=f"Could not make file public: {file_url}. Error: {e}",
+        )
 
     return file_url

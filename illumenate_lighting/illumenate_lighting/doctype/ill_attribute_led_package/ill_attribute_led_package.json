@@ -1,104 +1,111 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "prompt",
- "creation": "2026-01-06 13:30:34.065542",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "code",
-  "spectrum_type",
-  "notes",
-  "column_break_qnot",
-  "channels",
-  "is_pixel",
-  "compatible_ccts_section",
-  "compatible_ccts"
- ],
- "fields": [
-  {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "LED Package Code",
-   "reqd": 1
-  },
-  {
-   "fieldname": "spectrum_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Spectrum Type",
-   "options": "Static White\nDim to Warm\nTunable White\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
-   "reqd": 1
-  },
-  {
-   "fieldname": "notes",
-   "fieldtype": "Small Text",
-   "label": "Notes"
-  },
-  {
-   "fieldname": "column_break_qnot",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "channels",
-   "fieldtype": "Int",
-   "label": "Channels"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_pixel",
-   "fieldtype": "Check",
-   "label": "Is Pixel?"
-  },
-  {
-   "fieldname": "compatible_ccts_section",
-   "fieldtype": "Section Break",
-   "label": "Compatible CCTs"
-  },
-  {
-   "description": "List all CCT values that are available for this LED package",
-   "fieldname": "compatible_ccts",
-   "fieldtype": "Table",
-   "label": "Compatible CCTs",
-   "options": "ilL-Child-LED Package CCT"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-02-10 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Attribute-LED Package",
- "naming_rule": "Set by user",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "prompt",
+    "creation":  "2026-01-06 13:30:34.065542",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "code",
+                        "spectrum_type",
+                        "notes",
+                        "column_break_qnot",
+                        "channels",
+                        "is_pixel",
+                        "compatible_ccts_section",
+                        "compatible_ccts"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "code",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "LED Package Code",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "spectrum_type",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Spectrum Type",
+                       "options":  "Static White\nDim to Warm\nTunable White\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "notes",
+                       "fieldtype":  "Small Text",
+                       "label":  "Notes"
+                   },
+                   {
+                       "fieldname":  "column_break_qnot",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "channels",
+                       "fieldtype":  "Int",
+                       "label":  "Channels"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "is_pixel",
+                       "fieldtype":  "Check",
+                       "label":  "Is Pixel?"
+                   },
+                   {
+                       "fieldname":  "compatible_ccts_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Compatible CCTs"
+                   },
+                   {
+                       "description":  "List all CCT values that are available for this LED package",
+                       "fieldname":  "compatible_ccts",
+                       "fieldtype":  "Table",
+                       "label":  "Compatible CCTs",
+                       "options":  "ilL-Child-LED Package CCT"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-02-10 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Attribute-LED Package",
+    "naming_rule":  "Set by user",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }

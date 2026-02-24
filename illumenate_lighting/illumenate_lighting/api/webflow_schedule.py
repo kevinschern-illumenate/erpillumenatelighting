@@ -97,7 +97,7 @@ def add_to_schedule(
     
     # Get default endcap style and color
     default_endcap_style = _get_default_endcap_style(template)
-    default_endcap_color = _get_default_endcap_color(template)
+    default_endcap_color = _get_default_endcap_color(template, finish_code=config.get("finish"))
     
     # Try to call existing configurator engine
     try:
@@ -246,12 +246,12 @@ def get_user_schedules() -> dict:
         SELECT 
             s.name,
             s.schedule_name,
-            s.project,
+            s.ill_project,
             p.project_name,
             s.status,
             s.creation
         FROM `tabilL-Project-Fixture-Schedule` s
-        LEFT JOIN `tabilL-Project` p ON p.name = s.project
+        LEFT JOIN `tabilL-Project` p ON p.name = s.ill_project
         WHERE (
             s.owner = %(user)s
             OR EXISTS (
@@ -260,7 +260,7 @@ def get_user_schedules() -> dict:
             )
             OR EXISTS (
                 SELECT 1 FROM `tabilL-Child-Project-Collaborator` pc
-                WHERE pc.parent = s.project AND pc.user = %(user)s
+                WHERE pc.parent = s.ill_project AND pc.user = %(user)s
             )
         )
         AND s.status IN ('Draft', 'In Progress')
@@ -300,7 +300,7 @@ def create_quick_project_and_schedule(
         
         # Create schedule
         schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
-        schedule.project = project.name
+        schedule.ill_project = project.name
         schedule.schedule_name = schedule_name or "Main Schedule"
         schedule.status = "Draft"
         schedule.insert()
@@ -330,7 +330,7 @@ def _map_feed_direction_to_power_feed(direction: str) -> str:
     Map feed direction from configurator to power feed type code.
     
     Args:
-        direction: Feed direction ("End" or "Back")
+        direction: Feed direction ("End", "Back", "Left", or "Right")
     
     Returns:
         str: Power feed type code
@@ -340,7 +340,9 @@ def _map_feed_direction_to_power_feed(direction: str) -> str:
         # Map based on direction
         mapping = {
             "End": ["End Feed", "End", "E"],
-            "Back": ["Back Feed", "Back", "B", "Center"]
+            "Back": ["Back Feed", "Back", "B", "Center"],
+            "Left": ["Left Feed", "Left", "L"],
+            "Right": ["Right Feed", "Right", "R"]
         }
         
         for code in mapping.get(direction, [direction]):
@@ -368,8 +370,20 @@ def _get_default_endcap_style(template) -> Optional[str]:
     return None
 
 
-def _get_default_endcap_color(template) -> Optional[str]:
-    """Get default endcap color from template options."""
+def _get_default_endcap_color(template, finish_code: str = None) -> Optional[str]:
+    """Get default endcap color, resolved from finish via ilL-Rel-Finish Endcap Color."""
+    # Primary: resolve from finish via ilL-Rel-Finish Endcap Color
+    if finish_code:
+        finish_endcap = frappe.db.get_value(
+            "ilL-Rel-Finish Endcap Color",
+            {"finish": finish_code, "is_active": 1},
+            "endcap_color",
+            order_by="is_default DESC, modified DESC",
+        )
+        if finish_endcap:
+            return finish_endcap
+
+    # Fallback: try template allowed options
     for opt in getattr(template, 'allowed_options', []) or []:
         if (getattr(opt, 'option_type', None) == "Endcap Color" and 
             getattr(opt, 'is_default', False) and 

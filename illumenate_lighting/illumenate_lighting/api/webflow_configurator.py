@@ -534,6 +534,28 @@ def _get_series_info(template) -> dict:
 
 
 # =============================================================================
+# MULTI-CCT (TUNABLE WHITE) HELPERS
+# =============================================================================
+
+# Spectrum types where the tape offering carries a generic CCT (e.g. "Tunable White")
+# but the LED Package's compatible_ccts lists the individual CCTs users can choose.
+_MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
+
+
+def _is_multi_cct_template(template) -> bool:
+    """Check if any LED package on this template's tapes is a multi-CCT type."""
+    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+        tape_offering = getattr(tape_row, 'tape_offering', None)
+        if tape_offering:
+            led_pkg = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, "led_package")
+            if led_pkg:
+                spectrum_type = frappe.db.get_value("ilL-Attribute-LED Package", led_pkg, "spectrum_type") or ""
+                if spectrum_type in _MULTI_CCT_SPECTRUM_TYPES:
+                    return True
+    return False
+
+
+# =============================================================================
 # CASCADING OPTION FUNCTIONS
 # =============================================================================
 
@@ -565,13 +587,69 @@ def _get_environment_ratings(template) -> list:
 
 
 def _get_ccts_for_environment(template, environment: str) -> list:
-    """Get CCTs available for the selected environment."""
+    """Get CCTs available for the selected environment.
+    
+    For multi-CCT LED packages (Tunable White, Dim to Warm, etc.), returns the
+    individual CCTs from the LED Package's compatible_ccts table rather than the
+    tape offering's generic CCT (e.g. "Tunable White").
+    """
+    MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
+    
+    # ── Determine LED packages and check for multi-CCT spectrum types ──
+    led_packages_on_env = set()
+    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+        if not getattr(tape_row, 'is_active', True):
+            continue
+        if not _env_matches(tape_row, environment):
+            continue
+        tape_offering = getattr(tape_row, 'tape_offering', None)
+        if tape_offering:
+            pkg = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, "led_package")
+            if pkg:
+                led_packages_on_env.add(pkg)
+    
+    # Check if any LED package is multi-CCT
+    multi_cct_ccts = []
+    for pkg_name in led_packages_on_env:
+        pkg_data = frappe.db.get_value(
+            "ilL-Attribute-LED Package", pkg_name,
+            ["name", "spectrum_type"], as_dict=True
+        )
+        if pkg_data and (pkg_data.get("spectrum_type") or "") in MULTI_CCT_SPECTRUM_TYPES:
+            # Get individual CCTs from LED Package's compatible_ccts table
+            pkg_doc = frappe.get_doc("ilL-Attribute-LED Package", pkg_name)
+            for row in pkg_doc.get("compatible_ccts", []):
+                if row.cct:
+                    cct_data = frappe.db.get_value(
+                        "ilL-Attribute-CCT", row.cct,
+                        ["name", "code", "kelvin", "description"], as_dict=True
+                    )
+                    if cct_data:
+                        multi_cct_ccts.append({
+                            "value": cct_data.name,
+                            "label": cct_data.name,
+                            "code": cct_data.get("code"),
+                            "kelvin": cct_data.get("kelvin"),
+                            "description": cct_data.get("description")
+                        })
+    
+    if multi_cct_ccts:
+        # Deduplicate by value
+        seen = set()
+        unique = []
+        for c in multi_cct_ccts:
+            if c["value"] not in seen:
+                seen.add(c["value"])
+                unique.append(c)
+        return sorted(unique, key=lambda x: x.get("kelvin") or 0)
+    
+    # ── Standard flow: get CCTs directly from tape offerings ──
     ccts = set()
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -602,13 +680,18 @@ def _get_ccts_for_environment(template, environment: str) -> list:
 
 
 def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
-    """Get output levels available for the selected environment + CCT."""
+    """Get output levels available for the selected environment + CCT.
+    
+    For multi-CCT packages (Tunable White, etc.), the tape's CCT won't match
+    the user-selected individual CCT, so we skip the CCT filter.
+    """
+    is_multi_cct = _is_multi_cct_template(template)
     output_levels = set()
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -622,7 +705,9 @@ def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
             as_dict=True
         )
         
-        if offering_data and offering_data.get("cct") == cct and offering_data.get("output_level"):
+        # For multi-CCT packages, skip the exact CCT check on tape offerings
+        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
+        if offering_data and cct_matches and offering_data.get("output_level"):
             output_levels.add(offering_data.get("output_level"))
     
     result = []
@@ -654,6 +739,9 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     3. Calculating delivered output = tape output × transmission
     4. Matching to fixture-level output levels
     
+    For multi-CCT packages (Tunable White, etc.), the tape's CCT won't match
+    the user-selected individual CCT, so we skip the CCT filter.
+    
     Args:
         template: The fixture template document
         environment: Selected environment rating name
@@ -681,12 +769,13 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     )
     
     # Get compatible tape offerings and their output levels
+    is_multi_cct = _is_multi_cct_template(template)
     tape_output_data = {}  # output_level_name -> tape_output_value
     
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment):
             continue
         
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -700,7 +789,9 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
             as_dict=True
         )
         
-        if offering_data and offering_data.get("cct") == cct and offering_data.get("output_level"):
+        # For multi-CCT packages, skip the exact CCT check on tape offerings
+        cct_matches = is_multi_cct or (offering_data and offering_data.get("cct") == cct)
+        if offering_data and cct_matches and offering_data.get("output_level"):
             output_level_name = offering_data.get("output_level")
             if output_level_name not in tape_output_data:
                 # Get the tape's output level value
@@ -883,6 +974,8 @@ def _get_feed_directions() -> list:
     return [
         {"value": "End", "label": "End", "code": "E"},
         {"value": "Back", "label": "Back", "code": "B"},
+        {"value": "Left", "label": "Left", "code": "L"},
+        {"value": "Right", "label": "Right", "code": "R"},
         {"value": "Endcap", "label": "Endcap", "code": "CAP"}
     ]
 
@@ -1113,7 +1206,7 @@ def _get_feed_direction_code(direction: str) -> str:
             return code
     
     # Fallback
-    direction_codes = {"End": "E", "Back": "B", "Endcap": "CAP"}
+    direction_codes = {"End": "E", "Back": "B", "Left": "L", "Right": "R", "Endcap": "CAP"}
     return direction_codes.get(direction, "X")
 
 
@@ -1122,33 +1215,17 @@ def _get_feed_direction_code(direction: str) -> str:
 # =============================================================================
 
 def _validate_option_compatibility(template, selections: dict) -> dict:
-    """Validate that a tape offering exists for the selected combination."""
-    environment = selections.get("environment_rating")
-    cct = selections.get("cct")
-    output_level = selections.get("output_level")
-    
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
-        if not getattr(tape_row, 'is_active', True):
-            continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
-            continue
-        
-        tape_offering = getattr(tape_row, 'tape_offering', None)
-        if not tape_offering:
-            continue
-        
-        offering_data = frappe.db.get_value(
-            "ilL-Rel-Tape Offering",
-            tape_offering,
-            ["cct", "output_level"],
-            as_dict=True
-        )
-        
-        if (offering_data and 
-            offering_data.get("cct") == cct and 
-            offering_data.get("output_level") == output_level):
-            return {"is_valid": True}
-    
+    """Validate that a tape offering exists for the selected combination.
+
+    Uses the same lens-transmission-aware logic as ``_resolve_tape_offering``
+    so that the user's selected output (delivered fixture output) is compared
+    against tape_output × lens_transmission rather than the raw tape output.
+    """
+    # If _resolve_tape_offering can find a tape, the combination is valid.
+    tape = _resolve_tape_offering(template, selections)
+    if tape:
+        return {"is_valid": True}
+
     return {
         "is_valid": False,
         "message": "No tape offering available for this combination. Please adjust your selections."
@@ -1156,34 +1233,297 @@ def _validate_option_compatibility(template, selections: dict) -> dict:
 
 
 def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
-    """Find the tape offering ID for the selected combination."""
+    """Find the tape offering ID that delivers the user's selected output level.
+
+    The user's selected output (e.g. "100 lm/ft") represents the **delivered
+    fixture output**, not the raw tape output.  The delivered output is::
+
+        delivered_lm_ft = tape_output_lm_ft × lens_transmission
+
+    This function therefore:
+    1. Gets the lens transmission factor from the selected lens appearance.
+    2. Iterates through allowed tape offerings, filtering by environment and CCT.
+    3. For each tape, calculates the delivered output with the lens applied.
+    4. Finds the closest fixture-level output level.
+    5. Checks whether that fixture-level output matches the user's selection.
+
+    For multi-CCT packages (Tunable White, etc.), skips the exact CCT match
+    since the tape carries a generic CCT while the user selects individual CCTs.
+
+    Uses flexible matching for environment rating to handle Webflow page radio
+    values that may be display labels/codes rather than exact ERPNext names.
+    """
     environment = selections.get("environment_rating")
+    env_code = selections.get("environment_rating_code")
     cct = selections.get("cct")
     output_level = selections.get("output_level")
-    
+    output_level_code = selections.get("output_level_code")
+    lens_appearance = selections.get("lens_appearance")
+    lens_appearance_code = selections.get("lens_appearance_code")
+    is_multi_cct = _is_multi_cct_template(template)
+
+    # ── Resolve lens transmission ─────────────────────────────────────
+    lens_transmission = 1.0  # Default to 100% (clear lens / no lens)
+    lens_name = lens_appearance or lens_appearance_code
+    if lens_name:
+        # Try the raw value first (could be a document name)
+        transmission = frappe.db.get_value(
+            "ilL-Attribute-Lens Appearance", lens_name, "transmission"
+        )
+        if transmission is None and lens_appearance_code:
+            # Fallback: look up by code field
+            lens_doc_name = frappe.db.get_value(
+                "ilL-Attribute-Lens Appearance", {"code": lens_appearance_code}, "name"
+            )
+            if lens_doc_name:
+                transmission = frappe.db.get_value(
+                    "ilL-Attribute-Lens Appearance", lens_doc_name, "transmission"
+                )
+        if transmission is not None:
+            lens_transmission = float(transmission)
+
+    # ── Parse the user's desired delivered output value ────────────────
+    desired_output_value = _parse_output_value(output_level, output_level_code)
+
+    # ── Fetch fixture-level output levels for closest-match logic ─────
+    fixture_output_levels = frappe.get_all(
+        "ilL-Attribute-Output Level",
+        filters={"is_fixture_level": 1},
+        fields=["name", "value", "sku_code", "output_level_name"],
+        order_by="value asc",
+    )
+
+    frappe.logger().info(
+        f"_resolve_tape_offering: env={environment!r}, env_code={env_code!r}, "
+        f"cct={cct!r}, output={output_level!r}, output_code={output_level_code!r}, "
+        f"desired_value={desired_output_value}, lens_transmission={lens_transmission}, "
+        f"is_multi_cct={is_multi_cct}"
+    )
+
+    best_match = None
+    best_diff = float("inf")
+
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
             continue
-        if getattr(tape_row, 'environment_rating', None) != environment:
+        if not _env_matches(tape_row, environment, env_code):
             continue
-        
+
         tape_offering = getattr(tape_row, 'tape_offering', None)
         if not tape_offering:
             continue
-        
+
         offering_data = frappe.db.get_value(
             "ilL-Rel-Tape Offering",
             tape_offering,
             ["cct", "output_level"],
-            as_dict=True
+            as_dict=True,
         )
-        
-        if (offering_data and 
-            offering_data.get("cct") == cct and 
-            offering_data.get("output_level") == output_level):
-            return tape_offering
-    
+        if not offering_data:
+            continue
+
+        cct_matches = is_multi_cct or (offering_data.get("cct") == cct)
+        if not cct_matches:
+            frappe.logger().debug(
+                f"_resolve_tape_offering: skipped {tape_offering} (cct mismatch)"
+            )
+            continue
+
+        tape_output_level = offering_data.get("output_level")
+        if not tape_output_level:
+            continue
+
+        # Get the tape's raw output value (lm/ft)
+        tape_ol_data = frappe.db.get_value(
+            "ilL-Attribute-Output Level",
+            tape_output_level,
+            ["value", "sku_code"],
+            as_dict=True,
+        )
+        if not tape_ol_data or not tape_ol_data.value:
+            continue
+
+        tape_output_lm_ft = float(tape_ol_data.value)
+        # Calculate delivered lumens: tape output × lens transmission
+        delivered_lm_ft = tape_output_lm_ft * lens_transmission
+
+        # Find closest fixture-level output level
+        if fixture_output_levels:
+            closest = min(
+                fixture_output_levels,
+                key=lambda x: abs((x.value or 0) - delivered_lm_ft),
+            )
+            delivered_fixture_value = closest.value
+        else:
+            delivered_fixture_value = int(round(delivered_lm_ft))
+
+        frappe.logger().debug(
+            f"_resolve_tape_offering: tape={tape_offering}, "
+            f"tape_output={tape_output_lm_ft}, delivered={delivered_lm_ft:.1f}, "
+            f"closest_fixture={delivered_fixture_value}"
+        )
+
+        # Check if this tape's delivered output matches the user's selection
+        matches = False
+        if desired_output_value is not None:
+            # Numeric comparison against the fixture output level value
+            if delivered_fixture_value == desired_output_value:
+                matches = True
+        else:
+            # Fallback: try direct name/label matching against the fixture
+            # output level (for cases where we couldn't parse a number)
+            if fixture_output_levels:
+                if _output_level_matches(closest.name, output_level, output_level_code):
+                    matches = True
+            else:
+                if _output_level_matches(tape_output_level, output_level, output_level_code):
+                    matches = True
+
+        if matches:
+            diff = abs(delivered_lm_ft - delivered_fixture_value)
+            if diff < best_diff:
+                best_diff = diff
+                best_match = tape_offering
+
+    if best_match:
+        frappe.logger().info(
+            f"_resolve_tape_offering: matched tape_offering={best_match}"
+        )
+        return best_match
+
+    frappe.logger().warning(
+        f"_resolve_tape_offering: no tape found for template={template.name}, "
+        f"env={environment!r}, output={output_level!r}, "
+        f"lens_transmission={lens_transmission}"
+    )
     return None
+
+
+def _parse_output_value(output_level: str | None, output_level_code: str | None) -> int | None:
+    """Extract the numeric output value (lm/ft) from user selections.
+
+    Tries (in order):
+    1. Parse number from the output_level string (e.g. "100 lm/ft" → 100)
+    2. Parse output_level_code as int (e.g. "100" → 100)
+    3. Look up the fixture-level output level by name or code
+    Returns None if nothing works.
+    """
+    # Try parsing from the label string
+    if output_level:
+        import re
+        m = re.search(r"(\d+(?:\.\d+)?)", output_level.replace(",", ""))
+        if m:
+            return int(float(m.group(1)))
+        # Maybe it's a document name
+        val = frappe.db.get_value("ilL-Attribute-Output Level", output_level, "value")
+        if val is not None:
+            return int(float(val))
+
+    if output_level_code:
+        try:
+            return int(float(output_level_code))
+        except (ValueError, TypeError):
+            pass
+        # Try looking up by sku_code
+        val = frappe.db.get_value(
+            "ilL-Attribute-Output Level",
+            {"sku_code": output_level_code, "is_fixture_level": 1},
+            "value",
+        )
+        if val is not None:
+            return int(float(val))
+
+    return None
+
+
+def _env_matches(tape_row, environment: str, env_code: str = None) -> bool:
+    """Check if a template's allowed tape offering row matches the environment selection.
+    
+    Matching rules:
+    1. If the child row has no environment_rating set → matches any (wildcard)
+    2. Exact name match
+    3. Match by environment rating code
+    """
+    row_env = getattr(tape_row, 'environment_rating', None)
+    
+    # If the child row has no env set, treat as wildcard (matches any)
+    if not row_env:
+        return True
+    
+    # No selection → only match if row also has no env (handled above)
+    if not environment:
+        return False
+    
+    # Direct name match
+    if row_env == environment:
+        return True
+    
+    # Match by code: compare the row's env rating code with the selection code
+    if env_code:
+        row_env_code = frappe.db.get_value(
+            "ilL-Attribute-Environment Rating", row_env, "code"
+        )
+        if row_env_code and row_env_code == env_code:
+            return True
+    
+    return False
+
+
+def _output_level_matches(tape_output_level: str, selected_output: str, selected_code: str = None) -> bool:
+    """Check if a tape offering's output level matches the user selection.
+    
+    Matching rules:
+    1. Exact document name match
+    2. Match by sku_code (e.g., "100" matches Output Level with sku_code "100")
+    3. Match by label format: tape's "{value} lm/ft" vs selected_output
+    
+    This handles Webflow pages that may send display labels or codes
+    instead of exact ERPNext document names.
+    """
+    if not tape_output_level:
+        return False
+    
+    if not selected_output and not selected_code:
+        return False
+    
+    # 1. Direct name match
+    if selected_output and tape_output_level == selected_output:
+        return True
+    
+    # Fetch the output level details for further matching
+    ol_data = frappe.db.get_value(
+        "ilL-Attribute-Output Level",
+        tape_output_level,
+        ["value", "sku_code", "output_level_name"],
+        as_dict=True
+    )
+    if not ol_data:
+        return False
+    
+    # 2. Match by sku_code (e.g., selection sends code "100")
+    if selected_code and ol_data.sku_code:
+        if ol_data.sku_code == selected_code:
+            return True
+    
+    # 3. Match by label format: "{value} lm/ft"
+    if selected_output and ol_data.value is not None:
+        label = f"{ol_data.value} lm/ft"
+        if label == selected_output:
+            return True
+        # Also try just the numeric part: "100" vs "100"
+        try:
+            selected_numeric = selected_output.replace(" lm/ft", "").strip()
+            if selected_numeric == str(ol_data.value):
+                return True
+        except (ValueError, AttributeError):
+            pass
+    
+    # 4. Match raw value against output_level_name
+    if selected_output and ol_data.output_level_name:
+        if ol_data.output_level_name == selected_output:
+            return True
+    
+    return False
 
 
 # =============================================================================

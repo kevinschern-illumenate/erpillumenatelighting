@@ -35,7 +35,7 @@ MM_PER_FOOT = 304.8
 # Set to True to emit detailed spec-submittal diagnostic messages.
 # These show up in the browser warnings list *and* in the Error Log.
 # TODO: remove or set False once spec-submittal flow is stable.
-SPEC_DEBUG = True
+SPEC_DEBUG = False
 # ────────────────────────────────────────────────────────────────────
 
 
@@ -98,6 +98,29 @@ def _apply_transformation(value: Any, transformation: str | None) -> str:
 			return str(value)
 
 	return str(value)
+
+
+def _apply_prefix_suffix(value: str, prefix: str | None, suffix: str | None) -> str:
+	"""
+	Apply prefix and/or suffix to a transformed value.
+
+	Args:
+		value: The already-transformed value string
+		prefix: Text to prepend before the value
+		suffix: Text to append after the value
+
+	Returns:
+		str: The value with prefix and/or suffix applied
+	"""
+	if not value:
+		return value
+
+	result = value
+	if prefix:
+		result = prefix + result
+	if suffix:
+		result = result + suffix
+	return result
 
 
 def _get_source_value(
@@ -194,12 +217,12 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 
 	Returns:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
-			  source_field, and transformation
+			  source_field, transformation, prefix, and suffix
 	"""
 	return frappe.get_all(
 		"ilL-Spec-Submittal-Mapping",
 		filters={"fixture_template": fixture_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation"],
+		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"],
 	)
 
 
@@ -209,9 +232,10 @@ def _fill_pdf_form_fields(
 	warnings: list | None = None,
 ) -> bytes | None:
 	"""
-	Fill form fields in a PDF template with the provided values.
+	Fill form fields in a PDF template with the provided values and flatten the result.
 
-	Uses pypdf to fill AcroForm fields in the PDF.
+	Uses pypdf to fill AcroForm fields in the PDF, then flattens the PDF by removing
+	form field annotations to make the fields non-editable.
 
 	Args:
 		pdf_template_path: Path or URL to the PDF template (must be a Frappe file URL)
@@ -219,7 +243,7 @@ def _fill_pdf_form_fields(
 		warnings: Optional list that debug messages are appended to
 
 	Returns:
-		bytes: The filled PDF as bytes, or None if filling failed
+		bytes: The filled and flattened PDF as bytes, or None if filling failed
 	"""
 	try:
 		from pypdf import PdfReader, PdfWriter
@@ -280,6 +304,21 @@ def _fill_pdf_form_fields(
 				"the template may not be a fillable PDF",
 				warnings,
 			)
+
+		# Make form fields read-only instead of removing them.
+		# Removing Widget annotations strips the appearance streams that
+		# contain the visible filled text.  Setting the ReadOnly bit (bit 1
+		# of /Ff) preserves the rendered values while preventing editing.
+		from pypdf.generic import NameObject, NumberObject
+
+		_debug("_fill_pdf_form_fields: Setting form fields to read-only", warnings)
+		for page in writer.pages:
+			if "/Annots" in page:
+				for annot_ref in page["/Annots"]:
+					annot = annot_ref.get_object()
+					if annot.get("/Subtype") == "/Widget":
+						ff = int(annot.get("/Ff", 0))
+						annot[NameObject("/Ff")] = NumberObject(ff | 1)  # ReadOnly bit
 
 		# Write the filled PDF to bytes
 		output = io.BytesIO()
@@ -686,11 +725,14 @@ def generate_spec_submittal_packet(
 	"""
 	warnings = []
 	pdf_parts = []
+	job_name = None
 
 	try:
 		# Validate schedule access
 		from illumenate_lighting.illumenate_lighting.api.exports import (
 			_check_schedule_access,
+			_create_export_job,
+			_update_export_job_status,
 		)
 
 		has_access, error = _check_schedule_access(schedule_name)
@@ -701,8 +743,13 @@ def generate_spec_submittal_packet(
 				"warnings": [],
 			}
 
+		# Create export job record for tracking
+		job_name = _create_export_job(schedule_name, export_type)
+
 		# Determine if we should include all spec sheets
 		include_all_specs = export_type == "SPEC_SUBMITTAL_FULL"
+
+		_update_export_job_status(job_name, "RUNNING")
 
 		# Gather documents from all lines
 		line_documents = _gather_line_documents(schedule_name, include_all_specs, warnings)
@@ -748,6 +795,7 @@ def generate_spec_submittal_packet(
 
 		if not pdf_parts:
 			_debug("generate_spec_submittal_packet: FAIL – no pdf_parts at all (only cover page possible)", warnings)
+			_update_export_job_status(job_name, "FAILED", error_log="No spec documents found")
 			return {
 				"success": False,
 				"message": _("No spec documents found to include in packet"),
@@ -759,6 +807,7 @@ def generate_spec_submittal_packet(
 		# Merge all PDFs
 		merged_pdf = _merge_pdfs(pdf_parts)
 		if not merged_pdf:
+			_update_export_job_status(job_name, "FAILED", error_log="Failed to merge PDF documents")
 			return {
 				"success": False,
 				"message": _("Failed to merge PDF documents"),
@@ -775,6 +824,8 @@ def generate_spec_submittal_packet(
 			is_private=1,
 		)
 
+		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
+
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
@@ -787,6 +838,8 @@ def generate_spec_submittal_packet(
 			f"Error generating spec submittal packet: {str(e)}",
 			"Spec Submittal Generation Error",
 		)
+		if job_name:
+			_update_export_job_status(job_name, "FAILED", error_log=str(e))
 		return {
 			"success": False,
 			"message": _("Error generating spec submittal packet: {0}").format(str(e)),
@@ -893,6 +946,9 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 				schedule_line=schedule_line,
 			)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+			transformed_value = _apply_prefix_suffix(
+				transformed_value, mapping.get("prefix"), mapping.get("suffix")
+			)
 			field_values[mapping["pdf_field_name"]] = transformed_value
 
 		_debug(

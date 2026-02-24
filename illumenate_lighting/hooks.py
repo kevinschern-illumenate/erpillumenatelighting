@@ -101,8 +101,8 @@ website_route_rules = [
 	{"from_route": "/portal/resources", "to_route": "resources"},
 
 	# Support
-	{"from_route": "/portal/support", "to_route": "support"},
-	{"from_route": "/portal/support/faq", "to_route": "support"},
+	{"from_route": "/portal/support", "to_route": "ill_support"},
+	{"from_route": "/portal/support/faq", "to_route": "ill_support"},
 
 	# Account
 	{"from_route": "/portal/account", "to_route": "account"},
@@ -146,6 +146,8 @@ fixtures = [
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields for CRM Lead and other DocTypes
 	{"dt": "Custom Field"},
+	# Workspace for sidebar navigation
+	{"dt": "Workspace", "filters": [["module", "=", "ilLumenate Lighting"]]},
 ]
 
 # Uninstallation
@@ -184,12 +186,14 @@ permission_query_conditions = {
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
+	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
 }
 
 has_permission = {
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
+	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
 }
 
 # Website/Portal Permissions
@@ -371,7 +375,7 @@ doc_events = {
 # Request Events
 # ----------------
 # before_request = ["illumenate_lighting.utils.before_request"]
-# after_request = ["illumenate_lighting.utils.after_request"]
+after_request = ["illumenate_lighting.illumenate_lighting.utils.after_request"]
 
 # Job Events
 # ----------
@@ -411,17 +415,9 @@ doc_events = {
 
 # CORS Configuration
 # ------------------
-# Configure CORS for Webflow domains
-website_cors = {
-	"allowed_origins": [
-		"https://www.illumenatelighting.com",
-		"https://illumenatelighting.webflow.io",
-	],
-	"allowed_methods": ["GET", "POST", "OPTIONS"],
-	"allowed_headers": ["Content-Type", "Authorization"],
-	"expose_headers": ["Content-Length"],
-	"max_age": 86400,
-}
+# CORS headers are injected by the after_request hook in
+# illumenate_lighting.illumenate_lighting.utils.after_request
+# Allowed origins are defined in ALLOWED_ORIGINS in that module.
 
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True

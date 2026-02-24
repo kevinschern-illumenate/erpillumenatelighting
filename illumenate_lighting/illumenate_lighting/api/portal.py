@@ -440,6 +440,26 @@ def get_template_options(template_code: str) -> dict:
 		elif option_type == "Environment Rating" and row.environment_rating:
 			options["environment_rating"].append({"value": row.environment_rating, "label": row.environment_rating})
 
+	# Get feed direction options from ilL-Attribute-Feed-Direction
+	if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+		feed_dirs = frappe.get_all(
+			"ilL-Attribute-Feed-Direction",
+			filters={"is_active": 1},
+			fields=["direction_name as name", "code"],
+			order_by="direction_name",
+		)
+		options["feed_directions"] = [
+			{"value": d.name, "label": d.name, "code": d.code}
+			for d in feed_dirs
+		]
+	else:
+		options["feed_directions"] = [
+			{"value": "End", "label": "End", "code": "E"},
+			{"value": "Back", "label": "Back", "code": "B"},
+			{"value": "Left", "label": "Left", "code": "L"},
+			{"value": "Right", "label": "Right", "code": "R"},
+		]
+
 	# Get tape offerings from template
 	for row in template.get("allowed_tape_offerings", []):
 		if row.tape_offering:
@@ -488,7 +508,7 @@ def get_template_options(template_code: str) -> dict:
 					"kelvin": cct.kelvin,
 				})
 
-	# Get all endcap colors (not template-specific in MVP)
+	# Get all endcap colors (kept for backward compatibility)
 	endcap_colors = frappe.get_all(
 		"ilL-Attribute-Endcap Color",
 		fields=["code", "display_name"],
@@ -498,6 +518,24 @@ def get_template_options(template_code: str) -> dict:
 			"value": color.code,
 			"label": color.display_name or color.code,
 		})
+
+	# Build finish → endcap color mapping from ilL-Rel-Finish Endcap Color
+	options["finish_endcap_color_map"] = {}
+	finish_endcap_mappings = frappe.get_all(
+		"ilL-Rel-Finish Endcap Color",
+		filters={"is_active": 1},
+		fields=["finish", "endcap_color", "is_default"],
+		order_by="is_default DESC, modified DESC",
+	)
+	for mapping in finish_endcap_mappings:
+		if mapping.finish not in options["finish_endcap_color_map"]:
+			ec_code = frappe.db.get_value("ilL-Attribute-Endcap Color", mapping.endcap_color, "code")
+			ec_display = frappe.db.get_value("ilL-Attribute-Endcap Color", mapping.endcap_color, "display_name")
+			options["finish_endcap_color_map"][mapping.finish] = {
+				"endcap_color": mapping.endcap_color,
+				"endcap_color_code": ec_code or mapping.endcap_color,
+				"endcap_color_label": ec_display or ec_code or mapping.endcap_color,
+			}
 
 	return options
 
@@ -816,18 +854,24 @@ def get_item_variant_attributes(template_item: str) -> dict:
 
 		# Get the item attributes for this template
 		item_doc = frappe.get_doc("Item", template_item)
+
+		# Collect attribute values actually used by existing variants
+		variants = frappe.get_all(
+			"Item",
+			filters={"variant_of": template_item, "disabled": 0},
+			fields=["item_code"],
+		)
+
+		# Build a map of attribute -> set of values used across all variants
+		variant_attr_values = {}
+		for variant in variants:
+			variant_doc = frappe.get_doc("Item", variant.item_code)
+			for va in variant_doc.get("attributes", []):
+				variant_attr_values.setdefault(va.attribute, set()).add(va.attribute_value)
+
 		attributes = []
 
 		for attr in item_doc.get("attributes", []):
-			# Get all possible values for this attribute
-			attr_values = frappe.get_all(
-				"Item Attribute Value",
-				filters={"parent": attr.attribute},
-				fields=["attribute_value", "abbr"],
-				order_by="idx asc",
-			)
-
-			# If the template has specific allowed values, filter to those
 			if attr.numeric_values:
 				# For numeric attributes, we need a different approach
 				values = [{
@@ -839,9 +883,20 @@ def get_item_variant_attributes(template_item: str) -> dict:
 					"increment": attr.increment,
 				}]
 			else:
+				# Get all possible values for this attribute (for ordering)
+				attr_values = frappe.get_all(
+					"Item Attribute Value",
+					filters={"parent": attr.attribute},
+					fields=["attribute_value", "abbr"],
+					order_by="idx asc",
+				)
+
+				# Filter to only values that exist in actual variants
+				used_values = variant_attr_values.get(attr.attribute, set())
 				values = [
 					{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
 					for v in attr_values
+					if v.attribute_value in used_values
 				]
 
 			attributes.append({
@@ -858,6 +913,99 @@ def get_item_variant_attributes(template_item: str) -> dict:
 
 	except Exception as e:
 		frappe.log_error(f"Error fetching variant attributes for {template_item}: {str(e)}")
+		return {"success": False, "error": str(e), "attributes": []}
+
+
+@frappe.whitelist()
+def get_filtered_variant_attributes(template_item: str, selected_attributes: Union[str, dict] = None) -> dict:
+	"""
+	Get variant attribute values filtered by currently selected attributes.
+
+	Given the current selections, returns only the attribute values that would
+	still lead to a valid variant match. This enables cascading dropdown filtering.
+
+	Args:
+		template_item: The item_code of the template item
+		selected_attributes: Dict of {attribute_name: attribute_value} for currently selected attributes
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"attributes": [
+				{
+					"attribute": str,
+					"values": [{"value": str, "abbr": str}]
+				}
+			]
+		}
+	"""
+	try:
+		if not template_item:
+			return {"success": False, "error": "Template item is required", "attributes": []}
+
+		if isinstance(selected_attributes, str):
+			selected_attributes = json.loads(selected_attributes) if selected_attributes else {}
+		if not selected_attributes:
+			selected_attributes = {}
+
+		# Get all variants with their attributes
+		variants = frappe.get_all(
+			"Item",
+			filters={"variant_of": template_item, "disabled": 0},
+			fields=["item_code"],
+		)
+
+		variant_attr_list = []
+		for variant in variants:
+			variant_doc = frappe.get_doc("Item", variant.item_code)
+			attrs = {}
+			for va in variant_doc.get("attributes", []):
+				attrs[va.attribute] = va.attribute_value
+			variant_attr_list.append(attrs)
+
+		# Get template attributes for ordering
+		item_doc = frappe.get_doc("Item", template_item)
+		template_attrs = [attr.attribute for attr in item_doc.get("attributes", [])]
+
+		attributes = []
+		for attr_name in template_attrs:
+			# For each attribute, find which values are still valid given the other selections
+			valid_values = set()
+			for variant_attrs in variant_attr_list:
+				# Check if this variant matches all OTHER selected attributes
+				matches_others = True
+				for sel_attr, sel_val in selected_attributes.items():
+					if sel_attr == attr_name:
+						continue  # Skip the current attribute
+					if variant_attrs.get(sel_attr) != sel_val:
+						matches_others = False
+						break
+				if matches_others and attr_name in variant_attrs:
+					valid_values.add(variant_attrs[attr_name])
+
+			# Get ordered attribute values
+			attr_values = frappe.get_all(
+				"Item Attribute Value",
+				filters={"parent": attr_name},
+				fields=["attribute_value", "abbr"],
+				order_by="idx asc",
+			)
+
+			values = [
+				{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
+				for v in attr_values
+				if v.attribute_value in valid_values
+			]
+
+			attributes.append({
+				"attribute": attr_name,
+				"values": values,
+			})
+
+		return {"success": True, "attributes": attributes}
+
+	except Exception as e:
+		frappe.log_error(f"Error fetching filtered variant attributes for {template_item}: {str(e)}")
 		return {"success": False, "error": str(e), "attributes": []}
 
 
@@ -1501,6 +1649,58 @@ def save_configured_fixture_to_schedule(
 
 
 @frappe.whitelist()
+def build_configured_fixture_and_item(configured_fixture_id: str) -> dict:
+	"""
+	Build a configured fixture's Item (and update fixture links).
+
+	Only accessible to System Manager users. This allows creating the
+	configured Item directly from the portal Configure page without
+	needing to create a Sales Order first.
+
+	Args:
+		configured_fixture_id: Name of the ilL-Configured-Fixture document
+
+	Returns:
+		dict: {"success": True/False, "item_code": str, "error": "message if error"}
+	"""
+	# Only System Managers can use this endpoint
+	if "System Manager" not in frappe.get_roles(frappe.session.user):
+		return {"success": False, "error": "Only System Managers can build configured fixtures and items"}
+
+	# Validate configured fixture exists
+	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	try:
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_configured_item,
+			_update_fixture_links,
+		)
+
+		fixture = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+
+		item_result = _create_or_get_configured_item(fixture, skip_if_exists=True)
+		if not item_result.get("success"):
+			error_msgs = [m["text"] for m in item_result.get("messages", []) if m.get("severity") == "error"]
+			return {"success": False, "error": "; ".join(error_msgs) or "Failed to create item"}
+
+		item_code = item_result["item_code"]
+
+		# Update the fixture with the item link
+		_update_fixture_links(fixture, item_code=item_code, bom_name=None, work_order_name=None)
+
+		return {
+			"success": True,
+			"item_code": item_code,
+			"created": item_result.get("created", False),
+			"skipped": item_result.get("skipped", False),
+			"messages": item_result.get("messages", []),
+		}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
@@ -1607,6 +1807,81 @@ def create_schedule(schedule_data: Union[str, dict]) -> dict:
 
 		schedule.insert()
 		return {"success": True, "schedule_name": schedule.name}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
+	"""
+	Rename an existing ilL-Project-Fixture-Schedule.
+
+	Args:
+		schedule_name: Name (ID) of the schedule to rename
+		new_schedule_name: New display name for the schedule
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not new_schedule_name or not new_schedule_name.strip():
+		return {"success": False, "error": "Schedule name cannot be empty"}
+
+	new_schedule_name = new_schedule_name.strip()
+
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to rename this schedule"}
+
+	try:
+		schedule.schedule_name = new_schedule_name
+		schedule.save()
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def delete_schedule(schedule_name: str) -> dict:
+	"""
+	Delete an existing ilL-Project-Fixture-Schedule.
+
+	Only schedules in DRAFT status can be deleted.
+
+	Args:
+		schedule_name: Name (ID) of the schedule to delete
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to delete this schedule"}
+
+	# Only allow deletion of DRAFT schedules
+	if schedule.status != "DRAFT":
+		return {"success": False, "error": "Only schedules in DRAFT status can be deleted"}
+
+	try:
+		frappe.delete_doc("ilL-Project-Fixture-Schedule", schedule_name)
+		return {"success": True}
 	except Exception as e:
 		return {"success": False, "error": str(e)}
 
@@ -2047,6 +2322,9 @@ def update_user_profile(profile_data: Union[str, dict]) -> dict:
 			user.last_name = profile_data.get("last_name")
 		if "phone" in profile_data:
 			user.phone = profile_data.get("phone")
+		if "job_title" in profile_data:
+			# Update job_title on the linked Contact, not on User
+			_update_contact_job_title(frappe.session.user, profile_data.get("job_title"))
 
 		user.save()
 		return {"success": True}
@@ -2055,10 +2333,85 @@ def update_user_profile(profile_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": str(e)}
 
 
+def _update_contact_job_title(user, job_title):
+	"""Update job_title on the Contact linked to this user."""
+	contacts = frappe.get_all(
+		"Contact",
+		filters={"user": user},
+		fields=["name"],
+		limit=1,
+	)
+	if contacts:
+		frappe.db.set_value("Contact", contacts[0].name, "designation", job_title)
+
+
+def _get_or_create_portal_settings(user=None):
+	"""
+	Get or create the ilL-Portal-User-Settings record for a user.
+
+	Args:
+		user: User email. Defaults to current session user.
+
+	Returns:
+		Document: The ilL-Portal-User-Settings document.
+	"""
+	if not user:
+		user = frappe.session.user
+
+	settings_name = frappe.db.get_value(
+		"ilL-Portal-User-Settings", {"user": user}, "name"
+	)
+
+	if settings_name:
+		return frappe.get_doc("ilL-Portal-User-Settings", settings_name)
+
+	# Create with defaults
+	settings = frappe.new_doc("ilL-Portal-User-Settings")
+	settings.user = user
+	settings.insert(ignore_permissions=True)
+	frappe.db.commit()
+	return settings
+
+
+@frappe.whitelist()
+def get_account_settings() -> dict:
+	"""
+	Get the current user's portal account settings.
+
+	Returns all notification preferences and display preferences
+	persisted in the ilL-Portal-User-Settings DocType.
+
+	Returns:
+		dict: {"success": True, "settings": { ... }}
+	"""
+	try:
+		settings = _get_or_create_portal_settings()
+		return {
+			"success": True,
+			"settings": {
+				"notify_orders": bool(settings.notify_orders),
+				"notify_quotes": bool(settings.notify_quotes),
+				"notify_drawings": bool(settings.notify_drawings),
+				"notify_shipping": bool(settings.notify_shipping),
+				"notify_marketing": bool(settings.notify_marketing),
+				"language": settings.language or "en",
+				"units": settings.units or "imperial",
+				"date_format": settings.date_format or "mm/dd/yyyy",
+				"timezone": settings.timezone or "America/New_York",
+			},
+		}
+	except Exception as e:
+		frappe.log_error(f"Error getting account settings: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
 @frappe.whitelist()
 def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	Save notification preferences for the current user.
+
+	Persists to the ilL-Portal-User-Settings DocType so prefs are
+	visible in /desk and survive cache clears.
 
 	Args:
 		preferences: Dict with notification preference booleans
@@ -2066,26 +2419,64 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
 	"""
-	# Parse preferences if it's a string
 	if isinstance(preferences, str):
 		try:
 			preferences = json.loads(preferences)
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid preferences format"}
 
+	notification_fields = [
+		"notify_orders", "notify_quotes", "notify_drawings",
+		"notify_shipping", "notify_marketing",
+	]
+
 	try:
-		# Store preferences in user's custom fields or a settings doctype
-		# For now, we'll store as a comment on the user for MVP
-		user = frappe.session.user
+		settings = _get_or_create_portal_settings()
+		for field in notification_fields:
+			if field in preferences:
+				setattr(settings, field, 1 if preferences[field] else 0)
 
-		# Check if there's a custom doctype for notification prefs
-		# If not, store in User's bio field or similar as JSON
-		# This is a placeholder implementation
-		frappe.cache().hset("portal_notification_prefs", user, json.dumps(preferences))
-
+		settings.save(ignore_permissions=True)
+		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		frappe.log_error(f"Error saving notification preferences: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def save_portal_preferences(preferences: Union[str, dict]) -> dict:
+	"""
+	Save display/locale preferences for the current user.
+
+	Persists language, units, date_format, and timezone to the
+	ilL-Portal-User-Settings DocType.
+
+	Args:
+		preferences: Dict with preference values
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if isinstance(preferences, str):
+		try:
+			preferences = json.loads(preferences)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid preferences format"}
+
+	preference_fields = ["language", "units", "date_format", "timezone"]
+
+	try:
+		settings = _get_or_create_portal_settings()
+		for field in preference_fields:
+			if field in preferences:
+				setattr(settings, field, preferences[field])
+
+		settings.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"success": True}
+	except Exception as e:
+		frappe.log_error(f"Error saving portal preferences: {str(e)}")
 		return {"success": False, "error": str(e)}
 
 
@@ -2654,8 +3045,12 @@ def get_company_customers() -> dict:
 def get_contacts_for_project() -> dict:
 	"""
 	Get contacts that can be used in projects.
-	Returns contacts associated with the user's company or created by them.
-	
+
+	Returns contacts that:
+	1. System Manager: All contacts
+	2. Non-System Manager: Contacts linked to the user's own customer
+	   or linked to customers created by users at the user's company
+
 	Returns:
 		dict: {
 			"success": True/False,
@@ -2672,22 +3067,76 @@ def get_contacts_for_project() -> dict:
 		# System Manager can access all contacts
 		is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
 		
+		contact_fields = ["name", "first_name", "last_name", "company_name", "email_id", "phone"]
+		
 		if is_system_manager:
 			contacts = frappe.get_all(
 				"Contact",
-				fields=["name", "first_name", "last_name", "company_name", "email_id", "phone"],
+				fields=contact_fields,
 				order_by="first_name asc",
 				limit=1000
 			)
+		elif not user_customer:
+			contacts = []
 		else:
-			# Get contacts linked to the user's customer or owned by them
-			# For now, get all contacts - can be filtered later based on requirements
-			contacts = frappe.get_all(
-				"Contact",
-				fields=["name", "first_name", "last_name", "company_name", "email_id", "phone"],
-				order_by="first_name asc",
-				limit=1000
-			)
+			# Get the allowed customers (same logic as get_allowed_customers_for_project)
+			allowed_customer_names = set()
+			allowed_customer_names.add(user_customer)
+
+			# Get all contacts linked to the user's company (Customer)
+			company_contacts = frappe.db.sql("""
+				SELECT DISTINCT c.name as contact_name, c.user
+				FROM `tabContact` c
+				INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
+					AND dl.parenttype = 'Contact'
+					AND dl.link_doctype = 'Customer'
+					AND dl.link_name = %(user_customer)s
+			""", {"user_customer": user_customer}, as_dict=True)
+
+			contact_names = [c.contact_name for c in company_contacts]
+
+			if contact_names:
+				# Get customers linked to contacts at the user's company
+				linked_customers = frappe.db.sql("""
+					SELECT DISTINCT dl.link_name as customer_name
+					FROM `tabDynamic Link` dl
+					WHERE dl.parenttype = 'Contact'
+						AND dl.link_doctype = 'Customer'
+						AND dl.parent IN (
+							SELECT c.name FROM `tabContact` c
+							INNER JOIN `tabDynamic Link` dl2 ON dl2.parent = c.name
+								AND dl2.parenttype = 'Contact'
+								AND dl2.link_doctype = 'Customer'
+								AND dl2.link_name = %(user_customer)s
+						)
+				""", {"user_customer": user_customer}, as_dict=True)
+
+				for row in linked_customers:
+					allowed_customer_names.add(row.customer_name)
+
+				# Also get customers created by users at this company
+				company_users = [c.user for c in company_contacts if c.user]
+				if company_users:
+					created_customers = frappe.get_all(
+						"Customer",
+						filters={"owner": ["in", company_users]},
+						pluck="name",
+					)
+					for cust in created_customers:
+						allowed_customer_names.add(cust)
+
+			# Get contacts linked to any of the allowed customers
+			contacts = frappe.db.sql("""
+				SELECT DISTINCT c.name, c.first_name, c.last_name,
+					c.company_name, c.email_id, c.phone
+				FROM `tabContact` c
+				INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
+					AND dl.parenttype = 'Contact'
+					AND dl.link_doctype = 'Customer'
+					AND dl.link_name IN %(allowed_customers)s
+				ORDER BY c.first_name ASC
+				LIMIT 1000
+			""", {"allowed_customers": list(allowed_customer_names)}, as_dict=True)
 		
 		return {"success": True, "contacts": contacts}
 		
@@ -2922,6 +3371,9 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 				else:
 					segment_data["start_power_feed_type"] = None
 
+				# Get feed direction for start
+				segment_data["start_feed_direction"] = getattr(seg, "start_feed_direction", None) or None
+
 				segment_data["start_leader_cable_length_mm"] = seg.start_leader_cable_length_mm or 300
 
 				# Get end power feed type code (for jumpers)
@@ -2930,9 +3382,11 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 						"ilL-Attribute-Power Feed Type", seg.end_power_feed_type, "code"
 					) or seg.end_power_feed_type
 					segment_data["end_jumper_cable_length_mm"] = seg.end_jumper_cable_length_mm or 300
+					segment_data["end_feed_direction"] = getattr(seg, "end_feed_direction", None) or None
 				else:
 					segment_data["end_power_feed_type"] = None
 					segment_data["end_jumper_cable_length_mm"] = None
+					segment_data["end_feed_direction"] = None
 
 				segments.append(segment_data)
 		else:

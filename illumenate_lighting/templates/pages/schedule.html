@@ -9,9 +9,13 @@ Also handles new schedule creation when is_new is True
 
 {% block style %}
 <style>
+.action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
 .action-buttons .btn {
-	margin-left: 2px;
-	margin-right: 2px;
+	margin: 0;
 }
 .action-buttons .btn i {
 	pointer-events: none;
@@ -31,6 +35,121 @@ Also handles new schedule creation when is_new is True
 }
 .table td {
 	vertical-align: middle;
+}
+/* Constrain Actions column width */
+.fixture-lines-table th.col-actions,
+.fixture-lines-table td.col-actions {
+	max-width: 175px;
+	width: 175px;
+}
+/* Let Fixture Details column take remaining space */
+.fixture-lines-table th.col-fixture-details,
+.fixture-lines-table td.col-fixture-details {
+	width: 100%;
+}
+
+/* Pricing columns */
+.fixture-lines-table th.col-pricing,
+.fixture-lines-table td.col-pricing {
+	white-space: nowrap;
+}
+
+/* Mobile/Tablet Card Layout */
+@media (max-width: 768px) {
+	.fixture-lines-table thead {
+		display: none;
+	}
+	.fixture-lines-table tbody tr {
+		display: block;
+		border: 1px solid var(--ill-gray-200, #eee);
+		border-radius: var(--ill-radius-md, 8px);
+		margin-bottom: var(--ill-space-4, 1rem);
+		box-shadow: var(--ill-shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+		overflow: hidden;
+	}
+	.fixture-lines-table tbody tr:hover {
+		background: transparent;
+	}
+	.fixture-lines-table tbody td {
+		display: block;
+		border-bottom: none;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-4, 1rem);
+	}
+	/* Card header area: Line ID, Type, QTY, Location on top */
+	.fixture-lines-table tbody td.col-line-id,
+	.fixture-lines-table tbody td.col-type,
+	.fixture-lines-table tbody td.col-qty,
+	.fixture-lines-table tbody td.col-location {
+		display: inline-block;
+		width: auto;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-3, 0.75rem);
+		vertical-align: middle;
+	}
+	.fixture-lines-table tbody td.col-line-id {
+		padding-left: var(--ill-space-4, 1rem);
+		font-weight: 600;
+	}
+	.fixture-lines-table tbody td.col-line-id::before,
+	.fixture-lines-table tbody td.col-type::before,
+	.fixture-lines-table tbody td.col-qty::before,
+	.fixture-lines-table tbody td.col-location::before,
+	.fixture-lines-table tbody td.col-pricing::before {
+		content: attr(data-label) ": ";
+		font-weight: 600;
+		color: var(--ill-gray-600, #757575);
+		font-size: var(--ill-font-size-xs, 0.75rem);
+		text-transform: uppercase;
+	}
+	.fixture-lines-table tbody td.col-pricing {
+		display: inline-block;
+		width: auto;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-3, 0.75rem);
+		vertical-align: middle;
+		text-align: left;
+	}
+	/* Card body: Fixture Details */
+	.fixture-lines-table tbody td.col-fixture-details {
+		display: block;
+		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+		max-width: none;
+		width: auto;
+	}
+	/* Card footer: Actions */
+	.fixture-lines-table tbody td.col-actions {
+		display: block;
+		max-width: none;
+		width: auto;
+		background: var(--ill-gray-50, #fafafa);
+		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+		text-align: left;
+	}
+	.fixture-lines-table tbody td.col-actions .action-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ill-space-2, 0.5rem);
+	}
+}
+
+/* Export buttons responsive layout */
+.export-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.export-buttons .btn {
+	border-radius: var(--ill-radius-sm, 4px);
+}
+@media (max-width: 768px) {
+	.export-buttons {
+		width: 100%;
+		gap: var(--ill-space-2, 0.5rem);
+	}
+	.export-buttons .btn {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
 }
 </style>
 {% endblock %}
@@ -199,24 +318,28 @@ Also handles new schedule creation when is_new is True
 				<div class="card-body p-0">
 					{% if lines %}
 					<div class="table-responsive">
-						<table class="table table-hover mb-0">
+						<table class="table table-hover mb-0 fixture-lines-table">
 							<thead class="thead-light">
 								<tr>
 									<th>{{ _("Line ID") }}</th>
 									<th>{{ _("Type") }}</th>
 									<th class="text-center">{{ _("Qty") }}</th>
 									<th>{{ _("Location") }}</th>
-									<th>{{ _("Fixture Details") }}</th>
+									<th class="col-fixture-details">{{ _("Fixture Details") }}</th>
+									{% if can_view_pricing %}
+									<th class="text-right col-pricing">{{ _("Unit Price") }}</th>
+									<th class="text-right col-pricing">{{ _("Line Total") }}</th>
+									{% endif %}
 									{% if can_edit %}
-									<th class="text-center">{{ _("Actions") }}</th>
+									<th class="text-center col-actions">{{ _("Actions") }}</th>
 									{% endif %}
 								</tr>
 							</thead>
 							<tbody>
 								{% for line in lines %}
 								<tr>
-									<td>{{ line.get('line_id') or line.get('idx') }}</td>
-									<td>
+									<td class="col-line-id" data-label="{{ _('Line') }}">{{ line.get('line_id') or line.get('idx') }}</td>
+									<td class="col-type" data-label="{{ _('Type') }}">
 										{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<span class="badge badge-primary">ilLumenate</span>
 										{% elif line.get('manufacturer_type') == 'ACCESSORY' %}
@@ -225,14 +348,14 @@ Also handles new schedule creation when is_new is True
 										<span class="badge badge-secondary">Other</span>
 										{% endif %}
 									</td>
-									<td class="text-center">{{ line.get('qty') }}</td>
-									<td>{{ line.get('location') or '-' }}</td>
-									<td>
+									<td class="text-center col-qty" data-label="{{ _('Qty') }}">{{ line.get('qty') }}</td>
+									<td class="col-location" data-label="{{ _('Location') }}">{{ line.get('location') or '-' }}</td>
+									<td class="col-fixture-details">
 										{% if line.get('manufacturer_type') == 'ACCESSORY' and line.get('accessory_item') %}
 										<div class="fixture-details">
 											<strong class="text-success">{{ line.get('accessory_item_name') or line.get('accessory_item') }}</strong>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> {{ line.get('accessory_item') }}
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('accessory_item') }}</strong>
 											</div>
 											{% if line.get('variant_selections') %}
 											<div class="small text-muted mt-1">
@@ -257,6 +380,12 @@ Also handles new schedule creation when is_new is True
 													<span class="badge badge-info ml-1" title="{{ _('Multi-segment fixture with jumper cables') }}">J</span>
 												{% endif %}
 											</strong>
+											<!-- SPEC reference -->
+											{% if cf_details.get('fixture_template_code') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ cf_details.get('fixture_template_code') }}</strong>
+											</div>
+											{% endif %}
 											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
 											<div class="small text-info mt-1 build-description">
 												<i class="fa fa-link"></i> 
@@ -272,94 +401,50 @@ Also handles new schedule creation when is_new is True
 												</button>
 											</div>
 											{% endif %}
-											<!-- Environment Rating -->
-											{% if cf_details.get('environment_rating') %}
-											<div class="small text-muted">
-												<i class="fa fa-tint"></i> Environment: {{ cf_details.get('environment_rating') }}
-											</div>
-											{% endif %}
-											<!-- CCT -->
-											{% if cf_details.get('cct') %}
-											<div class="small text-muted">
-												<i class="fa fa-thermometer-half"></i> CCT: {{ cf_details.get('cct') }}
-											</div>
-											{% endif %}
-											<!-- CRI -->
-											{% if cf_details.get('cri') %}
-											<div class="small text-muted">
-												<i class="fa fa-star"></i> CRI: {{ cf_details.get('cri') }}
-											</div>
-											{% endif %}
-											<!-- Output (Delivered Lumens) -->
-											{% if cf_details.get('estimated_delivered_output') %}
-											<div class="small text-muted">
-												<i class="fa fa-lightbulb-o"></i> Output: {{ cf_details.get('estimated_delivered_output') }} lm/ft
-											</div>
-											{% endif %}
-											<!-- Lens -->
-											{% if cf_details.get('lens_appearance') %}
-											<div class="small text-muted">
-												<i class="fa fa-eye"></i> Lens: {{ cf_details.get('lens_appearance') }}
-											</div>
-											{% endif %}
-											<!-- Mounting -->
-											{% if cf_details.get('mounting_method') %}
-											<div class="small text-muted">
-												<i class="fa fa-wrench"></i> Mounting: {{ cf_details.get('mounting_method') }}
-											</div>
-											{% endif %}
-											<!-- Finish -->
-											{% if cf_details.get('finish') %}
-											<div class="small text-muted">
-												<i class="fa fa-paint-brush"></i> Finish: {{ cf_details.get('finish') }}
-											</div>
-											{% endif %}
-											<!-- Length -->
-											{% if cf_details.get('manufacturable_length_inches') %}
-											<div class="small text-muted">
-												<i class="fa fa-arrows-h"></i> Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"</strong>
-												{% if cf_details.get('is_multi_segment') %}
-													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
+											<!-- Fixture attributes as badges -->
+											<div class="small text-muted mt-1">
+												{% if cf_details.get('environment_rating') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cf_details.get('environment_rating') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('cct') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cf_details.get('cct') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('cri') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CRI: <strong>{{ cf_details.get('cri') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('estimated_delivered_output') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cf_details.get('estimated_delivered_output') }} lm/ft</strong></span>
+												{% endif %}
+												{% if cf_details.get('lens_appearance') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ cf_details.get('lens_appearance') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('mounting_method') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cf_details.get('mounting_method') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cf_details.get('finish') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('manufacturable_length_inches') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) }} segments){% endif %}</strong></span>
+												{% endif %}
+												{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') }}</strong></span>
+												{% elif cf_details.get('power_feed_type') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ cf_details.get('power_feed_type') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('fixture_input_voltage') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('driver_input_voltage') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">PS Input Voltage: <strong>{{ cf_details.get('driver_input_voltage') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('total_watts') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cf_details.get('total_watts') }}W</strong></span>
+												{% endif %}
+												{% if cf_details.get('power_supply') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ cf_details.get('power_supply') }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') }} units){% endif %}</strong></span>
 												{% endif %}
 											</div>
-											{% endif %}
-											<!-- Feed or Build Description (show Build Description for jumpered fixtures instead of Feed) -->
-											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
-											<div class="small text-muted">
-												<i class="fa fa-link"></i> Build: {{ cf_details.get('build_description_display') | replace('\n', '; ') }}
-											</div>
-											{% elif cf_details.get('power_feed_type') %}
-											<div class="small text-muted">
-												<i class="fa fa-sign-in"></i> Feed: {{ cf_details.get('power_feed_type') }}
-											</div>
-											{% endif %}
-											<!-- Input Voltage (Fixture Voltage) -->
-											{% if cf_details.get('fixture_input_voltage') %}
-											<div class="small text-muted">
-												<i class="fa fa-flash"></i> Input Voltage: {{ cf_details.get('fixture_input_voltage') }}
-											</div>
-											{% endif %}
-											<!-- PS Input Voltage (Driver Input Voltage) -->
-											{% if cf_details.get('driver_input_voltage') %}
-											<div class="small text-muted">
-												<i class="fa fa-plug"></i> PS Input Voltage: {{ cf_details.get('driver_input_voltage') }}
-											</div>
-											{% endif %}
-											<!-- Wattage / Power -->
-											{% if cf_details.get('total_watts') %}
-											<div class="small text-muted">
-												<i class="fa fa-bolt"></i> Power: {{ cf_details.get('total_watts') }}W
-											</div>
-											{% endif %}
-											<!-- Driver / Power Supply -->
-											{% if cf_details.get('power_supply') %}
-											<div class="small text-muted">
-												<i class="fa fa-battery-full"></i> Driver: {{ cf_details.get('power_supply') }}
-												{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %}
-												<span class="badge badge-secondary ml-1">{{ cf_details.get('power_supply_qty') }} units</span>
-												{% endif %}
-											</div>
-											{% endif %}
 											<!-- Show message if no details available -->
 											{% if not cf_details.get('cct') and not cf_details.get('cri') and not cf_details.get('finish') and not cf_details.get('manufacturable_length_inches') %}
 											<div class="small text-warning mt-1">
@@ -373,29 +458,33 @@ Also handles new schedule creation when is_new is True
 											<strong>{{ line.get('manufacturer_name') }}</strong>
 											{% endif %}
 											{% if line.get('fixture_model_number') %}
-											<div class="small text-muted mt-1"><i class="fa fa-tag"></i> <strong>{{ line.get('fixture_model_number') }}</strong></div>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_model_number') }}</strong>
+											</div>
 											{% endif %}
-											{% if line.get('trim_info') %}
-											<div class="small text-muted"><i class="fa fa-th"></i> Trim: {{ line.get('trim_info') }}</div>
-											{% endif %}
-											{% if line.get('housing_model_number') %}
-											<div class="small text-muted"><i class="fa fa-cube"></i> Housing: {{ line.get('housing_model_number') }}</div>
-											{% endif %}
-											{% if line.get('driver_model_number') %}
-											<div class="small text-muted"><i class="fa fa-plug"></i> Driver: {{ line.get('driver_model_number') }}</div>
-											{% endif %}
-											{% if line.get('lamp_info') %}
-											<div class="small text-muted"><i class="fa fa-lightbulb-o"></i> Lamp: {{ line.get('lamp_info') }}</div>
-											{% endif %}
-											{% if line.get('dimming_protocol') %}
-											<div class="small text-muted"><i class="fa fa-sliders"></i> Dimming: {{ line.get('dimming_protocol') }}</div>
-											{% endif %}
-											{% if line.get('input_voltage') %}
-											<div class="small text-muted"><i class="fa fa-bolt"></i> Voltage: {{ line.get('input_voltage') }}</div>
-											{% endif %}
-											{% if line.get('other_finish') %}
-											<div class="small text-muted"><i class="fa fa-paint-brush"></i> Finish: {{ line.get('other_finish') }}</div>
-											{% endif %}
+											<div class="small text-muted mt-1">
+												{% if line.get('trim_info') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Trim: <strong>{{ line.get('trim_info') }}</strong></span>
+												{% endif %}
+												{% if line.get('housing_model_number') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Housing: <strong>{{ line.get('housing_model_number') }}</strong></span>
+												{% endif %}
+												{% if line.get('driver_model_number') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ line.get('driver_model_number') }}</strong></span>
+												{% endif %}
+												{% if line.get('lamp_info') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lamp: <strong>{{ line.get('lamp_info') }}</strong></span>
+												{% endif %}
+												{% if line.get('dimming_protocol') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Dimming: <strong>{{ line.get('dimming_protocol') }}</strong></span>
+												{% endif %}
+												{% if line.get('input_voltage') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Voltage: <strong>{{ line.get('input_voltage') }}</strong></span>
+												{% endif %}
+												{% if line.get('other_finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ line.get('other_finish') }}</strong></span>
+												{% endif %}
+											</div>
 											{% if line.get('spec_sheet') %}
 											<div class="small mt-1">
 												<a href="{{ line.get('spec_sheet') }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">
@@ -409,6 +498,11 @@ Also handles new schedule creation when is_new is True
 											{% if line.get('fixture_template_name') or line.get('fixture_template') %}
 											<strong>{{ line.get('fixture_template_name') or line.get('fixture_template') }}</strong>
 											{% endif %}
+											{% if line.get('fixture_template') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_template') }}</strong>
+											</div>
+											{% endif %}
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
@@ -417,8 +511,24 @@ Also handles new schedule creation when is_new is True
 										<span class="text-muted">-</span>
 										{% endif %}
 									</td>
+									{% if can_view_pricing %}
+									<td class="text-right col-pricing" data-label="{{ _('Unit Price') }}">
+										{% if line.get('unit_price') %}
+										${{ "%.2f" | format(line.get('unit_price')) }}
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									<td class="text-right col-pricing" data-label="{{ _('Line Total') }}">
+										{% if line.get('line_total') %}
+										${{ "%.2f" | format(line.get('line_total')) }}
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									{% endif %}
 									{% if can_edit %}
-									<td class="text-center">
+									<td class="text-center col-actions">
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 												{% if line.get('configured_fixture') %}
@@ -448,6 +558,19 @@ Also handles new schedule creation when is_new is True
 								</tr>
 								{% endfor %}
 							</tbody>
+							{% if can_view_pricing and schedule_total %}
+							<tfoot>
+								<tr class="font-weight-bold">
+									<td colspan="4" class="text-right">{{ _("Schedule Total:") }}</td>
+									<td></td>
+									<td></td>
+									<td class="text-right">${{ "%.2f" | format(schedule_total) }}</td>
+									{% if can_edit %}
+									<td></td>
+									{% endif %}
+								</tr>
+							</tfoot>
+							{% endif %}
 						</table>
 					</div>
 					{% else %}
@@ -486,9 +609,9 @@ Also handles new schedule creation when is_new is True
 	<div class="row mt-4">
 		<div class="col-12">
 			<div class="card">
-				<div class="card-header d-flex justify-content-between align-items-center">
+				<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 					<h5 class="mb-0">{{ _("Exports") }}</h5>
-					<div class="btn-group">
+					<div class="export-buttons">
 						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', false)">
 							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (No Pricing)") }}
 						</button>
@@ -1152,9 +1275,13 @@ function loadItemsForProductType(productType) {
 			var options = '<option value="">{{ _("Select Item...") }}</option>';
 			if (r.message && r.message.success && r.message.items) {
 				r.message.items.forEach(function(item) {
+					// Strip HTML tags from description for safe use in data attribute
+					var cleanDesc = (item.description || '').replace(/<[^>]*>/g, '').substring(0, 100);
+					// Escape special characters for HTML attribute
+					var safeDesc = cleanDesc.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 					options += '<option value="' + item.item_code + '" ' +
 						'data-name="' + (item.item_name || '') + '" ' +
-						'data-desc="' + (item.description || '').substring(0, 100) + '" ' +
+						'data-desc="' + safeDesc + '" ' +
 						'data-uom="' + (item.stock_uom || 'Nos') + '" ' +
 						'data-rate="' + (item.standard_rate || 0) + '" ' +
 						'data-has-variants="' + (item.has_variants ? '1' : '0') + '">' + 
@@ -1284,31 +1411,23 @@ function openItemVariantModal() {
 	});
 }
 
-// Check if selected attributes match a variant
-function checkVariantMatch() {
-	// Collect all selected attribute values
-	var selectedAttributes = {};
-	var allSelected = true;
-	
+// Collect all selected attribute values from variant dropdowns
+function collectSelectedAttributes() {
+	var result = {attributes: {}, allSelected: true};
 	$('.variant-attribute-select').each(function() {
 		var attr = $(this).data('attribute');
 		var val = $(this).val();
 		if (val) {
-			selectedAttributes[attr] = val;
+			result.attributes[attr] = val;
 		} else {
-			allSelected = false;
+			result.allSelected = false;
 		}
 	});
-	
-	// Only check for match if all attributes are selected
-	if (!allSelected) {
-		$('.variant-match-status').hide();
-		$('#confirmVariantBtn').prop('disabled', true);
-		currentVariantMatch = null;
-		return;
-	}
-	
-	// Find matching variant
+	return result;
+}
+
+// Try to find a matching variant after all attributes are selected
+function findMatchingVariant(selectedAttributes) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.find_matching_variant',
 		args: {
@@ -1334,6 +1453,60 @@ function checkVariantMatch() {
 			}
 		}
 	});
+}
+
+// Check if selected attributes match a variant and filter remaining dropdowns
+function checkVariantMatch() {
+	var collected = collectSelectedAttributes();
+	var selectedAttributes = collected.attributes;
+	
+	// Filter remaining dropdowns based on current selections
+	if (Object.keys(selectedAttributes).length > 0) {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_filtered_variant_attributes',
+			args: {
+				template_item: currentTemplateItem,
+				selected_attributes: selectedAttributes
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && r.message.attributes) {
+					r.message.attributes.forEach(function(attr) {
+						var $select = $('.variant-attribute-select[data-attribute="' + attr.attribute + '"]');
+						var currentVal = $select.val();
+						var validValues = attr.values.map(function(v) { return v.value; });
+						
+						// Rebuild options preserving current selection
+						var opts = '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+						attr.values.forEach(function(val) {
+							var selected = (val.value === currentVal) ? ' selected' : '';
+							opts += '<option value="' + val.value + '"' + selected + '>' + val.value + '</option>';
+						});
+						$select.html(opts);
+						
+						// If current value is no longer valid, reset it
+						if (currentVal && validValues.indexOf(currentVal) === -1) {
+							$select.val('');
+						}
+					});
+				}
+				
+				// After filtering, re-check if all are selected and find match
+				var updated = collectSelectedAttributes();
+				if (!updated.allSelected) {
+					$('.variant-match-status').hide();
+					$('#confirmVariantBtn').prop('disabled', true);
+					currentVariantMatch = null;
+					return;
+				}
+				findMatchingVariant(updated.attributes);
+			}
+		});
+	} else {
+		// Nothing selected yet
+		$('.variant-match-status').hide();
+		$('#confirmVariantBtn').prop('disabled', true);
+		currentVariantMatch = null;
+	}
 }
 
 // Confirm variant selection
@@ -1984,7 +2157,15 @@ function renderExportHistory(exports) {
 			'FAILED': 'danger'
 		}[exp.status] || 'secondary';
 
-		var typeLabel = exp.export_type.replace('_', ' ');
+		var typeLabelMap = {
+			'PDF_PRICED': 'PDF (With Pricing)',
+			'PDF_NO_PRICE': 'PDF (No Pricing)',
+			'CSV_PRICED': 'CSV (With Pricing)',
+			'CSV_NO_PRICE': 'CSV (No Pricing)',
+			'SPEC_SUBMITTAL': 'Spec Submittal',
+			'SPEC_SUBMITTAL_FULL': 'Spec Submittal (Full)'
+		};
+		var typeLabel = typeLabelMap[exp.export_type] || exp.export_type.replace(/_/g, ' ');
 		var createdOn = exp.created_on ? frappe.datetime.prettyDate(exp.created_on) : '-';
 
 		html += '<tr>';

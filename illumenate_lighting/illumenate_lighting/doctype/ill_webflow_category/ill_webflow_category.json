@@ -1,145 +1,152 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:category_slug",
- "creation": "2026-01-21 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "identity_section",
-  "category_name",
-  "category_slug",
-  "column_break_identity",
-  "parent_category",
-  "display_order",
-  "is_active",
-  "details_section",
-  "description",
-  "category_image",
-  "sync_section",
-  "webflow_item_id",
-  "column_break_sync",
-  "last_synced_at",
-  "sync_status"
- ],
- "fields": [
-  {
-   "fieldname": "identity_section",
-   "fieldtype": "Section Break",
-   "label": "Identity"
-  },
-  {
-   "fieldname": "category_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Category Name",
-   "reqd": 1
-  },
-  {
-   "description": "URL-friendly slug (e.g., 'linear-fixtures')",
-   "fieldname": "category_slug",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Category Slug",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "column_break_identity",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Parent category for hierarchical navigation",
-   "fieldname": "parent_category",
-   "fieldtype": "Link",
-   "label": "Parent Category",
-   "options": "ilL-Webflow-Category"
-  },
-  {
-   "default": "0",
-   "fieldname": "display_order",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Display Order"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active"
-  },
-  {
-   "fieldname": "details_section",
-   "fieldtype": "Section Break",
-   "label": "Details"
-  },
-  {
-   "fieldname": "description",
-   "fieldtype": "Small Text",
-   "label": "Description"
-  },
-  {
-   "fieldname": "category_image",
-   "fieldtype": "Attach Image",
-   "label": "Category Image"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "sync_section",
-   "fieldtype": "Section Break",
-   "label": "Webflow Sync Status"
-  },
-  {
-   "description": "Webflow CMS item ID (populated after sync)",
-   "fieldname": "webflow_item_id",
-   "fieldtype": "Data",
-   "label": "Webflow Item ID",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_sync",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "last_synced_at",
-   "fieldtype": "Datetime",
-   "label": "Last Synced At",
-   "read_only": 1
-  },
-  {
-   "default": "Never Synced",
-   "fieldname": "sync_status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Sync Status",
-   "options": "Pending\nSynced\nError\nNever Synced",
-   "read_only": 1
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-21 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Webflow-Category",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "display_order",
- "sort_order": "ASC",
- "states": [],
- "track_changes": 1
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:category_slug",
+    "creation":  "2026-01-21 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "identity_section",
+                        "category_name",
+                        "category_slug",
+                        "column_break_identity",
+                        "parent_category",
+                        "display_order",
+                        "is_active",
+                        "details_section",
+                        "description",
+                        "category_image",
+                        "sync_section",
+                        "webflow_item_id",
+                        "column_break_sync",
+                        "last_synced_at",
+                        "sync_status"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "identity_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Identity"
+                   },
+                   {
+                       "fieldname":  "category_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Category Name",
+                       "reqd":  1
+                   },
+                   {
+                       "description":  "URL-friendly slug (e.g., \u0027linear-fixtures\u0027)",
+                       "fieldname":  "category_slug",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Category Slug",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "column_break_identity",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Parent category for hierarchical navigation",
+                       "fieldname":  "parent_category",
+                       "fieldtype":  "Link",
+                       "label":  "Parent Category",
+                       "options":  "ilL-Webflow-Category"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "display_order",
+                       "fieldtype":  "Int",
+                       "in_list_view":  1,
+                       "label":  "Display Order"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "label":  "Is Active"
+                   },
+                   {
+                       "fieldname":  "details_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Details"
+                   },
+                   {
+                       "fieldname":  "description",
+                       "fieldtype":  "Small Text",
+                       "label":  "Description"
+                   },
+                   {
+                       "fieldname":  "category_image",
+                       "fieldtype":  "Attach Image",
+                       "label":  "Category Image"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "sync_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Webflow Sync Status"
+                   },
+                   {
+                       "description":  "Webflow CMS item ID (populated after sync)",
+                       "fieldname":  "webflow_item_id",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Item ID",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "column_break_sync",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "last_synced_at",
+                       "fieldtype":  "Datetime",
+                       "label":  "Last Synced At",
+                       "read_only":  1
+                   },
+                   {
+                       "default":  "Never Synced",
+                       "fieldname":  "sync_status",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Sync Status",
+                       "options":  "Pending\nSynced\nError\nNever Synced",
+                       "read_only":  1
+                   }
+               ],
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-21 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Webflow-Category",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "display_order",
+    "sort_order":  "ASC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

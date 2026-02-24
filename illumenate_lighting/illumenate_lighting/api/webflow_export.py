@@ -113,6 +113,11 @@ def get_webflow_products(
     )
     
     if include_child_tables:
+        # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
+        _doctype_to_code_field = {}
+        for _cfg in ATTRIBUTE_DOCTYPES.values():
+            _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field") or None
+
         # Expand child tables for each product
         for product in products:
             doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
@@ -202,11 +207,6 @@ def get_webflow_products(
                 for al in getattr(doc, 'attribute_links', [])
             ]
             
-            # Build reverse mapping: attribute doctype -> code_field
-            _doctype_to_code_field = {}
-            for _cfg in ATTRIBUTE_DOCTYPES.values():
-                _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field") or None
-
             # Group attribute links by type for easier Webflow mapping
             product["attribute_links_by_type"] = {}
             for al in getattr(doc, 'attribute_links', []):

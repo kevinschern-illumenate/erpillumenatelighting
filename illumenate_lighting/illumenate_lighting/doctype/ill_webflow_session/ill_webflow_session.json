@@ -1,216 +1,221 @@
 {
- "actions": [],
- "allow_rename": 0,
- "autoname": "field:session_id",
- "creation": "2026-01-21 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "session_id",
-  "product_slug",
-  "part_number",
-  "column_break_main",
-  "is_complex_fixture",
-  "status",
-  "configuration_section",
-  "configuration_json",
-  "user_section",
-  "converted_to_user",
-  "column_break_user",
-  "anonymous_email",
-  "portal_redirect_section",
-  "redirect_to_project",
-  "redirect_to_schedule",
-  "column_break_portal",
-  "prefill_fixture_type_id",
-  "prefill_quantity",
-  "timestamps_section",
-  "created_at",
-  "expires_at",
-  "column_break_timestamps",
-  "converted_at"
- ],
- "fields": [
-  {
-   "fieldname": "session_id",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Session ID",
-   "read_only": 1,
-   "reqd": 1,
-   "unique": 1,
-   "description": "Unique session identifier (32-char hash)"
-  },
-  {
-   "fieldname": "product_slug",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Product Slug",
-   "description": "Webflow product slug that initiated this session"
-  },
-  {
-   "fieldname": "part_number",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Part Number",
-   "description": "Generated part number from configuration"
-  },
-  {
-   "fieldname": "column_break_main",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_complex_fixture",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Complex Fixture",
-   "description": "Requires portal for multi-segment configuration"
-  },
-  {
-   "default": "Active",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Status",
-   "options": "Active\nExpired\nConverted\nAbandoned"
-  },
-  {
-   "fieldname": "configuration_section",
-   "fieldtype": "Section Break",
-   "label": "Configuration"
-  },
-  {
-   "fieldname": "configuration_json",
-   "fieldtype": "JSON",
-   "label": "Configuration JSON",
-   "description": "Full configuration state from Webflow configurator"
-  },
-  {
-   "fieldname": "user_section",
-   "fieldtype": "Section Break",
-   "label": "User Information"
-  },
-  {
-   "fieldname": "converted_to_user",
-   "fieldtype": "Link",
-   "label": "Converted To User",
-   "options": "User",
-   "description": "User who converted this session to a project/order"
-  },
-  {
-   "fieldname": "column_break_user",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "anonymous_email",
-   "fieldtype": "Data",
-   "label": "Anonymous Email",
-   "options": "Email",
-   "description": "Email provided by guest user"
-  },
-  {
-   "fieldname": "portal_redirect_section",
-   "fieldtype": "Section Break",
-   "label": "Portal Redirect",
-   "description": "For complex fixtures redirected to Fixture Coordinator"
-  },
-  {
-   "fieldname": "redirect_to_project",
-   "fieldtype": "Link",
-   "label": "Redirect To Project",
-   "options": "ilL-Project",
-   "description": "Project to redirect to (if created)"
-  },
-  {
-   "fieldname": "redirect_to_schedule",
-   "fieldtype": "Link",
-   "label": "Redirect To Schedule",
-   "options": "ilL-Project-Fixture-Schedule",
-   "description": "Schedule to redirect to (if created)"
-  },
-  {
-   "fieldname": "column_break_portal",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "prefill_fixture_type_id",
-   "fieldtype": "Data",
-   "label": "Prefill Fixture Type ID",
-   "description": "Fixture type ID to prefill (e.g., 'A1')"
-  },
-  {
-   "default": "1",
-   "fieldname": "prefill_quantity",
-   "fieldtype": "Int",
-   "label": "Prefill Quantity"
-  },
-  {
-   "fieldname": "timestamps_section",
-   "fieldtype": "Section Break",
-   "label": "Timestamps"
-  },
-  {
-   "fieldname": "created_at",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Created At"
-  },
-  {
-   "fieldname": "expires_at",
-   "fieldtype": "Datetime",
-   "label": "Expires At"
-  },
-  {
-   "fieldname": "column_break_timestamps",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "converted_at",
-   "fieldtype": "Datetime",
-   "label": "Converted At",
-   "description": "When session was converted to project/order"
-  }
- ],
- "index_web_pages_for_search": 0,
- "links": [
-  {
-   "link_doctype": "ilL-Project",
-   "link_fieldname": "redirect_to_project"
-  },
-  {
-   "link_doctype": "ilL-Project-Fixture-Schedule",
-   "link_fieldname": "redirect_to_schedule"
-  }
- ],
- "modified": "2026-01-21 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Webflow-Session",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "read": 1,
-   "role": "Guest",
-   "write": 1
-  }
- ],
- "sort_field": "created_at",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+    "actions":  [
+
+                ],
+    "allow_rename":  0,
+    "autoname":  "field:session_id",
+    "creation":  "2026-01-21 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "session_id",
+                        "product_slug",
+                        "part_number",
+                        "column_break_main",
+                        "is_complex_fixture",
+                        "status",
+                        "configuration_section",
+                        "configuration_json",
+                        "user_section",
+                        "converted_to_user",
+                        "column_break_user",
+                        "anonymous_email",
+                        "portal_redirect_section",
+                        "redirect_to_project",
+                        "redirect_to_schedule",
+                        "column_break_portal",
+                        "prefill_fixture_type_id",
+                        "prefill_quantity",
+                        "timestamps_section",
+                        "created_at",
+                        "expires_at",
+                        "column_break_timestamps",
+                        "converted_at"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "session_id",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Session ID",
+                       "read_only":  1,
+                       "reqd":  1,
+                       "unique":  1,
+                       "description":  "Unique session identifier (32-char hash)"
+                   },
+                   {
+                       "fieldname":  "product_slug",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Product Slug",
+                       "description":  "Webflow product slug that initiated this session"
+                   },
+                   {
+                       "fieldname":  "part_number",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Part Number",
+                       "description":  "Generated part number from configuration"
+                   },
+                   {
+                       "fieldname":  "column_break_main",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "is_complex_fixture",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Complex Fixture",
+                       "description":  "Requires portal for multi-segment configuration"
+                   },
+                   {
+                       "default":  "Active",
+                       "fieldname":  "status",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Status",
+                       "options":  "Active\nExpired\nConverted\nAbandoned"
+                   },
+                   {
+                       "fieldname":  "configuration_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Configuration"
+                   },
+                   {
+                       "fieldname":  "configuration_json",
+                       "fieldtype":  "JSON",
+                       "label":  "Configuration JSON",
+                       "description":  "Full configuration state from Webflow configurator"
+                   },
+                   {
+                       "fieldname":  "user_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "User Information"
+                   },
+                   {
+                       "fieldname":  "converted_to_user",
+                       "fieldtype":  "Link",
+                       "label":  "Converted To User",
+                       "options":  "User",
+                       "description":  "User who converted this session to a project/order"
+                   },
+                   {
+                       "fieldname":  "column_break_user",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "anonymous_email",
+                       "fieldtype":  "Data",
+                       "label":  "Anonymous Email",
+                       "options":  "Email",
+                       "description":  "Email provided by guest user"
+                   },
+                   {
+                       "fieldname":  "portal_redirect_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Portal Redirect",
+                       "description":  "For complex fixtures redirected to Fixture Coordinator"
+                   },
+                   {
+                       "fieldname":  "redirect_to_project",
+                       "fieldtype":  "Link",
+                       "label":  "Redirect To Project",
+                       "options":  "ilL-Project",
+                       "description":  "Project to redirect to (if created)"
+                   },
+                   {
+                       "fieldname":  "redirect_to_schedule",
+                       "fieldtype":  "Link",
+                       "label":  "Redirect To Schedule",
+                       "options":  "ilL-Project-Fixture-Schedule",
+                       "description":  "Schedule to redirect to (if created)"
+                   },
+                   {
+                       "fieldname":  "column_break_portal",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "prefill_fixture_type_id",
+                       "fieldtype":  "Data",
+                       "label":  "Prefill Fixture Type ID",
+                       "description":  "Fixture type ID to prefill (e.g., \u0027A1\u0027)"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "prefill_quantity",
+                       "fieldtype":  "Int",
+                       "label":  "Prefill Quantity"
+                   },
+                   {
+                       "fieldname":  "timestamps_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Timestamps"
+                   },
+                   {
+                       "fieldname":  "created_at",
+                       "fieldtype":  "Datetime",
+                       "in_list_view":  1,
+                       "label":  "Created At"
+                   },
+                   {
+                       "fieldname":  "expires_at",
+                       "fieldtype":  "Datetime",
+                       "label":  "Expires At"
+                   },
+                   {
+                       "fieldname":  "column_break_timestamps",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "converted_at",
+                       "fieldtype":  "Datetime",
+                       "label":  "Converted At",
+                       "description":  "When session was converted to project/order"
+                   }
+               ],
+    "index_web_pages_for_search":  0,
+    "links":  [
+                  {
+                      "link_doctype":  "ilL-Project",
+                      "link_fieldname":  "redirect_to_project"
+                  },
+                  {
+                      "link_doctype":  "ilL-Project-Fixture-Schedule",
+                      "link_fieldname":  "redirect_to_schedule"
+                  }
+              ],
+    "modified":  "2026-01-21 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Webflow-Session",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "create":  1,
+                            "read":  1,
+                            "role":  "Guest",
+                            "write":  1
+                        }
+                    ],
+    "sort_field":  "created_at",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

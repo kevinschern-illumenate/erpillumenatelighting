@@ -167,6 +167,14 @@ def _get_allowed_options(template) -> dict[str, list]:
 	)
 	options["endcap_colors"] = [c.name for c in endcap_colors]
 
+	# Get finish → endcap color mappings from ilL-Rel-Finish Endcap Color
+	finish_endcap_mappings = frappe.get_all(
+		"ilL-Rel-Finish Endcap Color",
+		filters={"is_active": 1},
+		fields=["finish", "endcap_color"],
+	)
+	options["finish_endcap_color_map"] = {m.finish: m.endcap_color for m in finish_endcap_mappings}
+
 	return options
 
 

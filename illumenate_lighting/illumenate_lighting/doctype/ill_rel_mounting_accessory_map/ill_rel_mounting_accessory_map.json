@@ -1,145 +1,152 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "format:{fixture_template}-{mounting_method}-{accessory_item}",
- "creation": "2026-01-07 21:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "mapping_section",
-  "fixture_template",
-  "mounting_method",
-  "column_break_mapping",
-  "environment_rating",
-  "result_section",
-  "accessory_item",
-  "qty_rule_type",
-  "qty_rule_value",
-  "column_break_result",
-  "min_qty",
-  "rounding",
-  "is_active"
- ],
- "fields": [
-  {
-   "fieldname": "mapping_section",
-   "fieldtype": "Section Break",
-   "label": "Mapping Criteria"
-  },
-  {
-   "fieldname": "fixture_template",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Fixture Template",
-   "options": "ilL-Fixture-Template",
-   "reqd": 1
-  },
-  {
-   "fieldname": "mounting_method",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Mounting Method",
-   "options": "ilL-Attribute-Mounting Method",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_mapping",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "environment_rating",
-   "fieldtype": "Link",
-   "label": "Environment Rating",
-   "options": "ilL-Attribute-Environment Rating"
-  },
-  {
-   "fieldname": "result_section",
-   "fieldtype": "Section Break",
-   "label": "Result"
-  },
-  {
-   "fieldname": "accessory_item",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Accessory Item",
-   "options": "Item",
-   "reqd": 1
-  },
-  {
-   "fieldname": "qty_rule_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Qty Rule Type",
-   "options": "PER_FIXTURE\nPER_SEGMENT\nPER_RUN\nPER_X_MM",
-   "reqd": 1
-  },
-  {
-   "default": "1",
-   "fieldname": "qty_rule_value",
-   "fieldtype": "Float",
-   "label": "Qty Rule Value"
-  },
-  {
-   "fieldname": "column_break_result",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "min_qty",
-   "fieldtype": "Int",
-   "label": "Min Qty"
-  },
-  {
-   "default": "CEIL",
-   "fieldname": "rounding",
-   "fieldtype": "Select",
-   "label": "Rounding",
-   "options": "CEIL\nFLOOR\nROUND"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Active"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 21:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Rel-Mounting-Accessory-Map",
- "naming_rule": "Expression",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "fixture_template, mounting_method, accessory_item",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "format:{fixture_template}-{mounting_method}-{accessory_item}",
+    "creation":  "2026-01-07 21:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "mapping_section",
+                        "fixture_template",
+                        "mounting_method",
+                        "column_break_mapping",
+                        "environment_rating",
+                        "result_section",
+                        "accessory_item",
+                        "qty_rule_type",
+                        "qty_rule_value",
+                        "column_break_result",
+                        "min_qty",
+                        "rounding",
+                        "is_active"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "mapping_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Mapping Criteria"
+                   },
+                   {
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Fixture Template",
+                       "options":  "ilL-Fixture-Template",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "mounting_method",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Mounting Method",
+                       "options":  "ilL-Attribute-Mounting Method",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "column_break_mapping",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "environment_rating",
+                       "fieldtype":  "Link",
+                       "label":  "Environment Rating",
+                       "options":  "ilL-Attribute-Environment Rating"
+                   },
+                   {
+                       "fieldname":  "result_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Result"
+                   },
+                   {
+                       "fieldname":  "accessory_item",
+                       "fieldtype":  "Link",
+                       "in_list_view":  1,
+                       "label":  "Accessory Item",
+                       "options":  "Item",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "qty_rule_type",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Qty Rule Type",
+                       "options":  "PER_FIXTURE\nPER_SEGMENT\nPER_RUN\nPER_X_MM",
+                       "reqd":  1
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "qty_rule_value",
+                       "fieldtype":  "Float",
+                       "label":  "Qty Rule Value"
+                   },
+                   {
+                       "fieldname":  "column_break_result",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "min_qty",
+                       "fieldtype":  "Int",
+                       "label":  "Min Qty"
+                   },
+                   {
+                       "default":  "CEIL",
+                       "fieldname":  "rounding",
+                       "fieldtype":  "Select",
+                       "label":  "Rounding",
+                       "options":  "CEIL\nFLOOR\nROUND"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Active"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 21:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Rel-Mounting-Accessory-Map",
+    "naming_rule":  "Expression",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "fixture_template, mounting_method, accessory_item",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }
