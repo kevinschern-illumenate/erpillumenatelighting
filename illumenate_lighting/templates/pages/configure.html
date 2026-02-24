@@ -1766,7 +1766,7 @@ function displayResults(result) {
 
 function buildConfiguredFixtureAndItem() {
 	if (!currentResult || !currentResult.is_valid || !currentResult.configured_fixture_id) {
-		frappe.msgprint('Cannot build: configuration is not valid or missing fixture ID');
+		frappe.msgprint(__('Cannot build: configuration is not valid or missing fixture ID'));
 		return;
 	}
 
