@@ -102,20 +102,24 @@ def _apply_transformation(value: Any, transformation: str | None) -> str:
 
 def _apply_prefix_suffix(value: str, prefix: str | None, suffix: str | None) -> str:
 	"""
-	Apply prefix and/or suffix to a transformed value.
+	Apply prefix and/or suffix to a value.
+
+	Prefix and suffix are applied independently of any transformation.
+	If the value is empty but a prefix or suffix is provided, the prefix
+	and/or suffix will still be applied.
 
 	Args:
-		value: The already-transformed value string
+		value: The value string (may be empty)
 		prefix: Text to prepend before the value
 		suffix: Text to append after the value
 
 	Returns:
 		str: The value with prefix and/or suffix applied
 	"""
-	if not value:
+	if not value and not prefix and not suffix:
 		return value
 
-	result = value
+	result = value or ""
 	if prefix:
 		result = prefix + result
 	if suffix:
