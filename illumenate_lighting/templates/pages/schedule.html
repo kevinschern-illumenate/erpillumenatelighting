@@ -54,6 +54,17 @@ Also handles new schedule creation when is_new is True
 	white-space: nowrap;
 }
 
+/* Product image preview in Add Line modal */
+.product-preview-image {
+	max-width: 100%;
+	max-height: 200px;
+	object-fit: contain;
+	border-radius: 4px;
+	border: 1px solid var(--ill-gray-200, #eee);
+	padding: 8px;
+	background: #fff;
+}
+
 /* Mobile/Tablet Card Layout */
 @media (max-width: 768px) {
 	.fixture-lines-table thead {
@@ -721,7 +732,7 @@ Also handles new schedule creation when is_new is True
 
 						<!-- Product image preview (shared for fixture templates and items) -->
 						<div class="product-image-preview text-center" id="add_product_image_container" style="display: none;">
-							<img id="add_product_image" src="" alt="{{ _('Product Preview') }}" style="max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px; border: 1px solid var(--ill-gray-200, #eee); padding: 8px; background: #fff;">
+							<img id="add_product_image" src="" alt="{{ _('Product Preview') }}" class="product-preview-image">
 						</div>
 
 						<!-- Item details display -->
