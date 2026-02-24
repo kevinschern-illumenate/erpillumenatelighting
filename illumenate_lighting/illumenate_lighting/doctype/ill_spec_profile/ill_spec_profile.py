@@ -3,6 +3,14 @@
 
 from frappe.model.document import Document
 
+MM_PER_INCH = 25.4
+
+
+def _format_dimension(mm):
+	"""Format a single dimension as xx.xx" (xx.xxmm)."""
+	inches = mm / MM_PER_INCH
+	return f'{inches:.2f}" ({mm:.2f}mm)'
+
 
 class ilLSpecProfile(Document):
 	def before_save(self):
@@ -15,11 +23,10 @@ class ilLSpecProfile(Document):
 		height = self.height_mm or 0
 		
 		if width and height:
-			# Format as "W x H mm" (e.g., "25.4 x 15.2 mm")
-			self.dimensions = f"{width:g} x {height:g} mm"
+			self.dimensions = f"{_format_dimension(width)} x {_format_dimension(height)}"
 		elif width:
-			self.dimensions = f"{width:g} mm (W)"
+			self.dimensions = f"{_format_dimension(width)} (W)"
 		elif height:
-			self.dimensions = f"{height:g} mm (H)"
+			self.dimensions = f"{_format_dimension(height)} (H)"
 		else:
 			self.dimensions = ""
