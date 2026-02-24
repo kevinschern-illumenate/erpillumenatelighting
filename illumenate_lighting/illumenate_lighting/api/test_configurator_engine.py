@@ -2137,6 +2137,65 @@ class TestConfiguratorEngine(FrappeTestCase):
 			self.assertIn("item_code", driver)
 			self.assertIn("qty", driver)
 
+	def test_multisegment_fixture_persists_max_run_fields(self):
+		"""
+		Test that multi-segment configured fixtures persist max_run_ft_effective
+		and related fields on the document.
+
+		This is a regression test: previously _create_or_update_multisegment_fixture
+		did not save max_run_ft_by_watts, max_run_ft_by_voltage_drop, or
+		max_run_ft_effective, causing spec submittal exports to show 0.00.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		# Fetch the configured fixture and verify max_run fields are persisted
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+
+		# watts_per_ft = 5, max_run_ft_by_watts = 85/5 = 17ft
+		# voltage_drop_max_run_length_ft = 16ft
+		# max_run_ft_effective = min(17, 16) = 16ft
+		self.assertEqual(fixture_doc.max_run_ft_by_watts, 17.0)
+		self.assertEqual(fixture_doc.max_run_ft_by_voltage_drop, 16.0)
+		self.assertEqual(fixture_doc.max_run_ft_effective, 16.0)
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests
