@@ -1832,6 +1832,11 @@ def _create_or_update_multisegment_fixture(
 	doc.total_endcaps = computed.get("total_endcaps", 0)
 	doc.total_mounting_accessories = computed.get("total_mounting_accessories", 0)
 
+	# Set run metadata (effective max run for downstream calculations)
+	doc.max_run_ft_by_watts = computed.get("max_run_ft_by_watts")
+	doc.max_run_ft_by_voltage_drop = computed.get("max_run_ft_by_voltage_drop")
+	doc.max_run_ft_effective = computed.get("max_run_ft_effective")
+
 	# Set resolved items
 	doc.profile_item = resolved_items.get("profile_item")
 	doc.lens_item = resolved_items.get("lens_item")
