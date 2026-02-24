@@ -381,17 +381,35 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 					driver_spec = frappe.db.get_value(
 						"ilL-Spec-Driver",
 						driver_alloc.driver_item,
-						["item", "input_voltage", "max_wattage", "output_voltage", "dimming_protocol"],
+						["item", "input_voltage", "max_wattage", "output_voltage"],
 						as_dict=True
 					)
 					if driver_spec:
+						# Get dimming protocols from input_protocols child table
+						input_protocols = frappe.get_all(
+							"ilL-Child-Driver-Input-Protocol",
+							filters={"parent": driver_alloc.driver_item},
+							fields=["protocol"],
+						)
+						protocol_names = [ip.protocol for ip in input_protocols if ip.protocol]
+						protocol_labels = []
+						if protocol_names:
+							proto_docs = frappe.get_all(
+								"ilL-Attribute-Dimming Protocol",
+								filters={"name": ["in", protocol_names]},
+								fields=["name", "label"],
+							)
+							proto_label_map = {p.name: p.label for p in proto_docs if p.label}
+							protocol_labels = [
+								proto_label_map[n] for n in protocol_names if n in proto_label_map
+							]
 						drivers_list.append({
 							"item": driver_spec.item,
 							"qty": driver_alloc.driver_qty,
 							"input_voltage": driver_spec.input_voltage,
 							"max_wattage": driver_spec.max_wattage,
 							"output_voltage": driver_spec.output_voltage,
-							"dimming_protocol": driver_spec.dimming_protocol,
+							"dimming_protocol": ", ".join(protocol_labels) if protocol_labels else None,
 						})
 			
 			if drivers_list:
