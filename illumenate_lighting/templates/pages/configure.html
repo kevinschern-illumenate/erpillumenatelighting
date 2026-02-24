@@ -282,6 +282,11 @@ Allows users to configure fixtures using segment-based configuration
 				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
+				{% if is_system_manager %}
+				<button type="button" class="btn btn-warning" id="buildItemBtn" onclick="buildConfiguredFixtureAndItem()" style="display: none;" disabled>
+					<i class="fa fa-wrench"></i> {{ _("Build Configured Fixture & Item") }}
+				</button>
+				{% endif %}
 				<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" style="display: none;" disabled>
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>
@@ -586,6 +591,7 @@ var MM_PER_FOOT = 304.8;
 var INCHES_PER_FOOT = 12;
 var scheduleLines = [];  // Cached schedule lines
 var canSaveToSchedule = {{ 'true' if can_save else 'false' }};
+var isSystemManager = {{ 'true' if is_system_manager else 'false' }};
 var isPopulating = false;  // Flag to suppress cascading events during populateOptions
 var isMultiCCT = false;  // Track whether the current LED package is multi-CCT (Tunable White, etc.)
 var MULTI_CCT_SPECTRUM_TYPES = ['Tunable White', 'Dim to Warm', 'RGB+TW', 'RGBTW', 'RGB+W', 'RGBW'];
@@ -729,6 +735,15 @@ function updateSaveButtonVisibility() {
 		}
 	} else {
 		$('#saveBtn').hide();
+	}
+
+	// Show/enable Build Item button for System Managers when config is valid
+	if (isSystemManager) {
+		if (currentResult && currentResult.is_valid && currentResult.configured_fixture_id) {
+			$('#buildItemBtn').show().prop('disabled', false);
+		} else {
+			$('#buildItemBtn').show().prop('disabled', true);
+		}
 	}
 }
 
@@ -1747,6 +1762,45 @@ function displayResults(result) {
 			$('#adderBreakdown').html(breakdownHtml);
 		}
 	}
+}
+
+function buildConfiguredFixtureAndItem() {
+	if (!currentResult || !currentResult.is_valid || !currentResult.configured_fixture_id) {
+		frappe.msgprint(__('Cannot build: configuration is not valid or missing fixture ID'));
+		return;
+	}
+
+	$('#buildItemBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Building...');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.build_configured_fixture_and_item',
+		args: {
+			configured_fixture_id: currentResult.configured_fixture_id
+		},
+		callback: function(r) {
+			$('#buildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Fixture & Item');
+			if (r.message && r.message.success) {
+				var msg = r.message.created
+					? __('Created Item: {0}', [r.message.item_code])
+					: __('Item already exists: {0}', [r.message.item_code]);
+				frappe.msgprint({
+					title: __('Build Successful'),
+					message: msg,
+					indicator: 'green'
+				});
+			} else {
+				frappe.msgprint({
+					title: __('Build Failed'),
+					message: (r.message && r.message.error) || __('An error occurred'),
+					indicator: 'red'
+				});
+			}
+			$('#buildItemBtn').prop('disabled', false);
+		},
+		error: function() {
+			$('#buildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Fixture & Item').prop('disabled', false);
+		}
+	});
 }
 
 function saveToSchedule() {
