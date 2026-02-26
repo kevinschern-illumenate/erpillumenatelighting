@@ -2196,6 +2196,192 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertEqual(fixture_doc.max_run_ft_by_voltage_drop, 16.0)
 		self.assertEqual(fixture_doc.max_run_ft_effective, 16.0)
 
+	def test_multisegment_single_segment_endcap_types(self):
+		"""
+		Test that a single-segment fixture built via multi-segment flow has
+		correct endcap types: Feed-Through start (leader cable), Solid end.
+		Also verifies no jumper item is set on the last (only) segment.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": self.power_feed_type_code,
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		self.assertGreaterEqual(len(fixture_doc.segments), 1)
+
+		# First (only) segment: start=Feed-Through, end=Solid
+		seg = fixture_doc.segments[0]
+		self.assertEqual(seg.start_endcap_type, "Feed-Through",
+			"Single-segment start endcap should be Feed-Through (leader cable enters)")
+		self.assertEqual(seg.end_endcap_type, "Solid",
+			"Single-segment end endcap should be Solid (true fixture end)")
+		# No jumper item on the only segment
+		self.assertFalse(seg.end_jumper_item,
+			"Single-segment should have no end jumper item")
+		self.assertEqual(seg.end_jumper_len_mm or 0, 0,
+			"Single-segment should have 0mm end jumper length")
+		# Leader item should be present on first segment
+		self.assertTrue(seg.start_leader_item,
+			"First segment should have a start leader item")
+		self.assertGreater(seg.start_leader_len_mm or 0, 0,
+			"First segment should have non-zero start leader length")
+
+	def test_multisegment_two_segment_endcap_types(self):
+		"""
+		Test that a two-segment fixture has correct endcap types per segment:
+		- Seg 1: Feed-Through start (leader), Feed-Through end (jumper exits)
+		- Seg 2: Feed-Through start (jumper enters), Solid end (true end)
+		Also verifies no jumper item on last segment, jumper present on first.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": self.power_feed_type_code,
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": self.power_feed_type_code,
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": self.power_feed_type_code,
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		# Should have at least 2 user segments in the segments child table
+		user_segs = [s for s in fixture_doc.segments]
+		self.assertGreaterEqual(len(user_segs), 2)
+
+		seg1 = user_segs[0]
+		seg2 = user_segs[1]
+
+		# Segment 1 endcap types
+		self.assertEqual(seg1.start_endcap_type, "Feed-Through",
+			"Seg 1 start should be Feed-Through (leader cable)")
+		self.assertEqual(seg1.end_endcap_type, "Feed-Through",
+			"Seg 1 end should be Feed-Through (jumper cable exits)")
+		# Segment 1 cables
+		self.assertTrue(seg1.start_leader_item,
+			"Seg 1 should have a leader cable item")
+		self.assertGreater(seg1.start_leader_len_mm or 0, 0,
+			"Seg 1 should have non-zero leader length")
+		self.assertTrue(seg1.end_jumper_item,
+			"Seg 1 should have a jumper cable item")
+		self.assertGreater(seg1.end_jumper_len_mm or 0, 0,
+			"Seg 1 should have non-zero jumper length")
+
+		# Segment 2 endcap types
+		self.assertEqual(seg2.start_endcap_type, "Feed-Through",
+			"Seg 2 start should be Feed-Through (jumper cable enters)")
+		self.assertEqual(seg2.end_endcap_type, "Solid",
+			"Seg 2 end should be Solid (true fixture end)")
+		# Segment 2: no jumper on last segment
+		self.assertFalse(seg2.end_jumper_item,
+			"Last segment should have no end jumper item")
+		self.assertEqual(seg2.end_jumper_len_mm or 0, 0,
+			"Last segment should have 0mm end jumper length")
+
+	def test_single_segment_fixture_populates_segment_endcaps(self):
+		"""
+		Test that the single-segment validate_and_quote path populates
+		endcap types and items on the segments child table.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		self.assertGreaterEqual(len(fixture_doc.segments), 1)
+
+		first_seg = fixture_doc.segments[0]
+		last_seg = fixture_doc.segments[-1]
+
+		# First segment should have start endcap data
+		self.assertTrue(first_seg.start_endcap_item,
+			"First segment should have start endcap item populated")
+		self.assertTrue(first_seg.start_endcap_type,
+			"First segment should have start endcap type populated")
+		self.assertTrue(first_seg.start_leader_item,
+			"First segment should have start leader item populated")
+
+		# Last segment should have end endcap data and no jumper
+		self.assertTrue(last_seg.end_endcap_item,
+			"Last segment should have end endcap item populated")
+		self.assertTrue(last_seg.end_endcap_type,
+			"Last segment should have end endcap type populated")
+		self.assertFalse(last_seg.end_jumper_item,
+			"Single-segment fixture should have no end jumper item")
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests
