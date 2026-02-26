@@ -1237,10 +1237,11 @@ def _compute_multisegment_outputs(
 		#   - Last Seg End: Solid (caps the fixture)
 		
 		# Start endcap type:
-		# - First segment (idx=0): Feed-Through if has flying lead (power feed "END"), else Solid
+		# - First segment (idx=0): Feed-Through if any power feed type is specified
+		#   (leader cable enters through the endcap), else Solid
 		# - Subsequent segments: Always Feed-Through (receive jumper from previous segment)
 		if idx == 0:
-			start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
+			start_endcap_type = "Feed-Through" if start_power_feed else "Solid"
 		else:
 			# Segments after the first receive a jumper cable - always need feed-through
 			start_endcap_type = "Feed-Through"
@@ -1861,21 +1862,40 @@ def _create_or_update_multisegment_fixture(
 		})
 
 	# Clear and set computed segments (user-defined segments with details)
+	# Endcap item selection per segment position:
+	#   - "Feed-Through" type → use endcap_item_start (resolved as feed-through)
+	#   - "Solid" type → use endcap_item_end (resolved as solid)
+	# Jumper item is only set when the segment actually has a jumper cable (end_jumper_len_mm > 0)
 	doc.segments = []
 	for seg in computed.get("user_segments", []):
+		seg_start_endcap_type = seg.get("start_endcap_type", "")
+		seg_end_endcap_type = seg.get("end_endcap_type", "")
+		seg_end_jumper_len = seg.get("end_jumper_len_mm", 0)
+		seg_start_leader_len = seg.get("start_leader_len_mm", 0)
+
+		# Select endcap item based on the computed endcap type for this segment position
+		start_endcap_item = seg.get("start_endcap_item") or (
+			resolved_items.get("endcap_item_start") if seg_start_endcap_type == "Feed-Through"
+			else resolved_items.get("endcap_item_end")
+		)
+		end_endcap_item = seg.get("end_endcap_item") or (
+			resolved_items.get("endcap_item_start") if seg_end_endcap_type == "Feed-Through"
+			else resolved_items.get("endcap_item_end")
+		)
+
 		doc.append("segments", {
 			"segment_index": seg.get("segment_index", 0),
 			"profile_cut_len_mm": seg.get("profile_cut_len_mm", 0),
 			"lens_cut_len_mm": seg.get("lens_cut_len_mm", 0),
 			"tape_cut_len_mm": seg.get("tape_cut_len_mm", 0),
-			"start_endcap_type": seg.get("start_endcap_type", ""),
-			"end_endcap_type": seg.get("end_endcap_type", ""),
-			"start_endcap_item": seg.get("start_endcap_item") or resolved_items.get("endcap_item_start"),
-			"end_endcap_item": seg.get("end_endcap_item") or resolved_items.get("endcap_item_end"),
-			"start_leader_item": seg.get("start_leader_item") or resolved_items.get("leader_item"),
-			"start_leader_len_mm": seg.get("start_leader_len_mm", 0),
-			"end_jumper_item": seg.get("end_jumper_item") or resolved_items.get("leader_item"),  # Jumper uses same item as leader
-			"end_jumper_len_mm": seg.get("end_jumper_len_mm", 0),
+			"start_endcap_type": seg_start_endcap_type,
+			"end_endcap_type": seg_end_endcap_type,
+			"start_endcap_item": start_endcap_item,
+			"end_endcap_item": end_endcap_item,
+			"start_leader_item": (seg.get("start_leader_item") or resolved_items.get("leader_item")) if seg_start_leader_len else None,
+			"start_leader_len_mm": seg_start_leader_len,
+			"end_jumper_item": (seg.get("end_jumper_item") or resolved_items.get("leader_item")) if seg_end_jumper_len else None,
+			"end_jumper_len_mm": seg_end_jumper_len,
 			"notes": seg.get("notes", ""),
 		})
 
@@ -3372,17 +3392,34 @@ def _create_or_update_configured_fixture(
 	doc.leader_item = resolved_items.get("leader_item")
 
 	# Set segments
+	# For single-segment fixtures, populate endcap and cable data on each
+	# profile/lens cut plan segment.  The first segment gets the start endcap
+	# and leader cable; the last segment gets the end endcap.  No jumper
+	# cables exist in a single-segment fixture.
 	doc.segments = []
+	num_segments = len(computed["segments"])
 	for segment in computed["segments"]:
-		doc.append(
-			"segments",
-			{
-				"segment_index": segment["segment_index"],
-				"profile_cut_len_mm": segment["profile_cut_len_mm"],
-				"lens_cut_len_mm": segment["lens_cut_len_mm"],
-				"notes": segment.get("notes", ""),
-			},
-		)
+		seg_idx = segment["segment_index"]
+		seg_data = {
+			"segment_index": seg_idx,
+			"profile_cut_len_mm": segment["profile_cut_len_mm"],
+			"lens_cut_len_mm": segment["lens_cut_len_mm"],
+			"notes": segment.get("notes", ""),
+		}
+
+		# First segment: start endcap + leader cable
+		if seg_idx == 1:
+			seg_data["start_endcap_item"] = resolved_items.get("endcap_item_start")
+			seg_data["start_endcap_type"] = "Feed-Through" if resolved_items.get("endcap_item_start") else ""
+			seg_data["start_leader_item"] = resolved_items.get("leader_item")
+			seg_data["start_leader_len_mm"] = int(computed.get("leader_allowance_mm_per_fixture", 0))
+
+		# Last segment: end endcap, no jumper
+		if seg_idx == num_segments:
+			seg_data["end_endcap_item"] = resolved_items.get("endcap_item_end")
+			seg_data["end_endcap_type"] = "Solid" if resolved_items.get("endcap_item_end") else ""
+
+		doc.append("segments", seg_data)
 
 	# Set runs
 	doc.runs = []
