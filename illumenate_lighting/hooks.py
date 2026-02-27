@@ -59,6 +59,9 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # application home page (will override Website Settings)
 # home_page = "login"
 
+# Brand logo in website navbar (replaces default "Home" text)
+brand_html = '<img src="/assets/illumenate_lighting/images/nav-logo.png" alt="ilLumenate Lighting" class="ill-nav-logo">'
+
 # website user home page (by Role)
 role_home_page = {
 	"Dealer": "portal",
