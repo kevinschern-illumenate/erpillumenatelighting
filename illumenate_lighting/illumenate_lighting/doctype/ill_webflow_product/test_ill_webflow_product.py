@@ -42,6 +42,115 @@ class TestilLWebflowProduct(FrappeTestCase):
         # Cleanup
         product.delete()
 
+    def test_fixture_template_backlink_set_on_insert(self):
+        """Test that webflow_product backlink is set on fixture template when product is created."""
+        # Create a fixture template
+        template = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-TEST-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Test Template",
+            "is_active": 1,
+        })
+        template.insert()
+
+        # Create a webflow product linked to that fixture template
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Backlink Test Product",
+            "product_slug": "backlink-test-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "fixture_template": template.name,
+            "is_active": 1,
+        })
+        product.insert()
+
+        # Verify backlink is set
+        template.reload()
+        self.assertEqual(template.webflow_product, product.name)
+
+        # Cleanup
+        product.delete()
+        template.delete()
+
+    def test_fixture_template_backlink_cleared_on_delete(self):
+        """Test that webflow_product backlink is cleared when product is deleted."""
+        template = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-DEL-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Delete Test",
+            "is_active": 1,
+        })
+        template.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Backlink Delete Product",
+            "product_slug": "backlink-del-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "fixture_template": template.name,
+            "is_active": 1,
+        })
+        product.insert()
+
+        # Verify backlink is set
+        template.reload()
+        self.assertEqual(template.webflow_product, product.name)
+
+        # Delete the product and verify backlink is cleared
+        product.delete()
+        template.reload()
+        self.assertFalse(template.webflow_product)
+
+        # Cleanup
+        template.delete()
+
+    def test_fixture_template_backlink_updated_on_change(self):
+        """Test that backlink is moved when fixture_template is changed."""
+        template1 = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-CHG1-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Change Test 1",
+            "is_active": 1,
+        })
+        template1.insert()
+
+        template2 = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-CHG2-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Change Test 2",
+            "is_active": 1,
+        })
+        template2.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Backlink Change Product",
+            "product_slug": "backlink-chg-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "fixture_template": template1.name,
+            "is_active": 1,
+        })
+        product.insert()
+
+        # Verify backlink on template1
+        template1.reload()
+        self.assertEqual(template1.webflow_product, product.name)
+
+        # Change to template2
+        product.fixture_template = template2.name
+        product.save()
+
+        # Verify backlink moved
+        template1.reload()
+        self.assertFalse(template1.webflow_product)
+        template2.reload()
+        self.assertEqual(template2.webflow_product, product.name)
+
+        # Cleanup
+        product.delete()
+        template1.delete()
+        template2.delete()
+
     def test_auto_calculate_specs_disabled(self):
         """Test that specs are not auto-calculated when disabled."""
         product = frappe.get_doc({
