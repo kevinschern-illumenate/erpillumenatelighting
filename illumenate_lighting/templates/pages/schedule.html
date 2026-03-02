@@ -54,15 +54,116 @@ Also handles new schedule creation when is_new is True
 	white-space: nowrap;
 }
 
-/* Product image preview in Add Line modal */
-.product-preview-image {
+/* Product image gallery in Add Line modal */
+.add-line-gallery-wrapper {
+	position: relative;
 	max-width: 100%;
-	max-height: 200px;
-	object-fit: contain;
-	border-radius: 4px;
+	border-radius: 6px;
 	border: 1px solid var(--ill-gray-200, #eee);
-	padding: 8px;
+	overflow: hidden;
 	background: #fff;
+	margin-bottom: 0.5rem;
+}
+.add-line-gallery-viewport {
+	position: relative;
+	width: 100%;
+	height: 280px;
+	overflow: hidden;
+	cursor: grab;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.add-line-gallery-viewport.is-dragging {
+	cursor: grabbing;
+}
+.add-line-gallery-viewport img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	transition: transform 0.1s ease-out;
+	transform-origin: center center;
+	user-select: none;
+	-webkit-user-drag: none;
+	pointer-events: none;
+}
+/* Arrow nav buttons */
+.add-line-gallery-wrapper .gallery-nav {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	background: rgba(255,255,255,0.85);
+	border: 1px solid #ced4da;
+	border-radius: 50%;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	z-index: 10;
+	font-size: 18px;
+	color: #495057;
+	transition: background 0.15s;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.add-line-gallery-wrapper .gallery-nav:hover {
+	background: rgba(255,255,255,1);
+}
+.add-line-gallery-wrapper .gallery-nav.prev { left: 8px; }
+.add-line-gallery-wrapper .gallery-nav.next { right: 8px; }
+.add-line-gallery-wrapper .gallery-nav.disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+/* Counter badge */
+.add-line-gallery-counter {
+	position: absolute;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(0,0,0,0.55);
+	color: #fff;
+	padding: 2px 10px;
+	border-radius: 12px;
+	font-size: 0.75rem;
+	z-index: 10;
+}
+/* Zoom controls bar */
+.add-line-gallery-zoom-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	background: #f8f9fa;
+	border-top: 1px solid var(--ill-gray-200, #eee);
+	font-size: 0.8rem;
+	color: #6c757d;
+}
+.add-line-gallery-zoom-bar label {
+	margin: 0;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.add-line-gallery-zoom-bar input[type="range"] {
+	flex: 1;
+	min-width: 0;
+}
+.add-line-gallery-zoom-bar .zoom-value {
+	min-width: 38px;
+	text-align: right;
+}
+.add-line-gallery-zoom-bar .zoom-reset-btn {
+	background: none;
+	border: 1px solid #ced4da;
+	border-radius: 4px;
+	padding: 1px 8px;
+	cursor: pointer;
+	font-size: 0.75rem;
+	color: #495057;
+}
+.add-line-gallery-zoom-bar .zoom-reset-btn:hover {
+	background: #e9ecef;
 }
 
 /* Mobile/Tablet Card Layout */
@@ -730,9 +831,20 @@ Also handles new schedule creation when is_new is True
 							</div>
 						</div>
 
-						<!-- Product image preview (shared for fixture templates and items) -->
-						<div class="product-image-preview text-center" id="add_product_image_container" style="display: none;">
-							<img id="add_product_image" src="" alt="{{ _('Product Preview') }}" class="product-preview-image">
+						<!-- Product image gallery (shared for fixture templates and items) -->
+						<div class="add-line-gallery-wrapper" id="add_product_gallery_container" style="display: none;">
+							<div class="add-line-gallery-viewport" id="addLineGalleryViewport">
+								<button type="button" class="gallery-nav prev" id="addLineGalleryPrev" title="Previous image">&lsaquo;</button>
+								<img id="addLineGalleryImage" src="" alt="{{ _('Product Preview') }}">
+								<button type="button" class="gallery-nav next" id="addLineGalleryNext" title="Next image">&rsaquo;</button>
+								<span class="add-line-gallery-counter" id="addLineGalleryCounter"></span>
+							</div>
+							<div class="add-line-gallery-zoom-bar">
+								<label for="addLineZoomSlider">{{ _('Zoom') }}</label>
+								<input type="range" id="addLineZoomSlider" min="100" max="400" value="100" step="10">
+								<span class="zoom-value" id="addLineZoomValue">100%</span>
+								<button type="button" class="zoom-reset-btn" id="addLineZoomReset" title="Reset zoom">{{ _('Reset') }}</button>
+							</div>
 						</div>
 
 						<!-- Item details display -->
@@ -1159,8 +1271,8 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
-	$('#add_product_image_container').hide();
-	$('#add_product_image').attr('src', '');
+	$('#add_product_gallery_container').hide();
+	resetAddLineGallery();
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	$('#add_selected_variant').val('');
@@ -1201,8 +1313,8 @@ $('#add_product_type').on('change', function() {
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
 	$('#add_selected_variant').val('');
-	$('#add_product_image_container').hide();
-	$('#add_product_image').attr('src', '');
+	$('#add_product_gallery_container').hide();
+	resetAddLineGallery();
 	
 	if (!productType) {
 		return;
@@ -1234,7 +1346,8 @@ function loadFixtureTemplates(productType) {
 			var options = '<option value="">{{ _("Select Fixture Template...") }}</option>';
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
-					options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
+					options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\'>' + template.template_name + ' (' + template.template_code + ')</option>';
 				});
 			}
 			$('#add_fixture_template').html(options);
@@ -1245,17 +1358,129 @@ function loadFixtureTemplates(productType) {
 	});
 }
 
-// Handle fixture template selection to show product image preview
+// ─── Add Line Gallery + Zoom/Pan ───
+var _addLineGallery = { images: [], index: 0, zoom: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0 };
+
+function initAddLineGallery(images) {
+	_addLineGallery.images = (images && images.length) ? images : [];
+	_addLineGallery.index = 0;
+	resetAddLineZoomPan();
+	if (_addLineGallery.images.length) {
+		showAddLineGalleryImage();
+		$('#add_product_gallery_container').show();
+		updateAddLineGalleryNav();
+	} else {
+		$('#add_product_gallery_container').hide();
+	}
+}
+
+function resetAddLineGallery() {
+	_addLineGallery.images = [];
+	_addLineGallery.index = 0;
+	resetAddLineZoomPan();
+}
+
+function showAddLineGalleryImage() {
+	var item = _addLineGallery.images[_addLineGallery.index];
+	if (!item) return;
+	$('#addLineGalleryImage').attr('src', item.image).attr('alt', item.alt_text || 'Product image');
+	applyAddLineTransform();
+	$('#addLineGalleryCounter').text((_addLineGallery.index + 1) + ' / ' + _addLineGallery.images.length);
+	$('#addLineGalleryCounter').toggle(_addLineGallery.images.length > 1);
+}
+
+function updateAddLineGalleryNav() {
+	var multi = _addLineGallery.images.length > 1;
+	$('#addLineGalleryPrev').toggle(multi).toggleClass('disabled', _addLineGallery.index === 0);
+	$('#addLineGalleryNext').toggle(multi).toggleClass('disabled', _addLineGallery.index >= _addLineGallery.images.length - 1);
+}
+
+function applyAddLineTransform() {
+	var z = _addLineGallery.zoom;
+	var tx = _addLineGallery.panX;
+	var ty = _addLineGallery.panY;
+	$('#addLineGalleryImage').css('transform', 'scale(' + z + ') translate(' + tx + 'px, ' + ty + 'px)');
+}
+
+function resetAddLineZoomPan() {
+	_addLineGallery.zoom = 1;
+	_addLineGallery.panX = 0;
+	_addLineGallery.panY = 0;
+	$('#addLineZoomSlider').val(100);
+	$('#addLineZoomValue').text('100%');
+	applyAddLineTransform();
+}
+
+// Arrow click handlers
+$(document).on('click', '#addLineGalleryPrev', function() {
+	if (_addLineGallery.index > 0) {
+		_addLineGallery.index--;
+		resetAddLineZoomPan();
+		showAddLineGalleryImage();
+		updateAddLineGalleryNav();
+	}
+});
+$(document).on('click', '#addLineGalleryNext', function() {
+	if (_addLineGallery.index < _addLineGallery.images.length - 1) {
+		_addLineGallery.index++;
+		resetAddLineZoomPan();
+		showAddLineGalleryImage();
+		updateAddLineGalleryNav();
+	}
+});
+
+// Zoom slider
+$(document).on('input', '#addLineZoomSlider', function() {
+	var val = parseInt($(this).val(), 10);
+	_addLineGallery.zoom = val / 100;
+	if (_addLineGallery.zoom <= 1) { _addLineGallery.panX = 0; _addLineGallery.panY = 0; }
+	$('#addLineZoomValue').text(val + '%');
+	applyAddLineTransform();
+});
+$(document).on('click', '#addLineZoomReset', function() {
+	resetAddLineZoomPan();
+});
+
+// Pan (mouse / touch drag)
+(function() {
+	var vp = document.getElementById('addLineGalleryViewport');
+	if (!vp) return;
+
+	function onPointerDown(e) {
+		if (_addLineGallery.zoom <= 1) return;
+		_addLineGallery.dragging = true;
+		_addLineGallery.startX = (e.touches ? e.touches[0].clientX : e.clientX) - _addLineGallery.panX;
+		_addLineGallery.startY = (e.touches ? e.touches[0].clientY : e.clientY) - _addLineGallery.panY;
+		$(vp).addClass('is-dragging');
+		e.preventDefault();
+	}
+	function onPointerMove(e) {
+		if (!_addLineGallery.dragging) return;
+		var cx = e.touches ? e.touches[0].clientX : e.clientX;
+		var cy = e.touches ? e.touches[0].clientY : e.clientY;
+		_addLineGallery.panX = cx - _addLineGallery.startX;
+		_addLineGallery.panY = cy - _addLineGallery.startY;
+		applyAddLineTransform();
+		e.preventDefault();
+	}
+	function onPointerUp() {
+		_addLineGallery.dragging = false;
+		$(vp).removeClass('is-dragging');
+	}
+
+	vp.addEventListener('mousedown', onPointerDown);
+	vp.addEventListener('touchstart', onPointerDown, { passive: false });
+	document.addEventListener('mousemove', onPointerMove);
+	document.addEventListener('touchmove', onPointerMove, { passive: false });
+	document.addEventListener('mouseup', onPointerUp);
+	document.addEventListener('touchend', onPointerUp);
+})();
+
+// Handle fixture template selection to show product image gallery
 $('#add_fixture_template').on('change', function() {
 	var $selected = $(this).find('option:selected');
-	var imageUrl = $selected.data('image');
-	if (imageUrl) {
-		$('#add_product_image').attr('src', imageUrl);
-		$('#add_product_image_container').show();
-	} else {
-		$('#add_product_image').attr('src', '');
-		$('#add_product_image_container').hide();
-	}
+	var gallery = $selected.data('gallery') || [];
+	initAddLineGallery(gallery);
 });
 
 // Load product categories (Item Groups under Products and Raw Materials)
@@ -1343,8 +1568,8 @@ $('#add_selected_item').on('change', function() {
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
 	$('#add_selected_variant').val('');
-	$('#add_product_image_container').hide();
-	$('#add_product_image').attr('src', '');
+	$('#add_product_gallery_container').hide();
+	resetAddLineGallery();
 	
 	if (!itemCode) {
 		return;
@@ -1356,11 +1581,11 @@ $('#add_selected_item').on('change', function() {
 	$('#add_selected_item_uom').text($selected.data('uom') || 'Nos');
 	$('.selected-item-details').show();
 
-	// Show product image preview if available
+	// Show product image gallery if available
 	var imageUrl = $selected.data('image');
 	if (imageUrl) {
-		$('#add_product_image').attr('src', imageUrl);
-		$('#add_product_image_container').show();
+		// Items only have a single image, wrap in gallery format
+		initAddLineGallery([{image: imageUrl, alt_text: ''}]);
 	}
 	
 	// Check if item has variants

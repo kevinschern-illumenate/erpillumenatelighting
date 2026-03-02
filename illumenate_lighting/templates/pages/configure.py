@@ -53,8 +53,8 @@ def get_context(context):
 		gallery_rows = frappe.get_all(
 			"ilL-Child-Webflow-Gallery-Image",
 			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-			fields=["parent", "image", "alt_text", "display_order"],
-			order_by="parent, display_order asc",
+			fields=["parent", "image", "alt_text", "display_order", "idx"],
+			order_by="parent, idx asc",
 		)
 		for row in gallery_rows:
 			if row.image:
