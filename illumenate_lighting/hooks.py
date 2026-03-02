@@ -92,6 +92,8 @@ website_route_rules = [
 	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
 	{"from_route": "/portal/configure-tape", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
+	{"from_route": "/portal/configure-kit", "to_route": "configure_kit"},
+	{"from_route": "/portal/configure-kit/<template>", "to_route": "configure_kit"},
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
 	# Orders

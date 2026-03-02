@@ -1,0 +1,96 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{kit_template}-{mounting_method}",
+ "creation": "2026-03-02 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "kit_template",
+  "mounting_method",
+  "column_break_map",
+  "accessory_spec",
+  "accessory_item",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "kit_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Kit Template",
+   "options": "ilL-Extrusion-Kit-Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mounting_method",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Mounting Method",
+   "options": "ilL-Attribute-Mounting Method",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_map",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The accessory spec for this mounting component (ilL-Spec-Accessory with type=Mounting)",
+   "fieldname": "accessory_spec",
+   "fieldtype": "Link",
+   "label": "Accessory Spec",
+   "options": "ilL-Spec-Accessory"
+  },
+  {
+   "description": "The resolved mounting accessory Item",
+   "fieldname": "accessory_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Accessory Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-02 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Rel-Kit-Mounting-Map",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "kit_template, mounting_method",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

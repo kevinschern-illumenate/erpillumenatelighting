@@ -52,8 +52,8 @@ class ilLProjectFixtureSchedule(Document):
 		unconfigured_lines = []
 		for line in self.lines:
 			if line.manufacturer_type == "ILLUMENATE":
-				# LED Tape/Neon lines are configured via variant_selections
-				if line.product_type in ("LED Tape", "LED Neon"):
+				# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
+				if line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit"):
 					if not line.variant_selections:
 						line_id = line.line_id or f"Row {line.idx}"
 						unconfigured_lines.append(line_id)
@@ -115,7 +115,7 @@ class ilLProjectFixtureSchedule(Document):
 			if line.manufacturer_type == "ILLUMENATE"
 			and (
 				line.configured_fixture
-				or (line.product_type in ("LED Tape", "LED Neon") and line.variant_selections)
+				or (line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit") and line.variant_selections)
 			)
 		]
 
@@ -169,6 +169,30 @@ class ilLProjectFixtureSchedule(Document):
 				for msg in result.get("messages", []):
 					frappe.log_error(
 						title=f"SO Creation: {line.product_type} - {line.line_id or line.idx}",
+						message=msg,
+					)
+				continue
+
+			# ── Extrusion Kit lines ────────────────────────────────────
+			if line.product_type == "Extrusion Kit" and line.variant_selections:
+				import json as _json
+				try:
+					config_data = _json.loads(line.variant_selections)
+				except _json.JSONDecodeError:
+					frappe.throw(
+						_("Line {0}: Invalid configuration data for Extrusion Kit").format(
+							line.line_id or line.idx
+						)
+					)
+
+				from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+					create_kit_so_lines,
+				)
+				result = create_kit_so_lines(so, line, config_data)
+				items_created += result.get("items_added", 0)
+				for msg in result.get("messages", []):
+					frappe.log_error(
+						title=f"SO Creation: Extrusion Kit - {line.line_id or line.idx}",
 						message=msg,
 					)
 				continue

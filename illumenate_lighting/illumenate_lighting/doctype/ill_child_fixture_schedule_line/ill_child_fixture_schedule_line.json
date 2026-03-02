@@ -16,6 +16,7 @@
   "illumenate_section",
   "product_type",
   "fixture_template",
+  "kit_template",
   "column_break_illumenate",
   "configured_fixture",
   "ill_item_code",
@@ -104,7 +105,7 @@
    "fieldname": "product_type",
    "fieldtype": "Select",
    "label": "Product Type",
-   "options": "\nLinear Fixture\nLinear Fixtures\nLED Tape\nLED Neon"
+   "options": "\nLinear Fixture\nLinear Fixtures\nLED Tape\nLED Neon\nExtrusion Kit"
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type",
@@ -115,7 +116,15 @@
    "options": "ilL-Fixture-Template"
   },
   {
-   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.fixture_template",
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type=='Extrusion Kit'",
+   "description": "Select an extrusion kit template to configure",
+   "fieldname": "kit_template",
+   "fieldtype": "Link",
+   "label": "Kit Template",
+   "options": "ilL-Extrusion-Kit-Template"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && (doc.fixture_template || doc.kit_template)",
    "fieldname": "column_break_illumenate",
    "fieldtype": "Column Break"
   },
@@ -283,7 +292,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-07 21:00:00.000000",
+ "modified": "2026-03-02 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Fixture-Schedule-Line",
