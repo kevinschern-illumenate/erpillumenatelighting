@@ -1,0 +1,61 @@
+{
+    "actions": [],
+    "creation": "2026-03-02 12:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "tape_spec",
+        "is_default",
+        "column_break_spec",
+        "environment_rating",
+        "notes"
+    ],
+    "fields": [
+        {
+            "fieldname": "tape_spec",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Tape Spec",
+            "options": "ilL-Spec-LED Tape",
+            "reqd": 1
+        },
+        {
+            "default": "0",
+            "fieldname": "is_default",
+            "fieldtype": "Check",
+            "in_list_view": 1,
+            "label": "Is Default"
+        },
+        {
+            "fieldname": "column_break_spec",
+            "fieldtype": "Column Break"
+        },
+        {
+            "description": "Override environment rating constraint for this spec (LED Tape only)",
+            "fieldname": "environment_rating",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Environment Rating",
+            "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "label": "Notes"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2026-03-02 12:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-Child-Tape-Neon-Allowed-Spec",
+    "naming_rule": "Random",
+    "owner": "Administrator",
+    "permissions": [],
+    "sort_field": "idx",
+    "sort_order": "ASC",
+    "states": []
+}

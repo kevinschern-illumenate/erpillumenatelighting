@@ -4,7 +4,7 @@ Allows users to configure fixtures using segment-based configuration
 #}
 {% extends "templates/web.html" %}
 
-{% block title %}{{ _("Configure Fixture") }}{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
 {% block style %}
 <style>
@@ -216,6 +216,33 @@ Allows users to configure fixtures using segment-based configuration
 .gallery-zoom-bar .zoom-reset-btn:hover {
 	background: #e9ecef;
 }
+
+/* Category selector */
+#categorySelector .pill-selector {
+	gap: 0.75rem;
+}
+#categorySelector .pill-option {
+	padding: 0.5rem 1.25rem;
+	font-size: 0.95rem;
+	font-weight: 500;
+}
+
+/* Tape length section */
+.tape-length-section .form-group {
+	margin-bottom: 0.5rem;
+}
+.neon-segment-card {
+	border: 1px solid #dee2e6;
+	border-radius: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+.neon-segment-card .card-header {
+	background-color: #f8f9fa;
+	padding: 0.5rem 1rem;
+}
+.neon-segment-card .card-body {
+	padding: 0.75rem 1rem;
+}
 </style>
 {% endblock %}
 
@@ -228,7 +255,7 @@ Allows users to configure fixtures using segment-based configuration
 			{% if schedule %}
 			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
 			{% endif %}
-			<li class="breadcrumb-item active" aria-current="page">{{ _("Configure Fixture") }}</li>
+			<li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
 		</ol>
 	</nav>
 
@@ -279,13 +306,30 @@ Allows users to configure fixtures using segment-based configuration
 		<div class="col-lg-7">
 			<div class="card mb-3">
 				<div class="card-header">
-					<h5 class="mb-0">{{ _("Fixture Configuration") }}</h5>
+					<h5 class="mb-0">{{ title }}</h5>
 				</div>
 				<div class="card-body">
 					<form id="configuratorForm">
-						<!-- Template Selection -->
+						<!-- Product Category Selector -->
+						<div class="form-group mb-3" id="categorySelector">
+							<label class="option-label">{{ _("Product Category") }} <span class="text-danger">*</span></label>
+							<div class="pill-selector">
+								<label class="pill-option {% if product_category == 'Linear Fixture' %}active{% endif %}" onclick="switchCategory('Linear Fixture')">
+									<input type="radio" name="product_category_pill" value="Linear Fixture" {% if product_category == 'Linear Fixture' %}checked{% endif %}> {{ _("Linear Fixture") }}
+								</label>
+								<label class="pill-option {% if product_category == 'LED Tape' %}active{% endif %}" onclick="switchCategory('LED Tape')">
+									<input type="radio" name="product_category_pill" value="LED Tape" {% if product_category == 'LED Tape' %}checked{% endif %}> {{ _("LED Tape") }}
+								</label>
+								<label class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" onclick="switchCategory('LED Neon')">
+									<input type="radio" name="product_category_pill" value="LED Neon" {% if product_category == 'LED Neon' %}checked{% endif %}> {{ _("LED Neon") }}
+								</label>
+							</div>
+						</div>
+						<hr class="mt-1 mb-3">
+
+						<!-- Template / Product Family Selection -->
 						<div class="form-group">
-							<label>{{ _("Fixture Template") }} <span class="text-danger">*</span></label>
+							<label>{% if is_tape_neon %}{{ _("Product Family") }}{% else %}{{ _("Fixture Template") }}{% endif %} <span class="text-danger">*</span></label>
 							<select class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
@@ -315,6 +359,9 @@ Allows users to configure fixtures using segment-based configuration
 						<!-- Options loaded dynamically based on template -->
 						<div id="templateOptions" style="display: none;">
 							<hr>
+
+							{% if not is_tape_neon %}
+							<!-- ═══ LINEAR FIXTURE OPTIONS ═══ -->
 							<h6 class="mb-3">{{ _("Configuration Options") }}</h6>
 
 							<!-- LED Package (Step 1 - from linked tapes) -->
@@ -381,12 +428,89 @@ Allows users to configure fixtures using segment-based configuration
 
 							<!-- Hidden field for auto-selected tape -->
 							<input type="hidden" name="tape_offering_id" value="">
+							{% else %}
+							<!-- ═══ LED TAPE / LED NEON OPTIONS ═══ -->
+							<h6 class="mb-3">{{ _("Configuration Options") }}</h6>
+
+							{% if is_tape and not is_neon %}
+							<!-- Environment Rating (LED Tape only) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_environment_rating"></div>
+								<select class="form-control select-fallback" name="tn_environment_rating" required></select>
+							</div>
+							{% endif %}
+
+							<!-- CCT -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Color Temperature (CCT)") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_cct"></div>
+								<select class="form-control select-fallback" name="tn_cct" required></select>
+							</div>
+
+							<!-- Output Level -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Output Level") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_output_level"></div>
+								<select class="form-control select-fallback" name="tn_output_level" required></select>
+							</div>
+
+							{% if is_tape and not is_neon %}
+							<hr>
+							<h6 class="mb-3">{{ _("PCB Options") }}</h6>
+
+							<!-- PCB Mounting (LED Tape only) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("PCB Mounting") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_pcb_mounting"></div>
+								<select class="form-control select-fallback" name="tn_pcb_mounting" required></select>
+							</div>
+
+							<!-- PCB Finish (LED Tape only) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("PCB Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_pcb_finish"></div>
+								<select class="form-control select-fallback" name="tn_pcb_finish" required></select>
+							</div>
+
+							<!-- Feed Type (LED Tape only) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Feed Type") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_feed_type"></div>
+								<select class="form-control select-fallback" name="tn_feed_type" required></select>
+							</div>
+							{% endif %}
+
+							{% if is_neon %}
+							<hr>
+							<h6 class="mb-3">{{ _("Fixture Options") }}</h6>
+
+							<!-- Mounting Method (LED Neon only) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_mounting_method"></div>
+								<select class="form-control select-fallback" name="tn_mounting_method" required></select>
+							</div>
+
+							<!-- Finish (LED Neon only) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_finish"></div>
+								<select class="form-control select-fallback" name="tn_finish" required></select>
+							</div>
+							{% endif %}
+
+							<!-- Hidden field for resolved tape spec -->
+							<input type="hidden" name="tn_tape_spec" value="">
+							<input type="hidden" name="tn_tape_offering" value="">
+							{% endif %}
 						</div>
 					</form>
 				</div>
 			</div>
 
-			<!-- Segments Card -->
+			{% if not is_tape_neon %}
+			<!-- Segments Card (Linear Fixture) -->
 			<div class="card mb-3" id="segmentsCard" style="display: none;">
 				<div class="card-header d-flex justify-content-between align-items-center">
 					<h5 class="mb-0">{{ _("Fixture Segments") }}</h5>
@@ -403,8 +527,10 @@ Allows users to configure fixtures using segment-based configuration
 					</div>
 				</div>
 			</div>
+			{% endif %}
 
 			<!-- Action Buttons -->
+			{% if not is_tape_neon %}
 			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
 				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
@@ -418,6 +544,91 @@ Allows users to configure fixtures using segment-based configuration
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>
 			</div>
+
+			{% else %}
+			<!-- ═══ LED TAPE / LED NEON LENGTH & SEGMENTS ═══ -->
+
+			{% if is_tape %}
+			<!-- LED Tape: Feed & Length Card -->
+			<div class="card mb-3" id="tapeLengthCard" style="display: none;">
+				<div class="card-header">
+					<h5 class="mb-0">{{ _("Feed & Tape Length") }}</h5>
+				</div>
+				<div class="card-body tape-length-section">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group">
+								<label class="small font-weight-bold">{{ _("Lead Length (inches)") }} <span class="text-danger">*</span></label>
+								<input type="number" class="form-control" name="tn_lead_length_inches" value="12" min="1" step="0.5">
+							</div>
+						</div>
+					</div>
+					<hr>
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group">
+								<label class="small font-weight-bold">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
+								<input type="number" class="form-control" name="tn_tape_length_value" min="0.1" step="0.1" required placeholder="e.g., 48">
+							</div>
+						</div>
+						<div class="col-md-3">
+							<div class="form-group">
+								<label class="small">{{ _("Unit") }}</label>
+								<select class="form-control" name="tn_tape_length_unit">
+									<option value="in" selected>inches</option>
+									<option value="ft">feet</option>
+									<option value="ft_in">feet + inches</option>
+								</select>
+							</div>
+						</div>
+						<!-- Feet + Inches (shown when unit is ft_in) -->
+						<div class="col-md-5 tn-ft-in-row" style="display: none;">
+							<div class="row">
+								<div class="col-6">
+									<div class="form-group">
+										<label class="small">{{ _("Feet") }}</label>
+										<input type="number" class="form-control form-control-sm" name="tn_tape_length_feet" min="0" value="0">
+									</div>
+								</div>
+								<div class="col-6">
+									<div class="form-group">
+										<label class="small">{{ _("Inches") }}</label>
+										<input type="number" class="form-control form-control-sm" name="tn_tape_length_inches" min="0" max="11.99" step="0.1" value="0">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			{% endif %}
+
+			{% if is_neon %}
+			<!-- LED Neon: Segments Card -->
+			<div class="card mb-3" id="neonSegmentsCard" style="display: none;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Neon Segments") }}</h5>
+					<span class="badge badge-info" id="neonSegmentCountBadge">0 {{ _("segments") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">
+						{{ _("Define each segment of your LED Neon fixture. Select IP rating per segment. Connect segments with jumper cables.") }}
+					</p>
+					<div id="neonSegmentsList"></div>
+				</div>
+			</div>
+			{% endif %}
+
+			<!-- Tape/Neon Action Buttons -->
+			<div class="d-flex justify-content-between" id="tnActionButtons" style="display: none;">
+				<button type="button" class="btn btn-primary" id="tnCalculateBtn" onclick="tnValidateAndQuote()" disabled>
+					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+				</button>
+				<button type="button" class="btn btn-success" id="tnSaveBtn" onclick="tnSaveToSchedule()" style="display: none;" disabled>
+					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+				</button>
+			</div>
+			{% endif %}
 		</div>
 
 		<!-- Results Panel -->
@@ -703,6 +914,128 @@ Allows users to configure fixtures using segment-based configuration
 		</div>
 	</div>
 </template>
+
+{% if is_neon %}
+<!-- Neon Segment Template -->
+<template id="neonSegmentTemplate">
+	<div class="neon-segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Segment") }} <span class="neon-segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-neon-segment-btn" onclick="removeNeonSegment(this)" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- IP Rating -->
+			<div class="row mb-2">
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("IP Rating") }} <span class="text-danger">*</span></label>
+						<select class="form-control form-control-sm" name="neon_ip_rating"></select>
+					</div>
+				</div>
+			</div>
+
+			<!-- Start Section -->
+			<div class="neon-segment-start mb-3">
+				<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
+				<div class="neon-first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="neon_start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Lead Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="neon_start_lead_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="neon-inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="neon-inherited-text">{{ _("Inherited from prior segment") }}</span>
+				</div>
+			</div>
+
+			<!-- Segment Length -->
+			<div class="neon-segment-length mb-3">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Fixture Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="neon_fixture_length_value" min="1" step="0.1" required placeholder="e.g., 48">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="neon_fixture_length_unit">
+								<option value="in" selected>inches</option>
+								<option value="ft">feet</option>
+								<option value="ft_in">feet + inches</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row neon-ft-in-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="neon_fixture_length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="neon_fixture_length_inches" min="0" max="11.99" step="0.1" value="0">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="neon-segment-end">
+				<label class="small font-weight-bold">{{ _("Segment End") }}</label>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm neon-end-type-btn" data-type="Endcap" onclick="setNeonEndType(this, 'Endcap')">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm neon-end-type-btn" data-type="Jumper" onclick="setNeonEndType(this, 'Jumper')">
+						<i class="fa fa-link"></i> {{ _("Jumper (Continue)") }}
+					</button>
+				</div>
+				<input type="hidden" name="neon_end_type" value="Endcap">
+
+				<div class="endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with an endcap") }}
+					</div>
+				</div>
+
+				<div class="jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="neon_end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="neon_end_feed_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+{% endif %}
 {% endblock %}
 
 {% block script %}
@@ -722,6 +1055,15 @@ var isSystemManager = {{ 'true' if is_system_manager else 'false' }};
 var isPopulating = false;  // Flag to suppress cascading events during populateOptions
 var isMultiCCT = false;  // Track whether the current LED package is multi-CCT (Tunable White, etc.)
 var MULTI_CCT_SPECTRUM_TYPES = ['Tunable White', 'Dim to Warm', 'RGB+TW', 'RGBTW', 'RGB+W', 'RGBW'];
+
+// ─── Category context (from server) ───
+var productCategory = "{{ product_category }}";
+var isTapeNeon = {{ 'true' if is_tape_neon else 'false' }};
+var isNeon = {{ 'true' if is_neon else 'false' }};
+var isTape = {{ 'true' if is_tape else 'false' }};
+var tnTemplateOptions = null;     // Tape/Neon template init data
+var tnCurrentResult = null;       // Tape/Neon validation result
+var neonSegmentCount = 0;         // Neon segment counter
 
 console.log('Configurator script loaded');
 
@@ -852,6 +1194,14 @@ function updateSaveButtonVisibility() {
 	var hasSchedule = !!$('#scheduleSelect').val();
 	var hasLine = !!$('#lineSelect').val();
 
+	if (isTapeNeon) {
+		// Tape/Neon uses separate save button
+		if (typeof tnUpdateSaveButtonVisibility === 'function') {
+			tnUpdateSaveButtonVisibility();
+		}
+		return;
+	}
+
 	if (hasSchedule && hasLine && canSaveToSchedule) {
 		$('#saveBtn').show();
 		// Only enable if we have a valid calculation result
@@ -908,7 +1258,8 @@ $(function() {
 		updateSaveButtonVisibility();
 	});
 	
-	// Load template options when template is selected
+	// Load template options when template is selected (Linear Fixture only)
+	{% if not is_tape_neon %}
 	$('select[name="fixture_template_code"]').on('change', function() {
 		var template = $(this).val();
 		console.log('Template changed to:', template);
@@ -990,6 +1341,7 @@ $(function() {
 		updateUI();
 	});
 });
+{% endif %}
 
 function autoResolveEndcapColor() {
 	var finishCode = $('select[name="finish_code"]').val() || $('.pill-selector[data-field="finish_code"] .pill-option.active input').val();
@@ -2147,6 +2499,7 @@ $(function() {
 	var $selected = $('select[name="fixture_template_code"] option:selected');
 	var gallery = $selected.data('gallery') || [];
 	initProductGallery(gallery, $selected.text().trim());
+	{% if not is_tape_neon %}
 	loadTemplateOptions("{{ selected_template }}");
 	$('#templateOptions').show();
 	$('#segmentsCard').show();
@@ -2154,7 +2507,733 @@ $(function() {
 	if (segmentCount === 0) {
 		addSegment(true);
 	}
+	{% else %}
+	tnLoadTemplateOptions("{{ selected_template }}");
+	$('#templateOptions').show();
+	{% if is_tape %}
+	$('#tapeLengthCard').show();
+	{% endif %}
+	{% if is_neon %}
+	$('#neonSegmentsCard').show();
+	if (neonSegmentCount === 0) {
+		addNeonSegment(true);
+	}
+	{% endif %}
+	$('#tnActionButtons').show();
+	{% endif %}
 });
+{% endif %}
+
+// ═════════════════════════════════════════════════════════════════════
+// CATEGORY SWITCHING
+// ═════════════════════════════════════════════════════════════════════
+
+function switchCategory(category) {
+	if (category === productCategory) return;
+
+	// Build new URL preserving schedule context params
+	var url = new URL(window.location.href);
+	url.searchParams.set('category', category);
+	// Remove template param when switching categories (templates differ)
+	url.searchParams.delete('template');
+	window.location.href = url.toString();
+}
+
+{% if is_tape_neon %}
+// ═════════════════════════════════════════════════════════════════════
+// LED TAPE & LED NEON CONFIGURATOR (template-aware)
+// ═════════════════════════════════════════════════════════════════════
+
+// ─── Template change handler (tape/neon) ─────────────────────────────
+$(function() {
+	$('select[name="fixture_template_code"]').off('change').on('change', function() {
+		var templateCode = $(this).val();
+		console.log('Tape/Neon template changed to:', templateCode);
+
+		// Show/hide product image gallery
+		var $selected = $(this).find('option:selected');
+		var gallery = $selected.data('gallery') || [];
+		initProductGallery(gallery, $selected.text().trim());
+
+		if (templateCode) {
+			tnLoadTemplateOptions(templateCode);
+			$('#templateOptions').show();
+			{% if is_tape %}
+			$('#tapeLengthCard').show();
+			{% endif %}
+			{% if is_neon %}
+			$('#neonSegmentsCard').show();
+			if (neonSegmentCount === 0) {
+				addNeonSegment(true);
+			}
+			{% endif %}
+			$('#tnActionButtons').show();
+		} else {
+			$('#templateOptions').hide();
+			{% if is_tape %}
+			$('#tapeLengthCard').hide();
+			{% endif %}
+			{% if is_neon %}
+			$('#neonSegmentsCard').hide();
+			{% endif %}
+			$('#tnActionButtons').hide();
+		}
+	});
+
+	// Tape length unit toggle
+	$('select[name="tn_tape_length_unit"]').on('change', function() {
+		var unit = $(this).val();
+		if (unit === 'ft_in') {
+			$('.tn-ft-in-row').show();
+			$('[name="tn_tape_length_value"]').closest('.form-group').hide();
+		} else {
+			$('.tn-ft-in-row').hide();
+			$('[name="tn_tape_length_value"]').closest('.form-group').show();
+		}
+	});
+
+	// Cascading option change handlers for tape/neon
+	$('select[name="tn_environment_rating"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateCascading();
+		tnUpdateUI();
+	});
+	$('select[name="tn_cct"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateCascading();
+		tnUpdateUI();
+	});
+	$('select[name="tn_output_level"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateUI();
+	});
+	$('select[name="tn_pcb_mounting"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateUI();
+	});
+	$('select[name="tn_pcb_finish"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateUI();
+	});
+	$('select[name="tn_feed_type"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateUI();
+	});
+	$('select[name="tn_mounting_method"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateUI();
+	});
+	$('select[name="tn_finish"]').on('change', function() {
+		if (isPopulating) return;
+		tnUpdateUI();
+	});
+});
+
+// ─── Load template options (tape/neon) ───────────────────────────────
+function tnLoadTemplateOptions(templateCode) {
+	console.log('tnLoadTemplateOptions called with:', templateCode);
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_init',
+		args: { template_code: templateCode },
+		async: false,
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				tnTemplateOptions = r.message;
+				console.log('Tape/Neon template options received:', tnTemplateOptions);
+				tnPopulateOptions(r.message.options);
+			} else if (r.message && r.message.error) {
+				console.error('Tape/Neon API error:', r.message.error);
+				frappe.msgprint({
+					title: __('Error Loading Options'),
+					message: r.message.error,
+					indicator: 'red'
+				});
+			}
+		},
+		error: function(r) {
+			console.error('Tape/Neon API call failed:', r);
+		}
+	});
+}
+
+// ─── Populate pill selectors for tape/neon ───────────────────────────
+function tnPopulateOptions(options) {
+	isPopulating = true;
+
+	// Field mappings: API key → form field name
+	var fieldMap = {};
+	if (isTape) {
+		fieldMap = {
+			'environment_ratings': 'tn_environment_rating',
+			'ccts': 'tn_cct',
+			'output_levels': 'tn_output_level',
+			'pcb_mountings': 'tn_pcb_mounting',
+			'pcb_finishes': 'tn_pcb_finish',
+			'feed_types': 'tn_feed_type',
+		};
+	} else if (isNeon) {
+		fieldMap = {
+			'ccts': 'tn_cct',
+			'output_levels': 'tn_output_level',
+			'mounting_methods': 'tn_mounting_method',
+			'finishes': 'tn_finish',
+		};
+	}
+
+	Object.keys(fieldMap).forEach(function(optionKey) {
+		var fieldName = fieldMap[optionKey];
+		var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+		var selectFallback = $('select[name="' + fieldName + '"]');
+
+		pillContainer.empty();
+		selectFallback.empty().append('<option value="">Select...</option>');
+
+		var opts = options[optionKey] || [];
+		if (opts.length > 0) {
+			opts.forEach(function(opt) {
+				var label = opt.label || opt.value;
+				var pill = $('<label class="pill-option">' +
+					'<input type="radio" name="' + fieldName + '_pill" value="' + opt.value + '">' +
+					label +
+				'</label>');
+				pill.on('click', function() {
+					pillContainer.find('.pill-option').removeClass('active');
+					$(this).addClass('active');
+					selectFallback.val(opt.value).trigger('change');
+				});
+				// Mark default
+				if (opt.is_default) {
+					pill.addClass('active');
+				}
+				pillContainer.append(pill);
+				selectFallback.append('<option value="' + opt.value + '"' + (opt.is_default ? ' selected' : '') + '>' + label + '</option>');
+			});
+		}
+
+		// Sync select → pill
+		selectFallback.off('change.pillSync').on('change.pillSync', function() {
+			var value = $(this).val();
+			pillContainer.find('.pill-option').removeClass('active');
+			pillContainer.find('input[value="' + value + '"]').closest('.pill-option').addClass('active');
+		});
+	});
+
+	{% if is_neon %}
+	// Populate IP rating and feed direction options for neon segments
+	$('.neon-segment-card').each(function() {
+		tnPopulateNeonSegmentOptions($(this));
+	});
+	{% endif %}
+
+	isPopulating = false;
+
+	// Auto-select single-option fields
+	Object.keys(fieldMap).forEach(function(optionKey) {
+		var fieldName = fieldMap[optionKey];
+		var opts = options[optionKey] || [];
+		if (opts.length === 1) {
+			var selectFallback = $('select[name="' + fieldName + '"]');
+			selectFallback.val(opts[0].value).trigger('change');
+		} else {
+			// Auto-select defaults
+			opts.forEach(function(opt) {
+				if (opt.is_default) {
+					$('select[name="' + fieldName + '"]').val(opt.value).trigger('change');
+				}
+			});
+		}
+	});
+}
+
+// ─── Cascading update for tape/neon ──────────────────────────────────
+function tnUpdateCascading() {
+	var templateCode = $('select[name="fixture_template_code"]').val();
+	if (!templateCode) return;
+
+	var args = {
+		template_code: templateCode,
+		environment_rating: $('select[name="tn_environment_rating"]').val() || null,
+		cct: $('select[name="tn_cct"]').val() || null,
+	};
+	if (isTape) {
+		args.pcb_mounting = $('select[name="tn_pcb_mounting"]').val() || null;
+		args.pcb_finish = $('select[name="tn_pcb_finish"]').val() || null;
+	}
+	if (isNeon) {
+		args.mounting_method = $('select[name="tn_mounting_method"]').val() || null;
+		args.finish = $('select[name="tn_finish"]').val() || null;
+	}
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_cascading',
+		args: args,
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				// Update CCT and output level pills from cascaded results
+				if (r.message.ccts && r.message.ccts.length > 0) {
+					var currentCCT = $('select[name="tn_cct"]').val();
+					tnPopulateSinglePillSelector('tn_cct', r.message.ccts);
+					// Re-select previous value if still available
+					if (currentCCT) {
+						$('select[name="tn_cct"]').val(currentCCT).trigger('change.pillSync');
+					}
+				}
+				if (r.message.output_levels && r.message.output_levels.length > 0) {
+					var currentOL = $('select[name="tn_output_level"]').val();
+					tnPopulateSinglePillSelector('tn_output_level', r.message.output_levels);
+					if (currentOL) {
+						$('select[name="tn_output_level"]').val(currentOL).trigger('change.pillSync');
+					}
+				}
+			}
+		}
+	});
+}
+
+function tnPopulateSinglePillSelector(fieldName, opts) {
+	var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
+	var selectFallback = $('select[name="' + fieldName + '"]');
+
+	pillContainer.empty();
+	selectFallback.empty().append('<option value="">Select...</option>');
+
+	opts.forEach(function(opt) {
+		var label = opt.label || opt.value;
+		var pill = $('<label class="pill-option">' +
+			'<input type="radio" name="' + fieldName + '_pill" value="' + opt.value + '">' +
+			label +
+		'</label>');
+		pill.on('click', function() {
+			pillContainer.find('.pill-option').removeClass('active');
+			$(this).addClass('active');
+			selectFallback.val(opt.value).trigger('change');
+		});
+		pillContainer.append(pill);
+		selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
+	});
+}
+
+// ─── UI state update for tape/neon ───────────────────────────────────
+function tnUpdateUI() {
+	var isComplete = false;
+
+	if (isTape) {
+		isComplete = (
+			$('select[name="tn_cct"]').val() &&
+			$('select[name="tn_output_level"]').val() &&
+			$('select[name="tn_pcb_mounting"]').val() &&
+			$('select[name="tn_pcb_finish"]').val() &&
+			$('select[name="tn_feed_type"]').val() &&
+			parseFloat($('[name="tn_lead_length_inches"]').val()) > 0 &&
+			(parseFloat($('[name="tn_tape_length_value"]').val()) > 0 ||
+			 ($('[name="tn_tape_length_unit"]').val() === 'ft_in' &&
+			  (parseFloat($('[name="tn_tape_length_feet"]').val()) > 0 ||
+			   parseFloat($('[name="tn_tape_length_inches"]').val()) > 0)))
+		);
+	} else if (isNeon) {
+		var lastSeg = $('#neonSegmentsList .neon-segment-card').last();
+		var segmentsDone = lastSeg.length && lastSeg.find('[name="neon_end_type"]').val() === 'Endcap';
+		isComplete = (
+			$('select[name="tn_cct"]').val() &&
+			$('select[name="tn_output_level"]').val() &&
+			$('select[name="tn_mounting_method"]').val() &&
+			$('select[name="tn_finish"]').val() &&
+			neonSegmentCount > 0 &&
+			segmentsDone
+		);
+	}
+
+	$('#tnCalculateBtn').prop('disabled', !isComplete);
+
+	// Update save button
+	tnUpdateSaveButtonVisibility();
+
+	{% if is_neon %}
+	// Update neon segment count badge
+	$('#neonSegmentCountBadge').text(neonSegmentCount + ' segment' + (neonSegmentCount !== 1 ? 's' : ''));
+	{% endif %}
+}
+
+function tnUpdateSaveButtonVisibility() {
+	var hasSchedule = !!$('#scheduleSelect').val();
+	var hasLine = !!$('#lineSelect').val();
+
+	if (hasSchedule && hasLine && canSaveToSchedule) {
+		$('#tnSaveBtn').show();
+		if (tnCurrentResult && tnCurrentResult.is_valid) {
+			$('#tnSaveBtn').prop('disabled', false);
+		} else {
+			$('#tnSaveBtn').prop('disabled', true);
+		}
+	} else {
+		$('#tnSaveBtn').hide();
+	}
+}
+
+// ─── Validate & Quote (tape/neon) ────────────────────────────────────
+function tnValidateAndQuote() {
+	var templateCode = $('select[name="fixture_template_code"]').val();
+	if (!templateCode) {
+		frappe.msgprint('Please select a product family');
+		return;
+	}
+
+	var selections = {};
+	if (isTape) {
+		selections = {
+			environment_rating: $('select[name="tn_environment_rating"]').val() || '',
+			cct: $('select[name="tn_cct"]').val(),
+			output_level: $('select[name="tn_output_level"]').val(),
+			pcb_mounting: $('select[name="tn_pcb_mounting"]').val(),
+			pcb_finish: $('select[name="tn_pcb_finish"]').val(),
+			feed_type: $('select[name="tn_feed_type"]').val(),
+			feed_direction: 'End Feed',
+			lead_length_inches: parseFloat($('[name="tn_lead_length_inches"]').val()) || 12,
+			tape_length_value: parseFloat($('[name="tn_tape_length_value"]').val()) || 0,
+			tape_length_unit: $('[name="tn_tape_length_unit"]').val(),
+			tape_length_feet: parseFloat($('[name="tn_tape_length_feet"]').val()) || 0,
+			tape_length_inches: parseFloat($('[name="tn_tape_length_inches"]').val()) || 0,
+		};
+	} else if (isNeon) {
+		selections = {
+			cct: $('select[name="tn_cct"]').val(),
+			output_level: $('select[name="tn_output_level"]').val(),
+			mounting: $('select[name="tn_mounting_method"]').val(),
+			finish: $('select[name="tn_finish"]').val(),
+		};
+	}
+
+	var args = {
+		template_code: templateCode,
+		selections: JSON.stringify(selections),
+	};
+
+	if (isNeon) {
+		args.segments_json = JSON.stringify(tnCollectNeonSegments());
+	}
+
+	$('#tnCalculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Calculating...');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_neon_template_config',
+		args: args,
+		callback: function(r) {
+			$('#tnCalculateBtn').html('<i class="fa fa-calculator"></i> Calculate & Validate').prop('disabled', false);
+			if (r.message) {
+				tnCurrentResult = r.message;
+				tnDisplayResults(r.message);
+			}
+		},
+		error: function() {
+			$('#tnCalculateBtn').html('<i class="fa fa-calculator"></i> Calculate & Validate').prop('disabled', false);
+		}
+	});
+}
+
+// ─── Display results (tape/neon) ─────────────────────────────────────
+function tnDisplayResults(result) {
+	$('#noResults').hide();
+
+	var statusBadge = $('#validationStatus');
+	if (result.is_valid) {
+		statusBadge.removeClass('badge-secondary badge-danger').addClass('badge-success').text('Valid');
+	} else {
+		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
+	}
+
+	// Messages
+	if (result.messages && result.messages.length > 0) {
+		$('#messagesPanel').show();
+		var messagesList = $('#messagesList').empty();
+		result.messages.forEach(function(msg) {
+			var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
+			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + msg.text + '</div>');
+		});
+	} else {
+		$('#messagesPanel').hide();
+	}
+
+	// Part number
+	if (result.part_number) {
+		$('#partNumberPanel').show();
+		$('#partNumberValue').text(result.part_number);
+		$('#partDescriptionValue').text(result.build_description || '-');
+	} else {
+		$('#partNumberPanel').hide();
+	}
+
+	// Length results
+	if (result.computed) {
+		$('#lengthResults').show();
+		var c = result.computed;
+		if (isNeon) {
+			$('#requestedLength').text((c.total_requested_length_in || 0) + '" (' + (c.total_requested_length_mm || 0) + ' mm)');
+			$('#mfgLength').text((c.total_manufacturable_length_in || 0) + '" (' + (c.total_manufacturable_length_mm || 0) + ' mm)');
+			$('#segmentCountResult').text(c.segment_count || 0);
+		} else {
+			$('#requestedLength').text((c.requested_length_in || 0) + '" (' + (c.requested_length_mm || 0) + ' mm)');
+			$('#mfgLength').text((c.manufacturable_length_in || 0) + '" (' + (c.manufacturable_length_mm || 0) + ' mm)');
+			$('#segmentCountResult').text('1');
+		}
+
+		// Manufacturing summary
+		$('#manufacturingResults').show();
+		$('#profileSegmentsCount').text('-');
+		$('#runsCount').text('-');
+		$('#endcapsCount').text('-');
+		$('#mountingCount').text('-');
+		$('#totalWatts').text((c.total_watts || 0) + ' W');
+		$('#assemblyMode').text(isNeon ? (c.segment_count > 1 ? 'Multi-Segment' : 'Single') : 'Single');
+
+		// Build description
+		if (result.build_description) {
+			$('#buildDescriptionPanel').show();
+			$('#buildDescription').text(result.build_description);
+		}
+
+		// Hide linear-fixture-specific result sections
+		$('#ledRunDetailsPanel').hide();
+		$('#driverResults').hide();
+	}
+
+	// Pricing (basic for tape/neon)
+	if (tnTemplateOptions && tnTemplateOptions.pricing) {
+		var p = tnTemplateOptions.pricing;
+		var c = result.computed || {};
+		if (p.price_per_foot_msrp && c.manufacturable_length_ft) {
+			$('#pricingResults').show();
+			var msrp = p.base_price_msrp + (p.price_per_foot_msrp * c.manufacturable_length_ft);
+			if (isNeon && p.price_per_segment_msrp && c.segment_count) {
+				msrp += p.price_per_segment_msrp * c.segment_count;
+			}
+			$('#msrpUnit').text('$' + msrp.toFixed(2));
+			$('#tierUnit').text('-');
+		}
+	}
+
+	tnUpdateSaveButtonVisibility();
+}
+
+// ─── Save to schedule (tape/neon) ────────────────────────────────────
+function tnSaveToSchedule() {
+	if (!tnCurrentResult || !tnCurrentResult.is_valid) {
+		frappe.msgprint('Cannot save: configuration is not valid');
+		return;
+	}
+
+	var selectedSchedule = $('#scheduleSelect').val();
+	var selectedLine = $('#lineSelect').val();
+
+	if (!selectedSchedule) {
+		frappe.msgprint('Please select a schedule to save to');
+		return;
+	}
+	if (!selectedLine) {
+		frappe.msgprint('Please select a line or choose "New Line"');
+		return;
+	}
+
+	var saveLine = (selectedLine === '__new__') ? null : parseInt(selectedLine);
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.save_tape_neon_template_to_schedule',
+		args: {
+			schedule_name: selectedSchedule,
+			line_idx: saveLine,
+			template_code: $('select[name="fixture_template_code"]').val(),
+			configuration_result: JSON.stringify(tnCurrentResult),
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: r.message.message || 'Configuration saved to schedule'
+				});
+				window.location.href = '/portal/schedules/' + selectedSchedule;
+			} else {
+				frappe.msgprint((r.message && r.message.error) || 'Error saving configuration');
+			}
+		}
+	});
+}
+
+{% if is_neon %}
+// ═════════════════════════════════════════════════════════════════════
+// LED NEON SEGMENT MANAGEMENT
+// ═════════════════════════════════════════════════════════════════════
+
+function tnPopulateNeonSegmentOptions(segmentCard) {
+	if (!tnTemplateOptions || !tnTemplateOptions.options) return;
+
+	var opts = tnTemplateOptions.options;
+
+	// IP ratings
+	var ipSelect = segmentCard.find('[name="neon_ip_rating"]');
+	ipSelect.empty().append('<option value="">Select...</option>');
+	(opts.ip_ratings || []).forEach(function(opt) {
+		ipSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+	});
+
+	// Feed directions
+	var feedDirs = opts.feed_directions || [
+		{value: 'End', label: 'End'},
+		{value: 'Back', label: 'Back'}
+	];
+	['neon_start_feed_direction', 'neon_end_feed_direction'].forEach(function(fieldName) {
+		var select = segmentCard.find('[name="' + fieldName + '"]');
+		select.empty().append('<option value="">Select...</option>');
+		feedDirs.forEach(function(opt) {
+			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+		});
+	});
+
+	// Unit change handler for neon segment length
+	var unitSelect = segmentCard.find('[name="neon_fixture_length_unit"]');
+	unitSelect.on('change', function() {
+		var unit = $(this).val();
+		if (unit === 'ft_in') {
+			segmentCard.find('.neon-ft-in-row').show();
+			segmentCard.find('[name="neon_fixture_length_value"]').closest('.form-group').hide();
+		} else {
+			segmentCard.find('.neon-ft-in-row').hide();
+			segmentCard.find('[name="neon_fixture_length_value"]').closest('.form-group').show();
+		}
+	});
+}
+
+function addNeonSegment(isFirst) {
+	neonSegmentCount++;
+	var template = document.getElementById('neonSegmentTemplate');
+	var clone = template.content.cloneNode(true);
+	var card = clone.querySelector('.neon-segment-card');
+
+	card.dataset.segmentIndex = neonSegmentCount;
+	card.querySelector('.neon-segment-number').textContent = neonSegmentCount;
+
+	if (isFirst) {
+		card.querySelector('.neon-first-segment-start').style.display = 'block';
+		card.querySelector('.neon-inherited-start').style.display = 'none';
+	} else {
+		card.querySelector('.neon-first-segment-start').style.display = 'none';
+		card.querySelector('.neon-inherited-start').style.display = 'block';
+		card.querySelector('.remove-neon-segment-btn').style.display = 'inline-block';
+
+		// Copy inherited info from prior segment's end
+		var priorSegment = $('#neonSegmentsList .neon-segment-card').last();
+		if (priorSegment.length) {
+			var priorEndDir = priorSegment.find('[name="neon_end_feed_direction"]').val() || '';
+			var priorJumperIn = priorSegment.find('[name="neon_end_feed_length_inches"]').val() || '12';
+			card.dataset.inheritedFeedDirection = priorEndDir;
+			card.dataset.inheritedCableLength = priorJumperIn;
+			card.querySelector('.neon-inherited-text').textContent = 'From prior: ' + priorEndDir + ', ' + priorJumperIn + '" jumper';
+		}
+	}
+
+	document.getElementById('neonSegmentsList').appendChild(clone);
+
+	var segmentCard = $('#neonSegmentsList .neon-segment-card').last();
+	tnPopulateNeonSegmentOptions(segmentCard);
+
+	// Default to Endcap
+	setNeonEndType(segmentCard.find('.neon-end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+
+	tnUpdateUI();
+}
+
+function removeNeonSegment(btn) {
+	var card = $(btn).closest('.neon-segment-card');
+	var index = parseInt(card.data('segment-index'));
+	if (index <= 1) return;
+
+	// Remove this and all following segments
+	$('.neon-segment-card').each(function() {
+		if (parseInt($(this).data('segment-index')) >= index) {
+			$(this).remove();
+			neonSegmentCount--;
+		}
+	});
+
+	// Set previous segment end to Endcap
+	var lastSeg = $('#neonSegmentsList .neon-segment-card').last();
+	if (lastSeg.length) {
+		setNeonEndType(lastSeg.find('.neon-end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+	}
+
+	tnUpdateUI();
+}
+
+function setNeonEndType(btn, type) {
+	var card = $(btn).closest('.neon-segment-card');
+	card.find('.neon-end-type-btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+	$(btn).removeClass('btn-outline-secondary').addClass('active btn-primary');
+	card.find('[name="neon_end_type"]').val(type);
+
+	if (type === 'Endcap') {
+		card.find('.endcap-fields').show();
+		card.find('.jumper-fields').hide();
+
+		// Remove subsequent segments
+		var currentIndex = parseInt(card.data('segment-index'));
+		$('.neon-segment-card').each(function() {
+			if (parseInt($(this).data('segment-index')) > currentIndex) {
+				$(this).remove();
+				neonSegmentCount--;
+			}
+		});
+	} else {
+		card.find('.endcap-fields').hide();
+		card.find('.jumper-fields').show();
+
+		// Auto-add next segment
+		var currentIndex = parseInt(card.data('segment-index'));
+		var hasNext = false;
+		$('.neon-segment-card').each(function() {
+			if (parseInt($(this).data('segment-index')) > currentIndex) hasNext = true;
+		});
+		if (!hasNext) {
+			setTimeout(function() { addNeonSegment(false); }, 100);
+		}
+	}
+
+	tnUpdateUI();
+}
+
+function tnCollectNeonSegments() {
+	var segments = [];
+	$('#neonSegmentsList .neon-segment-card').each(function(index) {
+		var card = $(this);
+
+		// Parse fixture length
+		var unit = card.find('[name="neon_fixture_length_unit"]').val() || 'in';
+		var lengthVal = parseFloat(card.find('[name="neon_fixture_length_value"]').val()) || 0;
+		var feetVal = parseFloat(card.find('[name="neon_fixture_length_feet"]').val()) || 0;
+		var inchesVal = parseFloat(card.find('[name="neon_fixture_length_inches"]').val()) || 0;
+
+		var seg = {
+			ip_rating: card.find('[name="neon_ip_rating"]').val(),
+			fixture_length_unit: unit,
+			fixture_length_value: lengthVal,
+			fixture_length_feet: feetVal,
+			fixture_length_inches: inchesVal,
+			end_feed_direction: card.find('[name="neon_end_feed_direction"]').val() || '',
+			end_feed_length_inches: parseFloat(card.find('[name="neon_end_feed_length_inches"]').val()) || 0,
+		};
+
+		if (index === 0) {
+			seg.start_feed_direction = card.find('[name="neon_start_feed_direction"]').val();
+			seg.start_lead_length_inches = parseFloat(card.find('[name="neon_start_lead_length_inches"]').val()) || 12;
+		} else {
+			seg.start_feed_direction = card[0].dataset.inheritedFeedDirection || 'End';
+			seg.start_lead_length_inches = parseFloat(card[0].dataset.inheritedCableLength) || 12;
+		}
+
+		segments.push(seg);
+	});
+	return segments;
+}
+{% endif %}
+
 {% endif %}
 </script>
 {% endblock %}

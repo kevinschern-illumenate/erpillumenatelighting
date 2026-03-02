@@ -17,8 +17,10 @@
   "product_type",
   "fixture_template",
   "kit_template",
+  "tape_neon_template",
   "column_break_illumenate",
   "configured_fixture",
+  "configured_tape_neon",
   "ill_item_code",
   "manufacturable_length_mm",
   "accessory_section",
@@ -124,7 +126,15 @@
    "options": "ilL-Extrusion-Kit-Template"
   },
   {
-   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && (doc.fixture_template || doc.kit_template)",
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && ['LED Tape','LED Neon'].includes(doc.product_type)",
+   "description": "Select a tape/neon template (family) to configure",
+   "fieldname": "tape_neon_template",
+   "fieldtype": "Link",
+   "label": "Tape/Neon Template",
+   "options": "ilL-Tape-Neon-Template"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && (doc.fixture_template || doc.kit_template || doc.tape_neon_template)",
    "fieldname": "column_break_illumenate",
    "fieldtype": "Column Break"
   },
@@ -136,6 +146,14 @@
    "in_list_view": 1,
    "label": "Configured Fixture",
    "options": "ilL-Configured-Fixture"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.tape_neon_template",
+   "description": "Link to the fully configured tape/neon product",
+   "fieldname": "configured_tape_neon",
+   "fieldtype": "Link",
+   "label": "Configured Tape/Neon",
+   "options": "ilL-Configured-Tape-Neon"
   },
   {
    "depends_on": "eval:doc.configured_fixture",

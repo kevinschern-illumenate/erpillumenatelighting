@@ -1,0 +1,273 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "allow_import": 1,
+    "autoname": "field:template_code",
+    "creation": "2026-03-02 12:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "identity_section",
+        "template_code",
+        "template_name",
+        "column_break_identity",
+        "product_category",
+        "is_active",
+        "series",
+        "description_section",
+        "description",
+        "image",
+        "column_break_description",
+        "notes",
+        "defaults_section",
+        "default_tape_spec",
+        "column_break_defaults",
+        "leader_allowance_mm_per_fixture",
+        "pricing_section",
+        "base_price_msrp",
+        "price_per_ft_msrp",
+        "column_break_pricing",
+        "pricing_length_basis",
+        "allowed_tape_specs_section",
+        "allowed_tape_specs",
+        "allowed_options_section",
+        "allowed_options",
+        "spec_documents_section",
+        "spec_sheet",
+        "column_break_spec_documents",
+        "spec_submittal_template",
+        "webflow_section",
+        "webflow_product"
+    ],
+    "fields": [
+        {
+            "fieldname": "identity_section",
+            "fieldtype": "Section Break",
+            "label": "Identity"
+        },
+        {
+            "fieldname": "template_code",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Template Code",
+            "reqd": 1,
+            "unique": 1
+        },
+        {
+            "fieldname": "template_name",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Template Name",
+            "reqd": 1
+        },
+        {
+            "fieldname": "column_break_identity",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "LED Tape",
+            "description": "Product category this template belongs to",
+            "fieldname": "product_category",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "in_standard_filter": 1,
+            "label": "Product Category",
+            "options": "LED Tape\nLED Neon",
+            "reqd": 1
+        },
+        {
+            "default": "1",
+            "fieldname": "is_active",
+            "fieldtype": "Check",
+            "in_list_view": 1,
+            "label": "Is Active"
+        },
+        {
+            "description": "Product series for filtering (e.g., 'NT01', 'TL03')",
+            "fieldname": "series",
+            "fieldtype": "Link",
+            "in_standard_filter": 1,
+            "label": "Series",
+            "options": "ilL-Attribute-Series"
+        },
+        {
+            "fieldname": "description_section",
+            "fieldtype": "Section Break",
+            "label": "Description & Media"
+        },
+        {
+            "description": "Short description shown on the configurator template selection",
+            "fieldname": "description",
+            "fieldtype": "Small Text",
+            "label": "Description"
+        },
+        {
+            "description": "Primary product image (used as fallback if no Webflow product linked)",
+            "fieldname": "image",
+            "fieldtype": "Attach Image",
+            "label": "Image"
+        },
+        {
+            "fieldname": "column_break_description",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "label": "Notes"
+        },
+        {
+            "fieldname": "defaults_section",
+            "fieldtype": "Section Break",
+            "label": "Defaults"
+        },
+        {
+            "description": "Default tape spec to use if only one spec is linked",
+            "fieldname": "default_tape_spec",
+            "fieldtype": "Link",
+            "label": "Default Tape Spec",
+            "options": "ilL-Spec-LED Tape"
+        },
+        {
+            "fieldname": "column_break_defaults",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "15",
+            "description": "Extra tape length to tuck inside the endcap, per fixture",
+            "fieldname": "leader_allowance_mm_per_fixture",
+            "fieldtype": "Int",
+            "label": "Leader Allowance per Fixture (mm)"
+        },
+        {
+            "fieldname": "pricing_section",
+            "fieldtype": "Section Break",
+            "label": "Pricing"
+        },
+        {
+            "default": "0",
+            "description": "Base price before length-based adders",
+            "fieldname": "base_price_msrp",
+            "fieldtype": "Currency",
+            "label": "Base Price (MSRP)"
+        },
+        {
+            "default": "0",
+            "description": "Price per foot based on selected length basis",
+            "fieldname": "price_per_ft_msrp",
+            "fieldtype": "Currency",
+            "label": "Price per Foot (MSRP)"
+        },
+        {
+            "fieldname": "column_break_pricing",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "L_tape_cut",
+            "description": "Which length value to use for $/ft pricing",
+            "fieldname": "pricing_length_basis",
+            "fieldtype": "Select",
+            "label": "Pricing Length Basis",
+            "options": "L_tape_cut\nL_mfg"
+        },
+        {
+            "fieldname": "allowed_tape_specs_section",
+            "fieldtype": "Section Break",
+            "label": "Allowed Tape Specs"
+        },
+        {
+            "description": "Tape specs (ilL-Spec-LED Tape) that can be used with this template",
+            "fieldname": "allowed_tape_specs",
+            "fieldtype": "Table",
+            "label": "Allowed Tape Specs",
+            "options": "ilL-Child-Tape-Neon-Allowed-Spec"
+        },
+        {
+            "fieldname": "allowed_options_section",
+            "fieldtype": "Section Break",
+            "label": "Allowed Options"
+        },
+        {
+            "description": "Configuration options available for this template (CCT, Output Level, Environment Rating, etc.)",
+            "fieldname": "allowed_options",
+            "fieldtype": "Table",
+            "label": "Allowed Options",
+            "options": "ilL-Child-Tape-Neon-Allowed-Option"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "spec_documents_section",
+            "fieldtype": "Section Break",
+            "label": "Spec Documents"
+        },
+        {
+            "description": "Static product specification sheet PDF",
+            "fieldname": "spec_sheet",
+            "fieldtype": "Attach",
+            "label": "Spec Sheet"
+        },
+        {
+            "fieldname": "column_break_spec_documents",
+            "fieldtype": "Column Break"
+        },
+        {
+            "description": "Blank fillable PDF template for spec submittal generation",
+            "fieldname": "spec_submittal_template",
+            "fieldtype": "Attach",
+            "label": "Spec Submittal Template"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "webflow_section",
+            "fieldtype": "Section Break",
+            "label": "Webflow Integration"
+        },
+        {
+            "description": "Backlink to the Webflow product that references this template (for gallery images)",
+            "fieldname": "webflow_product",
+            "fieldtype": "Link",
+            "label": "Webflow Product",
+            "options": "ilL-Webflow-Product",
+            "read_only": 1
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "links": [],
+    "modified": "2026-03-02 12:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-Tape-Neon-Template",
+    "naming_rule": "By fieldname",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "All",
+            "share": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "search_fields": "template_code, template_name, product_category",
+    "sort_field": "template_code",
+    "sort_order": "ASC",
+    "states": [],
+    "track_changes": 1
+}

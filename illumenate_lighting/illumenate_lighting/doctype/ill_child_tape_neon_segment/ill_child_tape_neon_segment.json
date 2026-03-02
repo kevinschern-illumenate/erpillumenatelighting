@@ -1,0 +1,255 @@
+{
+    "actions": [],
+    "creation": "2026-03-02 12:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "segment_index",
+        "ip_rating",
+        "column_break_segment_id",
+        "requested_length_mm",
+        "manufacturable_length_mm",
+        "difference_mm",
+        "start_section",
+        "start_feed_direction",
+        "start_power_feed_type",
+        "column_break_start",
+        "start_lead_length_inches",
+        "start_leader_item",
+        "start_leader_len_mm",
+        "end_section",
+        "end_type",
+        "end_feed_direction",
+        "end_power_feed_type",
+        "column_break_end",
+        "end_cable_length_inches",
+        "end_jumper_item",
+        "end_jumper_len_mm",
+        "endcap_section",
+        "start_endcap_item",
+        "start_endcap_type",
+        "column_break_endcap",
+        "end_endcap_item",
+        "end_endcap_type",
+        "computed_section",
+        "tape_cut_len_mm",
+        "watts",
+        "column_break_computed",
+        "notes"
+    ],
+    "fields": [
+        {
+            "fieldname": "segment_index",
+            "fieldtype": "Int",
+            "in_list_view": 1,
+            "label": "Segment #",
+            "reqd": 1
+        },
+        {
+            "description": "IP rating for endcaps on this segment (LED Neon)",
+            "fieldname": "ip_rating",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "IP Rating",
+            "options": "ilL-Attribute-IP Rating"
+        },
+        {
+            "fieldname": "column_break_segment_id",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "requested_length_mm",
+            "fieldtype": "Int",
+            "in_list_view": 1,
+            "label": "Requested Length (mm)",
+            "reqd": 1
+        },
+        {
+            "description": "Snapped to nearest cut increment",
+            "fieldname": "manufacturable_length_mm",
+            "fieldtype": "Int",
+            "in_list_view": 1,
+            "label": "Manufacturable Length (mm)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "difference_mm",
+            "fieldtype": "Float",
+            "label": "Difference (mm)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "start_section",
+            "fieldtype": "Section Break",
+            "label": "Start Feed"
+        },
+        {
+            "fieldname": "start_feed_direction",
+            "fieldtype": "Link",
+            "label": "Start Feed Direction",
+            "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+            "fieldname": "start_power_feed_type",
+            "fieldtype": "Link",
+            "label": "Start Power Feed Type",
+            "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+            "fieldname": "column_break_start",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "12",
+            "fieldname": "start_lead_length_inches",
+            "fieldtype": "Float",
+            "label": "Start Lead Length (inches)"
+        },
+        {
+            "fieldname": "start_leader_item",
+            "fieldtype": "Link",
+            "label": "Start Leader Cable Item",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "description": "Computed from inches",
+            "fieldname": "start_leader_len_mm",
+            "fieldtype": "Int",
+            "label": "Start Leader Length (mm)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "end_section",
+            "fieldtype": "Section Break",
+            "label": "End / Exit"
+        },
+        {
+            "default": "Endcap",
+            "fieldname": "end_type",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "label": "End Type",
+            "options": "Endcap\nJumper",
+            "reqd": 1
+        },
+        {
+            "depends_on": "eval:doc.end_type=='Jumper'",
+            "fieldname": "end_feed_direction",
+            "fieldtype": "Link",
+            "label": "End Feed Direction",
+            "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+            "depends_on": "eval:doc.end_type=='Jumper'",
+            "fieldname": "end_power_feed_type",
+            "fieldtype": "Link",
+            "label": "End Power Feed Type",
+            "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+            "fieldname": "column_break_end",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "6",
+            "description": "Exit or jumper cable length",
+            "fieldname": "end_cable_length_inches",
+            "fieldtype": "Float",
+            "label": "End Cable Length (inches)"
+        },
+        {
+            "fieldname": "end_jumper_item",
+            "fieldtype": "Link",
+            "label": "End Jumper/Exit Cable Item",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "description": "Computed from inches",
+            "fieldname": "end_jumper_len_mm",
+            "fieldtype": "Int",
+            "label": "End Jumper Length (mm)",
+            "read_only": 1
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "endcap_section",
+            "fieldtype": "Section Break",
+            "label": "Endcap Details (Computed)"
+        },
+        {
+            "fieldname": "start_endcap_item",
+            "fieldtype": "Link",
+            "label": "Start Endcap Item",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "fieldname": "start_endcap_type",
+            "fieldtype": "Select",
+            "label": "Start Endcap Type",
+            "options": "\nFeed-Through\nSolid",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_endcap",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "end_endcap_item",
+            "fieldtype": "Link",
+            "label": "End Endcap Item",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "fieldname": "end_endcap_type",
+            "fieldtype": "Select",
+            "label": "End Endcap Type",
+            "options": "\nFeed-Through\nSolid",
+            "read_only": 1
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "computed_section",
+            "fieldtype": "Section Break",
+            "label": "Computed"
+        },
+        {
+            "fieldname": "tape_cut_len_mm",
+            "fieldtype": "Int",
+            "label": "Tape Cut Length (mm)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "watts",
+            "fieldtype": "Float",
+            "label": "Watts",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_computed",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "label": "Notes"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2026-03-02 12:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-Child-Tape-Neon-Segment",
+    "naming_rule": "Random",
+    "owner": "Administrator",
+    "permissions": [],
+    "sort_field": "segment_index",
+    "sort_order": "ASC",
+    "states": []
+}
