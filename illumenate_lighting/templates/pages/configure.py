@@ -1,6 +1,8 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
+import json
+
 import frappe
 
 no_cache = 1
@@ -43,20 +45,40 @@ def get_context(context):
 		order_by="template_name asc",
 	)
 
-	# Batch-fetch featured images from linked Webflow products
+	# Batch-fetch gallery images from linked Webflow products
 	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_images = {}
+	webflow_product_gallery = {}
 	if webflow_product_names:
+		# Fetch gallery images from child table ordered by display_order
+		gallery_rows = frappe.get_all(
+			"ilL-Child-Webflow-Gallery-Image",
+			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
+			fields=["parent", "image", "alt_text", "display_order"],
+			order_by="parent, display_order asc",
+		)
+		for row in gallery_rows:
+			if row.image:
+				webflow_product_gallery.setdefault(row.parent, []).append(
+					{"image": row.image, "alt_text": row.alt_text or ""}
+				)
+
+		# Fallback: also fetch featured_image for products with no gallery
 		webflow_products = frappe.get_all(
 			"ilL-Webflow-Product",
 			filters={"name": ["in", webflow_product_names]},
 			fields=["name", "featured_image"],
 		)
-		webflow_product_images = {r.name: r.featured_image for r in webflow_products if r.featured_image}
+		for wp in webflow_products:
+			if wp.name not in webflow_product_gallery and wp.featured_image:
+				webflow_product_gallery[wp.name] = [
+					{"image": wp.featured_image, "alt_text": ""}
+				]
 
-	# Attach image URL to each template
+	# Attach gallery JSON to each template
 	for t in templates:
-		t.image = webflow_product_images.get(t.webflow_product) if t.webflow_product else None
+		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
+		t.image = gallery[0]["image"] if gallery else None
+		t.gallery_json = json.dumps(gallery) if gallery else "[]"
 
 	# Determine if pricing should be shown based on user role
 	show_pricing = True

@@ -106,15 +106,115 @@ Allows users to configure fixtures using segment-based configuration
 	}
 }
 
-/* Product image preview */
-.product-preview-image {
+/* Product image gallery */
+.product-gallery-wrapper {
+	position: relative;
 	max-width: 100%;
-	max-height: 200px;
-	object-fit: contain;
-	border-radius: 4px;
+	border-radius: 6px;
 	border: 1px solid #dee2e6;
-	padding: 8px;
+	overflow: hidden;
 	background: #fff;
+}
+.product-gallery-viewport {
+	position: relative;
+	width: 100%;
+	height: 320px;
+	overflow: hidden;
+	cursor: grab;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.product-gallery-viewport.is-dragging {
+	cursor: grabbing;
+}
+.product-gallery-viewport img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	transition: transform 0.1s ease-out;
+	transform-origin: center center;
+	user-select: none;
+	-webkit-user-drag: none;
+	pointer-events: none;
+}
+/* Arrow nav buttons */
+.gallery-nav {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	background: rgba(255,255,255,0.85);
+	border: 1px solid #ced4da;
+	border-radius: 50%;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	z-index: 10;
+	font-size: 18px;
+	color: #495057;
+	transition: background 0.15s;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.gallery-nav:hover {
+	background: rgba(255,255,255,1);
+}
+.gallery-nav.prev { left: 8px; }
+.gallery-nav.next { right: 8px; }
+.gallery-nav.disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+/* Counter badge */
+.gallery-counter {
+	position: absolute;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(0,0,0,0.55);
+	color: #fff;
+	padding: 2px 10px;
+	border-radius: 12px;
+	font-size: 0.75rem;
+	z-index: 10;
+}
+/* Zoom controls bar */
+.gallery-zoom-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	background: #f8f9fa;
+	border-top: 1px solid #dee2e6;
+	font-size: 0.8rem;
+	color: #6c757d;
+}
+.gallery-zoom-bar label {
+	margin: 0;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.gallery-zoom-bar input[type="range"] {
+	flex: 1;
+	min-width: 0;
+}
+.gallery-zoom-bar .zoom-value {
+	min-width: 38px;
+	text-align: right;
+}
+.gallery-zoom-bar .zoom-reset-btn {
+	background: none;
+	border: 1px solid #ced4da;
+	border-radius: 4px;
+	padding: 1px 8px;
+	cursor: pointer;
+	font-size: 0.75rem;
+	color: #495057;
+}
+.gallery-zoom-bar .zoom-reset-btn:hover {
+	background: #e9ecef;
 }
 </style>
 {% endblock %}
@@ -189,16 +289,27 @@ Allows users to configure fixtures using segment-based configuration
 							<select class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
-								<option value="{{ template.template_code }}" data-image="{{ template.image or '' }}" {% if template.template_code == selected_template %}selected{% endif %}>
+								<option value="{{ template.template_code }}" data-image="{{ template.image or '' }}" data-gallery='{{ template.gallery_json }}' {% if template.template_code == selected_template %}selected{% endif %}>
 									{{ template.template_name }} ({{ template.template_code }})
 								</option>
 								{% endfor %}
 							</select>
 						</div>
 
-						<!-- Product image preview -->
-						<div class="product-image-preview text-center mt-3" id="productImageContainer" style="display: none;">
-							<img id="productImage" src="" alt="{{ _('Product Preview') }}" class="product-preview-image">
+						<!-- Product image gallery -->
+						<div class="product-gallery-wrapper mt-3" id="productGalleryContainer" style="display: none;">
+							<div class="product-gallery-viewport" id="galleryViewport">
+								<button class="gallery-nav prev" id="galleryPrev" title="Previous image">&lsaquo;</button>
+								<img id="galleryImage" src="" alt="{{ _('Product Preview') }}">
+								<button class="gallery-nav next" id="galleryNext" title="Next image">&rsaquo;</button>
+								<span class="gallery-counter" id="galleryCounter"></span>
+							</div>
+							<div class="gallery-zoom-bar">
+								<label for="zoomSlider">{{ _('Zoom') }}</label>
+								<input type="range" id="zoomSlider" min="100" max="400" value="100" step="10">
+								<span class="zoom-value" id="zoomValue">100%</span>
+								<button class="zoom-reset-btn" id="zoomReset" title="Reset zoom">{{ _('Reset') }}</button>
+							</div>
 						</div>
 
 						<!-- Options loaded dynamically based on template -->
@@ -802,16 +913,10 @@ $(function() {
 		var template = $(this).val();
 		console.log('Template changed to:', template);
 
-		// Show/hide product image preview
+		// Show/hide product image gallery
 		var $selected = $(this).find('option:selected');
-		var imageUrl = $selected.data('image');
-		if (imageUrl) {
-			$('#productImage').attr('src', imageUrl).attr('alt', $selected.text().trim() + ' preview');
-			$('#productImageContainer').show();
-		} else {
-			$('#productImage').attr('src', '').attr('alt', '');
-			$('#productImageContainer').hide();
-		}
+		var gallery = $selected.data('gallery') || [];
+		initProductGallery(gallery, $selected.text().trim());
 
 		if (template) {
 			loadTemplateOptions(template);
@@ -1907,17 +2012,141 @@ function doSaveToSchedule(scheduleName, lineIdx) {
 	});
 }
 
+// ─── Product Image Gallery + Zoom/Pan ───
+var _gallery = { images: [], index: 0, zoom: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0 };
+
+function initProductGallery(images, altPrefix) {
+	_gallery.images = (images && images.length) ? images : [];
+	_gallery.index = 0;
+	_gallery.zoom = 1;
+	_gallery.panX = 0;
+	_gallery.panY = 0;
+	$('#zoomSlider').val(100);
+	$('#zoomValue').text('100%');
+	if (_gallery.images.length) {
+		showGalleryImage();
+		$('#productGalleryContainer').show();
+		updateGalleryNav();
+	} else {
+		$('#productGalleryContainer').hide();
+	}
+}
+
+function showGalleryImage() {
+	var item = _gallery.images[_gallery.index];
+	if (!item) return;
+	var $img = $('#galleryImage');
+	$img.attr('src', item.image).attr('alt', item.alt_text || 'Product image');
+	applyTransform();
+	$('#galleryCounter').text((_gallery.index + 1) + ' / ' + _gallery.images.length);
+	$('#galleryCounter').toggle(_gallery.images.length > 1);
+}
+
+function updateGalleryNav() {
+	var multi = _gallery.images.length > 1;
+	$('#galleryPrev').toggle(multi).toggleClass('disabled', _gallery.index === 0);
+	$('#galleryNext').toggle(multi).toggleClass('disabled', _gallery.index >= _gallery.images.length - 1);
+}
+
+function applyTransform() {
+	var z = _gallery.zoom;
+	var tx = _gallery.panX;
+	var ty = _gallery.panY;
+	$('#galleryImage').css('transform', 'scale(' + z + ') translate(' + tx + 'px, ' + ty + 'px)');
+}
+
+function resetZoomPan() {
+	_gallery.zoom = 1;
+	_gallery.panX = 0;
+	_gallery.panY = 0;
+	$('#zoomSlider').val(100);
+	$('#zoomValue').text('100%');
+	applyTransform();
+}
+
+// Arrow click handlers
+$(document).on('click', '#galleryPrev', function() {
+	if (_gallery.index > 0) {
+		_gallery.index--;
+		resetZoomPan();
+		showGalleryImage();
+		updateGalleryNav();
+	}
+});
+$(document).on('click', '#galleryNext', function() {
+	if (_gallery.index < _gallery.images.length - 1) {
+		_gallery.index++;
+		resetZoomPan();
+		showGalleryImage();
+		updateGalleryNav();
+	}
+});
+
+// Zoom slider
+$(document).on('input', '#zoomSlider', function() {
+	var val = parseInt($(this).val(), 10);
+	_gallery.zoom = val / 100;
+	// Reset pan when zooming back to 1x
+	if (_gallery.zoom <= 1) { _gallery.panX = 0; _gallery.panY = 0; }
+	$('#zoomValue').text(val + '%');
+	applyTransform();
+});
+$(document).on('click', '#zoomReset', function() {
+	resetZoomPan();
+});
+
+// Pan (mouse drag)
+(function() {
+	var vp = document.getElementById('galleryViewport');
+	if (!vp) return;
+
+	function onPointerDown(e) {
+		if (_gallery.zoom <= 1) return;
+		_gallery.dragging = true;
+		_gallery.startX = (e.touches ? e.touches[0].clientX : e.clientX) - _gallery.panX;
+		_gallery.startY = (e.touches ? e.touches[0].clientY : e.clientY) - _gallery.panY;
+		$(vp).addClass('is-dragging');
+		e.preventDefault();
+	}
+	function onPointerMove(e) {
+		if (!_gallery.dragging) return;
+		var cx = e.touches ? e.touches[0].clientX : e.clientX;
+		var cy = e.touches ? e.touches[0].clientY : e.clientY;
+		_gallery.panX = cx - _gallery.startX;
+		_gallery.panY = cy - _gallery.startY;
+		applyTransform();
+		e.preventDefault();
+	}
+	function onPointerUp() {
+		_gallery.dragging = false;
+		$(vp).removeClass('is-dragging');
+	}
+
+	vp.addEventListener('mousedown', onPointerDown);
+	vp.addEventListener('touchstart', onPointerDown, { passive: false });
+	document.addEventListener('mousemove', onPointerMove);
+	document.addEventListener('touchmove', onPointerMove, { passive: false });
+	document.addEventListener('mouseup', onPointerUp);
+	document.addEventListener('touchend', onPointerUp);
+})();
+
+// Keyboard navigation for gallery
+$(document).on('keydown', function(e) {
+	if (!$('#productGalleryContainer').is(':visible')) return;
+	// Only handle if not focused on an input
+	if ($(e.target).is('input, select, textarea')) return;
+	if (e.key === 'ArrowLeft') { $('#galleryPrev').click(); }
+	if (e.key === 'ArrowRight') { $('#galleryNext').click(); }
+});
+
 // Load template options if pre-selected
 {% if selected_template %}
 $(function() {
 	console.log('Pre-selected template detected: {{ selected_template }}');
-	// Show product image preview if available for pre-selected template
+	// Show product gallery if available for pre-selected template
 	var $selected = $('select[name="fixture_template_code"] option:selected');
-	var imageUrl = $selected.data('image');
-	if (imageUrl) {
-		$('#productImage').attr('src', imageUrl).attr('alt', $selected.text().trim() + ' preview');
-		$('#productImageContainer').show();
-	}
+	var gallery = $selected.data('gallery') || [];
+	initProductGallery(gallery, $selected.text().trim());
 	loadTemplateOptions("{{ selected_template }}");
 	$('#templateOptions').show();
 	$('#segmentsCard').show();
