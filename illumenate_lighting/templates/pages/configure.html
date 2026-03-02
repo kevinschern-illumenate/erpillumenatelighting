@@ -806,10 +806,10 @@ $(function() {
 		var $selected = $(this).find('option:selected');
 		var imageUrl = $selected.data('image');
 		if (imageUrl) {
-			$('#productImage').attr('src', imageUrl);
+			$('#productImage').attr('src', imageUrl).attr('alt', $selected.text().trim() + ' preview');
 			$('#productImageContainer').show();
 		} else {
-			$('#productImage').attr('src', '');
+			$('#productImage').attr('src', '').attr('alt', '');
 			$('#productImageContainer').hide();
 		}
 
@@ -1915,7 +1915,7 @@ $(function() {
 	var $selected = $('select[name="fixture_template_code"] option:selected');
 	var imageUrl = $selected.data('image');
 	if (imageUrl) {
-		$('#productImage').attr('src', imageUrl);
+		$('#productImage').attr('src', imageUrl).attr('alt', $selected.text().trim() + ' preview');
 		$('#productImageContainer').show();
 	}
 	loadTemplateOptions("{{ selected_template }}");
