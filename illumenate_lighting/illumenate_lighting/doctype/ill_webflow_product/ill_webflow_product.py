@@ -80,6 +80,50 @@ class ilLWebflowProduct(Document):
 				if self.sync_status == "Synced":
 					self.sync_status = "Pending"
 
+	def on_update(self):
+		"""Update webflow_product backlink on linked fixture template after save."""
+		self._update_fixture_template_backlink()
+
+	def on_trash(self):
+		"""Clear webflow_product backlink on linked fixture template before deletion."""
+		if self.fixture_template:
+			frappe.db.set_value(
+				"ilL-Fixture-Template",
+				self.fixture_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+
+	def _update_fixture_template_backlink(self):
+		"""Set the webflow_product backlink on the linked fixture template.
+
+		Also clears the backlink on the previously linked fixture template
+		if the fixture_template field was changed.
+		"""
+		old_template = self.get_doc_before_save()
+		old_fixture = old_template.fixture_template if old_template else None
+
+		# Clear backlink on old fixture template if it changed
+		if old_fixture and old_fixture != self.fixture_template:
+			frappe.db.set_value(
+				"ilL-Fixture-Template",
+				old_fixture,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+
+		# Set backlink on new fixture template
+		if self.fixture_template:
+			frappe.db.set_value(
+				"ilL-Fixture-Template",
+				self.fixture_template,
+				"webflow_product",
+				self.name,
+				update_modified=False,
+			)
+
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked fixture template's allowed options and tape offerings,
 		or from extrusion kit components."""
