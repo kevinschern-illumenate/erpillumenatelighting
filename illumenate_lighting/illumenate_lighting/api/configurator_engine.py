@@ -4223,8 +4223,8 @@ def auto_select_tape_for_configuration(
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No tape matches the selected output"}
 
 	if len(matching_tapes) > 1:
-		# Multiple tapes match - this shouldn't happen with proper data, but handle gracefully
-		# Pick the first one and add a warning
+		# Multiple tapes match - pick the one with the highest output (lm/ft)
+		matching_tapes.sort(key=lambda t: t["output_value_lm_ft"], reverse=True)
 		selected = matching_tapes[0]
 		return {
 			"success": True,
@@ -4238,7 +4238,7 @@ def auto_select_tape_for_configuration(
 				"cri": selected["cri"],
 				"sdcm": selected["sdcm"],
 			},
-			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected first match.",
+			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected highest output tape ({selected['output_value_lm_ft']} lm/ft).",
 			"error": None,
 		}
 
