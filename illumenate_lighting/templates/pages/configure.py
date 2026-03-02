@@ -35,13 +35,28 @@ def get_context(context):
 			# Get the project name for pre-filling the selector
 			project_name = schedule.ill_project
 
-	# Get available templates
+	# Get available templates with linked Webflow product for images
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
 		filters={"is_active": 1},
-		fields=["template_code", "template_name"],
+		fields=["template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
 	)
+
+	# Batch-fetch featured images from linked Webflow products
+	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
+	webflow_product_images = {}
+	if webflow_product_names:
+		webflow_products = frappe.get_all(
+			"ilL-Webflow-Product",
+			filters={"name": ["in", webflow_product_names]},
+			fields=["name", "featured_image"],
+		)
+		webflow_product_images = {r.name: r.featured_image for r in webflow_products if r.featured_image}
+
+	# Attach image URL to each template
+	for t in templates:
+		t.image = webflow_product_images.get(t.webflow_product) if t.webflow_product else None
 
 	# Determine if pricing should be shown based on user role
 	show_pricing = True
