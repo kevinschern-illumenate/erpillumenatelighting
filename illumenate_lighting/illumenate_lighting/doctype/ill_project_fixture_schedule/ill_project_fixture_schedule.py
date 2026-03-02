@@ -51,9 +51,15 @@ class ilLProjectFixtureSchedule(Document):
 
 		unconfigured_lines = []
 		for line in self.lines:
-			if line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture:
-				line_id = line.line_id or f"Row {line.idx}"
-				unconfigured_lines.append(line_id)
+			if line.manufacturer_type == "ILLUMENATE":
+				# LED Tape/Neon lines are configured via variant_selections
+				if line.product_type in ("LED Tape", "LED Neon"):
+					if not line.variant_selections:
+						line_id = line.line_id or f"Row {line.idx}"
+						unconfigured_lines.append(line_id)
+				elif not line.configured_fixture:
+					line_id = line.line_id or f"Row {line.idx}"
+					unconfigured_lines.append(line_id)
 
 		if unconfigured_lines:
 			frappe.throw(
@@ -101,15 +107,21 @@ class ilLProjectFixtureSchedule(Document):
 		if not so_customer:
 			frappe.throw(_("Owner Company is required to create a Sales Order"))
 
-		# Filter lines to only ILLUMENATE manufacturer type with configured fixtures
+		# Filter lines to ILLUMENATE manufacturer type that are configured
+		# Fixture lines have a configured_fixture link; LED Tape/Neon lines
+		# have configuration stored in variant_selections JSON.
 		illumenate_lines = [
 			line for line in self.lines
-			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+			if line.manufacturer_type == "ILLUMENATE"
+			and (
+				line.configured_fixture
+				or (line.product_type in ("LED Tape", "LED Neon") and line.variant_selections)
+			)
 		]
 
 		if not illumenate_lines:
 			frappe.throw(
-				_("No ilLumenate fixture lines with configured fixtures found in this schedule")
+				_("No ilLumenate configured lines found in this schedule")
 			)
 
 		# Import manufacturing generator functions
@@ -137,6 +149,34 @@ class ilLProjectFixtureSchedule(Document):
 
 		# Add SO items for each ILLUMENATE line
 		for line in illumenate_lines:
+			# ── LED Tape / LED Neon lines ─────────────────────────────
+			if line.product_type in ("LED Tape", "LED Neon") and line.variant_selections:
+				import json as _json
+				try:
+					config_data = _json.loads(line.variant_selections)
+				except _json.JSONDecodeError:
+					frappe.throw(
+						_("Line {0}: Invalid configuration data for {1}").format(
+							line.line_id or line.idx, line.product_type
+						)
+					)
+
+				from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+					create_tape_neon_so_lines,
+				)
+				result = create_tape_neon_so_lines(so, line, config_data)
+				items_created += result.get("items_added", 0)
+				for msg in result.get("messages", []):
+					frappe.log_error(
+						title=f"SO Creation: {line.product_type} - {line.line_id or line.idx}",
+						message=msg,
+					)
+				continue
+
+			# ── Standard Configured Fixture lines ─────────────────────
+			if not line.configured_fixture:
+				continue
+
 			# Fetch the configured fixture to get computed values
 			configured_fixture = frappe.get_doc(
 				"ilL-Configured-Fixture", line.configured_fixture

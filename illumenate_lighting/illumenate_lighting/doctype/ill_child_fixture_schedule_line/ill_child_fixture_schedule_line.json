@@ -104,7 +104,7 @@
    "fieldname": "product_type",
    "fieldtype": "Select",
    "label": "Product Type",
-   "options": "\nLinear Fixture\nLinear Fixtures"
+   "options": "\nLinear Fixture\nLinear Fixtures\nLED Tape\nLED Neon"
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type",
@@ -260,7 +260,7 @@
    "label": "Spec Documents"
   },
   {
-   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.configuration_status=='Pending' && doc.product_type=='Linear Fixture'",
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.configuration_status=='Pending' && ['Linear Fixture','Linear Fixtures'].includes(doc.product_type)",
    "description": "Override the spec sheet source when fixture is not yet configured",
    "fieldname": "fixture_template_override",
    "fieldtype": "Link",

@@ -11,6 +11,9 @@
                         "identity_section",
                         "item",
                         "led_package",
+                        "column_break_identity_2",
+                        "product_category",
+                        "leader_cable_item",
                         "electrical_section",
                         "input_voltage",
                         "watts_per_foot",
@@ -20,8 +23,12 @@
                         "lumens_per_foot",
                         "cri_typical",
                         "led_pitch_mm",
+                        "pcb_section",
+                        "pcb_mounting",
+                        "pcb_finish",
                         "cutting_section",
                         "cut_increment_mm",
+                        "is_free_cutting",
                         "dimming_section",
                         "supported_dimming_protocols"
                     ],
@@ -45,6 +52,26 @@
                        "in_list_view":  1,
                        "label":  "LED Package",
                        "options":  "ilL-Attribute-LED Package"
+                   },
+                   {
+                       "fieldname":  "column_break_identity_2",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "LED Tape",
+                       "description":  "Product category this tape belongs to (LED Tape or LED Neon)",
+                       "fieldname":  "product_category",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Product Category",
+                       "options":  "LED Tape\nLED Neon"
+                   },
+                   {
+                       "description":  "The leader cable Item associated with this tape for sales orders",
+                       "fieldname":  "leader_cable_item",
+                       "fieldtype":  "Link",
+                       "label":  "Leader Cable Item",
+                       "options":  "Item"
                    },
                    {
                        "fieldname":  "electrical_section",
@@ -98,6 +125,23 @@
                        "label":  "LED Pitch (mm)"
                    },
                    {
+                       "fieldname":  "pcb_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "PCB Options"
+                   },
+                   {
+                       "description":  "PCB mounting type (e.g. Adhesive Back, Screw Mounted)",
+                       "fieldname":  "pcb_mounting",
+                       "fieldtype":  "Data",
+                       "label":  "PCB Mounting"
+                   },
+                   {
+                       "description":  "PCB finish/color (e.g. White, Black)",
+                       "fieldname":  "pcb_finish",
+                       "fieldtype":  "Data",
+                       "label":  "PCB Finish"
+                   },
+                   {
                        "fieldname":  "cutting_section",
                        "fieldtype":  "Section Break",
                        "label":  "Cutting"
@@ -106,6 +150,13 @@
                        "fieldname":  "cut_increment_mm",
                        "fieldtype":  "Float",
                        "label":  "Cut Increment (mm)"
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "If checked, this tape can be cut at any length with no cut increment restriction",
+                       "fieldname":  "is_free_cutting",
+                       "fieldtype":  "Check",
+                       "label":  "Free Cutting"
                    },
                    {
                        "collapsible":  1,
