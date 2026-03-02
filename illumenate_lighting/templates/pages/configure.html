@@ -105,6 +105,17 @@ Allows users to configure fixtures using segment-based configuration
 		display: block !important;
 	}
 }
+
+/* Product image preview */
+.product-preview-image {
+	max-width: 100%;
+	max-height: 200px;
+	object-fit: contain;
+	border-radius: 4px;
+	border: 1px solid #dee2e6;
+	padding: 8px;
+	background: #fff;
+}
 </style>
 {% endblock %}
 
@@ -178,11 +189,16 @@ Allows users to configure fixtures using segment-based configuration
 							<select class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
-								<option value="{{ template.template_code }}" {% if template.template_code == selected_template %}selected{% endif %}>
+								<option value="{{ template.template_code }}" data-image="{{ template.image or '' }}" {% if template.template_code == selected_template %}selected{% endif %}>
 									{{ template.template_name }} ({{ template.template_code }})
 								</option>
 								{% endfor %}
 							</select>
+						</div>
+
+						<!-- Product image preview -->
+						<div class="product-image-preview text-center mt-3" id="productImageContainer" style="display: none;">
+							<img id="productImage" src="" alt="{{ _('Product Preview') }}" class="product-preview-image">
 						</div>
 
 						<!-- Options loaded dynamically based on template -->
@@ -785,6 +801,18 @@ $(function() {
 	$('select[name="fixture_template_code"]').on('change', function() {
 		var template = $(this).val();
 		console.log('Template changed to:', template);
+
+		// Show/hide product image preview
+		var $selected = $(this).find('option:selected');
+		var imageUrl = $selected.data('image');
+		if (imageUrl) {
+			$('#productImage').attr('src', imageUrl).attr('alt', $selected.text().trim() + ' preview');
+			$('#productImageContainer').show();
+		} else {
+			$('#productImage').attr('src', '').attr('alt', '');
+			$('#productImageContainer').hide();
+		}
+
 		if (template) {
 			loadTemplateOptions(template);
 			$('#templateOptions').show();
@@ -1883,6 +1911,13 @@ function doSaveToSchedule(scheduleName, lineIdx) {
 {% if selected_template %}
 $(function() {
 	console.log('Pre-selected template detected: {{ selected_template }}');
+	// Show product image preview if available for pre-selected template
+	var $selected = $('select[name="fixture_template_code"] option:selected');
+	var imageUrl = $selected.data('image');
+	if (imageUrl) {
+		$('#productImage').attr('src', imageUrl).attr('alt', $selected.text().trim() + ' preview');
+		$('#productImageContainer').show();
+	}
 	loadTemplateOptions("{{ selected_template }}");
 	$('#templateOptions').show();
 	$('#segmentsCard').show();
