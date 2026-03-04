@@ -920,6 +920,7 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
         options["pcb_finishes"] = [{"value": f, "label": f} for f in pcb_finishes]
         options["feed_types"] = _get_feed_types()
+        options["feed_directions"] = _get_feed_directions()
     else:
         # LED Neon specific
         options["ip_ratings"] = _get_ip_ratings()
