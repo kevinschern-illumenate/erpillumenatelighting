@@ -125,8 +125,7 @@ class ilLWebflowProduct(Document):
 			)
 
 	def populate_attribute_links(self):
-		"""Populate attribute links from the linked fixture template's allowed options and tape offerings,
-		or from extrusion kit components."""
+		"""Populate attribute links from the linked source spec for each product type."""
 		attribute_links = []
 		
 		# Handle Fixture Template
@@ -135,6 +134,21 @@ class ilLWebflowProduct(Document):
 		# Handle Extrusion Kit
 		elif self.product_type == "Extrusion Kit":
 			self._populate_extrusion_kit_attributes(attribute_links)
+		# Handle LED Tape
+		elif self.product_type == "LED Tape" and self.tape_spec:
+			self._populate_led_tape_attributes(attribute_links)
+		# Handle Driver
+		elif self.product_type == "Driver" and self.driver_spec:
+			self._populate_driver_attributes(attribute_links)
+		# Handle Controller
+		elif self.product_type == "Controller" and self.controller_spec:
+			self._populate_controller_attributes(attribute_links)
+		# Handle Accessory
+		elif self.product_type == "Accessory" and self.accessory_spec:
+			self._populate_accessory_attributes(attribute_links)
+		# Handle Component (lens-based)
+		elif self.product_type == "Component" and self.lens_spec:
+			self._populate_component_attributes(attribute_links)
 		else:
 			return
 		
@@ -508,6 +522,345 @@ class ilLWebflowProduct(Document):
 					)
 					continue
 
+	def _populate_led_tape_attributes(self, attribute_links):
+		"""Extract attributes from LED tape spec.
+
+		Note: Caller must ensure self.tape_spec is set before calling this method.
+		"""
+		if not self.tape_spec:
+			return
+
+		try:
+			tape = frappe.get_doc("ilL-Spec-LED Tape", self.tape_spec)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"LED tape spec {self.tape_spec} not found for product {self.name}",
+				title="LED Tape Spec Not Found",
+			)
+			return
+
+		display_order = 0
+
+		# LED Package
+		if tape.led_package:
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-LED Package", tape.led_package)
+			attribute_links.append({
+				"attribute_type": "LED Package",
+				"attribute_doctype": "ilL-Attribute-LED Package",
+				"attribute_name": tape.led_package,
+				"display_label": tape.led_package,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Input Voltage (mapped as Output Voltage attribute)
+		if tape.input_voltage:
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Voltage", tape.input_voltage)
+			voltage_label = frappe.db.get_value(
+				"ilL-Attribute-Output Voltage", tape.input_voltage, "voltage"
+			)
+			attribute_links.append({
+				"attribute_type": "Output Voltage",
+				"attribute_doctype": "ilL-Attribute-Output Voltage",
+				"attribute_name": tape.input_voltage,
+				"display_label": f"{voltage_label} VDC" if voltage_label else tape.input_voltage,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Input Protocol (primary dimming protocol)
+		if getattr(tape, "input_protocol", None):
+			display_order += 1
+			proto_data = frappe.db.get_value(
+				"ilL-Attribute-Dimming Protocol", tape.input_protocol, ["label"], as_dict=True
+			)
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", tape.input_protocol)
+			attribute_links.append({
+				"attribute_type": "Dimming Protocol",
+				"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+				"attribute_name": tape.input_protocol,
+				"display_label": proto_data.get("label") if proto_data else tape.input_protocol,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Supported dimming protocols from child table
+		for row in getattr(tape, "supported_dimming_protocols", []):
+			protocol_name = getattr(row, "protocol", None)
+			if not protocol_name:
+				continue
+			# Skip if already added (e.g. same as input_protocol)
+			if any(
+				a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+				and a["attribute_name"] == protocol_name
+				for a in attribute_links
+			):
+				continue
+			display_order += 1
+			proto_data = frappe.db.get_value(
+				"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+			)
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", protocol_name)
+			attribute_links.append({
+				"attribute_type": "Dimming Protocol",
+				"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+				"attribute_name": protocol_name,
+				"display_label": proto_data.get("label") if proto_data else protocol_name,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+	def _populate_driver_attributes(self, attribute_links):
+		"""Extract attributes from driver spec.
+
+		Note: Caller must ensure self.driver_spec is set before calling this method.
+		"""
+		if not self.driver_spec:
+			return
+
+		try:
+			driver = frappe.get_doc("ilL-Spec-Driver", self.driver_spec)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"Driver spec {self.driver_spec} not found for product {self.name}",
+				title="Driver Spec Not Found",
+			)
+			return
+
+		display_order = 0
+
+		# Output Voltage
+		if driver.voltage_output:
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Voltage", driver.voltage_output)
+			voltage_label = frappe.db.get_value(
+				"ilL-Attribute-Output Voltage", driver.voltage_output, "voltage"
+			)
+			attribute_links.append({
+				"attribute_type": "Output Voltage",
+				"attribute_doctype": "ilL-Attribute-Output Voltage",
+				"attribute_name": driver.voltage_output,
+				"display_label": f"{voltage_label} VDC" if voltage_label else driver.voltage_output,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Output Protocol
+		if getattr(driver, "output_protocol", None):
+			display_order += 1
+			proto_data = frappe.db.get_value(
+				"ilL-Attribute-Dimming Protocol", driver.output_protocol, ["label"], as_dict=True
+			)
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", driver.output_protocol)
+			attribute_links.append({
+				"attribute_type": "Dimming Protocol",
+				"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+				"attribute_name": driver.output_protocol,
+				"display_label": proto_data.get("label") if proto_data else driver.output_protocol,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Input Protocols from child table
+		for row in getattr(driver, "input_protocols", []):
+			protocol_name = getattr(row, "protocol", None)
+			if not protocol_name:
+				continue
+			# Skip if already added (e.g. same as output_protocol)
+			if any(
+				a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+				and a["attribute_name"] == protocol_name
+				for a in attribute_links
+			):
+				continue
+			display_order += 1
+			proto_data = frappe.db.get_value(
+				"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+			)
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", protocol_name)
+			attribute_links.append({
+				"attribute_type": "Dimming Protocol",
+				"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+				"attribute_name": protocol_name,
+				"display_label": proto_data.get("label") if proto_data else protocol_name,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+	def _populate_controller_attributes(self, attribute_links):
+		"""Extract attributes from controller spec.
+
+		Note: Caller must ensure self.controller_spec is set before calling this method.
+		"""
+		if not self.controller_spec:
+			return
+
+		try:
+			controller = frappe.get_doc("ilL-Spec-Controller", self.controller_spec)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"Controller spec {self.controller_spec} not found for product {self.name}",
+				title="Controller Spec Not Found",
+			)
+			return
+
+		display_order = 0
+
+		# Input protocols
+		for row in getattr(controller, "input_protocols", []):
+			protocol_name = getattr(row, "protocol", None)
+			if not protocol_name:
+				continue
+			if any(
+				a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+				and a["attribute_name"] == protocol_name
+				for a in attribute_links
+			):
+				continue
+			display_order += 1
+			proto_data = frappe.db.get_value(
+				"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+			)
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", protocol_name)
+			attribute_links.append({
+				"attribute_type": "Dimming Protocol",
+				"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+				"attribute_name": protocol_name,
+				"display_label": proto_data.get("label") if proto_data else protocol_name,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Output protocols
+		for row in getattr(controller, "output_protocols", []):
+			protocol_name = getattr(row, "protocol", None)
+			if not protocol_name:
+				continue
+			if any(
+				a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+				and a["attribute_name"] == protocol_name
+				for a in attribute_links
+			):
+				continue
+			display_order += 1
+			proto_data = frappe.db.get_value(
+				"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+			)
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", protocol_name)
+			attribute_links.append({
+				"attribute_type": "Dimming Protocol",
+				"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+				"attribute_name": protocol_name,
+				"display_label": proto_data.get("label") if proto_data else protocol_name,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+	def _populate_accessory_attributes(self, attribute_links):
+		"""Extract attributes from accessory spec.
+
+		Note: Caller must ensure self.accessory_spec is set before calling this method.
+		"""
+		if not self.accessory_spec:
+			return
+
+		try:
+			accessory = frappe.get_doc("ilL-Spec-Accessory", self.accessory_spec)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"Accessory spec {self.accessory_spec} not found for product {self.name}",
+				title="Accessory Spec Not Found",
+			)
+			return
+
+		display_order = 0
+
+		# Map accessory fields to attribute types and doctypes
+		accessory_field_map = {
+			"environment_rating": ("Environment Rating", "ilL-Attribute-Environment Rating"),
+			"mounting_method": ("Mounting Method", "ilL-Attribute-Mounting Method"),
+			"joiner_system": ("Joiner System", "ilL-Attribute-Joiner System"),
+			"joiner_angle": ("Joiner Angle", "ilL-Attribute-Joiner Angle"),
+			"endcap_style": ("Endcap Style", "ilL-Attribute-Endcap Style"),
+			"leader_cable": ("Leader Cable", "ilL-Attribute-Leader Cable"),
+			"feed_type": ("Power Feed Type", "ilL-Attribute-Power Feed Type"),
+		}
+
+		for field_name, (attr_type, attr_doctype) in accessory_field_map.items():
+			attr_value = getattr(accessory, field_name, None)
+			if not attr_value:
+				continue
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id(attr_doctype, attr_value)
+			attribute_links.append({
+				"attribute_type": attr_type,
+				"attribute_doctype": attr_doctype,
+				"attribute_name": attr_value,
+				"display_label": attr_value,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+	def _populate_component_attributes(self, attribute_links):
+		"""Extract attributes from lens spec for component products.
+
+		Note: Caller must ensure self.lens_spec is set before calling this method.
+		"""
+		if not self.lens_spec:
+			return
+
+		try:
+			lens = frappe.get_doc("ilL-Spec-Lens", self.lens_spec)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"Lens spec {self.lens_spec} not found for product {self.name}",
+				title="Component Lens Spec Not Found",
+			)
+			return
+
+		display_order = 0
+
+		# Lens Appearance
+		if getattr(lens, "lens_appearance", None):
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Lens Appearance", lens.lens_appearance)
+			attribute_links.append({
+				"attribute_type": "Lens Appearance",
+				"attribute_doctype": "ilL-Attribute-Lens Appearance",
+				"attribute_name": lens.lens_appearance,
+				"display_label": lens.lens_appearance,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Series
+		if getattr(lens, "series", None):
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", lens.series)
+			attribute_links.append({
+				"attribute_type": "Series",
+				"attribute_doctype": "ilL-Attribute-Series",
+				"attribute_name": lens.series,
+				"display_label": lens.series,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Lens Interface Type
+		if getattr(lens, "lens_interface", None):
+			display_order += 1
+			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Lens Interface Type", lens.lens_interface)
+			attribute_links.append({
+				"attribute_type": "Lens Interface Type",
+				"attribute_doctype": "ilL-Attribute-Lens Interface Type",
+				"attribute_name": lens.lens_interface,
+				"display_label": lens.lens_interface,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
 	def _get_attribute_webflow_id(self, doctype: str, name: str) -> str | None:
 		"""Get the Webflow item ID for an attribute if it has been synced."""
 		try:
@@ -518,12 +871,10 @@ class ilLWebflowProduct(Document):
 	def calculate_specifications(self):
 		"""Auto-populate specifications from linked source doctype.
 		
-		DEPRECATED: This method is no longer used as the specifications table field
-		has been removed. Attribute links are now used instead. This method is kept
-		for backwards compatibility but does nothing.
+		When auto_calculate_specs is enabled, auto-calculated specifications
+		(is_calculated=1) are cleared and re-populated from the linked spec.
+		Manually-added specifications (is_calculated=0) are preserved.
 		"""
-		# The specifications field no longer exists - this feature is deprecated
-		# Use attribute_links instead (auto-populated via populate_attribute_links)
 		if not hasattr(self, 'specifications') or self.meta.get_field('specifications') is None:
 			return
 		

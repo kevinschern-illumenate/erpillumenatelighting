@@ -14,6 +14,8 @@ Endpoints:
 - trigger_sync: Manually trigger a sync for specific products
 """
 
+import json
+
 import frappe
 from frappe import _
 
@@ -126,10 +128,29 @@ def get_webflow_products(
             if product.get("featured_image"):
                 product["featured_image"] = _make_absolute_url(product["featured_image"])
             
-            # DEPRECATED: specifications table has been removed
-            # Return empty array for backwards compatibility with n8n workflows
-            # Use attribute_links and attribute_links_by_type instead
+            # Export specifications (supports both auto-calculated and manually-added specs)
             product["specifications"] = []
+            for s in doc.specifications:
+                spec_data = {
+                    "spec_group": s.spec_group,
+                    "spec_label": s.spec_label,
+                    "spec_value": s.spec_value,
+                    "spec_unit": s.spec_unit,
+                    "is_calculated": s.is_calculated,
+                    "display_order": s.display_order,
+                    "show_on_card": s.show_on_card,
+                    "attribute_doctype": s.attribute_doctype,
+                    "attribute_options_json": s.attribute_options_json,
+                }
+                # Parse attribute_options_json into a list for convenience
+                if s.attribute_options_json:
+                    try:
+                        spec_data["attribute_options"] = json.loads(s.attribute_options_json)
+                    except (json.JSONDecodeError, TypeError):
+                        spec_data["attribute_options"] = []
+                else:
+                    spec_data["attribute_options"] = []
+                product["specifications"].append(spec_data)
             
             product["certifications"] = [
                 {

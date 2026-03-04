@@ -556,11 +556,159 @@ class TestExtrusionKitAttributePopulation(FrappeTestCase):
         product.delete()
 
 
-class TestilLSpecController(FrappeTestCase):
-    """Test cases for Controller Spec DocType."""
+class TestLedTapeAttributePopulation(FrappeTestCase):
+    """Test cases for LED Tape attribute population."""
 
-    def test_create_controller_spec(self):
-        """Test creating a controller spec without linked item."""
-        # Note: In production, this would require a linked Item
-        # For testing, we just verify the structure
-        pass
+    def test_led_tape_without_spec(self):
+        """Test that LED Tape product can be created without a tape spec.
+
+        Verifies:
+        - LED Tape product can be created with auto_populate_attributes enabled
+        - No errors occur when tape_spec is not set
+        - Product without spec results in empty attribute_links (expected behavior)
+        """
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test LED Tape No Spec",
+            "product_slug": "test-led-tape-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "LED Tape",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+    def test_led_tape_manual_specifications(self):
+        """Test that LED Tape products support manual specifications.
+
+        Verifies:
+        - Manual specs can be added to an LED Tape product
+        - Manual specs are preserved on save (not cleared)
+        """
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test LED Tape Manual Specs",
+            "product_slug": "test-led-tape-specs-" + frappe.generate_hash(length=6),
+            "product_type": "LED Tape",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "specifications": [
+                {
+                    "spec_group": "Electrical",
+                    "spec_label": "Watts per Foot",
+                    "spec_value": "4.4",
+                    "spec_unit": "W/ft",
+                    "is_calculated": 0,
+                    "display_order": 1
+                },
+                {
+                    "spec_group": "Electrical",
+                    "spec_label": "Input Voltage",
+                    "spec_value": "24",
+                    "spec_unit": "VDC",
+                    "is_calculated": 0,
+                    "display_order": 2
+                }
+            ]
+        })
+        product.insert()
+
+        self.assertEqual(len(product.specifications), 2)
+        self.assertEqual(product.specifications[0].spec_label, "Watts per Foot")
+        self.assertEqual(product.specifications[1].spec_label, "Input Voltage")
+
+        # Cleanup
+        product.delete()
+
+
+class TestDriverAttributePopulation(FrappeTestCase):
+    """Test cases for Driver attribute population."""
+
+    def test_driver_without_spec(self):
+        """Test that Driver product can be created without a driver spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Driver No Spec",
+            "product_slug": "test-driver-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+
+class TestControllerAttributePopulation(FrappeTestCase):
+    """Test cases for Controller attribute population."""
+
+    def test_controller_without_spec(self):
+        """Test that Controller product can be created without a controller spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Controller No Spec",
+            "product_slug": "test-controller-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Controller",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+
+class TestAccessoryAttributePopulation(FrappeTestCase):
+    """Test cases for Accessory attribute population."""
+
+    def test_accessory_without_spec(self):
+        """Test that Accessory product can be created without an accessory spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Accessory No Spec",
+            "product_slug": "test-accessory-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Accessory",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+
+class TestComponentAttributePopulation(FrappeTestCase):
+    """Test cases for Component attribute population."""
+
+    def test_component_without_spec(self):
+        """Test that Component product can be created without a lens spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Component No Spec",
+            "product_slug": "test-component-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Component",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
