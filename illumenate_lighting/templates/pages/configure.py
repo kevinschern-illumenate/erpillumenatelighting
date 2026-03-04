@@ -69,10 +69,15 @@ def get_context(context):
 		"LED Neon": "Configure LED Neon",
 	}
 
+	# For tape/neon, track whether templates exist.  When none are available
+	# the front-end will fall back to spec-derived options automatically.
+	has_templates = bool(templates)
+
 	context.product_category = product_category
 	context.is_tape_neon = product_category in ("LED Tape", "LED Neon")
 	context.is_neon = product_category == "LED Neon"
 	context.is_tape = product_category == "LED Tape"
+	context.has_templates = has_templates
 	context.schedule = schedule
 	context.schedule_name = schedule_name or ""
 	context.project_name = project_name or ""
