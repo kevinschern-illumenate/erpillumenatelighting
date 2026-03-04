@@ -1113,6 +1113,7 @@ var hasTemplates = {{ 'true' if has_templates else 'false' }};
 var tnTemplateOptions = null;     // Tape/Neon template init data
 var tnCurrentResult = null;       // Tape/Neon validation result
 var neonSegmentCount = 0;         // Neon segment counter
+var DEFAULT_FEED_DIRECTION = 'End Feed';  // Default feed direction for tape
 
 console.log('Configurator script loaded');
 
@@ -2595,9 +2596,10 @@ function switchCategory(category) {
 
 // ─── Tape end type toggle (endcap vs jumper) ─────────────────────────
 function setTapeEndType(type) {
+	var $endTypeInput = $('[name="tn_end_type"]');
 	$('.tape-end-type-btn').removeClass('active');
 	$('.tape-end-type-btn[data-type="' + type + '"]').addClass('active');
-	$('[name="tn_end_type"]').val(type);
+	$endTypeInput.val(type);
 	if (type === 'Jumper') {
 		$('.tape-jumper-fields').show();
 	} else {
@@ -2825,9 +2827,11 @@ function tnPopulateOptions(options) {
 	{% endif %}
 
 	{% if is_tape %}
-	// Populate start/end feed direction dropdowns for tape
-	var feedDirs = options.feed_directions || options.feed_types || [
-		{value: 'End', label: 'End Feed'}
+	// Populate start/end feed direction dropdowns for tape.
+	// feed_directions = directional options (End, Back); feed_types = power-feed types.
+	// We prefer feed_directions but fall back to a sensible default.
+	var feedDirs = options.feed_directions || [
+		{value: 'End', label: DEFAULT_FEED_DIRECTION}
 	];
 	['tn_start_feed_direction', 'tn_end_feed_direction'].forEach(function(fieldName) {
 		var select = $('select[name="' + fieldName + '"]');
@@ -3019,7 +3023,7 @@ function tnValidateAndQuote() {
 			pcb_mounting: $('select[name="tn_pcb_mounting"]').val(),
 			pcb_finish: $('select[name="tn_pcb_finish"]').val(),
 			feed_type: $('select[name="tn_feed_type"]').val(),
-			feed_direction: $('select[name="tn_start_feed_direction"]').val() || 'End Feed',
+			feed_direction: $('select[name="tn_start_feed_direction"]').val() || DEFAULT_FEED_DIRECTION,
 			lead_length_inches: parseFloat($('[name="tn_lead_length_inches"]').val()) || 12,
 			tape_length_value: parseFloat($('[name="tn_tape_length_value"]').val()) || 0,
 			tape_length_unit: $('[name="tn_tape_length_unit"]').val(),
