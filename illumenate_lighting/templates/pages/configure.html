@@ -1653,7 +1653,7 @@ function populatePillSelector(fieldName, options) {
 				selectFallback.val(opt.value).trigger('change');
 			});
 			// Restore previously selected value if it still exists
-			if (previousValue && opt.value == previousValue) {
+			if (previousValue && String(opt.value) === String(previousValue)) {
 				pill.addClass('active');
 				restoredPrevious = true;
 			}
@@ -3109,7 +3109,7 @@ function tnPopulateSinglePillSelector(fieldName, opts) {
 			selectFallback.val(opt.value).trigger('change');
 		});
 		// Restore pill active state for previously selected value
-		if (previousValue && opt.value == previousValue) {
+		if (previousValue && String(opt.value) === String(previousValue)) {
 			pill.addClass('active');
 			restoredPrevious = true;
 		}
