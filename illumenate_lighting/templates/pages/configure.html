@@ -1229,9 +1229,11 @@ function showLinePreview(lineIdx) {
 	// Show preview if line has existing data
 	var hasData = (
 		line.configured_fixture ||
+		line.configured_tape_neon ||
 		line.manufacturer_name ||
 		line.fixture_model_number ||
-		(line.manufacturer_type === 'ILLUMENATE' && line.fixture_template)
+		(line.manufacturer_type === 'ILLUMENATE' && line.fixture_template) ||
+		(line.manufacturer_type === 'ILLUMENATE' && line.tape_neon_template)
 	);
 
 	if (hasData) {

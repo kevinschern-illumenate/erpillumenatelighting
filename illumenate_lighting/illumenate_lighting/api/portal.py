@@ -325,6 +325,9 @@ def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
 			"configuration_status": line.configuration_status or "Pending",
 			"configured_fixture": line.configured_fixture or None,
 			"fixture_template": line.fixture_template or None,
+			"tape_neon_template": line.tape_neon_template or None,
+			"configured_tape_neon": line.configured_tape_neon or None,
+			"product_type": line.product_type or None,
 			"manufacturer_name": line.manufacturer_name or None,
 			"fixture_model_number": line.fixture_model_number or None,
 			"ill_item_code": line.ill_item_code or None,
@@ -341,6 +344,11 @@ def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
 				if line.manufacturable_length_mm:
 					length_in = round(line.manufacturable_length_mm / 25.4, 1)
 					summary_parts.append(f"Length: {length_in}\"")
+			elif line.configured_tape_neon:
+				summary_parts.append(f"Configured Tape/Neon: {line.configured_tape_neon}")
+			elif line.tape_neon_template:
+				product_type = line.product_type or "Tape/Neon"
+				summary_parts.append(f"{product_type} Template: {line.tape_neon_template} (not configured)")
 			elif line.fixture_template:
 				summary_parts.append(f"Template: {line.fixture_template} (not configured)")
 			else:
@@ -1279,6 +1287,7 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name,
+			"description": t.description or "",
 			"image": gallery[0]["image"] if gallery else None,
 			"gallery": gallery,
 		})
