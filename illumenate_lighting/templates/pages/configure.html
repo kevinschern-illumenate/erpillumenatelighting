@@ -314,15 +314,15 @@ Allows users to configure fixtures using segment-based configuration
 						<div class="form-group mb-3" id="categorySelector">
 							<label class="option-label">{{ _("Product Category") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector">
-								<label class="pill-option {% if product_category == 'Linear Fixture' %}active{% endif %}" onclick="switchCategory('Linear Fixture')">
-									<input type="radio" name="product_category_pill" value="Linear Fixture" {% if product_category == 'Linear Fixture' %}checked{% endif %}> {{ _("Linear Fixture") }}
-								</label>
-								<label class="pill-option {% if product_category == 'LED Tape' %}active{% endif %}" onclick="switchCategory('LED Tape')">
-									<input type="radio" name="product_category_pill" value="LED Tape" {% if product_category == 'LED Tape' %}checked{% endif %}> {{ _("LED Tape") }}
-								</label>
-								<label class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" onclick="switchCategory('LED Neon')">
-									<input type="radio" name="product_category_pill" value="LED Neon" {% if product_category == 'LED Neon' %}checked{% endif %}> {{ _("LED Neon") }}
-								</label>
+								<span class="pill-option {% if product_category == 'Linear Fixture' %}active{% endif %}" data-category="Linear Fixture" role="button" tabindex="0">
+									{{ _("Linear Fixture") }}
+								</span>
+								<span class="pill-option {% if product_category == 'LED Tape' %}active{% endif %}" data-category="LED Tape" role="button" tabindex="0">
+									{{ _("LED Tape") }}
+								</span>
+								<span class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" data-category="LED Neon" role="button" tabindex="0">
+									{{ _("LED Neon") }}
+								</span>
 							</div>
 						</div>
 						<hr class="mt-1 mb-3">
@@ -1324,14 +1324,17 @@ $(function() {
 		initProductGallery(gallery, $selected.text().trim());
 
 		if (template) {
-			loadTemplateOptions(template);
-			$('#templateOptions').show();
-			$('#segmentsCard').show();
-			$('#actionButtons').show();
-			// Initialize first segment if none exist
-			if (segmentCount === 0) {
-				addSegment(true);
-			}
+			loadTemplateOptions(template, function(success) {
+				if (success) {
+					$('#templateOptions').show();
+					$('#segmentsCard').show();
+					$('#actionButtons').show();
+					// Initialize first segment if none exist
+					if (segmentCount === 0) {
+						addSegment(true);
+					}
+				}
+			});
 		} else {
 			$('#templateOptions').hide();
 			$('#segmentsCard').hide();
@@ -1425,13 +1428,18 @@ function autoResolveEndcapColor() {
 	}
 }
 
-function loadTemplateOptions(template_code) {
+function loadTemplateOptions(template_code, onComplete) {
 	console.log('loadTemplateOptions called with:', template_code);
+	// Show loading indicator
+	$('#templateOptions .pill-selector').each(function() {
+		$(this).html('<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Loading...</span>');
+	});
+	$('#templateOptions').show();
+
 	// Use the cascading options API
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.get_cascading_options_for_template',
 		args: { fixture_template_code: template_code },
-		async: false,  // Make synchronous for debugging
 		callback: function(r) {
 			console.log('API response:', r);
 			if (r.message && r.message.success) {
@@ -1442,6 +1450,7 @@ function loadTemplateOptions(template_code) {
 				$('.segment-card').each(function() {
 					populateSegmentPowerFeedOptions($(this));
 				});
+				if (typeof onComplete === 'function') onComplete(true);
 			} else if (r.message && r.message.error) {
 				console.error('API error:', r.message.error);
 				frappe.msgprint({
@@ -1449,12 +1458,25 @@ function loadTemplateOptions(template_code) {
 					message: r.message.error,
 					indicator: 'red'
 				});
+				if (typeof onComplete === 'function') onComplete(false);
 			} else {
 				console.error('Unexpected response:', r);
+				frappe.msgprint({
+					title: __('Error Loading Options'),
+					message: __('Unexpected response from server. Please try again.'),
+					indicator: 'red'
+				});
+				if (typeof onComplete === 'function') onComplete(false);
 			}
 		},
 		error: function(r) {
 			console.error('API call failed:', r);
+			frappe.msgprint({
+				title: __('Error Loading Options'),
+				message: __('Failed to load configuration options. Please refresh the page and try again.'),
+				indicator: 'red'
+			});
+			if (typeof onComplete === 'function') onComplete(false);
 		}
 	});
 }
@@ -2579,26 +2601,32 @@ $(function() {
 	var gallery = $selected.data('gallery') || [];
 	initProductGallery(gallery, $selected.text().trim());
 	{% if not is_tape_neon %}
-	loadTemplateOptions("{{ selected_template }}");
-	$('#templateOptions').show();
-	$('#segmentsCard').show();
-	$('#actionButtons').show();
-	if (segmentCount === 0) {
-		addSegment(true);
-	}
+	loadTemplateOptions("{{ selected_template }}", function(success) {
+		if (success) {
+			$('#templateOptions').show();
+			$('#segmentsCard').show();
+			$('#actionButtons').show();
+			if (segmentCount === 0) {
+				addSegment(true);
+			}
+		}
+	});
 	{% else %}
-	tnLoadTemplateOptions("{{ selected_template }}");
-	$('#templateOptions').show();
-	{% if is_tape %}
-	$('#tapeLengthCard').show();
-	{% endif %}
-	{% if is_neon %}
-	$('#neonSegmentsCard').show();
-	if (neonSegmentCount === 0) {
-		addNeonSegment(true);
-	}
-	{% endif %}
-	$('#tnActionButtons').show();
+	tnLoadTemplateOptions("{{ selected_template }}", function(success) {
+		if (success) {
+			$('#templateOptions').show();
+			{% if is_tape %}
+			$('#tapeLengthCard').show();
+			{% endif %}
+			{% if is_neon %}
+			$('#neonSegmentsCard').show();
+			if (neonSegmentCount === 0) {
+				addNeonSegment(true);
+			}
+			{% endif %}
+			$('#tnActionButtons').show();
+		}
+	});
 	{% endif %}
 });
 {% endif %}
@@ -2608,6 +2636,7 @@ $(function() {
 // ═════════════════════════════════════════════════════════════════════
 
 function switchCategory(category) {
+	console.log('switchCategory called with:', category, 'current:', productCategory);
 	if (category === productCategory) return;
 
 	// Build new URL preserving schedule context params
@@ -2615,8 +2644,29 @@ function switchCategory(category) {
 	url.searchParams.set('category', category);
 	// Remove template param when switching categories (templates differ)
 	url.searchParams.delete('template');
+	console.log('Navigating to:', url.toString());
 	window.location.href = url.toString();
 }
+
+// Bind category pill clicks via event delegation (robust, no inline onclick)
+$(document).on('click', '#categorySelector .pill-option[data-category]', function(e) {
+	e.preventDefault();
+	e.stopPropagation();
+	var category = $(this).data('category');
+	if (category) {
+		switchCategory(category);
+	}
+});
+// Also handle keyboard activation (Enter/Space)
+$(document).on('keydown', '#categorySelector .pill-option[data-category]', function(e) {
+	if (e.key === 'Enter' || e.key === ' ') {
+		e.preventDefault();
+		var category = $(this).data('category');
+		if (category) {
+			switchCategory(category);
+		}
+	}
+});
 
 {% if is_tape_neon %}
 // ═════════════════════════════════════════════════════════════════════
@@ -2685,18 +2735,24 @@ $(function() {
 		initProductGallery(gallery, $selected.text().trim());
 
 		if (templateCode) {
-			tnLoadTemplateOptions(templateCode);
-			$('#templateOptions').show();
-			{% if is_tape %}
-			$('#tapeLengthCard').show();
-			{% endif %}
-			{% if is_neon %}
-			$('#neonSegmentsCard').show();
-			if (neonSegmentCount === 0) {
-				addNeonSegment(true);
-			}
-			{% endif %}
-			$('#tnActionButtons').show();
+			// Show containers with loading state, then populate via async callback
+			tnLoadTemplateOptions(templateCode, function(success) {
+				if (success) {
+					$('#templateOptions').show();
+					{% if is_tape %}
+					$('#tapeLengthCard').show();
+					{% endif %}
+					{% if is_neon %}
+					$('#neonSegmentsCard').show();
+					if (neonSegmentCount === 0) {
+						addNeonSegment(true);
+					}
+					{% endif %}
+					$('#tnActionButtons').show();
+				} else {
+					console.warn('Template options load failed, hiding sections');
+				}
+			});
 		} else {
 			$('#templateOptions').hide();
 			{% if is_tape %}
@@ -2760,17 +2816,25 @@ $(function() {
 });
 
 // ─── Load template options (tape/neon) ───────────────────────────────
-function tnLoadTemplateOptions(templateCode) {
+function tnLoadTemplateOptions(templateCode, onComplete) {
 	console.log('tnLoadTemplateOptions called with:', templateCode);
+	// Show loading indicator in the template options area
+	$('#templateOptions .pill-selector').each(function() {
+		$(this).html('<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Loading...</span>');
+	});
+	$('#templateOptions').show();
+
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_init',
 		args: { template_code: templateCode },
-		async: false,
 		callback: function(r) {
+			console.log('Tape/Neon API response:', r);
 			if (r.message && r.message.success) {
 				tnTemplateOptions = r.message;
 				console.log('Tape/Neon template options received:', tnTemplateOptions);
 				tnPopulateOptions(r.message.options);
+				$('#templateOptions').show();
+				if (typeof onComplete === 'function') onComplete(true);
 			} else if (r.message && r.message.error) {
 				console.error('Tape/Neon API error:', r.message.error);
 				frappe.msgprint({
@@ -2778,10 +2842,25 @@ function tnLoadTemplateOptions(templateCode) {
 					message: r.message.error,
 					indicator: 'red'
 				});
+				if (typeof onComplete === 'function') onComplete(false);
+			} else {
+				console.error('Tape/Neon API unexpected response:', r);
+				frappe.msgprint({
+					title: __('Error Loading Options'),
+					message: __('Unexpected response from server. Please try again.'),
+					indicator: 'red'
+				});
+				if (typeof onComplete === 'function') onComplete(false);
 			}
 		},
 		error: function(r) {
 			console.error('Tape/Neon API call failed:', r);
+			frappe.msgprint({
+				title: __('Error Loading Options'),
+				message: __('Failed to load configuration options. Please refresh the page and try again.'),
+				indicator: 'red'
+			});
+			if (typeof onComplete === 'function') onComplete(false);
 		}
 	});
 }

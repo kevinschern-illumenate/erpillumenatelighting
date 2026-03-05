@@ -100,6 +100,7 @@ def _get_linear_fixture_templates():
 		filters={"is_active": 1},
 		fields=["template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
+		ignore_permissions=True,
 	)
 
 	# Batch-fetch gallery images from linked Webflow products
@@ -122,6 +123,7 @@ def _get_tape_neon_templates(product_category):
 		filters={"is_active": 1, "product_category": product_category},
 		fields=["template_code", "template_name", "webflow_product", "image", "description"],
 		order_by="template_name asc",
+		ignore_permissions=True,
 	)
 
 	# Batch-fetch gallery images from linked Webflow products
@@ -153,6 +155,7 @@ def _fetch_webflow_gallery(webflow_product_names):
 		filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
 		fields=["parent", "image", "alt_text", "display_order", "idx"],
 		order_by="parent, idx asc",
+		ignore_permissions=True,
 	)
 	for row in gallery_rows:
 		if row.image:
@@ -165,6 +168,7 @@ def _fetch_webflow_gallery(webflow_product_names):
 		"ilL-Webflow-Product",
 		filters={"name": ["in", webflow_product_names]},
 		fields=["name", "featured_image"],
+		ignore_permissions=True,
 	)
 	for wp in webflow_products:
 		if wp.name not in webflow_product_gallery and wp.featured_image:

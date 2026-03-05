@@ -880,6 +880,7 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
             "leader_cable_item", "voltage_drop_max_run_length_ft",
         ],
         order_by="name asc",
+        ignore_permissions=True,
     )
 
     if not tape_specs:
@@ -890,6 +891,7 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         "ilL-Rel-Tape Offering",
         filters={"tape_spec": ["in", spec_names], "is_active": 1},
         fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level"],
+        ignore_permissions=True,
     )
 
     # ── Build options ─────────────────────────────────────────────────
@@ -991,6 +993,7 @@ def get_tape_neon_spec_cascading(
         "ilL-Spec-LED Tape",
         filters=spec_filters,
         fields=["name"],
+        ignore_permissions=True,
     )
     spec_names = [s.name for s in matching_specs]
     if not spec_names:
@@ -1001,6 +1004,7 @@ def get_tape_neon_spec_cascading(
         "ilL-Rel-Tape Offering",
         filters=offering_filters,
         fields=["name", "tape_spec", "cct", "output_level"],
+        ignore_permissions=True,
     )
 
     # Filter by cct if already selected
@@ -1067,6 +1071,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
             "webflow_product",
         ],
         limit=1,
+        ignore_permissions=True,
     )
     if not template:
         return {"success": False, "error": f"Template '{template_code}' not found or inactive"}
@@ -1081,6 +1086,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         filters={"parent": template.name, "parenttype": "ilL-Tape-Neon-Template"},
         fields=["tape_spec", "is_default", "environment_rating", "notes"],
         order_by="idx asc",
+        ignore_permissions=True,
     )
     spec_names = [r.tape_spec for r in allowed_spec_rows if r.tape_spec]
     if not spec_names:
@@ -1100,6 +1106,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
             "leader_cable_item", "voltage_drop_max_run_length_ft",
         ],
         order_by="name asc",
+        ignore_permissions=True,
     )
     if not tape_specs:
         return {"success": False, "error": "No matching tape specs found"}
@@ -1109,6 +1116,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         "ilL-Rel-Tape Offering",
         filters={"tape_spec": ["in", spec_names], "is_active": 1},
         fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level"],
+        ignore_permissions=True,
     )
 
     # ── Allowed options from template (grouped by option_type) ────────
@@ -1126,6 +1134,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
             "endcap_style", "is_default", "msrp_adder",
         ],
         order_by="idx asc",
+        ignore_permissions=True,
     )
 
     # Build grouped options dict
@@ -1218,6 +1227,7 @@ def get_tape_neon_template_cascading(
         filters={"template_code": template_code, "is_active": 1},
         fields=["name", "product_category", "default_tape_spec"],
         limit=1,
+        ignore_permissions=True,
     )
     if not template:
         return {"success": False, "error": f"Template '{template_code}' not found"}
@@ -1237,6 +1247,7 @@ def get_tape_neon_template_cascading(
         "ilL-Child-Tape-Neon-Allowed-Spec",
         filters=spec_filters,
         fields=["tape_spec"],
+        ignore_permissions=True,
     )
     spec_names = [r.tape_spec for r in allowed_spec_rows if r.tape_spec]
     if not spec_names:
@@ -1245,6 +1256,7 @@ def get_tape_neon_template_cascading(
             "ilL-Child-Tape-Neon-Allowed-Spec",
             filters={"parent": template.name, "parenttype": "ilL-Tape-Neon-Template"},
             fields=["tape_spec"],
+            ignore_permissions=True,
         )
         spec_names = [r.tape_spec for r in allowed_spec_rows if r.tape_spec]
         if not spec_names and template.default_tape_spec:
@@ -1352,6 +1364,7 @@ def validate_tape_neon_template_config(
         fields=["name", "template_code", "template_name", "product_category",
                 "default_tape_spec", "leader_allowance_mm_per_fixture"],
         limit=1,
+        ignore_permissions=True,
     )
     if not template_list:
         return {"success": False, "is_valid": False,
@@ -1740,6 +1753,7 @@ def _get_template_allowed_values(template_name: str, option_type: str, field_nam
             "is_active": 1,
         },
         fields=[field_name],
+        ignore_permissions=True,
     )
     return {getattr(r, field_name, None) or r.get(field_name) for r in rows} - {None, ""}
 
@@ -2012,6 +2026,7 @@ def _get_environment_ratings_for_tape_offerings(tape_offerings, spec_names) -> l
         "ilL-Child-Template-Allowed-TapeOffering",
         filters={"tape_offering": ["in", [o.name for o in tape_offerings]]},
         fields=["environment_rating"],
+        ignore_permissions=True,
     )
     for row in template_rows:
         if row.environment_rating:
@@ -2024,6 +2039,7 @@ def _get_environment_ratings_for_tape_offerings(tape_offerings, spec_names) -> l
             filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Environment Rating", "is_active") else {},
             fields=["name", "code", "notes"],
             order_by="name asc",
+            ignore_permissions=True,
         )
         return [{"value": e.name, "label": e.name, "code": e.get("code")} for e in all_envs]
 
@@ -2070,6 +2086,7 @@ def _get_feed_types() -> list:
             filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Power Feed Type", "is_active") else {},
             fields=["name", "code", "label"],
             order_by="name",
+            ignore_permissions=True,
         )
         return [{"value": t.name, "label": t.get("label") or t.name, "code": t.get("code")} for t in types]
     return [{"value": "Standard", "label": "Standard", "code": "S"}]
@@ -2082,6 +2099,7 @@ def _get_ip_ratings() -> list:
             "ilL-Attribute-IP Rating",
             fields=["name", "code", "notes"],
             order_by="name",
+            ignore_permissions=True,
         )
         return [{"value": r.name, "label": r.name, "code": r.get("code")} for r in ratings]
     # Fallback
@@ -2099,6 +2117,7 @@ def _get_feed_directions() -> list:
             filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Feed-Direction", "is_active") else {},
             fields=["direction_name as name", "code", "description"],
             order_by="direction_name",
+            ignore_permissions=True,
         )
         return [{"value": d.name, "label": d.name, "code": d.get("code")} for d in dirs]
     return [

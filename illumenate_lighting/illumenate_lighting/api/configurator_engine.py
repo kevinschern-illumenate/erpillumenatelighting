@@ -3619,7 +3619,8 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "led_packages": [], "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	# Get all tape offerings linked to this template
 	tape_offering_names = [
@@ -3642,6 +3643,7 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 		filters=tape_filters,
 		fields=["led_package"],
 		distinct=True,
+		ignore_permissions=True,
 	)
 
 	led_package_codes = list({row.led_package for row in led_packages_from_tapes if row.led_package})
@@ -3654,6 +3656,7 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 		"ilL-Attribute-LED Package",
 		filters={"name": ["in", led_package_codes]},
 		fields=["name", "code", "spectrum_type"],
+		ignore_permissions=True,
 	)
 
 	result = [
@@ -3689,7 +3692,8 @@ def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "environment_ratings": [], "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	# Get environment ratings from allowed options
 	env_ratings = []
@@ -3707,6 +3711,7 @@ def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str
 		"ilL-Attribute-Environment Rating",
 		filters={"name": ["in", env_ratings]},
 		fields=["name", "label", "code"],
+		ignore_permissions=True,
 	)
 
 	result = [
@@ -3754,7 +3759,8 @@ def get_ccts_for_template(
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "ccts": [], "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	# -------------------------------------------------------------------
 	# Determine LED Package and whether it is multi-CCT (Tunable White, etc.)
@@ -3779,7 +3785,7 @@ def get_ccts_for_template(
 			resolved_led_package_code = list(led_pkgs_on_template)[0]
 
 	if resolved_led_package_code and frappe.db.exists("ilL-Attribute-LED Package", resolved_led_package_code):
-		led_pkg_doc = frappe.get_doc("ilL-Attribute-LED Package", resolved_led_package_code)
+		led_pkg_doc = frappe.get_cached_doc("ilL-Attribute-LED Package", resolved_led_package_code)
 		spectrum_type = getattr(led_pkg_doc, "spectrum_type", "") or ""
 		is_multi_cct_package = spectrum_type in MULTI_CCT_SPECTRUM_TYPES
 		compatible_rows = led_pkg_doc.get("compatible_ccts", [])
@@ -3833,6 +3839,7 @@ def get_ccts_for_template(
 				filters=tape_filters,
 				fields=["cct"],
 				distinct=True,
+				ignore_permissions=True,
 			)
 			tape_cct_codes = {row.cct for row in tape_offerings if row.cct}
 
@@ -3864,12 +3871,14 @@ def get_ccts_for_template(
 			filters={"is_active": 1},
 			fields=["name", "code", "label", "kelvin", "sort_order"],
 			order_by="sort_order asc, kelvin asc",
+			ignore_permissions=True,
 		)
 		if not all_ccts:
 			all_ccts = frappe.get_all(
 				"ilL-Attribute-CCT",
 				fields=["name", "code", "label", "kelvin", "sort_order"],
 				order_by="sort_order asc, kelvin asc",
+				ignore_permissions=True,
 			)
 		fallback_result = [
 			{
@@ -3900,6 +3909,7 @@ def get_ccts_for_template(
 		filters=cct_filters,
 		fields=["name", "code", "label", "kelvin", "sort_order"],
 		order_by="sort_order asc, kelvin asc",
+		ignore_permissions=True,
 	)
 
 	frappe.logger().info(
@@ -3995,7 +4005,7 @@ def get_delivered_outputs_for_template(
 		if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": f"Template '{fixture_template_code}' not found"}
 
-		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+		template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 		# Fetch all fixture-level output levels upfront for matching
 		fixture_output_levels = frappe.get_all(
@@ -4003,6 +4013,7 @@ def get_delivered_outputs_for_template(
 			filters={"is_fixture_level": 1},
 			fields=["name", "value", "sku_code", "output_level_name"],
 			order_by="value asc",
+			ignore_permissions=True,
 		)
 
 		if not fixture_output_levels:
@@ -4011,7 +4022,7 @@ def get_delivered_outputs_for_template(
 		# Get lens transmission as decimal (stored as 0.56 = 56%)
 		lens_transmission_decimal = 1.0  # Default to 100% if not specified
 		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
-			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+			lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 			if lens_doc.transmission:
 				# Value is stored as decimal (0.56 for 56%)
 				lens_transmission_decimal = float(lens_doc.transmission)
@@ -4064,6 +4075,7 @@ def get_delivered_outputs_for_template(
 			"ilL-Rel-Tape Offering",
 			filters=tape_filters,
 			fields=["name", "output_level", "tape_spec"],
+			ignore_permissions=True,
 		)
 
 		if not tape_offerings:
@@ -4078,6 +4090,7 @@ def get_delivered_outputs_for_template(
 				"ilL-Attribute-Output Level",
 				filters={"name": ["in", output_level_names]},
 				fields=["name", "value", "sku_code"],
+				ignore_permissions=True,
 			)
 			output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
@@ -4209,7 +4222,7 @@ def auto_select_tape_for_configuration(
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	# Fetch all fixture-level output levels for matching
 	fixture_output_levels = frappe.get_all(
@@ -4217,6 +4230,7 @@ def auto_select_tape_for_configuration(
 		filters={"is_fixture_level": 1},
 		fields=["name", "value", "sku_code", "output_level_name"],
 		order_by="value asc",
+		ignore_permissions=True,
 	)
 
 	if not fixture_output_levels:
@@ -4225,7 +4239,7 @@ def auto_select_tape_for_configuration(
 	# Get lens transmission as decimal (stored as 0.56 = 56%)
 	lens_transmission_decimal = 1.0  # Default to 100% if not specified
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
-		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+		lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
 			# Value is stored as decimal (0.56 for 56%)
 			lens_transmission_decimal = float(lens_doc.transmission)
@@ -4275,6 +4289,7 @@ def auto_select_tape_for_configuration(
 		"ilL-Rel-Tape Offering",
 		filters=tape_filters,
 		fields=["name", "output_level", "tape_spec", "cri", "sdcm"],
+		ignore_permissions=True,
 	)
 
 	if not tape_offerings:
@@ -4288,6 +4303,7 @@ def auto_select_tape_for_configuration(
 			"ilL-Attribute-Output Level",
 			filters={"name": ["in", output_level_names]},
 			fields=["name", "value", "sku_code"],
+			ignore_permissions=True,
 		)
 		output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
@@ -4401,7 +4417,8 @@ def get_cascading_options_for_template(
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "options": {}, "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	options = {
 		"led_packages": [],
@@ -4427,6 +4444,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-LED Package",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-LED Package", "is_active") else {},
 			fields=["name", "code", "spectrum_type"],
+			ignore_permissions=True,
 		)
 		options["led_packages"] = [
 			{
@@ -4449,6 +4467,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Environment Rating",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Environment Rating", "is_active") else {},
 			fields=["name", "label", "code"],
+			ignore_permissions=True,
 		)
 		options["environment_ratings"] = [
 			{
@@ -4480,7 +4499,7 @@ def get_cascading_options_for_template(
 	# packages whose CCTs may not be marked is_active).
 	if not options["ccts"] and resolved_pkg_for_cct:
 		try:
-			pkg_doc = frappe.get_doc("ilL-Attribute-LED Package", resolved_pkg_for_cct)
+			pkg_doc = frappe.get_cached_doc("ilL-Attribute-LED Package", resolved_pkg_for_cct)
 			compat_rows = pkg_doc.get("compatible_ccts", [])
 			if compat_rows:
 				compat_cct_names = [r.cct for r in compat_rows if r.cct]
@@ -4491,6 +4510,7 @@ def get_cascading_options_for_template(
 						filters={"name": ["in", compat_cct_names]},
 						fields=["name", "code", "label", "kelvin", "sort_order"],
 						order_by="sort_order asc, kelvin asc",
+						ignore_permissions=True,
 					)
 					if compat_ccts:
 						options["ccts"] = [
@@ -4516,6 +4536,7 @@ def get_cascading_options_for_template(
 			filters={"is_active": 1},
 			fields=["name", "code", "label", "kelvin", "sort_order"],
 			order_by="sort_order asc, kelvin asc",
+			ignore_permissions=True,
 		)
 		# If no active CCTs, get all CCTs (is_active may not be set)
 		if not all_ccts:
@@ -4523,6 +4544,7 @@ def get_cascading_options_for_template(
 				"ilL-Attribute-CCT",
 				fields=["name", "code", "label", "kelvin", "sort_order"],
 				order_by="sort_order asc, kelvin asc",
+				ignore_permissions=True,
 			)
 		options["ccts"] = [
 			{
@@ -4537,7 +4559,7 @@ def get_cascading_options_for_template(
 	# Get lens appearances from allowed options
 	for row in template_doc.get("allowed_options", []):
 		if row.option_type == "Lens Appearance" and row.lens_appearance and row.is_active:
-			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
+			lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
 			options["lens_appearances"].append({
 				"value": row.lens_appearance,
 				"label": row.lens_appearance,
@@ -4560,6 +4582,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Lens Appearance",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Lens Appearance", "is_active") else {},
 			fields=["name", "code", "transmission"],
+			ignore_permissions=True,
 		)
 		options["lens_appearances"] = [
 			{
@@ -4594,6 +4617,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Mounting Method",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Mounting Method", "is_active") else {},
 			fields=["name", "code"],
+			ignore_permissions=True,
 		)
 		options["mountings"] = [
 			{
@@ -4626,6 +4650,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Finish",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Finish", "is_active") else {},
 			fields=["name", "code", "display_name"],
+			ignore_permissions=True,
 		)
 		options["finishes"] = [
 			{
@@ -4641,6 +4666,7 @@ def get_cascading_options_for_template(
 		filters={"is_active": 1},
 		fields=["code", "display_name", "sort_order"],
 		order_by="sort_order asc, code asc",
+		ignore_permissions=True,
 	)
 	for color in endcap_colors:
 		options["endcap_colors"].append({
@@ -4654,6 +4680,7 @@ def get_cascading_options_for_template(
 		filters={"is_active": 1},
 		fields=["finish", "endcap_color", "is_default"],
 		order_by="is_default DESC, modified DESC",
+		ignore_permissions=True,
 	)
 	for mapping in finish_endcap_mappings:
 		if mapping.finish not in options["finish_endcap_color_map"]:
@@ -4689,6 +4716,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Power Feed Type",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Power Feed Type", "is_active") else {},
 			fields=["name", "code"],
+			ignore_permissions=True,
 		)
 		options["power_feed_type"] = [
 			{
@@ -4705,6 +4733,7 @@ def get_cascading_options_for_template(
 			filters={"is_active": 1},
 			fields=["direction_name as name", "code"],
 			order_by="direction_name",
+			ignore_permissions=True,
 		)
 		options["feed_directions"] = [
 			{"value": d.name, "label": d.name, "code": d.code}
