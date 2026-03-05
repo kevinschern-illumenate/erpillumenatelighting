@@ -1526,7 +1526,7 @@ $('#add_tape_neon_template').on('change', function() {
 	var gallery = $selected.data('gallery') || [];
 	var templateName = $selected.text().trim();
 	var category = $selected.data('category') || '';
-	var description = $selected.attr('data-description') || '';
+	var description = $selected.data('description') || '';
 	initAddLineGallery(gallery);
 
 	// Show/hide tape-neon template info section
