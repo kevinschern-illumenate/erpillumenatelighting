@@ -14,6 +14,14 @@
                         "column_break_identity",
                         "customer",
                         "status",
+                        "versioning_section",
+                        "version",
+                        "version_parent",
+                        "is_locked",
+                        "column_break_versioning",
+                        "locked_at",
+                        "locked_by",
+                        "version_notes",
                         "privacy_section",
                         "inherits_project_privacy",
                         "is_private",
@@ -70,6 +78,63 @@
                        "in_standard_filter":  1,
                        "label":  "Status",
                        "options":  "DRAFT\nREADY\nQUOTED\nORDERED\nCLOSED"
+                   },
+                   {
+                       "fieldname":  "versioning_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Versioning"
+                   },
+                   {
+                       "default":  "1",
+                       "description":  "Version number for this schedule",
+                       "fieldname":  "version",
+                       "fieldtype":  "Int",
+                       "in_list_view":  1,
+                       "label":  "Version",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Points to the original (V1) schedule in the version chain",
+                       "fieldname":  "version_parent",
+                       "fieldtype":  "Link",
+                       "label":  "Version Parent",
+                       "options":  "ilL-Project-Fixture-Schedule",
+                       "read_only":  1
+                   },
+                   {
+                       "default":  "0",
+                       "description":  "Whether this version is locked from editing",
+                       "fieldname":  "is_locked",
+                       "fieldtype":  "Check",
+                       "label":  "Is Locked",
+                       "read_only":  1
+                   },
+                   {
+                       "fieldname":  "column_break_versioning",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "depends_on":  "eval:doc.is_locked",
+                       "description":  "When this version was locked",
+                       "fieldname":  "locked_at",
+                       "fieldtype":  "Datetime",
+                       "label":  "Locked At",
+                       "read_only":  1
+                   },
+                   {
+                       "depends_on":  "eval:doc.is_locked",
+                       "description":  "Who locked this version",
+                       "fieldname":  "locked_by",
+                       "fieldtype":  "Link",
+                       "label":  "Locked By",
+                       "options":  "User",
+                       "read_only":  1
+                   },
+                   {
+                       "description":  "Optional notes about what changed in this version",
+                       "fieldname":  "version_notes",
+                       "fieldtype":  "Small Text",
+                       "label":  "Version Notes"
                    },
                    {
                        "collapsible":  1,

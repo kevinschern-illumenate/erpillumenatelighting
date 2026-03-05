@@ -225,16 +225,18 @@ Allows users to configure fixtures using the Rules Engine
 					<!-- Pricing -->
 					{% if show_pricing %}
 					<div id="pricingResults" style="display: none;">
-						<h6>{{ _("Pricing") }}</h6>
-						<table class="table table-sm">
-							<tr>
-								<td>{{ _("MSRP (Unit)") }}</td>
-								<td class="text-right"><strong><span id="msrpUnit">-</span></strong></td>
-							</tr>
-							<tr>
-								<td>{{ _("Tier Price (Unit)") }}</td>
-								<td class="text-right"><span id="tierUnit">-</span></td>
-							</tr>
+						<h6>{{ _("Fixture Price Breakdown") }}</h6>
+						<table class="table table-sm" id="fixturePriceBreakdown">
+							<thead>
+								<tr>
+									<th>{{ _("Item") }}</th>
+									<th class="text-right">{{ _("MSRP") }}</th>
+									<th class="text-right">{{ _("Tier") }}</th>
+								</tr>
+							</thead>
+							<tbody id="priceBreakdownBody">
+								<!-- Rows populated by JS after Calculate & Validate -->
+							</tbody>
 						</table>
 						<div id="adderBreakdown"></div>
 					</div>
@@ -438,11 +440,35 @@ function displayResults(result) {
 	// Display pricing
 	if (result.pricing) {
 		$('#pricingResults').show();
-		$('#msrpUnit').text('$' + result.pricing.msrp_unit.toFixed(2));
-		$('#tierUnit').text('$' + result.pricing.tier_unit.toFixed(2));
+		var tbody = $('#priceBreakdownBody').empty();
+
+		if (result.pricing.item_pricing && result.pricing.item_pricing.length > 0) {
+			result.pricing.item_pricing.forEach(function(item) {
+				if (!item.item_code) return;
+				var tierDisplay = '$' + item.tier_unit.toFixed(2);
+				if (item.discount_amount > 0) {
+					tierDisplay += ' <small class="text-success">(-$' + item.discount_amount.toFixed(2) + ')</small>';
+				}
+				tbody.append(
+					'<tr>' +
+					'<td>' + (item.item_code || '-') + '</td>' +
+					'<td class="text-right"><strong>$' + item.msrp_unit.toFixed(2) + '</strong></td>' +
+					'<td class="text-right">' + tierDisplay + '</td>' +
+					'</tr>'
+				);
+			});
+		} else {
+			tbody.append(
+				'<tr>' +
+				'<td>Total</td>' +
+				'<td class="text-right"><strong>$' + result.pricing.msrp_unit.toFixed(2) + '</strong></td>' +
+				'<td class="text-right">$' + result.pricing.tier_unit.toFixed(2) + '</td>' +
+				'</tr>'
+			);
+		}
 
 		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
-			var breakdownHtml = '<details><summary class="text-muted">Price Breakdown</summary><table class="table table-sm mt-2">';
+			var breakdownHtml = '<details><summary class="text-muted">Fixture Price Breakdown</summary><table class="table table-sm mt-2">';
 			result.pricing.adder_breakdown.forEach(function(adder) {
 				breakdownHtml += '<tr><td>' + adder.component + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
 			});

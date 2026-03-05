@@ -42,8 +42,8 @@ def get_context(context):
 	schedules = frappe.get_all(
 		"ilL-Project-Fixture-Schedule",
 		filters={"ill_project": project_name},
-		fields=["name", "schedule_name", "status", "modified"],
-		order_by="modified desc",
+		fields=["name", "schedule_name", "status", "modified", "version", "is_locked", "version_parent"],
+		order_by="version_parent asc, version desc",
 	)
 
 	# Add line count to each schedule

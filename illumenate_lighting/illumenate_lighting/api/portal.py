@@ -1321,6 +1321,10 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
+	# Check if schedule is locked
+	if schedule.is_locked:
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
 	# Validate status
 	if schedule.status not in ["DRAFT", "READY"]:
 		return {"success": False, "error": "Cannot add lines to a schedule in this status"}
@@ -1404,6 +1408,10 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
+
+	# Check if schedule is locked
+	if schedule.is_locked:
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Validate status
 	if schedule.status not in ["DRAFT", "READY"]:
@@ -1498,6 +1506,10 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
+
+	# Check if schedule is locked
+	if schedule.is_locked:
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Validate status
 	if schedule.status not in ["DRAFT", "READY"]:
@@ -2268,7 +2280,8 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	- DRAFT -> READY (by anyone with write permission)
 	- READY -> DRAFT (by anyone with write permission)
 	- READY -> QUOTED (by internal/dealer users only)
-	- QUOTED -> READY (by internal/dealer users only - e.g., to revise quote)
+	- QUOTED -> DRAFT (by anyone with write permission)
+	- QUOTED -> READY (by anyone with write permission)
 	- ORDERED and CLOSED statuses cannot be set via portal
 
 	Args:
@@ -2293,6 +2306,10 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to update this schedule"}
 
+	# Check if schedule is locked
+	if schedule.is_locked:
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
 	# Validate status value
 	valid_statuses = ["DRAFT", "READY", "QUOTED"]
 	if new_status not in valid_statuses:
@@ -2305,7 +2322,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	allowed_transitions = {
 		"DRAFT": ["READY"],
 		"READY": ["DRAFT", "QUOTED"] if is_privileged else ["DRAFT"],
-		"QUOTED": ["READY"] if is_privileged else [],
+		"QUOTED": ["DRAFT", "READY"] if is_privileged else ["DRAFT", "READY"],
 	}
 
 	# Check if transition is allowed
@@ -2319,6 +2336,14 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 		return {"success": False, "error": f"Cannot change status from {current_status} to {new_status}"}
 
 	try:
+		# Auto-version when going from QUOTED back to DRAFT
+		# This preserves the quoted state as a locked snapshot
+		if current_status == "QUOTED" and new_status == "READY":
+			new_name = schedule.create_new_version(
+				version_notes="Auto-versioned: reverting from QUOTED to continue editing"
+			)
+			return {"success": True, "new_status": "DRAFT", "new_schedule_name": new_name, "auto_versioned": True}
+
 		schedule.db_set("status", new_status)
 		frappe.db.commit()
 		return {"success": True, "new_status": new_status}
@@ -3732,6 +3757,10 @@ def update_configured_fixture_on_schedule(
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "Permission denied"}
 
+	# Check if schedule is locked
+	if schedule.is_locked:
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
 	# Check schedule status allows editing
 	if schedule.status not in ["DRAFT", "READY"]:
 		return {"success": False, "error": "Cannot edit lines in a schedule in this status"}
@@ -3792,3 +3821,94 @@ def update_configured_fixture_on_schedule(
 	except Exception as e:
 		frappe.log_error(f"Error updating fixture on schedule: {str(e)}")
 		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_schedule_version(schedule_name: str, version_notes: str = None) -> dict:
+	"""
+	Create a new version of a fixture schedule.
+	Locks the current version and creates a duplicate with incremented version number.
+
+	Args:
+		schedule_name: Name of the schedule to version
+		version_notes: Optional notes about what changed in this version
+
+	Returns:
+		dict: {"success": True/False, "new_schedule_name": "...", "error": "..."}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to create a version of this schedule"}
+
+	if schedule.is_locked:
+		return {"success": False, "error": "This schedule version is already locked."}
+
+	try:
+		new_name = schedule.create_new_version(version_notes=version_notes)
+		return {"success": True, "new_schedule_name": new_name}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_schedule_version_history(schedule_name: str) -> dict:
+	"""
+	Get the version history for a fixture schedule.
+	Returns all versions in the version chain, ordered by version number.
+
+	Args:
+		schedule_name: Name of any schedule in the version chain
+
+	Returns:
+		dict: {"success": True, "versions": [...]}
+	"""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check read permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "read", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to view this schedule"}
+
+	# Determine the root (V1) schedule
+	root_name = schedule.version_parent or schedule.name
+
+	# Find all schedules in this version chain:
+	# - the root schedule itself (version_parent is null AND name == root_name)
+	# - all schedules whose version_parent == root_name
+	versions = frappe.get_all(
+		"ilL-Project-Fixture-Schedule",
+		filters=[
+			["name", "=", root_name],
+		],
+		fields=["name", "schedule_name", "version", "status", "is_locked", "locked_at", "locked_by", "version_notes", "modified", "owner"],
+		order_by="version asc",
+	)
+
+	children = frappe.get_all(
+		"ilL-Project-Fixture-Schedule",
+		filters={"version_parent": root_name},
+		fields=["name", "schedule_name", "version", "status", "is_locked", "locked_at", "locked_by", "version_notes", "modified", "owner"],
+		order_by="version asc",
+	)
+
+	versions.extend(children)
+
+	# Sort by version number
+	versions.sort(key=lambda v: v.get("version") or 1)
+
+	return {"success": True, "versions": versions, "current": schedule_name}

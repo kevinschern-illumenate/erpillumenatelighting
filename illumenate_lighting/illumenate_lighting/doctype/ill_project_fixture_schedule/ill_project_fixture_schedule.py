@@ -32,6 +32,12 @@ def _is_dealer_user(user=None):
 class ilLProjectFixtureSchedule(Document):
 	def validate(self):
 		"""Validate schedule data and sync customer from project."""
+		# Enforce locking — locked versions cannot be modified
+		if self.is_locked:
+			frappe.throw(
+				_("This schedule version is locked and cannot be modified. Create a new version to make changes.")
+			)
+
 		if self.ill_project:
 			project = frappe.get_doc("ilL-Project", self.ill_project)
 			# Auto-sync customer from project
@@ -70,6 +76,73 @@ class ilLProjectFixtureSchedule(Document):
 				),
 				title=_("Unconfigured Fixtures")
 			)
+
+	@frappe.whitelist()
+	def create_new_version(self, version_notes=None):
+		"""
+		Create a new version of this fixture schedule.
+
+		1. Lock the current schedule (set is_locked=1, locked_at, locked_by)
+		2. Duplicate the schedule with all lines
+		3. Increment version number
+		4. Set version_parent to the original (V1) schedule
+		5. New version starts in DRAFT status
+
+		Returns:
+			str: Name of the new versioned schedule
+		"""
+		if self.is_locked:
+			frappe.throw(_("This schedule version is already locked. Cannot create another version from a locked schedule."))
+
+		# 1. Lock the current schedule
+		self.db_set("is_locked", 1)
+		self.db_set("locked_at", frappe.utils.now_datetime())
+		self.db_set("locked_by", frappe.session.user)
+
+		# Determine version_parent: always points to the V1 (original) schedule
+		version_parent = self.version_parent or self.name
+
+		# 2. Create a new schedule document (deep copy)
+		new_schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		new_schedule.schedule_name = self.schedule_name
+		new_schedule.ill_project = self.ill_project
+		new_schedule.customer = self.customer
+		new_schedule.status = "DRAFT"
+		new_schedule.inherits_project_privacy = self.inherits_project_privacy
+		new_schedule.is_private = self.is_private
+		new_schedule.notes = self.notes
+		new_schedule.project = self.project
+
+		# 3. Set versioning fields
+		new_schedule.version = (self.version or 1) + 1
+		new_schedule.version_parent = version_parent
+		new_schedule.version_notes = version_notes
+		new_schedule.is_locked = 0
+
+		# 4. Deep copy all fixture schedule lines
+		for line in self.lines:
+			new_line = new_schedule.append("lines", {})
+			for field in line.as_dict():
+				if field not in ("name", "idx", "parent", "parenttype", "parentfield", "doctype", "creation", "modified", "modified_by", "owner"):
+					new_line.set(field, line.get(field))
+
+		# 5. Deep copy collaborators
+		for collab in (self.collaborators or []):
+			new_collab = new_schedule.append("collaborators", {})
+			for field in collab.as_dict():
+				if field not in ("name", "idx", "parent", "parenttype", "parentfield", "doctype", "creation", "modified", "modified_by", "owner"):
+					new_collab.set(field, collab.get(field))
+
+		new_schedule.insert(ignore_permissions=True)
+		frappe.db.commit()
+
+		frappe.msgprint(
+			_("Version {0} created: {1}").format(new_schedule.version, new_schedule.name),
+			indicator="green",
+			alert=True,
+		)
+
+		return new_schedule.name
 
 	@frappe.whitelist()
 	def create_sales_order(self):

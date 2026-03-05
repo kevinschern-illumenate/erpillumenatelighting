@@ -335,3 +335,124 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		# Verify status changed
 		schedule.reload()
 		self.assertEqual(schedule.status, "QUOTED")
+
+	# ── Versioning Tests ──────────────────────────────────────────────────
+
+	def _create_schedule(self, name="_Test Schedule Versioning", status="DRAFT", with_line=True):
+		"""Helper to create a test schedule."""
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = name
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = status
+		if with_line:
+			schedule.append("lines", {
+				"line_id": "L1",
+				"qty": 2,
+				"location": "Main Hall",
+				"manufacturer_type": "ILLUMENATE",
+				"configured_fixture": self.config_hash,
+			})
+		schedule.insert(ignore_permissions=True)
+		return schedule
+
+	def test_create_new_version_creates_duplicate(self):
+		"""Test that create_new_version duplicates the schedule with all lines."""
+		schedule = self._create_schedule()
+
+		new_name = schedule.create_new_version(version_notes="Testing v2")
+		new_schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", new_name)
+
+		# Verify basic fields are copied
+		self.assertEqual(new_schedule.schedule_name, schedule.schedule_name)
+		self.assertEqual(new_schedule.ill_project, schedule.ill_project)
+		self.assertEqual(new_schedule.customer, schedule.customer)
+
+		# Verify lines are deep-copied
+		self.assertEqual(len(new_schedule.lines), len(schedule.lines))
+		self.assertEqual(new_schedule.lines[0].line_id, "L1")
+		self.assertEqual(new_schedule.lines[0].qty, 2)
+		self.assertEqual(new_schedule.lines[0].location, "Main Hall")
+		self.assertEqual(new_schedule.lines[0].configured_fixture, self.config_hash)
+
+		# Verify version notes
+		self.assertEqual(new_schedule.version_notes, "Testing v2")
+
+	def test_create_new_version_locks_original(self):
+		"""Test that create_new_version locks the original schedule."""
+		schedule = self._create_schedule()
+
+		schedule.create_new_version()
+		schedule.reload()
+
+		self.assertEqual(schedule.is_locked, 1)
+		self.assertIsNotNone(schedule.locked_at)
+		self.assertIsNotNone(schedule.locked_by)
+
+	def test_locked_schedule_cannot_be_modified(self):
+		"""Test that a locked schedule cannot be saved."""
+		schedule = self._create_schedule()
+
+		# Create new version (which locks the original)
+		schedule.create_new_version()
+		schedule.reload()
+
+		# Attempt to modify the locked schedule
+		schedule.notes = "Trying to modify locked schedule"
+		with self.assertRaises(frappe.exceptions.ValidationError):
+			schedule.save()
+
+	def test_locked_schedule_can_still_export(self):
+		"""Test that a locked schedule can still be read (for exports)."""
+		schedule = self._create_schedule()
+
+		# Lock via versioning
+		schedule.create_new_version()
+		schedule.reload()
+
+		# Read operations should still work
+		self.assertTrue(schedule.is_locked)
+		self.assertEqual(len(schedule.lines), 1)
+		self.assertEqual(schedule.lines[0].line_id, "L1")
+
+	def test_version_number_increments(self):
+		"""Test that version numbers increment correctly."""
+		schedule = self._create_schedule()
+		self.assertEqual(schedule.version or 1, 1)
+
+		# Create v2
+		v2_name = schedule.create_new_version()
+		v2 = frappe.get_doc("ilL-Project-Fixture-Schedule", v2_name)
+		self.assertEqual(v2.version, 2)
+		self.assertEqual(v2.status, "DRAFT")
+
+		# Create v3 from v2
+		v3_name = v2.create_new_version()
+		v3 = frappe.get_doc("ilL-Project-Fixture-Schedule", v3_name)
+		self.assertEqual(v3.version, 3)
+
+		# version_parent should always point to the original (v1)
+		self.assertEqual(v2.version_parent, schedule.name)
+		self.assertEqual(v3.version_parent, schedule.name)
+
+	def test_version_history_returns_all_versions(self):
+		"""Test that get_schedule_version_history returns all versions."""
+		from illumenate_lighting.illumenate_lighting.api.portal import get_schedule_version_history
+
+		schedule = self._create_schedule()
+
+		# Create v2 and v3
+		v2_name = schedule.create_new_version()
+		v2 = frappe.get_doc("ilL-Project-Fixture-Schedule", v2_name)
+		v3_name = v2.create_new_version()
+
+		# Get history from v3's perspective
+		result = get_schedule_version_history(v3_name)
+
+		self.assertTrue(result["success"])
+		self.assertEqual(len(result["versions"]), 3)
+
+		# Should be ordered by version asc
+		self.assertEqual(result["versions"][0]["version"] or 1, 1)
+		self.assertEqual(result["versions"][1]["version"], 2)
+		self.assertEqual(result["versions"][2]["version"], 3)

@@ -2382,6 +2382,265 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertFalse(last_seg.end_jumper_item,
 			"Single-segment fixture should have no end jumper item")
 
+	def test_tier_pricing_with_customer_group_discount(self):
+		"""Test that tier pricing applies discounts from Customer Group Pricing Rules."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			_calculate_pricing,
+		)
+
+		# Create a Customer Group
+		cg_name = "_Test Tier CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			cg = frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name})
+			cg.insert(ignore_permissions=True)
+
+		# Create a Customer in that group
+		cust_name = "_Test Tier Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			cust = frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			})
+			cust.insert(ignore_permissions=True)
+
+		# Create a Pricing Rule with 20% discount for that Customer Group
+		pr_name = "_Test Tier PR 20pct"
+		if frappe.db.exists("Pricing Rule", pr_name):
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+		pr = frappe.get_doc({
+			"doctype": "Pricing Rule",
+			"name": pr_name,
+			"title": pr_name,
+			"applicable_for": "Customer Group",
+			"customer_group": cg_name,
+			"selling": 1,
+			"buying": 0,
+			"pricing_rule_for": "Discount Percentage",
+			"discount_percentage": 20,
+			"apply_on": "Transaction",
+			"priority": 1,
+			"disable": 0,
+		})
+		pr.insert(ignore_permissions=True)
+
+		try:
+			template_doc = frappe.get_doc("ilL-Fixture-Template", self.template_code)
+			result = _calculate_pricing(
+				fixture_template_code=self.template_code,
+				resolved_items={"profile_item": "PROFILE-ITEM-01"},
+				computed={"tape_cut_length_mm": 950, "manufacturable_overall_length_mm": 980},
+				finish_code=self.finish_code,
+				lens_appearance_code=self.lens_appearance_code,
+				mounting_method_code=self.mounting_method_code,
+				endcap_style_start_code=self.endcap_style_code,
+				endcap_style_end_code=self.endcap_style_code,
+				power_feed_type_code=self.power_feed_type_code,
+				environment_rating_code=self.environment_rating_code,
+				tape_offering_id=self.tape_offering_id,
+				qty=1,
+				template_doc=template_doc,
+				customer=cust_name,
+			)
+
+			self.assertGreater(result["msrp_unit"], 0)
+			expected_tier = round(result["msrp_unit"] * 0.80, 2)
+			self.assertEqual(result["tier_unit"], expected_tier)
+			self.assertEqual(result["discount_percentage"], 20.0)
+			self.assertEqual(result["pricing_rule_name"], pr_name)
+			self.assertEqual(result["customer_group"], cg_name)
+		finally:
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_tier_pricing_no_pricing_rule_falls_back_to_msrp(self):
+		"""Test that without a Pricing Rule, tier_unit falls back to msrp_unit."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			_calculate_pricing,
+		)
+
+		# Create a Customer Group + Customer with NO Pricing Rule
+		cg_name = "_Test No PR CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			cg = frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name})
+			cg.insert(ignore_permissions=True)
+
+		cust_name = "_Test No PR Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			cust = frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			})
+			cust.insert(ignore_permissions=True)
+
+		try:
+			template_doc = frappe.get_doc("ilL-Fixture-Template", self.template_code)
+			result = _calculate_pricing(
+				fixture_template_code=self.template_code,
+				resolved_items={"profile_item": "PROFILE-ITEM-01"},
+				computed={"tape_cut_length_mm": 950, "manufacturable_overall_length_mm": 980},
+				finish_code=self.finish_code,
+				lens_appearance_code=self.lens_appearance_code,
+				mounting_method_code=self.mounting_method_code,
+				endcap_style_start_code=self.endcap_style_code,
+				endcap_style_end_code=self.endcap_style_code,
+				power_feed_type_code=self.power_feed_type_code,
+				environment_rating_code=self.environment_rating_code,
+				tape_offering_id=self.tape_offering_id,
+				qty=1,
+				template_doc=template_doc,
+				customer=cust_name,
+			)
+
+			self.assertGreater(result["msrp_unit"], 0)
+			self.assertEqual(result["tier_unit"], result["msrp_unit"])
+			self.assertEqual(result["discount_amount"], 0.0)
+			self.assertEqual(result["discount_percentage"], 0.0)
+			self.assertIsNone(result["pricing_rule_name"])
+			self.assertEqual(result["customer_group"], cg_name)
+		finally:
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_tier_pricing_discount_percentage_type(self):
+		"""Test discount percentage type Pricing Rule."""
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+			get_tier_price_for_customer,
+		)
+
+		cg_name = "_Test Pct CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name}).insert(ignore_permissions=True)
+
+		cust_name = "_Test Pct Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			}).insert(ignore_permissions=True)
+
+		pr_name = "_Test Pct PR 15"
+		if frappe.db.exists("Pricing Rule", pr_name):
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+		frappe.get_doc({
+			"doctype": "Pricing Rule",
+			"name": pr_name,
+			"title": pr_name,
+			"applicable_for": "Customer Group",
+			"customer_group": cg_name,
+			"selling": 1,
+			"buying": 0,
+			"pricing_rule_for": "Discount Percentage",
+			"discount_percentage": 15,
+			"apply_on": "Transaction",
+			"priority": 1,
+			"disable": 0,
+		}).insert(ignore_permissions=True)
+
+		try:
+			result = get_tier_price_for_customer(200.0, customer=cust_name)
+			self.assertEqual(result["tier_unit"], 170.0)
+			self.assertEqual(result["discount_percentage"], 15.0)
+			self.assertEqual(result["discount_amount"], 30.0)
+		finally:
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_tier_pricing_rate_type(self):
+		"""Test rate type Pricing Rule (fixed price override)."""
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+			get_tier_price_for_customer,
+		)
+
+		cg_name = "_Test Rate CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name}).insert(ignore_permissions=True)
+
+		cust_name = "_Test Rate Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			}).insert(ignore_permissions=True)
+
+		pr_name = "_Test Rate PR 150"
+		if frappe.db.exists("Pricing Rule", pr_name):
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+		frappe.get_doc({
+			"doctype": "Pricing Rule",
+			"name": pr_name,
+			"title": pr_name,
+			"applicable_for": "Customer Group",
+			"customer_group": cg_name,
+			"selling": 1,
+			"buying": 0,
+			"pricing_rule_for": "Rate",
+			"rate": 150.0,
+			"apply_on": "Transaction",
+			"priority": 1,
+			"disable": 0,
+		}).insert(ignore_permissions=True)
+
+		try:
+			result = get_tier_price_for_customer(200.0, customer=cust_name)
+			self.assertEqual(result["tier_unit"], 150.0)
+			self.assertEqual(result["discount_amount"], 50.0)
+			self.assertEqual(result["discount_percentage"], 25.0)
+		finally:
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_pricing_response_includes_item_breakdown(self):
+		"""Test that the pricing response includes item_pricing with fixture breakdown."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			_calculate_pricing,
+		)
+
+		template_doc = frappe.get_doc("ilL-Fixture-Template", self.template_code)
+		result = _calculate_pricing(
+			fixture_template_code=self.template_code,
+			resolved_items={"profile_item": "PROFILE-ITEM-01"},
+			computed={"tape_cut_length_mm": 950, "manufacturable_overall_length_mm": 980},
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			qty=1,
+			template_doc=template_doc,
+		)
+
+		# Verify item_pricing is present and contains fixture entry
+		self.assertIn("item_pricing", result)
+		self.assertIsInstance(result["item_pricing"], list)
+		self.assertGreaterEqual(len(result["item_pricing"]), 1)
+
+		# First entry should be fixture
+		fixture_item = result["item_pricing"][0]
+		self.assertEqual(fixture_item["item_type"], "fixture")
+		self.assertEqual(fixture_item["item_code"], "PROFILE-ITEM-01")
+		self.assertEqual(fixture_item["description"], "Fixture Assembly")
+		self.assertEqual(fixture_item["msrp_unit"], result["msrp_unit"])
+
+		# Verify enriched pricing fields
+		self.assertIn("discount_amount", result)
+		self.assertIn("discount_percentage", result)
+		self.assertIn("pricing_rule_name", result)
+		self.assertIn("customer_group", result)
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests

@@ -323,15 +323,27 @@ Also handles new schedule creation when is_new is True
 				<div class="card-body">
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
-							<h1 class="mb-2">{{ schedule.schedule_name }}</h1>
+							<h1 class="mb-2">
+								{{ schedule.schedule_name }}
+								<span class="badge badge-secondary ml-2" style="font-size: 0.5em; vertical-align: middle;">v{{ schedule.version or 1 }}</span>
+								{% if schedule.is_locked %}
+								<span class="badge badge-dark ml-1" style="font-size: 0.5em; vertical-align: middle;"><i class="fa fa-lock"></i> {{ _("Locked") }}</span>
+								{% endif %}
+							</h1>
 							<p class="text-muted mb-2">
 								<strong>{{ _("Project") }}:</strong> {{ project.project_name }}
 							</p>
+							{% if schedule.is_locked %}
+							<div class="alert alert-warning mb-2" role="alert">
+								<i class="fa fa-lock"></i>
+								{{ _("This is Version {0} (locked). You can view and export but not modify. Create a new version to make changes.").format(schedule.version or 1) }}
+							</div>
+							{% endif %}
 							<div class="d-flex align-items-center gap-2">
 								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge">
 									{{ schedule.status }}
 								</span>
-								{% if can_edit and schedule.status not in ['ORDERED', 'CLOSED'] %}
+								{% if can_edit and not schedule.is_locked and schedule.status not in ['ORDERED', 'CLOSED'] %}
 								<div class="dropdown d-inline-block ml-2">
 									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 										<i class="fa fa-exchange"></i> {{ _("Change Status") }}
@@ -361,17 +373,22 @@ Also handles new schedule creation when is_new is True
 							</div>
 						</div>
 						<div class="btn-group">
-							{% if can_edit and schedule.status in ['DRAFT', 'READY'] %}
+							{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
 								<i class="fa fa-plus"></i> {{ _("Add Line") }}
 							</button>
 							{% endif %}
-							{% if can_edit and schedule.status == 'READY' and not (is_dealer or is_internal) %}
+							{% if can_edit and not schedule.is_locked %}
+							<button class="btn btn-outline-primary" onclick="createNewVersion()">
+								<i class="fa fa-code-fork"></i> {{ _("Create New Version") }}
+							</button>
+							{% endif %}
+							{% if can_edit and not schedule.is_locked and schedule.status == 'READY' and not (is_dealer or is_internal) %}
 							<button class="btn btn-success" onclick="requestQuote()">
 								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
 							</button>
 							{% endif %}
-							{% set can_create_order = can_edit and ((schedule.status in ['READY', 'QUOTED'] and (is_dealer or is_internal)) or (schedule.status == 'QUOTED' and not (is_dealer or is_internal))) %}
+							{% set can_create_order = can_edit and not schedule.is_locked and ((schedule.status in ['READY', 'QUOTED'] and (is_dealer or is_internal)) or (schedule.status == 'QUOTED' and not (is_dealer or is_internal))) %}
 							{% if can_create_order %}
 							<button class="btn btn-success" onclick="createSalesOrder()">
 								<i class="fa fa-shopping-cart"></i> {{ _("Convert to Sales Order") }}
@@ -835,6 +852,25 @@ Also handles new schedule creation when is_new is True
 							<i class="fa fa-spinner fa-spin"></i> {{ _("Loading export history...") }}
 						</div>
 					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Version History Section -->
+<div class="row mt-4 mb-4">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h6 class="mb-0"><i class="fa fa-history"></i> {{ _("Version History") }}</h6>
+				<button class="btn btn-sm btn-link text-muted disabled" title="{{ _('Compare with previous version — coming soon') }}">
+					<i class="fa fa-columns"></i> {{ _("Compare Versions") }}
+				</button>
+			</div>
+			<div class="card-body" id="versionHistory">
+				<div class="text-center py-3">
+					<i class="fa fa-spinner fa-spin"></i> {{ _("Loading version history...") }}
 				</div>
 			</div>
 		</div>
@@ -2709,7 +2745,97 @@ function renderExportHistory(exports) {
 // Load export history on page load
 $(document).ready(function() {
 	loadExportHistory();
+	loadVersionHistory();
 });
+
+// ─── Version History ─────────────────────────────────────────────────────────
+function loadVersionHistory() {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_version_history',
+		args: { schedule_name: '{{ schedule.name }}' },
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				renderVersionHistory(r.message.versions, r.message.current);
+			} else {
+				$('#versionHistory').html(
+					'<p class="text-muted text-center mb-0">' +
+					(r.message && r.message.error ? r.message.error : 'Error loading version history') +
+					'</p>'
+				);
+			}
+		}
+	});
+}
+
+function renderVersionHistory(versions, current) {
+	if (!versions || versions.length <= 1) {
+		$('#versionHistory').html(
+			'<p class="text-muted text-center mb-0">No previous versions. This is the first version of this schedule.</p>'
+		);
+		return;
+	}
+	var html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+	html += '<thead><tr>';
+	html += '<th>Version</th><th>Status</th><th>Notes</th><th>Modified</th><th></th>';
+	html += '</tr></thead><tbody>';
+	versions.forEach(function(v) {
+		var isCurrent = (v.name === current);
+		var statusClass = {
+			'DRAFT': 'warning', 'READY': 'info', 'QUOTED': 'primary',
+			'ORDERED': 'success', 'CLOSED': 'secondary'
+		}[v.status] || 'secondary';
+		html += '<tr' + (isCurrent ? ' class="table-active"' : '') + '>';
+		html += '<td><strong>v' + (v.version || 1) + '</strong>';
+		if (v.is_locked) html += ' <i class="fa fa-lock text-muted" title="Locked"></i>';
+		if (isCurrent) html += ' <span class="badge badge-primary ml-1">current</span>';
+		html += '</td>';
+		html += '<td><span class="badge badge-' + statusClass + '">' + v.status + '</span></td>';
+		html += '<td>' + (v.version_notes || '<span class="text-muted">—</span>') + '</td>';
+		html += '<td>' + (v.modified ? frappe.datetime.prettyDate(v.modified) : '-') + '</td>';
+		html += '<td>';
+		if (!isCurrent) {
+			html += '<a href="/portal/schedules/' + v.name + '" class="btn btn-sm btn-outline-primary">View</a>';
+		}
+		html += '</td>';
+		html += '</tr>';
+	});
+	html += '</tbody></table></div>';
+	$('#versionHistory').html(html);
+}
+
+function createNewVersion() {
+	var d = new frappe.ui.Dialog({
+		title: 'Create New Version',
+		fields: [
+			{
+				fieldname: 'version_notes',
+				fieldtype: 'Small Text',
+				label: 'Version Notes (Optional)',
+				description: 'Describe what changed or why a new version is being created.'
+			}
+		],
+		primary_action_label: 'Create',
+		primary_action: function(values) {
+			d.hide();
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_version',
+				args: {
+					schedule_name: '{{ schedule.name }}',
+					version_notes: values.version_notes || ''
+				},
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						frappe.show_alert({message: 'New version created!', indicator: 'green'});
+						window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
+					} else {
+						frappe.msgprint(r.message ? r.message.error : 'Error creating version');
+					}
+				}
+			});
+		}
+	});
+	d.show();
+}
 {% endif %}
 </script>
 {% endblock %}

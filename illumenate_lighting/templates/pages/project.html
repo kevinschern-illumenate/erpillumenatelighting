@@ -397,10 +397,16 @@ Also handles new project creation when is_new is True
 			{% if schedules %}
 			<div class="list-group">
 				{% for schedule in schedules %}
-				<div class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center">
+				<div class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center{% if schedule.is_locked %} bg-light{% endif %}">
 					<a href="/portal/schedules/{{ schedule.name }}" class="text-decoration-none text-reset flex-grow-1">
 						<div>
-							<h5 class="mb-1">{{ schedule.schedule_name }}</h5>
+							<h5 class="mb-1">
+								{{ schedule.schedule_name }}
+								<span class="badge badge-secondary" style="font-size: 0.7em;">v{{ schedule.version or 1 }}</span>
+								{% if schedule.is_locked %}
+								<span class="badge badge-dark" style="font-size: 0.7em;"><i class="fa fa-lock"></i></span>
+								{% endif %}
+							</h5>
 							<small class="text-muted">
 								{{ schedule.lines_count or 0 }} {{ _("line(s)") }}
 							</small>

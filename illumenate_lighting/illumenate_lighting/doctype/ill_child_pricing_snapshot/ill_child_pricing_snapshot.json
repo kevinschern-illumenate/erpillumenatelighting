@@ -8,7 +8,11 @@
  "field_order": [
   "msrp_unit",
   "tier_unit",
+  "discount_amount",
+  "discount_percentage",
   "column_break_pricing",
+  "pricing_rule",
+  "customer_group",
   "adder_breakdown_json",
   "timestamp"
  ],
@@ -26,8 +30,28 @@
    "label": "Tier Unit"
   },
   {
+   "fieldname": "discount_amount",
+   "fieldtype": "Currency",
+   "label": "Discount Amount"
+  },
+  {
+   "fieldname": "discount_percentage",
+   "fieldtype": "Float",
+   "label": "Discount Percentage"
+  },
+  {
    "fieldname": "column_break_pricing",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pricing_rule",
+   "fieldtype": "Data",
+   "label": "Pricing Rule"
+  },
+  {
+   "fieldname": "customer_group",
+   "fieldtype": "Data",
+   "label": "Customer Group"
   },
   {
    "fieldname": "adder_breakdown_json",
@@ -45,7 +69,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-07 21:00:00.000000",
+ "modified": "2026-03-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Pricing-Snapshot",

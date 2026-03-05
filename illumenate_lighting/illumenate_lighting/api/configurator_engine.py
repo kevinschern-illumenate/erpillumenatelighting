@@ -91,11 +91,25 @@ Response Schema:
         "pricing": {                              # Pricing information
             "msrp_unit": float,
             "tier_unit": float,
+            "discount_amount": float,             # MSRP - tier
+            "discount_percentage": float,         # Percentage discount applied
+            "pricing_rule_name": str or None,     # ERPNext Pricing Rule that was applied
+            "customer_group": str or None,        # Customer Group used for lookup
             "adder_breakdown": [                  # Itemized pricing adders
                 {
                     "component": str,
                     "description": str,
                     "amount": float
+                }
+            ],
+            "item_pricing": [                     # Per-item line pricing
+                {
+                    "item_type": str,             # "fixture" | "power_supply"
+                    "item_code": str,
+                    "description": str,
+                    "msrp_unit": float,
+                    "tier_unit": float,
+                    "discount_amount": float
                 }
             ]
         },
@@ -112,6 +126,9 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+    get_tier_price_for_customer,
+)
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     add_inch_values_to_computed,
     inches_to_mm,
@@ -319,7 +336,11 @@ def validate_and_quote(
 			"leader_item": None,
 			"driver_plan": {"status": "suggested", "drivers": []},
 		},
-		"pricing": {"msrp_unit": 0.0, "tier_unit": 0.0, "adder_breakdown": []},
+		"pricing": {
+			"msrp_unit": 0.0, "tier_unit": 0.0, "discount_amount": 0.0,
+			"discount_percentage": 0.0, "pricing_rule_name": None,
+			"customer_group": None, "adder_breakdown": [], "item_pricing": [],
+		},
 		"configured_fixture_id": None,
 	}
 
@@ -427,6 +448,7 @@ def validate_and_quote(
 		tape_offering_id,
 		qty,
 		template_doc=validation_result.get("template_doc"),
+		driver_plan=driver_plan_result,
 	)
 
 	response["pricing"].update(pricing_result)
@@ -964,7 +986,11 @@ def validate_and_quote_multisegment(
 			"leader_item": None,
 			"driver_plan": {"status": "suggested", "drivers": []},
 		},
-		"pricing": {"msrp_unit": 0.0, "tier_unit": 0.0, "adder_breakdown": []},
+		"pricing": {
+			"msrp_unit": 0.0, "tier_unit": 0.0, "discount_amount": 0.0,
+			"discount_percentage": 0.0, "pricing_rule_name": None,
+			"customer_group": None, "adder_breakdown": [], "item_pricing": [],
+		},
 		"configured_fixture_id": None,
 	}
 
@@ -1076,6 +1102,7 @@ def validate_and_quote_multisegment(
 		tape_offering_id,
 		qty,
 		template_doc=template_doc,
+		driver_plan=driver_plan_result,
 	)
 
 	response["pricing"].update(pricing_result)
@@ -1930,6 +1957,10 @@ def _create_or_update_multisegment_fixture(
 	doc.append("pricing_snapshot", {
 		"msrp_unit": pricing.get("msrp_unit", 0.0),
 		"tier_unit": pricing.get("tier_unit", 0.0),
+		"discount_amount": pricing.get("discount_amount", 0),
+		"discount_percentage": pricing.get("discount_percentage", 0),
+		"pricing_rule": pricing.get("pricing_rule_name") or "",
+		"customer_group": pricing.get("customer_group") or "",
 		"adder_breakdown_json": json.dumps(pricing.get("adder_breakdown", [])),
 		"timestamp": now(),
 	})
@@ -3090,6 +3121,8 @@ def _calculate_pricing(
 	tape_offering_id: str,
 	qty: int,
 	template_doc=None,
+	customer: str | None = None,
+	driver_plan: dict = None,
 ) -> dict[str, Any]:
 	"""
 	Calculate MSRP, tier pricing, and adders.
@@ -3097,7 +3130,7 @@ def _calculate_pricing(
 	Implements Epic 4 Task 4.1: Baseline pricing formula
 	- base + $/ft × L_tape_cut (or L_mfg based on template setting)
 	- adders based on selected options (finish, lens, mounting, endcap, power feed, environment)
-	- customer tier/price list logic (MSRP only placeholder if tier not available)
+	- customer tier/price list via Customer Group Pricing Rules
 
 	Args:
 		fixture_template_code: The fixture template code
@@ -3113,9 +3146,13 @@ def _calculate_pricing(
 		tape_offering_id: Selected tape offering ID
 		qty: Quantity ordered
 		template_doc: Optional pre-fetched template document
+		customer: Optional customer name for tier pricing lookup. If None,
+			auto-detects from the logged-in session user.
+		driver_plan: Optional driver plan dict for per-item power supply pricing.
 
 	Returns:
-		dict: Pricing information with msrp_unit, tier_unit, and adder_breakdown
+		dict: Pricing information with msrp_unit, tier_unit, discount fields,
+			adder_breakdown, and item_pricing line items.
 	"""
 	MM_PER_FOOT = 304.8
 
@@ -3248,15 +3285,75 @@ def _calculate_pricing(
 	msrp_unit = base_price + length_adder + total_option_adders + tape_adder
 
 	# --- Customer Tier/Price List Logic ---
-	# Placeholder: MSRP only if tier not available
-	# In future, this would query Customer -> Price List -> apply discount/multiplier
-	# For now, tier_unit equals msrp_unit (no tier discount applied)
-	tier_unit = msrp_unit  # Placeholder: MSRP only
+	# Resolve tier pricing via Customer Group Pricing Rules
+	tier_result = get_tier_price_for_customer(msrp_unit, customer=customer)
+	tier_unit = tier_result["tier_unit"]
+	discount_amount = tier_result["discount_amount"]
+	discount_percentage = tier_result["discount_percentage"]
+	pricing_rule_name = tier_result["pricing_rule_name"]
+	customer_group = tier_result["customer_group"]
+
+	# --- Per-Item Pricing Breakdown ---
+	# Build line-by-line breakdown for fixture and power supply
+	fixture_msrp = round(msrp_unit, 2)
+	fixture_tier = round(tier_unit, 2)
+
+	item_pricing = [
+		{
+			"item_type": "fixture",
+			"item_code": resolved_items.get("profile_item"),
+			"description": "Fixture Assembly",
+			"msrp_unit": fixture_msrp,
+			"tier_unit": fixture_tier,
+			"discount_amount": round(fixture_msrp - fixture_tier, 2),
+		},
+	]
+
+	# Add power supply line item if driver plan has drivers
+	if driver_plan and driver_plan.get("drivers"):
+		for drv in driver_plan["drivers"]:
+			driver_item_code = drv.get("item_code")
+			if not driver_item_code:
+				continue
+
+			# Look up MSRP from Item Price (Selling, Standard Selling price list)
+			driver_msrp = 0.0
+			try:
+				driver_price = frappe.db.get_value(
+					"Item Price",
+					{"item_code": driver_item_code, "selling": 1},
+					"price_list_rate",
+				)
+				if driver_price:
+					driver_msrp = float(driver_price)
+			except Exception:
+				pass
+
+			# Apply same tier discount percentage to driver
+			if discount_percentage and driver_msrp > 0:
+				driver_tier = round(driver_msrp * (1 - discount_percentage / 100), 2)
+			else:
+				driver_tier = round(driver_msrp, 2)
+
+			driver_qty = drv.get("qty", 1)
+			item_pricing.append({
+				"item_type": "power_supply",
+				"item_code": driver_item_code,
+				"description": f"Power Supply (×{driver_qty})",
+				"msrp_unit": round(driver_msrp, 2),
+				"tier_unit": driver_tier,
+				"discount_amount": round(driver_msrp - driver_tier, 2),
+			})
 
 	return {
 		"msrp_unit": round(msrp_unit, 2),
 		"tier_unit": round(tier_unit, 2),
+		"discount_amount": round(discount_amount, 2),
+		"discount_percentage": round(discount_percentage, 2),
+		"pricing_rule_name": pricing_rule_name,
+		"customer_group": customer_group,
 		"adder_breakdown": adder_breakdown,
+		"item_pricing": item_pricing,
 	}
 
 
@@ -3458,6 +3555,10 @@ def _create_or_update_configured_fixture(
 		{
 			"msrp_unit": pricing["msrp_unit"],
 			"tier_unit": pricing["tier_unit"],
+			"discount_amount": pricing.get("discount_amount", 0),
+			"discount_percentage": pricing.get("discount_percentage", 0),
+			"pricing_rule": pricing.get("pricing_rule_name") or "",
+			"customer_group": pricing.get("customer_group") or "",
 			"adder_breakdown_json": json.dumps(pricing["adder_breakdown"]),
 			"timestamp": now(),
 		},
