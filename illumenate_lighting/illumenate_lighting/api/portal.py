@@ -577,6 +577,11 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 			name_lower = (name or "").lower()
 			return "linear fixture" in name_lower or "linear fixtures" in name_lower
 
+		# Define which item groups should show tape/neon templates instead of items
+		def is_tape_neon_group(name):
+			name_lower = (name or "").lower()
+			return name_lower in ("led tape", "led neon") or name_lower.startswith("led tape") or name_lower.startswith("led neon")
+
 		def _build_group_tree(parent_group_name, root_group_label):
 			"""Build a nested tree of item groups under a parent."""
 			if not frappe.db.exists("Item Group", parent_group_name):
@@ -603,6 +608,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"root_group": root_group_label,
 					"is_header": False,
 					"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
+					"is_tape_neon_type": is_tape_neon_group(child.name) or is_tape_neon_group(child.item_group_name),
 				})
 
 				# If include_subgroups, fetch sub-groups
@@ -624,6 +630,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 							"root_group": root_group_label,
 							"is_header": False,
 							"is_fixture_type": is_fixture_group(sub.name) or is_fixture_group(sub.item_group_name),
+							"is_tape_neon_type": is_tape_neon_group(sub.name) or is_tape_neon_group(sub.item_group_name),
 						})
 
 						# Grandchild groups (level 2)
@@ -644,6 +651,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 								"root_group": root_group_label,
 								"is_header": False,
 								"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
+								"is_tape_neon_type": is_tape_neon_group(grandchild.name) or is_tape_neon_group(grandchild.item_group_name),
 							})
 
 			return items
@@ -686,6 +694,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"root_group": root_label,
 					"is_header": True,
 					"is_fixture_type": False,
+					"is_tape_neon_type": False,
 				})
 				result.extend(group_items)
 
@@ -700,6 +709,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 				"root_group": "Products",
 				"is_header": False,
 				"is_fixture_type": True,
+				"is_tape_neon_type": False,
 			}]
 
 		return {"success": True, "product_types": result}
@@ -1209,6 +1219,74 @@ def get_fixture_templates(product_type: str = None) -> dict:
 
 
 @frappe.whitelist()
+def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> dict:
+	"""
+	Get available tape/neon templates for the schedule add-line modal.
+
+	Args:
+		product_category: "LED Tape" or "LED Neon"
+
+	Returns:
+		dict: {
+			"templates": [{"name": template_name, "template_name": name, "template_code": code, "image": url or None, "gallery": [...]}]
+		}
+	"""
+	if product_category not in ("LED Tape", "LED Neon"):
+		return {"templates": []}
+
+	templates = frappe.get_all(
+		"ilL-Tape-Neon-Template",
+		filters={"is_active": 1, "product_category": product_category},
+		fields=["name", "template_code", "template_name", "webflow_product", "image", "description"],
+		order_by="template_name asc",
+	)
+
+	# Batch-fetch gallery images from linked Webflow products
+	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
+	webflow_product_gallery = {}
+	if webflow_product_names:
+		gallery_rows = frappe.get_all(
+			"ilL-Child-Webflow-Gallery-Image",
+			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
+			fields=["parent", "image", "alt_text", "display_order", "idx"],
+			order_by="parent, idx asc",
+		)
+		for row in gallery_rows:
+			if row.image:
+				webflow_product_gallery.setdefault(row.parent, []).append(
+					{"image": row.image, "alt_text": row.alt_text or ""}
+				)
+
+		# Fallback: featured_image for products with no gallery images
+		webflow_products = frappe.get_all(
+			"ilL-Webflow-Product",
+			filters={"name": ["in", webflow_product_names]},
+			fields=["name", "featured_image"],
+		)
+		for wp in webflow_products:
+			if wp.name not in webflow_product_gallery and wp.featured_image:
+				webflow_product_gallery[wp.name] = [
+					{"image": wp.featured_image, "alt_text": ""}
+				]
+
+	result = []
+	for t in templates:
+		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
+		# If no Webflow gallery but has a direct image, use that
+		if not gallery and t.image:
+			gallery = [{"image": t.image, "alt_text": t.template_name or ""}]
+		result.append({
+			"name": t.name,
+			"template_code": t.template_code,
+			"template_name": t.template_name,
+			"image": gallery[0]["image"] if gallery else None,
+			"gallery": gallery,
+		})
+
+	return {"templates": result}
+
+
+@frappe.whitelist()
 def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	"""
 	Add a new line to a fixture schedule.
@@ -1257,6 +1335,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		if line.manufacturer_type == "ILLUMENATE":
 			line.product_type = line_data.get("product_type")
 			line.fixture_template = line_data.get("fixture_template")
+			line.tape_neon_template = line_data.get("tape_neon_template")
 			line.configuration_status = line_data.get("configuration_status", "Pending")
 
 		if line.manufacturer_type == "ACCESSORY":
@@ -1797,6 +1876,145 @@ def create_project(project_data: Union[str, dict]) -> dict:
 
 		project.insert()
 		return {"success": True, "project_name": project.name}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
+	"""
+	Update an existing ilL-Project.
+
+	Allows editing of project_name, description, estimated_start_date, location,
+	project_manager, architect, lighting_designer, general_contractor, and is_private.
+
+	Args:
+		project_name: Name (ID) of the project to update
+		project_data: Dict with project fields to update
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if isinstance(project_data, str):
+		try:
+			project_data = json.loads(project_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid project_data format"}
+
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "error": "Project not found"}
+
+	project = frappe.get_doc("ilL-Project", project_name)
+
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		has_permission,
+	)
+
+	if not has_permission(project, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to edit this project"}
+
+	# Editable fields (customer and owner_customer are NOT editable after creation)
+	editable_fields = [
+		"project_name",
+		"description",
+		"estimated_start_date",
+		"location",
+		"project_manager",
+		"architect",
+		"lighting_designer",
+		"general_contractor",
+		"is_private",
+	]
+
+	try:
+		for field in editable_fields:
+			if field in project_data:
+				value = project_data[field]
+				# Handle empty strings as None for Link/Date fields
+				if value == "" and field in (
+					"estimated_start_date",
+					"project_manager",
+					"architect",
+					"lighting_designer",
+					"general_contractor",
+				):
+					value = None
+				project.set(field, value)
+
+		project.save()
+		frappe.db.commit()
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def archive_project(project_name: str) -> dict:
+	"""
+	Archive or unarchive an ilL-Project.
+
+	Sets status to ARCHIVED and is_active to 0.
+
+	Args:
+		project_name: Name (ID) of the project to archive
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "error": "Project not found"}
+
+	project = frappe.get_doc("ilL-Project", project_name)
+
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		has_permission,
+	)
+
+	if not has_permission(project, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to archive this project"}
+
+	try:
+		project.status = "ARCHIVED"
+		project.is_active = 0
+		project.save()
+		frappe.db.commit()
+		return {"success": True}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def unarchive_project(project_name: str) -> dict:
+	"""
+	Restore an archived ilL-Project back to ACTIVE status.
+
+	Args:
+		project_name: Name (ID) of the project to unarchive
+
+	Returns:
+		dict: {"success": True/False, "error": "message if error"}
+	"""
+	if not frappe.db.exists("ilL-Project", project_name):
+		return {"success": False, "error": "Project not found"}
+
+	project = frappe.get_doc("ilL-Project", project_name)
+
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		has_permission,
+	)
+
+	if not has_permission(project, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to unarchive this project"}
+
+	if project.status != "ARCHIVED":
+		return {"success": False, "error": "Only archived projects can be unarchived"}
+
+	try:
+		project.status = "ACTIVE"
+		project.is_active = 1
+		project.save()
+		frappe.db.commit()
+		return {"success": True}
 	except Exception as e:
 		return {"success": False, "error": str(e)}
 

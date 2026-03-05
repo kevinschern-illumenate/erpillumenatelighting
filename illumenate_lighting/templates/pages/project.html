@@ -284,9 +284,21 @@ Also handles new project creation when is_new is True
 						</div>
 						{% if can_edit %}
 						<div class="btn-group">
+							<button class="btn btn-outline-primary" onclick="openEditProjectModal()">
+								<i class="fa fa-pencil"></i> {{ _("Edit") }}
+							</button>
 							<a href="/portal/projects/{{ project.name }}/collaborators" class="btn btn-outline-secondary">
 								<i class="fa fa-users"></i> {{ _("Collaborators") }}
 							</a>
+							{% if project.status != 'ARCHIVED' %}
+							<button class="btn btn-outline-warning" onclick="confirmArchiveProject()">
+								<i class="fa fa-archive"></i> {{ _("Archive") }}
+							</button>
+							{% else %}
+							<button class="btn btn-outline-success" onclick="confirmUnarchiveProject()">
+								<i class="fa fa-undo"></i> {{ _("Unarchive") }}
+							</button>
+							{% endif %}
 						</div>
 						{% endif %}
 					</div>
@@ -431,6 +443,190 @@ Also handles new project creation when is_new is True
 			<div id="projectFilesContainer">
 				<div class="text-center py-3">
 					<i class="fa fa-spinner fa-spin"></i> {{ _("Loading exported documents...") }}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Edit Project Modal -->
+	<div class="modal fade" id="editProjectModal" tabindex="-1" role="dialog">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">{{ _("Edit Project") }}</h5>
+					<button type="button" class="close" data-dismiss="modal">
+						<span>&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<form id="editProjectForm">
+						<div class="form-group">
+							<label>{{ _("Project Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="project_name" value="{{ project.project_name | e }}" required>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Customer") }}</label>
+							<input type="text" class="form-control" value="{{ project.customer }}" disabled>
+							<small class="form-text text-muted">{{ _("Customer cannot be changed after project creation") }}</small>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Description") }}</label>
+							<textarea class="form-control" name="description" rows="3">{{ project.description or '' }}</textarea>
+						</div>
+
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("Project Details") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Estimated Start Date") }}</label>
+									<input type="date" class="form-control" name="estimated_start_date" value="{{ project.estimated_start_date or '' }}">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Project Manager") }}</label>
+									<div class="input-group">
+										<select class="form-control edit-contact-select" name="project_manager" id="editProjectManagerSelect">
+											<option value="">{{ _("Select...") }}</option>
+										</select>
+										<div class="input-group-append">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('project_manager')" title="{{ _('Create New Contact') }}">
+												<i class="fa fa-plus"></i>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Location") }}</label>
+							<textarea class="form-control" name="location" rows="2" placeholder="{{ _('Project address or location details') }}">{{ project.location or '' }}</textarea>
+						</div>
+
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("Project Contacts") }}</h6>
+						<div class="row">
+							<div class="col-md-4">
+								<div class="form-group">
+									<label>{{ _("Architect") }}</label>
+									<div class="input-group">
+										<select class="form-control edit-contact-select" name="architect" id="editArchitectSelect">
+											<option value="">{{ _("Select...") }}</option>
+										</select>
+										<div class="input-group-append">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('architect')" title="{{ _('Create New Contact') }}">
+												<i class="fa fa-plus"></i>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-4">
+								<div class="form-group">
+									<label>{{ _("Lighting Designer") }}</label>
+									<div class="input-group">
+										<select class="form-control edit-contact-select" name="lighting_designer" id="editLightingDesignerSelect">
+											<option value="">{{ _("Select...") }}</option>
+										</select>
+										<div class="input-group-append">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('lighting_designer')" title="{{ _('Create New Contact') }}">
+												<i class="fa fa-plus"></i>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-4">
+								<div class="form-group">
+									<label>{{ _("General Contractor") }}</label>
+									<div class="input-group">
+										<select class="form-control edit-contact-select" name="general_contractor" id="editGeneralContractorSelect">
+											<option value="">{{ _("Select...") }}</option>
+										</select>
+										<div class="input-group-append">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('general_contractor')" title="{{ _('Create New Contact') }}">
+												<i class="fa fa-plus"></i>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<hr>
+						<div class="form-group">
+							<div class="custom-control custom-checkbox">
+								<input type="checkbox" class="custom-control-input" id="editIsPrivate" name="is_private" {% if project.is_private %}checked{% endif %}>
+								<label class="custom-control-label" for="editIsPrivate">
+									{{ _("Private Project") }}
+									<small class="text-muted d-block">{{ _("Only you and collaborators can view this project") }}</small>
+								</label>
+							</div>
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+					<button type="button" class="btn btn-primary" onclick="saveProjectEdits()">
+						<i class="fa fa-check"></i> {{ _("Save Changes") }}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Edit Contact Modal (for edit project) -->
+	<div class="modal fade" id="editContactModal" tabindex="-1" role="dialog">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">{{ _("Create New Contact") }}</h5>
+					<button type="button" class="close" data-dismiss="modal">
+						<span>&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<form id="editNewContactForm">
+						<input type="hidden" name="edit_contact_field_target" id="editContactFieldTarget">
+						<div class="form-group">
+							<label>{{ _("First Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="first_name" id="editNewContactFirstName" required>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Last Name") }}</label>
+							<input type="text" class="form-control" name="last_name" id="editNewContactLastName">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Email Address") }}</label>
+							<input type="email" class="form-control" name="email_id" id="editNewContactEmail" placeholder="{{ _('Optional') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Phone") }}</label>
+							<input type="text" class="form-control" name="phone" id="editNewContactPhone" placeholder="{{ _('Optional') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Company") }}</label>
+							<input type="text" class="form-control" name="company_name" id="editNewContactCompany" placeholder="{{ _('Optional') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Role/Title") }}</label>
+							<select class="form-control" name="designation" id="editNewContactRole">
+								<option value="">{{ _("Select...") }}</option>
+								<option value="Architect">{{ _("Architect") }}</option>
+								<option value="Lighting Designer">{{ _("Lighting Designer") }}</option>
+								<option value="General Contractor">{{ _("General Contractor") }}</option>
+								<option value="Project Manager">{{ _("Project Manager") }}</option>
+								<option value="Other">{{ _("Other") }}</option>
+							</select>
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+					<button type="button" class="btn btn-primary" onclick="createEditContact()">
+						<i class="fa fa-plus"></i> {{ _("Create Contact") }}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -737,6 +933,288 @@ function createNewContact() {
 	});
 }
 {% else %}
+// Open the edit project modal and load contacts
+function openEditProjectModal() {
+    loadEditContacts(function() {
+        $('#editProjectModal').modal('show');
+    });
+}
+
+// Load contacts into the edit modal's select dropdowns
+function loadEditContacts(callback) {
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.get_contacts_for_project',
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                var contacts = r.message.contacts || [];
+
+                // Current values from the project
+                var currentValues = {
+                    'project_manager': '{{ project.project_manager or "" }}',
+                    'architect': '{{ project.architect or "" }}',
+                    'lighting_designer': '{{ project.lighting_designer or "" }}',
+                    'general_contractor': '{{ project.general_contractor or "" }}'
+                };
+
+                $('.edit-contact-select').each(function() {
+                    var $select = $(this);
+                    var fieldName = $select.attr('name');
+
+                    // Clear except first
+                    $select.find('option:not(:first)').remove();
+
+                    contacts.forEach(function(contact) {
+                        var displayName = contact.first_name + (contact.last_name ? ' ' + contact.last_name : '');
+                        if (contact.company_name) {
+                            displayName += ' (' + contact.company_name + ')';
+                        }
+                        $select.append($('<option></option>')
+                            .attr('value', contact.name)
+                            .text(displayName));
+                    });
+
+                    // Set current value
+                    if (currentValues[fieldName]) {
+                        $select.val(currentValues[fieldName]);
+                    }
+                });
+            }
+            if (callback) callback();
+        }
+    });
+}
+
+// Save project edits
+function saveProjectEdits() {
+    var form = $('#editProjectForm');
+    var projectName = form.find('[name="project_name"]').val().trim();
+
+    if (!projectName) {
+        frappe.msgprint({
+            title: 'Error',
+            indicator: 'red',
+            message: 'Project name is required'
+        });
+        return;
+    }
+
+    var saveBtn = $('#editProjectModal .btn-primary');
+    saveBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Saving...');
+
+    var data = {
+        project_name: projectName,
+        description: form.find('[name="description"]').val(),
+        estimated_start_date: form.find('[name="estimated_start_date"]').val() || '',
+        location: form.find('[name="location"]').val() || '',
+        project_manager: form.find('[name="project_manager"]').val() || '',
+        architect: form.find('[name="architect"]').val() || '',
+        lighting_designer: form.find('[name="lighting_designer"]').val() || '',
+        general_contractor: form.find('[name="general_contractor"]').val() || '',
+        is_private: form.find('[name="is_private"]').is(':checked') ? 1 : 0
+    };
+
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.update_project',
+        args: {
+            project_name: '{{ project.name }}',
+            project_data: data
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                $('#editProjectModal').modal('hide');
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Project updated successfully'
+                });
+                window.location.reload();
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error updating project'
+                });
+            }
+            saveBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Save Changes');
+        },
+        error: function() {
+            saveBtn.prop('disabled', false).html('<i class="fa fa-check"></i> Save Changes');
+        }
+    });
+}
+
+// Archive project
+function confirmArchiveProject() {
+    frappe.confirm(
+        'Are you sure you want to archive this project? It will be hidden from the active projects list but can be unarchived later.',
+        function() {
+            archiveProject();
+        }
+    );
+}
+
+function archiveProject() {
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.archive_project',
+        args: {
+            project_name: '{{ project.name }}'
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Project archived successfully'
+                });
+                window.location.reload();
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error archiving project'
+                });
+            }
+        }
+    });
+}
+
+// Unarchive project
+function confirmUnarchiveProject() {
+    frappe.confirm(
+        'Restore this project to active status?',
+        function() {
+            unarchiveProject();
+        }
+    );
+}
+
+function unarchiveProject() {
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.unarchive_project',
+        args: {
+            project_name: '{{ project.name }}'
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Project restored to active status'
+                });
+                window.location.reload();
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error unarchiving project'
+                });
+            }
+        }
+    });
+}
+
+// Open edit contact modal
+function openEditContactModal(fieldName) {
+    $('#editContactFieldTarget').val(fieldName);
+
+    var roleMap = {
+        'architect': 'Architect',
+        'lighting_designer': 'Lighting Designer',
+        'general_contractor': 'General Contractor',
+        'project_manager': 'Project Manager'
+    };
+
+    if (roleMap[fieldName]) {
+        $('#editNewContactRole').val(roleMap[fieldName]);
+    }
+
+    $('#editContactModal').modal('show');
+}
+
+// Create contact from edit modal
+function createEditContact() {
+    var firstName = $('#editNewContactFirstName').val().trim();
+    var lastName = $('#editNewContactLastName').val().trim();
+    var email = $('#editNewContactEmail').val().trim();
+    var phone = $('#editNewContactPhone').val().trim();
+    var company = $('#editNewContactCompany').val().trim();
+    var role = $('#editNewContactRole').val();
+    var fieldTarget = $('#editContactFieldTarget').val();
+
+    if (!firstName) {
+        frappe.msgprint({
+            title: 'Error',
+            indicator: 'red',
+            message: 'First name is required'
+        });
+        return;
+    }
+
+    var createBtn = $('#editContactModal .btn-primary');
+    createBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.create_contact',
+        args: {
+            contact_data: {
+                first_name: firstName,
+                last_name: lastName || null,
+                email_id: email || null,
+                phone: phone || null,
+                company_name: company || null,
+                designation: role || null
+            }
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                var displayName = firstName + (lastName ? ' ' + lastName : '');
+                if (company) {
+                    displayName += ' (' + company + ')';
+                }
+
+                // Add to all edit contact dropdowns
+                $('.edit-contact-select').each(function() {
+                    $(this).append($('<option></option>')
+                        .attr('value', r.message.contact_name)
+                        .text(displayName));
+                });
+
+                // Select in target field
+                if (fieldTarget) {
+                    var selectorMap = {
+                        'project_manager': '#editProjectManagerSelect',
+                        'architect': '#editArchitectSelect',
+                        'lighting_designer': '#editLightingDesignerSelect',
+                        'general_contractor': '#editGeneralContractorSelect'
+                    };
+                    if (selectorMap[fieldTarget]) {
+                        $(selectorMap[fieldTarget]).val(r.message.contact_name);
+                    }
+                }
+
+                $('#editContactModal').modal('hide');
+                $('#editNewContactForm')[0].reset();
+
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Contact "' + displayName + '" created and selected'
+                });
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error creating contact'
+                });
+            }
+            createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Contact');
+        },
+        error: function() {
+            createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Contact');
+        }
+    });
+}
+
 // Helper function for schedule status badge class
 function schedule_status_class(status) {
 	var classMap = {

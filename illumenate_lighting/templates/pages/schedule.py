@@ -108,6 +108,12 @@ def get_context(context):
 			"product_type": line.product_type,
 			"fixture_template": line.fixture_template,
 			"fixture_template_name": None,  # Will be populated below
+			# Tape/Neon fields
+			"tape_neon_template": line.tape_neon_template,
+			"tape_neon_template_name": None,  # Will be populated below
+			"tape_neon_template_code": None,  # Will be populated below
+			"configured_tape_neon": line.configured_tape_neon,
+			"ctn_details": {},  # Configured tape/neon details
 			# Accessory/Component fields
 			"accessory_product_type": line.accessory_product_type,
 			"accessory_item": line.accessory_item,
@@ -140,6 +146,23 @@ def get_context(context):
 			)
 			if template_name:
 				line_dict["fixture_template_name"] = template_name
+
+		# For ilLumenate tape/neon lines, fetch template name/code and configured details
+		if line.manufacturer_type == "ILLUMENATE" and line.tape_neon_template:
+			tn_fields = frappe.db.get_value(
+				"ilL-Tape-Neon-Template",
+				line.tape_neon_template,
+				["template_name", "template_code"],
+				as_dict=True,
+			)
+			if tn_fields:
+				line_dict["tape_neon_template_name"] = tn_fields.template_name
+				line_dict["tape_neon_template_code"] = tn_fields.template_code
+
+		# For configured tape/neon, fetch display details
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon:
+			ctn_details = _get_configured_tape_neon_display_details(line.configured_tape_neon)
+			line_dict["ctn_details"] = ctn_details
 
 		# For accessory/component items, fetch item description
 		if line.manufacturer_type == "ACCESSORY" and line.accessory_item:
@@ -436,6 +459,56 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 	except Exception as e:
 		frappe.log_error(
 			message=f"Fixture: {configured_fixture_id}\nError: {str(e)}",
+			title="Schedule Display Error"
+		)
+		return {}
+
+
+def _get_configured_tape_neon_display_details(configured_tape_neon_id):
+	"""
+	Get display-ready details for a configured tape/neon product.
+
+	Returns dict with computed values for portal display.
+	"""
+	if not frappe.db.exists("ilL-Configured-Tape-Neon", configured_tape_neon_id):
+		frappe.log_error(
+			message=f"Tape/Neon ID: {configured_tape_neon_id}",
+			title="Missing Configured Tape/Neon"
+		)
+		return {}
+
+	try:
+		ctn = frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon_id)
+
+		# Calculate length in inches
+		length_mm = ctn.manufacturable_length_mm or 0
+		length_inches = length_mm / 25.4 if length_mm else 0
+
+		details = {
+			"part_number": ctn.part_number or ctn.config_hash,
+			"product_category": ctn.product_category,
+			"tape_neon_template": ctn.tape_neon_template,
+			"cct": ctn.cct,
+			"output_level": ctn.output_level,
+			"environment_rating": ctn.environment_rating,
+			"mounting_method": ctn.mounting_method,
+			"finish": ctn.finish,
+			"pcb_mounting": ctn.pcb_mounting,
+			"pcb_finish": ctn.pcb_finish,
+			"feed_type": ctn.feed_type,
+			"total_watts": ctn.total_watts,
+			"watts_per_foot": ctn.watts_per_foot,
+			"total_segments": ctn.total_segments,
+			"assembly_mode": ctn.assembly_mode,
+			"build_description": ctn.build_description,
+			"manufacturable_length_mm": length_mm,
+			"manufacturable_length_inches": round(length_inches, 1) if length_inches else None,
+		}
+
+		return details
+	except Exception as e:
+		frappe.log_error(
+			message=f"Tape/Neon: {configured_tape_neon_id}\nError: {str(e)}",
 			title="Schedule Display Error"
 		)
 		return {}

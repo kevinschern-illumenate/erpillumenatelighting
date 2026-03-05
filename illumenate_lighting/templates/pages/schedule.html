@@ -605,11 +605,67 @@ Also handles new schedule creation when is_new is True
 											</div>
 											{% endif %}
 										</div>
+										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_tape_neon') %}
+										{% set ctn_details = line.get('ctn_details', {}) %}
+										<div class="fixture-details">
+											<!-- Part Number -->
+											<strong class="text-primary">
+												{{ ctn_details.get('part_number') or 'Configured' }}
+											</strong>
+											<!-- Product Category badge -->
+											<span class="badge badge-info ml-1">{{ ctn_details.get('product_category') or line.get('product_type') or 'Tape/Neon' }}</span>
+											<!-- Template reference -->
+											{% if line.get('tape_neon_template_name') or line.get('tape_neon_template') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
+											</div>
+											{% endif %}
+											<!-- Tape/Neon attributes as badges -->
+											<div class="small text-muted mt-1">
+												{% if ctn_details.get('environment_rating') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ ctn_details.get('environment_rating') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('cct') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ ctn_details.get('cct') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('output_level') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ ctn_details.get('output_level') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('mounting_method') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ ctn_details.get('mounting_method') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ ctn_details.get('finish') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('pcb_mounting') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">PCB: <strong>{{ ctn_details.get('pcb_mounting') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('feed_type') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ ctn_details.get('feed_type') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('manufacturable_length_inches') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ ctn_details.get('manufacturable_length_inches') }}"</strong></span>
+												{% endif %}
+												{% if ctn_details.get('total_watts') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ ctn_details.get('total_watts') }}W</strong></span>
+												{% endif %}
+											</div>
+										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<div class="fixture-details">
-											{% if line.get('fixture_template_name') or line.get('fixture_template') %}
+											{% if line.get('tape_neon_template') %}
+											<!-- Unconfigured Tape/Neon line -->
+											<strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
+											<span class="badge badge-info ml-1">{{ line.get('product_type') or 'Tape/Neon' }}</span>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template') }}</strong>
+											</div>
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+											</div>
+											{% elif line.get('fixture_template_name') or line.get('fixture_template') %}
+											<!-- Unconfigured Linear Fixture line -->
 											<strong>{{ line.get('fixture_template_name') or line.get('fixture_template') }}</strong>
-											{% endif %}
 											{% if line.get('fixture_template') %}
 											<div class="small text-muted">
 												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_template') }}</strong>
@@ -618,6 +674,15 @@ Also handles new schedule creation when is_new is True
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
+											{% elif line.get('product_type') %}
+											<!-- Product type set but no template selected -->
+											<span class="text-muted">{{ line.get('product_type') }}</span>
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+											</div>
+											{% else %}
+											<span class="text-muted">-</span>
+											{% endif %}
 										</div>
 										{% else %}
 										<span class="text-muted">-</span>
@@ -644,12 +709,23 @@ Also handles new schedule creation when is_new is True
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 												{% if line.get('configured_fixture') %}
-												<!-- Edit existing configuration -->
+												<!-- Edit existing linear fixture configuration -->
 												<a href="/portal/edit_fixture?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&fixture={{ line.get('configured_fixture') }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
+												{% elif line.get('configured_tape_neon') %}
+												<!-- Configured tape/neon - edit link -->
+												<a href="/portal/configure?category={{ line.get('product_type') or 'LED Tape' }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+												</a>
+												{% elif line.get('tape_neon_template') %}
+												<!-- Unconfigured tape/neon - configure link -->
+												{% set tn_category = line.get('product_type') or 'LED Tape' %}
+												<a href="/portal/configure?category={{ tn_category }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+													<i class="fa fa-cog"></i> {{ _('Configure') }}
+												</a>
 												{% else %}
-												<!-- Create new configuration -->
+												<!-- Unconfigured linear fixture or no template - configure link -->
 												<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
@@ -821,6 +897,13 @@ Also handles new schedule creation when is_new is True
 										<option value="">{{ _("Select Fixture Template...") }}</option>
 									</select>
 								</div>
+								<!-- Tape/Neon Template dropdown (shown when LED Tape or LED Neon selected) -->
+								<div class="form-group tape-neon-template-group" style="display: none;">
+									<label>{{ _("Product Series") }}</label>
+									<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
+										<option value="">{{ _("Select Product Series...") }}</option>
+									</select>
+								</div>
 								<!-- Item dropdown (shown when non-Linear Fixture category selected) -->
 								<div class="form-group item-selection-group" style="display: none;">
 									<label>{{ _("Item") }}</label>
@@ -863,11 +946,15 @@ Also handles new schedule creation when is_new is True
 							</div>
 						</div>
 
-						<!-- Linear Fixture configure section -->
+						<!-- Fixture configure section (shown for Linear Fixtures, LED Tape, LED Neon) -->
 						<div class="fixture-configure-section" style="display: none;">
-							<div class="alert alert-info">
+							<div class="alert alert-info" id="addLineConfigureInfo">
 								<i class="fa fa-info-circle"></i> 
-								{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
+								{{ _("You can add this to the schedule unconfigured and configure it later, or click the button below to configure now.") }}
+							</div>
+							<div class="alert alert-warning" id="addLineUnconfiguredWarning" style="display: none;">
+								<i class="fa fa-exclamation-triangle"></i> 
+								{{ _("This fixture will be added without configuration. You can configure it from the schedule page later.") }}
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
 								<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
@@ -1265,15 +1352,18 @@ $('#addLineModal').on('show.bs.modal', function() {
 	// Reset product type and related fields
 	$('#add_product_type').val('');
 	$('.fixture-template-group').hide();
+	$('.tape-neon-template-group').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
+	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
 	$('#add_product_gallery_container').hide();
 	resetAddLineGallery();
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
+	$('#add_tape_neon_template').html('<option value="">{{ _("Select Product Series...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	$('#add_selected_variant').val('');
 	// Load product categories
@@ -1303,12 +1393,16 @@ $('#add_product_type').on('change', function() {
 	var $selected = $(this).find('option:selected');
 	var rawIsFixtureType = $selected.data('is-fixture-type');
 	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
+	var rawIsTapeNeonType = $selected.data('is-tape-neon-type');
+	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
 	
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
+	$('.tape-neon-template-group').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
+	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
 	$('.selected-variant-display').hide();
@@ -1325,8 +1419,12 @@ $('#add_product_type').on('change', function() {
 		$('.fixture-template-group').show();
 		$('.fixture-configure-section').show();
 		loadFixtureTemplates(productType);
+	} else if (isTapeNeonType) {
+		// LED Tape / LED Neon — show tape/neon template dropdown + configure section
+		$('.tape-neon-template-group').show();
+		$('.fixture-configure-section').show();
+		loadTapeNeonTemplates(productType);
 	} else {
-		// For all other product types, show item selection dropdown
 		// For all other product types, show item selection dropdown
 		$('.item-selection-group').show();
 		loadItemsForProductType(productType);
@@ -1357,6 +1455,45 @@ function loadFixtureTemplates(productType) {
 		}
 	});
 }
+
+// Load tape/neon templates from the server
+function loadTapeNeonTemplates(productType) {
+	// Determine the product category from the product type name
+	var productCategory = 'LED Tape';
+	var label = ($('#add_product_type option:selected').text() || '').trim().toLowerCase();
+	if (label.indexOf('neon') !== -1) {
+		productCategory = 'LED Neon';
+	}
+
+	$('#add_tape_neon_template').html('<option value="">{{ _("Loading...") }}</option>');
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_tape_neon_templates_for_schedule',
+		args: {
+			product_category: productCategory
+		},
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select Product Series...") }}</option>';
+			if (r.message && r.message.templates) {
+				r.message.templates.forEach(function(template) {
+					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
+					options += '<option value="' + template.name + '" data-template-code="' + (template.template_code || '') + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\' data-category="' + productCategory + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+				});
+			}
+			$('#add_tape_neon_template').html(options);
+		},
+		error: function() {
+			$('#add_tape_neon_template').html('<option value="">{{ _("Error loading series") }}</option>');
+		}
+	});
+}
+
+// Handle tape/neon template selection to show product image gallery
+$('#add_tape_neon_template').on('change', function() {
+	var $selected = $(this).find('option:selected');
+	var gallery = $selected.data('gallery') || [];
+	initAddLineGallery(gallery);
+});
 
 // ─── Add Line Gallery + Zoom/Pan ───
 var _addLineGallery = { images: [], index: 0, zoom: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0 };
@@ -1507,8 +1644,8 @@ function loadProductCategories() {
 					} else if (pt.level === 2) {
 						indent = '        └─ ';
 					}
-					// Store is_fixture_type as data attribute
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+					// Store is_fixture_type and is_tape_neon_type as data attributes
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -1839,7 +1976,10 @@ function addLine() {
 	var manufacturerType = form.find('[name="manufacturer_type"]').val();
 	var productType = form.find('[name="product_type"]').val();
 	var $productTypeSelected = form.find('[name="product_type"] option:selected');
-	var isFixtureType = $productTypeSelected.data('is-fixture-type') === 1 || $productTypeSelected.data('is-fixture-type') === '1' || $productTypeSelected.data('is-fixture-type') === true;
+	var rawIsFixtureType = $productTypeSelected.data('is-fixture-type');
+	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
+	var rawIsTapeNeonType = $productTypeSelected.data('is-tape-neon-type');
+	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
 	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
@@ -1853,10 +1993,14 @@ function addLine() {
 	if (manufacturerType === 'ILLUMENATE') {
 		data.product_type = productType;
 		
-		// Check if this is a fixture type using the data attribute
+		// Check if this is a linear fixture type using the data attribute
 		if (isFixtureType) {
 			// Linear Fixture path - uses fixture template and configurator
 			data.fixture_template = form.find('[name="fixture_template"]').val();
+			data.configuration_status = 'Pending';
+		} else if (isTapeNeonType) {
+			// LED Tape / LED Neon path - uses tape/neon template and configurator
+			data.tape_neon_template = form.find('[name="tape_neon_template"]').val();
 			data.configuration_status = 'Pending';
 		} else if (productType) {
 			// Other product types - uses item selection (potentially with variants)
@@ -1964,24 +2108,42 @@ function configureFromAddModal() {
 	var $productTypeSelected = form.find('[name="product_type"] option:selected');
 	var rawIsFixtureType = $productTypeSelected.data('is-fixture-type');
 	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
+	var rawIsTapeNeonType = $productTypeSelected.data('is-tape-neon-type');
+	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
 	
-	// Only allow configuring for ILLUMENATE manufacturer with fixture types (e.g., Linear Fixtures)
-	if (manufacturerType !== 'ILLUMENATE' || !isFixtureType) {
-		frappe.msgprint('Configure is only available for ilLumenate Linear Fixtures');
+	// Only allow configuring for ILLUMENATE manufacturer with fixture or tape/neon types
+	if (manufacturerType !== 'ILLUMENATE' || (!isFixtureType && !isTapeNeonType)) {
+		frappe.msgprint('Configure is only available for ilLumenate configurable products');
 		return;
 	}
 
-	// Get fixture template
-	var fixtureTemplate = form.find('[name="fixture_template"]').val();
+	// Determine the template to use and the redirect URL
+	var fixtureTemplate = null;
+	var tapeNeonTemplate = null;
+	var redirectUrl = '';
 
-	// Validate that fixture template is selected
-	if (!fixtureTemplate) {
-		frappe.msgprint({
-			title: 'Selection Required',
-			indicator: 'orange',
-			message: 'Please select a Fixture Template before configuring.'
-		});
-		return;
+	if (isFixtureType) {
+		// Linear Fixture path
+		fixtureTemplate = form.find('[name="fixture_template"]').val();
+		if (!fixtureTemplate) {
+			frappe.msgprint({
+				title: 'Selection Required',
+				indicator: 'orange',
+				message: 'Please select a Fixture Template before configuring.'
+			});
+			return;
+		}
+	} else if (isTapeNeonType) {
+		// LED Tape / LED Neon path
+		tapeNeonTemplate = form.find('[name="tape_neon_template"]').val();
+		if (!tapeNeonTemplate) {
+			frappe.msgprint({
+				title: 'Selection Required',
+				indicator: 'orange',
+				message: 'Please select a Product Series before configuring.'
+			});
+			return;
+		}
 	}
 
 	// Prepare line data
@@ -1991,10 +2153,15 @@ function configureFromAddModal() {
 		location: form.find('[name="location"]').val(),
 		manufacturer_type: manufacturerType,
 		product_type: productType,
-		fixture_template: fixtureTemplate,
 		configuration_status: 'Pending',
 		notes: form.find('[name="notes"]').val()
 	};
+
+	if (isFixtureType) {
+		data.fixture_template = fixtureTemplate;
+	} else if (isTapeNeonType) {
+		data.tape_neon_template = tapeNeonTemplate;
+	}
 
 	// Disable the configure button to prevent double clicks
 	$('#configureFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
@@ -2014,8 +2181,21 @@ function configureFromAddModal() {
 				// Close the modal
 				$('#addLineModal').modal('hide');
 				
-				// Redirect to configure page with schedule, line index, and fixture template
-				window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(fixtureTemplate);
+				if (isFixtureType) {
+					// Redirect to configure page for linear fixture
+					window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(fixtureTemplate);
+				} else if (isTapeNeonType) {
+					// Determine category for tape/neon configure page
+					var category = 'LED Tape';
+					var label = ($productTypeSelected.text() || '').trim().toLowerCase();
+					if (label.indexOf('neon') !== -1) {
+						category = 'LED Neon';
+					}
+					// Get template code from the selected option
+					var templateCode = form.find('[name="tape_neon_template"] option:selected').data('template-code') || tapeNeonTemplate;
+					// Redirect to configure page with category and template pre-selected
+					window.location.href = '/portal/configure?category=' + encodeURIComponent(category) + '&schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(templateCode);
+				}
 			} else {
 				frappe.msgprint(r.message.error || 'Error adding line');
 				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
