@@ -53,21 +53,37 @@ def get_context(context):
 			{"parent": schedule.name},
 		)
 
-	# Pre-load contact details to avoid template errors if contacts are deleted
-	contact_fields = ["project_manager", "architect", "lighting_designer", "general_contractor"]
+	# Pre-load contact details for project_manager (still a Contact field)
 	contact_details = {}
-	for field in contact_fields:
+	if project.get("project_manager"):
+		try:
+			contact = frappe.get_doc("Contact", project.get("project_manager"))
+			contact_details["project_manager"] = {
+				"first_name": contact.first_name,
+				"last_name": contact.last_name,
+				"company_name": contact.company_name
+			}
+		except Exception:
+			contact_details["project_manager"] = None
+
+	# Pre-load customer details for architect, lighting_designer, general_contractor
+	customer_role_details = {}
+	customer_role_fields = ["architect", "lighting_designer", "general_contractor"]
+	for field in customer_role_fields:
 		if project.get(field):
 			try:
-				contact = frappe.get_doc("Contact", project.get(field))
-				contact_details[field] = {
-					"first_name": contact.first_name,
-					"last_name": contact.last_name,
-					"company_name": contact.company_name
+				customer_name_display = frappe.db.get_value("Customer", project.get(field), "customer_name")
+				customer_role_details[field] = {
+					"customer_name": customer_name_display or project.get(field),
 				}
 			except Exception:
-				# Contact may have been deleted
-				contact_details[field] = None
+				customer_role_details[field] = None
+
+	# Get allowed customers for the customer-role dropdowns in the edit modal
+	from illumenate_lighting.illumenate_lighting.api.portal import (
+		get_allowed_customers_for_project,
+	)
+	allowed_result = get_allowed_customers_for_project()
 
 	context.project = project
 	context.schedules = schedules
@@ -76,7 +92,13 @@ def get_context(context):
 	context.title = project.project_name
 	context.no_cache = 1
 	context.frappe = frappe  # Make frappe available in template
-	context.contact_details = contact_details  # Pre-loaded contact details
+	context.contact_details = contact_details  # Pre-loaded contact details (project_manager)
+	context.customer_role_details = customer_role_details  # Pre-loaded customer details
+	context.allowed_customers = allowed_result.get("allowed_customers", [])
+	context.user_customer = allowed_result.get("user_customer")
+
+	# Get list of territories for new customer creation modal
+	context.territories = frappe.get_all("Territory", pluck="name", order_by="name")
 
 	return context
 

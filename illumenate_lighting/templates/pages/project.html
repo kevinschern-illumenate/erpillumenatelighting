@@ -85,17 +85,20 @@ Also handles new project creation when is_new is True
 						</div>
 
 						<hr>
-						<h6 class="text-muted mb-3">{{ _("Project Contacts") }}</h6>
+						<h6 class="text-muted mb-3">{{ _("Project Stakeholders") }}</h6>
 						<div class="row">
 							<div class="col-md-4">
 								<div class="form-group">
 									<label>{{ _("Architect") }}</label>
 									<div class="input-group">
-										<select class="form-control contact-select" name="architect" id="architectSelect">
+										<select class="form-control customer-role-select" name="architect" id="architectSelect">
 											<option value="">{{ _("Select...") }}</option>
+											{% for cust in allowed_customers %}
+											<option value="{{ cust.value }}">{{ cust.label }}</option>
+											{% endfor %}
 										</select>
 										<div class="input-group-append">
-											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openNewContactModal('architect')" title="{{ _('Create New Contact') }}">
+											<button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#newCustomerModal" title="{{ _('Create New Customer') }}">
 												<i class="fa fa-plus"></i>
 											</button>
 										</div>
@@ -106,11 +109,14 @@ Also handles new project creation when is_new is True
 								<div class="form-group">
 									<label>{{ _("Lighting Designer") }}</label>
 									<div class="input-group">
-										<select class="form-control contact-select" name="lighting_designer" id="lightingDesignerSelect">
+										<select class="form-control customer-role-select" name="lighting_designer" id="lightingDesignerSelect">
 											<option value="">{{ _("Select...") }}</option>
+											{% for cust in allowed_customers %}
+											<option value="{{ cust.value }}">{{ cust.label }}</option>
+											{% endfor %}
 										</select>
 										<div class="input-group-append">
-											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openNewContactModal('lighting_designer')" title="{{ _('Create New Contact') }}">
+											<button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#newCustomerModal" title="{{ _('Create New Customer') }}">
 												<i class="fa fa-plus"></i>
 											</button>
 										</div>
@@ -121,11 +127,14 @@ Also handles new project creation when is_new is True
 								<div class="form-group">
 									<label>{{ _("General Contractor") }}</label>
 									<div class="input-group">
-										<select class="form-control contact-select" name="general_contractor" id="generalContractorSelect">
+										<select class="form-control customer-role-select" name="general_contractor" id="generalContractorSelect">
 											<option value="">{{ _("Select...") }}</option>
+											{% for cust in allowed_customers %}
+											<option value="{{ cust.value }}">{{ cust.label }}</option>
+											{% endfor %}
 										</select>
 										<div class="input-group-append">
-											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openNewContactModal('general_contractor')" title="{{ _('Create New Contact') }}">
+											<button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#newCustomerModal" title="{{ _('Create New Customer') }}">
 												<i class="fa fa-plus"></i>
 											</button>
 										</div>
@@ -335,29 +344,23 @@ Also handles new project creation when is_new is True
 							{% endif %}
 						</div>
 						<div class="col-md-6">
-							<h6 class="text-muted mb-3">{{ _("Project Contacts") }}</h6>
-							{% if project.architect and contact_details.get('architect') %}
+							<h6 class="text-muted mb-3">{{ _("Project Stakeholders") }}</h6>
+							{% if project.architect and customer_role_details.get('architect') %}
 							<p class="mb-2">
 								<strong>{{ _("Architect") }}:</strong> 
-								{% set arch = contact_details.architect %}
-								{{ arch.first_name }} {% if arch.last_name %}{{ arch.last_name }}{% endif %}
-								{% if arch.company_name %}<small class="text-muted">({{ arch.company_name }})</small>{% endif %}
+								{{ customer_role_details.architect.customer_name }}
 							</p>
 							{% endif %}
-							{% if project.lighting_designer and contact_details.get('lighting_designer') %}
+							{% if project.lighting_designer and customer_role_details.get('lighting_designer') %}
 							<p class="mb-2">
 								<strong>{{ _("Lighting Designer") }}:</strong> 
-								{% set ld = contact_details.lighting_designer %}
-								{{ ld.first_name }} {% if ld.last_name %}{{ ld.last_name }}{% endif %}
-								{% if ld.company_name %}<small class="text-muted">({{ ld.company_name }})</small>{% endif %}
+								{{ customer_role_details.lighting_designer.customer_name }}
 							</p>
 							{% endif %}
-							{% if project.general_contractor and contact_details.get('general_contractor') %}
+							{% if project.general_contractor and customer_role_details.get('general_contractor') %}
 							<p class="mb-2">
 								<strong>{{ _("General Contractor") }}:</strong> 
-								{% set gc = contact_details.general_contractor %}
-								{{ gc.first_name }} {% if gc.last_name %}{{ gc.last_name }}{% endif %}
-								{% if gc.company_name %}<small class="text-muted">({{ gc.company_name }})</small>{% endif %}
+								{{ customer_role_details.general_contractor.customer_name }}
 							</p>
 							{% endif %}
 						</div>
@@ -511,17 +514,20 @@ Also handles new project creation when is_new is True
 						</div>
 
 						<hr>
-						<h6 class="text-muted mb-3">{{ _("Project Contacts") }}</h6>
+						<h6 class="text-muted mb-3">{{ _("Project Stakeholders") }}</h6>
 						<div class="row">
 							<div class="col-md-4">
 								<div class="form-group">
 									<label>{{ _("Architect") }}</label>
 									<div class="input-group">
-										<select class="form-control edit-contact-select" name="architect" id="editArchitectSelect">
+										<select class="form-control edit-customer-role-select" name="architect" id="editArchitectSelect">
 											<option value="">{{ _("Select...") }}</option>
+											{% for cust in allowed_customers %}
+											<option value="{{ cust.value }}" {% if project.architect == cust.value %}selected{% endif %}>{{ cust.label }}</option>
+											{% endfor %}
 										</select>
 										<div class="input-group-append">
-											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('architect')" title="{{ _('Create New Contact') }}">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditNewCustomerModal('architect')" title="{{ _('Create New Customer') }}">
 												<i class="fa fa-plus"></i>
 											</button>
 										</div>
@@ -532,11 +538,14 @@ Also handles new project creation when is_new is True
 								<div class="form-group">
 									<label>{{ _("Lighting Designer") }}</label>
 									<div class="input-group">
-										<select class="form-control edit-contact-select" name="lighting_designer" id="editLightingDesignerSelect">
+										<select class="form-control edit-customer-role-select" name="lighting_designer" id="editLightingDesignerSelect">
 											<option value="">{{ _("Select...") }}</option>
+											{% for cust in allowed_customers %}
+											<option value="{{ cust.value }}" {% if project.lighting_designer == cust.value %}selected{% endif %}>{{ cust.label }}</option>
+											{% endfor %}
 										</select>
 										<div class="input-group-append">
-											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('lighting_designer')" title="{{ _('Create New Contact') }}">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditNewCustomerModal('lighting_designer')" title="{{ _('Create New Customer') }}">
 												<i class="fa fa-plus"></i>
 											</button>
 										</div>
@@ -547,11 +556,14 @@ Also handles new project creation when is_new is True
 								<div class="form-group">
 									<label>{{ _("General Contractor") }}</label>
 									<div class="input-group">
-										<select class="form-control edit-contact-select" name="general_contractor" id="editGeneralContractorSelect">
+										<select class="form-control edit-customer-role-select" name="general_contractor" id="editGeneralContractorSelect">
 											<option value="">{{ _("Select...") }}</option>
+											{% for cust in allowed_customers %}
+											<option value="{{ cust.value }}" {% if project.general_contractor == cust.value %}selected{% endif %}>{{ cust.label }}</option>
+											{% endfor %}
 										</select>
 										<div class="input-group-append">
-											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditContactModal('general_contractor')" title="{{ _('Create New Contact') }}">
+											<button type="button" class="btn btn-outline-primary btn-sm" onclick="openEditNewCustomerModal('general_contractor')" title="{{ _('Create New Customer') }}">
 												<i class="fa fa-plus"></i>
 											</button>
 										</div>
@@ -582,7 +594,53 @@ Also handles new project creation when is_new is True
 		</div>
 	</div>
 
-	<!-- Edit Contact Modal (for edit project) -->
+	<!-- Edit New Customer Modal (for edit project stakeholders) -->
+	<div class="modal fade" id="editNewCustomerModal" tabindex="-1" role="dialog">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">{{ _("Create New Customer") }}</h5>
+					<button type="button" class="close" data-dismiss="modal">
+						<span>&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<form id="editNewCustomerForm">
+						<input type="hidden" name="customer_field_target" id="editCustomerFieldTarget">
+						<div class="form-group">
+							<label>{{ _("Customer Name") }} <span class="text-danger">*</span></label>
+							<input type="text" class="form-control" name="customer_name" id="editNewCustomerName" required placeholder="{{ _('Company or Individual Name') }}">
+						</div>
+						<div class="form-group">
+							<label>{{ _("Customer Type") }}</label>
+							<select class="form-control" name="customer_type" id="editNewCustomerType">
+								<option value="Company">{{ _("Company") }}</option>
+								<option value="Individual">{{ _("Individual") }}</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label>{{ _("Territory") }}</label>
+							<select class="form-control" name="territory" id="editNewCustomerTerritory">
+								<option value="">{{ _("Default") }}</option>
+								{% for territory in territories %}
+								<option value="{{ territory }}">{{ territory }}</option>
+								{% endfor %}
+							</select>
+							<small class="form-text text-muted">{{ _("Optional - geographic region for this customer") }}</small>
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+					<button type="button" class="btn btn-primary" onclick="createEditNewCustomer()">
+						<i class="fa fa-plus"></i> {{ _("Create Customer") }}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Edit Contact Modal (for project manager only) -->
 	<div class="modal fade" id="editContactModal" tabindex="-1" role="dialog">
 		<div class="modal-dialog" role="document">
 			<div class="modal-content">
@@ -594,7 +652,6 @@ Also handles new project creation when is_new is True
 				</div>
 				<div class="modal-body">
 					<form id="editNewContactForm">
-						<input type="hidden" name="edit_contact_field_target" id="editContactFieldTarget">
 						<div class="form-group">
 							<label>{{ _("First Name") }} <span class="text-danger">*</span></label>
 							<input type="text" class="form-control" name="first_name" id="editNewContactFirstName" required>
@@ -614,17 +671,6 @@ Also handles new project creation when is_new is True
 						<div class="form-group">
 							<label>{{ _("Company") }}</label>
 							<input type="text" class="form-control" name="company_name" id="editNewContactCompany" placeholder="{{ _('Optional') }}">
-						</div>
-						<div class="form-group">
-							<label>{{ _("Role/Title") }}</label>
-							<select class="form-control" name="designation" id="editNewContactRole">
-								<option value="">{{ _("Select...") }}</option>
-								<option value="Architect">{{ _("Architect") }}</option>
-								<option value="Lighting Designer">{{ _("Lighting Designer") }}</option>
-								<option value="General Contractor">{{ _("General Contractor") }}</option>
-								<option value="Project Manager">{{ _("Project Manager") }}</option>
-								<option value="Other">{{ _("Other") }}</option>
-							</select>
 						</div>
 					</form>
 				</div>
@@ -758,12 +804,19 @@ function createNewCustomer() {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
-				// Add the new customer to the dropdown
+				// Add the new customer to the main customer dropdown
 				var newOption = $('<option></option>')
 					.attr('value', r.message.customer_name)
 					.text(customerName)
 					.prop('selected', true);
 				$('#customerSelect').append(newOption);
+
+				// Also add to all customer-role-select dropdowns (Architect, LD, GC)
+				$('.customer-role-select').each(function() {
+					$(this).append($('<option></option>')
+						.attr('value', r.message.customer_name)
+						.text(customerName));
+				});
 
 				// Close the modal
 				$('#newCustomerModal').modal('hide');
@@ -939,14 +992,14 @@ function createNewContact() {
 	});
 }
 {% else %}
-// Open the edit project modal and load contacts
+// Open the edit project modal and load contacts for project_manager
 function openEditProjectModal() {
     loadEditContacts(function() {
         $('#editProjectModal').modal('show');
     });
 }
 
-// Load contacts into the edit modal's select dropdowns
+// Load contacts into the edit modal's project_manager dropdown only
 function loadEditContacts(callback) {
     frappe.call({
         method: 'illumenate_lighting.illumenate_lighting.api.portal.get_contacts_for_project',
@@ -954,17 +1007,11 @@ function loadEditContacts(callback) {
             if (r.message && r.message.success) {
                 var contacts = r.message.contacts || [];
 
-                // Current values from the project
-                var currentValues = {
-                    'project_manager': '{{ project.project_manager or "" }}',
-                    'architect': '{{ project.architect or "" }}',
-                    'lighting_designer': '{{ project.lighting_designer or "" }}',
-                    'general_contractor': '{{ project.general_contractor or "" }}'
-                };
+                var currentPM = '{{ project.project_manager or "" }}';
 
+                // Only populate edit-contact-select (project_manager)
                 $('.edit-contact-select').each(function() {
                     var $select = $(this);
-                    var fieldName = $select.attr('name');
 
                     // Clear except first
                     $select.find('option:not(:first)').remove();
@@ -980,8 +1027,8 @@ function loadEditContacts(callback) {
                     });
 
                     // Set current value
-                    if (currentValues[fieldName]) {
-                        $select.val(currentValues[fieldName]);
+                    if (currentPM) {
+                        $select.val(currentPM);
                     }
                 });
             }
@@ -1119,33 +1166,24 @@ function unarchiveProject() {
     });
 }
 
-// Open edit contact modal
+// Open edit new customer modal for stakeholder fields
+function openEditNewCustomerModal(fieldName) {
+    $('#editCustomerFieldTarget').val(fieldName);
+    $('#editNewCustomerModal').modal('show');
+}
+
+// Open edit contact modal (for project manager)
 function openEditContactModal(fieldName) {
-    $('#editContactFieldTarget').val(fieldName);
-
-    var roleMap = {
-        'architect': 'Architect',
-        'lighting_designer': 'Lighting Designer',
-        'general_contractor': 'General Contractor',
-        'project_manager': 'Project Manager'
-    };
-
-    if (roleMap[fieldName]) {
-        $('#editNewContactRole').val(roleMap[fieldName]);
-    }
-
     $('#editContactModal').modal('show');
 }
 
-// Create contact from edit modal
+// Create contact from edit modal (for project manager)
 function createEditContact() {
     var firstName = $('#editNewContactFirstName').val().trim();
     var lastName = $('#editNewContactLastName').val().trim();
     var email = $('#editNewContactEmail').val().trim();
     var phone = $('#editNewContactPhone').val().trim();
     var company = $('#editNewContactCompany').val().trim();
-    var role = $('#editNewContactRole').val();
-    var fieldTarget = $('#editContactFieldTarget').val();
 
     if (!firstName) {
         frappe.msgprint({
@@ -1168,7 +1206,7 @@ function createEditContact() {
                 email_id: email || null,
                 phone: phone || null,
                 company_name: company || null,
-                designation: role || null
+                designation: 'Project Manager'
             }
         },
         callback: function(r) {
@@ -1178,25 +1216,11 @@ function createEditContact() {
                     displayName += ' (' + company + ')';
                 }
 
-                // Add to all edit contact dropdowns
-                $('.edit-contact-select').each(function() {
-                    $(this).append($('<option></option>')
-                        .attr('value', r.message.contact_name)
-                        .text(displayName));
-                });
-
-                // Select in target field
-                if (fieldTarget) {
-                    var selectorMap = {
-                        'project_manager': '#editProjectManagerSelect',
-                        'architect': '#editArchitectSelect',
-                        'lighting_designer': '#editLightingDesignerSelect',
-                        'general_contractor': '#editGeneralContractorSelect'
-                    };
-                    if (selectorMap[fieldTarget]) {
-                        $(selectorMap[fieldTarget]).val(r.message.contact_name);
-                    }
-                }
+                // Add to edit contact dropdown (project manager)
+                $('#editProjectManagerSelect').append($('<option></option>')
+                    .attr('value', r.message.contact_name)
+                    .text(displayName));
+                $('#editProjectManagerSelect').val(r.message.contact_name);
 
                 $('#editContactModal').modal('hide');
                 $('#editNewContactForm')[0].reset();
@@ -1217,6 +1241,80 @@ function createEditContact() {
         },
         error: function() {
             createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Contact');
+        }
+    });
+}
+
+// Create customer from edit modal for stakeholder fields
+function createEditNewCustomer() {
+    var customerName = $('#editNewCustomerName').val().trim();
+    var customerType = $('#editNewCustomerType').val();
+    var territory = $('#editNewCustomerTerritory').val();
+
+    if (!customerName) {
+        frappe.msgprint({
+            title: 'Error',
+            indicator: 'red',
+            message: 'Customer name is required'
+        });
+        return;
+    }
+
+    var createBtn = $('#editNewCustomerModal .btn-primary');
+    createBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.portal.create_customer',
+        args: {
+            customer_data: {
+                customer_name: customerName,
+                customer_type: customerType,
+                territory: territory || null
+            }
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                var newOption = $('<option></option>')
+                    .attr('value', r.message.customer_name)
+                    .text(customerName);
+
+                // Add to all edit customer role dropdowns
+                $('.edit-customer-role-select').each(function() {
+                    $(this).append(newOption.clone());
+                });
+
+                // Select in target field
+                var fieldTarget = $('#editCustomerFieldTarget').val();
+                if (fieldTarget) {
+                    var selectorMap = {
+                        'architect': '#editArchitectSelect',
+                        'lighting_designer': '#editLightingDesignerSelect',
+                        'general_contractor': '#editGeneralContractorSelect'
+                    };
+                    if (selectorMap[fieldTarget]) {
+                        $(selectorMap[fieldTarget]).val(r.message.customer_name);
+                    }
+                }
+
+                $('#editNewCustomerModal').modal('hide');
+                $('#editNewCustomerForm')[0].reset();
+
+                frappe.msgprint({
+                    title: 'Success',
+                    indicator: 'green',
+                    message: 'Customer "' + customerName + '" created and selected'
+                });
+            } else {
+                frappe.msgprint({
+                    title: 'Error',
+                    indicator: 'red',
+                    message: r.message.error || 'Error creating customer'
+                });
+            }
+            createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Customer');
+        },
+        error: function() {
+            createBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Customer');
         }
     });
 }

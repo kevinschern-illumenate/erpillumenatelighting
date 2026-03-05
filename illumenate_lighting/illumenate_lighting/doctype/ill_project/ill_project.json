@@ -129,29 +129,29 @@
                        "label":  "Project Contacts"
                    },
                    {
-                       "description":  "Architect contact for this project",
+                       "description":  "Architect customer for this project",
                        "fieldname":  "architect",
                        "fieldtype":  "Link",
                        "label":  "Architect",
-                       "options":  "Contact"
+                       "options":  "Customer"
                    },
                    {
-                       "description":  "Lighting designer contact for this project",
+                       "description":  "Lighting designer customer for this project",
                        "fieldname":  "lighting_designer",
                        "fieldtype":  "Link",
                        "label":  "Lighting Designer",
-                       "options":  "Contact"
+                       "options":  "Customer"
                    },
                    {
                        "fieldname":  "column_break_contacts",
                        "fieldtype":  "Column Break"
                    },
                    {
-                       "description":  "General contractor contact for this project",
+                       "description":  "General contractor customer for this project",
                        "fieldname":  "general_contractor",
                        "fieldtype":  "Link",
                        "label":  "General Contractor",
-                       "options":  "Contact"
+                       "options":  "Customer"
                    },
                    {
                        "collapsible":  1,

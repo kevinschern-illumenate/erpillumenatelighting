@@ -1895,6 +1895,20 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		project.is_private = project_data.get("is_private", 0)
 		# owner_customer is set automatically in before_insert
 
+		# Optional fields
+		if project_data.get("estimated_start_date"):
+			project.estimated_start_date = project_data.get("estimated_start_date")
+		if project_data.get("location"):
+			project.location = project_data.get("location")
+		if project_data.get("project_manager"):
+			project.project_manager = project_data.get("project_manager")
+		if project_data.get("architect"):
+			project.architect = project_data.get("architect")
+		if project_data.get("lighting_designer"):
+			project.lighting_designer = project_data.get("lighting_designer")
+		if project_data.get("general_contractor"):
+			project.general_contractor = project_data.get("general_contractor")
+
 		project.insert()
 		return {"success": True, "project_name": project.name}
 	except Exception as e:
