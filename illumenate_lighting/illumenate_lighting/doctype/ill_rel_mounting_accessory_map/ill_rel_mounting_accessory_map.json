@@ -3,12 +3,13 @@
 
                 ],
     "allow_rename":  1,
-    "autoname":  "format:{fixture_template}-{mounting_method}-{accessory_item}",
+    "autoname":  "format:{template_type}-{fixture_template}-{mounting_method}-{accessory_item}",
     "creation":  "2026-01-07 21:00:00.000000",
     "doctype":  "DocType",
     "engine":  "InnoDB",
     "field_order":  [
                         "mapping_section",
+                        "template_type",
                         "fixture_template",
                         "mounting_method",
                         "column_break_mapping",
@@ -29,11 +30,20 @@
                        "label":  "Mapping Criteria"
                    },
                    {
-                       "fieldname":  "fixture_template",
-                       "fieldtype":  "Link",
+                       "default":  "ilL-Fixture-Template",
+                       "fieldname":  "template_type",
+                       "fieldtype":  "Select",
                        "in_list_view":  1,
-                       "label":  "Fixture Template",
-                       "options":  "ilL-Fixture-Template",
+                       "label":  "Template Type",
+                       "options":  "ilL-Fixture-Template\nilL-Tape-Neon-Template",
+                       "reqd":  1
+                   },
+                   {
+                       "fieldname":  "fixture_template",
+                       "fieldtype":  "Dynamic Link",
+                       "in_list_view":  1,
+                       "label":  "Product Template",
+                       "options":  "template_type",
                        "reqd":  1
                    },
                    {
@@ -142,7 +152,7 @@
                     ],
     "row_format":  "Dynamic",
     "rows_threshold_for_grid_search":  20,
-    "search_fields":  "fixture_template, mounting_method, accessory_item",
+    "search_fields":  "template_type, fixture_template, mounting_method, accessory_item",
     "sort_field":  "modified",
     "sort_order":  "DESC",
     "states":  [
