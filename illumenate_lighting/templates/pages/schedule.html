@@ -2052,7 +2052,16 @@ function addLine() {
 			data.configuration_status = 'Pending';
 		} else if (isTapeNeonType) {
 			// LED Tape / LED Neon path - uses tape/neon template and configurator
-			data.tape_neon_template = form.find('[name="tape_neon_template"]').val();
+			var tapeNeonTemplate = form.find('[name="tape_neon_template"]').val();
+			if (!tapeNeonTemplate) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select a Product Series before adding the line.") }}'
+				});
+				return;
+			}
+			data.tape_neon_template = tapeNeonTemplate;
 			data.configuration_status = 'Pending';
 		} else if (productType) {
 			// Other product types - uses item selection (potentially with variants)
@@ -2215,6 +2224,13 @@ function configureFromAddModal() {
 		data.tape_neon_template = tapeNeonTemplate;
 	}
 
+	// Determine the configure button label based on product type
+	var configBtnLabel = '{{ _("Configure Fixture Now") }}';
+	if (isTapeNeonType) {
+		var catLabel = ($productTypeSelected.text() || '').trim().toLowerCase();
+		configBtnLabel = catLabel.indexOf('neon') !== -1 ? '{{ _("Configure LED Neon Now") }}' : '{{ _("Configure LED Tape Now") }}';
+	}
+
 	// Disable the configure button to prevent double clicks
 	$('#configureFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
 
@@ -2250,11 +2266,11 @@ function configureFromAddModal() {
 				}
 			} else {
 				frappe.msgprint(r.message.error || 'Error adding line');
-				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> ' + configBtnLabel);
 			}
 		},
 		error: function() {
-			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> ' + configBtnLabel);
 		}
 	});
 }
