@@ -1335,6 +1335,35 @@ Also handles new schedule creation when is_new is True
 		</div>
 	</div>
 </div>
+
+<!-- Create New Version Modal -->
+{% if can_edit and not schedule.is_locked %}
+<div class="modal fade" id="createVersionModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Create New Version") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="form-group">
+					<label>{{ _("Version Notes (Optional)") }}</label>
+					<textarea class="form-control" id="versionNotes" rows="3" placeholder="{{ _('Describe what changed or why a new version is being created.') }}"></textarea>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="confirmCreateVersionBtn" onclick="confirmCreateVersion()">
+					<i class="fa fa-code-fork"></i> {{ _("Create") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
 {% endif %}
 {% endblock %}
 
@@ -2804,37 +2833,33 @@ function renderVersionHistory(versions, current) {
 }
 
 function createNewVersion() {
-	var d = new frappe.ui.Dialog({
-		title: 'Create New Version',
-		fields: [
-			{
-				fieldname: 'version_notes',
-				fieldtype: 'Small Text',
-				label: 'Version Notes (Optional)',
-				description: 'Describe what changed or why a new version is being created.'
+	$('#versionNotes').val('');
+	$('#createVersionModal').modal('show');
+}
+
+function confirmCreateVersion() {
+	var btn = $('#confirmCreateVersionBtn');
+	btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_version',
+		args: {
+			schedule_name: '{{ schedule.name }}',
+			version_notes: $('#versionNotes').val() || ''
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#createVersionModal').modal('hide');
+				frappe.show_alert({message: 'New version created!', indicator: 'green'});
+				window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
+			} else {
+				btn.prop('disabled', false).html('<i class="fa fa-code-fork"></i> Create');
+				frappe.msgprint(r.message ? r.message.error : 'Error creating version');
 			}
-		],
-		primary_action_label: 'Create',
-		primary_action: function(values) {
-			d.hide();
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_version',
-				args: {
-					schedule_name: '{{ schedule.name }}',
-					version_notes: values.version_notes || ''
-				},
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frappe.show_alert({message: 'New version created!', indicator: 'green'});
-						window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
-					} else {
-						frappe.msgprint(r.message ? r.message.error : 'Error creating version');
-					}
-				}
-			});
+		},
+		error: function() {
+			btn.prop('disabled', false).html('<i class="fa fa-code-fork"></i> Create');
 		}
 	});
-	d.show();
 }
 {% endif %}
 </script>
