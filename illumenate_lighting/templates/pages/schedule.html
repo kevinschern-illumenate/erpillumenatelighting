@@ -658,10 +658,15 @@ Also handles new schedule creation when is_new is True
 											<strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
 											<span class="badge badge-info ml-1">{{ line.get('product_type') or 'Tape/Neon' }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template') }}</strong>
+												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template_code') or line.get('tape_neon_template') }}</strong>
 											</div>
+											{% if line.get('tape_neon_template_description') %}
+											<div class="small text-muted mt-1">
+												{{ line.get('tape_neon_template_description') }}
+											</div>
+											{% endif %}
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not fully configured - click Configure to complete setup") }}
 											</div>
 											{% elif line.get('fixture_template_name') or line.get('fixture_template') %}
 											<!-- Unconfigured Linear Fixture line -->
@@ -946,6 +951,19 @@ Also handles new schedule creation when is_new is True
 							</div>
 						</div>
 
+						<!-- Tape/Neon template info display (shown when a tape/neon template is selected) -->
+						<div class="tape-neon-template-info" style="display: none;">
+							<div class="alert alert-light">
+								<div class="row">
+									<div class="col-md-8">
+										<strong id="tape_neon_info_name"></strong>
+										<span class="badge badge-info ml-1" id="tape_neon_info_category"></span>
+										<p class="mb-0 text-muted small mt-1" id="tape_neon_info_desc"></p>
+									</div>
+								</div>
+							</div>
+						</div>
+
 						<!-- Fixture configure section (shown for Linear Fixtures, LED Tape, LED Neon) -->
 						<div class="fixture-configure-section" style="display: none;">
 							<div class="alert alert-info" id="addLineConfigureInfo">
@@ -954,7 +972,7 @@ Also handles new schedule creation when is_new is True
 							</div>
 							<div class="alert alert-warning" id="addLineUnconfiguredWarning" style="display: none;">
 								<i class="fa fa-exclamation-triangle"></i> 
-								{{ _("This fixture will be added without configuration. You can configure it from the schedule page later.") }}
+								{{ _("This line will be added without full configuration. You can configure it from the schedule page later.") }}
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
 								<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
@@ -1353,6 +1371,7 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('#add_product_type').val('');
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
+	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
@@ -1365,6 +1384,8 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
 	$('#add_tape_neon_template').html('<option value="">{{ _("Select Product Series...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
+	// Reset configure button text to default
+	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
 	$('#add_selected_variant').val('');
 	// Load product categories
 	loadProductCategories();
@@ -1399,6 +1420,7 @@ $('#add_product_type').on('change', function() {
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
+	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
@@ -1409,6 +1431,8 @@ $('#add_product_type').on('change', function() {
 	$('#add_selected_variant').val('');
 	$('#add_product_gallery_container').hide();
 	resetAddLineGallery();
+	// Reset configure button text to default
+	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
 	
 	if (!productType) {
 		return;
@@ -1424,6 +1448,13 @@ $('#add_product_type').on('change', function() {
 		$('.tape-neon-template-group').show();
 		$('.fixture-configure-section').show();
 		loadTapeNeonTemplates(productType);
+		// Update configure button text for tape/neon
+		var categoryLabel = ($selected.text() || '').trim();
+		if (categoryLabel.toLowerCase().indexOf('neon') !== -1) {
+			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Neon Now") }}');
+		} else {
+			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Tape Now") }}');
+		}
 	} else {
 		// For all other product types, show item selection dropdown
 		$('.item-selection-group').show();
@@ -1477,7 +1508,8 @@ function loadTapeNeonTemplates(productType) {
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
 					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
-					options += '<option value="' + template.name + '" data-template-code="' + (template.template_code || '') + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\' data-category="' + productCategory + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+					var safeDesc = (template.description || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+					options += '<option value="' + template.name + '" data-template-code="' + (template.template_code || '') + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\' data-category="' + productCategory + '" data-description="' + safeDesc + '">' + template.template_name + ' (' + template.template_code + ')</option>';
 				});
 			}
 			$('#add_tape_neon_template').html(options);
@@ -1488,11 +1520,31 @@ function loadTapeNeonTemplates(productType) {
 	});
 }
 
-// Handle tape/neon template selection to show product image gallery
+// Handle tape/neon template selection to show product image gallery and template info
 $('#add_tape_neon_template').on('change', function() {
 	var $selected = $(this).find('option:selected');
 	var gallery = $selected.data('gallery') || [];
+	var templateName = $selected.text().trim();
+	var category = $selected.data('category') || '';
+	var description = $selected.attr('data-description') || '';
 	initAddLineGallery(gallery);
+
+	// Show/hide tape-neon template info section
+	if ($(this).val()) {
+		$('.tape-neon-template-info').show();
+		$('#tape_neon_info_name').text(templateName);
+		$('#tape_neon_info_category').text(category || 'LED Tape');
+		if (description) {
+			$('#tape_neon_info_desc').text(description).show();
+		} else {
+			$('#tape_neon_info_desc').hide();
+		}
+		// Update configure button text based on category
+		var configLabel = category === 'LED Neon' ? '{{ _("Configure LED Neon Now") }}' : '{{ _("Configure LED Tape Now") }}';
+		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configLabel);
+	} else {
+		$('.tape-neon-template-info').hide();
+	}
 });
 
 // ─── Add Line Gallery + Zoom/Pan ───

@@ -112,6 +112,7 @@ def get_context(context):
 			"tape_neon_template": line.tape_neon_template,
 			"tape_neon_template_name": None,  # Will be populated below
 			"tape_neon_template_code": None,  # Will be populated below
+			"tape_neon_template_description": "",  # Will be populated below
 			"configured_tape_neon": line.configured_tape_neon,
 			"ctn_details": {},  # Configured tape/neon details
 			# Accessory/Component fields
@@ -147,17 +148,18 @@ def get_context(context):
 			if template_name:
 				line_dict["fixture_template_name"] = template_name
 
-		# For ilLumenate tape/neon lines, fetch template name/code and configured details
+		# For ilLumenate tape/neon lines, fetch template name/code/description and configured details
 		if line.manufacturer_type == "ILLUMENATE" and line.tape_neon_template:
 			tn_fields = frappe.db.get_value(
 				"ilL-Tape-Neon-Template",
 				line.tape_neon_template,
-				["template_name", "template_code"],
+				["template_name", "template_code", "description"],
 				as_dict=True,
 			)
 			if tn_fields:
 				line_dict["tape_neon_template_name"] = tn_fields.template_name
 				line_dict["tape_neon_template_code"] = tn_fields.template_code
+				line_dict["tape_neon_template_description"] = tn_fields.description or ""
 
 		# For configured tape/neon, fetch display details
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon:
