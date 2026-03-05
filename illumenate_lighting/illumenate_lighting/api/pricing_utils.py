@@ -112,7 +112,7 @@ def get_tier_price_for_customer(msrp_unit: float, customer: str | None = None) -
         fields=[
             "name",
             "priority",
-            "pricing_rule_for",      # "Discount Percentage" | "Rate" | "Discount Amount"
+            "rate_or_discount",      # "Discount Percentage" | "Rate" | "Discount Amount"
             "discount_percentage",
             "rate",
             "discount_amount",
@@ -129,7 +129,7 @@ def get_tier_price_for_customer(msrp_unit: float, customer: str | None = None) -
     tier_unit = msrp_unit
     pricing_rule_name = rule.name
 
-    rule_type = (rule.pricing_rule_for or "").strip()
+    rule_type = (rule.rate_or_discount or "").strip()
 
     if rule_type == "Discount Percentage":
         pct = float(rule.discount_percentage or 0)
