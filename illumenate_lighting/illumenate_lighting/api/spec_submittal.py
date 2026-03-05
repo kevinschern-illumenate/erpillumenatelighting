@@ -174,6 +174,17 @@ def _get_source_value(
 					"ilL-Rel-Tape Offering", tape_offering, source_field
 				)
 
+		if source_doctype == "ilL-Spec-LED Tape" and configured_fixture:
+			tape_offering = configured_fixture.tape_offering
+			if tape_offering:
+				tape_spec = frappe.db.get_value(
+					"ilL-Rel-Tape Offering", tape_offering, "tape_spec"
+				)
+				if tape_spec:
+					return frappe.db.get_value(
+						"ilL-Spec-LED Tape", tape_spec, source_field
+					)
+
 		if source_doctype == "ilL-Spec-Profile":
 			# Priority 1: Configured fixture's resolved profile_item
 			# ilL-Spec-Profile is autonamed by field:item, so profile_item IS the doc name

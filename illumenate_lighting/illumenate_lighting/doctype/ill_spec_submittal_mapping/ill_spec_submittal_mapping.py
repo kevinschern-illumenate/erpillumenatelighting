@@ -31,6 +31,7 @@ def get_doctype_fields(doctype: str) -> list:
 		"ilL-Configured-Fixture",
 		"ilL-Fixture-Template",
 		"ilL-Rel-Tape Offering",
+		"ilL-Spec-LED Tape",
 		"ilL-Spec-Profile",
 		"ilL-Spec-Lens",
 		"ilL-Spec-Driver",
