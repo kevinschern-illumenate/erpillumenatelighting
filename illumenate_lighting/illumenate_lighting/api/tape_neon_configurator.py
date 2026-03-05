@@ -844,6 +844,190 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# SPEC-DERIVED TAPE / NEON CONFIGURATOR (no template required)
+# ═══════════════════════════════════════════════════════════════════════
+
+@frappe.whitelist()
+def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
+    """
+    Initialise the LED Tape or LED Neon configurator by deriving options
+    directly from ``ilL-Spec-LED Tape`` and ``ilL-Rel-Tape Offering``
+    records.  No ``ilL-Tape-Neon-Template`` record is required.
+
+    This is the fallback used on the unified ``/configure`` page when no
+    templates are available for the selected product category.
+
+    For LED Tape returns:
+      environment_ratings, ccts, output_levels, pcb_mountings, pcb_finishes,
+      feed_types
+
+    For LED Neon returns:
+      ccts, output_levels, ip_ratings, feed_directions, mounting_methods,
+      finishes, endcap_styles
+    """
+    if product_category not in ("LED Tape", "LED Neon"):
+        return {"success": False, "error": f"Invalid product category: {product_category}"}
+
+    is_neon = product_category == "LED Neon"
+
+    tape_specs = frappe.get_all(
+        "ilL-Spec-LED Tape",
+        filters={"product_category": product_category},
+        fields=[
+            "name", "item", "led_package", "input_voltage",
+            "watts_per_foot", "cut_increment_mm", "is_free_cutting",
+            "pcb_mounting", "pcb_finish", "lumens_per_foot",
+            "leader_cable_item", "voltage_drop_max_run_length_ft",
+        ],
+        order_by="name asc",
+    )
+
+    if not tape_specs:
+        return {"success": False, "error": f"No {product_category} specs found"}
+
+    spec_names = [s.name for s in tape_specs]
+    tape_offerings = frappe.get_all(
+        "ilL-Rel-Tape Offering",
+        filters={"tape_spec": ["in", spec_names], "is_active": 1},
+        fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level"],
+    )
+
+    # ── Build options ─────────────────────────────────────────────────
+    ccts = _collect_attribute_options(
+        tape_offerings, "cct", "ilL-Attribute-CCT",
+        ["name", "code", "kelvin", "description"],
+    )
+    output_levels = _collect_attribute_options(
+        tape_offerings, "output_level", "ilL-Attribute-Output Level",
+        ["name", "value", "sku_code"],
+    )
+    for ol in output_levels:
+        if ol.get("value"):
+            ol["label"] = f"{ol['value']} lm/ft"
+
+    options: dict[str, Any] = {
+        "ccts": ccts,
+        "output_levels": output_levels,
+    }
+
+    if not is_neon:
+        # LED Tape specific
+        options["environment_ratings"] = _get_environment_ratings_for_tape_offerings(
+            tape_offerings, spec_names,
+        )
+        pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
+        options["pcb_mountings"] = [{"value": m, "label": m} for m in pcb_mountings]
+        pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
+        options["pcb_finishes"] = [{"value": f, "label": f} for f in pcb_finishes]
+        options["feed_types"] = _get_feed_types()
+        options["feed_directions"] = _get_feed_directions()
+    else:
+        # LED Neon specific
+        options["ip_ratings"] = _get_ip_ratings()
+        options["feed_directions"] = _get_feed_directions()
+        mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
+        options["mounting_methods"] = [{"value": m, "label": m} for m in mountings]
+        finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
+        options["finishes"] = [{"value": f, "label": f} for f in finishes]
+
+    # Use the first spec for shared metadata
+    default_spec = tape_specs[0]
+
+    return {
+        "success": True,
+        "product_category": product_category,
+        "is_neon": is_neon,
+        "tape_specs": [
+            {
+                "name": s.name,
+                "item": s.item,
+                "led_package": s.led_package,
+                "watts_per_foot": s.watts_per_foot,
+                "cut_increment_mm": s.cut_increment_mm,
+                "is_free_cutting": s.is_free_cutting,
+                "pcb_mounting": s.pcb_mounting,
+                "pcb_finish": s.pcb_finish,
+                "leader_cable_item": s.leader_cable_item,
+            }
+            for s in tape_specs
+        ],
+        "options": options,
+        "meta": {
+            "cut_increment_mm": default_spec.cut_increment_mm or 0,
+            "is_free_cutting": bool(default_spec.is_free_cutting),
+            "watts_per_foot": default_spec.watts_per_foot or 0,
+            "max_run_length_ft": default_spec.voltage_drop_max_run_length_ft or 0,
+            "input_voltage": default_spec.input_voltage,
+        },
+    }
+
+
+@frappe.whitelist()
+def get_tape_neon_spec_cascading(
+    product_category: str = "LED Tape",
+    environment_rating: str = None,
+    cct: str = None,
+    pcb_mounting: str = None,
+    pcb_finish: str = None,
+) -> dict:
+    """
+    Return filtered options for the spec-based tape/neon configurator.
+
+    Cascading logic (no template needed):
+      - environment_rating → narrows available CCTs & outputs
+      - cct → narrows available output_levels
+      - pcb_mounting / pcb_finish → narrows tape specs → narrows offerings
+    """
+    if product_category not in ("LED Tape", "LED Neon"):
+        return {"success": False, "error": f"Invalid product category: {product_category}"}
+
+    spec_filters: dict[str, Any] = {"product_category": product_category}
+    if pcb_mounting:
+        spec_filters["pcb_mounting"] = pcb_mounting
+    if pcb_finish:
+        spec_filters["pcb_finish"] = pcb_finish
+
+    matching_specs = frappe.get_all(
+        "ilL-Spec-LED Tape",
+        filters=spec_filters,
+        fields=["name"],
+    )
+    spec_names = [s.name for s in matching_specs]
+    if not spec_names:
+        return {"success": True, "ccts": [], "output_levels": []}
+
+    offering_filters: dict[str, Any] = {"tape_spec": ["in", spec_names], "is_active": 1}
+    tape_offerings = frappe.get_all(
+        "ilL-Rel-Tape Offering",
+        filters=offering_filters,
+        fields=["name", "tape_spec", "cct", "output_level"],
+    )
+
+    # Filter by cct if already selected
+    filtered_offerings = tape_offerings
+    if cct:
+        filtered_offerings = [o for o in tape_offerings if o.cct == cct]
+
+    ccts = _collect_attribute_options(
+        tape_offerings, "cct", "ilL-Attribute-CCT",
+        ["name", "code", "kelvin", "description"],
+    )
+    output_levels = _collect_attribute_options(
+        filtered_offerings, "output_level", "ilL-Attribute-Output Level",
+        ["name", "value", "sku_code"],
+    )
+    for ol in output_levels:
+        if ol.get("value"):
+            ol["label"] = f"{ol['value']} lm/ft"
+
+    return {
+        "success": True,
+        "ccts": ccts,
+        "output_levels": output_levels,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # TEMPLATE-AWARE TAPE / NEON CONFIGURATOR (unified /configure page)
 # ═══════════════════════════════════════════════════════════════════════
 

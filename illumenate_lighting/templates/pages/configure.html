@@ -328,7 +328,8 @@ Allows users to configure fixtures using segment-based configuration
 						<hr class="mt-1 mb-3">
 
 						<!-- Template / Product Family Selection -->
-						<div class="form-group">
+						{% if has_templates %}
+						<div class="form-group" id="templateSelectorGroup">
 							<label>{% if is_tape_neon %}{{ _("Product Family") }}{% else %}{{ _("Fixture Template") }}{% endif %} <span class="text-danger">*</span></label>
 							<select class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
@@ -339,6 +340,10 @@ Allows users to configure fixtures using segment-based configuration
 								{% endfor %}
 							</select>
 						</div>
+						{% else %}
+						<!-- Hidden template field when no templates available -->
+						<input type="hidden" name="fixture_template_code" value="">
+						{% endif %}
 
 						<!-- Product image gallery -->
 						<div class="product-gallery-wrapper mt-3" id="productGalleryContainer" style="display: none;">
@@ -356,8 +361,8 @@ Allows users to configure fixtures using segment-based configuration
 							</div>
 						</div>
 
-						<!-- Options loaded dynamically based on template -->
-						<div id="templateOptions" style="display: none;">
+						<!-- Options loaded dynamically based on template (or specs) -->
+						<div id="templateOptions" style="{% if is_tape_neon and not has_templates %}display: block;{% else %}display: none;{% endif %}">
 							<hr>
 
 							{% if not is_tape_neon %}
@@ -550,11 +555,22 @@ Allows users to configure fixtures using segment-based configuration
 
 			{% if is_tape %}
 			<!-- LED Tape: Feed & Length Card -->
-			<div class="card mb-3" id="tapeLengthCard" style="display: none;">
+			<div class="card mb-3" id="tapeLengthCard" style="{% if not has_templates %}display: block;{% else %}display: none;{% endif %}">
 				<div class="card-header">
 					<h5 class="mb-0">{{ _("Feed & Tape Length") }}</h5>
 				</div>
 				<div class="card-body tape-length-section">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group">
+								<label class="small font-weight-bold">{{ _("Start Feed Direction") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" data-field="tn_start_feed_direction"></div>
+								<select class="form-control select-fallback" name="tn_start_feed_direction">
+									<option value="End" selected>End Feed</option>
+								</select>
+							</div>
+						</div>
+					</div>
 					<div class="row">
 						<div class="col-md-6">
 							<div class="form-group">
@@ -599,13 +615,45 @@ Allows users to configure fixtures using segment-based configuration
 							</div>
 						</div>
 					</div>
+					<hr>
+					<!-- End type: Endcap or Jumper (for segment chaining) -->
+					<div class="form-group">
+						<label class="small font-weight-bold">{{ _("Segment End") }}</label>
+						<div class="end-type-toggle mb-2">
+							<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn active" data-type="Endcap" onclick="setTapeEndType('Endcap')">
+								<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+							</button>
+							<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Jumper" onclick="setTapeEndType('Jumper')">
+								<i class="fa fa-link"></i> {{ _("Exit Feed / Jumper") }}
+							</button>
+						</div>
+						<input type="hidden" name="tn_end_type" value="Endcap">
+						<div class="tape-jumper-fields" style="display: none;">
+							<div class="row">
+								<div class="col-md-6">
+									<div class="form-group mb-2">
+										<label class="small">{{ _("Exit Feed Direction") }}</label>
+										<select class="form-control form-control-sm" name="tn_end_feed_direction">
+											<option value="End">End</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="form-group mb-2">
+										<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+										<input type="number" class="form-control form-control-sm" name="tn_end_feed_length_inches" value="12" min="0" step="0.5">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 			{% endif %}
 
 			{% if is_neon %}
 			<!-- LED Neon: Segments Card -->
-			<div class="card mb-3" id="neonSegmentsCard" style="display: none;">
+			<div class="card mb-3" id="neonSegmentsCard" style="{% if not has_templates %}display: block;{% else %}display: none;{% endif %}">
 				<div class="card-header d-flex justify-content-between align-items-center">
 					<h5 class="mb-0">{{ _("Neon Segments") }}</h5>
 					<span class="badge badge-info" id="neonSegmentCountBadge">0 {{ _("segments") }}</span>
@@ -620,7 +668,7 @@ Allows users to configure fixtures using segment-based configuration
 			{% endif %}
 
 			<!-- Tape/Neon Action Buttons -->
-			<div class="d-flex justify-content-between" id="tnActionButtons" style="display: none;">
+			<div class="d-flex justify-content-between" id="tnActionButtons" style="{% if is_tape_neon and not has_templates %}display: flex;{% else %}display: none;{% endif %}">
 				<button type="button" class="btn btn-primary" id="tnCalculateBtn" onclick="tnValidateAndQuote()" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
@@ -1061,9 +1109,11 @@ var productCategory = "{{ product_category }}";
 var isTapeNeon = {{ 'true' if is_tape_neon else 'false' }};
 var isNeon = {{ 'true' if is_neon else 'false' }};
 var isTape = {{ 'true' if is_tape else 'false' }};
+var hasTemplates = {{ 'true' if has_templates else 'false' }};
 var tnTemplateOptions = null;     // Tape/Neon template init data
 var tnCurrentResult = null;       // Tape/Neon validation result
 var neonSegmentCount = 0;         // Neon segment counter
+var DEFAULT_FEED_DIRECTION = 'End Feed';  // Default feed direction for tape
 
 console.log('Configurator script loaded');
 
@@ -2541,11 +2591,61 @@ function switchCategory(category) {
 
 {% if is_tape_neon %}
 // ═════════════════════════════════════════════════════════════════════
-// LED TAPE & LED NEON CONFIGURATOR (template-aware)
+// LED TAPE & LED NEON CONFIGURATOR (template-aware + spec-fallback)
 // ═════════════════════════════════════════════════════════════════════
+
+// ─── Tape end type toggle (endcap vs jumper) ─────────────────────────
+function setTapeEndType(type) {
+	var $endTypeInput = $('[name="tn_end_type"]');
+	$('.tape-end-type-btn').removeClass('active');
+	$('.tape-end-type-btn[data-type="' + type + '"]').addClass('active');
+	$endTypeInput.val(type);
+	if (type === 'Jumper') {
+		$('.tape-jumper-fields').show();
+	} else {
+		$('.tape-jumper-fields').hide();
+	}
+	tnUpdateUI();
+}
+
+// ─── Spec-based init (no template needed) ────────────────────────────
+function tnLoadSpecOptions() {
+	console.log('tnLoadSpecOptions called for:', productCategory);
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_spec_init',
+		args: { product_category: productCategory },
+		async: false,
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				tnTemplateOptions = r.message;
+				console.log('Tape/Neon spec options received:', tnTemplateOptions);
+				tnPopulateOptions(r.message.options);
+			} else if (r.message && r.message.error) {
+				console.error('Tape/Neon spec API error:', r.message.error);
+				frappe.msgprint({
+					title: __('Error Loading Options'),
+					message: r.message.error,
+					indicator: 'red'
+				});
+			}
+		},
+		error: function(r) {
+			console.error('Tape/Neon spec API call failed:', r);
+		}
+	});
+}
 
 // ─── Template change handler (tape/neon) ─────────────────────────────
 $(function() {
+	{% if not has_templates %}
+	// No templates available – load spec-derived options immediately
+	tnLoadSpecOptions();
+	{% if is_neon %}
+	if (neonSegmentCount === 0) {
+		addNeonSegment(true);
+	}
+	{% endif %}
+	{% else %}
 	$('select[name="fixture_template_code"]').off('change').on('change', function() {
 		var templateCode = $(this).val();
 		console.log('Tape/Neon template changed to:', templateCode);
@@ -2579,6 +2679,7 @@ $(function() {
 			$('#tnActionButtons').hide();
 		}
 	});
+	{% endif %}
 
 	// Tape length unit toggle
 	$('select[name="tn_tape_length_unit"]').on('change', function() {
@@ -2725,6 +2826,24 @@ function tnPopulateOptions(options) {
 	});
 	{% endif %}
 
+	{% if is_tape %}
+	// Populate start/end feed direction dropdowns for tape.
+	// feed_directions = directional options (End, Back); feed_types = power-feed types.
+	// We prefer feed_directions but fall back to a sensible default.
+	var feedDirs = options.feed_directions || [
+		{value: 'End', label: DEFAULT_FEED_DIRECTION}
+	];
+	['tn_start_feed_direction', 'tn_end_feed_direction'].forEach(function(fieldName) {
+		var select = $('select[name="' + fieldName + '"]');
+		if (select.length) {
+			select.empty();
+			feedDirs.forEach(function(opt) {
+				select.append('<option value="' + opt.value + '">' + (opt.label || opt.value) + '</option>');
+			});
+		}
+	});
+	{% endif %}
+
 	isPopulating = false;
 
 	// Auto-select single-option fields
@@ -2748,24 +2867,41 @@ function tnPopulateOptions(options) {
 // ─── Cascading update for tape/neon ──────────────────────────────────
 function tnUpdateCascading() {
 	var templateCode = $('select[name="fixture_template_code"]').val();
-	if (!templateCode) return;
 
-	var args = {
-		template_code: templateCode,
-		environment_rating: $('select[name="tn_environment_rating"]').val() || null,
-		cct: $('select[name="tn_cct"]').val() || null,
-	};
-	if (isTape) {
-		args.pcb_mounting = $('select[name="tn_pcb_mounting"]').val() || null;
-		args.pcb_finish = $('select[name="tn_pcb_finish"]').val() || null;
-	}
-	if (isNeon) {
-		args.mounting_method = $('select[name="tn_mounting_method"]').val() || null;
-		args.finish = $('select[name="tn_finish"]').val() || null;
+	var method, args;
+
+	if (templateCode && hasTemplates) {
+		// Template-based cascading
+		method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_cascading';
+		args = {
+			template_code: templateCode,
+			environment_rating: $('select[name="tn_environment_rating"]').val() || null,
+			cct: $('select[name="tn_cct"]').val() || null,
+		};
+		if (isTape) {
+			args.pcb_mounting = $('select[name="tn_pcb_mounting"]').val() || null;
+			args.pcb_finish = $('select[name="tn_pcb_finish"]').val() || null;
+		}
+		if (isNeon) {
+			args.mounting_method = $('select[name="tn_mounting_method"]').val() || null;
+			args.finish = $('select[name="tn_finish"]').val() || null;
+		}
+	} else {
+		// Spec-based cascading (no template)
+		method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_spec_cascading';
+		args = {
+			product_category: productCategory,
+			environment_rating: $('select[name="tn_environment_rating"]').val() || null,
+			cct: $('select[name="tn_cct"]').val() || null,
+		};
+		if (isTape) {
+			args.pcb_mounting = $('select[name="tn_pcb_mounting"]').val() || null;
+			args.pcb_finish = $('select[name="tn_pcb_finish"]').val() || null;
+		}
 	}
 
 	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_cascading',
+		method: method,
 		args: args,
 		callback: function(r) {
 			if (r.message && r.message.success) {
@@ -2873,7 +3009,7 @@ function tnUpdateSaveButtonVisibility() {
 // ─── Validate & Quote (tape/neon) ────────────────────────────────────
 function tnValidateAndQuote() {
 	var templateCode = $('select[name="fixture_template_code"]').val();
-	if (!templateCode) {
+	if (!templateCode && hasTemplates) {
 		frappe.msgprint('Please select a product family');
 		return;
 	}
@@ -2887,12 +3023,15 @@ function tnValidateAndQuote() {
 			pcb_mounting: $('select[name="tn_pcb_mounting"]').val(),
 			pcb_finish: $('select[name="tn_pcb_finish"]').val(),
 			feed_type: $('select[name="tn_feed_type"]').val(),
-			feed_direction: 'End Feed',
+			feed_direction: $('select[name="tn_start_feed_direction"]').val() || DEFAULT_FEED_DIRECTION,
 			lead_length_inches: parseFloat($('[name="tn_lead_length_inches"]').val()) || 12,
 			tape_length_value: parseFloat($('[name="tn_tape_length_value"]').val()) || 0,
 			tape_length_unit: $('[name="tn_tape_length_unit"]').val(),
 			tape_length_feet: parseFloat($('[name="tn_tape_length_feet"]').val()) || 0,
 			tape_length_inches: parseFloat($('[name="tn_tape_length_inches"]').val()) || 0,
+			end_type: $('[name="tn_end_type"]').val() || 'Endcap',
+			end_feed_direction: $('select[name="tn_end_feed_direction"]').val() || '',
+			end_feed_length_inches: parseFloat($('[name="tn_end_feed_length_inches"]').val()) || 0,
 		};
 	} else if (isNeon) {
 		selections = {
@@ -2903,12 +3042,25 @@ function tnValidateAndQuote() {
 		};
 	}
 
-	var args = {
-		template_code: templateCode,
-		selections: JSON.stringify(selections),
-	};
+	var method, args;
+	if (templateCode && hasTemplates) {
+		method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_neon_template_config';
+		args = {
+			template_code: templateCode,
+			selections: JSON.stringify(selections),
+		};
+	} else if (isTape) {
+		method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration';
+		args = { selections: JSON.stringify(selections) };
+	} else {
+		method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration';
+		args = {
+			selections: JSON.stringify(selections),
+			segments_json: JSON.stringify(tnCollectNeonSegments()),
+		};
+	}
 
-	if (isNeon) {
+	if (isNeon && templateCode && hasTemplates) {
 		args.segments_json = JSON.stringify(tnCollectNeonSegments());
 	}
 

@@ -279,5 +279,84 @@ class TestSOLineCreation(unittest.TestCase):
         self.assertEqual(result["items_added"], 3)
 
 
+class TestBuildTemplateOptionsFallback(unittest.TestCase):
+    """Test _build_template_options fallback behaviour when no allowed option rows exist."""
+
+    def test_tape_options_derived_from_specs_when_no_allowed_rows(self):
+        """When allowed_option_rows is empty, options should be derived from tape specs."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _build_template_options,
+        )
+
+        tape_offerings = [
+            MagicMock(cct="3000K", output_level="Standard", name="TO-1", tape_spec="SPEC-1"),
+            MagicMock(cct="4000K", output_level="High", name="TO-2", tape_spec="SPEC-1"),
+        ]
+        tape_specs = [
+            MagicMock(name="SPEC-1", pcb_mounting="Rigid", pcb_finish="White"),
+        ]
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = lambda dt, name, fields, as_dict=False: {
+                "name": name, "code": "xx", "kelvin": 3000, "description": "",
+                "value": 100, "sku_code": "xx", "notes": "",
+            }
+            mock_frappe.db.exists.return_value = True
+            mock_frappe.db.has_column.return_value = True
+            mock_frappe.get_all.return_value = [
+                MagicMock(name="IP67", code="67", notes=""),
+            ]
+
+            # Empty allowed_option_rows → should derive from specs/offerings
+            options = _build_template_options([], tape_offerings, tape_specs, "LED Tape")
+
+        self.assertIn("ccts", options)
+        self.assertIn("output_levels", options)
+        self.assertIn("pcb_mountings", options)
+        self.assertIn("pcb_finishes", options)
+        self.assertEqual(len(options["pcb_mountings"]), 1)
+        self.assertEqual(options["pcb_mountings"][0]["value"], "Rigid")
+
+    def test_neon_options_derived_from_specs_when_no_allowed_rows(self):
+        """When allowed_option_rows is empty for neon, mounting + finish come from specs."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _build_template_options,
+        )
+
+        tape_offerings = [
+            MagicMock(cct="4000K", output_level="Standard", name="NO-1", tape_spec="NSPEC-1"),
+        ]
+        tape_specs = [
+            MagicMock(name="NSPEC-1", pcb_mounting="Surface", pcb_finish="Black"),
+        ]
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = lambda dt, name, fields, as_dict=False: {
+                "name": name, "code": "xx", "kelvin": 4000, "description": "",
+                "value": 100, "sku_code": "xx", "notes": "",
+            }
+            mock_frappe.db.exists.return_value = True
+            mock_frappe.db.has_column.return_value = True
+            mock_frappe.get_all.return_value = [
+                MagicMock(name="IP67", code="67", notes=""),
+            ]
+
+            options = _build_template_options([], tape_offerings, tape_specs, "LED Neon")
+
+        self.assertIn("ccts", options)
+        self.assertIn("output_levels", options)
+        self.assertIn("mounting_methods", options)
+        self.assertIn("finishes", options)
+        self.assertIn("ip_ratings", options)
+        self.assertEqual(len(options["mounting_methods"]), 1)
+        self.assertEqual(options["mounting_methods"][0]["value"], "Surface")
+        self.assertEqual(len(options["finishes"]), 1)
+        self.assertEqual(options["finishes"][0]["value"], "Black")
+
+
 if __name__ == "__main__":
     unittest.main()
