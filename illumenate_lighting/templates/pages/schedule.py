@@ -208,6 +208,14 @@ def get_context(context):
 				line_dict["line_total"] = unit_price * (line.qty or 1)
 				schedule_total += line_dict["line_total"]
 
+			# Add driver MSRP as separate sub-line pricing for ilLumenate fixtures
+			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+				driver_msrp = line_dict.get("cf_details", {}).get("driver_msrp_unit")
+				if driver_msrp:
+					line_dict["driver_unit_price"] = driver_msrp
+					line_dict["driver_line_total"] = driver_msrp * (line.qty or 1)
+					schedule_total += line_dict["driver_line_total"]
+
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)
 
@@ -425,6 +433,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			driver_items = []
 			driver_input_voltages = []
 			total_driver_qty = 0
+			driver_msrp_total = 0.0
 			for driver_alloc in cf.drivers:
 				if driver_alloc.driver_item:
 					# driver_alloc.driver_item is the Item code (ID)
@@ -449,6 +458,15 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 					if driver_spec and driver_spec.input_voltage:
 						driver_input_voltages.append(driver_spec.input_voltage)
 
+					# Look up driver MSRP from Item Price
+					driver_price = frappe.db.get_value(
+						"Item Price",
+						{"item_code": driver_alloc.driver_item, "selling": 1},
+						"price_list_rate",
+					)
+					if driver_price:
+						driver_msrp_total += float(driver_price) * driver_qty
+
 			if driver_items:
 				details["power_supply"] = ", ".join(driver_items)
 				details["power_supply_qty"] = total_driver_qty
@@ -456,6 +474,8 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				# Remove duplicates and join
 				unique_voltages = list(dict.fromkeys(driver_input_voltages))
 				details["driver_input_voltage"] = ", ".join(unique_voltages)
+			if driver_msrp_total > 0:
+				details["driver_msrp_unit"] = round(driver_msrp_total, 2)
 
 		return details
 	except Exception as e:

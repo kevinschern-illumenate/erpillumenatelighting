@@ -33,6 +33,22 @@ Also handles new schedule creation when is_new is True
 .fixture-details strong {
 	font-size: 0.95rem;
 }
+.driver-sub-line {
+	margin-top: 0.35rem;
+	padding-top: 0.35rem;
+	border-top: 1px dashed var(--ill-gray-200, #e0e0e0);
+	opacity: 0.85;
+}
+.driver-sub-line .small {
+	font-size: 0.8rem;
+}
+.pricing-sub-line {
+	margin-top: 0.25rem;
+	padding-top: 0.25rem;
+	border-top: 1px dashed var(--ill-gray-200, #e0e0e0);
+	font-size: 0.8rem;
+	opacity: 0.85;
+}
 .table td {
 	vertical-align: middle;
 }
@@ -564,16 +580,21 @@ Also handles new schedule creation when is_new is True
 												{% if cf_details.get('fixture_input_voltage') %}
 												<span class="badge badge-light mr-1" style="font-weight:normal;">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') }}</strong></span>
 												{% endif %}
-												{% if cf_details.get('driver_input_voltage') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">PS Input Voltage: <strong>{{ cf_details.get('driver_input_voltage') }}</strong></span>
-												{% endif %}
 												{% if cf_details.get('total_watts') %}
 												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cf_details.get('total_watts') }}W</strong></span>
 												{% endif %}
-												{% if cf_details.get('power_supply') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ cf_details.get('power_supply') }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') }} units){% endif %}</strong></span>
-												{% endif %}
 											</div>
+											<!-- Driver sub-line -->
+											{% if cf_details.get('power_supply') %}
+											<div class="driver-sub-line">
+												<div class="small text-muted">
+													<i class="fa fa-bolt"></i> Driver: <strong>{{ cf_details.get('power_supply') }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') }} units){% endif %}</strong>
+													{% if cf_details.get('driver_input_voltage') %}
+													<span class="ml-2">Input: <strong>{{ cf_details.get('driver_input_voltage') }}</strong></span>
+													{% endif %}
+												</div>
+											</div>
+											{% endif %}
 											<!-- Show message if no details available -->
 											{% if not cf_details.get('cct') and not cf_details.get('cri') and not cf_details.get('finish') and not cf_details.get('manufacturable_length_inches') %}
 											<div class="small text-warning mt-1">
@@ -713,14 +734,20 @@ Also handles new schedule creation when is_new is True
 									{% if can_view_pricing %}
 									<td class="text-right col-pricing" data-label="{{ _('Unit Price') }}">
 										{% if line.get('unit_price') %}
-										${{ "%.2f" | format(line.get('unit_price')) }}
+										<div>${{ "%.2f" | format(line.get('unit_price')) }}</div>
+										{% if line.get('driver_unit_price') %}
+										<div class="pricing-sub-line text-muted">${{ "%.2f" | format(line.get('driver_unit_price')) }}</div>
+										{% endif %}
 										{% else %}
 										<span class="text-muted">-</span>
 										{% endif %}
 									</td>
 									<td class="text-right col-pricing" data-label="{{ _('Line Total') }}">
 										{% if line.get('line_total') %}
-										${{ "%.2f" | format(line.get('line_total')) }}
+										<div>${{ "%.2f" | format(line.get('line_total')) }}</div>
+										{% if line.get('driver_line_total') %}
+										<div class="pricing-sub-line text-muted">${{ "%.2f" | format(line.get('driver_line_total')) }}</div>
+										{% endif %}
 										{% else %}
 										<span class="text-muted">-</span>
 										{% endif %}

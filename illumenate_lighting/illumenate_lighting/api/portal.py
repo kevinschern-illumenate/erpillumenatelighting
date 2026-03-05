@@ -1322,7 +1322,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
 	# Check if schedule is locked
-	if schedule.is_locked:
+	if schedule.get("is_locked"):
 		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Validate status
@@ -1410,7 +1410,7 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
 	# Check if schedule is locked
-	if schedule.is_locked:
+	if schedule.get("is_locked"):
 		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Validate status
@@ -1508,7 +1508,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
 	# Check if schedule is locked
-	if schedule.is_locked:
+	if schedule.get("is_locked"):
 		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Validate status
@@ -2321,7 +2321,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 		return {"success": False, "error": "You don't have permission to update this schedule"}
 
 	# Check if schedule is locked
-	if schedule.is_locked:
+	if schedule.get("is_locked"):
 		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Validate status value
@@ -3772,7 +3772,7 @@ def update_configured_fixture_on_schedule(
 		return {"success": False, "error": "Permission denied"}
 
 	# Check if schedule is locked
-	if schedule.is_locked:
+	if schedule.get("is_locked"):
 		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
 
 	# Check schedule status allows editing
@@ -3863,7 +3863,7 @@ def create_schedule_version(schedule_name: str, version_notes: str = None) -> di
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to create a version of this schedule"}
 
-	if schedule.is_locked:
+	if schedule.get("is_locked"):
 		return {"success": False, "error": "This schedule version is already locked."}
 
 	try:

@@ -17,8 +17,10 @@ def _make_mock_schedule(status="QUOTED", is_locked=False):
 	"""Return a mock schedule document."""
 	mock = MagicMock()
 	mock.status = status
-	mock.is_locked = is_locked
 	mock.name = "SCHED-001"
+	# Support both .is_locked and .get("is_locked") access patterns
+	_fields = {"is_locked": is_locked}
+	mock.get = lambda key, default=None: _fields.get(key, default)
 	return mock
 
 

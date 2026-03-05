@@ -33,7 +33,7 @@ class ilLProjectFixtureSchedule(Document):
 	def validate(self):
 		"""Validate schedule data and sync customer from project."""
 		# Enforce locking — locked versions cannot be modified
-		if self.is_locked:
+		if self.get("is_locked"):
 			frappe.throw(
 				_("This schedule version is locked and cannot be modified. Create a new version to make changes.")
 			)
@@ -91,13 +91,16 @@ class ilLProjectFixtureSchedule(Document):
 		Returns:
 			str: Name of the new versioned schedule
 		"""
-		if self.is_locked:
+		if self.get("is_locked"):
 			frappe.throw(_("This schedule version is already locked. Cannot create another version from a locked schedule."))
 
 		# 1. Lock the current schedule
-		self.db_set("is_locked", 1)
-		self.db_set("locked_at", frappe.utils.now_datetime())
-		self.db_set("locked_by", frappe.session.user)
+		# Use frappe.db.set_value to avoid conflict with Document.is_locked property
+		frappe.db.set_value(self.doctype, self.name, {
+			"is_locked": 1,
+			"locked_at": frappe.utils.now_datetime(),
+			"locked_by": frappe.session.user,
+		})
 
 		# Determine version_parent: always points to the V1 (original) schedule
 		version_parent = self.version_parent or self.name
@@ -117,7 +120,6 @@ class ilLProjectFixtureSchedule(Document):
 		new_schedule.version = (self.version or 1) + 1
 		new_schedule.version_parent = version_parent
 		new_schedule.version_notes = version_notes
-		new_schedule.is_locked = 0
 
 		# 4. Deep copy all fixture schedule lines
 		for line in self.lines:

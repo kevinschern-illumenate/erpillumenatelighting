@@ -385,7 +385,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		schedule.create_new_version()
 		schedule.reload()
 
-		self.assertEqual(schedule.is_locked, 1)
+		self.assertEqual(schedule.get("is_locked"), 1)
 		self.assertIsNotNone(schedule.locked_at)
 		self.assertIsNotNone(schedule.locked_by)
 
@@ -411,7 +411,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		schedule.reload()
 
 		# Read operations should still work
-		self.assertTrue(schedule.is_locked)
+		self.assertTrue(schedule.get("is_locked"))
 		self.assertEqual(len(schedule.lines), 1)
 		self.assertEqual(schedule.lines[0].line_id, "L1")
 
