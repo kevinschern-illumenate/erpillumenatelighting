@@ -1514,6 +1514,8 @@ function updateCCTOptions() {
 				} else {
 					console.warn('updateCCTOptions: API returned empty CCTs, keeping existing pills');
 				}
+				// Re-evaluate button state after async re-population
+				updateUI();
 			} else {
 				console.warn('updateCCTOptions: API call did not succeed, keeping existing pills');
 			}
@@ -1576,6 +1578,8 @@ function updateDeliveredOutputs() {
 				$('#outputGroup').hide();
 				console.log('No outputs available or error:', r.message);
 			}
+			// Re-evaluate button state after async re-population
+			updateUI();
 		}
 	});
 }
@@ -1625,10 +1629,14 @@ function populatePillSelector(fieldName, options) {
 	var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
 	var selectFallback = $('select[name="' + fieldName + '"]');
 	
+	// Preserve the previously selected value so async re-population doesn't clobber it
+	var previousValue = selectFallback.val();
+	
 	// Clear existing
 	pillContainer.empty();
 	selectFallback.empty().append('<option value="">Select...</option>');
 	
+	var restoredPrevious = false;
 	if (options && options.length > 0) {
 		options.forEach(function(opt) {
 			var label = opt.label || opt.value;
@@ -1644,11 +1652,25 @@ function populatePillSelector(fieldName, options) {
 				// Sync to select and trigger change
 				selectFallback.val(opt.value).trigger('change');
 			});
+			// Restore previously selected value if it still exists
+			if (previousValue && opt.value == previousValue) {
+				pill.addClass('active');
+				restoredPrevious = true;
+			}
 			pillContainer.append(pill);
 			
 			// Add to fallback select
 			selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
 		});
+		
+		// Restore the select value (without triggering change to avoid cascading loops)
+		if (restoredPrevious) {
+			selectFallback.val(previousValue);
+		} else if (options.length === 1) {
+			// Auto-select if there's only one option
+			selectFallback.val(options[0].value).trigger('change');
+			pillContainer.find('.pill-option').first().addClass('active');
+		}
 	}
 }
 
@@ -1998,6 +2020,7 @@ function updateUI() {
 	
 	// Check if all required cascading fields are selected
 	// For multi-CCT packages (Tunable White, etc.), CCT is optional for output calculation
+	// Note: endcap_color_code is NOT required here — the backend auto-resolves it from finish
 	var cctComplete = isMultiCCT || !!$('[name="cct_code"]').val();
 	var cascadingComplete = (
 		$('[name="led_package_code"]').val() &&
@@ -2006,8 +2029,7 @@ function updateUI() {
 		$('[name="lens_appearance_code"]').val() &&
 		$('[name="delivered_output_value"]').val() &&
 		$('[name="mounting_method_code"]').val() &&
-		$('[name="finish_code"]').val() &&
-		$('[name="endcap_color_code"]').val()
+		$('[name="finish_code"]').val()
 	);
 	
 	// Enable/disable calculate button based on completeness
@@ -2133,6 +2155,24 @@ function validateAndQuote() {
 		segments_json: JSON.stringify(segments)
 	};
 	
+	// Show loading state
+	$('#calculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ _("Calculating...") }}');
+	
+	function resetCalculateBtn() {
+		$('#calculateBtn').html('<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}');
+		updateUI();  // Re-evaluate button state
+	}
+	
+	function handleError(r) {
+		resetCalculateBtn();
+		frappe.msgprint({
+			title: __('Calculation Error'),
+			message: __('An error occurred while calculating. Please check your selections and try again.'),
+			indicator: 'red'
+		});
+		console.error('validateAndQuote API error:', r);
+	}
+	
 	// Use the output-based API if we have delivered_output_value, otherwise use tape_offering_id
 	if (deliveredOutputValue) {
 		data.delivered_output_value = parseInt(deliveredOutputValue);
@@ -2140,11 +2180,13 @@ function validateAndQuote() {
 			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment_with_output',
 			args: data,
 			callback: function(r) {
+				resetCalculateBtn();
 				if (r.message) {
 					currentResult = r.message;
 					displayResults(r.message);
 				}
-			}
+			},
+			error: handleError
 		});
 	} else if (tapeOfferingId) {
 		// Fallback to old API with tape_offering_id
@@ -2153,13 +2195,16 @@ function validateAndQuote() {
 			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
 			args: data,
 			callback: function(r) {
+				resetCalculateBtn();
 				if (r.message) {
 					currentResult = r.message;
 					displayResults(r.message);
 				}
-			}
+			},
+			error: handleError
 		});
 	} else {
+		resetCalculateBtn();
 		frappe.msgprint({
 			title: __('Missing Selection'),
 			message: __('Please select an Output Level to continue.'),
@@ -3014,21 +3059,14 @@ function tnUpdateCascading() {
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				// Update CCT and output level pills from cascaded results
+				// tnPopulateSinglePillSelector automatically preserves previously selected values
 				if (r.message.ccts && r.message.ccts.length > 0) {
-					var currentCCT = $('select[name="tn_cct"]').val();
 					tnPopulateSinglePillSelector('tn_cct', r.message.ccts);
-					// Re-select previous value if still available
-					if (currentCCT) {
-						$('select[name="tn_cct"]').val(currentCCT).trigger('change.pillSync');
-					}
 				}
 				if (r.message.output_levels && r.message.output_levels.length > 0) {
-					var currentOL = $('select[name="tn_output_level"]').val();
 					tnPopulateSinglePillSelector('tn_output_level', r.message.output_levels);
-					if (currentOL) {
-						$('select[name="tn_output_level"]').val(currentOL).trigger('change.pillSync');
-					}
 				}
+				tnUpdateUI();
 			}
 		}
 	});
@@ -3038,9 +3076,13 @@ function tnPopulateSinglePillSelector(fieldName, opts) {
 	var pillContainer = $('.pill-selector[data-field="' + fieldName + '"]');
 	var selectFallback = $('select[name="' + fieldName + '"]');
 
+	// Preserve the previously selected value
+	var previousValue = selectFallback.val();
+
 	pillContainer.empty();
 	selectFallback.empty().append('<option value="">Select...</option>');
 
+	var restoredPrevious = false;
 	opts.forEach(function(opt) {
 		var label = opt.label || opt.value;
 		var pill = $('<label class="pill-option">' +
@@ -3052,9 +3094,23 @@ function tnPopulateSinglePillSelector(fieldName, opts) {
 			$(this).addClass('active');
 			selectFallback.val(opt.value).trigger('change');
 		});
+		// Restore pill active state for previously selected value
+		if (previousValue && opt.value == previousValue) {
+			pill.addClass('active');
+			restoredPrevious = true;
+		}
 		pillContainer.append(pill);
 		selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
 	});
+
+	// Restore select value without triggering change to avoid cascading loops
+	if (restoredPrevious) {
+		selectFallback.val(previousValue);
+	} else if (opts.length === 1) {
+		// Auto-select single option
+		selectFallback.val(opts[0].value).trigger('change');
+		pillContainer.find('.pill-option').first().addClass('active');
+	}
 }
 
 // ─── UI state update for tape/neon ───────────────────────────────────
@@ -3174,18 +3230,29 @@ function tnValidateAndQuote() {
 
 	$('#tnCalculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Calculating...');
 
+	function resetTnCalculateBtn() {
+		$('#tnCalculateBtn').html('<i class="fa fa-calculator"></i> Calculate & Validate');
+		tnUpdateUI();  // Re-evaluate button state
+	}
+
 	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_neon_template_config',
+		method: method,
 		args: args,
 		callback: function(r) {
-			$('#tnCalculateBtn').html('<i class="fa fa-calculator"></i> Calculate & Validate').prop('disabled', false);
+			resetTnCalculateBtn();
 			if (r.message) {
 				tnCurrentResult = r.message;
 				tnDisplayResults(r.message);
 			}
 		},
-		error: function() {
-			$('#tnCalculateBtn').html('<i class="fa fa-calculator"></i> Calculate & Validate').prop('disabled', false);
+		error: function(r) {
+			resetTnCalculateBtn();
+			frappe.msgprint({
+				title: __('Calculation Error'),
+				message: __('An error occurred while calculating. Please check your selections and try again.'),
+				indicator: 'red'
+			});
+			console.error('tnValidateAndQuote API error:', r);
 		}
 	});
 }
