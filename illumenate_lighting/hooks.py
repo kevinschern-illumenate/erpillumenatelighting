@@ -29,7 +29,10 @@ app_license = "mit"
 # app_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
 
 # include js, css files in header of web template
-web_include_css = "/assets/illumenate_lighting/css/portal.css"
+web_include_css = [
+	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
+	"/assets/illumenate_lighting/css/portal.css",
+]
 web_include_js = "/assets/illumenate_lighting/js/portal.js"
 
 # include custom scss in every website theme (without file extension ".scss")
