@@ -115,7 +115,7 @@ def _get_portal_stats(customer=None):
 		)
 		stats["ready_orders"] = frappe.db.count(
 			"Sales Order",
-			{"customer": customer, "status": ["in", ["To Bill", "Completed"]], "docstatus": 1}
+			{"customer": customer, "status": "To Bill", "docstatus": 1}
 		)
 	elif is_internal:
 		stats["pending_orders"] = frappe.db.count(
@@ -124,7 +124,7 @@ def _get_portal_stats(customer=None):
 		)
 		stats["ready_orders"] = frappe.db.count(
 			"Sales Order",
-			{"status": ["in", ["To Bill", "Completed"]], "docstatus": 1}
+			{"status": "To Bill", "docstatus": 1}
 		)
 
 	# Count drawing requests if the doctype exists
