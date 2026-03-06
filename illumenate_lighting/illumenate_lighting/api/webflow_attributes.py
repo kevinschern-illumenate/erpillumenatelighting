@@ -99,7 +99,6 @@ ATTRIBUTE_FILTER_FIELD_SLUGS = {
     "Feed Direction": "feed-direction-filter",
     "LED Package": "led-package-filter",
     "Dimming Protocol": "dimming-filter",
-    "Certification": "certification-filter",
 }
 
 
