@@ -346,7 +346,7 @@ def validate_tape_configuration(
         })
 
     # ── Build part number ─────────────────────────────────────────────
-    part_number = _build_tape_part_number(sel, tape_spec, tape_offering)
+    part_number = _build_tape_part_number(sel, tape_spec, tape_offering, manufacturable_length_mm)
 
     # ── Build description ─────────────────────────────────────────────
     mfg_length_in = manufacturable_length_mm / MM_PER_INCH
@@ -2232,56 +2232,65 @@ def _get_code(doctype: str, name: str, code_field: str = "code") -> str:
     return code or "xx"
 
 
-def _build_tape_part_number(sel: dict, tape_spec, tape_offering) -> str:
+def _get_feed_direction_code(direction: str) -> str:
+    """Get the short code for a feed direction value."""
+    if not direction:
+        return "X"
+    if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+        code = frappe.db.get_value(
+            "ilL-Attribute-Feed-Direction",
+            direction,
+            "code",
+        )
+        if code:
+            return code
+    # Fallback mapping
+    direction_codes = {"End": "E", "Back": "B", "Left": "L", "Right": "R", "Endcap": "CAP"}
+    return direction_codes.get(direction, "X")
+
+
+def _build_tape_part_number(sel: dict, tape_spec, tape_offering, manufacturable_length_mm: float = 0) -> str:
     """
     Build LED Tape part number.
 
-    Format: ILL-TAPE-{ENV}-{CCT}-{OUTPUT}-{PCB_MOUNT}-{PCB_FINISH}-{FEED_TYPE}-{LEAD_LEN}in-{TAPE_LEN}
+    Format: {tape_spec_name}-{length_inches}-{feed_type_code}{leader_cable_ft}-C
+
+    Uses the tape spec ID as the base, then appends the total manufacturable
+    length in inches, followed by the feed direction code with leader cable
+    length in feet, and "C" for endcapped (tape is always single-segment/endcapped).
     """
-    parts = ["ILL", "TAPE"]
+    parts = [tape_spec.name]
 
-    # Environment (optional for tape)
-    env = sel.get("environment_rating")
-    if env:
-        parts.append(_get_code("ilL-Attribute-Environment Rating", env))
+    # Total length in inches (manufacturable)
+    if manufacturable_length_mm:
+        length_in = manufacturable_length_mm / MM_PER_INCH
+    else:
+        tape_len_mm = _parse_tape_length(sel)
+        length_in = (tape_len_mm / MM_PER_INCH) if tape_len_mm else 0
+    # Format: remove .0 if whole number, otherwise 1 decimal
+    if length_in == int(length_in):
+        length_str = str(int(length_in))
+    else:
+        length_str = f"{length_in:.1f}"
+    parts.append(length_str)
 
-    # CCT
-    parts.append(_get_code("ilL-Attribute-CCT", sel.get("cct")))
-
-    # Output
-    output_code = "xx"
-    if sel.get("output_level"):
-        ol_data = frappe.db.get_value(
-            "ilL-Attribute-Output Level", sel["output_level"],
-            ["sku_code"], as_dict=True,
-        )
-        if ol_data and ol_data.sku_code:
-            output_code = ol_data.sku_code
-    parts.append(output_code)
-
-    # PCB Mounting (abbreviation)
-    pcb_mount = (sel.get("pcb_mounting") or "xx")[:4].upper()
-    parts.append(pcb_mount)
-
-    # PCB Finish (abbreviation)
-    pcb_fin = (sel.get("pcb_finish") or "xx")[:3].upper()
-    parts.append(pcb_fin)
-
-    # Feed type
+    # Feed direction code + leader cable length in feet
+    feed_type_code = ""
     feed_type = sel.get("feed_type", "")
     if feed_type:
-        ft_code = _get_code("ilL-Attribute-Power Feed Type", feed_type)
-        parts.append(ft_code)
+        feed_type_code = _get_code("ilL-Attribute-Power Feed Type", feed_type)
 
-    # Lead length
-    lead_in = sel.get("lead_length_inches", 0)
-    parts.append(f"{float(lead_in):.0f}in")
+    lead_length_in = float(sel.get("lead_length_inches", 0))
+    cable_length_ft = lead_length_in / INCHES_PER_FOOT
+    if cable_length_ft == int(cable_length_ft):
+        cable_length_str = str(int(cable_length_ft))
+    else:
+        cable_length_str = f"{cable_length_ft:.1f}"
 
-    # Tape length (use requested for the part number)
-    tape_len_mm = _parse_tape_length(sel)
-    if tape_len_mm:
-        tape_len_in = tape_len_mm / MM_PER_INCH
-        parts.append(f"{tape_len_in:.1f}in")
+    parts.append(f"{feed_type_code}{cable_length_str}")
+
+    # Endcapped
+    parts.append("C")
 
     return "-".join(parts)
 
@@ -2316,34 +2325,63 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     """
     Build LED Neon part number.
 
-    Format: ILL-NEON-{CCT}-{OUTPUT}-{MOUNT}-{FINISH}-{SEG_COUNT}SEG
+    Single-segment (endcapped):
+        {tape_spec_name}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
+
+    Multi-segment (jumpered):
+        {tape_spec_name}-{total_length_inches}-J({hash})
+
+    Uses the tape spec ID as the base, then appends the total manufacturable
+    length in inches.  For single-segment configs the feed direction code and
+    leader cable length in feet are added followed by "C" for endcapped.  For
+    multi-segment (jumpered) configs, "-J({hash})" is appended where the hash
+    differentiates different segment layouts with the same total length.
     """
-    parts = ["ILL", "NEON"]
+    import hashlib
 
-    # CCT
-    parts.append(_get_code("ilL-Attribute-CCT", sel.get("cct")))
+    parts = [tape_spec.name]
 
-    # Output
-    output_code = "xx"
-    if sel.get("output_level"):
-        ol_data = frappe.db.get_value(
-            "ilL-Attribute-Output Level", sel["output_level"],
-            ["sku_code"], as_dict=True,
-        )
-        if ol_data and ol_data.sku_code:
-            output_code = ol_data.sku_code
-    parts.append(output_code)
+    # Total manufacturable length in inches (sum of all segments)
+    total_mfg_in = sum(s.get("manufacturable_length_in", 0) for s in segments)
+    if total_mfg_in == int(total_mfg_in):
+        length_str = str(int(total_mfg_in))
+    else:
+        length_str = f"{total_mfg_in:.1f}"
+    parts.append(length_str)
 
-    # Mounting (abbreviation)
-    mount = (sel.get("mounting") or "xx")[:4].upper()
-    parts.append(mount)
+    if len(segments) == 1:
+        # Single segment → endcapped: {feed_dir_code}{leader_ft}-C
+        seg = segments[0]
+        feed_dir = seg.get("start_feed_direction", "")
+        feed_dir_code = ""
+        if feed_dir:
+            feed_dir_code = _get_feed_direction_code(feed_dir)
 
-    # Finish (abbreviation)
-    finish = (sel.get("finish") or "xx")[:3].upper()
-    parts.append(finish)
+        lead_in = float(seg.get("start_lead_length_inches", 0))
+        cable_ft = lead_in / INCHES_PER_FOOT
+        if cable_ft == int(cable_ft):
+            cable_str = str(int(cable_ft))
+        else:
+            cable_str = f"{cable_ft:.1f}"
 
-    # Segment count
-    parts.append(f"{len(segments)}SEG")
+        parts.append(f"{feed_dir_code}{cable_str}")
+        parts.append("C")
+    else:
+        # Multi-segment → jumpered: J({hash})
+        seg_data = []
+        for seg in segments:
+            seg_data.append({
+                "segment_index": seg.get("segment_index"),
+                "manufacturable_length_in": seg.get("manufacturable_length_in"),
+                "ip_rating": seg.get("ip_rating", ""),
+                "start_feed_direction": seg.get("start_feed_direction", ""),
+                "start_lead_length_inches": seg.get("start_lead_length_inches", 0),
+                "end_feed_direction": seg.get("end_feed_direction", ""),
+                "end_feed_length_inches": seg.get("end_feed_length_inches", 0),
+            })
+        config_str = json.dumps(seg_data, sort_keys=True)
+        seg_hash = hashlib.sha256(config_str.encode()).hexdigest()[:4].upper()
+        parts.append(f"J({seg_hash})")
 
     return "-".join(parts)
 

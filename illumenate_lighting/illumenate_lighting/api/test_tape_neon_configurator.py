@@ -140,7 +140,7 @@ class TestManufacturableLengthSnapping(unittest.TestCase):
 class TestPartNumberBuilding(unittest.TestCase):
     """Test part number format for LED Tape and LED Neon."""
 
-    def test_tape_part_number_starts_with_ill_tape(self):
+    def test_tape_part_number_uses_spec_name(self):
         from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
             _build_tape_part_number,
         )
@@ -168,11 +168,12 @@ class TestPartNumberBuilding(unittest.TestCase):
             "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
         ) as mock_frappe:
             mock_frappe.db.get_value.return_value = None
-            pn = _build_tape_part_number(sel, tape_spec, tape_offering)
+            pn = _build_tape_part_number(sel, tape_spec, tape_offering, 120 * 25.4)
 
-        self.assertTrue(pn.startswith("ILL-TAPE"))
+        self.assertTrue(pn.startswith("TAPE-001"))
+        self.assertTrue(pn.endswith("-C"))
 
-    def test_neon_part_number_starts_with_ill_neon(self):
+    def test_neon_part_number_uses_spec_name_and_jumper(self):
         from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
             _build_neon_part_number,
         )
@@ -188,8 +189,24 @@ class TestPartNumberBuilding(unittest.TestCase):
         tape_offering = MagicMock()
         tape_offering.name = "NO-001"
         segments = [
-            {"segment_index": 1, "manufacturable_length_in": 48},
-            {"segment_index": 2, "manufacturable_length_in": 24},
+            {
+                "segment_index": 1,
+                "manufacturable_length_in": 48,
+                "ip_rating": "IP67",
+                "start_feed_direction": "End",
+                "start_lead_length_inches": 12,
+                "end_feed_direction": "End",
+                "end_feed_length_inches": 6,
+            },
+            {
+                "segment_index": 2,
+                "manufacturable_length_in": 24,
+                "ip_rating": "IP67",
+                "start_feed_direction": "End",
+                "start_lead_length_inches": 6,
+                "end_feed_direction": "End",
+                "end_feed_length_inches": 6,
+            },
         ]
 
         with patch(
@@ -199,10 +216,11 @@ class TestPartNumberBuilding(unittest.TestCase):
             "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
         ) as mock_frappe:
             mock_frappe.db.get_value.return_value = None
+            mock_frappe.db.exists.return_value = False
             pn = _build_neon_part_number(sel, tape_spec, tape_offering, segments)
 
-        self.assertTrue(pn.startswith("ILL-NEON"))
-        self.assertIn("2SEG", pn)
+        self.assertTrue(pn.startswith("NEON-001"))
+        self.assertIn("J(", pn)
 
 
 class TestSOLineCreation(unittest.TestCase):
