@@ -863,24 +863,15 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
     if "Dimensions" not in existing_labels:
         profile_spec_name = getattr(template, "default_profile_spec", None)
         if profile_spec_name:
-            profile = frappe.db.get_value(
-                "ilL-Spec-Profile", profile_spec_name,
-                ["width_mm", "height_mm"],
-                as_dict=True,
+            dimensions = frappe.db.get_value(
+                "ilL-Spec-Profile", profile_spec_name, "dimensions"
             )
-            if profile and (profile.get("width_mm") or profile.get("height_mm")):
-                width = profile.get("width_mm") or 0
-                height = profile.get("height_mm") or 0
-                dim_parts = []
-                if width:
-                    dim_parts.append(f"{width}mm W")
-                if height:
-                    dim_parts.append(f"{height}mm H")
+            if dimensions:
                 specs.append({
                     "spec_group": "Physical",
                     "spec_label": "Dimensions",
-                    "spec_value": " x ".join(dim_parts),
-                    "spec_unit": "mm",
+                    "spec_value": dimensions,
+                    "spec_unit": "",
                     "is_calculated": 1,
                     "display_order": 95,
                     "show_on_card": 0,
@@ -935,23 +926,41 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
                 "attribute_options": protocol_options,
             })
 
-    # ── Production Interval ────────────────────────────────────
+    # ── Production Interval (cut increment from linked tape, in inches) ──
     if "Production Interval" not in existing_labels:
-        lead_times = set()
+        increments = set()
         for tape_row in template.allowed_tape_offerings or []:
             offering_name = getattr(tape_row, "tape_offering", None)
             if not offering_name:
                 continue
-            lt_class = frappe.db.get_value(
-                "ilL-Rel-Tape Offering", offering_name, "lead_time_class_override"
+            offering_data = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name,
+                ["cut_increment_mm_override", "tape_spec"],
+                as_dict=True,
             )
-            if lt_class:
-                lead_times.add(lt_class)
-        if lead_times:
+            if not offering_data:
+                continue
+            cut_mm = offering_data.get("cut_increment_mm_override")
+            if not cut_mm and offering_data.get("tape_spec"):
+                cut_mm = frappe.db.get_value(
+                    "ilL-Spec-LED Tape", offering_data["tape_spec"],
+                    "cut_increment_mm",
+                )
+            if cut_mm:
+                inches = cut_mm / 25.4
+                increments.add(inches)
+        if increments:
+            formatted = sorted(increments)
+            display_parts = []
+            for val in formatted:
+                if val == int(val):
+                    display_parts.append(f'{int(val)}"')
+                else:
+                    display_parts.append(f'{val:.2f}"')
             specs.append({
-                "spec_group": "General",
+                "spec_group": "Physical",
                 "spec_label": "Production Interval",
-                "spec_value": ", ".join(sorted(lead_times)),
+                "spec_value": ", ".join(display_parts),
                 "spec_unit": "",
                 "is_calculated": 1,
                 "display_order": 110,
@@ -1264,6 +1273,27 @@ def _enrich_tape_specs(product: dict, existing_labels: set) -> list:
                 "attribute_options": protocol_options,
             })
 
+    # ── Production Interval (cut increment in inches) ─────────
+    if "Production Interval" not in existing_labels:
+        if tape.cut_increment_mm:
+            inches = tape.cut_increment_mm / 25.4
+            if inches == int(inches):
+                formatted = f'{int(inches)}"'
+            else:
+                formatted = f'{inches:.2f}"'
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Production Interval",
+                "spec_value": formatted,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 65,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
     return specs
 
 
@@ -1277,17 +1307,12 @@ def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
 
     # ── Dimensions ─────────────────────────────────────────────
     if "Dimensions" not in existing_labels:
-        dim_parts = []
-        if profile.width_mm:
-            dim_parts.append(f"{profile.width_mm}mm W")
-        if profile.height_mm:
-            dim_parts.append(f"{profile.height_mm}mm H")
-        if dim_parts:
+        if profile.dimensions:
             specs.append({
                 "spec_group": "Physical",
                 "spec_label": "Dimensions",
-                "spec_value": " x ".join(dim_parts),
-                "spec_unit": "mm",
+                "spec_value": profile.dimensions,
+                "spec_unit": "",
                 "is_calculated": 1,
                 "display_order": 45,
                 "show_on_card": 0,

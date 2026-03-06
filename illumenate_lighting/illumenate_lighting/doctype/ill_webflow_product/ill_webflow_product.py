@@ -1032,6 +1032,58 @@ class ilLWebflowProduct(Document):
 				"attribute_options_json": frappe.as_json(env_attr_options) if env_attr_options else None
 			})
 
+		# Dimensions from linked profile spec
+		profile_spec_name = getattr(template, "default_profile_spec", None)
+		if profile_spec_name:
+			dimensions = frappe.db.get_value(
+				"ilL-Spec-Profile", profile_spec_name, "dimensions"
+			)
+			if dimensions:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Dimensions",
+					"spec_value": dimensions,
+					"is_calculated": 1,
+					"display_order": 85
+				})
+
+		# Production Interval (cut increment from linked tape, in inches)
+		cut_increments = set()
+		for tape_row in template.allowed_tape_offerings or []:
+			offering_name = getattr(tape_row, "tape_offering", None)
+			if not offering_name:
+				continue
+			offering_data = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", offering_name,
+				["cut_increment_mm_override", "tape_spec"],
+				as_dict=True,
+			)
+			if not offering_data:
+				continue
+			cut_mm = offering_data.get("cut_increment_mm_override")
+			if not cut_mm and offering_data.get("tape_spec"):
+				cut_mm = frappe.db.get_value(
+					"ilL-Spec-LED Tape", offering_data["tape_spec"],
+					"cut_increment_mm",
+				)
+			if cut_mm:
+				cut_increments.add(cut_mm / 25.4)
+		if cut_increments:
+			formatted = sorted(cut_increments)
+			display_parts = []
+			for val in formatted:
+				if val == int(val):
+					display_parts.append(f'{int(val)}"')
+				else:
+					display_parts.append(f'{val:.2f}"')
+			specs_to_add.append({
+				"spec_group": "Physical",
+				"spec_label": "Production Interval",
+				"spec_value": ", ".join(display_parts),
+				"is_calculated": 1,
+				"display_order": 90
+			})
+
 		# Clear existing calculated specs and add new ones
 		self.specifications = [
 			s for s in (self.specifications or [])
@@ -1262,6 +1314,19 @@ class ilLWebflowProduct(Document):
 				"is_calculated": 1,
 				"display_order": 40
 			})
+			# Production Interval: cut increment converted to inches
+			inches = tape.cut_increment_mm / 25.4
+			if inches == int(inches):
+				formatted = f'{int(inches)}"'
+			else:
+				formatted = f'{inches:.2f}"'
+			specs_to_add.append({
+				"spec_group": "Physical",
+				"spec_label": "Production Interval",
+				"spec_value": formatted,
+				"is_calculated": 1,
+				"display_order": 45
+			})
 
 		# Check for optional fields that may have been added
 		if hasattr(tape, 'lumens_per_foot') and tape.lumens_per_foot:
@@ -1326,25 +1391,34 @@ class ilLWebflowProduct(Document):
 			})
 
 		# Check for optional dimension fields that may have been added
-		if hasattr(profile, 'width_mm') and profile.width_mm:
+		if hasattr(profile, 'dimensions') and profile.dimensions:
 			specs_to_add.append({
 				"spec_group": "Physical",
-				"spec_label": "Width",
-				"spec_value": str(profile.width_mm),
-				"spec_unit": "mm",
+				"spec_label": "Dimensions",
+				"spec_value": profile.dimensions,
 				"is_calculated": 1,
 				"display_order": 40
 			})
+		else:
+			if hasattr(profile, 'width_mm') and profile.width_mm:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Width",
+					"spec_value": str(profile.width_mm),
+					"spec_unit": "mm",
+					"is_calculated": 1,
+					"display_order": 40
+				})
 
-		if hasattr(profile, 'height_mm') and profile.height_mm:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Height",
-				"spec_value": str(profile.height_mm),
-				"spec_unit": "mm",
-				"is_calculated": 1,
-				"display_order": 50
-			})
+			if hasattr(profile, 'height_mm') and profile.height_mm:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Height",
+					"spec_value": str(profile.height_mm),
+					"spec_unit": "mm",
+					"is_calculated": 1,
+					"display_order": 50
+				})
 
 		if profile.lens_interface:
 			specs_to_add.append({
