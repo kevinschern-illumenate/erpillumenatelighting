@@ -44,6 +44,7 @@
                         "documents",
                         "specifications_section",
                         "auto_calculate_specs",
+                        "specifications",
                         "column_break_specs",
                         "auto_populate_attributes",
                         "attribute_links",
@@ -299,6 +300,13 @@
                        "fieldtype":  "Check",
                        "hidden":  1,
                        "label":  "Auto Calculate Specs"
+                   },
+                   {
+                       "fieldname":  "specifications",
+                       "fieldtype":  "Table",
+                       "hidden":  1,
+                       "label":  "Specifications",
+                       "options":  "ilL-Child-Webflow-Specification"
                    },
                    {
                        "description":  "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering.",
