@@ -280,37 +280,42 @@ def validate_tape_configuration(
             "error": "Lead length must be a positive number.",
         }
 
-    # ── Find matching tape spec ───────────────────────────────────────
-    logger.info(f"validate_tape: looking for tape spec with category=LED Tape, pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
-    tape_spec = _find_matching_tape_spec(
+    # ── Find matching tape specs ──────────────────────────────────────
+    logger.info(f"validate_tape: looking for tape specs with category=LED Tape, pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
+    all_matching_specs = _find_all_matching_tape_specs(
         product_category="LED Tape",
         pcb_mounting=sel.get("pcb_mounting"),
         pcb_finish=sel.get("pcb_finish"),
     )
-    if not tape_spec:
+    if not all_matching_specs:
         logger.warning(f"validate_tape: No tape spec found for pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
         return {
             "success": False,
             "is_valid": False,
             "error": f"No LED Tape spec found for PCB Mounting='{sel.get('pcb_mounting')}' and Finish='{sel.get('pcb_finish')}'. Check that a matching ilL-Spec-LED Tape record exists.",
         }
-    logger.info(f"validate_tape: found tape spec = {tape_spec.name}")
+    spec_names = [s.name for s in all_matching_specs]
+    logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs: {spec_names}")
 
-    # ── Find matching tape offering ───────────────────────────────────
-    logger.info(f"validate_tape: looking for offering with spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+    # ── Find matching tape offering across all matching specs ─────────
+    logger.info(f"validate_tape: looking for offering with specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
     tape_offering = _find_matching_tape_offering(
-        tape_spec_name=tape_spec.name,
+        tape_spec_name=spec_names,
         cct=sel.get("cct"),
         output_level=sel.get("output_level"),
     )
     if not tape_offering:
-        logger.warning(f"validate_tape: No offering found for spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+        logger.warning(f"validate_tape: No offering found for specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": f"No tape offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on spec '{tape_spec.name}'. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
+            "error": f"No tape offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on specs {spec_names}. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
         }
     logger.info(f"validate_tape: found offering = {tape_offering.name}")
+
+    # Resolve the correct tape spec from the offering
+    tape_spec = next(s for s in all_matching_specs if s.name == tape_offering.tape_spec)
+    logger.info(f"validate_tape: resolved tape spec = {tape_spec.name} from offering")
 
     # ── Compute manufacturable length ─────────────────────────────────
     is_free_cutting = tape_spec.is_free_cutting
@@ -527,37 +532,42 @@ def validate_neon_configuration(
             "error": "At least one segment is required.",
         }
 
-    # ── Find matching tape spec ───────────────────────────────────────
-    logger.info(f"validate_neon: looking for tape spec with category=LED Neon, pcb_mounting={sel.get('mounting')}, pcb_finish={sel.get('finish')}")
-    tape_spec = _find_matching_tape_spec(
+    # ── Find matching tape specs ──────────────────────────────────────
+    logger.info(f"validate_neon: looking for tape specs with category=LED Neon, pcb_mounting={sel.get('mounting')}, pcb_finish={sel.get('finish')}")
+    all_matching_specs = _find_all_matching_tape_specs(
         product_category="LED Neon",
         pcb_mounting=sel.get("mounting"),
         pcb_finish=sel.get("finish"),
     )
-    if not tape_spec:
+    if not all_matching_specs:
         logger.warning(f"validate_neon: No tape spec found for mounting={sel.get('mounting')}, finish={sel.get('finish')}")
         return {
             "success": False,
             "is_valid": False,
             "error": f"No LED Neon spec found for Mounting='{sel.get('mounting')}' and Finish='{sel.get('finish')}'. Check that a matching ilL-Spec-LED Tape record (product_category=LED Neon) exists.",
         }
-    logger.info(f"validate_neon: found tape spec = {tape_spec.name}")
+    spec_names = [s.name for s in all_matching_specs]
+    logger.info(f"validate_neon: found {len(all_matching_specs)} matching tape specs: {spec_names}")
 
-    # ── Find matching tape offering ───────────────────────────────────
-    logger.info(f"validate_neon: looking for offering with spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+    # ── Find matching tape offering across all matching specs ─────────
+    logger.info(f"validate_neon: looking for offering with specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
     tape_offering = _find_matching_tape_offering(
-        tape_spec_name=tape_spec.name,
+        tape_spec_name=spec_names,
         cct=sel.get("cct"),
         output_level=sel.get("output_level"),
     )
     if not tape_offering:
-        logger.warning(f"validate_neon: No offering found for spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+        logger.warning(f"validate_neon: No offering found for specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": f"No neon offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on spec '{tape_spec.name}'. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
+            "error": f"No neon offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on specs {spec_names}. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
         }
     logger.info(f"validate_neon: found offering = {tape_offering.name}")
+
+    # Resolve the correct tape spec from the offering
+    tape_spec = next(s for s in all_matching_specs if s.name == tape_offering.tape_spec)
+    logger.info(f"validate_neon: resolved tape spec = {tape_spec.name} from offering")
 
     # ── Process each segment ──────────────────────────────────────────
     is_free_cutting = tape_spec.is_free_cutting
@@ -2004,7 +2014,17 @@ def _find_matching_tape_spec(
     pcb_mounting: str = None,
     pcb_finish: str = None,
 ) -> Optional[Any]:
-    """Find an ilL-Spec-LED Tape matching the given filters."""
+    """Find an ilL-Spec-LED Tape matching the given filters (returns first match)."""
+    specs = _find_all_matching_tape_specs(product_category, pcb_mounting, pcb_finish)
+    return specs[0] if specs else None
+
+
+def _find_all_matching_tape_specs(
+    product_category: str,
+    pcb_mounting: str = None,
+    pcb_finish: str = None,
+) -> list:
+    """Find all ilL-Spec-LED Tape records matching the given filters."""
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
     filters: dict[str, Any] = {"product_category": product_category}
     if pcb_mounting:
@@ -2012,7 +2032,7 @@ def _find_matching_tape_spec(
     if pcb_finish:
         filters["pcb_finish"] = pcb_finish
 
-    logger.info(f"_find_matching_tape_spec: filters={filters}")
+    logger.info(f"_find_all_matching_tape_specs: filters={filters}")
 
     specs = frappe.get_all(
         "ilL-Spec-LED Tape",
@@ -2024,7 +2044,6 @@ def _find_matching_tape_spec(
             "leader_cable_item", "voltage_drop_max_run_length_ft",
         ],
         order_by="name asc",
-        limit=1,
     )
     if not specs:
         # Log all available specs for debugging
@@ -2034,20 +2053,31 @@ def _find_matching_tape_spec(
             fields=["name", "pcb_mounting", "pcb_finish"],
         )
         logger.warning(
-            f"_find_matching_tape_spec: No match for {filters}. "
+            f"_find_all_matching_tape_specs: No match for {filters}. "
             f"Available specs for {product_category}: {all_specs}"
         )
-    return specs[0] if specs else None
+    return specs
 
 
 def _find_matching_tape_offering(
-    tape_spec_name: str,
+    tape_spec_name,
     cct: str = None,
     output_level: str = None,
 ) -> Optional[Any]:
-    """Find an ilL-Rel-Tape Offering matching the tape spec, CCT and output."""
+    """Find an ilL-Rel-Tape Offering matching the tape spec(s), CCT and output.
+
+    Args:
+        tape_spec_name: A single spec name (str) or list of spec names.
+        cct: CCT attribute name to filter on.
+        output_level: Output level attribute name to filter on.
+    """
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
-    filters: dict[str, Any] = {"tape_spec": tape_spec_name, "is_active": 1}
+    # Accept either a single name or a list of names
+    if isinstance(tape_spec_name, list):
+        spec_filter = ["in", tape_spec_name]
+    else:
+        spec_filter = tape_spec_name
+    filters: dict[str, Any] = {"tape_spec": spec_filter, "is_active": 1}
     if cct:
         filters["cct"] = cct
     if output_level:
@@ -2065,8 +2095,8 @@ def _find_matching_tape_offering(
         # Log all available offerings for debugging
         all_offerings = frappe.get_all(
             "ilL-Rel-Tape Offering",
-            filters={"tape_spec": tape_spec_name, "is_active": 1},
-            fields=["name", "cct", "output_level"],
+            filters={"tape_spec": spec_filter, "is_active": 1},
+            fields=["name", "cct", "output_level", "tape_spec"],
         )
         logger.warning(
             f"_find_matching_tape_offering: No match for {filters}. "
