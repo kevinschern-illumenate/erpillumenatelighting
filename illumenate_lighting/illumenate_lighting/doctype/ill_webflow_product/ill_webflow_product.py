@@ -152,10 +152,39 @@ class ilLWebflowProduct(Document):
 		else:
 			return
 		
+		# Add certifications from the certifications child table as attribute links
+		self._populate_certification_attributes(attribute_links)
+		
 		# Clear existing attribute links and add new ones
 		self.attribute_links = []
 		for link in attribute_links:
 			self.append("attribute_links", link)
+
+	def _populate_certification_attributes(self, attribute_links):
+		"""Add certifications from the certifications child table as attribute links."""
+		display_order = max((a.get("display_order", 0) for a in attribute_links), default=0)
+		for cert in getattr(self, 'certifications', []):
+			cert_name = cert.certification
+			if not cert_name:
+				continue
+			existing = [a for a in attribute_links
+			            if a["attribute_doctype"] == "ilL-Attribute-Certification"
+			            and a["attribute_name"] == cert_name]
+			if not existing:
+				display_order += 1
+				cert_data = frappe.db.get_value(
+					"ilL-Attribute-Certification", cert_name,
+					["certification_name"], as_dict=True
+				)
+				webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Certification", cert_name)
+				attribute_links.append({
+					"attribute_type": "Certification",
+					"attribute_doctype": "ilL-Attribute-Certification",
+					"attribute_name": cert_name,
+					"display_label": cert_data.get("certification_name") if cert_data else cert_name,
+					"webflow_item_id": webflow_id,
+					"display_order": display_order,
+				})
 	
 	def _populate_fixture_template_attributes(self, attribute_links):
 		"""Extract attributes from fixture template.
