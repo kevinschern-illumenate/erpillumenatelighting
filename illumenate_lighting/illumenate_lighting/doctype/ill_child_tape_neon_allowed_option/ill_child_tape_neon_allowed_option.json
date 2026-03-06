@@ -11,6 +11,7 @@
         "environment_rating",
         "ip_rating",
         "feed_direction",
+        "feed_position",
         "power_feed_type",
         "pcb_mounting",
         "pcb_finish",
@@ -76,6 +77,16 @@
             "label": "Feed Direction",
             "mandatory_depends_on": "eval:doc.option_type=='Feed Direction'",
             "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+            "default": "Both",
+            "depends_on": "eval:doc.option_type=='Feed Direction'",
+            "description": "Which end of the fixture this direction applies to (Both, Start only, or End only)",
+            "fieldname": "feed_position",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "label": "Feed Position",
+            "options": "Both\nStart\nEnd"
         },
         {
             "depends_on": "eval:doc.option_type=='Power Feed Type'",

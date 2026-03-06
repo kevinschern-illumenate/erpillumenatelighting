@@ -3485,17 +3485,21 @@ function tnPopulateNeonSegmentOptions(segmentCard) {
 		ipSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 	});
 
-	// Feed directions
-	var feedDirs = opts.feed_directions || [
-		{value: 'End', label: 'End'},
-		{value: 'Back', label: 'Back'}
-	];
-	['neon_start_feed_direction', 'neon_end_feed_direction'].forEach(function(fieldName) {
-		var select = segmentCard.find('[name="' + fieldName + '"]');
-		select.empty().append('<option value="">Select...</option>');
-		feedDirs.forEach(function(opt) {
-			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
-		});
+	// Feed directions — use separate start/end lists when available
+	var defaultDirs = [{value: 'End', label: 'End'}, {value: 'Back', label: 'Back'}];
+	var startFeedDirs = opts.start_feed_directions || opts.feed_directions || defaultDirs;
+	var endFeedDirs = opts.end_feed_directions || opts.feed_directions || defaultDirs;
+
+	var startSelect = segmentCard.find('[name="neon_start_feed_direction"]');
+	startSelect.empty().append('<option value="">Select...</option>');
+	startFeedDirs.forEach(function(opt) {
+		startSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+	});
+
+	var endSelect = segmentCard.find('[name="neon_end_feed_direction"]');
+	endSelect.empty().append('<option value="">Select...</option>');
+	endFeedDirs.forEach(function(opt) {
+		endSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
 	});
 
 	// Unit change handler for neon segment length
@@ -3620,12 +3624,14 @@ function tnCollectNeonSegments() {
 		var feetVal = parseFloat(card.find('[name="neon_fixture_length_feet"]').val()) || 0;
 		var inchesVal = parseFloat(card.find('[name="neon_fixture_length_inches"]').val()) || 0;
 
+		var endType = card.find('[name="neon_end_type"]').val() || 'Endcap';
 		var seg = {
 			ip_rating: card.find('[name="neon_ip_rating"]').val(),
 			fixture_length_unit: unit,
 			fixture_length_value: lengthVal,
 			fixture_length_feet: feetVal,
 			fixture_length_inches: inchesVal,
+			end_type: endType,
 			end_feed_direction: card.find('[name="neon_end_feed_direction"]').val() || '',
 			end_feed_length_inches: parseFloat(card.find('[name="neon_end_feed_length_inches"]').val()) || 0,
 		};

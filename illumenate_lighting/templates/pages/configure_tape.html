@@ -616,16 +616,22 @@ Allows users to configure LED tape and neon products with step-by-step selection
 		const idx = neonSegmentCount;
 
 		const ipOptions = (initData && initData.options && initData.options.ip_ratings) || [];
-		const feedDirOptions = (initData && initData.options && initData.options.feed_directions) || [];
+		const startFeedDirOptions = (initData && initData.options && (initData.options.start_feed_directions || initData.options.feed_directions)) || [];
+		const endFeedDirOptions = (initData && initData.options && (initData.options.end_feed_directions || initData.options.feed_directions)) || [];
 
 		let ipOptionsHtml = '<option value="">Select...</option>';
 		ipOptions.forEach(function(o) {
 			ipOptionsHtml += '<option value="' + o.value + '">' + o.label + '</option>';
 		});
 
-		let feedDirHtml = '<option value="">Select...</option>';
-		feedDirOptions.forEach(function(o) {
-			feedDirHtml += '<option value="' + o.value + '">' + o.label + '</option>';
+		let startFeedDirHtml = '<option value="">Select...</option>';
+		startFeedDirOptions.forEach(function(o) {
+			startFeedDirHtml += '<option value="' + o.value + '">' + o.label + '</option>';
+		});
+
+		let endFeedDirHtml = '<option value="">Select...</option>';
+		endFeedDirOptions.forEach(function(o) {
+			endFeedDirHtml += '<option value="' + o.value + '">' + o.label + '</option>';
 		});
 
 		const html = `
@@ -648,7 +654,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 						<div class="form-group mb-2">
 							<label class="small font-weight-bold">Start Feed Direction</label>
 							<select class="form-control seg-start-feed-dir" data-seg="${idx}">
-								${feedDirHtml}
+								${startFeedDirHtml}
 							</select>
 						</div>
 					</div>
@@ -683,7 +689,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 						<div class="form-group mb-2">
 							<label class="small font-weight-bold">End Feed Direction</label>
 							<select class="form-control seg-end-feed-dir" data-seg="${idx}">
-								${feedDirHtml}
+								${endFeedDirHtml}
 							</select>
 						</div>
 					</div>

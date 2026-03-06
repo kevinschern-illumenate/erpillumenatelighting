@@ -473,6 +473,8 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
             "finishes": [{"value": f, "label": f} for f in pcb_finishes],
             "ip_ratings": ip_ratings,
             "feed_directions": feed_directions,
+            "start_feed_directions": feed_directions,
+            "end_feed_directions": feed_directions,
         },
     }
 
@@ -581,8 +583,10 @@ def validate_neon_configuration(
         seg_num = idx + 1
 
         # Validate required segment fields
-        seg_required = ["ip_rating", "start_feed_direction", "start_lead_length_inches",
-                        "end_feed_direction", "end_feed_length_inches"]
+        seg_required = ["ip_rating", "start_feed_direction", "start_lead_length_inches"]
+        # end_feed fields only required when end_type is Jumper (not Endcap)
+        if seg.get("end_type", "Endcap") != "Endcap":
+            seg_required += ["end_feed_direction", "end_feed_length_inches"]
         seg_missing = [f for f in seg_required if not seg.get(f) and seg.get(f) != 0]
         if seg_missing:
             return {
@@ -634,6 +638,7 @@ def validate_neon_configuration(
             "manufacturable_length_mm": round(mfg_length_mm, 1),
             "manufacturable_length_in": round(mfg_length_mm / MM_PER_INCH, 2),
             "difference_mm": round(diff_mm, 1),
+            "end_type": seg.get("end_type", "Endcap"),
             "end_feed_direction": seg.get("end_feed_direction"),
             "end_feed_length_inches": float(seg.get("end_feed_length_inches", 0)),
         })
@@ -960,7 +965,10 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
     else:
         # LED Neon specific
         options["ip_ratings"] = _get_ip_ratings()
-        options["feed_directions"] = _get_feed_directions()
+        all_dirs = _get_feed_directions()
+        options["feed_directions"] = all_dirs
+        options["start_feed_directions"] = all_dirs
+        options["end_feed_directions"] = all_dirs
         mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
         options["mounting_methods"] = [{"value": m, "label": m} for m in mountings]
         finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
@@ -1163,7 +1171,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         },
         fields=[
             "option_type", "cct", "output_level", "environment_rating",
-            "ip_rating", "feed_direction", "power_feed_type",
+            "ip_rating", "feed_direction", "feed_position", "power_feed_type",
             "pcb_mounting", "pcb_finish", "mounting_method", "finish",
             "endcap_style", "is_default", "msrp_adder",
         ],
@@ -1576,17 +1584,19 @@ def _build_template_options(
 
     Returns:
         {
-          "environment_ratings": [...],  # LED Tape only
+          "environment_ratings": [...],        # LED Tape only
           "ccts": [...],
           "output_levels": [...],
-          "pcb_mountings": [...],        # LED Tape only
-          "pcb_finishes": [...],         # LED Tape only
-          "feed_types": [...],           # LED Tape only
-          "ip_ratings": [...],           # LED Neon only
-          "feed_directions": [...],      # LED Neon only
-          "mounting_methods": [...],     # LED Neon only
-          "finishes": [...],             # LED Neon only
-          "endcap_styles": [...],        # LED Neon only
+          "pcb_mountings": [...],              # LED Tape only
+          "pcb_finishes": [...],               # LED Tape only
+          "feed_types": [...],                 # LED Tape only
+          "ip_ratings": [...],                 # LED Neon only
+          "feed_directions": [...],            # LED Neon only (all directions)
+          "start_feed_directions": [...],      # LED Neon only (start-position subset)
+          "end_feed_directions": [...],        # LED Neon only (end-position subset)
+          "mounting_methods": [...],           # LED Neon only
+          "finishes": [...],                   # LED Neon only
+          "endcap_styles": [...],              # LED Neon only
         }
     """
     is_neon = product_category == "LED Neon"
@@ -1721,9 +1731,27 @@ def _build_template_options(
         else:
             options["ip_ratings"] = _get_ip_ratings()
 
-        # Feed Direction
+        # Feed Direction — split into start and end lists
         fd_rows = grouped.get("Feed Direction", [])
         if fd_rows:
+            start_dirs = []
+            end_dirs = []
+            for r in fd_rows:
+                if not r.feed_direction:
+                    continue
+                entry = {
+                    "value": r.feed_direction,
+                    "label": r.feed_direction,
+                    "is_default": bool(r.is_default),
+                }
+                position = getattr(r, "feed_position", None) or "Both"
+                if position in ("Both", "Start"):
+                    start_dirs.append(entry)
+                if position in ("Both", "End"):
+                    end_dirs.append(entry)
+            options["start_feed_directions"] = start_dirs
+            options["end_feed_directions"] = end_dirs
+            # Keep combined list for backward compatibility
             options["feed_directions"] = [
                 {
                     "value": r.feed_direction,
@@ -1733,7 +1761,10 @@ def _build_template_options(
                 for r in fd_rows if r.feed_direction
             ]
         else:
-            options["feed_directions"] = _get_feed_directions()
+            all_dirs = _get_feed_directions()
+            options["feed_directions"] = all_dirs
+            options["start_feed_directions"] = all_dirs
+            options["end_feed_directions"] = all_dirs
 
         # Mounting Method
         mm_rows = grouped.get("Mounting Method", [])
