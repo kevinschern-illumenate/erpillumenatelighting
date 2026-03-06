@@ -24,6 +24,9 @@ from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
     build_product_filter_field_data,
     ATTRIBUTE_FILTER_FIELD_SLUGS,
 )
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+    format_length_inches,
+)
 
 # Base URL for converting relative file paths to absolute URLs
 ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
@@ -928,7 +931,7 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
 
     # ── Production Interval (cut increment from linked tape, in inches) ──
     if "Production Interval" not in existing_labels:
-        increments = set()
+        increments_mm = set()
         for tape_row in template.allowed_tape_offerings or []:
             offering_name = getattr(tape_row, "tape_offering", None)
             if not offering_name:
@@ -947,28 +950,26 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
                     "cut_increment_mm",
                 )
             if cut_mm:
-                inches = cut_mm / 25.4
-                increments.add(inches)
-        if increments:
-            formatted = sorted(increments)
-            display_parts = []
-            for val in formatted:
-                if val == int(val):
-                    display_parts.append(f'{int(val)}"')
-                else:
-                    display_parts.append(f'{val:.2f}"')
-            specs.append({
-                "spec_group": "Physical",
-                "spec_label": "Production Interval",
-                "spec_value": ", ".join(display_parts),
-                "spec_unit": "",
-                "is_calculated": 1,
-                "display_order": 110,
-                "show_on_card": 0,
-                "attribute_doctype": "",
-                "attribute_options_json": None,
-                "attribute_options": [],
-            })
+                increments_mm.add(cut_mm)
+        if increments_mm:
+            display_parts = [
+                format_length_inches(v, precision=2)
+                for v in sorted(increments_mm)
+                if format_length_inches(v, precision=2)
+            ]
+            if display_parts:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Production Interval",
+                    "spec_value": ", ".join(display_parts),
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 110,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
 
     return specs
 
@@ -1276,23 +1277,20 @@ def _enrich_tape_specs(product: dict, existing_labels: set) -> list:
     # ── Production Interval (cut increment in inches) ─────────
     if "Production Interval" not in existing_labels:
         if tape.cut_increment_mm:
-            inches = tape.cut_increment_mm / 25.4
-            if inches == int(inches):
-                formatted = f'{int(inches)}"'
-            else:
-                formatted = f'{inches:.2f}"'
-            specs.append({
-                "spec_group": "Physical",
-                "spec_label": "Production Interval",
-                "spec_value": formatted,
-                "spec_unit": "",
-                "is_calculated": 1,
-                "display_order": 65,
-                "show_on_card": 0,
-                "attribute_doctype": "",
-                "attribute_options_json": None,
-                "attribute_options": [],
-            })
+            formatted = format_length_inches(tape.cut_increment_mm, precision=2)
+            if formatted:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Production Interval",
+                    "spec_value": formatted,
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 65,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
 
     return specs
 

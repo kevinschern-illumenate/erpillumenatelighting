@@ -4,6 +4,10 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+	format_length_inches,
+)
+
 
 class ilLWebflowProduct(Document):
 	# begin: auto-generated types
@@ -1048,7 +1052,7 @@ class ilLWebflowProduct(Document):
 				})
 
 		# Production Interval (cut increment from linked tape, in inches)
-		cut_increments = set()
+		cut_increments_mm = set()
 		for tape_row in template.allowed_tape_offerings or []:
 			offering_name = getattr(tape_row, "tape_offering", None)
 			if not offering_name:
@@ -1067,22 +1071,21 @@ class ilLWebflowProduct(Document):
 					"cut_increment_mm",
 				)
 			if cut_mm:
-				cut_increments.add(cut_mm / 25.4)
-		if cut_increments:
-			formatted = sorted(cut_increments)
-			display_parts = []
-			for val in formatted:
-				if val == int(val):
-					display_parts.append(f'{int(val)}"')
-				else:
-					display_parts.append(f'{val:.2f}"')
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Production Interval",
-				"spec_value": ", ".join(display_parts),
-				"is_calculated": 1,
-				"display_order": 90
-			})
+				cut_increments_mm.add(cut_mm)
+		if cut_increments_mm:
+			display_parts = [
+				format_length_inches(v, precision=2)
+				for v in sorted(cut_increments_mm)
+				if format_length_inches(v, precision=2)
+			]
+			if display_parts:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Production Interval",
+					"spec_value": ", ".join(display_parts),
+					"is_calculated": 1,
+					"display_order": 90
+				})
 
 		# Clear existing calculated specs and add new ones
 		self.specifications = [
@@ -1315,18 +1318,15 @@ class ilLWebflowProduct(Document):
 				"display_order": 40
 			})
 			# Production Interval: cut increment converted to inches
-			inches = tape.cut_increment_mm / 25.4
-			if inches == int(inches):
-				formatted = f'{int(inches)}"'
-			else:
-				formatted = f'{inches:.2f}"'
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Production Interval",
-				"spec_value": formatted,
-				"is_calculated": 1,
-				"display_order": 45
-			})
+			formatted = format_length_inches(tape.cut_increment_mm, precision=2)
+			if formatted:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Production Interval",
+					"spec_value": formatted,
+					"is_calculated": 1,
+					"display_order": 45
+				})
 
 		# Check for optional fields that may have been added
 		if hasattr(tape, 'lumens_per_foot') and tape.lumens_per_foot:
