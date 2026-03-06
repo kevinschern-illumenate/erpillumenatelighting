@@ -408,6 +408,17 @@ class TestWebflowExportAPI(FrappeTestCase):
         # Cleanup
         product.delete()
 
+    def test_certification_filter_field_slug_exists(self):
+        """Test that Certification is in ATTRIBUTE_FILTER_FIELD_SLUGS."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+            ATTRIBUTE_FILTER_FIELD_SLUGS,
+        )
+
+        self.assertIn("Certification", ATTRIBUTE_FILTER_FIELD_SLUGS)
+        self.assertEqual(
+            ATTRIBUTE_FILTER_FIELD_SLUGS["Certification"], "certification-filter"
+        )
+
 
 class TestilLAttributeCertification(FrappeTestCase):
     """Test cases for Certification attribute DocType."""
@@ -445,6 +456,85 @@ class TestilLAttributeCertification(FrappeTestCase):
         self.assertEqual(len(cert.applies_to_types), 2)
         
         # Cleanup
+        cert.delete()
+
+
+class TestCertificationAttributePopulation(FrappeTestCase):
+    """Test cases for certification attribute population in Webflow products."""
+
+    def test_certifications_included_in_attribute_links(self):
+        """Test that certifications from the certifications child table are added to attribute_links.
+
+        Verifies:
+        - Certifications are populated as attribute_links with attribute_type 'Certification'
+        - Certification name and doctype are set correctly
+        """
+        cert = frappe.get_doc({
+            "doctype": "ilL-Attribute-Certification",
+            "certification_name": "Attr Link Cert " + frappe.generate_hash(length=6),
+            "certification_code": "ALC",
+            "is_active": 1,
+        })
+        cert.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Product With Cert",
+            "product_slug": "test-product-cert-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_populate_attributes": 1,
+            "is_active": 1,
+            "certifications": [
+                {"certification": cert.name, "display_order": 1}
+            ],
+        })
+        product.insert()
+
+        cert_links = [
+            al for al in product.attribute_links
+            if al.attribute_type == "Certification"
+        ]
+        self.assertEqual(len(cert_links), 1)
+        self.assertEqual(cert_links[0].attribute_doctype, "ilL-Attribute-Certification")
+        self.assertEqual(cert_links[0].attribute_name, cert.name)
+        self.assertEqual(cert_links[0].display_label, cert.certification_name)
+
+        # Cleanup
+        product.delete()
+        cert.delete()
+
+    def test_certifications_deduplicated_in_attribute_links(self):
+        """Test that duplicate certifications are not added to attribute_links."""
+        cert = frappe.get_doc({
+            "doctype": "ilL-Attribute-Certification",
+            "certification_name": "Dedup Cert " + frappe.generate_hash(length=6),
+            "certification_code": "DDP",
+            "is_active": 1,
+        })
+        cert.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Product Dedup Cert",
+            "product_slug": "test-product-dedup-cert-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_populate_attributes": 1,
+            "is_active": 1,
+            "certifications": [
+                {"certification": cert.name, "display_order": 1},
+                {"certification": cert.name, "display_order": 2},
+            ],
+        })
+        product.insert()
+
+        cert_links = [
+            al for al in product.attribute_links
+            if al.attribute_type == "Certification"
+        ]
+        self.assertEqual(len(cert_links), 1)
+
+        # Cleanup
+        product.delete()
         cert.delete()
 
 
