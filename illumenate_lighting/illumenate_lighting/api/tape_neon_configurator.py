@@ -1630,8 +1630,8 @@ def _build_template_options(
         default_ols = {r.output_level for r in ol_rows if r.is_default}
         for o in options["output_levels"]:
             o["is_default"] = o["value"] in default_ols
-            if o.get("value"):
-                o["label"] = f"{o['value']} lm/ft"
+            if o.get("numeric_value"):
+                o["label"] = f"{o['numeric_value']} lm/ft"
     else:
         options["output_levels"] = _collect_attribute_options(
             tape_offerings, "output_level", "ilL-Attribute-Output Level",
