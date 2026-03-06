@@ -408,16 +408,13 @@ class TestWebflowExportAPI(FrappeTestCase):
         # Cleanup
         product.delete()
 
-    def test_certification_filter_field_slug_exists(self):
-        """Test that Certification is in ATTRIBUTE_FILTER_FIELD_SLUGS."""
+    def test_certification_filter_field_slug_not_present(self):
+        """Test that Certification is NOT in ATTRIBUTE_FILTER_FIELD_SLUGS (field does not exist in Webflow)."""
         from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
             ATTRIBUTE_FILTER_FIELD_SLUGS,
         )
 
-        self.assertIn("Certification", ATTRIBUTE_FILTER_FIELD_SLUGS)
-        self.assertEqual(
-            ATTRIBUTE_FILTER_FIELD_SLUGS["Certification"], "certification-filter"
-        )
+        self.assertNotIn("Certification", ATTRIBUTE_FILTER_FIELD_SLUGS)
 
 
 class TestilLAttributeCertification(FrappeTestCase):

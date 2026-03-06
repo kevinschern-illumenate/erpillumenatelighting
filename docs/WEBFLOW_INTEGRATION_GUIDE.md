@@ -73,6 +73,7 @@ This collection stores the base product catalog. Products are synced from ERPNex
 | Specifications JSON | `specifications-json` | Plain Text | Structured specs with attribute links |
 | Attribute Links JSON | `attribute-links-json` | Plain Text | All linked attributes for filtering |
 | Featured Image | `featured-image` | Image | Main product image |
+| Category Filter | `category-filter` | Reference | Link to Categories collection item |
 
 #### Filter Fields (for CMS filtering)
 
