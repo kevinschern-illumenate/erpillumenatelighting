@@ -90,19 +90,21 @@
             "depends_on": "eval:doc.option_type=='PCB Mounting'",
             "description": "PCB mounting method (e.g. Rigid, Flex)",
             "fieldname": "pcb_mounting",
-            "fieldtype": "Data",
+            "fieldtype": "Link",
             "in_list_view": 1,
             "label": "PCB Mounting",
-            "mandatory_depends_on": "eval:doc.option_type=='PCB Mounting'"
+            "mandatory_depends_on": "eval:doc.option_type=='PCB Mounting'",
+            "options": "ilL-Attribute-PCB Mounting"
         },
         {
             "depends_on": "eval:doc.option_type=='PCB Finish'",
             "description": "PCB color/finish (e.g. White, Black)",
             "fieldname": "pcb_finish",
-            "fieldtype": "Data",
+            "fieldtype": "Link",
             "in_list_view": 1,
             "label": "PCB Finish",
-            "mandatory_depends_on": "eval:doc.option_type=='PCB Finish'"
+            "mandatory_depends_on": "eval:doc.option_type=='PCB Finish'",
+            "options": "ilL-Attribute-PCB Finish"
         },
         {
             "depends_on": "eval:doc.option_type=='Mounting Method'",
