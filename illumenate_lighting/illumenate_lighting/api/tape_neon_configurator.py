@@ -236,10 +236,13 @@ def validate_tape_configuration(
       - manufacturable_length_mm
       - resolved tape spec + tape offering + leader cable item
     """
+    logger = frappe.logger("tape_neon_configurator", allow_site=True)
     try:
         sel = json.loads(selections) if isinstance(selections, str) else selections
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid selections JSON"}
+
+    logger.info(f"validate_tape_configuration called with selections: {sel}")
 
     messages = []
 
@@ -250,6 +253,7 @@ def validate_tape_configuration(
     if sel.get("lead_length_inches") is None or sel.get("lead_length_inches") == "":
         missing.append("lead_length_inches")
     if missing:
+        logger.warning(f"validate_tape: Missing required fields: {missing}")
         return {
             "success": False,
             "is_valid": False,
@@ -259,7 +263,9 @@ def validate_tape_configuration(
 
     # ── Parse requested tape length ───────────────────────────────────
     requested_length_mm = _parse_tape_length(sel)
+    logger.info(f"validate_tape: parsed tape length = {requested_length_mm} mm")
     if requested_length_mm is None or requested_length_mm <= 0:
+        logger.warning(f"validate_tape: Invalid tape length: {requested_length_mm}")
         return {
             "success": False,
             "is_valid": False,
@@ -275,30 +281,36 @@ def validate_tape_configuration(
         }
 
     # ── Find matching tape spec ───────────────────────────────────────
+    logger.info(f"validate_tape: looking for tape spec with category=LED Tape, pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
     tape_spec = _find_matching_tape_spec(
         product_category="LED Tape",
         pcb_mounting=sel.get("pcb_mounting"),
         pcb_finish=sel.get("pcb_finish"),
     )
     if not tape_spec:
+        logger.warning(f"validate_tape: No tape spec found for pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": "No LED Tape spec found for the selected PCB Mounting and Finish.",
+            "error": f"No LED Tape spec found for PCB Mounting='{sel.get('pcb_mounting')}' and Finish='{sel.get('pcb_finish')}'. Check that a matching ilL-Spec-LED Tape record exists.",
         }
+    logger.info(f"validate_tape: found tape spec = {tape_spec.name}")
 
     # ── Find matching tape offering ───────────────────────────────────
+    logger.info(f"validate_tape: looking for offering with spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
     tape_offering = _find_matching_tape_offering(
         tape_spec_name=tape_spec.name,
         cct=sel.get("cct"),
         output_level=sel.get("output_level"),
     )
     if not tape_offering:
+        logger.warning(f"validate_tape: No offering found for spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": "No tape offering found for the selected CCT and Output Level.",
+            "error": f"No tape offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on spec '{tape_spec.name}'. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
         }
+    logger.info(f"validate_tape: found offering = {tape_offering.name}")
 
     # ── Compute manufacturable length ─────────────────────────────────
     is_free_cutting = tape_spec.is_free_cutting
@@ -485,11 +497,14 @@ def validate_neon_configuration(
       - end_feed_direction   (str)
       - end_feed_length_inches (float) – jumper/exit cable length
     """
+    logger = frappe.logger("tape_neon_configurator", allow_site=True)
     try:
         sel = json.loads(selections) if isinstance(selections, str) else selections
         segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid JSON input"}
+
+    logger.info(f"validate_neon_configuration called with selections: {sel}, segments: {segments}")
 
     messages = []
 
@@ -497,6 +512,7 @@ def validate_neon_configuration(
     required = ["cct", "output_level", "mounting", "finish"]
     missing = [f for f in required if not sel.get(f)]
     if missing:
+        logger.warning(f"validate_neon: Missing required fields: {missing}")
         return {
             "success": False,
             "is_valid": False,
@@ -512,30 +528,36 @@ def validate_neon_configuration(
         }
 
     # ── Find matching tape spec ───────────────────────────────────────
+    logger.info(f"validate_neon: looking for tape spec with category=LED Neon, pcb_mounting={sel.get('mounting')}, pcb_finish={sel.get('finish')}")
     tape_spec = _find_matching_tape_spec(
         product_category="LED Neon",
         pcb_mounting=sel.get("mounting"),
         pcb_finish=sel.get("finish"),
     )
     if not tape_spec:
+        logger.warning(f"validate_neon: No tape spec found for mounting={sel.get('mounting')}, finish={sel.get('finish')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": "No LED Neon spec found for the selected Mounting and Finish.",
+            "error": f"No LED Neon spec found for Mounting='{sel.get('mounting')}' and Finish='{sel.get('finish')}'. Check that a matching ilL-Spec-LED Tape record (product_category=LED Neon) exists.",
         }
+    logger.info(f"validate_neon: found tape spec = {tape_spec.name}")
 
     # ── Find matching tape offering ───────────────────────────────────
+    logger.info(f"validate_neon: looking for offering with spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
     tape_offering = _find_matching_tape_offering(
         tape_spec_name=tape_spec.name,
         cct=sel.get("cct"),
         output_level=sel.get("output_level"),
     )
     if not tape_offering:
+        logger.warning(f"validate_neon: No offering found for spec={tape_spec.name}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": "No neon offering found for the selected CCT and Output Level.",
+            "error": f"No neon offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on spec '{tape_spec.name}'. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
         }
+    logger.info(f"validate_neon: found offering = {tape_offering.name}")
 
     # ── Process each segment ──────────────────────────────────────────
     is_free_cutting = tape_spec.is_free_cutting
@@ -1360,6 +1382,9 @@ def validate_tape_neon_template_config(
     if not template_code:
         return {"success": False, "is_valid": False, "error": "template_code is required"}
 
+    logger = frappe.logger("tape_neon_configurator", allow_site=True)
+    logger.info(f"validate_tape_neon_template_config called: template_code={template_code}, selections={selections}, segments_json={'(present)' if segments_json else '(none)'}")
+
     template_list = frappe.get_all(
         "ilL-Tape-Neon-Template",
         filters={"template_code": template_code, "is_active": 1},
@@ -1369,9 +1394,11 @@ def validate_tape_neon_template_config(
         ignore_permissions=True,
     )
     if not template_list:
+        logger.warning(f"validate_tape_neon_template_config: Template '{template_code}' not found or inactive")
         return {"success": False, "is_valid": False,
                 "error": f"Template '{template_code}' not found or inactive"}
     template = template_list[0]
+    logger.info(f"validate_tape_neon_template_config: Found template '{template.name}', category={template.product_category}")
 
     product_category = template.product_category
     is_neon = product_category == "LED Neon"
@@ -1381,11 +1408,14 @@ def validate_tape_neon_template_config(
         if not segments_json:
             return {"success": False, "is_valid": False,
                     "error": "segments_json is required for LED Neon"}
+        logger.info("validate_tape_neon_template_config: Delegating to validate_neon_configuration")
         result = validate_neon_configuration(selections, segments_json)
     else:
+        logger.info("validate_tape_neon_template_config: Delegating to validate_tape_configuration")
         result = validate_tape_configuration(selections)
 
     if not result.get("is_valid"):
+        logger.warning(f"validate_tape_neon_template_config: Validation failed: {result.get('error')}")
         return result
 
     # ── Augment result with template info ─────────────────────────────
@@ -1975,11 +2005,14 @@ def _find_matching_tape_spec(
     pcb_finish: str = None,
 ) -> Optional[Any]:
     """Find an ilL-Spec-LED Tape matching the given filters."""
+    logger = frappe.logger("tape_neon_configurator", allow_site=True)
     filters: dict[str, Any] = {"product_category": product_category}
     if pcb_mounting:
         filters["pcb_mounting"] = pcb_mounting
     if pcb_finish:
         filters["pcb_finish"] = pcb_finish
+
+    logger.info(f"_find_matching_tape_spec: filters={filters}")
 
     specs = frappe.get_all(
         "ilL-Spec-LED Tape",
@@ -1993,6 +2026,17 @@ def _find_matching_tape_spec(
         order_by="name asc",
         limit=1,
     )
+    if not specs:
+        # Log all available specs for debugging
+        all_specs = frappe.get_all(
+            "ilL-Spec-LED Tape",
+            filters={"product_category": product_category},
+            fields=["name", "pcb_mounting", "pcb_finish"],
+        )
+        logger.warning(
+            f"_find_matching_tape_spec: No match for {filters}. "
+            f"Available specs for {product_category}: {all_specs}"
+        )
     return specs[0] if specs else None
 
 
@@ -2002,11 +2046,14 @@ def _find_matching_tape_offering(
     output_level: str = None,
 ) -> Optional[Any]:
     """Find an ilL-Rel-Tape Offering matching the tape spec, CCT and output."""
+    logger = frappe.logger("tape_neon_configurator", allow_site=True)
     filters: dict[str, Any] = {"tape_spec": tape_spec_name, "is_active": 1}
     if cct:
         filters["cct"] = cct
     if output_level:
         filters["output_level"] = output_level
+
+    logger.info(f"_find_matching_tape_offering: filters={filters}")
 
     offerings = frappe.get_all(
         "ilL-Rel-Tape Offering",
@@ -2014,6 +2061,17 @@ def _find_matching_tape_offering(
         fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level"],
         limit=1,
     )
+    if not offerings:
+        # Log all available offerings for debugging
+        all_offerings = frappe.get_all(
+            "ilL-Rel-Tape Offering",
+            filters={"tape_spec": tape_spec_name, "is_active": 1},
+            fields=["name", "cct", "output_level"],
+        )
+        logger.warning(
+            f"_find_matching_tape_offering: No match for {filters}. "
+            f"Available offerings for {tape_spec_name}: {all_offerings}"
+        )
     return offerings[0] if offerings else None
 
 

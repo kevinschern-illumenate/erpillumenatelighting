@@ -3242,6 +3242,17 @@ function tnValidateAndQuote() {
 		args.segments_json = JSON.stringify(tnCollectNeonSegments());
 	}
 
+	// Debug: log what we're sending
+	console.group('[TN Configurator] Calculate & Validate');
+	console.log('Method:', method);
+	console.log('Template code:', templateCode);
+	console.log('Selections:', JSON.parse(JSON.stringify(selections)));
+	if (args.segments_json) {
+		console.log('Segments:', JSON.parse(args.segments_json));
+	}
+	console.log('Full args:', args);
+	console.groupEnd();
+
 	$('#tnCalculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Calculating...');
 
 	function resetTnCalculateBtn() {
@@ -3254,6 +3265,15 @@ function tnValidateAndQuote() {
 		args: args,
 		callback: function(r) {
 			resetTnCalculateBtn();
+			console.group('[TN Configurator] API Response');
+			console.log('Full response:', r.message);
+			if (r.message && !r.message.is_valid) {
+				console.warn('Validation FAILED:', r.message.error || 'Unknown reason');
+				if (r.message.missing_fields) {
+					console.warn('Missing fields:', r.message.missing_fields);
+				}
+			}
+			console.groupEnd();
 			if (r.message) {
 				tnCurrentResult = r.message;
 				tnDisplayResults(r.message);
@@ -3261,12 +3281,12 @@ function tnValidateAndQuote() {
 		},
 		error: function(r) {
 			resetTnCalculateBtn();
+			console.error('[TN Configurator] API call error:', r);
 			frappe.msgprint({
 				title: __('Calculation Error'),
 				message: __('An error occurred while calculating. Please check your selections and try again.'),
 				indicator: 'red'
 			});
-			console.error('tnValidateAndQuote API error:', r);
 		}
 	});
 }
@@ -3282,7 +3302,36 @@ function tnDisplayResults(result) {
 		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text('Invalid');
 	}
 
-	// Messages
+	// Show validation error when is_valid is false
+	if (!result.is_valid && result.error) {
+		$('#messagesPanel').show();
+		var messagesList = $('#messagesList').empty();
+		messagesList.append(
+			'<div class="alert alert-danger py-2 mb-1">' +
+			'<i class="fa fa-exclamation-circle mr-1"></i> ' +
+			__('Validation failed') + ': ' + result.error +
+			'</div>'
+		);
+		if (result.missing_fields && result.missing_fields.length > 0) {
+			messagesList.append(
+				'<div class="alert alert-warning py-2 mb-1">' +
+				__('Missing fields') + ': ' + result.missing_fields.join(', ') +
+				'</div>'
+			);
+		}
+		// Hide result panels since validation failed
+		$('#partNumberPanel').hide();
+		$('#lengthResults').hide();
+		$('#manufacturingResults').hide();
+		$('#buildDescriptionPanel').hide();
+		$('#pricingResults').hide();
+		$('#ledRunDetailsPanel').hide();
+		$('#driverResults').hide();
+		tnUpdateSaveButtonVisibility();
+		return;
+	}
+
+	// Messages (warnings/info from successful validation)
 	if (result.messages && result.messages.length > 0) {
 		$('#messagesPanel').show();
 		var messagesList = $('#messagesList').empty();
