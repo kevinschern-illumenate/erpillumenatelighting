@@ -471,13 +471,16 @@ Allows users to configure LED tape and neon products with step-by-step selection
 				'value', 'label', onOutputSelect);
 		}
 
-		if (options.pcb_mountings) {
-			populatePillSelector('pillPCBMounting', 'selPCBMounting', options.pcb_mountings,
+		// Handle both tape keys (pcb_mountings) and neon keys (mountings)
+		var mountingOptions = options.pcb_mountings || options.mountings;
+		if (mountingOptions) {
+			populatePillSelector('pillPCBMounting', 'selPCBMounting', mountingOptions,
 				'value', 'label', onPCBMountingSelect);
 		}
 
-		if (options.pcb_finishes) {
-			populatePillSelector('pillPCBFinish', 'selPCBFinish', options.pcb_finishes,
+		var finishOptions = options.pcb_finishes || options.finishes;
+		if (finishOptions) {
+			populatePillSelector('pillPCBFinish', 'selPCBFinish', finishOptions,
 				'value', 'label', onPCBFinishSelect);
 		}
 
@@ -772,8 +775,22 @@ Allows users to configure LED tape and neon products with step-by-step selection
 				&& selections.mounting && selections.finish
 				&& neonSegmentCount > 0;
 		} else {
+			// Check all required fields including feed type, lead length, and tape length
+			var hasLength = false;
+			var unit = selections.tape_length_unit || 'in';
+			if (unit === 'ft_in') {
+				var ftVal = parseFloat($('#tapeLengthFeet').val());
+				var inVal = parseFloat($('#tapeLengthInches').val());
+				hasLength = (ftVal > 0 || inVal > 0);
+			} else {
+				hasLength = parseFloat($('#tapeLengthValue').val()) > 0;
+			}
+
 			ready = selections.cct && selections.output_level
-				&& selections.pcb_mounting && selections.pcb_finish;
+				&& selections.pcb_mounting && selections.pcb_finish
+				&& selections.feed_type
+				&& parseFloat($('#leadLengthInches').val()) > 0
+				&& hasLength;
 		}
 		$('#btnCalculate').prop('disabled', !ready);
 	}
@@ -792,6 +809,11 @@ Allows users to configure LED tape and neon products with step-by-step selection
 	function calculateTape() {
 		// Gather length inputs
 		const unit = selections.tape_length_unit || 'in';
+
+		// Read lead length - send actual value, not 0 fallback
+		var leadVal = parseFloat($('#leadLengthInches').val());
+		var leadLength = (!isNaN(leadVal) && leadVal > 0) ? leadVal : 0;
+
 		const args = {
 			selections: JSON.stringify({
 				environment_rating: selections.environment_rating || '',
@@ -801,7 +823,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 				pcb_finish: selections.pcb_finish,
 				feed_direction: 'End Feed',
 				feed_type: selections.feed_type || '',
-				lead_length_inches: parseFloat($('#leadLengthInches').val()) || 0,
+				lead_length_inches: leadLength,
 				tape_length_unit: unit,
 				tape_length_value: parseFloat($('#tapeLengthValue').val()) || 0,
 				tape_length_feet: parseFloat($('#tapeLengthFeet').val()) || 0,
@@ -1043,6 +1065,12 @@ Allows users to configure LED tape and neon products with step-by-step selection
 				$('#tapeLengthFtIn').hide();
 				$('#tapeLengthValue').attr('placeholder', unit === 'ft' ? 'Feet' : 'Inches');
 			}
+			updateCalculateButton();
+		});
+
+		// Re-evaluate Calculate button when input fields change
+		$('#leadLengthInches, #tapeLengthValue, #tapeLengthFeet, #tapeLengthInches').on('input change', function() {
+			updateCalculateButton();
 		});
 
 		// Project select → load schedules

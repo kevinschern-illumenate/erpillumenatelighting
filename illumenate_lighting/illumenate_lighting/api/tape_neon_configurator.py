@@ -244,9 +244,11 @@ def validate_tape_configuration(
     messages = []
 
     # ── Required fields ───────────────────────────────────────────────
-    required = ["cct", "output_level", "pcb_mounting", "pcb_finish",
-                "feed_type", "lead_length_inches"]
-    missing = [f for f in required if not sel.get(f)]
+    # Check string fields for presence (non-empty); check numeric fields separately
+    required_str = ["cct", "output_level", "pcb_mounting", "pcb_finish", "feed_type"]
+    missing = [f for f in required_str if not sel.get(f)]
+    if sel.get("lead_length_inches") is None or sel.get("lead_length_inches") == "":
+        missing.append("lead_length_inches")
     if missing:
         return {
             "success": False,
