@@ -995,9 +995,11 @@ def _get_leader_length_options() -> list:
 def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
     """
     Generate part number preview matching the UI format:
-    ILL-{Series}{LEDPkg}-{Env}-{CCT}-{Output}-{Lens}-{Mount}-{Finish}
+    ILL-{Series}-{LEDPkg}-{Env}-{CCT}-{Output}-{Lens}-{Mount}-{Finish}-{EndcapColor}
     
     With 'xx' for unselected options.
+    Endcap Color is auto-resolved from the selected Finish via
+    ilL-Rel-Finish Endcap Color mapping.
     """
     segments = []
     
@@ -1136,6 +1138,35 @@ def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
         "code": finish_code,
         "label": "Finish",
         "selected": bool(selections.get("finish"))
+    })
+    
+    # Endcap Color — auto-resolved from finish via ilL-Rel-Finish Endcap Color
+    endcap_color_code = "xx"
+    if selections.get("endcap_color"):
+        endcap_color_code = frappe.db.get_value(
+            "ilL-Attribute-Endcap Color",
+            selections["endcap_color"],
+            "code"
+        ) or "xx"
+    elif selections.get("finish"):
+        # Auto-resolve from finish mapping
+        endcap_color_name = frappe.db.get_value(
+            "ilL-Rel-Finish Endcap Color",
+            {"finish": selections["finish"], "is_active": 1},
+            "endcap_color",
+            order_by="is_default DESC, modified DESC",
+        )
+        if endcap_color_name:
+            endcap_color_code = frappe.db.get_value(
+                "ilL-Attribute-Endcap Color",
+                endcap_color_name,
+                "code"
+            ) or "xx"
+    segments.append({
+        "position": 7,
+        "code": endcap_color_code,
+        "label": "Endcap Color",
+        "selected": endcap_color_code != "xx"
     })
     
     # Build main part number (without length/feed suffix for preview)

@@ -1350,53 +1350,93 @@ class ilLWebflowProduct(Document):
 			self.append("specifications", spec)
 
 	def populate_configurator_options(self):
-		"""Populate configurator options from template's allowed options."""
+		"""Populate configurator options from template's allowed options.
+
+		Step numbering aligns with CONFIGURATOR_STEPS in webflow_configurator.py:
+		0-Series (locked), 1-Environment, 2-CCT, 3-Output, 4-Lens,
+		5-Mounting, 6-Finish, 7-Length, 8-Start Feed Dir, 9-Start Feed Len,
+		10-End Feed Dir, 11-End Feed Len.
+
+		LED Package is part of the locked Series step (not a separate step).
+		Endcap Color is auto-resolved from Finish via ilL-Rel-Finish Endcap Color.
+		"""
 		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
 
-		# Define the configurator flow order
+		# Configurator flow aligned with webflow_configurator.py CONFIGURATOR_STEPS
+		# (step, option_type, label, depends_on_step)
 		option_flow = [
-			("LED Package", 1),
-			("Environment Rating", 2),
-			("CCT", 3),
-			("Output Level", 4),
-			("Lens Appearance", 5),
-			("Finish", 6),
-			("Mounting Method", 7),
-			("Power Feed Type", 8),
-			("Endcap Style", 9),
-			("Endcap Color", 10),
+			(1, "Environment Rating", "Dry/Wet", 0),
+			(2, "CCT", "CCT", 1),
+			(3, "Output Level", "Output", 2),
+			(4, "Lens Appearance", "Lens", 0),
+			(5, "Mounting Method", "Mounting", 0),
+			(6, "Finish", "Finish", 0),
+			(7, "Length", "Length", 0),
+			(8, "Feed Direction", "Start Feed Direction", 0),
+			(9, "Feed Direction", "Start Feed Length", 8),
+			(10, "Feed Direction", "End Feed Direction", 0),
+			(11, "Feed Direction", "End Feed Length", 10),
 		]
 
 		# Clear existing and rebuild
 		self.configurator_options = []
 
-		for option_type, step in option_flow:
-			allowed_values = self._get_allowed_values_for_option(template, option_type)
+		for step, option_type, label, depends_on in option_flow:
+			allowed_values = self._get_allowed_values_for_option(template, option_type, step=step)
 			if allowed_values:
 				self.append("configurator_options", {
 					"option_step": step,
 					"option_type": option_type,
-					"option_label": f"Select {option_type}",
+					"option_label": label,
 					"is_required": 1,
+					"depends_on_step": depends_on,
 					"allowed_values_json": frappe.as_json(allowed_values)
 				})
 
-	def _get_allowed_values_for_option(self, template, option_type: str) -> list:
-		"""Get allowed values for a given option type."""
+		# Append Finish→Endcap Color mapping as metadata step
+		finish_endcap_map = self._get_finish_endcap_color_mapping()
+		if finish_endcap_map:
+			self.append("configurator_options", {
+				"option_step": 99,
+				"option_type": "Endcap Color",
+				"option_label": "Finish→Endcap Color Mapping",
+				"is_required": 0,
+				"depends_on_step": 6,
+				"allowed_values_json": frappe.as_json(finish_endcap_map)
+			})
+
+		# Append fixture-level output level lookup table as metadata
+		fixture_output_levels = self._get_fixture_output_level_table()
+		if fixture_output_levels:
+			self.append("configurator_options", {
+				"option_step": 98,
+				"option_type": "Fixture Output Level",
+				"option_label": "Fixture Output Level Lookup",
+				"is_required": 0,
+				"depends_on_step": 3,
+				"allowed_values_json": frappe.as_json(fixture_output_levels)
+			})
+
+	def _get_allowed_values_for_option(self, template, option_type: str, step: int = 0) -> list:
+		"""Get allowed values for a given option type.
+
+		Each value includes {value, label, code, is_default} so the Webflow
+		CMS JSON has attribute codes needed for part number building.
+		"""
 		values = []
 
-		# Map option types to template allowed_options fields
+		# Map option types to (template child-table field, attribute doctype)
 		option_field_map = {
-			"Finish": "finish",
-			"Lens Appearance": "lens_appearance",
-			"Mounting Method": "mounting_method",
-			"Environment Rating": "environment_rating",
-			"Power Feed Type": "power_feed_type",
-			"Endcap Style": "endcap_style",
+			"Finish": ("finish", "ilL-Attribute-Finish"),
+			"Lens Appearance": ("lens_appearance", "ilL-Attribute-Lens Appearance"),
+			"Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method"),
+			"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
+			"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
+			"Endcap Style": ("endcap_style", "ilL-Attribute-Endcap Style"),
 		}
 
 		if option_type in option_field_map:
-			field = option_field_map[option_type]
+			field, doctype = option_field_map[option_type]
 			for opt in template.allowed_options or []:
 				if hasattr(opt, 'option_type') and opt.option_type == option_type:
 					if hasattr(opt, 'is_active') and not opt.is_active:
@@ -1404,9 +1444,11 @@ class ilLWebflowProduct(Document):
 					val = getattr(opt, field, None)
 					if val:
 						is_default = getattr(opt, 'is_default', False) if hasattr(opt, 'is_default') else False
+						code = frappe.db.get_value(doctype, val, "code") or ""
 						values.append({
 							"value": val,
 							"label": val,
+							"code": code,
 							"is_default": is_default
 						})
 
@@ -1430,8 +1472,115 @@ class ilLWebflowProduct(Document):
 					"label": c.get("display_name") or c.name,
 					"code": c.get("code", "")
 				})
+		elif option_type == "Feed Direction":
+			values = self._get_feed_direction_values(step)
+		elif option_type == "Length":
+			values = self._get_length_metadata(template)
 
 		return values
+
+	def _get_feed_direction_values(self, step: int) -> list:
+		"""Get feed direction or feed length values depending on step.
+
+		Steps 8, 10 = directions (End, Back, etc.); steps 9, 11 = leader lengths.
+		"""
+		if step in (8, 10):
+			# Direction options
+			if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+				directions = frappe.get_all(
+					"ilL-Attribute-Feed-Direction",
+					filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Feed-Direction", "is_active") else {},
+					fields=["direction_name as name", "code", "description"],
+					order_by="direction_name"
+				)
+				values = [
+					{"value": d.name, "label": d.name, "code": d.get("code", "")}
+					for d in directions
+				]
+			else:
+				values = [
+					{"value": "End", "label": "End", "code": "E"},
+					{"value": "Back", "label": "Back", "code": "B"},
+				]
+			# End feed direction can also be "Endcap" (no leader)
+			if step == 10:
+				values.append({"value": "Endcap", "label": "Endcap", "code": "CAP"})
+			return values
+		else:
+			# Leader length options (steps 9, 11)
+			standard_lengths = [2, 4, 6, 8, 10, 15, 20, 25, 30]
+			return [
+				{"value": str(l), "label": f"{l} ft", "code": str(l)}
+				for l in standard_lengths
+			]
+
+	def _get_length_metadata(self, template) -> list:
+		"""Get length constraints as metadata for the Length step."""
+		max_length_mm = getattr(template, 'assembled_max_len_mm', None)
+		default_stock_mm = getattr(template, 'default_profile_stock_len_mm', None)
+
+		min_inches = 12
+		max_inches = round(max_length_mm / 25.4, 1) if max_length_mm else 120
+		default_inches = round(default_stock_mm / 25.4, 1) if default_stock_mm else 50
+
+		return [{
+			"value": "__length_metadata__",
+			"label": "Length",
+			"code": "",
+			"min_inches": min_inches,
+			"max_inches": max_inches,
+			"default_inches": default_inches,
+			"increment_inches": 0.5,
+		}]
+
+	def _get_finish_endcap_color_mapping(self) -> list:
+		"""Get Finish→Endcap Color mapping from ilL-Rel-Finish Endcap Color.
+
+		Returns a list of {finish, endcap_color, endcap_color_code, is_default}
+		so Webflow JS can filter endcap colors by the selected finish.
+		"""
+		mappings = frappe.get_all(
+			"ilL-Rel-Finish Endcap Color",
+			filters={"is_active": 1},
+			fields=["finish", "endcap_color", "is_default"],
+			order_by="is_default DESC, modified DESC",
+		)
+		result = []
+		for m in mappings:
+			ec_code = frappe.db.get_value("ilL-Attribute-Endcap Color", m.endcap_color, "code") or ""
+			ec_label = ""
+			if frappe.db.has_column("ilL-Attribute-Endcap Color", "display_name"):
+				ec_label = frappe.db.get_value("ilL-Attribute-Endcap Color", m.endcap_color, "display_name") or ""
+			result.append({
+				"finish": m.finish,
+				"endcap_color": m.endcap_color,
+				"endcap_color_code": ec_code,
+				"endcap_color_label": ec_label or ec_code or m.endcap_color,
+				"is_default": m.is_default,
+			})
+		return result
+
+	def _get_fixture_output_level_table(self) -> list:
+		"""Get fixture-level output levels for client-side tape×lens→fixture mapping.
+
+		The client multiplies tape output × lens transmission and finds the closest
+		fixture-level output level to get the correct sku_code for the part number.
+		"""
+		fixture_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"is_fixture_level": 1},
+			fields=["name", "value", "sku_code"],
+			order_by="value asc"
+		)
+		return [
+			{
+				"value": fl.name,
+				"label": f"{fl.value} lm/ft",
+				"code": fl.sku_code or "",
+				"numeric_value": fl.value or 0,
+			}
+			for fl in fixture_levels
+		]
 
 	def _get_allowed_output_levels(self, template) -> list:
 		"""Get unique output levels from allowed tape offerings."""
@@ -1608,7 +1757,11 @@ class ilLWebflowProduct(Document):
 		return sorted(list(ccts.values()), key=lambda x: x.get("kelvin", 0))
 
 	def _get_output_levels_from_tapes(self, template) -> list:
-		"""Get unique output levels from allowed tape offerings with details."""
+		"""Get unique output levels from allowed tape offerings with details.
+
+		Each value includes tape_output_lm_ft so Webflow JS can compute
+		delivered output (tape × lens transmission) client-side.
+		"""
 		levels = {}
 		for tape_row in template.allowed_tape_offerings or []:
 			if hasattr(tape_row, 'tape_offering') and tape_row.tape_offering:
@@ -1625,11 +1778,13 @@ class ilLWebflowProduct(Document):
 						as_dict=True
 					)
 					if level_data:
+						tape_lm_ft = level_data.get("value") or 0
 						levels[output_level] = {
 							"value": output_level,
-							"label": f"{level_data.get('value', '')} lm/ft",
+							"label": f"{tape_lm_ft} lm/ft",
 							"code": level_data.get("sku_code") or "",
-							"lm_per_ft": level_data.get("value") or 0
+							"lm_per_ft": tape_lm_ft,
+							"tape_output_lm_ft": tape_lm_ft,
 						}
 		return sorted(list(levels.values()), key=lambda x: x.get("lm_per_ft", 0))
 
