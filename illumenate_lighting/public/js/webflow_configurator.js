@@ -763,7 +763,8 @@ function displayLocalPartNumberPreview() {
         sel.output_level || 'xx',
         sel.lens_appearance || 'xx',
         sel.mounting_method || 'xx',
-        sel.finish || 'xx'
+        sel.finish || 'xx',
+        sel.endcap_color || 'xx'
     ];
     
     $('#partNumberPreview').text(parts.join('-'));

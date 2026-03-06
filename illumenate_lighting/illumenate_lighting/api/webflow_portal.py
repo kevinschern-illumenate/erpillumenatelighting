@@ -14,6 +14,8 @@ Endpoints:
 - get_line_ids: Return line items for a fixture schedule
 - add_fixture_to_schedule: Add or overwrite a fixture line
 - get_pricing: Return price for Dealers only
+- get_stock_status: Return stock status (public, qty gated to Dealers)
+- get_msrp: Return public MSRP pricing
 """
 
 import frappe
@@ -443,3 +445,134 @@ def get_pricing(item_code: str) -> dict:
 		"currency": None,
 		"price_list": None,
 	}
+
+
+@frappe.whitelist(allow_guest=True)
+def get_stock_status(item_code: str) -> dict:
+	"""
+	Return stock status for an item.  Public (guest-accessible) but only
+	exposes lead-time class and basic in_stock flag.  Detailed available qty
+	is only returned for authenticated Dealer / internal users.
+
+	Args:
+		item_code: The item code to check stock for
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"in_stock": bool,
+			"lead_time_class": str  ("in-stock" | "made-to-order" | "special-order"),
+			"available_qty": float | None  (only for dealers/internal)
+		}
+	"""
+	if not item_code:
+		return {"success": False, "error": _("item_code is required")}
+
+	if not frappe.db.exists("Item", item_code):
+		return {"success": False, "error": _("Item not found")}
+
+	# Determine stock qty across all warehouses
+	from frappe.utils import flt
+
+	total_qty = flt(
+		frappe.db.sql(
+			"""SELECT IFNULL(SUM(actual_qty), 0)
+			   FROM `tabBin`
+			   WHERE item_code = %s""",
+			item_code,
+		)[0][0]
+	)
+
+	in_stock = total_qty > 0
+
+	# Classify lead time
+	if in_stock:
+		lead_time_class = "in-stock"
+	else:
+		# Check if item has a default lead time or is MTO
+		lead_days = frappe.db.get_value("Item", item_code, "lead_time_days") or 0
+		lead_time_class = "made-to-order" if lead_days > 0 else "special-order"
+
+	result: dict = {
+		"success": True,
+		"in_stock": in_stock,
+		"lead_time_class": lead_time_class,
+	}
+
+	# Only expose qty to dealers / internal users
+	user = frappe.session.user
+	if user and user != "Guest":
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+			_is_dealer_user,
+			_is_internal_user,
+		)
+
+		if _is_dealer_user(user) or _is_internal_user(user):
+			result["available_qty"] = total_qty
+
+	return result
+
+
+@frappe.whitelist(allow_guest=True)
+def get_msrp(item_code: str = None, fixture_template: str = None) -> dict:
+	"""
+	Return public MSRP pricing.  No authentication required.
+
+	Pricing comes from the fixture template's base_price_msrp plus
+	price_per_ft_msrp (if applicable), or from a public "MSRP" price list
+	in ERPNext.  Dealer tier pricing remains gated behind get_pricing().
+
+	Args:
+		item_code: Optional item code for direct price look-up
+		fixture_template: Optional fixture template code for template-level MSRP
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"base_price_msrp": float | None,
+			"price_per_ft_msrp": float | None,
+			"currency": "USD"
+		}
+	"""
+	if not item_code and not fixture_template:
+		return {"success": False, "error": _("item_code or fixture_template is required")}
+
+	result: dict = {
+		"success": True,
+		"base_price_msrp": None,
+		"price_per_ft_msrp": None,
+		"currency": "USD",
+	}
+
+	# Try fixture template MSRP fields first
+	if fixture_template:
+		if frappe.db.exists("ilL-Fixture-Template", fixture_template):
+			tmpl = frappe.db.get_value(
+				"ilL-Fixture-Template",
+				fixture_template,
+				["base_price_msrp", "price_per_ft_msrp"],
+				as_dict=True,
+			)
+			if tmpl:
+				result["base_price_msrp"] = tmpl.get("base_price_msrp")
+				result["price_per_ft_msrp"] = tmpl.get("price_per_ft_msrp")
+				if result["base_price_msrp"] is not None:
+					return result
+
+	# Fallback: look up item in an MSRP price list
+	if item_code and frappe.db.exists("Item", item_code):
+		msrp_price_list = "MSRP"
+		if not frappe.db.exists("Price List", msrp_price_list):
+			msrp_price_list = "Standard Selling"
+
+		price_entry = frappe.db.get_value(
+			"Item Price",
+			{"item_code": item_code, "price_list": msrp_price_list, "selling": 1},
+			["price_list_rate", "currency"],
+			as_dict=True,
+		)
+		if price_entry:
+			result["base_price_msrp"] = price_entry.price_list_rate
+			result["currency"] = price_entry.currency or "USD"
+
+	return result

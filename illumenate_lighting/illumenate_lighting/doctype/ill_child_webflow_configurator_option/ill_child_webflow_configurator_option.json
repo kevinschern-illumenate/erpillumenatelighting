@@ -28,7 +28,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Option Type",
-   "options": "LED Package\nCCT\nOutput Level\nLens Appearance\nFinish\nMounting Method\nEnvironment Rating\nPower Feed Type\nEndcap Style\nEndcap Color",
+   "options": "LED Package\nCCT\nOutput Level\nLens Appearance\nFinish\nMounting Method\nEnvironment Rating\nPower Feed Type\nEndcap Style\nEndcap Color\nFeed Direction\nLength\nFixture Output Level",
    "reqd": 1
   },
   {

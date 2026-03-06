@@ -556,6 +556,53 @@ including authentication, dealer-gated pricing, and project/schedule management.
 }
 ```
 
+### 12. Get Stock Status (Public)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_stock_status`
+
+**Method:** GET/POST
+
+**Authentication:** None required (allow_guest=True). Authenticated dealers also receive `available_qty`.
+
+**Parameters:**
+- `item_code` (required): Item code to check stock for
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "in_stock": true,
+  "lead_time_class": "in-stock",
+  "available_qty": 25.0
+}
+```
+
+Lead time classes: `"in-stock"`, `"made-to-order"`, `"special-order"`.
+
+### 13. Get MSRP (Public)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_msrp`
+
+**Method:** GET/POST
+
+**Authentication:** None required (allow_guest=True)
+
+**Parameters:**
+- `item_code` (optional): Item code for direct price look-up
+- `fixture_template` (optional): Fixture template code for template-level MSRP
+
+**Note:** At least one parameter is required.
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "base_price_msrp": 149.99,
+  "price_per_ft_msrp": 12.50,
+  "currency": "USD"
+}
+```
+
 ---
 
 ## Webflow Client-Side Integration

@@ -19,7 +19,7 @@ class ilLChildWebflowConfiguratorOption(Document):
 		option_description: DF.SmallText | None
 		option_label: DF.Data | None
 		option_step: DF.Int
-		option_type: DF.Literal["LED Package", "CCT", "Output Level", "Lens Appearance", "Finish", "Mounting Method", "Environment Rating", "Power Feed Type", "Endcap Style", "Endcap Color"]
+		option_type: DF.Literal["LED Package", "CCT", "Output Level", "Lens Appearance", "Finish", "Mounting Method", "Environment Rating", "Power Feed Type", "Endcap Style", "Endcap Color", "Feed Direction", "Length", "Fixture Output Level"]
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
