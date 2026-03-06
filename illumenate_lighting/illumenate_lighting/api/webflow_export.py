@@ -152,6 +152,9 @@ def get_webflow_products(
                     spec_data["attribute_options"] = []
                 product["specifications"].append(spec_data)
             
+            # Enrich specifications with data from linked doctypes
+            _enrich_specifications_from_linked_doctypes(product, doc)
+            
             product["certifications"] = [
                 {
                     "certification": c.certification,
@@ -717,3 +720,617 @@ def _get_series_webflow_item_id(series_name: str) -> str:
         return get_attribute_webflow_item_id("series", series_name)
     except Exception:
         return None
+
+
+# ============================================================
+# Specification Enrichment from Linked Doctypes
+# ============================================================
+
+
+def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
+    """Enrich the product specifications list with data from linked doctypes.
+
+    Adds missing spec entries for: Color Rendering (CRI), Input Voltage,
+    Dimensions, Dimming, Production Interval, and Certifications & Ratings.
+    """
+    existing_labels = {s["spec_label"] for s in product["specifications"]}
+    additional_specs = []
+
+    product_type = product.get("product_type")
+
+    if product_type == "Fixture Template" and product.get("fixture_template"):
+        additional_specs.extend(
+            _enrich_fixture_template_specs(product, existing_labels)
+        )
+    elif product_type == "Driver" and product.get("driver_spec"):
+        additional_specs.extend(
+            _enrich_driver_specs(product, existing_labels)
+        )
+    elif product_type == "Controller" and product.get("controller_spec"):
+        additional_specs.extend(
+            _enrich_controller_specs(product, existing_labels)
+        )
+    elif product_type == "LED Tape" and product.get("tape_spec"):
+        additional_specs.extend(
+            _enrich_tape_specs(product, existing_labels)
+        )
+    elif product_type in ("Component", "Extrusion Kit") and product.get("profile_spec"):
+        additional_specs.extend(
+            _enrich_profile_specs(product, existing_labels)
+        )
+
+    # Certifications & Ratings (icons) — applies to all product types
+    if "Certifications & Ratings" not in existing_labels:
+        cert_spec = _build_certifications_spec(doc)
+        if cert_spec:
+            additional_specs.append(cert_spec)
+
+    product["specifications"].extend(additional_specs)
+
+
+def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Fixture Template products from linked doctypes."""
+    specs = []
+    template = frappe.get_doc("ilL-Fixture-Template", product["fixture_template"])
+
+    # ── Color Rendering (CRI) ──────────────────────────────────
+    if "Color Rendering" not in existing_labels:
+        cri_options = []
+        seen_cri = set()
+        for tape_row in template.allowed_tape_offerings or []:
+            offering_name = getattr(tape_row, "tape_offering", None)
+            if not offering_name:
+                continue
+            cri_name = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name, "cri"
+            )
+            if cri_name and cri_name not in seen_cri:
+                seen_cri.add(cri_name)
+                cri_data = frappe.db.get_value(
+                    "ilL-Attribute-CRI", cri_name,
+                    ["cri_name", "minimum_ra", "code"],
+                    as_dict=True,
+                )
+                if cri_data:
+                    cri_options.append({
+                        "attribute_type": "CRI",
+                        "attribute_doctype": "ilL-Attribute-CRI",
+                        "attribute_value": cri_name,
+                        "display_label": cri_data.get("cri_name") or cri_name,
+                        "code": cri_data.get("code") or "",
+                        "minimum_ra": cri_data.get("minimum_ra") or 0,
+                    })
+        if cri_options:
+            display_values = sorted(
+                set(str(o["minimum_ra"]) for o in cri_options if o["minimum_ra"]),
+            )
+            specs.append({
+                "spec_group": "Optical",
+                "spec_label": "Color Rendering",
+                "spec_value": ", ".join(display_values) if display_values else ", ".join(o["display_label"] for o in cri_options),
+                "spec_unit": "CRI",
+                "is_calculated": 1,
+                "display_order": 85,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-CRI",
+                "attribute_options_json": frappe.as_json(cri_options),
+                "attribute_options": cri_options,
+            })
+
+    # ── Input Voltage ──────────────────────────────────────────
+    if "Input Voltage" not in existing_labels:
+        voltages = set()
+        voltage_options = []
+        for tape_row in template.allowed_tape_offerings or []:
+            offering_name = getattr(tape_row, "tape_offering", None)
+            if not offering_name:
+                continue
+            tape_spec_name = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name, "tape_spec"
+            )
+            if not tape_spec_name:
+                continue
+            input_voltage = frappe.db.get_value(
+                "ilL-Spec-LED Tape", tape_spec_name, "input_voltage"
+            )
+            if input_voltage and input_voltage not in voltages:
+                voltages.add(input_voltage)
+                voltage_val = frappe.db.get_value(
+                    "ilL-Attribute-Output Voltage", input_voltage, "voltage"
+                )
+                if voltage_val:
+                    voltage_options.append({
+                        "attribute_type": "Output Voltage",
+                        "attribute_doctype": "ilL-Attribute-Output Voltage",
+                        "attribute_value": input_voltage,
+                        "display_label": f"{voltage_val} VDC",
+                    })
+        if voltage_options:
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": ", ".join(o["display_label"] for o in voltage_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 90,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Output Voltage",
+                "attribute_options_json": frappe.as_json(voltage_options),
+                "attribute_options": voltage_options,
+            })
+
+    # ── Dimensions (from default profile spec) ─────────────────
+    if "Dimensions" not in existing_labels:
+        profile_spec_name = getattr(template, "default_profile_spec", None)
+        if profile_spec_name:
+            profile = frappe.db.get_value(
+                "ilL-Spec-Profile", profile_spec_name,
+                ["width_mm", "height_mm"],
+                as_dict=True,
+            )
+            if profile and (profile.get("width_mm") or profile.get("height_mm")):
+                width = profile.get("width_mm") or 0
+                height = profile.get("height_mm") or 0
+                dim_parts = []
+                if width:
+                    dim_parts.append(f"{width}mm W")
+                if height:
+                    dim_parts.append(f"{height}mm H")
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Dimensions",
+                    "spec_value": " x ".join(dim_parts),
+                    "spec_unit": "mm",
+                    "is_calculated": 1,
+                    "display_order": 95,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels:
+        protocol_options = []
+        seen_protocols = set()
+        eligible_drivers = frappe.get_all(
+            "ilL-Rel-Driver-Eligibility",
+            filters={"fixture_template": product["fixture_template"], "is_active": 1},
+            fields=["driver_spec"],
+        )
+        for elig in eligible_drivers:
+            try:
+                driver_doc = frappe.get_doc("ilL-Spec-Driver", elig.driver_spec)
+            except frappe.DoesNotExistError:
+                continue
+            for ip in getattr(driver_doc, "input_protocols", []):
+                protocol_name = getattr(ip, "protocol", None)
+                if not protocol_name or protocol_name in seen_protocols:
+                    continue
+                seen_protocols.add(protocol_name)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", protocol_name,
+                    ["label", "code"],
+                    as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": protocol_name,
+                        "display_label": proto_data.get("label") or protocol_name,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 100,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    # ── Production Interval ────────────────────────────────────
+    if "Production Interval" not in existing_labels:
+        lead_times = set()
+        for tape_row in template.allowed_tape_offerings or []:
+            offering_name = getattr(tape_row, "tape_offering", None)
+            if not offering_name:
+                continue
+            lt_class = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name, "lead_time_class_override"
+            )
+            if lt_class:
+                lead_times.add(lt_class)
+        if lead_times:
+            specs.append({
+                "spec_group": "General",
+                "spec_label": "Production Interval",
+                "spec_value": ", ".join(sorted(lead_times)),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 110,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    return specs
+
+
+def _enrich_driver_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Driver products from linked doctype."""
+    specs = []
+    try:
+        driver = frappe.get_doc("ilL-Spec-Driver", product["driver_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Input Voltage (from min/max if legacy field is empty) ──
+    if "Input Voltage" not in existing_labels:
+        voltage_str = ""
+        if driver.input_voltage:
+            voltage_str = driver.input_voltage
+        elif driver.input_voltage_min and driver.input_voltage_max:
+            voltage_str = f"{driver.input_voltage_min}-{driver.input_voltage_max}"
+            if driver.input_voltage_type:
+                voltage_str += f" {driver.input_voltage_type}"
+        if voltage_str:
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": voltage_str,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 15,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimensions ─────────────────────────────────────────────
+    if "Dimensions" not in existing_labels:
+        dim_parts = []
+        if driver.width_mm:
+            dim_parts.append(f"{driver.width_mm}mm W")
+        if driver.height_mm:
+            dim_parts.append(f"{driver.height_mm}mm H")
+        if driver.depth_mm:
+            dim_parts.append(f"{driver.depth_mm}mm D")
+        if dim_parts:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": " x ".join(dim_parts),
+                "spec_unit": "mm",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels and "Dimming Protocols" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        if getattr(driver, "output_protocol", None):
+            proto_data = frappe.db.get_value(
+                "ilL-Attribute-Dimming Protocol", driver.output_protocol,
+                ["label", "code"], as_dict=True,
+            )
+            if proto_data:
+                seen.add(driver.output_protocol)
+                protocol_options.append({
+                    "attribute_type": "Dimming Protocol",
+                    "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                    "attribute_value": driver.output_protocol,
+                    "display_label": proto_data.get("label") or driver.output_protocol,
+                    "code": proto_data.get("code") or "",
+                })
+        for ip in getattr(driver, "input_protocols", []):
+            pname = getattr(ip, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    return specs
+
+
+def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Controller products from linked doctype."""
+    specs = []
+    try:
+        controller = frappe.get_doc("ilL-Spec-Controller", product["controller_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Input Voltage ──────────────────────────────────────────
+    if "Input Voltage" not in existing_labels:
+        if controller.input_voltage_min and controller.input_voltage_max:
+            voltage_str = f"{controller.input_voltage_min}-{controller.input_voltage_max}"
+            if controller.input_voltage_type:
+                voltage_str += f" {controller.input_voltage_type}"
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": voltage_str,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 15,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimensions ─────────────────────────────────────────────
+    if "Dimensions" not in existing_labels:
+        dim_parts = []
+        if controller.width_mm:
+            dim_parts.append(f"{controller.width_mm}mm W")
+        if controller.height_mm:
+            dim_parts.append(f"{controller.height_mm}mm H")
+        if controller.depth_mm:
+            dim_parts.append(f"{controller.depth_mm}mm D")
+        if dim_parts:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": " x ".join(dim_parts),
+                "spec_unit": "mm",
+                "is_calculated": 1,
+                "display_order": 75,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels and "Input Protocols" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        for row in getattr(controller, "input_protocols", []):
+            pname = getattr(row, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        for row in getattr(controller, "output_protocols", []):
+            pname = getattr(row, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 65,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    return specs
+
+
+def _enrich_tape_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for LED Tape products from linked doctype."""
+    specs = []
+    try:
+        tape = frappe.get_doc("ilL-Spec-LED Tape", product["tape_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Color Rendering (CRI) ─────────────────────────────────
+    if "Color Rendering" not in existing_labels and "CRI" not in existing_labels:
+        if tape.cri_typical:
+            specs.append({
+                "spec_group": "Optical",
+                "spec_label": "Color Rendering",
+                "spec_value": str(tape.cri_typical),
+                "spec_unit": "CRI",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Input Voltage ──────────────────────────────────────────
+    if "Input Voltage" not in existing_labels:
+        if tape.input_voltage:
+            voltage_val = frappe.db.get_value(
+                "ilL-Attribute-Output Voltage", tape.input_voltage, "voltage"
+            )
+            if voltage_val:
+                specs.append({
+                    "spec_group": "Electrical",
+                    "spec_label": "Input Voltage",
+                    "spec_value": f"{voltage_val} VDC",
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 25,
+                    "show_on_card": 0,
+                    "attribute_doctype": "ilL-Attribute-Output Voltage",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        if getattr(tape, "input_protocol", None):
+            seen.add(tape.input_protocol)
+            proto_data = frappe.db.get_value(
+                "ilL-Attribute-Dimming Protocol", tape.input_protocol,
+                ["label", "code"], as_dict=True,
+            )
+            if proto_data:
+                protocol_options.append({
+                    "attribute_type": "Dimming Protocol",
+                    "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                    "attribute_value": tape.input_protocol,
+                    "display_label": proto_data.get("label") or tape.input_protocol,
+                    "code": proto_data.get("code") or "",
+                })
+        for row in getattr(tape, "supported_dimming_protocols", []):
+            pname = getattr(row, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 60,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    return specs
+
+
+def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Component/Extrusion Kit products from profile."""
+    specs = []
+    try:
+        profile = frappe.get_doc("ilL-Spec-Profile", product["profile_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Dimensions ─────────────────────────────────────────────
+    if "Dimensions" not in existing_labels:
+        dim_parts = []
+        if profile.width_mm:
+            dim_parts.append(f"{profile.width_mm}mm W")
+        if profile.height_mm:
+            dim_parts.append(f"{profile.height_mm}mm H")
+        if dim_parts:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": " x ".join(dim_parts),
+                "spec_unit": "mm",
+                "is_calculated": 1,
+                "display_order": 45,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    return specs
+
+
+def _build_certifications_spec(doc) -> dict | None:
+    """Build a Certifications & Ratings spec entry from the product's certifications."""
+    if not getattr(doc, "certifications", None):
+        return None
+
+    cert_options = []
+    for c in doc.certifications:
+        cert_name = c.certification
+        if not cert_name:
+            continue
+        details = _get_certification_details(cert_name)
+        cert_options.append({
+            "attribute_type": "Certification",
+            "attribute_doctype": "ilL-Attribute-Certification",
+            "attribute_value": cert_name,
+            "display_label": details.get("certification_code") or cert_name,
+            "certification_body": details.get("certification_body") or "",
+            "badge_image": _make_absolute_url(details.get("badge_image")) if details.get("badge_image") else "",
+        })
+
+    if not cert_options:
+        return None
+
+    return {
+        "spec_group": "Compliance",
+        "spec_label": "Certifications & Ratings",
+        "spec_value": ", ".join(o["display_label"] for o in cert_options),
+        "spec_unit": "",
+        "is_calculated": 1,
+        "display_order": 120,
+        "show_on_card": 0,
+        "attribute_doctype": "ilL-Attribute-Certification",
+        "attribute_options_json": frappe.as_json(cert_options),
+        "attribute_options": cert_options,
+    }
