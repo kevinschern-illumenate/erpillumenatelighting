@@ -1482,7 +1482,8 @@ class ilLWebflowProduct(Document):
 	def _get_feed_direction_values(self, step: int) -> list:
 		"""Get feed direction or feed length values depending on step.
 
-		Steps 8, 10 = directions (End, Back, etc.); steps 9, 11 = leader lengths.
+		Steps 8 (start feed), 10 (end feed) = directions (End, Back, etc.);
+		steps 9 (start leader), 11 (end leader) = standard leader lengths.
 		"""
 		if step in (8, 10):
 			# Direction options
