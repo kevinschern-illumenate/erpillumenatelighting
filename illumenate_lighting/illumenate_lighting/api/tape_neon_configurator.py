@@ -103,8 +103,8 @@ def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
                                               ["name", "value", "sku_code"])
     # Format output levels with lm/ft labels
     for ol in output_levels:
-        if ol.get("value"):
-            ol["label"] = f"{ol['value']} lm/ft"
+        if ol.get("numeric_value"):
+            ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     # Collect unique PCB mountings and PCB finishes from tape specs
     pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
@@ -197,8 +197,8 @@ def get_tape_cascading_options(
                                               "ilL-Attribute-Output Level",
                                               ["name", "value", "sku_code"])
     for ol in output_levels:
-        if ol.get("value"):
-            ol["label"] = f"{ol['value']} lm/ft"
+        if ol.get("numeric_value"):
+            ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     return {
         "success": True,
@@ -436,8 +436,8 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
                                               "ilL-Attribute-Output Level",
                                               ["name", "value", "sku_code"])
     for ol in output_levels:
-        if ol.get("value"):
-            ol["label"] = f"{ol['value']} lm/ft"
+        if ol.get("numeric_value"):
+            ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     # Neon-specific: mounting and finish options
     pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
@@ -938,8 +938,8 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         ["name", "value", "sku_code"],
     )
     for ol in output_levels:
-        if ol.get("value"):
-            ol["label"] = f"{ol['value']} lm/ft"
+        if ol.get("numeric_value"):
+            ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     options: dict[str, Any] = {
         "ccts": ccts,
@@ -1055,8 +1055,8 @@ def get_tape_neon_spec_cascading(
         ["name", "value", "sku_code"],
     )
     for ol in output_levels:
-        if ol.get("value"):
-            ol["label"] = f"{ol['value']} lm/ft"
+        if ol.get("numeric_value"):
+            ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     return {
         "success": True,
@@ -1357,8 +1357,8 @@ def get_tape_neon_template_cascading(
     output_levels = _resolve_attribute_list("ilL-Attribute-Output Level", available_outputs,
                                             ["name", "value", "sku_code"])
     for ol in output_levels:
-        if ol.get("value"):
-            ol["label"] = f"{ol['value']} lm/ft"
+        if ol.get("numeric_value"):
+            ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     return {
         "success": True,
@@ -1638,8 +1638,8 @@ def _build_template_options(
             ["name", "value", "sku_code"],
         )
         for ol in options["output_levels"]:
-            if ol.get("value"):
-                ol["label"] = f"{ol['value']} lm/ft"
+            if ol.get("numeric_value"):
+                ol["label"] = f"{ol['numeric_value']} lm/ft"
 
     # ── LED Tape specific options ─────────────────────────────────────
     if not is_neon:
@@ -1811,15 +1811,17 @@ def _resolve_attribute_list(doctype: str, names: set, fields: list) -> list:
         if data:
             entry = {"value": data.name, "label": data.name}
             for f in fields:
-                if f != "name":
-                    entry[f] = data.get(f)
+                if f == "name":
+                    continue
+                key = "numeric_value" if f == "value" else f
+                entry[key] = data.get(f)
             result.append(entry)
 
-    # Sort by kelvin (CCT), value (Output), or name
+    # Sort by kelvin (CCT), numeric_value (Output), or name
     if "kelvin" in fields:
         return sorted(result, key=lambda x: x.get("kelvin") or 0)
     if "value" in fields:
-        return sorted(result, key=lambda x: x.get("value") or 0)
+        return sorted(result, key=lambda x: x.get("numeric_value") or 0)
     return sorted(result, key=lambda x: x.get("label", ""))
 
 
@@ -2156,15 +2158,19 @@ def _collect_attribute_options(offerings, field_name, doctype, fields) -> list:
         if data:
             entry = {"value": data.name, "label": data.name}
             for f in fields:
-                if f != "name":
-                    entry[f] = data.get(f)
+                if f == "name":
+                    continue
+                # Avoid overwriting 'value' (the option ID) with the
+                # doctype's own 'value' field (e.g. Output Level numeric).
+                key = "numeric_value" if f == "value" else f
+                entry[key] = data.get(f)
             result.append(entry)
 
-    # Sort by kelvin (CCT), value (Output), or name
+    # Sort by kelvin (CCT), numeric_value (Output), or name
     if "kelvin" in fields:
         return sorted(result, key=lambda x: x.get("kelvin") or 0)
     if "value" in fields:
-        return sorted(result, key=lambda x: x.get("value") or 0)
+        return sorted(result, key=lambda x: x.get("numeric_value") or 0)
     return sorted(result, key=lambda x: x.get("label", ""))
 
 
