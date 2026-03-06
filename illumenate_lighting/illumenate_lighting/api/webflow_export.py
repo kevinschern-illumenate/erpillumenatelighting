@@ -836,7 +836,7 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
             if input_voltage and input_voltage not in voltages:
                 voltages.add(input_voltage)
                 voltage_val = frappe.db.get_value(
-                    "ilL-Attribute-Output Voltage", input_voltage, "voltage"
+                    "ilL-Attribute-Output Voltage", input_voltage, "dc_voltage"
                 )
                 if voltage_val:
                     voltage_options.append({
@@ -1200,7 +1200,7 @@ def _enrich_tape_specs(product: dict, existing_labels: set) -> list:
     if "Input Voltage" not in existing_labels:
         if tape.input_voltage:
             voltage_val = frappe.db.get_value(
-                "ilL-Attribute-Output Voltage", tape.input_voltage, "voltage"
+                "ilL-Attribute-Output Voltage", tape.input_voltage, "dc_voltage"
             )
             if voltage_val:
                 specs.append({
