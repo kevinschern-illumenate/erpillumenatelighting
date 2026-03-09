@@ -4,6 +4,10 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+	format_length_inches,
+)
+
 
 class ilLWebflowProduct(Document):
 	# begin: auto-generated types
@@ -1032,6 +1036,57 @@ class ilLWebflowProduct(Document):
 				"attribute_options_json": frappe.as_json(env_attr_options) if env_attr_options else None
 			})
 
+		# Dimensions from linked profile spec
+		profile_spec_name = getattr(template, "default_profile_spec", None)
+		if profile_spec_name:
+			dimensions = frappe.db.get_value(
+				"ilL-Spec-Profile", profile_spec_name, "dimensions"
+			)
+			if dimensions:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Dimensions",
+					"spec_value": dimensions,
+					"is_calculated": 1,
+					"display_order": 85
+				})
+
+		# Production Interval (cut increment from linked tape, in inches)
+		cut_increments_mm = set()
+		for tape_row in template.allowed_tape_offerings or []:
+			offering_name = getattr(tape_row, "tape_offering", None)
+			if not offering_name:
+				continue
+			offering_data = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", offering_name,
+				["cut_increment_mm_override", "tape_spec"],
+				as_dict=True,
+			)
+			if not offering_data:
+				continue
+			cut_mm = offering_data.get("cut_increment_mm_override")
+			if not cut_mm and offering_data.get("tape_spec"):
+				cut_mm = frappe.db.get_value(
+					"ilL-Spec-LED Tape", offering_data["tape_spec"],
+					"cut_increment_mm",
+				)
+			if cut_mm:
+				cut_increments_mm.add(cut_mm)
+		if cut_increments_mm:
+			display_parts = [
+				format_length_inches(v, precision=2)
+				for v in sorted(cut_increments_mm)
+				if format_length_inches(v, precision=2)
+			]
+			if display_parts:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Production Interval",
+					"spec_value": ", ".join(display_parts),
+					"is_calculated": 1,
+					"display_order": 90
+				})
+
 		# Clear existing calculated specs and add new ones
 		self.specifications = [
 			s for s in (self.specifications or [])
@@ -1262,6 +1317,16 @@ class ilLWebflowProduct(Document):
 				"is_calculated": 1,
 				"display_order": 40
 			})
+			# Production Interval: cut increment converted to inches
+			formatted = format_length_inches(tape.cut_increment_mm, precision=2)
+			if formatted:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Production Interval",
+					"spec_value": formatted,
+					"is_calculated": 1,
+					"display_order": 45
+				})
 
 		# Check for optional fields that may have been added
 		if hasattr(tape, 'lumens_per_foot') and tape.lumens_per_foot:
@@ -1326,25 +1391,34 @@ class ilLWebflowProduct(Document):
 			})
 
 		# Check for optional dimension fields that may have been added
-		if hasattr(profile, 'width_mm') and profile.width_mm:
+		if hasattr(profile, 'dimensions') and profile.dimensions:
 			specs_to_add.append({
 				"spec_group": "Physical",
-				"spec_label": "Width",
-				"spec_value": str(profile.width_mm),
-				"spec_unit": "mm",
+				"spec_label": "Dimensions",
+				"spec_value": profile.dimensions,
 				"is_calculated": 1,
 				"display_order": 40
 			})
+		else:
+			if hasattr(profile, 'width_mm') and profile.width_mm:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Width",
+					"spec_value": str(profile.width_mm),
+					"spec_unit": "mm",
+					"is_calculated": 1,
+					"display_order": 40
+				})
 
-		if hasattr(profile, 'height_mm') and profile.height_mm:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Height",
-				"spec_value": str(profile.height_mm),
-				"spec_unit": "mm",
-				"is_calculated": 1,
-				"display_order": 50
-			})
+			if hasattr(profile, 'height_mm') and profile.height_mm:
+				specs_to_add.append({
+					"spec_group": "Physical",
+					"spec_label": "Height",
+					"spec_value": str(profile.height_mm),
+					"spec_unit": "mm",
+					"is_calculated": 1,
+					"display_order": 50
+				})
 
 		if profile.lens_interface:
 			specs_to_add.append({
