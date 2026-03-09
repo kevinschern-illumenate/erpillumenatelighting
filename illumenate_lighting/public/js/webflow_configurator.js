@@ -13,22 +13,9 @@ var WebflowConfigurator = {
     options: {},
     seriesInfo: null,
     isInitialized: false,
-    lengthConfig: {}
+    lengthConfig: {},
+    steps: []
 };
-
-// Step configuration matching the API
-var CONFIGURATOR_STEPS = [
-    { name: 'series', label: 'Series', locked: true },
-    { name: 'environment_rating', label: 'Dry/Wet', depends_on: ['series'] },
-    { name: 'cct', label: 'CCT', depends_on: ['series', 'environment_rating'] },
-    { name: 'lens_appearance', label: 'Lens', depends_on: ['series'] },
-    { name: 'output_level', label: 'Output', depends_on: ['series', 'environment_rating', 'cct', 'lens_appearance'] },
-    { name: 'mounting_method', label: 'Mounting', depends_on: [] },
-    { name: 'finish', label: 'Finish', depends_on: [] },
-    { name: 'length', label: 'Length', depends_on: [] },
-    { name: 'start_feed', label: 'Start Feed', depends_on: [] },
-    { name: 'end_feed', label: 'End Feed', depends_on: [] }
-];
 
 /**
  * Initialize the Webflow configurator
@@ -192,6 +179,11 @@ function handleInitResponse(data) {
     WebflowConfigurator.lengthConfig = data.length_config;
     WebflowConfigurator.isInitialized = true;
     
+    // Store step definitions (with depends_on) from the server
+    if (data.steps && data.steps.length) {
+        WebflowConfigurator.steps = data.steps;
+    }
+    
     // Update series display
     if (data.series) {
         $('#seriesName').text(data.series.display_name || data.series.series_name);
@@ -324,6 +316,11 @@ function processTemplateOptions(template) {
         display_name: template.template_name
     };
     WebflowConfigurator.isInitialized = true;
+    
+    // Fallback: fetch steps from the server if not already loaded
+    if (!WebflowConfigurator.steps.length) {
+        WebflowConfigurator.steps = _getDefaultSteps();
+    }
     
     // Populate options
     populatePillSelector('environment_rating', options.environment_ratings);
@@ -483,81 +480,111 @@ function selectPill($pill) {
 }
 
 /**
- * Handle cascading option updates
+ * Handle cascading option updates.
+ * Uses depends_on from server-provided steps to determine which
+ * downstream steps to clear, then calls the server for updated options.
  */
 function handleCascadingUpdate(fieldName, value) {
     var productSlug = WebflowConfigurator.productSlug || $('#fixtureTemplateSelect').val();
     
-    if (fieldName === 'environment_rating') {
-        // Clear downstream selections
-        clearSelection('cct');
-        clearSelection('output_level');
-        
-        // Fetch CCTs for this environment
-        frappe.call({
-            method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_cascading_options',
-            args: {
-                product_slug: productSlug,
-                step_name: 'environment_rating',
-                selections: JSON.stringify(WebflowConfigurator.selections)
-            },
-            callback: function(r) {
-                if (r.message && r.message.success) {
-                    if (r.message.updated_options && r.message.updated_options.ccts) {
-                        populatePillSelector('cct', r.message.updated_options.ccts);
-                    }
-                }
-            }
-        });
-    } else if (fieldName === 'cct') {
-        // Clear downstream selections
-        clearSelection('output_level');
-        
-        // Fetch outputs for this environment + CCT + current lens
-        frappe.call({
-            method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_cascading_options',
-            args: {
-                product_slug: productSlug,
-                step_name: 'cct',
-                selections: JSON.stringify(WebflowConfigurator.selections)
-            },
-            callback: function(r) {
-                if (r.message && r.message.success) {
-                    if (r.message.updated_options && r.message.updated_options.output_levels) {
-                        populatePillSelector('output_level', r.message.updated_options.output_levels);
-                    }
-                }
-            }
-        });
-    } else if (fieldName === 'lens_appearance') {
-        // When lens is selected, show the output section
+    // Special UI handling for lens_appearance: show the output section
+    if (fieldName === 'lens_appearance') {
         $('#outputSection').removeClass('awaiting-lens');
         $('#outputHint').hide();
-        
-        // When lens changes, recalculate output options with new transmission
-        // Only if environment and CCT are already selected
-        if (WebflowConfigurator.selections['environment_rating'] && WebflowConfigurator.selections['cct']) {
-            // Clear output selection since delivered values will change
-            clearSelection('output_level');
-            
-            // Fetch new output levels with updated lens transmission
-            frappe.call({
-                method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_cascading_options',
-                args: {
-                    product_slug: productSlug,
-                    step_name: 'lens_appearance',
-                    selections: JSON.stringify(WebflowConfigurator.selections)
-                },
-                callback: function(r) {
-                    if (r.message && r.message.success) {
-                        if (r.message.updated_options && r.message.updated_options.output_levels) {
-                            populatePillSelector('output_level', r.message.updated_options.output_levels);
-                        }
-                    }
-                }
-            });
+    }
+    
+    // Find all steps that directly or transitively depend on the changed field
+    var dependentSteps = _getDependentStepNames(fieldName);
+    
+    // If no steps depend on this field, nothing to cascade
+    if (!dependentSteps.length) return;
+    
+    // For lens_appearance, only cascade if prerequisite selections exist
+    if (fieldName === 'lens_appearance') {
+        if (!WebflowConfigurator.selections['environment_rating'] || !WebflowConfigurator.selections['cct']) {
+            return;
         }
     }
+    
+    // Clear all dependent downstream steps
+    dependentSteps.forEach(function(stepName) {
+        clearSelection(stepName);
+    });
+    
+    // Call the server for updated options
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_cascading_options',
+        args: {
+            product_slug: productSlug,
+            step_name: fieldName,
+            selections: JSON.stringify(WebflowConfigurator.selections)
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                var updated = r.message.updated_options || {};
+                // Apply any additional clear_selections from the server
+                (r.message.clear_selections || []).forEach(function(stepName) {
+                    clearSelection(stepName);
+                });
+                // Populate each updated option set into its pill selector
+                for (var optionKey in updated) {
+                    var stepName = _optionKeyToStepName(optionKey);
+                    if (stepName) {
+                        populatePillSelector(stepName, updated[optionKey]);
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Find all step names that depend (directly or transitively) on the given field.
+ * Uses the depends_on arrays from server-provided steps.
+ */
+function _getDependentStepNames(fieldName) {
+    var dependents = [];
+    var steps = WebflowConfigurator.steps;
+    
+    // Collect steps that directly list fieldName in their depends_on
+    steps.forEach(function(step) {
+        var deps = step.depends_on || [];
+        if (deps.indexOf(fieldName) !== -1) {
+            dependents.push(step.name);
+        }
+    });
+    
+    // Also collect transitive dependents (steps that depend on a direct dependent)
+    var allDependents = dependents.slice();
+    var toCheck = dependents.slice();
+    while (toCheck.length) {
+        var current = toCheck.shift();
+        steps.forEach(function(step) {
+            var deps = step.depends_on || [];
+            if (deps.indexOf(current) !== -1 && allDependents.indexOf(step.name) === -1) {
+                allDependents.push(step.name);
+                toCheck.push(step.name);
+            }
+        });
+    }
+    
+    return allDependents;
+}
+
+/**
+ * Map API option keys (e.g. "ccts", "output_levels") to step field names.
+ */
+function _optionKeyToStepName(optionKey) {
+    var mapping = {
+        'ccts': 'cct',
+        'output_levels': 'output_level',
+        'environment_ratings': 'environment_rating',
+        'lens_appearances': 'lens_appearance',
+        'mounting_methods': 'mounting_method',
+        'finishes': 'finish',
+        'feed_directions': 'start_feed_direction'
+    };
+    return mapping[optionKey] || null;
 }
 
 /**
@@ -604,11 +631,14 @@ function hideAllSections() {
  * Update progress indicators
  */
 function updateProgress() {
+    var steps = WebflowConfigurator.steps;
     var completed = 0;
-    var total = CONFIGURATOR_STEPS.length;
+    var total = steps.length;
+    
+    if (!total) return;
     
     // Count completed steps
-    CONFIGURATOR_STEPS.forEach(function(step, index) {
+    steps.forEach(function(step, index) {
         var $stepEl = $('.progress-step[data-step="' + index + '"]');
         
         // For locked steps (series), check if actually selected
@@ -633,7 +663,7 @@ function updateProgress() {
     
     // Find first incomplete step and mark as active
     var foundActive = false;
-    CONFIGURATOR_STEPS.forEach(function(step, index) {
+    steps.forEach(function(step, index) {
         if (!foundActive && !isStepCompleted(step.name)) {
             $('.progress-step[data-step="' + index + '"]').addClass('active');
             foundActive = true;
@@ -1140,6 +1170,7 @@ function resetConfiguration() {
             WebflowConfigurator.options = {};
             WebflowConfigurator.isInitialized = false;
             WebflowConfigurator.lengthConfig = {};
+            WebflowConfigurator.steps = [];
             
             // Reset template dropdown
             $('#fixtureTemplateSelect').val('');
@@ -1244,4 +1275,25 @@ function debounce(func, wait) {
             func.apply(context, args);
         }, wait);
     };
+}
+
+/**
+ * Default step definitions used as a fallback when the API does not provide steps.
+ * Normally the server sends these via get_configurator_init so they stay in sync.
+ */
+function _getDefaultSteps() {
+    return [
+        { step: 0, name: 'series', label: 'Series', required: true, locked: true, depends_on: [] },
+        { step: 1, name: 'environment_rating', label: 'Dry/Wet', required: true, locked: false, depends_on: ['series'] },
+        { step: 2, name: 'cct', label: 'CCT', required: true, locked: false, depends_on: ['series', 'environment_rating'] },
+        { step: 3, name: 'lens_appearance', label: 'Lens', required: true, locked: false, depends_on: ['series'] },
+        { step: 4, name: 'output_level', label: 'Output', required: true, locked: false, depends_on: ['series', 'environment_rating', 'cct', 'lens_appearance'] },
+        { step: 5, name: 'mounting_method', label: 'Mounting', required: true, locked: false, depends_on: [] },
+        { step: 6, name: 'finish', label: 'Finish', required: true, locked: false, depends_on: [] },
+        { step: 7, name: 'length', label: 'Length', required: true, locked: false, depends_on: [] },
+        { step: 8, name: 'start_feed_direction', label: 'Start Feed Direction', required: true, locked: false, depends_on: [] },
+        { step: 9, name: 'start_feed_length', label: 'Start Feed Length', required: true, locked: false, depends_on: ['start_feed_direction'] },
+        { step: 10, name: 'end_feed_direction', label: 'End Feed Direction', required: true, locked: false, depends_on: [] },
+        { step: 11, name: 'end_feed_length', label: 'End Feed Length', required: true, locked: false, depends_on: ['end_feed_direction'] }
+    ];
 }
