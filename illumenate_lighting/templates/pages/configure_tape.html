@@ -989,8 +989,8 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			runsHtml += '</tr></thead><tbody>';
 
 			c.runs.forEach(function(run) {
-				var lengthIn = run.run_len_in || (run.run_len_mm / 25.4).toFixed(2);
-				var lengthFt = run.run_len_ft || (run.run_len_mm / 304.8).toFixed(2);
+				var lengthIn = (run.run_len_in || (run.run_len_mm / 25.4)).toFixed(2);
+				var lengthFt = (run.run_len_ft || (run.run_len_mm / 304.8)).toFixed(2);
 				runsHtml += '<tr>';
 				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
 				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
