@@ -83,6 +83,7 @@ Portal Multi-Segment Configurator Page
                             <tr><td>Total Length</td><td class="text-right"><span id="totalLength">-</span></td></tr>
                             <tr><td>Total Tape</td><td class="text-right"><span id="totalTape">-</span></td></tr>
                             <tr><td>Total Runs</td><td class="text-right"><span id="totalRuns">-</span></td></tr>
+                            <tr id="maxRunLengthRow" style="display: none;"><td>Max Run Length</td><td class="text-right"><span id="maxRunLength">-</span></td></tr>
                             <tr><td>Total Watts</td><td class="text-right"><span id="totalWatts">-</span></td></tr>
                             <tr><td>Assembly Mode</td><td class="text-right"><span id="assemblyMode">-</span></td></tr>
                         </table>
@@ -388,6 +389,17 @@ function displayResults(result) {
         $("#totalLength").text(totalLengthIn + '" (' + result.computed.total_requested_length_mm + ' mm)');
         $("#totalTape").text(totalTapeIn + '" (' + result.computed.total_tape_length_mm + ' mm)');
         $("#totalRuns").text(result.computed.runs_count);
+        if (result.computed.max_run_ft_effective) {
+            $("#maxRunLengthRow").show();
+            var maxRunText = result.computed.max_run_ft_effective + ' ft';
+            if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
+                var limiting = (result.computed.max_run_ft_by_voltage_drop <= result.computed.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
+                maxRunText += ' (' + limiting + ')';
+            }
+            $("#maxRunLength").text(maxRunText);
+        } else {
+            $("#maxRunLengthRow").hide();
+        }
         $("#totalWatts").text(result.computed.total_watts + ' W');
         $("#assemblyMode").text(result.computed.assembly_mode);
     }
