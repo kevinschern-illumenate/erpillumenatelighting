@@ -1,7 +1,7 @@
 {#
 Portal Configurator Page (Webflow-Compatible)
 Follows the horizontal step flow matching the Webflow configurator UI:
-Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Length → Start Feed → End Feed
+Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Length → Start Feed → End Feed
 #}
 {% extends "templates/web.html" %}
 
@@ -251,11 +251,11 @@ Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Lengt
 						</div>
 						<div class="progress-step" data-step="3">
 							<span class="step-number">3</span>
-							<span class="step-label">Output</span>
+							<span class="step-label">Lens</span>
 						</div>
 						<div class="progress-step" data-step="4">
 							<span class="step-number">4</span>
-							<span class="step-label">Lens</span>
+							<span class="step-label">Output</span>
 						</div>
 						<div class="progress-step" data-step="5">
 							<span class="step-number">5</span>
@@ -316,19 +316,19 @@ Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Lengt
 								<select class="form-control select-fallback" name="cct"></select>
 							</div>
 							
-							<!-- Section 3: Output (hidden until lens is selected) -->
+							<!-- Section 3: Lens -->
+							<div class="config-section" id="lensSection" style="display: none;">
+								<h4>{{ _("Lens") }}</h4>
+								<div class="pill-selector" data-field="lens_appearance"></div>
+								<select class="form-control select-fallback" name="lens_appearance"></select>
+							</div>
+							
+							<!-- Section 4: Output (hidden until lens is selected) -->
 							<div class="config-section awaiting-lens" id="outputSection" style="display: none;">
 								<h4>{{ _("Output") }}</h4>
 								<p class="text-muted small mb-2" id="outputHint">{{ _("Select a lens first to see available output levels") }}</p>
 								<div class="pill-selector" data-field="output_level"></div>
 								<select class="form-control select-fallback" name="output_level"></select>
-							</div>
-							
-							<!-- Section 4: Lens -->
-							<div class="config-section" id="lensSection" style="display: none;">
-								<h4>{{ _("Lens") }}</h4>
-								<div class="pill-selector" data-field="lens_appearance"></div>
-								<select class="form-control select-fallback" name="lens_appearance"></select>
 							</div>
 							
 							<!-- Section 5: Mounting -->

@@ -332,10 +332,10 @@ The configurator is an interactive component that allows users to configure cust
 The configurator follows a horizontal step-by-step flow:
 
 ```
-┌───────┐   ┌─────────┐   ┌─────┐   ┌────────┐   ┌──────┐   ┌──────────┐
-│Series │ → │ Dry/Wet │ → │ CCT │ → │ Output │ → │ Lens │ → │ Mounting │
-│(locked)│   │         │   │     │   │        │   │      │   │          │
-└───────┘   └─────────┘   └─────┘   └────────┘   └──────┘   └──────────┘
+┌───────┐   ┌─────────┐   ┌─────┐   ┌──────┐   ┌────────┐   ┌──────────┐
+│Series │ → │ Dry/Wet │ → │ CCT │ → │ Lens │ → │ Output │ → │ Mounting │
+│(locked)│   │         │   │     │   │      │   │        │   │          │
+└───────┘   └─────────┘   └─────┘   └──────┘   └────────┘   └──────────┘
                                           │
     ┌─────────────────────────────────────┘
     ▼
@@ -358,8 +358,8 @@ The configurator follows a horizontal step-by-step flow:
 | 0 | series | Series | Yes | (Locked - from product) |
 | 1 | environment_rating | Dry/Wet | Yes | series |
 | 2 | cct | CCT | Yes | series, environment_rating |
-| 3 | output_level | Output | Yes | series, environment_rating, cct |
-| 4 | lens_appearance | Lens | Yes | series |
+| 3 | lens_appearance | Lens | Yes | series |
+| 4 | output_level | Output | Yes | series, environment_rating, cct, lens_appearance |
 | 5 | mounting_method | Mounting | Yes | (Independent) |
 | 6 | finish | Finish | Yes | (Independent) |
 | 7 | length | Length | Yes | (Independent) |
@@ -370,11 +370,16 @@ The configurator follows a horizontal step-by-step flow:
 
 ### Cascading Options
 
-When a user selects an option, dependent options are filtered:
+Each step in the `steps` array includes a `depends_on` list that tells the client which prior selections must be filled before options can be loaded, and which downstream steps to clear when a parent selection changes. This logic is **server-driven** — the client reads `depends_on` from the JSON returned by `get_configurator_init` rather than hardcoding it:
 
 1. **Environment Rating** → Filters available CCT options
-2. **CCT** → Filters available Output Level options
-3. **Output Level** is recalculated when Lens changes (transmission affects delivered output)
+2. **CCT** → Filters available Lens options
+3. **Lens** → Filters available Output Level options (transmission affects delivered output)
+
+When the user changes a selection, the client should:
+1. Use `depends_on` to find all downstream steps that depend (directly or transitively) on the changed step.
+2. Clear those downstream selections.
+3. Call `get_cascading_options` to fetch the updated option lists from the server.
 
 ### Configurator API Endpoints
 
@@ -402,9 +407,18 @@ When a user selects an option, dependent options are filtered:
     "display_name": "ilLumenate RA01 Linear [FS] Full Spectrum"
   },
   "steps": [
-    {"step": 0, "name": "series", "label": "Series", "required": true, "locked": true},
-    {"step": 1, "name": "environment_rating", "label": "Dry/Wet", "required": true}
-    // ... more steps
+    {"step": 0, "name": "series", "label": "Series", "required": true, "locked": true, "depends_on": []},
+    {"step": 1, "name": "environment_rating", "label": "Dry/Wet", "required": true, "locked": false, "depends_on": ["series"]},
+    {"step": 2, "name": "cct", "label": "CCT", "required": true, "locked": false, "depends_on": ["series", "environment_rating"]},
+    {"step": 3, "name": "lens_appearance", "label": "Lens", "required": true, "locked": false, "depends_on": ["series"]},
+    {"step": 4, "name": "output_level", "label": "Output", "required": true, "locked": false, "depends_on": ["series", "environment_rating", "cct", "lens_appearance"]},
+    {"step": 5, "name": "mounting_method", "label": "Mounting", "required": true, "locked": false, "depends_on": []},
+    {"step": 6, "name": "finish", "label": "Finish", "required": true, "locked": false, "depends_on": []},
+    {"step": 7, "name": "length", "label": "Length", "required": true, "locked": false, "depends_on": []},
+    {"step": 8, "name": "start_feed_direction", "label": "Start Feed Direction", "required": true, "locked": false, "depends_on": []},
+    {"step": 9, "name": "start_feed_length", "label": "Start Feed Length", "required": true, "locked": false, "depends_on": ["start_feed_direction"]},
+    {"step": 10, "name": "end_feed_direction", "label": "End Feed Direction", "required": true, "locked": false, "depends_on": []},
+    {"step": 11, "name": "end_feed_length", "label": "End Feed Length", "required": true, "locked": false, "depends_on": ["end_feed_direction"]}
   ],
   "options": {
     "environment_ratings": [
@@ -566,6 +580,7 @@ class FixtureConfigurator {
     this.container = document.querySelector(containerSelector);
     this.selections = {};
     this.options = {};
+    this.steps = [];  // Populated from server — no hardcoded step definitions
     this.API_BASE = 'https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_configurator';
   }
 
@@ -577,6 +592,8 @@ class FixtureConfigurator {
       if (data.message && data.message.success) {
         this.config = data.message;
         this.options = data.message.options;
+        // Store step definitions (including depends_on) from the server
+        this.steps = data.message.steps || [];
         this.renderConfigurator();
       } else {
         console.error('Failed to initialize configurator:', data.message?.error);
@@ -587,12 +604,12 @@ class FixtureConfigurator {
   }
 
   renderConfigurator() {
-    // Render the configurator UI based on this.config.steps
-    // Each step should show available options from this.options
+    // Render the configurator UI based on this.steps (from server)
+    // Each step includes depends_on so the client knows cascading rules
     this.container.innerHTML = `
       <div class="configurator">
         <div class="step-indicator">
-          ${this.config.steps.map(step => `
+          ${this.steps.map(step => `
             <div class="step ${step.locked ? 'locked' : ''}" data-step="${step.step}">
               ${step.label}
             </div>
@@ -659,7 +676,20 @@ class FixtureConfigurator {
     });
     this.container.querySelector(`[data-step="${stepName}"][data-value="${value}"]`)?.classList.add('selected');
     
-    // Fetch cascading options
+    // Use depends_on from server-provided steps to find and clear downstream dependents
+    const dependents = this.getDependentSteps(stepName);
+    for (const dep of dependents) {
+      delete this.selections[dep];
+      this.clearStepUI(dep);
+    }
+    
+    // If no dependents, no cascading fetch needed
+    if (!dependents.length) {
+      this.checkComplete();
+      return;
+    }
+    
+    // Fetch cascading options from the server
     try {
       const response = await fetch(`${this.API_BASE}.get_cascading_options?` + new URLSearchParams({
         product_slug: this.productSlug,
@@ -670,7 +700,7 @@ class FixtureConfigurator {
       const data = await response.json();
       
       if (data.message && data.message.success) {
-        // Clear downstream selections
+        // Apply any additional clear_selections from the server
         for (const field of data.message.clear_selections || []) {
           delete this.selections[field];
           this.clearStepUI(field);
@@ -692,6 +722,25 @@ class FixtureConfigurator {
     } catch (error) {
       console.error('Error fetching cascading options:', error);
     }
+  }
+
+  /**
+   * Find all step names that depend (directly or transitively) on the given field.
+   * Uses depends_on arrays from server-provided steps.
+   */
+  getDependentSteps(fieldName) {
+    const allDependents = [];
+    const toCheck = [fieldName];
+    while (toCheck.length) {
+      const current = toCheck.shift();
+      for (const step of this.steps) {
+        if ((step.depends_on || []).includes(current) && !allDependents.includes(step.name)) {
+          allDependents.push(step.name);
+          toCheck.push(step.name);
+        }
+      }
+    }
+    return allDependents;
   }
 
   updateStepOptions(stepName, options) {
