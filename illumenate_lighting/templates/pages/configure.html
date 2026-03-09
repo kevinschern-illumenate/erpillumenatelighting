@@ -759,6 +759,10 @@ Allows users to configure fixtures using segment-based configuration
 								<td>{{ _("LED Tape Runs") }}</td>
 								<td class="text-right"><span id="runsCount">-</span></td>
 							</tr>
+							<tr id="maxRunLengthRow" style="display: none;">
+								<td>{{ _("Max Run Length") }}</td>
+								<td class="text-right"><span id="maxRunLength">-</span></td>
+							</tr>
 							<tr>
 								<td>{{ _("Endcaps") }}</td>
 								<td class="text-right"><span id="endcapsCount">-</span></td>
@@ -2300,6 +2304,19 @@ function displayResults(result) {
 		$('#mountingCount').text(result.computed.total_mounting_accessories);
 		$('#totalWatts').text(result.computed.total_watts + ' W');
 		$('#assemblyMode').text(result.computed.assembly_mode);
+
+		// Max run length display
+		if (result.computed.max_run_ft_effective) {
+			$('#maxRunLengthRow').show();
+			var maxRunText = result.computed.max_run_ft_effective + ' ft';
+			if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
+				var limiting = (result.computed.max_run_ft_by_voltage_drop <= result.computed.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
+				maxRunText += ' (' + limiting + ')';
+			}
+			$('#maxRunLength').text(maxRunText);
+		} else {
+			$('#maxRunLengthRow').hide();
+		}
 		
 		// Display build description (use display version with inches for UI)
 		if (result.computed.build_description_display || result.computed.build_description) {
@@ -3369,11 +3386,24 @@ function tnDisplayResults(result) {
 		// Manufacturing summary
 		$('#manufacturingResults').show();
 		$('#profileSegmentsCount').text('-');
-		$('#runsCount').text('-');
+		$('#runsCount').text(c.runs_count || 1);
 		$('#endcapsCount').text('-');
 		$('#mountingCount').text('-');
 		$('#totalWatts').text((c.total_watts || 0) + ' W');
 		$('#assemblyMode').text(isNeon ? (c.segment_count > 1 ? 'Multi-Segment' : 'Single') : 'Single');
+
+		// Max run length display
+		if (c.max_run_ft_effective) {
+			$('#maxRunLengthRow').show();
+			var maxRunText = c.max_run_ft_effective + ' ft';
+			if (c.max_run_ft_by_voltage_drop && c.max_run_ft_by_watts) {
+				var limiting = (c.max_run_ft_by_voltage_drop <= c.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
+				maxRunText += ' (' + limiting + ')';
+			}
+			$('#maxRunLength').text(maxRunText);
+		} else {
+			$('#maxRunLengthRow').hide();
+		}
 
 		// Build description
 		if (result.build_description) {
@@ -3381,8 +3411,31 @@ function tnDisplayResults(result) {
 			$('#buildDescription').text(result.build_description);
 		}
 
-		// Hide linear-fixture-specific result sections
-		$('#ledRunDetailsPanel').hide();
+		// LED Run Details for tape/neon (when runs > 1)
+		if (c.runs && c.runs.length > 1) {
+			$('#ledRunDetailsPanel').show();
+			var runsHtml = '<table class="table table-sm table-bordered mb-0">';
+			runsHtml += '<thead class="thead-light"><tr>';
+			runsHtml += '<th>' + __('Run') + '</th>';
+			runsHtml += '<th>' + __('Length') + '</th>';
+			runsHtml += '<th>' + __('Watts') + '</th>';
+			runsHtml += '</tr></thead><tbody>';
+
+			c.runs.forEach(function(run) {
+				var lengthIn = (run.run_len_in || (run.run_len_mm / 25.4)).toFixed(2);
+				var lengthFt = (run.run_len_ft || (run.run_len_mm / 304.8)).toFixed(2);
+				runsHtml += '<tr>';
+				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
+				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
+				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
+				runsHtml += '</tr>';
+			});
+
+			runsHtml += '</tbody></table>';
+			$('#ledRunDetails').html(runsHtml);
+		} else {
+			$('#ledRunDetailsPanel').hide();
+		}
 		$('#driverResults').hide();
 	}
 
