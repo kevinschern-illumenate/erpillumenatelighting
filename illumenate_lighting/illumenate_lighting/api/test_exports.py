@@ -197,3 +197,159 @@ class TestExportsAPI(FrappeTestCase):
 		)
 		for job_name in test_jobs:
 			frappe.delete_doc("ilL-Export-Job", job_name, force=True)
+
+class TestDriverPricingInExports(FrappeTestCase):
+	"""Test cases for driver/power supply pricing in exports."""
+
+	def _make_schedule_data_with_driver_pricing(self):
+		"""Build a schedule_data dict with driver pricing populated."""
+		from types import SimpleNamespace
+
+		schedule = SimpleNamespace(
+			schedule_name="Test PS Pricing Schedule",
+			status="Active",
+			name="SCH-TEST-PS",
+		)
+		project = SimpleNamespace(project_name="Test PS Project")
+		customer = SimpleNamespace(customer_name="Test PS Customer", name="CUST-PS")
+		lines = [
+			{
+				"line_id": "A",
+				"qty": 3,
+				"location": "Lobby",
+				"manufacturer_type": "ILLUMENATE",
+				"notes": "",
+				"template_code": "TPL-001",
+				"configured_fixture_name": "CF-001",
+				"config_summary": "Warm White",
+				"requested_length_mm": 1000,
+				"manufacturable_length_mm": 1016,
+				"runs_count": 1,
+				"environment_rating": "Dry",
+				"finish": "White",
+				"lens_appearance": "Frosted",
+				"mounting_method": "Surface",
+				"power_feed_type": "Single End",
+				"cct": "3000K",
+				"cri": "90",
+				"output_level": "High",
+				"estimated_delivered_output": "350",
+				"power_supply": "DRV-100",
+				"fixture_input_voltage": "24V",
+				"driver_input_voltage": "120V",
+				"total_watts": "25",
+				"is_multi_segment": 0,
+				"build_description": "",
+				"unit_price": 100.00,
+				"line_total": 300.00,
+				"driver_unit_price": 45.50,
+				"driver_line_total": 136.50,
+			},
+			{
+				"line_id": "B",
+				"qty": 1,
+				"location": "Hallway",
+				"manufacturer_type": "OTHER",
+				"notes": "Other fixture",
+				"template_code": "",
+				"config_summary": "",
+				"requested_length_mm": 0,
+				"manufacturable_length_mm": 0,
+				"runs_count": 0,
+				"manufacturer_name": "Acme Lighting",
+				"fixture_model_number": "ACM-200",
+			},
+		]
+		return {
+			"schedule": schedule,
+			"project": project,
+			"customer": customer,
+			"lines": lines,
+			"schedule_total": 436.50,
+			"export_date": "2026-03-09",
+		}
+
+	def test_pdf_contains_driver_pricing_sub_line(self):
+		"""Test that PDF content includes driver pricing sub-lines."""
+		from illumenate_lighting.illumenate_lighting.api.exports import _generate_pdf_content
+
+		schedule_data = self._make_schedule_data_with_driver_pricing()
+		html = _generate_pdf_content(schedule_data, include_pricing=True)
+
+		# Driver unit price sub-line should appear
+		self.assertIn("pricing-sub-line", html)
+		self.assertIn("$45.50", html)
+		self.assertIn("$136.50", html)
+		# Fixture price should also appear
+		self.assertIn("$100.00", html)
+		self.assertIn("$300.00", html)
+		# Schedule total should include driver pricing
+		self.assertIn("$436.50", html)
+
+	def test_pdf_no_driver_pricing_when_not_priced(self):
+		"""Test that non-priced PDF does not contain pricing."""
+		from illumenate_lighting.illumenate_lighting.api.exports import _generate_pdf_content
+
+		schedule_data = self._make_schedule_data_with_driver_pricing()
+		html = _generate_pdf_content(schedule_data, include_pricing=False)
+
+		# No pricing columns should appear
+		self.assertNotIn("pricing-sub-line", html)
+		self.assertNotIn("$45.50", html)
+		self.assertNotIn("$100.00", html)
+
+	def test_csv_contains_driver_pricing_columns(self):
+		"""Test that CSV content includes PS Unit Price and PS Line Total columns."""
+		from illumenate_lighting.illumenate_lighting.api.exports import _generate_csv_content
+
+		schedule_data = self._make_schedule_data_with_driver_pricing()
+		csv_content = _generate_csv_content(schedule_data, include_pricing=True)
+
+		# PS pricing column headers should appear
+		self.assertIn("PS Unit Price", csv_content)
+		self.assertIn("PS Line Total", csv_content)
+		# PS pricing values should appear for fixture line
+		self.assertIn("45.50", csv_content)
+		self.assertIn("136.50", csv_content)
+
+	def test_csv_no_driver_pricing_when_not_priced(self):
+		"""Test that non-priced CSV does not contain PS pricing columns."""
+		from illumenate_lighting.illumenate_lighting.api.exports import _generate_csv_content
+
+		schedule_data = self._make_schedule_data_with_driver_pricing()
+		csv_content = _generate_csv_content(schedule_data, include_pricing=False)
+
+		# PS pricing columns should not appear
+		self.assertNotIn("PS Unit Price", csv_content)
+		self.assertNotIn("PS Line Total", csv_content)
+
+	def test_csv_other_manufacturer_no_ps_pricing(self):
+		"""Test that OTHER manufacturer lines have empty PS pricing cells."""
+		from illumenate_lighting.illumenate_lighting.api.exports import _generate_csv_content
+		import csv
+		import io
+
+		schedule_data = self._make_schedule_data_with_driver_pricing()
+		csv_content = _generate_csv_content(schedule_data, include_pricing=True)
+
+		reader = csv.reader(io.StringIO(csv_content))
+		rows = list(reader)
+		headers = rows[0]
+		ps_unit_idx = headers.index("PS Unit Price")
+		ps_total_idx = headers.index("PS Line Total")
+
+		# Line B (OTHER manufacturer) should have empty PS pricing
+		line_b_row = rows[2]  # row 0=headers, 1=line A, 2=line B
+		self.assertEqual(line_b_row[ps_unit_idx], "")
+		self.assertEqual(line_b_row[ps_total_idx], "")
+
+	def test_schedule_total_includes_driver_pricing(self):
+		"""Test that schedule total in PDF includes both fixture and driver pricing."""
+		from illumenate_lighting.illumenate_lighting.api.exports import _generate_pdf_content
+
+		schedule_data = self._make_schedule_data_with_driver_pricing()
+		html = _generate_pdf_content(schedule_data, include_pricing=True)
+
+		# Schedule total = 300.00 (fixture) + 136.50 (driver) = 436.50
+		self.assertIn("$436.50", html)
+		self.assertIn("Schedule Total", html)
