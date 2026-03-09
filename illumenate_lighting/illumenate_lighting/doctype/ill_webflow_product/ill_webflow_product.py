@@ -1382,7 +1382,7 @@ class ilLWebflowProduct(Document):
 		"""Populate configurator options from template's allowed options.
 
 		Step numbering aligns with CONFIGURATOR_STEPS in webflow_configurator.py:
-		0-Series (locked), 1-Environment, 2-CCT, 3-Output, 4-Lens,
+		0-Series (locked), 1-Environment, 2-CCT, 3-Lens, 4-Output,
 		5-Mounting, 6-Finish, 7-Length, 8-Start Feed Dir, 9-Start Feed Len,
 		10-End Feed Dir, 11-End Feed Len.
 
@@ -1396,8 +1396,8 @@ class ilLWebflowProduct(Document):
 		option_flow = [
 			(1, "Environment Rating", "Dry/Wet", 0),
 			(2, "CCT", "CCT", 1),
-			(3, "Output Level", "Output", 2),
-			(4, "Lens Appearance", "Lens", 0),
+			(3, "Lens Appearance", "Lens", 0),
+			(4, "Output Level", "Output", 3),
 			(5, "Mounting Method", "Mounting", 0),
 			(6, "Finish", "Finish", 0),
 			(7, "Length", "Length", 0),
@@ -1442,7 +1442,7 @@ class ilLWebflowProduct(Document):
 				"option_type": "Fixture Output Level",
 				"option_label": "Fixture Output Level Lookup",
 				"is_required": 0,
-				"depends_on_step": 3,
+				"depends_on_step": 4,
 				"allowed_values_json": frappe.as_json(fixture_output_levels)
 			})
 

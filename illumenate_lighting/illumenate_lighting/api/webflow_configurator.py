@@ -5,7 +5,7 @@
 Webflow Configurator API (Revised)
 
 Matches the Webflow configurator UI design with horizontal step flow:
-Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Length → Start Feed → End Feed
+Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Length → Start Feed → End Feed
 
 Series (including LED Package) is pre-selected based on the fixture product page.
 """
@@ -29,8 +29,8 @@ CONFIGURATOR_STEPS = [
     {"step": 0, "name": "series", "label": "Series", "required": True, "locked": True, "depends_on": []},
     {"step": 1, "name": "environment_rating", "label": "Dry/Wet", "required": True, "locked": False, "depends_on": ["series"]},
     {"step": 2, "name": "cct", "label": "CCT", "required": True, "locked": False, "depends_on": ["series", "environment_rating"]},
-    {"step": 3, "name": "output_level", "label": "Output", "required": True, "locked": False, "depends_on": ["series", "environment_rating", "cct"]},
-    {"step": 4, "name": "lens_appearance", "label": "Lens", "required": True, "locked": False, "depends_on": ["series"]},
+    {"step": 3, "name": "lens_appearance", "label": "Lens", "required": True, "locked": False, "depends_on": ["series"]},
+    {"step": 4, "name": "output_level", "label": "Output", "required": True, "locked": False, "depends_on": ["series", "environment_rating", "cct", "lens_appearance"]},
     {"step": 5, "name": "mounting_method", "label": "Mounting", "required": True, "locked": False, "depends_on": []},
     {"step": 6, "name": "finish", "label": "Finish", "required": True, "locked": False, "depends_on": []},
     {"step": 7, "name": "length", "label": "Length", "required": True, "locked": False, "depends_on": []},
@@ -139,8 +139,8 @@ def get_cascading_options(
     Cascading rules:
     - environment_rating: Filters from series (available tape offerings)
     - cct: Filters from series + environment
-    - output_level: Filters from series + environment + cct
     - lens_appearance: Filters from series (profile lens interface)
+    - output_level: Filters from series + environment + cct + lens
     - All others: Independent (no filtering)
     
     Args:

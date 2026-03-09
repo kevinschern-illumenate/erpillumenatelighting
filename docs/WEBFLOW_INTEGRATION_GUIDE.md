@@ -332,10 +332,10 @@ The configurator is an interactive component that allows users to configure cust
 The configurator follows a horizontal step-by-step flow:
 
 ```
-┌───────┐   ┌─────────┐   ┌─────┐   ┌────────┐   ┌──────┐   ┌──────────┐
-│Series │ → │ Dry/Wet │ → │ CCT │ → │ Output │ → │ Lens │ → │ Mounting │
-│(locked)│   │         │   │     │   │        │   │      │   │          │
-└───────┘   └─────────┘   └─────┘   └────────┘   └──────┘   └──────────┘
+┌───────┐   ┌─────────┐   ┌─────┐   ┌──────┐   ┌────────┐   ┌──────────┐
+│Series │ → │ Dry/Wet │ → │ CCT │ → │ Lens │ → │ Output │ → │ Mounting │
+│(locked)│   │         │   │     │   │      │   │        │   │          │
+└───────┘   └─────────┘   └─────┘   └──────┘   └────────┘   └──────────┘
                                           │
     ┌─────────────────────────────────────┘
     ▼
@@ -358,8 +358,8 @@ The configurator follows a horizontal step-by-step flow:
 | 0 | series | Series | Yes | (Locked - from product) |
 | 1 | environment_rating | Dry/Wet | Yes | series |
 | 2 | cct | CCT | Yes | series, environment_rating |
-| 3 | output_level | Output | Yes | series, environment_rating, cct |
-| 4 | lens_appearance | Lens | Yes | series |
+| 3 | lens_appearance | Lens | Yes | series |
+| 4 | output_level | Output | Yes | series, environment_rating, cct, lens_appearance |
 | 5 | mounting_method | Mounting | Yes | (Independent) |
 | 6 | finish | Finish | Yes | (Independent) |
 | 7 | length | Length | Yes | (Independent) |
@@ -373,8 +373,8 @@ The configurator follows a horizontal step-by-step flow:
 When a user selects an option, dependent options are filtered:
 
 1. **Environment Rating** → Filters available CCT options
-2. **CCT** → Filters available Output Level options
-3. **Output Level** is recalculated when Lens changes (transmission affects delivered output)
+2. **CCT** → Filters available Lens options
+3. **Lens** → Filters available Output Level options (transmission affects delivered output)
 
 ### Configurator API Endpoints
 
