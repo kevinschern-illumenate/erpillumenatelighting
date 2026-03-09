@@ -473,6 +473,14 @@ def validate_and_quote(
 
 	response["configured_fixture_id"] = fixture_id
 
+	# Update fixture item_pricing entry to use the configured fixture part number
+	# instead of the channel/profile item code
+	if fixture_id and response["pricing"].get("item_pricing"):
+		for entry in response["pricing"]["item_pricing"]:
+			if entry.get("item_type") == "fixture":
+				entry["item_code"] = fixture_id
+				break
+
 	# Add inch values to computed results for US market display
 	response["computed"] = add_inch_values_to_computed(response["computed"])
 
@@ -1123,6 +1131,14 @@ def validate_and_quote_multisegment(
 	)
 
 	response["configured_fixture_id"] = fixture_id
+
+	# Update fixture item_pricing entry to use the configured fixture part number
+	# instead of the channel/profile item code
+	if fixture_id and response["pricing"].get("item_pricing"):
+		for entry in response["pricing"]["item_pricing"]:
+			if entry.get("item_type") == "fixture":
+				entry["item_code"] = fixture_id
+				break
 
 	if response["is_valid"]:
 		response["messages"].append({
