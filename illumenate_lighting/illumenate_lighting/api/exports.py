@@ -231,6 +231,7 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 		if cf.drivers:
 			driver_items = []
 			driver_input_voltages = []
+			driver_msrp_total = 0.0
 			for driver_alloc in cf.drivers:
 				if driver_alloc.driver_item:
 					# Get driver spec for input voltage
@@ -251,12 +252,23 @@ def _get_fixture_export_details(configured_fixture_id: str) -> dict:
 					if driver_spec and driver_spec.input_voltage:
 						driver_input_voltages.append(driver_spec.input_voltage)
 
+					# Look up driver MSRP from Item Price
+					driver_price = frappe.db.get_value(
+						"Item Price",
+						{"item_code": driver_alloc.driver_item, "selling": 1},
+						"price_list_rate",
+					)
+					if driver_price:
+						driver_msrp_total += float(driver_price) * driver_qty
+
 			if driver_items:
 				details["power_supply"] = ", ".join(driver_items)
 			if driver_input_voltages:
 				# Remove duplicates and join
 				unique_voltages = list(dict.fromkeys(driver_input_voltages))
 				details["driver_input_voltage"] = ", ".join(unique_voltages)
+			if driver_msrp_total > 0:
+				details["driver_msrp_unit"] = round(driver_msrp_total, 2)
 
 		return details
 	except Exception:
@@ -378,6 +390,13 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 					line_data["unit_price"] = unit_price
 					line_data["line_total"] = unit_price * (line.qty or 1)
 					schedule_total += line_data["line_total"]
+
+					# Add driver MSRP as separate sub-line pricing
+					driver_msrp = fixture.get("driver_msrp_unit")
+					if driver_msrp:
+						line_data["driver_unit_price"] = driver_msrp
+						line_data["driver_line_total"] = driver_msrp * (line.qty or 1)
+						schedule_total += line_data["driver_line_total"]
 			else:
 				line_data["template_code"] = ""
 				line_data["config_summary"] = "Configured fixture not found"
@@ -537,6 +556,7 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		".text-right { text-align: right; }",
 		".total-row { font-weight: bold; background-color: #f0f0f0; }",
 		".other-manufacturer { background-color: #fffbe6; }",
+		".pricing-sub-line { font-size: 9px; color: #888; }",
 		"</style></head><body>",
 	]
 
@@ -694,8 +714,14 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		if include_pricing:
 			unit_price = line.get("unit_price", 0)
 			line_total = line.get("line_total", 0)
-			html_parts.append(f"<td class='text-right'>${unit_price:.2f}</td>")
-			html_parts.append(f"<td class='text-right'>${line_total:.2f}</td>")
+			unit_price_html = f"${unit_price:.2f}"
+			line_total_html = f"${line_total:.2f}"
+			if line.get("driver_unit_price"):
+				unit_price_html += f"<div class='pricing-sub-line'>${line['driver_unit_price']:.2f}</div>"
+			if line.get("driver_line_total"):
+				line_total_html += f"<div class='pricing-sub-line'>${line['driver_line_total']:.2f}</div>"
+			html_parts.append(f"<td class='text-right'>{unit_price_html}</td>")
+			html_parts.append(f"<td class='text-right'>{line_total_html}</td>")
 
 		html_parts.append("</tr>")
 
@@ -765,7 +791,7 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Accessory Category",
 	]
 	if include_pricing:
-		headers.extend(["Unit Price", "Line Total"])
+		headers.extend(["Unit Price", "Line Total", "PS Unit Price", "PS Line Total"])
 
 	writer.writerow(headers)
 
@@ -824,6 +850,8 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			row.extend([
 				f"{line.get('unit_price', 0):.2f}",
 				f"{line.get('line_total', 0):.2f}",
+				f"{line.get('driver_unit_price', 0):.2f}" if line.get("driver_unit_price") else "",
+				f"{line.get('driver_line_total', 0):.2f}" if line.get("driver_line_total") else "",
 			])
 		writer.writerow(row)
 
