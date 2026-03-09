@@ -99,6 +99,10 @@ website_route_rules = [
 	{"from_route": "/portal/configure-kit/<template>", "to_route": "configure_kit"},
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
+	# Product Catalog (System Manager only)
+	{"from_route": "/portal/products", "to_route": "products_catalog"},
+	{"from_route": "/portal/products/<slug>", "to_route": "product_detail"},
+
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
 	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
