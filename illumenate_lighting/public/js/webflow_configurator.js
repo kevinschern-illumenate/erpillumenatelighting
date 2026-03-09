@@ -1004,6 +1004,11 @@ function handleValidationResponse(data) {
             $('#pricingPreview').show();
         }
         
+        // Show stock availability if available
+        if (data.stock_availability) {
+            renderStockAvailability(data.stock_availability);
+        }
+
         // Enable add to schedule button
         $('#addToScheduleBtn').prop('disabled', false);
         
@@ -1023,6 +1028,66 @@ function handleValidationResponse(data) {
     }
     
     $messages.show();
+}
+
+/**
+ * Render stock availability in the Results panel
+ */
+function renderStockAvailability(stockData) {
+    var $container = $('#stockAvailability');
+    var $list = $('#stockItemsList');
+    var $badge = $('#stockOverallBadge');
+
+    $list.empty();
+    $badge.hide();
+
+    if (!stockData || !stockData.items || !stockData.items.length) {
+        $container.hide();
+        return;
+    }
+
+    var items = stockData.items;
+    var inStockCount = 0;
+    var totalCount = items.length;
+
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.is_sufficient) inStockCount++;
+
+        var icon = item.is_sufficient
+            ? '<i class="fa fa-check-circle text-success mr-1"></i>'
+            : '<i class="fa fa-times-circle text-danger mr-1"></i>';
+
+        var qtyInfo = '';
+        if (typeof item.qty_available !== 'undefined') {
+            qtyInfo = ' <small class="text-muted">(' + item.qty_required + ' needed / ' + item.qty_available + ' avail)</small>';
+        }
+
+        $list.append(
+            '<div class="d-flex align-items-center mb-1 small">' +
+            icon +
+            '<span>' + (item.component_type || item.item_code) + '</span>' +
+            qtyInfo +
+            '</div>'
+        );
+    }
+
+    // Overall badge
+    if (stockData.all_in_stock) {
+        $badge.removeClass('badge-warning badge-danger')
+              .addClass('badge-success')
+              .text(__('All In Stock')).show();
+    } else if (inStockCount > 0) {
+        $badge.removeClass('badge-success badge-danger')
+              .addClass('badge-warning')
+              .text(inStockCount + ' / ' + totalCount + ' ' + __('in stock')).show();
+    } else {
+        $badge.removeClass('badge-success badge-warning')
+              .addClass('badge-danger')
+              .text(__('Not In Stock')).show();
+    }
+
+    $container.show();
 }
 
 /**

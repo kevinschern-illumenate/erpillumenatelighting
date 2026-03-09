@@ -165,7 +165,15 @@ def add_to_schedule(
     schedule.save()
     frappe.db.commit()
     
-    return {
+    # Compute stock availability for the newly added fixture
+    stock_availability = None
+    try:
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import get_bom_stock_availability
+        stock_availability = get_bom_stock_availability(configured_fixture_id)
+    except Exception:
+        pass  # Non-critical
+
+    result = {
         "success": True,
         "line_id": line.name,
         "fixture_type_id": fixture_type_id,
@@ -175,6 +183,9 @@ def add_to_schedule(
         "schedule_id": schedule_id,
         "message": f"Added {quantity}x {part_number} to schedule"
     }
+    if stock_availability is not None:
+        result["stock_availability"] = stock_availability
+    return result
 
 
 @frappe.whitelist(allow_guest=False)

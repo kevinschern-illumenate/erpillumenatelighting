@@ -295,7 +295,14 @@ def validate_configuration(
     # Calculate pricing
     pricing = _calculate_pricing_preview(template, selections_dict, tape_offering_id)
     
-    return {
+    # --- Stock availability (best-effort) ---
+    stock_availability = None
+    try:
+        stock_availability = _get_stock_for_selections(template, selections_dict, tape_offering_id)
+    except Exception:
+        pass  # Non-critical; omit from response on failure
+
+    result = {
         "success": True,
         "is_valid": True,
         "part_number": part_number,
@@ -306,6 +313,9 @@ def validate_configuration(
         "can_add_to_cart": True,  # For future e-commerce
         "is_complex_fixture": False  # Single segment
     }
+    if stock_availability is not None:
+        result["stock_availability"] = stock_availability
+    return result
 
 
 @frappe.whitelist(allow_guest=True)
@@ -1724,3 +1734,57 @@ def cleanup_expired_cache() -> int:
     )
     frappe.db.commit()
     return result
+
+
+# =============================================================================
+# STOCK AVAILABILITY HELPERS
+# =============================================================================
+
+def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id: str) -> dict | None:
+    """
+    Run the configurator engine for item resolution, then check BOM stock.
+
+    This invokes ``validate_and_quote`` internally to resolve component items
+    and, if a configured fixture is produced, returns its stock availability.
+
+    Returns None on any engine error (caller treats as non-critical).
+    """
+    from illumenate_lighting.illumenate_lighting.api.webflow_schedule import (
+        _map_feed_direction_to_power_feed,
+        _get_default_endcap_style,
+        _get_default_endcap_color,
+    )
+    from illumenate_lighting.illumenate_lighting.api.configurator_engine import validate_and_quote
+    from illumenate_lighting.illumenate_lighting.api.pricing_utils import get_bom_stock_availability
+
+    length_inches = float(selections_dict.get("length_inches", 0))
+    if length_inches <= 0:
+        return None
+
+    length_mm = int(length_inches * 25.4)
+
+    start_feed_dir = selections_dict.get("start_feed_direction", "End")
+    power_feed_type = _map_feed_direction_to_power_feed(start_feed_dir)
+    default_endcap_style = _get_default_endcap_style(template)
+    default_endcap_color = _get_default_endcap_color(template, finish_code=selections_dict.get("finish"))
+
+    engine_result = validate_and_quote(
+        fixture_template_code=template.name,
+        finish_code=selections_dict.get("finish"),
+        lens_appearance_code=selections_dict.get("lens_appearance"),
+        mounting_method_code=selections_dict.get("mounting_method"),
+        endcap_style_start_code=default_endcap_style,
+        endcap_style_end_code=default_endcap_style,
+        endcap_color_code=default_endcap_color,
+        power_feed_type_code=power_feed_type,
+        environment_rating_code=selections_dict.get("environment_rating"),
+        tape_offering_id=tape_offering_id,
+        requested_overall_length_mm=length_mm,
+        qty=1,
+    )
+
+    cf_id = engine_result.get("configured_fixture_id") if engine_result.get("is_valid") else None
+    if not cf_id:
+        return None
+
+    return get_bom_stock_availability(cf_id)

@@ -453,6 +453,23 @@ Also handles new schedule creation when is_new is True
 		</div>
 	</div>
 
+	{% if stock_lines_total %}
+	<!-- Stock Summary -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="d-flex align-items-center">
+				{% if stock_lines_in_stock == stock_lines_total %}
+				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts In Stock") }}</span>
+				{% elif stock_lines_in_stock > 0 %}
+				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock }} / {{ stock_lines_total }} {{ _("lines fully in stock") }}</span>
+				{% else %}
+				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully in stock") }}</span>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	{% endif %}
+
 	<!-- Fixture Lines Table -->
 	<div class="row">
 		<div class="col-12">
@@ -512,6 +529,17 @@ Also handles new schedule creation when is_new is True
 											{% if line.get('accessory_product_type') %}
 											<div class="small text-muted">
 												<i class="fa fa-folder"></i> {{ line.get('accessory_product_type') }}
+											</div>
+											{% endif %}
+											<!-- Stock indicator for accessory -->
+											{% if line.get('stock_availability') %}
+											{% set sa = line.get('stock_availability') %}
+											<div class="small mt-1">
+												{% if sa.get('all_in_stock') %}
+												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+												{% else %}
+												<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}</span>
+												{% endif %}
 											</div>
 											{% endif %}
 										</div>
@@ -602,6 +630,25 @@ Also handles new schedule creation when is_new is True
 											</div>
 											{% endif %}
 										</div>
+										<!-- Stock indicator for ILLUMENATE fixture -->
+										{% if line.get('stock_availability') %}
+										{% set sa = line.get('stock_availability') %}
+										<div class="small mt-1">
+											{% if sa.get('all_in_stock') %}
+											<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+											{% else %}
+											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
+											{% set total_count = sa.get('items', []) | length %}
+											{% if in_count > 0 %}
+											<span class="text-warning" title="{% for it in sa.get('items', []) %}{% if not it.is_sufficient %}{{ it.component_type or it.item_code }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}">
+												<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
+											</span>
+											{% else %}
+											<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}</span>
+											{% endif %}
+											{% endif %}
+										</div>
+										{% endif %}
 										{% elif line.get('manufacturer_type') == 'OTHER' %}
 										<div class="fixture-details">
 											{% if line.get('manufacturer_name') %}

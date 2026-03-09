@@ -88,6 +88,29 @@ def get_context(context):
 				if snap.parent not in pricing_map and snap.msrp_unit:
 					pricing_map[snap.parent] = float(snap.msrp_unit)
 
+	# Batch-fetch stock availability for all configured fixtures (Phase 3 - Stock Level Visibility)
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+		batch_stock_for_fixtures,
+		get_bom_stock_for_items,
+	)
+	stock_cf_ids = [
+		line.configured_fixture for line in lines
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+	]
+	fixture_stock_map = batch_stock_for_fixtures(stock_cf_ids) if stock_cf_ids else {}
+
+	# Batch-fetch stock for accessory items
+	accessory_items_for_stock = [
+		{"item_code": line.accessory_item, "qty": line.qty or 1}
+		for line in lines
+		if line.manufacturer_type == "ACCESSORY" and line.accessory_item
+	]
+	accessory_stock_result = get_bom_stock_for_items(accessory_items_for_stock) if accessory_items_for_stock else {"items": []}
+	# Build a lookup: item_code -> stock entry
+	accessory_stock_map = {}
+	for idx, entry in enumerate(accessory_stock_result.get("items", [])):
+		accessory_stock_map[entry.get("item_code", "")] = entry
+
 	# Create enriched line data for template display
 	# We'll add cf_details directly to each line for easy access in the template
 	lines_with_details = []
@@ -216,8 +239,29 @@ def get_context(context):
 					line_dict["driver_line_total"] = driver_msrp * (line.qty or 1)
 					schedule_total += line_dict["driver_line_total"]
 
+		# Attach stock availability
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+			line_dict["stock_availability"] = fixture_stock_map.get(line.configured_fixture, {})
+		elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
+			acc_stock = accessory_stock_map.get(line.accessory_item)
+			if acc_stock:
+				line_dict["stock_availability"] = {
+					"all_in_stock": acc_stock.get("is_sufficient", False),
+					"items": [acc_stock],
+				}
+
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)
+
+	# Schedule-level stock summary
+	stock_lines_total = sum(
+		1 for ld in lines_with_details
+		if ld.get("stock_availability")
+	)
+	stock_lines_in_stock = sum(
+		1 for ld in lines_with_details
+		if ld.get("stock_availability", {}).get("all_in_stock")
+	)
 
 	context.schedule = schedule
 	context.schedule_total = schedule_total
@@ -231,6 +275,8 @@ def get_context(context):
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count
 	context.other_count = other_count
+	context.stock_lines_total = stock_lines_total
+	context.stock_lines_in_stock = stock_lines_in_stock
 	context.schedule_status_class = schedule_status_class
 	context.title = schedule.schedule_name
 	context.no_cache = 1
