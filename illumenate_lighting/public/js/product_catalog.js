@@ -82,7 +82,6 @@ function bindCatalogEvents() {
 function loadFilterOptions() {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_filter_options',
-		async: false,   // need data before first render
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				CatalogState.filterMeta = r.message;

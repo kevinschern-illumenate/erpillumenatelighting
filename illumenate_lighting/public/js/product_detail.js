@@ -335,7 +335,7 @@ function addFixtureFromDetail() {
 	}
 
 	// Gather part number from the validated configuration
-	var partNumber = $('#partNumberBar').text().trim() || $('#partNumberPreview').text().trim();
+	var partNumber = $('#partNumberPreview').text().trim();
 	if (!partNumber || partNumber.indexOf('…') !== -1) {
 		frappe.msgprint(__('Please complete and validate the configuration first.'));
 		return;
