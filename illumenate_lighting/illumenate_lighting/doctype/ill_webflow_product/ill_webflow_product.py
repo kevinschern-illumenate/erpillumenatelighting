@@ -1561,7 +1561,7 @@ class ilLWebflowProduct(Document):
 		elif option_type == "CCT":
 			values = self._get_ccts_from_tapes(template)
 		elif option_type == "Output Level":
-			values = self._get_output_levels_from_tapes(template)
+			values = self._get_output_levels_lens_map(template)
 		elif option_type == "Endcap Color":
 			# Get all endcap colors (globally available)
 			colors = frappe.get_all(
@@ -1891,6 +1891,87 @@ class ilLWebflowProduct(Document):
 							"tape_output_lm_ft": tape_lm_ft,
 						}
 		return sorted(list(levels.values()), key=lambda x: x.get("lm_per_ft", 0))
+
+	def _get_output_levels_lens_map(self, template) -> dict:
+		"""Build lens-keyed output mapping matrix for the Output step.
+
+		Returns a dict with 'lensMap' keyed by lens code (e.g. WH, WL, WX).
+		Each entry is a sorted list of output options showing delivered lumens
+		(tape output × lens transmission) matched to fixture-level output levels.
+
+		This lets the Webflow script dynamically rebuild Output radio buttons
+		whenever the user changes the Lens selection.
+		"""
+		# Gather allowed lenses for this template
+		lenses = []
+		for opt in template.allowed_options or []:
+			if (getattr(opt, 'option_type', None) == "Lens Appearance"
+					and getattr(opt, 'is_active', True)):
+				lens_name = getattr(opt, 'lens_appearance', None)
+				if lens_name:
+					lens_data = frappe.db.get_value(
+						"ilL-Attribute-Lens Appearance", lens_name,
+						["name", "code", "transmission"], as_dict=True
+					)
+					if lens_data and lens_data.get("code"):
+						lenses.append(lens_data)
+
+		if not lenses:
+			return {}
+
+		# Get flat raw tape output levels
+		raw_outputs = self._get_output_levels_from_tapes(template)
+		if not raw_outputs:
+			return {}
+
+		# Get fixture-level output levels for closest-match snapping
+		fixture_output_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"is_fixture_level": 1},
+			fields=["name", "value", "sku_code"],
+			order_by="value asc"
+		)
+
+		lens_map = {}
+		for lens in lenses:
+			lens_code = lens.get("code")
+			transmission = float(lens.get("transmission") or 1.0)
+
+			options = []
+			seen = set()
+			for raw in raw_outputs:
+				tape_lm = raw.get("tape_output_lm_ft") or raw.get("lm_per_ft") or 0
+				delivered = tape_lm * transmission
+
+				if fixture_output_levels:
+					closest = min(
+						fixture_output_levels,
+						key=lambda x: abs((x.value or 0) - delivered)
+					)
+					if closest.name not in seen:
+						seen.add(closest.name)
+						options.append({
+							"value": raw.get("value"),
+							"label": f"{closest.value} lm/ft",
+							"code": closest.sku_code or raw.get("code", ""),
+							"tape_output_lm_ft": tape_lm,
+							"delivered_lm_ft": closest.value,
+						})
+				else:
+					delivered_rounded = int(round(delivered))
+					options.append({
+						"value": raw.get("value"),
+						"label": f"{delivered_rounded} lm/ft",
+						"code": raw.get("code", ""),
+						"tape_output_lm_ft": tape_lm,
+						"delivered_lm_ft": delivered_rounded,
+					})
+
+			lens_map[lens_code] = sorted(
+				options, key=lambda x: x.get("delivered_lm_ft", 0)
+			)
+
+		return {"lensMap": lens_map}
 
 	def _get_output_level_options_with_links(self, template) -> list:
 		"""Get output level options with doctype links for Webflow."""
