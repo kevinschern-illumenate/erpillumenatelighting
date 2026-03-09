@@ -676,7 +676,7 @@ def _gather_line_documents(
 					if template_spec:
 						doc_info["spec_document_url"] = template_spec
 
-		elif line.manufacturer_type == "OTHER" and include_all_specs:
+		elif line.manufacturer_type == "OTHER":
 			# Other manufacturer - use attached spec sheet
 			_debug(f"Line {line.line_id}: OTHER mfr, spec_sheet={line.spec_sheet!r}", warnings)
 			if line.spec_sheet:
