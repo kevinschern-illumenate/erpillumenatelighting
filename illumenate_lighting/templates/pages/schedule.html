@@ -203,7 +203,7 @@ Also handles new schedule creation when is_new is True
 		border-bottom: none;
 		padding: var(--ill-space-2, 0.5rem) var(--ill-space-4, 1rem);
 	}
-	/* Card header area: Line ID, Type, QTY, Location on top */
+	/* Card header area: Fixture Type, Type, QTY, Location on top */
 	.fixture-lines-table tbody td.col-line-id,
 	.fixture-lines-table tbody td.col-type,
 	.fixture-lines-table tbody td.col-qty,
@@ -466,7 +466,7 @@ Also handles new schedule creation when is_new is True
 						<table class="table table-hover mb-0 fixture-lines-table">
 							<thead class="thead-light">
 								<tr>
-									<th>{{ _("Line ID") }}</th>
+									<th>{{ _("Fixture Type") }}</th>
 									<th>{{ _("Type") }}</th>
 									<th class="text-center">{{ _("Qty") }}</th>
 									<th>{{ _("Location") }}</th>
@@ -919,7 +919,7 @@ Also handles new schedule creation when is_new is True
 					<div class="row">
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Line ID") }}</label>
+								<label>{{ _("Fixture Type") }}</label>
 								<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
 							</div>
 						</div>
@@ -1179,7 +1179,7 @@ Also handles new schedule creation when is_new is True
 					<div class="row">
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Line ID") }}</label>
+								<label>{{ _("Fixture Type") }}</label>
 								<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
 							</div>
 						</div>

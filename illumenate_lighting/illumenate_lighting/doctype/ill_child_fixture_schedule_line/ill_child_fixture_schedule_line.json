@@ -50,7 +50,7 @@
    "fieldname": "line_id",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Line ID"
+   "label": "Fixture Type"
   },
   {
    "default": "1",
