@@ -472,14 +472,7 @@ def validate_and_quote(
 	)
 
 	response["configured_fixture_id"] = fixture_id
-
-	# Update fixture item_pricing entry to use the configured fixture part number
-	# instead of the channel/profile item code
-	if fixture_id and response["pricing"].get("item_pricing"):
-		for entry in response["pricing"]["item_pricing"]:
-			if entry.get("item_type") == "fixture":
-				entry["item_code"] = fixture_id
-				break
+	_set_fixture_part_number_in_pricing(response, fixture_id)
 
 	# Add inch values to computed results for US market display
 	response["computed"] = add_inch_values_to_computed(response["computed"])
@@ -1131,14 +1124,7 @@ def validate_and_quote_multisegment(
 	)
 
 	response["configured_fixture_id"] = fixture_id
-
-	# Update fixture item_pricing entry to use the configured fixture part number
-	# instead of the channel/profile item code
-	if fixture_id and response["pricing"].get("item_pricing"):
-		for entry in response["pricing"]["item_pricing"]:
-			if entry.get("item_type") == "fixture":
-				entry["item_code"] = fixture_id
-				break
+	_set_fixture_part_number_in_pricing(response, fixture_id)
 
 	if response["is_valid"]:
 		response["messages"].append({
@@ -3371,6 +3357,16 @@ def _calculate_pricing(
 		"adder_breakdown": adder_breakdown,
 		"item_pricing": item_pricing,
 	}
+
+
+def _set_fixture_part_number_in_pricing(response: dict, fixture_id: str) -> None:
+	"""Update the fixture entry in item_pricing to use the configured fixture's
+	part number instead of the channel/profile item code."""
+	if fixture_id and response["pricing"].get("item_pricing"):
+		for entry in response["pricing"]["item_pricing"]:
+			if entry.get("item_type") == "fixture":
+				entry["item_code"] = fixture_id
+				break
 
 
 def _create_or_update_configured_fixture(
