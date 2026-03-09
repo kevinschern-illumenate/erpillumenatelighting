@@ -49,6 +49,53 @@ Also handles new schedule creation when is_new is True
 	font-size: 0.8rem;
 	opacity: 0.85;
 }
+/* Stock breakdown dropdown */
+details.stock-breakdown {
+	display: inline;
+}
+details.stock-breakdown > summary {
+	display: inline;
+	cursor: pointer;
+	list-style: none;
+}
+details.stock-breakdown > summary::-webkit-details-marker {
+	display: none;
+}
+details.stock-breakdown > summary .stock-toggle-arrow {
+	display: inline-block;
+	transition: transform 0.2s;
+	margin-left: 3px;
+	font-size: 0.7em;
+	vertical-align: middle;
+}
+details.stock-breakdown[open] > summary .stock-toggle-arrow {
+	transform: rotate(90deg);
+}
+details.stock-breakdown .stock-breakdown-list {
+	margin-top: 4px;
+	padding: 4px 0;
+	font-size: 0.8rem;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-row {
+	display: flex;
+	align-items: center;
+	padding: 2px 0;
+	gap: 6px;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-type {
+	color: #666;
+	min-width: 55px;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-code {
+	font-family: monospace;
+	font-size: 0.78rem;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-qty {
+	margin-left: auto;
+	white-space: nowrap;
+	font-size: 0.75rem;
+	color: #888;
+}
 .table td {
 	vertical-align: middle;
 }
@@ -537,6 +584,30 @@ Also handles new schedule creation when is_new is True
 											<div class="small mt-1">
 												{% if sa.get('all_in_stock') %}
 												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+												{% elif sa.get('items', []) | length > 0 %}
+												<details class="stock-breakdown">
+													<summary>
+														<span class="text-danger">
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
+															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														</span>
+													</summary>
+													<div class="stock-breakdown-list">
+														{% for it in sa.get('items', []) %}
+														<div class="stock-item-row">
+															{% if it.is_sufficient %}
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															{% else %}
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															{% endif %}
+															<span class="stock-item-code">{{ it.item_code }}</span>
+															{% if it.qty_available is defined %}
+															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															{% endif %}
+														</div>
+														{% endfor %}
+													</div>
+												</details>
 												{% else %}
 												<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}</span>
 												{% endif %}
@@ -640,11 +711,55 @@ Also handles new schedule creation when is_new is True
 											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
 											{% set total_count = sa.get('items', []) | length %}
 											{% if in_count > 0 %}
-											<span class="text-warning" title="{% for it in sa.get('items', []) %}{% if not it.is_sufficient %}{{ it.component_type or it.item_code }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}">
-												<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
-											</span>
+											<details class="stock-breakdown">
+												<summary>
+													<span class="text-warning">
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
+														<i class="fa fa-caret-right stock-toggle-arrow"></i>
+													</span>
+												</summary>
+												<div class="stock-breakdown-list">
+													{% for it in sa.get('items', []) %}
+													<div class="stock-item-row">
+														{% if it.is_sufficient %}
+														<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+														{% else %}
+														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														{% endif %}
+														<span class="stock-item-type">{{ it.component_type or '' }}</span>
+														<span class="stock-item-code">{{ it.item_code }}</span>
+														{% if it.qty_available is defined %}
+														<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+														{% endif %}
+													</div>
+													{% endfor %}
+												</div>
+											</details>
 											{% else %}
-											<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}</span>
+											<details class="stock-breakdown">
+												<summary>
+													<span class="text-danger">
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
+														<i class="fa fa-caret-right stock-toggle-arrow"></i>
+													</span>
+												</summary>
+												<div class="stock-breakdown-list">
+													{% for it in sa.get('items', []) %}
+													<div class="stock-item-row">
+														{% if it.is_sufficient %}
+														<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+														{% else %}
+														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														{% endif %}
+														<span class="stock-item-type">{{ it.component_type or '' }}</span>
+														<span class="stock-item-code">{{ it.item_code }}</span>
+														{% if it.qty_available is defined %}
+														<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+														{% endif %}
+													</div>
+													{% endfor %}
+												</div>
+											</details>
 											{% endif %}
 											{% endif %}
 										</div>
