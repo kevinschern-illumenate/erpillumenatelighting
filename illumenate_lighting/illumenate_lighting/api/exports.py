@@ -995,15 +995,14 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.csv"
 
-		# Save file - priced exports are saved as private files to require authentication for access.
-		# Non-priced exports remain public as they don't contain sensitive pricing data.
+		# Save file as private to avoid public file permission restrictions.
 		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
 		file_doc = save_file(
 			filename,
 			csv_content.encode("utf-8"),
 			"ilL-Export-Job",
 			job_name,
-			is_private=1 if priced else 0,
+			is_private=1,
 		)
 
 		# Update job with output file
