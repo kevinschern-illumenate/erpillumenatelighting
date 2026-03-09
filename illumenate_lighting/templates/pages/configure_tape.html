@@ -339,6 +339,16 @@ Allows users to configure LED tape and neon products with step-by-step selection
 						<div class="result-value" id="resultWatts"></div>
 					</div>
 
+					<!-- Run Splitting Info -->
+					<div class="result-row" id="resultMaxRunRow" style="display: none;">
+						<span class="result-label">{{ _("Max Run Length") }}</span>
+						<div class="result-value" id="resultMaxRunLength"></div>
+					</div>
+					<div class="result-row" id="resultRunsCountRow" style="display: none;">
+						<span class="result-label">{{ _("LED Tape Runs") }}</span>
+						<div class="result-value" id="resultRunsCount"></div>
+					</div>
+
 					<!-- Cut Info -->
 					<div class="result-row">
 						<span class="result-label">{{ _("Cut Info") }}</span>
@@ -347,6 +357,12 @@ Allows users to configure LED tape and neon products with step-by-step selection
 
 					<!-- Messages / Warnings -->
 					<div id="resultMessages" class="mt-2"></div>
+
+					<!-- Run Breakdown (when split into multiple runs) -->
+					<div id="resultRunBreakdown" class="mt-2" style="display: none;">
+						<h6>{{ _("Run Breakdown") }}</h6>
+						<div id="resultRunsList"></div>
+					</div>
 
 					<!-- Neon Segments Breakdown -->
 					<div id="resultSegments" class="mt-2" style="display: none;">
@@ -923,6 +939,27 @@ Allows users to configure LED tape and neon products with step-by-step selection
 
 		$('#resultWatts').text((c.total_watts || 0).toFixed(2) + ' W');
 
+		// Max run length display
+		if (c.max_run_ft_effective) {
+			$('#resultMaxRunRow').show();
+			var maxRunText = c.max_run_ft_effective + ' ft';
+			if (c.max_run_ft_by_voltage_drop && c.max_run_ft_by_watts) {
+				var limiting = (c.max_run_ft_by_voltage_drop <= c.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
+				maxRunText += ' (' + limiting + ')';
+			}
+			$('#resultMaxRunLength').text(maxRunText);
+		} else {
+			$('#resultMaxRunRow').hide();
+		}
+
+		// Run count display
+		if (c.runs_count && c.runs_count > 1) {
+			$('#resultRunsCountRow').show();
+			$('#resultRunsCount').text(c.runs_count);
+		} else {
+			$('#resultRunsCountRow').hide();
+		}
+
 		// Cut info
 		if (c.is_free_cutting) {
 			$('#resultCutInfo').text('Free cutting (no increment restriction)');
@@ -939,6 +976,32 @@ Allows users to configure LED tape and neon products with step-by-step selection
 					'<div class="alert ' + cls + ' py-1 px-2 small">' + msg.text + '</div>'
 				);
 			});
+		}
+
+		// Run breakdown (when split into multiple runs)
+		if (c.runs && c.runs.length > 1) {
+			$('#resultRunBreakdown').show();
+			var runsHtml = '<table class="table table-sm table-bordered mb-0">';
+			runsHtml += '<thead class="thead-light"><tr>';
+			runsHtml += '<th>Run</th>';
+			runsHtml += '<th>Length</th>';
+			runsHtml += '<th>Watts</th>';
+			runsHtml += '</tr></thead><tbody>';
+
+			c.runs.forEach(function(run) {
+				var lengthIn = (run.run_len_in || (run.run_len_mm / 25.4)).toFixed(2);
+				var lengthFt = (run.run_len_ft || (run.run_len_mm / 304.8)).toFixed(2);
+				runsHtml += '<tr>';
+				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
+				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
+				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
+				runsHtml += '</tr>';
+			});
+
+			runsHtml += '</tbody></table>';
+			$('#resultRunsList').html(runsHtml);
+		} else {
+			$('#resultRunBreakdown').hide();
 		}
 
 		// Neon segments breakdown
