@@ -2,7 +2,7 @@
  * Webflow Configurator JavaScript
  * 
  * Handles the portal configurator UI matching the Webflow design:
- * Series → Dry/Wet → CCT → Output → Lens → Mounting → Finish → Length → Start Feed → End Feed
+ * Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Length → Start Feed → End Feed
  */
 
 // Global state
@@ -21,8 +21,8 @@ var CONFIGURATOR_STEPS = [
     { name: 'series', label: 'Series', locked: true },
     { name: 'environment_rating', label: 'Dry/Wet', depends_on: ['series'] },
     { name: 'cct', label: 'CCT', depends_on: ['series', 'environment_rating'] },
-    { name: 'output_level', label: 'Output', depends_on: ['series', 'environment_rating', 'cct'] },
     { name: 'lens_appearance', label: 'Lens', depends_on: ['series'] },
+    { name: 'output_level', label: 'Output', depends_on: ['series', 'environment_rating', 'cct', 'lens_appearance'] },
     { name: 'mounting_method', label: 'Mounting', depends_on: [] },
     { name: 'finish', label: 'Finish', depends_on: [] },
     { name: 'length', label: 'Length', depends_on: [] },
