@@ -47,6 +47,7 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 MM_PER_INCH = 25.4
 MM_PER_FOOT = 304.8
 INCHES_PER_FOOT = 12
+MAX_WATTS_PER_RUN = 85.0  # Power supply max watts per single tape run
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -345,6 +346,29 @@ def validate_tape_configuration(
             "field": "tape_length",
         })
 
+    # ── Run splitting ─────────────────────────────────────────────────
+    watts_per_ft = float(tape_spec.watts_per_foot or 0)
+    voltage_drop_max_run_ft = float(tape_spec.voltage_drop_max_run_length_ft or 0)
+
+    run_split = _compute_run_split(
+        tape_length_mm=manufacturable_length_mm,
+        watts_per_ft=watts_per_ft,
+        voltage_drop_max_run_ft=voltage_drop_max_run_ft,
+        cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
+        is_free_cutting=bool(is_free_cutting),
+    )
+
+    if run_split["runs_count"] > 1:
+        messages.append({
+            "severity": "info",
+            "text": (
+                f"Requested length exceeds the maximum run of "
+                f"{run_split['max_run_ft_effective']:.1f} ft. "
+                f"Splitting into {run_split['runs_count']} equal segments."
+            ),
+            "field": "tape_length",
+        })
+
     # ── Build part number ─────────────────────────────────────────────
     part_number = _build_tape_part_number(sel, tape_spec, tape_offering, manufacturable_length_mm)
 
@@ -377,8 +401,15 @@ def validate_tape_configuration(
             "is_free_cutting": bool(is_free_cutting),
             "cut_increment_mm": cut_increment_mm,
             "lead_length_inches": lead_length_inches,
-            "watts_per_foot": tape_spec.watts_per_foot or 0,
-            "total_watts": round((mfg_length_ft) * (tape_spec.watts_per_foot or 0), 2),
+            "watts_per_foot": watts_per_ft,
+            "total_watts": round((mfg_length_ft) * watts_per_ft, 2),
+            # Run splitting outputs
+            "runs_count": run_split["runs_count"],
+            "runs": run_split["runs"],
+            "leader_qty": run_split["runs_count"],
+            "max_run_ft_by_watts": run_split["max_run_ft_by_watts"],
+            "max_run_ft_by_voltage_drop": run_split["max_run_ft_by_voltage_drop"],
+            "max_run_ft_effective": run_split["max_run_ft_effective"],
         },
         "resolved_items": {
             "tape_spec": tape_spec.name,
@@ -574,6 +605,8 @@ def validate_neon_configuration(
     # ── Process each segment ──────────────────────────────────────────
     is_free_cutting = tape_spec.is_free_cutting
     cut_increment_mm = tape_spec.cut_increment_mm or 0
+    watts_per_ft = float(tape_spec.watts_per_foot or 0)
+    voltage_drop_max_run_ft = float(tape_spec.voltage_drop_max_run_length_ft or 0)
 
     computed_segments = []
     total_requested_mm = 0
@@ -625,6 +658,26 @@ def validate_neon_configuration(
                 "field": f"segment_{seg_num}_length",
             })
 
+        # Run-split this segment if it exceeds max run length
+        seg_run_split = _compute_run_split(
+            tape_length_mm=mfg_length_mm,
+            watts_per_ft=watts_per_ft,
+            voltage_drop_max_run_ft=voltage_drop_max_run_ft,
+            cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
+            is_free_cutting=bool(is_free_cutting),
+        )
+
+        if seg_run_split["runs_count"] > 1:
+            messages.append({
+                "severity": "info",
+                "text": (
+                    f"Segment {seg_num}: Length exceeds the maximum run of "
+                    f"{seg_run_split['max_run_ft_effective']:.1f} ft. "
+                    f"Splitting into {seg_run_split['runs_count']} equal segments."
+                ),
+                "field": f"segment_{seg_num}_length",
+            })
+
         total_requested_mm += fixture_length_mm
         total_mfg_mm += mfg_length_mm
 
@@ -641,7 +694,36 @@ def validate_neon_configuration(
             "end_type": seg.get("end_type", "Endcap"),
             "end_feed_direction": seg.get("end_feed_direction"),
             "end_feed_length_inches": float(seg.get("end_feed_length_inches", 0)),
+            # Run splitting for this segment
+            "runs_count": seg_run_split["runs_count"],
+            "runs": seg_run_split["runs"],
+            "leader_qty": seg_run_split["runs_count"],
         })
+
+    # ── Aggregate run-split data across all segments ──────────────────
+    total_runs_count = sum(s["runs_count"] for s in computed_segments)
+    all_runs = []
+    run_offset = 0
+    for seg in computed_segments:
+        for run in seg["runs"]:
+            run_offset += 1
+            all_runs.append({
+                "run_index": run_offset,
+                "segment_index": seg["segment_index"],
+                "run_len_mm": run["run_len_mm"],
+                "run_len_in": run["run_len_in"],
+                "run_len_ft": run["run_len_ft"],
+                "run_watts": run["run_watts"],
+            })
+
+    # Compute overall run-split metadata (for top-level display)
+    overall_run_split = _compute_run_split(
+        tape_length_mm=total_mfg_mm,
+        watts_per_ft=watts_per_ft,
+        voltage_drop_max_run_ft=voltage_drop_max_run_ft,
+        cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
+        is_free_cutting=bool(is_free_cutting),
+    )
 
     # ── Build part number & description ───────────────────────────────
     part_number = _build_neon_part_number(sel, tape_spec, tape_offering, computed_segments)
@@ -670,8 +752,15 @@ def validate_neon_configuration(
             "segments": computed_segments,
             "is_free_cutting": bool(is_free_cutting),
             "cut_increment_mm": cut_increment_mm,
-            "watts_per_foot": tape_spec.watts_per_foot or 0,
-            "total_watts": round(mfg_length_ft * (tape_spec.watts_per_foot or 0), 2),
+            "watts_per_foot": watts_per_ft,
+            "total_watts": round(mfg_length_ft * watts_per_ft, 2),
+            # Run splitting outputs (aggregate across all segments)
+            "runs_count": total_runs_count,
+            "runs": all_runs,
+            "leader_qty": total_runs_count,
+            "max_run_ft_by_watts": overall_run_split["max_run_ft_by_watts"],
+            "max_run_ft_by_voltage_drop": overall_run_split["max_run_ft_by_voltage_drop"],
+            "max_run_ft_effective": overall_run_split["max_run_ft_effective"],
         },
         "resolved_items": {
             "tape_spec": tape_spec.name,
@@ -2007,6 +2096,140 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
 # ═══════════════════════════════════════════════════════════════════════
 # PRIVATE HELPERS
 # ═══════════════════════════════════════════════════════════════════════
+
+
+def _compute_run_split(
+    tape_length_mm: float,
+    watts_per_ft: float,
+    voltage_drop_max_run_ft: float,
+    cut_increment_mm: float,
+    is_free_cutting: bool = False,
+) -> dict:
+    """
+    Compute run-splitting plan for a tape length that may exceed the max run.
+
+    Mirrors the linear fixture engine's Task 3.3 logic but distributes length
+    as equally as possible across runs (instead of full-runs-then-remainder).
+
+    Max run is the lesser of:
+      - Power supply limit: MAX_WATTS_PER_RUN / watts_per_ft  (converted to mm)
+      - Voltage drop limit: voltage_drop_max_run_length_ft     (converted to mm)
+
+    When the tape length exceeds max run, the tape is split into
+    ceil(tape_length / max_run) equal-length segments.  Each segment is
+    snapped to the tape's cut increment so the total still equals the
+    manufacturable tape length.
+
+    Returns dict with:
+        runs_count, runs[], max_run_ft_by_watts, max_run_ft_by_voltage_drop,
+        max_run_ft_effective
+    """
+    # -- Compute max run limits (same formulas as configurator_engine) --
+    if watts_per_ft > 0:
+        max_run_ft_by_watts = MAX_WATTS_PER_RUN / watts_per_ft
+    else:
+        max_run_ft_by_watts = float("inf")
+
+    max_run_ft_by_voltage_drop_val = None
+    if voltage_drop_max_run_ft and voltage_drop_max_run_ft > 0:
+        max_run_ft_by_voltage_drop_val = voltage_drop_max_run_ft
+        max_run_ft_effective = min(max_run_ft_by_watts, voltage_drop_max_run_ft)
+    else:
+        max_run_ft_effective = max_run_ft_by_watts
+
+    max_run_mm = (
+        max_run_ft_effective * MM_PER_FOOT
+        if max_run_ft_effective != float("inf")
+        else float("inf")
+    )
+
+    # -- Determine how many runs are needed --
+    if tape_length_mm <= 0:
+        return {
+            "runs_count": 0,
+            "runs": [],
+            "max_run_ft_by_watts": (
+                round(max_run_ft_by_watts, 2)
+                if max_run_ft_by_watts != float("inf") else None
+            ),
+            "max_run_ft_by_voltage_drop": (
+                round(max_run_ft_by_voltage_drop_val, 2)
+                if max_run_ft_by_voltage_drop_val else None
+            ),
+            "max_run_ft_effective": (
+                round(max_run_ft_effective, 2)
+                if max_run_ft_effective != float("inf") else None
+            ),
+        }
+
+    if max_run_mm != float("inf") and max_run_mm > 0 and tape_length_mm > max_run_mm:
+        runs_count = math.ceil(tape_length_mm / max_run_mm)
+    else:
+        runs_count = 1
+
+    # -- Distribute tape equally across runs, snapping to cut increment --
+    runs = []
+    if runs_count == 1:
+        run_watts = (tape_length_mm / MM_PER_FOOT) * watts_per_ft
+        runs.append({
+            "run_index": 1,
+            "run_len_mm": round(tape_length_mm, 1),
+            "run_len_in": round(tape_length_mm / MM_PER_INCH, 2),
+            "run_len_ft": round(tape_length_mm / MM_PER_FOOT, 2),
+            "run_watts": round(run_watts, 2),
+        })
+    else:
+        effective_increment = cut_increment_mm if (not is_free_cutting and cut_increment_mm > 0) else 0
+
+        if effective_increment > 0:
+            # Snap each run to cut increment, distribute remainder evenly
+            total_increments = round(tape_length_mm / effective_increment)
+            base_increments_per_run = total_increments // runs_count
+            extra_increment_runs = total_increments % runs_count
+            # First `extra_increment_runs` runs get one extra increment
+            for i in range(runs_count):
+                if i < extra_increment_runs:
+                    run_len = (base_increments_per_run + 1) * effective_increment
+                else:
+                    run_len = base_increments_per_run * effective_increment
+                run_watts = (run_len / MM_PER_FOOT) * watts_per_ft
+                runs.append({
+                    "run_index": i + 1,
+                    "run_len_mm": round(run_len, 1),
+                    "run_len_in": round(run_len / MM_PER_INCH, 2),
+                    "run_len_ft": round(run_len / MM_PER_FOOT, 2),
+                    "run_watts": round(run_watts, 2),
+                })
+        else:
+            # Free-cutting: simple equal division (no snap needed)
+            run_len = tape_length_mm / runs_count
+            for i in range(runs_count):
+                run_watts = (run_len / MM_PER_FOOT) * watts_per_ft
+                runs.append({
+                    "run_index": i + 1,
+                    "run_len_mm": round(run_len, 1),
+                    "run_len_in": round(run_len / MM_PER_INCH, 2),
+                    "run_len_ft": round(run_len / MM_PER_FOOT, 2),
+                    "run_watts": round(run_watts, 2),
+                })
+
+    return {
+        "runs_count": runs_count,
+        "runs": runs,
+        "max_run_ft_by_watts": (
+            round(max_run_ft_by_watts, 2)
+            if max_run_ft_by_watts != float("inf") else None
+        ),
+        "max_run_ft_by_voltage_drop": (
+            round(max_run_ft_by_voltage_drop_val, 2)
+            if max_run_ft_by_voltage_drop_val else None
+        ),
+        "max_run_ft_effective": (
+            round(max_run_ft_effective, 2)
+            if max_run_ft_effective != float("inf") else None
+        ),
+    }
+
 
 def _parse_tape_length(sel: dict) -> Optional[float]:
     """Parse the tape length from user selections into millimeters."""
