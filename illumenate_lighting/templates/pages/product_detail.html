@@ -1,0 +1,442 @@
+{#
+Portal Product Detail Page (System Manager only)
+Full product detail with optional embedded configurator
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ product_name or _("Product Detail") }}{% endblock %}
+
+{% block style %}
+<style>
+/* ── Breadcrumb ────────────────────────────────────── */
+.breadcrumb-nav .breadcrumb {
+	background: transparent;
+	padding: 0;
+	margin-bottom: 1rem;
+	font-size: 0.85rem;
+}
+
+/* ── Hero ──────────────────────────────────────────── */
+.product-detail-hero {
+	display: flex;
+	gap: 2rem;
+	margin-bottom: 2rem;
+}
+.product-gallery {
+	flex: 0 0 400px;
+	max-width: 400px;
+}
+.product-gallery-main {
+	width: 100%;
+	border-radius: 10px;
+	overflow: hidden;
+	background: var(--ill-gray-100, #f5f5f5);
+	margin-bottom: 0.5rem;
+}
+.product-gallery-main img {
+	width: 100%;
+	display: block;
+	object-fit: cover;
+}
+.product-gallery-thumbs {
+	display: flex;
+	gap: 0.5rem;
+	overflow-x: auto;
+}
+.gallery-thumb {
+	width: 60px;
+	height: 60px;
+	border-radius: 6px;
+	overflow: hidden;
+	cursor: pointer;
+	border: 2px solid transparent;
+	flex-shrink: 0;
+}
+.gallery-thumb.active {
+	border-color: var(--ill-primary, #1976d2);
+}
+.gallery-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.product-hero-info {
+	flex: 1;
+}
+.product-hero-info h2 {
+	font-size: 1.5rem;
+	font-weight: 700;
+	margin-bottom: 0.5rem;
+}
+.product-hero-badges {
+	display: flex;
+	gap: 0.4rem;
+	margin-bottom: 0.75rem;
+	flex-wrap: wrap;
+}
+.product-hero-badges .badge {
+	font-size: 0.75rem;
+	padding: 0.2rem 0.6rem;
+	border-radius: 2rem;
+}
+.product-hero-desc {
+	font-size: 0.95rem;
+	color: var(--ill-gray-700, #616161);
+	margin-bottom: 1rem;
+	line-height: 1.6;
+}
+.product-hero-price {
+	font-size: 1.1rem;
+	font-weight: 600;
+	margin-bottom: 1rem;
+}
+
+/* ── Specs / Docs / Certs tabs ─────────────────────── */
+.product-tabs .nav-tabs {
+	border-bottom: 2px solid var(--ill-gray-200, #eee);
+	margin-bottom: 1.5rem;
+}
+.product-tabs .nav-link {
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--ill-gray-600, #757575);
+	border: none;
+	padding: 0.5rem 1rem;
+	border-bottom: 2px solid transparent;
+	margin-bottom: -2px;
+}
+.product-tabs .nav-link.active {
+	color: var(--ill-primary, #1976d2);
+	border-bottom-color: var(--ill-primary, #1976d2);
+}
+.spec-table {
+	width: 100%;
+	font-size: 0.88rem;
+}
+.spec-table td {
+	padding: 0.4rem 0.75rem;
+	border-bottom: 1px solid var(--ill-gray-100, #f5f5f5);
+}
+.spec-table td:first-child {
+	font-weight: 600;
+	width: 40%;
+	color: var(--ill-gray-700, #616161);
+}
+.doc-list a {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.4rem 0;
+	font-size: 0.88rem;
+	color: var(--ill-primary, #1976d2);
+}
+.cert-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.3rem 0.7rem;
+	border-radius: 2rem;
+	background: var(--ill-gray-100, #f5f5f5);
+	font-size: 0.82rem;
+	margin: 0.2rem;
+}
+
+/* ── Schedule Context Panel ────────────────────────── */
+.schedule-context-panel {
+	background: #fff;
+	border-radius: 10px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+	padding: 1.25rem;
+	position: sticky;
+	top: 80px;
+}
+.schedule-context-panel h6 {
+	font-weight: 600;
+	margin-bottom: 0.75rem;
+}
+.schedule-context-panel .form-group {
+	margin-bottom: 0.75rem;
+}
+.schedule-context-panel label {
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: var(--ill-gray-600, #757575);
+	margin-bottom: 0.25rem;
+}
+
+/* ── Embedded Configurator ─────────────────────────── */
+.configurator-embedded {
+	background: #fff;
+	border-radius: 10px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	padding: 1.25rem;
+	margin-top: 1.5rem;
+}
+.configurator-embedded h5 {
+	font-weight: 600;
+	margin-bottom: 1rem;
+}
+
+/* Reuse pill styles from configure_webflow */
+.configurator-embedded .pill-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.configurator-embedded .pill {
+	display: inline-block;
+	padding: 0.45rem 0.9rem;
+	font-size: 0.85rem;
+	color: #495057;
+	background: #fff;
+	border: 1px solid #ced4da;
+	border-radius: 2rem;
+	cursor: pointer;
+	transition: all 0.15s;
+	user-select: none;
+}
+.configurator-embedded .pill:hover {
+	background: #e9ecef;
+	border-color: #adb5bd;
+}
+.configurator-embedded .pill.active {
+	background: var(--ill-primary, #1976d2);
+	border-color: var(--ill-primary, #1976d2);
+	color: #fff;
+}
+.configurator-embedded .pill.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Progress bar for embedded configurator */
+.configurator-embedded .config-progress {
+	display: flex;
+	justify-content: space-between;
+	padding: 0.75rem 0;
+	margin-bottom: 1rem;
+	border-bottom: 1px solid #dee2e6;
+	overflow-x: auto;
+}
+.configurator-embedded .config-progress .step-dot {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: #e9ecef;
+	color: #6c757d;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.7rem;
+	font-weight: 600;
+}
+.configurator-embedded .config-progress .step-dot.completed {
+	background: var(--ill-success, #4caf50);
+	color: #fff;
+}
+.configurator-embedded .config-progress .step-dot.active {
+	background: var(--ill-primary, #1976d2);
+	color: #fff;
+}
+
+/* Part number preview */
+.part-number-bar {
+	font-family: 'Courier New', monospace;
+	font-size: 1.1rem;
+	background: var(--ill-gray-50, #fafafa);
+	border: 2px solid var(--ill-gray-200, #eee);
+	padding: 0.75rem 1rem;
+	border-radius: 8px;
+	text-align: center;
+	margin-bottom: 1rem;
+}
+.part-number-bar .seg-done {
+	color: #212529;
+	font-weight: 600;
+}
+.part-number-bar .seg-pending {
+	color: #adb5bd;
+}
+.part-number-bar .seg-locked {
+	color: var(--ill-primary, #1976d2);
+}
+
+/* Config step section */
+.config-step {
+	margin-bottom: 1.25rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--ill-gray-100, #f5f5f5);
+}
+.config-step h6 {
+	font-weight: 600;
+	font-size: 0.9rem;
+	margin-bottom: 0.5rem;
+}
+.config-step.locked h6 {
+	color: var(--ill-gray-500, #9e9e9e);
+}
+.config-step .series-badge {
+	background: #e7f1ff;
+	border: 1px solid #b6d4fe;
+	padding: 0.5rem 0.75rem;
+	border-radius: 8px;
+	font-weight: 600;
+	color: var(--ill-primary, #1976d2);
+}
+
+/* Feed config */
+.feed-row {
+	display: flex;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+.feed-row > div {
+	flex: 1;
+	min-width: 140px;
+}
+
+/* Length input */
+.length-group {
+	display: flex;
+	gap: 0.5rem;
+}
+.length-group input { flex: 2; }
+.length-group select { flex: 1; }
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 767.98px) {
+	.product-detail-hero {
+		flex-direction: column;
+	}
+	.product-gallery {
+		flex: none;
+		max-width: 100%;
+	}
+	.schedule-context-panel {
+		position: static;
+	}
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page" style="padding:2rem 0">
+	<!-- Breadcrumb -->
+	<nav class="breadcrumb-nav" aria-label="breadcrumb">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/products">{{ _("Products") }}</a></li>
+			<li class="breadcrumb-item active" aria-current="page">{{ product_name }}</li>
+		</ol>
+	</nav>
+
+	<!-- Loading -->
+	<div id="detailLoading" class="text-center py-5">
+		<i class="fa fa-spinner fa-spin fa-2x text-muted"></i>
+	</div>
+
+	<!-- Hero section (populated by JS) -->
+	<div id="detailContent" style="display:none">
+		<div class="product-detail-hero">
+			<div class="product-gallery" id="productGallery"></div>
+			<div class="product-hero-info" id="productInfo"></div>
+		</div>
+
+		<!-- Tabs: Specs / Docs / Certs -->
+		<div class="product-tabs" id="productTabs" style="display:none">
+			<ul class="nav nav-tabs" role="tablist">
+				<li class="nav-item">
+					<a class="nav-link active" data-toggle="tab" href="#tabSpecs" role="tab">{{ _("Specifications") }}</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" data-toggle="tab" href="#tabDocs" role="tab">{{ _("Documents") }}</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" data-toggle="tab" href="#tabCerts" role="tab">{{ _("Certifications") }}</a>
+				</li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane fade show active" id="tabSpecs" role="tabpanel"></div>
+				<div class="tab-pane fade" id="tabDocs" role="tabpanel"></div>
+				<div class="tab-pane fade" id="tabCerts" role="tabpanel"></div>
+			</div>
+		</div>
+
+		<!-- Configurator section (only for configurable products) -->
+		{% if is_configurable %}
+		<div class="row mt-4">
+			<div class="col-lg-8">
+				<div class="configurator-embedded" id="configuratorSection">
+					<h5><i class="fa fa-cogs mr-2"></i>{{ _("Configure This Product") }}</h5>
+					<div id="configuratorIntro" class="text-muted mb-3" style="font-size:0.9rem"></div>
+
+					<!-- Part Number Preview -->
+					<div class="part-number-bar" id="partNumberBar">
+						<span class="seg-locked">ILL-</span><span class="seg-pending">…</span>
+					</div>
+
+					<!-- Progress dots -->
+					<div class="config-progress" id="configProgress"></div>
+
+					<!-- Step sections populated by JS -->
+					<div id="configSteps"></div>
+
+					<!-- Actions -->
+					<div class="d-flex justify-content-between mt-3">
+						<button type="button" class="btn btn-outline-secondary btn-sm" id="resetConfigBtn">
+							<i class="fa fa-refresh"></i> {{ _("Reset") }}
+						</button>
+						<div>
+							<button type="button" class="btn btn-primary btn-sm mr-2" id="validateConfigBtn" disabled>
+								<i class="fa fa-check-circle"></i> {{ _("Validate") }}
+							</button>
+							<button type="button" class="btn btn-success btn-sm" id="addToScheduleBtn" disabled>
+								<i class="fa fa-plus"></i> {{ _("Add to Schedule") }}
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Schedule Context Panel -->
+			<div class="col-lg-4">
+				<div class="schedule-context-panel" id="schedulePanel">
+					<h6><i class="fa fa-folder-open mr-1"></i>{{ _("Schedule Context") }}</h6>
+					<div class="form-group">
+						<label>{{ _("Project") }}</label>
+						<select class="form-control form-control-sm" id="projectSelect">
+							<option value="">{{ _("Select project…") }}</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Fixture Schedule") }}</label>
+						<select class="form-control form-control-sm" id="scheduleSelect" disabled>
+							<option value="">{{ _("Select schedule…") }}</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Line ID") }}</label>
+						<select class="form-control form-control-sm" id="lineSelect" disabled>
+							<option value="">{{ _("New line") }}</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
+		{% endif %}
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="/assets/illumenate_lighting/js/webflow_configurator.js"></script>
+<script src="/assets/illumenate_lighting/js/product_detail.js"></script>
+<script>
+var __productSlug = "{{ product_slug }}";
+var __isConfigurable = {{ 'true' if is_configurable else 'false' }};
+var __fixtureTemplate = "{{ fixture_template }}";
+
+$(function() {
+	initProductDetail(__productSlug, __isConfigurable, __fixtureTemplate);
+});
+</script>
+{% endblock %}

@@ -469,3 +469,10 @@
 		border: 1px solid var(--ill-gray-200);
 	}
 }
+
+/* ============================================
+   Product Catalog & Detail (System Manager)
+   ============================================ */
+.product-grid .product-card {
+	animation: fadeIn 0.25s ease-out;
+}
