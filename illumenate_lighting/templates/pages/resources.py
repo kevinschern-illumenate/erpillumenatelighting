@@ -4,7 +4,7 @@
 """
 Portal Resources Page Controller
 
-Technical documentation, product catalogs, and downloadable resources.
+Publicly available specification sheets from Webflow products.
 """
 
 import frappe
@@ -15,31 +15,43 @@ no_cache = 1
 
 def get_context(context):
 	"""Get context for the resources portal page."""
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login"
-		raise frappe.Redirect
+	context.spec_sheets = _get_webflow_spec_sheets()
+	context.title = _("Specification Sheets")
+	context.no_cache = 1
+	return context
 
-	# Get spec sheets from fixture templates if available
-	context.spec_sheets = []
 
-	# Try to get product list from fixture templates
-	if frappe.db.exists("DocType", "ilL-Fixture-Template"):
-		templates = frappe.get_all(
-			"ilL-Fixture-Template",
-			filters={"is_active": 1},
-			fields=["template_code", "template_name", "notes"],
-			order_by="template_code",
-			limit=20,
+def _get_webflow_spec_sheets():
+	"""Fetch all Spec Sheet documents linked to active Webflow products."""
+	if not frappe.db.exists("DocType", "ilL-Webflow-Product"):
+		return []
+
+	products = frappe.get_all(
+		"ilL-Webflow-Product",
+		filters={"is_active": 1},
+		fields=["name", "product_name", "product_slug", "short_description"],
+		order_by="product_name",
+	)
+
+	spec_sheets = []
+	for product in products:
+		docs = frappe.get_all(
+			"ilL-Child-Webflow-Document",
+			filters={
+				"parent": product.name,
+				"parenttype": "ilL-Webflow-Product",
+				"document_type": "Spec Sheet",
+			},
+			fields=["document_file", "document_title", "display_order"],
+			order_by="display_order",
 		)
-		for t in templates:
-			context.spec_sheets.append({
-				"name": f"{t.template_code} - {t.template_name}",
-				"description": t.notes or _("Product specification sheet"),
-				"url": f"/resources/specs/{t.template_code}",
-				"size": "1.2 MB",
+		for doc in docs:
+			spec_sheets.append({
+				"product_name": product.product_name,
+				"title": doc.document_title,
+				"description": product.short_description or _("Product specification sheet"),
+				"url": doc.document_file,
+				"product_slug": product.product_slug,
 			})
 
-	context.title = _("Resources")
-	context.no_cache = 1
-
-	return context
+	return spec_sheets
