@@ -850,8 +850,8 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			row.extend([
 				f"{line.get('unit_price', 0):.2f}",
 				f"{line.get('line_total', 0):.2f}",
-				f"{line.get('driver_unit_price', 0):.2f}" if line.get("driver_unit_price") else "",
-				f"{line.get('driver_line_total', 0):.2f}" if line.get("driver_line_total") else "",
+				f"{line['driver_unit_price']:.2f}" if line.get("driver_unit_price") else "",
+				f"{line['driver_line_total']:.2f}" if line.get("driver_line_total") else "",
 			])
 		writer.writerow(row)
 
