@@ -187,7 +187,7 @@ def generate_from_webflow_selections(
 
     submittal_result = generate_filled_submittal(
         configured_fixture_id,
-        webflow_overrides=webflow_overrides or None,
+        webflow_overrides=webflow_overrides,
     )
 
     if not submittal_result.get("success") or not submittal_result.get("file_url"):
