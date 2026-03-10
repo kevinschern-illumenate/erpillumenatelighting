@@ -30,6 +30,8 @@ def get_doctype_fields(doctype: str) -> list:
 	allowed_doctypes = [
 		"ilL-Configured-Fixture",
 		"ilL-Fixture-Template",
+		"ilL-Configured-Tape-Neon",
+		"ilL-Tape-Neon-Template",
 		"ilL-Rel-Tape Offering",
 		"ilL-Spec-LED Tape",
 		"ilL-Spec-Profile",
