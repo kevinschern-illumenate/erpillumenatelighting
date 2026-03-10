@@ -2980,11 +2980,12 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 			validate_and_quote_multisegment,
 		)
 
-		# Create a second lens spec with the same appearance but a different item
-		wrong_lens = self._ensure(
+		# Create a second lens spec with the same appearance but a different item.
+		# This is a valid lens for a different profile, but not for the test profile.
+		alt_lens = self._ensure(
 			{
 				"doctype": "ilL-Spec-Lens",
-				"item": "LENS-ITEM-WRONG",
+				"item": "LENS-ITEM-02",
 				"family": "LENS-FAMILY-2",
 				"lens_appearance": self.lens_appearance_code,
 				"supported_environment_ratings": [{"environment_rating": self.environment_rating_code}],
@@ -2992,7 +2993,7 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 			ignore_links=True,
 		)
 
-		# Set up the ilL-Rel-Profile Lens to point to the CORRECT lens only
+		# Set up the ilL-Rel-Profile Lens to only include the original lens
 		self._ensure(
 			{
 				"doctype": "ilL-Rel-Profile Lens",
