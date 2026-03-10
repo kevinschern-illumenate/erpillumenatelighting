@@ -669,6 +669,173 @@ def get_kit_spec_data(kit_template_name: str, selections: str = None) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# KIT COMPONENT STOCK LEVELS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@frappe.whitelist(allow_guest=True)
+def get_kit_component_stock(
+	kit_template: str,
+	finish: str,
+	lens_appearance: str,
+	mounting_method: str,
+	endcap_style: str,
+	endcap_color: str,
+) -> dict:
+	"""
+	Resolve extrusion kit component items and return per-component stock levels.
+
+	Uses the existing 4 mapping doctypes to resolve each component Item, then
+	queries ``tabBin`` for aggregate stock and computes how many complete kits
+	are fulfillable.
+
+	Args:
+		kit_template: Name of ilL-Extrusion-Kit-Template
+		finish: Selected finish attribute value
+		lens_appearance: Selected lens appearance attribute value
+		mounting_method: Selected mounting method attribute value
+		endcap_style: Selected endcap style attribute value
+		endcap_color: Selected endcap color attribute value
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"components": [
+				{
+					"component": str,
+					"item_code": str,
+					"qty_per_kit": int/float,
+					"stock_qty": float,
+					"kits_fulfillable": int,
+					"in_stock": bool,
+					"lead_time_class": str,
+				}, ...
+			],
+			"total_kits_fulfillable": int,
+			"limiting_component": str or None,
+		}
+	"""
+	if not kit_template:
+		return {"success": False, "error": "kit_template is required"}
+
+	if not frappe.db.exists("ilL-Extrusion-Kit-Template", kit_template):
+		return {"success": False, "error": "Kit template not found"}
+
+	template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template)
+
+	# ── Resolve all 5 components via existing map helpers ─────────────
+	profile_map = _resolve_kit_profile(kit_template, finish)
+	lens_map = _resolve_kit_lens(kit_template, lens_appearance)
+	solid_endcap = _resolve_kit_endcap(kit_template, endcap_style, endcap_color, "Solid")
+	feed_through_endcap = _resolve_kit_endcap(kit_template, endcap_style, endcap_color, "Feed-Through")
+	mounting_map = _resolve_kit_mounting(kit_template, mounting_method)
+
+	# Build component list: (label, item_code, qty_per_kit)
+	component_defs = [
+		("Profile", profile_map.profile_item if profile_map else None, 1),
+		("Lens", lens_map.lens_item if lens_map else None, 1),
+		("Solid Endcap", solid_endcap.endcap_item if solid_endcap else None, template.solid_endcap_qty or 0),
+		("Feed-Through Endcap", feed_through_endcap.endcap_item if feed_through_endcap else None, template.feed_through_endcap_qty or 0),
+		("Mounting Accessory", mounting_map.accessory_item if mounting_map else None, template.mounting_accessory_qty or 0),
+	]
+
+	return _build_kit_stock_result(component_defs)
+
+
+def _build_kit_stock_result(component_defs: list) -> dict:
+	"""
+	Given a list of (label, item_code, qty_per_kit) tuples, query stock and
+	compute per-component fulfillability and overall kit fulfillability.
+
+	Returns the structured stock result dict.
+	"""
+	import math
+
+	from frappe.utils import flt
+
+	# Batch-fetch stock for all distinct item codes in one query
+	item_codes = [c[1] for c in component_defs if c[1]]
+	stock_map: dict[str, float] = {}
+	if item_codes:
+		bins = frappe.db.sql(
+			"""SELECT item_code, IFNULL(SUM(actual_qty), 0) AS total_qty
+			   FROM `tabBin`
+			   WHERE item_code IN %s
+			   GROUP BY item_code""",
+			[item_codes],
+			as_dict=True,
+		)
+		stock_map = {row.item_code: flt(row.total_qty) for row in bins}
+
+	# Batch-fetch lead_time_days for all item codes
+	lead_time_map: dict[str, int] = {}
+	if item_codes:
+		lead_rows = frappe.db.sql(
+			"""SELECT name, IFNULL(lead_time_days, 0) AS lead_time_days
+			   FROM `tabItem`
+			   WHERE name IN %s""",
+			[item_codes],
+			as_dict=True,
+		)
+		lead_time_map = {row.name: int(row.lead_time_days) for row in lead_rows}
+
+	components = []
+	min_kits = None
+	limiting = None
+
+	for label, item_code, qty_per_kit in component_defs:
+		if not item_code:
+			components.append({
+				"component": label,
+				"item_code": None,
+				"qty_per_kit": qty_per_kit,
+				"stock_qty": 0,
+				"kits_fulfillable": 0,
+				"in_stock": False,
+				"lead_time_class": "special-order",
+			})
+			if min_kits is None or 0 < min_kits:
+				min_kits = 0
+				limiting = label
+			continue
+
+		stock_qty = stock_map.get(item_code, 0.0)
+		in_stock = stock_qty > 0
+
+		# Lead-time classification (matches get_stock_status pattern)
+		if in_stock:
+			lead_time_class = "in-stock"
+		else:
+			lead_days = lead_time_map.get(item_code, 0)
+			lead_time_class = "made-to-order" if lead_days > 0 else "special-order"
+
+		kits_fulfillable = math.floor(stock_qty / qty_per_kit) if qty_per_kit > 0 else 0
+
+		components.append({
+			"component": label,
+			"item_code": item_code,
+			"qty_per_kit": qty_per_kit,
+			"stock_qty": stock_qty,
+			"kits_fulfillable": kits_fulfillable,
+			"in_stock": in_stock,
+			"lead_time_class": lead_time_class,
+		})
+
+		if min_kits is None or kits_fulfillable < min_kits:
+			min_kits = kits_fulfillable
+			limiting = label
+
+	total_kits = min_kits if min_kits is not None else 0
+
+	return {
+		"success": True,
+		"components": components,
+		"total_kits_fulfillable": total_kits,
+		"limiting_component": limiting if total_kits == 0 or limiting else None,
+	}
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # PRIVATE HELPERS – Resolution
 # ═══════════════════════════════════════════════════════════════════════
 

@@ -18,6 +18,8 @@ Endpoints:
 - get_msrp: Return public MSRP pricing
 """
 
+import json
+
 import frappe
 from frappe import _
 
@@ -248,7 +250,7 @@ def get_line_ids(project: str, fixture_schedule: str) -> dict:
 				"ilL-Configured-Fixture", line.configured_fixture, "item_code"
 			)
 
-		lines.append({
+		line_data = {
 			"name": line.name,
 			"line_id": line.line_id or f"Line {line.idx}",
 			"fixture_part_number": fixture_part_number,
@@ -256,7 +258,13 @@ def get_line_ids(project: str, fixture_schedule: str) -> dict:
 			"location": line.location or "",
 			"manufacturer_type": line.manufacturer_type or "ILLUMENATE",
 			"configuration_status": line.configuration_status or "Pending",
-		})
+		}
+
+		# Attach kit component stock for Extrusion Kit lines
+		if getattr(line, "product_type", None) == "Extrusion Kit":
+			line_data["kit_stock"] = _resolve_kit_stock_for_line(line, user)
+
+		lines.append(line_data)
 
 	return {
 		"success": True,
@@ -511,6 +519,145 @@ def get_stock_status(item_code: str) -> dict:
 			result["available_qty"] = total_qty
 
 	return result
+
+
+@frappe.whitelist(allow_guest=False)
+def get_schedule_kit_stock(schedule_name: str) -> dict:
+	"""
+	Return kit component stock for all Extrusion Kit lines in a schedule.
+
+	Finds kit lines, extracts attribute selections from ``variant_selections``
+	JSON, resolves components, and queries stock.  Respects role-based
+	visibility: dealers/internal users see full quantities, other authenticated
+	users see only boolean ``in_stock`` per component.
+
+	Args:
+		schedule_name: Name of the ilL-Project-Fixture-Schedule
+
+	Returns:
+		dict: {
+			"success": True/False,
+			"lines": {
+				"<child_row_name>": {
+					"components": [...],
+					"total_kits_fulfillable": int,
+					"limiting_component": str or None,
+				} or None (if variant_selections missing)
+			}
+		}
+	"""
+	user = frappe.session.user
+	if user == "Guest":
+		return {"success": False, "error": _("Authentication required")}
+
+	if not schedule_name:
+		return {"success": False, "error": _("schedule_name is required")}
+
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": _("Fixture schedule not found")}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Verify project ownership
+	project_name = schedule.ill_project
+	if project_name:
+		err = _verify_project_ownership(project_name, user)
+		if err:
+			return err
+
+	result_lines = {}
+	for line in schedule.lines or []:
+		if getattr(line, "product_type", None) != "Extrusion Kit":
+			continue
+		result_lines[line.name] = _resolve_kit_stock_for_line(line, user)
+
+	return {
+		"success": True,
+		"lines": result_lines,
+	}
+
+
+# =============================================================================
+# HELPER: Kit stock resolution for a schedule line
+# =============================================================================
+
+
+def _resolve_kit_stock_for_line(line, user: str) -> dict | None:
+	"""
+	Resolve kit component stock for a single Extrusion Kit schedule line.
+
+	Extracts selections from the line's ``variant_selections`` JSON and
+	delegates to ``get_kit_component_stock`` from the configurator engine.
+	Applies role-based visibility gating on the result.
+
+	Returns None if the line has no variant_selections (unconfigured kit).
+	"""
+	from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+		get_kit_component_stock,
+	)
+
+	vs_raw = getattr(line, "variant_selections", None)
+	if not vs_raw:
+		return None
+
+	try:
+		vs = json.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+	except (json.JSONDecodeError, TypeError):
+		return None
+
+	selections = vs.get("selections", {})
+	kt = selections.get("kit_template") or getattr(line, "kit_template", None)
+	if not kt:
+		return None
+
+	stock_result = get_kit_component_stock(
+		kit_template=kt,
+		finish=selections.get("finish", ""),
+		lens_appearance=selections.get("lens_appearance", ""),
+		mounting_method=selections.get("mounting_method", ""),
+		endcap_style=selections.get("endcap_style", ""),
+		endcap_color=selections.get("endcap_color", ""),
+	)
+
+	if not stock_result.get("success"):
+		return None
+
+	return _apply_stock_visibility(stock_result, user)
+
+
+def _apply_stock_visibility(stock_result: dict, user: str) -> dict:
+	"""
+	Apply role-based visibility to kit stock data.
+
+	Dealers / internal users see full quantities.
+	Other authenticated users see only boolean ``in_stock`` per component.
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	show_qty = _is_dealer_user(user) or _is_internal_user(user)
+
+	if show_qty:
+		return stock_result
+
+	# Strip numeric quantities for non-privileged users
+	filtered_components = []
+	for comp in stock_result.get("components", []):
+		filtered_components.append({
+			"component": comp["component"],
+			"item_code": comp.get("item_code"),
+			"in_stock": comp["in_stock"],
+			"lead_time_class": comp["lead_time_class"],
+		})
+
+	return {
+		"success": True,
+		"components": filtered_components,
+		"total_kits_fulfillable": stock_result["total_kits_fulfillable"],
+		"limiting_component": stock_result.get("limiting_component"),
+	}
 
 
 @frappe.whitelist(allow_guest=True)
