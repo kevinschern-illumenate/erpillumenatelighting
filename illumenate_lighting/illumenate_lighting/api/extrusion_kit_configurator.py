@@ -673,7 +673,7 @@ def get_kit_spec_data(kit_template_name: str, selections: str = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def get_kit_component_stock(
 	kit_template: str,
 	finish: str,
@@ -831,7 +831,7 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 		"success": True,
 		"components": components,
 		"total_kits_fulfillable": total_kits,
-		"limiting_component": limiting if total_kits == 0 or limiting else None,
+		"limiting_component": limiting,
 	}
 
 

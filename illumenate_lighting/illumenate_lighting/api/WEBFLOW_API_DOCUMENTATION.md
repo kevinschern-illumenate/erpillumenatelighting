@@ -609,13 +609,13 @@ including authentication, dealer-gated pricing, and project/schedule management.
 
 Lead time classes: `"in-stock"`, `"made-to-order"`, `"special-order"`.
 
-### 13. Get Kit Component Stock (Public)
+### 13. Get Kit Component Stock (Authenticated)
 
 **Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator.get_kit_component_stock`
 
 **Method:** GET/POST
 
-**Authentication:** None required (allow_guest=True). Stock quantities are returned for all callers.
+**Authentication:** Required (allow_guest=False)
 
 **Parameters:**
 - `kit_template` (required): Name of the ilL-Extrusion-Kit-Template

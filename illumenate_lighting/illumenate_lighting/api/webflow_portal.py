@@ -606,7 +606,7 @@ def _resolve_kit_stock_for_line(line, user: str) -> dict | None:
 		return None
 
 	selections = vs.get("selections", {})
-	kt = selections.get("kit_template") or getattr(line, "kit_template", None)
+	kt = selections.get("kit_template") if selections.get("kit_template") else getattr(line, "kit_template", None)
 	if not kt:
 		return None
 
