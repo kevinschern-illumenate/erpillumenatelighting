@@ -415,7 +415,6 @@ def _create_or_get_bom(
 	- Endcaps (2 + extra pair rule = 4 total)
 	- Mounting accessories (qty rule)
 	- LED tape (total length in UOM)
-	- Leader cables (qty = runs)
 	- Drivers (from driver plan)
 
 	Args:
@@ -552,15 +551,16 @@ def _create_or_get_bom(
 			})
 
 	# --- Role 6: Leader Cables ---
-	if fixture.leader_item:
-		# Leader qty = runs_count
-		leader_qty = fixture.runs_count or 1
-		bom_items.append({
-			"item_code": fixture.leader_item,
-			"qty": leader_qty,
-			"uom": "Nos",
-			"stock_uom": "Nos",
-		})
+	# TODO: re-enable leader cables when ready to include in configured fixture BOMs
+	# if fixture.leader_item:
+	# 	# Leader qty = runs_count
+	# 	leader_qty = fixture.runs_count or 1
+	# 	bom_items.append({
+	# 		"item_code": fixture.leader_item,
+	# 		"qty": leader_qty,
+	# 		"uom": "Nos",
+	# 		"stock_uom": "Nos",
+	# 	})
 
 	# --- Role 7: Jumper Cables (for multi-segment fixtures) ---
 	if is_multi_segment and fixture.segments:
@@ -996,12 +996,13 @@ def _generate_traveler_notes(fixture) -> str:
 	else:
 		lines.append("  No run data available")
 
-	lines.extend([
-		"",
-		f"--- LEADER CABLES ---",
-		f"Leader Item: {fixture.leader_item or 'N/A'}",
-		f"Leader Qty: {runs_count} (one per run)",
-	])
+	# TODO: re-enable leader cables section when ready to include in configured fixture BOMs
+	# lines.extend([
+	# 	"",
+	# 	f"--- LEADER CABLES ---",
+	# 	f"Leader Item: {fixture.leader_item or 'N/A'}",
+	# 	f"Leader Qty: {runs_count} (one per run)",
+	# ])
 
 	# Driver information
 	lines.extend([
