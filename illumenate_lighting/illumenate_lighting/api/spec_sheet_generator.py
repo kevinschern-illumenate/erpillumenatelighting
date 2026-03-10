@@ -33,6 +33,7 @@ def generate_from_webflow_selections(
     selections: dict,
     project_name: str = "",
     project_location: str = "",
+    fixture_type: str = "",
 ) -> dict:
     """
     Generate a spec sheet PDF from Webflow configurator selections.
@@ -51,6 +52,7 @@ def generate_from_webflow_selections(
                     length_inches, start_feed_direction, etc.)
         project_name: Optional project name for the spec sheet header
         project_location: Optional project location for the spec sheet header
+        fixture_type: Optional fixture type for the spec sheet header
 
     Returns:
         dict: {success, file_url, filename, part_number} or {success, error}
@@ -174,7 +176,19 @@ def generate_from_webflow_selections(
             "error": "No spec submittal template or spec sheet configured for this series",
         }
 
-    submittal_result = generate_filled_submittal(configured_fixture_id)
+    # Build webflow overrides dict for fields that have webflow_field mappings
+    webflow_overrides = {}
+    if project_name:
+        webflow_overrides["project_name"] = project_name
+    if fixture_type:
+        webflow_overrides["fixture_type"] = fixture_type
+    if project_location:
+        webflow_overrides["project_location"] = project_location
+
+    submittal_result = generate_filled_submittal(
+        configured_fixture_id,
+        webflow_overrides=webflow_overrides or None,
+    )
 
     if not submittal_result.get("success") or not submittal_result.get("file_url"):
         # Submittal generation failed even though the template IS
