@@ -281,36 +281,50 @@ def validate_tape_configuration(
             "error": "Lead length must be a positive number.",
         }
 
-    # ── Find matching tape specs ──────────────────────────────────────
+    # ── Find matching tape offering ───────────────────────────────────
+    # First attempt: filter specs by pcb_mounting + pcb_finish (exact match for standard tape)
     logger.info(f"validate_tape: looking for tape specs with category=LED Tape, pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
     all_matching_specs = _find_all_matching_tape_specs(
         product_category="LED Tape",
         pcb_mounting=sel.get("pcb_mounting"),
         pcb_finish=sel.get("pcb_finish"),
     )
-    if not all_matching_specs:
-        logger.warning(f"validate_tape: No tape spec found for pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": f"No LED Tape spec found for PCB Mounting='{sel.get('pcb_mounting')}' and Finish='{sel.get('pcb_finish')}'. Check that a matching ilL-Spec-LED Tape record exists.",
-        }
     spec_names = [s.name for s in all_matching_specs]
-    logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs: {spec_names}")
+    logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs with pcb filter: {spec_names}")
 
-    # ── Find matching tape offering across all matching specs ─────────
-    logger.info(f"validate_tape: looking for offering with specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
-    tape_offering = _find_matching_tape_offering(
-        tape_spec_name=spec_names,
-        cct=sel.get("cct"),
-        output_level=sel.get("output_level"),
-    )
+    tape_offering = None
+    if spec_names:
+        tape_offering = _find_matching_tape_offering(
+            tape_spec_name=spec_names,
+            cct=sel.get("cct"),
+            output_level=sel.get("output_level"),
+        )
+
+    # Fallback: if no offering found, search across ALL active LED Tape specs.
+    # This covers tape types (e.g. Tunable White) whose specs may have different
+    # or no pcb_mounting / pcb_finish values than what the user selected.
     if not tape_offering:
-        logger.warning(f"validate_tape: No offering found for specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+        logger.info("validate_tape: no offering found with pcb filter – falling back to all LED Tape specs")
+        all_tape_specs = _find_all_matching_tape_specs(product_category="LED Tape")
+        all_spec_names = [s.name for s in all_tape_specs]
+        tape_offering = _find_matching_tape_offering(
+            tape_spec_name=all_spec_names,
+            cct=sel.get("cct"),
+            output_level=sel.get("output_level"),
+        )
+        if tape_offering:
+            all_matching_specs = all_tape_specs
+            logger.info(f"validate_tape: found offering via all-specs fallback: {tape_offering.name}")
+
+    if not tape_offering:
+        logger.warning(f"validate_tape: No offering found for cct={sel.get('cct')}, output_level={sel.get('output_level')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": f"No tape offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on specs {spec_names}. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
+            "error": (
+                f"No tape offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}'. "
+                "Check that a matching ilL-Rel-Tape Offering record exists and is active."
+            ),
         }
     logger.info(f"validate_tape: found offering = {tape_offering.name}")
 
@@ -565,36 +579,49 @@ def validate_neon_configuration(
             "error": "At least one segment is required.",
         }
 
-    # ── Find matching tape specs ──────────────────────────────────────
+    # ── Find matching tape offering ───────────────────────────────────
+    # First attempt: filter specs by mounting + finish (exact match for standard neon)
     logger.info(f"validate_neon: looking for tape specs with category=LED Neon, pcb_mounting={sel.get('mounting')}, pcb_finish={sel.get('finish')}")
     all_matching_specs = _find_all_matching_tape_specs(
         product_category="LED Neon",
         pcb_mounting=sel.get("mounting"),
         pcb_finish=sel.get("finish"),
     )
-    if not all_matching_specs:
-        logger.warning(f"validate_neon: No tape spec found for mounting={sel.get('mounting')}, finish={sel.get('finish')}")
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": f"No LED Neon spec found for Mounting='{sel.get('mounting')}' and Finish='{sel.get('finish')}'. Check that a matching ilL-Spec-LED Tape record (product_category=LED Neon) exists.",
-        }
     spec_names = [s.name for s in all_matching_specs]
-    logger.info(f"validate_neon: found {len(all_matching_specs)} matching tape specs: {spec_names}")
+    logger.info(f"validate_neon: found {len(all_matching_specs)} matching tape specs with mounting filter: {spec_names}")
 
-    # ── Find matching tape offering across all matching specs ─────────
-    logger.info(f"validate_neon: looking for offering with specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
-    tape_offering = _find_matching_tape_offering(
-        tape_spec_name=spec_names,
-        cct=sel.get("cct"),
-        output_level=sel.get("output_level"),
-    )
+    tape_offering = None
+    if spec_names:
+        tape_offering = _find_matching_tape_offering(
+            tape_spec_name=spec_names,
+            cct=sel.get("cct"),
+            output_level=sel.get("output_level"),
+        )
+
+    # Fallback: search ALL LED Neon specs when no offering is found with the
+    # mounting/finish filter (covers neon types with different or null attribute values).
     if not tape_offering:
-        logger.warning(f"validate_neon: No offering found for specs={spec_names}, cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+        logger.info("validate_neon: no offering found with mounting filter – falling back to all LED Neon specs")
+        all_neon_specs = _find_all_matching_tape_specs(product_category="LED Neon")
+        all_spec_names = [s.name for s in all_neon_specs]
+        tape_offering = _find_matching_tape_offering(
+            tape_spec_name=all_spec_names,
+            cct=sel.get("cct"),
+            output_level=sel.get("output_level"),
+        )
+        if tape_offering:
+            all_matching_specs = all_neon_specs
+            logger.info(f"validate_neon: found offering via all-specs fallback: {tape_offering.name}")
+
+    if not tape_offering:
+        logger.warning(f"validate_neon: No offering found for cct={sel.get('cct')}, output_level={sel.get('output_level')}")
         return {
             "success": False,
             "is_valid": False,
-            "error": f"No neon offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}' on specs {spec_names}. Check that a matching ilL-Rel-Tape Offering record exists and is active.",
+            "error": (
+                f"No neon offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}'. "
+                "Check that a matching ilL-Rel-Tape Offering record exists and is active."
+            ),
         }
     logger.info(f"validate_neon: found offering = {tape_offering.name}")
 
@@ -1109,20 +1136,19 @@ def get_tape_neon_spec_cascading(
     Cascading logic (no template needed):
       - environment_rating → narrows available CCTs & outputs
       - cct → narrows available output_levels
-      - pcb_mounting / pcb_finish → narrows tape specs → narrows offerings
+
+    pcb_mounting / pcb_finish are accepted for API compatibility but are NOT used
+    to narrow the spec/offering lookup here.  Restricting by those attributes
+    would incorrectly exclude tape types (e.g. Tunable White) whose specs carry
+    different or no pcb_mounting / pcb_finish values.  The physical spec is
+    resolved at validation time from the offering itself.
     """
     if product_category not in ("LED Tape", "LED Neon"):
         return {"success": False, "error": f"Invalid product category: {product_category}"}
 
-    spec_filters: dict[str, Any] = {"product_category": product_category}
-    if pcb_mounting:
-        spec_filters["pcb_mounting"] = pcb_mounting
-    if pcb_finish:
-        spec_filters["pcb_finish"] = pcb_finish
-
     matching_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
-        filters=spec_filters,
+        filters={"product_category": product_category},
         fields=["name"],
         ignore_permissions=True,
     )
