@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"ill_shortcuts_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"ill_sc_fixture_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Fixture Template\",\"col\":3}},{\"id\":\"ill_sc_configured_fixture\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Fixture\",\"col\":3}},{\"id\":\"ill_sc_project\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"ill_sc_document_request\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Document Request\",\"col\":3}},{\"id\":\"ill_sc_export_job\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Export Job\",\"col\":3}},{\"id\":\"ill_spacer_1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_masters_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"ill_card_attributes\",\"type\":\"card\",\"data\":{\"card_name\":\"Attributes\",\"col\":4}},{\"id\":\"ill_card_specs\",\"type\":\"card\",\"data\":{\"card_name\":\"Specifications\",\"col\":4}},{\"id\":\"ill_card_projects\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects & Scheduling\",\"col\":4}},{\"id\":\"ill_card_doc_requests\",\"type\":\"card\",\"data\":{\"card_name\":\"Document Requests\",\"col\":4}},{\"id\":\"ill_card_relationships\",\"type\":\"card\",\"data\":{\"card_name\":\"Relationships & Mappings\",\"col\":4}},{\"id\":\"ill_card_webflow\",\"type\":\"card\",\"data\":{\"card_name\":\"Webflow Integration\",\"col\":4}},{\"id\":\"ill_card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings & Utilities\",\"col\":4}}]",
+ "content": "[{\"id\":\"ill_shortcuts_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"ill_sc_fixture_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Fixture Template\",\"col\":3}},{\"id\":\"ill_sc_configured_fixture\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Fixture\",\"col\":3}},{\"id\":\"ill_sc_tape_neon_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tape Neon Template\",\"col\":3}},{\"id\":\"ill_sc_configured_tape_neon\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Tape Neon\",\"col\":3}},{\"id\":\"ill_sc_extrusion_kit_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Extrusion Kit Template\",\"col\":3}},{\"id\":\"ill_sc_project\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"ill_sc_document_request\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Document Request\",\"col\":3}},{\"id\":\"ill_sc_export_job\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Export Job\",\"col\":3}},{\"id\":\"ill_spacer_1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_masters_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"ill_card_attributes\",\"type\":\"card\",\"data\":{\"card_name\":\"Attributes\",\"col\":4}},{\"id\":\"ill_card_specs\",\"type\":\"card\",\"data\":{\"card_name\":\"Specifications\",\"col\":4}},{\"id\":\"ill_card_projects\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects & Scheduling\",\"col\":4}},{\"id\":\"ill_card_doc_requests\",\"type\":\"card\",\"data\":{\"card_name\":\"Document Requests\",\"col\":4}},{\"id\":\"ill_card_relationships\",\"type\":\"card\",\"data\":{\"card_name\":\"Relationships & Mappings\",\"col\":4}},{\"id\":\"ill_card_webflow\",\"type\":\"card\",\"data\":{\"card_name\":\"Webflow Integration\",\"col\":4}},{\"id\":\"ill_card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings & Utilities\",\"col\":4}}]",
  "creation": "2026-02-23 03:46:12.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -286,6 +286,28 @@
    "type": "Link"
   },
   {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "PCB Finish",
+   "link_count": 0,
+   "link_to": "ilL-Attribute-PCB Finish",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "PCB Mounting",
+   "link_count": 0,
+   "link_to": "ilL-Attribute-PCB Mounting",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
    "hidden": 0,
    "is_query_report": 0,
    "label": "Specifications",
@@ -388,6 +410,39 @@
    "label": "Submittal Mapping",
    "link_count": 0,
    "link_to": "ilL-Spec-Submittal-Mapping",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tape Neon Template",
+   "link_count": 0,
+   "link_to": "ilL-Tape-Neon-Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configured Tape Neon",
+   "link_count": 0,
+   "link_to": "ilL-Configured-Tape-Neon",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Extrusion Kit Template",
+   "link_count": 0,
+   "link_to": "ilL-Extrusion-Kit-Template",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -538,6 +593,50 @@
    "type": "Link"
   },
   {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Kit Endcap Map",
+   "link_count": 0,
+   "link_to": "ilL-Rel-Kit-Endcap-Map",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Kit Lens Map",
+   "link_count": 0,
+   "link_to": "ilL-Rel-Kit-Lens-Map",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Kit Mounting Map",
+   "link_count": 0,
+   "link_to": "ilL-Rel-Kit-Mounting-Map",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Kit Profile Map",
+   "link_count": 0,
+   "link_to": "ilL-Rel-Kit-Profile-Map",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
    "hidden": 0,
    "is_query_report": 0,
    "label": "Webflow Integration",
@@ -678,6 +777,21 @@
   {
    "label": "Export Job",
    "link_to": "ilL-Export-Job",
+   "type": "DocType"
+  },
+  {
+   "label": "Tape Neon Template",
+   "link_to": "ilL-Tape-Neon-Template",
+   "type": "DocType"
+  },
+  {
+   "label": "Configured Tape Neon",
+   "link_to": "ilL-Configured-Tape-Neon",
+   "type": "DocType"
+  },
+  {
+   "label": "Extrusion Kit Template",
+   "link_to": "ilL-Extrusion-Kit-Template",
    "type": "DocType"
   }
  ],
