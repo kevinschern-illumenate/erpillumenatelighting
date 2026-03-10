@@ -222,6 +222,24 @@ class ilLConfiguredFixture(Document):
 		if not self.is_multi_segment:
 			self.sku_feed_direction_end_code = "C"
 
+		# Driver SKU codes — from the first allocated driver's ilL-Spec-Driver record
+		self.sku_driver_control_code = ""
+		self.sku_driver_wattage_output_code = ""
+		self.sku_driver_form_code = ""
+		if self.drivers and len(self.drivers) > 0:
+			driver_item = self.drivers[0].driver_item
+			if driver_item and frappe.db.exists("ilL-Spec-Driver", driver_item):
+				driver_codes = frappe.db.get_value(
+					"ilL-Spec-Driver",
+					driver_item,
+					["sku_control_code", "sku_wattage_output_code", "sku_form_code"],
+					as_dict=True,
+				)
+				if driver_codes:
+					self.sku_driver_control_code = driver_codes.sku_control_code or ""
+					self.sku_driver_wattage_output_code = driver_codes.sku_wattage_output_code or ""
+					self.sku_driver_form_code = driver_codes.sku_form_code or ""
+
 	def _populate_user_segment_feed_direction_codes(self):
 		"""
 		Populate feed direction codes in user segment child rows.
