@@ -7,6 +7,9 @@ from frappe.model.document import Document
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	format_length_inches,
 )
+from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
+	compute_profile_dimensions,
+)
 
 
 class ilLWebflowProduct(Document):
@@ -1042,6 +1045,15 @@ class ilLWebflowProduct(Document):
 			dimensions = frappe.db.get_value(
 				"ilL-Spec-Profile", profile_spec_name, "dimensions"
 			)
+			if not dimensions:
+				# Profile may not have been re-saved since dimensions field was added;
+				# compute it on the fly from width_mm / height_mm.
+				raw = frappe.db.get_value(
+					"ilL-Spec-Profile", profile_spec_name, ["width_mm", "height_mm"]
+				)
+				if raw:
+					width_mm, height_mm = raw
+					dimensions = compute_profile_dimensions(width_mm, height_mm)
 			if dimensions:
 				specs_to_add.append({
 					"spec_group": "Physical",
@@ -1390,35 +1402,17 @@ class ilLWebflowProduct(Document):
 				"display_order": 30
 			})
 
-		# Check for optional dimension fields that may have been added
-		if hasattr(profile, 'dimensions') and profile.dimensions:
+		# Dimensions (pre-computed on save; fall back to on-the-fly computation
+		# for profiles that haven't been re-saved since the field was added).
+		dimensions = profile.dimensions or compute_profile_dimensions(profile.width_mm, profile.height_mm)
+		if dimensions:
 			specs_to_add.append({
 				"spec_group": "Physical",
 				"spec_label": "Dimensions",
-				"spec_value": profile.dimensions,
+				"spec_value": dimensions,
 				"is_calculated": 1,
 				"display_order": 40
 			})
-		else:
-			if hasattr(profile, 'width_mm') and profile.width_mm:
-				specs_to_add.append({
-					"spec_group": "Physical",
-					"spec_label": "Width",
-					"spec_value": str(profile.width_mm),
-					"spec_unit": "mm",
-					"is_calculated": 1,
-					"display_order": 40
-				})
-
-			if hasattr(profile, 'height_mm') and profile.height_mm:
-				specs_to_add.append({
-					"spec_group": "Physical",
-					"spec_label": "Height",
-					"spec_value": str(profile.height_mm),
-					"spec_unit": "mm",
-					"is_calculated": 1,
-					"display_order": 50
-				})
 
 		if profile.lens_interface:
 			specs_to_add.append({

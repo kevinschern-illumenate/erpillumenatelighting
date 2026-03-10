@@ -27,6 +27,9 @@ from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
 )
+from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
+    compute_profile_dimensions,
+)
 
 # Base URL for converting relative file paths to absolute URLs
 ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
@@ -869,6 +872,15 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
             dimensions = frappe.db.get_value(
                 "ilL-Spec-Profile", profile_spec_name, "dimensions"
             )
+            if not dimensions:
+                # Profile may not have been re-saved since dimensions field was added;
+                # compute it on the fly from width_mm / height_mm.
+                raw = frappe.db.get_value(
+                    "ilL-Spec-Profile", profile_spec_name, ["width_mm", "height_mm"]
+                )
+                if raw:
+                    width_mm, height_mm = raw
+                    dimensions = compute_profile_dimensions(width_mm, height_mm)
             if dimensions:
                 specs.append({
                     "spec_group": "Physical",
@@ -1305,11 +1317,12 @@ def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
 
     # ── Dimensions ─────────────────────────────────────────────
     if "Dimensions" not in existing_labels:
-        if profile.dimensions:
+        dimensions = profile.dimensions or compute_profile_dimensions(profile.width_mm, profile.height_mm)
+        if dimensions:
             specs.append({
                 "spec_group": "Physical",
                 "spec_label": "Dimensions",
-                "spec_value": profile.dimensions,
+                "spec_value": dimensions,
                 "spec_unit": "",
                 "is_calculated": 1,
                 "display_order": 45,
