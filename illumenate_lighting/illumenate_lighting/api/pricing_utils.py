@@ -207,8 +207,8 @@ def get_bom_stock_availability(configured_fixture_id: str) -> dict[str, Any]:
     """
     Check stock for every BOM component of a configured fixture.
 
-    Mirrors the 8 BOM roles from ``manufacturing_generator._create_or_get_bom()``:
-    profile, lens, endcap-start, endcap-end, mounting, leader, tape, drivers.
+    Mirrors the BOM roles from ``manufacturing_generator._create_or_get_bom()``:
+    profile, lens, endcap-start, endcap-end, mounting, tape, drivers.
 
     Access control:
         - Guests see only ``is_sufficient`` booleans per item.
@@ -273,9 +273,10 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
         if tape_length_ft > 0:
             components.append(("LED Tape", tape_item, round(tape_length_ft, 2), "Foot"))
 
-    if cf.leader_item:
-        leader_qty = cf.runs_count or 1
-        components.append(("Leader Cable", cf.leader_item, leader_qty, "Nos"))
+    # TODO: re-enable leader cables when ready to include in stock availability
+    # if cf.leader_item:
+    #     leader_qty = cf.runs_count or 1
+    #     components.append(("Leader Cable", cf.leader_item, leader_qty, "Nos"))
 
     if cf.drivers:
         for driver in cf.drivers:
@@ -447,10 +448,11 @@ def batch_stock_for_fixtures(configured_fixture_ids: list[str]) -> dict[str, dic
                 comps.append(("LED Tape", tape_item, round(tape_length_ft, 2), "Foot"))
                 all_item_codes.add(tape_item)
 
-        if cf.leader_item:
-            leader_qty = cf.runs_count or 1
-            comps.append(("Leader Cable", cf.leader_item, leader_qty, "Nos"))
-            all_item_codes.add(cf.leader_item)
+        # TODO: re-enable leader cables when ready to include in stock availability
+        # if cf.leader_item:
+        #     leader_qty = cf.runs_count or 1
+        #     comps.append(("Leader Cable", cf.leader_item, leader_qty, "Nos"))
+        #     all_item_codes.add(cf.leader_item)
 
         if cf.drivers:
             for driver in cf.drivers:
