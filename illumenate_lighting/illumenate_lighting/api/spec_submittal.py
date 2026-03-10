@@ -215,6 +215,15 @@ def _get_source_value(
 			if configured_fixture.drivers and len(configured_fixture.drivers) > 0:
 				driver_item = configured_fixture.drivers[0].driver_item
 				if driver_item and frappe.db.exists("ilL-Spec-Driver", driver_item):
+					# input_protocols is a child table – flatten to comma-separated labels
+					if source_field == "input_protocols":
+						rows = frappe.get_all(
+							"ilL-Child-Driver-Input-Protocol",
+							filters={"parent": driver_item},
+							fields=["protocol"],
+							order_by="idx",
+						)
+						return ", ".join(r.protocol for r in rows if r.protocol) or None
 					return frappe.db.get_value("ilL-Spec-Driver", driver_item, source_field)
 
 	except Exception:
