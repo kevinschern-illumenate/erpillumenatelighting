@@ -345,6 +345,26 @@ class TestManufacturingGenerator(FrappeTestCase):
 		self.assertEqual(len(endcap_items), 1)
 		self.assertEqual(endcap_items[0].qty, 4)  # 2 for use + 2 extra pair
 
+	def test_bom_excludes_leader_cable(self):
+		"""Test that leader cables are not included in configured fixture BOMs"""
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import generate_manufacturing_artifacts
+
+		fixture_id = self._create_configured_fixture()
+
+		result = generate_manufacturing_artifacts(
+			configured_fixture_id=fixture_id,
+			qty=1,
+			skip_if_exists=False,
+		)
+
+		self.assertTrue(result["success"])
+		self.assertIsNotNone(result["bom_name"])
+
+		# Leader cable should NOT appear in BOM items
+		bom = frappe.get_doc("BOM", result["bom_name"])
+		leader_items = [item for item in bom.items if item.item_code == "LEADER-MFG-ITEM"]
+		self.assertEqual(len(leader_items), 0, "Leader cable should not be in BOM")
+
 	def test_work_order_has_traveler_notes(self):
 		"""Test Epic 5 Task 5.2: Work Order includes traveler notes"""
 		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import generate_manufacturing_artifacts
