@@ -663,6 +663,55 @@ def _gather_line_documents(
 							else:
 								_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
 
+			elif getattr(line, "configured_tape_neon", None):
+				# ── Tape/Neon submittal logic ──────────────────────────────
+				ctn = frappe.get_doc("ilL-Configured-Tape-Neon", line.configured_tape_neon)
+				doc_info["configured_tape_neon"] = line.configured_tape_neon
+				doc_info["tape_neon_template"] = ctn.tape_neon_template
+
+				if include_all_specs:
+					# FULL mode: use static spec sheet from template
+					spec_url = None
+					if ctn.tape_neon_template:
+						template_data = frappe.db.get_value(
+							"ilL-Tape-Neon-Template", ctn.tape_neon_template,
+							["spec_sheet", "spec_submittal_template"], as_dict=True,
+						)
+						if template_data:
+							spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+					if spec_url:
+						doc_info["spec_document_url"] = spec_url
+						_debug(f"Line {line.line_id}: ✓ Neon spec sheet resolved to {spec_url}", warnings)
+					else:
+						_debug(f"Line {line.line_id}: ✗ No neon spec sheet found", warnings)
+				else:
+					# SUBMITTAL mode: use filled submittal
+					if getattr(ctn, "spec_submittal", None):
+						doc_info["spec_document_url"] = ctn.spec_submittal
+						doc_info["has_submittal"] = True
+						_debug(f"Line {line.line_id}: ✓ Using existing neon spec_submittal: {ctn.spec_submittal}", warnings)
+					else:
+						_debug(f"Line {line.line_id}: No neon spec_submittal, trying generate_filled_neon_submittal...", warnings)
+						result = generate_filled_neon_submittal(line.configured_tape_neon, warnings=warnings)
+						if result.get("success") and result.get("file_url"):
+							doc_info["spec_document_url"] = result["file_url"]
+							doc_info["has_submittal"] = True
+						else:
+							# Fall back to static spec sheet
+							spec_url = None
+							if ctn.tape_neon_template:
+								template_data = frappe.db.get_value(
+									"ilL-Tape-Neon-Template", ctn.tape_neon_template,
+									["spec_sheet", "spec_submittal_template"], as_dict=True,
+								)
+								if template_data:
+									spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+							if spec_url:
+								doc_info["spec_document_url"] = spec_url
+								_debug(f"Line {line.line_id}: ✓ Neon spec sheet fallback resolved to {spec_url}", warnings)
+							else:
+								_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
+
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template
 				template_name = line.fixture_template_override or line.fixture_template
@@ -1013,4 +1062,239 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		return {
 			"success": False,
 			"message": _("Error generating spec submittal: {0}").format(str(e)),
+		}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# NEON / TAPE SUBMITTAL SUPPORT
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _get_neon_source_value(
+	source_doctype: str,
+	source_field: str,
+	configured_tape_neon: Any = None,
+	tape_neon_template: Any = None,
+	schedule: Any = None,
+	project: Any = None,
+	schedule_line: Any = None,
+) -> Any:
+	"""
+	Get a value from the specified source doctype and field for tape/neon products.
+
+	Mirrors _get_source_value() but resolves fields for the tape/neon doctype chain.
+
+	Args:
+		source_doctype: The DocType to pull the value from
+		source_field: The field name to get
+		configured_tape_neon: The configured tape/neon document (if applicable)
+		tape_neon_template: The tape/neon template document (if applicable)
+		schedule: The schedule document
+		project: The project document
+		schedule_line: The fixture schedule line (child table row, if applicable)
+
+	Returns:
+		The value from the source field, or None if not found
+	"""
+	try:
+		if source_doctype == "ilL-Configured-Tape-Neon" and configured_tape_neon:
+			return getattr(configured_tape_neon, source_field, None)
+
+		if source_doctype == "ilL-Tape-Neon-Template" and tape_neon_template:
+			return getattr(tape_neon_template, source_field, None)
+
+		if source_doctype == "ilL-Spec-LED Tape" and configured_tape_neon:
+			tape_spec = getattr(configured_tape_neon, "tape_spec", None)
+			if tape_spec:
+				return frappe.db.get_value("ilL-Spec-LED Tape", tape_spec, source_field)
+
+		if source_doctype == "ilL-Rel-Tape Offering" and configured_tape_neon:
+			tape_offering = getattr(configured_tape_neon, "tape_offering", None)
+			if tape_offering:
+				return frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, source_field)
+
+		if source_doctype == "ilL-Project-Fixture-Schedule" and schedule:
+			return getattr(schedule, source_field, None)
+
+		if source_doctype == "ilL-Project" and project:
+			return getattr(project, source_field, None)
+
+		if source_doctype == "ilL-Child-Fixture-Schedule-Line" and schedule_line:
+			return getattr(schedule_line, source_field, None)
+
+	except Exception:
+		pass
+
+	return None
+
+
+def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
+	"""
+	Get all field mappings for a tape/neon template.
+
+	Args:
+		tape_neon_template_name: Name of the tape/neon template
+
+	Returns:
+		list: List of mapping dictionaries with pdf_field_name, source_doctype,
+			  source_field, transformation, prefix, and suffix
+	"""
+	return frappe.get_all(
+		"ilL-Neon-Submittal-Mapping",
+		filters={"tape_neon_template": tape_neon_template_name},
+		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"],
+	)
+
+
+@frappe.whitelist()
+def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None) -> dict:
+	"""
+	Generate a filled spec submittal PDF for a configured tape/neon product.
+
+	Uses the tape/neon template's spec_submittal_template and field mappings
+	to create a filled PDF.
+
+	Args:
+		configured_tape_neon_name: Name of the ilL-Configured-Tape-Neon
+		warnings: Optional list that debug messages are appended to
+
+	Returns:
+		dict: Result with keys:
+			- success: bool
+			- file_url: URL of the generated submittal (if successful)
+			- message: Status message
+	"""
+	try:
+		_debug(f"generate_filled_neon_submittal: START for CTN={configured_tape_neon_name}", warnings)
+
+		# Get the configured tape/neon
+		ctn = frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon_name)
+
+		if not ctn.tape_neon_template:
+			msg = "Configured tape/neon has no tape_neon_template"
+			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
+			return {"success": False, "message": _(msg)}
+
+		# Get the tape/neon template
+		template = frappe.get_doc("ilL-Tape-Neon-Template", ctn.tape_neon_template)
+
+		_debug(
+			f"generate_filled_neon_submittal: template={ctn.tape_neon_template}, "
+			f"spec_submittal_template={template.spec_submittal_template!r}, "
+			f"spec_sheet={template.spec_sheet!r}",
+			warnings,
+		)
+
+		# Get the PDF template - prefer spec_submittal_template, fall back to spec_sheet
+		pdf_template = template.spec_submittal_template or template.spec_sheet
+		if not pdf_template:
+			msg = (
+				f"Tape/Neon template '{ctn.tape_neon_template}' has no spec_submittal_template "
+				f"AND no spec_sheet attached – cannot generate filled submittal"
+			)
+			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
+			return {"success": False, "message": _(msg)}
+
+		_debug(f"generate_filled_neon_submittal: using pdf_template={pdf_template!r}", warnings)
+
+		# Get field mappings
+		mappings = _gather_neon_field_mappings(ctn.tape_neon_template)
+
+		_debug(f"generate_filled_neon_submittal: found {len(mappings)} field mappings", warnings)
+
+		if not mappings:
+			msg = f"No field mappings defined for tape/neon template '{ctn.tape_neon_template}'"
+			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
+			return {"success": False, "message": _(msg)}
+
+		# Get project and schedule context (if available)
+		schedule = None
+		project = None
+		schedule_line = None
+
+		# Try to find the schedule line that references this configured tape/neon
+		schedule_line_data = frappe.db.get_value(
+			"ilL-Child-Fixture-Schedule-Line",
+			{"configured_tape_neon": configured_tape_neon_name},
+			["name", "parent"],
+			as_dict=True,
+		)
+		if schedule_line_data:
+			schedule_line = frappe.get_doc(
+				"ilL-Child-Fixture-Schedule-Line", schedule_line_data.name
+			)
+			# Get the parent schedule
+			if schedule_line_data.parent:
+				schedule = frappe.get_doc(
+					"ilL-Project-Fixture-Schedule", schedule_line_data.parent
+				)
+				# Get the project from the schedule
+				if schedule and schedule.ill_project:
+					project = frappe.get_doc("ilL-Project", schedule.ill_project)
+
+		# Build field values
+		field_values = {}
+		for mapping in mappings:
+			value = _get_neon_source_value(
+				mapping["source_doctype"],
+				mapping["source_field"],
+				configured_tape_neon=ctn,
+				tape_neon_template=template,
+				schedule=schedule,
+				project=project,
+				schedule_line=schedule_line,
+			)
+			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+			transformed_value = _apply_prefix_suffix(
+				transformed_value, mapping.get("prefix"), mapping.get("suffix")
+			)
+			field_values[mapping["pdf_field_name"]] = transformed_value
+
+		_debug(
+			f"generate_filled_neon_submittal: field_values built ({len(field_values)} fields): "
+			f"{list(field_values.keys())}",
+			warnings,
+		)
+
+		# Fill the PDF using the template we found earlier
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+
+		if not filled_pdf:
+			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
+			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
+			return {"success": False, "message": _("Failed to fill PDF form fields")}
+
+		_debug(f"generate_filled_neon_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
+
+		# Save the filled PDF
+		filename = f"Spec_Submittal_{configured_tape_neon_name}_{nowdate()}.pdf"
+		file_doc = save_file(
+			filename,
+			filled_pdf,
+			"ilL-Configured-Tape-Neon",
+			configured_tape_neon_name,
+			is_private=1,
+		)
+
+		# Update the configured tape/neon with the submittal link
+		ctn.spec_submittal = file_doc.file_url
+		ctn.save(ignore_permissions=True)
+
+		_debug(f"generate_filled_neon_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
+
+		return {
+			"success": True,
+			"file_url": file_doc.file_url,
+			"message": _("Spec submittal generated successfully"),
+		}
+
+	except Exception as e:
+		_debug(f"generate_filled_neon_submittal: EXCEPTION – {type(e).__name__}: {e}", warnings)
+		frappe.log_error(
+			f"Error generating filled neon submittal: {str(e)}",
+			"Neon Spec Submittal Generation Error",
+		)
+		return {
+			"success": False,
+			"message": _("Error generating neon spec submittal: {0}").format(str(e)),
 		}

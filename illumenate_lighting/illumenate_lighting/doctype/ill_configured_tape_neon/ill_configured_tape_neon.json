@@ -71,6 +71,7 @@
         "bom",
         "column_break_erp",
         "work_order",
+        "spec_submittal",
         "pricing_section",
         "pricing_snapshot"
     ],
@@ -480,6 +481,13 @@
             "options": "Work Order"
         },
         {
+            "description": "Generated filled spec submittal PDF",
+            "fieldname": "spec_submittal",
+            "fieldtype": "Attach",
+            "label": "Spec Submittal",
+            "read_only": 1
+        },
+        {
             "collapsible": 1,
             "fieldname": "pricing_section",
             "fieldtype": "Section Break",
@@ -495,7 +503,7 @@
     "grid_page_length": 50,
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-03-02 12:00:00.000000",
+    "modified": "2026-03-10 00:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-Configured-Tape-Neon",
