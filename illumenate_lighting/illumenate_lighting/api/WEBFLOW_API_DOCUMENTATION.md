@@ -527,10 +527,40 @@ including authentication, dealer-gated pricing, and project/schedule management.
       "location": "Conference Room A",
       "manufacturer_type": "ILLUMENATE",
       "configuration_status": "Configured"
+    },
+    {
+      "name": "def456",
+      "line_id": "L002",
+      "fixture_part_number": "ILL-KIT-SH01-SLV-FRO-SUR-FLT-SLV",
+      "qty": 1,
+      "location": "Hallway B",
+      "manufacturer_type": "ILLUMENATE",
+      "configuration_status": "Configured",
+      "kit_stock": {
+        "success": true,
+        "components": [
+          {
+            "component": "Profile",
+            "item_code": "PROF-SH01-SLV",
+            "qty_per_kit": 1,
+            "stock_qty": 10.0,
+            "kits_fulfillable": 10,
+            "in_stock": true,
+            "lead_time_class": "in-stock"
+          }
+        ],
+        "total_kits_fulfillable": 3,
+        "limiting_component": "Mounting Accessory"
+      }
     }
   ]
 }
 ```
+
+**Notes:**
+- `kit_stock` is only present on lines where `product_type == "Extrusion Kit"`.
+- `kit_stock` is `null` when the kit line has no `variant_selections` (unconfigured).
+- Dealers and internal users see full quantities (`stock_qty`, `qty_per_kit`, `kits_fulfillable`). Other authenticated users see only `in_stock` (boolean) and `lead_time_class` per component.
 
 ### 11. Add Fixture to Schedule (Authenticated)
 
@@ -579,7 +609,117 @@ including authentication, dealer-gated pricing, and project/schedule management.
 
 Lead time classes: `"in-stock"`, `"made-to-order"`, `"special-order"`.
 
-### 13. Get MSRP (Public)
+### 13. Get Kit Component Stock (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator.get_kit_component_stock`
+
+**Method:** GET/POST
+
+**Authentication:** Required (allow_guest=False)
+
+**Parameters:**
+- `kit_template` (required): Name of the ilL-Extrusion-Kit-Template
+- `finish` (required): Selected finish attribute value
+- `lens_appearance` (required): Selected lens appearance attribute value
+- `mounting_method` (required): Selected mounting method attribute value
+- `endcap_style` (required): Selected endcap style attribute value
+- `endcap_color` (required): Selected endcap color attribute value
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "components": [
+    {
+      "component": "Profile",
+      "item_code": "PROF-SH01-SLV",
+      "qty_per_kit": 1,
+      "stock_qty": 10.0,
+      "kits_fulfillable": 10,
+      "in_stock": true,
+      "lead_time_class": "in-stock"
+    },
+    {
+      "component": "Lens",
+      "item_code": "LENS-SH01-FRO",
+      "qty_per_kit": 1,
+      "stock_qty": 5.0,
+      "kits_fulfillable": 5,
+      "in_stock": true,
+      "lead_time_class": "in-stock"
+    },
+    {
+      "component": "Solid Endcap",
+      "item_code": "EC-SH01-FLT-SLV-S",
+      "qty_per_kit": 2,
+      "stock_qty": 8.0,
+      "kits_fulfillable": 4,
+      "in_stock": true,
+      "lead_time_class": "in-stock"
+    },
+    {
+      "component": "Feed-Through Endcap",
+      "item_code": "EC-SH01-FLT-SLV-FT",
+      "qty_per_kit": 2,
+      "stock_qty": 6.0,
+      "kits_fulfillable": 3,
+      "in_stock": true,
+      "lead_time_class": "in-stock"
+    },
+    {
+      "component": "Mounting Accessory",
+      "item_code": "MNT-SH01-SUR",
+      "qty_per_kit": 6,
+      "stock_qty": 18.0,
+      "kits_fulfillable": 3,
+      "in_stock": true,
+      "lead_time_class": "in-stock"
+    }
+  ],
+  "total_kits_fulfillable": 3,
+  "limiting_component": "Feed-Through Endcap"
+}
+```
+
+**Notes:**
+- `total_kits_fulfillable` = `floor(min(stock_qty / qty_per_kit))` across all components.
+- `limiting_component` identifies which component constrains kit availability.
+- Lead time classes: `"in-stock"`, `"made-to-order"`, `"special-order"`.
+- If a component cannot be resolved from the mapping doctypes, `item_code` is `null` and `kits_fulfillable` is 0.
+
+### 14. Get Schedule Kit Stock (Authenticated)
+
+**Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_schedule_kit_stock`
+
+**Method:** POST
+
+**Authentication:** Required + Project ownership
+
+**Parameters:**
+- `schedule_name` (required): Name of the ilL-Project-Fixture-Schedule
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "lines": {
+    "child_row_name_1": {
+      "success": true,
+      "components": [...],
+      "total_kits_fulfillable": 3,
+      "limiting_component": "Feed-Through Endcap"
+    },
+    "child_row_name_2": null
+  }
+}
+```
+
+**Notes:**
+- Only Extrusion Kit lines are included in the response.
+- `null` value indicates an unconfigured kit line (no `variant_selections`).
+- Dealers/internal users see full quantities. Other authenticated users see only `in_stock` (boolean) and `lead_time_class` per component.
+
+### 15. Get MSRP (Public)
 
 **Endpoint:** `/api/method/illumenate_lighting.illumenate_lighting.api.webflow_portal.get_msrp`
 

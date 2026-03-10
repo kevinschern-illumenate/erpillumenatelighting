@@ -8,6 +8,8 @@ Tests the project/schedule/line cascading selection endpoints
 and dealer-gated pricing endpoint.
 """
 
+import json
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from unittest.mock import patch, MagicMock
@@ -245,3 +247,160 @@ class TestWebflowPortalGetPricing(FrappeTestCase):
 
 		self.assertFalse(result["success"])
 		self.assertIn("required", result["error"].lower())
+
+
+class TestWebflowPortalGetScheduleKitStock(FrappeTestCase):
+	"""Test cases for get_schedule_kit_stock endpoint"""
+
+	def test_guest_rejected(self):
+		"""Test that guest users are rejected"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import get_schedule_kit_stock
+
+		with patch.object(frappe, "session", MagicMock(user="Guest")):
+			result = get_schedule_kit_stock(schedule_name="SCHED-001")
+
+		self.assertFalse(result["success"])
+		self.assertIn("Authentication", result["error"])
+
+	def test_missing_schedule_name(self):
+		"""Test error when schedule_name is empty"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import get_schedule_kit_stock
+
+		with patch.object(frappe, "session", MagicMock(user="user@test.com")):
+			result = get_schedule_kit_stock(schedule_name="")
+
+		self.assertFalse(result["success"])
+		self.assertIn("required", result["error"].lower())
+
+	def test_nonexistent_schedule(self):
+		"""Test error when schedule does not exist"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import get_schedule_kit_stock
+
+		with patch.object(frappe, "session", MagicMock(user="user@test.com")):
+			with patch.object(frappe.db, "exists", return_value=False):
+				result = get_schedule_kit_stock(schedule_name="NONEXISTENT")
+
+		self.assertFalse(result["success"])
+		self.assertIn("not found", result["error"].lower())
+
+
+class TestResolveKitStockForLine(FrappeTestCase):
+	"""Test cases for _resolve_kit_stock_for_line helper"""
+
+	def test_unconfigured_line_returns_none(self):
+		"""Unconfigured kit line (no variant_selections) returns None"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import (
+			_resolve_kit_stock_for_line,
+		)
+
+		line = MagicMock()
+		line.variant_selections = None
+		result = _resolve_kit_stock_for_line(line, "user@test.com")
+		self.assertIsNone(result)
+
+	def test_invalid_json_returns_none(self):
+		"""Line with invalid JSON in variant_selections returns None"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import (
+			_resolve_kit_stock_for_line,
+		)
+
+		line = MagicMock()
+		line.variant_selections = "NOT VALID JSON{{"
+		result = _resolve_kit_stock_for_line(line, "user@test.com")
+		self.assertIsNone(result)
+
+	def test_missing_kit_template_returns_none(self):
+		"""Line with no kit_template in selections returns None"""
+		import json
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import (
+			_resolve_kit_stock_for_line,
+		)
+
+		line = MagicMock()
+		line.variant_selections = json.dumps({"selections": {}})
+		line.kit_template = None
+		result = _resolve_kit_stock_for_line(line, "user@test.com")
+		self.assertIsNone(result)
+
+
+class TestApplyStockVisibility(FrappeTestCase):
+	"""Test cases for _apply_stock_visibility helper"""
+
+	def test_dealer_sees_full_quantities(self):
+		"""Dealer users see full stock quantities"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import (
+			_apply_stock_visibility,
+		)
+
+		stock_result = {
+			"success": True,
+			"components": [
+				{
+					"component": "Profile",
+					"item_code": "ITEM-001",
+					"qty_per_kit": 1,
+					"stock_qty": 10.0,
+					"kits_fulfillable": 10,
+					"in_stock": True,
+					"lead_time_class": "in-stock",
+				}
+			],
+			"total_kits_fulfillable": 10,
+			"limiting_component": None,
+		}
+
+		with patch(
+			"illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project._is_dealer_user",
+			return_value=True,
+		):
+			with patch(
+				"illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project._is_internal_user",
+				return_value=False,
+			):
+				result = _apply_stock_visibility(stock_result, "dealer@test.com")
+
+		# Dealer sees full data including stock_qty
+		self.assertIn("stock_qty", result["components"][0])
+		self.assertEqual(result["components"][0]["stock_qty"], 10.0)
+
+	def test_non_privileged_sees_only_boolean(self):
+		"""Non-dealer non-internal users see only boolean in_stock per component"""
+		from illumenate_lighting.illumenate_lighting.api.webflow_portal import (
+			_apply_stock_visibility,
+		)
+
+		stock_result = {
+			"success": True,
+			"components": [
+				{
+					"component": "Profile",
+					"item_code": "ITEM-001",
+					"qty_per_kit": 1,
+					"stock_qty": 10.0,
+					"kits_fulfillable": 10,
+					"in_stock": True,
+					"lead_time_class": "in-stock",
+				}
+			],
+			"total_kits_fulfillable": 10,
+			"limiting_component": None,
+		}
+
+		with patch(
+			"illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project._is_dealer_user",
+			return_value=False,
+		):
+			with patch(
+				"illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project._is_internal_user",
+				return_value=False,
+			):
+				result = _apply_stock_visibility(stock_result, "portal@test.com")
+
+		# Non-privileged user should NOT see stock_qty or qty_per_kit or kits_fulfillable
+		self.assertNotIn("stock_qty", result["components"][0])
+		self.assertNotIn("qty_per_kit", result["components"][0])
+		self.assertNotIn("kits_fulfillable", result["components"][0])
+		# Should see in_stock boolean and lead_time_class
+		self.assertIn("in_stock", result["components"][0])
+		self.assertIn("lead_time_class", result["components"][0])
+		self.assertTrue(result["components"][0]["in_stock"])

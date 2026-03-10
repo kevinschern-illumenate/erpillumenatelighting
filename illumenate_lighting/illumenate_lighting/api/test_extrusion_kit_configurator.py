@@ -118,3 +118,130 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
         self.assertTrue(part_number.startswith("ILL-KIT-"))
         parts = part_number.split("-")
         self.assertEqual(len(parts), 8)  # ILL-KIT-SERIES-FIN-LENS-MNT-ECSTYLE-ECCOLOR
+
+    def test_get_kit_component_stock_missing_template(self):
+        """get_kit_component_stock() rejects empty kit_template."""
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            get_kit_component_stock,
+        )
+        result = get_kit_component_stock(
+            kit_template="",
+            finish="Silver",
+            lens_appearance="Frosted",
+            mounting_method="Surface",
+            endcap_style="Flat",
+            endcap_color="Silver",
+        )
+        self.assertFalse(result.get("success"))
+
+    def test_get_kit_component_stock_nonexistent_template(self):
+        """get_kit_component_stock() rejects nonexistent kit_template."""
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            get_kit_component_stock,
+        )
+        result = get_kit_component_stock(
+            kit_template="NONEXISTENT-KIT",
+            finish="Silver",
+            lens_appearance="Frosted",
+            mounting_method="Surface",
+            endcap_style="Flat",
+            endcap_color="Silver",
+        )
+        self.assertFalse(result.get("success"))
+        self.assertIn("not found", result.get("error", ""))
+
+    def test_build_kit_stock_result_basic(self):
+        """_build_kit_stock_result computes fulfillable kits correctly."""
+        from unittest.mock import patch, MagicMock
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_stock_result,
+        )
+
+        component_defs = [
+            ("Profile", "ITEM-PROF-001", 1),
+            ("Lens", "ITEM-LENS-001", 1),
+            ("Solid Endcap", "ITEM-SEC-001", 2),
+            ("Feed-Through Endcap", "ITEM-FEC-001", 2),
+            ("Mounting Accessory", "ITEM-MNT-001", 6),
+        ]
+
+        # Mock stock: profile=10, lens=5, solid_endcap=8, feed_through=6, mounting=18
+        mock_bins = [
+            MagicMock(item_code="ITEM-PROF-001", total_qty=10),
+            MagicMock(item_code="ITEM-LENS-001", total_qty=5),
+            MagicMock(item_code="ITEM-SEC-001", total_qty=8),
+            MagicMock(item_code="ITEM-FEC-001", total_qty=6),
+            MagicMock(item_code="ITEM-MNT-001", total_qty=18),
+        ]
+        mock_lead_rows = [
+            MagicMock(name="ITEM-PROF-001", lead_time_days=0),
+            MagicMock(name="ITEM-LENS-001", lead_time_days=0),
+            MagicMock(name="ITEM-SEC-001", lead_time_days=0),
+            MagicMock(name="ITEM-FEC-001", lead_time_days=0),
+            MagicMock(name="ITEM-MNT-001", lead_time_days=0),
+        ]
+
+        with patch.object(frappe.db, "sql", side_effect=[mock_bins, mock_lead_rows]):
+            result = _build_kit_stock_result(component_defs)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(len(result["components"]), 5)
+        # Minimum kits: mounting=18/6=3, feed_through=6/2=3, solid=8/2=4, lens=5, profile=10
+        # min is 3 (mounting or feed-through)
+        self.assertEqual(result["total_kits_fulfillable"], 3)
+        self.assertIn(result["limiting_component"], ["Mounting Accessory", "Feed-Through Endcap"])
+
+    def test_build_kit_stock_result_unresolved_component(self):
+        """_build_kit_stock_result handles None item_code (unresolved mapping)."""
+        from unittest.mock import patch, MagicMock
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_stock_result,
+        )
+
+        component_defs = [
+            ("Profile", None, 1),  # Unresolved
+            ("Lens", "ITEM-LENS-001", 1),
+        ]
+
+        mock_bins = [MagicMock(item_code="ITEM-LENS-001", total_qty=5)]
+        mock_lead_rows = [MagicMock(name="ITEM-LENS-001", lead_time_days=0)]
+
+        with patch.object(frappe.db, "sql", side_effect=[mock_bins, mock_lead_rows]):
+            result = _build_kit_stock_result(component_defs)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["total_kits_fulfillable"], 0)
+        self.assertEqual(result["limiting_component"], "Profile")
+        # First component should be marked as out of stock
+        self.assertFalse(result["components"][0]["in_stock"])
+        self.assertEqual(result["components"][0]["lead_time_class"], "special-order")
+
+    def test_build_kit_stock_result_lead_time_classes(self):
+        """_build_kit_stock_result assigns correct lead_time_class per component."""
+        from unittest.mock import patch, MagicMock
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_stock_result,
+        )
+
+        component_defs = [
+            ("Profile", "IN-STOCK-ITEM", 1),
+            ("Lens", "MTO-ITEM", 1),
+            ("Solid Endcap", "SO-ITEM", 2),
+        ]
+
+        # IN-STOCK-ITEM has stock, MTO-ITEM and SO-ITEM have 0
+        mock_bins = [MagicMock(item_code="IN-STOCK-ITEM", total_qty=3)]
+        mock_lead_rows = [
+            MagicMock(name="IN-STOCK-ITEM", lead_time_days=0),
+            MagicMock(name="MTO-ITEM", lead_time_days=14),
+            MagicMock(name="SO-ITEM", lead_time_days=0),
+        ]
+
+        with patch.object(frappe.db, "sql", side_effect=[mock_bins, mock_lead_rows]):
+            result = _build_kit_stock_result(component_defs)
+
+        self.assertTrue(result["success"])
+        comps = {c["component"]: c for c in result["components"]}
+        self.assertEqual(comps["Profile"]["lead_time_class"], "in-stock")
+        self.assertEqual(comps["Lens"]["lead_time_class"], "made-to-order")
+        self.assertEqual(comps["Solid Endcap"]["lead_time_class"], "special-order")
