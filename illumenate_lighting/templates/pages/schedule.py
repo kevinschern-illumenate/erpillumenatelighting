@@ -129,6 +129,8 @@ def get_context(context):
 			"manufacturable_length_mm": line.manufacturable_length_mm,
 			# ilLumenate fixture fields
 			"product_type": line.product_type,
+			"configuration_status": getattr(line, "configuration_status", None),
+			"kit_template": getattr(line, "kit_template", None),
 			"fixture_template": line.fixture_template,
 			"fixture_template_name": None,  # Will be populated below
 			# Tape/Neon fields
@@ -212,6 +214,19 @@ def get_context(context):
 				except (ValueError, TypeError):
 					line_dict["variant_selections"] = {}
 
+		# Parse variant_selections for Extrusion Kit lines to extract display selections
+		if getattr(line, "product_type", None) == "Extrusion Kit":
+			import json as _json
+			vs_raw = getattr(line, "variant_selections", None)
+			if vs_raw:
+				try:
+					vs_data = _json.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+					line_dict["kit_selections"] = vs_data.get("selections", {})
+					line_dict["kit_part_number"] = vs_data.get("part_number", "")
+					line_dict["kit_build_description"] = vs_data.get("build_description", "")
+				except (ValueError, TypeError):
+					pass
+
 		# Populate pricing if user can view pricing
 		if can_view_pricing:
 			unit_price = None
@@ -242,6 +257,10 @@ def get_context(context):
 		# Attach stock availability
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			line_dict["stock_availability"] = fixture_stock_map.get(line.configured_fixture, {})
+		elif getattr(line, "product_type", None) == "Extrusion Kit":
+			kit_stock = _compute_kit_stock_for_line(line, is_dealer or is_internal)
+			if kit_stock:
+				line_dict["stock_availability"] = kit_stock
 		elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
 			acc_stock = accessory_stock_map.get(line.accessory_item)
 			if acc_stock:
@@ -580,3 +599,72 @@ def _get_configured_tape_neon_display_details(configured_tape_neon_id):
 			title="Schedule Display Error"
 		)
 		return {}
+
+
+def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
+	"""
+	Compute stock availability for an Extrusion Kit schedule line.
+
+	Extracts attribute selections from the line's ``variant_selections`` JSON,
+	resolves kit components via ``get_kit_component_stock``, and transforms
+	the result into the standard ``stock_availability`` format used by the
+	schedule template.
+
+	Args:
+		line: Child table row from ilL-Project-Fixture-Schedule.
+		show_qty: Whether to include numeric quantities (for dealers/internal).
+
+	Returns:
+		dict matching the ``stock_availability`` shape, or None if resolution fails.
+	"""
+	import json as _json
+
+	vs_raw = getattr(line, "variant_selections", None)
+	if not vs_raw:
+		return None
+
+	try:
+		vs = _json.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+	except (ValueError, TypeError):
+		return None
+
+	selections = vs.get("selections", {})
+	kt = (
+		selections.get("kit_template")
+		or getattr(line, "kit_template", None)
+	)
+	if not kt:
+		return None
+
+	from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+		get_kit_component_stock,
+	)
+
+	stock_result = get_kit_component_stock(
+		kit_template=kt,
+		finish=selections.get("finish", ""),
+		lens_appearance=selections.get("lens_appearance", ""),
+		mounting_method=selections.get("mounting_method", ""),
+		endcap_style=selections.get("endcap_style", ""),
+		endcap_color=selections.get("endcap_color", ""),
+	)
+
+	if not stock_result.get("success"):
+		return None
+
+	components = stock_result.get("components", [])
+	all_in_stock = all(c.get("in_stock", False) for c in components)
+
+	items = []
+	for c in components:
+		entry = {
+			"item_code": c.get("item_code") or "",
+			"component_type": c.get("component", ""),
+			"is_sufficient": c.get("in_stock", False),
+		}
+		if show_qty:
+			entry["qty_required"] = c.get("qty_per_kit", 0)
+			entry["qty_available"] = c.get("stock_qty", 0)
+		items.append(entry)
+
+	return {"all_in_stock": all_in_stock, "items": items}

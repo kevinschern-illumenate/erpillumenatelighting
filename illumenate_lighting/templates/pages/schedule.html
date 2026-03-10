@@ -614,6 +614,100 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 											</div>
 											{% endif %}
 										</div>
+										{% elif line.get('product_type') == 'Extrusion Kit' and line.get('kit_template') %}
+										{% set kit_sel = line.get('kit_selections', {}) %}
+										<div class="fixture-details">
+											<!-- Part Number -->
+											<strong class="text-primary">
+												{{ line.get('kit_part_number') or line.get('ill_item_code') or 'Extrusion Kit' }}
+											</strong>
+											<span class="badge badge-info ml-1">Extrusion Kit</span>
+											<!-- Kit Template reference -->
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') }}</strong>
+											</div>
+											<!-- Kit attributes as badges -->
+											<div class="small text-muted mt-1">
+												{% if kit_sel.get('finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ kit_sel.get('finish') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('lens_appearance') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ kit_sel.get('lens_appearance') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('mounting_method') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ kit_sel.get('mounting_method') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('endcap_style') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap: <strong>{{ kit_sel.get('endcap_style') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('endcap_color') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap Color: <strong>{{ kit_sel.get('endcap_color') }}</strong></span>
+												{% endif %}
+											</div>
+											<!-- Stock indicator for Extrusion Kit -->
+											{% if line.get('stock_availability') %}
+											{% set sa = line.get('stock_availability') %}
+											<div class="small mt-1">
+												{% if sa.get('all_in_stock') %}
+												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+												{% else %}
+												{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
+												{% set total_count = sa.get('items', []) | length %}
+												{% if in_count > 0 %}
+												<details class="stock-breakdown">
+													<summary>
+														<span class="text-warning">
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
+															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														</span>
+													</summary>
+													<div class="stock-breakdown-list">
+														{% for it in sa.get('items', []) %}
+														<div class="stock-item-row">
+															{% if it.is_sufficient %}
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															{% else %}
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															{% endif %}
+															<span class="stock-item-type">{{ it.component_type or '' }}</span>
+															<span class="stock-item-code">{{ it.item_code }}</span>
+															{% if it.qty_available is defined %}
+															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															{% endif %}
+														</div>
+														{% endfor %}
+													</div>
+												</details>
+												{% else %}
+												<details class="stock-breakdown">
+													<summary>
+														<span class="text-danger">
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
+															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														</span>
+													</summary>
+													<div class="stock-breakdown-list">
+														{% for it in sa.get('items', []) %}
+														<div class="stock-item-row">
+															{% if it.is_sufficient %}
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															{% else %}
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															{% endif %}
+															<span class="stock-item-type">{{ it.component_type or '' }}</span>
+															<span class="stock-item-code">{{ it.item_code }}</span>
+															{% if it.qty_available is defined %}
+															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															{% endif %}
+														</div>
+														{% endfor %}
+													</div>
+												</details>
+												{% endif %}
+												{% endif %}
+											</div>
+											{% endif %}
+										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
 										{% set cf_details = line.get('cf_details', {}) %}
 										<div class="fixture-details">
