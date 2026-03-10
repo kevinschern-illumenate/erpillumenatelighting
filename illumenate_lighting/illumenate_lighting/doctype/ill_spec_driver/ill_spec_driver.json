@@ -24,6 +24,10 @@
                         "max_wattage_per_output",
                         "usable_load_factor",
                         "cost",
+                        "sku_codes_section",
+                        "sku_control_code",
+                        "sku_wattage_output_code",
+                        "sku_form_code",
                         "control_section",
                         "input_protocols",
                         "dimensions_section",
@@ -126,6 +130,30 @@
                        "fieldtype":  "Currency",
                        "label":  "Unit Cost",
                        "description":  "Unit cost for driver selection policy (lowest cost preferred)"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "sku_codes_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "SKU Codes"
+                   },
+                   {
+                       "description":  "Short code representing the driver control/dimming type (e.g., 0-10V, DALI)",
+                       "fieldname":  "sku_control_code",
+                       "fieldtype":  "Data",
+                       "label":  "Control Code"
+                   },
+                   {
+                       "description":  "Short code representing the driver wattage output capacity",
+                       "fieldname":  "sku_wattage_output_code",
+                       "fieldtype":  "Data",
+                       "label":  "Wattage Output Code"
+                   },
+                   {
+                       "description":  "Short code representing the driver physical form factor",
+                       "fieldname":  "sku_form_code",
+                       "fieldtype":  "Data",
+                       "label":  "Form Code"
                    },
                    {
                        "fieldname":  "control_section",

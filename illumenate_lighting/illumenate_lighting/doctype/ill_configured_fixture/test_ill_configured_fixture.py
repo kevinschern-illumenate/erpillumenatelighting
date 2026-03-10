@@ -351,6 +351,80 @@ class TestilLConfiguredFixture(FrappeTestCase):
 
 		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
 
+	def test_driver_sku_codes_populated_from_allocated_driver(self):
+		"""Test that driver SKU codes are populated from the first allocated driver."""
+		# Ensure a test Item exists for the driver
+		driver_item_code = "TEST-DRIVER-ITEM-001"
+		if not frappe.db.exists("Item", driver_item_code):
+			frappe.get_doc({
+				"doctype": "Item",
+				"item_code": driver_item_code,
+				"item_name": "Test Driver",
+				"item_group": "All Item Groups",
+			}).insert(ignore_permissions=True)
+
+		# Ensure ilL-Spec-Driver exists with SKU codes
+		if not frappe.db.exists("ilL-Spec-Driver", driver_item_code):
+			frappe.get_doc({
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"sku_control_code": "DIM1",
+				"sku_wattage_output_code": "96W",
+				"sku_form_code": "DRJ",
+			}).insert(ignore_permissions=True)
+		else:
+			frappe.db.set_value("ilL-Spec-Driver", driver_item_code, {
+				"sku_control_code": "DIM1",
+				"sku_wattage_output_code": "96W",
+				"sku_form_code": "DRJ",
+			})
+
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 0,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 1524,
+			"drivers": [
+				{
+					"driver_item": driver_item_code,
+					"driver_qty": 1,
+				},
+			],
+		})
+		fixture.insert(ignore_permissions=True)
+
+		self.assertEqual(fixture.sku_driver_control_code, "DIM1")
+		self.assertEqual(fixture.sku_driver_wattage_output_code, "96W")
+		self.assertEqual(fixture.sku_driver_form_code, "DRJ")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
+	def test_driver_sku_codes_empty_when_no_driver(self):
+		"""Test that driver SKU codes are empty when no driver is allocated."""
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 0,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 1524,
+		})
+		fixture.insert(ignore_permissions=True)
+
+		self.assertEqual(fixture.sku_driver_control_code, "")
+		self.assertEqual(fixture.sku_driver_wattage_output_code, "")
+		self.assertEqual(fixture.sku_driver_form_code, "")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
 	def tearDown(self):
 		"""Clean up test data."""
 		# Delete any test fixtures
