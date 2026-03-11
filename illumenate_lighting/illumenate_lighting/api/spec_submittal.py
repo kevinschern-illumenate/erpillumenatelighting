@@ -19,6 +19,7 @@ Export Types:
 """
 
 import io
+import json
 from datetime import datetime
 from typing import Any
 
@@ -243,11 +244,63 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	return frappe.get_all(
-		"ilL-Spec-Submittal-Mapping",
-		filters={"fixture_template": fixture_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix", "webflow_field"],
-	)
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	try:
+		return frappe.get_all(
+			"ilL-Spec-Submittal-Mapping",
+			filters={"fixture_template": fixture_template_name},
+			fields=base_fields + ["webflow_field"],
+		)
+	except Exception:
+		# webflow_field column may not exist yet if migration is pending
+		return frappe.get_all(
+			"ilL-Spec-Submittal-Mapping",
+			filters={"fixture_template": fixture_template_name},
+			fields=base_fields,
+		)
+
+
+def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
+	"""
+	Look up a Frappe File record by file_url, handling duplicates from re-uploads.
+
+	When a file is re-uploaded to an Attach field, old File records may remain,
+	leading to multiple records with different URLs pointing to different physical
+	files.  More critically, if the old physical file was removed and re-uploaded
+	with the same name, duplicates with the *same* file_url can appear.
+
+	This helper always picks the most recent File record (by creation DESC) so we
+	read the latest physical file.  It also catches all lookup errors instead of
+	only DoesNotExistError.
+
+	Args:
+		file_url: The Frappe file URL (e.g. /files/template.pdf)
+		warnings: Optional list that debug messages are appended to
+
+	Returns:
+		File document object, or None if not found
+	"""
+	if not file_url:
+		return None
+
+	try:
+		# Use get_all to handle duplicate File records gracefully.
+		# Sort by creation DESC so we always pick the most recently uploaded copy.
+		matches = frappe.get_all(
+			"File",
+			filters={"file_url": file_url},
+			fields=["name"],
+			order_by="creation desc",
+			limit_page_length=1,
+		)
+		if not matches:
+			_debug(f"_get_file_doc_by_url: no File record found for {file_url!r}", warnings)
+			return None
+
+		return frappe.get_doc("File", matches[0].name)
+	except Exception as e:
+		_debug(f"_get_file_doc_by_url: lookup failed for {file_url!r}: {e}", warnings)
+		return None
 
 
 def _fill_pdf_form_fields(
@@ -289,9 +342,8 @@ def _fill_pdf_form_fields(
 
 		# Get the PDF content from Frappe file system
 		_debug(f"_fill_pdf_form_fields: looking up File doc for {pdf_template_path!r}", warnings)
-		try:
-			file_doc = frappe.get_doc("File", {"file_url": pdf_template_path})
-		except frappe.DoesNotExistError:
+		file_doc = _get_file_doc_by_url(pdf_template_path, warnings)
+		if not file_doc:
 			msg = f"File doc not found for URL: {pdf_template_path}"
 			_debug(f"_fill_pdf_form_fields: FAIL – {msg}", warnings)
 			frappe.log_error(msg, "Spec Submittal Generation Error")
@@ -411,7 +463,10 @@ def _get_pdf_bytes_from_url(file_url: str) -> bytes | None:
 	"""
 	try:
 		_debug(f"_get_pdf_bytes_from_url: looking up File doc with file_url={file_url!r}")
-		file_doc = frappe.get_doc("File", {"file_url": file_url})
+		file_doc = _get_file_doc_by_url(file_url)
+		if not file_doc:
+			_debug(f"_get_pdf_bytes_from_url: no File record for {file_url!r}")
+			return None
 		content = file_doc.get_content()
 		_debug(f"_get_pdf_bytes_from_url: got {len(content) if content else 0} bytes")
 		return content
@@ -796,6 +851,10 @@ def generate_spec_submittal_packet(
 			- message: Status message
 			- warnings: List of warning messages
 	"""
+	# Handle include_cover arriving as string from the frontend
+	if isinstance(include_cover, str):
+		include_cover = include_cover.lower() not in ("0", "false", "no", "")
+
 	warnings = []
 	pdf_parts = []
 	job_name = None
@@ -943,6 +1002,18 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			- file_url: URL of the generated submittal (if successful)
 			- message: Status message
 	"""
+	# Handle parameters that may arrive as JSON strings from the API
+	if isinstance(warnings, str):
+		try:
+			warnings = json.loads(warnings)
+		except (json.JSONDecodeError, TypeError):
+			warnings = None
+	if isinstance(webflow_overrides, str):
+		try:
+			webflow_overrides = json.loads(webflow_overrides)
+		except (json.JSONDecodeError, TypeError):
+			webflow_overrides = None
+
 	try:
 		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}", warnings)
 
@@ -1158,11 +1229,20 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	return frappe.get_all(
-		"ilL-Neon-Submittal-Mapping",
-		filters={"tape_neon_template": tape_neon_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix", "webflow_field"],
-	)
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	try:
+		return frappe.get_all(
+			"ilL-Neon-Submittal-Mapping",
+			filters={"tape_neon_template": tape_neon_template_name},
+			fields=base_fields + ["webflow_field"],
+		)
+	except Exception:
+		# webflow_field column may not exist yet if migration is pending
+		return frappe.get_all(
+			"ilL-Neon-Submittal-Mapping",
+			filters={"tape_neon_template": tape_neon_template_name},
+			fields=base_fields,
+		)
 
 
 @frappe.whitelist()
@@ -1188,6 +1268,18 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			- file_url: URL of the generated submittal (if successful)
 			- message: Status message
 	"""
+	# Handle parameters that may arrive as JSON strings from the API
+	if isinstance(warnings, str):
+		try:
+			warnings = json.loads(warnings)
+		except (json.JSONDecodeError, TypeError):
+			warnings = None
+	if isinstance(webflow_overrides, str):
+		try:
+			webflow_overrides = json.loads(webflow_overrides)
+		except (json.JSONDecodeError, TypeError):
+			webflow_overrides = None
+
 	try:
 		_debug(f"generate_filled_neon_submittal: START for CTN={configured_tape_neon_name}", warnings)
 

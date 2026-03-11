@@ -501,7 +501,17 @@ def _ensure_public_file(file_url: str) -> str:
         return file_url
 
     try:
-        file_doc = frappe.get_doc("File", {"file_url": file_url})
+        # Use get_all to handle duplicate File records from re-uploads gracefully.
+        matches = frappe.get_all(
+            "File",
+            filters={"file_url": file_url},
+            fields=["name"],
+            order_by="creation desc",
+            limit_page_length=1,
+        )
+        if not matches:
+            return file_url
+        file_doc = frappe.get_doc("File", matches[0].name)
         if file_doc.is_private:
             file_doc.is_private = 0
             file_doc.save(ignore_permissions=True)
