@@ -29,7 +29,10 @@ app_license = "mit"
 # app_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
 
 # include js, css files in header of web template
-web_include_css = "/assets/illumenate_lighting/css/portal.css"
+web_include_css = [
+	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
+	"/assets/illumenate_lighting/css/portal.css",
+]
 web_include_js = "/assets/illumenate_lighting/js/portal.js"
 
 # include custom scss in every website theme (without file extension ".scss")
@@ -59,6 +62,9 @@ doctype_js = {"Sales Order": "public/js/sales_order.js"}
 # application home page (will override Website Settings)
 # home_page = "login"
 
+# Brand logo in website navbar (replaces default "Home" text)
+brand_html = '<img src="/assets/illumenate_lighting/images/nav-logo.png" alt="ilLumenate Lighting" class="ill-nav-logo">'
+
 # website user home page (by Role)
 role_home_page = {
 	"Dealer": "portal",
@@ -74,7 +80,7 @@ website_route_rules = [
 	{"from_route": "/portal/", "to_route": "portal"},
 
 	# Projects
-	{"from_route": "/portal/projects", "to_route": "projects"},
+	{"from_route": "/portal/projects", "to_route": "ill_projects"},
 	{"from_route": "/portal/projects/<project>", "to_route": "project"},
 	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
@@ -85,6 +91,17 @@ website_route_rules = [
 	# Configurator
 	{"from_route": "/portal/configure", "to_route": "configure"},
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
+	{"from_route": "/portal/configure-webflow", "to_route": "configure_webflow"},
+	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
+	{"from_route": "/portal/configure-tape", "to_route": "configure_tape"},
+	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
+	{"from_route": "/portal/configure-kit", "to_route": "configure_kit"},
+	{"from_route": "/portal/configure-kit/<template>", "to_route": "configure_kit"},
+	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
+
+	# Product Catalog (System Manager only)
+	{"from_route": "/portal/products", "to_route": "products_catalog"},
+	{"from_route": "/portal/products/<slug>", "to_route": "product_detail"},
 
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
@@ -98,8 +115,8 @@ website_route_rules = [
 	{"from_route": "/portal/resources", "to_route": "resources"},
 
 	# Support
-	{"from_route": "/portal/support", "to_route": "support"},
-	{"from_route": "/portal/support/faq", "to_route": "support"},
+	{"from_route": "/portal/support", "to_route": "ill_support"},
+	{"from_route": "/portal/support/faq", "to_route": "ill_support"},
 
 	# Account
 	{"from_route": "/portal/account", "to_route": "account"},
@@ -134,6 +151,17 @@ fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
 	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
 	{"dt": "ILL Request Type"},
+	# Webflow integration fixtures (Phase 1)
+	{"dt": "ilL-Attribute-Certification"},
+	{"dt": "ilL-Webflow-Category"},
+	# Webflow configurator fixtures (Phase 2)
+	{"dt": "ilL-Attribute-Feed-Direction"},
+	# Job Title Master for CRM Lead integration
+	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
+	# Custom fields for CRM Lead and other DocTypes
+	{"dt": "Custom Field"},
+	# Workspace for sidebar navigation
+	{"dt": "Workspace", "filters": [["module", "=", "ilLumenate Lighting"]]},
 ]
 
 # Uninstallation
@@ -172,12 +200,19 @@ permission_query_conditions = {
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
+	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
 }
 
 has_permission = {
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
+	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
+}
+
+# Website/Portal Permissions
+has_website_permission = {
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_website_permission",
 }
 
 # DocType Class
@@ -195,7 +230,111 @@ has_permission = {
 doc_events = {
 	"Sales Order": {
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
-	}
+	},
+	# Webflow sync events for attribute doctypes
+	"ilL-Attribute-CCT": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-CRI": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Certification": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Dimming Protocol": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Endcap Color": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Endcap Style": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Environment Rating": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Feed-Direction": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Finish": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-IP Rating": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Joiner Angle": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Joiner System": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Lead Time Class": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Leader Cable": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-LED Package": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Lens Appearance": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Lens Interface Type": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Mounting Method": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Output Level": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Output Voltage": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Power Feed Type": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Pricing Class": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-SDCM": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	"ilL-Attribute-Series": {
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_update",
+	},
+	# Webflow product and category sync events
+	"ilL-Webflow-Product": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",
+	},
+	"ilL-Webflow-Category": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_category_update",
+	},
 }
 
 # Scheduled Tasks
@@ -250,7 +389,7 @@ doc_events = {
 # Request Events
 # ----------------
 # before_request = ["illumenate_lighting.utils.before_request"]
-# after_request = ["illumenate_lighting.utils.after_request"]
+after_request = ["illumenate_lighting.illumenate_lighting.utils.after_request"]
 
 # Job Events
 # ----------
@@ -290,17 +429,9 @@ doc_events = {
 
 # CORS Configuration
 # ------------------
-# Configure CORS for Webflow domains
-website_cors = {
-	"allowed_origins": [
-		"https://www.illumenatelighting.com",
-		"https://illumenatelighting.webflow.io",
-	],
-	"allowed_methods": ["GET", "POST", "OPTIONS"],
-	"allowed_headers": ["Content-Type", "Authorization"],
-	"expose_headers": ["Content-Length"],
-	"max_age": 86400,
-}
+# CORS headers are injected by the after_request hook in
+# illumenate_lighting.illumenate_lighting.utils.after_request
+# Allowed origins are defined in ALLOWED_ORIGINS in that module.
 
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True

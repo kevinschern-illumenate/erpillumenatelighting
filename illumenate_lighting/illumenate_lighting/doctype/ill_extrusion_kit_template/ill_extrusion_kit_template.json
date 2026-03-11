@@ -1,0 +1,248 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:template_code",
+ "creation": "2026-03-02 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "template_code",
+  "template_name",
+  "is_active",
+  "column_break_details",
+  "series",
+  "default_profile_family",
+  "notes",
+  "kit_composition_section",
+  "profile_stock_length_mm",
+  "lens_stock_length_mm",
+  "column_break_composition",
+  "solid_endcap_qty",
+  "feed_through_endcap_qty",
+  "mounting_accessory_qty",
+  "spec_links_section",
+  "default_profile_spec",
+  "default_lens_spec",
+  "column_break_spec_links",
+  "spec_sheet",
+  "webflow_product",
+  "allowed_options_section",
+  "allowed_options",
+  "pricing_section",
+  "base_price_msrp",
+  "column_break_pricing"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "template_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Template Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Template Name",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
+  },
+  {
+   "fieldname": "default_profile_family",
+   "fieldtype": "Data",
+   "label": "Default Profile Family"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "kit_composition_section",
+   "fieldtype": "Section Break",
+   "label": "Kit Composition"
+  },
+  {
+   "default": "2000",
+   "description": "Length of profile piece included in kit (mm)",
+   "fieldname": "profile_stock_length_mm",
+   "fieldtype": "Int",
+   "label": "Profile Stock Length (mm)",
+   "reqd": 1
+  },
+  {
+   "default": "2000",
+   "description": "Length of lens piece included in kit (mm)",
+   "fieldname": "lens_stock_length_mm",
+   "fieldtype": "Int",
+   "label": "Lens Stock Length (mm)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_composition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "2",
+   "description": "Number of solid (closed) endcaps per kit",
+   "fieldname": "solid_endcap_qty",
+   "fieldtype": "Int",
+   "label": "Solid Endcap Qty",
+   "reqd": 1
+  },
+  {
+   "default": "2",
+   "description": "Number of feed-through (open) endcaps per kit",
+   "fieldname": "feed_through_endcap_qty",
+   "fieldtype": "Int",
+   "label": "Feed-Through Endcap Qty",
+   "reqd": 1
+  },
+  {
+   "default": "6",
+   "description": "Number of mounting accessories per kit",
+   "fieldname": "mounting_accessory_qty",
+   "fieldtype": "Int",
+   "label": "Mounting Accessory Qty",
+   "reqd": 1
+  },
+  {
+   "fieldname": "spec_links_section",
+   "fieldtype": "Section Break",
+   "label": "Spec References"
+  },
+  {
+   "description": "Default profile spec for this kit family",
+   "fieldname": "default_profile_spec",
+   "fieldtype": "Link",
+   "label": "Default Profile Spec",
+   "options": "ilL-Spec-Profile"
+  },
+  {
+   "description": "Default lens spec for this kit family",
+   "fieldname": "default_lens_spec",
+   "fieldtype": "Link",
+   "label": "Default Lens Spec",
+   "options": "ilL-Spec-Lens"
+  },
+  {
+   "fieldname": "column_break_spec_links",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "spec_sheet",
+   "fieldtype": "Attach",
+   "label": "Spec Sheet"
+  },
+  {
+   "fieldname": "webflow_product",
+   "fieldtype": "Link",
+   "label": "Webflow Product",
+   "options": "ilL-Webflow-Product",
+   "read_only": 1
+  },
+  {
+   "fieldname": "allowed_options_section",
+   "fieldtype": "Section Break",
+   "label": "Allowed Options"
+  },
+  {
+   "description": "Define which attribute values are valid for this kit",
+   "fieldname": "allowed_options",
+   "fieldtype": "Table",
+   "label": "Allowed Options",
+   "options": "ilL-Child-Kit-Allowed-Option"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "default": "0",
+   "description": "Base kit MSRP price before option adders",
+   "fieldname": "base_price_msrp",
+   "fieldtype": "Currency",
+   "label": "Base Price (MSRP)"
+  },
+  {
+   "fieldname": "column_break_pricing",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-02 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Extrusion-Kit-Template",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dealer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "template_name, series",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

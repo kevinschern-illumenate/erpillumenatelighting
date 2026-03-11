@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{kit_template}-{endcap_style}-{endcap_color}-{endcap_type}",
+ "creation": "2026-03-02 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "kit_template",
+  "endcap_style",
+  "endcap_color",
+  "endcap_type",
+  "column_break_map",
+  "endcap_spec",
+  "endcap_item",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "kit_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Kit Template",
+   "options": "ilL-Extrusion-Kit-Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "endcap_style",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Endcap Style",
+   "options": "ilL-Attribute-Endcap Style",
+   "reqd": 1
+  },
+  {
+   "fieldname": "endcap_color",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Endcap Color",
+   "options": "ilL-Attribute-Endcap Color",
+   "reqd": 1
+  },
+  {
+   "description": "Whether this is a Solid (closed) or Feed-Through (open/with hole) endcap",
+   "fieldname": "endcap_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Endcap Type",
+   "options": "Solid\nFeed-Through",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_map",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The accessory spec for this endcap (ilL-Spec-Accessory with type=Endcap)",
+   "fieldname": "endcap_spec",
+   "fieldtype": "Link",
+   "label": "Endcap Spec",
+   "options": "ilL-Spec-Accessory"
+  },
+  {
+   "description": "The resolved endcap Item",
+   "fieldname": "endcap_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Endcap Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-02 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Rel-Kit-Endcap-Map",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "kit_template, endcap_style, endcap_color, endcap_type",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

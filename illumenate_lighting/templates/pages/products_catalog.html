@@ -1,0 +1,354 @@
+{#
+Portal Product Catalog Page (System Manager only)
+Browse ilL-Webflow-Product records with attribute filtering
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Product Catalog") }}{% endblock %}
+
+{% block style %}
+<style>
+/* ── Catalog Layout ────────────────────────────────── */
+.catalog-layout {
+	display: flex;
+	gap: 1.5rem;
+	align-items: flex-start;
+}
+
+/* ── Filter Sidebar ────────────────────────────────── */
+.filter-sidebar {
+	width: 260px;
+	flex-shrink: 0;
+	background: #fff;
+	border-radius: 10px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	padding: 1.25rem;
+	position: sticky;
+	top: 80px;
+	max-height: calc(100vh - 100px);
+	overflow-y: auto;
+}
+.filter-sidebar h6 {
+	font-weight: 600;
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--ill-gray-600, #757575);
+	margin-bottom: 0.5rem;
+}
+.filter-group {
+	margin-bottom: 1rem;
+	border-bottom: 1px solid var(--ill-gray-200, #eee);
+	padding-bottom: 0.75rem;
+}
+.filter-group:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+}
+.filter-group-title {
+	font-weight: 600;
+	font-size: 0.85rem;
+	margin-bottom: 0.5rem;
+	cursor: pointer;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.filter-group-title .fa {
+	font-size: 0.7rem;
+	transition: transform 0.2s;
+}
+.filter-group.collapsed .filter-group-title .fa {
+	transform: rotate(-90deg);
+}
+.filter-group.collapsed .filter-options {
+	display: none;
+}
+.filter-option {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.15rem 0;
+	font-size: 0.85rem;
+	color: var(--ill-gray-800, #424242);
+}
+.filter-option input[type="checkbox"] {
+	margin: 0;
+}
+.filter-option .count {
+	margin-left: auto;
+	font-size: 0.75rem;
+	color: var(--ill-gray-400, #bdbdbd);
+}
+.filter-clear {
+	font-size: 0.8rem;
+	color: var(--ill-primary, #1976d2);
+	cursor: pointer;
+	margin-top: 0.5rem;
+	display: none;
+}
+.filter-clear.visible {
+	display: block;
+}
+
+/* ── Product Type Tabs ─────────────────────────────── */
+.product-type-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-bottom: 1rem;
+}
+.product-type-tab {
+	padding: 0.3rem 0.75rem;
+	font-size: 0.8rem;
+	border-radius: 2rem;
+	border: 1px solid var(--ill-gray-300, #e0e0e0);
+	background: #fff;
+	color: var(--ill-gray-700, #616161);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+.product-type-tab:hover {
+	border-color: var(--ill-primary, #1976d2);
+	color: var(--ill-primary, #1976d2);
+}
+.product-type-tab.active {
+	background: var(--ill-primary, #1976d2);
+	border-color: var(--ill-primary, #1976d2);
+	color: #fff;
+}
+
+/* ── Search Bar ────────────────────────────────────── */
+.catalog-search {
+	position: relative;
+	margin-bottom: 1rem;
+}
+.catalog-search input {
+	width: 100%;
+	padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+	border: 1px solid var(--ill-gray-300, #e0e0e0);
+	border-radius: 8px;
+	font-size: 0.9rem;
+	outline: none;
+}
+.catalog-search input:focus {
+	border-color: var(--ill-primary, #1976d2);
+	box-shadow: 0 0 0 2px rgba(25,118,210,0.15);
+}
+.catalog-search .fa-search {
+	position: absolute;
+	left: 0.75rem;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ill-gray-400, #bdbdbd);
+}
+
+/* ── Product Grid ──────────────────────────────────── */
+.product-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 1rem;
+	flex: 1;
+}
+.product-card {
+	background: #fff;
+	border-radius: 10px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	overflow: hidden;
+	transition: box-shadow 0.2s, transform 0.15s;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+}
+.product-card:hover {
+	box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+	transform: translateY(-2px);
+}
+.product-card-img {
+	width: 100%;
+	height: 180px;
+	object-fit: cover;
+	background: var(--ill-gray-100, #f5f5f5);
+}
+.product-card-img.placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--ill-gray-400, #bdbdbd);
+	font-size: 2.5rem;
+}
+.product-card-body {
+	padding: 0.75rem 1rem 1rem;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+}
+.product-card-body h5 {
+	font-size: 0.95rem;
+	font-weight: 600;
+	margin-bottom: 0.25rem;
+	color: var(--ill-gray-900, #212121);
+}
+.product-card-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin-bottom: 0.4rem;
+	flex-wrap: wrap;
+}
+.product-card-meta .badge {
+	font-size: 0.7rem;
+	padding: 0.15rem 0.5rem;
+	border-radius: 2rem;
+	font-weight: 500;
+}
+.badge-type {
+	background: var(--ill-gray-200, #eee);
+	color: var(--ill-gray-700, #616161);
+}
+.badge-series {
+	background: #e7f1ff;
+	color: var(--ill-primary, #1976d2);
+}
+.product-card-desc {
+	font-size: 0.82rem;
+	color: var(--ill-gray-600, #757575);
+	flex: 1;
+	margin-bottom: 0.5rem;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.product-card-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.product-card-price {
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: var(--ill-gray-800, #424242);
+}
+.product-card-cta {
+	font-size: 0.8rem;
+	padding: 0.3rem 0.75rem;
+	border-radius: 2rem;
+}
+
+/* ── Load More ─────────────────────────────────────── */
+.load-more-wrap {
+	text-align: center;
+	margin-top: 1.5rem;
+}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 991.98px) {
+	.product-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+@media (max-width: 767.98px) {
+	.catalog-layout {
+		flex-direction: column;
+	}
+	.filter-sidebar {
+		width: 100%;
+		position: static;
+		max-height: none;
+	}
+	.filter-sidebar.collapsed-mobile .filter-groups {
+		display: none;
+	}
+	.product-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* ── Empty State ───────────────────────────────────── */
+.catalog-empty {
+	text-align: center;
+	padding: 3rem 1rem;
+	color: var(--ill-gray-500, #9e9e9e);
+}
+.catalog-empty .fa {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page" style="padding:2rem 0">
+	<!-- Header -->
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<div>
+			<h4 class="mb-1">{{ _("Product Catalog") }}</h4>
+			<p class="text-muted mb-0" id="catalogResultCount"></p>
+		</div>
+		<a href="/portal" class="btn btn-outline-secondary btn-sm">
+			<i class="fa fa-arrow-left"></i> {{ _("Portal") }}
+		</a>
+	</div>
+
+	<div class="catalog-layout">
+		<!-- Filter Sidebar -->
+		<aside class="filter-sidebar" id="filterSidebar">
+			<div class="d-flex justify-content-between align-items-center mb-3 d-md-none">
+				<strong>{{ _("Filters") }}</strong>
+				<button class="btn btn-sm btn-link" onclick="toggleMobileFilters()">
+					<i class="fa fa-times"></i>
+				</button>
+			</div>
+			<h6>{{ _("Product Type") }}</h6>
+			<div class="product-type-tabs" id="productTypeTabs"></div>
+
+			<div id="filterGroups" class="filter-groups">
+				<!-- Populated dynamically -->
+			</div>
+			<a class="filter-clear" id="clearFilters" onclick="clearAllFilters()">
+				{{ _("Clear all filters") }}
+			</a>
+		</aside>
+
+		<!-- Main Content -->
+		<div class="catalog-main" style="flex:1;min-width:0">
+			<!-- Mobile filter toggle -->
+			<button class="btn btn-outline-secondary btn-sm d-md-none mb-3" onclick="toggleMobileFilters()">
+				<i class="fa fa-filter"></i> {{ _("Filters") }}
+			</button>
+
+			<!-- Search -->
+			<div class="catalog-search">
+				<i class="fa fa-search"></i>
+				<input type="text" id="catalogSearch" placeholder="{{ _('Search products…') }}">
+			</div>
+
+			<!-- Grid -->
+			<div class="product-grid" id="productGrid"></div>
+
+			<!-- Empty state -->
+			<div class="catalog-empty" id="catalogEmpty" style="display:none">
+				<i class="fa fa-cube"></i>
+				<p>{{ _("No products match your filters.") }}</p>
+			</div>
+
+			<!-- Load more -->
+			<div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+				<button class="btn btn-outline-primary btn-sm" id="loadMoreBtn" onclick="loadMore()">
+					{{ _("Load more") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="/assets/illumenate_lighting/js/product_catalog.js"></script>
+<script>
+$(function() {
+	initProductCatalog();
+});
+</script>
+{% endblock %}

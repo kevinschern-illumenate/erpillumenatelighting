@@ -1,0 +1,1194 @@
+{#
+Portal Configurator Page – LED Tape & LED Neon
+Allows users to configure LED tape and neon products with step-by-step selections
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block style %}
+<style>
+/* ── Shared pill selector styles (same as configure.html) ── */
+.pill-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.pill-selector .pill-option {
+	display: inline-block;
+	padding: 0.375rem 0.75rem;
+	font-size: 0.875rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: #495057;
+	background-color: #fff;
+	border: 1px solid #ced4da;
+	border-radius: 2rem;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+	user-select: none;
+}
+.pill-selector .pill-option:hover {
+	background-color: #e9ecef;
+	border-color: #adb5bd;
+}
+.pill-selector .pill-option.active {
+	background-color: #0d6efd;
+	border-color: #0d6efd;
+	color: #fff;
+}
+.pill-selector .pill-option.active:hover {
+	background-color: #0b5ed7;
+	border-color: #0a58ca;
+}
+.pill-selector .pill-option input[type="radio"] {
+	display: none;
+}
+.option-group {
+	margin-bottom: 1rem;
+}
+.option-group label.option-label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+}
+.option-group .select-fallback { display: none; }
+@media (max-width: 767.98px) {
+	.option-group .pill-selector { display: none !important; }
+	.option-group .select-fallback { display: block !important; }
+}
+
+/* ── Segment card ── */
+.segment-card {
+	border: 1px solid #dee2e6;
+	border-radius: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+.segment-card .card-header {
+	background-color: #f8f9fa;
+	padding: 0.5rem 1rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.segment-card .card-body { padding: 0.75rem 1rem; }
+
+/* ── Length input switcher ── */
+.length-unit-tabs .nav-link { padding: 0.25rem 0.5rem; font-size: 0.85rem; }
+.length-unit-tabs .nav-link.active {
+	background-color: #0d6efd;
+	color: #fff;
+	border-color: #0d6efd;
+}
+
+/* ── Results panel ── */
+.result-row { padding: 0.35rem 0; border-bottom: 1px dotted #dee2e6; }
+.result-row:last-child { border-bottom: none; }
+.result-label { font-weight: 500; }
+.result-value { text-align: right; }
+
+/* ── Step dimming for incomplete prior steps ── */
+.config-step.disabled-step { opacity: 0.45; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<!-- Breadcrumb -->
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			{% if schedule %}
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			{% endif %}
+			<li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+		</ol>
+	</nav>
+
+	<!-- Schedule Context Selector -->
+	<div class="card mb-3" id="scheduleContextCard">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+			<small class="text-muted">{{ _("Select a project and line to save this configuration") }}</small>
+		</div>
+		<div class="card-body">
+			<div class="row">
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("Project") }}</label>
+						<select class="form-control" id="projectSelect">
+							<option value="">{{ _("Select Project...") }}</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("Fixture Schedule") }}</label>
+						<select class="form-control" id="scheduleSelect" disabled>
+							<option value="">{{ _("Select Schedule...") }}</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("Line") }}</label>
+						<select class="form-control" id="lineSelect" disabled>
+							<option value="">{{ _("Select Line...") }}</option>
+							<option value="__new__">{{ _("+ New Line") }}</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
+		<!-- ═══════════ LEFT: Configuration Form ═══════════ -->
+		<div class="col-lg-7">
+			<div class="card mb-3">
+				<div class="card-header">
+					<h5 class="mb-0">{{ title }}</h5>
+				</div>
+				<div class="card-body">
+					<form id="tapeConfigForm">
+
+						<!-- STEP 1: Environment (LED Tape only) -->
+						{% if not is_neon %}
+						<div class="config-step" id="stepEnvironment">
+							<div class="option-group">
+								<label class="option-label">{{ _("Environment Rating") }}</label>
+								<div class="pill-selector" id="pillEnvironment"></div>
+								<select class="form-control select-fallback" id="selEnvironment">
+									<option value="">{{ _("Select...") }}</option>
+								</select>
+							</div>
+						</div>
+						{% endif %}
+
+						<!-- STEP 2: CCT -->
+						<div class="config-step{% if not is_neon %} disabled-step{% endif %}" id="stepCCT">
+							<div class="option-group">
+								<label class="option-label">{{ _("CCT (Correlated Color Temperature)") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" id="pillCCT"></div>
+								<select class="form-control select-fallback" id="selCCT">
+									<option value="">{{ _("Select...") }}</option>
+								</select>
+							</div>
+						</div>
+
+						<!-- STEP 3: Output -->
+						<div class="config-step disabled-step" id="stepOutput">
+							<div class="option-group">
+								<label class="option-label">{{ _("Output Level") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" id="pillOutput"></div>
+								<select class="form-control select-fallback" id="selOutput">
+									<option value="">{{ _("Select...") }}</option>
+								</select>
+							</div>
+						</div>
+
+						<!-- STEP 4: PCB Mounting -->
+						<div class="config-step disabled-step" id="stepPCBMounting">
+							<div class="option-group">
+								<label class="option-label">{{ _("PCB Mounting") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" id="pillPCBMounting"></div>
+								<select class="form-control select-fallback" id="selPCBMounting">
+									<option value="">{{ _("Select...") }}</option>
+								</select>
+							</div>
+						</div>
+
+						<!-- STEP 5: PCB Finish -->
+						<div class="config-step disabled-step" id="stepPCBFinish">
+							<div class="option-group">
+								<label class="option-label">{{ _("PCB Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" id="pillPCBFinish"></div>
+								<select class="form-control select-fallback" id="selPCBFinish">
+									<option value="">{{ _("Select...") }}</option>
+								</select>
+							</div>
+						</div>
+
+						{% if not is_neon %}
+						<!-- ═══ LED TAPE: Feed & Length ═══ -->
+						<div class="config-step disabled-step" id="stepTapeFeed">
+							<hr>
+							<h6>{{ _("Feed & Length") }}</h6>
+
+							<!-- Feed Direction (always End Feed for tape) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Feed Direction") }}</label>
+								<input type="text" class="form-control" value="End Feed" disabled>
+								<input type="hidden" id="feedDirection" value="End Feed">
+							</div>
+
+							<!-- Feed Type -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Feed Type") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" id="pillFeedType"></div>
+								<select class="form-control select-fallback" id="selFeedType">
+									<option value="">{{ _("Select...") }}</option>
+								</select>
+							</div>
+
+							<!-- Lead Length (inches) -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Lead Length (inches)") }} <span class="text-danger">*</span></label>
+								<input type="number" class="form-control" id="leadLengthInches" min="0" step="0.25" placeholder="e.g. 12">
+							</div>
+
+							<!-- Tape Length -->
+							<div class="option-group">
+								<label class="option-label">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
+
+								<!-- Unit selector tabs -->
+								<ul class="nav nav-pills mb-2 length-unit-tabs" id="tapeLengthUnitTabs">
+									<li class="nav-item">
+										<a class="nav-link active" data-unit="in" href="#">{{ _("Inches") }}</a>
+									</li>
+									<li class="nav-item">
+										<a class="nav-link" data-unit="ft" href="#">{{ _("Feet") }}</a>
+									</li>
+									<li class="nav-item">
+										<a class="nav-link" data-unit="ft_in" href="#">{{ _("Feet + Inches") }}</a>
+									</li>
+								</ul>
+
+								<!-- Single value input (inches or feet) -->
+								<div id="tapeLengthSingle">
+									<input type="number" class="form-control" id="tapeLengthValue" min="0" step="0.125" placeholder="Enter length">
+								</div>
+
+								<!-- Feet + Inches input -->
+								<div id="tapeLengthFtIn" style="display: none;">
+									<div class="row">
+										<div class="col-6">
+											<input type="number" class="form-control" id="tapeLengthFeet" min="0" step="1" placeholder="Feet">
+										</div>
+										<div class="col-6">
+											<input type="number" class="form-control" id="tapeLengthInches" min="0" step="0.125" placeholder="Inches">
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						{% endif %}
+
+						{% if is_neon %}
+						<!-- ═══ LED NEON: Segment Builder ═══ -->
+						<div class="config-step disabled-step" id="stepNeonSegments">
+							<hr>
+							<h6>{{ _("Segments") }}</h6>
+							<p class="text-muted small">
+								{{ _("Build your neon configuration segment by segment. The exit of one segment becomes the start feed of the next.") }}
+							</p>
+
+							<div id="neonSegmentContainer"></div>
+
+							<button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnAddNeonSegment">
+								<i class="fa fa-plus"></i> {{ _("Add Segment") }}
+							</button>
+						</div>
+						{% endif %}
+
+						<!-- Calculate Button -->
+						<div class="mt-3">
+							<button type="button" class="btn btn-primary btn-block" id="btnCalculate" disabled>
+								<i class="fa fa-calculator"></i> {{ _("Calculate") }}
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<!-- ═══════════ RIGHT: Results Panel ═══════════ -->
+		<div class="col-lg-5">
+			<div class="card mb-3" id="resultsCard" style="display: none;">
+				<div class="card-header bg-success text-white">
+					<h5 class="mb-0"><i class="fa fa-check-circle"></i> {{ _("Configuration Result") }}</h5>
+				</div>
+				<div class="card-body">
+					<!-- Part Number -->
+					<div class="result-row">
+						<span class="result-label">{{ _("Part Number") }}</span>
+						<div class="result-value" id="resultPartNumber" style="font-family: monospace; font-weight: bold;"></div>
+					</div>
+
+					<!-- Description -->
+					<div class="result-row">
+						<span class="result-label">{{ _("Description") }}</span>
+						<div class="result-value small" id="resultDescription"></div>
+					</div>
+
+					<!-- Lengths -->
+					<div class="result-row">
+						<span class="result-label">{{ _("Manufacturable Length") }}</span>
+						<div class="result-value" id="resultMfgLength"></div>
+					</div>
+					<div class="result-row">
+						<span class="result-label">{{ _("Requested Length") }}</span>
+						<div class="result-value" id="resultReqLength"></div>
+					</div>
+					<div class="result-row">
+						<span class="result-label">{{ _("Difference") }}</span>
+						<div class="result-value" id="resultDifference"></div>
+					</div>
+					<div class="result-row">
+						<span class="result-label">{{ _("Total Watts") }}</span>
+						<div class="result-value" id="resultWatts"></div>
+					</div>
+
+					<!-- Run Splitting Info -->
+					<div class="result-row" id="resultMaxRunRow" style="display: none;">
+						<span class="result-label">{{ _("Max Run Length") }}</span>
+						<div class="result-value" id="resultMaxRunLength"></div>
+					</div>
+					<div class="result-row" id="resultRunsCountRow" style="display: none;">
+						<span class="result-label">{{ _("LED Tape Runs") }}</span>
+						<div class="result-value" id="resultRunsCount"></div>
+					</div>
+
+					<!-- Cut Info -->
+					<div class="result-row">
+						<span class="result-label">{{ _("Cut Info") }}</span>
+						<div class="result-value" id="resultCutInfo"></div>
+					</div>
+
+					<!-- Messages / Warnings -->
+					<div id="resultMessages" class="mt-2"></div>
+
+					<!-- Run Breakdown (when split into multiple runs) -->
+					<div id="resultRunBreakdown" class="mt-2" style="display: none;">
+						<h6>{{ _("Run Breakdown") }}</h6>
+						<div id="resultRunsList"></div>
+					</div>
+
+					<!-- Neon Segments Breakdown -->
+					<div id="resultSegments" class="mt-2" style="display: none;">
+						<h6>{{ _("Segment Details") }}</h6>
+						<div id="resultSegmentsList"></div>
+					</div>
+
+					<!-- Save to Schedule -->
+					<hr>
+					<button type="button" class="btn btn-success btn-block" id="btnSaveToSchedule">
+						<i class="fa fa-save"></i> {{ _("Save to Schedule") }}
+					</button>
+				</div>
+			</div>
+
+			<!-- Validation Errors -->
+			<div class="card mb-3" id="errorsCard" style="display: none;">
+				<div class="card-header bg-danger text-white">
+					<h5 class="mb-0"><i class="fa fa-exclamation-triangle"></i> {{ _("Validation Error") }}</h5>
+				</div>
+				<div class="card-body">
+					<p id="errorMessage"></p>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+(function() {
+	'use strict';
+
+	// ═══════════════════════════════════════════════════════════════════
+	// STATE
+	// ═══════════════════════════════════════════════════════════════════
+	const PRODUCT_CATEGORY = {{ product_category | tojson }};
+	const IS_NEON = {{ is_neon | tojson }};
+	const SCHEDULE_NAME = {{ schedule_name | tojson }};
+	const PROJECT_NAME = {{ project_name | tojson }};
+	const LINE_IDX = {{ line_idx | tojson }};
+	const CAN_SAVE = {{ can_save | tojson }};
+
+	let initData = null;       // Data from get_tape/neon_configurator_init
+	let lastResult = null;     // Last validate result for save
+	let neonSegmentCount = 0;  // Current neon segment count
+
+	// Current selections
+	let selections = {
+		environment_rating: null,
+		cct: null,
+		output_level: null,
+		pcb_mounting: null,
+		pcb_finish: null,
+		feed_type: null,
+		lead_length_inches: null,
+		tape_length_unit: 'in',
+		tape_length_value: null,
+		tape_length_feet: null,
+		tape_length_inches: null,
+		// Neon top-level
+		mounting: null,
+		finish: null,
+	};
+
+	// ═══════════════════════════════════════════════════════════════════
+	// INIT
+	// ═══════════════════════════════════════════════════════════════════
+	$(document).ready(function() {
+		loadInitData();
+		bindEvents();
+		loadScheduleContext();
+	});
+
+	function loadInitData() {
+		const method = IS_NEON
+			? 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_neon_configurator_init'
+			: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_configurator_init';
+
+		frappe.call({
+			method: method,
+			freeze: true,
+			freeze_message: 'Loading options...',
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					initData = r.message;
+					populateOptions(initData.options);
+				} else {
+					frappe.msgprint({
+						title: 'Error',
+						indicator: 'red',
+						message: (r.message && r.message.error) || 'Failed to load configurator data',
+					});
+				}
+			}
+		});
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// POPULATE OPTIONS
+	// ═══════════════════════════════════════════════════════════════════
+	function populateOptions(options) {
+		if (!options) return;
+
+		if (!IS_NEON && options.environment_ratings) {
+			populatePillSelector('pillEnvironment', 'selEnvironment', options.environment_ratings,
+				'value', 'label', onEnvironmentSelect);
+			// If only one environment, auto-select it
+			if (options.environment_ratings.length === 1) {
+				$('#pillEnvironment .pill-option:first').click();
+			}
+		}
+
+		if (options.ccts) {
+			populatePillSelector('pillCCT', 'selCCT', options.ccts,
+				'value', 'label', onCCTSelect);
+		}
+
+		if (options.output_levels) {
+			populatePillSelector('pillOutput', 'selOutput', options.output_levels,
+				'value', 'label', onOutputSelect);
+		}
+
+		// Handle both tape keys (pcb_mountings) and neon keys (mountings)
+		var mountingOptions = options.pcb_mountings || options.mountings;
+		if (mountingOptions) {
+			populatePillSelector('pillPCBMounting', 'selPCBMounting', mountingOptions,
+				'value', 'label', onPCBMountingSelect);
+		}
+
+		var finishOptions = options.pcb_finishes || options.finishes;
+		if (finishOptions) {
+			populatePillSelector('pillPCBFinish', 'selPCBFinish', finishOptions,
+				'value', 'label', onPCBFinishSelect);
+		}
+
+		if (!IS_NEON && options.feed_types) {
+			populatePillSelector('pillFeedType', 'selFeedType', options.feed_types,
+				'value', 'label', onFeedTypeSelect);
+		}
+
+		// For LED Neon, enable CCT step immediately (no environment step)
+		if (IS_NEON) {
+			$('#stepCCT').removeClass('disabled-step');
+		}
+	}
+
+	function populatePillSelector(pillId, selectId, items, valueKey, labelKey, onClick) {
+		const $pill = $('#' + pillId);
+		const $sel = $('#' + selectId);
+		$pill.empty();
+		$sel.find('option:not(:first)').remove();
+
+		items.forEach(function(item) {
+			const val = item[valueKey];
+			const label = item[labelKey] || val;
+
+			// Pill
+			const $opt = $('<span class="pill-option"></span>')
+				.text(label)
+				.attr('data-value', val)
+				.on('click', function() {
+					$pill.find('.pill-option').removeClass('active');
+					$(this).addClass('active');
+					$sel.val(val);
+					if (onClick) onClick(val, item);
+				});
+			$pill.append($opt);
+
+			// Select fallback
+			$sel.append($('<option></option>').val(val).text(label));
+		});
+
+		// Bind select change
+		$sel.off('change').on('change', function() {
+			const v = $(this).val();
+			$pill.find('.pill-option').removeClass('active');
+			$pill.find('[data-value="' + v + '"]').addClass('active');
+			const matchedItem = items.find(i => i[valueKey] === v);
+			if (onClick) onClick(v, matchedItem);
+		});
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// SELECTION HANDLERS
+	// ═══════════════════════════════════════════════════════════════════
+	function onEnvironmentSelect(val) {
+		selections.environment_rating = val;
+		$('#stepCCT').removeClass('disabled-step');
+		// Cascade: reload CCT options
+		cascadeOptions();
+	}
+
+	function onCCTSelect(val) {
+		selections.cct = val;
+		$('#stepOutput').removeClass('disabled-step');
+		cascadeOptions();
+	}
+
+	function onOutputSelect(val) {
+		selections.output_level = val;
+		$('#stepPCBMounting').removeClass('disabled-step');
+	}
+
+	function onPCBMountingSelect(val) {
+		if (IS_NEON) {
+			selections.mounting = val;
+		} else {
+			selections.pcb_mounting = val;
+		}
+		$('#stepPCBFinish').removeClass('disabled-step');
+	}
+
+	function onPCBFinishSelect(val) {
+		if (IS_NEON) {
+			selections.finish = val;
+		} else {
+			selections.pcb_finish = val;
+		}
+
+		if (IS_NEON) {
+			$('#stepNeonSegments').removeClass('disabled-step');
+			// Auto-add first segment if none exist
+			if (neonSegmentCount === 0) {
+				addNeonSegment();
+			}
+		} else {
+			$('#stepTapeFeed').removeClass('disabled-step');
+		}
+		updateCalculateButton();
+	}
+
+	function onFeedTypeSelect(val) {
+		selections.feed_type = val;
+		updateCalculateButton();
+	}
+
+	function cascadeOptions() {
+		if (IS_NEON) return; // Neon doesn't cascade on environment
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_cascading_options',
+			args: {
+				environment_rating: selections.environment_rating || '',
+				cct: selections.cct || '',
+				pcb_mounting: selections.pcb_mounting || '',
+				pcb_finish: selections.pcb_finish || '',
+			},
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					// Re-populate output levels with filtered data
+					if (r.message.output_levels) {
+						populatePillSelector('pillOutput', 'selOutput', r.message.output_levels,
+							'value', 'label', onOutputSelect);
+					}
+				}
+			}
+		});
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// NEON SEGMENT BUILDER
+	// ═══════════════════════════════════════════════════════════════════
+	function addNeonSegment() {
+		neonSegmentCount++;
+		const idx = neonSegmentCount;
+
+		const ipOptions = (initData && initData.options && initData.options.ip_ratings) || [];
+		const startFeedDirOptions = (initData && initData.options && (initData.options.start_feed_directions || initData.options.feed_directions)) || [];
+		const endFeedDirOptions = (initData && initData.options && (initData.options.end_feed_directions || initData.options.feed_directions)) || [];
+
+		let ipOptionsHtml = '<option value="">Select...</option>';
+		ipOptions.forEach(function(o) {
+			ipOptionsHtml += '<option value="' + o.value + '">' + o.label + '</option>';
+		});
+
+		let startFeedDirHtml = '<option value="">Select...</option>';
+		startFeedDirOptions.forEach(function(o) {
+			startFeedDirHtml += '<option value="' + o.value + '">' + o.label + '</option>';
+		});
+
+		let endFeedDirHtml = '<option value="">Select...</option>';
+		endFeedDirOptions.forEach(function(o) {
+			endFeedDirHtml += '<option value="' + o.value + '">' + o.label + '</option>';
+		});
+
+		const html = `
+		<div class="segment-card" id="neonSeg${idx}" data-seg-idx="${idx}">
+			<div class="card-header">
+				<strong>Segment ${idx}</strong>
+				${idx > 1 ? '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-seg" data-seg="' + idx + '"><i class="fa fa-trash"></i></button>' : ''}
+			</div>
+			<div class="card-body">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">IP Rating (Endcaps)</label>
+							<select class="form-control seg-ip-rating" data-seg="${idx}">
+								${ipOptionsHtml}
+							</select>
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">Start Feed Direction</label>
+							<select class="form-control seg-start-feed-dir" data-seg="${idx}">
+								${startFeedDirHtml}
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">Start Lead Length (in)</label>
+							<input type="number" class="form-control seg-start-lead" data-seg="${idx}" min="0" step="0.25" placeholder="e.g. 12">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">Fixture Length</label>
+							<div class="input-group">
+								<input type="number" class="form-control seg-fixture-len" data-seg="${idx}" min="0" step="0.125" placeholder="Length">
+								<select class="form-control seg-fixture-unit" data-seg="${idx}" style="max-width: 80px;">
+									<option value="in">in</option>
+									<option value="ft">ft</option>
+									<option value="ft_in">ft+in</option>
+								</select>
+							</div>
+							<div class="seg-ft-in-row mt-1" data-seg="${idx}" style="display:none;">
+								<div class="row">
+									<div class="col-6"><input type="number" class="form-control seg-ft-val" data-seg="${idx}" min="0" step="1" placeholder="ft"></div>
+									<div class="col-6"><input type="number" class="form-control seg-in-val" data-seg="${idx}" min="0" step="0.125" placeholder="in"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">End Feed Direction</label>
+							<select class="form-control seg-end-feed-dir" data-seg="${idx}">
+								${endFeedDirHtml}
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">Exit / Jumper Length (in)</label>
+							<input type="number" class="form-control seg-end-feed-len" data-seg="${idx}" min="0" step="0.25" placeholder="e.g. 6">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>`;
+
+		$('#neonSegmentContainer').append(html);
+
+		// Bind ft+in toggle for this segment
+		$('#neonSeg' + idx + ' .seg-fixture-unit').on('change', function() {
+			const unit = $(this).val();
+			const segIdx = $(this).data('seg');
+			if (unit === 'ft_in') {
+				$(`.seg-ft-in-row[data-seg="${segIdx}"]`).show();
+				$(`.seg-fixture-len[data-seg="${segIdx}"]`).hide();
+			} else {
+				$(`.seg-ft-in-row[data-seg="${segIdx}"]`).hide();
+				$(`.seg-fixture-len[data-seg="${segIdx}"]`).show();
+			}
+		});
+
+		// Bind remove
+		$('#neonSeg' + idx + ' .btn-remove-seg').on('click', function() {
+			removeNeonSegment($(this).data('seg'));
+		});
+
+		updateCalculateButton();
+	}
+
+	function removeNeonSegment(segIdx) {
+		$('#neonSeg' + segIdx).remove();
+		renumberNeonSegments();
+		updateCalculateButton();
+	}
+
+	function renumberNeonSegments() {
+		let count = 0;
+		$('#neonSegmentContainer .segment-card').each(function(i) {
+			count = i + 1;
+			$(this).find('.card-header strong').text('Segment ' + count);
+		});
+		neonSegmentCount = count;
+	}
+
+	function collectNeonSegments() {
+		const segments = [];
+		$('#neonSegmentContainer .segment-card').each(function(i) {
+			const $card = $(this);
+			const segIdx = i + 1;
+			const unit = $card.find('.seg-fixture-unit').val() || 'in';
+
+			const seg = {
+				ip_rating: $card.find('.seg-ip-rating').val(),
+				start_feed_direction: $card.find('.seg-start-feed-dir').val(),
+				start_lead_length_inches: parseFloat($card.find('.seg-start-lead').val()) || 0,
+				fixture_length_unit: unit,
+				end_feed_direction: $card.find('.seg-end-feed-dir').val(),
+				end_feed_length_inches: parseFloat($card.find('.seg-end-feed-len').val()) || 0,
+			};
+
+			if (unit === 'ft_in') {
+				seg.fixture_length_feet = parseFloat($card.find('.seg-ft-val').val()) || 0;
+				seg.fixture_length_inches = parseFloat($card.find('.seg-in-val').val()) || 0;
+			} else {
+				seg.fixture_length_value = parseFloat($card.find('.seg-fixture-len').val()) || 0;
+			}
+
+			segments.push(seg);
+		});
+		return segments;
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// CALCULATE
+	// ═══════════════════════════════════════════════════════════════════
+	function updateCalculateButton() {
+		let ready = false;
+		if (IS_NEON) {
+			ready = selections.cct && selections.output_level
+				&& selections.mounting && selections.finish
+				&& neonSegmentCount > 0;
+		} else {
+			// Check all required fields including feed type, lead length, and tape length
+			var hasLength = false;
+			var unit = selections.tape_length_unit || 'in';
+			if (unit === 'ft_in') {
+				var ftVal = parseFloat($('#tapeLengthFeet').val());
+				var inVal = parseFloat($('#tapeLengthInches').val());
+				hasLength = (ftVal > 0 || inVal > 0);
+			} else {
+				hasLength = parseFloat($('#tapeLengthValue').val()) > 0;
+			}
+
+			ready = selections.cct && selections.output_level
+				&& selections.pcb_mounting && selections.pcb_finish
+				&& selections.feed_type
+				&& parseFloat($('#leadLengthInches').val()) > 0
+				&& hasLength;
+		}
+		$('#btnCalculate').prop('disabled', !ready);
+	}
+
+	function doCalculate() {
+		$('#resultsCard').hide();
+		$('#errorsCard').hide();
+
+		if (IS_NEON) {
+			calculateNeon();
+		} else {
+			calculateTape();
+		}
+	}
+
+	function calculateTape() {
+		// Gather length inputs
+		const unit = selections.tape_length_unit || 'in';
+
+		// Read lead length - send actual value, not 0 fallback
+		var leadVal = parseFloat($('#leadLengthInches').val());
+		var leadLength = (!isNaN(leadVal) && leadVal > 0) ? leadVal : 0;
+
+		const args = {
+			selections: JSON.stringify({
+				environment_rating: selections.environment_rating || '',
+				cct: selections.cct,
+				output_level: selections.output_level,
+				pcb_mounting: selections.pcb_mounting,
+				pcb_finish: selections.pcb_finish,
+				feed_direction: 'End Feed',
+				feed_type: selections.feed_type || '',
+				lead_length_inches: leadLength,
+				tape_length_unit: unit,
+				tape_length_value: parseFloat($('#tapeLengthValue').val()) || 0,
+				tape_length_feet: parseFloat($('#tapeLengthFeet').val()) || 0,
+				tape_length_inches: parseFloat($('#tapeLengthInches').val()) || 0,
+			}),
+		};
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration',
+			args: args,
+			freeze: true,
+			freeze_message: 'Calculating...',
+			callback: function(r) {
+				handleResult(r.message);
+			}
+		});
+	}
+
+	function calculateNeon() {
+		const segments = collectNeonSegments();
+		const args = {
+			selections: JSON.stringify({
+				cct: selections.cct,
+				output_level: selections.output_level,
+				mounting: selections.mounting,
+				finish: selections.finish,
+			}),
+			segments_json: JSON.stringify(segments),
+		};
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration',
+			args: args,
+			freeze: true,
+			freeze_message: 'Calculating...',
+			callback: function(r) {
+				handleResult(r.message);
+			}
+		});
+	}
+
+	function handleResult(result) {
+		if (!result) {
+			showError('No response from server');
+			return;
+		}
+
+		lastResult = result;
+
+		if (result.is_valid) {
+			showResults(result);
+		} else {
+			showError(result.error || 'Validation failed');
+		}
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// DISPLAY RESULTS
+	// ═══════════════════════════════════════════════════════════════════
+	function showResults(result) {
+		$('#errorsCard').hide();
+		$('#resultsCard').show();
+
+		$('#resultPartNumber').text(result.part_number || '-');
+		$('#resultDescription').text(result.build_description || '-');
+
+		const c = result.computed || {};
+
+		if (IS_NEON) {
+			$('#resultMfgLength').text(
+				(c.total_manufacturable_length_in || 0).toFixed(2) + '" (' +
+				(c.total_manufacturable_length_ft || 0).toFixed(2) + ' ft)'
+			);
+			$('#resultReqLength').text(
+				(c.total_requested_length_in || 0).toFixed(2) + '"'
+			);
+			const totalDiff = (c.total_requested_length_mm || 0) - (c.total_manufacturable_length_mm || 0);
+			$('#resultDifference').text((totalDiff / 25.4).toFixed(2) + '"');
+		} else {
+			$('#resultMfgLength').text(
+				(c.manufacturable_length_in || 0).toFixed(2) + '" (' +
+				(c.manufacturable_length_ft || 0).toFixed(2) + ' ft)'
+			);
+			$('#resultReqLength').text(
+				(c.requested_length_in || 0).toFixed(2) + '"'
+			);
+			$('#resultDifference').text(
+				((c.difference_mm || 0) / 25.4).toFixed(2) + '"'
+			);
+		}
+
+		$('#resultWatts').text((c.total_watts || 0).toFixed(2) + ' W');
+
+		// Max run length display
+		if (c.max_run_ft_effective) {
+			$('#resultMaxRunRow').show();
+			var maxRunText = c.max_run_ft_effective + ' ft';
+			if (c.max_run_ft_by_voltage_drop && c.max_run_ft_by_watts) {
+				var limiting = (c.max_run_ft_by_voltage_drop <= c.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
+				maxRunText += ' (' + limiting + ')';
+			}
+			$('#resultMaxRunLength').text(maxRunText);
+		} else {
+			$('#resultMaxRunRow').hide();
+		}
+
+		// Run count display
+		if (c.runs_count && c.runs_count > 1) {
+			$('#resultRunsCountRow').show();
+			$('#resultRunsCount').text(c.runs_count);
+		} else {
+			$('#resultRunsCountRow').hide();
+		}
+
+		// Cut info
+		if (c.is_free_cutting) {
+			$('#resultCutInfo').text('Free cutting (no increment restriction)');
+		} else {
+			$('#resultCutInfo').text('Cut increment: ' + (c.cut_increment_mm || 0) + ' mm');
+		}
+
+		// Messages
+		$('#resultMessages').empty();
+		if (result.messages && result.messages.length) {
+			result.messages.forEach(function(msg) {
+				const cls = msg.severity === 'warning' ? 'alert-warning' : 'alert-info';
+				$('#resultMessages').append(
+					'<div class="alert ' + cls + ' py-1 px-2 small">' + msg.text + '</div>'
+				);
+			});
+		}
+
+		// Run breakdown (when split into multiple runs)
+		if (c.runs && c.runs.length > 1) {
+			$('#resultRunBreakdown').show();
+			var runsHtml = '<table class="table table-sm table-bordered mb-0">';
+			runsHtml += '<thead class="thead-light"><tr>';
+			runsHtml += '<th>Run</th>';
+			runsHtml += '<th>Length</th>';
+			runsHtml += '<th>Watts</th>';
+			runsHtml += '</tr></thead><tbody>';
+
+			c.runs.forEach(function(run) {
+				var lengthIn = (run.run_len_in || (run.run_len_mm / 25.4)).toFixed(2);
+				var lengthFt = (run.run_len_ft || (run.run_len_mm / 304.8)).toFixed(2);
+				runsHtml += '<tr>';
+				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
+				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
+				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
+				runsHtml += '</tr>';
+			});
+
+			runsHtml += '</tbody></table>';
+			$('#resultRunsList').html(runsHtml);
+		} else {
+			$('#resultRunBreakdown').hide();
+		}
+
+		// Neon segments breakdown
+		if (IS_NEON && c.segments && c.segments.length) {
+			$('#resultSegments').show();
+			$('#resultSegmentsList').empty();
+			c.segments.forEach(function(seg) {
+				$('#resultSegmentsList').append(
+					'<div class="small result-row">' +
+					'<strong>Seg ' + seg.segment_index + '</strong>: ' +
+					seg.manufacturable_length_in.toFixed(2) + '" | ' +
+					'IP: ' + (seg.ip_rating || '-') + ' | ' +
+					'Start: ' + (seg.start_feed_direction || '-') + ' ' + seg.start_lead_length_inches + '" | ' +
+					'End: ' + (seg.end_feed_direction || '-') + ' ' + seg.end_feed_length_inches + '"' +
+					'</div>'
+				);
+			});
+		} else {
+			$('#resultSegments').hide();
+		}
+
+		// Enable/disable save button
+		$('#btnSaveToSchedule').prop('disabled', !CAN_SAVE && !$('#scheduleSelect').val());
+	}
+
+	function showError(msg) {
+		$('#resultsCard').hide();
+		$('#errorsCard').show();
+		$('#errorMessage').text(msg);
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// SAVE TO SCHEDULE
+	// ═══════════════════════════════════════════════════════════════════
+	function saveToSchedule() {
+		if (!lastResult || !lastResult.is_valid) {
+			frappe.msgprint({ title: 'Error', message: 'Please calculate a valid configuration first', indicator: 'red' });
+			return;
+		}
+
+		const scheduleName = $('#scheduleSelect').val() || SCHEDULE_NAME;
+		if (!scheduleName) {
+			frappe.msgprint({ title: 'Error', message: 'Please select a schedule first', indicator: 'orange' });
+			return;
+		}
+
+		const lineIdx = $('#lineSelect').val();
+		const lineIdxVal = (lineIdx && lineIdx !== '__new__') ? parseInt(lineIdx) : null;
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.save_tape_to_schedule',
+			args: {
+				schedule_name: scheduleName,
+				line_idx: lineIdxVal,
+				configuration_result: JSON.stringify(lastResult),
+			},
+			freeze: true,
+			freeze_message: 'Saving...',
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					frappe.msgprint({
+						title: 'Saved',
+						indicator: 'green',
+						message: r.message.message || 'Configuration saved to schedule',
+					});
+				} else {
+					frappe.msgprint({
+						title: 'Error',
+						indicator: 'red',
+						message: (r.message && r.message.error) || 'Failed to save',
+					});
+				}
+			}
+		});
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// SCHEDULE CONTEXT (same pattern as configure.html)
+	// ═══════════════════════════════════════════════════════════════════
+	function loadScheduleContext() {
+		// Pre-fill project/schedule selectors if URL params provided
+		if (PROJECT_NAME) {
+			loadProjects(PROJECT_NAME);
+		} else {
+			loadProjects();
+		}
+	}
+
+	function loadProjects(preSelect) {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_user_projects',
+			callback: function(r) {
+				if (r.message) {
+					const $sel = $('#projectSelect');
+					$sel.find('option:not(:first)').remove();
+					(r.message || []).forEach(function(p) {
+						$sel.append($('<option></option>').val(p.name).text(p.project_name || p.name));
+					});
+					if (preSelect) {
+						$sel.val(preSelect).trigger('change');
+					}
+				}
+			}
+		});
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// EVENT BINDINGS
+	// ═══════════════════════════════════════════════════════════════════
+	function bindEvents() {
+		$('#btnCalculate').on('click', doCalculate);
+		$('#btnSaveToSchedule').on('click', saveToSchedule);
+
+		if (IS_NEON) {
+			$('#btnAddNeonSegment').on('click', addNeonSegment);
+		}
+
+		// Tape length unit tabs
+		$('#tapeLengthUnitTabs .nav-link').on('click', function(e) {
+			e.preventDefault();
+			$('#tapeLengthUnitTabs .nav-link').removeClass('active');
+			$(this).addClass('active');
+			const unit = $(this).data('unit');
+			selections.tape_length_unit = unit;
+			if (unit === 'ft_in') {
+				$('#tapeLengthSingle').hide();
+				$('#tapeLengthFtIn').show();
+			} else {
+				$('#tapeLengthSingle').show();
+				$('#tapeLengthFtIn').hide();
+				$('#tapeLengthValue').attr('placeholder', unit === 'ft' ? 'Feet' : 'Inches');
+			}
+			updateCalculateButton();
+		});
+
+		// Re-evaluate Calculate button when input fields change
+		$('#leadLengthInches, #tapeLengthValue, #tapeLengthFeet, #tapeLengthInches').on('input change', function() {
+			updateCalculateButton();
+		});
+
+		// Project select → load schedules
+		$('#projectSelect').on('change', function() {
+			const proj = $(this).val();
+			if (!proj) {
+				$('#scheduleSelect').prop('disabled', true).val('');
+				$('#lineSelect').prop('disabled', true).val('');
+				return;
+			}
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedules_for_project',
+				args: { project_name: proj },
+				callback: function(r) {
+					const $sch = $('#scheduleSelect');
+					$sch.find('option:not(:first)').remove();
+					(r.message || []).forEach(function(s) {
+						$sch.append($('<option></option>').val(s.name).text(s.schedule_name || s.name));
+					});
+					$sch.prop('disabled', false);
+					if (SCHEDULE_NAME) $sch.val(SCHEDULE_NAME).trigger('change');
+				}
+			});
+		});
+
+		// Schedule select → load lines
+		$('#scheduleSelect').on('change', function() {
+			const sch = $(this).val();
+			if (!sch) {
+				$('#lineSelect').prop('disabled', true).val('');
+				return;
+			}
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator',
+				args: { schedule_name: sch },
+				callback: function(r) {
+					const $ln = $('#lineSelect');
+					$ln.find('option:not(:first):not([value="__new__"])').remove();
+					(r.message || []).forEach(function(l) {
+						const label = (l.line_id || 'Row ' + l.idx) + (l.configured_fixture ? ' ✓' : '');
+						$ln.append($('<option></option>').val(l.idx).text(label));
+					});
+					$ln.prop('disabled', false);
+					if (LINE_IDX !== null) $ln.val(LINE_IDX);
+				}
+			});
+		});
+	}
+
+})();
+</script>
+{% endblock %}

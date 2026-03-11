@@ -1,0 +1,175 @@
+{#
+Portal Projects List Page
+Displays all projects accessible to the current user
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}Projects{% endblock %}
+
+{% block page_content %}
+<div class="container portal-page">
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="d-flex justify-content-between align-items-center">
+				<h1>{{ _("My Projects") }}</h1>
+				<div class="d-flex align-items-center">
+					<div class="custom-control custom-switch mr-3">
+						<input type="checkbox" class="custom-control-input" id="showArchived">
+						<label class="custom-control-label" for="showArchived">{{ _("Show Archived") }}</label>
+					</div>
+					<a href="/portal/projects/new" class="btn btn-primary">
+						<i class="fa fa-plus"></i> {{ _("Create Project") }}
+					</a>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-12">
+			{% if projects %}
+			<div class="list-group" id="projectsList">
+				{% for project in projects %}
+				<div class="list-group-item list-group-item-action project-row {% if project.status == 'ARCHIVED' %}project-archived d-none{% endif %}" data-status="{{ project.status }}">
+					<div class="d-flex w-100 justify-content-between align-items-center">
+						<a href="/portal/projects/{{ project.name }}" class="text-decoration-none text-reset flex-grow-1">
+							<div>
+								<h5 class="mb-1 {% if project.status == 'ARCHIVED' %}text-muted{% endif %}">
+									{{ project.project_name }}
+									{% if project.status == 'ARCHIVED' %}
+									<small class="text-muted">(Archived)</small>
+									{% endif %}
+								</h5>
+								<p class="mb-1 text-muted">
+									{{ project.customer }}
+									{% if project.is_private %}
+									<span class="badge badge-secondary ml-2">
+										<i class="fa fa-lock"></i> Private
+									</span>
+									{% endif %}
+								</p>
+							</div>
+						</a>
+						<div class="d-flex align-items-center ml-3">
+							<div class="text-right mr-2">
+								<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else ('secondary' if project.status == 'ARCHIVED' else 'warning') }}">
+									{{ project.status }}
+								</span>
+								<br>
+								<small class="text-muted">{{ frappe.utils.format_date(project.modified) }}</small>
+							</div>
+							{% if project.status != 'ARCHIVED' %}
+							<button class="btn btn-sm btn-outline-warning ml-1" onclick="event.preventDefault(); event.stopPropagation(); archiveProjectFromList('{{ project.name | e }}', '{{ project.project_name | e }}')" title="{{ _('Archive') }}">
+								<i class="fa fa-archive"></i>
+							</button>
+							{% else %}
+							<button class="btn btn-sm btn-outline-success ml-1" onclick="event.preventDefault(); event.stopPropagation(); unarchiveProjectFromList('{{ project.name | e }}', '{{ project.project_name | e }}')" title="{{ _('Unarchive') }}">
+								<i class="fa fa-undo"></i>
+							</button>
+							{% endif %}
+						</div>
+					</div>
+				</div>
+				{% endfor %}
+			</div>
+			<div class="text-center py-3 text-muted d-none" id="noActiveMessage">
+				<p>{{ _("All projects are archived. Toggle 'Show Archived' to view them.") }}</p>
+			</div>
+			{% else %}
+			<div class="text-center py-5">
+				<i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
+				<p class="text-muted">{{ _("No projects found. Create your first project to get started.") }}</p>
+				<a href="/portal/projects/new" class="btn btn-primary">
+					<i class="fa fa-plus"></i> {{ _("Create Project") }}
+				</a>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+// Toggle archived project visibility
+$('#showArchived').on('change', function() {
+	var showArchived = $(this).is(':checked');
+	if (showArchived) {
+		$('.project-archived').removeClass('d-none');
+	} else {
+		$('.project-archived').addClass('d-none');
+	}
+	updateNoActiveMessage();
+});
+
+function updateNoActiveMessage() {
+	var visibleProjects = $('.project-row:not(.d-none)').length;
+	if (visibleProjects === 0) {
+		$('#noActiveMessage').removeClass('d-none');
+	} else {
+		$('#noActiveMessage').addClass('d-none');
+	}
+}
+
+// Initial check
+$(document).ready(function() {
+	updateNoActiveMessage();
+});
+
+function archiveProjectFromList(projectName, displayName) {
+	frappe.confirm(
+		'Are you sure you want to archive "' + displayName + '"? It will be hidden from the active list but can be unarchived later.',
+		function() {
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.archive_project',
+				args: { project_name: projectName },
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						frappe.msgprint({
+							title: 'Success',
+							indicator: 'green',
+							message: '"' + displayName + '" has been archived'
+						});
+						window.location.reload();
+					} else {
+						frappe.msgprint({
+							title: 'Error',
+							indicator: 'red',
+							message: r.message.error || 'Error archiving project'
+						});
+					}
+				}
+			});
+		}
+	);
+}
+
+function unarchiveProjectFromList(projectName, displayName) {
+	frappe.confirm(
+		'Restore "' + displayName + '" to active status?',
+		function() {
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.unarchive_project',
+				args: { project_name: projectName },
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						frappe.msgprint({
+							title: 'Success',
+							indicator: 'green',
+							message: '"' + displayName + '" has been restored'
+						});
+						window.location.reload();
+					} else {
+						frappe.msgprint({
+							title: 'Error',
+							indicator: 'red',
+							message: r.message.error || 'Error restoring project'
+						});
+					}
+				}
+			});
+		}
+	);
+}
+</script>
+{% endblock %}

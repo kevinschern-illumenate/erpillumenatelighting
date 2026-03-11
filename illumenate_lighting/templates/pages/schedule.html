@@ -9,9 +9,13 @@ Also handles new schedule creation when is_new is True
 
 {% block style %}
 <style>
+.action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
 .action-buttons .btn {
-	margin-left: 2px;
-	margin-right: 2px;
+	margin: 0;
 }
 .action-buttons .btn i {
 	pointer-events: none;
@@ -29,8 +33,298 @@ Also handles new schedule creation when is_new is True
 .fixture-details strong {
 	font-size: 0.95rem;
 }
+.driver-sub-line {
+	margin-top: 0.35rem;
+	padding-top: 0.35rem;
+	border-top: 1px dashed var(--ill-gray-200, #e0e0e0);
+	opacity: 0.85;
+}
+.driver-sub-line .small {
+	font-size: 0.8rem;
+}
+.pricing-sub-line {
+	margin-top: 0.25rem;
+	padding-top: 0.25rem;
+	border-top: 1px dashed var(--ill-gray-200, #e0e0e0);
+	font-size: 0.8rem;
+	opacity: 0.85;
+}
+/* Stock breakdown dropdown */
+details.stock-breakdown {
+	display: inline;
+}
+details.stock-breakdown > summary {
+	display: inline;
+	cursor: pointer;
+	list-style: none;
+}
+details.stock-breakdown > summary::-webkit-details-marker {
+	display: none;
+}
+details.stock-breakdown > summary .stock-toggle-arrow {
+	display: inline-block;
+	transition: transform 0.2s;
+	margin-left: 3px;
+	font-size: 0.7em;
+	vertical-align: middle;
+}
+details.stock-breakdown[open] > summary .stock-toggle-arrow {
+	transform: rotate(90deg);
+}
+details.stock-breakdown .stock-breakdown-list {
+	margin-top: 4px;
+	padding: 4px 0;
+	font-size: 0.8rem;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-row {
+	display: flex;
+	align-items: center;
+	padding: 2px 0;
+	gap: 6px;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-type {
+	color: #666;
+	min-width: 55px;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-code {
+	font-family: monospace;
+	font-size: 0.78rem;
+}
+details.stock-breakdown .stock-breakdown-list .stock-item-qty {
+	margin-left: auto;
+	white-space: nowrap;
+	font-size: 0.75rem;
+	color: #888;
+}
 .table td {
 	vertical-align: middle;
+}
+/* Constrain Actions column width */
+.fixture-lines-table th.col-actions,
+.fixture-lines-table td.col-actions {
+	max-width: 175px;
+	width: 175px;
+}
+/* Let Fixture Details column take remaining space */
+.fixture-lines-table th.col-fixture-details,
+.fixture-lines-table td.col-fixture-details {
+	width: 100%;
+}
+
+/* Pricing columns */
+.fixture-lines-table th.col-pricing,
+.fixture-lines-table td.col-pricing {
+	white-space: nowrap;
+}
+
+/* Product image gallery in Add Line modal */
+.add-line-gallery-wrapper {
+	position: relative;
+	max-width: 100%;
+	border-radius: 6px;
+	border: 1px solid var(--ill-gray-200, #eee);
+	overflow: hidden;
+	background: #fff;
+	margin-bottom: 0.5rem;
+}
+.add-line-gallery-viewport {
+	position: relative;
+	width: 100%;
+	height: 280px;
+	overflow: hidden;
+	cursor: grab;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.add-line-gallery-viewport.is-dragging {
+	cursor: grabbing;
+}
+.add-line-gallery-viewport img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	transition: transform 0.1s ease-out;
+	transform-origin: center center;
+	user-select: none;
+	-webkit-user-drag: none;
+	pointer-events: none;
+}
+/* Arrow nav buttons */
+.add-line-gallery-wrapper .gallery-nav {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	background: rgba(255,255,255,0.85);
+	border: 1px solid #ced4da;
+	border-radius: 50%;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	z-index: 10;
+	font-size: 18px;
+	color: #495057;
+	transition: background 0.15s;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.add-line-gallery-wrapper .gallery-nav:hover {
+	background: rgba(255,255,255,1);
+}
+.add-line-gallery-wrapper .gallery-nav.prev { left: 8px; }
+.add-line-gallery-wrapper .gallery-nav.next { right: 8px; }
+.add-line-gallery-wrapper .gallery-nav.disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+/* Counter badge */
+.add-line-gallery-counter {
+	position: absolute;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(0,0,0,0.55);
+	color: #fff;
+	padding: 2px 10px;
+	border-radius: 12px;
+	font-size: 0.75rem;
+	z-index: 10;
+}
+/* Zoom controls bar */
+.add-line-gallery-zoom-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	background: #f8f9fa;
+	border-top: 1px solid var(--ill-gray-200, #eee);
+	font-size: 0.8rem;
+	color: #6c757d;
+}
+.add-line-gallery-zoom-bar label {
+	margin: 0;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.add-line-gallery-zoom-bar input[type="range"] {
+	flex: 1;
+	min-width: 0;
+}
+.add-line-gallery-zoom-bar .zoom-value {
+	min-width: 38px;
+	text-align: right;
+}
+.add-line-gallery-zoom-bar .zoom-reset-btn {
+	background: none;
+	border: 1px solid #ced4da;
+	border-radius: 4px;
+	padding: 1px 8px;
+	cursor: pointer;
+	font-size: 0.75rem;
+	color: #495057;
+}
+.add-line-gallery-zoom-bar .zoom-reset-btn:hover {
+	background: #e9ecef;
+}
+
+/* Mobile/Tablet Card Layout */
+@media (max-width: 768px) {
+	.fixture-lines-table thead {
+		display: none;
+	}
+	.fixture-lines-table tbody tr {
+		display: block;
+		border: 1px solid var(--ill-gray-200, #eee);
+		border-radius: var(--ill-radius-md, 8px);
+		margin-bottom: var(--ill-space-4, 1rem);
+		box-shadow: var(--ill-shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+		overflow: hidden;
+	}
+	.fixture-lines-table tbody tr:hover {
+		background: transparent;
+	}
+	.fixture-lines-table tbody td {
+		display: block;
+		border-bottom: none;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-4, 1rem);
+	}
+	/* Card header area: Fixture Type, Type, QTY, Location on top */
+	.fixture-lines-table tbody td.col-line-id,
+	.fixture-lines-table tbody td.col-type,
+	.fixture-lines-table tbody td.col-qty,
+	.fixture-lines-table tbody td.col-location {
+		display: inline-block;
+		width: auto;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-3, 0.75rem);
+		vertical-align: middle;
+	}
+	.fixture-lines-table tbody td.col-line-id {
+		padding-left: var(--ill-space-4, 1rem);
+		font-weight: 600;
+	}
+	.fixture-lines-table tbody td.col-line-id::before,
+	.fixture-lines-table tbody td.col-type::before,
+	.fixture-lines-table tbody td.col-qty::before,
+	.fixture-lines-table tbody td.col-location::before,
+	.fixture-lines-table tbody td.col-pricing::before {
+		content: attr(data-label) ": ";
+		font-weight: 600;
+		color: var(--ill-gray-600, #757575);
+		font-size: var(--ill-font-size-xs, 0.75rem);
+		text-transform: uppercase;
+	}
+	.fixture-lines-table tbody td.col-pricing {
+		display: inline-block;
+		width: auto;
+		padding: var(--ill-space-2, 0.5rem) var(--ill-space-3, 0.75rem);
+		vertical-align: middle;
+		text-align: left;
+	}
+	/* Card body: Fixture Details */
+	.fixture-lines-table tbody td.col-fixture-details {
+		display: block;
+		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+		max-width: none;
+		width: auto;
+	}
+	/* Card footer: Actions */
+	.fixture-lines-table tbody td.col-actions {
+		display: block;
+		max-width: none;
+		width: auto;
+		background: var(--ill-gray-50, #fafafa);
+		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+		text-align: left;
+	}
+	.fixture-lines-table tbody td.col-actions .action-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ill-space-2, 0.5rem);
+	}
+}
+
+/* Export buttons responsive layout */
+.export-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.export-buttons .btn {
+	border-radius: var(--ill-radius-sm, 4px);
+}
+@media (max-width: 768px) {
+	.export-buttons {
+		width: 100%;
+		gap: var(--ill-space-2, 0.5rem);
+	}
+	.export-buttons .btn {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
 }
 </style>
 {% endblock %}
@@ -92,15 +386,27 @@ Also handles new schedule creation when is_new is True
 				<div class="card-body">
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
-							<h1 class="mb-2">{{ schedule.schedule_name }}</h1>
+							<h1 class="mb-2">
+								{{ schedule.schedule_name }}
+								<span class="badge badge-secondary ml-2" style="font-size: 0.5em; vertical-align: middle;">v{{ schedule.version or 1 }}</span>
+								{% if schedule.is_locked %}
+								<span class="badge badge-dark ml-1" style="font-size: 0.5em; vertical-align: middle;"><i class="fa fa-lock"></i> {{ _("Locked") }}</span>
+								{% endif %}
+							</h1>
 							<p class="text-muted mb-2">
 								<strong>{{ _("Project") }}:</strong> {{ project.project_name }}
 							</p>
+							{% if schedule.is_locked %}
+							<div class="alert alert-warning mb-2" role="alert">
+								<i class="fa fa-lock"></i>
+								{{ _("This is Version {0} (locked). You can view and export but not modify. Create a new version to make changes.").format(schedule.version or 1) }}
+							</div>
+							{% endif %}
 							<div class="d-flex align-items-center gap-2">
 								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge">
 									{{ schedule.status }}
 								</span>
-								{% if can_edit and schedule.status not in ['ORDERED', 'CLOSED'] %}
+								{% if can_edit and not schedule.is_locked and schedule.status not in ['ORDERED', 'CLOSED'] %}
 								<div class="dropdown d-inline-block ml-2">
 									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 										<i class="fa fa-exchange"></i> {{ _("Change Status") }}
@@ -130,17 +436,22 @@ Also handles new schedule creation when is_new is True
 							</div>
 						</div>
 						<div class="btn-group">
-							{% if can_edit and schedule.status in ['DRAFT', 'READY'] %}
+							{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
 								<i class="fa fa-plus"></i> {{ _("Add Line") }}
 							</button>
 							{% endif %}
-							{% if can_edit and schedule.status == 'READY' and not (is_dealer or is_internal) %}
+							{% if can_edit and not schedule.is_locked %}
+							<button class="btn btn-outline-primary" onclick="createNewVersion()">
+								<i class="fa fa-code-fork"></i> {{ _("Create New Version") }}
+							</button>
+							{% endif %}
+							{% if can_edit and not schedule.is_locked and schedule.status == 'READY' and not (is_dealer or is_internal) %}
 							<button class="btn btn-success" onclick="requestQuote()">
 								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
 							</button>
 							{% endif %}
-							{% set can_create_order = can_edit and ((schedule.status in ['READY', 'QUOTED'] and (is_dealer or is_internal)) or (schedule.status == 'QUOTED' and not (is_dealer or is_internal))) %}
+							{% set can_create_order = can_edit and not schedule.is_locked and ((schedule.status in ['READY', 'QUOTED'] and (is_dealer or is_internal)) or (schedule.status == 'QUOTED' and not (is_dealer or is_internal))) %}
 							{% if can_create_order %}
 							<button class="btn btn-success" onclick="createSalesOrder()">
 								<i class="fa fa-shopping-cart"></i> {{ _("Convert to Sales Order") }}
@@ -189,6 +500,23 @@ Also handles new schedule creation when is_new is True
 		</div>
 	</div>
 
+	{% if stock_lines_total %}
+	<!-- Stock Summary -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="d-flex align-items-center">
+				{% if stock_lines_in_stock == stock_lines_total %}
+				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts In Stock") }}</span>
+				{% elif stock_lines_in_stock > 0 %}
+				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock }} / {{ stock_lines_total }} {{ _("lines fully in stock") }}</span>
+				{% else %}
+				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully in stock") }}</span>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	{% endif %}
+
 	<!-- Fixture Lines Table -->
 	<div class="row">
 		<div class="col-12">
@@ -199,40 +527,203 @@ Also handles new schedule creation when is_new is True
 				<div class="card-body p-0">
 					{% if lines %}
 					<div class="table-responsive">
-						<table class="table table-hover mb-0">
+						<table class="table table-hover mb-0 fixture-lines-table">
 							<thead class="thead-light">
 								<tr>
-									<th>{{ _("Line ID") }}</th>
+									<th>{{ _("Fixture Type") }}</th>
 									<th>{{ _("Type") }}</th>
 									<th class="text-center">{{ _("Qty") }}</th>
 									<th>{{ _("Location") }}</th>
-									<th>{{ _("Fixture Details") }}</th>
+									<th class="col-fixture-details">{{ _("Fixture Details") }}</th>
+									{% if can_view_pricing %}
+									<th class="text-right col-pricing">{{ _("Unit Price") }}</th>
+									<th class="text-right col-pricing">{{ _("Line Total") }}</th>
+									{% endif %}
 									{% if can_edit %}
-									<th class="text-center">{{ _("Actions") }}</th>
+									<th class="text-center col-actions">{{ _("Actions") }}</th>
 									{% endif %}
 								</tr>
 							</thead>
 							<tbody>
 								{% for line in lines %}
 								<tr>
-									<td>{{ line.get('line_id') or line.get('idx') }}</td>
-									<td>
-										<span class="badge badge-{{ 'primary' if line.get('manufacturer_type') == 'ILLUMENATE' else 'secondary' }}">
-											{{ 'ilLumenate' if line.get('manufacturer_type') == 'ILLUMENATE' else 'Other' }}
-										</span>
+									<td class="col-line-id" data-label="{{ _('Line') }}">{{ line.get('line_id') or line.get('idx') }}</td>
+									<td class="col-type" data-label="{{ _('Type') }}">
+										{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
+										<span class="badge badge-primary">ilLumenate</span>
+										{% elif line.get('manufacturer_type') == 'ACCESSORY' %}
+										<span class="badge badge-primary">ilLumenate</span>
+										{% else %}
+										<span class="badge badge-secondary">Other</span>
+										{% endif %}
 									</td>
-									<td class="text-center">{{ line.get('qty') }}</td>
-									<td>{{ line.get('location') or '-' }}</td>
-									<td>
-										{% if line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
+									<td class="text-center col-qty" data-label="{{ _('Qty') }}">{{ line.get('qty') }}</td>
+									<td class="col-location" data-label="{{ _('Location') }}">{{ line.get('location') or '-' }}</td>
+									<td class="col-fixture-details">
+										{% if line.get('manufacturer_type') == 'ACCESSORY' and line.get('accessory_item') %}
+										<div class="fixture-details">
+											<strong class="text-success">{{ line.get('accessory_item_name') or line.get('accessory_item') }}</strong>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('accessory_item') }}</strong>
+											</div>
+											{% if line.get('variant_selections') %}
+											<div class="small text-muted mt-1">
+												{% for attr_name, attr_val in line.get('variant_selections').items() %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">{{ attr_name }}: <strong>{{ attr_val }}</strong></span>
+												{% endfor %}
+											</div>
+											{% endif %}
+											{% if line.get('accessory_product_type') %}
+											<div class="small text-muted">
+												<i class="fa fa-folder"></i> {{ line.get('accessory_product_type') }}
+											</div>
+											{% endif %}
+											<!-- Stock indicator for accessory -->
+											{% if line.get('stock_availability') %}
+											{% set sa = line.get('stock_availability') %}
+											<div class="small mt-1">
+												{% if sa.get('all_in_stock') %}
+												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+												{% elif sa.get('items', []) | length > 0 %}
+												<details class="stock-breakdown">
+													<summary>
+														<span class="text-danger">
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
+															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														</span>
+													</summary>
+													<div class="stock-breakdown-list">
+														{% for it in sa.get('items', []) %}
+														<div class="stock-item-row">
+															{% if it.is_sufficient %}
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															{% else %}
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															{% endif %}
+															<span class="stock-item-code">{{ it.item_code }}</span>
+															{% if it.qty_available is defined %}
+															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															{% endif %}
+														</div>
+														{% endfor %}
+													</div>
+												</details>
+												{% else %}
+												<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}</span>
+												{% endif %}
+											</div>
+											{% endif %}
+										</div>
+										{% elif line.get('product_type') == 'Extrusion Kit' and line.get('kit_template') %}
+										{% set kit_sel = line.get('kit_selections', {}) %}
+										<div class="fixture-details">
+											<!-- Part Number -->
+											<strong class="text-primary">
+												{{ line.get('kit_part_number') or line.get('ill_item_code') or 'Extrusion Kit' }}
+											</strong>
+											<span class="badge badge-info ml-1">Extrusion Kit</span>
+											<!-- Kit Template reference -->
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') }}</strong>
+											</div>
+											<!-- Kit attributes as badges -->
+											<div class="small text-muted mt-1">
+												{% if kit_sel.get('finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ kit_sel.get('finish') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('lens_appearance') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ kit_sel.get('lens_appearance') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('mounting_method') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ kit_sel.get('mounting_method') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('endcap_style') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap: <strong>{{ kit_sel.get('endcap_style') }}</strong></span>
+												{% endif %}
+												{% if kit_sel.get('endcap_color') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap Color: <strong>{{ kit_sel.get('endcap_color') }}</strong></span>
+												{% endif %}
+											</div>
+											<!-- Stock indicator for Extrusion Kit -->
+											{% if line.get('stock_availability') %}
+											{% set sa = line.get('stock_availability') %}
+											<div class="small mt-1">
+												{% if sa.get('all_in_stock') %}
+												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+												{% else %}
+												{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
+												{% set total_count = sa.get('items', []) | length %}
+												{% if in_count > 0 %}
+												<details class="stock-breakdown">
+													<summary>
+														<span class="text-warning">
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
+															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														</span>
+													</summary>
+													<div class="stock-breakdown-list">
+														{% for it in sa.get('items', []) %}
+														<div class="stock-item-row">
+															{% if it.is_sufficient %}
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															{% else %}
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															{% endif %}
+															<span class="stock-item-type">{{ it.component_type or '' }}</span>
+															<span class="stock-item-code">{{ it.item_code }}</span>
+															{% if it.qty_available is defined %}
+															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															{% endif %}
+														</div>
+														{% endfor %}
+													</div>
+												</details>
+												{% else %}
+												<details class="stock-breakdown">
+													<summary>
+														<span class="text-danger">
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
+															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														</span>
+													</summary>
+													<div class="stock-breakdown-list">
+														{% for it in sa.get('items', []) %}
+														<div class="stock-item-row">
+															{% if it.is_sufficient %}
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															{% else %}
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															{% endif %}
+															<span class="stock-item-type">{{ it.component_type or '' }}</span>
+															<span class="stock-item-code">{{ it.item_code }}</span>
+															{% if it.qty_available is defined %}
+															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															{% endif %}
+														</div>
+														{% endfor %}
+													</div>
+												</details>
+												{% endif %}
+												{% endif %}
+											</div>
+											{% endif %}
+										</div>
+										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
 										{% set cf_details = line.get('cf_details', {}) %}
 										<div class="fixture-details">
+											<!-- Part Number -->
 											<strong class="text-primary">
 												{{ cf_details.get('part_number') or line.get('ill_item_code') or 'Configured' }}
 												{% if cf_details.get('is_multi_segment') %}
 													<span class="badge badge-info ml-1" title="{{ _('Multi-segment fixture with jumper cables') }}">J</span>
 												{% endif %}
 											</strong>
+											<!-- SPEC reference -->
+											{% if cf_details.get('fixture_template_code') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ cf_details.get('fixture_template_code') }}</strong>
+											</div>
+											{% endif %}
 											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
 											<div class="small text-info mt-1 build-description">
 												<i class="fa fa-link"></i> 
@@ -243,75 +734,161 @@ Also handles new schedule creation when is_new is True
 														data-html="true"
 														data-trigger="focus"
 														title="{{ _('Build Details') }}"
-														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description', '') | replace('\n', '<br>') }}</pre>">
+														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | replace('\"', '&quot;') | replace('\n', '<br>') }}</pre>">
 													<i class="fa fa-info-circle"></i>
 												</button>
 											</div>
 											{% endif %}
+											<!-- Fixture attributes as badges -->
 											<div class="small text-muted mt-1">
-												{% if cf_details.get('estimated_delivered_output') %}
-												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ cf_details.get('estimated_delivered_output') }} lm/ft est.</span>
+												{% if cf_details.get('environment_rating') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cf_details.get('environment_rating') }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('cct') %}
-												<span class="mr-2"><i class="fa fa-thermometer-half"></i> {{ cf_details.get('cct') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cf_details.get('cct') }}</strong></span>
 												{% endif %}
-												{% if cf_details.get('led_package') %}
-												<span class="mr-2"><i class="fa fa-microchip"></i> {{ cf_details.get('led_package') }}</span>
+												{% if cf_details.get('cri') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CRI: <strong>{{ cf_details.get('cri') }}</strong></span>
 												{% endif %}
-											</div>
-											<div class="small text-muted">
-												{% if cf_details.get('power_supply') %}
-												<span class="mr-2"><i class="fa fa-plug"></i> {{ cf_details.get('power_supply') }}</span>
+												{% if cf_details.get('estimated_delivered_output') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cf_details.get('estimated_delivered_output') }} lm/ft</strong></span>
 												{% endif %}
-												{% if cf_details.get('driver_input_voltage') %}
-												<span class="mr-2"><i class="fa fa-bolt"></i> {{ cf_details.get('driver_input_voltage') }}</span>
+												{% if cf_details.get('lens_appearance') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ cf_details.get('lens_appearance') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('mounting_method') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cf_details.get('mounting_method') }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('finish') %}
-												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ cf_details.get('finish') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cf_details.get('finish') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('manufacturable_length_inches') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) }} segments){% endif %}</strong></span>
+												{% endif %}
+												{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') }}</strong></span>
+												{% elif cf_details.get('power_feed_type') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ cf_details.get('power_feed_type') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('fixture_input_voltage') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') }}</strong></span>
+												{% endif %}
+												{% if cf_details.get('total_watts') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cf_details.get('total_watts') }}W</strong></span>
 												{% endif %}
 											</div>
-											{% if line.get('manufacturable_length_mm') %}
-											<div class="small text-muted">
-												<i class="fa fa-arrows-h"></i> {{ line.get('manufacturable_length_mm') }}mm
-												{% if cf_details.get('is_multi_segment') %}
-													<span class="text-info">({{ cf_details.get('user_segment_count', 0) }} segments)</span>
-												{% endif %}
+											<!-- Driver sub-line -->
+											{% if cf_details.get('power_supply') %}
+											<div class="driver-sub-line">
+												<div class="small text-muted">
+													<i class="fa fa-bolt"></i> Driver: <strong>{{ cf_details.get('power_supply') }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') }} units){% endif %}</strong>
+													{% if cf_details.get('driver_input_voltage') %}
+													<span class="ml-2">Input: <strong>{{ cf_details.get('driver_input_voltage') }}</strong></span>
+													{% endif %}
+												</div>
+											</div>
+											{% endif %}
+											<!-- Show message if no details available -->
+											{% if not cf_details.get('cct') and not cf_details.get('cri') and not cf_details.get('finish') and not cf_details.get('manufacturable_length_inches') %}
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> Details pending - reconfigure to complete
 											</div>
 											{% endif %}
 										</div>
+										<!-- Stock indicator for ILLUMENATE fixture -->
+										{% if line.get('stock_availability') %}
+										{% set sa = line.get('stock_availability') %}
+										<div class="small mt-1">
+											{% if sa.get('all_in_stock') %}
+											<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+											{% else %}
+											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
+											{% set total_count = sa.get('items', []) | length %}
+											{% if in_count > 0 %}
+											<details class="stock-breakdown">
+												<summary>
+													<span class="text-warning">
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
+														<i class="fa fa-caret-right stock-toggle-arrow"></i>
+													</span>
+												</summary>
+												<div class="stock-breakdown-list">
+													{% for it in sa.get('items', []) %}
+													<div class="stock-item-row">
+														{% if it.is_sufficient %}
+														<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+														{% else %}
+														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														{% endif %}
+														<span class="stock-item-type">{{ it.component_type or '' }}</span>
+														<span class="stock-item-code">{{ it.item_code }}</span>
+														{% if it.qty_available is defined %}
+														<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+														{% endif %}
+													</div>
+													{% endfor %}
+												</div>
+											</details>
+											{% else %}
+											<details class="stock-breakdown">
+												<summary>
+													<span class="text-danger">
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
+														<i class="fa fa-caret-right stock-toggle-arrow"></i>
+													</span>
+												</summary>
+												<div class="stock-breakdown-list">
+													{% for it in sa.get('items', []) %}
+													<div class="stock-item-row">
+														{% if it.is_sufficient %}
+														<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+														{% else %}
+														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														{% endif %}
+														<span class="stock-item-type">{{ it.component_type or '' }}</span>
+														<span class="stock-item-code">{{ it.item_code }}</span>
+														{% if it.qty_available is defined %}
+														<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+														{% endif %}
+													</div>
+													{% endfor %}
+												</div>
+											</details>
+											{% endif %}
+											{% endif %}
+										</div>
+										{% endif %}
 										{% elif line.get('manufacturer_type') == 'OTHER' %}
 										<div class="fixture-details">
 											{% if line.get('manufacturer_name') %}
 											<strong>{{ line.get('manufacturer_name') }}</strong>
 											{% endif %}
 											{% if line.get('fixture_model_number') %}
-											<span class="text-muted"> - {{ line.get('fixture_model_number') }}</span>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_model_number') }}</strong>
+											</div>
 											{% endif %}
 											<div class="small text-muted mt-1">
 												{% if line.get('trim_info') %}
-												<span class="mr-2"><i class="fa fa-th"></i> {{ line.get('trim_info') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Trim: <strong>{{ line.get('trim_info') }}</strong></span>
 												{% endif %}
 												{% if line.get('housing_model_number') %}
-												<span class="mr-2"><i class="fa fa-cube"></i> {{ line.get('housing_model_number') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Housing: <strong>{{ line.get('housing_model_number') }}</strong></span>
 												{% endif %}
-											</div>
-											<div class="small text-muted">
 												{% if line.get('driver_model_number') %}
-												<span class="mr-2"><i class="fa fa-plug"></i> {{ line.get('driver_model_number') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ line.get('driver_model_number') }}</strong></span>
 												{% endif %}
 												{% if line.get('lamp_info') %}
-												<span class="mr-2"><i class="fa fa-lightbulb-o"></i> {{ line.get('lamp_info') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lamp: <strong>{{ line.get('lamp_info') }}</strong></span>
 												{% endif %}
-											</div>
-											<div class="small text-muted">
 												{% if line.get('dimming_protocol') %}
-												<span class="mr-2"><i class="fa fa-sliders"></i> {{ line.get('dimming_protocol') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Dimming: <strong>{{ line.get('dimming_protocol') }}</strong></span>
 												{% endif %}
 												{% if line.get('input_voltage') %}
-												<span class="mr-2"><i class="fa fa-bolt"></i> {{ line.get('input_voltage') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Voltage: <strong>{{ line.get('input_voltage') }}</strong></span>
 												{% endif %}
 												{% if line.get('other_finish') %}
-												<span class="mr-2"><i class="fa fa-paint-brush"></i> {{ line.get('other_finish') }}</span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ line.get('other_finish') }}</strong></span>
 												{% endif %}
 											</div>
 											{% if line.get('spec_sheet') %}
@@ -322,21 +899,144 @@ Also handles new schedule creation when is_new is True
 											</div>
 											{% endif %}
 										</div>
+										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_tape_neon') %}
+										{% set ctn_details = line.get('ctn_details', {}) %}
+										<div class="fixture-details">
+											<!-- Part Number -->
+											<strong class="text-primary">
+												{{ ctn_details.get('part_number') or 'Configured' }}
+											</strong>
+											<!-- Product Category badge -->
+											<span class="badge badge-info ml-1">{{ ctn_details.get('product_category') or line.get('product_type') or 'Tape/Neon' }}</span>
+											<!-- Template reference -->
+											{% if line.get('tape_neon_template_name') or line.get('tape_neon_template') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
+											</div>
+											{% endif %}
+											<!-- Tape/Neon attributes as badges -->
+											<div class="small text-muted mt-1">
+												{% if ctn_details.get('environment_rating') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ ctn_details.get('environment_rating') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('cct') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ ctn_details.get('cct') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('output_level') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ ctn_details.get('output_level') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('mounting_method') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ ctn_details.get('mounting_method') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ ctn_details.get('finish') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('pcb_mounting') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">PCB: <strong>{{ ctn_details.get('pcb_mounting') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('feed_type') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ ctn_details.get('feed_type') }}</strong></span>
+												{% endif %}
+												{% if ctn_details.get('manufacturable_length_inches') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ ctn_details.get('manufacturable_length_inches') }}"</strong></span>
+												{% endif %}
+												{% if ctn_details.get('total_watts') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ ctn_details.get('total_watts') }}W</strong></span>
+												{% endif %}
+											</div>
+										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
-										<span class="text-muted">{{ _("Not configured") }}</span>
+										<div class="fixture-details">
+											{% if line.get('tape_neon_template') %}
+											<!-- Unconfigured Tape/Neon line -->
+											<strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
+											<span class="badge badge-info ml-1">{{ line.get('product_type') or 'Tape/Neon' }}</span>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template_code') or line.get('tape_neon_template') }}</strong>
+											</div>
+											{% if line.get('tape_neon_template_description') %}
+											<div class="small text-muted mt-1">
+												{{ line.get('tape_neon_template_description') }}
+											</div>
+											{% endif %}
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not fully configured - click Configure to complete setup") }}
+											</div>
+											{% elif line.get('fixture_template_name') or line.get('fixture_template') %}
+											<!-- Unconfigured Linear Fixture line -->
+											<strong>{{ line.get('fixture_template_name') or line.get('fixture_template') }}</strong>
+											{% if line.get('fixture_template') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_template') }}</strong>
+											</div>
+											{% endif %}
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+											</div>
+											{% elif line.get('product_type') %}
+											<!-- Product type set but no template selected -->
+											<span class="text-muted">{{ line.get('product_type') }}</span>
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+											</div>
+											{% else %}
+											<span class="text-muted">-</span>
+											{% endif %}
+										</div>
 										{% else %}
 										<span class="text-muted">-</span>
 										{% endif %}
 									</td>
+									{% if can_view_pricing %}
+									<td class="text-right col-pricing" data-label="{{ _('Unit Price') }}">
+										{% if line.get('unit_price') %}
+										<div>${{ "%.2f" | format(line.get('unit_price')) }}</div>
+										{% if line.get('driver_unit_price') %}
+										<div class="pricing-sub-line text-muted">${{ "%.2f" | format(line.get('driver_unit_price')) }}</div>
+										{% endif %}
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									<td class="text-right col-pricing" data-label="{{ _('Line Total') }}">
+										{% if line.get('line_total') %}
+										<div>${{ "%.2f" | format(line.get('line_total')) }}</div>
+										{% if line.get('driver_line_total') %}
+										<div class="pricing-sub-line text-muted">${{ "%.2f" | format(line.get('driver_line_total')) }}</div>
+										{% endif %}
+										{% else %}
+										<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									{% endif %}
 									{% if can_edit %}
-									<td class="text-center">
+									<td class="text-center col-actions">
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
-											<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
-												<i class="fa fa-cog"></i> {{ _('Configure') }}
-											</a>
+												{% if line.get('configured_fixture') %}
+												<!-- Edit existing linear fixture configuration -->
+												<a href="/portal/edit_fixture?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&fixture={{ line.get('configured_fixture') }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+												</a>
+												{% elif line.get('configured_tape_neon') %}
+												<!-- Configured tape/neon - edit link -->
+												<a href="/portal/configure?category={{ line.get('product_type') or 'LED Tape' }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+												</a>
+												{% elif line.get('tape_neon_template') %}
+												<!-- Unconfigured tape/neon - configure link -->
+												{% set tn_category = line.get('product_type') or 'LED Tape' %}
+												<a href="/portal/configure?category={{ tn_category }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+													<i class="fa fa-cog"></i> {{ _('Configure') }}
+												</a>
+												{% else %}
+												<!-- Unconfigured linear fixture or no template - configure link -->
+												<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+													<i class="fa fa-cog"></i> {{ _('Configure') }}
+												</a>
+												{% endif %}
 											{% endif %}
-											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit') }}">
+											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit Line Details') }}">
 												<i class="fa fa-pencil"></i> {{ _('Edit') }}
 											</button>
 												<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
@@ -351,6 +1051,19 @@ Also handles new schedule creation when is_new is True
 								</tr>
 								{% endfor %}
 							</tbody>
+							{% if can_view_pricing and schedule_total %}
+							<tfoot>
+								<tr class="font-weight-bold">
+									<td colspan="4" class="text-right">{{ _("Schedule Total:") }}</td>
+									<td></td>
+									<td></td>
+									<td class="text-right">${{ "%.2f" | format(schedule_total) }}</td>
+									{% if can_edit %}
+									<td></td>
+									{% endif %}
+								</tr>
+							</tfoot>
+							{% endif %}
 						</table>
 					</div>
 					{% else %}
@@ -389,9 +1102,9 @@ Also handles new schedule creation when is_new is True
 	<div class="row mt-4">
 		<div class="col-12">
 			<div class="card">
-				<div class="card-header d-flex justify-content-between align-items-center">
+				<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 					<h5 class="mb-0">{{ _("Exports") }}</h5>
-					<div class="btn-group">
+					<div class="export-buttons">
 						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', false)">
 							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (No Pricing)") }}
 						</button>
@@ -408,6 +1121,12 @@ Also handles new schedule creation when is_new is True
 							<i class="fa fa-file-excel-o"></i> {{ _("CSV (With Pricing)") }}
 						</button>
 						{% endif %}
+						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL')">
+							<i class="fa fa-book"></i> {{ _("Spec Submittal") }}
+						</button>
+						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL_FULL')">
+							<i class="fa fa-files-o"></i> {{ _("Spec Submittal (Full)") }}
+						</button>
 					</div>
 				</div>
 				<div class="card-body p-0">
@@ -416,6 +1135,25 @@ Also handles new schedule creation when is_new is True
 							<i class="fa fa-spinner fa-spin"></i> {{ _("Loading export history...") }}
 						</div>
 					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Version History Section -->
+<div class="row mt-4 mb-4">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h6 class="mb-0"><i class="fa fa-history"></i> {{ _("Version History") }}</h6>
+				<button class="btn btn-sm btn-link text-muted disabled" title="{{ _('Compare with previous version — coming soon') }}">
+					<i class="fa fa-columns"></i> {{ _("Compare Versions") }}
+				</button>
+			</div>
+			<div class="card-body" id="versionHistory">
+				<div class="text-center py-3">
+					<i class="fa fa-spinner fa-spin"></i> {{ _("Loading version history...") }}
 				</div>
 			</div>
 		</div>
@@ -437,7 +1175,7 @@ Also handles new schedule creation when is_new is True
 					<div class="row">
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Line ID") }}</label>
+								<label>{{ _("Fixture Type") }}</label>
 								<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
 							</div>
 						</div>
@@ -451,7 +1189,7 @@ Also handles new schedule creation when is_new is True
 							<div class="form-group">
 								<label>{{ _("Manufacturer Type") }}</label>
 								<select class="form-control" name="manufacturer_type">
-									<option value="ILLUMENATE">ilLumenate</option>
+									<option value="ILLUMENATE">ilLumenate Lighting</option>
 									<option value="OTHER">Other Manufacturer</option>
 								</select>
 							</div>
@@ -462,16 +1200,130 @@ Also handles new schedule creation when is_new is True
 						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
 					</div>
 
-					<!-- ilLumenate Configure Button -->
+					<!-- ilLumenate Lighting Section (Combined Fixtures + Components) -->
 					<div class="illumenate-fields" style="display: block;">
 						<hr>
-						<div class="alert alert-info">
-							<i class="fa fa-info-circle"></i> 
-							{{ _("For ilLumenate fixtures, you can configure the fixture after adding this line, or click the button below to configure now.") }}
+						<h6 class="text-muted mb-3">{{ _("ilLumenate Product Selection") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Product Category") }}</label>
+									<select class="form-control" name="product_type" id="add_product_type">
+										<option value="">{{ _("Select Product Category...") }}</option>
+									</select>
+								</div>
+							</div>
+							<div class="col-md-6">
+								<!-- Fixture Template dropdown (shown when Linear Fixture selected) -->
+								<div class="form-group fixture-template-group" style="display: none;">
+									<label>{{ _("Fixture Template") }}</label>
+									<select class="form-control" name="fixture_template" id="add_fixture_template">
+										<option value="">{{ _("Select Fixture Template...") }}</option>
+									</select>
+								</div>
+								<!-- Tape/Neon Template dropdown (shown when LED Tape or LED Neon selected) -->
+								<div class="form-group tape-neon-template-group" style="display: none;">
+									<label>{{ _("Product Series") }}</label>
+									<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
+										<option value="">{{ _("Select Product Series...") }}</option>
+									</select>
+								</div>
+								<!-- Item dropdown (shown when non-Linear Fixture category selected) -->
+								<div class="form-group item-selection-group" style="display: none;">
+									<label>{{ _("Item") }}</label>
+									<select class="form-control" name="selected_item" id="add_selected_item">
+										<option value="">{{ _("Select Item...") }}</option>
+									</select>
+								</div>
+							</div>
 						</div>
-						<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
-							<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
-						</button>
+
+						<!-- Product image gallery (shared for fixture templates and items) -->
+						<div class="add-line-gallery-wrapper" id="add_product_gallery_container" style="display: none;">
+							<div class="add-line-gallery-viewport" id="addLineGalleryViewport">
+								<button type="button" class="gallery-nav prev" id="addLineGalleryPrev" title="Previous image">&lsaquo;</button>
+								<img id="addLineGalleryImage" src="" alt="{{ _('Product Preview') }}">
+								<button type="button" class="gallery-nav next" id="addLineGalleryNext" title="Next image">&rsaquo;</button>
+								<span class="add-line-gallery-counter" id="addLineGalleryCounter"></span>
+							</div>
+							<div class="add-line-gallery-zoom-bar">
+								<label for="addLineZoomSlider">{{ _('Zoom') }}</label>
+								<input type="range" id="addLineZoomSlider" min="100" max="400" value="100" step="10">
+								<span class="zoom-value" id="addLineZoomValue">100%</span>
+								<button type="button" class="zoom-reset-btn" id="addLineZoomReset" title="Reset zoom">{{ _('Reset') }}</button>
+							</div>
+						</div>
+
+						<!-- Item details display -->
+						<div class="selected-item-details" style="display: none;">
+							<div class="alert alert-light">
+								<div class="row">
+									<div class="col-md-8">
+										<strong id="add_selected_item_name"></strong>
+										<p class="mb-0 text-muted small" id="add_selected_item_desc"></p>
+									</div>
+									<div class="col-md-4 text-right">
+										<span class="badge badge-info" id="add_selected_item_uom"></span>
+										<span class="badge badge-warning" id="add_selected_item_has_variants" style="display: none;">Has Options</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Tape/Neon template info display (shown when a tape/neon template is selected) -->
+						<div class="tape-neon-template-info" style="display: none;">
+							<div class="alert alert-light">
+								<div class="row">
+									<div class="col-md-8">
+										<strong id="tape_neon_info_name"></strong>
+										<span class="badge badge-info ml-1" id="tape_neon_info_category"></span>
+										<p class="mb-0 text-muted small mt-1" id="tape_neon_info_desc"></p>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Fixture configure section (shown for Linear Fixtures, LED Tape, LED Neon) -->
+						<div class="fixture-configure-section" style="display: none;">
+							<div class="alert alert-info" id="addLineConfigureInfo">
+								<i class="fa fa-info-circle"></i> 
+								{{ _("You can add this to the schedule unconfigured and configure it later, or click the button below to configure now.") }}
+							</div>
+							<div class="alert alert-warning" id="addLineUnconfiguredWarning" style="display: none;">
+								<i class="fa fa-exclamation-triangle"></i> 
+								{{ _("This line will be added without full configuration. You can configure it from the schedule page later.") }}
+							</div>
+							<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
+							</button>
+						</div>
+
+						<!-- Item with variants configure section -->
+						<div class="item-configure-section" style="display: none;">
+							<div class="alert alert-info">
+								<i class="fa fa-cog"></i> 
+								{{ _("This item has configurable options. Click Configure to select the specific variant.") }}
+							</div>
+							<button type="button" class="btn btn-success btn-block" id="configureItemBtn" onclick="openItemVariantModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure Options") }}
+							</button>
+							<!-- Hidden field to store selected variant -->
+							<input type="hidden" name="selected_variant" id="add_selected_variant">
+							<div class="selected-variant-display" style="display: none; margin-top: 10px;">
+								<div class="alert alert-success">
+									<i class="fa fa-check-circle"></i> 
+									<strong>{{ _("Selected:") }}</strong> <span id="selected_variant_name"></span>
+								</div>
+							</div>
+						</div>
+
+						<!-- No configure needed (direct item add) -->
+						<div class="item-direct-section" style="display: none;">
+							<div class="alert alert-success">
+								<i class="fa fa-check-circle"></i> 
+								{{ _("This item will be added directly to your schedule.") }}
+							</div>
+						</div>
 					</div>
 
 					<!-- Other Manufacturer Fields -->
@@ -583,7 +1435,7 @@ Also handles new schedule creation when is_new is True
 					<div class="row">
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Line ID") }}</label>
+								<label>{{ _("Fixture Type") }}</label>
 								<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
 							</div>
 						</div>
@@ -683,6 +1535,29 @@ Also handles new schedule creation when is_new is True
 						</div>
 					</div>
 
+					<!-- ilLumenate Item Fields (read-only display in edit mode) -->
+					<div class="edit-accessory-fields" style="display: none;">
+						<hr>
+						<h6 class="text-muted mb-3">{{ _("ilLumenate Product") }}</h6>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Product Category") }}</label>
+									<input type="text" class="form-control" id="edit_accessory_product_type" readonly>
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label>{{ _("Item") }}</label>
+									<input type="text" class="form-control" id="edit_accessory_item" readonly>
+								</div>
+							</div>
+						</div>
+						<div class="alert alert-info">
+							<i class="fa fa-info-circle"></i> {{ _("To change the item, delete this line and add a new one.") }}
+						</div>
+					</div>
+
 					<div class="form-group">
 						<label>{{ _("Notes") }}</label>
 						<textarea class="form-control" name="edit_notes" id="edit_notes" rows="2"></textarea>
@@ -698,6 +1573,80 @@ Also handles new schedule creation when is_new is True
 		</div>
 	</div>
 </div>
+
+<!-- Item Variant Configuration Modal -->
+<div class="modal fade" id="itemVariantModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Configure Item Options") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="variant-config-loading text-center" style="display: none;">
+					<i class="fa fa-spinner fa-spin fa-2x"></i>
+					<p class="mt-2">{{ _("Loading options...") }}</p>
+				</div>
+				<div class="variant-config-content">
+					<div class="alert alert-info">
+						<strong id="variant_template_name"></strong>
+						<p class="mb-0 small text-muted" id="variant_template_desc">{{ _("Select your preferred options below:") }}</p>
+					</div>
+					<div id="variant_attributes_container">
+						<!-- Attribute dropdowns will be dynamically inserted here -->
+					</div>
+					<div class="variant-match-status" style="display: none; margin-top: 15px;">
+						<div class="alert alert-success variant-found" style="display: none;">
+							<i class="fa fa-check-circle"></i> 
+							<strong>{{ _("Matched:") }}</strong> <span id="matched_variant_name"></span>
+						</div>
+						<div class="alert alert-warning variant-not-found" style="display: none;">
+							<i class="fa fa-exclamation-triangle"></i> 
+							{{ _("No matching variant found for the selected options. Please try a different combination.") }}
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="confirmVariantBtn" onclick="confirmVariantSelection()" disabled>
+					<i class="fa fa-check"></i> {{ _("Confirm Selection") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Create New Version Modal -->
+{% if can_edit and not schedule.is_locked %}
+<div class="modal fade" id="createVersionModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Create New Version") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="form-group">
+					<label>{{ _("Version Notes (Optional)") }}</label>
+					<textarea class="form-control" id="versionNotes" rows="3" placeholder="{{ _('Describe what changed or why a new version is being created.') }}"></textarea>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="confirmCreateVersionBtn" onclick="confirmCreateVersion()">
+					<i class="fa fa-code-fork"></i> {{ _("Create") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
 {% endif %}
 {% endblock %}
 
@@ -758,20 +1707,634 @@ var schedule_name = "{{ schedule.name }}";
 // Initialize Bootstrap popovers for build description
 $('[data-toggle="popover"]').popover();
 
-// Toggle other manufacturer fields and ilLumenate fields
+// Reset add line modal when opened
+$('#addLineModal').on('show.bs.modal', function() {
+	// Reset the form
+	$('#addLineForm')[0].reset();
+	// Reset to default ilLumenate view
+	$('select[name="manufacturer_type"]').val('ILLUMENATE');
+	$('.illumenate-fields').show();
+	$('.other-fields').hide();
+	// Reset product type and related fields
+	$('#add_product_type').val('');
+	$('.fixture-template-group').hide();
+	$('.tape-neon-template-group').hide();
+	$('.tape-neon-template-info').hide();
+	$('.item-selection-group').hide();
+	$('.selected-item-details').hide();
+	$('.fixture-configure-section').hide();
+	$('#addLineUnconfiguredWarning').hide();
+	$('.item-configure-section').hide();
+	$('.item-direct-section').hide();
+	$('.selected-variant-display').hide();
+	$('#add_product_gallery_container').hide();
+	resetAddLineGallery();
+	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
+	$('#add_tape_neon_template').html('<option value="">{{ _("Select Product Series...") }}</option>');
+	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
+	// Reset configure button text to default
+	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
+	$('#add_selected_variant').val('');
+	// Load product categories
+	loadProductCategories();
+});
+
+// Toggle manufacturer type fields
 $('select[name="manufacturer_type"]').on('change', function() {
-	if ($(this).val() === 'OTHER') {
-		$('.other-fields').show();
-		$('.illumenate-fields').hide();
-	} else {
-		$('.other-fields').hide();
+	var mfgType = $(this).val();
+	$('.illumenate-fields').hide();
+	$('.other-fields').hide();
+	
+	if (mfgType === 'ILLUMENATE') {
 		$('.illumenate-fields').show();
+	} else if (mfgType === 'OTHER') {
+		$('.other-fields').show();
 	}
 });
 
 // Initialize the visibility on page load (default is ILLUMENATE)
 $('.illumenate-fields').show();
 $('.other-fields').hide();
+
+// Handle product type selection to show appropriate fields
+$('#add_product_type').on('change', function() {
+	var productType = $(this).val();
+	var $selected = $(this).find('option:selected');
+	var rawIsFixtureType = $selected.data('is-fixture-type');
+	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
+	var rawIsTapeNeonType = $selected.data('is-tape-neon-type');
+	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
+	
+	// Hide all conditional sections first
+	$('.fixture-template-group').hide();
+	$('.tape-neon-template-group').hide();
+	$('.tape-neon-template-info').hide();
+	$('.item-selection-group').hide();
+	$('.selected-item-details').hide();
+	$('.fixture-configure-section').hide();
+	$('#addLineUnconfiguredWarning').hide();
+	$('.item-configure-section').hide();
+	$('.item-direct-section').hide();
+	$('.selected-variant-display').hide();
+	$('#add_selected_variant').val('');
+	$('#add_product_gallery_container').hide();
+	resetAddLineGallery();
+	// Reset configure button text to default
+	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
+	
+	if (!productType) {
+		return;
+	}
+	
+	// Check if this is a fixture type (e.g., "Linear Fixture") - show fixture template dropdown
+	if (isFixtureType) {
+		$('.fixture-template-group').show();
+		$('.fixture-configure-section').show();
+		loadFixtureTemplates(productType);
+	} else if (isTapeNeonType) {
+		// LED Tape / LED Neon — show tape/neon template dropdown + configure section
+		$('.tape-neon-template-group').show();
+		$('.fixture-configure-section').show();
+		loadTapeNeonTemplates(productType);
+		// Update configure button text for tape/neon
+		var categoryLabel = ($selected.text() || '').trim();
+		if (categoryLabel.toLowerCase().indexOf('neon') !== -1) {
+			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Neon Now") }}');
+		} else {
+			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Tape Now") }}');
+		}
+	} else {
+		// For all other product types, show item selection dropdown
+		$('.item-selection-group').show();
+		loadItemsForProductType(productType);
+	}
+});
+
+// Load fixture templates from the server
+function loadFixtureTemplates(productType) {
+	$('#add_fixture_template').html('<option value="">{{ _("Loading...") }}</option>');
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_fixture_templates',
+		args: {
+			product_type: productType
+		},
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select Fixture Template...") }}</option>';
+			if (r.message && r.message.templates) {
+				r.message.templates.forEach(function(template) {
+					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
+					options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\'>' + template.template_name + ' (' + template.template_code + ')</option>';
+				});
+			}
+			$('#add_fixture_template').html(options);
+		},
+		error: function() {
+			$('#add_fixture_template').html('<option value="">{{ _("Error loading templates") }}</option>');
+		}
+	});
+}
+
+// Load tape/neon templates from the server
+function loadTapeNeonTemplates(productType) {
+	// Determine the product category from the product type name
+	var productCategory = 'LED Tape';
+	var label = ($('#add_product_type option:selected').text() || '').trim().toLowerCase();
+	if (label.indexOf('neon') !== -1) {
+		productCategory = 'LED Neon';
+	}
+
+	$('#add_tape_neon_template').html('<option value="">{{ _("Loading...") }}</option>');
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_tape_neon_templates_for_schedule',
+		args: {
+			product_category: productCategory
+		},
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select Product Series...") }}</option>';
+			if (r.message && r.message.templates) {
+				r.message.templates.forEach(function(template) {
+					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
+					var safeDesc = (template.description || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+					options += '<option value="' + template.name + '" data-template-code="' + (template.template_code || '') + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\' data-category="' + productCategory + '" data-description="' + safeDesc + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+				});
+			}
+			$('#add_tape_neon_template').html(options);
+		},
+		error: function() {
+			$('#add_tape_neon_template').html('<option value="">{{ _("Error loading series") }}</option>');
+		}
+	});
+}
+
+// Handle tape/neon template selection to show product image gallery and template info
+$('#add_tape_neon_template').on('change', function() {
+	var $selected = $(this).find('option:selected');
+	var gallery = $selected.data('gallery') || [];
+	var templateName = $selected.text().trim();
+	var category = $selected.data('category') || '';
+	var description = $selected.data('description') || '';
+	initAddLineGallery(gallery);
+
+	// Show/hide tape-neon template info section
+	if ($(this).val()) {
+		$('.tape-neon-template-info').show();
+		$('#tape_neon_info_name').text(templateName);
+		$('#tape_neon_info_category').text(category || 'LED Tape');
+		if (description) {
+			$('#tape_neon_info_desc').text(description).show();
+		} else {
+			$('#tape_neon_info_desc').hide();
+		}
+		// Update configure button text based on category
+		var configLabel = category === 'LED Neon' ? '{{ _("Configure LED Neon Now") }}' : '{{ _("Configure LED Tape Now") }}';
+		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configLabel);
+	} else {
+		$('.tape-neon-template-info').hide();
+	}
+});
+
+// ─── Add Line Gallery + Zoom/Pan ───
+var _addLineGallery = { images: [], index: 0, zoom: 1, panX: 0, panY: 0, dragging: false, startX: 0, startY: 0 };
+
+function initAddLineGallery(images) {
+	_addLineGallery.images = (images && images.length) ? images : [];
+	_addLineGallery.index = 0;
+	resetAddLineZoomPan();
+	if (_addLineGallery.images.length) {
+		showAddLineGalleryImage();
+		$('#add_product_gallery_container').show();
+		updateAddLineGalleryNav();
+	} else {
+		$('#add_product_gallery_container').hide();
+	}
+}
+
+function resetAddLineGallery() {
+	_addLineGallery.images = [];
+	_addLineGallery.index = 0;
+	resetAddLineZoomPan();
+}
+
+function showAddLineGalleryImage() {
+	var item = _addLineGallery.images[_addLineGallery.index];
+	if (!item) return;
+	$('#addLineGalleryImage').attr('src', item.image).attr('alt', item.alt_text || 'Product image');
+	applyAddLineTransform();
+	$('#addLineGalleryCounter').text((_addLineGallery.index + 1) + ' / ' + _addLineGallery.images.length);
+	$('#addLineGalleryCounter').toggle(_addLineGallery.images.length > 1);
+}
+
+function updateAddLineGalleryNav() {
+	var multi = _addLineGallery.images.length > 1;
+	$('#addLineGalleryPrev').toggle(multi).toggleClass('disabled', _addLineGallery.index === 0);
+	$('#addLineGalleryNext').toggle(multi).toggleClass('disabled', _addLineGallery.index >= _addLineGallery.images.length - 1);
+}
+
+function applyAddLineTransform() {
+	var z = _addLineGallery.zoom;
+	var tx = _addLineGallery.panX;
+	var ty = _addLineGallery.panY;
+	$('#addLineGalleryImage').css('transform', 'scale(' + z + ') translate(' + tx + 'px, ' + ty + 'px)');
+}
+
+function resetAddLineZoomPan() {
+	_addLineGallery.zoom = 1;
+	_addLineGallery.panX = 0;
+	_addLineGallery.panY = 0;
+	$('#addLineZoomSlider').val(100);
+	$('#addLineZoomValue').text('100%');
+	applyAddLineTransform();
+}
+
+// Arrow click handlers
+$(document).on('click', '#addLineGalleryPrev', function() {
+	if (_addLineGallery.index > 0) {
+		_addLineGallery.index--;
+		resetAddLineZoomPan();
+		showAddLineGalleryImage();
+		updateAddLineGalleryNav();
+	}
+});
+$(document).on('click', '#addLineGalleryNext', function() {
+	if (_addLineGallery.index < _addLineGallery.images.length - 1) {
+		_addLineGallery.index++;
+		resetAddLineZoomPan();
+		showAddLineGalleryImage();
+		updateAddLineGalleryNav();
+	}
+});
+
+// Zoom slider
+$(document).on('input', '#addLineZoomSlider', function() {
+	var val = parseInt($(this).val(), 10);
+	_addLineGallery.zoom = val / 100;
+	if (_addLineGallery.zoom <= 1) { _addLineGallery.panX = 0; _addLineGallery.panY = 0; }
+	$('#addLineZoomValue').text(val + '%');
+	applyAddLineTransform();
+});
+$(document).on('click', '#addLineZoomReset', function() {
+	resetAddLineZoomPan();
+});
+
+// Pan (mouse / touch drag)
+(function() {
+	var vp = document.getElementById('addLineGalleryViewport');
+	if (!vp) return;
+
+	function onPointerDown(e) {
+		if (_addLineGallery.zoom <= 1) return;
+		_addLineGallery.dragging = true;
+		_addLineGallery.startX = (e.touches ? e.touches[0].clientX : e.clientX) - _addLineGallery.panX;
+		_addLineGallery.startY = (e.touches ? e.touches[0].clientY : e.clientY) - _addLineGallery.panY;
+		$(vp).addClass('is-dragging');
+		e.preventDefault();
+	}
+	function onPointerMove(e) {
+		if (!_addLineGallery.dragging) return;
+		var cx = e.touches ? e.touches[0].clientX : e.clientX;
+		var cy = e.touches ? e.touches[0].clientY : e.clientY;
+		_addLineGallery.panX = cx - _addLineGallery.startX;
+		_addLineGallery.panY = cy - _addLineGallery.startY;
+		applyAddLineTransform();
+		e.preventDefault();
+	}
+	function onPointerUp() {
+		_addLineGallery.dragging = false;
+		$(vp).removeClass('is-dragging');
+	}
+
+	vp.addEventListener('mousedown', onPointerDown);
+	vp.addEventListener('touchstart', onPointerDown, { passive: false });
+	document.addEventListener('mousemove', onPointerMove);
+	document.addEventListener('touchmove', onPointerMove, { passive: false });
+	document.addEventListener('mouseup', onPointerUp);
+	document.addEventListener('touchend', onPointerUp);
+})();
+
+// Handle fixture template selection to show product image gallery
+$('#add_fixture_template').on('change', function() {
+	var $selected = $(this).find('option:selected');
+	var gallery = $selected.data('gallery') || [];
+	initAddLineGallery(gallery);
+});
+
+// Load product categories (Item Groups under Products and Raw Materials)
+function loadProductCategories() {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_product_types',
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select Product Category...") }}</option>';
+			if (r.message && r.message.success && r.message.product_types) {
+				var currentHeader = null;
+				r.message.product_types.forEach(function(pt) {
+					if (pt.is_header) {
+						// Render as a disabled optgroup-style header
+						options += '<option value="" disabled style="font-weight:bold; background:#f0f0f0; color:#333;">── ' + pt.label + ' ──</option>';
+						currentHeader = pt.label;
+						return;
+					}
+					// Add visual indentation based on level
+					var indent = '';
+					if (pt.level === 0) {
+						indent = '  ';
+					} else if (pt.level === 1) {
+						indent = '    └─ ';
+					} else if (pt.level === 2) {
+						indent = '        └─ ';
+					}
+					// Store is_fixture_type and is_tape_neon_type as data attributes
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+				});
+			}
+			$('#add_product_type').html(options);
+		},
+		error: function(err) {
+			// Silent error - options just won't load
+		}
+	});
+}
+
+// Load items for a product type (excluding variants)
+function loadItemsForProductType(productType) {
+	$('#add_selected_item').html('<option value="">{{ _("Loading...") }}</option>');
+	
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_items_by_product_type',
+		args: {
+			product_type: productType,
+			exclude_variants: 1
+		},
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select Item...") }}</option>';
+			if (r.message && r.message.success && r.message.items) {
+				r.message.items.forEach(function(item) {
+					// Strip HTML tags from description for safe use in data attribute
+					var cleanDesc = (item.description || '').replace(/<[^>]*>/g, '').substring(0, 100);
+					// Escape special characters for HTML attribute
+					var safeDesc = cleanDesc.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+					options += '<option value="' + item.item_code + '" ' +
+						'data-name="' + (item.item_name || '') + '" ' +
+						'data-desc="' + safeDesc + '" ' +
+						'data-uom="' + (item.stock_uom || 'Nos') + '" ' +
+						'data-rate="' + (item.standard_rate || 0) + '" ' +
+						'data-has-variants="' + (item.has_variants ? '1' : '0') + '" ' +
+						'data-image="' + (item.image || '') + '">' + 
+						item.item_name + ' (' + item.item_code + ')' +
+						(item.has_variants ? ' ⚙' : '') +
+						'</option>';
+				});
+			}
+			$('#add_selected_item').html(options);
+		},
+		error: function() {
+			$('#add_selected_item').html('<option value="">{{ _("Error loading items") }}</option>');
+		}
+	});
+}
+
+// Handle item selection
+$('#add_selected_item').on('change', function() {
+	var $selected = $(this).find('option:selected');
+	var itemCode = $(this).val();
+	
+	// Hide all item-related sections first
+	$('.selected-item-details').hide();
+	$('.item-configure-section').hide();
+	$('.item-direct-section').hide();
+	$('.selected-variant-display').hide();
+	$('#add_selected_variant').val('');
+	$('#add_product_gallery_container').hide();
+	resetAddLineGallery();
+	
+	if (!itemCode) {
+		return;
+	}
+	
+	// Show item details
+	$('#add_selected_item_name').text($selected.data('name') || itemCode);
+	$('#add_selected_item_desc').text($selected.data('desc') || '');
+	$('#add_selected_item_uom').text($selected.data('uom') || 'Nos');
+	$('.selected-item-details').show();
+
+	// Show product image gallery if available
+	var imageUrl = $selected.data('image');
+	if (imageUrl) {
+		// Items only have a single image, wrap in gallery format
+		initAddLineGallery([{image: imageUrl, alt_text: ''}]);
+	}
+	
+	// Check if item has variants
+	var hasVariants = $selected.data('has-variants') === '1' || $selected.data('has-variants') === 1;
+	
+	if (hasVariants) {
+		// Show badge and configure button
+		$('#add_selected_item_has_variants').show();
+		$('.item-configure-section').show();
+	} else {
+		// No variants - direct add
+		$('#add_selected_item_has_variants').hide();
+		$('.item-direct-section').show();
+	}
+});
+
+// Store current template item for variant selection
+var currentTemplateItem = null;
+var currentVariantMatch = null;
+
+// Open item variant configuration modal
+function openItemVariantModal() {
+	var itemCode = $('#add_selected_item').val();
+	var $selected = $('#add_selected_item option:selected');
+	
+	if (!itemCode) {
+		frappe.msgprint({
+			title: '{{ _("Selection Required") }}',
+			indicator: 'orange',
+			message: '{{ _("Please select an item first.") }}'
+		});
+		return;
+	}
+	
+	currentTemplateItem = itemCode;
+	currentVariantMatch = null;
+	
+	// Show loading state
+	$('.variant-config-loading').show();
+	$('.variant-config-content').hide();
+	$('#confirmVariantBtn').prop('disabled', true);
+	$('.variant-match-status').hide();
+	
+	// Set template name in modal
+	$('#variant_template_name').text($selected.data('name') || itemCode);
+	
+	// Open modal
+	$('#itemVariantModal').modal('show');
+	
+	// Load variant attributes
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_item_variant_attributes',
+		args: {
+			template_item: itemCode
+		},
+		callback: function(r) {
+			$('.variant-config-loading').hide();
+			$('.variant-config-content').show();
+			
+			if (r.message && r.message.success && r.message.attributes && r.message.attributes.length > 0) {
+				// Build attribute dropdowns
+				var html = '';
+				r.message.attributes.forEach(function(attr, index) {
+					html += '<div class="form-group">';
+					html += '<label>' + attr.attribute + '</label>';
+					html += '<select class="form-control variant-attribute-select" data-attribute="' + attr.attribute + '">';
+					html += '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+					attr.values.forEach(function(val) {
+						if (val.is_numeric) {
+							html += '<option value="' + val.value + '">' + val.value + '</option>';
+						} else {
+							html += '<option value="' + val.value + '">' + val.value + '</option>';
+						}
+					});
+					html += '</select>';
+					html += '</div>';
+				});
+				$('#variant_attributes_container').html(html);
+				
+				// Add change handler to check for matching variants
+				$('.variant-attribute-select').on('change', checkVariantMatch);
+			} else {
+				$('#variant_attributes_container').html('<div class="alert alert-warning">{{ _("No configurable options available for this item.") }}</div>');
+			}
+		},
+		error: function() {
+			$('.variant-config-loading').hide();
+			$('.variant-config-content').show();
+			$('#variant_attributes_container').html('<div class="alert alert-danger">{{ _("Error loading options. Please try again.") }}</div>');
+		}
+	});
+}
+
+// Collect all selected attribute values from variant dropdowns
+function collectSelectedAttributes() {
+	var result = {attributes: {}, allSelected: true};
+	$('.variant-attribute-select').each(function() {
+		var attr = $(this).data('attribute');
+		var val = $(this).val();
+		if (val) {
+			result.attributes[attr] = val;
+		} else {
+			result.allSelected = false;
+		}
+	});
+	return result;
+}
+
+// Try to find a matching variant after all attributes are selected
+function findMatchingVariant(selectedAttributes) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.find_matching_variant',
+		args: {
+			template_item: currentTemplateItem,
+			selected_attributes: selectedAttributes
+		},
+		callback: function(r) {
+			$('.variant-match-status').show();
+			
+			if (r.message && r.message.success && r.message.found) {
+				// Match found
+				$('.variant-found').show();
+				$('.variant-not-found').hide();
+				$('#matched_variant_name').text(r.message.variant.item_name + ' (' + r.message.variant.item_code + ')');
+				$('#confirmVariantBtn').prop('disabled', false);
+				currentVariantMatch = r.message.variant;
+			} else {
+				// No match
+				$('.variant-found').hide();
+				$('.variant-not-found').show();
+				$('#confirmVariantBtn').prop('disabled', true);
+				currentVariantMatch = null;
+			}
+		}
+	});
+}
+
+// Check if selected attributes match a variant and filter remaining dropdowns
+function checkVariantMatch() {
+	var collected = collectSelectedAttributes();
+	var selectedAttributes = collected.attributes;
+	
+	// Filter remaining dropdowns based on current selections
+	if (Object.keys(selectedAttributes).length > 0) {
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_filtered_variant_attributes',
+			args: {
+				template_item: currentTemplateItem,
+				selected_attributes: selectedAttributes
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && r.message.attributes) {
+					r.message.attributes.forEach(function(attr) {
+						var $select = $('.variant-attribute-select[data-attribute="' + attr.attribute + '"]');
+						var currentVal = $select.val();
+						var validValues = attr.values.map(function(v) { return v.value; });
+						
+						// Rebuild options preserving current selection
+						var opts = '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+						attr.values.forEach(function(val) {
+							var selected = (val.value === currentVal) ? ' selected' : '';
+							opts += '<option value="' + val.value + '"' + selected + '>' + val.value + '</option>';
+						});
+						$select.html(opts);
+						
+						// If current value is no longer valid, reset it
+						if (currentVal && validValues.indexOf(currentVal) === -1) {
+							$select.val('');
+						}
+					});
+				}
+				
+				// After filtering, re-check if all are selected and find match
+				var updated = collectSelectedAttributes();
+				if (!updated.allSelected) {
+					$('.variant-match-status').hide();
+					$('#confirmVariantBtn').prop('disabled', true);
+					currentVariantMatch = null;
+					return;
+				}
+				findMatchingVariant(updated.attributes);
+			}
+		});
+	} else {
+		// Nothing selected yet
+		$('.variant-match-status').hide();
+		$('#confirmVariantBtn').prop('disabled', true);
+		currentVariantMatch = null;
+	}
+}
+
+// Confirm variant selection
+function confirmVariantSelection() {
+	if (!currentVariantMatch) {
+		frappe.msgprint({
+			title: '{{ _("No Match") }}',
+			indicator: 'orange',
+			message: '{{ _("Please select options that match an available variant.") }}'
+		});
+		return;
+	}
+	
+	// Store the selected variant
+	$('#add_selected_variant').val(currentVariantMatch.item_code);
+	
+	// Update the display
+	$('#selected_variant_name').text(currentVariantMatch.item_name + ' (' + currentVariantMatch.item_code + ')');
+	$('.selected-variant-display').show();
+	
+	// Close modal
+	$('#itemVariantModal').modal('hide');
+}
 
 // File upload helper function
 function uploadFile(fileInput, callback) {
@@ -811,6 +2374,13 @@ function uploadFile(fileInput, callback) {
 function addLine() {
 	var form = $('#addLineForm');
 	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	var productType = form.find('[name="product_type"]').val();
+	var $productTypeSelected = form.find('[name="product_type"] option:selected');
+	var rawIsFixtureType = $productTypeSelected.data('is-fixture-type');
+	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
+	var rawIsTapeNeonType = $productTypeSelected.data('is-tape-neon-type');
+	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
+	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
 		qty: form.find('[name="qty"]').val(),
@@ -818,6 +2388,82 @@ function addLine() {
 		manufacturer_type: manufacturerType,
 		notes: form.find('[name="notes"]').val()
 	};
+
+	// Handle ilLumenate products
+	if (manufacturerType === 'ILLUMENATE') {
+		data.product_type = productType;
+		
+		// Check if this is a linear fixture type using the data attribute
+		if (isFixtureType) {
+			// Linear Fixture path - uses fixture template and configurator
+			data.fixture_template = form.find('[name="fixture_template"]').val();
+			data.configuration_status = 'Pending';
+		} else if (isTapeNeonType) {
+			// LED Tape / LED Neon path - uses tape/neon template and configurator
+			var tapeNeonTemplate = form.find('[name="tape_neon_template"]').val();
+			if (!tapeNeonTemplate) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select a Product Series before adding the line.") }}'
+				});
+				return;
+			}
+			data.tape_neon_template = tapeNeonTemplate;
+			data.configuration_status = 'Pending';
+		} else if (productType) {
+			// Other product types - uses item selection (potentially with variants)
+			var selectedItem = form.find('[name="selected_item"]').val();
+			var selectedVariant = form.find('[name="selected_variant"]').val();
+			
+			if (!selectedItem) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select an item before adding the line.") }}'
+				});
+				return;
+			}
+			
+			// Check if item has variants and if one was selected
+			var $selectedOption = form.find('[name="selected_item"] option:selected');
+			var hasVariants = $selectedOption.data('has-variants') === '1' || $selectedOption.data('has-variants') === 1;
+			
+			if (hasVariants && !selectedVariant) {
+				frappe.msgprint({
+					title: '{{ _("Configuration Required") }}',
+					indicator: 'orange',
+					message: '{{ _("This item has options. Please click \"Configure Options\" to select your preferred variant.") }}'
+				});
+				return;
+			}
+			
+			// Use ACCESSORY manufacturer type internally for items (keeps data model compatibility)
+			data.manufacturer_type = 'ACCESSORY';
+			data.accessory_product_type = productType;
+			
+			// If variant was selected, use that; otherwise use the template item
+			if (selectedVariant) {
+				data.accessory_item = selectedVariant;
+				data.accessory_item_name = $('#selected_variant_name').text().split(' (')[0];
+				// Capture the variant attribute selections for display
+				var variantSelections = {};
+				$('.variant-attribute-select').each(function() {
+					var attr = $(this).data('attribute');
+					var val = $(this).val();
+					if (attr && val) {
+						variantSelections[attr] = val;
+					}
+				});
+				if (Object.keys(variantSelections).length > 0) {
+					data.variant_selections = variantSelections;
+				}
+			} else {
+				data.accessory_item = selectedItem;
+				data.accessory_item_name = $selectedOption.data('name') || '';
+			}
+		}
+	}
 
 	// Add Other manufacturer fields if applicable
 	if (manufacturerType === 'OTHER') {
@@ -867,11 +2513,46 @@ function submitAddLine(data) {
 function configureFromAddModal() {
 	var form = $('#addLineForm');
 	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	var productType = form.find('[name="product_type"]').val();
+	var $productTypeSelected = form.find('[name="product_type"] option:selected');
+	var rawIsFixtureType = $productTypeSelected.data('is-fixture-type');
+	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
+	var rawIsTapeNeonType = $productTypeSelected.data('is-tape-neon-type');
+	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
 	
-	// Only allow configuring for ILLUMENATE manufacturer
-	if (manufacturerType !== 'ILLUMENATE') {
-		frappe.msgprint('Configure is only available for ilLumenate fixtures');
+	// Only allow configuring for ILLUMENATE manufacturer with fixture or tape/neon types
+	if (manufacturerType !== 'ILLUMENATE' || (!isFixtureType && !isTapeNeonType)) {
+		frappe.msgprint('Configure is only available for ilLumenate configurable products');
 		return;
+	}
+
+	// Determine the template to use and the redirect URL
+	var fixtureTemplate = null;
+	var tapeNeonTemplate = null;
+	var redirectUrl = '';
+
+	if (isFixtureType) {
+		// Linear Fixture path
+		fixtureTemplate = form.find('[name="fixture_template"]').val();
+		if (!fixtureTemplate) {
+			frappe.msgprint({
+				title: 'Selection Required',
+				indicator: 'orange',
+				message: 'Please select a Fixture Template before configuring.'
+			});
+			return;
+		}
+	} else if (isTapeNeonType) {
+		// LED Tape / LED Neon path
+		tapeNeonTemplate = form.find('[name="tape_neon_template"]').val();
+		if (!tapeNeonTemplate) {
+			frappe.msgprint({
+				title: 'Selection Required',
+				indicator: 'orange',
+				message: 'Please select a Product Series before configuring.'
+			});
+			return;
+		}
 	}
 
 	// Prepare line data
@@ -880,8 +2561,23 @@ function configureFromAddModal() {
 		qty: form.find('[name="qty"]').val(),
 		location: form.find('[name="location"]').val(),
 		manufacturer_type: manufacturerType,
+		product_type: productType,
+		configuration_status: 'Pending',
 		notes: form.find('[name="notes"]').val()
 	};
+
+	if (isFixtureType) {
+		data.fixture_template = fixtureTemplate;
+	} else if (isTapeNeonType) {
+		data.tape_neon_template = tapeNeonTemplate;
+	}
+
+	// Determine the configure button label based on product type
+	var configBtnLabel = '{{ _("Configure Fixture Now") }}';
+	if (isTapeNeonType) {
+		var catLabel = ($productTypeSelected.text() || '').trim().toLowerCase();
+		configBtnLabel = catLabel.indexOf('neon') !== -1 ? '{{ _("Configure LED Neon Now") }}' : '{{ _("Configure LED Tape Now") }}';
+	}
 
 	// Disable the configure button to prevent double clicks
 	$('#configureFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
@@ -901,15 +2597,28 @@ function configureFromAddModal() {
 				// Close the modal
 				$('#addLineModal').modal('hide');
 				
-				// Redirect to configure page with schedule and line index
-				window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx;
+				if (isFixtureType) {
+					// Redirect to configure page for linear fixture
+					window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(fixtureTemplate);
+				} else if (isTapeNeonType) {
+					// Determine category for tape/neon configure page
+					var category = 'LED Tape';
+					var label = ($productTypeSelected.text() || '').trim().toLowerCase();
+					if (label.indexOf('neon') !== -1) {
+						category = 'LED Neon';
+					}
+					// Get template code from the selected option
+					var templateCode = form.find('[name="tape_neon_template"] option:selected').data('template-code') || tapeNeonTemplate;
+					// Redirect to configure page with category and template pre-selected
+					window.location.href = '/portal/configure?category=' + encodeURIComponent(category) + '&schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(templateCode);
+				}
 			} else {
 				frappe.msgprint(r.message.error || 'Error adding line');
-				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> ' + configBtnLabel);
 			}
 		},
 		error: function() {
-			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> Configure Fixture Now');
+			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> ' + configBtnLabel);
 		}
 	});
 }
@@ -949,7 +2658,11 @@ function editLine(line_idx) {
 	$('#edit_notes').val(line.notes || '');
 	$('#edit_manufacturer_type').val(line.manufacturer_type || 'ILLUMENATE');
 
-	// Show/hide other manufacturer fields
+	// Hide all type-specific fields first
+	$('.edit-other-fields').hide();
+	$('.edit-accessory-fields').hide();
+
+	// Show/hide fields based on manufacturer type
 	if (line.manufacturer_type === 'OTHER') {
 		$('.edit-other-fields').show();
 		$('#edit_manufacturer_name').val(line.manufacturer_name || '');
@@ -971,8 +2684,10 @@ function editLine(line_idx) {
 		} else {
 			$('#edit_spec_sheet_current').html('<span class="text-muted">No spec sheet uploaded</span>');
 		}
-	} else {
-		$('.edit-other-fields').hide();
+	} else if (line.manufacturer_type === 'ACCESSORY') {
+		$('.edit-accessory-fields').show();
+		$('#edit_accessory_product_type').val(line.accessory_product_type || '');
+		$('#edit_accessory_item').val((line.accessory_item_name || '') + ' (' + (line.accessory_item || '') + ')');
 	}
 
 	$('#editLineModal').modal('show');
@@ -1127,6 +2842,91 @@ function createSalesOrder() {
 }
 
 // Export functionality
+function generateSpecSubmittal(exportType) {
+	frappe.show_alert({
+		message: 'Generating Spec Submittal packet...',
+		indicator: 'blue'
+	});
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.spec_submittal.generate_spec_submittal_packet',
+		args: {
+			schedule_name: schedule_name,
+			export_type: exportType,
+			include_cover: true
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				frappe.show_alert({
+					message: 'Spec Submittal generated successfully!',
+					indicator: 'green'
+				});
+				// Show warnings if any
+				if (r.message.warnings && r.message.warnings.length > 0) {
+					// Split into debug vs real warnings for display
+					var debugMsgs = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') === 0; });
+					var realWarnings = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
+
+					if (realWarnings.length > 0) {
+						frappe.msgprint({
+							title: 'Spec Submittal Warnings',
+							indicator: 'orange',
+							message: realWarnings.join('<br>')
+						});
+					}
+
+					// Always show debug in a separate dialog so it's easy to read
+					if (debugMsgs.length > 0) {
+						frappe.msgprint({
+							title: 'Spec Submittal Debug Log (' + debugMsgs.length + ' entries)',
+							indicator: 'blue',
+							message: '<pre style="white-space:pre-wrap;font-size:11px;max-height:500px;overflow:auto;">' +
+								debugMsgs.join('\n') + '</pre>'
+						});
+					}
+				}
+				// Refresh export history
+				loadExportHistory();
+				// Open download in new tab
+				if (r.message.file_url) {
+					window.open(r.message.file_url, '_blank');
+				}
+			} else {
+				// On failure, still show any debug info
+				var allWarnings = (r.message && r.message.warnings) || [];
+				var debugMsgs = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') === 0; });
+				var realWarnings = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
+
+				var errorHtml = '<p>' + (r.message.message || 'Error generating spec submittal') + '</p>';
+				if (realWarnings.length > 0) {
+					errorHtml += '<br><strong>Warnings:</strong><br>' + realWarnings.join('<br>');
+				}
+				frappe.msgprint({
+					title: 'Spec Submittal Error',
+					indicator: 'red',
+					message: errorHtml
+				});
+
+				if (debugMsgs.length > 0) {
+					frappe.msgprint({
+						title: 'Spec Submittal Debug Log (' + debugMsgs.length + ' entries)',
+						indicator: 'blue',
+						message: '<pre style="white-space:pre-wrap;font-size:11px;max-height:500px;overflow:auto;">' +
+							debugMsgs.join('\n') + '</pre>'
+					});
+				}
+			}
+		},
+		error: function() {
+			frappe.msgprint({
+				title: 'Spec Submittal Error',
+				indicator: 'red',
+				message: 'Error generating spec submittal'
+			});
+		}
+	});
+}
+
 function generateExport(format, priced) {
 	var method = format === 'pdf'
 		? 'illumenate_lighting.illumenate_lighting.api.exports.generate_schedule_pdf'
@@ -1221,7 +3021,15 @@ function renderExportHistory(exports) {
 			'FAILED': 'danger'
 		}[exp.status] || 'secondary';
 
-		var typeLabel = exp.export_type.replace('_', ' ');
+		var typeLabelMap = {
+			'PDF_PRICED': 'PDF (With Pricing)',
+			'PDF_NO_PRICE': 'PDF (No Pricing)',
+			'CSV_PRICED': 'CSV (With Pricing)',
+			'CSV_NO_PRICE': 'CSV (No Pricing)',
+			'SPEC_SUBMITTAL': 'Spec Submittal',
+			'SPEC_SUBMITTAL_FULL': 'Spec Submittal (Full)'
+		};
+		var typeLabel = typeLabelMap[exp.export_type] || exp.export_type.replace(/_/g, ' ');
 		var createdOn = exp.created_on ? frappe.datetime.prettyDate(exp.created_on) : '-';
 
 		html += '<tr>';
@@ -1249,7 +3057,93 @@ function renderExportHistory(exports) {
 // Load export history on page load
 $(document).ready(function() {
 	loadExportHistory();
+	loadVersionHistory();
 });
+
+// ─── Version History ─────────────────────────────────────────────────────────
+function loadVersionHistory() {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_version_history',
+		args: { schedule_name: '{{ schedule.name }}' },
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				renderVersionHistory(r.message.versions, r.message.current);
+			} else {
+				$('#versionHistory').html(
+					'<p class="text-muted text-center mb-0">' +
+					(r.message && r.message.error ? r.message.error : 'Error loading version history') +
+					'</p>'
+				);
+			}
+		}
+	});
+}
+
+function renderVersionHistory(versions, current) {
+	if (!versions || versions.length <= 1) {
+		$('#versionHistory').html(
+			'<p class="text-muted text-center mb-0">No previous versions. This is the first version of this schedule.</p>'
+		);
+		return;
+	}
+	var html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+	html += '<thead><tr>';
+	html += '<th>Version</th><th>Status</th><th>Notes</th><th>Modified</th><th></th>';
+	html += '</tr></thead><tbody>';
+	versions.forEach(function(v) {
+		var isCurrent = (v.name === current);
+		var statusClass = {
+			'DRAFT': 'warning', 'READY': 'info', 'QUOTED': 'primary',
+			'ORDERED': 'success', 'CLOSED': 'secondary'
+		}[v.status] || 'secondary';
+		html += '<tr' + (isCurrent ? ' class="table-active"' : '') + '>';
+		html += '<td><strong>v' + (v.version || 1) + '</strong>';
+		if (v.is_locked) html += ' <i class="fa fa-lock text-muted" title="Locked"></i>';
+		if (isCurrent) html += ' <span class="badge badge-primary ml-1">current</span>';
+		html += '</td>';
+		html += '<td><span class="badge badge-' + statusClass + '">' + v.status + '</span></td>';
+		html += '<td>' + (v.version_notes || '<span class="text-muted">—</span>') + '</td>';
+		html += '<td>' + (v.modified ? frappe.datetime.prettyDate(v.modified) : '-') + '</td>';
+		html += '<td>';
+		if (!isCurrent) {
+			html += '<a href="/portal/schedules/' + v.name + '" class="btn btn-sm btn-outline-primary">View</a>';
+		}
+		html += '</td>';
+		html += '</tr>';
+	});
+	html += '</tbody></table></div>';
+	$('#versionHistory').html(html);
+}
+
+function createNewVersion() {
+	$('#versionNotes').val('');
+	$('#createVersionModal').modal('show');
+}
+
+function confirmCreateVersion() {
+	var btn = $('#confirmCreateVersionBtn');
+	btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_version',
+		args: {
+			schedule_name: '{{ schedule.name }}',
+			version_notes: $('#versionNotes').val() || ''
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				$('#createVersionModal').modal('hide');
+				frappe.show_alert({message: 'New version created!', indicator: 'green'});
+				window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
+			} else {
+				btn.prop('disabled', false).html('<i class="fa fa-code-fork"></i> Create');
+				frappe.msgprint(r.message ? r.message.error : 'Error creating version');
+			}
+		},
+		error: function() {
+			btn.prop('disabled', false).html('<i class="fa fa-code-fork"></i> Create');
+		}
+	});
+}
 {% endif %}
 </script>
 {% endblock %}

@@ -47,7 +47,7 @@ def get_context(context):
 	# Calculate progress
 	context.progress_percent = _calculate_progress(context.order)
 	context.production_started = _check_production_started(order_name)
-	context.production_complete = context.order.per_delivered > 0
+	context.production_complete = (context.order.per_delivered or 0) > 0
 	context.production_date = _get_production_date(order_name) if context.production_started else None
 
 	context.title = context.order.name
@@ -58,15 +58,16 @@ def get_context(context):
 
 def _calculate_progress(order):
 	"""Calculate progress percentage for the timeline."""
+	per_delivered = order.per_delivered or 0
 	if order.status == "Completed":
 		return 100
-	elif order.per_delivered >= 100:
+	elif per_delivered >= 100:
 		return 85
-	elif order.per_delivered > 0:
+	elif per_delivered > 0:
 		return 70
 	elif order.status in ["To Deliver", "To Deliver and Bill"]:
 		return 50
-	elif order.docstatus == 1:
+	elif (order.docstatus or 0) == 1:
 		return 25
 	return 0
 

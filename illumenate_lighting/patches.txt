@@ -4,3 +4,7 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+illumenate_lighting.patches.add_webflow_sync_fields_to_attributes
+illumenate_lighting.patches.add_webflow_lead_fields
+illumenate_lighting.patches.convert_lead_job_title_to_link
+illumenate_lighting.patches.backfill_template_type_on_maps

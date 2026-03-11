@@ -32,11 +32,119 @@ def _is_dealer_user(user=None):
 class ilLProjectFixtureSchedule(Document):
 	def validate(self):
 		"""Validate schedule data and sync customer from project."""
+		# Enforce locking — locked versions cannot be modified
+		if self.get("is_locked"):
+			frappe.throw(
+				_("This schedule version is locked and cannot be modified. Create a new version to make changes.")
+			)
+
 		if self.ill_project:
 			project = frappe.get_doc("ilL-Project", self.ill_project)
 			# Auto-sync customer from project
 			if not self.customer or self.customer != project.customer:
 				self.customer = project.customer
+
+		# Validate that all ILLUMENATE lines are configured before READY status
+		self._validate_configuration_status()
+
+	def _validate_configuration_status(self):
+		"""
+		Validate that all ILLUMENATE lines have configured fixtures
+		before allowing status to be set to READY or beyond.
+		"""
+		if self.status not in ["READY", "QUOTED", "ORDERED"]:
+			return
+
+		unconfigured_lines = []
+		for line in self.lines:
+			if line.manufacturer_type == "ILLUMENATE":
+				# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
+				if line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit"):
+					if not line.variant_selections:
+						line_id = line.line_id or f"Row {line.idx}"
+						unconfigured_lines.append(line_id)
+				elif not line.configured_fixture:
+					line_id = line.line_id or f"Row {line.idx}"
+					unconfigured_lines.append(line_id)
+
+		if unconfigured_lines:
+			frappe.throw(
+				_("Cannot set status to {0}. The following ilLumenate lines are not fully configured: {1}. "
+				  "Please configure all fixtures before proceeding.").format(
+					self.status,
+					", ".join(unconfigured_lines)
+				),
+				title=_("Unconfigured Fixtures")
+			)
+
+	@frappe.whitelist()
+	def create_new_version(self, version_notes=None):
+		"""
+		Create a new version of this fixture schedule.
+
+		1. Lock the current schedule (set is_locked=1, locked_at, locked_by)
+		2. Duplicate the schedule with all lines
+		3. Increment version number
+		4. Set version_parent to the original (V1) schedule
+		5. New version starts in DRAFT status
+
+		Returns:
+			str: Name of the new versioned schedule
+		"""
+		if self.get("is_locked"):
+			frappe.throw(_("This schedule version is already locked. Cannot create another version from a locked schedule."))
+
+		# 1. Lock the current schedule
+		# Use frappe.db.set_value to avoid conflict with Document.is_locked property
+		frappe.db.set_value(self.doctype, self.name, {
+			"is_locked": 1,
+			"locked_at": frappe.utils.now_datetime(),
+			"locked_by": frappe.session.user,
+		})
+
+		# Determine version_parent: always points to the V1 (original) schedule
+		version_parent = self.version_parent or self.name
+
+		# 2. Create a new schedule document (deep copy)
+		new_schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		new_schedule.schedule_name = self.schedule_name
+		new_schedule.ill_project = self.ill_project
+		new_schedule.customer = self.customer
+		new_schedule.status = "DRAFT"
+		new_schedule.inherits_project_privacy = self.inherits_project_privacy
+		new_schedule.is_private = self.is_private
+		new_schedule.notes = self.notes
+		new_schedule.project = self.project
+
+		# 3. Set versioning fields
+		new_schedule.version = (self.version or 1) + 1
+		new_schedule.version_parent = version_parent
+		new_schedule.version_notes = version_notes
+
+		# 4. Deep copy all fixture schedule lines
+		for line in self.lines:
+			new_line = new_schedule.append("lines", {})
+			for field in line.as_dict():
+				if field not in ("name", "idx", "parent", "parenttype", "parentfield", "doctype", "creation", "modified", "modified_by", "owner"):
+					new_line.set(field, line.get(field))
+
+		# 5. Deep copy collaborators
+		for collab in (self.collaborators or []):
+			new_collab = new_schedule.append("collaborators", {})
+			for field in collab.as_dict():
+				if field not in ("name", "idx", "parent", "parenttype", "parentfield", "doctype", "creation", "modified", "modified_by", "owner"):
+					new_collab.set(field, collab.get(field))
+
+		new_schedule.insert(ignore_permissions=True)
+		frappe.db.commit()
+
+		frappe.msgprint(
+			_("Version {0} created: {1}").format(new_schedule.version, new_schedule.name),
+			indicator="green",
+			alert=True,
+		)
+
+		return new_schedule.name
 
 	@frappe.whitelist()
 	def create_sales_order(self):
@@ -74,15 +182,21 @@ class ilLProjectFixtureSchedule(Document):
 		if not so_customer:
 			frappe.throw(_("Owner Company is required to create a Sales Order"))
 
-		# Filter lines to only ILLUMENATE manufacturer type with configured fixtures
+		# Filter lines to ILLUMENATE manufacturer type that are configured
+		# Fixture lines have a configured_fixture link; LED Tape/Neon lines
+		# have configuration stored in variant_selections JSON.
 		illumenate_lines = [
 			line for line in self.lines
-			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+			if line.manufacturer_type == "ILLUMENATE"
+			and (
+				line.configured_fixture
+				or (line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit") and line.variant_selections)
+			)
 		]
 
 		if not illumenate_lines:
 			frappe.throw(
-				_("No ilLumenate fixture lines with configured fixtures found in this schedule")
+				_("No ilLumenate configured lines found in this schedule")
 			)
 
 		# Import manufacturing generator functions
@@ -110,6 +224,58 @@ class ilLProjectFixtureSchedule(Document):
 
 		# Add SO items for each ILLUMENATE line
 		for line in illumenate_lines:
+			# ── LED Tape / LED Neon lines ─────────────────────────────
+			if line.product_type in ("LED Tape", "LED Neon") and line.variant_selections:
+				import json as _json
+				try:
+					config_data = _json.loads(line.variant_selections)
+				except _json.JSONDecodeError:
+					frappe.throw(
+						_("Line {0}: Invalid configuration data for {1}").format(
+							line.line_id or line.idx, line.product_type
+						)
+					)
+
+				from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+					create_tape_neon_so_lines,
+				)
+				result = create_tape_neon_so_lines(so, line, config_data)
+				items_created += result.get("items_added", 0)
+				for msg in result.get("messages", []):
+					frappe.log_error(
+						title=f"SO Creation: {line.product_type} - {line.line_id or line.idx}",
+						message=msg,
+					)
+				continue
+
+			# ── Extrusion Kit lines ────────────────────────────────────
+			if line.product_type == "Extrusion Kit" and line.variant_selections:
+				import json as _json
+				try:
+					config_data = _json.loads(line.variant_selections)
+				except _json.JSONDecodeError:
+					frappe.throw(
+						_("Line {0}: Invalid configuration data for Extrusion Kit").format(
+							line.line_id or line.idx
+						)
+					)
+
+				from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+					create_kit_so_lines,
+				)
+				result = create_kit_so_lines(so, line, config_data)
+				items_created += result.get("items_added", 0)
+				for msg in result.get("messages", []):
+					frappe.log_error(
+						title=f"SO Creation: Extrusion Kit - {line.line_id or line.idx}",
+						message=msg,
+					)
+				continue
+
+			# ── Standard Configured Fixture lines ─────────────────────
+			if not line.configured_fixture:
+				continue
+
 			# Fetch the configured fixture to get computed values
 			configured_fixture = frappe.get_doc(
 				"ilL-Configured-Fixture", line.configured_fixture
@@ -473,8 +639,8 @@ class ilLProjectFixtureSchedule(Document):
 			parts.append(configured_fixture.fixture_template)
 
 		if configured_fixture.manufacturable_overall_length_mm:
-			length_ft = configured_fixture.manufacturable_overall_length_mm / MM_PER_FOOT
-			parts.append(f"{length_ft:.2f}ft ({configured_fixture.manufacturable_overall_length_mm}mm)")
+			length_inches = configured_fixture.manufacturable_overall_length_mm / 25.4
+			parts.append(f'{length_inches:.1f}"')
 
 		if configured_fixture.finish:
 			parts.append(configured_fixture.finish)

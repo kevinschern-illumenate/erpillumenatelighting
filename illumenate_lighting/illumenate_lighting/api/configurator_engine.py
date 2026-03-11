@@ -19,7 +19,7 @@ Request Schema:
         "mounting_method_code": str,             # Required: Mounting method option code
         "endcap_style_start_code": str,          # Required: Endcap style option code for start end
         "endcap_style_end_code": str,            # Required: Endcap style option code for end end
-        "endcap_color_code": str,                # Required: Endcap color option code
+        "endcap_color_code": str,                # Optional: Auto-resolved from finish via ilL-Rel-Finish Endcap Color
         "power_feed_type_code": str,             # Required: Power feed type option code
         "environment_rating_code": str,          # Required: Environment rating option code
         "tape_offering_id": str,                 # Required: Tape offering ID or code
@@ -91,11 +91,25 @@ Response Schema:
         "pricing": {                              # Pricing information
             "msrp_unit": float,
             "tier_unit": float,
+            "discount_amount": float,             # MSRP - tier
+            "discount_percentage": float,         # Percentage discount applied
+            "pricing_rule_name": str or None,     # ERPNext Pricing Rule that was applied
+            "customer_group": str or None,        # Customer Group used for lookup
             "adder_breakdown": [                  # Itemized pricing adders
                 {
                     "component": str,
                     "description": str,
                     "amount": float
+                }
+            ],
+            "item_pricing": [                     # Per-item line pricing
+                {
+                    "item_type": str,             # "fixture" | "power_supply"
+                    "item_code": str,
+                    "description": str,
+                    "msrp_unit": float,
+                    "tier_unit": float,
+                    "discount_amount": float
                 }
             ]
         },
@@ -112,8 +126,54 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+    get_tier_price_for_customer,
+)
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+    add_inch_values_to_computed,
+    inches_to_mm,
+    mm_to_inches,
+)
+
 # Engine version - used for tracking configuration computation version
 ENGINE_VERSION = "1.0.0"
+
+
+def resolve_endcap_color_from_finish(finish_code: str) -> str:
+	"""
+	Resolve the endcap color from the finish using the ilL-Rel-Finish Endcap Color doctype.
+
+	When a user selects a finish (e.g. "Anodized Silver"), this function looks up the
+	corresponding endcap color (e.g. "Grey") from the relationship doctype.
+
+	Args:
+		finish_code: The finish name/code (primary key of ilL-Attribute-Finish)
+
+	Returns:
+		str: The endcap color code (primary key of ilL-Attribute-Endcap Color), or empty string
+	"""
+	if not finish_code:
+		return ""
+
+	# Look up the endcap color from the ilL-Rel-Finish Endcap Color doctype
+	endcap_color = frappe.db.get_value(
+		"ilL-Rel-Finish Endcap Color",
+		{"finish": finish_code, "is_active": 1},
+		"endcap_color",
+		order_by="is_default DESC, modified DESC",
+	)
+
+	if endcap_color:
+		return endcap_color
+
+	# Fallback: first active endcap color record
+	first_color = frappe.db.get_value(
+		"ilL-Attribute-Endcap Color",
+		{"is_active": 1},
+		"name",
+		order_by="sort_order ASC, name ASC",
+	)
+	return first_color or ""
 
 
 @frappe.whitelist()
@@ -175,11 +235,11 @@ def validate_and_quote(
 	mounting_method_code: str,
 	endcap_style_start_code: str,
 	endcap_style_end_code: str,
-	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
 	requested_overall_length_mm: int,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -200,7 +260,7 @@ def validate_and_quote(
 		mounting_method_code: Mounting method option code
 		endcap_style_start_code: Endcap style option code for start end
 		endcap_style_end_code: Endcap style option code for end end
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		power_feed_type_code: Power feed type option code
 		environment_rating_code: Environment rating option code
 		tape_offering_id: Tape offering ID or code
@@ -212,6 +272,10 @@ def validate_and_quote(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, and configured fixture ID
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
 	# Convert string inputs to proper types if needed (Frappe passes all as strings from HTTP)
 	try:
 		requested_overall_length_mm = int(requested_overall_length_mm)
@@ -272,7 +336,11 @@ def validate_and_quote(
 			"leader_item": None,
 			"driver_plan": {"status": "suggested", "drivers": []},
 		},
-		"pricing": {"msrp_unit": 0.0, "tier_unit": 0.0, "adder_breakdown": []},
+		"pricing": {
+			"msrp_unit": 0.0, "tier_unit": 0.0, "discount_amount": 0.0,
+			"discount_percentage": 0.0, "pricing_rule_name": None,
+			"customer_group": None, "adder_breakdown": [], "item_pricing": [],
+		},
 		"configured_fixture_id": None,
 	}
 
@@ -349,6 +417,11 @@ def validate_and_quote(
 
 	response["resolved_items"].update(resolved_result)
 
+	# If no mounting accessory resolved (e.g. screw-through-back method),
+	# ensure total_mounting_accessories is 0 since there's nothing to ship.
+	if not resolved_result.get("mounting_item"):
+		response["computed"]["total_mounting_accessories"] = 0
+
 	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
 	driver_plan_result, driver_messages = _select_driver_plan(
 		fixture_template_code,
@@ -375,6 +448,7 @@ def validate_and_quote(
 		tape_offering_id,
 		qty,
 		template_doc=validation_result.get("template_doc"),
+		driver_plan=driver_plan_result,
 	)
 
 	response["pricing"].update(pricing_result)
@@ -398,8 +472,113 @@ def validate_and_quote(
 	)
 
 	response["configured_fixture_id"] = fixture_id
+	_set_fixture_part_number_in_pricing(response, fixture_id)
+
+	# Add inch values to computed results for US market display
+	response["computed"] = add_inch_values_to_computed(response["computed"])
 
 	return response
+
+
+@frappe.whitelist()
+def validate_and_quote_inches(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	requested_overall_length_in: float,
+	endcap_color_code: str = None,
+	dimming_protocol_code: str = None,
+	qty: int = 1,
+) -> dict[str, Any]:
+	"""
+	Validate and quote a fixture configuration with length input in inches.
+
+	This is a convenience wrapper around validate_and_quote that accepts
+	the requested length in inches instead of millimeters, making it easier
+	for US market users to work with familiar units.
+
+	The length is converted to mm internally, and the response includes
+	both mm and inch values for all computed dimensions.
+
+	Args:
+		fixture_template_code: Code of the fixture template
+		finish_code: Finish option code
+		lens_appearance_code: Lens appearance option code
+		mounting_method_code: Mounting method option code
+		endcap_style_start_code: Endcap style option code for start end
+		endcap_style_end_code: Endcap style option code for end end
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
+		power_feed_type_code: Power feed type option code
+		environment_rating_code: Environment rating option code
+		tape_offering_id: Tape offering ID or code
+		requested_overall_length_in: Requested overall length in INCHES
+		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
+		qty: Quantity (default: 1)
+
+	Returns:
+		dict: Response with validation status, computed values (in both mm and inches),
+		      resolved items, pricing, and configured fixture ID
+	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+	# Convert inches to mm
+	try:
+		requested_overall_length_in = float(requested_overall_length_in)
+		requested_overall_length_mm = inches_to_mm(requested_overall_length_in, round_to_int=True)
+		if not requested_overall_length_mm or requested_overall_length_mm <= 0:
+			return {
+				"is_valid": False,
+				"messages": [
+					{
+						"severity": "error",
+						"text": "Requested length must be greater than 0 inches",
+						"field": "requested_overall_length_in",
+					}
+				],
+				"computed": None,
+				"resolved_items": None,
+				"pricing": None,
+				"configured_fixture_id": None,
+			}
+	except (ValueError, TypeError):
+		return {
+			"is_valid": False,
+			"messages": [
+				{
+					"severity": "error",
+					"text": "Invalid numeric value for requested_overall_length_in",
+					"field": "requested_overall_length_in",
+				}
+			],
+			"computed": None,
+			"resolved_items": None,
+			"pricing": None,
+			"configured_fixture_id": None,
+		}
+
+	# Delegate to the main function with mm value
+	return validate_and_quote(
+		fixture_template_code=fixture_template_code,
+		finish_code=finish_code,
+		lens_appearance_code=lens_appearance_code,
+		mounting_method_code=mounting_method_code,
+		endcap_style_start_code=endcap_style_start_code,
+		endcap_style_end_code=endcap_style_end_code,
+		endcap_color_code=endcap_color_code,
+		power_feed_type_code=power_feed_type_code,
+		environment_rating_code=environment_rating_code,
+		tape_offering_id=tape_offering_id,
+		requested_overall_length_mm=requested_overall_length_mm,
+		dimming_protocol_code=dimming_protocol_code,
+		qty=qty,
+	)
 
 
 @frappe.whitelist()
@@ -410,13 +589,13 @@ def validate_and_quote_with_output(
 	mounting_method_code: str,
 	endcap_style_start_code: str,
 	endcap_style_end_code: str,
-	endcap_color_code: str,
 	power_feed_type_code: str,
 	environment_rating_code: str,
 	led_package_code: str,
 	cct_code: str,
 	delivered_output_value: int,
 	requested_overall_length_mm: int,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -438,7 +617,7 @@ def validate_and_quote_with_output(
 		mounting_method_code: Mounting method option code
 		endcap_style_start_code: Endcap style option code for start end
 		endcap_style_end_code: Endcap style option code for end end
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		power_feed_type_code: Power feed type option code
 		environment_rating_code: Environment rating option code
 		led_package_code: LED Package code (new cascading flow)
@@ -452,6 +631,9 @@ def validate_and_quote_with_output(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, configured fixture ID, and auto-selected tape details
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
 	# Convert string inputs to proper types
 	try:
 		requested_overall_length_mm = int(requested_overall_length_mm)
@@ -554,12 +736,12 @@ def validate_and_quote_multisegment_with_output(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_color_code: str,
 	environment_rating_code: str,
 	led_package_code: str,
-	cct_code: str,
-	delivered_output_value: int,
-	segments_json: str,
+	endcap_color_code: str = None,
+	cct_code: str = None,
+	delivered_output_value: int = None,
+	segments_json: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -575,7 +757,7 @@ def validate_and_quote_multisegment_with_output(
 		finish_code: Finish option code
 		lens_appearance_code: Lens appearance option code
 		mounting_method_code: Mounting method option code
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		environment_rating_code: Environment rating option code
 		led_package_code: LED Package code (new cascading flow)
 		cct_code: CCT code (new cascading flow)
@@ -588,6 +770,10 @@ def validate_and_quote_multisegment_with_output(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, configured fixture ID, and auto-selected tape info
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
 	# Convert delivered_output_value to int
 	try:
 		delivered_output_value = int(delivered_output_value)
@@ -685,10 +871,10 @@ def validate_and_quote_multisegment(
 	finish_code: str,
 	lens_appearance_code: str,
 	mounting_method_code: str,
-	endcap_color_code: str,
 	environment_rating_code: str,
 	tape_offering_id: str,
 	segments_json: str,
+	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 ) -> dict[str, Any]:
@@ -705,7 +891,7 @@ def validate_and_quote_multisegment(
 		finish_code: Finish option code
 		lens_appearance_code: Lens appearance option code
 		mounting_method_code: Mounting method option code
-		endcap_color_code: Endcap color option code
+		endcap_color_code: Endcap color option code (auto-resolved from finish if not provided)
 		environment_rating_code: Environment rating option code
 		tape_offering_id: Tape offering ID or code
 		segments_json: JSON string array of segment definitions
@@ -716,6 +902,10 @@ def validate_and_quote_multisegment(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, and configured fixture ID
 	"""
+	# Auto-resolve endcap color from finish if not explicitly provided
+	if not endcap_color_code and finish_code:
+		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
 	# Parse segments
 	try:
 		segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
@@ -797,7 +987,11 @@ def validate_and_quote_multisegment(
 			"leader_item": None,
 			"driver_plan": {"status": "suggested", "drivers": []},
 		},
-		"pricing": {"msrp_unit": 0.0, "tier_unit": 0.0, "adder_breakdown": []},
+		"pricing": {
+			"msrp_unit": 0.0, "tier_unit": 0.0, "discount_amount": 0.0,
+			"discount_percentage": 0.0, "pricing_rule_name": None,
+			"customer_group": None, "adder_breakdown": [], "item_pricing": [],
+		},
 		"configured_fixture_id": None,
 	}
 
@@ -874,6 +1068,11 @@ def validate_and_quote_multisegment(
 
 	response["resolved_items"].update(resolved_result)
 
+	# If no mounting accessory resolved (e.g. screw-through-back method),
+	# ensure total_mounting_accessories is 0 since there's nothing to ship.
+	if not resolved_result.get("mounting_item"):
+		response["computed"]["total_mounting_accessories"] = 0
+
 	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
 	driver_plan_result, driver_messages = _select_driver_plan(
 		fixture_template_code,
@@ -904,6 +1103,7 @@ def validate_and_quote_multisegment(
 		tape_offering_id,
 		qty,
 		template_doc=template_doc,
+		driver_plan=driver_plan_result,
 	)
 
 	response["pricing"].update(pricing_result)
@@ -924,6 +1124,7 @@ def validate_and_quote_multisegment(
 	)
 
 	response["configured_fixture_id"] = fixture_id
+	_set_fixture_part_number_in_pricing(response, fixture_id)
 
 	if response["is_valid"]:
 		response["messages"].append({
@@ -931,6 +1132,9 @@ def validate_and_quote_multisegment(
 			"text": "Multi-segment configuration validated successfully",
 			"field": None,
 		})
+
+	# Add inch values to computed results for US market display
+	response["computed"] = add_inch_values_to_computed(response["computed"])
 
 	return response
 
@@ -1016,7 +1220,8 @@ def _compute_multisegment_outputs(
 	total_tape_length = 0
 	total_endcaps = 0
 	all_segments = []
-	build_description_parts = []
+	build_description_parts = []  # mm version for internal/BOM use
+	build_description_display_parts = []  # inches version for public display
 
 	error_messages = []
 	has_errors = False
@@ -1028,8 +1233,10 @@ def _compute_multisegment_outputs(
 		seg_index = idx + 1
 		requested_len = int(user_seg.get("requested_length_mm", 0))
 		end_type = user_seg.get("end_type", "Endcap")
+		start_feed_direction = user_seg.get("start_feed_direction", "")
 		start_power_feed = user_seg.get("start_power_feed_type", "")
 		start_cable_len = int(user_seg.get("start_leader_cable_length_mm", 300))
+		end_feed_direction = user_seg.get("end_feed_direction", "") if end_type == "Jumper" else ""
 		end_power_feed = user_seg.get("end_power_feed_type", "") if end_type == "Jumper" else ""
 		end_cable_len = int(user_seg.get("end_jumper_cable_length_mm", 300)) if end_type == "Jumper" else 0
 
@@ -1045,22 +1252,42 @@ def _compute_multisegment_outputs(
 		total_requested_length += requested_len
 
 		# Calculate endcap allowances for this segment
-		# Start endcap: feed-through if power feed type is "END", otherwise solid
-		# End endcap: solid if end_type is Endcap, otherwise no endcap (jumper continues)
-		start_endcap_type = "Feed-Through" if start_power_feed and start_power_feed.upper() == "END" else "Solid"
-		end_endcap_type = "Solid" if end_type == "Endcap" else ""
+		# EVERY segment end needs an endcap:
+		# - Start endcap: Feed-Through if power feed type is "END" or if this is NOT the first segment
+		#   (subsequent segments receive jumper cables from previous segment, requiring feed-through)
+		# - End endcap: Feed-Through if end_type is "Jumper" (cable exits), Solid if end_type is "Endcap"
+		#
+		# For multi-segment fixtures connected by jumper cables:
+		#   - Seg 1 Start: Feed-Through (for leader cable)
+		#   - Seg 1 End: Feed-Through (for jumper cable exiting)
+		#   - Seg 2 Start: Feed-Through (for jumper cable entering)
+		#   - Seg 2 End: Feed-Through (for jumper cable exiting)
+		#   - ... and so on ...
+		#   - Last Seg End: Solid (caps the fixture)
+		
+		# Start endcap type:
+		# - First segment (idx=0): Feed-Through if any power feed type is specified
+		#   (leader cable enters through the endcap), else Solid
+		# - Subsequent segments: Always Feed-Through (receive jumper from previous segment)
+		if idx == 0:
+			start_endcap_type = "Feed-Through" if start_power_feed else "Solid"
+		else:
+			# Segments after the first receive a jumper cable - always need feed-through
+			start_endcap_type = "Feed-Through"
+		
+		# End endcap type:
+		# - Jumper: Feed-Through (cable exits to next segment)
+		# - Endcap: Solid (caps the fixture)
+		end_endcap_type = "Feed-Through" if end_type == "Jumper" else "Solid"
 
 		# Standard endcap allowance (can be made configurable per template)
 		endcap_allowance_per_side = 5.0  # mm
 
 		# Calculate internal length for this segment
-		# For first segment: subtract start endcap allowance
-		# For last segment (Endcap): subtract end endcap allowance
-		total_endcap_allowance = 0.0
-		if idx == 0:
-			total_endcap_allowance += endcap_allowance_per_side
-		if end_type == "Endcap":
-			total_endcap_allowance += endcap_allowance_per_side
+		# EVERY segment needs endcap allowance on BOTH ends:
+		# - Start: always has an endcap (feed-through or solid)
+		# - End: always has an endcap (feed-through for jumper, solid for cap)
+		total_endcap_allowance = endcap_allowance_per_side * 2  # Both ends
 
 		internal_len = requested_len - total_endcap_allowance - leader_allowance_mm
 
@@ -1098,8 +1325,8 @@ def _compute_multisegment_outputs(
 			"seg_index": seg_index,
 			"tape_cut_len": tape_cut_len,
 			"mfg_len": mfg_len,
-			"start_endcap_type": start_endcap_type if idx == 0 else "",
-			"end_endcap_type": end_endcap_type,
+			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
+			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
 			"end_type": end_type,
 			"start_power_feed": start_power_feed,
 			"start_cable_len": start_cable_len,
@@ -1109,11 +1336,9 @@ def _compute_multisegment_outputs(
 		})
 
 		# Count endcaps for this segment
-		# Start: always has an endcap (feed-through or solid)
-		# End: endcap only if end_type is Endcap
-		segment_endcaps = 1 if end_type == "Endcap" else 0
-		if idx == 0:
-			segment_endcaps += 1  # Start endcap for first segment
+		# EVERY segment has 2 endcaps - one at start and one at end
+		# The type varies (feed-through vs solid) but each physical end needs an endcap
+		segment_endcaps = 2  # Start endcap + End endcap
 		total_endcaps += segment_endcaps
 
 		# Create segment record for manufacturing
@@ -1122,22 +1347,39 @@ def _compute_multisegment_outputs(
 			"profile_cut_len_mm": int(mfg_len),
 			"lens_cut_len_mm": int(mfg_len),
 			"tape_cut_len_mm": int(tape_cut_len),
-			"start_endcap_type": start_endcap_type if idx == 0 else "",
-			"end_endcap_type": end_endcap_type,
+			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
+			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
 			"start_leader_len_mm": start_cable_len if idx == 0 else 0,
 			"end_jumper_len_mm": end_cable_len,
 			"notes": f"Segment {seg_index}: {int(mfg_len)}mm",
 		})
 
-		# Build description
+		# Build description (mm for internal use / BOM)
 		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
 		if idx == 0:
-			desc_parts.append(f"Start: {start_power_feed}, {start_cable_len}mm leader")
+			start_desc = f"Start: {start_feed_direction + ' ' if start_feed_direction else ''}{start_power_feed}, {start_cable_len}mm leader"
+			desc_parts.append(start_desc)
 		if end_type == "Jumper":
-			desc_parts.append(f"End: {end_power_feed}, {end_cable_len}mm jumper")
+			end_desc = f"End: {end_feed_direction + ' ' if end_feed_direction else ''}{end_power_feed}, {end_cable_len}mm jumper"
+			desc_parts.append(end_desc)
 		else:
 			desc_parts.append("End: Solid Endcap")
 		build_description_parts.append(" | ".join(desc_parts))
+
+		# Build description display (inches for public display)
+		mfg_len_in = round(mfg_len / 25.4, 1)
+		start_cable_len_in = round(start_cable_len / 25.4, 1)
+		end_cable_len_in = round(end_cable_len / 25.4, 1)
+		desc_parts_display = [f"Seg {seg_index}: {mfg_len_in}\""]
+		if idx == 0:
+			start_desc_display = f"Start: {start_feed_direction + ' ' if start_feed_direction else ''}{start_power_feed}, {start_cable_len_in}\" leader"
+			desc_parts_display.append(start_desc_display)
+		if end_type == "Jumper":
+			end_desc_display = f"End: {end_feed_direction + ' ' if end_feed_direction else ''}{end_power_feed}, {end_cable_len_in}\" jumper"
+			desc_parts_display.append(end_desc_display)
+		else:
+			desc_parts_display.append("End: Solid Endcap")
+		build_description_display_parts.append(" | ".join(desc_parts_display))
 
 	# ==========================================================================
 	# PHASE 2: Calculate runs based on TOTAL tape length across all segments
@@ -1208,11 +1450,54 @@ def _compute_multisegment_outputs(
 	else:
 		assembly_mode = "SHIP_PIECES"
 
+	# ==========================================================================
+	# PHASE 3: Calculate profile/lens segments (cut plan based on stock length)
+	# ==========================================================================
+	# Profile and lens stock comes in standard lengths (e.g., 2000mm).
+	# Calculate how many stock pieces are needed and the cut plan.
+	profile_lens_segments = []
+	profile_lens_segments_count = 0
+
+	if profile_stock_len_mm > 0 and total_manufacturable_length > 0:
+		profile_lens_segments_count = math.ceil(total_manufacturable_length / profile_stock_len_mm)
+
+		# Create cut plan: N-1 full stock segments, last is remainder
+		remaining_length = total_manufacturable_length
+		for i in range(profile_lens_segments_count):
+			segment_index = i + 1
+			if segment_index < profile_lens_segments_count:
+				# Full stock segment
+				cut_len = min(profile_stock_len_mm, remaining_length)
+				notes = f"Full stock segment ({int(profile_stock_len_mm)}mm)"
+			else:
+				# Last segment (remainder)
+				cut_len = max(0, remaining_length)
+				notes = f"Remainder segment ({int(cut_len)}mm)"
+
+			remaining_length = max(0, remaining_length - cut_len)
+
+			profile_lens_segments.append({
+				"segment_index": segment_index,
+				"profile_cut_len_mm": int(cut_len),
+				"lens_cut_len_mm": int(cut_len),
+				"notes": notes,
+			})
+	elif total_manufacturable_length > 0:
+		# No stock length defined, treat as single segment
+		profile_lens_segments_count = 1
+		profile_lens_segments.append({
+			"segment_index": 1,
+			"profile_cut_len_mm": int(total_manufacturable_length),
+			"lens_cut_len_mm": int(total_manufacturable_length),
+			"notes": f"Single segment ({int(total_manufacturable_length)}mm)",
+		})
+
 	return {
 		"total_requested_length_mm": total_requested_length,
 		"manufacturable_overall_length_mm": int(total_manufacturable_length),
 		"user_segment_count": len(segments),
-		"segments_count": len(all_segments),
+		"segments_count": profile_lens_segments_count,
+		"profile_lens_segments_count": profile_lens_segments_count,
 		"runs_count": total_runs,
 		# Each run requires one leader cable. Leader cables connect from driver outputs to tape runs.
 		"leader_qty": total_runs,
@@ -1222,14 +1507,17 @@ def _compute_multisegment_outputs(
 		"total_mounting_accessories": total_mounting_accessories,
 		"assembly_mode": assembly_mode,
 		"assembled_max_len_mm": int(assembled_max_len_mm),
+		"profile_stock_len_mm": int(profile_stock_len_mm),
 		# Run calculation metadata
 		"max_run_ft_by_watts": round(max_run_ft_by_watts, 2) if max_run_ft_by_watts != float("inf") else None,
 		"max_run_ft_by_voltage_drop": round(float(max_run_length_ft_voltage_drop), 2) if max_run_length_ft_voltage_drop else None,
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
 		"max_run_mm": round(max_run_mm, 2) if max_run_mm != float("inf") else None,
-		"segments": all_segments,
+		"segments": profile_lens_segments,
+		"user_segments": all_segments,
 		"runs": all_runs,
 		"build_description": "\n".join(build_description_parts),
+		"build_description_display": "\n".join(build_description_display_parts),
 		"has_errors": has_errors,
 		"error_messages": error_messages,
 	}
@@ -1290,36 +1578,62 @@ def _resolve_multisegment_items(
 		is_valid = False
 		lens_interface = None
 
-	# Resolve lens item - match by lens_appearance only (like existing code)
-	lens_candidates = frappe.get_all(
-		"ilL-Spec-Lens",
-		filters={"lens_appearance": lens_appearance_code},
-		fields=["name", "item"],
-	)
+	# --- Lens resolution via ilL-Rel-Profile Lens (single source of truth) ---
+	from illumenate_lighting.illumenate_lighting.utils import get_compatible_lenses_for_profile
 
 	lens_item = None
-	if lens_candidates and environment_rating_code:
-		# Check for environment rating compatibility
-		lens_names = [row.name for row in lens_candidates]
-		lens_envs = frappe.get_all(
-			"ilL-Child-Lens Environments",
-			filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
-			fields=["parent", "environment_rating"],
-		)
-		lens_env_map: dict[str, set] = {}
-		for env in lens_envs:
-			if env.parent not in lens_env_map:
-				lens_env_map[env.parent] = set()
-			lens_env_map[env.parent].add(env.environment_rating)
 
-		for lens_row in lens_candidates:
-			env_supported = lens_env_map.get(lens_row.name, set())
-			if env_supported and environment_rating_code not in env_supported:
-				continue
-			lens_item = lens_row.item
-			break
-	elif lens_candidates:
-		lens_item = lens_candidates[0].item
+	if profile_rows:
+		compatible = get_compatible_lenses_for_profile(
+			profile_spec_name=profile_rows[0].name,
+			lens_appearance_code=lens_appearance_code,
+			environment_rating_code=environment_rating_code,
+			active_only=True,
+		)
+
+		if compatible:
+			# Prefer the default lens, otherwise take the first match
+			lens_item = compatible[0].get("lens_item")
+
+	if not lens_item:
+		# Only fall back to direct ilL-Spec-Lens query when no ilL-Rel-Profile Lens
+		# record exists for this profile (graceful migration path).  If the rel doc
+		# *does* exist but simply has no matching child row, the relationship data
+		# is authoritative and we must not bypass it.
+		has_rel_doc = profile_rows and frappe.db.exists(
+			"ilL-Rel-Profile Lens",
+			{"profile_spec": profile_rows[0].name, "is_active": 1},
+		)
+
+		if not has_rel_doc:
+			lens_candidates = frappe.get_all(
+				"ilL-Spec-Lens",
+				filters={"lens_appearance": lens_appearance_code},
+				fields=["name", "item"],
+			)
+
+			if lens_candidates and environment_rating_code:
+				# Check for environment rating compatibility
+				lens_names = [row.name for row in lens_candidates]
+				lens_envs = frappe.get_all(
+					"ilL-Child-Lens Environments",
+					filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
+					fields=["parent", "environment_rating"],
+				)
+				lens_env_map: dict[str, set] = {}
+				for env in lens_envs:
+					if env.parent not in lens_env_map:
+						lens_env_map[env.parent] = set()
+					lens_env_map[env.parent].add(env.environment_rating)
+
+				for lens_row in lens_candidates:
+					env_supported = lens_env_map.get(lens_row.name, set())
+					if env_supported and environment_rating_code not in env_supported:
+						continue
+					lens_item = lens_row.item
+					break
+			elif lens_candidates:
+				lens_item = lens_candidates[0].item
 
 	if lens_item:
 		resolved["lens_item"] = lens_item
@@ -1348,23 +1662,30 @@ def _resolve_multisegment_items(
 		break
 
 	if not resolved["mounting_item"]:
+		# Some mounting methods (e.g. screw-through-back) don't use separate
+		# mounting accessories.  Treat this as a gentle informational warning.
 		messages.append({
 			"severity": "warning",
-			"text": f"No mounting accessory found for method '{mounting_method_code}'",
+			"text": (
+				f"This mounting method ('{mounting_method_code}') does not include "
+				f"separate mounting accessories. 0 mounting accessories will be "
+				f"listed for this build."
+			),
 			"field": "mounting_method_code",
 		})
 
 	# Resolve endcap items
-	# For multi-segment: start endcap is feed-through for first segment
-	# End endcap is solid for the last segment
+	# For multi-segment: start endcap needs feed-through if there's a leader cable feeding in
+	# End endcap is solid for the last segment (no power passing through)
 	first_segment = segments[0] if segments else {}
 	start_power_feed = first_segment.get("start_power_feed_type", "")
 
-	# Determine start endcap style based on power feed type
-	start_endcap_style = "FEED_THROUGH" if start_power_feed and start_power_feed.upper() == "END" else "SOLID"
+	# Determine if start endcap needs to support feed-through
+	# If there's a power feed type specified for start, we need a feed-through endcap
+	start_needs_feed = bool(start_power_feed)
 
-	# Get endcap item for start
-	start_endcap_candidates = frappe.get_all(
+	# Get all endcap candidates for this template and color
+	endcap_candidates = frappe.get_all(
 		"ilL-Rel-Endcap-Map",
 		filters={
 			"fixture_template": fixture_template_code,
@@ -1374,20 +1695,63 @@ def _resolve_multisegment_items(
 		fields=["endcap_item", "endcap_style", "power_feed_type"],
 	)
 
-	for ec_row in start_endcap_candidates:
-		if ec_row.get("endcap_style") == start_endcap_style:
-			resolved["endcap_item_start"] = ec_row.endcap_item
-			break
-		if not resolved["endcap_item_start"]:
-			resolved["endcap_item_start"] = ec_row.endcap_item
+	# Build lookup of endcap styles to check supports_feed property
+	endcap_style_names = list({ec.endcap_style for ec in endcap_candidates if ec.endcap_style})
+	endcap_style_info = {}
+	if endcap_style_names:
+		style_docs = frappe.get_all(
+			"ilL-Attribute-Endcap Style",
+			filters={"name": ["in", endcap_style_names]},
+			fields=["name", "style", "supports_feed"],
+		)
+		endcap_style_info = {s.name: s for s in style_docs}
 
-	# End endcap is always solid
-	for ec_row in start_endcap_candidates:
-		if ec_row.get("endcap_style") == "SOLID":
-			resolved["endcap_item_end"] = ec_row.endcap_item
+	# Find start endcap: if start needs feed, look for one with supports_feed=1 or style containing "Feed"
+	# Otherwise, look for a solid endcap
+	start_endcap_found = None
+	start_endcap_fallback = None
+	for ec_row in endcap_candidates:
+		if not ec_row.endcap_style:
+			continue
+		style_info = endcap_style_info.get(ec_row.endcap_style, {})
+		supports_feed = style_info.get("supports_feed", 0)
+		style_name = style_info.get("style", "") or ""
+
+		if start_needs_feed:
+			# Looking for feed-through endcap
+			if supports_feed or "feed" in style_name.lower():
+				start_endcap_found = ec_row.endcap_item
+				break
+			if not start_endcap_fallback:
+				start_endcap_fallback = ec_row.endcap_item
+		else:
+			# Looking for solid endcap
+			if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
+				start_endcap_found = ec_row.endcap_item
+				break
+			if not start_endcap_fallback:
+				start_endcap_fallback = ec_row.endcap_item
+
+	resolved["endcap_item_start"] = start_endcap_found or start_endcap_fallback
+
+	# Find end endcap: always solid (no power passing through the end)
+	end_endcap_found = None
+	end_endcap_fallback = None
+	for ec_row in endcap_candidates:
+		if not ec_row.endcap_style:
+			continue
+		style_info = endcap_style_info.get(ec_row.endcap_style, {})
+		supports_feed = style_info.get("supports_feed", 0)
+		style_name = style_info.get("style", "") or ""
+
+		# Looking for solid endcap
+		if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
+			end_endcap_found = ec_row.endcap_item
 			break
-		if not resolved["endcap_item_end"]:
-			resolved["endcap_item_end"] = ec_row.endcap_item
+		if not end_endcap_fallback:
+			end_endcap_fallback = ec_row.endcap_item
+
+	resolved["endcap_item_end"] = end_endcap_found or end_endcap_fallback
 
 	# Resolve leader cable item
 	if tape_offering_doc:
@@ -1473,9 +1837,11 @@ def _create_or_update_multisegment_fixture(
 			temp_doc.append("user_segments", {
 				"segment_index": user_seg.get("segment_index", 0),
 				"requested_length_mm": user_seg.get("requested_length_mm", 0),
+				"start_feed_direction": user_seg.get("start_feed_direction", ""),
 				"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
 				"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
 				"end_type": user_seg.get("end_type", "Endcap"),
+				"end_feed_direction": user_seg.get("end_feed_direction", ""),
 				"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
 				"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 			})
@@ -1522,6 +1888,11 @@ def _create_or_update_multisegment_fixture(
 	doc.total_endcaps = computed.get("total_endcaps", 0)
 	doc.total_mounting_accessories = computed.get("total_mounting_accessories", 0)
 
+	# Set run metadata (effective max run for downstream calculations)
+	doc.max_run_ft_by_watts = computed.get("max_run_ft_by_watts")
+	doc.max_run_ft_by_voltage_drop = computed.get("max_run_ft_by_voltage_drop")
+	doc.max_run_ft_effective = computed.get("max_run_ft_effective")
+
 	# Set resolved items
 	doc.profile_item = resolved_items.get("profile_item")
 	doc.lens_item = resolved_items.get("lens_item")
@@ -1536,29 +1907,50 @@ def _create_or_update_multisegment_fixture(
 		doc.append("user_segments", {
 			"segment_index": user_seg.get("segment_index", 0),
 			"requested_length_mm": user_seg.get("requested_length_mm", 0),
+			"start_feed_direction": user_seg.get("start_feed_direction", ""),
 			"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
 			"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
 			"end_type": user_seg.get("end_type", "Endcap"),
+			"end_feed_direction": user_seg.get("end_feed_direction", ""),
 			"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
 			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
 		})
 
-	# Clear and set computed segments
+	# Clear and set computed segments (user-defined segments with details)
+	# Endcap item selection per segment position:
+	#   - "Feed-Through" type → use endcap_item_start (resolved as feed-through)
+	#   - "Solid" type → use endcap_item_end (resolved as solid)
+	# Jumper item is only set when the segment actually has a jumper cable (end_jumper_len_mm > 0)
 	doc.segments = []
-	for seg in computed.get("segments", []):
+	for seg in computed.get("user_segments", []):
+		seg_start_endcap_type = seg.get("start_endcap_type", "")
+		seg_end_endcap_type = seg.get("end_endcap_type", "")
+		seg_end_jumper_len = seg.get("end_jumper_len_mm", 0)
+		seg_start_leader_len = seg.get("start_leader_len_mm", 0)
+
+		# Select endcap item based on the computed endcap type for this segment position
+		start_endcap_item = seg.get("start_endcap_item") or (
+			resolved_items.get("endcap_item_start") if seg_start_endcap_type == "Feed-Through"
+			else resolved_items.get("endcap_item_end")
+		)
+		end_endcap_item = seg.get("end_endcap_item") or (
+			resolved_items.get("endcap_item_start") if seg_end_endcap_type == "Feed-Through"
+			else resolved_items.get("endcap_item_end")
+		)
+
 		doc.append("segments", {
 			"segment_index": seg.get("segment_index", 0),
 			"profile_cut_len_mm": seg.get("profile_cut_len_mm", 0),
 			"lens_cut_len_mm": seg.get("lens_cut_len_mm", 0),
 			"tape_cut_len_mm": seg.get("tape_cut_len_mm", 0),
-			"start_endcap_type": seg.get("start_endcap_type", ""),
-			"end_endcap_type": seg.get("end_endcap_type", ""),
-			"start_endcap_item": seg.get("start_endcap_item") or resolved_items.get("endcap_item_start"),
-			"end_endcap_item": seg.get("end_endcap_item") or resolved_items.get("endcap_item_end"),
-			"start_leader_item": seg.get("start_leader_item") or resolved_items.get("leader_item"),
-			"start_leader_len_mm": seg.get("start_leader_len_mm", 0),
-			"end_jumper_item": seg.get("end_jumper_item") or resolved_items.get("leader_item"),  # Jumper uses same item as leader
-			"end_jumper_len_mm": seg.get("end_jumper_len_mm", 0),
+			"start_endcap_type": seg_start_endcap_type,
+			"end_endcap_type": seg_end_endcap_type,
+			"start_endcap_item": start_endcap_item,
+			"end_endcap_item": end_endcap_item,
+			"start_leader_item": (seg.get("start_leader_item") or resolved_items.get("leader_item")) if seg_start_leader_len else None,
+			"start_leader_len_mm": seg_start_leader_len,
+			"end_jumper_item": (seg.get("end_jumper_item") or resolved_items.get("leader_item")) if seg_end_jumper_len else None,
+			"end_jumper_len_mm": seg_end_jumper_len,
 			"notes": seg.get("notes", ""),
 		})
 
@@ -1574,10 +1966,29 @@ def _create_or_update_multisegment_fixture(
 			"leader_len_mm": run.get("leader_len_mm", 0),
 		})
 
+	# Set driver allocations
+	doc.drivers = []
+	driver_plan = resolved_items.get("driver_plan", {})
+	if driver_plan.get("status") == "selected" and driver_plan.get("drivers"):
+		for driver_alloc in driver_plan["drivers"]:
+			doc.append(
+				"drivers",
+				{
+					"driver_item": driver_alloc.get("item_code"),
+					"driver_qty": driver_alloc.get("qty", 1),
+					"outputs_used": driver_alloc.get("outputs_used", 0),
+					"mapping_notes": driver_alloc.get("mapping_notes", ""),
+				},
+			)
+
 	# Append pricing snapshot
 	doc.append("pricing_snapshot", {
 		"msrp_unit": pricing.get("msrp_unit", 0.0),
 		"tier_unit": pricing.get("tier_unit", 0.0),
+		"discount_amount": pricing.get("discount_amount", 0),
+		"discount_percentage": pricing.get("discount_percentage", 0),
+		"pricing_rule": pricing.get("pricing_rule_name") or "",
+		"customer_group": pricing.get("customer_group") or "",
 		"adder_breakdown_json": json.dumps(pricing.get("adder_breakdown", [])),
 		"timestamp": now(),
 	})
@@ -1645,11 +2056,16 @@ def _validate_configuration(
 		"mounting_method_code": mounting_method_code,
 		"endcap_style_start_code": endcap_style_start_code,
 		"endcap_style_end_code": endcap_style_end_code,
-		"endcap_color_code": endcap_color_code,
 		"power_feed_type_code": power_feed_type_code,
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
 	}
+
+	# endcap_color_code is auto-resolved from finish via ilL-Rel-Finish Endcap Color
+	# but still validate it's present (should have been resolved by caller)
+	if not endcap_color_code:
+		messages.append({"severity": "error", "text": "Endcap color could not be auto-resolved from the selected finish. Please ensure a mapping exists in ilL-Rel-Finish Endcap Color for this finish.", "field": "endcap_color_code"})
+		is_valid = False
 
 	for field_name, field_value in required_fields.items():
 		if not field_value:
@@ -2255,38 +2671,61 @@ def _resolve_items(
 		)
 		return resolved, messages, False
 
-	lens_candidates = frappe.get_all(
-		"ilL-Spec-Lens", filters={"lens_appearance": lens_appearance_code}, fields=["name", "item"]
+	# --- Lens resolution via ilL-Rel-Profile Lens (single source of truth) ---
+	from illumenate_lighting.illumenate_lighting.utils import get_compatible_lenses_for_profile
+
+	compatible = get_compatible_lenses_for_profile(
+		profile_spec_name=profile_row.name,
+		lens_appearance_code=lens_appearance_code,
+		environment_rating_code=environment_rating_code,
+		active_only=True,
 	)
 
 	lens_item = None
 
-	# Pre-fetch supported environment ratings for all lens candidates to avoid N+1 queries
-	# Epic 5 Task 5.1: Reduce N+1 lookups in engine
-	if lens_candidates and environment_rating_code:
-		lens_names = [row.name for row in lens_candidates]
-		lens_envs = frappe.get_all(
-			"ilL-Child-Lens Environments",
-			filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
-			fields=["parent", "environment_rating"],
+	if compatible:
+		# Prefer the default lens, otherwise take the first match
+		lens_item = compatible[0].get("lens_item")
+	else:
+		# Only fall back to direct ilL-Spec-Lens query when no ilL-Rel-Profile Lens
+		# record exists for this profile (graceful migration path).  If the rel doc
+		# *does* exist but simply has no matching child row, the relationship data
+		# is authoritative and we must not bypass it.
+		has_rel_doc = frappe.db.exists(
+			"ilL-Rel-Profile Lens",
+			{"profile_spec": profile_row.name, "is_active": 1},
 		)
-		# Build lookup: {lens_name: set(environment_ratings)}
-		lens_env_map: dict[str, set] = {}
-		for env in lens_envs:
-			if env.parent not in lens_env_map:
-				lens_env_map[env.parent] = set()
-			lens_env_map[env.parent].add(env.environment_rating)
 
-		# Find a lens that supports the environment rating
-		for lens_row in lens_candidates:
-			env_supported = lens_env_map.get(lens_row.name, set())
-			if env_supported and environment_rating_code not in env_supported:
-				continue
-			lens_item = lens_row.item
-			break
-	elif lens_candidates:
-		# No environment rating specified, use first match
-		lens_item = lens_candidates[0].item
+		if not has_rel_doc:
+			lens_candidates = frappe.get_all(
+				"ilL-Spec-Lens", filters={"lens_appearance": lens_appearance_code}, fields=["name", "item"]
+			)
+
+			# Pre-fetch supported environment ratings for all lens candidates to avoid N+1 queries
+			if lens_candidates and environment_rating_code:
+				lens_names = [row.name for row in lens_candidates]
+				lens_envs = frappe.get_all(
+					"ilL-Child-Lens Environments",
+					filters={"parent": ["in", lens_names], "parenttype": "ilL-Spec-Lens"},
+					fields=["parent", "environment_rating"],
+				)
+				# Build lookup: {lens_name: set(environment_ratings)}
+				lens_env_map: dict[str, set] = {}
+				for env in lens_envs:
+					if env.parent not in lens_env_map:
+						lens_env_map[env.parent] = set()
+					lens_env_map[env.parent].add(env.environment_rating)
+
+				# Find a lens that supports the environment rating
+				for lens_row in lens_candidates:
+					env_supported = lens_env_map.get(lens_row.name, set())
+					if env_supported and environment_rating_code not in env_supported:
+						continue
+					lens_item = lens_row.item
+					break
+			elif lens_candidates:
+				# No environment rating specified, use first match
+				lens_item = lens_candidates[0].item
 
 	if not lens_item:
 		messages.append(
@@ -2393,17 +2832,20 @@ def _resolve_items(
 		break
 
 	if not mounting_item:
+		# Some mounting methods (e.g. screw-through-back) don't use separate
+		# mounting accessories.  Treat this as a non-blocking informational
+		# warning rather than a hard error so the configurator can proceed.
 		messages.append(
 			{
-				"severity": "error",
+				"severity": "warning",
 				"text": (
-					f"Missing map: ilL-Rel-Mounting-Accessory-Map for template '{fixture_template_code}' "
-					f"and mounting '{mounting_method_code}'"
+					f"This mounting method ('{mounting_method_code}') does not include "
+					f"separate mounting accessories. 0 mounting accessories will be "
+					f"listed for this build."
 				),
 				"field": "mounting_method_code",
 			}
 		)
-		return resolved, messages, False
 
 	resolved["mounting_item"] = mounting_item
 
@@ -2554,10 +2996,13 @@ def _select_driver_plan(
 		if tape_input_protocol and driver_spec.output_protocol and driver_spec.output_protocol != tape_input_protocol:
 			continue
 
-		# Filter by user's dimming protocol: driver's input_protocol must match user's selection
+		# Filter by user's dimming protocol: driver's input_protocols must include user's selection
 		# This ensures the driver accepts the dimming signal the user wants to use (e.g., 0-10V, DALI)
-		if dimming_protocol_code and driver_spec.input_protocol and driver_spec.input_protocol != dimming_protocol_code:
-			continue
+		if dimming_protocol_code:
+			# Get the list of supported input protocols from the child table
+			supported_input_protocols = {row.protocol for row in (driver_spec.input_protocols or [])}
+			if supported_input_protocols and dimming_protocol_code not in supported_input_protocols:
+				continue
 
 		# Calculate usable wattage
 		usable_load_factor = float(driver_spec.usable_load_factor or 0.8)
@@ -2712,6 +3157,8 @@ def _calculate_pricing(
 	tape_offering_id: str,
 	qty: int,
 	template_doc=None,
+	customer: str | None = None,
+	driver_plan: dict = None,
 ) -> dict[str, Any]:
 	"""
 	Calculate MSRP, tier pricing, and adders.
@@ -2719,7 +3166,7 @@ def _calculate_pricing(
 	Implements Epic 4 Task 4.1: Baseline pricing formula
 	- base + $/ft × L_tape_cut (or L_mfg based on template setting)
 	- adders based on selected options (finish, lens, mounting, endcap, power feed, environment)
-	- customer tier/price list logic (MSRP only placeholder if tier not available)
+	- customer tier/price list via Customer Group Pricing Rules
 
 	Args:
 		fixture_template_code: The fixture template code
@@ -2735,9 +3182,13 @@ def _calculate_pricing(
 		tape_offering_id: Selected tape offering ID
 		qty: Quantity ordered
 		template_doc: Optional pre-fetched template document
+		customer: Optional customer name for tier pricing lookup. If None,
+			auto-detects from the logged-in session user.
+		driver_plan: Optional driver plan dict for per-item power supply pricing.
 
 	Returns:
-		dict: Pricing information with msrp_unit, tier_unit, and adder_breakdown
+		dict: Pricing information with msrp_unit, tier_unit, discount fields,
+			adder_breakdown, and item_pricing line items.
 	"""
 	MM_PER_FOOT = 304.8
 
@@ -2870,16 +3321,86 @@ def _calculate_pricing(
 	msrp_unit = base_price + length_adder + total_option_adders + tape_adder
 
 	# --- Customer Tier/Price List Logic ---
-	# Placeholder: MSRP only if tier not available
-	# In future, this would query Customer -> Price List -> apply discount/multiplier
-	# For now, tier_unit equals msrp_unit (no tier discount applied)
-	tier_unit = msrp_unit  # Placeholder: MSRP only
+	# Resolve tier pricing via Customer Group Pricing Rules
+	tier_result = get_tier_price_for_customer(msrp_unit, customer=customer)
+	tier_unit = tier_result["tier_unit"]
+	discount_amount = tier_result["discount_amount"]
+	discount_percentage = tier_result["discount_percentage"]
+	pricing_rule_name = tier_result["pricing_rule_name"]
+	customer_group = tier_result["customer_group"]
+
+	# --- Per-Item Pricing Breakdown ---
+	# Build line-by-line breakdown for fixture and power supply
+	fixture_msrp = round(msrp_unit, 2)
+	fixture_tier = round(tier_unit, 2)
+
+	item_pricing = [
+		{
+			"item_type": "fixture",
+			"item_code": resolved_items.get("profile_item"),
+			"description": "Fixture Assembly",
+			"msrp_unit": fixture_msrp,
+			"tier_unit": fixture_tier,
+			"discount_amount": round(fixture_msrp - fixture_tier, 2),
+		},
+	]
+
+	# Add power supply line item if driver plan has drivers
+	if driver_plan and driver_plan.get("drivers"):
+		for drv in driver_plan["drivers"]:
+			driver_item_code = drv.get("item_code")
+			if not driver_item_code:
+				continue
+
+			# Look up MSRP from Item Price (Selling, Standard Selling price list)
+			driver_msrp = 0.0
+			try:
+				driver_price = frappe.db.get_value(
+					"Item Price",
+					{"item_code": driver_item_code, "selling": 1},
+					"price_list_rate",
+				)
+				if driver_price:
+					driver_msrp = float(driver_price)
+			except Exception:
+				pass
+
+			# Apply same tier discount percentage to driver
+			if discount_percentage and driver_msrp > 0:
+				driver_tier = round(driver_msrp * (1 - discount_percentage / 100), 2)
+			else:
+				driver_tier = round(driver_msrp, 2)
+
+			driver_qty = drv.get("qty", 1)
+			item_pricing.append({
+				"item_type": "power_supply",
+				"item_code": driver_item_code,
+				"description": f"Power Supply (×{driver_qty})",
+				"msrp_unit": round(driver_msrp, 2),
+				"tier_unit": driver_tier,
+				"discount_amount": round(driver_msrp - driver_tier, 2),
+			})
 
 	return {
 		"msrp_unit": round(msrp_unit, 2),
 		"tier_unit": round(tier_unit, 2),
+		"discount_amount": round(discount_amount, 2),
+		"discount_percentage": round(discount_percentage, 2),
+		"pricing_rule_name": pricing_rule_name,
+		"customer_group": customer_group,
 		"adder_breakdown": adder_breakdown,
+		"item_pricing": item_pricing,
 	}
+
+
+def _set_fixture_part_number_in_pricing(response: dict, fixture_id: str) -> None:
+	"""Update the fixture entry in item_pricing to use the configured fixture's
+	part number instead of the channel/profile item code."""
+	if fixture_id and response["pricing"].get("item_pricing"):
+		for entry in response["pricing"]["item_pricing"]:
+			if entry.get("item_type") == "fixture":
+				entry["item_code"] = fixture_id
+				break
 
 
 def _create_or_update_configured_fixture(
@@ -3014,17 +3535,34 @@ def _create_or_update_configured_fixture(
 	doc.leader_item = resolved_items.get("leader_item")
 
 	# Set segments
+	# For single-segment fixtures, populate endcap and cable data on each
+	# profile/lens cut plan segment.  The first segment gets the start endcap
+	# and leader cable; the last segment gets the end endcap.  No jumper
+	# cables exist in a single-segment fixture.
 	doc.segments = []
+	num_segments = len(computed["segments"])
 	for segment in computed["segments"]:
-		doc.append(
-			"segments",
-			{
-				"segment_index": segment["segment_index"],
-				"profile_cut_len_mm": segment["profile_cut_len_mm"],
-				"lens_cut_len_mm": segment["lens_cut_len_mm"],
-				"notes": segment.get("notes", ""),
-			},
-		)
+		seg_idx = segment["segment_index"]
+		seg_data = {
+			"segment_index": seg_idx,
+			"profile_cut_len_mm": segment["profile_cut_len_mm"],
+			"lens_cut_len_mm": segment["lens_cut_len_mm"],
+			"notes": segment.get("notes", ""),
+		}
+
+		# First segment: start endcap + leader cable
+		if seg_idx == 1:
+			seg_data["start_endcap_item"] = resolved_items.get("endcap_item_start")
+			seg_data["start_endcap_type"] = "Feed-Through" if resolved_items.get("endcap_item_start") else ""
+			seg_data["start_leader_item"] = resolved_items.get("leader_item")
+			seg_data["start_leader_len_mm"] = int(computed.get("leader_allowance_mm_per_fixture", 0))
+
+		# Last segment: end endcap, no jumper
+		if seg_idx == num_segments:
+			seg_data["end_endcap_item"] = resolved_items.get("endcap_item_end")
+			seg_data["end_endcap_type"] = "Solid" if resolved_items.get("endcap_item_end") else ""
+
+		doc.append("segments", seg_data)
 
 	# Set runs
 	doc.runs = []
@@ -3063,6 +3601,10 @@ def _create_or_update_configured_fixture(
 		{
 			"msrp_unit": pricing["msrp_unit"],
 			"tier_unit": pricing["tier_unit"],
+			"discount_amount": pricing.get("discount_amount", 0),
+			"discount_percentage": pricing.get("discount_percentage", 0),
+			"pricing_rule": pricing.get("pricing_rule_name") or "",
+			"customer_group": pricing.get("customer_group") or "",
 			"adder_breakdown_json": json.dumps(pricing["adder_breakdown"]),
 			"timestamp": now(),
 		},
@@ -3123,7 +3665,8 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "led_packages": [], "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	# Get all tape offerings linked to this template
 	tape_offering_names = [
@@ -3146,6 +3689,7 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 		filters=tape_filters,
 		fields=["led_package"],
 		distinct=True,
+		ignore_permissions=True,
 	)
 
 	led_package_codes = list({row.led_package for row in led_packages_from_tapes if row.led_package})
@@ -3158,6 +3702,7 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 		"ilL-Attribute-LED Package",
 		filters={"name": ["in", led_package_codes]},
 		fields=["name", "code", "spectrum_type"],
+		ignore_permissions=True,
 	)
 
 	result = [
@@ -3193,7 +3738,8 @@ def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "environment_ratings": [], "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	# Get environment ratings from allowed options
 	env_ratings = []
@@ -3211,6 +3757,7 @@ def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str
 		"ilL-Attribute-Environment Rating",
 		filters={"name": ["in", env_ratings]},
 		fields=["name", "label", "code"],
+		ignore_permissions=True,
 	)
 
 	result = [
@@ -3232,12 +3779,16 @@ def get_ccts_for_template(
 	environment_rating_code: str = None,
 ) -> dict[str, Any]:
 	"""
-	Get available CCT options based on compatible tapes.
+	Get available CCT options based on the LED Package's compatible CCTs child table
+	and compatible tapes linked to the fixture template.
 
-	Filters CCTs based on:
-	- Tapes linked to the fixture template
-	- Selected LED Package (if provided)
-	- Selected Environment Rating (if provided, checks tape offering constraints)
+	Filtering strategy (in priority order):
+	1. If an LED Package is selected AND it has a compatible_ccts child table populated,
+	   use those CCTs as the primary source of truth.
+	2. Intersect with CCTs available on tape offerings linked to the template
+	   (filtered by LED package + environment rating) to ensure only orderable combos show.
+	3. If the LED Package has no compatible_ccts rows, fall back to tape-offering-based
+	   CCT discovery (original behaviour).
 
 	Args:
 		fixture_template_code: Code of the fixture template
@@ -3254,62 +3805,162 @@ def get_ccts_for_template(
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "ccts": [], "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Get tape offerings linked to this template, filtering by environment rating if specified
-	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+	# -------------------------------------------------------------------
+	# Determine LED Package and whether it is multi-CCT (Tunable White, etc.)
+	# -------------------------------------------------------------------
+	# Multi-CCT spectrum types: the tape offering has one generic CCT but the
+	# LED Package's compatible_ccts lists the individual CCTs users can choose.
+	MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
 
-	# Build list of valid tape offering names considering environment rating constraint
-	valid_tape_offering_names = []
-	for row in allowed_tape_rows:
-		if not row.tape_offering:
-			continue
-		# If the row has an environment_rating constraint, it must match
-		if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
-			continue
-		valid_tape_offering_names.append(row.tape_offering)
+	led_package_cct_codes = None  # None means "not specified / not populated"
+	is_multi_cct_package = False
+	resolved_led_package_code = led_package_code
 
-	if not valid_tape_offering_names:
-		return {"success": True, "ccts": [], "error": None}
+	# If no LED package specified, try to infer from template's tape offerings
+	if not resolved_led_package_code:
+		led_pkgs_on_template = set()
+		for row in template_doc.get("allowed_tape_offerings", []):
+			if row.tape_offering:
+				pkg = frappe.db.get_value("ilL-Rel-Tape Offering", row.tape_offering, "led_package")
+				if pkg:
+					led_pkgs_on_template.add(pkg)
+		if len(led_pkgs_on_template) == 1:
+			resolved_led_package_code = list(led_pkgs_on_template)[0]
 
-	# Build tape offering filter - only add is_active filter if active records exist
-	tape_filters = {
-		"name": ["in", valid_tape_offering_names],
-	}
-	
-	# Check if any tape offerings have is_active = 1
-	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
-	if active_count > 0:
-		tape_filters["is_active"] = 1
+	if resolved_led_package_code and frappe.db.exists("ilL-Attribute-LED Package", resolved_led_package_code):
+		led_pkg_doc = frappe.get_cached_doc("ilL-Attribute-LED Package", resolved_led_package_code)
+		spectrum_type = getattr(led_pkg_doc, "spectrum_type", "") or ""
+		is_multi_cct_package = spectrum_type in MULTI_CCT_SPECTRUM_TYPES
+		compatible_rows = led_pkg_doc.get("compatible_ccts", [])
+		if compatible_rows:
+			led_package_cct_codes = [row.cct for row in compatible_rows if row.cct]
 
-	# Filter by LED package if specified
-	if led_package_code:
-		tape_filters["led_package"] = led_package_code
-
-	# Get CCTs from matching tape offerings
-	tape_offerings = frappe.get_all(
-		"ilL-Rel-Tape Offering",
-		filters=tape_filters,
-		fields=["cct"],
-		distinct=True,
+	frappe.logger().info(
+		f"get_ccts_for_template: resolved_led_package={resolved_led_package_code}, "
+		f"is_multi_cct={is_multi_cct_package}, "
+		f"compatible_cct_codes={led_package_cct_codes}"
 	)
 
-	cct_codes = list({row.cct for row in tape_offerings if row.cct})
+	# -------------------------------------------------------------------
+	# For multi-CCT packages (Tunable White, etc.), trust the LED Package's
+	# compatible_ccts list directly. The tape offerings carry a generic CCT
+	# (e.g. "Tunable White") that won't intersect with individual CCTs.
+	# -------------------------------------------------------------------
+	if is_multi_cct_package and led_package_cct_codes:
+		cct_codes = led_package_cct_codes
+	else:
+		# -------------------------------------------------------------------
+		# Strategy 1: Use the LED Package's compatible_ccts child table
+		# -------------------------------------------------------------------
+		# (led_package_cct_codes already populated above)
 
+		# -------------------------------------------------------------------
+		# Strategy 2: Get CCTs from tape offerings on the template
+		# -------------------------------------------------------------------
+		# Get tape offerings linked to this template, filtering by environment rating if specified
+		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+
+		valid_tape_offering_names = []
+		for row in allowed_tape_rows:
+			if not row.tape_offering:
+				continue
+			if environment_rating_code and row.environment_rating and row.environment_rating != environment_rating_code:
+				continue
+			valid_tape_offering_names.append(row.tape_offering)
+
+		tape_cct_codes = set()
+		if valid_tape_offering_names:
+			tape_filters = {"name": ["in", valid_tape_offering_names]}
+			active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
+			if active_count > 0:
+				tape_filters["is_active"] = 1
+			if led_package_code:
+				tape_filters["led_package"] = led_package_code
+
+			tape_offerings = frappe.get_all(
+				"ilL-Rel-Tape Offering",
+				filters=tape_filters,
+				fields=["cct"],
+				distinct=True,
+				ignore_permissions=True,
+			)
+			tape_cct_codes = {row.cct for row in tape_offerings if row.cct}
+
+		# -------------------------------------------------------------------
+		# Combine: intersect LED-package CCTs with tape-offering CCTs
+		# -------------------------------------------------------------------
+		if led_package_cct_codes is not None:
+			# LED Package has an explicit compatible_ccts list
+			if tape_cct_codes:
+				# Intersect: only show CCTs that are both on the LED Package AND on a tape offering
+				cct_codes = [c for c in led_package_cct_codes if c in tape_cct_codes]
+				if not cct_codes:
+					# If intersection is empty, trust the LED Package list
+					# (tape offerings may not be fully populated yet)
+					cct_codes = led_package_cct_codes
+			else:
+				# No tape offering data – use LED Package list as-is
+				cct_codes = led_package_cct_codes
+		else:
+			# LED Package has no compatible_ccts – use tape offerings only (original flow)
+			cct_codes = list(tape_cct_codes)
+
+	# -------------------------------------------------------------------
+	# Fallback: if still empty, return all active CCTs
+	# -------------------------------------------------------------------
 	if not cct_codes:
-		return {"success": True, "ccts": [], "error": None}
+		all_ccts = frappe.get_all(
+			"ilL-Attribute-CCT",
+			filters={"is_active": 1},
+			fields=["name", "code", "label", "kelvin", "sort_order"],
+			order_by="sort_order asc, kelvin asc",
+			ignore_permissions=True,
+		)
+		if not all_ccts:
+			all_ccts = frappe.get_all(
+				"ilL-Attribute-CCT",
+				fields=["name", "code", "label", "kelvin", "sort_order"],
+				order_by="sort_order asc, kelvin asc",
+				ignore_permissions=True,
+			)
+		fallback_result = [
+			{
+				"value": cct.name,
+				"label": cct.label or cct.name,
+				"code": cct.code,
+				"kelvin": cct.kelvin,
+			}
+			for cct in all_ccts
+		]
+		return {"success": True, "ccts": fallback_result, "is_multi_cct": is_multi_cct_package, "error": None}
 
-	# Get CCT details - only filter by is_active if active CCTs exist
+	# -------------------------------------------------------------------
+	# Fetch CCT details
+	# -------------------------------------------------------------------
 	cct_filters = {"name": ["in", cct_codes]}
-	active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
-	if active_cct_count > 0:
-		cct_filters["is_active"] = 1
-		
+	# For multi-CCT packages, the LED Package's compatible_ccts is the
+	# source of truth — skip the is_active filter so we don't accidentally
+	# exclude CCTs that are valid for this package but haven't been marked
+	# active (the active flag is mainly for static-white catalogue use).
+	if not is_multi_cct_package:
+		active_cct_count = frappe.db.count("ilL-Attribute-CCT", {"is_active": 1})
+		if active_cct_count > 0:
+			cct_filters["is_active"] = 1
+
 	ccts = frappe.get_all(
 		"ilL-Attribute-CCT",
 		filters=cct_filters,
 		fields=["name", "code", "label", "kelvin", "sort_order"],
 		order_by="sort_order asc, kelvin asc",
+		ignore_permissions=True,
+	)
+
+	frappe.logger().info(
+		f"get_ccts_for_template: cct_codes={cct_codes}, "
+		f"filters={cct_filters}, found={len(ccts)} CCTs"
 	)
 
 	result = [
@@ -3322,7 +3973,33 @@ def get_ccts_for_template(
 		for cct in ccts
 	]
 
-	return {"success": True, "ccts": result, "error": None}
+	return {"success": True, "ccts": result, "is_multi_cct": is_multi_cct_package, "error": None}
+
+
+def _find_closest_fixture_output_level(delivered_lm_ft: float, fixture_output_levels: list) -> dict | None:
+	"""
+	Find the closest fixture-level output level from the ilL-Attribute-Output Level list.
+
+	Args:
+		delivered_lm_ft: The calculated delivered lumens per foot
+		fixture_output_levels: List of dicts with 'name', 'value', 'sku_code', 'output_level_name'
+
+	Returns:
+		The closest matching output level dict, or None if list is empty
+	"""
+	if not fixture_output_levels:
+		return None
+
+	closest = None
+	min_diff = float('inf')
+
+	for level in fixture_output_levels:
+		diff = abs(level["value"] - delivered_lm_ft)
+		if diff < min_diff:
+			min_diff = diff
+			closest = level
+
+	return closest
 
 
 @frappe.whitelist()
@@ -3330,8 +4007,8 @@ def get_delivered_outputs_for_template(
 	fixture_template_code: str,
 	led_package_code: str,
 	environment_rating_code: str,
-	cct_code: str,
-	lens_appearance_code: str,
+	cct_code: str = None,
+	lens_appearance_code: str = None,
 ) -> dict[str, Any]:
 	"""
 	Calculate and return available fixture output options (delivered lumens).
@@ -3339,8 +4016,10 @@ def get_delivered_outputs_for_template(
 	This is the key function that computes the delivered output options based on:
 	1. Compatible tapes (filtered by LED Package, Environment Rating, CCT)
 	2. Lens transmission percentage
+	3. Fixture-level output levels from ilL-Attribute-Output Level
 
-	The delivered output = tape lumen output × lens transmission %, rounded to nearest 50.
+	The delivered output = tape lumen output × lens transmission %, matched to closest
+	fixture-level output from ilL-Attribute-Output Level (is_fixture_level=1).
 
 	Args:
 		fixture_template_code: Code of the fixture template
@@ -3354,8 +4033,11 @@ def get_delivered_outputs_for_template(
 			"success": bool,
 			"delivered_outputs": [
 				{
-					"value": int (delivered lm/ft rounded to 50),
+					"value": int (delivered lm/ft matched to fixture output level),
 					"label": str (e.g., "350 lm/ft"),
+					"output_level": str (link to ilL-Attribute-Output Level),
+					"output_level_name": str (display name),
+					"sku_code": str,
 					"tape_output_lm_ft": int,
 					"transmission_pct": float,
 					"matching_tape_count": int
@@ -3369,13 +4051,24 @@ def get_delivered_outputs_for_template(
 		if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": f"Template '{fixture_template_code}' not found"}
 
-		template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+		template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
-		# Get lens transmission as a decimal (0.56 = 56%)
-		# Database stores as decimal, so 0.56 means 56% transmission
+		# Fetch all fixture-level output levels upfront for matching
+		fixture_output_levels = frappe.get_all(
+			"ilL-Attribute-Output Level",
+			filters={"is_fixture_level": 1},
+			fields=["name", "value", "sku_code", "output_level_name"],
+			order_by="value asc",
+			ignore_permissions=True,
+		)
+
+		if not fixture_output_levels:
+			return {"success": False, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": 100, "error": "No fixture-level output levels defined in ilL-Attribute-Output Level"}
+
+		# Get lens transmission as decimal (stored as 0.56 = 56%)
 		lens_transmission_decimal = 1.0  # Default to 100% if not specified
 		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
-			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+			lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 			if lens_doc.transmission:
 				# Value is stored as decimal (0.56 for 56%)
 				lens_transmission_decimal = float(lens_doc.transmission)
@@ -3399,12 +4092,26 @@ def get_delivered_outputs_for_template(
 		if not valid_tape_offering_names:
 			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_decimal * 100, "error": None}
 
+		# -------------------------------------------------------------------
+		# Check if this is a multi-CCT LED package (Tunable White, etc.)
+		# For multi-CCT packages, the tape offering's CCT stores a generic
+		# value (e.g. "Tunable White") that won't match the user-selected
+		# individual CCT (e.g. "3000K"). Skip the CCT filter in that case.
+		# -------------------------------------------------------------------
+		MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
+		is_multi_cct = False
+		if led_package_code and frappe.db.exists("ilL-Attribute-LED Package", led_package_code):
+			spectrum_type = frappe.db.get_value("ilL-Attribute-LED Package", led_package_code, "spectrum_type") or ""
+			is_multi_cct = spectrum_type in MULTI_CCT_SPECTRUM_TYPES
+
 		# Build tape offering filter for exact matches - only add is_active if active records exist
 		tape_filters = {
 			"name": ["in", valid_tape_offering_names],
 			"led_package": led_package_code,
-			"cct": cct_code,
 		}
+		# For multi-CCT packages, don't filter by CCT; also skip if cct_code not provided
+		if not is_multi_cct and cct_code:
+			tape_filters["cct"] = cct_code
 		active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
 		if active_count > 0:
 			tape_filters["is_active"] = 1
@@ -3414,6 +4121,7 @@ def get_delivered_outputs_for_template(
 			"ilL-Rel-Tape Offering",
 			filters=tape_filters,
 			fields=["name", "output_level", "tape_spec"],
+			ignore_permissions=True,
 		)
 
 		if not tape_offerings:
@@ -3428,12 +4136,13 @@ def get_delivered_outputs_for_template(
 				"ilL-Attribute-Output Level",
 				filters={"name": ["in", output_level_names]},
 				fields=["name", "value", "sku_code"],
+				ignore_permissions=True,
 			)
 			output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
 		# Calculate delivered outputs
-		# Map: delivered_output_value -> {tape_output, transmission, matching_tapes}
-		delivered_output_map: dict[int, dict] = {}
+		# Map: output_level_name -> {output_level_link, value, sku_code, tape_output, transmission, matching_tapes}
+		delivered_output_map: dict[str, dict] = {}
 		compatible_tapes = []
 
 		for tape in tape_offerings:
@@ -3441,48 +4150,54 @@ def get_delivered_outputs_for_template(
 				continue
 
 			tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-			# Transmission is already a decimal (0.56 = 56%), so multiply directly
+			# Calculate delivered lumens: tape output × transmission (decimal)
 			delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
 
-			# Round to nearest 50
-			delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
+			# Find closest fixture-level output level instead of rounding to 50
+			closest_level = _find_closest_fixture_output_level(delivered_lm_ft, fixture_output_levels)
+			if not closest_level:
+				continue
 
-			if delivered_rounded not in delivered_output_map:
-				delivered_output_map[delivered_rounded] = {
+			output_level_key = closest_level["name"]
+
+			if output_level_key not in delivered_output_map:
+				delivered_output_map[output_level_key] = {
+					"output_level": closest_level["name"],
+					"output_level_name": closest_level["output_level_name"],
+					"value": closest_level["value"],
+					"sku_code": closest_level["sku_code"],
 					"tape_output_lm_ft": tape_output_lm_ft,
 					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tapes": [],
 				}
-			delivered_output_map[delivered_rounded]["matching_tapes"].append(tape.name)
+			delivered_output_map[output_level_key]["matching_tapes"].append(tape.name)
 			compatible_tapes.append(tape.name)
 
 		# Build result sorted by output value
 		delivered_outputs = []
-		for output_val in sorted(delivered_output_map.keys()):
-			data = delivered_output_map[output_val]
+		for output_level_key in sorted(delivered_output_map.keys(), key=lambda k: delivered_output_map[k]["value"]):
+			data = delivered_output_map[output_level_key]
 			delivered_outputs.append({
-				"value": output_val,
-				"label": f"{output_val} lm/ft",
+				"value": data["value"],
+				"label": f"{data['value']} lm/ft",
+				"output_level": data["output_level"],
+				"output_level_name": data["output_level_name"],
+				"sku_code": data["sku_code"],
 				"tape_output_lm_ft": data["tape_output_lm_ft"],
 				"transmission_pct": data["transmission_pct"],
 				"matching_tape_count": len(data["matching_tapes"]),
 			})
 
-		# Fallback: If no delivered outputs from tape offerings, get all fixture-level output levels
+		# Fallback: If no delivered outputs from tape offerings, use all fixture-level output levels
 		if not delivered_outputs:
-			all_output_levels = frappe.get_all(
-				"ilL-Attribute-Output Level",
-				filters={"is_fixture_level": 1},
-				fields=["name", "value", "sku_code", "output_level_name"],
-				order_by="value asc",
-			)
-			for ol in all_output_levels:
-				# Apply lens transmission (already a decimal)
-				delivered_val = int(round((ol.value * lens_transmission_decimal) / 50.0) * 50)
+			for ol in fixture_output_levels:
 				delivered_outputs.append({
-					"value": delivered_val,
-					"label": f"{delivered_val} lm/ft",
-					"tape_output_lm_ft": ol.value,
+					"value": ol["value"],
+					"label": f"{ol['value']} lm/ft",
+					"output_level": ol["name"],
+					"output_level_name": ol["output_level_name"],
+					"sku_code": ol["sku_code"],
+					"tape_output_lm_ft": ol["value"],
 					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tape_count": 0,  # No specific tape match
 				})
@@ -3510,9 +4225,9 @@ def auto_select_tape_for_configuration(
 	fixture_template_code: str,
 	led_package_code: str,
 	environment_rating_code: str,
-	cct_code: str,
-	lens_appearance_code: str,
-	delivered_output_value: int,
+	cct_code: str = None,
+	lens_appearance_code: str = None,
+	delivered_output_value: int = None,
 ) -> dict[str, Any]:
 	"""
 	Automatically select the tape offering based on the user's configuration choices.
@@ -3520,7 +4235,7 @@ def auto_select_tape_for_configuration(
 	This is the final step that narrows down to a single tape based on:
 	- LED Package, Environment Rating, CCT (exact match)
 	- Lens appearance (for constraint checking)
-	- Delivered output (reverse-calculated to find matching tape output)
+	- Delivered output (matched to closest fixture-level output from ilL-Attribute-Output Level)
 
 	Args:
 		fixture_template_code: Code of the fixture template
@@ -3528,7 +4243,7 @@ def auto_select_tape_for_configuration(
 		environment_rating_code: Selected Environment Rating
 		cct_code: Selected CCT
 		lens_appearance_code: Selected Lens Appearance
-		delivered_output_value: User's selected delivered output (lm/ft, rounded to 50)
+		delivered_output_value: User's selected delivered output value (from fixture output level)
 
 	Returns:
 		dict: {
@@ -3537,6 +4252,7 @@ def auto_select_tape_for_configuration(
 			"tape_details": {
 				"output_level": str,
 				"output_value_lm_ft": int,
+				"fixture_output_level": str (link to ilL-Attribute-Output Level),
 				"tape_spec": str,
 				"cri": str,
 				"sdcm": str
@@ -3552,12 +4268,24 @@ def auto_select_tape_for_configuration(
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
-	# Get lens transmission as a decimal (0.56 = 56%)
-	lens_transmission_decimal = 1.0
+	# Fetch all fixture-level output levels for matching
+	fixture_output_levels = frappe.get_all(
+		"ilL-Attribute-Output Level",
+		filters={"is_fixture_level": 1},
+		fields=["name", "value", "sku_code", "output_level_name"],
+		order_by="value asc",
+		ignore_permissions=True,
+	)
+
+	if not fixture_output_levels:
+		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No fixture-level output levels defined"}
+
+	# Get lens transmission as decimal (stored as 0.56 = 56%)
+	lens_transmission_decimal = 1.0  # Default to 100% if not specified
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
-		lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
+		lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
 			# Value is stored as decimal (0.56 for 56%)
 			lens_transmission_decimal = float(lens_doc.transmission)
@@ -3578,12 +4306,27 @@ def auto_select_tape_for_configuration(
 	if not valid_tape_offering_names:
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No compatible tapes found"}
 
+	# -------------------------------------------------------------------
+	# Check if this is a multi-CCT LED package (Tunable White, etc.)
+	# For multi-CCT packages, the tape offering's CCT field stores a generic
+	# value (e.g. "Tunable White") that won't match the user-selected individual
+	# CCT (e.g. "3000K"). Skip the CCT filter in that case.
+	# -------------------------------------------------------------------
+	MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
+	is_multi_cct = False
+	if led_package_code and frappe.db.exists("ilL-Attribute-LED Package", led_package_code):
+		spectrum_type = frappe.db.get_value("ilL-Attribute-LED Package", led_package_code, "spectrum_type") or ""
+		is_multi_cct = spectrum_type in MULTI_CCT_SPECTRUM_TYPES
+
 	# Get matching tape offerings - only add is_active if active records exist
 	tape_filters = {
 		"name": ["in", valid_tape_offering_names],
 		"led_package": led_package_code,
-		"cct": cct_code,
 	}
+	# For multi-CCT packages, don't filter by CCT (tape has generic CCT like "Tunable White")
+	# Also skip if cct_code not provided
+	if not is_multi_cct and cct_code:
+		tape_filters["cct"] = cct_code
 	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
 	if active_count > 0:
 		tape_filters["is_active"] = 1
@@ -3592,6 +4335,7 @@ def auto_select_tape_for_configuration(
 		"ilL-Rel-Tape Offering",
 		filters=tape_filters,
 		fields=["name", "output_level", "tape_spec", "cri", "sdcm"],
+		ignore_permissions=True,
 	)
 
 	if not tape_offerings:
@@ -3605,6 +4349,7 @@ def auto_select_tape_for_configuration(
 			"ilL-Attribute-Output Level",
 			filters={"name": ["in", output_level_names]},
 			fields=["name", "value", "sku_code"],
+			ignore_permissions=True,
 		)
 		output_level_values = {ol.name: {"value": ol.value, "sku_code": ol.sku_code} for ol in output_levels}
 
@@ -3616,15 +4361,22 @@ def auto_select_tape_for_configuration(
 			continue
 
 		tape_output_lm_ft = output_level_values[tape.output_level]["value"]
-		# Transmission is already a decimal (0.56 = 56%), so multiply directly
+		# Calculate delivered lumens: tape output × transmission (decimal)
 		delivered_lm_ft = tape_output_lm_ft * lens_transmission_decimal
-		delivered_rounded = int(round(delivered_lm_ft / 50.0) * 50)
 
-		if delivered_rounded == delivered_output_value:
+		# Find closest fixture-level output level instead of rounding to 50
+		closest_level = _find_closest_fixture_output_level(delivered_lm_ft, fixture_output_levels)
+		if not closest_level:
+			continue
+
+		# Match if the closest level's value equals the selected delivered output
+		if closest_level["value"] == delivered_output_value:
 			matching_tapes.append({
 				"tape_offering_id": tape.name,
 				"output_level": tape.output_level,
 				"output_value_lm_ft": tape_output_lm_ft,
+				"fixture_output_level": closest_level["name"],
+				"fixture_output_level_name": closest_level["output_level_name"],
 				"tape_spec": tape.tape_spec,
 				"cri": tape.cri,
 				"sdcm": tape.sdcm,
@@ -3634,8 +4386,8 @@ def auto_select_tape_for_configuration(
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No tape matches the selected output"}
 
 	if len(matching_tapes) > 1:
-		# Multiple tapes match - this shouldn't happen with proper data, but handle gracefully
-		# Pick the first one and add a warning
+		# Multiple tapes match - pick the one with the highest output (lm/ft)
+		matching_tapes.sort(key=lambda t: t["output_value_lm_ft"], reverse=True)
 		selected = matching_tapes[0]
 		return {
 			"success": True,
@@ -3643,11 +4395,13 @@ def auto_select_tape_for_configuration(
 			"tape_details": {
 				"output_level": selected["output_level"],
 				"output_value_lm_ft": selected["output_value_lm_ft"],
+				"fixture_output_level": selected["fixture_output_level"],
+				"fixture_output_level_name": selected["fixture_output_level_name"],
 				"tape_spec": selected["tape_spec"],
 				"cri": selected["cri"],
 				"sdcm": selected["sdcm"],
 			},
-			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected first match.",
+			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected highest output tape ({selected['output_value_lm_ft']} lm/ft).",
 			"error": None,
 		}
 
@@ -3659,6 +4413,8 @@ def auto_select_tape_for_configuration(
 		"tape_details": {
 			"output_level": selected["output_level"],
 			"output_value_lm_ft": selected["output_value_lm_ft"],
+			"fixture_output_level": selected["fixture_output_level"],
+			"fixture_output_level_name": selected["fixture_output_level_name"],
 			"tape_spec": selected["tape_spec"],
 			"cri": selected["cri"],
 			"sdcm": selected["sdcm"],
@@ -3707,7 +4463,8 @@ def get_cascading_options_for_template(
 	if not frappe.db.exists("ilL-Fixture-Template", fixture_template_code):
 		return {"success": False, "options": {}, "error": f"Template '{fixture_template_code}' not found"}
 
-	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
+	# Use get_cached_doc to bypass permission checks (portal users call this)
+	template_doc = frappe.get_cached_doc("ilL-Fixture-Template", fixture_template_code)
 
 	options = {
 		"led_packages": [],
@@ -3717,6 +4474,7 @@ def get_cascading_options_for_template(
 		"mountings": [],
 		"finishes": [],
 		"endcap_colors": [],
+		"finish_endcap_color_map": {},
 		"power_feed_type": [],
 		"delivered_outputs": [],
 	}
@@ -3732,6 +4490,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-LED Package",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-LED Package", "is_active") else {},
 			fields=["name", "code", "spectrum_type"],
+			ignore_permissions=True,
 		)
 		options["led_packages"] = [
 			{
@@ -3754,6 +4513,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Environment Rating",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Environment Rating", "is_active") else {},
 			fields=["name", "label", "code"],
+			ignore_permissions=True,
 		)
 		options["environment_ratings"] = [
 			{
@@ -3765,22 +4525,64 @@ def get_cascading_options_for_template(
 		]
 
 	# Get CCTs (filtered by LED package and environment rating if provided)
+	# Determine which LED package to pass. If not explicitly provided,
+	# infer from the template so the CCT call knows about multi-CCT packages.
+	resolved_pkg_for_cct = led_package_code
+	if not resolved_pkg_for_cct and options["led_packages"] and len(options["led_packages"]) == 1:
+		resolved_pkg_for_cct = options["led_packages"][0]["value"]
+
 	cct_result = get_ccts_for_template(
 		fixture_template_code,
-		led_package_code=led_package_code,
+		led_package_code=resolved_pkg_for_cct,
 		environment_rating_code=environment_rating_code,
 	)
+	is_multi_cct = cct_result.get("is_multi_cct", False)
 	if cct_result.get("success"):
 		options["ccts"] = cct_result.get("ccts", [])
 
-	# Fallback: If no CCTs from tape offerings, get all active CCTs
-	if not options["ccts"]:
+	# Fallback: If no CCTs from get_ccts_for_template, try to get CCTs
+	# from the LED Package's compatible_ccts directly (handles multi-CCT
+	# packages whose CCTs may not be marked is_active).
+	if not options["ccts"] and resolved_pkg_for_cct:
+		try:
+			pkg_doc = frappe.get_cached_doc("ilL-Attribute-LED Package", resolved_pkg_for_cct)
+			compat_rows = pkg_doc.get("compatible_ccts", [])
+			if compat_rows:
+				compat_cct_names = [r.cct for r in compat_rows if r.cct]
+				if compat_cct_names:
+					# Fetch without is_active filter – these are explicitly listed on the package
+					compat_ccts = frappe.get_all(
+						"ilL-Attribute-CCT",
+						filters={"name": ["in", compat_cct_names]},
+						fields=["name", "code", "label", "kelvin", "sort_order"],
+						order_by="sort_order asc, kelvin asc",
+						ignore_permissions=True,
+					)
+					if compat_ccts:
+						options["ccts"] = [
+							{
+								"value": cct.name,
+								"label": cct.label or cct.name,
+								"code": cct.code,
+								"kelvin": cct.kelvin,
+							}
+							for cct in compat_ccts
+						]
+						is_multi_cct = True
+		except Exception:
+			pass
+
+	# Final fallback: only for non-multi-CCT packages, get all active CCTs.
+	# For multi-CCT packages we deliberately leave ccts empty rather than
+	# showing static-white CCTs that don't apply.
+	if not options["ccts"] and not is_multi_cct:
 		# First try with is_active filter
 		all_ccts = frappe.get_all(
 			"ilL-Attribute-CCT",
 			filters={"is_active": 1},
 			fields=["name", "code", "label", "kelvin", "sort_order"],
 			order_by="sort_order asc, kelvin asc",
+			ignore_permissions=True,
 		)
 		# If no active CCTs, get all CCTs (is_active may not be set)
 		if not all_ccts:
@@ -3788,6 +4590,7 @@ def get_cascading_options_for_template(
 				"ilL-Attribute-CCT",
 				fields=["name", "code", "label", "kelvin", "sort_order"],
 				order_by="sort_order asc, kelvin asc",
+				ignore_permissions=True,
 			)
 		options["ccts"] = [
 			{
@@ -3802,7 +4605,7 @@ def get_cascading_options_for_template(
 	# Get lens appearances from allowed options
 	for row in template_doc.get("allowed_options", []):
 		if row.option_type == "Lens Appearance" and row.lens_appearance and row.is_active:
-			lens_doc = frappe.get_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
+			lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", row.lens_appearance)
 			options["lens_appearances"].append({
 				"value": row.lens_appearance,
 				"label": row.lens_appearance,
@@ -3825,6 +4628,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Lens Appearance",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Lens Appearance", "is_active") else {},
 			fields=["name", "code", "transmission"],
+			ignore_permissions=True,
 		)
 		options["lens_appearances"] = [
 			{
@@ -3859,6 +4663,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Mounting Method",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Mounting Method", "is_active") else {},
 			fields=["name", "code"],
+			ignore_permissions=True,
 		)
 		options["mountings"] = [
 			{
@@ -3891,6 +4696,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Finish",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Finish", "is_active") else {},
 			fields=["name", "code", "display_name"],
+			ignore_permissions=True,
 		)
 		options["finishes"] = [
 			{
@@ -3900,18 +4706,38 @@ def get_cascading_options_for_template(
 			for f in all_finishes
 		]
 
-	# Get endcap colors - fetch all active ones (not template-specific in MVP)
+	# Get endcap colors - fetch all active ones (kept for backward compatibility)
 	endcap_colors = frappe.get_all(
 		"ilL-Attribute-Endcap Color",
 		filters={"is_active": 1},
 		fields=["code", "display_name", "sort_order"],
 		order_by="sort_order asc, code asc",
+		ignore_permissions=True,
 	)
 	for color in endcap_colors:
 		options["endcap_colors"].append({
 			"value": color.code,
 			"label": color.display_name or color.code,
 		})
+
+	# Build finish → endcap color mapping from ilL-Rel-Finish Endcap Color
+	finish_endcap_mappings = frappe.get_all(
+		"ilL-Rel-Finish Endcap Color",
+		filters={"is_active": 1},
+		fields=["finish", "endcap_color", "is_default"],
+		order_by="is_default DESC, modified DESC",
+		ignore_permissions=True,
+	)
+	for mapping in finish_endcap_mappings:
+		if mapping.finish not in options["finish_endcap_color_map"]:
+			# Get the endcap color code
+			ec_code = frappe.db.get_value("ilL-Attribute-Endcap Color", mapping.endcap_color, "code")
+			ec_display = frappe.db.get_value("ilL-Attribute-Endcap Color", mapping.endcap_color, "display_name")
+			options["finish_endcap_color_map"][mapping.finish] = {
+				"endcap_color": mapping.endcap_color,
+				"endcap_color_code": ec_code or mapping.endcap_color,
+				"endcap_color_label": ec_display or ec_code or mapping.endcap_color,
+			}
 
 	# Get power feed types from allowed options
 	for row in template_doc.get("allowed_options", []):
@@ -3936,6 +4762,7 @@ def get_cascading_options_for_template(
 			"ilL-Attribute-Power Feed Type",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Power Feed Type", "is_active") else {},
 			fields=["name", "code"],
+			ignore_permissions=True,
 		)
 		options["power_feed_type"] = [
 			{
@@ -3943,6 +4770,27 @@ def get_cascading_options_for_template(
 				"label": pft.name,
 			}
 			for pft in all_pft
+		]
+
+	# Get feed direction options
+	if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+		feed_dirs = frappe.get_all(
+			"ilL-Attribute-Feed-Direction",
+			filters={"is_active": 1},
+			fields=["direction_name as name", "code"],
+			order_by="direction_name",
+			ignore_permissions=True,
+		)
+		options["feed_directions"] = [
+			{"value": d.name, "label": d.name, "code": d.code}
+			for d in feed_dirs
+		]
+	else:
+		options["feed_directions"] = [
+			{"value": "End", "label": "End", "code": "E"},
+			{"value": "Back", "label": "Back", "code": "B"},
+			{"value": "Left", "label": "Left", "code": "L"},
+			{"value": "Right", "label": "Right", "code": "R"},
 		]
 
 	# Get delivered outputs (only if all required selections are made)

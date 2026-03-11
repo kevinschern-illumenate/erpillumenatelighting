@@ -244,6 +244,187 @@ class TestilLConfiguredFixture(FrappeTestCase):
 		frappe.delete_doc("ilL-Configured-Fixture", fixture_2seg.name, force=True)
 		frappe.delete_doc("ilL-Configured-Fixture", fixture_3seg.name, force=True)
 
+	def _ensure_feed_direction(self, direction_name, code):
+		"""Helper to ensure a feed direction attribute exists."""
+		return self._ensure({
+			"doctype": "ilL-Attribute-Feed-Direction",
+			"direction_name": direction_name,
+			"code": code,
+		})
+
+	def test_single_segment_feed_direction_codes(self):
+		"""Test that single-segment fixtures populate feed direction SKU codes correctly."""
+		self._ensure_feed_direction("End", "E")
+
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 0,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 1524,
+			"feed_direction_start": "End",
+		})
+		fixture.insert(ignore_permissions=True)
+
+		self.assertEqual(fixture.sku_feed_direction_start_code, "E")
+		self.assertEqual(fixture.sku_feed_direction_end_code, "C")
+		self.assertEqual(fixture.feed_direction_end, "Endcap")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
+	def test_multi_segment_user_segment_feed_direction_codes(self):
+		"""Test that multi-segment fixtures auto-populate feed direction codes in user segments."""
+		self._ensure_feed_direction("End", "E")
+		self._ensure_feed_direction("Back", "B")
+
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 1,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 3048,
+			"user_segments": [
+				{
+					"segment_index": 1,
+					"requested_length_mm": 1524,
+					"end_type": "Jumper",
+					"start_feed_direction": "End",
+					"end_feed_direction": "Back",
+				},
+				{
+					"segment_index": 2,
+					"requested_length_mm": 1524,
+					"end_type": "Endcap",
+					"start_feed_direction": "Back",
+				},
+			],
+		})
+		fixture.insert(ignore_permissions=True)
+
+		# Verify segment 1 codes
+		self.assertEqual(fixture.user_segments[0].start_feed_direction_code, "E")
+		self.assertEqual(fixture.user_segments[0].end_feed_direction_code, "B")
+
+		# Verify segment 2 codes (end is Endcap, so end_feed_direction_code should be empty)
+		self.assertEqual(fixture.user_segments[1].start_feed_direction_code, "B")
+		self.assertEqual(fixture.user_segments[1].end_feed_direction_code, "")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
+	def test_multi_segment_endcap_end_clears_feed_direction_code(self):
+		"""Test that end_feed_direction_code is cleared when end_type is Endcap."""
+		self._ensure_feed_direction("Left", "L")
+
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 1,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 1524,
+			"user_segments": [
+				{
+					"segment_index": 1,
+					"requested_length_mm": 1524,
+					"end_type": "Endcap",
+					"start_feed_direction": "Left",
+					"end_feed_direction": "Left",
+				},
+			],
+		})
+		fixture.insert(ignore_permissions=True)
+
+		# start should be populated, end should be cleared because end_type is Endcap
+		self.assertEqual(fixture.user_segments[0].start_feed_direction_code, "L")
+		self.assertEqual(fixture.user_segments[0].end_feed_direction_code, "")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
+	def test_driver_sku_codes_populated_from_allocated_driver(self):
+		"""Test that driver SKU codes are populated from the first allocated driver."""
+		# Ensure a test Item exists for the driver
+		driver_item_code = "TEST-DRIVER-ITEM-001"
+		if not frappe.db.exists("Item", driver_item_code):
+			frappe.get_doc({
+				"doctype": "Item",
+				"item_code": driver_item_code,
+				"item_name": "Test Driver",
+				"item_group": "All Item Groups",
+			}).insert(ignore_permissions=True)
+
+		# Ensure ilL-Spec-Driver exists with SKU codes
+		if not frappe.db.exists("ilL-Spec-Driver", driver_item_code):
+			frappe.get_doc({
+				"doctype": "ilL-Spec-Driver",
+				"item": driver_item_code,
+				"sku_control_code": "DIM1",
+				"sku_wattage_output_code": "96W",
+				"sku_form_code": "DRJ",
+			}).insert(ignore_permissions=True)
+		else:
+			frappe.db.set_value("ilL-Spec-Driver", driver_item_code, {
+				"sku_control_code": "DIM1",
+				"sku_wattage_output_code": "96W",
+				"sku_form_code": "DRJ",
+			})
+
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 0,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 1524,
+			"drivers": [
+				{
+					"driver_item": driver_item_code,
+					"driver_qty": 1,
+				},
+			],
+		})
+		fixture.insert(ignore_permissions=True)
+
+		self.assertEqual(fixture.sku_driver_control_code, "DIM1")
+		self.assertEqual(fixture.sku_driver_wattage_output_code, "96W")
+		self.assertEqual(fixture.sku_driver_form_code, "DRJ")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
+	def test_driver_sku_codes_empty_when_no_driver(self):
+		"""Test that driver SKU codes are empty when no driver is allocated."""
+		fixture = frappe.get_doc({
+			"doctype": "ilL-Configured-Fixture",
+			"fixture_template": self.template_code,
+			"is_multi_segment": 0,
+			"finish": self.finish_code,
+			"lens_appearance": self.lens_appearance_code,
+			"mounting_method": self.mounting_method_code,
+			"environment_rating": self.environment_rating_code,
+			"endcap_color": self.endcap_color_code,
+			"requested_overall_length_mm": 1524,
+		})
+		fixture.insert(ignore_permissions=True)
+
+		self.assertEqual(fixture.sku_driver_control_code, "")
+		self.assertEqual(fixture.sku_driver_wattage_output_code, "")
+		self.assertEqual(fixture.sku_driver_form_code, "")
+
+		frappe.delete_doc("ilL-Configured-Fixture", fixture.name, force=True)
+
 	def tearDown(self):
 		"""Clean up test data."""
 		# Delete any test fixtures

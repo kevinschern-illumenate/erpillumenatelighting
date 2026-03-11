@@ -1,0 +1,542 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "allow_import": 1,
+    "autoname": "naming_series:",
+    "creation": "2026-03-02 12:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "identity_section",
+        "config_hash",
+        "part_number",
+        "column_break_identity",
+        "product_category",
+        "tape_neon_template",
+        "engine_version",
+        "naming_series",
+        "selected_options_section",
+        "tape_spec",
+        "tape_offering",
+        "column_break_selected_tape",
+        "cct",
+        "output_level",
+        "tape_options_section",
+        "environment_rating",
+        "pcb_mounting",
+        "pcb_finish",
+        "column_break_tape_options",
+        "feed_type",
+        "feed_direction",
+        "lead_length_inches",
+        "neon_options_section",
+        "mounting_method",
+        "finish",
+        "column_break_neon_options",
+        "endcap_color",
+        "sku_codes_section",
+        "sku_series_code",
+        "sku_led_package_code",
+        "sku_cct_code",
+        "sku_output_code",
+        "column_break_sku",
+        "sku_environment_code",
+        "sku_pcb_mounting_code",
+        "sku_pcb_finish_code",
+        "sku_feed_type_code",
+        "length_section",
+        "requested_length_mm",
+        "manufacturable_length_mm",
+        "difference_mm",
+        "column_break_length",
+        "cut_increment_mm",
+        "is_free_cutting",
+        "computed_section",
+        "total_watts",
+        "watts_per_foot",
+        "column_break_computed",
+        "total_segments",
+        "assembly_mode",
+        "build_description",
+        "segments_section",
+        "segments",
+        "resolved_items_section",
+        "tape_item",
+        "leader_cable_item",
+        "column_break_resolved",
+        "endcap_item_start",
+        "endcap_item_end",
+        "erp_links_section",
+        "configured_item",
+        "bom",
+        "column_break_erp",
+        "work_order",
+        "spec_submittal",
+        "pricing_section",
+        "pricing_snapshot"
+    ],
+    "fields": [
+        {
+            "fieldname": "identity_section",
+            "fieldtype": "Section Break",
+            "label": "Identity"
+        },
+        {
+            "description": "Unique hash of configuration inputs for dedup",
+            "fieldname": "config_hash",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Config Hash",
+            "read_only": 1,
+            "unique": 1
+        },
+        {
+            "description": "Generated part number for this configured product",
+            "fieldname": "part_number",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Part Number",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_identity",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "product_category",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "in_standard_filter": 1,
+            "label": "Product Category",
+            "options": "LED Tape\nLED Neon",
+            "reqd": 1
+        },
+        {
+            "description": "The template/family this was configured from",
+            "fieldname": "tape_neon_template",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Tape/Neon Template",
+            "options": "ilL-Tape-Neon-Template",
+            "reqd": 1
+        },
+        {
+            "fieldname": "engine_version",
+            "fieldtype": "Data",
+            "label": "Engine Version",
+            "read_only": 1
+        },
+        {
+            "default": "ILL-CTN-.#####",
+            "fieldname": "naming_series",
+            "fieldtype": "Select",
+            "hidden": 1,
+            "label": "Naming Series",
+            "options": "ILL-CTN-.#####"
+        },
+        {
+            "fieldname": "selected_options_section",
+            "fieldtype": "Section Break",
+            "label": "Selected Options"
+        },
+        {
+            "description": "Resolved tape spec used for this configuration",
+            "fieldname": "tape_spec",
+            "fieldtype": "Link",
+            "label": "Tape Spec",
+            "options": "ilL-Spec-LED Tape"
+        },
+        {
+            "description": "Resolved tape offering (CCT + output combination)",
+            "fieldname": "tape_offering",
+            "fieldtype": "Link",
+            "label": "Tape Offering",
+            "options": "ilL-Rel-Tape Offering"
+        },
+        {
+            "fieldname": "column_break_selected_tape",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "cct",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "CCT",
+            "options": "ilL-Attribute-CCT"
+        },
+        {
+            "fieldname": "output_level",
+            "fieldtype": "Link",
+            "label": "Output Level",
+            "options": "ilL-Attribute-Output Level"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "fieldname": "tape_options_section",
+            "fieldtype": "Section Break",
+            "label": "LED Tape Options"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "fieldname": "environment_rating",
+            "fieldtype": "Link",
+            "label": "Environment Rating",
+            "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "description": "PCB mounting method (e.g. Rigid, Flex)",
+            "fieldname": "pcb_mounting",
+            "fieldtype": "Data",
+            "label": "PCB Mounting"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "description": "PCB color/finish (e.g. White, Black)",
+            "fieldname": "pcb_finish",
+            "fieldtype": "Data",
+            "label": "PCB Finish"
+        },
+        {
+            "fieldname": "column_break_tape_options",
+            "fieldtype": "Column Break"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "fieldname": "feed_type",
+            "fieldtype": "Link",
+            "label": "Power Feed Type",
+            "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "default": "End Feed",
+            "fieldname": "feed_direction",
+            "fieldtype": "Data",
+            "label": "Feed Direction",
+            "read_only": 1
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "fieldname": "lead_length_inches",
+            "fieldtype": "Float",
+            "label": "Lead Length (inches)"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon'",
+            "fieldname": "neon_options_section",
+            "fieldtype": "Section Break",
+            "label": "LED Neon Options"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon'",
+            "description": "Neon extrusion mounting method",
+            "fieldname": "mounting_method",
+            "fieldtype": "Link",
+            "label": "Mounting Method",
+            "options": "ilL-Attribute-Mounting Method"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon'",
+            "description": "Neon extrusion finish",
+            "fieldname": "finish",
+            "fieldtype": "Link",
+            "label": "Finish",
+            "options": "ilL-Attribute-Finish"
+        },
+        {
+            "fieldname": "column_break_neon_options",
+            "fieldtype": "Column Break"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon'",
+            "fieldname": "endcap_color",
+            "fieldtype": "Link",
+            "label": "Endcap Color",
+            "options": "ilL-Attribute-Endcap Color"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "sku_codes_section",
+            "fieldtype": "Section Break",
+            "label": "SKU Codes"
+        },
+        {
+            "fieldname": "sku_series_code",
+            "fieldtype": "Data",
+            "label": "Series Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "sku_led_package_code",
+            "fieldtype": "Data",
+            "label": "LED Package Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "sku_cct_code",
+            "fieldtype": "Data",
+            "label": "CCT Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "sku_output_code",
+            "fieldtype": "Data",
+            "label": "Output Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_sku",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "sku_environment_code",
+            "fieldtype": "Data",
+            "label": "Environment Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "sku_pcb_mounting_code",
+            "fieldtype": "Data",
+            "label": "PCB Mounting Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "sku_pcb_finish_code",
+            "fieldtype": "Data",
+            "label": "PCB Finish Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "sku_feed_type_code",
+            "fieldtype": "Data",
+            "label": "Feed Type Code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "length_section",
+            "fieldtype": "Section Break",
+            "label": "Length"
+        },
+        {
+            "description": "Total requested length across all segments (mm)",
+            "fieldname": "requested_length_mm",
+            "fieldtype": "Int",
+            "in_list_view": 1,
+            "label": "Requested Length (mm)"
+        },
+        {
+            "description": "Total manufacturable length after snapping to cut increments",
+            "fieldname": "manufacturable_length_mm",
+            "fieldtype": "Int",
+            "label": "Manufacturable Length (mm)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "difference_mm",
+            "fieldtype": "Float",
+            "label": "Difference (mm)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_length",
+            "fieldtype": "Column Break"
+        },
+        {
+            "description": "From the tape spec",
+            "fieldname": "cut_increment_mm",
+            "fieldtype": "Float",
+            "label": "Cut Increment (mm)",
+            "read_only": 1
+        },
+        {
+            "default": "0",
+            "fieldname": "is_free_cutting",
+            "fieldtype": "Check",
+            "label": "Free Cutting",
+            "read_only": 1
+        },
+        {
+            "fieldname": "computed_section",
+            "fieldtype": "Section Break",
+            "label": "Computed Outputs"
+        },
+        {
+            "fieldname": "total_watts",
+            "fieldtype": "Float",
+            "label": "Total Watts",
+            "read_only": 1
+        },
+        {
+            "fieldname": "watts_per_foot",
+            "fieldtype": "Float",
+            "label": "Watts per Foot",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_computed",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "1",
+            "description": "Number of segments (1 for tape, 1+ for neon)",
+            "fieldname": "total_segments",
+            "fieldtype": "Int",
+            "label": "Total Segments"
+        },
+        {
+            "default": "ASSEMBLED",
+            "fieldname": "assembly_mode",
+            "fieldtype": "Select",
+            "label": "Assembly Mode",
+            "options": "ASSEMBLED\nSHIP_PIECES"
+        },
+        {
+            "fieldname": "build_description",
+            "fieldtype": "Small Text",
+            "label": "Build Description",
+            "read_only": 1
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon' || doc.total_segments > 1",
+            "fieldname": "segments_section",
+            "fieldtype": "Section Break",
+            "label": "Segments"
+        },
+        {
+            "description": "Detailed segment configuration (per-segment for neon, single for tape)",
+            "fieldname": "segments",
+            "fieldtype": "Table",
+            "label": "Segments",
+            "options": "ilL-Child-Tape-Neon-Segment"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "resolved_items_section",
+            "fieldtype": "Section Break",
+            "label": "Resolved Items"
+        },
+        {
+            "description": "The physical LED tape item",
+            "fieldname": "tape_item",
+            "fieldtype": "Link",
+            "label": "Tape Item",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "fieldname": "leader_cable_item",
+            "fieldtype": "Link",
+            "label": "Leader Cable Item",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_resolved",
+            "fieldtype": "Column Break"
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon'",
+            "fieldname": "endcap_item_start",
+            "fieldtype": "Link",
+            "label": "Endcap Item - Start",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "depends_on": "eval:doc.product_category=='LED Neon'",
+            "fieldname": "endcap_item_end",
+            "fieldtype": "Link",
+            "label": "Endcap Item - End",
+            "options": "Item",
+            "read_only": 1
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "erp_links_section",
+            "fieldtype": "Section Break",
+            "label": "ERP Links"
+        },
+        {
+            "description": "The ERPNext Item created for this configured product",
+            "fieldname": "configured_item",
+            "fieldtype": "Link",
+            "label": "Configured Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "bom",
+            "fieldtype": "Link",
+            "label": "BOM",
+            "options": "BOM"
+        },
+        {
+            "fieldname": "column_break_erp",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "work_order",
+            "fieldtype": "Link",
+            "label": "Work Order",
+            "options": "Work Order"
+        },
+        {
+            "description": "Generated filled spec submittal PDF",
+            "fieldname": "spec_submittal",
+            "fieldtype": "Attach",
+            "label": "Spec Submittal",
+            "read_only": 1
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "pricing_section",
+            "fieldtype": "Section Break",
+            "label": "Pricing Snapshot"
+        },
+        {
+            "fieldname": "pricing_snapshot",
+            "fieldtype": "Table",
+            "label": "Pricing Snapshot",
+            "options": "ilL-Child-Pricing-Snapshot"
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "links": [],
+    "modified": "2026-03-10 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-Configured-Tape-Neon",
+    "naming_rule": "By \"Naming Series\" field",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "All",
+            "share": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "search_fields": "part_number, product_category, tape_neon_template",
+    "sort_field": "creation",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+}

@@ -1,0 +1,67 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-10 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "lens_spec",
+  "lens_item",
+  "lens_appearance",
+  "is_default",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "lens_spec",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lens Spec",
+   "options": "ilL-Spec-Lens",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "lens_spec.item",
+   "fieldname": "lens_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lens Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "lens_spec.lens_appearance",
+   "fieldname": "lens_appearance",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lens Appearance",
+   "options": "ilL-Attribute-Lens Appearance",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Default"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-10 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Compatible Lens",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

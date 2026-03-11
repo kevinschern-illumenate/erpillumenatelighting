@@ -1,0 +1,189 @@
+{
+    "actions": [],
+    "creation": "2026-03-02 12:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "option_type",
+        "cct",
+        "output_level",
+        "environment_rating",
+        "ip_rating",
+        "feed_direction",
+        "feed_position",
+        "power_feed_type",
+        "pcb_mounting",
+        "pcb_finish",
+        "mounting_method",
+        "finish",
+        "endcap_style",
+        "column_break_option",
+        "is_default",
+        "is_active",
+        "msrp_adder"
+    ],
+    "fields": [
+        {
+            "fieldname": "option_type",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "label": "Option Type",
+            "options": "CCT\nOutput Level\nEnvironment Rating\nIP Rating\nFeed Direction\nPower Feed Type\nPCB Mounting\nPCB Finish\nMounting Method\nFinish\nEndcap Style",
+            "reqd": 1
+        },
+        {
+            "depends_on": "eval:doc.option_type=='CCT'",
+            "fieldname": "cct",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "CCT",
+            "mandatory_depends_on": "eval:doc.option_type=='CCT'",
+            "options": "ilL-Attribute-CCT"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Output Level'",
+            "fieldname": "output_level",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Output Level",
+            "mandatory_depends_on": "eval:doc.option_type=='Output Level'",
+            "options": "ilL-Attribute-Output Level"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Environment Rating'",
+            "fieldname": "environment_rating",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Environment Rating",
+            "mandatory_depends_on": "eval:doc.option_type=='Environment Rating'",
+            "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='IP Rating'",
+            "description": "IP rating for neon endcaps (e.g. IP67, IP68)",
+            "fieldname": "ip_rating",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "IP Rating",
+            "mandatory_depends_on": "eval:doc.option_type=='IP Rating'",
+            "options": "ilL-Attribute-IP Rating"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Feed Direction'",
+            "fieldname": "feed_direction",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Feed Direction",
+            "mandatory_depends_on": "eval:doc.option_type=='Feed Direction'",
+            "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+            "default": "Both",
+            "depends_on": "eval:doc.option_type=='Feed Direction'",
+            "description": "Which end of the fixture this direction applies to (Both, Start only, or End only)",
+            "fieldname": "feed_position",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "label": "Feed Position",
+            "options": "Both\nStart\nEnd"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Power Feed Type'",
+            "fieldname": "power_feed_type",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Power Feed Type",
+            "mandatory_depends_on": "eval:doc.option_type=='Power Feed Type'",
+            "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='PCB Mounting'",
+            "description": "PCB mounting method (e.g. Rigid, Flex)",
+            "fieldname": "pcb_mounting",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "PCB Mounting",
+            "mandatory_depends_on": "eval:doc.option_type=='PCB Mounting'",
+            "options": "ilL-Attribute-PCB Mounting"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='PCB Finish'",
+            "description": "PCB color/finish (e.g. White, Black)",
+            "fieldname": "pcb_finish",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "PCB Finish",
+            "mandatory_depends_on": "eval:doc.option_type=='PCB Finish'",
+            "options": "ilL-Attribute-PCB Finish"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Mounting Method'",
+            "description": "Neon mounting method (e.g. Surface, Channel)",
+            "fieldname": "mounting_method",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Mounting Method",
+            "mandatory_depends_on": "eval:doc.option_type=='Mounting Method'",
+            "options": "ilL-Attribute-Mounting Method"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Finish'",
+            "description": "Neon extrusion finish (e.g. Clear, Frosted)",
+            "fieldname": "finish",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Finish",
+            "mandatory_depends_on": "eval:doc.option_type=='Finish'",
+            "options": "ilL-Attribute-Finish"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Endcap Style'",
+            "fieldname": "endcap_style",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Endcap Style",
+            "mandatory_depends_on": "eval:doc.option_type=='Endcap Style'",
+            "options": "ilL-Attribute-Endcap Style"
+        },
+        {
+            "fieldname": "column_break_option",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "fieldname": "is_default",
+            "fieldtype": "Check",
+            "in_list_view": 1,
+            "label": "Is Default"
+        },
+        {
+            "default": "1",
+            "fieldname": "is_active",
+            "fieldtype": "Check",
+            "in_list_view": 1,
+            "label": "Is Active"
+        },
+        {
+            "default": "0",
+            "description": "Additional MSRP charge for this option",
+            "fieldname": "msrp_adder",
+            "fieldtype": "Currency",
+            "in_list_view": 1,
+            "label": "MSRP Adder"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2026-03-02 12:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-Child-Tape-Neon-Allowed-Option",
+    "naming_rule": "Random",
+    "owner": "Administrator",
+    "permissions": [],
+    "sort_field": "idx",
+    "sort_order": "ASC",
+    "states": []
+}

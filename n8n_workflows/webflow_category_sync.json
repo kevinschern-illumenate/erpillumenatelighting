@@ -1,0 +1,362 @@
+{
+  "name": "ERPNext → Webflow Category Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 150]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.get_webflow_categories",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sync_status",
+              "value": "needs_sync"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-categories",
+      "name": "Fetch Categories from ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-has-categories",
+              "leftValue": "={{ $json.message.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-categories",
+      "name": "Has Categories to Sync?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [475, 75]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "message.all_categories",
+        "options": {}
+      },
+      "id": "split-categories",
+      "name": "Split Categories",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [700, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "check-has-webflow-id",
+              "leftValue": "={{ $json.webflow_item_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "exists-in-webflow",
+      "name": "Exists in Webflow?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [925, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.webflow.com/v2/collections/697105f368b2ba752d0651b8/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"isArchived\": false,\n  \"isDraft\": false,\n  \"fieldData\": {\n    \"name\": \"{{ $json.category_name }}\",\n    \"slug\": \"{{ $json.category_slug }}\",\n    \"display-order\": {{ $json.display_order || 0 }}\n  }\n}",
+        "options": {}
+      },
+      "id": "webflow-create",
+      "name": "Webflow: Create Category",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1175, -75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.webflow.com/v2/collections/697105f368b2ba752d0651b8/items/{{ $json.webflow_item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"isArchived\": false,\n  \"isDraft\": false,\n  \"fieldData\": {\n    \"name\": \"{{ $json.category_name }}\",\n    \"slug\": \"{{ $json.category_slug }}\",\n    \"display-order\": {{ $json.display_order || 0 }}\n  }\n}",
+        "options": {}
+      },
+      "id": "webflow-update",
+      "name": "Webflow: Update Category",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1175, 75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webflow-api-token",
+          "name": "Webflow API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_category_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"category_slug\": \"{{ $('Split Categories').item.json.category_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced-new",
+      "name": "Mark Synced (New)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1425, -75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_category_synced",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"category_slug\": \"{{ $('Split Categories').item.json.category_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      },
+      "id": "mark-synced-update",
+      "name": "Mark Synced (Update)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1425, 75],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "erpnext-api-key",
+          "name": "ERPNext API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ERPNext → Webflow Category Sync\n\n### Credentials Required:\n\n1. **ERPNext API Key** (Header Auth):\n   - Name: `Authorization`\n   - Value: `token YOUR_API_KEY:YOUR_API_SECRET`\n\n2. **Webflow API Token** (Header Auth):\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_WEBFLOW_TOKEN`\n\n### URLs Configured:\n- ERPNext: https://illumenatelighting.v.frappe.cloud\n- Categories Collection: 697105f368b2ba752d0651b8",
+        "height": 380,
+        "width": 320
+      },
+      "id": "sticky-note",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-300, -100]
+    },
+    {
+      "parameters": {
+        "content": "## No Categories to Sync\n\nAll categories are already synced!",
+        "height": 100,
+        "width": 200
+      },
+      "id": "no-sync-note",
+      "name": "No Sync Needed",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [700, 150]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Categories from ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Categories from ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Categories from ERPNext": {
+      "main": [
+        [
+          {
+            "node": "Has Categories to Sync?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Categories to Sync?": {
+      "main": [
+        [
+          {
+            "node": "Split Categories",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Categories": {
+      "main": [
+        [
+          {
+            "node": "Exists in Webflow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exists in Webflow?": {
+      "main": [
+        [
+          {
+            "node": "Webflow: Update Category",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webflow: Create Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Create Category": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced (New)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow: Update Category": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "webflow",
+      "createdAt": "2026-01-26T00:00:00.000Z",
+      "updatedAt": "2026-01-26T00:00:00.000Z"
+    },
+    {
+      "name": "erpnext",
+      "createdAt": "2026-01-26T00:00:00.000Z",
+      "updatedAt": "2026-01-26T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-26T00:00:00.000Z",
+  "versionId": "1"
+}

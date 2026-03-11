@@ -44,6 +44,8 @@ def get_data():
 
                 {"type": "doctype", "name": "ilL-Export-Job"},
 
+                {"type": "doctype", "name": "ilL-Job-Title-Master"},
+
                 {"type": "doctype", "name": "ilL-Rel-Tape Offering"},
                 {"type": "doctype", "name": "ilL-Rel-Leader-Cable-Map"},
                 {"type": "doctype", "name": "ilL-Rel-Mounting-Accessory-Map"},

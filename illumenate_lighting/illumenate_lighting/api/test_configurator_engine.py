@@ -1799,8 +1799,14 @@ class TestConfiguratorEngine(FrappeTestCase):
 		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
 		self.assertTrue(any("Endcap-Map" in text for text in error_texts))
 
-	def test_missing_mounting_map_returns_error(self):
-		"""Test that missing mounting accessory map returns proper error message"""
+	def test_missing_mounting_map_returns_warning(self):
+		"""Test that missing mounting accessory map returns a warning but still valid.
+
+		Some mounting methods (e.g. screw-through-back-of-profile) do not use
+		separate mounting accessories at all.  The configurator should treat this
+		gracefully: return is_valid=True, emit a warning, set mounting_item to
+		None, and report 0 mounting accessories.
+		"""
 		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
 			validate_and_quote,
 		)
@@ -1834,9 +1840,22 @@ class TestConfiguratorEngine(FrappeTestCase):
 			qty=1,
 		)
 
-		self.assertFalse(result["is_valid"])
-		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
-		self.assertTrue(any("Mounting-Accessory-Map" in text for text in error_texts))
+		# Should still be valid — missing mounting map is not a hard error
+		self.assertTrue(result["is_valid"])
+
+		# Should have a warning about no mounting accessories
+		warning_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "warning"]
+		self.assertTrue(
+			any("does not include separate mounting accessories" in text for text in warning_texts),
+			f"Expected mounting-accessories warning in messages, got: {warning_texts}",
+		)
+
+		# mounting_item should be None
+		self.assertIsNone(result["resolved_items"]["mounting_item"])
+
+		# total_mounting_accessories should be 0 (if present in computed)
+		if "total_mounting_accessories" in result.get("computed", {}):
+			self.assertEqual(result["computed"]["total_mounting_accessories"], 0)
 
 	def test_missing_lens_map_returns_error(self):
 		"""Test that missing lens map returns proper error message"""
@@ -2118,6 +2137,510 @@ class TestConfiguratorEngine(FrappeTestCase):
 			self.assertIn("item_code", driver)
 			self.assertIn("qty", driver)
 
+	def test_multisegment_fixture_persists_max_run_fields(self):
+		"""
+		Test that multi-segment configured fixtures persist max_run_ft_effective
+		and related fields on the document.
+
+		This is a regression test: previously _create_or_update_multisegment_fixture
+		did not save max_run_ft_by_watts, max_run_ft_by_voltage_drop, or
+		max_run_ft_effective, causing spec submittal exports to show 0.00.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		# Fetch the configured fixture and verify max_run fields are persisted
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+
+		# watts_per_ft = 5, max_run_ft_by_watts = 85/5 = 17ft
+		# voltage_drop_max_run_length_ft = 16ft
+		# max_run_ft_effective = min(17, 16) = 16ft
+		self.assertEqual(fixture_doc.max_run_ft_by_watts, 17.0)
+		self.assertEqual(fixture_doc.max_run_ft_by_voltage_drop, 16.0)
+		self.assertEqual(fixture_doc.max_run_ft_effective, 16.0)
+
+	def test_multisegment_single_segment_endcap_types(self):
+		"""
+		Test that a single-segment fixture built via multi-segment flow has
+		correct endcap types: Feed-Through start (leader cable), Solid end.
+		Also verifies no jumper item is set on the last (only) segment.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": self.power_feed_type_code,
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		self.assertGreaterEqual(len(fixture_doc.segments), 1)
+
+		# First (only) segment: start=Feed-Through, end=Solid
+		seg = fixture_doc.segments[0]
+		self.assertEqual(seg.start_endcap_type, "Feed-Through",
+			"Single-segment start endcap should be Feed-Through (leader cable enters)")
+		self.assertEqual(seg.end_endcap_type, "Solid",
+			"Single-segment end endcap should be Solid (true fixture end)")
+		# No jumper item on the only segment
+		self.assertFalse(seg.end_jumper_item,
+			"Single-segment should have no end jumper item")
+		self.assertEqual(seg.end_jumper_len_mm or 0, 0,
+			"Single-segment should have 0mm end jumper length")
+		# Leader item should be present on first segment
+		self.assertTrue(seg.start_leader_item,
+			"First segment should have a start leader item")
+		self.assertGreater(seg.start_leader_len_mm or 0, 0,
+			"First segment should have non-zero start leader length")
+
+	def test_multisegment_two_segment_endcap_types(self):
+		"""
+		Test that a two-segment fixture has correct endcap types per segment:
+		- Seg 1: Feed-Through start (leader), Feed-Through end (jumper exits)
+		- Seg 2: Feed-Through start (jumper enters), Solid end (true end)
+		Also verifies no jumper item on last segment, jumper present on first.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": self.power_feed_type_code,
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": self.power_feed_type_code,
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": self.power_feed_type_code,
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		# Should have at least 2 user segments in the segments child table
+		user_segs = [s for s in fixture_doc.segments]
+		self.assertGreaterEqual(len(user_segs), 2)
+
+		seg1 = user_segs[0]
+		seg2 = user_segs[1]
+
+		# Segment 1 endcap types
+		self.assertEqual(seg1.start_endcap_type, "Feed-Through",
+			"Seg 1 start should be Feed-Through (leader cable)")
+		self.assertEqual(seg1.end_endcap_type, "Feed-Through",
+			"Seg 1 end should be Feed-Through (jumper cable exits)")
+		# Segment 1 cables
+		self.assertTrue(seg1.start_leader_item,
+			"Seg 1 should have a leader cable item")
+		self.assertGreater(seg1.start_leader_len_mm or 0, 0,
+			"Seg 1 should have non-zero leader length")
+		self.assertTrue(seg1.end_jumper_item,
+			"Seg 1 should have a jumper cable item")
+		self.assertGreater(seg1.end_jumper_len_mm or 0, 0,
+			"Seg 1 should have non-zero jumper length")
+
+		# Segment 2 endcap types
+		self.assertEqual(seg2.start_endcap_type, "Feed-Through",
+			"Seg 2 start should be Feed-Through (jumper cable enters)")
+		self.assertEqual(seg2.end_endcap_type, "Solid",
+			"Seg 2 end should be Solid (true fixture end)")
+		# Segment 2: no jumper on last segment
+		self.assertFalse(seg2.end_jumper_item,
+			"Last segment should have no end jumper item")
+		self.assertEqual(seg2.end_jumper_len_mm or 0, 0,
+			"Last segment should have 0mm end jumper length")
+
+	def test_single_segment_fixture_populates_segment_endcaps(self):
+		"""
+		Test that the single-segment validate_and_quote path populates
+		endcap types and items on the segments child table.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		self.assertIsNotNone(result["configured_fixture_id"])
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		self.assertGreaterEqual(len(fixture_doc.segments), 1)
+
+		first_seg = fixture_doc.segments[0]
+		last_seg = fixture_doc.segments[-1]
+
+		# First segment should have start endcap data
+		self.assertTrue(first_seg.start_endcap_item,
+			"First segment should have start endcap item populated")
+		self.assertTrue(first_seg.start_endcap_type,
+			"First segment should have start endcap type populated")
+		self.assertTrue(first_seg.start_leader_item,
+			"First segment should have start leader item populated")
+
+		# Last segment should have end endcap data and no jumper
+		self.assertTrue(last_seg.end_endcap_item,
+			"Last segment should have end endcap item populated")
+		self.assertTrue(last_seg.end_endcap_type,
+			"Last segment should have end endcap type populated")
+		self.assertFalse(last_seg.end_jumper_item,
+			"Single-segment fixture should have no end jumper item")
+
+	def test_tier_pricing_with_customer_group_discount(self):
+		"""Test that tier pricing applies discounts from Customer Group Pricing Rules."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			_calculate_pricing,
+		)
+
+		# Create a Customer Group
+		cg_name = "_Test Tier CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			cg = frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name})
+			cg.insert(ignore_permissions=True)
+
+		# Create a Customer in that group
+		cust_name = "_Test Tier Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			cust = frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			})
+			cust.insert(ignore_permissions=True)
+
+		# Create a Pricing Rule with 20% discount for that Customer Group
+		pr_name = "_Test Tier PR 20pct"
+		if frappe.db.exists("Pricing Rule", pr_name):
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+		pr = frappe.get_doc({
+			"doctype": "Pricing Rule",
+			"name": pr_name,
+			"title": pr_name,
+			"applicable_for": "Customer Group",
+			"customer_group": cg_name,
+			"selling": 1,
+			"buying": 0,
+			"pricing_rule_for": "Discount Percentage",
+			"discount_percentage": 20,
+			"apply_on": "Transaction",
+			"priority": 1,
+			"disable": 0,
+		})
+		pr.insert(ignore_permissions=True)
+
+		try:
+			template_doc = frappe.get_doc("ilL-Fixture-Template", self.template_code)
+			result = _calculate_pricing(
+				fixture_template_code=self.template_code,
+				resolved_items={"profile_item": "PROFILE-ITEM-01"},
+				computed={"tape_cut_length_mm": 950, "manufacturable_overall_length_mm": 980},
+				finish_code=self.finish_code,
+				lens_appearance_code=self.lens_appearance_code,
+				mounting_method_code=self.mounting_method_code,
+				endcap_style_start_code=self.endcap_style_code,
+				endcap_style_end_code=self.endcap_style_code,
+				power_feed_type_code=self.power_feed_type_code,
+				environment_rating_code=self.environment_rating_code,
+				tape_offering_id=self.tape_offering_id,
+				qty=1,
+				template_doc=template_doc,
+				customer=cust_name,
+			)
+
+			self.assertGreater(result["msrp_unit"], 0)
+			expected_tier = round(result["msrp_unit"] * 0.80, 2)
+			self.assertEqual(result["tier_unit"], expected_tier)
+			self.assertEqual(result["discount_percentage"], 20.0)
+			self.assertEqual(result["pricing_rule_name"], pr_name)
+			self.assertEqual(result["customer_group"], cg_name)
+		finally:
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_tier_pricing_no_pricing_rule_falls_back_to_msrp(self):
+		"""Test that without a Pricing Rule, tier_unit falls back to msrp_unit."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			_calculate_pricing,
+		)
+
+		# Create a Customer Group + Customer with NO Pricing Rule
+		cg_name = "_Test No PR CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			cg = frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name})
+			cg.insert(ignore_permissions=True)
+
+		cust_name = "_Test No PR Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			cust = frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			})
+			cust.insert(ignore_permissions=True)
+
+		try:
+			template_doc = frappe.get_doc("ilL-Fixture-Template", self.template_code)
+			result = _calculate_pricing(
+				fixture_template_code=self.template_code,
+				resolved_items={"profile_item": "PROFILE-ITEM-01"},
+				computed={"tape_cut_length_mm": 950, "manufacturable_overall_length_mm": 980},
+				finish_code=self.finish_code,
+				lens_appearance_code=self.lens_appearance_code,
+				mounting_method_code=self.mounting_method_code,
+				endcap_style_start_code=self.endcap_style_code,
+				endcap_style_end_code=self.endcap_style_code,
+				power_feed_type_code=self.power_feed_type_code,
+				environment_rating_code=self.environment_rating_code,
+				tape_offering_id=self.tape_offering_id,
+				qty=1,
+				template_doc=template_doc,
+				customer=cust_name,
+			)
+
+			self.assertGreater(result["msrp_unit"], 0)
+			self.assertEqual(result["tier_unit"], result["msrp_unit"])
+			self.assertEqual(result["discount_amount"], 0.0)
+			self.assertEqual(result["discount_percentage"], 0.0)
+			self.assertIsNone(result["pricing_rule_name"])
+			self.assertEqual(result["customer_group"], cg_name)
+		finally:
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_tier_pricing_discount_percentage_type(self):
+		"""Test discount percentage type Pricing Rule."""
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+			get_tier_price_for_customer,
+		)
+
+		cg_name = "_Test Pct CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name}).insert(ignore_permissions=True)
+
+		cust_name = "_Test Pct Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			}).insert(ignore_permissions=True)
+
+		pr_name = "_Test Pct PR 15"
+		if frappe.db.exists("Pricing Rule", pr_name):
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+		frappe.get_doc({
+			"doctype": "Pricing Rule",
+			"name": pr_name,
+			"title": pr_name,
+			"applicable_for": "Customer Group",
+			"customer_group": cg_name,
+			"selling": 1,
+			"buying": 0,
+			"pricing_rule_for": "Discount Percentage",
+			"discount_percentage": 15,
+			"apply_on": "Transaction",
+			"priority": 1,
+			"disable": 0,
+		}).insert(ignore_permissions=True)
+
+		try:
+			result = get_tier_price_for_customer(200.0, customer=cust_name)
+			self.assertEqual(result["tier_unit"], 170.0)
+			self.assertEqual(result["discount_percentage"], 15.0)
+			self.assertEqual(result["discount_amount"], 30.0)
+		finally:
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_tier_pricing_rate_type(self):
+		"""Test rate type Pricing Rule (fixed price override)."""
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+			get_tier_price_for_customer,
+		)
+
+		cg_name = "_Test Rate CG"
+		if not frappe.db.exists("Customer Group", cg_name):
+			frappe.get_doc({"doctype": "Customer Group", "customer_group_name": cg_name}).insert(ignore_permissions=True)
+
+		cust_name = "_Test Rate Customer"
+		if not frappe.db.exists("Customer", cust_name):
+			frappe.get_doc({
+				"doctype": "Customer",
+				"customer_name": cust_name,
+				"customer_group": cg_name,
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			}).insert(ignore_permissions=True)
+
+		pr_name = "_Test Rate PR 150"
+		if frappe.db.exists("Pricing Rule", pr_name):
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+		frappe.get_doc({
+			"doctype": "Pricing Rule",
+			"name": pr_name,
+			"title": pr_name,
+			"applicable_for": "Customer Group",
+			"customer_group": cg_name,
+			"selling": 1,
+			"buying": 0,
+			"pricing_rule_for": "Rate",
+			"rate": 150.0,
+			"apply_on": "Transaction",
+			"priority": 1,
+			"disable": 0,
+		}).insert(ignore_permissions=True)
+
+		try:
+			result = get_tier_price_for_customer(200.0, customer=cust_name)
+			self.assertEqual(result["tier_unit"], 150.0)
+			self.assertEqual(result["discount_amount"], 50.0)
+			self.assertEqual(result["discount_percentage"], 25.0)
+		finally:
+			frappe.delete_doc("Pricing Rule", pr_name, force=True)
+			frappe.delete_doc("Customer", cust_name, force=True)
+			frappe.delete_doc("Customer Group", cg_name, force=True)
+
+	def test_pricing_response_includes_item_breakdown(self):
+		"""Test that the pricing response includes item_pricing with fixture breakdown."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			_calculate_pricing,
+		)
+
+		template_doc = frappe.get_doc("ilL-Fixture-Template", self.template_code)
+		result = _calculate_pricing(
+			fixture_template_code=self.template_code,
+			resolved_items={"profile_item": "PROFILE-ITEM-01"},
+			computed={"tape_cut_length_mm": 950, "manufacturable_overall_length_mm": 980},
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			qty=1,
+			template_doc=template_doc,
+		)
+
+		# Verify item_pricing is present and contains fixture entry
+		self.assertIn("item_pricing", result)
+		self.assertIsInstance(result["item_pricing"], list)
+		self.assertGreaterEqual(len(result["item_pricing"]), 1)
+
+		# First entry should be fixture
+		fixture_item = result["item_pricing"][0]
+		self.assertEqual(fixture_item["item_type"], "fixture")
+		self.assertEqual(fixture_item["item_code"], "PROFILE-ITEM-01")
+		self.assertEqual(fixture_item["description"], "Fixture Assembly")
+		self.assertEqual(fixture_item["msrp_unit"], result["msrp_unit"])
+
+		# Verify enriched pricing fields
+		self.assertIn("discount_amount", result)
+		self.assertIn("discount_percentage", result)
+		self.assertIn("pricing_rule_name", result)
+		self.assertIn("customer_group", result)
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up any test configured fixtures created during tests
@@ -2381,13 +2904,13 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 		self.assertTrue(result["success"])
 		self.assertGreater(len(result["delivered_outputs"]), 0)
 
-		# With 56% transmission:
-		# 100 lm/ft tape * 0.56 = 56 lm/ft -> rounded to 50
-		# 200 lm/ft tape * 0.56 = 112 lm/ft -> rounded to 100
-		output_values = [o["value"] for o in result["delivered_outputs"]]
-		# Check that outputs are rounded to nearest 50
-		for val in output_values:
-			self.assertEqual(val % 50, 0, f"Output {val} should be rounded to nearest 50")
+		# With lens transmission, delivered outputs are matched to closest fixture-level output levels
+		# Each output should have output_level (link) and output_level_name fields
+		for output in result["delivered_outputs"]:
+			self.assertIn("value", output)
+			self.assertIn("output_level", output)
+			self.assertIn("output_level_name", output)
+			self.assertIn("sku_code", output)
 
 	def test_auto_select_tape_for_configuration(self):
 		"""Test that tape is auto-selected based on delivered output choice"""
@@ -2439,6 +2962,158 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 
 		# With all selections made, delivered_outputs should be populated
 		self.assertGreater(len(result["options"]["delivered_outputs"]), 0)
+
+	# =========================================================================
+	# Lens Resolution via ilL-Rel-Profile Lens Tests
+	# =========================================================================
+
+	def test_multisegment_lens_uses_rel_profile_lens(self):
+		"""
+		Test that multisegment lens resolution uses ilL-Rel-Profile Lens
+		(single source of truth) instead of raw ilL-Spec-Lens query.
+
+		This is the core fix for the BOM lens mismatch bug: without the
+		ilL-Rel-Profile Lens lookup, a different lens item that matches the
+		same lens_appearance could be picked.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		# Create a second lens spec with the same appearance but a different item.
+		# This is a valid lens for a different profile, but not for the test profile.
+		alt_lens = self._ensure(
+			{
+				"doctype": "ilL-Spec-Lens",
+				"item": "LENS-ITEM-02",
+				"family": "LENS-FAMILY-2",
+				"lens_appearance": self.lens_appearance_code,
+				"supported_environment_ratings": [{"environment_rating": self.environment_rating_code}],
+			},
+			ignore_links=True,
+		)
+
+		# Set up the ilL-Rel-Profile Lens to only include the original lens
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Profile Lens",
+				"profile_spec": self.profile_spec.name,
+				"is_active": 1,
+				"compatible_lenses": [
+					{
+						"lens_spec": self.lens_spec.name,
+						"is_default": 1,
+					}
+				],
+			},
+			ignore_links=True,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		# The resolved lens_item must be the one from the rel doc (LENS-ITEM-01),
+		# NOT the second lens spec that also matches the same appearance.
+		self.assertEqual(
+			result.get("resolved_items", {}).get("lens_item"),
+			"LENS-ITEM-01",
+			"Multisegment lens resolution should use ilL-Rel-Profile Lens, not raw ilL-Spec-Lens query",
+		)
+
+	def test_single_segment_lens_fallback_blocked_by_rel_doc(self):
+		"""
+		When an ilL-Rel-Profile Lens record exists for the profile but has no
+		child row for the requested lens appearance, the fallback to raw
+		ilL-Spec-Lens must NOT fire.  This prevents picking an unrelated lens.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a different lens appearance that only exists in ilL-Spec-Lens
+		# but is NOT listed in the ilL-Rel-Profile Lens child rows.
+		other_lens_code = "LENS-OTHER"
+		self._ensure(
+			{"doctype": "ilL-Attribute-Lens Appearance", "label": other_lens_code, "code": other_lens_code}
+		)
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Lens",
+				"item": "LENS-ITEM-OTHER",
+				"family": "LENS-FAMILY-3",
+				"lens_appearance": other_lens_code,
+				"supported_environment_ratings": [{"environment_rating": self.environment_rating_code}],
+			},
+			ignore_links=True,
+		)
+
+		# Set up the ilL-Rel-Profile Lens with only the original lens
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Profile Lens",
+				"profile_spec": self.profile_spec.name,
+				"is_active": 1,
+				"compatible_lenses": [
+					{
+						"lens_spec": self.lens_spec.name,
+						"is_default": 1,
+					}
+				],
+			},
+			ignore_links=True,
+		)
+
+		# Add the other lens to allowed options
+		self.template.append("allowed_options", {
+			"doctype": "ilL-Child-Template-Allowed-Option",
+			"option_type": "Lens Appearance",
+			"lens_appearance": other_lens_code,
+			"is_active": 1,
+		})
+		self.template.save()
+
+		# Request a lens that exists in ilL-Spec-Lens but NOT in the rel doc
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=other_lens_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		# Should fail because the rel doc is authoritative and doesn't include
+		# the requested lens appearance
+		self.assertFalse(result["is_valid"])
+		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
+		self.assertTrue(any("Lens" in text for text in error_texts))
 
 	def tearDown(self):
 		"""Clean up test data"""

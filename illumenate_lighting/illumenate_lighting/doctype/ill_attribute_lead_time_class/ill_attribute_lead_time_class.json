@@ -1,88 +1,95 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:label",
- "creation": "2026-01-07 12:04:44.781074",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "label",
-  "days_min",
-  "days_max",
-  "code",
-  "column_break_hdev",
-  "notes"
- ],
- "fields": [
-  {
-   "fieldname": "label",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Lead Time Label",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fieldname": "days_min",
-   "fieldtype": "Int",
-   "label": "Days Minimum"
-  },
-  {
-   "fieldname": "days_max",
-   "fieldtype": "Int",
-   "label": "Days Maximum"
-  },
-  {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "label": "Code"
-  },
-  {
-   "fieldname": "column_break_hdev",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "notes",
-   "fieldtype": "Small Text",
-   "label": "Notes"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-07 12:05:49.995558",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Attribute-Lead Time Class",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "search_fields": "label, code",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:label",
+    "creation":  "2026-01-07 12:04:44.781074",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "label",
+                        "days_min",
+                        "days_max",
+                        "code",
+                        "column_break_hdev",
+                        "notes"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "label",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Lead Time Label",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "fieldname":  "days_min",
+                       "fieldtype":  "Int",
+                       "label":  "Days Minimum"
+                   },
+                   {
+                       "fieldname":  "days_max",
+                       "fieldtype":  "Int",
+                       "label":  "Days Maximum"
+                   },
+                   {
+                       "fieldname":  "code",
+                       "fieldtype":  "Data",
+                       "label":  "Code"
+                   },
+                   {
+                       "fieldname":  "column_break_hdev",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "notes",
+                       "fieldtype":  "Small Text",
+                       "label":  "Notes"
+                   }
+               ],
+    "grid_page_length":  50,
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-07 12:05:49.995558",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Attribute-Lead Time Class",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "All",
+                            "share":  1
+                        }
+                    ],
+    "row_format":  "Dynamic",
+    "rows_threshold_for_grid_search":  20,
+    "search_fields":  "label, code",
+    "sort_field":  "modified",
+    "sort_order":  "DESC",
+    "states":  [
+
+               ],
+    "allow_import":  1
 }

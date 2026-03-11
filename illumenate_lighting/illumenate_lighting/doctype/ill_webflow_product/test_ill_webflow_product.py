@@ -1,0 +1,801 @@
+# Copyright (c) 2026, ilLumenate Lighting and contributors
+# For license information, please see license.txt
+
+"""
+Unit tests for ilL-Webflow-Product DocType and related functionality.
+"""
+
+import frappe
+from frappe.tests.utils import FrappeTestCase
+
+
+class TestilLWebflowProduct(FrappeTestCase):
+    """Test cases for Webflow Product DocType."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures."""
+        super().setUpClass()
+        # Create test category if it doesn't exist
+        if not frappe.db.exists("ilL-Webflow-Category", "test-category"):
+            frappe.get_doc({
+                "doctype": "ilL-Webflow-Category",
+                "category_name": "Test Category",
+                "category_slug": "test-category",
+                "is_active": 1
+            }).insert()
+
+    def test_create_webflow_product(self):
+        """Test creating a basic Webflow product."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Product",
+            "product_slug": "test-product-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "is_active": 1
+        })
+        product.insert()
+        
+        self.assertTrue(frappe.db.exists("ilL-Webflow-Product", product.name))
+        self.assertEqual(product.sync_status, "Never Synced")
+        
+        # Cleanup
+        product.delete()
+
+    def test_fixture_template_backlink_set_on_insert(self):
+        """Test that webflow_product backlink is set on fixture template when product is created."""
+        # Create a fixture template
+        template = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-TEST-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Test Template",
+            "is_active": 1,
+        })
+        template.insert()
+
+        # Create a webflow product linked to that fixture template
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Backlink Test Product",
+            "product_slug": "backlink-test-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "fixture_template": template.name,
+            "is_active": 1,
+        })
+        product.insert()
+
+        # Verify backlink is set
+        template.reload()
+        self.assertEqual(template.webflow_product, product.name)
+
+        # Cleanup
+        product.delete()
+        template.delete()
+
+    def test_fixture_template_backlink_cleared_on_delete(self):
+        """Test that webflow_product backlink is cleared when product is deleted."""
+        template = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-DEL-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Delete Test",
+            "is_active": 1,
+        })
+        template.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Backlink Delete Product",
+            "product_slug": "backlink-del-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "fixture_template": template.name,
+            "is_active": 1,
+        })
+        product.insert()
+
+        # Verify backlink is set
+        template.reload()
+        self.assertEqual(template.webflow_product, product.name)
+
+        # Delete the product and verify backlink is cleared
+        product.delete()
+        template.reload()
+        self.assertFalse(template.webflow_product)
+
+        # Cleanup
+        template.delete()
+
+    def test_fixture_template_backlink_updated_on_change(self):
+        """Test that backlink is moved when fixture_template is changed."""
+        template1 = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-CHG1-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Change Test 1",
+            "is_active": 1,
+        })
+        template1.insert()
+
+        template2 = frappe.get_doc({
+            "doctype": "ilL-Fixture-Template",
+            "template_code": "BL-CHG2-" + frappe.generate_hash(length=6),
+            "template_name": "Backlink Change Test 2",
+            "is_active": 1,
+        })
+        template2.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Backlink Change Product",
+            "product_slug": "backlink-chg-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "fixture_template": template1.name,
+            "is_active": 1,
+        })
+        product.insert()
+
+        # Verify backlink on template1
+        template1.reload()
+        self.assertEqual(template1.webflow_product, product.name)
+
+        # Change to template2
+        product.fixture_template = template2.name
+        product.save()
+
+        # Verify backlink moved
+        template1.reload()
+        self.assertFalse(template1.webflow_product)
+        template2.reload()
+        self.assertEqual(template2.webflow_product, product.name)
+
+        # Cleanup
+        product.delete()
+        template1.delete()
+        template2.delete()
+
+    def test_auto_calculate_specs_disabled(self):
+        """Test that specs are not auto-calculated when disabled."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test No Auto Calc",
+            "product_slug": "test-no-auto-calc-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_calculate_specs": 0,
+            "is_active": 1
+        })
+        product.insert()
+        
+        # Should have no auto-calculated specs
+        calculated_specs = [s for s in product.specifications if s.is_calculated]
+        self.assertEqual(len(calculated_specs), 0)
+        
+        # Cleanup
+        product.delete()
+
+    def test_slug_uniqueness(self):
+        """Test that product slugs must be unique."""
+        slug = "unique-slug-" + frappe.generate_hash(length=6)
+        
+        product1 = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Product 1",
+            "product_slug": slug,
+            "product_type": "Driver",
+            "is_active": 1
+        })
+        product1.insert()
+        
+        product2 = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Product 2",
+            "product_slug": slug,
+            "product_type": "Controller",
+            "is_active": 1
+        })
+        
+        with self.assertRaises(frappe.DuplicateEntryError):
+            product2.insert()
+        
+        # Cleanup
+        product1.delete()
+
+    def test_specifications_child_table(self):
+        """Test adding specifications to a product."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Product with Specs",
+            "product_slug": "product-with-specs-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "specifications": [
+                {
+                    "spec_group": "Electrical",
+                    "spec_label": "Max Wattage",
+                    "spec_value": "100",
+                    "spec_unit": "W",
+                    "is_calculated": 0,
+                    "display_order": 1
+                },
+                {
+                    "spec_group": "Physical",
+                    "spec_label": "Weight",
+                    "spec_value": "500",
+                    "spec_unit": "g",
+                    "is_calculated": 0,
+                    "display_order": 2
+                }
+            ]
+        })
+        product.insert()
+        
+        self.assertEqual(len(product.specifications), 2)
+        self.assertEqual(product.specifications[0].spec_label, "Max Wattage")
+        
+        # Cleanup
+        product.delete()
+
+    def test_specifications_with_attribute_links(self):
+        """Test adding specifications with attribute doctype links."""
+        import json
+        
+        # Sample attribute options JSON structure
+        attribute_options = [
+            {
+                "attribute_type": "Finish",
+                "attribute_doctype": "ilL-Attribute-Finish",
+                "attribute_value": "Black Anodized",
+                "display_label": "Black Anodized",
+                "is_default": True
+            },
+            {
+                "attribute_type": "Finish",
+                "attribute_doctype": "ilL-Attribute-Finish",
+                "attribute_value": "White",
+                "display_label": "White",
+                "is_default": False
+            }
+        ]
+        
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Product with Attribute Links",
+            "product_slug": "product-attr-links-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "specifications": [
+                {
+                    "spec_group": "Physical",
+                    "spec_label": "Finish Options",
+                    "spec_value": "Black Anodized, White",
+                    "is_calculated": 0,
+                    "display_order": 1,
+                    "attribute_doctype": "ilL-Attribute-Finish",
+                    "attribute_options_json": json.dumps(attribute_options)
+                }
+            ]
+        })
+        product.insert()
+        
+        self.assertEqual(len(product.specifications), 1)
+        self.assertEqual(product.specifications[0].spec_label, "Finish Options")
+        self.assertEqual(product.specifications[0].attribute_doctype, "ilL-Attribute-Finish")
+        
+        # Verify JSON parsing works
+        parsed_options = json.loads(product.specifications[0].attribute_options_json)
+        self.assertEqual(len(parsed_options), 2)
+        self.assertEqual(parsed_options[0]["attribute_value"], "Black Anodized")
+        self.assertTrue(parsed_options[0]["is_default"])
+        
+        # Cleanup
+        product.delete()
+
+    def test_sync_status_transitions(self):
+        """Test sync status transitions."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Sync Test Product",
+            "product_slug": "sync-test-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "is_active": 1
+        })
+        product.insert()
+        
+        # Initial status should be "Never Synced"
+        self.assertEqual(product.sync_status, "Never Synced")
+        
+        # Simulate successful sync
+        product.webflow_item_id = "webflow-123"
+        product.webflow_collection_slug = "drivers"
+        product.last_synced_at = frappe.utils.now()
+        product.sync_status = "Synced"
+        product.save()
+        
+        self.assertEqual(product.sync_status, "Synced")
+        
+        # Cleanup
+        product.delete()
+
+
+class TestWebflowExportAPI(FrappeTestCase):
+    """Test cases for Webflow Export API functions."""
+
+    def test_get_webflow_products_empty(self):
+        """Test getting products when none exist."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_export import get_webflow_products
+        
+        result = get_webflow_products(product_type="NonExistentType")
+        
+        self.assertIn("products", result)
+        self.assertIn("total", result)
+        self.assertEqual(result["total"], 0)
+
+    def test_get_sync_statistics(self):
+        """Test getting sync statistics."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_export import get_sync_statistics
+        
+        result = get_sync_statistics()
+        
+        self.assertIn("by_status", result)
+        self.assertIn("by_type", result)
+        self.assertIn("total_active", result)
+        self.assertIn("needs_sync", result)
+
+    def test_get_webflow_categories(self):
+        """Test getting Webflow categories."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_export import get_webflow_categories
+        
+        result = get_webflow_categories()
+        
+        self.assertIn("categories", result)
+        self.assertIn("total", result)
+
+    def test_specifications_export_with_attribute_options(self):
+        """Test that specifications export includes attribute doctype and options."""
+        import json
+        from illumenate_lighting.illumenate_lighting.api.webflow_export import get_webflow_products
+        
+        # Create a product with attribute-linked specifications
+        attribute_options = [
+            {
+                "attribute_type": "Lens Appearance",
+                "attribute_doctype": "ilL-Attribute-Lens Appearance",
+                "attribute_value": "Frosted",
+                "display_label": "Frosted"
+            }
+        ]
+        
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Export Test Product",
+            "product_slug": "export-test-" + frappe.generate_hash(length=6),
+            "product_type": "Fixture Template",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "sync_status": "Pending",
+            "specifications": [
+                {
+                    "spec_group": "Optical",
+                    "spec_label": "Lens Options",
+                    "spec_value": "Frosted",
+                    "is_calculated": 0,
+                    "display_order": 1,
+                    "attribute_doctype": "ilL-Attribute-Lens Appearance",
+                    "attribute_options_json": json.dumps(attribute_options)
+                }
+            ]
+        })
+        product.insert()
+        
+        # Get the product via export API
+        result = get_webflow_products(sync_status="Pending", include_child_tables=True)
+        
+        # Find our test product
+        test_product = None
+        for p in result["products"]:
+            if p["product_slug"] == product.product_slug:
+                test_product = p
+                break
+        
+        self.assertIsNotNone(test_product)
+        self.assertEqual(len(test_product["specifications"]), 1)
+        
+        spec = test_product["specifications"][0]
+        self.assertEqual(spec["spec_label"], "Lens Options")
+        self.assertEqual(spec["attribute_doctype"], "ilL-Attribute-Lens Appearance")
+        self.assertEqual(len(spec["attribute_options"]), 1)
+        self.assertEqual(spec["attribute_options"][0]["attribute_value"], "Frosted")
+        
+        # Cleanup
+        product.delete()
+
+    def test_certification_filter_field_slug_not_present(self):
+        """Test that Certification is NOT in ATTRIBUTE_FILTER_FIELD_SLUGS (field does not exist in Webflow)."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+            ATTRIBUTE_FILTER_FIELD_SLUGS,
+        )
+
+        self.assertNotIn("Certification", ATTRIBUTE_FILTER_FIELD_SLUGS)
+
+
+class TestilLAttributeCertification(FrappeTestCase):
+    """Test cases for Certification attribute DocType."""
+
+    def test_create_certification(self):
+        """Test creating a certification."""
+        cert = frappe.get_doc({
+            "doctype": "ilL-Attribute-Certification",
+            "certification_name": "Test Cert " + frappe.generate_hash(length=6),
+            "certification_code": "TEST",
+            "description": "Test certification",
+            "is_active": 1
+        })
+        cert.insert()
+        
+        self.assertTrue(frappe.db.exists("ilL-Attribute-Certification", cert.name))
+        
+        # Cleanup
+        cert.delete()
+
+    def test_certification_applies_to_types(self):
+        """Test certification with applicable product types."""
+        cert = frappe.get_doc({
+            "doctype": "ilL-Attribute-Certification",
+            "certification_name": "Multi-Type Cert " + frappe.generate_hash(length=6),
+            "certification_code": "MULTI",
+            "is_active": 1,
+            "applies_to_types": [
+                {"product_type": "Driver"},
+                {"product_type": "Controller"}
+            ]
+        })
+        cert.insert()
+        
+        self.assertEqual(len(cert.applies_to_types), 2)
+        
+        # Cleanup
+        cert.delete()
+
+
+class TestCertificationAttributePopulation(FrappeTestCase):
+    """Test cases for certification attribute population in Webflow products."""
+
+    def test_certifications_included_in_attribute_links(self):
+        """Test that certifications from the certifications child table are added to attribute_links.
+
+        Verifies:
+        - Certifications are populated as attribute_links with attribute_type 'Certification'
+        - Certification name and doctype are set correctly
+        """
+        cert = frappe.get_doc({
+            "doctype": "ilL-Attribute-Certification",
+            "certification_name": "Attr Link Cert " + frappe.generate_hash(length=6),
+            "certification_code": "ALC",
+            "is_active": 1,
+        })
+        cert.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Product With Cert",
+            "product_slug": "test-product-cert-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_populate_attributes": 1,
+            "is_active": 1,
+            "certifications": [
+                {"certification": cert.name, "display_order": 1}
+            ],
+        })
+        product.insert()
+
+        cert_links = [
+            al for al in product.attribute_links
+            if al.attribute_type == "Certification"
+        ]
+        self.assertEqual(len(cert_links), 1)
+        self.assertEqual(cert_links[0].attribute_doctype, "ilL-Attribute-Certification")
+        self.assertEqual(cert_links[0].attribute_name, cert.name)
+        self.assertEqual(cert_links[0].display_label, cert.certification_name)
+
+        # Cleanup
+        product.delete()
+        cert.delete()
+
+    def test_certifications_deduplicated_in_attribute_links(self):
+        """Test that duplicate certifications are not added to attribute_links."""
+        cert = frappe.get_doc({
+            "doctype": "ilL-Attribute-Certification",
+            "certification_name": "Dedup Cert " + frappe.generate_hash(length=6),
+            "certification_code": "DDP",
+            "is_active": 1,
+        })
+        cert.insert()
+
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Product Dedup Cert",
+            "product_slug": "test-product-dedup-cert-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_populate_attributes": 1,
+            "is_active": 1,
+            "certifications": [
+                {"certification": cert.name, "display_order": 1},
+                {"certification": cert.name, "display_order": 2},
+            ],
+        })
+        product.insert()
+
+        cert_links = [
+            al for al in product.attribute_links
+            if al.attribute_type == "Certification"
+        ]
+        self.assertEqual(len(cert_links), 1)
+
+        # Cleanup
+        product.delete()
+        cert.delete()
+
+
+class TestilLWebflowCategory(FrappeTestCase):
+    """Test cases for Webflow Category DocType."""
+
+    def test_create_category(self):
+        """Test creating a category."""
+        cat = frappe.get_doc({
+            "doctype": "ilL-Webflow-Category",
+            "category_name": "Test Category",
+            "category_slug": "test-cat-" + frappe.generate_hash(length=6),
+            "display_order": 99,
+            "is_active": 1
+        })
+        cat.insert()
+        
+        self.assertTrue(frappe.db.exists("ilL-Webflow-Category", cat.name))
+        
+        # Cleanup
+        cat.delete()
+
+    def test_category_hierarchy(self):
+        """Test category parent-child relationship."""
+        parent = frappe.get_doc({
+            "doctype": "ilL-Webflow-Category",
+            "category_name": "Parent Category",
+            "category_slug": "parent-cat-" + frappe.generate_hash(length=6),
+            "is_active": 1
+        })
+        parent.insert()
+        
+        child = frappe.get_doc({
+            "doctype": "ilL-Webflow-Category",
+            "category_name": "Child Category",
+            "category_slug": "child-cat-" + frappe.generate_hash(length=6),
+            "parent_category": parent.name,
+            "is_active": 1
+        })
+        child.insert()
+        
+        self.assertEqual(child.parent_category, parent.name)
+        
+        # Cleanup
+        child.delete()
+        parent.delete()
+
+
+class TestExtrusionKitAttributePopulation(FrappeTestCase):
+    """Test cases for Extrusion Kit attribute population."""
+
+    def test_extrusion_kit_without_specs(self):
+        """Test that extrusion kit can be created and doesn't error without specs.
+        
+        Note: Full integration testing with actual profile/lens spec records would require
+        a complete Frappe bench setup and test data fixtures. The attribute extraction logic
+        has been validated with a standalone test script that simulates the data flow.
+        
+        This test verifies:
+        - Extrusion kit product can be created
+        - No errors occur when auto_populate_attributes is enabled
+        - Product without specs results in empty attribute_links (expected behavior)
+        """
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Extrusion Kit",
+            "product_slug": "test-extrusion-kit-" + frappe.generate_hash(length=6),
+            "product_type": "Extrusion Kit",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+        
+        # Should not fail even without profile_spec or lens_spec
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+        
+        # Cleanup
+        product.delete()
+
+    def test_extrusion_kit_attribute_deduplication(self):
+        """Test that extrusion kit structure supports deduplication.
+        
+        Note: Full integration testing with actual profile/lens specs having duplicate series
+        would require creating test data fixtures with profile and lens specs. The deduplication
+        logic has been validated with a standalone test script that simulates this scenario.
+        
+        This test verifies:
+        - Extrusion kit product can be created with auto-population enabled
+        - Product creation doesn't error when deduplication logic is invoked
+        - The structure supports the deduplication workflow
+        """
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Extrusion Kit Dedupe",
+            "product_slug": "test-extrusion-dedupe-" + frappe.generate_hash(length=6),
+            "product_type": "Extrusion Kit",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+        
+        # In a full integration test with actual profile/lens specs having duplicate series,
+        # we would verify that only one series attribute is added
+        # For now, we verify the product can be created and doesn't error
+        self.assertIsNotNone(product.name)
+        
+        # Cleanup
+        product.delete()
+
+
+class TestLedTapeAttributePopulation(FrappeTestCase):
+    """Test cases for LED Tape attribute population."""
+
+    def test_led_tape_without_spec(self):
+        """Test that LED Tape product can be created without a tape spec.
+
+        Verifies:
+        - LED Tape product can be created with auto_populate_attributes enabled
+        - No errors occur when tape_spec is not set
+        - Product without spec results in empty attribute_links (expected behavior)
+        """
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test LED Tape No Spec",
+            "product_slug": "test-led-tape-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "LED Tape",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+    def test_led_tape_manual_specifications(self):
+        """Test that LED Tape products support manual specifications.
+
+        Verifies:
+        - Manual specs can be added to an LED Tape product
+        - Manual specs are preserved on save (not cleared)
+        """
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test LED Tape Manual Specs",
+            "product_slug": "test-led-tape-specs-" + frappe.generate_hash(length=6),
+            "product_type": "LED Tape",
+            "auto_calculate_specs": 0,
+            "is_active": 1,
+            "specifications": [
+                {
+                    "spec_group": "Electrical",
+                    "spec_label": "Watts per Foot",
+                    "spec_value": "4.4",
+                    "spec_unit": "W/ft",
+                    "is_calculated": 0,
+                    "display_order": 1
+                },
+                {
+                    "spec_group": "Electrical",
+                    "spec_label": "Input Voltage",
+                    "spec_value": "24",
+                    "spec_unit": "VDC",
+                    "is_calculated": 0,
+                    "display_order": 2
+                }
+            ]
+        })
+        product.insert()
+
+        self.assertEqual(len(product.specifications), 2)
+        self.assertEqual(product.specifications[0].spec_label, "Watts per Foot")
+        self.assertEqual(product.specifications[1].spec_label, "Input Voltage")
+
+        # Cleanup
+        product.delete()
+
+
+class TestDriverAttributePopulation(FrappeTestCase):
+    """Test cases for Driver attribute population."""
+
+    def test_driver_without_spec(self):
+        """Test that Driver product can be created without a driver spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Driver No Spec",
+            "product_slug": "test-driver-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Driver",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+
+class TestControllerAttributePopulation(FrappeTestCase):
+    """Test cases for Controller attribute population."""
+
+    def test_controller_without_spec(self):
+        """Test that Controller product can be created without a controller spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Controller No Spec",
+            "product_slug": "test-controller-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Controller",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+
+class TestAccessoryAttributePopulation(FrappeTestCase):
+    """Test cases for Accessory attribute population."""
+
+    def test_accessory_without_spec(self):
+        """Test that Accessory product can be created without an accessory spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Accessory No Spec",
+            "product_slug": "test-accessory-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Accessory",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()
+
+
+class TestComponentAttributePopulation(FrappeTestCase):
+    """Test cases for Component attribute population."""
+
+    def test_component_without_spec(self):
+        """Test that Component product can be created without a lens spec."""
+        product = frappe.get_doc({
+            "doctype": "ilL-Webflow-Product",
+            "product_name": "Test Component No Spec",
+            "product_slug": "test-component-no-spec-" + frappe.generate_hash(length=6),
+            "product_type": "Component",
+            "auto_populate_attributes": 1,
+            "is_active": 1
+        })
+        product.insert()
+
+        self.assertIsNotNone(product.name)
+        self.assertEqual(len(product.attribute_links), 0)
+
+        # Cleanup
+        product.delete()

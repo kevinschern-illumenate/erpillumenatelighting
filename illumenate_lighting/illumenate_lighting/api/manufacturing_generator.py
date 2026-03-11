@@ -415,7 +415,6 @@ def _create_or_get_bom(
 	- Endcaps (2 + extra pair rule = 4 total)
 	- Mounting accessories (qty rule)
 	- LED tape (total length in UOM)
-	- Leader cables (qty = runs)
 	- Drivers (from driver plan)
 
 	Args:
@@ -552,15 +551,16 @@ def _create_or_get_bom(
 			})
 
 	# --- Role 6: Leader Cables ---
-	if fixture.leader_item:
-		# Leader qty = runs_count
-		leader_qty = fixture.runs_count or 1
-		bom_items.append({
-			"item_code": fixture.leader_item,
-			"qty": leader_qty,
-			"uom": "Nos",
-			"stock_uom": "Nos",
-		})
+	# TODO: re-enable leader cables when ready to include in configured fixture BOMs
+	# if fixture.leader_item:
+	# 	# Leader qty = runs_count
+	# 	leader_qty = fixture.runs_count or 1
+	# 	bom_items.append({
+	# 		"item_code": fixture.leader_item,
+	# 		"qty": leader_qty,
+	# 		"uom": "Nos",
+	# 		"stock_uom": "Nos",
+	# 	})
 
 	# --- Role 7: Jumper Cables (for multi-segment fixtures) ---
 	if is_multi_segment and fixture.segments:
@@ -996,12 +996,13 @@ def _generate_traveler_notes(fixture) -> str:
 	else:
 		lines.append("  No run data available")
 
-	lines.extend([
-		"",
-		f"--- LEADER CABLES ---",
-		f"Leader Item: {fixture.leader_item or 'N/A'}",
-		f"Leader Qty: {runs_count} (one per run)",
-	])
+	# TODO: re-enable leader cables section when ready to include in configured fixture BOMs
+	# lines.extend([
+	# 	"",
+	# 	f"--- LEADER CABLES ---",
+	# 	f"Leader Item: {fixture.leader_item or 'N/A'}",
+	# 	f"Leader Qty: {runs_count} (one per run)",
+	# ])
 
 	# Driver information
 	lines.extend([
@@ -1146,10 +1147,19 @@ def _calculate_endcap_quantities(fixture) -> dict:
 	- Extra pair rule: +1 of each type used as spares
 	
 	For multi-segment fixtures:
-	- First segment start: Based on segment's start_endcap_type
-	- Segment ends with Jumper: No endcap (jumper cable connects to next)
-	- Last segment end: Based on segment's end_endcap_type
+	- EVERY segment has endcaps on BOTH ends (start and end)
+	- First segment start: Based on power feed type (FEED_THROUGH if flying lead)
+	- Segments 2+: Start is always FEED_THROUGH (receives jumper from previous segment)
+	- Segment ends with Jumper: FEED_THROUGH (cable exits to next segment)
+	- Last segment end: SOLID (caps the fixture)
 	- Extra pair rule: +1 of each type used as spares
+	
+	Example: 4-segment fixture with jumpers:
+	  Seg 1: Start=Feed-Through, End=Feed-Through (jumper out)
+	  Seg 2: Start=Feed-Through (jumper in), End=Feed-Through (jumper out)
+	  Seg 3: Start=Feed-Through (jumper in), End=Feed-Through (jumper out)
+	  Seg 4: Start=Feed-Through (jumper in), End=Solid (cap)
+	  Total: 7 Feed-Through + 1 Solid = 8 endcaps (before spares)
 	
 	Returns:
 		dict: {"feed_through_qty": int, "solid_qty": int}
@@ -1178,25 +1188,46 @@ def _calculate_endcap_quantities(fixture) -> dict:
 			# Default to solid if not specified or SOLID
 			solid_count += 1
 	else:
-		# Multi-segment fixture: count from segments
+		# Multi-segment fixture: count endcaps on BOTH ends of EVERY segment
 		if fixture.segments:
 			for idx, segment in enumerate(fixture.segments):
-				# Start endcap: only for first segment
+				# Start endcap for this segment
+				# - First segment: based on start_endcap_type (Feed-Through if flying lead)
+				# - Subsequent segments: always Feed-Through (receives jumper cable)
+				start_type = getattr(segment, 'start_endcap_type', '') or ''
 				if idx == 0:
-					start_type = getattr(segment, 'start_endcap_type', '') or ''
+					# First segment - use stored type or default
 					if start_type == "Feed-Through":
 						feed_through_count += 1
-					else:
-						# Default to solid if not specified or unknown
+					elif start_type == "Solid":
 						solid_count += 1
+					else:
+						# Default based on power feed type
+						start_pf = getattr(segment, 'start_power_feed_type', '') or ''
+						if start_pf and str(start_pf).upper() == "END":
+							feed_through_count += 1
+						else:
+							solid_count += 1
+				else:
+					# Subsequent segments receive jumper cable - always Feed-Through
+					feed_through_count += 1
 				
-				# End endcap: only if this segment ends with an endcap (not jumper)
+				# End endcap for this segment
+				# - Jumper: Feed-Through (cable exits to next segment)
+				# - Endcap: Solid (caps the fixture)
 				end_type = getattr(segment, 'end_endcap_type', '') or ''
+				seg_end_type = getattr(segment, 'end_type', '') or ''
+				
 				if end_type == "Solid":
 					solid_count += 1
 				elif end_type == "Feed-Through":
 					feed_through_count += 1
-				# If end_type is empty, it's a jumper connection (no endcap)
+				else:
+					# Infer from end_type field if end_endcap_type not set
+					if seg_end_type == "Jumper":
+						feed_through_count += 1  # Jumper cable exits - needs feed-through
+					else:
+						solid_count += 1  # End cap (default)
 		else:
 			# No segments defined - use fixture-level styles or defaults
 			start_style = getattr(fixture, 'endcap_style_start', '') or ''

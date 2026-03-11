@@ -6,7 +6,6 @@
   "outputs_count": 4,
   "max_wattage": 100,
   "usable_load_factor": 0.8,
-  "dimming_protocol": null,
   "cost": 75,
   "is_active": 1
  }

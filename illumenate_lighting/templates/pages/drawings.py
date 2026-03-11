@@ -13,19 +13,44 @@ from frappe import _
 no_cache = 1
 
 
+def _get_user_customer(user):
+	"""Get the customer linked to the user via Contact."""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+	)
+	return _get_user_customer(user)
+
+
 def get_context(context):
 	"""Get context for the drawings portal page."""
 	if frappe.session.user == "Guest":
 		frappe.local.flags.redirect_location = "/login"
 		raise frappe.Redirect
 
-	# Get user's projects for the dropdown
-	context.projects = frappe.get_all(
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+	customer = _get_user_customer(frappe.session.user)
+
+	# Get user's projects for the dropdown (permission-filtered)
+	context.projects = frappe.get_list(
 		"ilL-Project",
 		fields=["name", "project_name"],
 		order_by="modified desc",
 		limit=50,
 	)
+
+	# Build document request filters scoped to the user's customer
+	# Internal users see all; portal users see only their own customer's requests
+	base_filter = {}
+	if not is_internal:
+		if customer:
+			base_filter["owner_customer"] = customer
+		else:
+			# No customer link — only show requests they created
+			base_filter["owner"] = frappe.session.user
 
 	# Get drawing requests if the doctype exists
 	context.pending_requests = []
@@ -35,9 +60,10 @@ def get_context(context):
 
 	if frappe.db.exists("DocType", "ilL-Document-Request"):
 		# Pending requests (Submitted or In Progress status)
+		pending_filter = {**base_filter, "status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]}
 		context.pending_requests = frappe.get_all(
 			"ilL-Document-Request",
-			filters={"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]},
+			filters=pending_filter,
 			fields=[
 				"name",
 				"request_type",
@@ -62,9 +88,10 @@ def get_context(context):
 		context.pending_count = len(context.pending_requests)
 
 		# Completed requests
+		completed_filter = {**base_filter, "status": ["in", ["Completed", "Closed"]]}
 		context.completed_requests = frappe.get_all(
 			"ilL-Document-Request",
-			filters={"status": ["in", ["Completed", "Closed"]]},
+			filters=completed_filter,
 			fields=[
 				"name",
 				"request_type",
@@ -94,6 +121,7 @@ def get_context(context):
 		# All requests
 		context.all_requests = frappe.get_all(
 			"ilL-Document-Request",
+			filters=base_filter,
 			fields=[
 				"name",
 				"request_type",

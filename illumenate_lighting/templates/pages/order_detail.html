@@ -289,7 +289,7 @@ Detailed view of a single sales order with tracking and items
 				<h5 class="mb-4"><i class="fa fa-tasks"></i> {{ _("Order Progress") }}</h5>
 				<div class="progress-timeline">
 					<div class="timeline-step">
-						<div class="step-circle {{ 'completed' if order.docstatus >= 1 else '' }}">
+						<div class="step-circle {{ 'completed' if (order.docstatus or 0) >= 1 else '' }}">
 							<i class="fa fa-check"></i>
 						</div>
 						<span class="step-title">{{ _("Confirmed") }}</span>
@@ -303,7 +303,7 @@ Detailed view of a single sales order with tracking and items
 						<span class="step-date">{{ production_date or "-" }}</span>
 					</div>
 					<div class="timeline-step">
-						<div class="step-circle {{ 'completed' if order.per_delivered >= 100 else '' }} {{ 'active' if order.per_delivered > 0 and order.per_delivered < 100 else '' }}">
+						<div class="step-circle {{ 'completed' if (order.per_delivered or 0) >= 100 else '' }} {{ 'active' if (order.per_delivered or 0) > 0 and (order.per_delivered or 0) < 100 else '' }}">
 							<i class="fa fa-truck"></i>
 						</div>
 						<span class="step-title">{{ _("Shipped") }}</span>

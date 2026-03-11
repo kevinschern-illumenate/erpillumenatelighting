@@ -1,247 +1,254 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "field:type_name",
- "creation": "2026-01-09 10:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "basic_section",
-  "type_name",
-  "category",
-  "is_active",
-  "column_break_basic",
-  "portal_label",
-  "portal_icon",
-  "portal_description",
-  "sort_order",
-  "fulfillment_section",
-  "default_priority",
-  "sla_hours_normal",
-  "sla_hours_high",
-  "sla_hours_rush",
-  "column_break_fulfillment",
-  "default_assignee_role",
-  "default_assignee_user",
-  "auto_create_task",
-  "task_project",
-  "form_fields_section",
-  "show_project_field",
-  "show_reference_field",
-  "show_fixture_field",
-  "show_item_field",
-  "column_break_form",
-  "show_priority_field",
-  "show_due_date_field",
-  "custom_fields_section",
-  "custom_fields"
- ],
- "fields": [
-  {
-   "fieldname": "basic_section",
-   "fieldtype": "Section Break",
-   "label": "Basic Information"
-  },
-  {
-   "fieldname": "type_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Type Name",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "default": "Drawing",
-   "fieldname": "category",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Category",
-   "options": "Drawing\nResource\nTechnical\nOther"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Is Active"
-  },
-  {
-   "fieldname": "column_break_basic",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Label shown on portal tile/button",
-   "fieldname": "portal_label",
-   "fieldtype": "Data",
-   "label": "Portal Label"
-  },
-  {
-   "description": "Font Awesome icon class (e.g., fa-file-pdf-o) or attach image",
-   "fieldname": "portal_icon",
-   "fieldtype": "Data",
-   "label": "Portal Icon"
-  },
-  {
-   "fieldname": "portal_description",
-   "fieldtype": "Small Text",
-   "label": "Portal Description"
-  },
-  {
-   "default": "0",
-   "fieldname": "sort_order",
-   "fieldtype": "Int",
-   "label": "Sort Order"
-  },
-  {
-   "fieldname": "fulfillment_section",
-   "fieldtype": "Section Break",
-   "label": "Fulfillment Rules"
-  },
-  {
-   "default": "Normal",
-   "fieldname": "default_priority",
-   "fieldtype": "Select",
-   "label": "Default Priority",
-   "options": "Normal\nHigh\nRush"
-  },
-  {
-   "default": "72",
-   "description": "SLA hours for Normal priority requests",
-   "fieldname": "sla_hours_normal",
-   "fieldtype": "Int",
-   "label": "SLA Hours (Normal)"
-  },
-  {
-   "default": "48",
-   "description": "SLA hours for High priority requests",
-   "fieldname": "sla_hours_high",
-   "fieldtype": "Int",
-   "label": "SLA Hours (High)"
-  },
-  {
-   "default": "24",
-   "description": "SLA hours for Rush priority requests",
-   "fieldname": "sla_hours_rush",
-   "fieldtype": "Int",
-   "label": "SLA Hours (Rush)"
-  },
-  {
-   "fieldname": "column_break_fulfillment",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Role to assign requests to by default",
-   "fieldname": "default_assignee_role",
-   "fieldtype": "Link",
-   "label": "Default Assignee Role",
-   "options": "Role"
-  },
-  {
-   "description": "Specific user to assign requests to (overrides role)",
-   "fieldname": "default_assignee_user",
-   "fieldtype": "Link",
-   "label": "Default Assignee User",
-   "options": "User"
-  },
-  {
-   "default": "0",
-   "fieldname": "auto_create_task",
-   "fieldtype": "Check",
-   "label": "Auto Create Task"
-  },
-  {
-   "depends_on": "eval:doc.auto_create_task",
-   "fieldname": "task_project",
-   "fieldtype": "Link",
-   "label": "Task Project",
-   "options": "Project"
-  },
-  {
-   "fieldname": "form_fields_section",
-   "fieldtype": "Section Break",
-   "label": "Standard Form Fields"
-  },
-  {
-   "default": "1",
-   "fieldname": "show_project_field",
-   "fieldtype": "Check",
-   "label": "Show Project Field"
-  },
-  {
-   "default": "1",
-   "fieldname": "show_reference_field",
-   "fieldtype": "Check",
-   "label": "Show Reference Field"
-  },
-  {
-   "default": "1",
-   "fieldname": "show_fixture_field",
-   "fieldtype": "Check",
-   "label": "Show Fixture/Product Field"
-  },
-  {
-   "default": "0",
-   "fieldname": "show_item_field",
-   "fieldtype": "Check",
-   "label": "Show Item Lookup Field"
-  },
-  {
-   "fieldname": "column_break_form",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "1",
-   "fieldname": "show_priority_field",
-   "fieldtype": "Check",
-   "label": "Show Priority Field"
-  },
-  {
-   "default": "0",
-   "fieldname": "show_due_date_field",
-   "fieldtype": "Check",
-   "label": "Show Requested Due Date Field"
-  },
-  {
-   "fieldname": "custom_fields_section",
-   "fieldtype": "Section Break",
-   "label": "Custom Fields"
-  },
-  {
-   "description": "Define additional fields that appear on the portal form for this request type",
-   "fieldname": "custom_fields",
-   "fieldtype": "Table",
-   "label": "Custom Fields",
-   "options": "ilL-Request-Type-Field"
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-09 10:00:00.000000",
- "modified_by": "Administrator",
- "module": "ilLumenate Lighting",
- "name": "ilL-Request-Type",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "read": 1,
-   "role": "All"
-  }
- ],
- "sort_field": "sort_order",
- "sort_order": "ASC",
- "states": [],
- "track_changes": 1
+    "actions":  [
+
+                ],
+    "allow_rename":  1,
+    "autoname":  "field:type_name",
+    "creation":  "2026-01-09 10:00:00.000000",
+    "doctype":  "DocType",
+    "engine":  "InnoDB",
+    "field_order":  [
+                        "basic_section",
+                        "type_name",
+                        "category",
+                        "is_active",
+                        "column_break_basic",
+                        "portal_label",
+                        "portal_icon",
+                        "portal_description",
+                        "sort_order",
+                        "fulfillment_section",
+                        "default_priority",
+                        "sla_hours_normal",
+                        "sla_hours_high",
+                        "sla_hours_rush",
+                        "column_break_fulfillment",
+                        "default_assignee_role",
+                        "default_assignee_user",
+                        "auto_create_task",
+                        "task_project",
+                        "form_fields_section",
+                        "show_project_field",
+                        "show_reference_field",
+                        "show_fixture_field",
+                        "show_item_field",
+                        "column_break_form",
+                        "show_priority_field",
+                        "show_due_date_field",
+                        "custom_fields_section",
+                        "custom_fields"
+                    ],
+    "fields":  [
+                   {
+                       "fieldname":  "basic_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Basic Information"
+                   },
+                   {
+                       "fieldname":  "type_name",
+                       "fieldtype":  "Data",
+                       "in_list_view":  1,
+                       "label":  "Type Name",
+                       "reqd":  1,
+                       "unique":  1
+                   },
+                   {
+                       "default":  "Drawing",
+                       "fieldname":  "category",
+                       "fieldtype":  "Select",
+                       "in_list_view":  1,
+                       "label":  "Category",
+                       "options":  "Drawing\nResource\nTechnical\nOther"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "is_active",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "Is Active"
+                   },
+                   {
+                       "fieldname":  "column_break_basic",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Label shown on portal tile/button",
+                       "fieldname":  "portal_label",
+                       "fieldtype":  "Data",
+                       "label":  "Portal Label"
+                   },
+                   {
+                       "description":  "Font Awesome icon class (e.g., fa-file-pdf-o) or attach image",
+                       "fieldname":  "portal_icon",
+                       "fieldtype":  "Data",
+                       "label":  "Portal Icon"
+                   },
+                   {
+                       "fieldname":  "portal_description",
+                       "fieldtype":  "Small Text",
+                       "label":  "Portal Description"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "sort_order",
+                       "fieldtype":  "Int",
+                       "label":  "Sort Order"
+                   },
+                   {
+                       "fieldname":  "fulfillment_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Fulfillment Rules"
+                   },
+                   {
+                       "default":  "Normal",
+                       "fieldname":  "default_priority",
+                       "fieldtype":  "Select",
+                       "label":  "Default Priority",
+                       "options":  "Normal\nHigh\nRush"
+                   },
+                   {
+                       "default":  "72",
+                       "description":  "SLA hours for Normal priority requests",
+                       "fieldname":  "sla_hours_normal",
+                       "fieldtype":  "Int",
+                       "label":  "SLA Hours (Normal)"
+                   },
+                   {
+                       "default":  "48",
+                       "description":  "SLA hours for High priority requests",
+                       "fieldname":  "sla_hours_high",
+                       "fieldtype":  "Int",
+                       "label":  "SLA Hours (High)"
+                   },
+                   {
+                       "default":  "24",
+                       "description":  "SLA hours for Rush priority requests",
+                       "fieldname":  "sla_hours_rush",
+                       "fieldtype":  "Int",
+                       "label":  "SLA Hours (Rush)"
+                   },
+                   {
+                       "fieldname":  "column_break_fulfillment",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "description":  "Role to assign requests to by default",
+                       "fieldname":  "default_assignee_role",
+                       "fieldtype":  "Link",
+                       "label":  "Default Assignee Role",
+                       "options":  "Role"
+                   },
+                   {
+                       "description":  "Specific user to assign requests to (overrides role)",
+                       "fieldname":  "default_assignee_user",
+                       "fieldtype":  "Link",
+                       "label":  "Default Assignee User",
+                       "options":  "User"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "auto_create_task",
+                       "fieldtype":  "Check",
+                       "label":  "Auto Create Task"
+                   },
+                   {
+                       "depends_on":  "eval:doc.auto_create_task",
+                       "fieldname":  "task_project",
+                       "fieldtype":  "Link",
+                       "label":  "Task Project",
+                       "options":  "Project"
+                   },
+                   {
+                       "fieldname":  "form_fields_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Standard Form Fields"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "show_project_field",
+                       "fieldtype":  "Check",
+                       "label":  "Show Project Field"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "show_reference_field",
+                       "fieldtype":  "Check",
+                       "label":  "Show Reference Field"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "show_fixture_field",
+                       "fieldtype":  "Check",
+                       "label":  "Show Fixture/Product Field"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "show_item_field",
+                       "fieldtype":  "Check",
+                       "label":  "Show Item Lookup Field"
+                   },
+                   {
+                       "fieldname":  "column_break_form",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "default":  "1",
+                       "fieldname":  "show_priority_field",
+                       "fieldtype":  "Check",
+                       "label":  "Show Priority Field"
+                   },
+                   {
+                       "default":  "0",
+                       "fieldname":  "show_due_date_field",
+                       "fieldtype":  "Check",
+                       "label":  "Show Requested Due Date Field"
+                   },
+                   {
+                       "fieldname":  "custom_fields_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Custom Fields"
+                   },
+                   {
+                       "description":  "Define additional fields that appear on the portal form for this request type",
+                       "fieldname":  "custom_fields",
+                       "fieldtype":  "Table",
+                       "label":  "Custom Fields",
+                       "options":  "ilL-Request-Type-Field"
+                   }
+               ],
+    "index_web_pages_for_search":  1,
+    "links":  [
+
+              ],
+    "modified":  "2026-01-09 10:00:00.000000",
+    "modified_by":  "Administrator",
+    "module":  "ilLumenate Lighting",
+    "name":  "ilL-Request-Type",
+    "naming_rule":  "By fieldname",
+    "owner":  "Administrator",
+    "permissions":  [
+                        {
+                            "create":  1,
+                            "delete":  1,
+                            "email":  1,
+                            "export":  1,
+                            "print":  1,
+                            "read":  1,
+                            "report":  1,
+                            "role":  "System Manager",
+                            "share":  1,
+                            "write":  1
+                        },
+                        {
+                            "read":  1,
+                            "role":  "All"
+                        }
+                    ],
+    "sort_field":  "sort_order",
+    "sort_order":  "ASC",
+    "states":  [
+
+               ],
+    "track_changes":  1,
+    "allow_import":  1
 }

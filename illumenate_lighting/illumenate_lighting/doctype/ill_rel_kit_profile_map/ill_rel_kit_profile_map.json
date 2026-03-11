@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{kit_template}-{finish}",
+ "creation": "2026-03-02 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "kit_template",
+  "finish",
+  "column_break_map",
+  "profile_spec",
+  "profile_item",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "kit_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Kit Template",
+   "options": "ilL-Extrusion-Kit-Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "finish",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Finish",
+   "options": "ilL-Attribute-Finish",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_map",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The profile spec that matches this kit + finish combination",
+   "fieldname": "profile_spec",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Profile Spec",
+   "options": "ilL-Spec-Profile",
+   "reqd": 1
+  },
+  {
+   "description": "Resolved profile Item (auto-fetched from profile spec)",
+   "fetch_from": "profile_spec.item",
+   "fieldname": "profile_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Profile Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-02 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Rel-Kit-Profile-Map",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "kit_template, finish",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

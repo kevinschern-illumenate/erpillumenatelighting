@@ -234,14 +234,14 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 			finish_data = frappe.db.get_value(
 				"ilL-Attribute-Finish",
 				cf.finish,
-				["code", "display_name", "surface_treatment"],
+				["code", "finish_name", "type"],
 				as_dict=True
 			)
 			if finish_data:
 				attributes["finish"] = {
 					"code": finish_data.code,
-					"name": finish_data.display_name or finish_data.code,
-					"surface_treatment": finish_data.surface_treatment,
+					"name": finish_data.finish_name or finish_data.code,
+					"surface_treatment": finish_data.type,
 				}
 		
 		# Lens Appearance
@@ -253,10 +253,12 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 				as_dict=True
 			)
 			if lens_data:
+				# Transmission is stored as decimal (0.56 = 56%), convert to percent for API
+				trans_pct = (lens_data.transmission or 1.0) * 100
 				attributes["lens"] = {
 					"name": lens_data.label,
 					"code": lens_data.code,
-					"transmission_percent": lens_data.transmission or 100,
+					"transmission_percent": trans_pct,
 				}
 		
 		# Mounting Method
@@ -278,14 +280,13 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 			env_data = frappe.db.get_value(
 				"ilL-Attribute-Environment Rating",
 				cf.environment_rating,
-				["label", "code", "ip_rating"],
+				["label", "code"],
 				as_dict=True
 			)
 			if env_data:
 				attributes["environment_rating"] = {
 					"name": env_data.label,
 					"code": env_data.code,
-					"ip_rating": env_data.ip_rating,
 				}
 		
 		# Tape offering attributes (CCT, LED Package, Output Level, CRI)
@@ -303,15 +304,15 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 					cct_data = frappe.db.get_value(
 						"ilL-Attribute-CCT",
 						tape_offering.cct,
-						["cct_name", "code", "kelvin_value"],
+						["cct_name", "code", "kelvin"],
 						as_dict=True
 					)
 					if cct_data:
 						attributes["cct"] = {
 							"name": cct_data.cct_name,
 							"code": cct_data.code,
-							"kelvin": cct_data.kelvin_value,
-							"display": f"{cct_data.kelvin_value}K" if cct_data.kelvin_value else cct_data.cct_name,
+							"kelvin": cct_data.kelvin,
+							"display": f"{cct_data.kelvin}K" if cct_data.kelvin else cct_data.cct_name,
 						}
 				
 				# LED Package
@@ -319,12 +320,12 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 					led_data = frappe.db.get_value(
 						"ilL-Attribute-LED Package",
 						tape_offering.led_package,
-						["label", "code"],
+						["code", "spectrum_type"],
 						as_dict=True
 					)
 					if led_data:
 						attributes["led_package"] = {
-							"name": led_data.label,
+							"name": led_data.code,
 							"code": led_data.code,
 						}
 				
@@ -380,17 +381,35 @@ def _get_configured_fixture_attributes(configured_fixture_name: str) -> dict:
 					driver_spec = frappe.db.get_value(
 						"ilL-Spec-Driver",
 						driver_alloc.driver_item,
-						["item", "input_voltage", "max_wattage", "output_voltage", "dimming_protocol"],
+						["item", "input_voltage", "max_wattage", "output_voltage"],
 						as_dict=True
 					)
 					if driver_spec:
+						# Get dimming protocols from input_protocols child table
+						input_protocols = frappe.get_all(
+							"ilL-Child-Driver-Input-Protocol",
+							filters={"parent": driver_alloc.driver_item},
+							fields=["protocol"],
+						)
+						protocol_names = [ip.protocol for ip in input_protocols if ip.protocol]
+						protocol_labels = []
+						if protocol_names:
+							proto_docs = frappe.get_all(
+								"ilL-Attribute-Dimming Protocol",
+								filters={"name": ["in", protocol_names]},
+								fields=["name", "label"],
+							)
+							proto_label_map = {p.name: p.label for p in proto_docs if p.label}
+							protocol_labels = [
+								proto_label_map[n] for n in protocol_names if n in proto_label_map
+							]
 						drivers_list.append({
 							"item": driver_spec.item,
 							"qty": driver_alloc.driver_qty,
 							"input_voltage": driver_spec.input_voltage,
 							"max_wattage": driver_spec.max_wattage,
 							"output_voltage": driver_spec.output_voltage,
-							"dimming_protocol": driver_spec.dimming_protocol,
+							"dimming_protocol": ", ".join(protocol_labels) if protocol_labels else None,
 						})
 			
 			if drivers_list:
