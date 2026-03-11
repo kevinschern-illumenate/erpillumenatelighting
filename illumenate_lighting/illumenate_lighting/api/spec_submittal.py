@@ -1307,15 +1307,25 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 
 		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF
+		# Save the filled PDF.
+		# Always save as private first — save_file with is_private=0
+		# triggers a doctype write-permission check that fails under
+		# Guest context (Webflow downloads).  We flip to public below.
 		filename = f"Spec_Submittal_{configured_fixture_name}_{nowdate()}.pdf"
 		file_doc = save_file(
 			filename,
 			filled_pdf,
 			"ilL-Configured-Fixture",
 			configured_fixture_name,
-			is_private=is_private,
+			is_private=1,
 		)
+
+		# If the caller wants a public file, flip it now with elevated
+		# permissions so the physical file moves to /files/.
+		if not is_private and file_doc.is_private:
+			file_doc.is_private = 0
+			file_doc.save(ignore_permissions=True)
+			frappe.db.commit()
 
 		# Update the configured fixture with the submittal link
 		cf.spec_submittal = file_doc.file_url
