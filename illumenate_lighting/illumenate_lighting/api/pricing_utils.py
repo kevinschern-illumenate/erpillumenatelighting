@@ -203,6 +203,67 @@ def _bulk_stock_query(item_codes: list[str]) -> dict[str, float]:
     return stock_map
 
 
+def _get_product_bundle_items(item_code: str) -> list[dict[str, Any]]:
+    """
+    Return the child items of a Product Bundle, or an empty list if the
+    item is not a Product Bundle (or the bundle is disabled).
+
+    Each returned dict has keys: ``item_code``, ``qty``, ``uom``.
+    """
+    if not item_code:
+        return []
+
+    bundle_name = frappe.db.get_value(
+        "Product Bundle",
+        {"new_item_code": item_code, "disabled": 0},
+        "name",
+    )
+    if not bundle_name:
+        return []
+
+    rows = frappe.get_all(
+        "Product Bundle Item",
+        filters={"parent": bundle_name},
+        fields=["item_code", "qty", "uom"],
+        order_by="idx asc",
+    )
+    return [r for r in rows if r.get("item_code") and flt(r.get("qty")) > 0]
+
+
+def _expand_product_bundles(
+    components: list[tuple[str, str, float, str]],
+) -> list[tuple[str, str, float, str]]:
+    """
+    Expand any Product Bundle items in *components* into their child items.
+
+    For each component whose ``item_code`` is a Product Bundle, the single
+    entry is replaced by one entry per bundle child.  The child quantity is
+    multiplied by the parent required quantity so the stock check is correct.
+
+    Non-bundle items pass through unchanged.
+
+    Args:
+        components: List of ``(component_type, item_code, qty_required, uom)`` tuples.
+
+    Returns:
+        New list of component tuples with bundles expanded.
+    """
+    expanded: list[tuple[str, str, float, str]] = []
+
+    for comp_type, item_code, qty_req, uom in components:
+        bundle_items = _get_product_bundle_items(item_code)
+        if bundle_items:
+            for bi in bundle_items:
+                child_qty = flt(bi["qty"]) * flt(qty_req)
+                child_uom = bi.get("uom") or uom
+                child_label = f"{comp_type} [{bi['item_code']}]"
+                expanded.append((child_label, bi["item_code"], child_qty, child_uom))
+        else:
+            expanded.append((comp_type, item_code, qty_req, uom))
+
+    return expanded
+
+
 def get_bom_stock_availability(configured_fixture_id: str) -> dict[str, Any]:
     """
     Check stock for every BOM component of a configured fixture.
@@ -286,6 +347,9 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
     if not components:
         return {"all_in_stock": False, "items": []}
 
+    # Expand any Product Bundle items into their child items
+    components = _expand_product_bundles(components)
+
     # Batch stock query
     distinct_items = list({c[1] for c in components})
     stock_map = _bulk_stock_query(distinct_items)
@@ -321,20 +385,38 @@ def get_bom_stock_for_items(items: list[dict[str, Any]]) -> dict[str, Any]:
 
     Each element in *items* must have ``item_code`` (str) and ``qty`` (number).
 
+    If an item is a Product Bundle, the bundle is expanded into its child
+    items and stock is checked for each child instead.
+
     Returns:
         dict: ``{all_in_stock: bool, items: [...]}``.
     """
     if not items:
         return {"all_in_stock": True, "items": []}
 
-    distinct_codes = list({it["item_code"] for it in items if it.get("item_code")})
+    # Expand Product Bundles into child items
+    expanded_items: list[dict[str, Any]] = []
+    for it in items:
+        ic = it.get("item_code", "")
+        qty_req = flt(it.get("qty", 0))
+        bundle_children = _get_product_bundle_items(ic)
+        if bundle_children:
+            for bi in bundle_children:
+                expanded_items.append({
+                    "item_code": bi["item_code"],
+                    "qty": flt(bi["qty"]) * qty_req,
+                })
+        else:
+            expanded_items.append(it)
+
+    distinct_codes = list({it["item_code"] for it in expanded_items if it.get("item_code")})
     stock_map = _bulk_stock_query(distinct_codes)
 
     show_qty = _is_privileged_user()
     result_items: list[dict[str, Any]] = []
     all_ok = True
 
-    for it in items:
+    for it in expanded_items:
         ic = it.get("item_code", "")
         qty_req = flt(it.get("qty", 0))
         qty_avail = stock_map.get(ic, 0.0)
@@ -461,6 +543,15 @@ def batch_stock_for_fixtures(configured_fixture_ids: list[str]) -> dict[str, dic
                     all_item_codes.add(driver.driver_item)
 
         fixture_components[cf_id] = comps
+
+    # Expand Product Bundles in each fixture's component list and rebuild
+    # the set of item codes that actually need a stock query.
+    all_item_codes = set()
+    for cf_id, comps in fixture_components.items():
+        expanded = _expand_product_bundles(comps)
+        fixture_components[cf_id] = expanded
+        for _, item_code, _, _ in expanded:
+            all_item_codes.add(item_code)
 
     # Single bulk stock query
     stock_map = _bulk_stock_query(list(all_item_codes))
