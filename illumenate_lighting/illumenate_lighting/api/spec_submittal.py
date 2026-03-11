@@ -807,78 +807,72 @@ def _gather_line_documents(
 						_debug(f"Line {line.line_id}: ✗ ALL spec sheet lookups exhausted – no document found", warnings)
 
 				else:
-					# SPEC_SUBMITTAL mode: use filled submittal PDF
-					# Check for existing filled submittal
-					if cf.spec_submittal:
-						doc_info["spec_document_url"] = cf.spec_submittal
+					# SPEC_SUBMITTAL mode: always (re)generate the filled submittal
+					# so that the latest field mappings and data values are used.
+					_debug(f"Line {line.line_id}: Generating filled submittal (regenerate)...", warnings)
+					result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
+					_debug(
+						f"Line {line.line_id}: generate_filled_submittal result: "
+						f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
+						f"message={result.get('message')!r}",
+						warnings,
+					)
+
+					if result.get("success") and result.get("file_url"):
+						doc_info["spec_document_url"] = result["file_url"]
 						doc_info["has_submittal"] = True
-						_debug(f"Line {line.line_id}: ✓ Using existing spec_submittal: {cf.spec_submittal}", warnings)
 					else:
-						# Try to generate filled submittal on-the-fly
-						_debug(f"Line {line.line_id}: No spec_submittal on CF, trying generate_filled_submittal...", warnings)
-						result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
+						# Filled submittal generation failed – fall back to spec sheet
 						_debug(
-							f"Line {line.line_id}: generate_filled_submittal result: "
-							f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
-							f"message={result.get('message')!r}",
+							f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
 							warnings,
 						)
 
-						if result.get("success") and result.get("file_url"):
-							doc_info["spec_document_url"] = result["file_url"]
-							doc_info["has_submittal"] = True
-						else:
-							# No spec submittal available - fall back to spec sheet
+						# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
+						spec_url = cf.spec_sheet_link
+						_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+
+						# 2) Direct lookup on the Fixture Template (always authoritative)
+						if not spec_url and cf.fixture_template:
+							template_data = frappe.db.get_value(
+								"ilL-Fixture-Template",
+								cf.fixture_template,
+								["spec_sheet", "spec_submittal_template"],
+								as_dict=True,
+							)
 							_debug(
-								f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
+								f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
+								f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
+								f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
 								warnings,
 							)
+							if template_data:
+								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
 
-							# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
-							spec_url = cf.spec_sheet_link
-							_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+						# 3) Look for ANY PDF file attached to the Fixture Template
+						if not spec_url and cf.fixture_template:
+							attached = frappe.get_all(
+								"File",
+								filters={
+									"attached_to_doctype": "ilL-Fixture-Template",
+									"attached_to_name": cf.fixture_template,
+									"file_url": ["like", "%.pdf"],
+								},
+								fields=["file_url", "file_name"],
+								order_by="creation desc",
+							)
+							_debug(
+								f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
+								warnings,
+							)
+							if attached:
+								spec_url = attached[0].file_url
 
-							# 2) Direct lookup on the Fixture Template (always authoritative)
-							if not spec_url and cf.fixture_template:
-								template_data = frappe.db.get_value(
-									"ilL-Fixture-Template",
-									cf.fixture_template,
-									["spec_sheet", "spec_submittal_template"],
-									as_dict=True,
-								)
-								_debug(
-									f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
-									f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
-									f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
-									warnings,
-								)
-								if template_data:
-									spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-
-							# 3) Look for ANY PDF file attached to the Fixture Template
-							if not spec_url and cf.fixture_template:
-								attached = frappe.get_all(
-									"File",
-									filters={
-										"attached_to_doctype": "ilL-Fixture-Template",
-										"attached_to_name": cf.fixture_template,
-										"file_url": ["like", "%.pdf"],
-									},
-									fields=["file_url", "file_name"],
-									order_by="creation desc",
-								)
-								_debug(
-									f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
-									warnings,
-								)
-								if attached:
-									spec_url = attached[0].file_url
-
-							if spec_url:
-								doc_info["spec_document_url"] = spec_url
-								_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
-							else:
-								_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
+						if spec_url:
+							doc_info["spec_document_url"] = spec_url
+							_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
+						else:
+							_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
 
 			elif getattr(line, "configured_tape_neon", None):
 				# ── Tape/Neon submittal logic ──────────────────────────────
@@ -902,32 +896,28 @@ def _gather_line_documents(
 					else:
 						_debug(f"Line {line.line_id}: ✗ No neon spec sheet found", warnings)
 				else:
-					# SUBMITTAL mode: use filled submittal
-					if getattr(ctn, "spec_submittal", None):
-						doc_info["spec_document_url"] = ctn.spec_submittal
+					# SUBMITTAL mode: always (re)generate the filled neon submittal
+					# so that the latest field mappings and data values are used.
+					_debug(f"Line {line.line_id}: Generating filled neon submittal (regenerate)...", warnings)
+					result = generate_filled_neon_submittal(line.configured_tape_neon, warnings=warnings)
+					if result.get("success") and result.get("file_url"):
+						doc_info["spec_document_url"] = result["file_url"]
 						doc_info["has_submittal"] = True
-						_debug(f"Line {line.line_id}: ✓ Using existing neon spec_submittal: {ctn.spec_submittal}", warnings)
 					else:
-						_debug(f"Line {line.line_id}: No neon spec_submittal, trying generate_filled_neon_submittal...", warnings)
-						result = generate_filled_neon_submittal(line.configured_tape_neon, warnings=warnings)
-						if result.get("success") and result.get("file_url"):
-							doc_info["spec_document_url"] = result["file_url"]
-							doc_info["has_submittal"] = True
+						# Fall back to static spec sheet
+						spec_url = None
+						if ctn.tape_neon_template:
+							template_data = frappe.db.get_value(
+								"ilL-Tape-Neon-Template", ctn.tape_neon_template,
+								["spec_sheet", "spec_submittal_template"], as_dict=True,
+							)
+							if template_data:
+								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+						if spec_url:
+							doc_info["spec_document_url"] = spec_url
+							_debug(f"Line {line.line_id}: ✓ Neon spec sheet fallback resolved to {spec_url}", warnings)
 						else:
-							# Fall back to static spec sheet
-							spec_url = None
-							if ctn.tape_neon_template:
-								template_data = frappe.db.get_value(
-									"ilL-Tape-Neon-Template", ctn.tape_neon_template,
-									["spec_sheet", "spec_submittal_template"], as_dict=True,
-								)
-								if template_data:
-									spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-							if spec_url:
-								doc_info["spec_document_url"] = spec_url
-								_debug(f"Line {line.line_id}: ✓ Neon spec sheet fallback resolved to {spec_url}", warnings)
-							else:
-								_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
+							_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
 
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template
