@@ -768,6 +768,7 @@ def get_kit_component_stock(
 	mounting_map = _resolve_kit_mounting(kit_template, mounting_method)
 
 	# Build component list: (label, item_code, qty_per_kit)
+	# Only include components that the kit actually requires (qty > 0).
 	component_defs = [
 		("Profile", profile_map.profile_item if profile_map else None, 1),
 		("Lens", lens_map.lens_item if lens_map else None, 1),
@@ -775,6 +776,7 @@ def get_kit_component_stock(
 		("Feed-Through Endcap", feed_through_endcap.endcap_item if feed_through_endcap else None, template.feed_through_endcap_qty or 0),
 		("Mounting Accessory", mounting_map.accessory_item if mounting_map else None, template.mounting_accessory_qty or 0),
 	]
+	component_defs = [cd for cd in component_defs if cd[2] > 0]
 
 	return _build_kit_stock_result(component_defs)
 
@@ -841,10 +843,11 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 			continue
 
 		stock_qty = stock_map.get(item_code, 0.0)
-		in_stock = stock_qty > 0
+		in_stock = stock_qty >= qty_per_kit
 
-		# Lead-time classification (matches get_stock_status pattern)
-		if in_stock:
+		# Lead-time classification based on whether any stock exists
+		# (item availability, independent of per-kit sufficiency)
+		if stock_qty > 0:
 			lead_time_class = "in-stock"
 		else:
 			lead_days = lead_time_map.get(item_code, 0)
