@@ -20,6 +20,7 @@ Export Types:
 
 import io
 import json
+import traceback
 from datetime import datetime
 from typing import Any
 
@@ -333,9 +334,10 @@ def _get_source_value(
 		)
 
 	except Exception as e:
+		tb = traceback.format_exc()
 		_debug(
 			f"_get_source_value: EXCEPTION for {source_doctype}.{source_field} – "
-			f"{type(e).__name__}: {e}",
+			f"{type(e).__name__}: {e}\n{tb}",
 			warnings,
 		)
 
@@ -1438,9 +1440,10 @@ def _get_neon_source_value(
 		)
 
 	except Exception as e:
+		tb = traceback.format_exc()
 		_debug(
 			f"_get_neon_source_value: EXCEPTION for {source_doctype}.{source_field} – "
-			f"{type(e).__name__}: {e}",
+			f"{type(e).__name__}: {e}\n{tb}",
 			warnings,
 		)
 
