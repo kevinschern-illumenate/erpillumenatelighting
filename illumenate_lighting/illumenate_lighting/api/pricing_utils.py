@@ -405,7 +405,6 @@ def get_bom_stock_for_items(items: list[dict[str, Any]]) -> dict[str, Any]:
                 expanded_items.append({
                     "item_code": bi["item_code"],
                     "qty": flt(bi["qty"]) * qty_req,
-                    "_parent_bundle": ic,
                 })
         else:
             expanded_items.append(it)
