@@ -20,6 +20,7 @@ Export Types:
 
 import io
 import json
+import traceback
 from datetime import datetime
 from typing import Any
 
@@ -36,7 +37,7 @@ MM_PER_FOOT = 304.8
 # Set to True to emit detailed spec-submittal diagnostic messages.
 # These show up in the browser warnings list *and* in the Error Log.
 # TODO: remove or set False once spec-submittal flow is stable.
-SPEC_DEBUG = False
+SPEC_DEBUG = True
 # ────────────────────────────────────────────────────────────────────
 
 
@@ -136,6 +137,7 @@ def _get_source_value(
 	schedule: Any = None,
 	project: Any = None,
 	schedule_line: Any = None,
+	warnings: list | None = None,
 ) -> Any:
 	"""
 	Get a value from the specified source doctype and field.
@@ -148,73 +150,162 @@ def _get_source_value(
 		schedule: The schedule document
 		project: The project document
 		schedule_line: The fixture schedule line (child table row, if applicable)
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		The value from the source field, or None if not found
 	"""
 	try:
 		if source_doctype == "ilL-Configured-Fixture" and configured_fixture:
-			return getattr(configured_fixture, source_field, None)
+			val = getattr(configured_fixture, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={configured_fixture.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Fixture-Template" and fixture_template:
-			return getattr(fixture_template, source_field, None)
+			val = getattr(fixture_template, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={fixture_template.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Project-Fixture-Schedule" and schedule:
-			return getattr(schedule, source_field, None)
+			val = getattr(schedule, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Project" and project:
-			return getattr(project, source_field, None)
+			val = getattr(project, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={project.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Child-Fixture-Schedule-Line" and schedule_line:
-			return getattr(schedule_line, source_field, None)
+			val = getattr(schedule_line, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule_line.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Rel-Tape Offering" and configured_fixture:
 			tape_offering = configured_fixture.tape_offering
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"tape_offering={tape_offering!r}",
+				warnings,
+			)
 			if tape_offering:
-				return frappe.db.get_value(
+				val = frappe.db.get_value(
 					"ilL-Rel-Tape Offering", tape_offering, source_field
 				)
+				_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Spec-LED Tape" and configured_fixture:
 			tape_offering = configured_fixture.tape_offering
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"tape_offering={tape_offering!r}",
+				warnings,
+			)
 			if tape_offering:
 				tape_spec = frappe.db.get_value(
 					"ilL-Rel-Tape Offering", tape_offering, "tape_spec"
 				)
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"tape_spec={tape_spec!r}",
+					warnings,
+				)
 				if tape_spec:
-					return frappe.db.get_value(
+					val = frappe.db.get_value(
 						"ilL-Spec-LED Tape", tape_spec, source_field
 					)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+					return val
 
 		if source_doctype == "ilL-Spec-Profile":
 			# Priority 1: Configured fixture's resolved profile_item
 			# ilL-Spec-Profile is autonamed by field:item, so profile_item IS the doc name
 			if configured_fixture:
 				profile_item = getattr(configured_fixture, "profile_item", None)
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"profile_item={profile_item!r}",
+					warnings,
+				)
 				if profile_item and frappe.db.exists("ilL-Spec-Profile", profile_item):
-					return frappe.db.get_value("ilL-Spec-Profile", profile_item, source_field)
+					val = frappe.db.get_value("ilL-Spec-Profile", profile_item, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (via profile_item)", warnings)
+					return val
 			# Priority 2: Fixture template's default_profile_spec
 			if fixture_template:
 				profile_spec = fixture_template.default_profile_spec
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"default_profile_spec={profile_spec!r}",
+					warnings,
+				)
 				if profile_spec:
-					return frappe.db.get_value("ilL-Spec-Profile", profile_spec, source_field)
+					val = frappe.db.get_value("ilL-Spec-Profile", profile_spec, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (via default_profile_spec)", warnings)
+					return val
 
 		if source_doctype == "ilL-Spec-Lens" and configured_fixture:
 			lens_appearance = configured_fixture.lens_appearance
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"lens_appearance={lens_appearance!r}",
+				warnings,
+			)
 			if lens_appearance:
 				# Get the lens spec linked to this appearance
 				lens_spec = frappe.db.get_value(
 					"ilL-Attribute-Lens Appearance", lens_appearance, "lens_spec"
 				)
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"lens_spec={lens_spec!r}",
+					warnings,
+				)
 				if lens_spec:
-					return frappe.db.get_value("ilL-Spec-Lens", lens_spec, source_field)
+					val = frappe.db.get_value("ilL-Spec-Lens", lens_spec, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+					return val
 
 		if source_doctype == "ilL-Spec-Driver" and configured_fixture:
 			# Get driver from the first driver allocation if available
 			# ilL-Child-Driver-Allocation has driver_item (Link→Item), not driver_spec
 			# ilL-Spec-Driver is autonamed by field:item, so driver_item IS the doc name
-			if configured_fixture.drivers and len(configured_fixture.drivers) > 0:
+			has_drivers = configured_fixture.drivers and len(configured_fixture.drivers) > 0
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"has_drivers={has_drivers}, "
+				f"driver_count={len(configured_fixture.drivers) if configured_fixture.drivers else 0}",
+				warnings,
+			)
+			if has_drivers:
 				driver_item = configured_fixture.drivers[0].driver_item
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"driver_item={driver_item!r}, "
+					f"exists={frappe.db.exists('ilL-Spec-Driver', driver_item) if driver_item else False}",
+					warnings,
+				)
 				if driver_item and frappe.db.exists("ilL-Spec-Driver", driver_item):
 					# input_protocols is a child table – flatten to comma-separated labels
 					if source_field == "input_protocols":
@@ -224,11 +315,31 @@ def _get_source_value(
 							fields=["protocol"],
 							order_by="idx",
 						)
-						return ", ".join(r.protocol for r in rows if r.protocol) or None
-					return frappe.db.get_value("ilL-Spec-Driver", driver_item, source_field)
+						val = ", ".join(r.protocol for r in rows if r.protocol) or None
+						_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (input_protocols)", warnings)
+						return val
+					val = frappe.db.get_value("ilL-Spec-Driver", driver_item, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+					return val
 
-	except Exception:
-		pass
+		# If we got here, no branch matched – log why
+		_debug(
+			f"_get_source_value: NO MATCH for {source_doctype}.{source_field} – "
+			f"configured_fixture={'yes' if configured_fixture else 'NO'}, "
+			f"fixture_template={'yes' if fixture_template else 'NO'}, "
+			f"schedule={'yes' if schedule else 'NO'}, "
+			f"project={'yes' if project else 'NO'}, "
+			f"schedule_line={'yes' if schedule_line else 'NO'}",
+			warnings,
+		)
+
+	except Exception as e:
+		tb = traceback.format_exc()
+		_debug(
+			f"_get_source_value: EXCEPTION for {source_doctype}.{source_field} – "
+			f"{type(e).__name__}: {e}\n{tb}",
+			warnings,
+		)
 
 	return None
 
@@ -381,6 +492,39 @@ def _fill_pdf_form_fields(
 		)
 
 		if all_fields:
+			# Log mismatch detection: compare mapping field names against PDF form field names
+			pdf_field_names = set(all_fields.keys())
+			mapping_field_names = set(field_values.keys())
+			matched = mapping_field_names & pdf_field_names
+			in_mapping_not_pdf = mapping_field_names - pdf_field_names
+			in_pdf_not_mapping = pdf_field_names - mapping_field_names
+			_debug(
+				f"_fill_pdf_form_fields: FIELD MATCH REPORT – "
+				f"matched={len(matched)}, "
+				f"in_mapping_but_NOT_in_pdf={len(in_mapping_not_pdf)}, "
+				f"in_pdf_but_NOT_in_mapping={len(in_pdf_not_mapping)}",
+				warnings,
+			)
+			if in_mapping_not_pdf:
+				_debug(
+					f"_fill_pdf_form_fields: ⚠ MAPPING FIELDS NOT IN PDF: {sorted(in_mapping_not_pdf)}",
+					warnings,
+				)
+			if in_pdf_not_mapping:
+				_debug(
+					f"_fill_pdf_form_fields: ⚠ PDF FIELDS NOT IN MAPPING: {sorted(in_pdf_not_mapping)}",
+					warnings,
+				)
+
+			# Log actual values being written for matched fields
+			_debug(
+				f"_fill_pdf_form_fields: FIELD VALUES BEING WRITTEN: "
+				+ ", ".join(
+					f"{k}={field_values[k]!r}" for k in sorted(matched)
+				),
+				warnings,
+			)
+
 			for page in writer.pages:
 				writer.update_page_form_field_values(page, field_values)
 		else:
@@ -1094,25 +1238,42 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		# Build field values
 		field_values = {}
 		for mapping in mappings:
+			pdf_field = mapping["pdf_field_name"]
+			src_dt = mapping["source_doctype"]
+			src_fld = mapping["source_field"]
+
 			# Check for webflow override first
 			webflow_key = mapping.get("webflow_field")
 			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
 				value = webflow_overrides[webflow_key]
+				_debug(
+					f"  mapping[{pdf_field}]: WEBFLOW OVERRIDE {webflow_key!r} → {value!r}",
+					warnings,
+				)
 			else:
 				value = _get_source_value(
-					mapping["source_doctype"],
-					mapping["source_field"],
+					src_dt,
+					src_fld,
 					configured_fixture=cf,
 					fixture_template=template,
 					schedule=schedule,
 					project=project,
 					schedule_line=schedule_line,
+					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, mapping.get("prefix"), mapping.get("suffix")
 			)
-			field_values[mapping["pdf_field_name"]] = transformed_value
+			field_values[pdf_field] = transformed_value
+			_debug(
+				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
+				f"raw={value!r} → final={transformed_value!r}"
+				+ (f" (transform={mapping.get('transformation')})" if mapping.get("transformation") else "")
+				+ (f" (prefix={mapping.get('prefix')!r})" if mapping.get("prefix") else "")
+				+ (f" (suffix={mapping.get('suffix')!r})" if mapping.get("suffix") else ""),
+				warnings,
+			)
 
 		_debug(
 			f"generate_filled_submittal: field_values built ({len(field_values)} fields): "
@@ -1177,6 +1338,7 @@ def _get_neon_source_value(
 	schedule: Any = None,
 	project: Any = None,
 	schedule_line: Any = None,
+	warnings: list | None = None,
 ) -> Any:
 	"""
 	Get a value from the specified source doctype and field for tape/neon products.
@@ -1191,38 +1353,99 @@ def _get_neon_source_value(
 		schedule: The schedule document
 		project: The project document
 		schedule_line: The fixture schedule line (child table row, if applicable)
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		The value from the source field, or None if not found
 	"""
 	try:
 		if source_doctype == "ilL-Configured-Tape-Neon" and configured_tape_neon:
-			return getattr(configured_tape_neon, source_field, None)
+			val = getattr(configured_tape_neon, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={configured_tape_neon.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Tape-Neon-Template" and tape_neon_template:
-			return getattr(tape_neon_template, source_field, None)
+			val = getattr(tape_neon_template, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={tape_neon_template.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Spec-LED Tape" and configured_tape_neon:
 			tape_spec = getattr(configured_tape_neon, "tape_spec", None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} – "
+				f"tape_spec={tape_spec!r}",
+				warnings,
+			)
 			if tape_spec:
-				return frappe.db.get_value("ilL-Spec-LED Tape", tape_spec, source_field)
+				val = frappe.db.get_value("ilL-Spec-LED Tape", tape_spec, source_field)
+				_debug(f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Rel-Tape Offering" and configured_tape_neon:
 			tape_offering = getattr(configured_tape_neon, "tape_offering", None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} – "
+				f"tape_offering={tape_offering!r}",
+				warnings,
+			)
 			if tape_offering:
-				return frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, source_field)
+				val = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, source_field)
+				_debug(f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Project-Fixture-Schedule" and schedule:
-			return getattr(schedule, source_field, None)
+			val = getattr(schedule, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Project" and project:
-			return getattr(project, source_field, None)
+			val = getattr(project, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={project.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Child-Fixture-Schedule-Line" and schedule_line:
-			return getattr(schedule_line, source_field, None)
+			val = getattr(schedule_line, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule_line.name})",
+				warnings,
+			)
+			return val
 
-	except Exception:
-		pass
+		# If we got here, no branch matched – log why
+		_debug(
+			f"_get_neon_source_value: NO MATCH for {source_doctype}.{source_field} – "
+			f"configured_tape_neon={'yes' if configured_tape_neon else 'NO'}, "
+			f"tape_neon_template={'yes' if tape_neon_template else 'NO'}, "
+			f"schedule={'yes' if schedule else 'NO'}, "
+			f"project={'yes' if project else 'NO'}, "
+			f"schedule_line={'yes' if schedule_line else 'NO'}",
+			warnings,
+		)
+
+	except Exception as e:
+		tb = traceback.format_exc()
+		_debug(
+			f"_get_neon_source_value: EXCEPTION for {source_doctype}.{source_field} – "
+			f"{type(e).__name__}: {e}\n{tb}",
+			warnings,
+		)
 
 	return None
 
@@ -1365,25 +1588,42 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		# Build field values
 		field_values = {}
 		for mapping in mappings:
+			pdf_field = mapping["pdf_field_name"]
+			src_dt = mapping["source_doctype"]
+			src_fld = mapping["source_field"]
+
 			# Check for webflow override first
 			webflow_key = mapping.get("webflow_field")
 			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
 				value = webflow_overrides[webflow_key]
+				_debug(
+					f"  mapping[{pdf_field}]: WEBFLOW OVERRIDE {webflow_key!r} → {value!r}",
+					warnings,
+				)
 			else:
 				value = _get_neon_source_value(
-					mapping["source_doctype"],
-					mapping["source_field"],
+					src_dt,
+					src_fld,
 					configured_tape_neon=ctn,
 					tape_neon_template=template,
 					schedule=schedule,
 					project=project,
 					schedule_line=schedule_line,
+					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, mapping.get("prefix"), mapping.get("suffix")
 			)
-			field_values[mapping["pdf_field_name"]] = transformed_value
+			field_values[pdf_field] = transformed_value
+			_debug(
+				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
+				f"raw={value!r} → final={transformed_value!r}"
+				+ (f" (transform={mapping.get('transformation')})" if mapping.get("transformation") else "")
+				+ (f" (prefix={mapping.get('prefix')!r})" if mapping.get("prefix") else "")
+				+ (f" (suffix={mapping.get('suffix')!r})" if mapping.get("suffix") else ""),
+				warnings,
+			)
 
 		_debug(
 			f"generate_filled_neon_submittal: field_values built ({len(field_values)} fields): "
