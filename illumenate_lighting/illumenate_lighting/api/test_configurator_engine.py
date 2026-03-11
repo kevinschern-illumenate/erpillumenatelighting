@@ -2963,6 +2963,158 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 		# With all selections made, delivered_outputs should be populated
 		self.assertGreater(len(result["options"]["delivered_outputs"]), 0)
 
+	# =========================================================================
+	# Lens Resolution via ilL-Rel-Profile Lens Tests
+	# =========================================================================
+
+	def test_multisegment_lens_uses_rel_profile_lens(self):
+		"""
+		Test that multisegment lens resolution uses ilL-Rel-Profile Lens
+		(single source of truth) instead of raw ilL-Spec-Lens query.
+
+		This is the core fix for the BOM lens mismatch bug: without the
+		ilL-Rel-Profile Lens lookup, a different lens item that matches the
+		same lens_appearance could be picked.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		# Create a second lens spec with the same appearance but a different item.
+		# This is a valid lens for a different profile, but not for the test profile.
+		alt_lens = self._ensure(
+			{
+				"doctype": "ilL-Spec-Lens",
+				"item": "LENS-ITEM-02",
+				"family": "LENS-FAMILY-2",
+				"lens_appearance": self.lens_appearance_code,
+				"supported_environment_ratings": [{"environment_rating": self.environment_rating_code}],
+			},
+			ignore_links=True,
+		)
+
+		# Set up the ilL-Rel-Profile Lens to only include the original lens
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Profile Lens",
+				"profile_spec": self.profile_spec.name,
+				"is_active": 1,
+				"compatible_lenses": [
+					{
+						"lens_spec": self.lens_spec.name,
+						"is_default": 1,
+					}
+				],
+			},
+			ignore_links=True,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		# The resolved lens_item must be the one from the rel doc (LENS-ITEM-01),
+		# NOT the second lens spec that also matches the same appearance.
+		self.assertEqual(
+			result.get("resolved_items", {}).get("lens_item"),
+			"LENS-ITEM-01",
+			"Multisegment lens resolution should use ilL-Rel-Profile Lens, not raw ilL-Spec-Lens query",
+		)
+
+	def test_single_segment_lens_fallback_blocked_by_rel_doc(self):
+		"""
+		When an ilL-Rel-Profile Lens record exists for the profile but has no
+		child row for the requested lens appearance, the fallback to raw
+		ilL-Spec-Lens must NOT fire.  This prevents picking an unrelated lens.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Create a different lens appearance that only exists in ilL-Spec-Lens
+		# but is NOT listed in the ilL-Rel-Profile Lens child rows.
+		other_lens_code = "LENS-OTHER"
+		self._ensure(
+			{"doctype": "ilL-Attribute-Lens Appearance", "label": other_lens_code, "code": other_lens_code}
+		)
+		self._ensure(
+			{
+				"doctype": "ilL-Spec-Lens",
+				"item": "LENS-ITEM-OTHER",
+				"family": "LENS-FAMILY-3",
+				"lens_appearance": other_lens_code,
+				"supported_environment_ratings": [{"environment_rating": self.environment_rating_code}],
+			},
+			ignore_links=True,
+		)
+
+		# Set up the ilL-Rel-Profile Lens with only the original lens
+		self._ensure(
+			{
+				"doctype": "ilL-Rel-Profile Lens",
+				"profile_spec": self.profile_spec.name,
+				"is_active": 1,
+				"compatible_lenses": [
+					{
+						"lens_spec": self.lens_spec.name,
+						"is_default": 1,
+					}
+				],
+			},
+			ignore_links=True,
+		)
+
+		# Add the other lens to allowed options
+		self.template.append("allowed_options", {
+			"doctype": "ilL-Child-Template-Allowed-Option",
+			"option_type": "Lens Appearance",
+			"lens_appearance": other_lens_code,
+			"is_active": 1,
+		})
+		self.template.save()
+
+		# Request a lens that exists in ilL-Spec-Lens but NOT in the rel doc
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=other_lens_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+		)
+
+		# Should fail because the rel doc is authoritative and doesn't include
+		# the requested lens appearance
+		self.assertFalse(result["is_valid"])
+		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
+		self.assertTrue(any("Lens" in text for text in error_texts))
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up configured fixtures
