@@ -97,7 +97,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_leads.create_lead_from_webflow",
+        "url": "https://stagingillumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_leads.create_lead_from_webflow",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -208,7 +208,7 @@
     {
       "parameters": {
         "channel": "#marketing-leads",
-        "text": ":sparkles: *New Lead from Webflow!*\n\n*Name:* {{ $('Transform Form Data').item.json.first_name }} {{ $('Transform Form Data').item.json.last_name || '' }}\n*Email:* {{ $('Transform Form Data').item.json.email || 'Not provided' }}\n*Phone:* {{ $('Transform Form Data').item.json.phone || 'Not provided' }}\n*Company:* {{ $('Transform Form Data').item.json.company_name || 'Not provided' }}\n*Source:* {{ $('Transform Form Data').item.json.utm_source || 'Direct' }}\n*Campaign:* {{ $('Transform Form Data').item.json.utm_campaign || 'None' }}\n\n*Lead ID:* {{ $json.message.lead_name }}\n<https://illumenatelighting.v.frappe.cloud/crm/leads/{{ $json.message.lead_name }}|View Lead in Frappe CRM>",
+        "text": ":sparkles: *New Lead from Webflow!*\n\n*Name:* {{ $('Transform Form Data').item.json.first_name }} {{ $('Transform Form Data').item.json.last_name || '' }}\n*Email:* {{ $('Transform Form Data').item.json.email || 'Not provided' }}\n*Phone:* {{ $('Transform Form Data').item.json.phone || 'Not provided' }}\n*Company:* {{ $('Transform Form Data').item.json.company_name || 'Not provided' }}\n*Source:* {{ $('Transform Form Data').item.json.utm_source || 'Direct' }}\n*Campaign:* {{ $('Transform Form Data').item.json.utm_campaign || 'None' }}\n\n*Lead ID:* {{ $json.message.lead_name }}\n<https://stagingillumenatelighting.v.frappe.cloud/crm/leads/{{ $json.message.lead_name }}|View Lead in Frappe CRM>",
         "otherOptions": {}
       },
       "id": "slack-notification",

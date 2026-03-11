@@ -29,7 +29,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.get_webflow_categories",
+        "url": "https://stagingillumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.get_webflow_categories",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
@@ -173,7 +173,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_category_synced",
+        "url": "https://stagingillumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_category_synced",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -196,7 +196,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_category_synced",
+        "url": "https://stagingillumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_category_synced",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -218,7 +218,7 @@
     },
     {
       "parameters": {
-        "content": "## ERPNext → Webflow Category Sync\n\n### Credentials Required:\n\n1. **ERPNext API Key** (Header Auth):\n   - Name: `Authorization`\n   - Value: `token YOUR_API_KEY:YOUR_API_SECRET`\n\n2. **Webflow API Token** (Header Auth):\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_WEBFLOW_TOKEN`\n\n### URLs Configured:\n- ERPNext: https://illumenatelighting.v.frappe.cloud\n- Categories Collection: 697105f368b2ba752d0651b8",
+        "content": "## ERPNext → Webflow Category Sync\n\n### Credentials Required:\n\n1. **ERPNext API Key** (Header Auth):\n   - Name: `Authorization`\n   - Value: `token YOUR_API_KEY:YOUR_API_SECRET`\n\n2. **Webflow API Token** (Header Auth):\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_WEBFLOW_TOKEN`\n\n### URLs Configured:\n- ERPNext: https://stagingillumenatelighting.v.frappe.cloud\n- Categories Collection: 697105f368b2ba752d0651b8",
         "height": 380,
         "width": 320
       },

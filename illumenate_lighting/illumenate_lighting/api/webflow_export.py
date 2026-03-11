@@ -31,10 +31,6 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
     compute_profile_dimensions,
 )
 
-# Base URL for converting relative file paths to absolute URLs
-ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
-
-
 def _make_absolute_url(url: str) -> str:
     """Convert relative URL to absolute URL for Webflow.
     
@@ -42,7 +38,7 @@ def _make_absolute_url(url: str) -> str:
         url: The URL to convert (e.g., '/files/image.jpg')
     
     Returns:
-        Absolute URL (e.g., 'https://illumenatelighting.v.frappe.cloud/files/image.jpg')
+        Absolute URL based on the current site's URL.
     """
     if not url:
         return url
@@ -51,11 +47,12 @@ def _make_absolute_url(url: str) -> str:
     if url.startswith('http://') or url.startswith('https://'):
         return url
     
+    base_url = frappe.utils.get_url()
     # Relative URL - prepend base URL
     if url.startswith('/'):
-        return f"{ERPNEXT_BASE_URL}{url}"
+        return f"{base_url}{url}"
     else:
-        return f"{ERPNEXT_BASE_URL}/{url}"
+        return f"{base_url}/{url}"
 
 
 @frappe.whitelist(allow_guest=False)
