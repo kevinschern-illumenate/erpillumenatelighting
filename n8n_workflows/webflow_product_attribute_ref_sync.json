@@ -29,7 +29,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://stagingillumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.get_product_attribute_references",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.get_product_attribute_references",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
@@ -160,7 +160,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://stagingillumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_webflow_synced",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_webflow_synced",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
