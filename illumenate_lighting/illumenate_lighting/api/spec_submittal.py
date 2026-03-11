@@ -444,6 +444,7 @@ def _fill_pdf_form_fields(
 	"""
 	try:
 		from pypdf import PdfReader, PdfWriter
+		from pypdf.generic import BooleanObject, NameObject, NumberObject
 
 		_debug(f"_fill_pdf_form_fields: pdf_template_path={pdf_template_path!r}, {len(field_values)} field values", warnings)
 
@@ -527,6 +528,14 @@ def _fill_pdf_form_fields(
 
 			for page in writer.pages:
 				writer.update_page_form_field_values(page, field_values)
+
+			# Explicitly set /NeedAppearances so PDF viewers regenerate
+			# appearance streams from the /V values we just wrote.
+			# update_page_form_field_values with auto_regenerate=True
+			# (default) should do this, but can fail silently when the
+			# writer was created via clone_from.
+			if "/AcroForm" in writer._root_object:
+				writer._root_object["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True)
 		else:
 			_debug(
 				"_fill_pdf_form_fields: WARNING – PDF has no AcroForm fields; "
@@ -538,8 +547,6 @@ def _fill_pdf_form_fields(
 		# Removing Widget annotations strips the appearance streams that
 		# contain the visible filled text.  Setting the ReadOnly bit (bit 1
 		# of /Ff) preserves the rendered values while preventing editing.
-		from pypdf.generic import NameObject, NumberObject
-
 		_debug("_fill_pdf_form_fields: Setting form fields to read-only", warnings)
 		for page in writer.pages:
 			if "/Annots" in page:
@@ -582,15 +589,18 @@ def _merge_pdfs(pdf_list: list[bytes]) -> bytes | None:
 		return None
 
 	try:
-		from pypdf import PdfReader, PdfWriter
+		from pypdf import PdfWriter
 
 		writer = PdfWriter()
 
 		for pdf_bytes in pdf_list:
 			if pdf_bytes:
-				reader = PdfReader(io.BytesIO(pdf_bytes))
-				for page in reader.pages:
-					writer.add_page(page)
+				# Use append() instead of add_page() so that the full
+				# document structure—including the AcroForm dictionary
+				# and its /NeedAppearances flag—is preserved.  add_page()
+				# only copies page objects, which strips the AcroForm and
+				# causes filled form-field values to become invisible.
+				writer.append(io.BytesIO(pdf_bytes))
 
 		output = io.BytesIO()
 		writer.write(output)
