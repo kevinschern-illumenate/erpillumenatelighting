@@ -1236,6 +1236,10 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
 		# Build field values
+		_debug(
+			f"generate_filled_submittal: webflow_overrides={webflow_overrides!r}",
+			warnings,
+		)
 		field_values = {}
 		for mapping in mappings:
 			pdf_field = mapping["pdf_field_name"]
@@ -1251,6 +1255,16 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 					warnings,
 				)
 			else:
+				if webflow_key and not webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but no overrides provided",
+						warnings,
+					)
+				elif webflow_key and webflow_overrides and webflow_key not in webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but key not in overrides {list(webflow_overrides.keys())}",
+						warnings,
+					)
 				value = _get_source_value(
 					src_dt,
 					src_fld,
@@ -1586,6 +1600,10 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
 		# Build field values
+		_debug(
+			f"generate_filled_neon_submittal: webflow_overrides={webflow_overrides!r}",
+			warnings,
+		)
 		field_values = {}
 		for mapping in mappings:
 			pdf_field = mapping["pdf_field_name"]
@@ -1601,6 +1619,16 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 					warnings,
 				)
 			else:
+				if webflow_key and not webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but no overrides provided",
+						warnings,
+					)
+				elif webflow_key and webflow_overrides and webflow_key not in webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but key not in overrides {list(webflow_overrides.keys())}",
+						warnings,
+					)
 				value = _get_neon_source_value(
 					src_dt,
 					src_fld,

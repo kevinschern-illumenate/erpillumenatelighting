@@ -7,7 +7,8 @@
  *
  * Webflow setup:
  *   1. Button with id="ill-download-spec-sheet"
- *   2. Optional inputs with ids "ill-project-name" and "ill-project-location"
+ *   2. Optional inputs with ids "ill-project-name", "ill-project-location",
+ *      and "ill-fixture-type"
  *   3. Paste this script AFTER the configurator script in Before </body>
  */
 
@@ -147,12 +148,14 @@
       // Read optional project fields
       var projectNameEl = document.getElementById('ill-project-name');
       var projectLocationEl = document.getElementById('ill-project-location');
+      var fixtureTypeEl = document.getElementById('ill-fixture-type');
 
       var payload = {
         product_slug: productSlug,
         selections: JSON.stringify(selections),
         project_name: projectNameEl ? projectNameEl.value : '',
-        project_location: projectLocationEl ? projectLocationEl.value : ''
+        project_location: projectLocationEl ? projectLocationEl.value : '',
+        fixture_type: fixtureTypeEl ? fixtureTypeEl.value : ''
       };
 
       // Update button state
