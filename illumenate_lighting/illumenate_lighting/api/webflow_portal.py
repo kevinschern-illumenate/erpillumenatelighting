@@ -648,6 +648,7 @@ def _apply_stock_visibility(stock_result: dict, user: str) -> dict:
 		filtered_components.append({
 			"component": comp["component"],
 			"item_code": comp.get("item_code"),
+			"item_name": comp.get("item_name"),
 			"in_stock": comp["in_stock"],
 			"lead_time_class": comp["lead_time_class"],
 		})

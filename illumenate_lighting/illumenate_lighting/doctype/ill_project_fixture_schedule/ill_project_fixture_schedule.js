@@ -362,12 +362,30 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 					frm.refresh_field("lines");
 
 					d.hide();
-					frappe.show_alert({
-						message: __(
-							"Extrusion Kit configured: {0}",
-							[result.part_number]
-						),
+
+					// Build stock summary if available
+					let stockHtml = "";
+					if (result.stock_availability && result.stock_availability.items) {
+						const items = result.stock_availability.items;
+						stockHtml = '<br><table class="table table-condensed table-sm" style="margin-top:8px;margin-bottom:0;font-size:0.9em;">';
+						stockHtml += '<thead><tr class="text-muted"><th></th><th>Component</th><th>Item</th><th class="text-center">Needed</th><th class="text-center">Avail</th></tr></thead><tbody>';
+						items.forEach(function (it) {
+							const icon = it.is_sufficient
+								? '<i class="fa fa-check-circle text-success"></i>'
+								: '<i class="fa fa-times-circle text-danger"></i>';
+							const displayName = it.item_name || it.item_code || "\u2014";
+							const qtyClass = it.qty_available >= it.qty_required ? "text-success" : "text-danger";
+							stockHtml += '<tr><td>' + icon + '</td><td>' + (it.component_type || "") + '</td><td class="text-muted">' + displayName + '</td>';
+							stockHtml += '<td class="text-center">' + (it.qty_required || 0) + '</td>';
+							stockHtml += '<td class="text-center ' + qtyClass + '">' + (it.qty_available || 0) + '</td></tr>';
+						});
+						stockHtml += "</tbody></table>";
+					}
+
+					frappe.msgprint({
+						title: __("Extrusion Kit Configured"),
 						indicator: "green",
+						message: __("Part Number: {0}", [result.part_number]) + stockHtml,
 					});
 				},
 			});

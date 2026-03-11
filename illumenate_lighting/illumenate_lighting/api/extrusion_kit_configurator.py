@@ -443,7 +443,41 @@ def validate_kit_configuration(selections: str) -> dict:
     # ── Compute config hash for deduplication ─────────────────────────
     config_hash = _compute_config_hash(sel)
 
-    return {
+    # ── Stock availability (component-level) ──────────────────────────
+    stock_availability = None
+    try:
+        stock_result = get_kit_component_stock(
+            kit_template=kit_template_name,
+            finish=sel["finish"],
+            lens_appearance=sel["lens_appearance"],
+            mounting_method=sel["mounting_method"],
+            endcap_style=sel["endcap_style"],
+            endcap_color=sel["endcap_color"],
+        )
+        if stock_result.get("success"):
+            components = stock_result.get("components", [])
+            all_in_stock = all(c.get("in_stock", False) for c in components)
+            items = []
+            for c in components:
+                items.append({
+                    "item_code": c.get("item_code") or "",
+                    "item_name": c.get("item_name") or "",
+                    "component_type": c.get("component", ""),
+                    "is_sufficient": c.get("in_stock", False),
+                    "qty_required": c.get("qty_per_kit", 0),
+                    "qty_available": c.get("stock_qty", 0),
+                    "lead_time_class": c.get("lead_time_class", ""),
+                })
+            stock_availability = {
+                "all_in_stock": all_in_stock,
+                "items": items,
+                "total_kits_fulfillable": stock_result.get("total_kits_fulfillable", 0),
+                "limiting_component": stock_result.get("limiting_component"),
+            }
+    except Exception:
+        pass  # Non-critical; omit from response on failure
+
+    result = {
         "success": True,
         "is_valid": True,
         "messages": messages,
@@ -468,6 +502,9 @@ def validate_kit_configuration(selections: str) -> dict:
             "spec_sheet": template.spec_sheet,
         },
     }
+    if stock_availability is not None:
+        result["stock_availability"] = stock_availability
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -767,17 +804,20 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 		)
 		stock_map = {row.item_code: flt(row.total_qty) for row in bins}
 
-	# Batch-fetch lead_time_days for all item codes
+	# Batch-fetch lead_time_days and item_name for all item codes
 	lead_time_map: dict[str, int] = {}
+	item_name_map: dict[str, str] = {}
 	if item_codes:
 		lead_rows = frappe.db.sql(
-			"""SELECT name, IFNULL(lead_time_days, 0) AS lead_time_days
+			"""SELECT name, IFNULL(lead_time_days, 0) AS lead_time_days,
+			          item_name
 			   FROM `tabItem`
 			   WHERE name IN %s""",
 			[item_codes],
 			as_dict=True,
 		)
 		lead_time_map = {row.name: int(row.lead_time_days) for row in lead_rows}
+		item_name_map = {row.name: row.item_name or row.name for row in lead_rows}
 
 	components = []
 	min_kits = None
@@ -788,6 +828,7 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 			components.append({
 				"component": label,
 				"item_code": None,
+				"item_name": None,
 				"qty_per_kit": qty_per_kit,
 				"stock_qty": 0,
 				"kits_fulfillable": 0,
@@ -814,6 +855,7 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 		components.append({
 			"component": label,
 			"item_code": item_code,
+			"item_name": item_name_map.get(item_code, item_code),
 			"qty_per_kit": qty_per_kit,
 			"stock_qty": stock_qty,
 			"kits_fulfillable": kits_fulfillable,
