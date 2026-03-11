@@ -1133,7 +1133,7 @@ def generate_spec_submittal_packet(
 
 
 @frappe.whitelist()
-def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
+def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
 
@@ -1148,6 +1148,9 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			When a mapping has a webflow_field set and the corresponding
 			key exists in this dict, the webflow value takes priority
 			over the source_doctype/source_field value.
+		is_private: Whether the generated file should be private (1) or
+			public (0). Defaults to 1 (private). Set to 0 for guest-
+			accessible downloads (e.g. Webflow spec sheet downloads).
 
 	Returns:
 		dict: Result with keys:
@@ -1166,6 +1169,8 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			webflow_overrides = json.loads(webflow_overrides)
 		except (json.JSONDecodeError, TypeError):
 			webflow_overrides = None
+	if isinstance(is_private, str):
+		is_private = int(is_private) if is_private.isdigit() else 1
 
 	try:
 		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}", warnings)
@@ -1312,7 +1317,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			filled_pdf,
 			"ilL-Configured-Fixture",
 			configured_fixture_name,
-			is_private=1,
+			is_private=int(is_private),
 		)
 
 		# Update the configured fixture with the submittal link
@@ -1497,7 +1502,7 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 
 
 @frappe.whitelist()
-def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
+def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured tape/neon product.
 
@@ -1512,6 +1517,9 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			When a mapping has a webflow_field set and the corresponding
 			key exists in this dict, the webflow value takes priority
 			over the source_doctype/source_field value.
+		is_private: Whether the generated file should be private (1) or
+			public (0). Defaults to 1 (private). Set to 0 for guest-
+			accessible downloads (e.g. Webflow spec sheet downloads).
 
 	Returns:
 		dict: Result with keys:
@@ -1530,6 +1538,8 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			webflow_overrides = json.loads(webflow_overrides)
 		except (json.JSONDecodeError, TypeError):
 			webflow_overrides = None
+	if isinstance(is_private, str):
+		is_private = int(is_private) if is_private.isdigit() else 1
 
 	try:
 		_debug(f"generate_filled_neon_submittal: START for CTN={configured_tape_neon_name}", warnings)
@@ -1676,7 +1686,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			filled_pdf,
 			"ilL-Configured-Tape-Neon",
 			configured_tape_neon_name,
-			is_private=1,
+			is_private=int(is_private),
 		)
 
 		# Update the configured tape/neon with the submittal link

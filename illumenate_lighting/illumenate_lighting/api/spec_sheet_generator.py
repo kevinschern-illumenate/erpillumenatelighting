@@ -188,6 +188,7 @@ def generate_from_webflow_selections(
     submittal_result = generate_filled_submittal(
         configured_fixture_id,
         webflow_overrides=webflow_overrides,
+        is_private=0,
     )
 
     if not submittal_result.get("success") or not submittal_result.get("file_url"):
@@ -495,19 +496,23 @@ def _ensure_public_file(file_url: str) -> str:
     Ensure the generated file is publicly accessible (not private).
 
     Spec sheet downloads from Webflow need to be guest-accessible.
-    If the file is in /private/files/, copy it to /files/.
+    If the file is in /private/files/, move it to /files/.
+
+    Uses ignore_permissions because this may be called from a guest
+    context (Webflow download_spec_sheet endpoint).
     """
     if not file_url or not file_url.startswith("/private/files/"):
         return file_url
 
     try:
-        # Use get_all to handle duplicate File records from re-uploads gracefully.
+        # Use get_all with ignore_permissions to handle guest context.
         matches = frappe.get_all(
             "File",
             filters={"file_url": file_url},
             fields=["name"],
             order_by="creation desc",
             limit_page_length=1,
+            ignore_permissions=True,
         )
         if not matches:
             return file_url
@@ -520,7 +525,7 @@ def _ensure_public_file(file_url: str) -> str:
     except Exception as e:
         frappe.log_error(
             title="Spec Sheet: Failed to make file public",
-            message=f"Could not make file public: {file_url}. Error: {e}",
+            message=f"Could not make file public: {file_url}. Error: {type(e).__name__}: {e}",
         )
 
     return file_url
