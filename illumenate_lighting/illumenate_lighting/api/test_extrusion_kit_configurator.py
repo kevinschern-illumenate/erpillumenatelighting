@@ -247,7 +247,7 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
         self.assertEqual(comps["Solid Endcap"]["lead_time_class"], "special-order")
 
     def test_build_kit_stock_result_insufficient_stock(self):
-        """in_stock is False when stock exists but is below qty_per_kit."""
+        """Test that in_stock is False when stock exists but is insufficient for the kit's per-component requirements."""
         from unittest.mock import patch, MagicMock
         from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
             _build_kit_stock_result,
@@ -289,7 +289,7 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
         self.assertEqual(result["limiting_component"], "Mounting Accessory")
 
     def test_build_kit_stock_result_zero_qty_filtered(self):
-        """Components with qty_per_kit=0 should be excluded before calling _build_kit_stock_result."""
+        """Test that components with zero quantity requirements are excluded from stock calculations."""
         from unittest.mock import patch, MagicMock
         from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
             _build_kit_stock_result,
