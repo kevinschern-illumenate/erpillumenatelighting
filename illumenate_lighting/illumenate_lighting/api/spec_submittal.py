@@ -444,6 +444,7 @@ def _fill_pdf_form_fields(
 	"""
 	try:
 		from pypdf import PdfReader, PdfWriter
+		from pypdf.generic import BooleanObject, NameObject, NumberObject
 
 		_debug(f"_fill_pdf_form_fields: pdf_template_path={pdf_template_path!r}, {len(field_values)} field values", warnings)
 
@@ -533,10 +534,8 @@ def _fill_pdf_form_fields(
 			# update_page_form_field_values with auto_regenerate=True
 			# (default) should do this, but can fail silently when the
 			# writer was created via clone_from.
-			from pypdf.generic import BooleanObject, NameObject as _NA
-
 			if "/AcroForm" in writer._root_object:
-				writer._root_object["/AcroForm"][_NA("/NeedAppearances")] = BooleanObject(True)
+				writer._root_object["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True)
 		else:
 			_debug(
 				"_fill_pdf_form_fields: WARNING – PDF has no AcroForm fields; "
@@ -548,8 +547,6 @@ def _fill_pdf_form_fields(
 		# Removing Widget annotations strips the appearance streams that
 		# contain the visible filled text.  Setting the ReadOnly bit (bit 1
 		# of /Ff) preserves the rendered values while preventing editing.
-		from pypdf.generic import NameObject, NumberObject
-
 		_debug("_fill_pdf_form_fields: Setting form fields to read-only", warnings)
 		for page in writer.pages:
 			if "/Annots" in page:
