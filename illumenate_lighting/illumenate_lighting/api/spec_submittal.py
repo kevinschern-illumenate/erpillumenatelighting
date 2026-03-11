@@ -1133,7 +1133,7 @@ def generate_spec_submittal_packet(
 
 
 @frappe.whitelist()
-def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
+def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
 
@@ -1148,6 +1148,8 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			When a mapping has a webflow_field set and the corresponding
 			key exists in this dict, the webflow value takes priority
 			over the source_doctype/source_field value.
+		is_private: 1 for private files (default, used by project schedules),
+			0 for public files (used by Webflow guest downloads).
 
 	Returns:
 		dict: Result with keys:
@@ -1312,7 +1314,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			filled_pdf,
 			"ilL-Configured-Fixture",
 			configured_fixture_name,
-			is_private=1,
+			is_private=is_private,
 		)
 
 		# Update the configured fixture with the submittal link
