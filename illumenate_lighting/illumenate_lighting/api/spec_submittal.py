@@ -251,8 +251,13 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 			filters={"fixture_template": fixture_template_name},
 			fields=base_fields + ["webflow_field"],
 		)
-	except Exception:
-		# webflow_field column may not exist yet if migration is pending
+	except Exception as e:
+		# webflow_field column may not exist yet if migration is pending;
+		# log the error so it's not silently masked, then fall back.
+		frappe.log_error(
+			title="Spec Submittal: webflow_field query failed, falling back",
+			message=f"Error querying webflow_field for {fixture_template_name}: {e}",
+		)
 		return frappe.get_all(
 			"ilL-Spec-Submittal-Mapping",
 			filters={"fixture_template": fixture_template_name},
@@ -300,6 +305,10 @@ def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
 		return frappe.get_doc("File", matches[0].name)
 	except Exception as e:
 		_debug(f"_get_file_doc_by_url: lookup failed for {file_url!r}: {e}", warnings)
+		frappe.log_error(
+			title="Spec Submittal: File lookup failed",
+			message=f"Could not look up File record for {file_url}: {e}",
+		)
 		return None
 
 
@@ -1236,8 +1245,13 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 			filters={"tape_neon_template": tape_neon_template_name},
 			fields=base_fields + ["webflow_field"],
 		)
-	except Exception:
-		# webflow_field column may not exist yet if migration is pending
+	except Exception as e:
+		# webflow_field column may not exist yet if migration is pending;
+		# log the error so it's not silently masked, then fall back.
+		frappe.log_error(
+			title="Neon Submittal: webflow_field query failed, falling back",
+			message=f"Error querying webflow_field for {tape_neon_template_name}: {e}",
+		)
 		return frappe.get_all(
 			"ilL-Neon-Submittal-Mapping",
 			filters={"tape_neon_template": tape_neon_template_name},
