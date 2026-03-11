@@ -1307,14 +1307,15 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 
 		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF.
-		# save_file checks write permissions on the attached doctype,
-		# which fails under Guest context (Webflow downloads).  We
-		# temporarily elevate permissions for the entire save block.
+		# Save the filled PDF and update the configured fixture.
+		# Under Guest context (Webflow downloads) the user has no write
+		# permission on ilL-Configured-Fixture.  Temporarily switching to
+		# Administrator is the most reliable way to bypass every permission
+		# check in Frappe (save_file, File doc hooks, doc.save, etc.).
 		filename = f"Spec_Submittal_{configured_fixture_name}_{nowdate()}.pdf"
-		_prev_ignore = frappe.flags.ignore_permissions
+		_prev_user = frappe.session.user
 		try:
-			frappe.flags.ignore_permissions = True
+			frappe.set_user("Administrator")
 			file_doc = save_file(
 				filename,
 				filled_pdf,
@@ -1322,12 +1323,12 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 				configured_fixture_name,
 				is_private=is_private,
 			)
-		finally:
-			frappe.flags.ignore_permissions = _prev_ignore
 
-		# Update the configured fixture with the submittal link
-		cf.spec_submittal = file_doc.file_url
-		cf.save(ignore_permissions=True)
+			# Update the configured fixture with the submittal link
+			cf.spec_submittal = file_doc.file_url
+			cf.save(ignore_permissions=True)
+		finally:
+			frappe.set_user(_prev_user)
 
 		_debug(f"generate_filled_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
@@ -1340,12 +1341,14 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 	except Exception as e:
 		_debug(f"generate_filled_submittal: EXCEPTION – {type(e).__name__}: {e}", warnings)
 		frappe.log_error(
-			f"Error generating filled submittal: {str(e)}",
+			f"Error generating filled submittal: {type(e).__name__}: {e}\n{traceback.format_exc()}",
 			"Spec Submittal Generation Error",
 		)
 		return {
 			"success": False,
-			"message": _("Error generating spec submittal: {0}").format(str(e)),
+			"message": _("Error generating spec submittal: {0}: {1}").format(
+				type(e).__name__, str(e) or "insufficient permissions"
+			),
 		}
 
 
@@ -1679,19 +1682,26 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 
 		_debug(f"generate_filled_neon_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF
+		# Save the filled PDF and update the configured tape/neon.
+		# Elevate to Administrator to bypass permission checks that
+		# fail under Guest or limited-role contexts.
 		filename = f"Spec_Submittal_{configured_tape_neon_name}_{nowdate()}.pdf"
-		file_doc = save_file(
-			filename,
-			filled_pdf,
-			"ilL-Configured-Tape-Neon",
-			configured_tape_neon_name,
-			is_private=1,
-		)
+		_prev_user = frappe.session.user
+		try:
+			frappe.set_user("Administrator")
+			file_doc = save_file(
+				filename,
+				filled_pdf,
+				"ilL-Configured-Tape-Neon",
+				configured_tape_neon_name,
+				is_private=1,
+			)
 
-		# Update the configured tape/neon with the submittal link
-		ctn.spec_submittal = file_doc.file_url
-		ctn.save(ignore_permissions=True)
+			# Update the configured tape/neon with the submittal link
+			ctn.spec_submittal = file_doc.file_url
+			ctn.save(ignore_permissions=True)
+		finally:
+			frappe.set_user(_prev_user)
 
 		_debug(f"generate_filled_neon_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
@@ -1704,10 +1714,12 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 	except Exception as e:
 		_debug(f"generate_filled_neon_submittal: EXCEPTION – {type(e).__name__}: {e}", warnings)
 		frappe.log_error(
-			f"Error generating filled neon submittal: {str(e)}",
+			f"Error generating filled neon submittal: {type(e).__name__}: {e}\n{traceback.format_exc()}",
 			"Neon Spec Submittal Generation Error",
 		)
 		return {
 			"success": False,
-			"message": _("Error generating neon spec submittal: {0}").format(str(e)),
+			"message": _("Error generating neon spec submittal: {0}: {1}").format(
+				type(e).__name__, str(e) or "insufficient permissions"
+			),
 		}
