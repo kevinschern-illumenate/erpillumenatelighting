@@ -20,7 +20,9 @@
                         "column_break_prefix_suffix",
                         "suffix",
                         "transformation_section",
-                        "transformation"
+                        "transformation",
+                        "webflow_section",
+                        "webflow_field"
                     ],
     "fields":  [
                    {
@@ -104,6 +106,20 @@
                        "fieldtype":  "Select",
                        "label":  "Transformation",
                        "options":  "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT"
+                   },
+                   {
+                       "collapsible":  1,
+                       "description":  "When set, this PDF field can be filled from a Webflow request parameter instead of a DocType field. The Webflow value takes priority when available.",
+                       "fieldname":  "webflow_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Webflow Override"
+                   },
+                   {
+                       "description":  "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided.",
+                       "fieldname":  "webflow_field",
+                       "fieldtype":  "Select",
+                       "label":  "Webflow Field",
+                       "options":  "\nproject_name\nfixture_type\nproject_location"
                    }
                ],
     "grid_page_length":  50,

@@ -413,6 +413,7 @@ def download_spec_sheet(
     selections: str,
     project_name: str = "",
     project_location: str = "",
+    fixture_type: str = "",
 ) -> dict:
     """
     Generate and return a spec sheet PDF from configurator selections.
@@ -428,6 +429,7 @@ def download_spec_sheet(
         selections: JSON string of configurator selections
         project_name: Optional project name to display on the sheet
         project_location: Optional project location to display on the sheet
+        fixture_type: Optional fixture type to display on the sheet
 
     Returns:
         dict: {success, file_url, filename, part_number} or {success, error}
@@ -446,6 +448,7 @@ def download_spec_sheet(
         selections=selections_dict,
         project_name=project_name,
         project_location=project_location,
+        fixture_type=fixture_type,
     )
 
 

@@ -241,12 +241,12 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 
 	Returns:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
-			  source_field, transformation, prefix, and suffix
+			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
 	return frappe.get_all(
 		"ilL-Spec-Submittal-Mapping",
 		filters={"fixture_template": fixture_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"],
+		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix", "webflow_field"],
 	)
 
 
@@ -921,7 +921,7 @@ def generate_spec_submittal_packet(
 
 
 @frappe.whitelist()
-def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None) -> dict:
+def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
 
@@ -931,6 +931,11 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 	Args:
 		configured_fixture_name: Name of the ilL-Configured-Fixture
 		warnings: Optional list that debug messages are appended to
+		webflow_overrides: Optional dict of webflow parameter values
+			(e.g. {"project_name": "...", "fixture_type": "..."}).
+			When a mapping has a webflow_field set and the corresponding
+			key exists in this dict, the webflow value takes priority
+			over the source_doctype/source_field value.
 
 	Returns:
 		dict: Result with keys:
@@ -1009,15 +1014,20 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		# Build field values
 		field_values = {}
 		for mapping in mappings:
-			value = _get_source_value(
-				mapping["source_doctype"],
-				mapping["source_field"],
-				configured_fixture=cf,
-				fixture_template=template,
-				schedule=schedule,
-				project=project,
-				schedule_line=schedule_line,
-			)
+			# Check for webflow override first
+			webflow_key = mapping.get("webflow_field")
+			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
+				value = webflow_overrides[webflow_key]
+			else:
+				value = _get_source_value(
+					mapping["source_doctype"],
+					mapping["source_field"],
+					configured_fixture=cf,
+					fixture_template=template,
+					schedule=schedule,
+					project=project,
+					schedule_line=schedule_line,
+				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, mapping.get("prefix"), mapping.get("suffix")
@@ -1146,17 +1156,17 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 
 	Returns:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
-			  source_field, transformation, prefix, and suffix
+			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
 	return frappe.get_all(
 		"ilL-Neon-Submittal-Mapping",
 		filters={"tape_neon_template": tape_neon_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"],
+		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix", "webflow_field"],
 	)
 
 
 @frappe.whitelist()
-def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None) -> dict:
+def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured tape/neon product.
 
@@ -1166,6 +1176,11 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 	Args:
 		configured_tape_neon_name: Name of the ilL-Configured-Tape-Neon
 		warnings: Optional list that debug messages are appended to
+		webflow_overrides: Optional dict of webflow parameter values
+			(e.g. {"project_name": "...", "fixture_type": "..."}).
+			When a mapping has a webflow_field set and the corresponding
+			key exists in this dict, the webflow value takes priority
+			over the source_doctype/source_field value.
 
 	Returns:
 		dict: Result with keys:
@@ -1244,15 +1259,20 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		# Build field values
 		field_values = {}
 		for mapping in mappings:
-			value = _get_neon_source_value(
-				mapping["source_doctype"],
-				mapping["source_field"],
-				configured_tape_neon=ctn,
-				tape_neon_template=template,
-				schedule=schedule,
-				project=project,
-				schedule_line=schedule_line,
-			)
+			# Check for webflow override first
+			webflow_key = mapping.get("webflow_field")
+			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
+				value = webflow_overrides[webflow_key]
+			else:
+				value = _get_neon_source_value(
+					mapping["source_doctype"],
+					mapping["source_field"],
+					configured_tape_neon=ctn,
+					tape_neon_template=template,
+					schedule=schedule,
+					project=project,
+					schedule_line=schedule_line,
+				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, mapping.get("prefix"), mapping.get("suffix")
