@@ -1031,85 +1031,83 @@ def generate_spec_submittal_packet(
 		# Determine if we should include all spec sheets
 		include_all_specs = export_type == "SPEC_SUBMITTAL_FULL"
 
-		# Portal users may lack standard DocType write permissions on the
-		# doctypes touched during PDF gathering and file saving.  Switch to
-		# Administrator for the heavy-lifting (matching the pattern used in
-		# generate_filled_submittal) after the access check above confirms
-		# the user is authorised.
+		# Create export job record for tracking
+		job_name = _create_export_job(schedule_name, export_type)
+
+		_update_export_job_status(job_name, "RUNNING")
+
+		# Gather documents from all lines
+		line_documents = _gather_line_documents(schedule_name, include_all_specs, warnings)
+
+		# Get schedule for project info
+		schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+		# Generate cover page if requested
+		if include_cover:
+			cover_pdf = _generate_cover_page(
+				schedule_name,
+				schedule.ill_project,
+				line_documents,
+			)
+			if cover_pdf:
+				pdf_parts.append(cover_pdf)
+			else:
+				warnings.append(_("Failed to generate cover page"))
+
+		# Collect PDFs from each line
+		for doc_info in line_documents:
+			if doc_info["spec_document_url"]:
+				_debug(
+					f"Retrieving PDF for line {doc_info['line_id']}: {doc_info['spec_document_url']}",
+					warnings,
+				)
+				pdf_bytes = _get_pdf_bytes_from_url(doc_info["spec_document_url"])
+				if pdf_bytes:
+					_debug(f"Line {doc_info['line_id']}: ✓ Got PDF ({len(pdf_bytes)} bytes)", warnings)
+					pdf_parts.append(pdf_bytes)
+				else:
+					_debug(f"Line {doc_info['line_id']}: ✗ _get_pdf_bytes_from_url returned None", warnings)
+					warnings.append(
+						_("Could not retrieve spec document for line {0}").format(
+							doc_info["line_id"]
+						)
+					)
+			elif doc_info["manufacturer_type"] != "ACCESSORY":
+				# Missing spec document (not an accessory)
+				warnings.append(
+					_("No spec document available for line {0}").format(doc_info["line_id"])
+				)
+
+		if not pdf_parts:
+			_debug("generate_spec_submittal_packet: FAIL – no pdf_parts at all (only cover page possible)", warnings)
+			_update_export_job_status(job_name, "FAILED", error_log="No spec documents found")
+			return {
+				"success": False,
+				"message": _("No spec documents found to include in packet"),
+				"warnings": warnings,
+			}
+
+		_debug(f"generate_spec_submittal_packet: merging {len(pdf_parts)} PDF parts", warnings)
+
+		# Merge all PDFs
+		merged_pdf = _merge_pdfs(pdf_parts)
+		if not merged_pdf:
+			_update_export_job_status(job_name, "FAILED", error_log="Failed to merge PDF documents")
+			return {
+				"success": False,
+				"message": _("Failed to merge PDF documents"),
+				"warnings": warnings,
+			}
+
+		# Save the merged PDF.  Elevate to Administrator only for the
+		# save_file() call – portal users may lack standard DocType write
+		# permissions on File.  Keeping the elevation narrow avoids
+		# corrupting the session (which caused 403 errors on the
+		# subsequent download request).
+		filename = f"Spec_Submittal_Packet_{schedule_name}_{nowdate()}.pdf"
 		_prev_user = frappe.session.user
 		try:
 			frappe.set_user("Administrator")
-
-			# Create export job record for tracking (record the real user)
-			job_name = _create_export_job(schedule_name, export_type, user=_prev_user)
-
-			_update_export_job_status(job_name, "RUNNING")
-
-			# Gather documents from all lines
-			line_documents = _gather_line_documents(schedule_name, include_all_specs, warnings)
-
-			# Get schedule for project info
-			schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
-
-			# Generate cover page if requested
-			if include_cover:
-				cover_pdf = _generate_cover_page(
-					schedule_name,
-					schedule.ill_project,
-					line_documents,
-				)
-				if cover_pdf:
-					pdf_parts.append(cover_pdf)
-				else:
-					warnings.append(_("Failed to generate cover page"))
-
-			# Collect PDFs from each line
-			for doc_info in line_documents:
-				if doc_info["spec_document_url"]:
-					_debug(
-						f"Retrieving PDF for line {doc_info['line_id']}: {doc_info['spec_document_url']}",
-						warnings,
-					)
-					pdf_bytes = _get_pdf_bytes_from_url(doc_info["spec_document_url"])
-					if pdf_bytes:
-						_debug(f"Line {doc_info['line_id']}: ✓ Got PDF ({len(pdf_bytes)} bytes)", warnings)
-						pdf_parts.append(pdf_bytes)
-					else:
-						_debug(f"Line {doc_info['line_id']}: ✗ _get_pdf_bytes_from_url returned None", warnings)
-						warnings.append(
-							_("Could not retrieve spec document for line {0}").format(
-								doc_info["line_id"]
-							)
-						)
-				elif doc_info["manufacturer_type"] != "ACCESSORY":
-					# Missing spec document (not an accessory)
-					warnings.append(
-						_("No spec document available for line {0}").format(doc_info["line_id"])
-					)
-
-			if not pdf_parts:
-				_debug("generate_spec_submittal_packet: FAIL – no pdf_parts at all (only cover page possible)", warnings)
-				_update_export_job_status(job_name, "FAILED", error_log="No spec documents found")
-				return {
-					"success": False,
-					"message": _("No spec documents found to include in packet"),
-					"warnings": warnings,
-				}
-
-			_debug(f"generate_spec_submittal_packet: merging {len(pdf_parts)} PDF parts", warnings)
-
-			# Merge all PDFs
-			merged_pdf = _merge_pdfs(pdf_parts)
-			if not merged_pdf:
-				_update_export_job_status(job_name, "FAILED", error_log="Failed to merge PDF documents")
-				return {
-					"success": False,
-					"message": _("Failed to merge PDF documents"),
-					"warnings": warnings,
-				}
-
-			# Save the merged PDF
-			filename = f"Spec_Submittal_Packet_{schedule_name}_{nowdate()}.pdf"
 			file_doc = save_file(
 				filename,
 				merged_pdf,
@@ -1117,11 +1115,10 @@ def generate_spec_submittal_packet(
 				job_name,
 				is_private=1,
 			)
-
-			_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
-
 		finally:
 			frappe.set_user(_prev_user)
+
+		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
 
 		return {
 			"success": True,
