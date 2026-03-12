@@ -140,7 +140,7 @@ def _update_export_job_status(
 		output_file: URL of the output file (for COMPLETE status)
 		error_log: Error message (for FAILED status)
 	"""
-	job = frappe.get_doc("ilL-Export-Job", job_name)
+	job = frappe.get_doc("ilL-Export-Job", job_name, ignore_permissions=True)
 	job.status = status
 	if output_file:
 		job.output_file = output_file
@@ -1252,7 +1252,10 @@ def download_export_file(export_job_id: str) -> dict:
 	if not frappe.db.exists("ilL-Export-Job", export_job_id):
 		return {"success": False, "error": _("Export job not found")}
 
-	export_job = frappe.get_doc("ilL-Export-Job", export_job_id)
+	# Use ignore_permissions because portal users (dealers, customers) may
+	# not have standard DocType read permission on ilL-Export-Job.  Access
+	# is validated below via _check_schedule_access.
+	export_job = frappe.get_doc("ilL-Export-Job", export_job_id, ignore_permissions=True)
 
 	# Check schedule access
 	has_access, error = _check_schedule_access(export_job.schedule)
@@ -1310,7 +1313,7 @@ def validate_file_access(file_url: str) -> dict:
 
 	# For private files attached to export jobs, validate export access
 	if file_doc.attached_to_doctype == "ilL-Export-Job":
-		export_job = frappe.get_doc("ilL-Export-Job", file_doc.attached_to_name)
+		export_job = frappe.get_doc("ilL-Export-Job", file_doc.attached_to_name, ignore_permissions=True)
 
 		# Check schedule access
 		has_access, error = _check_schedule_access(export_job.schedule)
@@ -1332,7 +1335,7 @@ def validate_file_access(file_url: str) -> dict:
 		return {"has_access": False, "reason": "No file permission"}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["GET"])
 def serve_export_file(export_job_id: str):
 	"""
 	Serve an export file for download after validating custom permissions.
@@ -1352,9 +1355,10 @@ def serve_export_file(export_job_id: str):
 	if not frappe.db.exists("ilL-Export-Job", export_job_id):
 		frappe.throw(_("Export job not found"), frappe.DoesNotExistError)
 
-	# Load the export job – the custom access check below determines
-	# whether the user may download it.
-	export_job = frappe.get_doc("ilL-Export-Job", export_job_id)
+	# Load the export job with ignore_permissions – portal users (dealers,
+	# customers) may not have standard DocType read permission on
+	# ilL-Export-Job.  The custom access check below validates authorization.
+	export_job = frappe.get_doc("ilL-Export-Job", export_job_id, ignore_permissions=True)
 
 	# Validate schedule-level access using the custom permission check
 	has_access, error = _check_schedule_access(export_job.schedule)
