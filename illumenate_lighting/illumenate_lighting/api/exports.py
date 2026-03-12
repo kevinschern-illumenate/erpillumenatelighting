@@ -17,6 +17,7 @@ Export Types:
 
 import csv
 import io
+import os
 from datetime import datetime
 
 import frappe
@@ -898,17 +899,9 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 
 	export_type = "PDF_PRICED" if priced else "PDF_NO_PRICE"
 
-	# Capture the real user for the finally block.  _create_export_job runs
-	# before elevation so frappe.session.user is still the portal user.
-	_prev_user = frappe.session.user
 	job_name = _create_export_job(schedule_id, export_type)
 
 	try:
-		# Portal users may lack standard DocType write permissions for
-		# save_file.  Switch to Administrator for the heavy-lifting after
-		# the access & pricing checks above confirm the user is authorised.
-		frappe.set_user("Administrator")
-
 		# Update status to RUNNING
 		_update_export_job_status(job_name, "RUNNING")
 
@@ -931,13 +924,21 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 
 		# Save file as private to avoid public file permission restrictions.
 		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
-		file_doc = save_file(
-			filename,
-			pdf_content,
-			"ilL-Export-Job",
-			job_name,
-			is_private=1,
-		)
+		# Elevate to Administrator only for save_file() – portal users may
+		# lack standard write permissions on File.  Keeping the elevation
+		# narrow avoids corrupting the session.
+		_prev_user = frappe.session.user
+		try:
+			frappe.set_user("Administrator")
+			file_doc = save_file(
+				filename,
+				pdf_content,
+				"ilL-Export-Job",
+				job_name,
+				is_private=1,
+			)
+		finally:
+			frappe.set_user(_prev_user)
 
 		# Update job with output file
 		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
@@ -957,8 +958,6 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		except Exception:
 			frappe.log_error("Failed to update export job status during PDF error handling")
 		return {"success": False, "export_job": job_name, "error": error_msg}
-	finally:
-		frappe.set_user(_prev_user)
 
 
 @frappe.whitelist()
@@ -991,17 +990,9 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 
 	export_type = "CSV_PRICED" if priced else "CSV_NO_PRICE"
 
-	# Capture the real user for the finally block.  _create_export_job runs
-	# before elevation so frappe.session.user is still the portal user.
-	_prev_user = frappe.session.user
 	job_name = _create_export_job(schedule_id, export_type)
 
 	try:
-		# Portal users may lack standard DocType write permissions for
-		# save_file.  Switch to Administrator for the heavy-lifting after
-		# the access & pricing checks above confirm the user is authorised.
-		frappe.set_user("Administrator")
-
 		# Update status to RUNNING
 		_update_export_job_status(job_name, "RUNNING")
 
@@ -1019,13 +1010,21 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 
 		# Save file as private to avoid public file permission restrictions.
 		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
-		file_doc = save_file(
-			filename,
-			csv_content.encode("utf-8"),
-			"ilL-Export-Job",
-			job_name,
-			is_private=1,
-		)
+		# Elevate to Administrator only for save_file() – portal users may
+		# lack standard write permissions on File.  Keeping the elevation
+		# narrow avoids corrupting the session.
+		_prev_user = frappe.session.user
+		try:
+			frappe.set_user("Administrator")
+			file_doc = save_file(
+				filename,
+				csv_content.encode("utf-8"),
+				"ilL-Export-Job",
+				job_name,
+				is_private=1,
+			)
+		finally:
+			frappe.set_user(_prev_user)
 
 		# Update job with output file
 		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
@@ -1045,8 +1044,6 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		except Exception:
 			frappe.log_error("Failed to update export job status during CSV error handling")
 		return {"success": False, "export_job": job_name, "error": error_msg}
-	finally:
-		frappe.set_user(_prev_user)
 
 
 @frappe.whitelist()
@@ -1355,7 +1352,9 @@ def serve_export_file(export_job_id: str):
 	if not frappe.db.exists("ilL-Export-Job", export_job_id):
 		frappe.throw(_("Export job not found"), frappe.DoesNotExistError)
 
-	export_job = frappe.get_doc("ilL-Export-Job", export_job_id, ignore_permissions=True)
+	# Load the export job – the custom access check below determines
+	# whether the user may download it.
+	export_job = frappe.get_doc("ilL-Export-Job", export_job_id)
 
 	# Validate schedule-level access using the custom permission check
 	has_access, error = _check_schedule_access(export_job.schedule)
@@ -1370,25 +1369,34 @@ def serve_export_file(export_job_id: str):
 	if export_job.status != "COMPLETE" or not export_job.output_file:
 		frappe.throw(_("Export is not ready for download"))
 
-	# Look up the File record and read content (as Administrator to
-	# bypass Frappe's standard file-permission checks on private files).
-	_prev_user = frappe.session.user
-	try:
-		frappe.set_user("Administrator")
-		file_records = frappe.get_all(
-			"File",
-			filters={"file_url": export_job.output_file},
-			fields=["name", "file_name"],
-			order_by="creation desc",
-			limit=1,
-		)
-		if not file_records:
-			frappe.throw(_("Output file record not found"))
+	# Look up the File record and read content.  Use ignore_permissions
+	# on the query and load to bypass Frappe's standard file-permission
+	# checks on private files (the custom access check above already
+	# validated the user's right to this export).  Avoid
+	# frappe.set_user() here because it can corrupt the session.
+	file_records = frappe.get_all(
+		"File",
+		filters={"file_url": export_job.output_file},
+		fields=["name", "file_name"],
+		order_by="creation desc",
+		limit=1,
+		ignore_permissions=True,
+	)
+	if not file_records:
+		frappe.throw(_("Output file record not found"))
 
-		file_doc = frappe.get_doc("File", file_records[0].name)
-		content = file_doc.get_content()
-	finally:
-		frappe.set_user(_prev_user)
+	# Read the file content from disk using the file_url.  This avoids
+	# frappe.get_doc("File", …) permission checks that may block portal
+	# users from accessing private files.
+	file_path = os.path.realpath(frappe.get_site_path(export_job.output_file.lstrip("/")))
+	site_path = os.path.realpath(frappe.get_site_path())
+	if not file_path.startswith(site_path + os.sep):
+		frappe.throw(_("Invalid file path"), frappe.PermissionError)
+	if not os.path.isfile(file_path):
+		frappe.throw(_("Output file not found on disk"))
+
+	with open(file_path, "rb") as f:
+		content = f.read()
 
 	if not content:
 		frappe.throw(_("Output file is empty"))
