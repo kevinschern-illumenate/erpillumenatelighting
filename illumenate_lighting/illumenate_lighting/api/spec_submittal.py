@@ -155,6 +155,25 @@ def _get_source_value(
 	"""
 	try:
 		if source_doctype == "ilL-Configured-Fixture" and configured_fixture:
+			# Computed virtual fields (prefixed with __) – resolve before getattr fallback
+			if source_field == "__start_leader_cable_len_mm":
+				segs = getattr(configured_fixture, "segments", None)
+				val = segs[0].start_leader_len_mm if segs and len(segs) > 0 else None
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+					f"(doc={configured_fixture.name}, segments={len(segs) if segs else 0})",
+					warnings,
+				)
+				return val
+			if source_field == "__end_length_indicator":
+				val = "J" if configured_fixture.is_multi_segment else ""
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+					f"(doc={configured_fixture.name}, is_multi_segment={configured_fixture.is_multi_segment})",
+					warnings,
+				)
+				return val
+
 			val = getattr(configured_fixture, source_field, None)
 			_debug(
 				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
