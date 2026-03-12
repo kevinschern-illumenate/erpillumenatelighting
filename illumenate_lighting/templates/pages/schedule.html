@@ -2899,8 +2899,15 @@ function generateSpecSubmittal(exportType) {
 				}
 				// Refresh export history
 				loadExportHistory();
-				// Open download in new tab
-				if (r.message.file_url) {
+				// Download via the secure serve endpoint (portal users cannot
+				// access private files directly).
+				if (r.message.export_job) {
+					window.open(
+						'/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
+						+ '?export_job_id=' + encodeURIComponent(r.message.export_job),
+						'_blank'
+					);
+				} else if (r.message.file_url) {
 					window.open(r.message.file_url, '_blank');
 				}
 			} else {
@@ -2975,8 +2982,15 @@ function generateExport(format, priced) {
 				});
 				// Refresh export history
 				loadExportHistory();
-				// Open download in new tab
-				if (r.message.download_url) {
+				// Download via the secure serve endpoint (portal users cannot
+				// access private files directly).
+				if (r.message.export_job) {
+					window.open(
+						'/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
+						+ '?export_job_id=' + encodeURIComponent(r.message.export_job),
+						'_blank'
+					);
+				} else if (r.message.download_url) {
 					window.open(r.message.download_url, '_blank');
 				}
 			} else {
@@ -3063,7 +3077,9 @@ function renderExportHistory(exports) {
 		html += '<td>' + createdOn + '</td>';
 		html += '<td>';
 		if (exp.status === 'COMPLETE' && exp.output_file) {
-			html += '<a href="' + exp.output_file + '" target="_blank" class="btn btn-sm btn-outline-primary">';
+			var dlUrl = '/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
+				+ '?export_job_id=' + encodeURIComponent(exp.name);
+			html += '<a href="' + dlUrl + '" target="_blank" class="btn btn-sm btn-outline-primary">';
 			html += '<i class="fa fa-download"></i> Download</a>';
 		} else if (exp.status === 'FAILED') {
 			html += '<span class="text-danger"><i class="fa fa-times"></i> Failed</span>';
