@@ -898,7 +898,8 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 
 	export_type = "PDF_PRICED" if priced else "PDF_NO_PRICE"
 
-	# Create export job (record the real user before any elevation)
+	# Capture the real user for the finally block.  _create_export_job runs
+	# before elevation so frappe.session.user is still the portal user.
 	_prev_user = frappe.session.user
 	job_name = _create_export_job(schedule_id, export_type)
 
@@ -954,7 +955,7 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		try:
 			_update_export_job_status(job_name, "FAILED", error_log=error_msg)
 		except Exception:
-			pass
+			frappe.log_error("Failed to update export job status during PDF error handling")
 		return {"success": False, "export_job": job_name, "error": error_msg}
 	finally:
 		frappe.set_user(_prev_user)
@@ -990,7 +991,8 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 
 	export_type = "CSV_PRICED" if priced else "CSV_NO_PRICE"
 
-	# Create export job (record the real user before any elevation)
+	# Capture the real user for the finally block.  _create_export_job runs
+	# before elevation so frappe.session.user is still the portal user.
 	_prev_user = frappe.session.user
 	job_name = _create_export_job(schedule_id, export_type)
 
@@ -1041,7 +1043,7 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		try:
 			_update_export_job_status(job_name, "FAILED", error_log=error_msg)
 		except Exception:
-			pass
+			frappe.log_error("Failed to update export job status during CSV error handling")
 		return {"success": False, "export_job": job_name, "error": error_msg}
 	finally:
 		frappe.set_user(_prev_user)

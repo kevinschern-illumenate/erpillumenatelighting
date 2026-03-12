@@ -1140,7 +1140,7 @@ def generate_spec_submittal_packet(
 			try:
 				_update_export_job_status(job_name, "FAILED", error_log=str(e))
 			except Exception:
-				pass
+				frappe.log_error("Failed to update export job status during spec submittal error handling")
 		return {
 			"success": False,
 			"message": _("Error generating spec submittal packet: {0}").format(str(e)),
