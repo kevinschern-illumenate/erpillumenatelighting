@@ -185,6 +185,16 @@ def generate_from_webflow_selections(
     if project_location:
         webflow_overrides["project_location"] = project_location
 
+    # Forward feed-length selections so they can be mapped onto the PDF
+    # via ilL-Spec-Submittal-Mapping rows whose webflow_field is set to
+    # "start_feed_length_ft" or "end_feed_length_ft".
+    start_feed_length = selections.get("start_feed_length_ft")
+    if start_feed_length is not None and str(start_feed_length) != "":
+        webflow_overrides["start_feed_length_ft"] = str(start_feed_length)
+    end_feed_length = selections.get("end_feed_length_ft")
+    if end_feed_length is not None and str(end_feed_length) != "":
+        webflow_overrides["end_feed_length_ft"] = str(end_feed_length)
+
     submittal_result = generate_filled_submittal(
         configured_fixture_id,
         webflow_overrides=webflow_overrides,
