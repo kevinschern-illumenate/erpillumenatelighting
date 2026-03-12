@@ -17,6 +17,7 @@ Export Types:
 
 import csv
 import io
+import os
 from datetime import datetime
 
 import frappe
@@ -1351,8 +1352,8 @@ def serve_export_file(export_job_id: str):
 	if not frappe.db.exists("ilL-Export-Job", export_job_id):
 		frappe.throw(_("Export job not found"), frappe.DoesNotExistError)
 
-	# Load the export job with ignore_permissions – the custom access
-	# check below determines whether the user may download it.
+	# Load the export job – the custom access check below determines
+	# whether the user may download it.
 	export_job = frappe.get_doc("ilL-Export-Job", export_job_id)
 
 	# Validate schedule-level access using the custom permission check
@@ -1369,10 +1370,10 @@ def serve_export_file(export_job_id: str):
 		frappe.throw(_("Export is not ready for download"))
 
 	# Look up the File record and read content.  Use ignore_permissions
-	# on the query to bypass Frappe's standard file-permission checks on
-	# private files (the custom access check above already validated the
-	# user's right to this export).  Avoid frappe.set_user() here because
-	# it can interfere with the session for the current request.
+	# on the query and load to bypass Frappe's standard file-permission
+	# checks on private files (the custom access check above already
+	# validated the user's right to this export).  Avoid
+	# frappe.set_user() here because it can corrupt the session.
 	file_records = frappe.get_all(
 		"File",
 		filters={"file_url": export_job.output_file},
@@ -1384,8 +1385,18 @@ def serve_export_file(export_job_id: str):
 	if not file_records:
 		frappe.throw(_("Output file record not found"))
 
-	file_doc = frappe.get_doc("File", file_records[0].name)
-	content = file_doc.get_content()
+	# Read the file content from disk using the file_url.  This avoids
+	# frappe.get_doc("File", …) permission checks that may block portal
+	# users from accessing private files.
+	file_path = os.path.realpath(frappe.get_site_path(export_job.output_file.lstrip("/")))
+	site_path = os.path.realpath(frappe.get_site_path())
+	if not file_path.startswith(site_path + os.sep):
+		frappe.throw(_("Invalid file path"), frappe.PermissionError)
+	if not os.path.isfile(file_path):
+		frappe.throw(_("Output file not found on disk"))
+
+	with open(file_path, "rb") as f:
+		content = f.read()
 
 	if not content:
 		frappe.throw(_("Output file is empty"))
