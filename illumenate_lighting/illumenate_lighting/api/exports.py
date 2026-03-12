@@ -28,6 +28,18 @@ from frappe.utils.file_manager import save_file
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
 
 
+def _save_file_ignore_permissions(fname, content, dt, dn, is_private=1):
+	"""Wrap ``save_file()`` with ``ignore_permissions`` to avoid switching
+	the session user to Administrator (which corrupts the Frappe session
+	and causes 403 / forced sign-out for portal users)."""
+	_prev = frappe.flags.ignore_permissions
+	try:
+		frappe.flags.ignore_permissions = True
+		return save_file(fname, content, dt, dn, is_private=is_private)
+	finally:
+		frappe.flags.ignore_permissions = _prev
+
+
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
 MM_PER_INCH = 25.4
@@ -922,23 +934,11 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.pdf"
 
-		# Save file as private to avoid public file permission restrictions.
-		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
-		# Elevate to Administrator only for save_file() – portal users may
-		# lack standard write permissions on File.  Keeping the elevation
-		# narrow avoids corrupting the session.
-		_prev_user = frappe.session.user
-		try:
-			frappe.set_user("Administrator")
-			file_doc = save_file(
-				filename,
-				pdf_content,
-				"ilL-Export-Job",
-				job_name,
-				is_private=1,
-			)
-		finally:
-			frappe.set_user(_prev_user)
+		# Save file as private – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
+		file_doc = _save_file_ignore_permissions(
+			filename, pdf_content, "ilL-Export-Job", job_name, is_private=1,
+		)
 
 		# Update job with output file
 		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
@@ -1008,23 +1008,11 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.csv"
 
-		# Save file as private to avoid public file permission restrictions.
-		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
-		# Elevate to Administrator only for save_file() – portal users may
-		# lack standard write permissions on File.  Keeping the elevation
-		# narrow avoids corrupting the session.
-		_prev_user = frappe.session.user
-		try:
-			frappe.set_user("Administrator")
-			file_doc = save_file(
-				filename,
-				csv_content.encode("utf-8"),
-				"ilL-Export-Job",
-				job_name,
-				is_private=1,
-			)
-		finally:
-			frappe.set_user(_prev_user)
+		# Save file as private – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
+		file_doc = _save_file_ignore_permissions(
+			filename, csv_content.encode("utf-8"), "ilL-Export-Job", job_name, is_private=1,
+		)
 
 		# Update job with output file
 		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)

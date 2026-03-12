@@ -27,7 +27,6 @@ from typing import Any
 import frappe
 from frappe import _
 from frappe.utils import now, nowdate
-from frappe.utils.file_manager import save_file
 
 # Conversion constants
 MM_PER_INCH = 25.4
@@ -408,12 +407,13 @@ def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
 			fields=["name"],
 			order_by="creation desc",
 			limit_page_length=1,
+			ignore_permissions=True,
 		)
 		if not matches:
 			_debug(f"_get_file_doc_by_url: no File record found for {file_url!r}", warnings)
 			return None
 
-		return frappe.get_doc("File", matches[0].name)
+		return frappe.get_doc("File", matches[0].name, ignore_permissions=True)
 	except Exception as e:
 		_debug(f"_get_file_doc_by_url: lookup failed for {file_url!r}: {e}", warnings)
 		frappe.log_error(
@@ -1017,6 +1017,7 @@ def generate_spec_submittal_packet(
 		from illumenate_lighting.illumenate_lighting.api.exports import (
 			_check_schedule_access,
 			_create_export_job,
+			_save_file_ignore_permissions,
 			_update_export_job_status,
 		)
 
@@ -1099,24 +1100,12 @@ def generate_spec_submittal_packet(
 				"warnings": warnings,
 			}
 
-		# Save the merged PDF.  Elevate to Administrator only for the
-		# save_file() call – portal users may lack standard DocType write
-		# permissions on File.  Keeping the elevation narrow avoids
-		# corrupting the session (which caused 403 errors on the
-		# subsequent download request).
+		# Save the merged PDF – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
 		filename = f"Spec_Submittal_Packet_{schedule_name}_{nowdate()}.pdf"
-		_prev_user = frappe.session.user
-		try:
-			frappe.set_user("Administrator")
-			file_doc = save_file(
-				filename,
-				merged_pdf,
-				"ilL-Export-Job",
-				job_name,
-				is_private=1,
-			)
-		finally:
-			frappe.set_user(_prev_user)
+		file_doc = _save_file_ignore_permissions(
+			filename, merged_pdf, "ilL-Export-Job", job_name, is_private=1,
+		)
 
 		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
 
@@ -1183,6 +1172,10 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			webflow_overrides = None
 
 	try:
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_save_file_ignore_permissions,
+		)
+
 		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}", warnings)
 
 		# Get the configured fixture
@@ -1320,28 +1313,17 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 
 		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF and update the configured fixture.
-		# Under Guest context (Webflow downloads) the user has no write
-		# permission on ilL-Configured-Fixture.  Temporarily switching to
-		# Administrator is the most reliable way to bypass every permission
-		# check in Frappe (save_file, File doc hooks, doc.save, etc.).
+		# Save the filled PDF – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
 		filename = f"Spec_Submittal_{configured_fixture_name}_{nowdate()}.pdf"
-		_prev_user = frappe.session.user
-		try:
-			frappe.set_user("Administrator")
-			file_doc = save_file(
-				filename,
-				filled_pdf,
-				"ilL-Configured-Fixture",
-				configured_fixture_name,
-				is_private=is_private,
-			)
+		file_doc = _save_file_ignore_permissions(
+			filename, filled_pdf, "ilL-Configured-Fixture", configured_fixture_name,
+			is_private=is_private,
+		)
 
-			# Update the configured fixture with the submittal link
-			cf.spec_submittal = file_doc.file_url
-			cf.save(ignore_permissions=True)
-		finally:
-			frappe.set_user(_prev_user)
+		# Update the configured fixture with the submittal link
+		cf.spec_submittal = file_doc.file_url
+		cf.save(ignore_permissions=True)
 
 		_debug(f"generate_filled_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
@@ -1558,6 +1540,10 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			webflow_overrides = None
 
 	try:
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_save_file_ignore_permissions,
+		)
+
 		_debug(f"generate_filled_neon_submittal: START for CTN={configured_tape_neon_name}", warnings)
 
 		# Get the configured tape/neon
@@ -1695,26 +1681,17 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 
 		_debug(f"generate_filled_neon_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF and update the configured tape/neon.
-		# Elevate to Administrator to bypass permission checks that
-		# fail under Guest or limited-role contexts.
+		# Save the filled PDF – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
 		filename = f"Spec_Submittal_{configured_tape_neon_name}_{nowdate()}.pdf"
-		_prev_user = frappe.session.user
-		try:
-			frappe.set_user("Administrator")
-			file_doc = save_file(
-				filename,
-				filled_pdf,
-				"ilL-Configured-Tape-Neon",
-				configured_tape_neon_name,
-				is_private=1,
-			)
+		file_doc = _save_file_ignore_permissions(
+			filename, filled_pdf, "ilL-Configured-Tape-Neon", configured_tape_neon_name,
+			is_private=1,
+		)
 
-			# Update the configured tape/neon with the submittal link
-			ctn.spec_submittal = file_doc.file_url
-			ctn.save(ignore_permissions=True)
-		finally:
-			frappe.set_user(_prev_user)
+		# Update the configured tape/neon with the submittal link
+		ctn.spec_submittal = file_doc.file_url
+		ctn.save(ignore_permissions=True)
 
 		_debug(f"generate_filled_neon_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
