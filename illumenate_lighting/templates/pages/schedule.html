@@ -2872,61 +2872,44 @@ function generateSpecSubmittal(exportType) {
 				});
 				// Show warnings if any
 				if (r.message.warnings && r.message.warnings.length > 0) {
-					// Split into debug vs real warnings for display
-					var debugMsgs = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') === 0; });
-					var realWarnings = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
-
-					if (realWarnings.length > 0) {
+					var warnings = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
+					if (warnings.length > 0) {
 						frappe.msgprint({
 							title: 'Spec Submittal Warnings',
 							indicator: 'orange',
-							message: realWarnings.join('<br>')
-						});
-					}
-
-					// Always show debug in a separate dialog so it's easy to read
-					if (debugMsgs.length > 0) {
-						frappe.msgprint({
-							title: 'Spec Submittal Debug Log (' + debugMsgs.length + ' entries)',
-							indicator: 'blue',
-							message: '<pre style="white-space:pre-wrap;font-size:11px;max-height:500px;overflow:auto;">' +
-								debugMsgs.join('\n') + '</pre>'
+							message: warnings.join('<br>')
 						});
 					}
 				}
 				// Refresh export history
 				loadExportHistory();
-				// Open download in new tab
-				if (r.message.file_url) {
+				// Download via the secure serve endpoint (portal users cannot
+				// access private files directly).
+				if (r.message.export_job) {
+					window.open(
+						'/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
+						+ '?export_job_id=' + encodeURIComponent(r.message.export_job),
+						'_blank'
+					);
+				} else if (r.message.file_url) {
 					window.open(r.message.file_url, '_blank');
 				}
 			} else {
-				// On failure, still show any debug info
 				var allWarnings = (r.message && r.message.warnings) || [];
-				var debugMsgs = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') === 0; });
-				var realWarnings = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
+				var warnings = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
 
 				var errorHtml = '<p>' + (r.message.message || 'Error generating spec submittal') + '</p>';
-				if (realWarnings.length > 0) {
-					errorHtml += '<br><strong>Warnings:</strong><br>' + realWarnings.join('<br>');
+				if (warnings.length > 0) {
+					errorHtml += '<br><strong>Warnings:</strong><br>' + warnings.join('<br>');
 				}
 				frappe.msgprint({
 					title: 'Spec Submittal Error',
 					indicator: 'red',
 					message: errorHtml
 				});
-
-				if (debugMsgs.length > 0) {
-					frappe.msgprint({
-						title: 'Spec Submittal Debug Log (' + debugMsgs.length + ' entries)',
-						indicator: 'blue',
-						message: '<pre style="white-space:pre-wrap;font-size:11px;max-height:500px;overflow:auto;">' +
-							debugMsgs.join('\n') + '</pre>'
-					});
-				}
 			}
 		},
-		error: function() {
+		error: function(err) {
 			frappe.msgprint({
 				title: 'Spec Submittal Error',
 				indicator: 'red',
@@ -2960,8 +2943,15 @@ function generateExport(format, priced) {
 				});
 				// Refresh export history
 				loadExportHistory();
-				// Open download in new tab
-				if (r.message.download_url) {
+				// Download via the secure serve endpoint (portal users cannot
+				// access private files directly).
+				if (r.message.export_job) {
+					window.open(
+						'/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
+						+ '?export_job_id=' + encodeURIComponent(r.message.export_job),
+						'_blank'
+					);
+				} else if (r.message.download_url) {
 					window.open(r.message.download_url, '_blank');
 				}
 			} else {
@@ -3048,7 +3038,9 @@ function renderExportHistory(exports) {
 		html += '<td>' + createdOn + '</td>';
 		html += '<td>';
 		if (exp.status === 'COMPLETE' && exp.output_file) {
-			html += '<a href="' + exp.output_file + '" target="_blank" class="btn btn-sm btn-outline-primary">';
+			var dlUrl = '/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
+				+ '?export_job_id=' + encodeURIComponent(exp.name);
+			html += '<a href="' + dlUrl + '" target="_blank" class="btn btn-sm btn-outline-primary">';
 			html += '<i class="fa fa-download"></i> Download</a>';
 		} else if (exp.status === 'FAILED') {
 			html += '<span class="text-danger"><i class="fa fa-times"></i> Failed</span>';

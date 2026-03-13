@@ -75,6 +75,21 @@ def get_doctype_fields(doctype: str) -> list:
 			"options": field.options if field.fieldtype == "Link" else None
 		})
 	
+	# Append computed virtual fields for ilL-Configured-Fixture
+	if doctype == "ilL-Configured-Fixture":
+		fields.append({
+			"fieldname": "__start_leader_cable_len_mm",
+			"label": "Start Leader Cable Length (mm) [computed]",
+			"fieldtype": "Int",
+			"options": None,
+		})
+		fields.append({
+			"fieldname": "__end_length_indicator",
+			"label": "End Length Indicator [computed]",
+			"fieldtype": "Data",
+			"options": None,
+		})
+
 	# Sort by label
 	fields.sort(key=lambda x: x["label"].lower())
 	

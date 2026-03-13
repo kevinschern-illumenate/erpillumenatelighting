@@ -185,9 +185,20 @@ def generate_from_webflow_selections(
     if project_location:
         webflow_overrides["project_location"] = project_location
 
+    # Forward feed-length selections so they can be mapped onto the PDF
+    # via ilL-Spec-Submittal-Mapping rows whose webflow_field is set to
+    # "start_feed_length_ft" or "end_feed_length_ft".
+    start_feed_length = selections.get("start_feed_length_ft")
+    if start_feed_length is not None and str(start_feed_length) != "":
+        webflow_overrides["start_feed_length_ft"] = str(start_feed_length)
+    end_feed_length = selections.get("end_feed_length_ft")
+    if end_feed_length is not None and str(end_feed_length) != "":
+        webflow_overrides["end_feed_length_ft"] = str(end_feed_length)
+
     submittal_result = generate_filled_submittal(
         configured_fixture_id,
         webflow_overrides=webflow_overrides,
+        is_private=0,
     )
 
     if not submittal_result.get("success") or not submittal_result.get("file_url"):
@@ -495,13 +506,31 @@ def _ensure_public_file(file_url: str) -> str:
     Ensure the generated file is publicly accessible (not private).
 
     Spec sheet downloads from Webflow need to be guest-accessible.
-    If the file is in /private/files/, copy it to /files/.
+    If the file is in /private/files/, move it to /files/ via the File doc.
     """
+    import traceback as tb_mod
+
     if not file_url or not file_url.startswith("/private/files/"):
         return file_url
 
     try:
-        file_doc = frappe.get_doc("File", {"file_url": file_url})
+        # Use get_all to handle duplicate File records from re-uploads gracefully.
+        matches = frappe.get_all(
+            "File",
+            filters={"file_url": file_url},
+            fields=["name"],
+            order_by="creation desc",
+            limit_page_length=1,
+            ignore_permissions=True,
+        )
+        if not matches:
+            frappe.log_error(
+                title="Spec Sheet: No File doc found",
+                message=f"No File record found for URL: {file_url}",
+            )
+            return file_url
+
+        file_doc = frappe.get_doc("File", matches[0].name)
         if file_doc.is_private:
             file_doc.is_private = 0
             file_doc.save(ignore_permissions=True)
@@ -510,7 +539,36 @@ def _ensure_public_file(file_url: str) -> str:
     except Exception as e:
         frappe.log_error(
             title="Spec Sheet: Failed to make file public",
-            message=f"Could not make file public: {file_url}. Error: {e}",
+            message=(
+                f"Could not make file public: {file_url}.\n"
+                f"Error type: {type(e).__name__}\n"
+                f"Error: {e}\n"
+                f"Traceback:\n{tb_mod.format_exc()}"
+            ),
         )
+        # Fallback: try setting is_private directly via DB and moving the
+        # physical file, bypassing the File doc's save hooks that may
+        # fail under Guest context.
+        try:
+            import os
+            import shutil
+            site_path = frappe.get_site_path()
+            private_path = os.path.join(site_path, file_url.lstrip("/"))
+            public_filename = file_url.replace("/private/files/", "/files/")
+            public_path = os.path.join(site_path, "public", "files", os.path.basename(file_url))
+            if os.path.exists(private_path):
+                shutil.copy2(private_path, public_path)
+                frappe.db.set_value(
+                    "File", matches[0].name,
+                    {"is_private": 0, "file_url": public_filename},
+                    update_modified=False,
+                )
+                frappe.db.commit()
+                return public_filename
+        except Exception as e2:
+            frappe.log_error(
+                title="Spec Sheet: Fallback public file also failed",
+                message=f"Fallback failed for {file_url}: {e2}\n{tb_mod.format_exc()}",
+            )
 
     return file_url

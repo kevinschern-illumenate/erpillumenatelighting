@@ -19,13 +19,14 @@ Export Types:
 """
 
 import io
+import json
+import traceback
 from datetime import datetime
 from typing import Any
 
 import frappe
 from frappe import _
 from frappe.utils import now, nowdate
-from frappe.utils.file_manager import save_file
 
 # Conversion constants
 MM_PER_INCH = 25.4
@@ -34,7 +35,6 @@ MM_PER_FOOT = 304.8
 # ── DEBUG FLAG  ─────────────────────────────────────────────────────
 # Set to True to emit detailed spec-submittal diagnostic messages.
 # These show up in the browser warnings list *and* in the Error Log.
-# TODO: remove or set False once spec-submittal flow is stable.
 SPEC_DEBUG = False
 # ────────────────────────────────────────────────────────────────────
 
@@ -135,6 +135,7 @@ def _get_source_value(
 	schedule: Any = None,
 	project: Any = None,
 	schedule_line: Any = None,
+	warnings: list | None = None,
 ) -> Any:
 	"""
 	Get a value from the specified source doctype and field.
@@ -147,73 +148,181 @@ def _get_source_value(
 		schedule: The schedule document
 		project: The project document
 		schedule_line: The fixture schedule line (child table row, if applicable)
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		The value from the source field, or None if not found
 	"""
 	try:
 		if source_doctype == "ilL-Configured-Fixture" and configured_fixture:
-			return getattr(configured_fixture, source_field, None)
+			# Computed virtual fields (prefixed with __) – resolve before getattr fallback
+			if source_field == "__start_leader_cable_len_mm":
+				segs = getattr(configured_fixture, "segments", None)
+				val = segs[0].start_leader_len_mm if segs and len(segs) > 0 else None
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+					f"(doc={configured_fixture.name}, segments={len(segs) if segs else 0})",
+					warnings,
+				)
+				return val
+			if source_field == "__end_length_indicator":
+				val = "J" if configured_fixture.is_multi_segment else ""
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+					f"(doc={configured_fixture.name}, is_multi_segment={configured_fixture.is_multi_segment})",
+					warnings,
+				)
+				return val
+
+			val = getattr(configured_fixture, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={configured_fixture.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Fixture-Template" and fixture_template:
-			return getattr(fixture_template, source_field, None)
+			val = getattr(fixture_template, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={fixture_template.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Project-Fixture-Schedule" and schedule:
-			return getattr(schedule, source_field, None)
+			val = getattr(schedule, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Project" and project:
-			return getattr(project, source_field, None)
+			val = getattr(project, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={project.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Child-Fixture-Schedule-Line" and schedule_line:
-			return getattr(schedule_line, source_field, None)
+			val = getattr(schedule_line, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule_line.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Rel-Tape Offering" and configured_fixture:
 			tape_offering = configured_fixture.tape_offering
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"tape_offering={tape_offering!r}",
+				warnings,
+			)
 			if tape_offering:
-				return frappe.db.get_value(
+				val = frappe.db.get_value(
 					"ilL-Rel-Tape Offering", tape_offering, source_field
 				)
+				_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Spec-LED Tape" and configured_fixture:
 			tape_offering = configured_fixture.tape_offering
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"tape_offering={tape_offering!r}",
+				warnings,
+			)
 			if tape_offering:
 				tape_spec = frappe.db.get_value(
 					"ilL-Rel-Tape Offering", tape_offering, "tape_spec"
 				)
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"tape_spec={tape_spec!r}",
+					warnings,
+				)
 				if tape_spec:
-					return frappe.db.get_value(
+					val = frappe.db.get_value(
 						"ilL-Spec-LED Tape", tape_spec, source_field
 					)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+					return val
 
 		if source_doctype == "ilL-Spec-Profile":
 			# Priority 1: Configured fixture's resolved profile_item
 			# ilL-Spec-Profile is autonamed by field:item, so profile_item IS the doc name
 			if configured_fixture:
 				profile_item = getattr(configured_fixture, "profile_item", None)
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"profile_item={profile_item!r}",
+					warnings,
+				)
 				if profile_item and frappe.db.exists("ilL-Spec-Profile", profile_item):
-					return frappe.db.get_value("ilL-Spec-Profile", profile_item, source_field)
+					val = frappe.db.get_value("ilL-Spec-Profile", profile_item, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (via profile_item)", warnings)
+					return val
 			# Priority 2: Fixture template's default_profile_spec
 			if fixture_template:
 				profile_spec = fixture_template.default_profile_spec
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"default_profile_spec={profile_spec!r}",
+					warnings,
+				)
 				if profile_spec:
-					return frappe.db.get_value("ilL-Spec-Profile", profile_spec, source_field)
+					val = frappe.db.get_value("ilL-Spec-Profile", profile_spec, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (via default_profile_spec)", warnings)
+					return val
 
 		if source_doctype == "ilL-Spec-Lens" and configured_fixture:
 			lens_appearance = configured_fixture.lens_appearance
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"lens_appearance={lens_appearance!r}",
+				warnings,
+			)
 			if lens_appearance:
 				# Get the lens spec linked to this appearance
 				lens_spec = frappe.db.get_value(
 					"ilL-Attribute-Lens Appearance", lens_appearance, "lens_spec"
 				)
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"lens_spec={lens_spec!r}",
+					warnings,
+				)
 				if lens_spec:
-					return frappe.db.get_value("ilL-Spec-Lens", lens_spec, source_field)
+					val = frappe.db.get_value("ilL-Spec-Lens", lens_spec, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+					return val
 
 		if source_doctype == "ilL-Spec-Driver" and configured_fixture:
 			# Get driver from the first driver allocation if available
 			# ilL-Child-Driver-Allocation has driver_item (Link→Item), not driver_spec
 			# ilL-Spec-Driver is autonamed by field:item, so driver_item IS the doc name
-			if configured_fixture.drivers and len(configured_fixture.drivers) > 0:
+			has_drivers = configured_fixture.drivers and len(configured_fixture.drivers) > 0
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} – "
+				f"has_drivers={has_drivers}, "
+				f"driver_count={len(configured_fixture.drivers) if configured_fixture.drivers else 0}",
+				warnings,
+			)
+			if has_drivers:
 				driver_item = configured_fixture.drivers[0].driver_item
+				_debug(
+					f"_get_source_value: {source_doctype}.{source_field} – "
+					f"driver_item={driver_item!r}, "
+					f"exists={frappe.db.exists('ilL-Spec-Driver', driver_item) if driver_item else False}",
+					warnings,
+				)
 				if driver_item and frappe.db.exists("ilL-Spec-Driver", driver_item):
 					# input_protocols is a child table – flatten to comma-separated labels
 					if source_field == "input_protocols":
@@ -223,11 +332,31 @@ def _get_source_value(
 							fields=["protocol"],
 							order_by="idx",
 						)
-						return ", ".join(r.protocol for r in rows if r.protocol) or None
-					return frappe.db.get_value("ilL-Spec-Driver", driver_item, source_field)
+						val = ", ".join(r.protocol for r in rows if r.protocol) or None
+						_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (input_protocols)", warnings)
+						return val
+					val = frappe.db.get_value("ilL-Spec-Driver", driver_item, source_field)
+					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+					return val
 
-	except Exception:
-		pass
+		# If we got here, no branch matched – log why
+		_debug(
+			f"_get_source_value: NO MATCH for {source_doctype}.{source_field} – "
+			f"configured_fixture={'yes' if configured_fixture else 'NO'}, "
+			f"fixture_template={'yes' if fixture_template else 'NO'}, "
+			f"schedule={'yes' if schedule else 'NO'}, "
+			f"project={'yes' if project else 'NO'}, "
+			f"schedule_line={'yes' if schedule_line else 'NO'}",
+			warnings,
+		)
+
+	except Exception as e:
+		tb = traceback.format_exc()
+		_debug(
+			f"_get_source_value: EXCEPTION for {source_doctype}.{source_field} – "
+			f"{type(e).__name__}: {e}\n{tb}",
+			warnings,
+		)
 
 	return None
 
@@ -243,11 +372,73 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	return frappe.get_all(
-		"ilL-Spec-Submittal-Mapping",
-		filters={"fixture_template": fixture_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix", "webflow_field"],
-	)
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	try:
+		return frappe.get_all(
+			"ilL-Spec-Submittal-Mapping",
+			filters={"fixture_template": fixture_template_name},
+			fields=base_fields + ["webflow_field"],
+		)
+	except Exception as e:
+		# webflow_field column may not exist yet if migration is pending;
+		# log the error so it's not silently masked, then fall back.
+		frappe.log_error(
+			title="Spec Submittal: webflow_field query failed, falling back",
+			message=f"Error querying webflow_field for {fixture_template_name}: {e}",
+		)
+		return frappe.get_all(
+			"ilL-Spec-Submittal-Mapping",
+			filters={"fixture_template": fixture_template_name},
+			fields=base_fields,
+		)
+
+
+def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
+	"""
+	Look up a Frappe File record by file_url, handling duplicates from re-uploads.
+
+	When a file is re-uploaded to an Attach field, old File records may remain,
+	leading to multiple records with different URLs pointing to different physical
+	files.  More critically, if the old physical file was removed and re-uploaded
+	with the same name, duplicates with the *same* file_url can appear.
+
+	This helper always picks the most recent File record (by creation DESC) so we
+	read the latest physical file.  It also catches all lookup errors instead of
+	only DoesNotExistError.
+
+	Args:
+		file_url: The Frappe file URL (e.g. /files/template.pdf)
+		warnings: Optional list that debug messages are appended to
+
+	Returns:
+		File document object, or None if not found
+	"""
+	if not file_url:
+		return None
+
+	try:
+		# Use get_all to handle duplicate File records gracefully.
+		# Sort by creation DESC so we always pick the most recently uploaded copy.
+		matches = frappe.get_all(
+			"File",
+			filters={"file_url": file_url},
+			fields=["name"],
+			order_by="creation desc",
+			limit_page_length=1,
+			ignore_permissions=True,
+		)
+		if not matches:
+			_debug(f"_get_file_doc_by_url: no File record found for {file_url!r}", warnings)
+			return None
+
+		return frappe.get_doc("File", matches[0].name, ignore_permissions=True)
+	except Exception as e:
+		_debug(f"_get_file_doc_by_url: lookup failed for {file_url!r}: {e}", warnings)
+		frappe.log_error(
+			title="Spec Submittal: File lookup failed",
+			message=f"Could not look up File record for {file_url}: {e}",
+		)
+		return None
 
 
 def _fill_pdf_form_fields(
@@ -271,6 +462,7 @@ def _fill_pdf_form_fields(
 	"""
 	try:
 		from pypdf import PdfReader, PdfWriter
+		from pypdf.generic import BooleanObject, NameObject, NumberObject
 
 		_debug(f"_fill_pdf_form_fields: pdf_template_path={pdf_template_path!r}, {len(field_values)} field values", warnings)
 
@@ -289,9 +481,8 @@ def _fill_pdf_form_fields(
 
 		# Get the PDF content from Frappe file system
 		_debug(f"_fill_pdf_form_fields: looking up File doc for {pdf_template_path!r}", warnings)
-		try:
-			file_doc = frappe.get_doc("File", {"file_url": pdf_template_path})
-		except frappe.DoesNotExistError:
+		file_doc = _get_file_doc_by_url(pdf_template_path, warnings)
+		if not file_doc:
 			msg = f"File doc not found for URL: {pdf_template_path}"
 			_debug(f"_fill_pdf_form_fields: FAIL – {msg}", warnings)
 			frappe.log_error(msg, "Spec Submittal Generation Error")
@@ -320,8 +511,49 @@ def _fill_pdf_form_fields(
 		)
 
 		if all_fields:
+			# Log mismatch detection: compare mapping field names against PDF form field names
+			pdf_field_names = set(all_fields.keys())
+			mapping_field_names = set(field_values.keys())
+			matched = mapping_field_names & pdf_field_names
+			in_mapping_not_pdf = mapping_field_names - pdf_field_names
+			in_pdf_not_mapping = pdf_field_names - mapping_field_names
+			_debug(
+				f"_fill_pdf_form_fields: FIELD MATCH REPORT – "
+				f"matched={len(matched)}, "
+				f"in_mapping_but_NOT_in_pdf={len(in_mapping_not_pdf)}, "
+				f"in_pdf_but_NOT_in_mapping={len(in_pdf_not_mapping)}",
+				warnings,
+			)
+			if in_mapping_not_pdf:
+				_debug(
+					f"_fill_pdf_form_fields: ⚠ MAPPING FIELDS NOT IN PDF: {sorted(in_mapping_not_pdf)}",
+					warnings,
+				)
+			if in_pdf_not_mapping:
+				_debug(
+					f"_fill_pdf_form_fields: ⚠ PDF FIELDS NOT IN MAPPING: {sorted(in_pdf_not_mapping)}",
+					warnings,
+				)
+
+			# Log actual values being written for matched fields
+			_debug(
+				f"_fill_pdf_form_fields: FIELD VALUES BEING WRITTEN: "
+				+ ", ".join(
+					f"{k}={field_values[k]!r}" for k in sorted(matched)
+				),
+				warnings,
+			)
+
 			for page in writer.pages:
 				writer.update_page_form_field_values(page, field_values)
+
+			# Explicitly set /NeedAppearances so PDF viewers regenerate
+			# appearance streams from the /V values we just wrote.
+			# update_page_form_field_values with auto_regenerate=True
+			# (default) should do this, but can fail silently when the
+			# writer was created via clone_from.
+			if "/AcroForm" in writer._root_object:
+				writer._root_object["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True)
 		else:
 			_debug(
 				"_fill_pdf_form_fields: WARNING – PDF has no AcroForm fields; "
@@ -333,8 +565,6 @@ def _fill_pdf_form_fields(
 		# Removing Widget annotations strips the appearance streams that
 		# contain the visible filled text.  Setting the ReadOnly bit (bit 1
 		# of /Ff) preserves the rendered values while preventing editing.
-		from pypdf.generic import NameObject, NumberObject
-
 		_debug("_fill_pdf_form_fields: Setting form fields to read-only", warnings)
 		for page in writer.pages:
 			if "/Annots" in page:
@@ -377,15 +607,18 @@ def _merge_pdfs(pdf_list: list[bytes]) -> bytes | None:
 		return None
 
 	try:
-		from pypdf import PdfReader, PdfWriter
+		from pypdf import PdfWriter
 
 		writer = PdfWriter()
 
 		for pdf_bytes in pdf_list:
 			if pdf_bytes:
-				reader = PdfReader(io.BytesIO(pdf_bytes))
-				for page in reader.pages:
-					writer.add_page(page)
+				# Use append() instead of add_page() so that the full
+				# document structure—including the AcroForm dictionary
+				# and its /NeedAppearances flag—is preserved.  add_page()
+				# only copies page objects, which strips the AcroForm and
+				# causes filled form-field values to become invisible.
+				writer.append(io.BytesIO(pdf_bytes))
 
 		output = io.BytesIO()
 		writer.write(output)
@@ -411,7 +644,10 @@ def _get_pdf_bytes_from_url(file_url: str) -> bytes | None:
 	"""
 	try:
 		_debug(f"_get_pdf_bytes_from_url: looking up File doc with file_url={file_url!r}")
-		file_doc = frappe.get_doc("File", {"file_url": file_url})
+		file_doc = _get_file_doc_by_url(file_url)
+		if not file_doc:
+			_debug(f"_get_pdf_bytes_from_url: no File record for {file_url!r}")
+			return None
 		content = file_doc.get_content()
 		_debug(f"_get_pdf_bytes_from_url: got {len(content) if content else 0} bytes")
 		return content
@@ -599,78 +835,72 @@ def _gather_line_documents(
 						_debug(f"Line {line.line_id}: ✗ ALL spec sheet lookups exhausted – no document found", warnings)
 
 				else:
-					# SPEC_SUBMITTAL mode: use filled submittal PDF
-					# Check for existing filled submittal
-					if cf.spec_submittal:
-						doc_info["spec_document_url"] = cf.spec_submittal
+					# SPEC_SUBMITTAL mode: always (re)generate the filled submittal
+					# so that the latest field mappings and data values are used.
+					_debug(f"Line {line.line_id}: Generating filled submittal (regenerate)...", warnings)
+					result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
+					_debug(
+						f"Line {line.line_id}: generate_filled_submittal result: "
+						f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
+						f"message={result.get('message')!r}",
+						warnings,
+					)
+
+					if result.get("success") and result.get("file_url"):
+						doc_info["spec_document_url"] = result["file_url"]
 						doc_info["has_submittal"] = True
-						_debug(f"Line {line.line_id}: ✓ Using existing spec_submittal: {cf.spec_submittal}", warnings)
 					else:
-						# Try to generate filled submittal on-the-fly
-						_debug(f"Line {line.line_id}: No spec_submittal on CF, trying generate_filled_submittal...", warnings)
-						result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
+						# Filled submittal generation failed – fall back to spec sheet
 						_debug(
-							f"Line {line.line_id}: generate_filled_submittal result: "
-							f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
-							f"message={result.get('message')!r}",
+							f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
 							warnings,
 						)
 
-						if result.get("success") and result.get("file_url"):
-							doc_info["spec_document_url"] = result["file_url"]
-							doc_info["has_submittal"] = True
-						else:
-							# No spec submittal available - fall back to spec sheet
+						# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
+						spec_url = cf.spec_sheet_link
+						_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+
+						# 2) Direct lookup on the Fixture Template (always authoritative)
+						if not spec_url and cf.fixture_template:
+							template_data = frappe.db.get_value(
+								"ilL-Fixture-Template",
+								cf.fixture_template,
+								["spec_sheet", "spec_submittal_template"],
+								as_dict=True,
+							)
 							_debug(
-								f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
+								f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
+								f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
+								f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
 								warnings,
 							)
+							if template_data:
+								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
 
-							# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
-							spec_url = cf.spec_sheet_link
-							_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
+						# 3) Look for ANY PDF file attached to the Fixture Template
+						if not spec_url and cf.fixture_template:
+							attached = frappe.get_all(
+								"File",
+								filters={
+									"attached_to_doctype": "ilL-Fixture-Template",
+									"attached_to_name": cf.fixture_template,
+									"file_url": ["like", "%.pdf"],
+								},
+								fields=["file_url", "file_name"],
+								order_by="creation desc",
+							)
+							_debug(
+								f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
+								warnings,
+							)
+							if attached:
+								spec_url = attached[0].file_url
 
-							# 2) Direct lookup on the Fixture Template (always authoritative)
-							if not spec_url and cf.fixture_template:
-								template_data = frappe.db.get_value(
-									"ilL-Fixture-Template",
-									cf.fixture_template,
-									["spec_sheet", "spec_submittal_template"],
-									as_dict=True,
-								)
-								_debug(
-									f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
-									f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
-									f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
-									warnings,
-								)
-								if template_data:
-									spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-
-							# 3) Look for ANY PDF file attached to the Fixture Template
-							if not spec_url and cf.fixture_template:
-								attached = frappe.get_all(
-									"File",
-									filters={
-										"attached_to_doctype": "ilL-Fixture-Template",
-										"attached_to_name": cf.fixture_template,
-										"file_url": ["like", "%.pdf"],
-									},
-									fields=["file_url", "file_name"],
-									order_by="creation desc",
-								)
-								_debug(
-									f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
-									warnings,
-								)
-								if attached:
-									spec_url = attached[0].file_url
-
-							if spec_url:
-								doc_info["spec_document_url"] = spec_url
-								_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
-							else:
-								_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
+						if spec_url:
+							doc_info["spec_document_url"] = spec_url
+							_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
+						else:
+							_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
 
 			elif getattr(line, "configured_tape_neon", None):
 				# ── Tape/Neon submittal logic ──────────────────────────────
@@ -694,32 +924,28 @@ def _gather_line_documents(
 					else:
 						_debug(f"Line {line.line_id}: ✗ No neon spec sheet found", warnings)
 				else:
-					# SUBMITTAL mode: use filled submittal
-					if getattr(ctn, "spec_submittal", None):
-						doc_info["spec_document_url"] = ctn.spec_submittal
+					# SUBMITTAL mode: always (re)generate the filled neon submittal
+					# so that the latest field mappings and data values are used.
+					_debug(f"Line {line.line_id}: Generating filled neon submittal (regenerate)...", warnings)
+					result = generate_filled_neon_submittal(line.configured_tape_neon, warnings=warnings)
+					if result.get("success") and result.get("file_url"):
+						doc_info["spec_document_url"] = result["file_url"]
 						doc_info["has_submittal"] = True
-						_debug(f"Line {line.line_id}: ✓ Using existing neon spec_submittal: {ctn.spec_submittal}", warnings)
 					else:
-						_debug(f"Line {line.line_id}: No neon spec_submittal, trying generate_filled_neon_submittal...", warnings)
-						result = generate_filled_neon_submittal(line.configured_tape_neon, warnings=warnings)
-						if result.get("success") and result.get("file_url"):
-							doc_info["spec_document_url"] = result["file_url"]
-							doc_info["has_submittal"] = True
+						# Fall back to static spec sheet
+						spec_url = None
+						if ctn.tape_neon_template:
+							template_data = frappe.db.get_value(
+								"ilL-Tape-Neon-Template", ctn.tape_neon_template,
+								["spec_sheet", "spec_submittal_template"], as_dict=True,
+							)
+							if template_data:
+								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+						if spec_url:
+							doc_info["spec_document_url"] = spec_url
+							_debug(f"Line {line.line_id}: ✓ Neon spec sheet fallback resolved to {spec_url}", warnings)
 						else:
-							# Fall back to static spec sheet
-							spec_url = None
-							if ctn.tape_neon_template:
-								template_data = frappe.db.get_value(
-									"ilL-Tape-Neon-Template", ctn.tape_neon_template,
-									["spec_sheet", "spec_submittal_template"], as_dict=True,
-								)
-								if template_data:
-									spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-							if spec_url:
-								doc_info["spec_document_url"] = spec_url
-								_debug(f"Line {line.line_id}: ✓ Neon spec sheet fallback resolved to {spec_url}", warnings)
-							else:
-								_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
+							_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
 
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template
@@ -796,6 +1022,10 @@ def generate_spec_submittal_packet(
 			- message: Status message
 			- warnings: List of warning messages
 	"""
+	# Handle include_cover arriving as string from the frontend
+	if isinstance(include_cover, str):
+		include_cover = include_cover.lower() not in ("0", "false", "no", "")
+
 	warnings = []
 	pdf_parts = []
 	job_name = None
@@ -805,6 +1035,7 @@ def generate_spec_submittal_packet(
 		from illumenate_lighting.illumenate_lighting.api.exports import (
 			_check_schedule_access,
 			_create_export_job,
+			_save_file_ignore_permissions,
 			_update_export_job_status,
 		)
 
@@ -816,11 +1047,11 @@ def generate_spec_submittal_packet(
 				"warnings": [],
 			}
 
-		# Create export job record for tracking
-		job_name = _create_export_job(schedule_name, export_type)
-
 		# Determine if we should include all spec sheets
 		include_all_specs = export_type == "SPEC_SUBMITTAL_FULL"
+
+		# Create export job record for tracking
+		job_name = _create_export_job(schedule_name, export_type)
 
 		_update_export_job_status(job_name, "RUNNING")
 
@@ -887,14 +1118,11 @@ def generate_spec_submittal_packet(
 				"warnings": warnings,
 			}
 
-		# Save the merged PDF
+		# Save the merged PDF – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
 		filename = f"Spec_Submittal_Packet_{schedule_name}_{nowdate()}.pdf"
-		file_doc = save_file(
-			filename,
-			merged_pdf,
-			"ilL-Project-Fixture-Schedule",
-			schedule_name,
-			is_private=1,
+		file_doc = _save_file_ignore_permissions(
+			filename, merged_pdf, "ilL-Export-Job", job_name, is_private=1,
 		)
 
 		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
@@ -902,6 +1130,7 @@ def generate_spec_submittal_packet(
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
+			"export_job": job_name,
 			"message": _("Spec submittal packet generated successfully"),
 			"warnings": warnings,
 		}
@@ -912,7 +1141,10 @@ def generate_spec_submittal_packet(
 			"Spec Submittal Generation Error",
 		)
 		if job_name:
-			_update_export_job_status(job_name, "FAILED", error_log=str(e))
+			try:
+				_update_export_job_status(job_name, "FAILED", error_log=str(e))
+			except Exception:
+				frappe.log_error("Failed to update export job status during spec submittal error handling")
 		return {
 			"success": False,
 			"message": _("Error generating spec submittal packet: {0}").format(str(e)),
@@ -921,7 +1153,7 @@ def generate_spec_submittal_packet(
 
 
 @frappe.whitelist()
-def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
+def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
 
@@ -936,6 +1168,8 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			When a mapping has a webflow_field set and the corresponding
 			key exists in this dict, the webflow value takes priority
 			over the source_doctype/source_field value.
+		is_private: 1 for private files (default, used by project schedules),
+			0 for public files (used by Webflow guest downloads).
 
 	Returns:
 		dict: Result with keys:
@@ -943,7 +1177,23 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			- file_url: URL of the generated submittal (if successful)
 			- message: Status message
 	"""
+	# Handle parameters that may arrive as JSON strings from the API
+	if isinstance(warnings, str):
+		try:
+			warnings = json.loads(warnings)
+		except (json.JSONDecodeError, TypeError):
+			warnings = None
+	if isinstance(webflow_overrides, str):
+		try:
+			webflow_overrides = json.loads(webflow_overrides)
+		except (json.JSONDecodeError, TypeError):
+			webflow_overrides = None
+
 	try:
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_save_file_ignore_permissions,
+		)
+
 		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}", warnings)
 
 		# Get the configured fixture
@@ -1012,27 +1262,58 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
 		# Build field values
+		_debug(
+			f"generate_filled_submittal: webflow_overrides={webflow_overrides!r}",
+			warnings,
+		)
 		field_values = {}
 		for mapping in mappings:
+			pdf_field = mapping["pdf_field_name"]
+			src_dt = mapping["source_doctype"]
+			src_fld = mapping["source_field"]
+
 			# Check for webflow override first
 			webflow_key = mapping.get("webflow_field")
 			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
 				value = webflow_overrides[webflow_key]
+				_debug(
+					f"  mapping[{pdf_field}]: WEBFLOW OVERRIDE {webflow_key!r} → {value!r}",
+					warnings,
+				)
 			else:
+				if webflow_key and not webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but no overrides provided",
+						warnings,
+					)
+				elif webflow_key and webflow_overrides and webflow_key not in webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but key not in overrides {list(webflow_overrides.keys())}",
+						warnings,
+					)
 				value = _get_source_value(
-					mapping["source_doctype"],
-					mapping["source_field"],
+					src_dt,
+					src_fld,
 					configured_fixture=cf,
 					fixture_template=template,
 					schedule=schedule,
 					project=project,
 					schedule_line=schedule_line,
+					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, mapping.get("prefix"), mapping.get("suffix")
 			)
-			field_values[mapping["pdf_field_name"]] = transformed_value
+			field_values[pdf_field] = transformed_value
+			_debug(
+				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
+				f"raw={value!r} → final={transformed_value!r}"
+				+ (f" (transform={mapping.get('transformation')})" if mapping.get("transformation") else "")
+				+ (f" (prefix={mapping.get('prefix')!r})" if mapping.get("prefix") else "")
+				+ (f" (suffix={mapping.get('suffix')!r})" if mapping.get("suffix") else ""),
+				warnings,
+			)
 
 		_debug(
 			f"generate_filled_submittal: field_values built ({len(field_values)} fields): "
@@ -1050,14 +1331,12 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 
 		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF
+		# Save the filled PDF – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
 		filename = f"Spec_Submittal_{configured_fixture_name}_{nowdate()}.pdf"
-		file_doc = save_file(
-			filename,
-			filled_pdf,
-			"ilL-Configured-Fixture",
-			configured_fixture_name,
-			is_private=1,
+		file_doc = _save_file_ignore_permissions(
+			filename, filled_pdf, "ilL-Configured-Fixture", configured_fixture_name,
+			is_private=is_private,
 		)
 
 		# Update the configured fixture with the submittal link
@@ -1075,12 +1354,14 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 	except Exception as e:
 		_debug(f"generate_filled_submittal: EXCEPTION – {type(e).__name__}: {e}", warnings)
 		frappe.log_error(
-			f"Error generating filled submittal: {str(e)}",
+			f"Error generating filled submittal: {type(e).__name__}: {e}\n{traceback.format_exc()}",
 			"Spec Submittal Generation Error",
 		)
 		return {
 			"success": False,
-			"message": _("Error generating spec submittal: {0}").format(str(e)),
+			"message": _("Error generating spec submittal: {0}: {1}").format(
+				type(e).__name__, str(e) or "insufficient permissions"
+			),
 		}
 
 
@@ -1097,6 +1378,7 @@ def _get_neon_source_value(
 	schedule: Any = None,
 	project: Any = None,
 	schedule_line: Any = None,
+	warnings: list | None = None,
 ) -> Any:
 	"""
 	Get a value from the specified source doctype and field for tape/neon products.
@@ -1111,38 +1393,99 @@ def _get_neon_source_value(
 		schedule: The schedule document
 		project: The project document
 		schedule_line: The fixture schedule line (child table row, if applicable)
+		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		The value from the source field, or None if not found
 	"""
 	try:
 		if source_doctype == "ilL-Configured-Tape-Neon" and configured_tape_neon:
-			return getattr(configured_tape_neon, source_field, None)
+			val = getattr(configured_tape_neon, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={configured_tape_neon.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Tape-Neon-Template" and tape_neon_template:
-			return getattr(tape_neon_template, source_field, None)
+			val = getattr(tape_neon_template, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={tape_neon_template.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Spec-LED Tape" and configured_tape_neon:
 			tape_spec = getattr(configured_tape_neon, "tape_spec", None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} – "
+				f"tape_spec={tape_spec!r}",
+				warnings,
+			)
 			if tape_spec:
-				return frappe.db.get_value("ilL-Spec-LED Tape", tape_spec, source_field)
+				val = frappe.db.get_value("ilL-Spec-LED Tape", tape_spec, source_field)
+				_debug(f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Rel-Tape Offering" and configured_tape_neon:
 			tape_offering = getattr(configured_tape_neon, "tape_offering", None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} – "
+				f"tape_offering={tape_offering!r}",
+				warnings,
+			)
 			if tape_offering:
-				return frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, source_field)
+				val = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, source_field)
+				_debug(f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Project-Fixture-Schedule" and schedule:
-			return getattr(schedule, source_field, None)
+			val = getattr(schedule, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Project" and project:
-			return getattr(project, source_field, None)
+			val = getattr(project, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={project.name})",
+				warnings,
+			)
+			return val
 
 		if source_doctype == "ilL-Child-Fixture-Schedule-Line" and schedule_line:
-			return getattr(schedule_line, source_field, None)
+			val = getattr(schedule_line, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={schedule_line.name})",
+				warnings,
+			)
+			return val
 
-	except Exception:
-		pass
+		# If we got here, no branch matched – log why
+		_debug(
+			f"_get_neon_source_value: NO MATCH for {source_doctype}.{source_field} – "
+			f"configured_tape_neon={'yes' if configured_tape_neon else 'NO'}, "
+			f"tape_neon_template={'yes' if tape_neon_template else 'NO'}, "
+			f"schedule={'yes' if schedule else 'NO'}, "
+			f"project={'yes' if project else 'NO'}, "
+			f"schedule_line={'yes' if schedule_line else 'NO'}",
+			warnings,
+		)
+
+	except Exception as e:
+		tb = traceback.format_exc()
+		_debug(
+			f"_get_neon_source_value: EXCEPTION for {source_doctype}.{source_field} – "
+			f"{type(e).__name__}: {e}\n{tb}",
+			warnings,
+		)
 
 	return None
 
@@ -1158,11 +1501,25 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	return frappe.get_all(
-		"ilL-Neon-Submittal-Mapping",
-		filters={"tape_neon_template": tape_neon_template_name},
-		fields=["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix", "webflow_field"],
-	)
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	try:
+		return frappe.get_all(
+			"ilL-Neon-Submittal-Mapping",
+			filters={"tape_neon_template": tape_neon_template_name},
+			fields=base_fields + ["webflow_field"],
+		)
+	except Exception as e:
+		# webflow_field column may not exist yet if migration is pending;
+		# log the error so it's not silently masked, then fall back.
+		frappe.log_error(
+			title="Neon Submittal: webflow_field query failed, falling back",
+			message=f"Error querying webflow_field for {tape_neon_template_name}: {e}",
+		)
+		return frappe.get_all(
+			"ilL-Neon-Submittal-Mapping",
+			filters={"tape_neon_template": tape_neon_template_name},
+			fields=base_fields,
+		)
 
 
 @frappe.whitelist()
@@ -1188,7 +1545,23 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			- file_url: URL of the generated submittal (if successful)
 			- message: Status message
 	"""
+	# Handle parameters that may arrive as JSON strings from the API
+	if isinstance(warnings, str):
+		try:
+			warnings = json.loads(warnings)
+		except (json.JSONDecodeError, TypeError):
+			warnings = None
+	if isinstance(webflow_overrides, str):
+		try:
+			webflow_overrides = json.loads(webflow_overrides)
+		except (json.JSONDecodeError, TypeError):
+			webflow_overrides = None
+
 	try:
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_save_file_ignore_permissions,
+		)
+
 		_debug(f"generate_filled_neon_submittal: START for CTN={configured_tape_neon_name}", warnings)
 
 		# Get the configured tape/neon
@@ -1257,27 +1630,58 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
 		# Build field values
+		_debug(
+			f"generate_filled_neon_submittal: webflow_overrides={webflow_overrides!r}",
+			warnings,
+		)
 		field_values = {}
 		for mapping in mappings:
+			pdf_field = mapping["pdf_field_name"]
+			src_dt = mapping["source_doctype"]
+			src_fld = mapping["source_field"]
+
 			# Check for webflow override first
 			webflow_key = mapping.get("webflow_field")
 			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
 				value = webflow_overrides[webflow_key]
+				_debug(
+					f"  mapping[{pdf_field}]: WEBFLOW OVERRIDE {webflow_key!r} → {value!r}",
+					warnings,
+				)
 			else:
+				if webflow_key and not webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but no overrides provided",
+						warnings,
+					)
+				elif webflow_key and webflow_overrides and webflow_key not in webflow_overrides:
+					_debug(
+						f"  mapping[{pdf_field}]: webflow_field={webflow_key!r} set but key not in overrides {list(webflow_overrides.keys())}",
+						warnings,
+					)
 				value = _get_neon_source_value(
-					mapping["source_doctype"],
-					mapping["source_field"],
+					src_dt,
+					src_fld,
 					configured_tape_neon=ctn,
 					tape_neon_template=template,
 					schedule=schedule,
 					project=project,
 					schedule_line=schedule_line,
+					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, mapping.get("prefix"), mapping.get("suffix")
 			)
-			field_values[mapping["pdf_field_name"]] = transformed_value
+			field_values[pdf_field] = transformed_value
+			_debug(
+				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
+				f"raw={value!r} → final={transformed_value!r}"
+				+ (f" (transform={mapping.get('transformation')})" if mapping.get("transformation") else "")
+				+ (f" (prefix={mapping.get('prefix')!r})" if mapping.get("prefix") else "")
+				+ (f" (suffix={mapping.get('suffix')!r})" if mapping.get("suffix") else ""),
+				warnings,
+			)
 
 		_debug(
 			f"generate_filled_neon_submittal: field_values built ({len(field_values)} fields): "
@@ -1295,13 +1699,11 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 
 		_debug(f"generate_filled_neon_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
-		# Save the filled PDF
+		# Save the filled PDF – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
 		filename = f"Spec_Submittal_{configured_tape_neon_name}_{nowdate()}.pdf"
-		file_doc = save_file(
-			filename,
-			filled_pdf,
-			"ilL-Configured-Tape-Neon",
-			configured_tape_neon_name,
+		file_doc = _save_file_ignore_permissions(
+			filename, filled_pdf, "ilL-Configured-Tape-Neon", configured_tape_neon_name,
 			is_private=1,
 		)
 
@@ -1320,10 +1722,12 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 	except Exception as e:
 		_debug(f"generate_filled_neon_submittal: EXCEPTION – {type(e).__name__}: {e}", warnings)
 		frappe.log_error(
-			f"Error generating filled neon submittal: {str(e)}",
+			f"Error generating filled neon submittal: {type(e).__name__}: {e}\n{traceback.format_exc()}",
 			"Neon Spec Submittal Generation Error",
 		)
 		return {
 			"success": False,
-			"message": _("Error generating neon spec submittal: {0}").format(str(e)),
+			"message": _("Error generating neon spec submittal: {0}: {1}").format(
+				type(e).__name__, str(e) or "insufficient permissions"
+			),
 		}

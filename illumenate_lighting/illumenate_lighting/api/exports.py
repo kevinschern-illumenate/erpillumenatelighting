@@ -17,6 +17,7 @@ Export Types:
 
 import csv
 import io
+import os
 from datetime import datetime
 
 import frappe
@@ -25,6 +26,18 @@ from frappe.utils import now, nowdate
 from frappe.utils.file_manager import save_file
 
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
+
+
+def _save_file_ignore_permissions(fname, content, dt, dn, is_private=1):
+	"""Wrap ``save_file()`` with ``ignore_permissions`` to avoid switching
+	the session user to Administrator (which corrupts the Frappe session
+	and causes 403 / forced sign-out for portal users)."""
+	_prev = frappe.flags.ignore_permissions
+	try:
+		frappe.flags.ignore_permissions = True
+		return save_file(fname, content, dt, dn, is_private=is_private)
+	finally:
+		frappe.flags.ignore_permissions = _prev
 
 
 # Conversion constant: millimeters per foot
@@ -49,7 +62,10 @@ def _check_schedule_access(schedule_name: str, user: str = None) -> tuple[bool, 
 	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
 		return False, _("Schedule not found")
 
-	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+	# Load with ignore_permissions so portal users can reach the custom
+	# permission check below (standard DocType role permissions may not
+	# include the Website User role).
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name, ignore_permissions=True)
 
 	# Import schedule permission check
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
@@ -136,7 +152,7 @@ def _update_export_job_status(
 		output_file: URL of the output file (for COMPLETE status)
 		error_log: Error message (for FAILED status)
 	"""
-	job = frappe.get_doc("ilL-Export-Job", job_name)
+	job = frappe.get_doc("ilL-Export-Job", job_name, ignore_permissions=True)
 	job.status = status
 	if output_file:
 		job.output_file = output_file
@@ -895,7 +911,6 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 
 	export_type = "PDF_PRICED" if priced else "PDF_NO_PRICE"
 
-	# Create export job
 	job_name = _create_export_job(schedule_id, export_type)
 
 	try:
@@ -919,14 +934,10 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.pdf"
 
-		# Save file as private to avoid public file permission restrictions.
-		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
-		file_doc = save_file(
-			filename,
-			pdf_content,
-			"ilL-Export-Job",
-			job_name,
-			is_private=1,
+		# Save file as private – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
+		file_doc = _save_file_ignore_permissions(
+			filename, pdf_content, "ilL-Export-Job", job_name, is_private=1,
 		)
 
 		# Update job with output file
@@ -942,7 +953,10 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		# Log error and update job status
 		error_msg = str(e)
 		frappe.log_error(f"PDF Export Error for {schedule_id}: {error_msg}")
-		_update_export_job_status(job_name, "FAILED", error_log=error_msg)
+		try:
+			_update_export_job_status(job_name, "FAILED", error_log=error_msg)
+		except Exception:
+			frappe.log_error("Failed to update export job status during PDF error handling")
 		return {"success": False, "export_job": job_name, "error": error_msg}
 
 
@@ -976,7 +990,6 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 
 	export_type = "CSV_PRICED" if priced else "CSV_NO_PRICE"
 
-	# Create export job
 	job_name = _create_export_job(schedule_id, export_type)
 
 	try:
@@ -995,14 +1008,10 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.csv"
 
-		# Save file as private to avoid public file permission restrictions.
-		# Epic 3 Task 3.2: Direct-download leakage prevention for priced exports
-		file_doc = save_file(
-			filename,
-			csv_content.encode("utf-8"),
-			"ilL-Export-Job",
-			job_name,
-			is_private=1,
+		# Save file as private – use ignore_permissions to avoid switching
+		# the session user (which corrupts the Frappe session for portal users).
+		file_doc = _save_file_ignore_permissions(
+			filename, csv_content.encode("utf-8"), "ilL-Export-Job", job_name, is_private=1,
 		)
 
 		# Update job with output file
@@ -1018,7 +1027,10 @@ def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 		# Log error and update job status
 		error_msg = str(e)
 		frappe.log_error(f"CSV Export Error for {schedule_id}: {error_msg}")
-		_update_export_job_status(job_name, "FAILED", error_log=error_msg)
+		try:
+			_update_export_job_status(job_name, "FAILED", error_log=error_msg)
+		except Exception:
+			frappe.log_error("Failed to update export job status during CSV error handling")
 		return {"success": False, "export_job": job_name, "error": error_msg}
 
 
@@ -1055,12 +1067,16 @@ def get_export_history(schedule_id: str) -> dict:
 			"SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL",
 		]]
 
+	# Portal users may not have standard DocType read permission on
+	# ilL-Export-Job, so use ignore_permissions here.  Access is already
+	# validated above via _check_schedule_access.
 	exports = frappe.get_all(
 		"ilL-Export-Job",
 		filters=filters,
 		fields=["name", "export_type", "status", "requested_by", "created_on", "output_file"],
 		order_by="created_on desc",
 		limit=50,
+		ignore_permissions=True,
 	)
 
 	# Batch fetch user names to avoid N+1 queries
@@ -1071,6 +1087,7 @@ def get_export_history(schedule_id: str) -> dict:
 			"User",
 			filters={"name": ["in", user_ids]},
 			fields=["name", "full_name"],
+			ignore_permissions=True,
 		)
 		user_names_map = {u.name: u.full_name for u in users}
 
@@ -1223,7 +1240,10 @@ def download_export_file(export_job_id: str) -> dict:
 	if not frappe.db.exists("ilL-Export-Job", export_job_id):
 		return {"success": False, "error": _("Export job not found")}
 
-	export_job = frappe.get_doc("ilL-Export-Job", export_job_id)
+	# Use ignore_permissions because portal users (dealers, customers) may
+	# not have standard DocType read permission on ilL-Export-Job.  Access
+	# is validated below via _check_schedule_access.
+	export_job = frappe.get_doc("ilL-Export-Job", export_job_id, ignore_permissions=True)
 
 	# Check schedule access
 	has_access, error = _check_schedule_access(export_job.schedule)
@@ -1281,7 +1301,7 @@ def validate_file_access(file_url: str) -> dict:
 
 	# For private files attached to export jobs, validate export access
 	if file_doc.attached_to_doctype == "ilL-Export-Job":
-		export_job = frappe.get_doc("ilL-Export-Job", file_doc.attached_to_name)
+		export_job = frappe.get_doc("ilL-Export-Job", file_doc.attached_to_name, ignore_permissions=True)
 
 		# Check schedule access
 		has_access, error = _check_schedule_access(export_job.schedule)
@@ -1301,4 +1321,82 @@ def validate_file_access(file_url: str) -> dict:
 		return {"has_access": True, "reason": "Standard file permission"}
 	except frappe.PermissionError:
 		return {"has_access": False, "reason": "No file permission"}
+
+
+@frappe.whitelist(methods=["GET"])
+def serve_export_file(export_job_id: str):
+	"""
+	Serve an export file for download after validating custom permissions.
+
+	Portal users cannot download private files via direct URL because Frappe's
+	built-in file handler only checks standard DocType role permissions, not
+	custom ``has_permission`` functions.  This endpoint bridges that gap: it
+	validates access via ``_check_schedule_access`` (which calls the custom
+	permission logic) and then streams the file content to the browser.
+
+	Args:
+		export_job_id: Name of the ilL-Export-Job whose output file to serve.
+	"""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please login to download files"), frappe.PermissionError)
+
+	if not frappe.db.exists("ilL-Export-Job", export_job_id):
+		frappe.throw(_("Export job not found"), frappe.DoesNotExistError)
+
+	# Load the export job with ignore_permissions – portal users (dealers,
+	# customers) may not have standard DocType read permission on
+	# ilL-Export-Job.  The custom access check below validates authorization.
+	export_job = frappe.get_doc("ilL-Export-Job", export_job_id, ignore_permissions=True)
+
+	# Validate schedule-level access using the custom permission check
+	has_access, error = _check_schedule_access(export_job.schedule)
+	if not has_access:
+		frappe.throw(error or _("Access denied"), frappe.PermissionError)
+
+	# Pricing permission gate for priced exports
+	if export_job.export_type in ["PDF_PRICED", "CSV_PRICED"]:
+		if not _check_pricing_permission():
+			frappe.throw(_("You don't have permission to download priced exports"), frappe.PermissionError)
+
+	if export_job.status != "COMPLETE" or not export_job.output_file:
+		frappe.throw(_("Export is not ready for download"))
+
+	# Look up the File record and read content.  Use ignore_permissions
+	# on the query and load to bypass Frappe's standard file-permission
+	# checks on private files (the custom access check above already
+	# validated the user's right to this export).  Avoid
+	# frappe.set_user() here because it can corrupt the session.
+	file_records = frappe.get_all(
+		"File",
+		filters={"file_url": export_job.output_file},
+		fields=["name", "file_name"],
+		order_by="creation desc",
+		limit=1,
+		ignore_permissions=True,
+	)
+	if not file_records:
+		frappe.throw(_("Output file record not found"))
+
+	# Read the file content from disk using the file_url.  This avoids
+	# frappe.get_doc("File", …) permission checks that may block portal
+	# users from accessing private files.
+	file_path = os.path.realpath(frappe.get_site_path(export_job.output_file.lstrip("/")))
+	site_path = os.path.realpath(frappe.get_site_path())
+	if not file_path.startswith(site_path + os.sep):
+		frappe.throw(_("Invalid file path"), frappe.PermissionError)
+	if not os.path.isfile(file_path):
+		frappe.throw(_("Output file not found on disk"))
+
+	with open(file_path, "rb") as f:
+		content = f.read()
+
+	if not content:
+		frappe.throw(_("Output file is empty"))
+
+	filename = file_records[0].file_name or f"export_{export_job_id}.pdf"
+
+	# Stream the file to the browser as a download
+	frappe.local.response.filename = filename
+	frappe.local.response.filecontent = content
+	frappe.local.response.type = "download"
 
