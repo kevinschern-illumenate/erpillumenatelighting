@@ -18,6 +18,7 @@ Export Types:
 import csv
 import io
 import os
+import shutil
 from datetime import datetime
 
 import frappe
@@ -31,13 +32,54 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_
 def _save_file_ignore_permissions(fname, content, dt, dn, is_private=1):
 	"""Wrap ``save_file()`` with ``ignore_permissions`` to avoid switching
 	the session user to Administrator (which corrupts the Frappe session
-	and causes 403 / forced sign-out for portal users)."""
+	and causes 403 / forced sign-out for portal users).
+
+	Always saves as private first to sidestep Frappe's
+	``enforce_public_file_restrictions`` (a hard ``frappe.only_for("System Manager")``
+	check that ``frappe.flags.ignore_permissions`` cannot bypass).
+	If the caller requested ``is_private=0``, the file is moved to the
+	public directory post-save via a direct DB update + filesystem move.
+	"""
+	requested_public = int(is_private) == 0
+
 	_prev = frappe.flags.ignore_permissions
 	try:
 		frappe.flags.ignore_permissions = True
-		return save_file(fname, content, dt, dn, is_private=is_private)
+		file_doc = save_file(fname, content, dt, dn, is_private=1)
 	finally:
 		frappe.flags.ignore_permissions = _prev
+
+	if requested_public:
+		private_url = file_doc.file_url  # e.g. /private/files/xyz.pdf
+		public_url = private_url.replace("/private/files/", "/files/", 1)
+
+		site_path = frappe.get_site_path()
+		private_path = os.path.join(site_path, private_url.lstrip("/"))
+		public_path = os.path.join(site_path, "public", "files", os.path.basename(private_url))
+
+		# copy first so a DB-update failure still leaves the private file intact
+		shutil.copy2(private_path, public_path)
+		try:
+			frappe.db.set_value(
+				"File", file_doc.name,
+				{"is_private": 0, "file_url": public_url},
+				update_modified=False,
+			)
+		except Exception:
+			# DB update failed – remove the orphaned public copy and re-raise
+			if os.path.exists(public_path):
+				os.remove(public_path)
+			raise
+
+		# Private copy is no longer needed; failure here is benign (orphan)
+		try:
+			os.remove(private_path)
+		except OSError:
+			pass
+
+		file_doc.reload()
+
+	return file_doc
 
 
 # Conversion constant: millimeters per foot
