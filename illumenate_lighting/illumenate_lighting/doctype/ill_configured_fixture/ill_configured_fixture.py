@@ -217,10 +217,17 @@ class ilLConfiguredFixture(Document):
 				"ilL-Attribute-Feed-Direction", self.feed_direction_start, "code"
 			) or ""
 
-		# Feed Direction End Code — always "C" for single-segment (Endcap)
+		# Feed Direction End Code — "C" for Endcap, otherwise look up from attribute
 		self.sku_feed_direction_end_code = ""
 		if not self.is_multi_segment:
-			self.sku_feed_direction_end_code = "C"
+			if self.feed_direction_end and self.feed_direction_end != "Endcap":
+				# Non-Endcap end feed — resolve code from attribute
+				fd_end_code = frappe.db.get_value(
+					"ilL-Attribute-Feed-Direction", self.feed_direction_end, "code"
+				)
+				self.sku_feed_direction_end_code = fd_end_code or self.feed_direction_end
+			else:
+				self.sku_feed_direction_end_code = "C"
 
 		# Driver SKU codes — from the first allocated driver's ilL-Spec-Driver record
 		self.sku_driver_control_code = ""
@@ -377,9 +384,25 @@ class ilLConfiguredFixture(Document):
 			else:
 				cable_length_str = f"{cable_length_ft:.1f}"
 			
-			# Build suffix: {feed_type}{cable_length}-C
+			# Build suffix: {feed_type}{cable_length}-{end_feed_suffix}
 			parts.append(f"{feed_type_code}{cable_length_str}")
-			parts.append("C")
+
+			# End feed suffix — "C" for Endcap, or "{EndFeedCode}{EndCableLengthFt}" for dual-feed
+			if self.feed_direction_end and self.feed_direction_end != "Endcap":
+				end_feed_code = self.sku_feed_direction_end_code or "X"
+				# Get end cable length from last segment's end_jumper_len_mm
+				end_cable_ft = 0
+				if self.segments:
+					last_seg = self.segments[-1] if hasattr(self.segments[-1], 'end_jumper_len_mm') else None
+					if last_seg and last_seg.end_jumper_len_mm:
+						end_cable_ft = round(last_seg.end_jumper_len_mm / 304.8, 1)
+				if end_cable_ft == int(end_cable_ft):
+					end_cable_str = str(int(end_cable_ft))
+				else:
+					end_cable_str = f"{end_cable_ft:.1f}"
+				parts.append(f"{end_feed_code}{end_cable_str}")
+			else:
+				parts.append("C")
 
 		return "-".join(parts)
 

@@ -242,6 +242,10 @@ def validate_and_quote(
 	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
+	start_feed_direction_code: str = None,
+	end_feed_direction_code: str = "C",
+	start_leader_len_mm: int = 0,
+	end_leader_len_mm: int = 0,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
@@ -267,6 +271,10 @@ def validate_and_quote(
 		requested_overall_length_mm: Requested overall length in millimeters
 		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
 		qty: Quantity (default: 1)
+		start_feed_direction_code: Feed direction code at the start (e.g. "E", "B"). None = use power_feed_type default.
+		end_feed_direction_code: Feed direction code at the end. "C" = Endcap (default). Any other value = dual-feed.
+		start_leader_len_mm: Start leader cable length in mm. 0 = use template default.
+		end_leader_len_mm: End leader cable length in mm. 0 = no end leader (ignored when end_feed = "C").
 
 	Returns:
 		dict: Response containing validation status, computed values, resolved items,
@@ -377,6 +385,9 @@ def validate_and_quote(
 		finish_code,
 		template_doc=validation_result.get("template_doc"),
 		tape_offering_doc=validation_result.get("tape_offering_doc"),
+		end_feed_direction_code=end_feed_direction_code,
+		end_leader_len_mm=end_leader_len_mm,
+		start_leader_len_mm=start_leader_len_mm,
 	)
 
 	response["computed"].update(computed_result)
@@ -407,6 +418,7 @@ def validate_and_quote(
 		power_feed_type_code,
 		template_doc=validation_result.get("template_doc"),
 		tape_offering_doc=validation_result.get("tape_offering_doc"),
+		end_feed_direction_code=end_feed_direction_code,
 	)
 
 	response["messages"].extend(mapping_messages)
@@ -469,6 +481,10 @@ def validate_and_quote(
 		response["computed"],
 		response["resolved_items"],
 		response["pricing"],
+		start_feed_direction_code=start_feed_direction_code,
+		end_feed_direction_code=end_feed_direction_code,
+		start_leader_len_mm=start_leader_len_mm,
+		end_leader_len_mm=end_leader_len_mm,
 	)
 
 	response["configured_fixture_id"] = fixture_id
@@ -2212,6 +2228,9 @@ def _compute_manufacturable_outputs(
 	finish_code: str,
 	template_doc=None,
 	tape_offering_doc=None,
+	end_feed_direction_code: str = "C",
+	end_leader_len_mm: int = 0,
+	start_leader_len_mm: int = 0,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable dimensions, segments, and runs.
@@ -2256,6 +2275,14 @@ def _compute_manufacturable_outputs(
 	# A_leader = 15mm (from template or rule default; per fixture)
 	leader_allowance_mm_per_fixture = float(template_doc.leader_allowance_mm_per_fixture or 15)
 
+	# Override start leader allowance when caller specifies a length
+	if start_leader_len_mm:
+		leader_allowance_mm_per_fixture = float(start_leader_len_mm)
+
+	# End leader allowance for dual-feed configurations
+	_is_dual_feed = (end_feed_direction_code or "C") != "C"
+	end_leader_allowance_mm = float(end_leader_len_mm) if (_is_dual_feed and end_leader_len_mm) else 0.0
+
 	# Get cut_increment_mm from tape spec or offering override
 	cut_increment_mm = 50.0  # Default cut increment
 	tape_spec_doc = None
@@ -2277,10 +2304,10 @@ def _compute_manufacturable_outputs(
 		)
 		max_run_length_ft_voltage_drop = tape_spec_doc.voltage_drop_max_run_length_ft
 
-	# L_internal = L_req - total_endcap_allowance - A_leader
+	# L_internal = L_req - total_endcap_allowance - A_leader - A_end_leader
 	L_req = float(requested_overall_length_mm)
 	A_leader = leader_allowance_mm_per_fixture
-	L_internal = L_req - total_endcap_allowance_mm - A_leader
+	L_internal = L_req - total_endcap_allowance_mm - A_leader - end_leader_allowance_mm
 
 	# L_tape_cut = floor(L_internal / cut_increment) * cut_increment
 	# Handle edge cases: if cut_increment invalid or L_internal <= 0, L_tape_cut = 0
@@ -2289,8 +2316,8 @@ def _compute_manufacturable_outputs(
 	else:
 		L_tape_cut = 0 if L_internal <= 0 or cut_increment_mm <= 0 else max(0, L_internal)
 
-	# L_mfg = L_tape_cut + total_endcap_allowance + A_leader
-	L_mfg = L_tape_cut + total_endcap_allowance_mm + A_leader
+	# L_mfg = L_tape_cut + total_endcap_allowance + A_leader + A_end_leader
+	L_mfg = L_tape_cut + total_endcap_allowance_mm + A_leader + end_leader_allowance_mm
 
 	# difference = L_req - L_mfg
 	difference_mm = int(L_req - L_mfg)
@@ -2608,6 +2635,7 @@ def _resolve_items(
 	power_feed_type_code: str,
 	template_doc=None,
 	tape_offering_doc=None,
+	end_feed_direction_code: str = "C",
 ) -> tuple[dict[str, Any], list[dict[str, str]], bool]:
 	"""
 	Resolve actual Item codes for profile, lens, endcaps, mounting, and leader.
@@ -2890,6 +2918,14 @@ def _resolve_items(
 		return resolved, messages, False
 
 	resolved["leader_item"] = leader_item
+
+	# Resolve end leader cable for dual-feed configurations
+	_eff_end_feed = (end_feed_direction_code or "C")
+	if _eff_end_feed != "C" and tape_offering_doc:
+		# For dual-feed, resolve a second leader cable for the end.
+		# Use the same lookup but the item is stored separately so
+		# _create_or_update_configured_fixture can assign it to end_jumper_item.
+		resolved["end_leader_item"] = leader_item  # Same cable type as start
 
 	return resolved, messages, is_valid
 
@@ -3418,6 +3454,10 @@ def _create_or_update_configured_fixture(
 	computed: dict,
 	resolved_items: dict,
 	pricing: dict,
+	start_feed_direction_code: str = None,
+	end_feed_direction_code: str = "C",
+	start_leader_len_mm: int = 0,
+	end_leader_len_mm: int = 0,
 ) -> str:
 	"""
 	Create or update an ilL-Configured-Fixture document.
@@ -3445,6 +3485,10 @@ def _create_or_update_configured_fixture(
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
 		"requested_overall_length_mm": requested_overall_length_mm,
+		"start_feed_direction_code": start_feed_direction_code or "",
+		"end_feed_direction_code": end_feed_direction_code or "C",
+		"start_leader_len_mm": int(start_leader_len_mm or 0),
+		"end_leader_len_mm": int(end_leader_len_mm or 0),
 	}
 
 	# Generate hash: first 32 hex characters (128 bits of entropy) from SHA-256 for collision resistance
@@ -3508,6 +3552,24 @@ def _create_or_update_configured_fixture(
 	doc.environment_rating = environment_rating_code
 	doc.tape_offering = tape_offering_id
 
+	# Set feed directions
+	if start_feed_direction_code:
+		# Resolve feed direction name from code
+		fd_start_name = frappe.db.get_value(
+			"ilL-Attribute-Feed-Direction", {"code": start_feed_direction_code}, "name"
+		)
+		if fd_start_name:
+			doc.feed_direction_start = fd_start_name
+	eff_end_feed = end_feed_direction_code or "C"
+	if eff_end_feed == "C":
+		doc.feed_direction_end = "Endcap"
+	else:
+		# Resolve feed direction name from code for non-Endcap end feed
+		fd_end_name = frappe.db.get_value(
+			"ilL-Attribute-Feed-Direction", {"code": eff_end_feed}, "name"
+		)
+		doc.feed_direction_end = fd_end_name or eff_end_feed
+
 	# Set length inputs/outputs
 	doc.requested_overall_length_mm = requested_overall_length_mm
 	doc.endcap_allowance_mm_per_side = computed.get("total_endcap_allowance_mm", 0)
@@ -3555,12 +3617,24 @@ def _create_or_update_configured_fixture(
 			seg_data["start_endcap_item"] = resolved_items.get("endcap_item_start")
 			seg_data["start_endcap_type"] = "Feed-Through" if resolved_items.get("endcap_item_start") else ""
 			seg_data["start_leader_item"] = resolved_items.get("leader_item")
-			seg_data["start_leader_len_mm"] = int(computed.get("leader_allowance_mm_per_fixture", 0))
+			# Use caller-provided start leader length if > 0, else use computed default
+			seg_data["start_leader_len_mm"] = (
+				int(start_leader_len_mm)
+				if start_leader_len_mm
+				else int(computed.get("leader_allowance_mm_per_fixture", 0))
+			)
 
-		# Last segment: end endcap, no jumper
+		# Last segment: end endcap / end leader for dual-feed
+		_is_dual_feed = (end_feed_direction_code or "C") != "C"
 		if seg_idx == num_segments:
 			seg_data["end_endcap_item"] = resolved_items.get("endcap_item_end")
-			seg_data["end_endcap_type"] = "Solid" if resolved_items.get("endcap_item_end") else ""
+			if _is_dual_feed:
+				seg_data["end_endcap_type"] = "Feed-Through"
+				# Reuse end_jumper fields for the end leader cable in dual-feed
+				seg_data["end_jumper_item"] = resolved_items.get("end_leader_item") or resolved_items.get("leader_item")
+				seg_data["end_jumper_len_mm"] = int(end_leader_len_mm or 0)
+			else:
+				seg_data["end_endcap_type"] = "Solid" if resolved_items.get("endcap_item_end") else ""
 
 		doc.append("segments", seg_data)
 

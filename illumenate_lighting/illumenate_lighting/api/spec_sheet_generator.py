@@ -117,6 +117,10 @@ def generate_from_webflow_selections(
         environment_rating_code=engine_params["environment_rating_code"],
         tape_offering_id=tape_offering_id,
         requested_overall_length_mm=engine_params["requested_overall_length_mm"],
+        start_feed_direction_code=engine_params.get("start_feed_direction_code"),
+        end_feed_direction_code=engine_params.get("end_feed_direction_code", "C"),
+        start_leader_len_mm=engine_params.get("start_leader_len_mm", 0),
+        end_leader_len_mm=engine_params.get("end_leader_len_mm", 0),
     )
 
     if not quote_result.get("is_valid"):
@@ -194,6 +198,14 @@ def generate_from_webflow_selections(
     end_feed_length = selections.get("end_feed_length_ft")
     if end_feed_length is not None and str(end_feed_length) != "":
         webflow_overrides["end_feed_length_ft"] = str(end_feed_length)
+
+    # Forward feed direction selections for PDF mapping
+    start_feed_dir = selections.get("start_feed_direction")
+    if start_feed_dir:
+        webflow_overrides["start_feed_direction"] = str(start_feed_dir)
+    end_feed_dir = selections.get("end_feed_direction")
+    if end_feed_dir:
+        webflow_overrides["end_feed_direction"] = str(end_feed_dir)
 
     submittal_result = generate_filled_submittal(
         configured_fixture_id,
@@ -298,6 +310,55 @@ def _map_selections_to_engine_codes(
 
     power_feed_type_code = _resolve_power_feed_type(selections, template)
 
+    # ── Feed direction codes & leader lengths ─────────────────────────
+    MM_PER_FOOT = 304.8
+
+    # Start feed direction code — resolve from selection or power_feed_type
+    start_feed_direction_code = None
+    start_feed_dir_raw = selections.get("start_feed_direction", "")
+    if start_feed_dir_raw:
+        # Try to get code from Feed Direction attribute
+        fd_code = frappe.db.get_value(
+            "ilL-Attribute-Feed-Direction", start_feed_dir_raw, "code"
+        )
+        if fd_code:
+            start_feed_direction_code = fd_code
+        elif len(start_feed_dir_raw) <= 2:
+            # Already a code (e.g. "E", "B")
+            start_feed_direction_code = start_feed_dir_raw
+
+    # End feed direction code — "C" for Endcap (default), otherwise resolve
+    end_feed_direction_code = "C"
+    end_feed_dir_raw = selections.get("end_feed_direction", "")
+    if end_feed_dir_raw:
+        if end_feed_dir_raw.lower() in ("endcap", "c"):
+            end_feed_direction_code = "C"
+        else:
+            fd_code = frappe.db.get_value(
+                "ilL-Attribute-Feed-Direction", end_feed_dir_raw, "code"
+            )
+            if fd_code:
+                end_feed_direction_code = fd_code
+            elif len(end_feed_dir_raw) <= 2:
+                end_feed_direction_code = end_feed_dir_raw
+
+    # Leader cable lengths — convert feet to mm
+    start_leader_len_mm = 0
+    start_len_ft = selections.get("start_feed_length_ft")
+    if start_len_ft:
+        try:
+            start_leader_len_mm = int(round(float(start_len_ft) * MM_PER_FOOT))
+        except (ValueError, TypeError):
+            pass
+
+    end_leader_len_mm = 0
+    end_len_ft = selections.get("end_feed_length_ft")
+    if end_len_ft and end_feed_direction_code != "C":
+        try:
+            end_leader_len_mm = int(round(float(end_len_ft) * MM_PER_FOOT))
+        except (ValueError, TypeError):
+            pass
+
     if errors:
         return {"error": "; ".join(errors)}
 
@@ -311,6 +372,10 @@ def _map_selections_to_engine_codes(
         "power_feed_type_code": power_feed_type_code,
         "environment_rating_code": environment_rating_code,
         "requested_overall_length_mm": requested_overall_length_mm,
+        "start_feed_direction_code": start_feed_direction_code,
+        "end_feed_direction_code": end_feed_direction_code,
+        "start_leader_len_mm": start_leader_len_mm,
+        "end_leader_len_mm": end_leader_len_mm,
     }
 
 
