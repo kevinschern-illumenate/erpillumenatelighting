@@ -52,6 +52,14 @@
                         "certifications",
                         "compatibility_section",
                         "compatible_products",
+                        "spec_sheet_data_section",
+                        "beam_angle",
+                        "operating_temp_min_c",
+                        "operating_temp_max_c",
+                        "column_break_spec_sheet",
+                        "l70_life_hours",
+                        "warranty_years",
+                        "fixture_weight_per_foot_grams",
                         "sync_section",
                         "webflow_item_id",
                         "webflow_collection_slug",
@@ -339,6 +347,48 @@
                        "fieldtype":  "Table",
                        "label":  "Compatible Products",
                        "options":  "ilL-Child-Webflow-Compatibility"
+                   },
+                   {
+                       "collapsible":  1,
+                       "depends_on":  "eval:in_list(['Fixture Template','LED Tape','Extrusion Kit'], doc.product_type)",
+                       "description":  "Data not captured elsewhere \u2014 fill in for spec sheet export",
+                       "fieldname":  "spec_sheet_data_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet Data"
+                   },
+                   {
+                       "fieldname":  "beam_angle",
+                       "fieldtype":  "Float",
+                       "label":  "Beam Angle (\u00b0)"
+                   },
+                   {
+                       "fieldname":  "operating_temp_min_c",
+                       "fieldtype":  "Int",
+                       "label":  "Min Operating Temp (\u00b0C)"
+                   },
+                   {
+                       "fieldname":  "operating_temp_max_c",
+                       "fieldtype":  "Int",
+                       "label":  "Max Operating Temp (\u00b0C)"
+                   },
+                   {
+                       "fieldname":  "column_break_spec_sheet",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "fieldname":  "l70_life_hours",
+                       "fieldtype":  "Int",
+                       "label":  "L70 Life (hours)"
+                   },
+                   {
+                       "fieldname":  "warranty_years",
+                       "fieldtype":  "Int",
+                       "label":  "Warranty (years)"
+                   },
+                   {
+                       "fieldname":  "fixture_weight_per_foot_grams",
+                       "fieldtype":  "Float",
+                       "label":  "Fixture Weight per Foot (g)"
                    },
                    {
                        "collapsible":  1,

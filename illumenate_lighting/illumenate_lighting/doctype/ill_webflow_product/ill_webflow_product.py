@@ -33,6 +33,7 @@ class ilLWebflowProduct(Document):
 		attribute_links: DF.Table[ilLChildWebflowAttributeLink]
 		auto_calculate_specs: DF.Check
 		auto_populate_attributes: DF.Check
+		beam_angle: DF.Float
 		certifications: DF.Table[ilLChildWebflowCertificationLink]
 		compatible_products: DF.Table[ilLChildWebflowCompatibility]
 		configurator_intro_text: DF.SmallText | None
@@ -42,16 +43,20 @@ class ilLWebflowProduct(Document):
 		driver_spec: DF.Link | None
 		featured_image: DF.AttachImage | None
 		fixture_template: DF.Link | None
+		fixture_weight_per_foot_grams: DF.Float
 		gallery_images: DF.Table[ilLChildWebflowGalleryImage]
 		is_active: DF.Check
 		is_configurable: DF.Check
 		kit_components: DF.Table[ilLChildWebflowKitComponent]
+		l70_life_hours: DF.Int
 		last_synced_at: DF.Datetime | None
 		length_increment_mm: DF.Int
 		lens_spec: DF.Link | None
 		long_description: DF.TextEditor | None
 		max_length_mm: DF.Int
 		min_length_mm: DF.Int
+		operating_temp_max_c: DF.Int
+		operating_temp_min_c: DF.Int
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data
@@ -62,6 +67,7 @@ class ilLWebflowProduct(Document):
 		sync_error_message: DF.SmallText | None
 		sync_status: DF.Literal["Pending", "Synced", "Error", "Never Synced"]
 		tape_spec: DF.Link | None
+		warranty_years: DF.Int
 		webflow_collection_slug: DF.Data | None
 		webflow_item_id: DF.Data | None
 	# end: auto-generated types
