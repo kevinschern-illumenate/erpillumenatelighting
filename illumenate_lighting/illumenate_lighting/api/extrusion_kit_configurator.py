@@ -753,19 +753,14 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 
 	from frappe.utils import flt
 
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+		_bulk_stock_query,
+	)
+
 	# Batch-fetch stock for all distinct item codes in one query
+	# (includes automatic Product Bundle resolution)
 	item_codes = [c[1] for c in component_defs if c[1]]
-	stock_map: dict[str, float] = {}
-	if item_codes:
-		bins = frappe.db.sql(
-			"""SELECT item_code, IFNULL(SUM(actual_qty), 0) AS total_qty
-			   FROM `tabBin`
-			   WHERE item_code IN %s
-			   GROUP BY item_code""",
-			[item_codes],
-			as_dict=True,
-		)
-		stock_map = {row.item_code: flt(row.total_qty) for row in bins}
+	stock_map = _bulk_stock_query(item_codes)
 
 	# Batch-fetch lead_time_days for all item codes
 	lead_time_map: dict[str, int] = {}
