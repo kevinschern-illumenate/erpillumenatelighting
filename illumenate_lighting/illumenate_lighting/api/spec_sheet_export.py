@@ -71,8 +71,8 @@ def _get_attribute_values_by_type(attribute_links, attr_type):
 	"""Return sorted, comma-separated attribute names of a given type."""
 	values = []
 	for row in attribute_links:
-		if row.attribute_type == attr_type and row.attribute_value:
-			values.append(row.attribute_value)
+		if row.attribute_type == attr_type and row.attribute_name:
+			values.append(row.attribute_name)
 	return ", ".join(sorted(set(values)))
 
 
