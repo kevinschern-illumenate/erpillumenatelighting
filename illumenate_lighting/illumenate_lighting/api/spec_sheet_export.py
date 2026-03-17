@@ -154,7 +154,7 @@ def _collect_product_data(wp_doc):
 	if wp_doc.driver_spec:
 		driver = frappe.get_cached_doc("ilL-Spec-Driver", wp_doc.driver_spec)
 		if driver.input_voltage_min and driver.input_voltage_max:
-			driver_voltage_str = f"{driver.input_voltage_min}V-{driver.input_voltage_max}V{driver.input_voltage_type or 'AC'}"
+			driver_voltage_str = f"{driver.input_voltage_min}V-{driver.input_voltage_max}{driver.input_voltage_type or 'VAC'}"
 		driver_max_wattage = driver.max_wattage or ""
 
 	if tape_voltage_label and driver_voltage_str:
@@ -301,7 +301,7 @@ def _collect_variant_rows(wp_doc, product_data, lens_map):
 		)
 
 		# ── Per-lens: pick best tape (highest delivered lumens) ──
-		best_tape_for_first_lens = first  # fallback
+		shared_variant_tape = first  # fallback
 		for idx, (lens_name, transmission) in enumerate(lens_map.items()):
 			slug = _lens_slug(lens_name)
 			best = None
@@ -321,9 +321,9 @@ def _collect_variant_rows(wp_doc, product_data, lens_map):
 
 			# Use best tape of the first lens for shared variant columns
 			if idx == 0:
-				best_tape_for_first_lens = best
+				shared_variant_tape = best
 
-		row["output_level"] = best_tape_for_first_lens["output_level"]
+		row["output_level"] = shared_variant_tape["output_level"]
 
 		yield row
 
