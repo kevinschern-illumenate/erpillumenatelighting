@@ -63,6 +63,7 @@ class ilLWebflowProduct(Document):
 		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]
 		profile_spec: DF.Link | None
 		short_description: DF.SmallText | None
+		sublabel: DF.Data | None
 		specifications: DF.Table[ilLChildWebflowSpecification]
 		sync_error_message: DF.SmallText | None
 		sync_status: DF.Literal["Pending", "Synced", "Error", "Never Synced"]

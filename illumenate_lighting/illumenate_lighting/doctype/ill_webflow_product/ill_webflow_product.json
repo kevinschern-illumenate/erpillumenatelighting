@@ -37,6 +37,7 @@
                         "kit_components",
                         "marketing_section",
                         "short_description",
+                        "sublabel",
                         "long_description",
                         "featured_image",
                         "column_break_marketing",
@@ -256,6 +257,12 @@
                        "fieldname":  "short_description",
                        "fieldtype":  "Small Text",
                        "label":  "Short Description"
+                   },
+                   {
+                       "description":  "Optional marketing sublabel or subheading",
+                       "fieldname":  "sublabel",
+                       "fieldtype":  "Data",
+                       "label":  "Sublabel"
                    },
                    {
                        "description":  "Rich HTML content for product detail page",
