@@ -375,6 +375,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import VARIANT_COLUMNS
 
 		removed = [
+			"cri_name", "cri_r9", "sdcm", "output_level",
 			"cri_minimum_ra", "efficacy_lm_per_w", "tape_lumens_per_foot",
 			"delivered_lumens_per_foot", "watts_per_foot", "max_run_length_ft",
 		]
@@ -389,10 +390,11 @@ class TestSpecSheetExport(FrappeTestCase):
 			self.assertIn(col, PRODUCT_COLUMNS, f"{col} missing from PRODUCT_COLUMNS")
 
 	def test_new_variant_columns_present(self):
-		"""Verify production_interval is present in VARIANT_COLUMNS."""
+		"""Verify new variant-level columns are present in VARIANT_COLUMNS."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import VARIANT_COLUMNS
 
-		self.assertIn("production_interval", VARIANT_COLUMNS)
+		for col in ["cri_quality", "fixture_output_level", "production_interval"]:
+			self.assertIn(col, VARIANT_COLUMNS, f"{col} missing from VARIANT_COLUMNS")
 
 	def test_lens_slug(self):
 		"""Test _lens_slug produces correct slugs."""
@@ -405,25 +407,26 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(_lens_slug(""), "")
 
 	def test_build_lens_columns(self):
-		"""Test dynamic lens column generation."""
-		from collections import OrderedDict
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _build_lens_columns
+		"""Fixed 4 standard lens column groups are generated."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _build_lens_columns, LENS_COLUMNS
 
-		lens_map = OrderedDict([("Clear", 0.95), ("Frosted White", 0.80)])
-		cols = _build_lens_columns(lens_map)
+		cols = _build_lens_columns()
 
 		expected = [
-			"delivered_lumens_clear", "watts_per_foot_clear", "max_run_ft_clear",
-			"delivered_lumens_frosted_white", "watts_per_foot_frosted_white", "max_run_ft_frosted_white",
+			"delivered_lumens_white", "watts_per_foot_white", "max_run_length_ft_white",
+			"delivered_lumens_frosted", "watts_per_foot_frosted", "max_run_length_ft_frosted",
+			"delivered_lumens_clear", "watts_per_foot_clear", "max_run_length_ft_clear",
+			"delivered_lumens_black", "watts_per_foot_black", "max_run_length_ft_black",
 		]
 		self.assertEqual(cols, expected)
+		self.assertEqual(LENS_COLUMNS, expected)
 
-	def test_build_lens_columns_empty(self):
-		"""No lenses → no dynamic columns."""
-		from collections import OrderedDict
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _build_lens_columns
+	def test_standard_lenses_mapping(self):
+		"""Verify STANDARD_LENSES maps codes to expected slugs."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import STANDARD_LENSES
 
-		self.assertEqual(_build_lens_columns(OrderedDict()), [])
+		self.assertEqual(list(STANDARD_LENSES.keys()), ["WH", "FR", "CL", "BK"])
+		self.assertEqual(list(STANDARD_LENSES.values()), ["white", "frosted", "clear", "black"])
 
 	def test_format_production_interval(self):
 		"""Test production interval formatting."""
@@ -454,3 +457,49 @@ class TestSpecSheetExport(FrappeTestCase):
 		tape_offering = SimpleNamespace(cut_increment_mm_override=0)
 		tape_spec = SimpleNamespace(cut_increment_mm=0)
 		self.assertEqual(_format_production_interval(tape_offering, tape_spec), "")
+
+	def test_format_cri_quality_full(self):
+		"""CRI quality with Ra, R9, and SDCM."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		cri_doc = SimpleNamespace(minimum_ra=95, r9=90)
+		result = _format_cri_quality(cri_doc, 2)
+		self.assertEqual(result, "95+ / R9 = 90+ / 2 SDCM")
+
+	def test_format_cri_quality_no_r9(self):
+		"""CRI quality without R9."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		cri_doc = SimpleNamespace(minimum_ra=90, r9=0)
+		result = _format_cri_quality(cri_doc, 3)
+		self.assertEqual(result, "90+ / 3 SDCM")
+
+	def test_format_cri_quality_ra_only(self):
+		"""CRI quality with Ra only."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		cri_doc = SimpleNamespace(minimum_ra=80, r9=0)
+		self.assertEqual(_format_cri_quality(cri_doc, ""), "80+")
+
+	def test_format_cri_quality_none(self):
+		"""No CRI doc returns empty string."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		self.assertEqual(_format_cri_quality(None, ""), "")
+
+	def test_find_closest_fixture_level(self):
+		"""Finds the output level closest to delivered lumens."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _find_closest_fixture_level
+
+		levels = [
+			{"name": "L1", "value": 200, "output_level_name": "Low"},
+			{"name": "L2", "value": 400, "output_level_name": "Medium"},
+			{"name": "L3", "value": 600, "output_level_name": "High"},
+		]
+		self.assertEqual(_find_closest_fixture_level(350, levels)["name"], "L2")
+		self.assertEqual(_find_closest_fixture_level(100, levels)["name"], "L1")
+		self.assertEqual(_find_closest_fixture_level(550, levels)["name"], "L3")
+		self.assertIsNone(_find_closest_fixture_level(350, []))

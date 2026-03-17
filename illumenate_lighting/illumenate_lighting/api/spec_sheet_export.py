@@ -5,7 +5,7 @@
 Spec Sheet CSV Export
 
 Aggregates all fixture data from linked doctypes into a flat CSV
-(one row per CCT+CRI+SDCM group, with dynamic per-lens columns)
+(one row per CCT × fixture_output_level, with fixed per-lens columns)
 for InDesign data merge.
 """
 
@@ -49,18 +49,33 @@ PRODUCT_COLUMNS = [
 VARIANT_COLUMNS = [
 	"cct_name",
 	"cct_kelvin",
-	"cri_name",
-	"cri_r9",
-	"sdcm",
-	"output_level",
+	"cri_quality",
+	"fixture_output_level",
 	"led_pitch_mm",
 	"production_interval",
 ]
 
-# Dynamic per-lens columns are appended at runtime:
-#   delivered_lumens_{lens_slug}
-#   watts_per_foot_{lens_slug}
-#   max_run_ft_{lens_slug}
+# Standard lens codes → column slugs.  All four groups are always present;
+# columns are blank when a lens is unavailable for the fixture template.
+STANDARD_LENSES = OrderedDict([
+	("WH", "white"),
+	("FR", "frosted"),
+	("CL", "clear"),
+	("BK", "black"),
+])
+
+
+def _build_lens_columns():
+	"""Return the fixed per-lens column headers for the 4 standard lenses."""
+	cols = []
+	for slug in STANDARD_LENSES.values():
+		cols.append(f"delivered_lumens_{slug}")
+		cols.append(f"watts_per_foot_{slug}")
+		cols.append(f"max_run_length_ft_{slug}")
+	return cols
+
+
+LENS_COLUMNS = _build_lens_columns()
 
 
 # ──────────────────────────────────────────────────────────
@@ -91,6 +106,69 @@ def _format_production_interval(tape_offering, tape_spec):
 		return ""
 	mm_val = int(cut_mm) if cut_mm == int(cut_mm) else cut_mm
 	return f"{inches_str} ({mm_val}mm)"
+
+
+def _format_cri_quality(cri_doc, sdcm_val):
+	"""Format merged CRI quality string.
+
+	Returns e.g. ``"95+ / R9 = 90+ / 2 SDCM"`` when R9 is present,
+	``"95+ / 2 SDCM"`` when R9 is blank, or just ``"95+"`` if SDCM is
+	also blank.
+	"""
+	if not cri_doc:
+		return ""
+	parts = []
+	if cri_doc.minimum_ra:
+		parts.append(f"{cri_doc.minimum_ra}+")
+	if cri_doc.r9:
+		parts.append(f"R9 = {cri_doc.r9}+")
+	if sdcm_val:
+		parts.append(f"{sdcm_val} SDCM")
+	return " / ".join(parts)
+
+
+def _get_available_lenses(ft_doc):
+	"""Return available lenses from fixture template allowed_options.
+
+	Returns ``{lens_code: {"name": str, "transmission": float}}`` for each
+	*Lens Appearance* option whose ``code`` matches one of the
+	:data:`STANDARD_LENSES` keys.  Transmission is read directly as a
+	decimal from ``ilL-Attribute-Lens Appearance`` (e.g. 0.56 = 56 %).
+	"""
+	lens_info = {}
+	if not ft_doc:
+		return lens_info
+	for opt in (ft_doc.allowed_options or []):
+		if getattr(opt, "option_type", None) != "Lens Appearance":
+			continue
+		if not getattr(opt, "lens_appearance", None):
+			continue
+		if not getattr(opt, "is_active", True):
+			continue
+		lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", opt.lens_appearance)
+		code = (lens_doc.code or "").upper()
+		if code not in STANDARD_LENSES:
+			continue
+		transmission = float(lens_doc.transmission) if lens_doc.transmission else 1.0
+		lens_info[code] = {
+			"name": opt.lens_appearance,
+			"transmission": transmission,
+		}
+	return lens_info
+
+
+def _find_closest_fixture_level(delivered_lm_ft, fixture_levels):
+	"""Return the fixture-level output closest to *delivered_lm_ft*."""
+	if not fixture_levels:
+		return None
+	closest = None
+	min_diff = float("inf")
+	for level in fixture_levels:
+		diff = abs(level["value"] - delivered_lm_ft)
+		if diff < min_diff:
+			min_diff = diff
+			closest = level
+	return closest
 
 
 def _collect_product_data(wp_doc):
@@ -143,19 +221,34 @@ def _collect_product_data(wp_doc):
 	input_voltage = ""
 	tape_voltage_label = ""
 	if ft_doc and ft_doc.allowed_tape_offerings:
-		# Use the first tape offering's tape spec input_voltage
 		first_ato = ft_doc.allowed_tape_offerings[0]
 		first_to = frappe.get_cached_doc("ilL-Rel-Tape Offering", first_ato.tape_offering)
 		first_ts = frappe.get_cached_doc("ilL-Spec-LED Tape", first_to.tape_spec)
 		tape_voltage_label = first_ts.input_voltage or ""
 
+	# --- Driver info from ilL-Rel-Driver-Eligibility (highest-priority eligible) ---
 	driver_max_wattage = ""
 	driver_voltage_str = ""
-	if wp_doc.driver_spec:
-		driver = frappe.get_cached_doc("ilL-Spec-Driver", wp_doc.driver_spec)
-		if driver.input_voltage_min and driver.input_voltage_max:
-			driver_voltage_str = f"{driver.input_voltage_min}V-{driver.input_voltage_max}{driver.input_voltage_type or 'VAC'}"
-		driver_max_wattage = driver.max_wattage or ""
+	if ft_doc:
+		elig_rows = frappe.get_all(
+			"ilL-Rel-Driver-Eligibility",
+			filters={
+				"fixture_template": ft_doc.name,
+				"is_active": 1,
+				"is_allowed": 1,
+			},
+			fields=["driver_spec"],
+			order_by="priority asc",
+			limit=1,
+		)
+		if elig_rows and elig_rows[0].driver_spec:
+			driver = frappe.get_cached_doc("ilL-Spec-Driver", elig_rows[0].driver_spec)
+			if driver.input_voltage_min and driver.input_voltage_max:
+				driver_voltage_str = (
+					f"{driver.input_voltage_min}V-{driver.input_voltage_max}"
+					f"{driver.input_voltage_type or 'VAC'}"
+				)
+			driver_max_wattage = driver.max_wattage or ""
 
 	if tape_voltage_label and driver_voltage_str:
 		input_voltage = f"{tape_voltage_label} (Power Supply: {driver_voltage_str})"
@@ -190,55 +283,26 @@ def _collect_product_data(wp_doc):
 	}
 
 
-def _get_lens_appearances(wp_doc):
-	"""Return an OrderedDict of {lens_name: transmission_decimal} from attribute_links.
-
-	Lenses are sorted alphabetically by name.  Transmission is stored as
-	a 0-100 percent on the attribute doc and normalised to 0.0-1.0 here.
-	"""
-	lens_map = OrderedDict()
-	attr_links = wp_doc.attribute_links or []
-	names = sorted({
-		row.attribute_name
-		for row in attr_links
-		if row.attribute_type == "Lens Appearance" and row.attribute_name
-	})
-	for name in names:
-		lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", name)
-		transmission = (lens_doc.transmission / 100.0) if lens_doc.transmission else 1.0
-		lens_map[name] = transmission
-	return lens_map
-
-
-def _build_lens_columns(lens_map):
-	"""Return a list of dynamic column header strings for all lenses."""
-	cols = []
-	for lens_name in lens_map:
-		slug = _lens_slug(lens_name)
-		cols.append(f"delivered_lumens_{slug}")
-		cols.append(f"watts_per_foot_{slug}")
-		cols.append(f"max_run_ft_{slug}")
-	return cols
-
-
-def _collect_variant_rows(wp_doc, product_data, lens_map):
-	"""Yield one dict per (CCT × CRI × SDCM) group with per-lens columns."""
+def _collect_variant_rows(wp_doc, product_data):
+	"""Yield one dict per (fixture_output_level × CCT) with per-lens columns."""
 	ft_doc = None
 	if wp_doc.fixture_template:
 		ft_doc = frappe.get_cached_doc("ilL-Fixture-Template", wp_doc.fixture_template)
 
-	dynamic_cols = _build_lens_columns(lens_map)
+	all_cols = VARIANT_COLUMNS + LENS_COLUMNS
 
 	if not ft_doc or not ft_doc.allowed_tape_offerings:
-		# No tape offerings — emit a single row with product data only
 		row = dict(product_data)
-		for col in VARIANT_COLUMNS + dynamic_cols:
+		for col in all_cols:
 			row.setdefault(col, "")
 		yield row
 		return
 
-	# ── Pre-fetch all tape offering data ──
-	tape_data = []  # list of dicts with resolved tape info
+	# ── Step 1: Available lens appearances (from fixture template allowed_options) ──
+	available_lenses = _get_available_lenses(ft_doc)
+
+	# ── Step 2: Pre-fetch all tape offering data ──
+	tape_data = []
 	for ato in ft_doc.allowed_tape_offerings:
 		tape_offering = frappe.get_cached_doc("ilL-Rel-Tape Offering", ato.tape_offering)
 		tape_spec = frappe.get_cached_doc("ilL-Spec-LED Tape", tape_offering.tape_spec)
@@ -251,11 +315,9 @@ def _collect_variant_rows(wp_doc, product_data, lens_map):
 			cct_kelvin = cct_doc.kelvin or ""
 			lumen_multiplier = cct_doc.lumen_multiplier if cct_doc.lumen_multiplier else 1.0
 
-		cri_name = tape_offering.cri or ""
-		cri_r9 = ""
+		cri_doc = None
 		if tape_offering.cri:
 			cri_doc = frappe.get_cached_doc("ilL-Attribute-CRI", tape_offering.cri)
-			cri_r9 = cri_doc.r9 or ""
 
 		sdcm_val = ""
 		if tape_offering.sdcm:
@@ -265,82 +327,159 @@ def _collect_variant_rows(wp_doc, product_data, lens_map):
 		tape_data.append({
 			"tape_offering": tape_offering,
 			"tape_spec": tape_spec,
+			"ato_row": ato,
 			"cct_name": cct_name,
 			"cct_kelvin": cct_kelvin,
 			"lumen_multiplier": lumen_multiplier,
-			"cri_name": cri_name,
-			"cri_r9": cri_r9,
+			"cri_doc": cri_doc,
 			"sdcm": sdcm_val,
-			"output_level": tape_offering.output_level or "",
 			"tape_lumens": tape_spec.lumens_per_foot or 0,
 			"watts_per_foot": tape_offering.watts_per_ft_override or tape_spec.watts_per_foot or 0,
 			"max_run_ft": tape_spec.voltage_drop_max_run_length_ft or "",
 			"led_pitch_mm": tape_spec.led_pitch_mm or "",
 		})
 
-	# ── Group by (cct_name, cri_name, sdcm) ──
-	groups = OrderedDict()
+	# ── Step 3: Fixture-level output levels ──
+	fixture_levels_raw = frappe.get_all(
+		"ilL-Attribute-Output Level",
+		filters={"is_fixture_level": 1},
+		fields=["name", "output_level_name", "value", "sku_code"],
+		order_by="value asc",
+	)
+	fixture_levels = [
+		{"name": fl.name, "output_level_name": fl.output_level_name, "value": fl.value, "sku_code": fl.sku_code}
+		for fl in fixture_levels_raw
+	]
+
+	# ── Step 4: Distinct CCTs ──
+	ccts = OrderedDict()
 	for td in tape_data:
-		key = (td["cct_name"], td["cri_name"], td["sdcm"])
-		groups.setdefault(key, []).append(td)
+		if td["cct_name"] and td["cct_name"] not in ccts:
+			ccts[td["cct_name"]] = {
+				"kelvin": td["cct_kelvin"],
+				"lumen_multiplier": td["lumen_multiplier"],
+			}
 
-	# ── Emit one row per group ──
-	for (cct_name, cri_name, sdcm_val), tapes in groups.items():
-		row = dict(product_data)
+	# ── Step 5: Determine reachable fixture output levels ──
+	output_level_set = set()
+	for td in tape_data:
+		for code, lens_info in available_lenses.items():
+			ato_lens = getattr(td["ato_row"], "lens_appearance", None) or ""
+			if ato_lens and ato_lens != lens_info["name"]:
+				continue
+			delivered = td["tape_lumens"] * lens_info["transmission"] * td["lumen_multiplier"]
+			closest = _find_closest_fixture_level(delivered, fixture_levels)
+			if closest:
+				output_level_set.add(closest["name"])
 
-		# Common variant fields from the first tape in the group (overridden below)
-		first = tapes[0]
-		row["cct_name"] = cct_name
-		row["cct_kelvin"] = first["cct_kelvin"]
-		row["cri_name"] = cri_name
-		row["cri_r9"] = first["cri_r9"]
-		row["sdcm"] = sdcm_val
-		row["led_pitch_mm"] = first["led_pitch_mm"]
-		row["production_interval"] = _format_production_interval(
-			first["tape_offering"], first["tape_spec"]
-		)
+	available_output_levels = sorted(
+		[fl for fl in fixture_levels if fl["name"] in output_level_set],
+		key=lambda x: x["value"],
+	)
 
-		# ── Per-lens: pick best tape (highest delivered lumens) ──
-		shared_variant_tape = first  # fallback
-		for idx, (lens_name, transmission) in enumerate(lens_map.items()):
-			slug = _lens_slug(lens_name)
-			best = None
-			best_delivered = -1
-			for td in tapes:
-				delivered = td["tape_lumens"] * transmission * td["lumen_multiplier"]
-				if delivered > best_delivered:
-					best_delivered = delivered
-					best = td
-			if best is None:
-				best = first
+	if not available_output_levels:
+		# Fallback: one row per CCT, no output level
+		for cct_name, cct_info in ccts.items():
+			row = dict(product_data)
+			row["cct_name"] = cct_name
+			row["cct_kelvin"] = cct_info["kelvin"]
+			row["fixture_output_level"] = ""
+			cct_tapes = [td for td in tape_data if td["cct_name"] == cct_name]
+			if cct_tapes:
+				st = cct_tapes[0]
+				row["cri_quality"] = _format_cri_quality(st["cri_doc"], st["sdcm"])
+				row["led_pitch_mm"] = st["led_pitch_mm"]
+				row["production_interval"] = _format_production_interval(
+					st["tape_offering"], st["tape_spec"]
+				)
+			for col in all_cols:
+				row.setdefault(col, "")
+			yield row
+		return
 
-			delivered_val = round(best["tape_lumens"] * transmission * best["lumen_multiplier"], 1) if best["tape_lumens"] else ""
-			row[f"delivered_lumens_{slug}"] = delivered_val
-			row[f"watts_per_foot_{slug}"] = best["watts_per_foot"] or ""
-			row[f"max_run_ft_{slug}"] = best["max_run_ft"]
+	# ── Step 6: Emit one row per (fixture_output_level × CCT) ──
+	for output_level in available_output_levels:
+		for cct_name, cct_info in ccts.items():
+			row = dict(product_data)
+			row["cct_name"] = cct_name
+			row["cct_kelvin"] = cct_info["kelvin"]
+			row["fixture_output_level"] = output_level["output_level_name"]
 
-			# Use best tape of the first lens for shared variant columns
-			if idx == 0:
-				shared_variant_tape = best
+			cct_tapes = [td for td in tape_data if td["cct_name"] == cct_name]
 
-		row["output_level"] = shared_variant_tape["output_level"]
+			shared_tape = None
+			for lens_code, slug in STANDARD_LENSES.items():
+				lens_info = available_lenses.get(lens_code)
+				if not lens_info:
+					row[f"delivered_lumens_{slug}"] = ""
+					row[f"watts_per_foot_{slug}"] = ""
+					row[f"max_run_length_ft_{slug}"] = ""
+					continue
 
-		yield row
+				# Filter tapes respecting lens_appearance constraint
+				compatible = []
+				for td in cct_tapes:
+					ato_lens = getattr(td["ato_row"], "lens_appearance", None) or ""
+					if ato_lens and ato_lens != lens_info["name"]:
+						continue
+					compatible.append(td)
+
+				if not compatible:
+					row[f"delivered_lumens_{slug}"] = ""
+					row[f"watts_per_foot_{slug}"] = ""
+					row[f"max_run_length_ft_{slug}"] = ""
+					continue
+
+				# Pick tape whose delivered lumens maps closest to this output level
+				best = None
+				best_diff = float("inf")
+				for td in compatible:
+					delivered = td["tape_lumens"] * lens_info["transmission"] * td["lumen_multiplier"]
+					diff = abs(delivered - output_level["value"])
+					if diff < best_diff:
+						best_diff = diff
+						best = td
+
+				if best:
+					delivered_val = round(
+						best["tape_lumens"] * lens_info["transmission"] * best["lumen_multiplier"], 1
+					)
+					row[f"delivered_lumens_{slug}"] = delivered_val
+					row[f"watts_per_foot_{slug}"] = best["watts_per_foot"] or ""
+					row[f"max_run_length_ft_{slug}"] = best["max_run_ft"]
+					if shared_tape is None:
+						shared_tape = best
+				else:
+					row[f"delivered_lumens_{slug}"] = ""
+					row[f"watts_per_foot_{slug}"] = ""
+					row[f"max_run_length_ft_{slug}"] = ""
+
+			if shared_tape is None:
+				shared_tape = cct_tapes[0] if cct_tapes else tape_data[0]
+
+			row["cri_quality"] = _format_cri_quality(shared_tape["cri_doc"], shared_tape["sdcm"])
+			row["led_pitch_mm"] = shared_tape["led_pitch_mm"]
+			row["production_interval"] = _format_production_interval(
+				shared_tape["tape_offering"], shared_tape["tape_spec"]
+			)
+
+			for col in all_cols:
+				row.setdefault(col, "")
+
+			yield row
 
 
 def _generate_csv(wp_doc):
 	"""Return CSV content as a string."""
 	product_data = _collect_product_data(wp_doc)
-	lens_map = _get_lens_appearances(wp_doc)
-	dynamic_cols = _build_lens_columns(lens_map)
 
 	output = io.StringIO()
 	writer = csv.writer(output)
 
-	headers = PRODUCT_COLUMNS + VARIANT_COLUMNS + dynamic_cols
+	headers = PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS
 	writer.writerow(headers)
 
-	for row in _collect_variant_rows(wp_doc, product_data, lens_map):
+	for row in _collect_variant_rows(wp_doc, product_data):
 		writer.writerow([row.get(col, "") for col in headers])
 
 	return output.getvalue()
