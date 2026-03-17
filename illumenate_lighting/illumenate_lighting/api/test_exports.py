@@ -353,3 +353,104 @@ class TestDriverPricingInExports(FrappeTestCase):
 		# Schedule total = 300.00 (fixture) + 136.50 (driver) = 436.50
 		self.assertIn("$436.50", html)
 		self.assertIn("Schedule Total", html)
+
+
+class TestSpecSheetExport(FrappeTestCase):
+	"""Test cases for spec sheet CSV export restructuring."""
+
+	def test_removed_columns_not_in_product_columns(self):
+		"""Verify removed product columns are absent."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import PRODUCT_COLUMNS
+
+		removed = [
+			"series_name", "series_code", "template_code", "led_package_type",
+			"profile_width_mm", "profile_height_mm", "profile_weight_per_meter_g",
+			"max_assembled_length_mm", "fixture_weight_per_foot_g", "driver_input_voltage",
+		]
+		for col in removed:
+			self.assertNotIn(col, PRODUCT_COLUMNS, f"{col} should have been removed from PRODUCT_COLUMNS")
+
+	def test_removed_columns_not_in_variant_columns(self):
+		"""Verify removed variant columns are absent."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import VARIANT_COLUMNS
+
+		removed = [
+			"cri_minimum_ra", "efficacy_lm_per_w", "tape_lumens_per_foot",
+			"delivered_lumens_per_foot", "watts_per_foot", "max_run_length_ft",
+		]
+		for col in removed:
+			self.assertNotIn(col, VARIANT_COLUMNS, f"{col} should have been removed from VARIANT_COLUMNS")
+
+	def test_new_product_columns_present(self):
+		"""Verify new product-level columns are included."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import PRODUCT_COLUMNS
+
+		for col in ["long_description", "sublabel", "profile_dimensions", "input_voltage"]:
+			self.assertIn(col, PRODUCT_COLUMNS, f"{col} missing from PRODUCT_COLUMNS")
+
+	def test_new_variant_columns_present(self):
+		"""Verify production_interval is present in VARIANT_COLUMNS."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import VARIANT_COLUMNS
+
+		self.assertIn("production_interval", VARIANT_COLUMNS)
+
+	def test_lens_slug(self):
+		"""Test _lens_slug produces correct slugs."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _lens_slug
+
+		self.assertEqual(_lens_slug("Clear"), "clear")
+		self.assertEqual(_lens_slug("Frosted White"), "frosted_white")
+		self.assertEqual(_lens_slug("  Opal  "), "opal")
+		self.assertEqual(_lens_slug(None), "")
+		self.assertEqual(_lens_slug(""), "")
+
+	def test_build_lens_columns(self):
+		"""Test dynamic lens column generation."""
+		from collections import OrderedDict
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _build_lens_columns
+
+		lens_map = OrderedDict([("Clear", 0.95), ("Frosted White", 0.80)])
+		cols = _build_lens_columns(lens_map)
+
+		expected = [
+			"delivered_lumens_clear", "watts_per_foot_clear", "max_run_ft_clear",
+			"delivered_lumens_frosted_white", "watts_per_foot_frosted_white", "max_run_ft_frosted_white",
+		]
+		self.assertEqual(cols, expected)
+
+	def test_build_lens_columns_empty(self):
+		"""No lenses → no dynamic columns."""
+		from collections import OrderedDict
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _build_lens_columns
+
+		self.assertEqual(_build_lens_columns(OrderedDict()), [])
+
+	def test_format_production_interval(self):
+		"""Test production interval formatting."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=0)
+		tape_spec = SimpleNamespace(cut_increment_mm=50.0)
+		result = _format_production_interval(tape_offering, tape_spec)
+		self.assertIn("50mm", result)
+		self.assertIn('"', result)  # should contain inches symbol
+
+	def test_format_production_interval_override(self):
+		"""Override on tape_offering takes precedence."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=25)
+		tape_spec = SimpleNamespace(cut_increment_mm=50.0)
+		result = _format_production_interval(tape_offering, tape_spec)
+		self.assertIn("25mm", result)
+
+	def test_format_production_interval_zero(self):
+		"""Zero cut increment returns empty string."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=0)
+		tape_spec = SimpleNamespace(cut_increment_mm=0)
+		self.assertEqual(_format_production_interval(tape_offering, tape_spec), "")
