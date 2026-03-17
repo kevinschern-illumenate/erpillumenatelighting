@@ -171,6 +171,11 @@ def _find_closest_fixture_level(delivered_lm_ft, fixture_levels):
 	return closest
 
 
+def _delivered_lumens(tape_lumens, transmission, lumen_multiplier):
+	"""Calculate delivered lumens: tape_lumens × lens_transmission × cct_multiplier."""
+	return tape_lumens * transmission * lumen_multiplier
+
+
 def _collect_product_data(wp_doc):
 	"""Build the product-level dict that repeats on every CSV row."""
 	ft_doc = None
@@ -244,10 +249,8 @@ def _collect_product_data(wp_doc):
 		if elig_rows and elig_rows[0].driver_spec:
 			driver = frappe.get_cached_doc("ilL-Spec-Driver", elig_rows[0].driver_spec)
 			if driver.input_voltage_min and driver.input_voltage_max:
-				driver_voltage_str = (
-					f"{driver.input_voltage_min}V-{driver.input_voltage_max}"
-					f"{driver.input_voltage_type or 'VAC'}"
-				)
+				vtype = driver.input_voltage_type or "VAC"
+				driver_voltage_str = f"{driver.input_voltage_min}V-{driver.input_voltage_max}{vtype}"
 			driver_max_wattage = driver.max_wattage or ""
 
 	if tape_voltage_label and driver_voltage_str:
@@ -367,7 +370,7 @@ def _collect_variant_rows(wp_doc, product_data):
 			ato_lens = getattr(td["ato_row"], "lens_appearance", None) or ""
 			if ato_lens and ato_lens != lens_info["name"]:
 				continue
-			delivered = td["tape_lumens"] * lens_info["transmission"] * td["lumen_multiplier"]
+			delivered = _delivered_lumens(td["tape_lumens"], lens_info["transmission"], td["lumen_multiplier"])
 			closest = _find_closest_fixture_level(delivered, fixture_levels)
 			if closest:
 				output_level_set.add(closest["name"])
@@ -434,7 +437,7 @@ def _collect_variant_rows(wp_doc, product_data):
 				best = None
 				best_diff = float("inf")
 				for td in compatible:
-					delivered = td["tape_lumens"] * lens_info["transmission"] * td["lumen_multiplier"]
+					delivered = _delivered_lumens(td["tape_lumens"], lens_info["transmission"], td["lumen_multiplier"])
 					diff = abs(delivered - output_level["value"])
 					if diff < best_diff:
 						best_diff = diff
@@ -442,7 +445,7 @@ def _collect_variant_rows(wp_doc, product_data):
 
 				if best:
 					delivered_val = round(
-						best["tape_lumens"] * lens_info["transmission"] * best["lumen_multiplier"], 1
+						_delivered_lumens(best["tape_lumens"], lens_info["transmission"], best["lumen_multiplier"]), 1
 					)
 					row[f"delivered_lumens_{slug}"] = delivered_val
 					row[f"watts_per_foot_{slug}"] = best["watts_per_foot"] or ""

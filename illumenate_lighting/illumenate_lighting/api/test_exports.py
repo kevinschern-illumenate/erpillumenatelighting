@@ -425,8 +425,10 @@ class TestSpecSheetExport(FrappeTestCase):
 		"""Verify STANDARD_LENSES maps codes to expected slugs."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import STANDARD_LENSES
 
-		self.assertEqual(list(STANDARD_LENSES.keys()), ["WH", "FR", "CL", "BK"])
-		self.assertEqual(list(STANDARD_LENSES.values()), ["white", "frosted", "clear", "black"])
+		self.assertEqual(
+			dict(STANDARD_LENSES),
+			{"WH": "white", "FR": "frosted", "CL": "clear", "BK": "black"},
+		)
 
 	def test_format_production_interval(self):
 		"""Test production interval formatting."""
