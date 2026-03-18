@@ -794,11 +794,12 @@ class TestSaveTapeNeonTemplateToSchedulePricing(unittest.TestCase):
                     mock_pricing.assert_called_once()
 
                     # Verify variant_selections includes pricing
-                    if hasattr(mock_line, 'variant_selections') and mock_line.variant_selections:
-                        vs = json.loads(mock_line.variant_selections)
-                        self.assertIn("pricing", vs)
-                        self.assertEqual(vs["pricing"]["total_price_msrp"], 350.0)
-                        self.assertEqual(vs["computed"]["total_price_msrp"], 350.0)
+                    vs_json = mock_line.variant_selections
+                    self.assertIsNotNone(vs_json, "variant_selections was not set on the line")
+                    vs = json.loads(vs_json)
+                    self.assertIn("pricing", vs)
+                    self.assertEqual(vs["pricing"]["total_price_msrp"], 350.0)
+                    self.assertEqual(vs["computed"]["total_price_msrp"], 350.0)
 
     def test_pricing_skipped_when_already_computed(self):
         """If computed already has total_price_msrp, pricing should not be recomputed."""
