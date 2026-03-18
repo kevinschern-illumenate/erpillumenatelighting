@@ -317,3 +317,89 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
         # Only 2 components should be present (zero-qty ones were filtered out)
         self.assertEqual(len(result["components"]), 2)
         self.assertTrue(all(c["in_stock"] for c in result["components"]))
+
+
+class TestComputeKitPricing(FrappeTestCase):
+    """Test _compute_kit_pricing helper."""
+
+    def test_basic_kit_pricing(self):
+        """Kit pricing sums Item Prices × quantities."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _compute_kit_pricing,
+        )
+
+        kit_composition = {
+            "profile": {"item": "PROF-001", "qty": 1},
+            "lens": {"item": "LENS-001", "qty": 1},
+            "solid_endcap": {"item": "EC-SOLID-001", "qty": 2},
+            "feed_through_endcap": {"item": "EC-FEED-001", "qty": 2},
+            "mounting": {"item": "MNT-001", "qty": 6},
+        }
+
+        # Profile=$25, Lens=$15, Solid EC=$3, Feed EC=$4, Mounting=$2
+        # Total = 25 + 15 + (3×2) + (4×2) + (2×6) = 25+15+6+8+12 = $66
+        price_map = {
+            "PROF-001": 25.0,
+            "LENS-001": 15.0,
+            "EC-SOLID-001": 3.0,
+            "EC-FEED-001": 4.0,
+            "MNT-001": 2.0,
+        }
+
+        def mock_get_value(doctype, filters, field=None, **kwargs):
+            if doctype == "Item Price":
+                return price_map.get(filters.get("item_code"))
+            return None
+
+        with patch.object(frappe.db, "get_value", side_effect=mock_get_value):
+            result = _compute_kit_pricing(kit_composition)
+
+        self.assertAlmostEqual(result["total_price_msrp"], 66.0, places=2)
+
+    def test_kit_pricing_missing_item(self):
+        """Components with missing item codes are skipped."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _compute_kit_pricing,
+        )
+
+        kit_composition = {
+            "profile": {"item": "PROF-001", "qty": 1},
+            "lens": {"item": None, "qty": 1},  # No item resolved
+        }
+
+        def mock_get_value(doctype, filters, field=None, **kwargs):
+            if doctype == "Item Price" and filters.get("item_code") == "PROF-001":
+                return 25.0
+            return None
+
+        with patch.object(frappe.db, "get_value", side_effect=mock_get_value):
+            result = _compute_kit_pricing(kit_composition)
+
+        self.assertAlmostEqual(result["total_price_msrp"], 25.0, places=2)
+
+    def test_kit_pricing_no_prices(self):
+        """When no Item Prices exist, total should be 0."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _compute_kit_pricing,
+        )
+
+        kit_composition = {
+            "profile": {"item": "PROF-001", "qty": 1},
+        }
+
+        with patch.object(frappe.db, "get_value", return_value=None):
+            result = _compute_kit_pricing(kit_composition)
+
+        self.assertEqual(result["total_price_msrp"], 0)
+
+    def test_kit_pricing_empty_composition(self):
+        """Empty kit composition returns 0."""
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _compute_kit_pricing,
+        )
+
+        result = _compute_kit_pricing({})
+        self.assertEqual(result["total_price_msrp"], 0)

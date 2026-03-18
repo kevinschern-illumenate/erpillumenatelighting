@@ -8,6 +8,7 @@ Reusable helpers for resolving customer-specific tier pricing via ERPNext Pricin
 and BOM-level stock availability checks against ``tabBin``.
 """
 
+import math
 from typing import Any
 
 import frappe
@@ -173,9 +174,70 @@ def _is_privileged_user() -> bool:
     return _is_dealer_user(user) or _is_internal_user(user)
 
 
+def _resolve_bundle_stock(item_codes: list[str]) -> dict[str, float]:
+    """
+    For any item codes that are Product Bundles, compute effective stock as
+    ``min(floor(child_available / child_qty_per_bundle))`` across all children.
+
+    Items that are *not* Product Bundles are omitted from the result.
+
+    Returns:
+        Mapping of bundle item_code → computed available qty.
+    """
+    if not item_codes:
+        return {}
+
+    placeholders = ", ".join(["%s"] * len(item_codes))
+    bundle_children = frappe.db.sql(
+        f"""SELECT pb.new_item_code AS bundle_item, pbi.item_code, pbi.qty
+           FROM `tabProduct Bundle` pb
+           JOIN `tabProduct Bundle Item` pbi ON pbi.parent = pb.name
+           WHERE pb.new_item_code IN ({placeholders})
+             AND pb.disabled = 0""",
+        tuple(item_codes),
+        as_dict=True,
+    )
+
+    if not bundle_children:
+        return {}
+
+    # Gather all child item codes for a single Bin query
+    child_codes = list({r.item_code for r in bundle_children})
+    child_placeholders = ", ".join(["%s"] * len(child_codes))
+    child_rows = frappe.db.sql(
+        f"""SELECT item_code, IFNULL(SUM(actual_qty), 0) AS total_qty
+           FROM `tabBin`
+           WHERE item_code IN ({child_placeholders})
+           GROUP BY item_code""",
+        tuple(child_codes),
+        as_dict=True,
+    )
+    child_stock = {r.item_code: flt(r.total_qty) for r in child_rows}
+
+    # Compute effective stock per bundle
+    bundle_stock: dict[str, float] = {}
+    for row in bundle_children:
+        child_avail = child_stock.get(row.item_code, 0.0)
+        child_qty = flt(row.qty)
+        if child_qty <= 0:
+            kits = 0
+        else:
+            kits = math.floor(child_avail / child_qty)
+        # Take min across all children of this bundle
+        if row.bundle_item not in bundle_stock:
+            bundle_stock[row.bundle_item] = kits
+        else:
+            bundle_stock[row.bundle_item] = min(bundle_stock[row.bundle_item], kits)
+
+    return bundle_stock
+
+
 def _bulk_stock_query(item_codes: list[str]) -> dict[str, float]:
     """
     Query ``tabBin`` for actual_qty summed across all warehouses.
+
+    Product Bundle items (virtual items with no Bin entries) are automatically
+    detected and their stock is computed from child component availability.
 
     Args:
         item_codes: List of distinct item codes.
@@ -200,6 +262,11 @@ def _bulk_stock_query(item_codes: list[str]) -> dict[str, float]:
     # Ensure every requested item appears (even with 0)
     for ic in item_codes:
         stock_map.setdefault(ic, 0.0)
+
+    # Resolve Product Bundle items → computed stock from children
+    bundle_stock = _resolve_bundle_stock(item_codes)
+    stock_map.update(bundle_stock)
+
     return stock_map
 
 

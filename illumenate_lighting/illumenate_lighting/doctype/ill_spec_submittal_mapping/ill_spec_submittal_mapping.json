@@ -22,7 +22,11 @@
                         "transformation_section",
                         "transformation",
                         "webflow_section",
-                        "webflow_field"
+                        "webflow_field",
+                        "webflow_prefix_suffix",
+                        "column_break_webflow_prefix_suffix",
+                        "webflow_prefix",
+                        "webflow_suffix"
                     ],
     "fields":  [
                    {
@@ -119,7 +123,32 @@
                        "fieldname":  "webflow_field",
                        "fieldtype":  "Select",
                        "label":  "Webflow Field",
-                       "options":  "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft"
+                       "options":  "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction"
+                   },
+                   {
+                       "description":  "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely.",
+                       "fieldname":  "webflow_prefix_suffix",
+                       "fieldtype":  "Select",
+                       "label":  "Webflow Prefix/Suffix",
+                       "options":  "\nKeep\nOverride\nNone"
+                   },
+                   {
+                       "fieldname":  "column_break_webflow_prefix_suffix",
+                       "fieldtype":  "Column Break"
+                   },
+                   {
+                       "depends_on":  "eval:doc.webflow_prefix_suffix=='Override'",
+                       "description":  "Text to prepend before the Webflow override value",
+                       "fieldname":  "webflow_prefix",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Prefix"
+                   },
+                   {
+                       "depends_on":  "eval:doc.webflow_prefix_suffix=='Override'",
+                       "description":  "Text to append after the Webflow override value",
+                       "fieldname":  "webflow_suffix",
+                       "fieldtype":  "Data",
+                       "label":  "Webflow Suffix"
                    }
                ],
     "grid_page_length":  50,

@@ -22,6 +22,29 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					frm.save();
 				}, __("Actions"));
 			}
+
+			// Spec Sheet CSV export (Fixture Template with linked template only)
+			if (frm.doc.product_type === "Fixture Template" && frm.doc.fixture_template) {
+				frm.add_custom_button(__("Export Spec Sheet CSV"), function() {
+					frappe.call({
+						method: "illumenate_lighting.illumenate_lighting.api.spec_sheet_export.export_spec_sheet_csv",
+						args: { webflow_product: frm.doc.name },
+						freeze: true,
+						freeze_message: __("Generating spec sheet CSV…"),
+						callback(r) {
+							if (r.message && r.message.success) {
+								frappe.show_alert({
+									message: __("CSV exported: {0}", [r.message.file_name]),
+									indicator: "green"
+								});
+								window.open(r.message.file_url);
+							} else {
+								frappe.msgprint(r.message ? r.message.error : __("Export failed."));
+							}
+						}
+					});
+				}, __("Actions"));
+			}
 		}
 
 		// Show sync status indicator

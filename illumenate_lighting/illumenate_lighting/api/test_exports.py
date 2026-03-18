@@ -353,3 +353,348 @@ class TestDriverPricingInExports(FrappeTestCase):
 		# Schedule total = 300.00 (fixture) + 136.50 (driver) = 436.50
 		self.assertIn("$436.50", html)
 		self.assertIn("Schedule Total", html)
+
+
+class TestSpecSheetExport(FrappeTestCase):
+	"""Test cases for spec sheet CSV export restructuring."""
+
+	def test_removed_columns_not_in_product_columns(self):
+		"""Verify removed product columns are absent."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import PRODUCT_COLUMNS
+
+		removed = [
+			"series_name", "series_code", "template_code", "led_package_type",
+			"profile_width_mm", "profile_height_mm", "profile_weight_per_meter_g",
+			"max_assembled_length_mm", "fixture_weight_per_foot_g", "driver_input_voltage",
+		]
+		for col in removed:
+			self.assertNotIn(col, PRODUCT_COLUMNS, f"{col} should have been removed from PRODUCT_COLUMNS")
+
+	def test_removed_columns_not_in_variant_columns(self):
+		"""Verify removed variant columns are absent."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import VARIANT_COLUMNS
+
+		removed = [
+			"cri_name", "cri_r9", "sdcm", "output_level",
+			"cri_minimum_ra", "efficacy_lm_per_w", "tape_lumens_per_foot",
+			"delivered_lumens_per_foot", "watts_per_foot", "max_run_length_ft",
+		]
+		for col in removed:
+			self.assertNotIn(col, VARIANT_COLUMNS, f"{col} should have been removed from VARIANT_COLUMNS")
+
+	def test_new_product_columns_present(self):
+		"""Verify new product-level columns are included."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import PRODUCT_COLUMNS
+
+		for col in ["long_description", "sublabel", "profile_dimensions", "input_voltage"]:
+			self.assertIn(col, PRODUCT_COLUMNS, f"{col} missing from PRODUCT_COLUMNS")
+
+	def test_new_variant_columns_present(self):
+		"""Verify new variant-level columns are present in VARIANT_COLUMNS."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import VARIANT_COLUMNS
+
+		for col in ["cri_quality", "fixture_output_level", "production_interval"]:
+			self.assertIn(col, VARIANT_COLUMNS, f"{col} missing from VARIANT_COLUMNS")
+
+	def test_lens_slug(self):
+		"""Test _lens_slug produces correct slugs."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _lens_slug
+
+		self.assertEqual(_lens_slug("Clear"), "clear")
+		self.assertEqual(_lens_slug("Frosted White"), "frosted_white")
+		self.assertEqual(_lens_slug("  Opal  "), "opal")
+		self.assertEqual(_lens_slug(None), "")
+		self.assertEqual(_lens_slug(""), "")
+
+	def test_build_lens_columns(self):
+		"""Fixed 4 standard lens column groups are generated."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _build_lens_columns, LENS_COLUMNS
+
+		cols = _build_lens_columns()
+
+		expected = [
+			"delivered_lumens_white", "watts_per_foot_white", "max_run_length_ft_white",
+			"delivered_lumens_frosted", "watts_per_foot_frosted", "max_run_length_ft_frosted",
+			"delivered_lumens_clear", "watts_per_foot_clear", "max_run_length_ft_clear",
+			"delivered_lumens_black", "watts_per_foot_black", "max_run_length_ft_black",
+		]
+		self.assertEqual(cols, expected)
+		self.assertEqual(LENS_COLUMNS, expected)
+
+	def test_standard_lenses_mapping(self):
+		"""Verify STANDARD_LENSES maps codes to expected slugs."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import STANDARD_LENSES
+
+		self.assertEqual(
+			dict(STANDARD_LENSES),
+			{"WH": "white", "FR": "frosted", "CL": "clear", "BK": "black"},
+		)
+
+	def test_format_production_interval(self):
+		"""Test production interval formatting."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=0)
+		tape_spec = SimpleNamespace(cut_increment_mm=50.0)
+		result = _format_production_interval(tape_offering, tape_spec)
+		self.assertIn("50mm", result)
+		self.assertIn('"', result)  # should contain inches symbol
+
+	def test_format_production_interval_override(self):
+		"""Override on tape_offering takes precedence."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=25)
+		tape_spec = SimpleNamespace(cut_increment_mm=50.0)
+		result = _format_production_interval(tape_offering, tape_spec)
+		self.assertIn("25mm", result)
+
+	def test_format_production_interval_zero(self):
+		"""Zero cut increment returns empty string."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=0)
+		tape_spec = SimpleNamespace(cut_increment_mm=0)
+		self.assertEqual(_format_production_interval(tape_offering, tape_spec), "")
+
+	def test_format_cri_quality_full(self):
+		"""CRI quality with cri_name and SDCM."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		cri_doc = SimpleNamespace(cri_name="95 CRI")
+		result = _format_cri_quality(cri_doc, 2)
+		self.assertEqual(result, "95 CRI / 2 SDCM")
+
+	def test_format_cri_quality_no_sdcm(self):
+		"""CRI quality without SDCM."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		cri_doc = SimpleNamespace(cri_name="90 CRI")
+		result = _format_cri_quality(cri_doc, "")
+		self.assertEqual(result, "90 CRI")
+
+	def test_format_cri_quality_sdcm_only(self):
+		"""SDCM only (no CRI doc) returns SDCM string."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		self.assertEqual(_format_cri_quality(None, 3), "3 SDCM")
+
+	def test_format_cri_quality_none(self):
+		"""No CRI doc returns empty string."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
+
+		self.assertEqual(_format_cri_quality(None, ""), "")
+
+	def test_find_closest_fixture_level(self):
+		"""Finds the output level closest to delivered lumens."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _find_closest_fixture_level
+
+		levels = [
+			{"name": "L1", "value": 200, "output_level_name": "Low"},
+			{"name": "L2", "value": 400, "output_level_name": "Medium"},
+			{"name": "L3", "value": 600, "output_level_name": "High"},
+		]
+		self.assertEqual(_find_closest_fixture_level(350, levels)["name"], "L2")
+		self.assertEqual(_find_closest_fixture_level(100, levels)["name"], "L1")
+		self.assertEqual(_find_closest_fixture_level(550, levels)["name"], "L3")
+		self.assertIsNone(_find_closest_fixture_level(350, []))
+
+	# ── InDesign pivot tests ──
+
+	def test_parse_output_level_sort_key(self):
+		"""Leading integer is extracted for sorting."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _parse_output_level_sort_key
+
+		self.assertEqual(_parse_output_level_sort_key("200 lm/ft"), 200)
+		self.assertEqual(_parse_output_level_sort_key("50 lm/ft"), 50)
+		self.assertEqual(_parse_output_level_sort_key("High"), 0)
+		self.assertEqual(_parse_output_level_sort_key(""), 0)
+		self.assertEqual(_parse_output_level_sort_key(None), 0)
+
+	def test_pivot_to_indesign_column_structure(self):
+		"""Verify pivoted headers contain expected dynamic columns."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign,
+			INDESIGN_PRODUCT_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "Test Product",
+			"input_voltage": "24V",
+			"certifications": "UL",
+			"available_lenses": "White, Frosted",
+			"available_finishes": "Silver",
+			"profile_dimensions": "1×2×3",
+		}
+
+		variant_rows = [
+			{
+				"cct_name": "3000K", "cct_kelvin": 3000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 190.0, "watts_per_foot_white": 4.5, "max_run_length_ft_white": 20,
+				"delivered_lumens_frosted": 170.0, "watts_per_foot_frosted": 4.5, "max_run_length_ft_frosted": 20,
+				"delivered_lumens_clear": 210.0, "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 160.0, "watts_per_foot_black": 4.5, "max_run_length_ft_black": 18,
+			},
+			{
+				"cct_name": "4000K", "cct_kelvin": 4000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 200.0, "watts_per_foot_white": 5.0, "max_run_length_ft_white": 18,
+				"delivered_lumens_frosted": 180.0, "watts_per_foot_frosted": 5.0, "max_run_length_ft_frosted": 18,
+				"delivered_lumens_clear": 220.0, "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 170.0, "watts_per_foot_black": 5.0, "max_run_length_ft_black": 16,
+			},
+			{
+				"cct_name": "3000K", "cct_kelvin": 3000,
+				"fixture_output_level": "400 lm/ft",
+				"delivered_lumens_white": 390.0, "watts_per_foot_white": 9.0, "max_run_length_ft_white": 10,
+				"delivered_lumens_frosted": 350.0, "watts_per_foot_frosted": 9.0, "max_run_length_ft_frosted": 10,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": "", "watts_per_foot_black": "", "max_run_length_ft_black": "",
+			},
+			{
+				"cct_name": "4000K", "cct_kelvin": 4000,
+				"fixture_output_level": "400 lm/ft",
+				"delivered_lumens_white": 410.0, "watts_per_foot_white": 10.0, "max_run_length_ft_white": 9,
+				"delivered_lumens_frosted": 370.0, "watts_per_foot_frosted": 10.0, "max_run_length_ft_frosted": 9,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": "", "watts_per_foot_black": "", "max_run_length_ft_black": "",
+			},
+		]
+
+		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Static product columns come first
+		for col in INDESIGN_PRODUCT_COLUMNS:
+			self.assertIn(col, headers)
+
+		# 2 CCTs → 2 Light Color columns
+		self.assertIn("Light Color (CCT) 1", headers)
+		self.assertIn("Light Color (CCT) 2", headers)
+
+		# 2 output levels → Output Options 1, 2
+		self.assertIn("Output Options 1", headers)
+		self.assertIn("Output Options 2", headers)
+
+		# Per-output watt/run columns for lens groups
+		self.assertIn("Watts per Foot (White Lens) 1", headers)
+		self.assertIn("Max Run Length (White Lens) 1", headers)
+		self.assertIn("Watts per Foot (Black Lens) 1", headers)
+		self.assertIn("Max Run Length (Other Lenses) 2", headers)
+
+		# Lumen columns per output × CCT
+		self.assertIn("White Lens - Output 1 - Lumen 1", headers)
+		self.assertIn("Black Lens - Output 1 - Lumen 2", headers)
+		self.assertIn("Frosted Lens - Output 2 - Lumen 1", headers)
+		self.assertIn("Clear Lens - Output 2 - Lumen 2", headers)
+
+	def test_pivot_to_indesign_values_and_aggregation(self):
+		"""Verify aggregated values, suffixes, and lumen pass-through."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "Agg Test",
+			"input_voltage": "24V",
+			"certifications": "UL",
+			"available_lenses": "White",
+			"available_finishes": "Silver",
+			"profile_dimensions": "1×2",
+		}
+
+		variant_rows = [
+			{
+				"cct_name": "3000K", "cct_kelvin": 3000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 190.0, "watts_per_foot_white": 4.5, "max_run_length_ft_white": 20,
+				"delivered_lumens_frosted": 170.0, "watts_per_foot_frosted": 4.5, "max_run_length_ft_frosted": 20,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 160.0, "watts_per_foot_black": 4.0, "max_run_length_ft_black": 22,
+			},
+			{
+				"cct_name": "4000K", "cct_kelvin": 4000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 200.0, "watts_per_foot_white": 5.0, "max_run_length_ft_white": 18,
+				"delivered_lumens_frosted": 180.0, "watts_per_foot_frosted": 5.0, "max_run_length_ft_frosted": 15,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 170.0, "watts_per_foot_black": 5.0, "max_run_length_ft_black": 16,
+			},
+		]
+
+		_headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Static values
+		self.assertEqual(data_row["Product Name"], "Agg Test")
+		self.assertEqual(data_row["Input Voltage"], "24V")
+
+		# CCT columns sorted by kelvin
+		self.assertEqual(data_row["Light Color (CCT) 1"], "3000K")
+		self.assertEqual(data_row["Light Color (CCT) 2"], "4000K")
+
+		# Output options
+		self.assertEqual(data_row["Output Options 1"], "200 lm/ft")
+
+		# Watts per foot: max() across CCTs with "W" suffix
+		# White: max(4.5, 5.0) = 5.0 → "5W"
+		self.assertEqual(data_row["Watts per Foot (White Lens) 1"], "5W")
+		# Black: max(4.0, 5.0) = 5.0 → "5W"
+		self.assertEqual(data_row["Watts per Foot (Black Lens) 1"], "5W")
+		# Other Lenses (frosted): max(4.5, 5.0) = 5.0 → "5W"
+		self.assertEqual(data_row["Watts per Foot (Other Lenses) 1"], "5W")
+
+		# Max run length: min() across CCTs with "ft" suffix
+		# White: min(20, 18) = 18 → "18ft"
+		self.assertEqual(data_row["Max Run Length (White Lens) 1"], "18ft")
+		# Black: min(22, 16) = 16 → "16ft"
+		self.assertEqual(data_row["Max Run Length (Black Lens) 1"], "16ft")
+		# Other Lenses (frosted): min(20, 15) = 15 → "15ft"
+		self.assertEqual(data_row["Max Run Length (Other Lenses) 1"], "15ft")
+
+		# Lumen pass-through (first value for each CCT × output)
+		self.assertEqual(data_row["White Lens - Output 1 - Lumen 1"], 190.0)
+		self.assertEqual(data_row["White Lens - Output 1 - Lumen 2"], 200.0)
+		self.assertEqual(data_row["Black Lens - Output 1 - Lumen 1"], 160.0)
+		self.assertEqual(data_row["Frosted Lens - Output 1 - Lumen 1"], 170.0)
+
+	def test_pivot_to_indesign_empty_variant_rows(self):
+		"""Pivot with no variant rows produces only static product columns."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign,
+			INDESIGN_PRODUCT_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "Empty", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+
+		headers, data_row = _pivot_to_indesign(product_data, [])
+
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
+		self.assertEqual(data_row["Product Name"], "Empty")
+
+	def test_pivot_to_indesign_output_level_sort_order(self):
+		"""Output levels are sorted by leading integer, not lexicographically."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "Sort Test", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+
+		variant_rows = [
+			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "400 lm/ft"},
+			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "50 lm/ft"},
+			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "200 lm/ft"},
+		]
+
+		_headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Sorted by leading int: 50, 200, 400
+		self.assertEqual(data_row["Output Options 1"], "50 lm/ft")
+		self.assertEqual(data_row["Output Options 2"], "200 lm/ft")
+		self.assertEqual(data_row["Output Options 3"], "400 lm/ft")

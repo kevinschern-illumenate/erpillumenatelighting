@@ -373,18 +373,19 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
 	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	webflow_fields = ["webflow_field", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
 			"ilL-Spec-Submittal-Mapping",
 			filters={"fixture_template": fixture_template_name},
-			fields=base_fields + ["webflow_field"],
+			fields=base_fields + webflow_fields,
 		)
 	except Exception as e:
-		# webflow_field column may not exist yet if migration is pending;
+		# webflow columns may not exist yet if migration is pending;
 		# log the error so it's not silently masked, then fall back.
 		frappe.log_error(
-			title="Spec Submittal: webflow_field query failed, falling back",
-			message=f"Error querying webflow_field for {fixture_template_name}: {e}",
+			title="Spec Submittal: webflow fields query failed, falling back",
+			message=f"Error querying webflow fields for {fixture_template_name}: {e}",
 		)
 		return frappe.get_all(
 			"ilL-Spec-Submittal-Mapping",
@@ -1274,7 +1275,8 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 
 			# Check for webflow override first
 			webflow_key = mapping.get("webflow_field")
-			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
+			webflow_active = webflow_key and webflow_overrides and webflow_key in webflow_overrides
+			if webflow_active:
 				value = webflow_overrides[webflow_key]
 				_debug(
 					f"  mapping[{pdf_field}]: WEBFLOW OVERRIDE {webflow_key!r} → {value!r}",
@@ -1302,8 +1304,25 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+
+			# Determine prefix/suffix based on webflow_prefix_suffix setting
+			if webflow_active:
+				ps_mode = mapping.get("webflow_prefix_suffix") or "Keep"
+				if ps_mode == "Override":
+					prefix = mapping.get("webflow_prefix")
+					suffix = mapping.get("webflow_suffix")
+				elif ps_mode == "None":
+					prefix = None
+					suffix = None
+				else:  # Keep or blank
+					prefix = mapping.get("prefix")
+					suffix = mapping.get("suffix")
+			else:
+				prefix = mapping.get("prefix")
+				suffix = mapping.get("suffix")
+
 			transformed_value = _apply_prefix_suffix(
-				transformed_value, mapping.get("prefix"), mapping.get("suffix")
+				transformed_value, prefix, suffix
 			)
 			field_values[pdf_field] = transformed_value
 			_debug(
@@ -1502,18 +1521,19 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
 	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	webflow_fields = ["webflow_field", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
 			"ilL-Neon-Submittal-Mapping",
 			filters={"tape_neon_template": tape_neon_template_name},
-			fields=base_fields + ["webflow_field"],
+			fields=base_fields + webflow_fields,
 		)
 	except Exception as e:
-		# webflow_field column may not exist yet if migration is pending;
+		# webflow columns may not exist yet if migration is pending;
 		# log the error so it's not silently masked, then fall back.
 		frappe.log_error(
-			title="Neon Submittal: webflow_field query failed, falling back",
-			message=f"Error querying webflow_field for {tape_neon_template_name}: {e}",
+			title="Neon Submittal: webflow fields query failed, falling back",
+			message=f"Error querying webflow fields for {tape_neon_template_name}: {e}",
 		)
 		return frappe.get_all(
 			"ilL-Neon-Submittal-Mapping",
@@ -1642,7 +1662,8 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 
 			# Check for webflow override first
 			webflow_key = mapping.get("webflow_field")
-			if webflow_key and webflow_overrides and webflow_key in webflow_overrides:
+			webflow_active = webflow_key and webflow_overrides and webflow_key in webflow_overrides
+			if webflow_active:
 				value = webflow_overrides[webflow_key]
 				_debug(
 					f"  mapping[{pdf_field}]: WEBFLOW OVERRIDE {webflow_key!r} → {value!r}",
@@ -1670,8 +1691,25 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+
+			# Determine prefix/suffix based on webflow_prefix_suffix setting
+			if webflow_active:
+				ps_mode = mapping.get("webflow_prefix_suffix") or "Keep"
+				if ps_mode == "Override":
+					prefix = mapping.get("webflow_prefix")
+					suffix = mapping.get("webflow_suffix")
+				elif ps_mode == "None":
+					prefix = None
+					suffix = None
+				else:  # Keep or blank
+					prefix = mapping.get("prefix")
+					suffix = mapping.get("suffix")
+			else:
+				prefix = mapping.get("prefix")
+				suffix = mapping.get("suffix")
+
 			transformed_value = _apply_prefix_suffix(
-				transformed_value, mapping.get("prefix"), mapping.get("suffix")
+				transformed_value, prefix, suffix
 			)
 			field_values[pdf_field] = transformed_value
 			_debug(

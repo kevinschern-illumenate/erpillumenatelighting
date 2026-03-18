@@ -196,13 +196,11 @@
    "options": "ilL-Attribute-Feed-Direction"
   },
   {
-   "default": "Endcap",
    "depends_on": "eval:!doc.is_multi_segment",
-   "description": "Feed direction at the end of a single-segment fixture (always Endcap with code C)",
+   "description": "Feed direction at the end of a single-segment fixture. 'Endcap' (code C) for single-feed, or a feed direction name for dual-feed.",
    "fieldname": "feed_direction_end",
    "fieldtype": "Data",
-   "label": "Feed Direction - End",
-   "read_only": 1
+   "label": "Feed Direction - End"
   },
   {
    "fieldname": "environment_rating",
