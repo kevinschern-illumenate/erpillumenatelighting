@@ -667,8 +667,10 @@ class TestSpecSheetExport(FrappeTestCase):
 			INDESIGN_PRODUCT_COLUMNS,
 		)
 
-		product_data = {"product_name": "Empty", "input_voltage": "", "certifications": "",
-			"available_lenses": "", "available_finishes": "", "profile_dimensions": ""}
+		product_data = {
+			"product_name": "Empty", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
@@ -679,8 +681,10 @@ class TestSpecSheetExport(FrappeTestCase):
 		"""Output levels are sorted by leading integer, not lexicographically."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
 
-		product_data = {"product_name": "Sort Test", "input_voltage": "", "certifications": "",
-			"available_lenses": "", "available_finishes": "", "profile_dimensions": ""}
+		product_data = {
+			"product_name": "Sort Test", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
 
 		variant_rows = [
 			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "400 lm/ft"},
