@@ -461,30 +461,28 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(_format_production_interval(tape_offering, tape_spec), "")
 
 	def test_format_cri_quality_full(self):
-		"""CRI quality with Ra, R9, and SDCM."""
+		"""CRI quality with cri_name and SDCM."""
 		from types import SimpleNamespace
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
 
-		cri_doc = SimpleNamespace(minimum_ra=95, r9=90)
+		cri_doc = SimpleNamespace(cri_name="95 CRI")
 		result = _format_cri_quality(cri_doc, 2)
-		self.assertEqual(result, "95+ / R9 = 90+ / 2 SDCM")
+		self.assertEqual(result, "95 CRI / 2 SDCM")
 
-	def test_format_cri_quality_no_r9(self):
-		"""CRI quality without R9."""
+	def test_format_cri_quality_no_sdcm(self):
+		"""CRI quality without SDCM."""
 		from types import SimpleNamespace
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
 
-		cri_doc = SimpleNamespace(minimum_ra=90, r9=0)
-		result = _format_cri_quality(cri_doc, 3)
-		self.assertEqual(result, "90+ / 3 SDCM")
+		cri_doc = SimpleNamespace(cri_name="90 CRI")
+		result = _format_cri_quality(cri_doc, "")
+		self.assertEqual(result, "90 CRI")
 
-	def test_format_cri_quality_ra_only(self):
-		"""CRI quality with Ra only."""
-		from types import SimpleNamespace
+	def test_format_cri_quality_sdcm_only(self):
+		"""SDCM only (no CRI doc) returns SDCM string."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_cri_quality
 
-		cri_doc = SimpleNamespace(minimum_ra=80, r9=0)
-		self.assertEqual(_format_cri_quality(cri_doc, ""), "80+")
+		self.assertEqual(_format_cri_quality(None, 3), "3 SDCM")
 
 	def test_format_cri_quality_none(self):
 		"""No CRI doc returns empty string."""
