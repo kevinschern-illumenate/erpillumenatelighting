@@ -959,7 +959,7 @@ class ilLWebflowProduct(Document):
 			specs_to_add.append({
 				"spec_group": "Optical",
 				"spec_label": "Light Color (CCT)",
-				"spec_value": " + ".join(ccts),
+				"spec_value": ", ".join(ccts),
 				"is_calculated": 1,
 				"display_order": 20,
 				"attribute_doctype": "ilL-Attribute-CCT",
@@ -1044,6 +1044,20 @@ class ilLWebflowProduct(Document):
 				"display_order": 80,
 				"attribute_doctype": "ilL-Attribute-Environment Rating",
 				"attribute_options_json": frappe.as_json(env_attr_options) if env_attr_options else None
+			})
+
+		# Operating Temperature from webflow product fields
+		if self.operating_temp_min_c is not None and self.operating_temp_max_c is not None:
+			c_min = self.operating_temp_min_c
+			c_max = self.operating_temp_max_c
+			f_min = round(c_min * 9 / 5 + 32)
+			f_max = round(c_max * 9 / 5 + 32)
+			specs_to_add.append({
+				"spec_group": "Environmental",
+				"spec_label": "Operating Temperature",
+				"spec_value": f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)",
+				"is_calculated": 1,
+				"display_order": 82
 			})
 
 		# Dimensions from linked profile spec
