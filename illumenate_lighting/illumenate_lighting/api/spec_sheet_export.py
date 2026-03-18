@@ -208,7 +208,12 @@ def _collect_product_data(wp_doc):
 	attr_links = wp_doc.attribute_links or []
 	finishes = _get_attribute_values_by_type(attr_links, "Finish")
 	lenses = _get_attribute_values_by_type(attr_links, "Lens Appearance")
-	mountings = _get_attribute_values_by_type(attr_links, "Mounting")
+	mounting_set = set()
+	if ft_doc:
+		for opt in (ft_doc.allowed_options or []):
+			if opt.option_type == "Mounting Method" and opt.mounting_method:
+				mounting_set.add(opt.mounting_method)
+	mountings = ", ".join(sorted(mounting_set))
 
 	# --- Environment ratings from profile ---
 	env_ratings = ""
@@ -226,17 +231,6 @@ def _collect_product_data(wp_doc):
 			certs.append(row.certification)
 	certifications = ", ".join(sorted(set(certs)))
 
-	# --- Dimming protocols (from tape offerings' tape specs) ---
-	dimming_set = set()
-	if ft_doc:
-		for ato in (ft_doc.allowed_tape_offerings or []):
-			tape_offering = frappe.get_cached_doc("ilL-Rel-Tape Offering", ato.tape_offering)
-			tape_spec = frappe.get_cached_doc("ilL-Spec-LED Tape", tape_offering.tape_spec)
-			for proto in (tape_spec.supported_dimming_protocols or []):
-				if proto.dimming_protocol:
-					dimming_set.add(proto.dimming_protocol)
-	dimming_protocols = ", ".join(sorted(dimming_set))
-
 	# --- Combined input_voltage: tape voltage + driver voltage range ---
 	input_voltage = ""
 	tape_voltage_label = ""
@@ -249,6 +243,7 @@ def _collect_product_data(wp_doc):
 	# --- Driver info from ilL-Rel-Driver-Eligibility (highest-priority eligible) ---
 	driver_max_wattage = ""
 	driver_voltage_str = ""
+	dimming_protocols = ""
 	if ft_doc:
 		elig_rows = frappe.get_all(
 			"ilL-Rel-Driver-Eligibility",
@@ -267,6 +262,12 @@ def _collect_product_data(wp_doc):
 				vtype = driver.input_voltage_type or "VAC"
 				driver_voltage_str = f"{driver.input_voltage_min}V-{driver.input_voltage_max}{vtype}"
 			driver_max_wattage = driver.max_wattage or ""
+			# --- Dimming protocols from driver's input protocols ---
+			dimming_set = set()
+			for row in (driver.input_protocols or []):
+				if row.protocol:
+					dimming_set.add(row.protocol)
+			dimming_protocols = ", ".join(sorted(dimming_set))
 
 	if tape_voltage_label and driver_voltage_str:
 		input_voltage = f"{tape_voltage_label} (Power Supply: {driver_voltage_str})"
@@ -278,7 +279,17 @@ def _collect_product_data(wp_doc):
 	# --- Operating temp range ---
 	temp_range = ""
 	if wp_doc.operating_temp_min_c is not None and wp_doc.operating_temp_max_c is not None:
-		temp_range = f"{wp_doc.operating_temp_min_c} to {wp_doc.operating_temp_max_c}"
+		c_min = wp_doc.operating_temp_min_c
+		c_max = wp_doc.operating_temp_max_c
+		f_min = round(c_min * 9 / 5 + 32)
+		f_max = round(c_max * 9 / 5 + 32)
+		temp_range = f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)"
+
+	# --- Beam angle formatting ---
+	beam_angle = ""
+	if wp_doc.beam_angle:
+		val = wp_doc.beam_angle
+		beam_angle = f"{int(val)}°" if val == int(val) else f"{val}°"
 
 	return {
 		"product_name": wp_doc.product_name or "",
@@ -287,7 +298,7 @@ def _collect_product_data(wp_doc):
 		"sublabel": wp_doc.sublabel or "",
 		"profile_dimensions": profile_dimensions,
 		"input_voltage": input_voltage,
-		"beam_angle": wp_doc.beam_angle or "",
+		"beam_angle": beam_angle,
 		"operating_temp_range_c": temp_range,
 		"l70_life_hours": wp_doc.l70_life_hours or "",
 		"warranty_years": wp_doc.warranty_years or "",
