@@ -45,6 +45,9 @@ def _compute_kit_pricing(kit_composition):
 	solid endcap, feed-through endcap, mounting) and looks up its Item Price.
 	Multiplies by the component quantity and sums to get total kit MSRP.
 
+	Components with no ``item`` code or no Item Price in the Standard Selling
+	price list are silently treated as zero-cost.
+
 	Args:
 		kit_composition: dict mapping component names to dicts with
 			``item`` (Item code) and ``qty`` (int) keys.

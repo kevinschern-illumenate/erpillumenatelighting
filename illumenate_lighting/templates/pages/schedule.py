@@ -253,9 +253,9 @@ def get_context(context):
 				unit_price = ctn_pricing_map.get(line.configured_tape_neon)
 			elif getattr(line, "product_type", None) == "Extrusion Kit":
 				# Kit pricing stored in variant_selections JSON
-				import json as _json_kit
 				vs_raw = getattr(line, "variant_selections", None)
 				if vs_raw:
+					import json as _json_kit
 					try:
 						vs_data = _json_kit.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
 						kit_pricing = vs_data.get("pricing", {})

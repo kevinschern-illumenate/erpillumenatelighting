@@ -67,10 +67,13 @@ def _compute_tape_neon_pricing(tape_item, leader_cable_item, length_mm, lead_len
 		tape_item: Item code for the tape/neon product
 		leader_cable_item: Item code for the leader cable (may be None)
 		length_mm: Total manufacturable length in mm
-		lead_length_inches: Leader cable length in inches (per run, qty handled by caller)
+		lead_length_inches: Total leader cable length in inches to price.
+			The caller is responsible for including all leader cable length
+			(e.g., if there are multiple runs, pass the combined lead length).
 
 	Returns:
-		dict with ``total_price_msrp`` (float)
+		dict with ``total_price_msrp`` (float). Components with no Item Price
+		in the Standard Selling price list are silently treated as zero-cost.
 	"""
 	total_msrp = 0.0
 
