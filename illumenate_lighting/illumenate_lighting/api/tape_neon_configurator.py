@@ -113,6 +113,127 @@ def _compute_tape_neon_pricing(tape_item, leader_cable_item, length_mm, lead_len
 	return {"total_price_msrp": round(total_msrp, 2)}
 
 
+def _compute_template_tape_neon_pricing(
+	template_name, selections, length_mm, lead_length_inches=0, is_neon=False
+):
+	"""
+	Compute MSRP pricing for a tape/neon product using template-based pricing.
+
+	Formula: total = base_price_msrp + (price_per_ft_msrp × length_ft) + option_adders + leader_cable_pricing
+
+	Args:
+		template_name: Name of the ilL-Tape-Neon-Template record
+		selections: dict of configuration selections (cct, output_level, etc.)
+		length_mm: Total manufacturable length in mm
+		lead_length_inches: Total leader cable length in inches to price
+		is_neon: True if LED Neon, False if LED Tape
+
+	Returns:
+		dict with ``total_price_msrp`` (float) and ``adder_breakdown`` (list of dicts)
+	"""
+	if not template_name:
+		return {"total_price_msrp": 0, "adder_breakdown": []}
+
+	# --- Fetch template pricing fields ---
+	template_pricing = frappe.db.get_value(
+		"ilL-Tape-Neon-Template",
+		template_name,
+		["base_price_msrp", "price_per_ft_msrp"],
+		as_dict=True,
+	)
+	if not template_pricing:
+		return {"total_price_msrp": 0, "adder_breakdown": []}
+
+	base_price = float(template_pricing.get("base_price_msrp") or 0)
+	price_per_ft = float(template_pricing.get("price_per_ft_msrp") or 0)
+
+	# --- Length-based pricing ---
+	length_ft = float(length_mm) / MM_PER_FOOT if length_mm else 0.0
+	length_adder = length_ft * price_per_ft
+
+	adder_breakdown = [
+		{"component": "base", "description": "Base price", "amount": round(base_price, 2)},
+		{
+			"component": "length",
+			"description": f"Length adder ({length_mm:.0f}mm = {length_ft:.2f}ft × ${price_per_ft:.2f}/ft)",
+			"amount": round(length_adder, 2),
+		},
+	]
+
+	# --- Option Adders ---
+	if is_neon:
+		option_map = {
+			"CCT": ("cct", selections.get("cct")),
+			"Output Level": ("output_level", selections.get("output_level")),
+			"Mounting Method": ("mounting_method", selections.get("mounting")),
+			"Finish": ("finish", selections.get("finish")),
+		}
+	else:
+		option_map = {
+			"Environment Rating": ("environment_rating", selections.get("environment_rating")),
+			"CCT": ("cct", selections.get("cct")),
+			"Output Level": ("output_level", selections.get("output_level")),
+			"PCB Mounting": ("pcb_mounting", selections.get("pcb_mounting")),
+			"PCB Finish": ("pcb_finish", selections.get("pcb_finish")),
+			"Power Feed Type": ("power_feed_type", selections.get("feed_type")),
+		}
+
+	total_option_adders = 0.0
+
+	for option_type, (field_name, selected_value) in option_map.items():
+		if not selected_value:
+			continue
+
+		rows = frappe.get_all(
+			"ilL-Child-Tape-Neon-Allowed-Option",
+			filters={
+				"parent": template_name,
+				"parenttype": "ilL-Tape-Neon-Template",
+				"option_type": option_type,
+				field_name: selected_value,
+				"is_active": 1,
+			},
+			fields=["msrp_adder"],
+			limit=1,
+			ignore_permissions=True,
+		)
+
+		option_adder = float(rows[0].msrp_adder or 0) if rows else 0.0
+		total_option_adders += option_adder
+		if option_adder != 0:
+			adder_breakdown.append({
+				"component": field_name,
+				"description": f"{option_type} ({selected_value})",
+				"amount": round(option_adder, 2),
+			})
+
+	# --- Leader cable pricing (same Item Price lookup as existing) ---
+	leader_cable_msrp = 0.0
+	if lead_length_inches:
+		# Look up leader cable item from resolved items or template
+		leader_cable_item = selections.get("_leader_cable_item")
+		if leader_cable_item:
+			leader_price = frappe.db.get_value(
+				"Item Price",
+				{"item_code": leader_cable_item, "price_list": "Standard Selling", "selling": 1},
+				"price_list_rate",
+			)
+			if leader_price:
+				leader_cable_msrp = float(leader_price) * float(lead_length_inches)
+				adder_breakdown.append({
+					"component": "leader_cable",
+					"description": f"Leader cable ({lead_length_inches}in × ${float(leader_price):.2f}/in)",
+					"amount": round(leader_cable_msrp, 2),
+				})
+
+	total_msrp = base_price + length_adder + total_option_adders + leader_cable_msrp
+
+	return {
+		"total_price_msrp": round(total_msrp, 2),
+		"adder_breakdown": adder_breakdown,
+	}
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # LED TAPE CONFIGURATOR
 # ═══════════════════════════════════════════════════════════════════════
@@ -2169,28 +2290,29 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     doc_data["tape_item"] = resolved.get("tape_item")
     doc_data["leader_cable_item"] = resolved.get("leader_cable_item")
 
-    # Compute pricing if not already populated by save_tape_to_schedule
+    # Compute pricing using template-based pricing
     if not computed.get("total_price_msrp"):
-        tape_item = resolved.get("tape_item")
-        leader_cable_item = resolved.get("leader_cable_item")
         if is_neon:
             mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
         else:
             mfg_length_mm = computed.get("manufacturable_length_mm", 0)
         lead_length_inches = computed.get("lead_length_inches", 0)
-        pricing = _compute_tape_neon_pricing(tape_item, leader_cable_item, mfg_length_mm, lead_length_inches)
+        # Pass leader cable item through selections for the pricing function
+        pricing_sel = dict(sel)
+        pricing_sel["_leader_cable_item"] = resolved.get("leader_cable_item")
+        pricing = _compute_template_tape_neon_pricing(
+            template.name, pricing_sel, mfg_length_mm, lead_length_inches, is_neon
+        )
         computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
+    else:
+        pricing = {"adder_breakdown": []}
 
     # Store pricing snapshot as child table rows
     import datetime
     doc_data["pricing_snapshot"] = [{
         "msrp_unit": computed.get("total_price_msrp", 0),
         "tier_unit": computed.get("total_price_tier", 0),
-        "adder_breakdown_json": json.dumps({
-            "computed": computed,
-            "resolved_items": resolved,
-            "selections": sel,
-        }),
+        "adder_breakdown_json": json.dumps(pricing.get("adder_breakdown", [])),
         "timestamp": datetime.datetime.now().isoformat(),
     }]
 
