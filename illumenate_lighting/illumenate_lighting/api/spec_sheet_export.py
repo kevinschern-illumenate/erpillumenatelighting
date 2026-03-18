@@ -20,6 +20,9 @@ from frappe.utils.file_manager import save_file
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	format_length_inches,
 )
+from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
+	compute_profile_dimensions,
+)
 
 
 # ──────────────────────────────────────────────────────────
@@ -111,17 +114,14 @@ def _format_production_interval(tape_offering, tape_spec):
 def _format_cri_quality(cri_doc, sdcm_val):
 	"""Format merged CRI quality string.
 
-	Returns e.g. ``"95+ / R9 = 90+ / 2 SDCM"`` when R9 is present,
-	``"95+ / 2 SDCM"`` when R9 is blank, or just ``"95+"`` if SDCM is
-	also blank.
+	Returns e.g. ``"95 CRI / 2 SDCM"`` when both are present,
+	``"95 CRI"`` when SDCM is blank, or ``"2 SDCM"`` if CRI is absent.
+	Uses the ``cri_name`` field (e.g. "95 CRI") per user preference
+	rather than raw ``minimum_ra``.
 	"""
-	if not cri_doc:
-		return ""
 	parts = []
-	if cri_doc.minimum_ra:
-		parts.append(f"{cri_doc.minimum_ra}+")
-	if cri_doc.r9:
-		parts.append(f"R9 = {cri_doc.r9}+")
+	if cri_doc and getattr(cri_doc, "cri_name", None):
+		parts.append(cri_doc.cri_name)
 	if sdcm_val:
 		parts.append(f"{sdcm_val} SDCM")
 	return " / ".join(parts)
@@ -182,11 +182,26 @@ def _collect_product_data(wp_doc):
 	if wp_doc.fixture_template:
 		ft_doc = frappe.get_cached_doc("ilL-Fixture-Template", wp_doc.fixture_template)
 
-	# --- Profile dimensions (pre-computed read-only field) ---
-	profile_dimensions = ""
+	# --- Resolve profile (direct link → family fallback) ---
+	profile = None
 	if ft_doc and ft_doc.default_profile_spec:
 		profile = frappe.get_cached_doc("ilL-Spec-Profile", ft_doc.default_profile_spec)
-		profile_dimensions = profile.dimensions or ""
+	elif ft_doc and ft_doc.default_profile_family:
+		profile_rows = frappe.get_all(
+			"ilL-Spec-Profile",
+			filters={"family": ft_doc.default_profile_family, "is_active": 1},
+			fields=["name"],
+			limit=1,
+		)
+		if profile_rows:
+			profile = frappe.get_cached_doc("ilL-Spec-Profile", profile_rows[0].name)
+
+	# --- Profile dimensions (stored field → compute fallback) ---
+	profile_dimensions = ""
+	if profile:
+		profile_dimensions = profile.dimensions or compute_profile_dimensions(
+			profile.width_mm, profile.height_mm
+		)
 
 	# --- Attribute lists ---
 	attr_links = wp_doc.attribute_links or []
@@ -196,8 +211,7 @@ def _collect_product_data(wp_doc):
 
 	# --- Environment ratings from profile ---
 	env_ratings = ""
-	if ft_doc and ft_doc.default_profile_spec:
-		profile = frappe.get_cached_doc("ilL-Spec-Profile", ft_doc.default_profile_spec)
+	if profile:
 		ratings = []
 		for row in (profile.supported_environment_ratings or []):
 			if row.environment_rating:
