@@ -787,7 +787,13 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 												{% endif %}
 											</div>
 											<!-- Driver sub-line -->
-											{% if cf_details.get('power_supply') %}
+											{% if cf_details.get('include_power_supply') == 0 %}
+											<div class="driver-sub-line">
+												<div class="small">
+													<span class="badge badge-warning" style="font-weight:normal;"><i class="fa fa-exclamation-circle mr-1"></i>{{ _("Power Supply Not Included") }}</span>
+												</div>
+											</div>
+											{% elif cf_details.get('power_supply') %}
 											<div class="driver-sub-line">
 												<div class="small text-muted">
 													<i class="fa fa-bolt"></i> Driver: <strong>{{ cf_details.get('power_supply') }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') }} units){% endif %}</strong>

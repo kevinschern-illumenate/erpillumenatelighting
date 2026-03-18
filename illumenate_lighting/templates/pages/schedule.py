@@ -421,6 +421,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			"led_package": None,
 			"output_level": None,
 			"estimated_delivered_output": cf.estimated_delivered_output if hasattr(cf, "estimated_delivered_output") else None,
+			"include_power_supply": getattr(cf, "include_power_supply", 1),
 			"power_supply": None,
 			"power_supply_qty": None,
 			"driver_input_voltage": None,

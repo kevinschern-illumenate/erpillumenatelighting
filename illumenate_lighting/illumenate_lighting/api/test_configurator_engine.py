@@ -3115,6 +3115,94 @@ class TestCascadingConfiguratorAPI(FrappeTestCase):
 		error_texts = [msg["text"] for msg in result["messages"] if msg["severity"] == "error"]
 		self.assertTrue(any("Lens" in text for text in error_texts))
 
+	def test_include_power_supply_default(self):
+		"""Test that include_power_supply defaults to True (drivers selected as before)"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+			# include_power_supply not passed — should default to True
+		)
+
+		self.assertIn("resolved_items", result)
+		driver_plan = result["resolved_items"].get("driver_plan", {})
+		# Default behavior: driver plan should NOT have status "not_required"
+		self.assertNotEqual(driver_plan.get("status"), "not_required")
+
+	def test_include_power_supply_false(self):
+		"""Test that include_power_supply=False skips driver selection"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+			include_power_supply=False,
+		)
+
+		self.assertIn("resolved_items", result)
+		driver_plan = result["resolved_items"].get("driver_plan", {})
+		# When power supply excluded: driver plan status should be "not_required"
+		self.assertEqual(driver_plan.get("status"), "not_required")
+		self.assertEqual(driver_plan.get("drivers"), [])
+
+		# If the fixture was created, check that include_power_supply is stored
+		if result.get("configured_fixture_id"):
+			cf = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+			self.assertEqual(cf.include_power_supply, 0)
+			# Should have no drivers child table entries
+			self.assertEqual(len(cf.drivers), 0)
+
+	def test_include_power_supply_string_false(self):
+		"""Test that string '0' / 'false' values are treated as False"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote,
+		)
+
+		# Frappe HTTP API passes values as strings
+		result = validate_and_quote(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_style_start_code=self.endcap_style_code,
+			endcap_style_end_code=self.endcap_style_code,
+			endcap_color_code=self.endcap_color_code,
+			power_feed_type_code=self.power_feed_type_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			requested_overall_length_mm=1000,
+			qty=1,
+			include_power_supply="0",
+		)
+
+		driver_plan = result["resolved_items"].get("driver_plan", {})
+		self.assertEqual(driver_plan.get("status"), "not_required")
+
 	def tearDown(self):
 		"""Clean up test data"""
 		# Clean up configured fixtures
