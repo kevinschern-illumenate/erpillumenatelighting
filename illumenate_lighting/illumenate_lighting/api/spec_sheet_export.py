@@ -191,6 +191,7 @@ def _collect_product_data(wp_doc):
 			"ilL-Spec-Profile",
 			filters={"family": ft_doc.default_profile_family, "is_active": 1},
 			fields=["name"],
+			order_by="name asc",
 			limit=1,
 		)
 		if profile_rows:
