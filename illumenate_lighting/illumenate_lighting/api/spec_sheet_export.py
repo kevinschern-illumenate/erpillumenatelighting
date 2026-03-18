@@ -7,10 +7,16 @@ Spec Sheet CSV Export
 Aggregates all fixture data from linked doctypes into a flat CSV
 (one row per CCT × fixture_output_level, with fixed per-lens columns)
 for InDesign data merge.
+
+Supports two output formats:
+  - ``"flat"`` – one row per CCT × output-level (original format)
+  - ``"indesign"`` – one pivoted row per product with dynamic columns
+    matching the marketing team's InDesign data-merge layout
 """
 
 import csv
 import io
+import re
 from collections import OrderedDict
 
 import frappe
@@ -499,7 +505,7 @@ def _collect_variant_rows(wp_doc, product_data):
 
 
 def _generate_csv(wp_doc):
-	"""Return CSV content as a string."""
+	"""Return CSV content as a string (flat: one row per CCT × output level)."""
 	product_data = _collect_product_data(wp_doc)
 
 	output = io.StringIO()
@@ -515,15 +521,178 @@ def _generate_csv(wp_doc):
 
 
 # ──────────────────────────────────────────────────────────
+# InDesign pivot format
+# ──────────────────────────────────────────────────────────
+
+# Static product columns in the InDesign layout.
+INDESIGN_PRODUCT_COLUMNS = [
+	"Product Name",
+	"Input Voltage",
+	"Certifications",
+	"Lenses",
+	"Finish",
+	"Dimensions (L×W×H)",
+]
+
+# Lens groupings used for per-output-level watt/run columns.
+_INDESIGN_LENS_GROUPS = [
+	("White Lens", "white"),
+	("Black Lens", "black"),
+	("Other Lenses", "frosted"),  # "Other Lenses" = frosted lens data
+]
+
+# Lens names for per-CCT lumen columns (all four standard lenses).
+_INDESIGN_LUMEN_LENSES = [
+	("White Lens", "white"),
+	("Black Lens", "black"),
+	("Frosted Lens", "frosted"),
+	("Clear Lens", "clear"),
+]
+
+
+def _parse_output_level_sort_key(output_level_str):
+	"""Extract leading integer from an output-level string for sorting.
+
+	>>> _parse_output_level_sort_key("200 lm/ft")
+	200
+	>>> _parse_output_level_sort_key("High")
+	0
+	"""
+	match = re.match(r"(\d+)", output_level_str or "")
+	return int(match.group(1)) if match else 0
+
+
+def _fmt_num(val):
+	"""Format a numeric value, stripping trailing '.0' for whole numbers."""
+	if val == int(val):
+		return str(int(val))
+	return str(val)
+
+
+def _safe_float(val):
+	"""Convert *val* to float, returning ``None`` for blanks / non-numeric."""
+	if val == "" or val is None:
+		return None
+	try:
+		return float(val)
+	except (TypeError, ValueError):
+		return None
+
+
+def _pivot_to_indesign(product_data, variant_rows):
+	"""Pivot flat variant rows into one InDesign data-merge row.
+
+	Returns ``(headers, data_row)`` where *headers* is a list of column
+	names and *data_row* is a dict keyed by those names.
+	"""
+	# ── 1. Unique CCTs sorted by kelvin ──
+	ccts = []
+	seen_ccts = set()
+	for row in variant_rows:
+		cct = row.get("cct_name", "")
+		if cct and cct not in seen_ccts:
+			seen_ccts.add(cct)
+			ccts.append((cct, row.get("cct_kelvin", 0)))
+	ccts.sort(key=lambda x: x[1] or 0)
+
+	# ── 2. Unique output levels sorted by leading integer ──
+	output_levels = []
+	seen_ols = set()
+	for row in variant_rows:
+		ol = row.get("fixture_output_level", "")
+		if ol and ol not in seen_ols:
+			seen_ols.add(ol)
+			output_levels.append(ol)
+	output_levels.sort(key=_parse_output_level_sort_key)
+
+	# ── 3. Build headers ──
+	headers = list(INDESIGN_PRODUCT_COLUMNS)
+
+	for i in range(1, len(ccts) + 1):
+		headers.append(f"Light Color (CCT) {i}")
+
+	for j in range(1, len(output_levels) + 1):
+		headers.append(f"Output Options {j}")
+		for label, _slug in _INDESIGN_LENS_GROUPS:
+			headers.append(f"Watts per Foot ({label}) {j}")
+			headers.append(f"Max Run Length ({label}) {j}")
+		for i in range(1, len(ccts) + 1):
+			for label, _slug in _INDESIGN_LUMEN_LENSES:
+				headers.append(f"{label} - Output {j} - Lumen {i}")
+
+	# ── 4. Build data row ──
+	data_row = {
+		"Product Name": product_data.get("product_name", ""),
+		"Input Voltage": product_data.get("input_voltage", ""),
+		"Certifications": product_data.get("certifications", ""),
+		"Lenses": product_data.get("available_lenses", ""),
+		"Finish": product_data.get("available_finishes", ""),
+		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
+	}
+
+	for i, (cct_name, _kelvin) in enumerate(ccts, 1):
+		data_row[f"Light Color (CCT) {i}"] = cct_name
+
+	# Index variant rows by (output_level, cct_name)
+	row_lookup = {}
+	for row in variant_rows:
+		key = (row.get("fixture_output_level", ""), row.get("cct_name", ""))
+		row_lookup.setdefault(key, row)
+
+	for j, ol in enumerate(output_levels, 1):
+		data_row[f"Output Options {j}"] = ol
+
+		# Aggregate watts / max-run per lens group across all CCTs
+		for label, slug in _INDESIGN_LENS_GROUPS:
+			watts_vals = []
+			run_vals = []
+			for cct_name, _ in ccts:
+				row = row_lookup.get((ol, cct_name), {})
+				w = _safe_float(row.get(f"watts_per_foot_{slug}", ""))
+				if w is not None:
+					watts_vals.append(w)
+				r = _safe_float(row.get(f"max_run_length_ft_{slug}", ""))
+				if r is not None:
+					run_vals.append(r)
+			data_row[f"Watts per Foot ({label}) {j}"] = f"{_fmt_num(max(watts_vals))}W" if watts_vals else ""
+			data_row[f"Max Run Length ({label}) {j}"] = f"{_fmt_num(min(run_vals))}ft" if run_vals else ""
+
+		# Per-CCT lumen values
+		for i, (cct_name, _) in enumerate(ccts, 1):
+			row = row_lookup.get((ol, cct_name), {})
+			for label, slug in _INDESIGN_LUMEN_LENSES:
+				data_row[f"{label} - Output {j} - Lumen {i}"] = row.get(f"delivered_lumens_{slug}", "")
+
+	return headers, data_row
+
+
+def _generate_indesign_csv(wp_doc):
+	"""Return CSV content in the InDesign data-merge pivot format."""
+	product_data = _collect_product_data(wp_doc)
+	variant_rows = list(_collect_variant_rows(wp_doc, product_data))
+
+	headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+	output = io.StringIO()
+	writer = csv.writer(output)
+	writer.writerow(headers)
+	writer.writerow([data_row.get(col, "") for col in headers])
+	return output.getvalue()
+
+
+# ──────────────────────────────────────────────────────────
 # Public API
 # ──────────────────────────────────────────────────────────
 
 @frappe.whitelist()
-def export_spec_sheet_csv(webflow_product: str) -> dict:
+def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dict:
 	"""Generate a spec-sheet CSV for a Webflow Product and attach it.
 
 	Args:
 		webflow_product: Name of the ilL-Webflow-Product document.
+		format: ``"indesign"`` (default) for the pivoted InDesign
+			data-merge layout, or ``"flat"`` for the legacy one-row-per-
+			CCT×output-level format.
 
 	Returns:
 		dict with ``success``, ``file_url``, and ``file_name``.
@@ -536,7 +705,10 @@ def export_spec_sheet_csv(webflow_product: str) -> dict:
 	if not wp_doc.fixture_template:
 		return {"success": False, "error": _("No Fixture Template linked — cannot generate spec sheet.")}
 
-	csv_content = _generate_csv(wp_doc)
+	if format == "flat":
+		csv_content = _generate_csv(wp_doc)
+	else:
+		csv_content = _generate_indesign_csv(wp_doc)
 
 	slug = wp_doc.product_slug or wp_doc.name
 	fname = f"spec-sheet-{slug}.csv"
