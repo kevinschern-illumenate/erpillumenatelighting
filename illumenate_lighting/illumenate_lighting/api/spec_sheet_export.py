@@ -504,17 +504,80 @@ def _collect_variant_rows(wp_doc, product_data):
 			yield row
 
 
+# ──────────────────────────────────────────────────────────
+# Part Number Builder helpers
+# ──────────────────────────────────────────────────────────
+
+def _collect_pn_builder_columns(ft_doc):
+	"""Collect Part Number Builder columns from a Fixture Template.
+
+	Returns ``(headers, data_dict)`` where *headers* is the ordered list of
+	column names and *data_dict* maps each column name to its value.
+
+	Column naming:
+	  - Single-option sections: ``Part Number - {Section} - Option:`` / ``… - Description:``
+	  - Multi-option sections: ``Part Number - {Section} - Option {N}:`` / ``… - Description {N}:``
+	"""
+	headers = []
+	data_dict = {}
+
+	if not ft_doc:
+		return headers, data_dict
+
+	rows = ft_doc.get("part_number_builder") or []
+	if not rows:
+		return headers, data_dict
+
+	# Group by section_name, preserving section_order for sorting
+	sections = {}
+	for r in rows:
+		sname = r.section_name or ""
+		if sname not in sections:
+			sections[sname] = {"order": r.section_order or 0, "options": []}
+		sections[sname]["options"].append(r)
+
+	# Sort sections by section_order, then alphabetically
+	sorted_sections = sorted(sections.items(), key=lambda x: (x[1]["order"], x[0]))
+
+	for section_name, info in sorted_sections:
+		# Sort options within section by option_order, then option_code
+		opts = sorted(info["options"], key=lambda o: (o.option_order or 0, o.option_code or ""))
+		n_opts = len(opts)
+
+		for idx, opt in enumerate(opts, 1):
+			if n_opts == 1:
+				opt_col = f"Part Number - {section_name} - Option:"
+				desc_col = f"Part Number - {section_name} - Description:"
+			else:
+				opt_col = f"Part Number - {section_name} - Option {idx}:"
+				desc_col = f"Part Number - {section_name} - Description {idx}:"
+
+			headers.append(opt_col)
+			headers.append(desc_col)
+			data_dict[opt_col] = opt.option_code or ""
+			data_dict[desc_col] = opt.option_label or ""
+
+	return headers, data_dict
+
+
 def _generate_csv(wp_doc):
 	"""Return CSV content as a string (flat: one row per CCT × output level)."""
 	product_data = _collect_product_data(wp_doc)
 
+	# ── Part Number Builder columns ──
+	ft_doc = None
+	if wp_doc.fixture_template:
+		ft_doc = frappe.get_cached_doc("ilL-Fixture-Template", wp_doc.fixture_template)
+	pn_headers, pn_data = _collect_pn_builder_columns(ft_doc)
+
 	output = io.StringIO()
 	writer = csv.writer(output)
 
-	headers = PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS
+	headers = PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
 	writer.writerow(headers)
 
 	for row in _collect_variant_rows(wp_doc, product_data):
+		row.update(pn_data)
 		writer.writerow([row.get(col, "") for col in headers])
 
 	return output.getvalue()
@@ -579,11 +642,15 @@ def _safe_float(val):
 		return None
 
 
-def _pivot_to_indesign(product_data, variant_rows):
+def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 	"""Pivot flat variant rows into one InDesign data-merge row.
 
 	Returns ``(headers, data_row)`` where *headers* is a list of column
 	names and *data_row* is a dict keyed by those names.
+
+	*pn_builder_columns* is an optional ``(pn_headers, pn_data)`` tuple
+	from :func:`_collect_pn_builder_columns`; when provided the part-number
+	builder columns are appended after the dynamic variant columns.
 	"""
 	# ── 1. Unique CCTs sorted by kelvin ──
 	ccts = []
@@ -663,6 +730,12 @@ def _pivot_to_indesign(product_data, variant_rows):
 			for label, slug in _INDESIGN_LUMEN_LENSES:
 				data_row[f"{label} - Output {j} - Lumen {i}"] = row.get(f"delivered_lumens_{slug}", "")
 
+	# ── Append Part Number Builder columns ──
+	if pn_builder_columns:
+		pn_headers, pn_data = pn_builder_columns
+		headers.extend(pn_headers)
+		data_row.update(pn_data)
+
 	return headers, data_row
 
 
@@ -671,7 +744,13 @@ def _generate_indesign_csv(wp_doc):
 	product_data = _collect_product_data(wp_doc)
 	variant_rows = list(_collect_variant_rows(wp_doc, product_data))
 
-	headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+	# ── Part Number Builder columns ──
+	ft_doc = None
+	if wp_doc.fixture_template:
+		ft_doc = frappe.get_cached_doc("ilL-Fixture-Template", wp_doc.fixture_template)
+	pn_builder_columns = _collect_pn_builder_columns(ft_doc)
+
+	headers, data_row = _pivot_to_indesign(product_data, variant_rows, pn_builder_columns)
 
 	output = io.StringIO()
 	writer = csv.writer(output)

@@ -31,6 +31,8 @@
                         "allowed_options",
                         "allowed_tape_offerings_section",
                         "allowed_tape_offerings",
+                        "part_number_builder_section",
+                        "part_number_builder",
                         "spec_documents_section",
                         "spec_sheet",
                         "column_break_spec_documents",
@@ -173,6 +175,18 @@
                        "fieldtype":  "Table",
                        "label":  "Allowed Tape Offerings",
                        "options":  "ilL-Child-Template-Allowed-TapeOffering"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "part_number_builder_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Part Number Builder"
+                   },
+                   {
+                       "fieldname":  "part_number_builder",
+                       "fieldtype":  "Table",
+                       "label":  "Part Number Builder",
+                       "options":  "ilL-Child-PN-Builder-Row"
                    },
                    {
                        "collapsible":  1,

@@ -698,3 +698,120 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(data_row["Output Options 1"], "50 lm/ft")
 		self.assertEqual(data_row["Output Options 2"], "200 lm/ft")
 		self.assertEqual(data_row["Output Options 3"], "400 lm/ft")
+
+	# ── Part Number Builder tests ──
+
+	def test_collect_pn_builder_columns_empty(self):
+		"""Empty part_number_builder returns no headers."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+
+		ft_doc = SimpleNamespace(part_number_builder=[])
+		ft_doc.get = lambda key, default=None: getattr(ft_doc, key, default)
+		headers, data = _collect_pn_builder_columns(ft_doc)
+		self.assertEqual(headers, [])
+		self.assertEqual(data, {})
+
+	def test_collect_pn_builder_columns_none_doc(self):
+		"""None ft_doc returns no headers."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+
+		headers, data = _collect_pn_builder_columns(None)
+		self.assertEqual(headers, [])
+		self.assertEqual(data, {})
+
+	def test_collect_pn_builder_columns_single_option_section(self):
+		"""Single-option section uses no number suffix."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+
+		rows = [
+			SimpleNamespace(section_name="Series", section_order=1, option_code="SH01", option_label="Shadow", option_order=1),
+		]
+		ft_doc = SimpleNamespace(part_number_builder=rows)
+		ft_doc.get = lambda key, default=None: getattr(ft_doc, key, default)
+
+		headers, data = _collect_pn_builder_columns(ft_doc)
+
+		self.assertEqual(headers, [
+			"Part Number - Series - Option:",
+			"Part Number - Series - Description:",
+		])
+		self.assertEqual(data["Part Number - Series - Option:"], "SH01")
+		self.assertEqual(data["Part Number - Series - Description:"], "Shadow")
+
+	def test_collect_pn_builder_columns_multi_option_section(self):
+		"""Multi-option section uses numbered suffixes."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+
+		rows = [
+			SimpleNamespace(section_name="CCT", section_order=3, option_code="27K", option_label="2700K", option_order=1),
+			SimpleNamespace(section_name="CCT", section_order=3, option_code="30K", option_label="3000K", option_order=2),
+			SimpleNamespace(section_name="CCT", section_order=3, option_code="40K", option_label="4000K", option_order=3),
+		]
+		ft_doc = SimpleNamespace(part_number_builder=rows)
+		ft_doc.get = lambda key, default=None: getattr(ft_doc, key, default)
+
+		headers, data = _collect_pn_builder_columns(ft_doc)
+
+		self.assertEqual(len(headers), 6)  # 3 options × 2 columns each
+		self.assertIn("Part Number - CCT - Option 1:", headers)
+		self.assertIn("Part Number - CCT - Description 2:", headers)
+		self.assertEqual(data["Part Number - CCT - Option 1:"], "27K")
+		self.assertEqual(data["Part Number - CCT - Description 3:"], "4000K")
+
+	def test_collect_pn_builder_columns_section_order(self):
+		"""Sections are ordered by section_order."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+
+		rows = [
+			SimpleNamespace(section_name="Finish", section_order=7, option_code="BK", option_label="Black", option_order=1),
+			SimpleNamespace(section_name="Series", section_order=1, option_code="SH01", option_label="Shadow", option_order=1),
+		]
+		ft_doc = SimpleNamespace(part_number_builder=rows)
+		ft_doc.get = lambda key, default=None: getattr(ft_doc, key, default)
+
+		headers, _data = _collect_pn_builder_columns(ft_doc)
+
+		# Series (order=1) should come before Finish (order=7)
+		series_idx = headers.index("Part Number - Series - Option:")
+		finish_idx = headers.index("Part Number - Finish - Option:")
+		self.assertLess(series_idx, finish_idx)
+
+	def test_pivot_to_indesign_with_pn_builder_columns(self):
+		"""PN builder columns are appended at the end of the InDesign pivot."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "PN Test", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+
+		pn_headers = ["Part Number - Series - Option:", "Part Number - Series - Description:"]
+		pn_data = {"Part Number - Series - Option:": "SH01", "Part Number - Series - Description:": "Shadow"}
+
+		headers, data_row = _pivot_to_indesign(product_data, [], pn_builder_columns=(pn_headers, pn_data))
+
+		# PN columns should be at the end
+		self.assertTrue(headers[-1].startswith("Part Number"))
+		self.assertEqual(data_row["Part Number - Series - Option:"], "SH01")
+		self.assertEqual(data_row["Part Number - Series - Description:"], "Shadow")
+
+	def test_pivot_to_indesign_without_pn_builder(self):
+		"""Existing pivot behaviour unchanged when no PN builder columns given."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign,
+			INDESIGN_PRODUCT_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "No PN", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+
+		headers, data_row = _pivot_to_indesign(product_data, [])
+
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
+		self.assertNotIn("Part Number", " ".join(headers))
