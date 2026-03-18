@@ -68,6 +68,7 @@ def get_context(context):
 
 	# If user can view pricing, pre-fetch pricing data for configured fixtures
 	pricing_map = {}  # configured_fixture_id -> unit_price
+	ctn_pricing_map = {}  # configured_tape_neon_id -> unit_price
 	schedule_total = 0.0
 	if can_view_pricing:
 		# Collect all configured fixture IDs for batch pricing lookup
@@ -87,6 +88,22 @@ def get_context(context):
 			for snap in all_snapshots:
 				if snap.parent not in pricing_map and snap.msrp_unit:
 					pricing_map[snap.parent] = float(snap.msrp_unit)
+
+		# Collect all configured tape/neon IDs for batch pricing lookup
+		ctn_ids = [
+			line.configured_tape_neon for line in lines
+			if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon
+		]
+		if ctn_ids:
+			ctn_snapshots = frappe.get_all(
+				"ilL-Child-Pricing-Snapshot",
+				filters={"parent": ["in", ctn_ids], "parenttype": "ilL-Configured-Tape-Neon"},
+				fields=["parent", "msrp_unit", "timestamp"],
+				order_by="timestamp desc",
+			)
+			for snap in ctn_snapshots:
+				if snap.parent not in ctn_pricing_map and snap.msrp_unit:
+					ctn_pricing_map[snap.parent] = float(snap.msrp_unit)
 
 	# Batch-fetch stock availability for all configured fixtures (Phase 3 - Stock Level Visibility)
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
@@ -232,10 +249,25 @@ def get_context(context):
 			unit_price = None
 			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 				unit_price = pricing_map.get(line.configured_fixture)
+			elif line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon:
+				unit_price = ctn_pricing_map.get(line.configured_tape_neon)
+			elif getattr(line, "product_type", None) == "Extrusion Kit":
+				# Kit pricing stored in variant_selections JSON
+				vs_raw = getattr(line, "variant_selections", None)
+				if vs_raw:
+					import json as _json_kit
+					try:
+						vs_data = _json_kit.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+						kit_pricing = vs_data.get("pricing", {})
+						kit_msrp = kit_pricing.get("total_price_msrp")
+						if kit_msrp:
+							unit_price = float(kit_msrp)
+					except (ValueError, TypeError):
+						pass
 			elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
 				item_price = frappe.db.get_value(
 					"Item Price",
-					{"item_code": line.accessory_item, "selling": 1},
+					{"item_code": line.accessory_item, "price_list": "Standard Selling", "selling": 1},
 					"price_list_rate",
 				)
 				if item_price:
@@ -526,7 +558,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 					# Look up driver MSRP from Item Price
 					driver_price = frappe.db.get_value(
 						"Item Price",
-						{"item_code": driver_alloc.driver_item, "selling": 1},
+						{"item_code": driver_alloc.driver_item, "price_list": "Standard Selling", "selling": 1},
 						"price_list_rate",
 					)
 					if driver_price:

@@ -376,5 +376,144 @@ class TestBuildTemplateOptionsFallback(unittest.TestCase):
         self.assertEqual(options["finishes"][0]["value"], "Black")
 
 
+class TestComputeTapeNeonPricing(unittest.TestCase):
+    """Test _compute_tape_neon_pricing helper."""
+
+    def test_tape_pricing_foot_uom(self):
+        """Tape priced per Foot with length in mm."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        # 10 feet of tape at $5.00/ft = $50.00
+        length_mm = 10 * MM_PER_FOOT
+
+        def mock_get_value(doctype, filters, field=None, **kwargs):
+            if doctype == "Item Price" and filters.get("item_code") == "TAPE-001":
+                return 5.0
+            if doctype == "Item" and filters == "TAPE-001":
+                return "Foot"
+            return None
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            result = _compute_tape_neon_pricing("TAPE-001", None, length_mm)
+
+        self.assertAlmostEqual(result["total_price_msrp"], 50.0, places=2)
+
+    def test_tape_pricing_inch_uom(self):
+        """Tape priced per Inch with length in mm."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+            MM_PER_INCH,
+        )
+
+        # 120 inches of tape at $0.50/in = $60.00
+        length_mm = 120 * MM_PER_INCH
+
+        def mock_get_value(doctype, filters, field=None, **kwargs):
+            if doctype == "Item Price" and filters.get("item_code") == "TAPE-002":
+                return 0.5
+            if doctype == "Item" and filters == "TAPE-002":
+                return "Inch"
+            return None
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            result = _compute_tape_neon_pricing("TAPE-002", None, length_mm)
+
+        self.assertAlmostEqual(result["total_price_msrp"], 60.0, places=2)
+
+    def test_tape_pricing_meter_uom(self):
+        """Tape priced per Meter with length in mm."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+        )
+
+        # 5 meters of tape at $10.00/m = $50.00
+        length_mm = 5000
+
+        def mock_get_value(doctype, filters, field=None, **kwargs):
+            if doctype == "Item Price" and filters.get("item_code") == "TAPE-003":
+                return 10.0
+            if doctype == "Item" and filters == "TAPE-003":
+                return "Meter"
+            return None
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            result = _compute_tape_neon_pricing("TAPE-003", None, length_mm)
+
+        self.assertAlmostEqual(result["total_price_msrp"], 50.0, places=2)
+
+    def test_tape_plus_leader_cable_pricing(self):
+        """Tape + leader cable pricing combined."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        # 10 ft tape at $5/ft = $50, leader cable 12 inches at $1/in = $12 → total $62
+        length_mm = 10 * MM_PER_FOOT
+
+        def mock_get_value(doctype, filters, field=None, **kwargs):
+            if doctype == "Item Price":
+                item = filters.get("item_code")
+                if item == "TAPE-001":
+                    return 5.0
+                if item == "LEAD-001":
+                    return 1.0
+            if doctype == "Item" and filters == "TAPE-001":
+                return "Foot"
+            return None
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            result = _compute_tape_neon_pricing("TAPE-001", "LEAD-001", length_mm, 12)
+
+        self.assertAlmostEqual(result["total_price_msrp"], 62.0, places=2)
+
+    def test_no_tape_item_returns_zero(self):
+        """When tape_item is None, total should be 0."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+        )
+
+        result = _compute_tape_neon_pricing(None, None, 3048)
+        self.assertEqual(result["total_price_msrp"], 0)
+
+    def test_no_item_price_returns_zero(self):
+        """When no Item Price exists, total should be 0."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+        )
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.return_value = None
+            result = _compute_tape_neon_pricing("TAPE-001", None, 3048)
+
+        self.assertEqual(result["total_price_msrp"], 0)
+
+    def test_zero_length_returns_zero(self):
+        """When length is 0, total should be 0."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_tape_neon_pricing,
+        )
+
+        result = _compute_tape_neon_pricing("TAPE-001", None, 0)
+        self.assertEqual(result["total_price_msrp"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
