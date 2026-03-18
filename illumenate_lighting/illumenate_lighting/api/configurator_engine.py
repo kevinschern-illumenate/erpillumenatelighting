@@ -246,6 +246,7 @@ def validate_and_quote(
 	end_feed_direction_code: str = "C",
 	start_leader_len_mm: int = 0,
 	end_leader_len_mm: int = 0,
+	include_power_supply: bool = True,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
@@ -275,11 +276,16 @@ def validate_and_quote(
 		end_feed_direction_code: Feed direction code at the end. "C" = Endcap (default). Any other value = dual-feed.
 		start_leader_len_mm: Start leader cable length in mm. 0 = use template default.
 		end_leader_len_mm: End leader cable length in mm. 0 = no end leader (ignored when end_feed = "C").
+		include_power_supply: Whether to include power supply/driver selection (default: True).
+			When False, driver selection is skipped and no driver pricing is included.
 
 	Returns:
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, and configured fixture ID
 	"""
+	# Normalise include_power_supply (Frappe passes HTTP params as strings)
+	if isinstance(include_power_supply, str):
+		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 	# Auto-resolve endcap color from finish if not explicitly provided
 	if not endcap_color_code and finish_code:
 		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
@@ -435,14 +441,17 @@ def validate_and_quote(
 		response["computed"]["total_mounting_accessories"] = 0
 
 	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
-	driver_plan_result, driver_messages = _select_driver_plan(
-		fixture_template_code,
-		runs_count=computed_result["runs_count"],
-		total_watts=computed_result["total_watts"],
-		tape_offering_doc=validation_result.get("tape_offering_doc"),
-		dimming_protocol_code=dimming_protocol_code,
-	)
-	response["messages"].extend(driver_messages)
+	if include_power_supply:
+		driver_plan_result, driver_messages = _select_driver_plan(
+			fixture_template_code,
+			runs_count=computed_result["runs_count"],
+			total_watts=computed_result["total_watts"],
+			tape_offering_doc=validation_result.get("tape_offering_doc"),
+			dimming_protocol_code=dimming_protocol_code,
+		)
+		response["messages"].extend(driver_messages)
+	else:
+		driver_plan_result = {"status": "not_required", "drivers": []}
 	response["resolved_items"]["driver_plan"] = driver_plan_result
 
 	# Step 4: Calculate pricing
@@ -485,6 +494,7 @@ def validate_and_quote(
 		end_feed_direction_code=end_feed_direction_code,
 		start_leader_len_mm=start_leader_len_mm,
 		end_leader_len_mm=end_leader_len_mm,
+		include_power_supply=include_power_supply,
 	)
 
 	response["configured_fixture_id"] = fixture_id
@@ -511,6 +521,7 @@ def validate_and_quote_inches(
 	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
+	include_power_supply: bool = True,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration with length input in inches.
@@ -594,6 +605,7 @@ def validate_and_quote_inches(
 		requested_overall_length_mm=requested_overall_length_mm,
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
+		include_power_supply=include_power_supply,
 	)
 
 
@@ -614,6 +626,7 @@ def validate_and_quote_with_output(
 	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
+	include_power_supply: bool = True,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration using the new cascading configurator flow.
@@ -716,6 +729,7 @@ def validate_and_quote_with_output(
 		requested_overall_length_mm=requested_overall_length_mm,
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
+		include_power_supply=include_power_supply,
 	)
 
 	# Add the auto-selected tape info to the response
@@ -760,6 +774,7 @@ def validate_and_quote_multisegment_with_output(
 	segments_json: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
+	include_power_supply: bool = True,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture using the output-based cascading flow.
@@ -852,6 +867,7 @@ def validate_and_quote_multisegment_with_output(
 		segments_json=segments_json,
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
+		include_power_supply=include_power_supply,
 	)
 
 	# Add auto-selected tape info
@@ -893,6 +909,7 @@ def validate_and_quote_multisegment(
 	endcap_color_code: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
+	include_power_supply: bool = True,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture configuration.
@@ -921,6 +938,10 @@ def validate_and_quote_multisegment(
 	# Auto-resolve endcap color from finish if not explicitly provided
 	if not endcap_color_code and finish_code:
 		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
+
+	# Normalise include_power_supply (Frappe passes HTTP params as strings)
+	if isinstance(include_power_supply, str):
+		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 
 	# Parse segments
 	try:
@@ -1090,14 +1111,17 @@ def validate_and_quote_multisegment(
 		response["computed"]["total_mounting_accessories"] = 0
 
 	# Step 3.5: Select driver plan (Epic 5 Task 5.1)
-	driver_plan_result, driver_messages = _select_driver_plan(
-		fixture_template_code,
-		runs_count=computed_result["runs_count"],
-		total_watts=computed_result["total_watts"],
-		tape_offering_doc=tape_offering_doc,
-		dimming_protocol_code=dimming_protocol_code,
-	)
-	response["messages"].extend(driver_messages)
+	if include_power_supply:
+		driver_plan_result, driver_messages = _select_driver_plan(
+			fixture_template_code,
+			runs_count=computed_result["runs_count"],
+			total_watts=computed_result["total_watts"],
+			tape_offering_doc=tape_offering_doc,
+			dimming_protocol_code=dimming_protocol_code,
+		)
+		response["messages"].extend(driver_messages)
+	else:
+		driver_plan_result = {"status": "not_required", "drivers": []}
 	response["resolved_items"]["driver_plan"] = driver_plan_result
 
 	# Step 4: Calculate pricing
@@ -1137,6 +1161,7 @@ def validate_and_quote_multisegment(
 		response["computed"],
 		response["resolved_items"],
 		response["pricing"],
+		include_power_supply=include_power_supply,
 	)
 
 	response["configured_fixture_id"] = fixture_id
@@ -1801,6 +1826,7 @@ def _create_or_update_multisegment_fixture(
 	computed: dict,
 	resolved_items: dict,
 	pricing: dict,
+	include_power_supply: bool = True,
 ) -> str:
 	"""
 	Create or update a multi-segment configured fixture document.
@@ -1885,6 +1911,7 @@ def _create_or_update_multisegment_fixture(
 	doc.endcap_color = endcap_color_code
 	doc.environment_rating = environment_rating_code
 	doc.tape_offering = tape_offering_id
+	doc.include_power_supply = 1 if include_power_supply else 0
 
 	# Use first segment's start power feed type
 	first_segment = user_segments[0] if user_segments else {}
@@ -3458,6 +3485,7 @@ def _create_or_update_configured_fixture(
 	end_feed_direction_code: str = "C",
 	start_leader_len_mm: int = 0,
 	end_leader_len_mm: int = 0,
+	include_power_supply: bool = True,
 ) -> str:
 	"""
 	Create or update an ilL-Configured-Fixture document.
@@ -3551,6 +3579,7 @@ def _create_or_update_configured_fixture(
 	doc.power_feed_type = power_feed_type_code
 	doc.environment_rating = environment_rating_code
 	doc.tape_offering = tape_offering_id
+	doc.include_power_supply = 1 if include_power_supply else 0
 
 	# Set feed directions
 	if start_feed_direction_code:

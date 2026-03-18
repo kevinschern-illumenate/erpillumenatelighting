@@ -89,6 +89,7 @@
   "runs_section",
   "runs",
   "drivers_section",
+  "include_power_supply",
   "drivers",
   "pricing_section",
   "pricing_snapshot",
@@ -601,6 +602,14 @@
    "label": "Drivers"
   },
   {
+   "default": "1",
+   "description": "When unchecked, no power supply/driver is included in this fixture configuration. The user intends to source power supplies separately.",
+   "fieldname": "include_power_supply",
+   "fieldtype": "Check",
+   "label": "Include Power Supply"
+  },
+  {
+   "depends_on": "include_power_supply",
    "fieldname": "drivers",
    "fieldtype": "Table",
    "label": "Drivers",
@@ -646,7 +655,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-07 21:00:00.000000",
+ "modified": "2026-03-18 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Configured-Fixture",
