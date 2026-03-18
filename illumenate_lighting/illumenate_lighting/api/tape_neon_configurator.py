@@ -1828,6 +1828,17 @@ def save_tape_neon_template_to_schedule(
     else:
         mfg_length_mm = computed.get("manufacturable_length_mm", 0)
 
+    # Compute template-based pricing (mirrors save_tape_to_schedule pattern)
+    is_neon = product_category == "LED Neon"
+    if template_name and not computed.get("total_price_msrp"):
+        lead_length_inches = computed.get("lead_length_inches", 0)
+        pricing_sel = dict(result.get("selections", {}))
+        pricing_sel["_leader_cable_item"] = resolved.get("leader_cable_item")
+        pricing = _compute_template_tape_neon_pricing(
+            template_name, pricing_sel, mfg_length_mm, lead_length_inches, is_neon
+        )
+        computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
+
     try:
         if line_idx is not None:
             line_idx = int(line_idx)
@@ -1860,6 +1871,7 @@ def save_tape_neon_template_to_schedule(
             "computed": computed,
             "resolved_items": resolved,
             "selections": result.get("selections", {}),
+            "pricing": {"total_price_msrp": computed.get("total_price_msrp", 0)},
         })
 
         schedule.save()
@@ -1924,10 +1936,12 @@ def _build_template_options(
             "ilL-Attribute-CCT", set(cct_names),
             ["name", "code", "kelvin", "description"],
         )
-        # Mark defaults
+        # Mark defaults and attach msrp_adder from allowed option rows
         default_ccts = {r.cct for r in cct_rows if r.is_default}
+        cct_adder_map = {r.cct: (r.msrp_adder or 0) for r in cct_rows if r.cct}
         for o in options["ccts"]:
             o["is_default"] = o["value"] in default_ccts
+            o["msrp_adder"] = cct_adder_map.get(o["value"], 0)
     else:
         # Derive from tape offerings
         options["ccts"] = _collect_attribute_options(
@@ -1944,8 +1958,10 @@ def _build_template_options(
             ["name", "value", "sku_code"],
         )
         default_ols = {r.output_level for r in ol_rows if r.is_default}
+        ol_adder_map = {r.output_level: (r.msrp_adder or 0) for r in ol_rows if r.output_level}
         for o in options["output_levels"]:
             o["is_default"] = o["value"] in default_ols
+            o["msrp_adder"] = ol_adder_map.get(o["value"], 0)
             if o.get("numeric_value"):
                 o["label"] = f"{o['numeric_value']} lm/ft"
     else:
@@ -1968,8 +1984,10 @@ def _build_template_options(
                 ["name", "code", "notes"],
             )
             default_envs = {r.environment_rating for r in env_rows if r.is_default}
+            env_adder_map = {r.environment_rating: (r.msrp_adder or 0) for r in env_rows if r.environment_rating}
             for o in options["environment_ratings"]:
                 o["is_default"] = o["value"] in default_envs
+                o["msrp_adder"] = env_adder_map.get(o["value"], 0)
         else:
             options["environment_ratings"] = _get_environment_ratings_for_tape_offerings(
                 tape_offerings, [s.name for s in tape_specs]

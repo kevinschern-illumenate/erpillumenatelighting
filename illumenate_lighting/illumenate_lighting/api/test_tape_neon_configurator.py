@@ -720,5 +720,138 @@ class TestComputeTemplateTapeNeonPricing(unittest.TestCase):
         self.assertAlmostEqual(result["total_price_msrp"], 308.0, places=2)
 
 
+class TestSaveTapeNeonTemplateToSchedulePricing(unittest.TestCase):
+    """Test that save_tape_neon_template_to_schedule computes template pricing."""
+
+    def test_pricing_stored_in_variant_selections(self):
+        """Pricing should be computed and stored in variant_selections JSON."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            save_tape_neon_template_to_schedule,
+            MM_PER_FOOT,
+        )
+
+        length_mm = 10 * MM_PER_FOOT
+        config_result = json.dumps({
+            "is_valid": True,
+            "product_category": "LED Tape",
+            "part_number": "TP-001",
+            "build_description": "Test tape",
+            "configured_tape_neon": "CTN-001",
+            "computed": {
+                "manufacturable_length_mm": length_mm,
+                "lead_length_inches": 12,
+            },
+            "resolved_items": {
+                "tape_item": "TAPE-ITEM",
+                "leader_cable_item": "LEADER-ITEM",
+            },
+            "selections": {"cct": "3000K", "output_level": "High"},
+        })
+
+        saved_vs = {}
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.exists.return_value = True
+            mock_frappe.session.user = "test@test.com"
+
+            # Mock schedule document
+            mock_line = MagicMock()
+            mock_schedule = MagicMock()
+            mock_schedule.status = "DRAFT"
+            mock_schedule.lines = []
+            mock_schedule.append.return_value = mock_line
+            mock_frappe.get_doc.return_value = mock_schedule
+
+            # Mock permission check
+            with patch(
+                "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.has_permission",
+                create=True,
+            ):
+                from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule import ill_project_fixture_schedule
+                ill_project_fixture_schedule.has_permission = MagicMock(return_value=True)
+
+                # Mock template lookup
+                mock_frappe.db.get_value.return_value = "TMPL-001"
+
+                # Mock _compute_template_tape_neon_pricing
+                with patch(
+                    "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator._compute_template_tape_neon_pricing"
+                ) as mock_pricing:
+                    mock_pricing.return_value = {
+                        "total_price_msrp": 350.0,
+                        "adder_breakdown": [],
+                    }
+
+                    result = save_tape_neon_template_to_schedule(
+                        schedule_name="SCH-001",
+                        template_code="TPL-CODE",
+                        configuration_result=config_result,
+                    )
+
+                    # Verify pricing function was called
+                    mock_pricing.assert_called_once()
+
+                    # Verify variant_selections includes pricing
+                    if hasattr(mock_line, 'variant_selections') and mock_line.variant_selections:
+                        vs = json.loads(mock_line.variant_selections)
+                        self.assertIn("pricing", vs)
+                        self.assertEqual(vs["pricing"]["total_price_msrp"], 350.0)
+                        self.assertEqual(vs["computed"]["total_price_msrp"], 350.0)
+
+    def test_pricing_skipped_when_already_computed(self):
+        """If computed already has total_price_msrp, pricing should not be recomputed."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            save_tape_neon_template_to_schedule,
+            MM_PER_FOOT,
+        )
+
+        length_mm = 10 * MM_PER_FOOT
+        config_result = json.dumps({
+            "is_valid": True,
+            "product_category": "LED Tape",
+            "part_number": "TP-001",
+            "build_description": "Test tape",
+            "configured_tape_neon": "CTN-001",
+            "computed": {
+                "manufacturable_length_mm": length_mm,
+                "total_price_msrp": 500.0,
+            },
+            "resolved_items": {},
+            "selections": {},
+        })
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.exists.return_value = True
+            mock_frappe.session.user = "test@test.com"
+
+            mock_line = MagicMock()
+            mock_schedule = MagicMock()
+            mock_schedule.status = "DRAFT"
+            mock_schedule.lines = []
+            mock_schedule.append.return_value = mock_line
+            mock_frappe.get_doc.return_value = mock_schedule
+
+            from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule import ill_project_fixture_schedule
+            ill_project_fixture_schedule.has_permission = MagicMock(return_value=True)
+
+            mock_frappe.db.get_value.return_value = "TMPL-001"
+
+            with patch(
+                "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator._compute_template_tape_neon_pricing"
+            ) as mock_pricing:
+                save_tape_neon_template_to_schedule(
+                    schedule_name="SCH-001",
+                    template_code="TPL-CODE",
+                    configuration_result=config_result,
+                )
+
+                # Pricing function should NOT be called since total_price_msrp already exists
+                mock_pricing.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
