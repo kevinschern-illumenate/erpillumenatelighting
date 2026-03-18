@@ -34,6 +34,44 @@ from frappe import _
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# PRICING HELPERS
+# ═══════════════════════════════════════════════════════════════════════
+
+def _compute_kit_pricing(kit_composition):
+	"""
+	Compute MSRP pricing for an Extrusion Kit using Standard Selling Item Prices.
+
+	Iterates over each component in the kit composition (profile, lens,
+	solid endcap, feed-through endcap, mounting) and looks up its Item Price.
+	Multiplies by the component quantity and sums to get total kit MSRP.
+
+	Args:
+		kit_composition: dict mapping component names to dicts with
+			``item`` (Item code) and ``qty`` (int) keys.
+
+	Returns:
+		dict with ``total_price_msrp`` (float)
+	"""
+	total_msrp = 0.0
+
+	for component_name, component in kit_composition.items():
+		item_code = component.get("item")
+		qty = component.get("qty", 1)
+		if not item_code:
+			continue
+
+		price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": item_code, "price_list": "Standard Selling", "selling": 1},
+			"price_list_rate",
+		)
+		if price:
+			total_msrp += float(price) * qty
+
+	return {"total_price_msrp": round(total_msrp, 2)}
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # INITIALISATION
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -523,6 +561,9 @@ def save_kit_to_schedule(
     spec_data = result.get("spec_data", {})
     kit_template_info = result.get("kit_template", {})
 
+    # Compute pricing from Standard Selling Item Prices
+    pricing = _compute_kit_pricing(kit_comp)
+
     try:
         if line_idx is not None:
             line_idx = int(line_idx)
@@ -550,6 +591,7 @@ def save_kit_to_schedule(
             "resolved_items": resolved,
             "selections": result.get("selections", {}),
             "kit_template": kit_template_info,
+            "pricing": pricing,
         })
 
         schedule.save()

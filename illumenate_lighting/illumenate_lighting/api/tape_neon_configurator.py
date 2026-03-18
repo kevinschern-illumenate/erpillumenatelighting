@@ -48,6 +48,66 @@ MM_PER_INCH = 25.4
 MM_PER_FOOT = 304.8
 INCHES_PER_FOOT = 12
 MAX_WATTS_PER_RUN = 85.0  # Power supply max watts per single tape run
+MM_PER_METER = 1000.0
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PRICING HELPERS
+# ═══════════════════════════════════════════════════════════════════════
+
+def _compute_tape_neon_pricing(tape_item, leader_cable_item, length_mm, lead_length_inches=0):
+	"""
+	Compute MSRP pricing for a tape/neon product using Standard Selling Item Prices.
+
+	Looks up the tape item's Item Price, determines its stock_uom to convert
+	*length_mm* to the correct pricing unit, and multiplies by the rate.
+	Optionally adds leader cable pricing.
+
+	Args:
+		tape_item: Item code for the tape/neon product
+		leader_cable_item: Item code for the leader cable (may be None)
+		length_mm: Total manufacturable length in mm
+		lead_length_inches: Leader cable length in inches (per run, qty handled by caller)
+
+	Returns:
+		dict with ``total_price_msrp`` (float)
+	"""
+	total_msrp = 0.0
+
+	if tape_item and length_mm:
+		tape_price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": tape_item, "price_list": "Standard Selling", "selling": 1},
+			"price_list_rate",
+		)
+		if tape_price:
+			tape_rate = float(tape_price)
+			# Determine the item's stock UOM to convert length correctly
+			stock_uom = frappe.db.get_value("Item", tape_item, "stock_uom") or "Foot"
+			uom_lower = stock_uom.lower()
+
+			if uom_lower in ("foot", "ft"):
+				qty = float(length_mm) / MM_PER_FOOT
+			elif uom_lower in ("meter", "metre", "m"):
+				qty = float(length_mm) / MM_PER_METER
+			elif uom_lower in ("inch", "in"):
+				qty = float(length_mm) / MM_PER_INCH
+			else:
+				# Default to Foot for unknown UOM
+				qty = float(length_mm) / MM_PER_FOOT
+
+			total_msrp += tape_rate * qty
+
+	if leader_cable_item and lead_length_inches:
+		leader_price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": leader_cable_item, "price_list": "Standard Selling", "selling": 1},
+			"price_list_rate",
+		)
+		if leader_price:
+			total_msrp += float(leader_price) * float(lead_length_inches)
+
+	return {"total_price_msrp": round(total_msrp, 2)}
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -856,6 +916,13 @@ def save_tape_to_schedule(
         mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
     else:
         mfg_length_mm = computed.get("manufacturable_length_mm", 0)
+
+    # Compute pricing from Standard Selling Item Prices
+    tape_item = resolved.get("tape_item")
+    leader_cable_item = resolved.get("leader_cable_item")
+    lead_length_inches = computed.get("lead_length_inches", 0)
+    pricing = _compute_tape_neon_pricing(tape_item, leader_cable_item, mfg_length_mm, lead_length_inches)
+    computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
 
     try:
         if line_idx is not None:
@@ -2098,6 +2165,18 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     # Resolved items
     doc_data["tape_item"] = resolved.get("tape_item")
     doc_data["leader_cable_item"] = resolved.get("leader_cable_item")
+
+    # Compute pricing if not already populated by save_tape_to_schedule
+    if not computed.get("total_price_msrp"):
+        tape_item = resolved.get("tape_item")
+        leader_cable_item = resolved.get("leader_cable_item")
+        if is_neon:
+            mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
+        else:
+            mfg_length_mm = computed.get("manufacturable_length_mm", 0)
+        lead_length_inches = computed.get("lead_length_inches", 0)
+        pricing = _compute_tape_neon_pricing(tape_item, leader_cable_item, mfg_length_mm, lead_length_inches)
+        computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
 
     # Store pricing snapshot as child table rows
     import datetime
