@@ -396,6 +396,45 @@ class TestSpecSheetExport(FrappeTestCase):
 		for col in ["cri_quality", "fixture_output_level", "production_interval"]:
 			self.assertIn(col, VARIANT_COLUMNS, f"{col} missing from VARIANT_COLUMNS")
 
+	def test_image_columns_count_and_names(self):
+		"""Verify IMAGE_COLUMNS contains exactly 23 custom_image_* fields."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import IMAGE_COLUMNS
+
+		self.assertEqual(len(IMAGE_COLUMNS), 23)
+		for i, col in enumerate(IMAGE_COLUMNS, 1):
+			self.assertEqual(col, f"custom_image_{i}")
+
+	def test_image_columns_no_overlap(self):
+		"""IMAGE_COLUMNS must not overlap with PRODUCT, VARIANT, or LENS columns."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			IMAGE_COLUMNS, PRODUCT_COLUMNS, VARIANT_COLUMNS, LENS_COLUMNS,
+		)
+
+		others = set(PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS)
+		for col in IMAGE_COLUMNS:
+			self.assertNotIn(col, others, f"{col} overlaps with another column set")
+
+	def test_pivot_to_indesign_image_columns_present(self):
+		"""IMAGE_COLUMNS appear in InDesign headers after INDESIGN_PRODUCT_COLUMNS."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign, INDESIGN_PRODUCT_COLUMNS, IMAGE_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "Img Test", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+			"custom_image_1": "https://example.com/img1.jpg",
+			"custom_image_2": "",
+		}
+
+		headers, data_row = _pivot_to_indesign(product_data, [])
+
+		start = len(INDESIGN_PRODUCT_COLUMNS)
+		self.assertEqual(headers[start:start + 23], IMAGE_COLUMNS)
+		self.assertEqual(data_row["custom_image_1"], "https://example.com/img1.jpg")
+		self.assertEqual(data_row["custom_image_2"], "")
+		self.assertEqual(data_row["custom_image_23"], "")
+
 	def test_lens_slug(self):
 		"""Test _lens_slug produces correct slugs."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _lens_slug
@@ -661,10 +700,11 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(data_row["Frosted Lens - Output 1 - Lumen 1"], 170.0)
 
 	def test_pivot_to_indesign_empty_variant_rows(self):
-		"""Pivot with no variant rows produces only static product columns."""
+		"""Pivot with no variant rows produces static product + image columns."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
+			IMAGE_COLUMNS,
 		)
 
 		product_data = {
@@ -674,7 +714,7 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS + IMAGE_COLUMNS)
 		self.assertEqual(data_row["Product Name"], "Empty")
 
 	def test_pivot_to_indesign_output_level_sort_order(self):
@@ -800,10 +840,11 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(data_row["Part Number - Series - Description:"], "Shadow")
 
 	def test_pivot_to_indesign_without_pn_builder(self):
-		"""Existing pivot behaviour unchanged when no PN builder columns given."""
+		"""Pivot without PN builder produces static product + image columns only."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
+			IMAGE_COLUMNS,
 		)
 
 		product_data = {
@@ -813,5 +854,5 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS + IMAGE_COLUMNS)
 		self.assertNotIn("Part Number", " ".join(headers))

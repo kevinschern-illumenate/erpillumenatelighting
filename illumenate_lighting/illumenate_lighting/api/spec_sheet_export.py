@@ -55,6 +55,8 @@ PRODUCT_COLUMNS = [
 	"driver_max_wattage",
 ]
 
+IMAGE_COLUMNS = [f"custom_image_{i}" for i in range(1, 24)]
+
 VARIANT_COLUMNS = [
 	"cct_name",
 	"cct_kelvin",
@@ -297,7 +299,7 @@ def _collect_product_data(wp_doc):
 		val = wp_doc.beam_angle
 		beam_angle = f"{int(val)}°" if val == int(val) else f"{val}°"
 
-	return {
+	result = {
 		"product_name": wp_doc.product_name or "",
 		"short_description": wp_doc.short_description or "",
 		"long_description": wp_doc.long_description or "",
@@ -316,6 +318,11 @@ def _collect_product_data(wp_doc):
 		"dimming_protocols": dimming_protocols,
 		"driver_max_wattage": driver_max_wattage,
 	}
+
+	for col in IMAGE_COLUMNS:
+		result[col] = wp_doc.get(col) or ""
+
+	return result
 
 
 def _collect_variant_rows(wp_doc, product_data):
@@ -573,7 +580,7 @@ def _generate_csv(wp_doc):
 	output = io.StringIO()
 	writer = csv.writer(output)
 
-	headers = PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
+	headers = PRODUCT_COLUMNS + IMAGE_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
 	writer.writerow(headers)
 
 	for row in _collect_variant_rows(wp_doc, product_data):
@@ -674,6 +681,7 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 
 	# ── 3. Build headers ──
 	headers = list(INDESIGN_PRODUCT_COLUMNS)
+	headers.extend(IMAGE_COLUMNS)
 
 	for i in range(1, len(ccts) + 1):
 		headers.append(f"Light Color (CCT) {i}")
@@ -696,6 +704,9 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Finish": product_data.get("available_finishes", ""),
 		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
 	}
+
+	for col in IMAGE_COLUMNS:
+		data_row[col] = product_data.get(col, "")
 
 	for i, (cct_name, _kelvin) in enumerate(ccts, 1):
 		data_row[f"Light Color (CCT) {i}"] = cct_name
