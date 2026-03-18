@@ -96,6 +96,24 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 	font-size: 0.75rem;
 	color: #888;
 }
+/* Kit component stock table */
+.kit-stock-breakdown {
+	display: block;
+	margin-top: 6px;
+}
+.kit-stock-table {
+	margin-top: 4px;
+}
+.kit-stock-table th {
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	border-bottom: 1px solid #eee !important;
+}
+.kit-stock-table td,
+.kit-stock-table th {
+	vertical-align: middle;
+}
 .table td {
 	vertical-align: middle;
 }
@@ -644,68 +662,59 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap Color: <strong>{{ kit_sel.get('endcap_color') }}</strong></span>
 												{% endif %}
 											</div>
-											<!-- Stock indicator for Extrusion Kit -->
+											<!-- Kit Component Stock Breakdown -->
 											{% if line.get('stock_availability') %}
 											{% set sa = line.get('stock_availability') %}
-											<div class="small mt-1">
-												{% if sa.get('all_in_stock') %}
-												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
-												{% else %}
-												{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
-												{% set total_count = sa.get('items', []) | length %}
-												{% if in_count > 0 %}
-												<details class="stock-breakdown">
-													<summary>
-														<span class="text-warning">
-															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
-															<i class="fa fa-caret-right stock-toggle-arrow"></i>
-														</span>
-													</summary>
-													<div class="stock-breakdown-list">
+											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
+											{% set total_count = sa.get('items', []) | length %}
+											<details class="kit-stock-breakdown stock-breakdown mt-1">
+												<summary>
+													{% if sa.get('all_in_stock') %}
+													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("All In Stock") }} ({{ total_count }}/{{ total_count }})</span>
+													{% elif in_count > 0 %}
+													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})</span>
+													{% else %}
+													<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }} (0/{{ total_count }})</span>
+													{% endif %}
+													<i class="fa fa-caret-right stock-toggle-arrow"></i>
+												</summary>
+												<table class="table table-sm table-borderless mb-0 small kit-stock-table">
+													<thead>
+														<tr class="text-muted">
+															<th style="width:20px;padding:2px 4px;"></th>
+															<th style="padding:2px 4px;">{{ _("Component") }}</th>
+															<th style="padding:2px 4px;">{{ _("Item") }}</th>
+															{% if sa.get('items', []) and sa.get('items', [])[0].qty_required is defined %}
+															<th class="text-center" style="padding:2px 4px;">{{ _("Needed") }}</th>
+															<th class="text-center" style="padding:2px 4px;">{{ _("Available") }}</th>
+															{% endif %}
+														</tr>
+													</thead>
+													<tbody>
 														{% for it in sa.get('items', []) %}
-														<div class="stock-item-row">
-															{% if it.is_sufficient %}
-															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
-															{% else %}
-															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														<tr>
+															<td style="padding:2px 4px;">
+																{% if it.is_sufficient %}
+																<i class="fa fa-check-circle text-success" style="font-size:0.8em;"></i>
+																{% else %}
+																<i class="fa fa-times-circle text-danger" style="font-size:0.8em;"></i>
+																{% endif %}
+															</td>
+															<td style="padding:2px 4px;">{{ it.component_type or '' }}</td>
+															<td style="padding:2px 4px;">
+																<span class="text-muted">{{ it.item_name or it.item_code or '—' }}</span>
+															</td>
+															{% if it.qty_required is defined %}
+															<td class="text-center" style="padding:2px 4px;">{{ it.qty_required }}</td>
+															<td class="text-center" style="padding:2px 4px;">
+																<span class="{{ 'text-success' if it.qty_available >= it.qty_required else 'text-danger font-weight-bold' }}">{{ it.qty_available }}</span>
+															</td>
 															{% endif %}
-															<span class="stock-item-type">{{ it.component_type or '' }}</span>
-															<span class="stock-item-code">{{ it.item_code }}</span>
-															{% if it.qty_available is defined %}
-															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
-															{% endif %}
-														</div>
+														</tr>
 														{% endfor %}
-													</div>
-												</details>
-												{% else %}
-												<details class="stock-breakdown">
-													<summary>
-														<span class="text-danger">
-															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
-															<i class="fa fa-caret-right stock-toggle-arrow"></i>
-														</span>
-													</summary>
-													<div class="stock-breakdown-list">
-														{% for it in sa.get('items', []) %}
-														<div class="stock-item-row">
-															{% if it.is_sufficient %}
-															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
-															{% else %}
-															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
-															{% endif %}
-															<span class="stock-item-type">{{ it.component_type or '' }}</span>
-															<span class="stock-item-code">{{ it.item_code }}</span>
-															{% if it.qty_available is defined %}
-															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
-															{% endif %}
-														</div>
-														{% endfor %}
-													</div>
-												</details>
-												{% endif %}
-												{% endif %}
-											</div>
+													</tbody>
+												</table>
+											</details>
 											{% endif %}
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}

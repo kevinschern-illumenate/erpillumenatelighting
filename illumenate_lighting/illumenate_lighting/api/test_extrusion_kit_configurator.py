@@ -246,6 +246,78 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
         self.assertEqual(comps["Lens"]["lead_time_class"], "made-to-order")
         self.assertEqual(comps["Solid Endcap"]["lead_time_class"], "special-order")
 
+    def test_build_kit_stock_result_insufficient_stock(self):
+        """Test that in_stock is False when stock exists but is insufficient for the kit's per-component requirements."""
+        from unittest.mock import patch, MagicMock
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_stock_result,
+        )
+
+        component_defs = [
+            ("Profile", "ITEM-PROF", 1),
+            ("Mounting Accessory", "ITEM-MNT", 6),
+        ]
+
+        # Profile has plenty, Mounting has some stock but less than needed (6)
+        mock_bins = [
+            MagicMock(item_code="ITEM-PROF", total_qty=10),
+            MagicMock(item_code="ITEM-MNT", total_qty=3),
+        ]
+        mock_lead_rows = [
+            MagicMock(name="ITEM-PROF", lead_time_days=0),
+            MagicMock(name="ITEM-MNT", lead_time_days=0),
+        ]
+
+        with patch.object(frappe.db, "sql", side_effect=[mock_bins, mock_lead_rows]):
+            result = _build_kit_stock_result(component_defs)
+
+        self.assertTrue(result["success"])
+        comps = {c["component"]: c for c in result["components"]}
+
+        # Profile: stock=10 >= qty=1 → in_stock=True
+        self.assertTrue(comps["Profile"]["in_stock"])
+        self.assertEqual(comps["Profile"]["kits_fulfillable"], 10)
+
+        # Mounting: stock=3 < qty=6 → in_stock=False, but item IS stocked
+        self.assertFalse(comps["Mounting Accessory"]["in_stock"])
+        self.assertEqual(comps["Mounting Accessory"]["kits_fulfillable"], 0)
+        # Lead-time should still be "in-stock" since the item has physical stock
+        self.assertEqual(comps["Mounting Accessory"]["lead_time_class"], "in-stock")
+
+        # Overall: limited by Mounting (0 kits)
+        self.assertEqual(result["total_kits_fulfillable"], 0)
+        self.assertEqual(result["limiting_component"], "Mounting Accessory")
+
+    def test_build_kit_stock_result_zero_qty_filtered(self):
+        """Test that components with zero quantity requirements are excluded from stock calculations."""
+        from unittest.mock import patch, MagicMock
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_stock_result,
+        )
+
+        # Simulate a kit that only requires Profile and Lens (endcaps/mounting qty=0)
+        # After filtering in get_kit_component_stock, only these would be passed:
+        component_defs = [
+            ("Profile", "ITEM-PROF", 1),
+            ("Lens", "ITEM-LENS", 1),
+        ]
+
+        mock_bins = [
+            MagicMock(item_code="ITEM-PROF", total_qty=5),
+            MagicMock(item_code="ITEM-LENS", total_qty=3),
+        ]
+        mock_lead_rows = [
+            MagicMock(name="ITEM-PROF", lead_time_days=0),
+            MagicMock(name="ITEM-LENS", lead_time_days=0),
+        ]
+
+        with patch.object(frappe.db, "sql", side_effect=[mock_bins, mock_lead_rows]):
+            result = _build_kit_stock_result(component_defs)
+
+        # Only 2 components should be present (zero-qty ones were filtered out)
+        self.assertEqual(len(result["components"]), 2)
+        self.assertTrue(all(c["in_stock"] for c in result["components"]))
+
 
 class TestComputeKitPricing(FrappeTestCase):
     """Test _compute_kit_pricing helper."""

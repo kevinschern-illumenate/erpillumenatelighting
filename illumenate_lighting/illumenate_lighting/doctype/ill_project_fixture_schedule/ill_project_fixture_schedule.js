@@ -3,6 +3,32 @@
 
 frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 	refresh(frm) {
+		// Filter the User link field in the collaborators child table by company
+		frm.set_query("user", "collaborators", function () {
+			return {
+				query: "illumenate_lighting.illumenate_lighting.api.portal.get_company_website_users_query",
+			};
+		});
+
+		// Add "Create User" button for dealers in the collaborators section
+		if (!frm.is_new()) {
+			frappe.call({
+				method: "illumenate_lighting.illumenate_lighting.api.portal.get_user_role_info",
+				async: true,
+				callback: function (r) {
+					if (r.message && (r.message.is_dealer || r.message.is_internal)) {
+						frm.add_custom_button(
+							__("Create Website User"),
+							function () {
+								_show_create_user_dialog(frm);
+							},
+							__("Collaborators")
+						);
+					}
+				},
+			});
+		}
+
 		// Add "Convert to Sales Order" button for schedules in READY status
 		// Per workflow: user sets status to READY then clicks to convert
 		if (!frm.is_new() && frm.doc.status === "READY") {
@@ -362,12 +388,30 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 					frm.refresh_field("lines");
 
 					d.hide();
-					frappe.show_alert({
-						message: __(
-							"Extrusion Kit configured: {0}",
-							[result.part_number]
-						),
+
+					// Build stock summary if available
+					let stockHtml = "";
+					if (result.stock_availability && result.stock_availability.items) {
+						const items = result.stock_availability.items;
+						stockHtml = '<br><table class="table table-condensed table-sm" style="margin-top:8px;margin-bottom:0;font-size:0.9em;">';
+						stockHtml += '<thead><tr class="text-muted"><th></th><th>Component</th><th>Item</th><th class="text-center">Needed</th><th class="text-center">Avail</th></tr></thead><tbody>';
+						items.forEach(function (it) {
+							const icon = it.is_sufficient
+								? '<i class="fa fa-check-circle text-success"></i>'
+								: '<i class="fa fa-times-circle text-danger"></i>';
+							const displayName = it.item_name || it.item_code || "\u2014";
+							const qtyClass = it.qty_available >= it.qty_required ? "text-success" : "text-danger";
+							stockHtml += '<tr><td>' + icon + '</td><td>' + (it.component_type || "") + '</td><td class="text-muted">' + displayName + '</td>';
+							stockHtml += '<td class="text-center">' + (it.qty_required || 0) + '</td>';
+							stockHtml += '<td class="text-center ' + qtyClass + '">' + (it.qty_available || 0) + '</td></tr>';
+						});
+						stockHtml += "</tbody></table>";
+					}
+
+					frappe.msgprint({
+						title: __("Extrusion Kit Configured"),
 						indicator: "green",
+						message: __("Part Number: {0}", [result.part_number]) + stockHtml,
 					});
 				},
 			});
@@ -498,4 +542,80 @@ function _update_kit_preview(dialog, kit) {
 	}
 
 	dialog.fields_dict.resolved_info.$wrapper.html(html);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// CREATE WEBSITE USER DIALOG (FOR DEALERS)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Shows a dialog for dealers to create a new website user
+ * linked to their company. The new user can be added as a
+ * schedule collaborator.
+ */
+function _show_create_user_dialog(frm) {
+	const d = new frappe.ui.Dialog({
+		title: __("Create Website User"),
+		fields: [
+			{
+				fieldname: "email",
+				fieldtype: "Data",
+				label: __("Email"),
+				options: "Email",
+				reqd: 1,
+			},
+			{
+				fieldname: "first_name",
+				fieldtype: "Data",
+				label: __("First Name"),
+				reqd: 1,
+			},
+			{
+				fieldname: "last_name",
+				fieldtype: "Data",
+				label: __("Last Name"),
+			},
+			{
+				fieldname: "send_invite",
+				fieldtype: "Check",
+				label: __("Send Welcome Email"),
+				default: 1,
+			},
+		],
+		primary_action_label: __("Create User"),
+		primary_action: function () {
+			const values = d.get_values();
+			if (!values) return;
+
+			frappe.call({
+				method: "illumenate_lighting.illumenate_lighting.api.portal.create_website_user",
+				args: {
+					email: values.email,
+					first_name: values.first_name,
+					last_name: values.last_name || "",
+					send_invite: values.send_invite ? 1 : 0,
+				},
+				freeze: true,
+				freeze_message: __("Creating user..."),
+				callback: function (r) {
+					if (r.message && r.message.success) {
+						d.hide();
+						frappe.show_alert({
+							message: __("User {0} created successfully", [r.message.user]),
+							indicator: "green",
+						});
+					} else {
+						frappe.msgprint({
+							title: __("Error"),
+							indicator: "red",
+							message: r.message ? r.message.error : __("Failed to create user"),
+						});
+					}
+				},
+			});
+		},
+	});
+
+	d.show();
 }

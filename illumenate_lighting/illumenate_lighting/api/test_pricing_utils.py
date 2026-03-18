@@ -232,3 +232,155 @@ class TestPricingUtils(FrappeTestCase):
             self.assertTrue(result is None or isinstance(result, str))
         finally:
             frappe.session.user = original
+
+
+class TestProductBundleStockExpansion(FrappeTestCase):
+    """Tests for Product Bundle expansion in stock availability checks."""
+
+    # ─── Helpers ──────────────────────────────────────────────────────
+
+    def _cleanup(self, *names_and_types):
+        for dt, dn in names_and_types:
+            if frappe.db.exists(dt, dn):
+                frappe.delete_doc(dt, dn, force=True)
+
+    # ─── _get_product_bundle_items ────────────────────────────────────
+
+    def test_get_product_bundle_items_empty_code(self):
+        """Empty item code returns empty list."""
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+            _get_product_bundle_items,
+        )
+        self.assertEqual(_get_product_bundle_items(""), [])
+        self.assertEqual(_get_product_bundle_items(None), [])
+
+    def test_get_product_bundle_items_non_bundle(self):
+        """Non-bundle item returns empty list."""
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+            _get_product_bundle_items,
+        )
+        result = _get_product_bundle_items("SURELY_DOES_NOT_EXIST_99999")
+        self.assertEqual(result, [])
+
+    # ─── _expand_product_bundles ──────────────────────────────────────
+
+    def test_expand_no_bundles(self):
+        """Non-bundle components pass through unchanged."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+            _expand_product_bundles,
+        )
+        comps = [
+            ("Profile", "ITEM-A", 2, "Nos"),
+            ("Lens", "ITEM-B", 3, "Nos"),
+        ]
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._get_product_bundle_items",
+            return_value=[],
+        ):
+            result = _expand_product_bundles(comps)
+        self.assertEqual(result, comps)
+
+    def test_expand_bundle_items(self):
+        """Bundle item is replaced with its child items, qty multiplied."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+            _expand_product_bundles,
+        )
+        comps = [
+            ("Profile", "ITEM-A", 1, "Nos"),
+            ("Driver", "BUNDLE-DRV", 2, "Nos"),
+        ]
+        bundle_children = [
+            {"item_code": "DRV-BOARD", "qty": 1.0, "uom": "Nos"},
+            {"item_code": "DRV-HOUSING", "qty": 3.0, "uom": "Nos"},
+        ]
+
+        def mock_bundle(item_code):
+            if item_code == "BUNDLE-DRV":
+                return bundle_children
+            return []
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._get_product_bundle_items",
+            side_effect=mock_bundle,
+        ):
+            result = _expand_product_bundles(comps)
+
+        self.assertEqual(len(result), 3)
+        # First item passes through
+        self.assertEqual(result[0], ("Profile", "ITEM-A", 1, "Nos"))
+        # Bundle child 1: qty = 1 * 2 = 2
+        self.assertEqual(result[1][0], "Driver [DRV-BOARD]")
+        self.assertEqual(result[1][1], "DRV-BOARD")
+        self.assertEqual(result[1][2], 2.0)
+        # Bundle child 2: qty = 3 * 2 = 6
+        self.assertEqual(result[2][0], "Driver [DRV-HOUSING]")
+        self.assertEqual(result[2][1], "DRV-HOUSING")
+        self.assertEqual(result[2][2], 6.0)
+
+    # ─── get_bom_stock_for_items with bundles ─────────────────────────
+
+    def test_get_bom_stock_for_items_expands_bundles(self):
+        """get_bom_stock_for_items expands bundles and checks child stock."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+            get_bom_stock_for_items,
+        )
+
+        items = [{"item_code": "BUNDLE-X", "qty": 1}]
+        bundle_children = [
+            {"item_code": "CHILD-1", "qty": 2.0, "uom": "Nos"},
+            {"item_code": "CHILD-2", "qty": 1.0, "uom": "Nos"},
+        ]
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._get_product_bundle_items",
+            return_value=bundle_children,
+        ), patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._bulk_stock_query",
+            return_value={"CHILD-1": 10.0, "CHILD-2": 5.0},
+        ), patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._is_privileged_user",
+            return_value=True,
+        ):
+            result = get_bom_stock_for_items(items)
+
+        self.assertTrue(result["all_in_stock"])
+        self.assertEqual(len(result["items"]), 2)
+        # CHILD-1: needs 2, has 10
+        self.assertEqual(result["items"][0]["item_code"], "CHILD-1")
+        self.assertTrue(result["items"][0]["is_sufficient"])
+        self.assertEqual(result["items"][0]["qty_required"], 2.0)
+        # CHILD-2: needs 1, has 5
+        self.assertEqual(result["items"][1]["item_code"], "CHILD-2")
+        self.assertTrue(result["items"][1]["is_sufficient"])
+
+    def test_get_bom_stock_for_items_bundle_insufficient(self):
+        """Bundle child with insufficient stock marks all_in_stock False."""
+        from unittest.mock import patch
+        from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+            get_bom_stock_for_items,
+        )
+
+        items = [{"item_code": "BUNDLE-Y", "qty": 5}]
+        bundle_children = [
+            {"item_code": "CHILD-A", "qty": 1.0, "uom": "Nos"},
+        ]
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._get_product_bundle_items",
+            return_value=bundle_children,
+        ), patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._bulk_stock_query",
+            return_value={"CHILD-A": 3.0},
+        ), patch(
+            "illumenate_lighting.illumenate_lighting.api.pricing_utils._is_privileged_user",
+            return_value=True,
+        ):
+            result = get_bom_stock_for_items(items)
+
+        self.assertFalse(result["all_in_stock"])
+        # needs 5, has 3
+        self.assertFalse(result["items"][0]["is_sufficient"])
+        self.assertEqual(result["items"][0]["qty_required"], 5.0)

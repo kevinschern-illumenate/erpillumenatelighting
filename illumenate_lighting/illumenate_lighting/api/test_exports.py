@@ -503,3 +503,198 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(_find_closest_fixture_level(100, levels)["name"], "L1")
 		self.assertEqual(_find_closest_fixture_level(550, levels)["name"], "L3")
 		self.assertIsNone(_find_closest_fixture_level(350, []))
+
+	# ── InDesign pivot tests ──
+
+	def test_parse_output_level_sort_key(self):
+		"""Leading integer is extracted for sorting."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _parse_output_level_sort_key
+
+		self.assertEqual(_parse_output_level_sort_key("200 lm/ft"), 200)
+		self.assertEqual(_parse_output_level_sort_key("50 lm/ft"), 50)
+		self.assertEqual(_parse_output_level_sort_key("High"), 0)
+		self.assertEqual(_parse_output_level_sort_key(""), 0)
+		self.assertEqual(_parse_output_level_sort_key(None), 0)
+
+	def test_pivot_to_indesign_column_structure(self):
+		"""Verify pivoted headers contain expected dynamic columns."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign,
+			INDESIGN_PRODUCT_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "Test Product",
+			"input_voltage": "24V",
+			"certifications": "UL",
+			"available_lenses": "White, Frosted",
+			"available_finishes": "Silver",
+			"profile_dimensions": "1×2×3",
+		}
+
+		variant_rows = [
+			{
+				"cct_name": "3000K", "cct_kelvin": 3000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 190.0, "watts_per_foot_white": 4.5, "max_run_length_ft_white": 20,
+				"delivered_lumens_frosted": 170.0, "watts_per_foot_frosted": 4.5, "max_run_length_ft_frosted": 20,
+				"delivered_lumens_clear": 210.0, "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 160.0, "watts_per_foot_black": 4.5, "max_run_length_ft_black": 18,
+			},
+			{
+				"cct_name": "4000K", "cct_kelvin": 4000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 200.0, "watts_per_foot_white": 5.0, "max_run_length_ft_white": 18,
+				"delivered_lumens_frosted": 180.0, "watts_per_foot_frosted": 5.0, "max_run_length_ft_frosted": 18,
+				"delivered_lumens_clear": 220.0, "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 170.0, "watts_per_foot_black": 5.0, "max_run_length_ft_black": 16,
+			},
+			{
+				"cct_name": "3000K", "cct_kelvin": 3000,
+				"fixture_output_level": "400 lm/ft",
+				"delivered_lumens_white": 390.0, "watts_per_foot_white": 9.0, "max_run_length_ft_white": 10,
+				"delivered_lumens_frosted": 350.0, "watts_per_foot_frosted": 9.0, "max_run_length_ft_frosted": 10,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": "", "watts_per_foot_black": "", "max_run_length_ft_black": "",
+			},
+			{
+				"cct_name": "4000K", "cct_kelvin": 4000,
+				"fixture_output_level": "400 lm/ft",
+				"delivered_lumens_white": 410.0, "watts_per_foot_white": 10.0, "max_run_length_ft_white": 9,
+				"delivered_lumens_frosted": 370.0, "watts_per_foot_frosted": 10.0, "max_run_length_ft_frosted": 9,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": "", "watts_per_foot_black": "", "max_run_length_ft_black": "",
+			},
+		]
+
+		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Static product columns come first
+		for col in INDESIGN_PRODUCT_COLUMNS:
+			self.assertIn(col, headers)
+
+		# 2 CCTs → 2 Light Color columns
+		self.assertIn("Light Color (CCT) 1", headers)
+		self.assertIn("Light Color (CCT) 2", headers)
+
+		# 2 output levels → Output Options 1, 2
+		self.assertIn("Output Options 1", headers)
+		self.assertIn("Output Options 2", headers)
+
+		# Per-output watt/run columns for lens groups
+		self.assertIn("Watts per Foot (White Lens) 1", headers)
+		self.assertIn("Max Run Length (White Lens) 1", headers)
+		self.assertIn("Watts per Foot (Black Lens) 1", headers)
+		self.assertIn("Max Run Length (Other Lenses) 2", headers)
+
+		# Lumen columns per output × CCT
+		self.assertIn("White Lens - Output 1 - Lumen 1", headers)
+		self.assertIn("Black Lens - Output 1 - Lumen 2", headers)
+		self.assertIn("Frosted Lens - Output 2 - Lumen 1", headers)
+		self.assertIn("Clear Lens - Output 2 - Lumen 2", headers)
+
+	def test_pivot_to_indesign_values_and_aggregation(self):
+		"""Verify aggregated values, suffixes, and lumen pass-through."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "Agg Test",
+			"input_voltage": "24V",
+			"certifications": "UL",
+			"available_lenses": "White",
+			"available_finishes": "Silver",
+			"profile_dimensions": "1×2",
+		}
+
+		variant_rows = [
+			{
+				"cct_name": "3000K", "cct_kelvin": 3000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 190.0, "watts_per_foot_white": 4.5, "max_run_length_ft_white": 20,
+				"delivered_lumens_frosted": 170.0, "watts_per_foot_frosted": 4.5, "max_run_length_ft_frosted": 20,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 160.0, "watts_per_foot_black": 4.0, "max_run_length_ft_black": 22,
+			},
+			{
+				"cct_name": "4000K", "cct_kelvin": 4000,
+				"fixture_output_level": "200 lm/ft",
+				"delivered_lumens_white": 200.0, "watts_per_foot_white": 5.0, "max_run_length_ft_white": 18,
+				"delivered_lumens_frosted": 180.0, "watts_per_foot_frosted": 5.0, "max_run_length_ft_frosted": 15,
+				"delivered_lumens_clear": "", "watts_per_foot_clear": "", "max_run_length_ft_clear": "",
+				"delivered_lumens_black": 170.0, "watts_per_foot_black": 5.0, "max_run_length_ft_black": 16,
+			},
+		]
+
+		_headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Static values
+		self.assertEqual(data_row["Product Name"], "Agg Test")
+		self.assertEqual(data_row["Input Voltage"], "24V")
+
+		# CCT columns sorted by kelvin
+		self.assertEqual(data_row["Light Color (CCT) 1"], "3000K")
+		self.assertEqual(data_row["Light Color (CCT) 2"], "4000K")
+
+		# Output options
+		self.assertEqual(data_row["Output Options 1"], "200 lm/ft")
+
+		# Watts per foot: max() across CCTs with "W" suffix
+		# White: max(4.5, 5.0) = 5.0 → "5W"
+		self.assertEqual(data_row["Watts per Foot (White Lens) 1"], "5W")
+		# Black: max(4.0, 5.0) = 5.0 → "5W"
+		self.assertEqual(data_row["Watts per Foot (Black Lens) 1"], "5W")
+		# Other Lenses (frosted): max(4.5, 5.0) = 5.0 → "5W"
+		self.assertEqual(data_row["Watts per Foot (Other Lenses) 1"], "5W")
+
+		# Max run length: min() across CCTs with "ft" suffix
+		# White: min(20, 18) = 18 → "18ft"
+		self.assertEqual(data_row["Max Run Length (White Lens) 1"], "18ft")
+		# Black: min(22, 16) = 16 → "16ft"
+		self.assertEqual(data_row["Max Run Length (Black Lens) 1"], "16ft")
+		# Other Lenses (frosted): min(20, 15) = 15 → "15ft"
+		self.assertEqual(data_row["Max Run Length (Other Lenses) 1"], "15ft")
+
+		# Lumen pass-through (first value for each CCT × output)
+		self.assertEqual(data_row["White Lens - Output 1 - Lumen 1"], 190.0)
+		self.assertEqual(data_row["White Lens - Output 1 - Lumen 2"], 200.0)
+		self.assertEqual(data_row["Black Lens - Output 1 - Lumen 1"], 160.0)
+		self.assertEqual(data_row["Frosted Lens - Output 1 - Lumen 1"], 170.0)
+
+	def test_pivot_to_indesign_empty_variant_rows(self):
+		"""Pivot with no variant rows produces only static product columns."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign,
+			INDESIGN_PRODUCT_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "Empty", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+
+		headers, data_row = _pivot_to_indesign(product_data, [])
+
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
+		self.assertEqual(data_row["Product Name"], "Empty")
+
+	def test_pivot_to_indesign_output_level_sort_order(self):
+		"""Output levels are sorted by leading integer, not lexicographically."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "Sort Test", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+
+		variant_rows = [
+			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "400 lm/ft"},
+			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "50 lm/ft"},
+			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "200 lm/ft"},
+		]
+
+		_headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Sorted by leading int: 50, 200, 400
+		self.assertEqual(data_row["Output Options 1"], "50 lm/ft")
+		self.assertEqual(data_row["Output Options 2"], "200 lm/ft")
+		self.assertEqual(data_row["Output Options 3"], "400 lm/ft")

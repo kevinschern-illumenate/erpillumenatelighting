@@ -1049,44 +1049,65 @@ function renderStockAvailability(stockData) {
     var items = stockData.items;
     var inStockCount = 0;
     var totalCount = items.length;
+    var hasQty = typeof items[0].qty_required !== 'undefined';
+
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].is_sufficient) inStockCount++;
+    }
+
+    // Build summary label
+    var summaryClass, summaryText;
+    if (stockData.all_in_stock) {
+        summaryClass = 'text-success';
+        summaryText = __('All In Stock') + ' (' + totalCount + '/' + totalCount + ')';
+    } else if (inStockCount > 0) {
+        summaryClass = 'text-warning';
+        summaryText = __('Partial') + ' (' + inStockCount + '/' + totalCount + ')';
+    } else {
+        summaryClass = 'text-danger';
+        summaryText = __('Not In Stock') + ' (0/' + totalCount + ')';
+    }
+
+    // Build collapsible details with table
+    var html = '<details class="stock-breakdown kit-stock-breakdown">';
+    html += '<summary><span class="' + summaryClass + '">';
+    html += '<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>' + summaryText;
+    html += '</span> <i class="fa fa-caret-right stock-toggle-arrow"></i></summary>';
+    html += '<table class="table table-sm table-borderless mb-0 small kit-stock-table" style="font-size:0.85em;">';
+    html += '<thead><tr class="text-muted">';
+    html += '<th style="width:20px;padding:2px 4px;"></th>';
+    html += '<th style="padding:2px 4px;">' + __('Component') + '</th>';
+    html += '<th style="padding:2px 4px;">' + __('Item') + '</th>';
+    if (hasQty) {
+        html += '<th class="text-center" style="padding:2px 4px;">' + __('Needed') + '</th>';
+        html += '<th class="text-center" style="padding:2px 4px;">' + __('Available') + '</th>';
+    }
+    html += '</tr></thead><tbody>';
 
     for (var i = 0; i < items.length; i++) {
         var item = items[i];
-        if (item.is_sufficient) inStockCount++;
-
         var icon = item.is_sufficient
-            ? '<i class="fa fa-check-circle text-success mr-1"></i>'
-            : '<i class="fa fa-times-circle text-danger mr-1"></i>';
+            ? '<i class="fa fa-check-circle text-success" style="font-size:0.8em;"></i>'
+            : '<i class="fa fa-times-circle text-danger" style="font-size:0.8em;"></i>';
+        var displayName = item.item_name || item.item_code || '\u2014';
+        var qtyClass = (hasQty && item.qty_available >= item.qty_required)
+            ? 'text-success' : 'text-danger font-weight-bold';
 
-        var qtyInfo = '';
-        if (typeof item.qty_available !== 'undefined') {
-            qtyInfo = ' <small class="text-muted">(' + item.qty_required + ' needed / ' + item.qty_available + ' avail)</small>';
+        html += '<tr>';
+        html += '<td style="padding:2px 4px;">' + icon + '</td>';
+        html += '<td style="padding:2px 4px;">' + (item.component_type || '') + '</td>';
+        html += '<td style="padding:2px 4px;"><span class="text-muted">' + displayName + '</span></td>';
+        if (hasQty) {
+            html += '<td class="text-center" style="padding:2px 4px;">' + item.qty_required + '</td>';
+            html += '<td class="text-center" style="padding:2px 4px;"><span class="' + qtyClass + '">' + item.qty_available + '</span></td>';
         }
-
-        $list.append(
-            '<div class="d-flex align-items-center mb-1 small">' +
-            icon +
-            '<span>' + (item.component_type || item.item_code) + '</span>' +
-            qtyInfo +
-            '</div>'
-        );
+        html += '</tr>';
     }
 
-    // Overall badge
-    if (stockData.all_in_stock) {
-        $badge.removeClass('badge-warning badge-danger')
-              .addClass('badge-success')
-              .text(__('All In Stock')).show();
-    } else if (inStockCount > 0) {
-        $badge.removeClass('badge-success badge-danger')
-              .addClass('badge-warning')
-              .text(inStockCount + ' / ' + totalCount + ' ' + __('in stock')).show();
-    } else {
-        $badge.removeClass('badge-success badge-warning')
-              .addClass('badge-danger')
-              .text(__('Not In Stock')).show();
-    }
+    html += '</tbody></table></details>';
+    $list.html(html);
 
+    $badge.hide();
     $container.show();
 }
 
