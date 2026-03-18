@@ -70,39 +70,50 @@ def _get_available_users(project):
 	Returns users who:
 	1. Are enabled
 	2. Are not already collaborators
-	3. Are linked to the same customer (or any customer if System Manager)
+	3. Are linked to the same customer as the current user (or any user if System Manager)
 	"""
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
 		_get_user_customer,
+		_is_internal_user,
+	)
+	from illumenate_lighting.illumenate_lighting.api.portal import (
+		_get_users_for_customer,
 	)
 
 	# Get existing collaborator emails
 	existing_users = {c.user for c in project.collaborators or []}
 	existing_users.add(project.owner)  # Owner is implicit collaborator
 
-	# Get all enabled users
-	all_users = frappe.get_all(
-		"User",
-		filters={
-			"enabled": 1,
-			"user_type": "Website User",
-			"name": ["not in", ["Guest", "Administrator"]],
-		},
-		fields=["name", "full_name", "email"],
-	)
+	is_internal = _is_internal_user(frappe.session.user)
 
-	# Also get system users if current user is System Manager
-	if "System Manager" in frappe.get_roles(frappe.session.user):
-		system_users = frappe.get_all(
+	if is_internal:
+		# System Managers / internal users see all users
+		all_users = frappe.get_all(
 			"User",
 			filters={
 				"enabled": 1,
-				"user_type": "System User",
 				"name": ["not in", ["Guest", "Administrator"]],
 			},
 			fields=["name", "full_name", "email"],
 		)
-		all_users.extend(system_users)
+	else:
+		# Non-internal users: filter by company
+		user_customer = _get_user_customer(frappe.session.user)
+		if not user_customer:
+			return []
+
+		company_user_emails = _get_users_for_customer(user_customer)
+		if not company_user_emails:
+			return []
+
+		all_users = frappe.get_all(
+			"User",
+			filters={
+				"enabled": 1,
+				"name": ["in", list(company_user_emails)],
+			},
+			fields=["name", "full_name", "email"],
+		)
 
 	# Filter to users not already collaborators
 	available = []

@@ -3926,3 +3926,269 @@ def get_schedule_version_history(schedule_name: str) -> dict:
 	versions.sort(key=lambda v: v.get("version") or 1)
 
 	return {"success": True, "versions": versions, "current": schedule_name}
+
+
+# =============================================================================
+# SCHEDULE COLLABORATOR HELPERS
+# =============================================================================
+
+
+def _get_users_for_customer(customer_name):
+	"""
+	Get all website users linked to a given Customer.
+
+	Returns users who:
+	1. Have a Contact linked to the given Customer via Dynamic Link
+	2. Were created (owner) by a user who has a Contact linked to this Customer
+
+	Args:
+		customer_name: The Customer doctype name
+
+	Returns:
+		set: Set of user emails linked to this customer
+	"""
+	if not customer_name:
+		return set()
+
+	# 1. Get users directly linked to the customer via Contact → Dynamic Link
+	linked_contacts = frappe.db.sql("""
+		SELECT DISTINCT c.user
+		FROM `tabContact` c
+		INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name AND dl.parenttype = 'Contact'
+		WHERE dl.link_doctype = 'Customer'
+			AND dl.link_name = %(customer)s
+			AND c.user IS NOT NULL
+			AND c.user != ''
+	""", {"customer": customer_name}, as_dict=True)
+
+	company_users = {r.user for r in linked_contacts}
+
+	# Also include users whose email_id matches a contact linked to this customer
+	linked_by_email = frappe.db.sql("""
+		SELECT DISTINCT c.email_id
+		FROM `tabContact` c
+		INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name AND dl.parenttype = 'Contact'
+		WHERE dl.link_doctype = 'Customer'
+			AND dl.link_name = %(customer)s
+			AND c.email_id IS NOT NULL
+			AND c.email_id != ''
+	""", {"customer": customer_name}, as_dict=True)
+
+	for r in linked_by_email:
+		if frappe.db.exists("User", r.email_id):
+			company_users.add(r.email_id)
+
+	# 2. Get website users created by any company user
+	if company_users:
+		created_users = frappe.get_all(
+			"User",
+			filters={
+				"enabled": 1,
+				"user_type": "Website User",
+				"owner": ["in", list(company_users)],
+				"name": ["not in", ["Guest", "Administrator"]],
+			},
+			fields=["name"],
+		)
+		for u in created_users:
+			company_users.add(u.name)
+
+	return company_users
+
+
+@frappe.whitelist()
+def get_company_website_users_query(doctype, txt, searchfield, start, page_len, filters):
+	"""
+	Link field query filter for the User field in schedule collaborators.
+
+	Filters users to only show those linked to the current user's company.
+	Internal/system manager users see all users.
+
+	This follows Frappe's link field query convention:
+	Returns a list of [name, description] tuples.
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+
+	txt_condition = ""
+	if txt:
+		txt_condition = "AND (u.name LIKE %(txt)s OR u.full_name LIKE %(txt)s)"
+
+	if is_internal:
+		return frappe.db.sql("""
+			SELECT u.name, u.full_name
+			FROM `tabUser` u
+			WHERE u.enabled = 1
+				AND u.name NOT IN ('Guest', 'Administrator')
+				{txt_condition}
+			ORDER BY u.full_name ASC
+			LIMIT %(page_len)s OFFSET %(start)s
+		""".format(txt_condition=txt_condition), {
+			"txt": f"%{txt}%",
+			"start": start,
+			"page_len": page_len,
+		})
+
+	user_customer = _get_user_customer(frappe.session.user)
+	if not user_customer:
+		return []
+
+	company_user_emails = _get_users_for_customer(user_customer)
+	if not company_user_emails:
+		return []
+
+	return frappe.db.sql("""
+		SELECT u.name, u.full_name
+		FROM `tabUser` u
+		WHERE u.enabled = 1
+			AND u.name IN %(users)s
+			{txt_condition}
+		ORDER BY u.full_name ASC
+		LIMIT %(page_len)s OFFSET %(start)s
+	""".format(txt_condition=txt_condition), {
+		"users": list(company_user_emails),
+		"txt": f"%{txt}%",
+		"start": start,
+		"page_len": page_len,
+	})
+
+
+@frappe.whitelist()
+def get_company_website_users() -> dict:
+	"""
+	Get website users linked to the current user's company.
+
+	Returns website users who:
+	1. Have a Contact linked to the same Customer as the current user
+	2. Were created by a user at the same company
+
+	System Managers / internal users see all website users.
+
+	Returns:
+		dict: {"success": True, "users": [...]}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+
+	if is_internal:
+		# Internal users see all website users plus system users
+		users = frappe.get_all(
+			"User",
+			filters={
+				"enabled": 1,
+				"name": ["not in", ["Guest", "Administrator"]],
+			},
+			fields=["name", "full_name", "email"],
+		)
+		return {"success": True, "users": users}
+
+	user_customer = _get_user_customer(frappe.session.user)
+	if not user_customer:
+		# No company link — return only the current user
+		return {"success": True, "users": []}
+
+	company_user_emails = _get_users_for_customer(user_customer)
+
+	if not company_user_emails:
+		return {"success": True, "users": []}
+
+	users = frappe.get_all(
+		"User",
+		filters={
+			"enabled": 1,
+			"name": ["in", list(company_user_emails)],
+			"user_type": "Website User",
+		},
+		fields=["name", "full_name", "email"],
+		order_by="full_name asc",
+	)
+
+	return {"success": True, "users": users}
+
+
+@frappe.whitelist()
+def create_website_user(email: str, first_name: str, last_name: str = "", send_invite: int = 1) -> dict:
+	"""
+	Create a new website user linked to the dealer's company.
+
+	Dealers can create website users who:
+	- Have the Website User role only
+	- Are linked to the dealer's Customer via a Contact
+	- Can access fixture schedules but nothing else
+
+	Args:
+		email: Email address for the new user
+		first_name: First name
+		last_name: Last name (optional)
+		send_invite: 1 to send welcome email, 0 to skip
+
+	Returns:
+		dict: {"success": True/False, "user": email, "error": str}
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_get_user_customer,
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	is_internal = _is_internal_user(frappe.session.user)
+	is_dealer = _is_dealer_user(frappe.session.user)
+
+	if not is_dealer and not is_internal:
+		return {"success": False, "error": "You don't have permission to create users"}
+
+	if not email or not first_name:
+		return {"success": False, "error": "Email and first name are required"}
+
+	email = email.strip().lower()
+	if not frappe.utils.validate_email_address(email):
+		return {"success": False, "error": "Invalid email address"}
+
+	if frappe.db.exists("User", email):
+		return {"success": False, "error": "A user with this email already exists"}
+
+	user_customer = _get_user_customer(frappe.session.user)
+
+	try:
+		# Create the user
+		user = frappe.new_doc("User")
+		user.email = email
+		user.first_name = first_name
+		user.last_name = last_name or ""
+		user.send_welcome_email = int(send_invite)
+		user.enabled = 1
+		user.user_type = "Website User"
+		user.append("roles", {"role": "Website User"})
+		user.insert(ignore_permissions=True)
+
+		# Create a Contact linked to the dealer's Customer
+		if user_customer:
+			contact = frappe.new_doc("Contact")
+			contact.first_name = first_name
+			contact.last_name = last_name or ""
+			contact.email_id = email
+			contact.user = email
+			contact.append("links", {
+				"link_doctype": "Customer",
+				"link_name": user_customer,
+			})
+			contact.insert(ignore_permissions=True)
+
+		frappe.db.commit()
+
+		return {
+			"success": True,
+			"user": email,
+			"full_name": user.full_name,
+		}
+	except Exception as e:
+		frappe.log_error(f"Error creating website user: {str(e)}")
+		return {"success": False, "error": f"Failed to create user: {str(e)}"}

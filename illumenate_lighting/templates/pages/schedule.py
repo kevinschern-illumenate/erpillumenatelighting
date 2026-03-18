@@ -717,8 +717,10 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 	for c in components:
 		entry = {
 			"item_code": c.get("item_code") or "",
+			"item_name": c.get("item_name") or "",
 			"component_type": c.get("component", ""),
 			"is_sufficient": c.get("in_stock", False),
+			"lead_time_class": c.get("lead_time_class", ""),
 		}
 		if show_qty:
 			entry["qty_required"] = c.get("qty_per_kit", 0)
