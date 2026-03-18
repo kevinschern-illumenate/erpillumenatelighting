@@ -258,6 +258,17 @@ function buildConfiguratorDOM() {
 		'</div></div></div>'
 	);
 
+	// Power Supply Option
+	$steps.append(
+		'<div class="config-step mt-3" id="powerSupplySection">' +
+		'<div class="custom-control custom-checkbox">' +
+		'<input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>' +
+		'<label class="custom-control-label" for="includePowerSupply">' +
+		'<strong>Include Power Supplies?</strong>' +
+		'<small class="text-muted d-block">Uncheck to exclude drivers/power supplies from this fixture and source them separately.</small>' +
+		'</label></div></div>'
+	);
+
 	// Validation messages
 	$steps.append(
 		'<div id="validationMessages" style="display:none"><div id="messagesList"></div></div>'
