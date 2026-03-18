@@ -414,6 +414,17 @@ Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Lengt
 				</div>
 			</div>
 
+			<!-- Power Supply Option -->
+			<div class="config-section mt-3" id="powerSupplySection">
+				<div class="custom-control custom-checkbox">
+					<input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>
+					<label class="custom-control-label" for="includePowerSupply">
+						<strong>{{ _("Include Power Supplies?") }}</strong>
+						<small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies from this fixture and source them separately.") }}</small>
+					</label>
+				</div>
+			</div>
+
 			<!-- Action Buttons -->
 			<div class="d-flex justify-content-between" id="actionButtons">
 				<button type="button" class="btn btn-outline-secondary" onclick="resetConfiguration()">

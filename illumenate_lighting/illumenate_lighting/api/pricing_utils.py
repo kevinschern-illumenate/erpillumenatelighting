@@ -406,7 +406,7 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
     #     leader_qty = cf.runs_count or 1
     #     components.append(("Leader Cable", cf.leader_item, leader_qty, "Nos"))
 
-    if cf.drivers:
+    if cf.drivers and getattr(cf, "include_power_supply", 1):
         for driver in cf.drivers:
             if driver.driver_item and (driver.driver_qty or 0) > 0:
                 components.append(("Driver", driver.driver_item, driver.driver_qty, "Nos"))

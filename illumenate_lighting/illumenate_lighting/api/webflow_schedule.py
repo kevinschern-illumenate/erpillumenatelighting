@@ -99,6 +99,11 @@ def add_to_schedule(
     default_endcap_style = _get_default_endcap_style(template)
     default_endcap_color = _get_default_endcap_color(template, finish_code=config.get("finish"))
     
+    # Extract include_power_supply flag (defaults to True for backward compatibility)
+    include_power_supply = config.get("include_power_supply", True)
+    if isinstance(include_power_supply, str):
+        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+
     # Try to call existing configurator engine
     try:
         from illumenate_lighting.illumenate_lighting.api.configurator_engine import validate_and_quote
@@ -115,7 +120,8 @@ def add_to_schedule(
             environment_rating_code=config.get("environment_rating"),
             tape_offering_id=tape_offering_id,
             requested_overall_length_mm=length_mm,
-            qty=quantity
+            qty=quantity,
+            include_power_supply=include_power_supply,
         )
         
         if not engine_result.get("is_valid"):

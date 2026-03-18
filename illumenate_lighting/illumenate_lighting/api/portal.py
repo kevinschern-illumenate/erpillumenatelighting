@@ -1609,6 +1609,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 			"estimated_delivered_output": cf.estimated_delivered_output if hasattr(cf, "estimated_delivered_output") else None,
 			"power_supply": None,
 			"driver_input_voltage": None,
+			"include_power_supply": getattr(cf, "include_power_supply", 1),
 			"manufacturable_length_mm": cf.manufacturable_overall_length_mm,
 			"total_watts": cf.total_watts,
 		}

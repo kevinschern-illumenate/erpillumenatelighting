@@ -818,7 +818,8 @@ function gatherAllSelections() {
         start_feed_length_ft: $('input[name="start_feed_length_ft"]').val() || '',
         end_feed_direction: WebflowConfigurator.selections['end_feed_direction'] || '',
         end_feed_length_ft: WebflowConfigurator.selections['end_feed_direction'] === 'Endcap' ? '0' : ($('input[name="end_feed_length_ft"]').val() || ''),
-        product_slug: WebflowConfigurator.productSlug || $('#fixtureTemplateSelect').val()
+        product_slug: WebflowConfigurator.productSlug || $('#fixtureTemplateSelect').val(),
+        include_power_supply: $('#includePowerSupply').is(':checked')
     };
 }
 
@@ -1007,6 +1008,17 @@ function handleValidationResponse(data) {
         // Show stock availability if available
         if (data.stock_availability) {
             renderStockAvailability(data.stock_availability);
+        }
+
+        // Show power supply exclusion note if applicable
+        if (!$('#includePowerSupply').is(':checked')) {
+            $messagesList.append(
+                '<div class="alert alert-info py-2">' +
+                '<i class="fa fa-info-circle mr-2"></i>' +
+                __('Power Supply Not Included') + ' &mdash; ' +
+                __('drivers/power supplies are excluded from this configuration.') +
+                '</div>'
+            );
         }
 
         // Enable add to schedule button

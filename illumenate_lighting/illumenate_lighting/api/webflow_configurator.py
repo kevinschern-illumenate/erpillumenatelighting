@@ -295,10 +295,15 @@ def validate_configuration(
     # Calculate pricing
     pricing = _calculate_pricing_preview(template, selections_dict, tape_offering_id)
     
+    # Extract include_power_supply flag (defaults to True for backward compatibility)
+    include_power_supply = selections_dict.get("include_power_supply", True)
+    if isinstance(include_power_supply, str):
+        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+
     # --- Stock availability (best-effort) ---
     stock_availability = None
     try:
-        stock_availability = _get_stock_for_selections(template, selections_dict, tape_offering_id)
+        stock_availability = _get_stock_for_selections(template, selections_dict, tape_offering_id, include_power_supply=include_power_supply)
     except Exception:
         pass  # Non-critical; omit from response on failure
 
@@ -1743,7 +1748,7 @@ def cleanup_expired_cache() -> int:
 # STOCK AVAILABILITY HELPERS
 # =============================================================================
 
-def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id: str) -> dict | None:
+def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id: str, include_power_supply: bool = True) -> dict | None:
     """
     Run the configurator engine for item resolution, then check BOM stock.
 
@@ -1784,6 +1789,7 @@ def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id:
         tape_offering_id=tape_offering_id,
         requested_overall_length_mm=length_mm,
         qty=1,
+        include_power_supply=include_power_supply,
     )
 
     cf_id = engine_result.get("configured_fixture_id") if engine_result.get("is_valid") else None
