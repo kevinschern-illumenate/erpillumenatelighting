@@ -251,6 +251,12 @@ def get_context(context):
 				unit_price = pricing_map.get(line.configured_fixture)
 			elif line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon:
 				unit_price = ctn_pricing_map.get(line.configured_tape_neon)
+				# Fallback: read from variant_selections when snapshot pricing is missing
+				if not unit_price:
+					unit_price = _get_msrp_from_variant_selections(line)
+			elif getattr(line, "product_type", None) in ("LED Tape", "LED Neon") and getattr(line, "tape_neon_template", None):
+				# Tape/neon template line without configured record – read from variant_selections
+				unit_price = _get_msrp_from_variant_selections(line)
 			elif getattr(line, "product_type", None) == "Extrusion Kit":
 				# Kit pricing stored in variant_selections JSON
 				vs_raw = getattr(line, "variant_selections", None)
@@ -581,6 +587,26 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			title="Schedule Display Error"
 		)
 		return {}
+
+
+def _get_msrp_from_variant_selections(line):
+	"""Extract total_price_msrp from a schedule line's variant_selections JSON.
+
+	Checks ``pricing.total_price_msrp`` first, then falls back to
+	``computed.total_price_msrp``.  Returns ``None`` when unavailable.
+	"""
+	vs_raw = getattr(line, "variant_selections", None)
+	if not vs_raw:
+		return None
+	import json as _json_vs
+	try:
+		vs_data = _json_vs.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+		msrp = (vs_data.get("pricing") or {}).get("total_price_msrp")
+		if not msrp:
+			msrp = (vs_data.get("computed") or {}).get("total_price_msrp")
+		return float(msrp) if msrp else None
+	except (ValueError, TypeError):
+		return None
 
 
 def _get_configured_tape_neon_display_details(configured_tape_neon_id):

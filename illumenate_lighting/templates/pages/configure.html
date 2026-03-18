@@ -3449,6 +3449,21 @@ function tnDisplayResults(result) {
 			if (isNeon && p.price_per_segment_msrp && c.segment_count) {
 				msrp += p.price_per_segment_msrp * c.segment_count;
 			}
+			// Sum option adders from template options
+			var sel = result.selections || {};
+			var opts = (tnTemplateOptions.options || {});
+			var adderMappings = isNeon
+				? [['ccts', 'cct'], ['output_levels', 'output_level'], ['mounting_methods', 'mounting'], ['finishes', 'finish']]
+				: [['ccts', 'cct'], ['output_levels', 'output_level'], ['environment_ratings', 'environment_rating'],
+				   ['pcb_mountings', 'pcb_mounting'], ['pcb_finishes', 'pcb_finish'], ['feed_types', 'feed_type']];
+			adderMappings.forEach(function(pair) {
+				var optList = opts[pair[0]] || [];
+				var selVal = sel[pair[1]];
+				if (selVal) {
+					var match = optList.find(function(o) { return o.value === selVal; });
+					if (match && match.msrp_adder) { msrp += match.msrp_adder; }
+				}
+			});
 			var tbody = $('#priceBreakdownBody').empty();
 			tbody.append(
 				'<tr>' +
