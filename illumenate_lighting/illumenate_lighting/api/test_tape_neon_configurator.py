@@ -515,5 +515,210 @@ class TestComputeTapeNeonPricing(unittest.TestCase):
         self.assertEqual(result["total_price_msrp"], 0)
 
 
+class TestComputeTemplateTapeNeonPricing(unittest.TestCase):
+    """Test _compute_template_tape_neon_pricing helper."""
+
+    def test_known_values_tape(self):
+        """Base=$50, per_ft=$15, 15ft → $50 + $225 = $275 + adders."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        length_mm = 15 * MM_PER_FOOT
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.return_value = {
+                "base_price_msrp": 50.0,
+                "price_per_ft_msrp": 15.0,
+            }
+            mock_frappe.get_all.return_value = []
+
+            result = _compute_template_tape_neon_pricing(
+                "TMPL-001", {"cct": "3000K"}, length_mm, is_neon=False
+            )
+
+        self.assertAlmostEqual(result["total_price_msrp"], 275.0, places=2)
+        self.assertIsInstance(result["adder_breakdown"], list)
+        # Should have base + length entries
+        components = [a["component"] for a in result["adder_breakdown"]]
+        self.assertIn("base", components)
+        self.assertIn("length", components)
+
+    def test_known_values_with_option_adders(self):
+        """Base=$50, per_ft=$15, 15ft + $10 CCT adder → $285."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        length_mm = 15 * MM_PER_FOOT
+
+        def mock_get_value(doctype, filters, fields=None, as_dict=False, **kwargs):
+            if doctype == "ilL-Tape-Neon-Template":
+                return {
+                    "base_price_msrp": 50.0,
+                    "price_per_ft_msrp": 15.0,
+                }
+            return None
+
+        def mock_get_all(doctype, filters=None, fields=None, **kwargs):
+            if doctype == "ilL-Child-Tape-Neon-Allowed-Option":
+                if filters and filters.get("option_type") == "CCT":
+                    return [MagicMock(msrp_adder=10.0)]
+            return []
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            mock_frappe.get_all.side_effect = mock_get_all
+
+            result = _compute_template_tape_neon_pricing(
+                "TMPL-001",
+                {"cct": "3000K", "output_level": "Standard"},
+                length_mm,
+                is_neon=False,
+            )
+
+        # $50 base + $225 length + $10 CCT = $285
+        self.assertAlmostEqual(result["total_price_msrp"], 285.0, places=2)
+        components = [a["component"] for a in result["adder_breakdown"]]
+        self.assertIn("cct", components)
+
+    def test_zero_template_pricing_returns_zero(self):
+        """When template has zero pricing fields, returns $0."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.return_value = {
+                "base_price_msrp": 0,
+                "price_per_ft_msrp": 0,
+            }
+            mock_frappe.get_all.return_value = []
+
+            result = _compute_template_tape_neon_pricing(
+                "TMPL-002", {"cct": "3000K"}, 15 * MM_PER_FOOT, is_neon=False
+            )
+
+        self.assertEqual(result["total_price_msrp"], 0)
+        self.assertIsInstance(result["adder_breakdown"], list)
+
+    def test_no_template_name_returns_zero(self):
+        """When template_name is None/empty, returns $0."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+        )
+
+        result = _compute_template_tape_neon_pricing(None, {}, 3048)
+        self.assertEqual(result["total_price_msrp"], 0)
+        self.assertEqual(result["adder_breakdown"], [])
+
+    def test_template_not_found_returns_zero(self):
+        """When template doesn't exist in DB, returns $0."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+        )
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.return_value = None
+
+            result = _compute_template_tape_neon_pricing(
+                "TMPL-MISSING", {"cct": "3000K"}, 3048
+            )
+
+        self.assertEqual(result["total_price_msrp"], 0)
+        self.assertEqual(result["adder_breakdown"], [])
+
+    def test_leader_cable_pricing_applies(self):
+        """Leader cable pricing adds to total when _leader_cable_item is in selections."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        length_mm = 10 * MM_PER_FOOT
+
+        def mock_get_value(doctype, filters, fields=None, as_dict=False, **kwargs):
+            if doctype == "ilL-Tape-Neon-Template":
+                return {
+                    "base_price_msrp": 50.0,
+                    "price_per_ft_msrp": 10.0,
+                }
+            if doctype == "Item Price" and isinstance(filters, dict):
+                if filters.get("item_code") == "LEAD-001":
+                    return 2.0
+            return None
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            mock_frappe.get_all.return_value = []
+
+            result = _compute_template_tape_neon_pricing(
+                "TMPL-001",
+                {"cct": "3000K", "_leader_cable_item": "LEAD-001"},
+                length_mm,
+                lead_length_inches=12,
+                is_neon=False,
+            )
+
+        # $50 base + $100 length (10ft × $10) + $24 leader (12in × $2) = $174
+        self.assertAlmostEqual(result["total_price_msrp"], 174.0, places=2)
+        components = [a["component"] for a in result["adder_breakdown"]]
+        self.assertIn("leader_cable", components)
+
+    def test_neon_option_map(self):
+        """LED Neon uses neon-specific option map (mounting_method, finish)."""
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+            _compute_template_tape_neon_pricing,
+            MM_PER_FOOT,
+        )
+
+        length_mm = 10 * MM_PER_FOOT
+
+        def mock_get_value(doctype, filters, fields=None, as_dict=False, **kwargs):
+            if doctype == "ilL-Tape-Neon-Template":
+                return {
+                    "base_price_msrp": 100.0,
+                    "price_per_ft_msrp": 20.0,
+                }
+            return None
+
+        def mock_get_all(doctype, filters=None, fields=None, **kwargs):
+            if doctype == "ilL-Child-Tape-Neon-Allowed-Option":
+                if filters and filters.get("option_type") == "Mounting Method":
+                    return [MagicMock(msrp_adder=5.0)]
+                if filters and filters.get("option_type") == "Finish":
+                    return [MagicMock(msrp_adder=3.0)]
+            return []
+
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.frappe"
+        ) as mock_frappe:
+            mock_frappe.db.get_value.side_effect = mock_get_value
+            mock_frappe.get_all.side_effect = mock_get_all
+
+            result = _compute_template_tape_neon_pricing(
+                "TMPL-NEON",
+                {"cct": "4000K", "mounting": "Surface", "finish": "Black"},
+                length_mm,
+                is_neon=True,
+            )
+
+        # $100 base + $200 length (10ft × $20) + $5 mounting + $3 finish = $308
+        self.assertAlmostEqual(result["total_price_msrp"], 308.0, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()

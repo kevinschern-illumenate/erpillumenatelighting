@@ -3443,9 +3443,9 @@ function tnDisplayResults(result) {
 	if (tnTemplateOptions && tnTemplateOptions.pricing) {
 		var p = tnTemplateOptions.pricing;
 		var c = result.computed || {};
-		if (p.price_per_foot_msrp && c.manufacturable_length_ft) {
+		if (p.price_per_ft_msrp && c.manufacturable_length_ft) {
 			$('#pricingResults').show();
-			var msrp = p.base_price_msrp + (p.price_per_foot_msrp * c.manufacturable_length_ft);
+			var msrp = p.base_price_msrp + (p.price_per_ft_msrp * c.manufacturable_length_ft);
 			if (isNeon && p.price_per_segment_msrp && c.segment_count) {
 				msrp += p.price_per_segment_msrp * c.segment_count;
 			}
