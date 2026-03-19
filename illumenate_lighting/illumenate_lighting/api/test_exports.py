@@ -397,27 +397,27 @@ class TestSpecSheetExport(FrappeTestCase):
 			self.assertIn(col, VARIANT_COLUMNS, f"{col} missing from VARIANT_COLUMNS")
 
 	def test_image_columns_count_and_names(self):
-		"""Verify IMAGE_COLUMNS contains exactly 23 custom_image_* fields."""
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import IMAGE_COLUMNS
+		"""Verify CUSTOM_IMAGE_COLUMNS contains exactly 22 custom_image_* fields."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import CUSTOM_IMAGE_COLUMNS
 
-		self.assertEqual(len(IMAGE_COLUMNS), 23)
-		for i, col in enumerate(IMAGE_COLUMNS, 1):
+		self.assertEqual(len(CUSTOM_IMAGE_COLUMNS), 22)
+		for i, col in enumerate(CUSTOM_IMAGE_COLUMNS, 1):
 			self.assertEqual(col, f"custom_image_{i}")
 
 	def test_image_columns_no_overlap(self):
-		"""IMAGE_COLUMNS must not overlap with PRODUCT, VARIANT, or LENS columns."""
+		"""CUSTOM_IMAGE_COLUMNS must not overlap with PRODUCT, VARIANT, or LENS columns."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
-			IMAGE_COLUMNS, PRODUCT_COLUMNS, VARIANT_COLUMNS, LENS_COLUMNS,
+			CUSTOM_IMAGE_COLUMNS, PRODUCT_COLUMNS, VARIANT_COLUMNS, LENS_COLUMNS,
 		)
 
 		others = set(PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS)
-		for col in IMAGE_COLUMNS:
+		for col in CUSTOM_IMAGE_COLUMNS:
 			self.assertNotIn(col, others, f"{col} overlaps with another column set")
 
 	def test_pivot_to_indesign_image_columns_present(self):
-		"""IMAGE_COLUMNS appear in InDesign headers after INDESIGN_PRODUCT_COLUMNS."""
+		"""Image columns appear in InDesign headers with human-readable labels."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
-			_pivot_to_indesign, INDESIGN_PRODUCT_COLUMNS, IMAGE_COLUMNS,
+			_pivot_to_indesign, INDESIGN_PRODUCT_COLUMNS, _INDESIGN_IMAGE_MAP,
 		)
 
 		product_data = {
@@ -429,11 +429,12 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		start = len(INDESIGN_PRODUCT_COLUMNS)
-		self.assertEqual(headers[start:start + 23], IMAGE_COLUMNS)
-		self.assertEqual(data_row["custom_image_1"], "https://example.com/img1.jpg")
-		self.assertEqual(data_row["custom_image_2"], "")
-		self.assertEqual(data_row["custom_image_23"], "")
+		# Image labels are part of INDESIGN_PRODUCT_COLUMNS (at the end)
+		image_labels = [label for label, _field in _INDESIGN_IMAGE_MAP]
+		self.assertEqual(headers[-len(image_labels):], image_labels)
+		self.assertEqual(data_row["ilLumenate Logo"], "https://example.com/img1.jpg")
+		self.assertEqual(data_row["Hero Image"], "")
+		self.assertEqual(data_row["Finish Swatch 2"], "")
 
 	def test_lens_slug(self):
 		"""Test _lens_slug produces correct slugs."""
@@ -700,11 +701,10 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(data_row["Frosted Lens - Output 1 - Lumen 1"], 170.0)
 
 	def test_pivot_to_indesign_empty_variant_rows(self):
-		"""Pivot with no variant rows produces static product + image columns."""
+		"""Pivot with no variant rows produces static product columns (including image labels)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
-			IMAGE_COLUMNS,
 		)
 
 		product_data = {
@@ -714,7 +714,7 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS + IMAGE_COLUMNS)
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
 		self.assertEqual(data_row["Product Name"], "Empty")
 
 	def test_pivot_to_indesign_output_level_sort_order(self):
@@ -840,11 +840,10 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(data_row["Part Number - Series - Description:"], "Shadow")
 
 	def test_pivot_to_indesign_without_pn_builder(self):
-		"""Pivot without PN builder produces static product + image columns only."""
+		"""Pivot without PN builder produces static product columns (including image labels) only."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
-			IMAGE_COLUMNS,
 		)
 
 		product_data = {
@@ -854,5 +853,5 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS + IMAGE_COLUMNS)
+		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
 		self.assertNotIn("Part Number", " ".join(headers))

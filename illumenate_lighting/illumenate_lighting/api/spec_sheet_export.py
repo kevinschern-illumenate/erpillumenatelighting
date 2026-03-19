@@ -55,7 +55,33 @@ PRODUCT_COLUMNS = [
 	"driver_max_wattage",
 ]
 
-IMAGE_COLUMNS = [f"custom_image_{i}" for i in range(1, 24)]
+CUSTOM_IMAGE_COLUMNS = [f"custom_image_{i}" for i in range(1, 23)]
+
+# Ordered mapping of InDesign label → raw product_data key for each image column.
+_INDESIGN_IMAGE_MAP = [
+	("ilLumenate Logo", "custom_image_1"),
+	("Hero Image", "custom_image_2"),
+	("ETL Rated Icon", "custom_image_3"),
+	("Dimensions 1", "custom_image_4"),
+	("Dimensions 2", "custom_image_5"),
+	("Dimensions 3", "custom_image_6"),
+	("Product Image 1", "custom_image_7"),
+	("Product Image 2", "custom_image_8"),
+	("Product Image 3", "custom_image_9"),
+	("Application Image 1", "custom_image_10"),
+	("Application Image 2", "custom_image_11"),
+	("Application Image 3", "custom_image_12"),
+	("Installation Detail 1", "custom_image_13"),
+	("Installation Detail 2", "custom_image_14"),
+	("Photometric Diagram", "custom_image_15"),
+	("Beam Angle Diagram", "custom_image_16"),
+	("CRI Icon", "custom_image_17"),
+	("IP Rating Icon", "custom_image_18"),
+	("UL Listed Icon", "custom_image_19"),
+	("DLC Icon", "custom_image_20"),
+	("Finish Swatch 1", "custom_image_21"),
+	("Finish Swatch 2", "custom_image_22"),
+]
 
 VARIANT_COLUMNS = [
 	"cct_name",
@@ -319,7 +345,7 @@ def _collect_product_data(wp_doc):
 		"driver_max_wattage": driver_max_wattage,
 	}
 
-	for col in IMAGE_COLUMNS:
+	for col in CUSTOM_IMAGE_COLUMNS:
 		result[col] = wp_doc.get(col) or ""
 
 	return result
@@ -580,7 +606,7 @@ def _generate_csv(wp_doc):
 	output = io.StringIO()
 	writer = csv.writer(output)
 
-	headers = PRODUCT_COLUMNS + IMAGE_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
+	headers = PRODUCT_COLUMNS + CUSTOM_IMAGE_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
 	writer.writerow(headers)
 
 	for row in _collect_variant_rows(wp_doc, product_data):
@@ -613,7 +639,7 @@ INDESIGN_PRODUCT_COLUMNS = [
 	"Dimensions (L×W×H)",
 	"CRI Quality",
 	"Production Interval",
-]
+] + [label for label, _field in _INDESIGN_IMAGE_MAP]
 
 # Lens groupings used for per-output-level watt/run columns.
 _INDESIGN_LENS_GROUPS = [
@@ -692,7 +718,6 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 
 	# ── 3. Build headers ──
 	headers = list(INDESIGN_PRODUCT_COLUMNS)
-	headers.extend(IMAGE_COLUMNS)
 
 	for i in range(1, len(ccts) + 1):
 		headers.append(f"Light Color (CCT) {i}")
@@ -742,8 +767,8 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Production Interval": ", ".join(prod_interval_values),
 	}
 
-	for col in IMAGE_COLUMNS:
-		data_row[col] = product_data.get(col, "")
+	for label, field in _INDESIGN_IMAGE_MAP:
+		data_row[label] = product_data.get(field, "")
 
 	for i, (cct_name, _kelvin) in enumerate(ccts, 1):
 		data_row[f"Light Color (CCT) {i}"] = cct_name
