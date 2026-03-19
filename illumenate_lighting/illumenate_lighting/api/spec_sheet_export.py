@@ -597,11 +597,22 @@ def _generate_csv(wp_doc):
 # Static product columns in the InDesign layout.
 INDESIGN_PRODUCT_COLUMNS = [
 	"Product Name",
+	"Sublabel",
 	"Input Voltage",
+	"Beam Angle",
+	"Operating Temp Range",
+	"L70 Life Hours",
+	"Warranty Years",
 	"Certifications",
 	"Lenses",
 	"Finish",
+	"Available Mountings",
+	"Environment Ratings",
+	"Dimming Protocols",
+	"Driver Max Wattage",
 	"Dimensions (L×W×H)",
+	"CRI Quality",
+	"Production Interval",
 ]
 
 # Lens groupings used for per-output-level watt/run columns.
@@ -696,13 +707,39 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 				headers.append(f"{label} - Output {j} - Lumen {i}")
 
 	# ── 4. Build data row ──
+	# Aggregate variant-level fields (unique non-empty values, comma-separated)
+	cri_values = []
+	prod_interval_values = []
+	seen_cri = set()
+	seen_pi = set()
+	for row in variant_rows:
+		cri = row.get("cri_quality", "")
+		if cri and cri not in seen_cri:
+			seen_cri.add(cri)
+			cri_values.append(cri)
+		pi = row.get("production_interval", "")
+		if pi and pi not in seen_pi:
+			seen_pi.add(pi)
+			prod_interval_values.append(pi)
+
 	data_row = {
 		"Product Name": product_data.get("product_name", ""),
+		"Sublabel": product_data.get("sublabel", ""),
 		"Input Voltage": product_data.get("input_voltage", ""),
+		"Beam Angle": product_data.get("beam_angle", ""),
+		"Operating Temp Range": product_data.get("operating_temp_range_c", ""),
+		"L70 Life Hours": product_data.get("l70_life_hours", ""),
+		"Warranty Years": product_data.get("warranty_years", ""),
 		"Certifications": product_data.get("certifications", ""),
 		"Lenses": product_data.get("available_lenses", ""),
 		"Finish": product_data.get("available_finishes", ""),
+		"Available Mountings": product_data.get("available_mountings", ""),
+		"Environment Ratings": product_data.get("environment_ratings", ""),
+		"Dimming Protocols": product_data.get("dimming_protocols", ""),
+		"Driver Max Wattage": product_data.get("driver_max_wattage", ""),
 		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
+		"CRI Quality": ", ".join(cri_values),
+		"Production Interval": ", ".join(prod_interval_values),
 	}
 
 	for col in IMAGE_COLUMNS:
