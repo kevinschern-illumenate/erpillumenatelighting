@@ -55,33 +55,35 @@ PRODUCT_COLUMNS = [
 	"driver_max_wattage",
 ]
 
-CUSTOM_IMAGE_COLUMNS = [f"custom_image_{i}" for i in range(1, 23)]
+CUSTOM_IMAGE_COLUMNS = [
+	"custom_image_illumenate_logo",
+	"custom_image_spec_line",
+	"custom_image_hero",
+	"custom_image_channel_component_image",
+	"custom_image_channel_url",
+	"custom_image_tape_component_image",
+	"custom_image_tape_url",
+	"custom_image_etl_rated_icon",
+	"custom_image_ul_rated_icon",
+	"custom_image_5v_dc_icon",
+	"custom_image_12v_dc_icon",
+	"custom_image_24v_dc_icon",
+	"custom_image_120v_dc_icon",
+	"custom_image_dry_rated_icon",
+	"custom_image_damp_rated_icon",
+	"custom_image_wet_rated_icon",
+	"custom_image_dimensions_1",
+	"custom_image_dimensions_2",
+	"custom_image_dimensions_3",
+	"custom_image_dimensions_4",
+	"custom_image_acc_dims_1",
+	"custom_image_acc_dims_2",
+	"custom_image_acc_dims_3",
+]
 
 # Ordered mapping of InDesign label → raw product_data key for each image column.
-_INDESIGN_IMAGE_MAP = [
-	("ilLumenate Logo", "custom_image_1"),
-	("Hero Image", "custom_image_2"),
-	("ETL Rated Icon", "custom_image_3"),
-	("Dimensions 1", "custom_image_4"),
-	("Dimensions 2", "custom_image_5"),
-	("Dimensions 3", "custom_image_6"),
-	("Product Image 1", "custom_image_7"),
-	("Product Image 2", "custom_image_8"),
-	("Product Image 3", "custom_image_9"),
-	("Application Image 1", "custom_image_10"),
-	("Application Image 2", "custom_image_11"),
-	("Application Image 3", "custom_image_12"),
-	("Installation Detail 1", "custom_image_13"),
-	("Installation Detail 2", "custom_image_14"),
-	("Photometric Diagram", "custom_image_15"),
-	("Beam Angle Diagram", "custom_image_16"),
-	("CRI Icon", "custom_image_17"),
-	("IP Rating Icon", "custom_image_18"),
-	("UL Listed Icon", "custom_image_19"),
-	("DLC Icon", "custom_image_20"),
-	("Finish Swatch 1", "custom_image_21"),
-	("Finish Swatch 2", "custom_image_22"),
-]
+# Label == field name for direct mapping.
+_INDESIGN_IMAGE_MAP = [(col, col) for col in CUSTOM_IMAGE_COLUMNS]
 
 VARIANT_COLUMNS = [
 	"cct_name",
