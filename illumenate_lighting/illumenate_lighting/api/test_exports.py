@@ -397,12 +397,16 @@ class TestSpecSheetExport(FrappeTestCase):
 			self.assertIn(col, VARIANT_COLUMNS, f"{col} missing from VARIANT_COLUMNS")
 
 	def test_image_columns_count_and_names(self):
-		"""Verify CUSTOM_IMAGE_COLUMNS contains exactly 22 custom_image_* fields."""
+		"""Verify CUSTOM_IMAGE_COLUMNS contains exactly 23 descriptive custom_image_* fields."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import CUSTOM_IMAGE_COLUMNS
 
-		self.assertEqual(len(CUSTOM_IMAGE_COLUMNS), 22)
-		for i, col in enumerate(CUSTOM_IMAGE_COLUMNS, 1):
-			self.assertEqual(col, f"custom_image_{i}")
+		self.assertEqual(len(CUSTOM_IMAGE_COLUMNS), 23)
+		for col in CUSTOM_IMAGE_COLUMNS:
+			self.assertTrue(col.startswith("custom_image_"), f"{col} must start with 'custom_image_'")
+		# Spot-check a few known descriptive names
+		self.assertIn("custom_image_illumenate_logo", CUSTOM_IMAGE_COLUMNS)
+		self.assertIn("custom_image_hero", CUSTOM_IMAGE_COLUMNS)
+		self.assertIn("custom_image_acc_dims_3", CUSTOM_IMAGE_COLUMNS)
 
 	def test_image_columns_no_overlap(self):
 		"""CUSTOM_IMAGE_COLUMNS must not overlap with PRODUCT, VARIANT, or LENS columns."""
@@ -415,7 +419,7 @@ class TestSpecSheetExport(FrappeTestCase):
 			self.assertNotIn(col, others, f"{col} overlaps with another column set")
 
 	def test_pivot_to_indesign_image_columns_present(self):
-		"""Image columns appear in InDesign headers with human-readable labels."""
+		"""Image columns appear in InDesign headers using field names as labels."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign, INDESIGN_PRODUCT_COLUMNS, _INDESIGN_IMAGE_MAP,
 		)
@@ -423,8 +427,8 @@ class TestSpecSheetExport(FrappeTestCase):
 		product_data = {
 			"product_name": "Img Test", "input_voltage": "", "certifications": "",
 			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
-			"custom_image_1": "https://example.com/img1.jpg",
-			"custom_image_2": "",
+			"custom_image_illumenate_logo": "https://example.com/img1.jpg",
+			"custom_image_hero": "",
 		}
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
@@ -432,9 +436,9 @@ class TestSpecSheetExport(FrappeTestCase):
 		# Image labels are part of INDESIGN_PRODUCT_COLUMNS (at the end)
 		image_labels = [label for label, _field in _INDESIGN_IMAGE_MAP]
 		self.assertEqual(headers[-len(image_labels):], image_labels)
-		self.assertEqual(data_row["ilLumenate Logo"], "https://example.com/img1.jpg")
-		self.assertEqual(data_row["Hero Image"], "")
-		self.assertEqual(data_row["Finish Swatch 2"], "")
+		self.assertEqual(data_row["custom_image_illumenate_logo"], "https://example.com/img1.jpg")
+		self.assertEqual(data_row["custom_image_hero"], "")
+		self.assertEqual(data_row["custom_image_acc_dims_3"], "")
 
 	def test_lens_slug(self):
 		"""Test _lens_slug produces correct slugs."""
