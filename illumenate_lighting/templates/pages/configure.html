@@ -534,6 +534,21 @@ Allows users to configure fixtures using segment-based configuration
 			</div>
 			{% endif %}
 
+			{% if not is_tape_neon %}
+			<!-- Power Supply Option -->
+			<div class="card mb-3" id="powerSupplySection" style="display: none;">
+				<div class="card-body py-2">
+					<div class="custom-control custom-checkbox">
+						<input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>
+						<label class="custom-control-label" for="includePowerSupply">
+							<strong>{{ _("Include Power Supplies?") }}</strong>
+							<small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies from this fixture and source them separately.") }}</small>
+						</label>
+					</div>
+				</div>
+			</div>
+			{% endif %}
+
 			<!-- Action Buttons -->
 			{% if not is_tape_neon %}
 			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
@@ -1332,6 +1347,7 @@ $(function() {
 				if (success) {
 					$('#templateOptions').show();
 					$('#segmentsCard').show();
+					$('#powerSupplySection').show();
 					$('#actionButtons').show();
 					// Initialize first segment if none exist
 					if (segmentCount === 0) {
@@ -1342,6 +1358,7 @@ $(function() {
 		} else {
 			$('#templateOptions').hide();
 			$('#segmentsCard').hide();
+			$('#powerSupplySection').hide();
 			$('#actionButtons').hide();
 		}
 	});
@@ -2156,7 +2173,8 @@ function validateAndQuote() {
 		finish_code: form.find('[name="finish_code"]').val(),
 		mounting_method_code: form.find('[name="mounting_method_code"]').val(),
 		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
-		segments_json: JSON.stringify(segments)
+		segments_json: JSON.stringify(segments),
+		include_power_supply: $('#includePowerSupply').is(':checked')
 	};
 	
 	// Show loading state
@@ -2358,7 +2376,14 @@ function displayResults(result) {
 	if (result.resolved_items && result.resolved_items.driver_plan) {
 		var dp = result.resolved_items.driver_plan;
 		$('#driverResults').show();
-		if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
+		if (dp.status === 'not_required') {
+			$('#driverPlan').html(
+				'<div class="alert alert-info py-2 mb-0">' +
+				'<i class="fa fa-info-circle mr-2"></i>' +
+				__('Power supplies excluded from this configuration.') +
+				'</div>'
+			);
+		} else if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
 			var driverHtml = '<table class="table table-sm">';
 			dp.drivers.forEach(function(d) {
 				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
@@ -2681,6 +2706,7 @@ $(function() {
 		if (success) {
 			$('#templateOptions').show();
 			$('#segmentsCard').show();
+			$('#powerSupplySection').show();
 			$('#actionButtons').show();
 			if (segmentCount === 0) {
 				addSegment(true);
