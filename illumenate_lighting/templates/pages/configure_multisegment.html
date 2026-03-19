@@ -62,6 +62,19 @@ Portal Multi-Segment Configurator Page
                 <div class="card-body"><div id="segmentsList"></div></div>
             </div>
 
+            <!-- Power Supply Option -->
+            <div class="card mb-3" id="powerSupplySection">
+                <div class="card-body py-2">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>
+                        <label class="custom-control-label" for="includePowerSupply">
+                            <strong>{{ _("Include Power Supplies?") }}</strong>
+                            <small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies from this fixture and source them separately.") }}</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-between">
                 <button type="button" class="btn btn-primary" onclick="calculateConfiguration()"><i class="fa fa-calculator"></i> Calculate</button>
                 {% if can_save %}<button type="button" class="btn btn-success" id="saveBtn" onclick="saveToSchedule()" disabled><i class="fa fa-save"></i> Save</button>{% endif %}
@@ -350,7 +363,8 @@ function calculateConfiguration() {
         environment_rating_code: form.find('[name="environment_rating_code"]').val(),
         endcap_color_code: form.find('[name="endcap_color_code"]').val(),
         tape_offering_id: form.find('[name="tape_offering_id"]').val(),
-        segments_json: JSON.stringify(segments)
+        segments_json: JSON.stringify(segments),
+        include_power_supply: $('#includePowerSupply').is(':checked')
     };
     frappe.call({
         method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
@@ -407,13 +421,22 @@ function displayResults(result) {
     if (result.resolved_items && result.resolved_items.driver_plan) {
         var dp = result.resolved_items.driver_plan;
         $("#driverPlanSection").show();
-        $("#driverStatus").text(dp.status || 'none');
-        if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
-            var driver = dp.drivers[0];
-            $("#driverDetailsRow").show();
-            $("#driverDetails").text(driver.item_code + ' × ' + driver.qty);
-        } else {
+        if (dp.status === 'not_required') {
+            $("#driverStatus").html(
+                '<span class="text-info"><i class="fa fa-info-circle mr-1"></i>' +
+                'Power supplies excluded' +
+                '</span>'
+            );
             $("#driverDetailsRow").hide();
+        } else {
+            $("#driverStatus").text(dp.status || 'none');
+            if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
+                var driver = dp.drivers[0];
+                $("#driverDetailsRow").show();
+                $("#driverDetails").text(driver.item_code + ' × ' + driver.qty);
+            } else {
+                $("#driverDetailsRow").hide();
+            }
         }
     } else {
         $("#driverPlanSection").hide();
