@@ -10,8 +10,9 @@ for InDesign data merge.
 
 Supports two output formats:
   - ``"flat"`` – one row per CCT × output-level (original format)
-  - ``"indesign"`` – one pivoted row per product with dynamic columns
-    matching the marketing team's InDesign data-merge layout
+  - ``"indesign"`` – one pivoted row per product with **fixed** columns
+    (580 total) matching the marketing team's InDesign data-merge layout.
+    Column positions never shift between products.
 """
 
 import csv
@@ -115,6 +116,21 @@ def _build_lens_columns():
 
 
 LENS_COLUMNS = _build_lens_columns()
+
+# ──────────────────────────────────────────────────────────
+# Standardized InDesign Column Constants
+# ──────────────────────────────────────────────────────────
+
+# 9 known part-number-builder sections + 2 buffer sections for future use.
+STANDARD_PN_SECTIONS = [
+	"Series", "Dry/Wet", "CCT", "Output", "Lens",
+	"Mounting", "Finish", "Start Feed Type", "End Feed Type",
+	"Buffer 1", "Buffer 2",
+]
+
+MAX_PN_OPTIONS_PER_SECTION = 10  # 10 option slots per section
+MAX_CCTS = 8                     # fixed CCT column count
+MAX_OUTPUT_LEVELS = 8            # fixed output-level block count
 
 
 # ──────────────────────────────────────────────────────────
@@ -546,15 +562,28 @@ def _collect_variant_rows(wp_doc, product_data):
 def _collect_pn_builder_columns(ft_doc):
 	"""Collect Part Number Builder columns from a Fixture Template.
 
+	Always returns a fixed set of **220 columns** (11 standard sections ×
+	10 option slots × 2 columns each).  Actual data is filled where it
+	exists; unused slots are empty strings.
+
 	Returns ``(headers, data_dict)`` where *headers* is the ordered list of
 	column names and *data_dict* maps each column name to its value.
 
-	Column naming:
-	  - Single-option sections: ``Part Number - {Section} - Option:`` / ``… - Description:``
-	  - Multi-option sections: ``Part Number - {Section} - Option {N}:`` / ``… - Description {N}:``
+	Column naming always uses numbered suffixes:
+	  ``Part Number - {Section} - Option {N}:`` / ``… - Description {N}:``
 	"""
 	headers = []
 	data_dict = {}
+
+	# Build the fixed 220-column skeleton
+	for section_name in STANDARD_PN_SECTIONS:
+		for idx in range(1, MAX_PN_OPTIONS_PER_SECTION + 1):
+			opt_col = f"Part Number - {section_name} - Option {idx}:"
+			desc_col = f"Part Number - {section_name} - Description {idx}:"
+			headers.append(opt_col)
+			headers.append(desc_col)
+			data_dict[opt_col] = ""
+			data_dict[desc_col] = ""
 
 	if not ft_doc:
 		return headers, data_dict
@@ -563,34 +592,25 @@ def _collect_pn_builder_columns(ft_doc):
 	if not rows:
 		return headers, data_dict
 
-	# Group by section_name, preserving section_order for sorting
+	# Group by section_name
 	sections = {}
 	for r in rows:
 		sname = r.section_name or ""
 		if sname not in sections:
-			sections[sname] = {"order": r.section_order or 0, "options": []}
-		sections[sname]["options"].append(r)
+			sections[sname] = []
+		sections[sname].append(r)
 
-	# Sort sections by section_order, then alphabetically
-	sorted_sections = sorted(sections.items(), key=lambda x: (x[1]["order"], x[0]))
-
-	for section_name, info in sorted_sections:
-		# Sort options within section by option_order, then option_code
-		opts = sorted(info["options"], key=lambda o: (o.option_order or 0, o.option_code or ""))
-		n_opts = len(opts)
-
+	# Fill actual data into matching standard-section slots
+	for section_name, opts in sections.items():
+		opts = sorted(opts, key=lambda o: (o.option_order or 0, o.option_code or ""))
 		for idx, opt in enumerate(opts, 1):
-			if n_opts == 1:
-				opt_col = f"Part Number - {section_name} - Option:"
-				desc_col = f"Part Number - {section_name} - Description:"
-			else:
-				opt_col = f"Part Number - {section_name} - Option {idx}:"
-				desc_col = f"Part Number - {section_name} - Description {idx}:"
-
-			headers.append(opt_col)
-			headers.append(desc_col)
-			data_dict[opt_col] = opt.option_code or ""
-			data_dict[desc_col] = opt.option_label or ""
+			if idx > MAX_PN_OPTIONS_PER_SECTION:
+				break
+			opt_col = f"Part Number - {section_name} - Option {idx}:"
+			desc_col = f"Part Number - {section_name} - Description {idx}:"
+			if opt_col in data_dict:
+				data_dict[opt_col] = opt.option_code or ""
+				data_dict[desc_col] = opt.option_label or ""
 
 	return headers, data_dict
 
@@ -691,12 +711,14 @@ def _safe_float(val):
 def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 	"""Pivot flat variant rows into one InDesign data-merge row.
 
-	Returns ``(headers, data_row)`` where *headers* is a list of column
-	names and *data_row* is a dict keyed by those names.
+	Returns ``(headers, data_row)`` where *headers* is a fixed-width list of
+	column names and *data_row* is a dict keyed by those names.  The header
+	list always has the same length regardless of how many CCTs or output
+	levels the product actually uses (empty strings for unused slots).
 
 	*pn_builder_columns* is an optional ``(pn_headers, pn_data)`` tuple
 	from :func:`_collect_pn_builder_columns`; when provided the part-number
-	builder columns are appended after the dynamic variant columns.
+	builder columns are appended after the output-level columns.
 	"""
 	# ── 1. Unique CCTs sorted by kelvin ──
 	ccts = []
@@ -718,18 +740,18 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 			output_levels.append(ol)
 	output_levels.sort(key=_parse_output_level_sort_key)
 
-	# ── 3. Build headers ──
+	# ── 3. Build fixed headers ──
 	headers = list(INDESIGN_PRODUCT_COLUMNS)
 
-	for i in range(1, len(ccts) + 1):
+	for i in range(1, MAX_CCTS + 1):
 		headers.append(f"Light Color (CCT) {i}")
 
-	for j in range(1, len(output_levels) + 1):
+	for j in range(1, MAX_OUTPUT_LEVELS + 1):
 		headers.append(f"Output Options {j}")
 		for label, _slug in _INDESIGN_LENS_GROUPS:
 			headers.append(f"Watts per Foot ({label}) {j}")
 			headers.append(f"Max Run Length ({label}) {j}")
-		for i in range(1, len(ccts) + 1):
+		for i in range(1, MAX_CCTS + 1):
 			for label, _slug in _INDESIGN_LUMEN_LENSES:
 				headers.append(f"{label} - Output {j} - Lumen {i}")
 
