@@ -121,7 +121,7 @@ LENS_COLUMNS = _build_lens_columns()
 # Standardized InDesign Column Constants
 # ──────────────────────────────────────────────────────────
 
-# 9 known part-number-builder sections + 2 buffer sections for future use.
+# 9 current part-number-builder sections + 2 buffer sections = 11 total.
 STANDARD_PN_SECTIONS = [
 	"Series", "Dry/Wet", "CCT", "Output", "Lens",
 	"Mounting", "Finish", "Start Feed Type", "End Feed Type",
