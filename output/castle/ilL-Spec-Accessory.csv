@@ -1,0 +1,15 @@
+Accessory Item,Accessory Type,Profile Family,Environment Rating,Mounting Method,Joiner System,Joiner Angle,Endcap Style,Allowance Override per Side (mm),Leader Cable,Feed Type,QTY Rule Type,QTY Rule Value
+ACC-CA01-PV,Mounting,CA01,,Pivot Clip,,,,,,,Per x mm,304.8
+ACC-CAXX-MC,Mounting,CAXX,,Mounting Clip,,,,,,,Per x mm,304.8
+EC-CA02-WH-NO,Endcap,CA02,,,,,Solid,2.0,,,,
+EC-CA02-WH-HO,Endcap,CA02,,,,,Feed Through,2.0,,,,
+EC-CA02-BK-NO,Endcap,CA02,,,,,Solid,2.0,,,,
+EC-CA02-BK-HO,Endcap,CA02,,,,,Feed Through,2.0,,,,
+EC-CA02-GR-NO,Endcap,CA02,,,,,Solid,2.0,,,,
+EC-CA02-GR-HO,Endcap,CA02,,,,,Feed Through,2.0,,,,
+EC-CA01-WH-NO,Endcap,CA01,,,,,Solid,2.0,,,,
+EC-CA01-WH-HO,Endcap,CA01,,,,,Feed Through,2.0,,,,
+EC-CA01-BK-NO,Endcap,CA01,,,,,Solid,2.0,,,,
+EC-CA01-BK-HO,Endcap,CA01,,,,,Feed Through,2.0,,,,
+EC-CA01-GR-NO,Endcap,CA01,,,,,Solid,2.0,,,,
+EC-CA01-GR-HO,Endcap,CA01,,,,,Feed Through,2.0,,,,

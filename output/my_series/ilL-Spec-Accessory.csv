@@ -1,0 +1,22 @@
+Accessory Item,Accessory Type,Profile Family,Environment Rating,Mounting Method,Joiner System,Joiner Angle,Endcap Style,Allowance Override per Side (mm),Leader Cable,Feed Type,QTY Rule Type,QTY Rule Value
+ACC-SE01-MC,Mounting,SE01,,Mounting Clip,,,,,,,Per x mm,304.8
+ACC-SE01-SP,Mounting,SE01,,Mounting Clip,,,,,,,Per x mm,304.8
+ACC-SE01-JOIN-T,Joiner,SE01,,,Sentinel,,,,,,Per Joint,1
+ACC-SE01-JOIN-X,Joiner,SE01,,,Sentinel,,,,,,Per Joint,1
+ACC-SE01-JOIN-V,Joiner,SE01,,,Sentinel,,,,,,Per Joint,1
+ACC-SE02-JOIN-T,Joiner,SE02,,,Sentinel,,,,,,Per Joint,1
+ACC-SE02-JOIN-X,Joiner,SE02,,,Sentinel,,,,,,Per Joint,1
+ACC-SE02-JOIN-T,Joiner,SE02,,,Sentinel,,,,,,Per Joint,1
+ACC-SE02-SG,Mounting,SE02,,Spring Clip,,,,,,,Per x mm,304.8
+EC-SE01-WH-NO,Endcap,SE01,,,,,Solid,2.0,,,,
+EC-SE01-WH-HO,Endcap,SE01,,,,,Feed Through,2.0,,,,
+EC-SE01-BK-NO,Endcap,SE01,,,,,Solid,2.0,,,,
+EC-SE01-BK-HO,Endcap,SE01,,,,,Feed Through,2.0,,,,
+EC-SE01-GR-NO,Endcap,SE01,,,,,Solid,2.0,,,,
+EC-SE01-GR-HO,Endcap,SE01,,,,,Feed Through,2.0,,,,
+EC-SE02-WH-NO,Endcap,SE02,,,,,Solid,2.0,,,,
+EC-SE02-WH-HO,Endcap,SE02,,,,,Feed Through,2.0,,,,
+EC-SE02-BK-NO,Endcap,SE02,,,,,Solid,2.0,,,,
+EC-SE02-BK-HO,Endcap,SE02,,,,,Feed Through,2.0,,,,
+EC-SE02-GR-NO,Endcap,SE02,,,,,Solid,2.0,,,,
+EC-SE02-GR-HO,Endcap,SE02,,,,,Feed Through,2.0,,,,

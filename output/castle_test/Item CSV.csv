@@ -1,0 +1,11 @@
+Item Code,Item Group,Default Unit of Measure,Item Name,Maintain Stock,Has Variants,Brand,Warranty Period (in days),Variant Of,Variant Based On,Attribute (Variant Attributes),Supplier (Supplier Items),Supplier Description (Supplier Items),Supplier Part Number (Supplier Items)
+CH-CA02,Profiles,Ea,Castle [WD]-Profile,1,1,ilLumenate Lighting,1825,,Item Attribute,Finish,"Linea Lighting Co., Limited",,
+CH-CA01,Profiles,Ea,Castle [NR]-Profile,1,1,ilLumenate Lighting,1825,,Item Attribute,Finish,"Linea Lighting Co., Limited",,
+LNS-CAXX,Lenses,Ea,Castle Series-Lens,1,1,ilLumenate Lighting,1825,,Item Attribute,Lens Style,"Linea Lighting Co., Limited",,
+,,,,,,,,,,Lens Color,,,
+ACC-CA01-PV,Mounting,Ea,Castle Series-Pivot Clip,1,0,ilLumenate Lighting,1825,,,,"Linea Lighting Co., Limited",,
+ACC-CAXX-MC,Mounting,Ea,Castle Series-Mounting Clip,1,0,ilLumenate Lighting,1825,,,,"Linea Lighting Co., Limited",,
+EC-CA02,Endcaps,Ea,Castle [WD]-Endcaps,1,1,ilLumenate Lighting,1825,,Item Attribute,Endcap Color,"Linea Lighting Co., Limited",,
+,,,,,,,,,,Endcap Type,,,
+EC-CA01,Endcaps,Ea,Castle [NR]-Endcaps,1,1,ilLumenate Lighting,1825,,Item Attribute,Endcap Color,"Linea Lighting Co., Limited",,
+,,,,,,,,,,Endcap Type,,,

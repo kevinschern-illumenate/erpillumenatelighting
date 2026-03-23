@@ -1,0 +1,7 @@
+Item,Family,Variant Code,Is Active?,Series,Width (mm),Height (mm),Stock Length (mm),Max Assembled Length (mm),Is Cuttable?,Supports Joiners?,Joiner System,Lens Interface,Environment Rating (Supported Environment Ratings)
+CH-CA02-WH,CA02,WH,1,Castle,30.5,12.8,2000,2500,1,0,,Snap-in,Dry
+CH-CA02-BK,CA02,BK,1,Castle,30.5,12.8,2000,2500,1,0,,Snap-in,Dry
+CH-CA02-SV,CA02,SV,1,Castle,30.5,12.8,2000,2500,1,0,,Snap-in,Dry
+CH-CA01-WH,CA01,WH,1,Castle,23.5,12.8,2000,2500,1,0,,Snap-in,Dry
+CH-CA01-BK,CA01,BK,1,Castle,23.5,12.8,2000,2500,1,0,,Snap-in,Dry
+CH-CA01-SV,CA01,SV,1,Castle,23.5,12.8,2000,2500,1,0,,Snap-in,Dry

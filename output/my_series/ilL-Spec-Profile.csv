@@ -1,0 +1,7 @@
+Item,Family,Variant Code,Is Active?,Series,Width (mm),Height (mm),Stock Length (mm),Max Assembled Length (mm),Is Cuttable?,Supports Joiners?,Joiner System,Lens Interface,Environment Rating (Supported Environment Ratings)
+CH-SE01-WH,SE01,WH,1,Sentinel,35.0,35.0,2000,2500,1,1,Sentinel,Snap-in,Dry
+CH-SE01-BK,SE01,BK,1,Sentinel,35.0,35.0,2000,2500,1,1,Sentinel,Snap-in,Dry
+CH-SE01-SV,SE01,SV,1,Sentinel,35.0,35.0,2000,2500,1,1,Sentinel,Snap-in,Dry
+CH-SE02-WH,SE02,WH,1,Sentinel,50.0,35.0,2000,2500,1,1,Sentinel,Snap-in,Dry
+CH-SE02-BK,SE02,BK,1,Sentinel,50.0,35.0,2000,2500,1,1,Sentinel,Snap-in,Dry
+CH-SE02-SV,SE02,SV,1,Sentinel,50.0,35.0,2000,2500,1,1,Sentinel,Snap-in,Dry

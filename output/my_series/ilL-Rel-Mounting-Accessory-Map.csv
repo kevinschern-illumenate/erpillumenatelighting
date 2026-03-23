@@ -1,0 +1,10 @@
+Template Type,Product Template,Mounting Method,Environment Rating,Accessory Item,QTY Rule Type,QTY Rule Value,Min QTY,Rounding,Is Active
+ilL-Fixture-Template,ILL-SE01-FS,Mounting Clip,,ACC-SE01-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE01-FS,Mounting Clip,,ACC-SE01-SP,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE01-SW,Mounting Clip,,ACC-SE01-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE01-SW,Mounting Clip,,ACC-SE01-SP,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE01-TW,Mounting Clip,,ACC-SE01-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE01-TW,Mounting Clip,,ACC-SE01-SP,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE02-FS,Spring Clip,,ACC-SE02-SG,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE02-SW,Spring Clip,,ACC-SE02-SG,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-SE02-TW,Spring Clip,,ACC-SE02-SG,PER_X_MM,304.8,0,CEIL,1

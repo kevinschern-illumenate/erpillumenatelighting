@@ -1,0 +1,10 @@
+Template Type,Product Template,Mounting Method,Environment Rating,Accessory Item,QTY Rule Type,QTY Rule Value,Min QTY,Rounding,Is Active
+ilL-Fixture-Template,ILL-CA02-FS,Mounting Clip,,ACC-CAXX-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA02-SW,Mounting Clip,,ACC-CAXX-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA02-TW,Mounting Clip,,ACC-CAXX-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA01-FS,Pivot Clip,,ACC-CA01-PV,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA01-FS,Mounting Clip,,ACC-CAXX-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA01-SW,Pivot Clip,,ACC-CA01-PV,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA01-SW,Mounting Clip,,ACC-CAXX-MC,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA01-TW,Pivot Clip,,ACC-CA01-PV,PER_X_MM,304.8,0,CEIL,1
+ilL-Fixture-Template,ILL-CA01-TW,Mounting Clip,,ACC-CAXX-MC,PER_X_MM,304.8,0,CEIL,1

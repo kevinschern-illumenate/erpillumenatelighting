@@ -1,0 +1,37 @@
+Fixture Template,Endcap Style,Endcap Color,Power Feed Type,Environment Rating,Endcap Item,Is Default,Is Active
+ILL-CA02-FS,Solid,White,,,EC-CA02-WH-NO,0,1
+ILL-CA02-FS,Feed Through,White,,,EC-CA02-WH-HO,0,1
+ILL-CA02-FS,Solid,Black,,,EC-CA02-BK-NO,0,1
+ILL-CA02-FS,Feed Through,Black,,,EC-CA02-BK-HO,0,1
+ILL-CA02-FS,Solid,Grey,,,EC-CA02-GR-NO,0,1
+ILL-CA02-FS,Feed Through,Grey,,,EC-CA02-GR-HO,0,1
+ILL-CA02-SW,Solid,White,,,EC-CA02-WH-NO,0,1
+ILL-CA02-SW,Feed Through,White,,,EC-CA02-WH-HO,0,1
+ILL-CA02-SW,Solid,Black,,,EC-CA02-BK-NO,0,1
+ILL-CA02-SW,Feed Through,Black,,,EC-CA02-BK-HO,0,1
+ILL-CA02-SW,Solid,Grey,,,EC-CA02-GR-NO,0,1
+ILL-CA02-SW,Feed Through,Grey,,,EC-CA02-GR-HO,0,1
+ILL-CA02-TW,Solid,White,,,EC-CA02-WH-NO,0,1
+ILL-CA02-TW,Feed Through,White,,,EC-CA02-WH-HO,0,1
+ILL-CA02-TW,Solid,Black,,,EC-CA02-BK-NO,0,1
+ILL-CA02-TW,Feed Through,Black,,,EC-CA02-BK-HO,0,1
+ILL-CA02-TW,Solid,Grey,,,EC-CA02-GR-NO,0,1
+ILL-CA02-TW,Feed Through,Grey,,,EC-CA02-GR-HO,0,1
+ILL-CA01-FS,Solid,White,,,EC-CA01-WH-NO,0,1
+ILL-CA01-FS,Feed Through,White,,,EC-CA01-WH-HO,0,1
+ILL-CA01-FS,Solid,Black,,,EC-CA01-BK-NO,0,1
+ILL-CA01-FS,Feed Through,Black,,,EC-CA01-BK-HO,0,1
+ILL-CA01-FS,Solid,Grey,,,EC-CA01-GR-NO,0,1
+ILL-CA01-FS,Feed Through,Grey,,,EC-CA01-GR-HO,0,1
+ILL-CA01-SW,Solid,White,,,EC-CA01-WH-NO,0,1
+ILL-CA01-SW,Feed Through,White,,,EC-CA01-WH-HO,0,1
+ILL-CA01-SW,Solid,Black,,,EC-CA01-BK-NO,0,1
+ILL-CA01-SW,Feed Through,Black,,,EC-CA01-BK-HO,0,1
+ILL-CA01-SW,Solid,Grey,,,EC-CA01-GR-NO,0,1
+ILL-CA01-SW,Feed Through,Grey,,,EC-CA01-GR-HO,0,1
+ILL-CA01-TW,Solid,White,,,EC-CA01-WH-NO,0,1
+ILL-CA01-TW,Feed Through,White,,,EC-CA01-WH-HO,0,1
+ILL-CA01-TW,Solid,Black,,,EC-CA01-BK-NO,0,1
+ILL-CA01-TW,Feed Through,Black,,,EC-CA01-BK-HO,0,1
+ILL-CA01-TW,Solid,Grey,,,EC-CA01-GR-NO,0,1
+ILL-CA01-TW,Feed Through,Grey,,,EC-CA01-GR-HO,0,1

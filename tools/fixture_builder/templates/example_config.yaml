@@ -1,0 +1,110 @@
+# Example Fixture Builder Configuration
+# Copy this file and fill in your values.
+
+mode: new-family   # "new-family" (all 11 CSVs) or "new-variant" (6 CSVs)
+
+series_name: MyNewSeries
+series_code: MN   # 2-char prefix used in template codes
+
+# Optional — defaults shown
+supplier: "Linea Lighting Co., Limited"
+brand: ilLumenate Lighting
+warranty_days: 1825
+
+# ── Profile Families ──────────────────────────────────────────────
+profiles:
+  - family: MN01          # Family code (appears in item codes like CH-MN01-WH)
+    variant_label: "[SQ]"  # Display label for Item Name (e.g., "MyNewSeries [SQ]")
+    finishes: [WH, BK, SV]
+    width_mm: 25.0
+    height_mm: 15.0
+    stock_length_mm: 2000
+    max_assembled_length_mm: 2500
+    is_cuttable: true
+    supports_joiners: false
+    joiner_system: ""
+    lens_interface: Snap-in
+    environment_ratings: [Dry]
+
+# ── Lens Families ─────────────────────────────────────────────────
+lenses:
+  - family: MNXX          # Use XX suffix for shared-across-family lenses
+    appearances: [White, Frosted]
+    shape: WH             # Shape segment in item code
+    stock_type: Stick
+    stock_length_mm: 2000
+
+# ── Profile → Lens Mappings ──────────────────────────────────────
+profile_lens_mappings:
+  - profile_families: [MN01]
+    lens_family: MNXX
+
+# ── Accessories (Mounting & Joiner) ──────────────────────────────
+accessories:
+  - item_code: ACC-MNXX-MC
+    accessory_type: Mounting
+    profile_family: MNXX
+    mounting_method: Mounting Clip
+    qty_rule_type: "Per x mm"
+    qty_rule_value: 304.8
+
+# ── Endcaps (per profile family) ─────────────────────────────────
+endcaps:
+  - profile_family: MN01
+    colors: [WH, BK, GR]
+    styles: [Solid, Feed Through]
+    allowance_override_per_side_mm: 2.0
+
+# ── Fixture Template Settings ────────────────────────────────────
+# Global defaults — used when no per-template override exists.
+fixture_templates:
+  led_packages: [FS, SW, TW]
+  allowed_finishes: [White, Black, "Anodized Silver"]
+  allowed_lenses: [White, Frosted]
+  allowed_mountings: [Mounting Clip]
+  allowed_endcap_styles: [Solid, Feed Through]
+  allowed_power_feed_types: []
+  allowed_environment_ratings: [Dry]
+  tape_offerings: []            # Pre-existing ilL-Rel-Tape Offering names
+  base_price_msrp: 0
+  price_per_ft_msrp: 0
+  assembled_max_len_mm: 2500
+
+# ── Per-Template Overrides (optional) ────────────────────────────
+# Override allowed options per profile × LED package.
+# If omitted, global fixture_templates values are used.
+# Interactive mode will populate this automatically.
+# template_overrides:
+#   - profile_family: MN01
+#     led_package: FS
+#     allowed_finishes: [White, Black]
+#     allowed_lenses: [White, Frosted]
+#     allowed_mountings: [Mounting Clip]
+#     allowed_endcap_styles: [Solid, Feed Through]
+#     allowed_power_feed_types: []
+#     allowed_environment_ratings: [Dry]
+#     tape_offerings: []
+#     base_price_msrp: 0
+#     price_per_ft_msrp: 0
+
+# ── Driver Eligibility ───────────────────────────────────────────
+drivers:
+  driver_specs: [PS-UNIV-24V-100W-IP66]
+
+# ── Submittal Mapping ────────────────────────────────────────────
+submittal_mapping:
+  clone_from_template: ILL-AX01-FS   # Template to clone mappings from
+
+# ── Webflow Product Skeleton ─────────────────────────────────────
+webflow:
+  product_category: linear-fixtures
+  beam_angle: 110.0
+  warranty_years: 5
+  configurator_steps:
+    - Environment Rating
+    - CCT
+    - Lens Appearance
+    - Output Level
+    - Mounting Method
+    - Finish
+    - Length
