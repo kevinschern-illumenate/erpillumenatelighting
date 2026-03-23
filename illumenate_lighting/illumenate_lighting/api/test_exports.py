@@ -433,9 +433,10 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# Image labels are part of INDESIGN_PRODUCT_COLUMNS (at the end)
+		# Image labels are part of INDESIGN_PRODUCT_COLUMNS (at the end of static block)
 		image_labels = [label for label, _field in _INDESIGN_IMAGE_MAP]
-		self.assertEqual(headers[-len(image_labels):], image_labels)
+		static_block = headers[:len(INDESIGN_PRODUCT_COLUMNS)]
+		self.assertEqual(static_block[-len(image_labels):], image_labels)
 		self.assertEqual(data_row["custom_image_illumenate_logo"], "https://example.com/img1.jpg")
 		self.assertEqual(data_row["custom_image_hero"], "")
 		self.assertEqual(data_row["custom_image_acc_dims_3"], "")
@@ -561,10 +562,12 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(_parse_output_level_sort_key(None), 0)
 
 	def test_pivot_to_indesign_column_structure(self):
-		"""Verify pivoted headers contain expected dynamic columns."""
+		"""Verify pivoted headers have fixed column count with expected columns."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
+			MAX_CCTS,
+			MAX_OUTPUT_LEVELS,
 		)
 
 		product_data = {
@@ -613,17 +616,20 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
 
+		# Fixed total: 40 static + 8 CCT + 312 output = 360
+		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+
 		# Static product columns come first
 		for col in INDESIGN_PRODUCT_COLUMNS:
 			self.assertIn(col, headers)
 
-		# 2 CCTs → 2 Light Color columns
-		self.assertIn("Light Color (CCT) 1", headers)
-		self.assertIn("Light Color (CCT) 2", headers)
+		# All 8 CCT columns present (even though only 2 have data)
+		for i in range(1, MAX_CCTS + 1):
+			self.assertIn(f"Light Color (CCT) {i}", headers)
 
-		# 2 output levels → Output Options 1, 2
-		self.assertIn("Output Options 1", headers)
-		self.assertIn("Output Options 2", headers)
+		# All 8 output-level blocks present (even though only 2 have data)
+		for j in range(1, MAX_OUTPUT_LEVELS + 1):
+			self.assertIn(f"Output Options {j}", headers)
 
 		# Per-output watt/run columns for lens groups
 		self.assertIn("Watts per Foot (White Lens) 1", headers)
@@ -631,11 +637,13 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertIn("Watts per Foot (Black Lens) 1", headers)
 		self.assertIn("Max Run Length (Other Lenses) 2", headers)
 
-		# Lumen columns per output × CCT
+		# Lumen columns per output × CCT (using full MAX_CCTS range)
 		self.assertIn("White Lens - Output 1 - Lumen 1", headers)
 		self.assertIn("Black Lens - Output 1 - Lumen 2", headers)
 		self.assertIn("Frosted Lens - Output 2 - Lumen 1", headers)
 		self.assertIn("Clear Lens - Output 2 - Lumen 2", headers)
+		# Unused slots also present
+		self.assertIn("White Lens - Output 8 - Lumen 8", headers)
 
 	def test_pivot_to_indesign_values_and_aggregation(self):
 		"""Verify aggregated values, suffixes, and lumen pass-through."""
@@ -705,10 +713,12 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(data_row["Frosted Lens - Output 1 - Lumen 1"], 170.0)
 
 	def test_pivot_to_indesign_empty_variant_rows(self):
-		"""Pivot with no variant rows produces static product columns (including image labels)."""
+		"""Pivot with no variant rows produces fixed columns (static + CCT + output blocks)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
+			MAX_CCTS,
+			MAX_OUTPUT_LEVELS,
 		)
 
 		product_data = {
@@ -718,12 +728,17 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
+		# Fixed: 40 static + 8 CCT + 312 output = 360
+		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 		self.assertEqual(data_row["Product Name"], "Empty")
 
 	def test_pivot_to_indesign_output_level_sort_order(self):
 		"""Output levels are sorted by leading integer, not lexicographically."""
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign,
+			MAX_CCTS,
+			MAX_OUTPUT_LEVELS,
+		)
 
 		product_data = {
 			"product_name": "Sort Test", "input_voltage": "", "certifications": "",
@@ -736,7 +751,10 @@ class TestSpecSheetExport(FrappeTestCase):
 			{"cct_name": "3000K", "cct_kelvin": 3000, "fixture_output_level": "200 lm/ft"},
 		]
 
-		_headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
+
+		# Fixed column count
+		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 
 		# Sorted by leading int: 50, 200, 400
 		self.assertEqual(data_row["Output Options 1"], "50 lm/ft")
@@ -746,26 +764,30 @@ class TestSpecSheetExport(FrappeTestCase):
 	# ── Part Number Builder tests ──
 
 	def test_collect_pn_builder_columns_empty(self):
-		"""Empty part_number_builder returns no headers."""
+		"""Empty part_number_builder returns fixed 220 headers with empty data."""
 		from types import SimpleNamespace
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_collect_pn_builder_columns, STANDARD_PN_SECTIONS, MAX_PN_OPTIONS_PER_SECTION,
+		)
 
 		ft_doc = SimpleNamespace(part_number_builder=[])
 		ft_doc.get = lambda key, default=None: getattr(ft_doc, key, default)
 		headers, data = _collect_pn_builder_columns(ft_doc)
-		self.assertEqual(headers, [])
-		self.assertEqual(data, {})
+		self.assertEqual(len(headers), len(STANDARD_PN_SECTIONS) * MAX_PN_OPTIONS_PER_SECTION * 2)
+		self.assertTrue(all(v == "" for v in data.values()))
 
 	def test_collect_pn_builder_columns_none_doc(self):
-		"""None ft_doc returns no headers."""
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+		"""None ft_doc returns fixed 220 headers with empty data."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_collect_pn_builder_columns, STANDARD_PN_SECTIONS, MAX_PN_OPTIONS_PER_SECTION,
+		)
 
 		headers, data = _collect_pn_builder_columns(None)
-		self.assertEqual(headers, [])
-		self.assertEqual(data, {})
+		self.assertEqual(len(headers), len(STANDARD_PN_SECTIONS) * MAX_PN_OPTIONS_PER_SECTION * 2)
+		self.assertTrue(all(v == "" for v in data.values()))
 
 	def test_collect_pn_builder_columns_single_option_section(self):
-		"""Single-option section uses no number suffix."""
+		"""Single-option section uses numbered suffix (Option 1:)."""
 		from types import SimpleNamespace
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
 
@@ -777,15 +799,18 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data = _collect_pn_builder_columns(ft_doc)
 
-		self.assertEqual(headers, [
-			"Part Number - Series - Option:",
-			"Part Number - Series - Description:",
-		])
-		self.assertEqual(data["Part Number - Series - Option:"], "SH01")
-		self.assertEqual(data["Part Number - Series - Description:"], "Shadow")
+		# Fixed 220 columns
+		self.assertEqual(len(headers), 220)
+		# Uses numbered suffix (breaking change from un-numbered)
+		self.assertIn("Part Number - Series - Option 1:", headers)
+		self.assertIn("Part Number - Series - Description 1:", headers)
+		self.assertEqual(data["Part Number - Series - Option 1:"], "SH01")
+		self.assertEqual(data["Part Number - Series - Description 1:"], "Shadow")
+		# Unused slots are empty
+		self.assertEqual(data["Part Number - Series - Option 2:"], "")
 
 	def test_collect_pn_builder_columns_multi_option_section(self):
-		"""Multi-option section uses numbered suffixes."""
+		"""Multi-option section uses numbered suffixes and fills correct slots."""
 		from types import SimpleNamespace
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
 
@@ -799,16 +824,21 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data = _collect_pn_builder_columns(ft_doc)
 
-		self.assertEqual(len(headers), 6)  # 3 options × 2 columns each
+		# Fixed 220 columns
+		self.assertEqual(len(headers), 220)
 		self.assertIn("Part Number - CCT - Option 1:", headers)
 		self.assertIn("Part Number - CCT - Description 2:", headers)
 		self.assertEqual(data["Part Number - CCT - Option 1:"], "27K")
 		self.assertEqual(data["Part Number - CCT - Description 3:"], "4000K")
+		# Slots beyond the 3 filled ones are empty
+		self.assertEqual(data["Part Number - CCT - Option 4:"], "")
 
 	def test_collect_pn_builder_columns_section_order(self):
-		"""Sections are ordered by section_order."""
+		"""Sections are ordered by STANDARD_PN_SECTIONS, not data order."""
 		from types import SimpleNamespace
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _collect_pn_builder_columns
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_collect_pn_builder_columns, STANDARD_PN_SECTIONS,
+		)
 
 		rows = [
 			SimpleNamespace(section_name="Finish", section_order=7, option_code="BK", option_label="Black", option_order=1),
@@ -819,35 +849,48 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, _data = _collect_pn_builder_columns(ft_doc)
 
-		# Series (order=1) should come before Finish (order=7)
-		series_idx = headers.index("Part Number - Series - Option:")
-		finish_idx = headers.index("Part Number - Finish - Option:")
+		# Series comes before Finish in STANDARD_PN_SECTIONS
+		series_idx = headers.index("Part Number - Series - Option 1:")
+		finish_idx = headers.index("Part Number - Finish - Option 1:")
 		self.assertLess(series_idx, finish_idx)
 
+		# Verify order matches STANDARD_PN_SECTIONS order
+		series_section_idx = STANDARD_PN_SECTIONS.index("Series")
+		finish_section_idx = STANDARD_PN_SECTIONS.index("Finish")
+		self.assertLess(series_section_idx, finish_section_idx)
+
 	def test_pivot_to_indesign_with_pn_builder_columns(self):
-		"""PN builder columns are appended at the end of the InDesign pivot."""
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+		"""PN builder columns are appended at the end of the InDesign pivot (580 total)."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign, _collect_pn_builder_columns,
+		)
 
 		product_data = {
 			"product_name": "PN Test", "input_voltage": "", "certifications": "",
 			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
 		}
 
-		pn_headers = ["Part Number - Series - Option:", "Part Number - Series - Description:"]
-		pn_data = {"Part Number - Series - Option:": "SH01", "Part Number - Series - Description:": "Shadow"}
+		pn_headers, pn_data = _collect_pn_builder_columns(None)
+		# Populate one section
+		pn_data["Part Number - Series - Option 1:"] = "SH01"
+		pn_data["Part Number - Series - Description 1:"] = "Shadow"
 
 		headers, data_row = _pivot_to_indesign(product_data, [], pn_builder_columns=(pn_headers, pn_data))
 
+		# 360 (pivot) + 220 (PN) = 580
+		self.assertEqual(len(headers), 580)
 		# PN columns should be at the end
 		self.assertTrue(headers[-1].startswith("Part Number"))
-		self.assertEqual(data_row["Part Number - Series - Option:"], "SH01")
-		self.assertEqual(data_row["Part Number - Series - Description:"], "Shadow")
+		self.assertEqual(data_row["Part Number - Series - Option 1:"], "SH01")
+		self.assertEqual(data_row["Part Number - Series - Description 1:"], "Shadow")
 
 	def test_pivot_to_indesign_without_pn_builder(self):
-		"""Pivot without PN builder produces static product columns (including image labels) only."""
+		"""Pivot without PN builder produces 360 columns (static + CCT + output blocks)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
+			MAX_CCTS,
+			MAX_OUTPUT_LEVELS,
 		)
 
 		product_data = {
@@ -857,5 +900,7 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		self.assertEqual(headers, INDESIGN_PRODUCT_COLUMNS)
-		self.assertNotIn("Part Number", " ".join(headers))
+		# 40 static + 8 CCT + 312 output = 360
+		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# No Part Number columns
+		self.assertFalse(any("Part Number" in h for h in headers))
