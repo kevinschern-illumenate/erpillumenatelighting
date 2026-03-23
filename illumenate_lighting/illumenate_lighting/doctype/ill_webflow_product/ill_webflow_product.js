@@ -100,10 +100,44 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 	},
 
+	featured_image(frm) {
+		// After image upload, Frappe's File doc updates the parent's `modified`
+		// timestamp via db.set_value, causing a stale-document error on save.
+		// Refresh it so the next save passes the concurrency check.
+		if (!frm.is_new() && frm.doc.featured_image) {
+			frappe.xcall("frappe.client.get_value", {
+				doctype: frm.doctype,
+				filters: frm.docname,
+				fieldname: "modified"
+			}).then((r) => {
+				if (r && r.modified) {
+					frm.doc.modified = r.modified;
+				}
+			});
+		}
+	},
+
 	fixture_template(frm) {
 		// When fixture template is selected, enable configurator by default
 		if (frm.doc.fixture_template) {
 			frm.set_value("is_configurable", 1);
+		}
+	}
+});
+
+// Re-sync modified timestamp after gallery image uploads in child table
+frappe.ui.form.on("ilL-Child-Webflow-Gallery-Image", {
+	image(frm) {
+		if (!frm.is_new()) {
+			frappe.xcall("frappe.client.get_value", {
+				doctype: frm.doctype,
+				filters: frm.docname,
+				fieldname: "modified"
+			}).then((r) => {
+				if (r && r.modified) {
+					frm.doc.modified = r.modified;
+				}
+			});
 		}
 	}
 });
