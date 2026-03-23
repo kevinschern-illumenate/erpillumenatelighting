@@ -11,7 +11,7 @@ for InDesign data merge.
 Supports two output formats:
   - ``"flat"`` – one row per CCT × output-level (original format)
   - ``"indesign"`` – one pivoted row per product with **fixed** columns
-    (580 total) matching the marketing team's InDesign data-merge layout.
+    (596 total) matching the marketing team's InDesign data-merge layout.
     Column positions never shift between products.
 """
 
@@ -56,14 +56,24 @@ PRODUCT_COLUMNS = [
 	"driver_max_wattage",
 ]
 
-CUSTOM_IMAGE_COLUMNS = [
+CUSTOM_SPEC_COLUMNS = [
+	# Branding
 	"custom_image_illumenate_logo",
 	"custom_image_spec_line",
 	"custom_image_hero",
-	"custom_image_channel_component_image",
-	"custom_image_channel_url",
-	"custom_image_tape_component_image",
-	"custom_image_tape_url",
+	# Component 1
+	"custom_component_1_title",
+	"custom_image_component_1_hero",
+	"custom_component_1_url",
+	# Component 2
+	"custom_component_2_title",
+	"custom_image_component_2_hero",
+	"custom_component_2_url",
+	# Component 3
+	"custom_component_3_title",
+	"custom_image_component_3_hero",
+	"custom_component_3_url",
+	# Icons
 	"custom_image_etl_rated_icon",
 	"custom_image_ul_rated_icon",
 	"custom_image_5v_dc_icon",
@@ -73,18 +83,31 @@ CUSTOM_IMAGE_COLUMNS = [
 	"custom_image_dry_rated_icon",
 	"custom_image_damp_rated_icon",
 	"custom_image_wet_rated_icon",
+	# Dimensions
 	"custom_image_dimensions_1",
+	"custom_dimensions_2_title",
 	"custom_image_dimensions_2",
+	"custom_dimensions_3_title",
 	"custom_image_dimensions_3",
+	"custom_dimensions_4_title",
 	"custom_image_dimensions_4",
+	"custom_dimensions_5_title",
+	# Accessories
+	"custom_acc_1_title",
 	"custom_image_acc_dims_1",
+	"custom_acc_2_title",
 	"custom_image_acc_dims_2",
+	"custom_acc_3_title",
 	"custom_image_acc_dims_3",
+	"custom_acc_4_title",
+	"custom_image_acc_dims_4",
+	"custom_acc_5_title",
+	"custom_image_acc_dims_5",
 ]
 
-# Ordered mapping of InDesign label → raw product_data key for each image column.
+# Ordered mapping of InDesign label → raw product_data key for each spec column.
 # Label == field name for direct mapping.
-_INDESIGN_IMAGE_MAP = [(col, col) for col in CUSTOM_IMAGE_COLUMNS]
+_INDESIGN_SPEC_MAP = [(col, col) for col in CUSTOM_SPEC_COLUMNS]
 
 VARIANT_COLUMNS = [
 	"cct_name",
@@ -363,7 +386,7 @@ def _collect_product_data(wp_doc):
 		"driver_max_wattage": driver_max_wattage,
 	}
 
-	for col in CUSTOM_IMAGE_COLUMNS:
+	for col in CUSTOM_SPEC_COLUMNS:
 		result[col] = wp_doc.get(col) or ""
 
 	return result
@@ -628,7 +651,7 @@ def _generate_csv(wp_doc):
 	output = io.StringIO()
 	writer = csv.writer(output)
 
-	headers = PRODUCT_COLUMNS + CUSTOM_IMAGE_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
+	headers = PRODUCT_COLUMNS + CUSTOM_SPEC_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS + pn_headers
 	writer.writerow(headers)
 
 	for row in _collect_variant_rows(wp_doc, product_data):
@@ -661,7 +684,7 @@ INDESIGN_PRODUCT_COLUMNS = [
 	"Dimensions (L×W×H)",
 	"CRI Quality",
 	"Production Interval",
-] + [label for label, _field in _INDESIGN_IMAGE_MAP]
+] + [label for label, _field in _INDESIGN_SPEC_MAP]
 
 # Lens groupings used for per-output-level watt/run columns.
 _INDESIGN_LENS_GROUPS = [
@@ -791,7 +814,7 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Production Interval": ", ".join(prod_interval_values),
 	}
 
-	for label, field in _INDESIGN_IMAGE_MAP:
+	for label, field in _INDESIGN_SPEC_MAP:
 		data_row[label] = product_data.get(field, "")
 
 	for i, (cct_name, _kelvin) in enumerate(ccts, 1):

@@ -397,31 +397,34 @@ class TestSpecSheetExport(FrappeTestCase):
 			self.assertIn(col, VARIANT_COLUMNS, f"{col} missing from VARIANT_COLUMNS")
 
 	def test_image_columns_count_and_names(self):
-		"""Verify CUSTOM_IMAGE_COLUMNS contains exactly 23 descriptive custom_image_* fields."""
-		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import CUSTOM_IMAGE_COLUMNS
+		"""Verify CUSTOM_SPEC_COLUMNS contains exactly 39 custom_* fields."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import CUSTOM_SPEC_COLUMNS
 
-		self.assertEqual(len(CUSTOM_IMAGE_COLUMNS), 23)
-		for col in CUSTOM_IMAGE_COLUMNS:
-			self.assertTrue(col.startswith("custom_image_"), f"{col} must start with 'custom_image_'")
+		self.assertEqual(len(CUSTOM_SPEC_COLUMNS), 39)
+		for col in CUSTOM_SPEC_COLUMNS:
+			self.assertTrue(col.startswith("custom_"), f"{col} must start with 'custom_'")
 		# Spot-check a few known descriptive names
-		self.assertIn("custom_image_illumenate_logo", CUSTOM_IMAGE_COLUMNS)
-		self.assertIn("custom_image_hero", CUSTOM_IMAGE_COLUMNS)
-		self.assertIn("custom_image_acc_dims_3", CUSTOM_IMAGE_COLUMNS)
+		self.assertIn("custom_image_illumenate_logo", CUSTOM_SPEC_COLUMNS)
+		self.assertIn("custom_image_hero", CUSTOM_SPEC_COLUMNS)
+		self.assertIn("custom_image_acc_dims_3", CUSTOM_SPEC_COLUMNS)
+		self.assertIn("custom_component_1_title", CUSTOM_SPEC_COLUMNS)
+		self.assertIn("custom_image_component_1_hero", CUSTOM_SPEC_COLUMNS)
+		self.assertIn("custom_acc_5_title", CUSTOM_SPEC_COLUMNS)
 
 	def test_image_columns_no_overlap(self):
-		"""CUSTOM_IMAGE_COLUMNS must not overlap with PRODUCT, VARIANT, or LENS columns."""
+		"""CUSTOM_SPEC_COLUMNS must not overlap with PRODUCT, VARIANT, or LENS columns."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
-			CUSTOM_IMAGE_COLUMNS, PRODUCT_COLUMNS, VARIANT_COLUMNS, LENS_COLUMNS,
+			CUSTOM_SPEC_COLUMNS, PRODUCT_COLUMNS, VARIANT_COLUMNS, LENS_COLUMNS,
 		)
 
 		others = set(PRODUCT_COLUMNS + VARIANT_COLUMNS + LENS_COLUMNS)
-		for col in CUSTOM_IMAGE_COLUMNS:
+		for col in CUSTOM_SPEC_COLUMNS:
 			self.assertNotIn(col, others, f"{col} overlaps with another column set")
 
 	def test_pivot_to_indesign_image_columns_present(self):
-		"""Image columns appear in InDesign headers using field names as labels."""
+		"""Spec columns appear in InDesign headers using field names as labels."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
-			_pivot_to_indesign, INDESIGN_PRODUCT_COLUMNS, _INDESIGN_IMAGE_MAP,
+			_pivot_to_indesign, INDESIGN_PRODUCT_COLUMNS, _INDESIGN_SPEC_MAP,
 		)
 
 		product_data = {
@@ -433,10 +436,10 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# Image labels are part of INDESIGN_PRODUCT_COLUMNS (at the end of static block)
-		image_labels = [label for label, _field in _INDESIGN_IMAGE_MAP]
+		# Spec labels are part of INDESIGN_PRODUCT_COLUMNS (at the end of static block)
+		spec_labels = [label for label, _field in _INDESIGN_SPEC_MAP]
 		static_block = headers[:len(INDESIGN_PRODUCT_COLUMNS)]
-		self.assertEqual(static_block[-len(image_labels):], image_labels)
+		self.assertEqual(static_block[-len(spec_labels):], spec_labels)
 		self.assertEqual(data_row["custom_image_illumenate_logo"], "https://example.com/img1.jpg")
 		self.assertEqual(data_row["custom_image_hero"], "")
 		self.assertEqual(data_row["custom_image_acc_dims_3"], "")
@@ -616,8 +619,8 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
 
-		# Fixed total: 40 static + 8 CCT + 312 output = 360
-		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# Fixed total: 56 static + 8 CCT + 312 output = 376
+		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 
 		# Static product columns come first
 		for col in INDESIGN_PRODUCT_COLUMNS:
@@ -728,8 +731,8 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# Fixed: 40 static + 8 CCT + 312 output = 360
-		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# Fixed: 56 static + 8 CCT + 312 output = 376
+		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 		self.assertEqual(data_row["Product Name"], "Empty")
 
 	def test_pivot_to_indesign_output_level_sort_order(self):
@@ -754,7 +757,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
 
 		# Fixed column count
-		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 
 		# Sorted by leading int: 50, 200, 400
 		self.assertEqual(data_row["Output Options 1"], "50 lm/ft")
@@ -860,7 +863,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertLess(series_section_idx, finish_section_idx)
 
 	def test_pivot_to_indesign_with_pn_builder_columns(self):
-		"""PN builder columns are appended at the end of the InDesign pivot (580 total)."""
+		"""PN builder columns are appended at the end of the InDesign pivot (596 total)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign, _collect_pn_builder_columns,
 		)
@@ -877,15 +880,15 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [], pn_builder_columns=(pn_headers, pn_data))
 
-		# 360 (pivot) + 220 (PN) = 580
-		self.assertEqual(len(headers), 580)
+		# 376 (pivot) + 220 (PN) = 596
+		self.assertEqual(len(headers), 596)
 		# PN columns should be at the end
 		self.assertTrue(headers[-1].startswith("Part Number"))
 		self.assertEqual(data_row["Part Number - Series - Option 1:"], "SH01")
 		self.assertEqual(data_row["Part Number - Series - Description 1:"], "Shadow")
 
 	def test_pivot_to_indesign_without_pn_builder(self):
-		"""Pivot without PN builder produces 360 columns (static + CCT + output blocks)."""
+		"""Pivot without PN builder produces 376 columns (static + CCT + output blocks)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
@@ -900,7 +903,7 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# 40 static + 8 CCT + 312 output = 360
-		self.assertEqual(len(headers), 40 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# 56 static + 8 CCT + 312 output = 376
+		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 		# No Part Number columns
 		self.assertFalse(any("Part Number" in h for h in headers))
