@@ -687,6 +687,11 @@ Allows users to configure fixtures using segment-based configuration
 				<button type="button" class="btn btn-primary" id="tnCalculateBtn" onclick="tnValidateAndQuote()" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
+				{% if is_system_manager %}
+				<button type="button" class="btn btn-warning" id="tnBuildItemBtn" onclick="tnBuildConfiguredItem()" style="display: none;" disabled>
+					<i class="fa fa-wrench"></i> {{ _("Build Configured Item") }}
+				</button>
+				{% endif %}
 				<button type="button" class="btn btn-success" id="tnSaveBtn" onclick="tnSaveToSchedule()" style="display: none;" disabled>
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>
@@ -3227,6 +3232,14 @@ function tnUpdateSaveButtonVisibility() {
 	}
 }
 
+function tnUpdateBuildButtonVisibility() {
+	if (isSystemManager && tnCurrentResult && tnCurrentResult.is_valid && tnCurrentResult.configured_tape_neon) {
+		$('#tnBuildItemBtn').show().prop('disabled', false);
+	} else {
+		$('#tnBuildItemBtn').hide();
+	}
+}
+
 // ─── Validate & Quote (tape/neon) ────────────────────────────────────
 function tnValidateAndQuote() {
 	var templateCode = $('select[name="fixture_template_code"]').val();
@@ -3371,6 +3384,7 @@ function tnDisplayResults(result) {
 		$('#ledRunDetailsPanel').hide();
 		$('#driverResults').hide();
 		tnUpdateSaveButtonVisibility();
+		tnUpdateBuildButtonVisibility();
 		return;
 	}
 
@@ -3502,6 +3516,47 @@ function tnDisplayResults(result) {
 	}
 
 	tnUpdateSaveButtonVisibility();
+	tnUpdateBuildButtonVisibility();
+}
+
+// ─── Build Configured Item (tape/neon) ───────────────────────────────
+function tnBuildConfiguredItem() {
+	if (!tnCurrentResult || !tnCurrentResult.is_valid || !tnCurrentResult.configured_tape_neon) {
+		frappe.msgprint(__('Cannot build: configuration is not valid or missing configured tape/neon ID'));
+		return;
+	}
+
+	$('#tnBuildItemBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Building...');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.build_configured_tape_neon_and_item',
+		args: {
+			configured_tape_neon_id: tnCurrentResult.configured_tape_neon
+		},
+		callback: function(r) {
+			$('#tnBuildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Item');
+			if (r.message && r.message.success) {
+				var msg = r.message.created
+					? __('Created Item: {0}', [r.message.item_code])
+					: __('Item already exists: {0}', [r.message.item_code]);
+				frappe.msgprint({
+					title: __('Build Successful'),
+					message: msg,
+					indicator: 'green'
+				});
+			} else {
+				frappe.msgprint({
+					title: __('Build Failed'),
+					message: (r.message && r.message.error) || __('An error occurred'),
+					indicator: 'red'
+				});
+			}
+			$('#tnBuildItemBtn').prop('disabled', false);
+		},
+		error: function() {
+			$('#tnBuildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Item').prop('disabled', false);
+		}
+	});
 }
 
 // ─── Save to schedule (tape/neon) ────────────────────────────────────

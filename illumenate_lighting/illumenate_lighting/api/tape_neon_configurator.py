@@ -582,7 +582,7 @@ def validate_tape_configuration(
     tape_item = tape_spec.item
     leader_cable_item = tape_spec.leader_cable_item
 
-    return {
+    return_result = {
         "success": True,
         "is_valid": True,
         "messages": messages,
@@ -617,6 +617,22 @@ def validate_tape_configuration(
         },
         "selections": sel,
     }
+
+    # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
+    try:
+        configured_name = _create_or_reuse_configured_tape_neon(
+            None, return_result, is_neon=False,
+        )
+        return_result["configured_tape_neon"] = configured_name
+    except Exception as e:
+        # Don't fail validation just because record creation failed
+        return_result["configured_tape_neon"] = None
+        return_result.setdefault("messages", []).append({
+            "severity": "warning",
+            "text": f"Could not create configured record: {str(e)}",
+        })
+
+    return return_result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -946,7 +962,7 @@ def validate_neon_configuration(
 
     mfg_length_ft = total_mfg_mm / MM_PER_FOOT
 
-    return {
+    return_result = {
         "success": True,
         "is_valid": True,
         "messages": messages,
@@ -981,6 +997,22 @@ def validate_neon_configuration(
         },
         "selections": sel,
     }
+
+    # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
+    try:
+        configured_name = _create_or_reuse_configured_tape_neon(
+            None, return_result, is_neon=True,
+        )
+        return_result["configured_tape_neon"] = configured_name
+    except Exception as e:
+        # Don't fail validation just because record creation failed
+        return_result["configured_tape_neon"] = None
+        return_result.setdefault("messages", []).append({
+            "severity": "warning",
+            "text": f"Could not create configured record: {str(e)}",
+        })
+
+    return return_result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -2186,7 +2218,7 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     with the same config_hash).
 
     Args:
-        template: Template dict (from frappe.get_all)
+        template: Template dict (from frappe.get_all), or None for non-template path
         validation_result: The validated configuration result dict
         is_neon: True if LED Neon, False if LED Tape
 
@@ -2199,10 +2231,13 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     computed = validation_result.get("computed", {})
     resolved = validation_result.get("resolved_items", {})
 
+    product_category = validation_result.get("product_category", "LED Neon" if is_neon else "LED Tape")
+    template_code = template.template_code if template else "__direct__"
+
     # Build a deterministic hash of the configuration
     hash_parts = [
-        template.template_code,
-        template.product_category,
+        template_code,
+        product_category,
         resolved.get("tape_spec", ""),
         resolved.get("tape_offering", ""),
         sel.get("cct", ""),
@@ -2252,8 +2287,8 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
         "doctype": "ilL-Configured-Tape-Neon",
         "config_hash": config_hash,
         "part_number": validation_result.get("part_number", ""),
-        "product_category": template.product_category,
-        "tape_neon_template": template.name,
+        "product_category": product_category,
+        "tape_neon_template": template.name if template else None,
         "engine_version": "2.0",
         "tape_spec": resolved.get("tape_spec"),
         "tape_offering": resolved.get("tape_offering"),
@@ -2309,7 +2344,7 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     doc_data["leader_cable_item"] = resolved.get("leader_cable_item")
 
     # Compute pricing using template-based pricing
-    if not computed.get("total_price_msrp"):
+    if not computed.get("total_price_msrp") and template:
         if is_neon:
             mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
         else:

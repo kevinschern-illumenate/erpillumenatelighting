@@ -1842,6 +1842,61 @@ def build_configured_fixture_and_item(configured_fixture_id: str) -> dict:
 
 
 @frappe.whitelist()
+def build_configured_tape_neon_and_item(configured_tape_neon_id: str) -> dict:
+	"""
+	Build a configured tape/neon product's Item (and update the record link).
+
+	Only accessible to System Manager users. This allows creating the
+	configured Item directly from the portal Configure page without
+	needing to create a Sales Order first.
+
+	Args:
+		configured_tape_neon_id: Name of the ilL-Configured-Tape-Neon document
+
+	Returns:
+		dict: {"success": True/False, "item_code": str, "error": "message if error"}
+	"""
+	# Only System Managers can use this endpoint
+	if "System Manager" not in frappe.get_roles(frappe.session.user):
+		return {"success": False, "error": "Only System Managers can build configured tape/neon items"}
+
+	# Validate configured record exists
+	if not frappe.db.exists("ilL-Configured-Tape-Neon", configured_tape_neon_id):
+		return {"success": False, "error": "Configured tape/neon record not found"}
+
+	try:
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_configured_tape_neon_item,
+		)
+
+		configured_tn = frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon_id)
+
+		item_result = _create_or_get_configured_tape_neon_item(configured_tn, skip_if_exists=True)
+		if not item_result.get("success"):
+			error_msgs = [m["text"] for m in item_result.get("messages", []) if m.get("severity") == "error"]
+			return {"success": False, "error": "; ".join(error_msgs) or "Failed to create item"}
+
+		item_code = item_result["item_code"]
+
+		# Update the configured record with the item link
+		try:
+			configured_tn.configured_item = item_code
+			configured_tn.save(ignore_permissions=True)
+		except Exception:
+			pass  # Non-critical, link is convenience
+
+		return {
+			"success": True,
+			"item_code": item_code,
+			"created": item_result.get("created", False),
+			"skipped": item_result.get("skipped", False),
+			"messages": item_result.get("messages", []),
+		}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
