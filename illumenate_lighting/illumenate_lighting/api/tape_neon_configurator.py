@@ -29,6 +29,7 @@ LED Neon produces similar lines per segment.
 
 import json
 import math
+import traceback
 from typing import Any, Optional
 
 import frappe
@@ -1779,6 +1780,9 @@ def validate_tape_neon_template_config(
     result["template_name"] = template.template_name
 
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
+    # Capture message_log length so we can roll back any messages added
+    # by frappe.throw() inside doc.insert() if an exception occurs.
+    _msg_log_len = len(getattr(frappe.local, "message_log", []))
     try:
         # Mute messages so that frappe.throw() inside doc.insert() does not
         # pollute the response message_log with an error popup on the client.
@@ -1791,17 +1795,12 @@ def validate_tape_neon_template_config(
             frappe.flags.mute_messages = False
         result["configured_tape_neon"] = configured_name
     except Exception as e:
-        import traceback
         # Don't fail validation just because record creation failed
         result["configured_tape_neon"] = None
-        # Defensively pop any stale entries that frappe.throw() may have
-        # added to message_log before the mute flag took effect.
+        # Truncate message_log back to pre-call length to remove any
+        # entries added by frappe.throw() before the mute flag took effect.
         if hasattr(frappe.local, "message_log"):
-            frappe.local.message_log = [
-                m for m in frappe.local.message_log
-                if "Configured-Tape-Neon" not in str(m)
-                and "tape_neon_template" not in str(m)
-            ]
+            frappe.local.message_log = frappe.local.message_log[:_msg_log_len]
         logger.warning(
             f"Could not create configured record for template "
             f"'{template.name}' ({template.template_code}): {e}\n"
