@@ -141,3 +141,20 @@ frappe.ui.form.on("ilL-Child-Webflow-Gallery-Image", {
 		}
 	}
 });
+
+// Re-sync modified timestamp after document file uploads in child table
+frappe.ui.form.on("ilL-Child-Webflow-Document", {
+	document_file(frm) {
+		if (!frm.is_new()) {
+			frappe.xcall("frappe.client.get_value", {
+				doctype: frm.doctype,
+				filters: frm.docname,
+				fieldname: "modified"
+			}).then((r) => {
+				if (r && r.modified) {
+					frm.doc.modified = r.modified;
+				}
+			});
+		}
+	}
+});
