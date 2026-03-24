@@ -30,6 +30,10 @@ ENGINE_VERSION = "1.0.0"
 # Item group for configured fixtures
 CONFIGURED_ITEM_GROUP = "Configured Fixtures"
 
+# Item groups for configured tape/neon
+CONFIGURED_TAPE_ITEM_GROUP = "Configured LED Tape"
+CONFIGURED_NEON_ITEM_GROUP = "Configured LED Neon"
+
 # Default UOM for configured fixtures
 DEFAULT_UOM = "Nos"
 
@@ -399,6 +403,156 @@ def _create_or_get_configured_item(
 		})
 
 	return result
+
+
+def _create_or_get_configured_tape_neon_item(
+	configured_tape_neon,
+	skip_if_exists: bool = True,
+) -> dict[str, Any]:
+	"""
+	Create or retrieve configured Item for a tape/neon product.
+
+	Mirrors _create_or_get_configured_item() but for ilL-Configured-Tape-Neon
+	records.  Uses the part_number as the item_code and assigns an item group
+	based on product_category.
+
+	Args:
+		configured_tape_neon: ilL-Configured-Tape-Neon document
+		skip_if_exists: If True, return existing item without modification
+
+	Returns:
+		dict with keys: success, item_code, created, skipped, messages
+	"""
+	result = {
+		"success": True,
+		"item_code": None,
+		"created": False,
+		"skipped": False,
+		"messages": [],
+	}
+
+	# Check if record already has a configured item
+	if configured_tape_neon.configured_item and skip_if_exists:
+		if frappe.db.exists("Item", configured_tape_neon.configured_item):
+			result["item_code"] = configured_tape_neon.configured_item
+			result["skipped"] = True
+			result["messages"].append({
+				"severity": "info",
+				"text": f"Using existing configured Item: {configured_tape_neon.configured_item}",
+			})
+			return result
+
+	# Use the part_number as the item code
+	item_code = configured_tape_neon.part_number
+	if not item_code:
+		result["success"] = False
+		result["messages"].append({
+			"severity": "error",
+			"text": "Configured tape/neon record has no part_number",
+		})
+		return result
+
+	# Check if item already exists
+	if frappe.db.exists("Item", item_code):
+		if skip_if_exists:
+			result["item_code"] = item_code
+			result["skipped"] = True
+			result["messages"].append({
+				"severity": "info",
+				"text": f"Using existing Item: {item_code}",
+			})
+			return result
+
+	# Determine item group by product category
+	is_neon = configured_tape_neon.product_category == "LED Neon"
+	item_group = CONFIGURED_NEON_ITEM_GROUP if is_neon else CONFIGURED_TAPE_ITEM_GROUP
+
+	# Generate item name and description
+	item_name = _generate_tape_neon_item_name(configured_tape_neon)
+	description = _generate_tape_neon_item_description(configured_tape_neon)
+
+	# Ensure item group exists
+	_ensure_item_group_exists(item_group)
+
+	try:
+		item_doc = frappe.get_doc({
+			"doctype": "Item",
+			"item_code": item_code,
+			"item_name": item_name,
+			"item_group": item_group,
+			"stock_uom": DEFAULT_UOM,
+			"is_stock_item": 1,
+			"description": description,
+			"custom_ill_configured_tape_neon": configured_tape_neon.name,
+		})
+		item_doc.insert(ignore_permissions=True)
+
+		result["item_code"] = item_code
+		result["created"] = True
+		result["messages"].append({
+			"severity": "info",
+			"text": f"Created configured Item: {item_code}",
+		})
+	except Exception as e:
+		result["success"] = False
+		result["messages"].append({
+			"severity": "error",
+			"text": f"Failed to create Item: {e!s}",
+		})
+
+	return result
+
+
+def _generate_tape_neon_item_name(configured_tape_neon) -> str:
+	"""Generate a friendly item name for a configured tape/neon product."""
+	parts = [configured_tape_neon.product_category or "LED Tape"]
+
+	if configured_tape_neon.cct:
+		parts.append(configured_tape_neon.cct)
+	if configured_tape_neon.output_level:
+		parts.append(configured_tape_neon.output_level)
+
+	mfg_mm = configured_tape_neon.manufacturable_length_mm or 0
+	if mfg_mm:
+		length_in = mfg_mm / 25.4
+		if length_in == int(length_in):
+			parts.append(f'{int(length_in)}"')
+		else:
+			parts.append(f'{length_in:.1f}"')
+
+	return " - ".join(parts)
+
+
+def _generate_tape_neon_item_description(configured_tape_neon) -> str:
+	"""Generate a detailed description for a configured tape/neon Item."""
+	mfg_mm = configured_tape_neon.manufacturable_length_mm or 0
+	mfg_in = mfg_mm / 25.4
+	req_mm = configured_tape_neon.requested_length_mm or 0
+	req_in = req_mm / 25.4
+
+	lines = [
+		f"Configured {configured_tape_neon.product_category}: {configured_tape_neon.name}",
+		f"Part Number: {configured_tape_neon.part_number or 'N/A'}",
+		f"CCT: {configured_tape_neon.cct or 'N/A'}",
+		f"Output Level: {configured_tape_neon.output_level or 'N/A'}",
+		f'Length: {mfg_in:.1f}" / {mfg_mm}mm (requested: {req_in:.1f}" / {req_mm}mm)',
+		f"Total Watts: {configured_tape_neon.total_watts or 0}W",
+	]
+
+	if configured_tape_neon.product_category == "LED Neon":
+		lines.append(f"Mounting: {configured_tape_neon.mounting_method or 'N/A'}")
+		lines.append(f"Finish: {configured_tape_neon.finish or 'N/A'}")
+		lines.append(f"Segments: {configured_tape_neon.total_segments or 1}")
+	else:
+		lines.append(f"Environment: {configured_tape_neon.environment_rating or 'N/A'}")
+		lines.append(f"PCB Mounting: {configured_tape_neon.pcb_mounting or 'N/A'}")
+		lines.append(f"PCB Finish: {configured_tape_neon.pcb_finish or 'N/A'}")
+		lines.append(f"Feed Type: {configured_tape_neon.feed_type or 'N/A'}")
+
+	if configured_tape_neon.build_description:
+		lines.append(f"\nBuild Description:\n{configured_tape_neon.build_description}")
+
+	return "\n".join(lines)
 
 
 def _create_or_get_bom(
