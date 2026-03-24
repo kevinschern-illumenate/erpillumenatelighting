@@ -625,7 +625,7 @@ def validate_tape_configuration(
         )
         return_result["configured_tape_neon"] = configured_name
     except Exception as e:
-        # Don't fail validation just because record creation failed
+        # Validation continues even if record creation fails
         return_result["configured_tape_neon"] = None
         return_result.setdefault("messages", []).append({
             "severity": "warning",
@@ -1005,7 +1005,7 @@ def validate_neon_configuration(
         )
         return_result["configured_tape_neon"] = configured_name
     except Exception as e:
-        # Don't fail validation just because record creation failed
+        # Validation continues even if record creation fails
         return_result["configured_tape_neon"] = None
         return_result.setdefault("messages", []).append({
             "severity": "warning",

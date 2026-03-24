@@ -406,7 +406,7 @@ def _create_or_get_configured_item(
 
 
 def _create_or_get_configured_tape_neon_item(
-	configured_tn,
+	configured_tape_neon,
 	skip_if_exists: bool = True,
 ) -> dict[str, Any]:
 	"""
@@ -417,7 +417,7 @@ def _create_or_get_configured_tape_neon_item(
 	based on product_category.
 
 	Args:
-		configured_tn: ilL-Configured-Tape-Neon document
+		configured_tape_neon: ilL-Configured-Tape-Neon document
 		skip_if_exists: If True, return existing item without modification
 
 	Returns:
@@ -432,18 +432,18 @@ def _create_or_get_configured_tape_neon_item(
 	}
 
 	# Check if record already has a configured item
-	if configured_tn.configured_item and skip_if_exists:
-		if frappe.db.exists("Item", configured_tn.configured_item):
-			result["item_code"] = configured_tn.configured_item
+	if configured_tape_neon.configured_item and skip_if_exists:
+		if frappe.db.exists("Item", configured_tape_neon.configured_item):
+			result["item_code"] = configured_tape_neon.configured_item
 			result["skipped"] = True
 			result["messages"].append({
 				"severity": "info",
-				"text": f"Using existing configured Item: {configured_tn.configured_item}",
+				"text": f"Using existing configured Item: {configured_tape_neon.configured_item}",
 			})
 			return result
 
 	# Use the part_number as the item code
-	item_code = configured_tn.part_number
+	item_code = configured_tape_neon.part_number
 	if not item_code:
 		result["success"] = False
 		result["messages"].append({
@@ -464,12 +464,12 @@ def _create_or_get_configured_tape_neon_item(
 			return result
 
 	# Determine item group by product category
-	is_neon = configured_tn.product_category == "LED Neon"
+	is_neon = configured_tape_neon.product_category == "LED Neon"
 	item_group = CONFIGURED_NEON_ITEM_GROUP if is_neon else CONFIGURED_TAPE_ITEM_GROUP
 
 	# Generate item name and description
-	item_name = _generate_tape_neon_item_name(configured_tn)
-	description = _generate_tape_neon_item_description(configured_tn)
+	item_name = _generate_tape_neon_item_name(configured_tape_neon)
+	description = _generate_tape_neon_item_description(configured_tape_neon)
 
 	# Ensure item group exists
 	_ensure_item_group_exists(item_group)
@@ -483,7 +483,7 @@ def _create_or_get_configured_tape_neon_item(
 			"stock_uom": DEFAULT_UOM,
 			"is_stock_item": 1,
 			"description": description,
-			"custom_ill_configured_tape_neon": configured_tn.name,
+			"custom_ill_configured_tape_neon": configured_tape_neon.name,
 		})
 		item_doc.insert(ignore_permissions=True)
 
@@ -503,16 +503,16 @@ def _create_or_get_configured_tape_neon_item(
 	return result
 
 
-def _generate_tape_neon_item_name(configured_tn) -> str:
+def _generate_tape_neon_item_name(configured_tape_neon) -> str:
 	"""Generate a friendly item name for a configured tape/neon product."""
-	parts = [configured_tn.product_category or "LED Tape"]
+	parts = [configured_tape_neon.product_category or "LED Tape"]
 
-	if configured_tn.cct:
-		parts.append(configured_tn.cct)
-	if configured_tn.output_level:
-		parts.append(configured_tn.output_level)
+	if configured_tape_neon.cct:
+		parts.append(configured_tape_neon.cct)
+	if configured_tape_neon.output_level:
+		parts.append(configured_tape_neon.output_level)
 
-	mfg_mm = configured_tn.manufacturable_length_mm or 0
+	mfg_mm = configured_tape_neon.manufacturable_length_mm or 0
 	if mfg_mm:
 		length_in = mfg_mm / 25.4
 		if length_in == int(length_in):
@@ -523,34 +523,34 @@ def _generate_tape_neon_item_name(configured_tn) -> str:
 	return " - ".join(parts)
 
 
-def _generate_tape_neon_item_description(configured_tn) -> str:
+def _generate_tape_neon_item_description(configured_tape_neon) -> str:
 	"""Generate a detailed description for a configured tape/neon Item."""
-	mfg_mm = configured_tn.manufacturable_length_mm or 0
+	mfg_mm = configured_tape_neon.manufacturable_length_mm or 0
 	mfg_in = mfg_mm / 25.4
-	req_mm = configured_tn.requested_length_mm or 0
+	req_mm = configured_tape_neon.requested_length_mm or 0
 	req_in = req_mm / 25.4
 
 	lines = [
-		f"Configured {configured_tn.product_category}: {configured_tn.name}",
-		f"Part Number: {configured_tn.part_number or 'N/A'}",
-		f"CCT: {configured_tn.cct or 'N/A'}",
-		f"Output Level: {configured_tn.output_level or 'N/A'}",
+		f"Configured {configured_tape_neon.product_category}: {configured_tape_neon.name}",
+		f"Part Number: {configured_tape_neon.part_number or 'N/A'}",
+		f"CCT: {configured_tape_neon.cct or 'N/A'}",
+		f"Output Level: {configured_tape_neon.output_level or 'N/A'}",
 		f'Length: {mfg_in:.1f}" / {mfg_mm}mm (requested: {req_in:.1f}" / {req_mm}mm)',
-		f"Total Watts: {configured_tn.total_watts or 0}W",
+		f"Total Watts: {configured_tape_neon.total_watts or 0}W",
 	]
 
-	if configured_tn.product_category == "LED Neon":
-		lines.append(f"Mounting: {configured_tn.mounting_method or 'N/A'}")
-		lines.append(f"Finish: {configured_tn.finish or 'N/A'}")
-		lines.append(f"Segments: {configured_tn.total_segments or 1}")
+	if configured_tape_neon.product_category == "LED Neon":
+		lines.append(f"Mounting: {configured_tape_neon.mounting_method or 'N/A'}")
+		lines.append(f"Finish: {configured_tape_neon.finish or 'N/A'}")
+		lines.append(f"Segments: {configured_tape_neon.total_segments or 1}")
 	else:
-		lines.append(f"Environment: {configured_tn.environment_rating or 'N/A'}")
-		lines.append(f"PCB Mounting: {configured_tn.pcb_mounting or 'N/A'}")
-		lines.append(f"PCB Finish: {configured_tn.pcb_finish or 'N/A'}")
-		lines.append(f"Feed Type: {configured_tn.feed_type or 'N/A'}")
+		lines.append(f"Environment: {configured_tape_neon.environment_rating or 'N/A'}")
+		lines.append(f"PCB Mounting: {configured_tape_neon.pcb_mounting or 'N/A'}")
+		lines.append(f"PCB Finish: {configured_tape_neon.pcb_finish or 'N/A'}")
+		lines.append(f"Feed Type: {configured_tape_neon.feed_type or 'N/A'}")
 
-	if configured_tn.build_description:
-		lines.append(f"\nBuild Description:\n{configured_tn.build_description}")
+	if configured_tape_neon.build_description:
+		lines.append(f"\nBuild Description:\n{configured_tape_neon.build_description}")
 
 	return "\n".join(lines)
 
