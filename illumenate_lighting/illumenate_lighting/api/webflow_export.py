@@ -108,7 +108,7 @@ def get_webflow_products(
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "profile_spec", "lens_spec", "tape_spec", "accessory_spec",
-            "short_description", "long_description", "featured_image", "dimensions_image",
+            "short_description", "sublabel", "long_description", "features", "featured_image", "dimensions_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
@@ -292,6 +292,16 @@ def get_webflow_products(
                 product["series_code"] = series_details.get("series_code")
                 product["series_display_name"] = series_details.get("display_name")
     
+            # Add features JSON (if present, parse and re-stringify to ensure valid JSON)
+            if product.get("features"):
+                try:
+                    features_data = json.loads(product["features"]) if isinstance(product["features"], str) else product["features"]
+                    product["features_json"] = json.dumps(features_data)
+                except (json.JSONDecodeError, TypeError):
+                    product["features_json"] = "[]"
+            else:
+                product["features_json"] = "[]"
+
     total = frappe.db.count("ilL-Webflow-Product", filters)
     
     return {

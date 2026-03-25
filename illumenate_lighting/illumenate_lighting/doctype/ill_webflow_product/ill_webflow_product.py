@@ -42,6 +42,7 @@ class ilLWebflowProduct(Document):
 		documents: DF.Table[ilLChildWebflowDocument]
 		driver_spec: DF.Link | None
 		featured_image: DF.AttachImage | None
+		features: DF.JSON | None
 		fixture_template: DF.Link | None
 		fixture_weight_per_foot_grams: DF.Float
 		gallery_images: DF.Table[ilLChildWebflowGalleryImage]
