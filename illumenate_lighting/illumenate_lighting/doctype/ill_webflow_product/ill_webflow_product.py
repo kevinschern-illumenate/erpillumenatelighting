@@ -57,6 +57,7 @@ class ilLWebflowProduct(Document):
 		min_length_mm: DF.Int
 		operating_temp_max_c: DF.Int
 		operating_temp_min_c: DF.Int
+		product_badge: DF.Literal["", "New", "On Sale", "Quick Ship"] | None
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data

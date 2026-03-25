@@ -37,6 +37,7 @@
   "short_description",
   "sublabel",
   "features",
+  "product_badge",
   "featured_image",
   "dimensions_image",
   "series_family_image",
@@ -271,6 +272,12 @@
    "fieldtype": "JSON",
    "label": "Features",
    "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Minimalist applications\"}]"
+  },
+  {
+   "fieldname": "product_badge",
+   "fieldtype": "Select",
+   "label": "Product Badge",
+   "options": "\nNew\nOn Sale\nQuick Ship"
   },
   {
    "fieldname": "featured_image",
