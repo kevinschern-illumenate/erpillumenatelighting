@@ -29,6 +29,7 @@ LED Neon produces similar lines per segment.
 
 import json
 import math
+import traceback
 from typing import Any, Optional
 
 import frappe
@@ -1779,14 +1780,33 @@ def validate_tape_neon_template_config(
     result["template_name"] = template.template_name
 
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
+    # Capture message_log length so we can roll back any messages added
+    # by frappe.throw() inside doc.insert() if an exception occurs.
+    _msg_log_len = len(getattr(frappe.local, "message_log", []))
     try:
-        configured_name = _create_or_reuse_configured_tape_neon(
-            template, result, is_neon
-        )
+        # Mute messages so that frappe.throw() inside doc.insert() does not
+        # pollute the response message_log with an error popup on the client.
+        frappe.flags.mute_messages = True
+        try:
+            configured_name = _create_or_reuse_configured_tape_neon(
+                template, result, is_neon
+            )
+        finally:
+            frappe.flags.mute_messages = False
         result["configured_tape_neon"] = configured_name
     except Exception as e:
         # Don't fail validation just because record creation failed
         result["configured_tape_neon"] = None
+        # Truncate message_log back to pre-call length to remove any
+        # entries added by frappe.throw() before the mute flag took effect.
+        if hasattr(frappe.local, "message_log"):
+            frappe.local.message_log = frappe.local.message_log[:_msg_log_len]
+        logger.warning(
+            f"Could not create configured record for template "
+            f"'{template.name}' ({template.template_code}): {e}\n"
+            f"Template dict: {dict(template)}\n"
+            f"Traceback:\n{traceback.format_exc()}"
+        )
         result.setdefault("messages", []).append({
             "severity": "warning",
             "text": f"Could not create configured record: {str(e)}",
@@ -2368,6 +2388,14 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
         "adder_breakdown_json": json.dumps(pricing.get("adder_breakdown", [])),
         "timestamp": datetime.datetime.now().isoformat(),
     }]
+
+    logger = frappe.logger("tape_neon_configurator", allow_site=True)
+    logger.info(
+        f"_create_or_reuse_configured_tape_neon: About to insert doc. "
+        f"tape_neon_template={doc_data.get('tape_neon_template')!r}, "
+        f"template.name={template.name if template else None!r}, "
+        f"config_hash={config_hash}"
+    )
 
     doc = frappe.get_doc(doc_data)
     doc.insert(ignore_permissions=True)
