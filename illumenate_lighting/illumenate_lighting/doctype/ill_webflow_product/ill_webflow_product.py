@@ -63,6 +63,7 @@ class ilLWebflowProduct(Document):
 		product_slug: DF.Data
 		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]
 		profile_spec: DF.Link | None
+		series_family_image: DF.AttachImage | None
 		short_description: DF.SmallText | None
 		sublabel: DF.Data | None
 		specifications: DF.Table[ilLChildWebflowSpecification]

@@ -40,6 +40,7 @@
   "long_description",
   "featured_image",
   "dimensions_image",
+  "series_family_image",
   "column_break_marketing",
   "gallery_images",
   "documents",
@@ -288,6 +289,12 @@
    "fieldname": "dimensions_image",
    "fieldtype": "Attach Image",
    "label": "Dimensions Image"
+  },
+  {
+   "description": "Hero image representing the product's series family",
+   "fieldname": "series_family_image",
+   "fieldtype": "Attach Image",
+   "label": "Series Family Image"
   },
   {
    "fieldname": "column_break_marketing",

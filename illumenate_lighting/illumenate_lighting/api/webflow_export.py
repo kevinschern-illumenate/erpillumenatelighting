@@ -108,7 +108,7 @@ def get_webflow_products(
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "profile_spec", "lens_spec", "tape_spec", "accessory_spec",
-            "short_description", "sublabel", "long_description", "features", "featured_image", "dimensions_image",
+            "short_description", "sublabel", "long_description", "features", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
@@ -133,6 +133,14 @@ def get_webflow_products(
             # Convert featured_image to absolute URL
             if product.get("featured_image"):
                 product["featured_image"] = _make_absolute_url(product["featured_image"])
+            
+            # Convert dimensions_image to absolute URL
+            if product.get("dimensions_image"):
+                product["dimensions_image"] = _make_absolute_url(product["dimensions_image"])
+            
+            # Convert series_family_image to absolute URL
+            if product.get("series_family_image"):
+                product["series_family_image"] = _make_absolute_url(product["series_family_image"])
             
             # Export specifications (supports both auto-calculated and manually-added specs)
             product["specifications"] = []
