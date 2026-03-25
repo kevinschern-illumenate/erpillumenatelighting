@@ -196,5 +196,75 @@
 		"fieldtype": "Long Text",
 		"label": "Webflow Products Interested",
 		"insert_after": "webflow_project_name"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Customer",
+		"fieldname": "custom_qbo_id",
+		"fieldtype": "Data",
+		"label": "QBO ID"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Customer",
+		"fieldname": "custom_synced_from",
+		"fieldtype": "Data",
+		"label": "Synced From"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Supplier",
+		"fieldname": "custom_qbo_id",
+		"fieldtype": "Data",
+		"label": "QBO ID"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Supplier",
+		"fieldname": "custom_synced_from",
+		"fieldtype": "Data",
+		"label": "Synced From"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Invoice",
+		"fieldname": "custom_qbo_id",
+		"fieldtype": "Data",
+		"label": "QBO ID"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Invoice",
+		"fieldname": "custom_synced_from",
+		"fieldtype": "Data",
+		"label": "Synced From"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Purchase Invoice",
+		"fieldname": "custom_qbo_id",
+		"fieldtype": "Data",
+		"label": "QBO ID"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Purchase Invoice",
+		"fieldname": "custom_synced_from",
+		"fieldtype": "Data",
+		"label": "Synced From"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Payment Entry",
+		"fieldname": "custom_qbo_id",
+		"fieldtype": "Data",
+		"label": "QBO ID"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Payment Entry",
+		"fieldname": "custom_synced_from",
+		"fieldtype": "Data",
+		"label": "Synced From"
 	}
 ]
