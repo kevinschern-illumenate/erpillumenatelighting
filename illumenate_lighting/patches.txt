@@ -10,3 +10,4 @@ illumenate_lighting.patches.convert_lead_job_title_to_link
 illumenate_lighting.patches.backfill_template_type_on_maps
 illumenate_lighting.patches.fix_endtype_submittal_mapping
 illumenate_lighting.patches.add_sublabel_to_webflow_product
+illumenate_lighting.patches.add_qbo_sync_fields
