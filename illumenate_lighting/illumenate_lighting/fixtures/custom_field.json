@@ -202,69 +202,89 @@
 		"dt": "Customer",
 		"fieldname": "custom_qbo_id",
 		"fieldtype": "Data",
-		"label": "QBO ID"
+		"insert_after": "customer_name",
+		"label": "QBO ID",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Customer",
 		"fieldname": "custom_synced_from",
 		"fieldtype": "Data",
-		"label": "Synced From"
+		"insert_after": "custom_qbo_id",
+		"label": "Synced From",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Supplier",
 		"fieldname": "custom_qbo_id",
 		"fieldtype": "Data",
-		"label": "QBO ID"
+		"insert_after": "supplier_name",
+		"label": "QBO ID",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Supplier",
 		"fieldname": "custom_synced_from",
 		"fieldtype": "Data",
-		"label": "Synced From"
+		"insert_after": "custom_qbo_id",
+		"label": "Synced From",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Sales Invoice",
 		"fieldname": "custom_qbo_id",
 		"fieldtype": "Data",
-		"label": "QBO ID"
+		"insert_after": "customer",
+		"label": "QBO ID",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Sales Invoice",
 		"fieldname": "custom_synced_from",
 		"fieldtype": "Data",
-		"label": "Synced From"
+		"insert_after": "custom_qbo_id",
+		"label": "Synced From",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Purchase Invoice",
 		"fieldname": "custom_qbo_id",
 		"fieldtype": "Data",
-		"label": "QBO ID"
+		"insert_after": "supplier",
+		"label": "QBO ID",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Purchase Invoice",
 		"fieldname": "custom_synced_from",
 		"fieldtype": "Data",
-		"label": "Synced From"
+		"insert_after": "custom_qbo_id",
+		"label": "Synced From",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Payment Entry",
 		"fieldname": "custom_qbo_id",
 		"fieldtype": "Data",
-		"label": "QBO ID"
+		"insert_after": "payment_type",
+		"label": "QBO ID",
+		"read_only": 1
 	},
 	{
 		"doctype": "Custom Field",
 		"dt": "Payment Entry",
 		"fieldname": "custom_synced_from",
 		"fieldtype": "Data",
-		"label": "Synced From"
+		"insert_after": "custom_qbo_id",
+		"label": "Synced From",
+		"read_only": 1
 	}
 ]
