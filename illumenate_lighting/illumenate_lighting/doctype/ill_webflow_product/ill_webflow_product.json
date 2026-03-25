@@ -36,9 +36,10 @@
   "marketing_section",
   "short_description",
   "sublabel",
-  "long_description",
+  "features",
   "featured_image",
   "dimensions_image",
+  "series_family_image",
   "column_break_marketing",
   "gallery_images",
   "documents",
@@ -264,10 +265,12 @@
    "label": "Sublabel"
   },
   {
-   "description": "Rich HTML content for product detail page",
-   "fieldname": "long_description",
-   "fieldtype": "Text Editor",
-   "label": "Long Description"
+   "default": "[]",
+   "description": "Structured feature data for Webflow (array of objects with title and description)",
+   "fieldname": "features",
+   "fieldtype": "JSON",
+   "label": "Features",
+   "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Clean, minimalist applications\"}, {\"title\": \"Multiple Color Options\", \"description\": \"2700K, 3000K, 3500K, 4000K\"}]"
   },
   {
    "fieldname": "featured_image",
@@ -279,6 +282,12 @@
    "fieldname": "dimensions_image",
    "fieldtype": "Attach Image",
    "label": "Dimensions Image"
+  },
+  {
+   "description": "Hero image representing the product's series family",
+   "fieldname": "series_family_image",
+   "fieldtype": "Attach Image",
+   "label": "Series Family Image"
   },
   {
    "fieldname": "column_break_marketing",

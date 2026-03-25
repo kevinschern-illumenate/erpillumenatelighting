@@ -42,6 +42,7 @@ class ilLWebflowProduct(Document):
 		documents: DF.Table[ilLChildWebflowDocument]
 		driver_spec: DF.Link | None
 		featured_image: DF.AttachImage | None
+		features: DF.JSON | None
 		fixture_template: DF.Link | None
 		fixture_weight_per_foot_grams: DF.Float
 		gallery_images: DF.Table[ilLChildWebflowGalleryImage]
@@ -52,7 +53,6 @@ class ilLWebflowProduct(Document):
 		last_synced_at: DF.Datetime | None
 		length_increment_mm: DF.Int
 		lens_spec: DF.Link | None
-		long_description: DF.TextEditor | None
 		max_length_mm: DF.Int
 		min_length_mm: DF.Int
 		operating_temp_max_c: DF.Int
@@ -62,6 +62,7 @@ class ilLWebflowProduct(Document):
 		product_slug: DF.Data
 		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]
 		profile_spec: DF.Link | None
+		series_family_image: DF.AttachImage | None
 		short_description: DF.SmallText | None
 		sublabel: DF.Data | None
 		specifications: DF.Table[ilLChildWebflowSpecification]

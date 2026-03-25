@@ -39,7 +39,6 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
 PRODUCT_COLUMNS = [
 	"product_name",
 	"short_description",
-	"long_description",
 	"sublabel",
 	"profile_dimensions",
 	"input_voltage",
@@ -369,7 +368,6 @@ def _collect_product_data(wp_doc):
 	result = {
 		"product_name": wp_doc.product_name or "",
 		"short_description": wp_doc.short_description or "",
-		"long_description": wp_doc.long_description or "",
 		"sublabel": wp_doc.sublabel or "",
 		"profile_dimensions": profile_dimensions,
 		"input_voltage": input_voltage,

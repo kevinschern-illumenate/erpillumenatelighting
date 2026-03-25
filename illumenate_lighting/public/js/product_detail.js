@@ -83,7 +83,6 @@ function renderDetail(p) {
 		'<h2>' + _escHtml(p.product_name) + '</h2>' +
 		'<div class="product-hero-badges">' + badges + '</div>' +
 		'<div class="product-hero-desc">' + (p.short_description ? _escHtml(p.short_description) : '') + '</div>' +
-		(p.long_description ? '<div class="mb-3" style="font-size:0.9rem;line-height:1.6">' + p.long_description + '</div>' : '') +
 		priceHtml
 	);
 

@@ -294,7 +294,6 @@ def get_catalog_product_detail(product_slug: str) -> dict:
             "is_configurable": bool(product.is_configurable),
             "fixture_template": product.fixture_template,
             "short_description": product.short_description,
-            "long_description": product.long_description,
             "featured_image": product.featured_image,
             "configurator_intro_text": product.configurator_intro_text,
             "min_length_mm": product.min_length_mm,
