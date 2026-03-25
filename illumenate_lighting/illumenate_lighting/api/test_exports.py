@@ -386,7 +386,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		"""Verify new product-level columns are included."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import PRODUCT_COLUMNS
 
-		for col in ["long_description", "sublabel", "profile_dimensions", "input_voltage"]:
+		for col in ["sublabel", "profile_dimensions", "input_voltage"]:
 			self.assertIn(col, PRODUCT_COLUMNS, f"{col} missing from PRODUCT_COLUMNS")
 
 	def test_new_variant_columns_present(self):

@@ -53,7 +53,6 @@ class ilLWebflowProduct(Document):
 		last_synced_at: DF.Datetime | None
 		length_increment_mm: DF.Int
 		lens_spec: DF.Link | None
-		long_description: DF.TextEditor | None
 		max_length_mm: DF.Int
 		min_length_mm: DF.Int
 		operating_temp_max_c: DF.Int

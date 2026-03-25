@@ -360,7 +360,6 @@ Desk > ilL-Webflow-Product > + Add Webflow Product
 | Field | Value |
 |-------|-------|
 | `short_description` | Sleek linear fixture with customizable options |
-| `long_description` | (Rich text description of the product) |
 | `configurator_intro_text` | Configure your RA01 Linear fixture below |
 
 ### 6.4 Length Constraints

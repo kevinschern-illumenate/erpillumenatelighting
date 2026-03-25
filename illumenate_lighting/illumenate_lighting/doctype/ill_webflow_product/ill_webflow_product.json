@@ -37,7 +37,6 @@
   "short_description",
   "sublabel",
   "features",
-  "long_description",
   "featured_image",
   "dimensions_image",
   "series_family_image",
@@ -272,12 +271,6 @@
    "fieldtype": "JSON",
    "label": "Features",
    "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Clean, minimalist applications\"}, {\"title\": \"Multiple Color Options\", \"description\": \"2700K, 3000K, 3500K, 4000K\"}]"
-  },
-  {
-   "description": "Rich HTML content for product detail page",
-   "fieldname": "long_description",
-   "fieldtype": "Text Editor",
-   "label": "Long Description"
   },
   {
    "fieldname": "featured_image",
