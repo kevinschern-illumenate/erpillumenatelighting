@@ -231,6 +231,9 @@ doc_events = {
 	"Sales Order": {
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
 	},
+	"Purchase Order": {
+		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",
+	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {
 		"after_insert": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_attribute_insert",
