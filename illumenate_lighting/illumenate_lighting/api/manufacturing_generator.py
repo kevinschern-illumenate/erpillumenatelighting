@@ -37,6 +37,12 @@ CONFIGURED_NEON_ITEM_GROUP = "Configured LED Neon"
 # Default UOM for configured fixtures
 DEFAULT_UOM = "Nos"
 
+# Brand applied to all configured items so the Pricing Rule can match
+ILLUMENATE_BRAND = "ilLumenate Lighting"
+
+# Price list used for MSRP Item Prices
+DEFAULT_SELLING_PRICE_LIST = "Standard Selling"
+
 # Operations template for work orders (MVP)
 OPERATIONS_TEMPLATE = [
 	{"operation": "Cut Profile", "workstation": "Cutting Station", "time_in_mins": 15},
@@ -269,6 +275,61 @@ def on_sales_order_submit(doc, method):
 			)
 
 
+def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_list: list) -> None:
+	"""Create an Item Price in the standard selling price list at MSRP.
+
+	Best-effort: logs an error if the price list doesn't exist but does not
+	raise, so item creation is never blocked.
+
+	Args:
+		item_code: The Item code to price.
+		msrp: The MSRP value (numeric).
+		messages_list: Append info/error dicts here for caller visibility.
+	"""
+	if msrp is None:
+		messages_list.append({
+			"severity": "warning",
+			"text": f"No MSRP available for {item_code}; Item Price not created.",
+		})
+		return
+
+	try:
+		if not frappe.db.exists("Price List", DEFAULT_SELLING_PRICE_LIST):
+			messages_list.append({
+				"severity": "error",
+				"text": (
+					f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist. "
+					f"Item Price not created for {item_code}."
+				),
+			})
+			frappe.log_error(
+				title=f"Item Price Not Created for {item_code}",
+				message=f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist.",
+			)
+			return
+
+		item_price = frappe.new_doc("Item Price")
+		item_price.item_code = item_code
+		item_price.price_list = DEFAULT_SELLING_PRICE_LIST
+		item_price.selling = 1
+		item_price.price_list_rate = msrp
+		item_price.insert(ignore_permissions=True)
+
+		messages_list.append({
+			"severity": "info",
+			"text": f"Created Item Price for {item_code} at MSRP {msrp}",
+		})
+	except Exception as e:
+		messages_list.append({
+			"severity": "error",
+			"text": f"Failed to create Item Price for {item_code}: {e!s}",
+		})
+		frappe.log_error(
+			title=f"Item Price Creation Failed for {item_code}",
+			message=str(e),
+		)
+
+
 def _create_or_get_configured_item(
 	fixture,
 	skip_if_exists: bool = True,
@@ -385,6 +446,7 @@ def _create_or_get_configured_item(
 			"has_serial_no": 1,  # Epic 7: Enable serial tracking for finished goods
 			"description": _generate_item_description(fixture),
 			"custom_ill_configured_fixture": fixture.name,  # Link back to fixture
+			"brand": ILLUMENATE_BRAND,
 		})
 		item_doc.insert(ignore_permissions=True)
 
@@ -394,6 +456,12 @@ def _create_or_get_configured_item(
 			"severity": "info",
 			"text": f"Created configured Item: {item_code}",
 		})
+
+		# Create Item Price at MSRP from pricing snapshot
+		msrp = None
+		if fixture.pricing_snapshot:
+			msrp = fixture.pricing_snapshot[-1].msrp_unit
+		_create_item_price_at_msrp(item_code, msrp, result["messages"])
 
 	except Exception as e:
 		result["success"] = False
@@ -484,6 +552,7 @@ def _create_or_get_configured_tape_neon_item(
 			"is_stock_item": 1,
 			"description": description,
 			"custom_ill_configured_tape_neon": configured_tape_neon.name,
+			"brand": ILLUMENATE_BRAND,
 		})
 		item_doc.insert(ignore_permissions=True)
 
@@ -493,6 +562,12 @@ def _create_or_get_configured_tape_neon_item(
 			"severity": "info",
 			"text": f"Created configured Item: {item_code}",
 		})
+
+		# Create Item Price at MSRP from pricing snapshot
+		msrp = None
+		if configured_tape_neon.pricing_snapshot:
+			msrp = configured_tape_neon.pricing_snapshot[-1].msrp_unit
+		_create_item_price_at_msrp(item_code, msrp, result["messages"])
 	except Exception as e:
 		result["success"] = False
 		result["messages"].append({

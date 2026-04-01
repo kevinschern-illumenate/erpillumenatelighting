@@ -246,6 +246,16 @@ class ilLProjectFixtureSchedule(Document):
 						title=f"SO Creation: {line.product_type} - {line.line_id or line.idx}",
 						message=msg,
 					)
+
+				# Verify brand + MSRP Item Price on the configured tape/neon Item
+				ctn_name = getattr(line, "configured_tape_neon", None)
+				if ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name):
+					ctn_doc = frappe.get_doc("ilL-Configured-Tape-Neon", ctn_name)
+					ctn_item_code = ctn_doc.configured_item
+					if ctn_item_code and frappe.db.exists("Item", ctn_item_code):
+						if self._check_and_update_tape_neon_item_pricing(ctn_item_code, ctn_doc):
+							items_updated += 1
+
 				continue
 
 			# ── Extrusion Kit lines ────────────────────────────────────
@@ -393,7 +403,7 @@ class ilLProjectFixtureSchedule(Document):
 
 	def _check_and_update_item_pricing(self, item_code, configured_fixture):
 		"""
-		Check if Item pricing matches the configured fixture and update if needed.
+		Check if Item pricing and brand match the configured fixture and update if needed.
 
 		Args:
 			item_code: The Item code to check
@@ -402,9 +412,21 @@ class ilLProjectFixtureSchedule(Document):
 		Returns:
 			bool: True if the Item was updated, False otherwise
 		"""
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			ILLUMENATE_BRAND,
+		)
+
+		updated = False
+
+		# Ensure brand is set on the Item
+		current_brand = frappe.db.get_value("Item", item_code, "brand")
+		if current_brand != ILLUMENATE_BRAND:
+			frappe.db.set_value("Item", item_code, "brand", ILLUMENATE_BRAND)
+			updated = True
+
 		# Get the latest pricing from the configured fixture's pricing snapshot
 		if not configured_fixture.pricing_snapshot:
-			return False
+			return updated
 
 		latest_pricing = configured_fixture.pricing_snapshot[-1]
 		fixture_msrp = latest_pricing.msrp_unit
@@ -444,9 +466,75 @@ class ilLProjectFixtureSchedule(Document):
 						message=f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist. Item pricing could not be set."
 					)
 
-			return True
+			updated = True
 
-		return False
+		return updated
+
+	def _check_and_update_tape_neon_item_pricing(self, item_code, configured_tape_neon):
+		"""
+		Check if a tape/neon Item has correct brand and MSRP Item Price and update if needed.
+
+		Mirrors ``_check_and_update_item_pricing`` but sources the MSRP from
+		the configured tape/neon record's pricing snapshot.
+
+		Args:
+			item_code: The Item code to check
+			configured_tape_neon: The ilL-Configured-Tape-Neon document
+
+		Returns:
+			bool: True if the Item was updated, False otherwise
+		"""
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			ILLUMENATE_BRAND,
+		)
+
+		updated = False
+
+		# Ensure brand is set on the Item
+		current_brand = frappe.db.get_value("Item", item_code, "brand")
+		if current_brand != ILLUMENATE_BRAND:
+			frappe.db.set_value("Item", item_code, "brand", ILLUMENATE_BRAND)
+			updated = True
+
+		# Get the latest pricing from the configured tape/neon's pricing snapshot
+		if not configured_tape_neon.pricing_snapshot:
+			return updated
+
+		latest_pricing = configured_tape_neon.pricing_snapshot[-1]
+		msrp = latest_pricing.msrp_unit
+
+		# Check current Item pricing
+		current_price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
+			"price_list_rate"
+		)
+
+		if current_price is None or abs(float(current_price) - float(msrp)) > 0.01:
+			if current_price is not None:
+				frappe.db.set_value(
+					"Item Price",
+					{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
+					"price_list_rate",
+					msrp
+				)
+			else:
+				if frappe.db.exists("Price List", DEFAULT_SELLING_PRICE_LIST):
+					item_price = frappe.new_doc("Item Price")
+					item_price.item_code = item_code
+					item_price.price_list = DEFAULT_SELLING_PRICE_LIST
+					item_price.selling = 1
+					item_price.price_list_rate = msrp
+					item_price.insert(ignore_permissions=True)
+				else:
+					frappe.log_error(
+						title=f"Item Price Not Created for {item_code}",
+						message=f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist. Item pricing could not be set."
+					)
+
+			updated = True
+
+		return updated
 
 	def _check_and_update_bom(self, bom_name, configured_fixture):
 		"""
