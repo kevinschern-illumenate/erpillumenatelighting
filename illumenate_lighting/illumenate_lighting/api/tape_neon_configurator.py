@@ -396,6 +396,7 @@ def get_tape_cascading_options(
 @frappe.whitelist()
 def validate_tape_configuration(
     selections: str,
+    _skip_record_creation: bool = False,
 ) -> dict:
     """
     Validate a complete LED Tape configuration and compute manufacturable length.
@@ -620,18 +621,19 @@ def validate_tape_configuration(
     }
 
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
-    try:
-        configured_name = _create_or_reuse_configured_tape_neon(
-            None, return_result, is_neon=False,
-        )
-        return_result["configured_tape_neon"] = configured_name
-    except Exception as e:
-        # Validation continues even if record creation fails
-        return_result["configured_tape_neon"] = None
-        return_result.setdefault("messages", []).append({
-            "severity": "warning",
-            "text": f"Could not create configured record: {str(e)}",
-        })
+    if not _skip_record_creation:
+        try:
+            configured_name = _create_or_reuse_configured_tape_neon(
+                None, return_result, is_neon=False,
+            )
+            return_result["configured_tape_neon"] = configured_name
+        except Exception as e:
+            # Validation continues even if record creation fails
+            return_result["configured_tape_neon"] = None
+            return_result.setdefault("messages", []).append({
+                "severity": "warning",
+                "text": f"Could not create configured record: {str(e)}",
+            })
 
     return return_result
 
@@ -729,6 +731,7 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
 def validate_neon_configuration(
     selections: str,
     segments_json: str,
+    _skip_record_creation: bool = False,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -1000,18 +1003,19 @@ def validate_neon_configuration(
     }
 
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
-    try:
-        configured_name = _create_or_reuse_configured_tape_neon(
-            None, return_result, is_neon=True,
-        )
-        return_result["configured_tape_neon"] = configured_name
-    except Exception as e:
-        # Validation continues even if record creation fails
-        return_result["configured_tape_neon"] = None
-        return_result.setdefault("messages", []).append({
-            "severity": "warning",
-            "text": f"Could not create configured record: {str(e)}",
-        })
+    if not _skip_record_creation:
+        try:
+            configured_name = _create_or_reuse_configured_tape_neon(
+                None, return_result, is_neon=True,
+            )
+            return_result["configured_tape_neon"] = configured_name
+        except Exception as e:
+            # Validation continues even if record creation fails
+            return_result["configured_tape_neon"] = None
+            return_result.setdefault("messages", []).append({
+                "severity": "warning",
+                "text": f"Could not create configured record: {str(e)}",
+            })
 
     return return_result
 
@@ -1766,10 +1770,10 @@ def validate_tape_neon_template_config(
             return {"success": False, "is_valid": False,
                     "error": "segments_json is required for LED Neon"}
         logger.info("validate_tape_neon_template_config: Delegating to validate_neon_configuration")
-        result = validate_neon_configuration(selections, segments_json)
+        result = validate_neon_configuration(selections, segments_json, _skip_record_creation=True)
     else:
         logger.info("validate_tape_neon_template_config: Delegating to validate_tape_configuration")
-        result = validate_tape_configuration(selections)
+        result = validate_tape_configuration(selections, _skip_record_creation=True)
 
     if not result.get("is_valid"):
         logger.warning(f"validate_tape_neon_template_config: Validation failed: {result.get('error')}")
