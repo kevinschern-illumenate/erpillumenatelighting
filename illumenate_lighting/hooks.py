@@ -47,7 +47,7 @@ web_include_js = "/assets/illumenate_lighting/js/portal.js"
 
 # include js in doctype views
 doctype_js = {"Sales Order": "public/js/sales_order.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_list_js = {"Item": "public/js/item_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
