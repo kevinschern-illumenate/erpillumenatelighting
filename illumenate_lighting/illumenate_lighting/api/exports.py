@@ -605,8 +605,7 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	export_date = schedule_data["export_date"]
 
 	# Build CSS
-	html_parts = [
-		"<html><head><style>",
+	css_rules = [
 		"@page { size: landscape; margin: 12mm; }",
 		"body { font-family: Arial, Helvetica, sans-serif; font-size: 8px; color: #333; margin: 0; padding: 0; }",
 		# Header block
@@ -630,11 +629,15 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		# Footer
 		".footer { text-align: center; font-size: 7px; color: #a0aec0; margin-top: 12px;"
 		" border-top: 1px solid #e2e8f0; padding-top: 4px; }",
-		"</style></head><body>",
 	]
 	if include_pricing:
-		# Insert pricing-specific CSS before the closing style tag
-		html_parts.insert(-1, ".pricing-sub-line { font-size: 6.5px; color: #888; }")
+		css_rules.append(".pricing-sub-line { font-size: 6.5px; color: #888; }")
+
+	html_parts = [
+		"<html><head><style>",
+		"".join(css_rules),
+		"</style></head><body>",
+	]
 
 	# ── Header section ──
 	html_parts.append(f"<h1>{schedule.schedule_name}</h1>")
@@ -747,7 +750,7 @@ def _build_pdf_description(line: dict) -> str:
 		return (
 			f"<strong>{template_name}</strong>"
 			"<br><span class='desc-detail' style='color:#856404;'>"
-			"\u26a0 Not configured - configuration required</span>"
+			"⚠ Not configured - configuration required</span>"
 		)
 
 	if line["manufacturer_type"] == "ACCESSORY":
@@ -755,6 +758,13 @@ def _build_pdf_description(line: dict) -> str:
 
 	# OTHER manufacturer
 	return _build_other_description(line)
+
+
+def _detail_row(items: list) -> str:
+	"""Join non-empty items with middle-dot separators and wrap in a desc-detail span."""
+	if not items:
+		return ""
+	return f"<br><span class='desc-detail'>{' · '.join(items)}</span>"
 
 
 def _build_illumenate_description(line: dict) -> str:
@@ -772,8 +782,7 @@ def _build_illumenate_description(line: dict) -> str:
 		optical.append(f"{line['estimated_delivered_output']} lm/ft")
 	if line.get("environment_rating"):
 		optical.append(line["environment_rating"])
-	if optical:
-		parts.append(f"<br><span class='desc-detail'>{' \u00b7 '.join(optical)}</span>")
+	parts.append(_detail_row(optical))
 
 	# Row 2 — physical: Mounting · Finish · Lens
 	physical = []
@@ -783,8 +792,7 @@ def _build_illumenate_description(line: dict) -> str:
 		physical.append(line["finish"])
 	if line.get("lens_appearance"):
 		physical.append(line["lens_appearance"])
-	if physical:
-		parts.append(f"<br><span class='desc-detail'>{' \u00b7 '.join(physical)}</span>")
+	parts.append(_detail_row(physical))
 
 	# Row 3 — electrical + dimensions: Length · Feed/Build · Voltages · Wattage · Driver
 	elec = []
@@ -807,8 +815,7 @@ def _build_illumenate_description(line: dict) -> str:
 		elec.append(f"{line['total_watts']}W")
 	if line.get("power_supply"):
 		elec.append(line["power_supply"])
-	if elec:
-		parts.append(f"<br><span class='desc-detail'>{' \u00b7 '.join(elec)}</span>")
+	parts.append(_detail_row(elec))
 
 	return "".join(parts)
 
@@ -822,8 +829,7 @@ def _build_accessory_description(line: dict) -> str:
 		details.append(line["accessory_item"])
 	if line.get("accessory_product_type"):
 		details.append(line["accessory_product_type"])
-	if details:
-		parts.append(f"<br><span class='desc-detail'>{' \u00b7 '.join(details)}</span>")
+	parts.append(_detail_row(details))
 	if line.get("accessory_item_description"):
 		item_desc = line["accessory_item_description"]
 		if len(item_desc) > 150:
@@ -843,8 +849,7 @@ def _build_other_description(line: dict) -> str:
 		models.append(f"Trim: {line['trim_info']}")
 	if line.get("housing_model_number"):
 		models.append(f"Housing: {line['housing_model_number']}")
-	if models:
-		parts.append(f"<br><span class='desc-detail'>{' \u00b7 '.join(models)}</span>")
+	parts.append(_detail_row(models))
 	# Row 2 — electrical / finish
 	elec = []
 	if line.get("driver_model_number"):
@@ -857,8 +862,7 @@ def _build_other_description(line: dict) -> str:
 		elec.append(line["input_voltage"])
 	if line.get("other_finish"):
 		elec.append(line["other_finish"])
-	if elec:
-		parts.append(f"<br><span class='desc-detail'>{' \u00b7 '.join(elec)}</span>")
+	parts.append(_detail_row(elec))
 	if line.get("spec_sheet"):
 		parts.append(f"<br><span class='desc-detail'>Spec: {line['spec_sheet']}</span>")
 	return "".join(parts)
