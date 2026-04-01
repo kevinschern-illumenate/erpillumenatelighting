@@ -275,7 +275,7 @@ def on_sales_order_submit(doc, method):
 			)
 
 
-def _create_item_price_at_msrp(item_code: str, msrp, messages_list: list) -> None:
+def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_list: list) -> None:
 	"""Create an Item Price in the standard selling price list at MSRP.
 
 	Best-effort: logs an error if the price list doesn't exist but does not
