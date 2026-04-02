@@ -587,6 +587,10 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	"""
 	Generate HTML content for PDF export.
 
+	Produces a professional construction lighting fixture schedule with a
+	branded header, compact data table, and industry-standard aesthetics
+	using the ilLumenate #1a365d navy palette.
+
 	Args:
 		schedule_data: Data from _get_schedule_data
 		include_pricing: Whether to include pricing columns
@@ -598,39 +602,62 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	project = schedule_data["project"]
 	customer = schedule_data["customer"]
 	lines = schedule_data["lines"]
+	export_date = schedule_data["export_date"]
 
-	# Build header
+	# Build CSS
+	css_rules = [
+		"@page { size: landscape; margin: 12mm; }",
+		"body { font-family: Arial, Helvetica, sans-serif; font-size: 8px; color: #333; margin: 0; padding: 0; }",
+		# Header block
+		"h1 { font-size: 14px; color: #1a365d; margin: 0 0 2px 0; }",
+		".accent-bar { height: 2px; background: #1a365d; margin-bottom: 6px; }",
+		"h2 { font-size: 11px; color: #4a5568; margin: 0 0 8px 0; font-weight: normal; }",
+		".info-bar { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 3px;"
+		" padding: 5px 10px; margin-bottom: 10px; display: flex; gap: 18px; font-size: 7.5px; }",
+		".info-bar .lbl { color: #4a5568; font-weight: bold; margin-right: 3px; }",
+		# Table
+		"table { width: 100%; border-collapse: collapse; margin-top: 4px; }",
+		"th, td { border: 1px solid #e2e8f0; padding: 3px 5px; text-align: left;"
+		" font-size: 7.5px; vertical-align: top; }",
+		"th { background-color: #1a365d; color: #fff; font-weight: bold; font-size: 7.5px; }",
+		"tbody tr:nth-child(even) { background-color: #f7fafc; }",
+		".col-fixture-type { width: 40px; text-align: center; }",
+		".text-right { text-align: right; }",
+		".total-row { font-weight: bold; background-color: #edf2f7 !important; }",
+		".other-manufacturer { background-color: #fffbe6 !important; }",
+		".desc-detail { color: #4a5568; }",
+		# Footer
+		".footer { text-align: center; font-size: 7px; color: #a0aec0; margin-top: 12px;"
+		" border-top: 1px solid #e2e8f0; padding-top: 4px; }",
+	]
+	if include_pricing:
+		css_rules.append(".pricing-sub-line { font-size: 6.5px; color: #888; }")
+
 	html_parts = [
 		"<html><head><style>",
-		"body { font-family: Arial, sans-serif; font-size: 11px; }",
-		"h1 { font-size: 18px; margin-bottom: 5px; }",
-		"h2 { font-size: 14px; color: #555; margin-top: 0; }",
-		".header-info { margin-bottom: 20px; }",
-		".header-info p { margin: 2px 0; }",
-		"table { width: 100%; border-collapse: collapse; margin-top: 10px; }",
-		"th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }",
-		"th { background-color: #f5f5f5; font-weight: bold; }",
-		".col-fixture-type { width: 50px; text-align: center; }",
-		".text-right { text-align: right; }",
-		".total-row { font-weight: bold; background-color: #f0f0f0; }",
-		".other-manufacturer { background-color: #fffbe6; }",
-		".pricing-sub-line { font-size: 9px; color: #888; }",
+		"".join(css_rules),
 		"</style></head><body>",
 	]
 
-	# Header section
-	html_parts.append("<div class='header-info'>")
+	# ── Header section ──
 	html_parts.append(f"<h1>{schedule.schedule_name}</h1>")
+	html_parts.append("<div class='accent-bar'></div>")
 	if project:
-		html_parts.append(f"<h2>Project: {project.project_name}</h2>")
+		html_parts.append(f"<h2>{project.project_name}</h2>")
+
+	# Info bar — horizontal label/value pairs
+	info_items = []
 	if customer:
 		customer_name = customer.customer_name or customer.name
-		html_parts.append(f"<p><strong>Customer:</strong> {customer_name}</p>")
-	html_parts.append(f"<p><strong>Date:</strong> {schedule_data['export_date']}</p>")
-	html_parts.append(f"<p><strong>Status:</strong> {schedule.status}</p>")
-	html_parts.append("</div>")
+		info_items.append(f"<span><span class='lbl'>Customer:</span> {customer_name}</span>")
+	info_items.append(f"<span><span class='lbl'>Date:</span> {export_date}</span>")
+	info_items.append(f"<span><span class='lbl'>Status:</span> {schedule.status}</span>")
+	version = getattr(schedule, "version", None)
+	if version:
+		info_items.append(f"<span><span class='lbl'>Version:</span> {version}</span>")
+	html_parts.append(f"<div class='info-bar'>{''.join(info_items)}</div>")
 
-	# Table header
+	# ── Table header ──
 	html_parts.append("<table>")
 	html_parts.append("<thead><tr>")
 	html_parts.append("<th class='col-fixture-type'>Fixture<br>Type</th>")
@@ -643,13 +670,13 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		html_parts.append("<th class='text-right'>Line Total</th>")
 	html_parts.append("</tr></thead>")
 
-	# Table body
+	# ── Table body ──
 	html_parts.append("<tbody>")
 	for line in lines:
 		row_class = "other-manufacturer" if line["manufacturer_type"] == "OTHER" else ""
 		html_parts.append(f"<tr class='{row_class}'>")
 		html_parts.append(f"<td class='col-fixture-type'>{line['line_id']}</td>")
-		# Display manufacturer type - ilLumenate Lighting for ILLUMENATE and ACCESSORY, actual manufacturer name for OTHER
+		# Display manufacturer type
 		if line["manufacturer_type"] in ["ILLUMENATE", "ACCESSORY"]:
 			type_display = "ilLumenate Lighting"
 		else:
@@ -658,114 +685,8 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 		html_parts.append(f"<td>{line['qty']}</td>")
 		html_parts.append(f"<td>{line['location']}</td>")
 
-		# Description column
-		if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
-			# Configured ILLUMENATE fixture - Build description in specified order:
-			# Part number, Environment, CCT, CRI, Output, Lens, Mounting, Finish, Length,
-			# Feed, Input Voltage, PS Input Voltage, Wattage, Driver
-			part_number = line.get("configured_fixture_name") or line["template_code"]
-			description = f"<strong>{part_number}</strong>"
-
-			# Environment / Dry/Wet
-			if line.get("environment_rating"):
-				description += f"<br><small>Environment: {line['environment_rating']}</small>"
-
-			# CCT
-			if line.get("cct"):
-				description += f"<br><small>CCT: {line['cct']}</small>"
-
-			# CRI
-			if line.get("cri"):
-				description += f"<br><small>CRI: {line['cri']}</small>"
-
-			# Output
-			if line.get("estimated_delivered_output"):
-				description += f"<br><small>Output: {line['estimated_delivered_output']} lm/ft</small>"
-
-			# Lens
-			if line.get("lens_appearance"):
-				description += f"<br><small>Lens: {line['lens_appearance']}</small>"
-
-			# Mounting
-			if line.get("mounting_method"):
-				description += f"<br><small>Mounting: {line['mounting_method']}</small>"
-
-			# Finish
-			if line.get("finish"):
-				description += f"<br><small>Finish: {line['finish']}</small>"
-
-			# Length
-			mfg_length_mm = line.get("manufacturable_length_mm", 0)
-			if mfg_length_mm:
-				length_inches = mfg_length_mm / 25.4
-				description += f"<br><small>Length: {length_inches:.1f}\"</small>"
-
-			# Feed or Build Description (show Build Description for jumpered fixtures instead of Feed)
-			if line.get("is_multi_segment") and line.get("build_description"):
-				# For jumpered fixtures, show build description in inches instead of feed
-				build_desc = convert_build_description_to_inches(line.get("build_description", "")).replace("\n", "; ")
-				description += f"<br><small>Build: {build_desc}</small>"
-			elif line.get("power_feed_type"):
-				description += f"<br><small>Feed: {line['power_feed_type']}</small>"
-
-			# Input Voltage (fixture/tape voltage)
-			if line.get("fixture_input_voltage"):
-				description += f"<br><small>Input Voltage: {line['fixture_input_voltage']}</small>"
-
-			# PS Input Voltage (power supply/driver input voltage)
-			if line.get("driver_input_voltage"):
-				description += f"<br><small>PS Input Voltage: {line['driver_input_voltage']}</small>"
-
-			# Wattage / Power
-			if line.get("total_watts"):
-				description += f"<br><small>Wattage: {line['total_watts']}W</small>"
-
-			# Driver
-			if line.get("power_supply"):
-				description += f"<br><small>Driver: {line['power_supply']}</small>"
-
-		elif line["manufacturer_type"] == "ILLUMENATE" and line.get("is_unconfigured"):
-			# Unconfigured ILLUMENATE fixture - show template name with warning
-			template_name = line.get("fixture_template_name") or line.get("fixture_template") or "Unknown Template"
-			description = f"<strong>{template_name}</strong>"
-			description += "<br><small style='color: #856404;'>⚠ Not configured - configuration required</small>"
-
-		elif line["manufacturer_type"] == "ACCESSORY":
-			# Accessory/Component item
-			item_name = line.get("accessory_item_name") or line.get("accessory_item") or ""
-			description = f"<strong>{item_name}</strong>"
-			if line.get("accessory_item"):
-				description += f"<br><small>Item Code: {line['accessory_item']}</small>"
-			if line.get("accessory_item_description"):
-				# Truncate description if too long
-				item_desc = line["accessory_item_description"]
-				if len(item_desc) > 150:
-					item_desc = item_desc[:150] + "..."
-				description += f"<br><small>{item_desc}</small>"
-			if line.get("accessory_product_type"):
-				description += f"<br><small>Category: {line['accessory_product_type']}</small>"
-
-		else:
-			# Other manufacturer - each field on its own line
-			description = f"<strong>{line.get('manufacturer_name', '')}</strong>"
-			if line.get("fixture_model_number"):
-				description += f"<br><small>Fixture: {line['fixture_model_number']}</small>"
-			if line.get("trim_info"):
-				description += f"<br><small>Trim: {line['trim_info']}</small>"
-			if line.get("housing_model_number"):
-				description += f"<br><small>Housing: {line['housing_model_number']}</small>"
-			if line.get("driver_model_number"):
-				description += f"<br><small>Driver: {line['driver_model_number']}</small>"
-			if line.get("lamp_info"):
-				description += f"<br><small>Lamp: {line['lamp_info']}</small>"
-			if line.get("dimming_protocol"):
-				description += f"<br><small>Dimming: {line['dimming_protocol']}</small>"
-			if line.get("input_voltage"):
-				description += f"<br><small>Voltage: {line['input_voltage']}</small>"
-			if line.get("other_finish"):
-				description += f"<br><small>Finish: {line['other_finish']}</small>"
-			if line.get("spec_sheet"):
-				description += f"<br><small>Spec Sheet: {line['spec_sheet']}</small>"
+		# Description column — compact multi-line layout
+		description = _build_pdf_description(line)
 
 		html_parts.append(f"<td>{description}</td>")
 
@@ -787,15 +708,164 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	if include_pricing:
 		schedule_total = schedule_data.get("schedule_total", 0)
 		colspan = 6
-		html_parts.append(f"<tr class='total-row'>")
+		html_parts.append("<tr class='total-row'>")
 		html_parts.append(f"<td colspan='{colspan}' class='text-right'>Schedule Total:</td>")
 		html_parts.append(f"<td class='text-right'>${schedule_total:.2f}</td>")
 		html_parts.append("</tr>")
 
 	html_parts.append("</tbody></table>")
+
+	# ── Footer ──
+	html_parts.append(
+		f"<div class='footer'>ilLumenate Lighting | Generated {export_date}</div>"
+	)
+
 	html_parts.append("</body></html>")
 
 	return "".join(html_parts)
+
+
+def _build_pdf_description(line: dict) -> str:
+	"""
+	Build a compact HTML description cell for a single schedule line.
+
+	Consolidates secondary details into semicolon / dot-delimited rows
+	to minimize vertical space in the PDF table.
+
+	Args:
+		line: A single line dict from schedule_data["lines"]
+
+	Returns:
+		str: HTML fragment for the description ``<td>``
+	"""
+	if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
+		return _build_illumenate_description(line)
+
+	if line["manufacturer_type"] == "ILLUMENATE" and line.get("is_unconfigured"):
+		template_name = (
+			line.get("fixture_template_name")
+			or line.get("fixture_template")
+			or "Unknown Template"
+		)
+		return (
+			f"<strong>{template_name}</strong>"
+			"<br><span class='desc-detail' style='color:#856404;'>"
+			"⚠ Not configured - configuration required</span>"
+		)
+
+	if line["manufacturer_type"] == "ACCESSORY":
+		return _build_accessory_description(line)
+
+	# OTHER manufacturer
+	return _build_other_description(line)
+
+
+def _detail_row(items: list) -> str:
+	"""Join non-empty items with middle-dot separators and wrap in a desc-detail span."""
+	if not items:
+		return ""
+	return f"<br><span class='desc-detail'>{' · '.join(items)}</span>"
+
+
+def _build_illumenate_description(line: dict) -> str:
+	"""Build compact description for a configured ILLUMENATE fixture line."""
+	part_number = line.get("configured_fixture_name") or line.get("template_code", "")
+	parts = [f"<strong>{part_number}</strong>"]
+
+	# Row 1 — optical: CCT · CRI · Output · Environment
+	optical = []
+	if line.get("cct"):
+		optical.append(line["cct"])
+	if line.get("cri"):
+		optical.append(f"{line['cri']} CRI")
+	if line.get("estimated_delivered_output"):
+		optical.append(f"{line['estimated_delivered_output']} lm/ft")
+	if line.get("environment_rating"):
+		optical.append(line["environment_rating"])
+	parts.append(_detail_row(optical))
+
+	# Row 2 — physical: Mounting · Finish · Lens
+	physical = []
+	if line.get("mounting_method"):
+		physical.append(line["mounting_method"])
+	if line.get("finish"):
+		physical.append(line["finish"])
+	if line.get("lens_appearance"):
+		physical.append(line["lens_appearance"])
+	parts.append(_detail_row(physical))
+
+	# Row 3 — electrical + dimensions: Length · Feed/Build · Voltages · Wattage · Driver
+	elec = []
+	mfg_length_mm = line.get("manufacturable_length_mm", 0)
+	if mfg_length_mm:
+		length_inches = mfg_length_mm / 25.4
+		elec.append(f"{length_inches:.1f}\"")
+	if line.get("is_multi_segment") and line.get("build_description"):
+		build_desc = convert_build_description_to_inches(
+			line.get("build_description", "")
+		).replace("\n", "; ")
+		elec.append(f"Build: {build_desc}")
+	elif line.get("power_feed_type"):
+		elec.append(line["power_feed_type"])
+	if line.get("fixture_input_voltage"):
+		elec.append(line["fixture_input_voltage"])
+	if line.get("driver_input_voltage"):
+		elec.append(f"PS {line['driver_input_voltage']}")
+	if line.get("total_watts"):
+		elec.append(f"{line['total_watts']}W")
+	if line.get("power_supply"):
+		elec.append(line["power_supply"])
+	parts.append(_detail_row(elec))
+
+	return "".join(parts)
+
+
+def _build_accessory_description(line: dict) -> str:
+	"""Build compact description for an ACCESSORY line."""
+	item_name = line.get("accessory_item_name") or line.get("accessory_item") or ""
+	parts = [f"<strong>{item_name}</strong>"]
+	details = []
+	if line.get("accessory_item"):
+		details.append(line["accessory_item"])
+	if line.get("accessory_product_type"):
+		details.append(line["accessory_product_type"])
+	parts.append(_detail_row(details))
+	if line.get("accessory_item_description"):
+		item_desc = line["accessory_item_description"]
+		if len(item_desc) > 150:
+			item_desc = item_desc[:150] + "..."
+		parts.append(f"<br><span class='desc-detail'>{item_desc}</span>")
+	return "".join(parts)
+
+
+def _build_other_description(line: dict) -> str:
+	"""Build compact description for an OTHER manufacturer line."""
+	parts = [f"<strong>{line.get('manufacturer_name', '')}</strong>"]
+	# Row 1 — model info
+	models = []
+	if line.get("fixture_model_number"):
+		models.append(line["fixture_model_number"])
+	if line.get("trim_info"):
+		models.append(f"Trim: {line['trim_info']}")
+	if line.get("housing_model_number"):
+		models.append(f"Housing: {line['housing_model_number']}")
+	parts.append(_detail_row(models))
+	# Row 2 — electrical / finish
+	elec = []
+	if line.get("driver_model_number"):
+		elec.append(f"Driver: {line['driver_model_number']}")
+	if line.get("lamp_info"):
+		elec.append(line["lamp_info"])
+	if line.get("dimming_protocol"):
+		elec.append(line["dimming_protocol"])
+	if line.get("input_voltage"):
+		elec.append(line["input_voltage"])
+	if line.get("other_finish"):
+		elec.append(line["other_finish"])
+	parts.append(_detail_row(elec))
+	if line.get("spec_sheet"):
+		parts.append(f"<br><span class='desc-detail'>Spec: {line['spec_sheet']}</span>")
+	return "".join(parts)
 
 
 def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) -> str:
