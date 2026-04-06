@@ -636,6 +636,191 @@ def _collect_pn_builder_columns(ft_doc):
 	return headers, data_dict
 
 
+# ──────────────────────────────────────────────────────────
+# Tape / Neon flat CSV
+# ──────────────────────────────────────────────────────────
+
+# Columns for the tape/neon flat CSV (subset of PRODUCT_COLUMNS).
+TAPE_NEON_COLUMNS = [
+	"product_name",
+	"product_type",
+	"template_code",
+	"short_description",
+	"input_voltage",
+	"operating_temp_range_c",
+	"l70_life_hours",
+	"warranty_years",
+	"certifications",
+	"dimming_protocols",
+	"environment_ratings",
+]
+
+TAPE_NEON_VARIANT_COLUMNS = [
+	"cct_name",
+	"cct_kelvin",
+	"output_level",
+	"output_lm_ft",
+	"led_package",
+	"cri",
+	"watts_per_foot",
+	"max_run_length_ft",
+	"cut_increment_mm",
+	"production_interval",
+]
+
+
+def _collect_tape_neon_product_data(wp_doc):
+	"""Build the product-level dict for LED Tape / LED Neon products."""
+	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
+
+	# --- Attribute lists ---
+	attr_links = wp_doc.attribute_links or []
+
+	# --- Certifications ---
+	certs = []
+	for row in (wp_doc.certifications or []):
+		if row.certification:
+			certs.append(row.certification)
+	certifications = ", ".join(sorted(set(certs)))
+
+	# --- Dimming from attribute links ---
+	dimming_set = set()
+	for row in attr_links:
+		if row.attribute_type == "Dimming Protocol" and row.attribute_name:
+			dimming_set.add(row.attribute_name)
+	dimming_protocols = ", ".join(sorted(dimming_set))
+
+	# --- Environment ratings from attribute links ---
+	env_set = set()
+	for row in attr_links:
+		if row.attribute_type == "Environment Rating" and row.attribute_name:
+			env_set.add(row.attribute_name)
+	env_ratings = ", ".join(sorted(env_set))
+
+	# --- Input voltage from allowed_tape_specs ---
+	input_voltage = ""
+	for spec_row in (tnt_doc.allowed_tape_specs or []):
+		if spec_row.tape_spec:
+			iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
+			if iv:
+				voltage_val = frappe.db.get_value("ilL-Attribute-Output Voltage", iv, "voltage")
+				if voltage_val:
+					input_voltage = f"{voltage_val} VDC"
+					break
+
+	# --- Operating temp range ---
+	temp_range = ""
+	if wp_doc.operating_temp_min_c is not None and wp_doc.operating_temp_max_c is not None:
+		c_min = wp_doc.operating_temp_min_c
+		c_max = wp_doc.operating_temp_max_c
+		f_min = round(c_min * 9 / 5 + 32)
+		f_max = round(c_max * 9 / 5 + 32)
+		temp_range = f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)"
+
+	return {
+		"product_name": wp_doc.product_name or "",
+		"product_type": wp_doc.product_type or "",
+		"template_code": tnt_doc.template_code or tnt_doc.name,
+		"short_description": wp_doc.short_description or "",
+		"input_voltage": input_voltage,
+		"operating_temp_range_c": temp_range,
+		"l70_life_hours": wp_doc.l70_life_hours or "",
+		"warranty_years": wp_doc.warranty_years or "",
+		"certifications": certifications,
+		"dimming_protocols": dimming_protocols,
+		"environment_ratings": env_ratings,
+	}
+
+
+def _collect_tape_neon_variant_rows(wp_doc, product_data):
+	"""Yield one dict per (CCT × Output Level) from tape/neon template."""
+	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
+
+	# Collect CCTs and output levels from allowed_options
+	ccts = OrderedDict()
+	output_levels = OrderedDict()
+	for opt in (tnt_doc.allowed_options or []):
+		if hasattr(opt, "is_active") and not opt.is_active:
+			continue
+		otype = getattr(opt, "option_type", None)
+		if otype == "CCT" and opt.cct and opt.cct not in ccts:
+			cct_data = frappe.db.get_value(
+				"ilL-Attribute-CCT", opt.cct, ["kelvin", "label"], as_dict=True
+			)
+			ccts[opt.cct] = {
+				"kelvin": cct_data.get("kelvin", "") if cct_data else "",
+				"label": cct_data.get("label", opt.cct) if cct_data else opt.cct,
+			}
+		elif otype == "Output Level" and opt.output_level and opt.output_level not in output_levels:
+			level_data = frappe.db.get_value(
+				"ilL-Attribute-Output Level", opt.output_level, ["value", "sku_code"], as_dict=True
+			)
+			output_levels[opt.output_level] = {
+				"value": level_data.get("value", "") if level_data else "",
+				"sku_code": level_data.get("sku_code", "") if level_data else "",
+			}
+
+	# Collect tape spec data for enrichment
+	tape_specs = []
+	for spec_row in (tnt_doc.allowed_tape_specs or []):
+		if not spec_row.tape_spec:
+			continue
+		try:
+			ts = frappe.get_cached_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
+			tape_specs.append(ts)
+		except frappe.DoesNotExistError:
+			continue
+
+	# If no CCTs/outputs, yield a single row with product data
+	if not ccts and not output_levels:
+		row = dict(product_data)
+		for col in TAPE_NEON_VARIANT_COLUMNS:
+			row.setdefault(col, "")
+		yield row
+		return
+
+	# Ensure at least one entry in each dimension
+	if not ccts:
+		ccts[""] = {"kelvin": "", "label": ""}
+	if not output_levels:
+		output_levels[""] = {"value": "", "sku_code": ""}
+
+	# First tape spec for shared fields
+	first_tape = tape_specs[0] if tape_specs else None
+
+	for cct_name, cct_info in ccts.items():
+		for level_name, level_info in output_levels.items():
+			row = dict(product_data)
+			row["cct_name"] = cct_info.get("label", cct_name)
+			row["cct_kelvin"] = cct_info.get("kelvin", "")
+			row["output_level"] = level_name
+			row["output_lm_ft"] = level_info.get("value", "")
+			row["led_package"] = first_tape.led_package if first_tape else ""
+			row["cri"] = str(first_tape.cri_typical) if first_tape and first_tape.cri_typical else ""
+			row["watts_per_foot"] = first_tape.watts_per_foot if first_tape else ""
+			row["max_run_length_ft"] = first_tape.voltage_drop_max_run_length_ft if first_tape else ""
+			row["cut_increment_mm"] = first_tape.cut_increment_mm if first_tape else ""
+			cut_mm = first_tape.cut_increment_mm if first_tape else 0
+			row["production_interval"] = format_length_inches(cut_mm, precision=2) if cut_mm else ""
+			yield row
+
+
+def _generate_tape_neon_csv(wp_doc):
+	"""Return CSV content for LED Tape / LED Neon products (flat format)."""
+	product_data = _collect_tape_neon_product_data(wp_doc)
+
+	output = io.StringIO()
+	writer = csv.writer(output)
+
+	headers = TAPE_NEON_COLUMNS + TAPE_NEON_VARIANT_COLUMNS
+	writer.writerow(headers)
+
+	for row in _collect_tape_neon_variant_rows(wp_doc, product_data):
+		writer.writerow([row.get(col, "") for col in headers])
+
+	return output.getvalue()
+
+
 def _generate_csv(wp_doc):
 	"""Return CSV content as a string (flat: one row per CCT × output level)."""
 	product_data = _collect_product_data(wp_doc)
@@ -896,16 +1081,19 @@ def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dic
 	"""
 	wp_doc = frappe.get_doc("ilL-Webflow-Product", webflow_product)
 
-	if wp_doc.product_type != "Fixture Template":
-		return {"success": False, "error": _("Spec sheet export is only available for Fixture Template products.")}
-
-	if not wp_doc.fixture_template:
-		return {"success": False, "error": _("No Fixture Template linked — cannot generate spec sheet.")}
-
-	if format == "flat":
-		csv_content = _generate_csv(wp_doc)
+	if wp_doc.product_type in ("LED Tape", "LED Neon"):
+		if not wp_doc.tape_neon_template:
+			return {"success": False, "error": _("No Tape/Neon Template linked — cannot generate spec sheet.")}
+		csv_content = _generate_tape_neon_csv(wp_doc)
+	elif wp_doc.product_type == "Fixture Template":
+		if not wp_doc.fixture_template:
+			return {"success": False, "error": _("No Fixture Template linked — cannot generate spec sheet.")}
+		if format == "flat":
+			csv_content = _generate_csv(wp_doc)
+		else:
+			csv_content = _generate_indesign_csv(wp_doc)
 	else:
-		csv_content = _generate_indesign_csv(wp_doc)
+		return {"success": False, "error": _("Spec sheet export is only available for Fixture Template, LED Tape, and LED Neon products.")}
 
 	slug = wp_doc.product_slug or wp_doc.name
 	fname = f"spec-sheet-{slug}.csv"

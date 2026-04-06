@@ -107,7 +107,7 @@ def get_webflow_products(
             "name", "product_name", "product_slug", "product_type",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
-            "profile_spec", "lens_spec", "tape_spec", "accessory_spec",
+            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
@@ -637,7 +637,7 @@ def get_sync_statistics() -> dict:
             stats["products"]["needs_sync"] += count
     
     # Product stats - Count by product type
-    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]:
+    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "LED Neon", "Component", "Accessory"]:
         count = frappe.db.count(
             "ilL-Webflow-Product",
             {"product_type": ptype, "is_active": 1}
@@ -773,6 +773,10 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
     elif product_type == "Controller" and product.get("controller_spec"):
         additional_specs.extend(
             _enrich_controller_specs(product, existing_labels)
+        )
+    elif product_type in ("LED Tape", "LED Neon") and product.get("tape_neon_template"):
+        additional_specs.extend(
+            _enrich_tape_neon_template_specs(product, existing_labels)
         )
     elif product_type == "LED Tape" and product.get("tape_spec"):
         additional_specs.extend(
@@ -1207,6 +1211,147 @@ def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
                 "attribute_doctype": "ilL-Attribute-Dimming Protocol",
                 "attribute_options_json": frappe.as_json(protocol_options),
                 "attribute_options": protocol_options,
+            })
+
+    return specs
+
+
+def _enrich_tape_neon_template_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for LED Tape/Neon products linked via tape_neon_template."""
+    specs = []
+    try:
+        template = frappe.get_doc("ilL-Tape-Neon-Template", product["tape_neon_template"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Color Rendering (CRI) from allowed_tape_specs ─────────
+    if "Color Rendering" not in existing_labels and "CRI" not in existing_labels:
+        cri_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            cri_val = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cri_typical")
+            if cri_val:
+                cri_values.add(str(cri_val))
+        if cri_values:
+            specs.append({
+                "spec_group": "Optical",
+                "spec_label": "Color Rendering",
+                "spec_value": ", ".join(sorted(cri_values)),
+                "spec_unit": "CRI",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Input Voltage from allowed_tape_specs ─────────────────
+    if "Input Voltage" not in existing_labels:
+        voltage_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
+            if iv:
+                voltage_val = frappe.db.get_value(
+                    "ilL-Attribute-Output Voltage", iv, "dc_voltage"
+                )
+                if voltage_val:
+                    voltage_values.add(f"{voltage_val} VDC")
+        if voltage_values:
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": ", ".join(sorted(voltage_values)),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 25,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Output Voltage",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimming from allowed_tape_specs ───────────────────────
+    if "Dimming" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            try:
+                tape = frappe.get_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
+            except frappe.DoesNotExistError:
+                continue
+            if getattr(tape, "input_protocol", None) and tape.input_protocol not in seen:
+                seen.add(tape.input_protocol)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", tape.input_protocol,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": tape.input_protocol,
+                        "display_label": proto_data.get("label") or tape.input_protocol,
+                        "code": proto_data.get("code") or "",
+                    })
+            for row in getattr(tape, "supported_dimming_protocols", []):
+                pname = getattr(row, "protocol", None)
+                if pname and pname not in seen:
+                    seen.add(pname)
+                    proto_data = frappe.db.get_value(
+                        "ilL-Attribute-Dimming Protocol", pname,
+                        ["label", "code"], as_dict=True,
+                    )
+                    if proto_data:
+                        protocol_options.append({
+                            "attribute_type": "Dimming Protocol",
+                            "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                            "attribute_value": pname,
+                            "display_label": proto_data.get("label") or pname,
+                            "code": proto_data.get("code") or "",
+                        })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 60,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    # ── Production Interval from allowed_tape_specs ───────────
+    if "Production Interval" not in existing_labels:
+        cut_increments = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cut_increment_mm")
+            if cut_mm:
+                formatted = format_length_inches(cut_mm, precision=2)
+                if formatted:
+                    cut_increments.add(formatted)
+        if cut_increments:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Production Interval",
+                "spec_value": ", ".join(sorted(cut_increments)),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 65,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
             })
 
     return specs
