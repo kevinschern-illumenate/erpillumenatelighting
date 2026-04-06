@@ -23,8 +23,12 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				}, __("Actions"));
 			}
 
-			// Spec Sheet CSV export (Fixture Template with linked template only)
-			if (frm.doc.product_type === "Fixture Template" && frm.doc.fixture_template) {
+			// Spec Sheet CSV export (Fixture Template with linked template,
+			// or LED Tape/Neon with linked tape_neon_template)
+			if (
+				(frm.doc.product_type === "Fixture Template" && frm.doc.fixture_template)
+				|| (["LED Tape", "LED Neon"].includes(frm.doc.product_type) && frm.doc.tape_neon_template)
+			) {
 				frm.add_custom_button(__("Export Spec Sheet CSV"), function() {
 					frappe.call({
 						method: "illumenate_lighting.illumenate_lighting.api.spec_sheet_export.export_spec_sheet_csv",
@@ -71,6 +75,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		frm.set_value("profile_spec", null);
 		frm.set_value("lens_spec", null);
 		frm.set_value("tape_spec", null);
+		frm.set_value("tape_neon_template", null);
 		frm.set_value("accessory_spec", null);
 
 		// Set appropriate category based on product type
@@ -80,6 +85,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			"Controller": "controls",
 			"Extrusion Kit": "extrusion-kits",
 			"LED Tape": "components",
+			"LED Neon": "components",
 			"Component": "components",
 			"Accessory": "components"
 		};
@@ -137,6 +143,13 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 	fixture_template(frm) {
 		// When fixture template is selected, enable configurator by default
 		if (frm.doc.fixture_template) {
+			frm.set_value("is_configurable", 1);
+		}
+	},
+
+	tape_neon_template(frm) {
+		// When tape/neon template is selected, enable configurator by default
+		if (frm.doc.tape_neon_template) {
 			frm.set_value("is_configurable", 1);
 		}
 	}
