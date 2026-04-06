@@ -1083,7 +1083,7 @@ def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dic
 
 	if wp_doc.product_type in ("LED Tape", "LED Neon"):
 		if not wp_doc.tape_neon_template:
-			return {"success": False, "error": _("No Tape/Neon Template linked — cannot generate spec sheet.")}
+			return {"success": False, "error": _("No Tape/Neon Template linked — please set the 'Tape / Neon Template' field to generate a spec sheet.")}
 		csv_content = _generate_tape_neon_csv(wp_doc)
 	elif wp_doc.product_type == "Fixture Template":
 		if not wp_doc.fixture_template:
