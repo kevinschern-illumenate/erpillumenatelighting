@@ -1,0 +1,168 @@
+# Example LED Neon Configuration
+# Usage: python -m tools.fixture_builder --product-type neon --config tools/fixture_builder/templates/example_neon_config.yaml --output ./output/my_neon/
+
+product_type: neon
+mode: new-family
+series_name: NeonFlex
+series_code: NF
+
+supplier: "Linea Lighting Co., Limited"
+brand: ilLumenate Lighting
+warranty_days: 1825
+
+# ── Tape Spec Definitions ─────────────────────────────────────────────
+# LED Neon uses the same ilL-Spec-LED Tape doctype (product_category differentiates).
+tape_specs:
+  - item_code: NEON-FS-24V-6W
+    led_package: FS
+    product_category: LED Neon
+    input_voltage: "24V DC"
+    watts_per_foot: 6.0
+    lumens_per_foot: 500
+    cri_typical: 95
+    led_pitch_mm: 8.3
+    pcb_mounting: Channel Mounted
+    pcb_finish: White
+    cut_increment_mm: 50.0
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+
+# ── Tape Offerings ────────────────────────────────────────────────────
+tape_offerings:
+  - tape_spec: NEON-FS-24V-6W
+    cct: "2700K"
+    cri: 95
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+  - tape_spec: NEON-FS-24V-6W
+    cct: "3000K"
+    cri: 95
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+  - tape_spec: NEON-FS-24V-6W
+    cct: "4000K"
+    cri: 95
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+  - tape_spec: NEON-FS-24V-6W
+    cct: "2700K"
+    cri: 95
+    sdcm: 3
+    led_package: FS
+    output_level: High
+    watts_per_ft_override: 9.0
+
+# ── Tape/Neon Templates ──────────────────────────────────────────────
+# LED Neon templates include mounting, finish, endcap, and IP options.
+tape_neon_templates:
+  - template_code: ILL-NF-FS
+    template_name: "NeonFlex Full Spectrum"
+    product_category: LED Neon
+    series: NeonFlex
+    default_tape_spec: NEON-FS-24V-6W
+    base_price_msrp: 50.00
+    price_per_ft_msrp: 15.00
+    pricing_length_basis: L_tape_cut
+    leader_allowance_mm: 20
+    allowed_tape_specs:
+      - tape_spec: NEON-FS-24V-6W
+        is_default: true
+        environment_rating: Wet
+    allowed_options:
+      # CCT
+      - option_type: CCT
+        value: "2700K"
+        is_default: true
+        msrp_adder: 0
+      - option_type: CCT
+        value: "3000K"
+        msrp_adder: 0
+      - option_type: CCT
+        value: "4000K"
+        msrp_adder: 0
+      # Output Level
+      - option_type: Output Level
+        value: Standard
+        is_default: true
+        msrp_adder: 0
+      - option_type: Output Level
+        value: High
+        msrp_adder: 3.00
+      # Environment Rating
+      - option_type: Environment Rating
+        value: Wet
+        is_default: true
+        msrp_adder: 0
+      - option_type: Environment Rating
+        value: Dry
+        msrp_adder: 0
+      # IP Rating (neon-specific)
+      - option_type: IP Rating
+        value: IP67
+        is_default: true
+        msrp_adder: 0
+      - option_type: IP Rating
+        value: IP68
+        msrp_adder: 5.00
+      # Feed Direction
+      - option_type: Feed Direction
+        value: Single Feed
+        is_default: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Dual Feed
+        msrp_adder: 10.00
+      # Mounting Method (neon-specific)
+      - option_type: Mounting Method
+        value: Surface Mount
+        is_default: true
+        msrp_adder: 0
+      - option_type: Mounting Method
+        value: Channel Mount
+        msrp_adder: 2.50
+      # Finish (neon-specific)
+      - option_type: Finish
+        value: White
+        is_default: true
+        msrp_adder: 0
+      - option_type: Finish
+        value: Black
+        msrp_adder: 0
+      # Endcap Style (neon-specific)
+      - option_type: Endcap Style
+        value: Solid
+        is_default: true
+        msrp_adder: 0
+      - option_type: Endcap Style
+        value: Feed Through
+        msrp_adder: 2.00
+
+# ── Neon Submittal Mapping ───────────────────────────────────────────
+neon_submittal_mapping:
+  clone_from_template: ""   # blank = use defaults
+
+# ── Webflow ──────────────────────────────────────────────────────────
+tape_neon_webflow:
+  product_category: led-neon
+  sublabel: ""
+  beam_angle: 110.0
+  operating_temp_min_c: -40
+  operating_temp_max_c: 60
+  l70_life_hours: 50000
+  warranty_years: 5
+  configurator_steps:
+    - Environment Rating
+    - CCT
+    - Output Level
+    - IP Rating
+    - Mounting Method
+    - Finish
+    - Length
+    - Feed Direction

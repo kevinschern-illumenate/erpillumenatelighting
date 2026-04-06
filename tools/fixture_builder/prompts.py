@@ -18,6 +18,13 @@ from .config_schema import (
     DriverDef,
     SubmittalMappingDef,
     WebflowDef,
+    TapeSpecDef,
+    TapeOfferingDef,
+    TapeNeonAllowedOptionDef,
+    TapeNeonAllowedSpecDef,
+    TapeNeonTemplateDef,
+    NeonSubmittalMappingDef,
+    TapeNeonWebflowDef,
 )
 
 
@@ -300,6 +307,10 @@ def prompt_all(config: FixtureBuilderConfig) -> None:
     """Run all interactive prompts for missing config."""
     prompt_series_info(config)
 
+    if config.product_type in ("tape", "neon"):
+        prompt_all_tape_neon(config)
+        return
+
     if config.mode == "new-family":
         prompt_profiles(config)
         prompt_lenses(config)
@@ -310,3 +321,246 @@ def prompt_all(config: FixtureBuilderConfig) -> None:
     prompt_fixture_templates(config)
     prompt_drivers(config)
     prompt_submittal_mapping(config)
+
+
+# ── Tape / Neon prompts ───────────────────────────────────────────────
+
+def prompt_all_tape_neon(config: FixtureBuilderConfig) -> None:
+    """Run all interactive prompts for tape/neon config."""
+    is_neon = config.product_type == "neon"
+    category = "LED Neon" if is_neon else "LED Tape"
+
+    if config.mode == "new-family":
+        prompt_tape_specs(config, category)
+        prompt_tape_offerings(config)
+
+    prompt_tape_neon_templates(config, category, is_neon)
+    prompt_neon_submittal_mapping(config)
+    prompt_tape_neon_webflow(config, is_neon)
+
+
+def prompt_tape_specs(config: FixtureBuilderConfig, category: str) -> None:
+    """Prompt for tape spec definitions if empty."""
+    if config.tape_specs:
+        return
+
+    print(f"\n── {category} Spec Definitions ──")
+    while True:
+        item_code = _input("Tape spec item code (e.g., TAPE-FS-24V-4.4W, or blank to finish)")
+        if not item_code:
+            break
+
+        led_pkg = _input("LED package (e.g., FS, SW, TW)", "FS")
+        voltage = _input("Input voltage", "24V DC")
+        wpf = _input_float("Watts per foot", 0.0)
+        lpf = _input_float("Lumens per foot", 0.0)
+        cri = _input_int("CRI typical", 90)
+        pitch = _input_float("LED pitch (mm)", 0.0)
+        pcb_mount = _input("PCB mounting (e.g., Adhesive Backed)", "")
+        pcb_fin = _input("PCB finish (e.g., White)", "")
+        cut_inc = _input_float("Cut increment (mm)", 0.0)
+        free_cut = _input_bool("Is free cutting?", False)
+        leader = _input("Leader cable item", "")
+        dimming = _input_list("Dimming protocols", "")
+
+        config.tape_specs.append(TapeSpecDef(
+            item_code=item_code,
+            led_package=led_pkg,
+            product_category=category,
+            input_voltage=voltage,
+            watts_per_foot=wpf,
+            lumens_per_foot=lpf,
+            cri_typical=cri,
+            led_pitch_mm=pitch,
+            pcb_mounting=pcb_mount,
+            pcb_finish=pcb_fin,
+            cut_increment_mm=cut_inc,
+            is_free_cutting=free_cut,
+            leader_cable_item=leader,
+            dimming_protocols=dimming,
+        ))
+        print(f"  Added tape spec {item_code}")
+
+
+def prompt_tape_offerings(config: FixtureBuilderConfig) -> None:
+    """Prompt for tape offerings if empty."""
+    if config.tape_offerings:
+        return
+
+    print("\n── Tape Offering Definitions ──")
+    print("  Define CCT × Output Level combinations per tape spec.")
+
+    for ts in config.tape_specs:
+        print(f"\n  ── Offerings for {ts.item_code} ──")
+        while True:
+            cct = _input(f"  CCT (e.g., 2700K, or blank to finish {ts.item_code})")
+            if not cct:
+                break
+            output_level = _input("  Output level", "Standard")
+            cri = _input_int("  CRI", ts.cri_typical)
+            sdcm = _input_int("  SDCM", 3)
+            wpf_override = _input_float("  Watts/ft override (0 = use spec default)", 0.0)
+            cut_override = _input_float("  Cut increment override (0 = use spec default)", 0.0)
+
+            config.tape_offerings.append(TapeOfferingDef(
+                tape_spec=ts.item_code,
+                cct=cct,
+                cri=cri,
+                sdcm=sdcm,
+                led_package=ts.led_package,
+                output_level=output_level,
+                watts_per_ft_override=wpf_override,
+                cut_increment_mm_override=cut_override,
+            ))
+            print(f"    Added offering: {ts.item_code} / {cct} / {output_level}")
+
+
+def prompt_tape_neon_templates(config: FixtureBuilderConfig, category: str,
+                               is_neon: bool) -> None:
+    """Prompt for tape/neon template definitions if empty."""
+    if config.tape_neon_templates:
+        return
+
+    print(f"\n── {category} Template Definitions ──")
+    while True:
+        code = _input("Template code (e.g., ILL-TNF-FS, or blank to finish)")
+        if not code:
+            break
+
+        name = _input("Template name", f"{config.series_name} {category}")
+        default_spec = ""
+        if config.tape_specs:
+            default_spec = _input("Default tape spec", config.tape_specs[0].item_code)
+        base_price = _input_float("Base price MSRP", 0.0)
+        per_ft = _input_float("Price per ft MSRP", 0.0)
+        pricing_basis = _input("Pricing length basis", "L_tape_cut")
+        leader = _input_int("Leader allowance (mm)", 15)
+
+        # Allowed tape specs
+        allowed_specs = []
+        if config.tape_specs:
+            print("  Select allowed tape specs for this template:")
+            for i, ts in enumerate(config.tape_specs):
+                use = _input_bool(f"    Allow {ts.item_code}?", True)
+                if use:
+                    is_def = (ts.item_code == default_spec)
+                    env_rating = _input(f"    Environment rating for {ts.item_code}", "")
+                    allowed_specs.append(TapeNeonAllowedSpecDef(
+                        tape_spec=ts.item_code,
+                        is_default=is_def,
+                        environment_rating=env_rating,
+                    ))
+
+        # Allowed options
+        allowed_options = []
+
+        # CCT options
+        ccts = _input_list("Allowed CCTs", "")
+        for i, cct in enumerate(ccts):
+            adder = _input_float(f"  MSRP adder for CCT={cct}", 0.0)
+            allowed_options.append(TapeNeonAllowedOptionDef(
+                option_type="CCT", value=cct,
+                is_default=(i == 0), msrp_adder=adder,
+            ))
+
+        # Output Level options
+        outputs = _input_list("Allowed output levels", "Standard")
+        for i, ol in enumerate(outputs):
+            adder = _input_float(f"  MSRP adder for Output Level={ol}", 0.0)
+            allowed_options.append(TapeNeonAllowedOptionDef(
+                option_type="Output Level", value=ol,
+                is_default=(i == 0), msrp_adder=adder,
+            ))
+
+        # Environment Rating options
+        env_ratings = _input_list("Allowed environment ratings", "Dry")
+        for i, er in enumerate(env_ratings):
+            adder = _input_float(f"  MSRP adder for Environment={er}", 0.0)
+            allowed_options.append(TapeNeonAllowedOptionDef(
+                option_type="Environment Rating", value=er,
+                is_default=(i == 0), msrp_adder=adder,
+            ))
+
+        # Feed Direction options
+        feed_dirs = _input_list("Allowed feed directions", "Single Feed")
+        for i, fd in enumerate(feed_dirs):
+            adder = _input_float(f"  MSRP adder for Feed Direction={fd}", 0.0)
+            allowed_options.append(TapeNeonAllowedOptionDef(
+                option_type="Feed Direction", value=fd,
+                is_default=(i == 0), msrp_adder=adder,
+            ))
+
+        # Neon-specific options
+        if is_neon:
+            # IP Rating
+            ip_ratings = _input_list("Allowed IP ratings", "IP67")
+            for i, ip in enumerate(ip_ratings):
+                adder = _input_float(f"  MSRP adder for IP={ip}", 0.0)
+                allowed_options.append(TapeNeonAllowedOptionDef(
+                    option_type="IP Rating", value=ip,
+                    is_default=(i == 0), msrp_adder=adder,
+                ))
+
+            # Mounting Method
+            mountings = _input_list("Allowed mounting methods", "")
+            for i, m in enumerate(mountings):
+                adder = _input_float(f"  MSRP adder for Mounting={m}", 0.0)
+                allowed_options.append(TapeNeonAllowedOptionDef(
+                    option_type="Mounting Method", value=m,
+                    is_default=(i == 0), msrp_adder=adder,
+                ))
+
+            # Finish
+            finishes = _input_list("Allowed finishes", "")
+            for i, f in enumerate(finishes):
+                adder = _input_float(f"  MSRP adder for Finish={f}", 0.0)
+                allowed_options.append(TapeNeonAllowedOptionDef(
+                    option_type="Finish", value=f,
+                    is_default=(i == 0), msrp_adder=adder,
+                ))
+
+            # Endcap Style
+            endcap_styles = _input_list("Allowed endcap styles", "")
+            for i, es in enumerate(endcap_styles):
+                adder = _input_float(f"  MSRP adder for Endcap Style={es}", 0.0)
+                allowed_options.append(TapeNeonAllowedOptionDef(
+                    option_type="Endcap Style", value=es,
+                    is_default=(i == 0), msrp_adder=adder,
+                ))
+
+        config.tape_neon_templates.append(TapeNeonTemplateDef(
+            template_code=code,
+            template_name=name,
+            product_category=category,
+            series=config.series_name,
+            default_tape_spec=default_spec,
+            base_price_msrp=base_price,
+            price_per_ft_msrp=per_ft,
+            pricing_length_basis=pricing_basis,
+            leader_allowance_mm=leader,
+            allowed_tape_specs=allowed_specs,
+            allowed_options=allowed_options,
+        ))
+        print(f"  Added template {code}")
+
+
+def prompt_neon_submittal_mapping(config: FixtureBuilderConfig) -> None:
+    """Prompt for neon submittal mapping config."""
+    if not config.neon_submittal_mapping.clone_from_template:
+        config.neon_submittal_mapping.clone_from_template = _input(
+            "Clone neon submittal mappings from template (blank for defaults)", ""
+        )
+
+
+def prompt_tape_neon_webflow(config: FixtureBuilderConfig, is_neon: bool) -> None:
+    """Prompt for tape/neon webflow config if defaults."""
+    wf = config.tape_neon_webflow
+    if wf.product_category in ("led-tape", "led-neon") and wf.configurator_steps:
+        return  # Already configured from YAML
+
+    default_cat = "led-neon" if is_neon else "led-tape"
+    wf.product_category = _input("Webflow product category", default_cat)
+    steps = _input_list("Configurator step order",
+                        ",".join(wf.configurator_steps))
+    if steps:
+        wf.configurator_steps = steps

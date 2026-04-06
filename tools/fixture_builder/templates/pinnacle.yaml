@@ -1,0 +1,356 @@
+# Example LED Neon Configuration
+# Usage: python -m tools.fixture_builder --product-type neon --config tools/fixture_builder/templates/example_neon_config.yaml --output ./output/my_neon/
+
+product_type: neon
+mode: new-family
+series_name: Pinnacle
+series_code: PNC
+
+supplier: "Blueview Elec-optic Tech Co., Ltd."
+brand: ilLumenate Lighting
+warranty_days: 1825
+
+# ── Tape Spec Definitions ─────────────────────────────────────────────
+# LED Neon uses the same ilL-Spec-LED Tape doctype (product_category differentiates).
+tape_specs:
+  - item_code: NON-PNC-SW-67-27K-150-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 3.51
+    voltage_drop_max_run_length_ft: 22.0
+    input_protocol: "PWM"
+    lumens_per_foot: 150
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 20.8
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-30K-150-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 3.51
+    voltage_drop_max_run_length_ft: 22.0
+    input_protocol: "PWM"
+    lumens_per_foot: 150
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 20.8
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-35K-150-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 3.51
+    voltage_drop_max_run_length_ft: 22.0
+    input_protocol: "PWM"
+    lumens_per_foot: 150
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 20.8
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-40K-150-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 3.51
+    voltage_drop_max_run_length_ft: 22.0
+    input_protocol: "PWM"
+    lumens_per_foot: 150
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 20.8
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-27K-250-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 5.27
+    voltage_drop_max_run_length_ft: 15.0
+    input_protocol: "PWM"
+    lumens_per_foot: 250
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 16.7
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-30K-250-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 5.27
+    voltage_drop_max_run_length_ft: 15.0
+    input_protocol: "PWM"
+    lumens_per_foot: 250
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 16.7
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-35K-250-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 5.27
+    voltage_drop_max_run_length_ft: 15.0
+    input_protocol: "PWM"
+    lumens_per_foot: 250
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 16.7
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+  - item_code: NON-PNC-SW-67-40K-250-WH
+    led_package: ilLumenate Static White
+    product_category: LED Neon
+    input_voltage: 24VDC
+    watts_per_foot: 5.27
+    voltage_drop_max_run_length_ft: 15.0
+    input_protocol: "PWM"
+    lumens_per_foot: 250
+    cri_typical: 90
+    led_pitch_mm: 0.0
+    pcb_mounting: ""
+    pcb_finish: White
+    cut_increment_mm: 16.7
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+      - Bluetooth
+      - DMX512
+      - DALI
+
+# ── Tape Offerings ────────────────────────────────────────────────────
+tape_offerings:
+  - tape_spec: NON-PNC-SW-67-27K-150-WH
+    cct: 2700K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 150lm/ft
+  - tape_spec: NON-PNC-SW-67-30K-150-WH
+    cct: 3000K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 150lm/ft
+  - tape_spec: NON-PNC-SW-67-35K-150-WH
+    cct: 3500K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 150lm/ft
+  - tape_spec: NON-PNC-SW-67-40K-150-WH
+    cct: 4000K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 150lm/ft
+  - tape_spec: NON-PNC-SW-67-27K-250-WH
+    cct: 2700K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 250lm/ft
+  - tape_spec: NON-PNC-SW-67-30K-250-WH
+    cct: 3000K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 250lm/ft
+  - tape_spec: NON-PNC-SW-67-35K-250-WH
+    cct: 3500K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 250lm/ft
+  - tape_spec: NON-PNC-SW-67-40K-250-WH
+    cct: 4000K
+    cri: Static White / 90+
+    sdcm: 3
+    led_package: ilLumenate Static White
+    output_level: 250lm/ft
+
+# ── Tape/Neon Templates ──────────────────────────────────────────────
+# LED Neon templates include mounting, finish, endcap, and IP options.
+tape_neon_templates:
+  - template_code: non-pnc-sw
+    template_name: "Pinnacle [DB] Static white LED Neon"
+    product_category: LED Neon
+    series: NeonFlex
+    default_tape_spec: NON-PNC-SW-67-27K-150-WH
+    base_price_msrp: 5
+    price_per_ft_msrp: 48.00
+    pricing_length_basis: L_tape_cut
+    leader_allowance_mm: 15
+    allowed_tape_specs:
+      - tape_spec: NON-PNC-SW-67-27K-150-WH
+        is_default: false
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-30K-150-WH
+        is_default: false
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-35K-150-WH
+        is_default: false
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-40K-150-WH
+        is_default: false
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-27K-250-WH
+        is_default: true
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-30K-250-WH
+        is_default: false
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-35K-250-WH
+        is_default: false
+        environment_rating: Wet
+      - tape_spec: NON-PNC-SW-67-40K-250-WH
+        is_default: false
+        environment_rating: Wet
+    allowed_options:
+      # CCT
+      - option_type: CCT
+        value: "2700K"
+        is_default: true
+        msrp_adder: 0
+      - option_type: CCT
+        value: "3000K"
+        msrp_adder: 0
+      - option_type: CCT
+        value: "3500K"
+        msrp_adder: 0
+      - option_type: CCT
+        value: "4000K"
+        msrp_adder: 0
+      # Output Level
+      - option_type: Output Level
+        value: 150lm/ft
+        is_default: false
+        msrp_adder: 0
+      - option_type: Output Level
+        value: 250lm/ft
+        msrp_adder: 0
+      # Environment Rating
+      - option_type: Environment Rating
+        value: Wet
+        is_default: true
+        msrp_adder: 0
+      # IP Rating (neon-specific)
+      - option_type: IP Rating
+        value: IP67
+        is_default: true
+        msrp_adder: 0
+      - option_type: IP Rating
+        value: IP68
+        msrp_adder: 5.00
+      # Feed Direction
+      - option_type: Feed Direction
+        value: End
+        feed_position: Both
+        is_active: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Back
+        feed_position: Both
+        is_active: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Left
+        feed_position: Both
+        is_active: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Right
+        feed_position: Both
+        is_active: true
+        msrp_adder: 0
+      # Finish (neon-specific)
+      - option_type: Finish
+        value: White
+        is_default: true
+        msrp_adder: 0
+
+# ── Neon Submittal Mapping ───────────────────────────────────────────
+neon_submittal_mapping:
+  clone_from_template: ""   # blank = use defaults
+
+# ── Webflow ──────────────────────────────────────────────────────────
+tape_neon_webflow:
+  product_category: led-neon
+  sublabel: "DUAL-BENDING NEON"
+  beam_angle: 110.0
+  operating_temp_min_c: -20
+  operating_temp_max_c: 60
+  l70_life_hours: 50000
+  warranty_years: 5

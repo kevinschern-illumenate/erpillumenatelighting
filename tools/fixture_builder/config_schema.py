@@ -165,6 +165,102 @@ class SubmittalMappingDef:
     clone_from_template: str = ""        # e.g. "ILL-AX01-FS"
 
 
+# ── Tape / Neon dataclasses ────────────────────────────────────────────
+
+@dataclass
+class TapeSpecDef:
+    """One ilL-Spec-LED Tape row."""
+    item_code: str = ""                          # e.g. "TAPE-FS-24V-4.4W"
+    led_package: str = ""                        # e.g. "FS"
+    product_category: str = "LED Tape"           # "LED Tape" or "LED Neon"
+    input_voltage: str = "24V DC"
+    watts_per_foot: float = 0.0
+    voltage_drop_max_run_length_ft: float = 0.0  # max run before voltage drop issues
+    input_protocol: str = ""                     # dimming signal protocol required from driver
+    lumens_per_foot: float = 0.0
+    cri_typical: int = 90
+    led_pitch_mm: float = 0.0
+    pcb_mounting: str = ""                       # e.g. "Adhesive Backed"
+    pcb_finish: str = ""                         # e.g. "White"
+    cut_increment_mm: float = 0.0
+    is_free_cutting: bool = False
+    leader_cable_item: str = ""
+    dimming_protocols: list[str] = field(default_factory=list)
+
+
+@dataclass
+class TapeOfferingDef:
+    """One ilL-Rel-Tape Offering row."""
+    tape_spec: str = ""                  # ref to TapeSpecDef.item_code
+    cct: str = ""                        # e.g. "2700K"
+    cri: int = 90
+    sdcm: int = 3
+    led_package: str = ""                # e.g. "FS"
+    output_level: str = ""               # e.g. "Standard", "High"
+    watts_per_ft_override: float = 0.0
+    cut_increment_mm_override: float = 0.0
+
+
+@dataclass
+class TapeNeonAllowedOptionDef:
+    """One child row in template allowed_options."""
+    option_type: str = ""                # CCT, Output Level, Environment Rating, etc.
+    value: str = ""                      # The value for that option type
+    feed_position: str = ""              # Both, Start, End (for Feed Direction)
+    is_default: bool = False
+    is_active: bool = True
+    msrp_adder: float = 0.0
+
+
+@dataclass
+class TapeNeonAllowedSpecDef:
+    """One child row in template allowed_tape_specs."""
+    tape_spec: str = ""                  # ref to TapeSpecDef.item_code
+    is_default: bool = False
+    environment_rating: str = ""
+
+
+@dataclass
+class TapeNeonTemplateDef:
+    """One ilL-Tape-Neon-Template row."""
+    template_code: str = ""              # e.g. "ILL-TNF-FS"
+    template_name: str = ""
+    product_category: str = "LED Tape"   # "LED Tape" or "LED Neon"
+    series: str = ""
+    default_tape_spec: str = ""
+    base_price_msrp: float = 0.0
+    price_per_ft_msrp: float = 0.0
+    pricing_length_basis: str = "L_tape_cut"
+    leader_allowance_mm: int = 15
+    allowed_tape_specs: list[TapeNeonAllowedSpecDef] = field(default_factory=list)
+    allowed_options: list[TapeNeonAllowedOptionDef] = field(default_factory=list)
+
+
+@dataclass
+class NeonSubmittalMappingDef:
+    """Submittal config for neon — clones from a reference template."""
+    clone_from_template: str = ""
+
+
+@dataclass
+class TapeNeonWebflowDef:
+    """Webflow product config for tape/neon."""
+    product_category: str = "led-tape"   # "led-tape" or "led-neon"
+    sublabel: str = ""
+    beam_angle: float = 110.0
+    operating_temp_min_c: int = -40
+    operating_temp_max_c: int = 60
+    l70_life_hours: int = 50000
+    warranty_years: int = 5
+    configurator_steps: list[str] = field(default_factory=lambda: [
+        "Environment Rating",
+        "CCT",
+        "Output Level",
+        "Length",
+        "Feed Direction",
+    ])
+
+
 @dataclass
 class WebflowDef:
     """Webflow product skeleton configuration."""
@@ -192,6 +288,9 @@ class FixtureBuilderConfig:
     """Top-level configuration for fixture builder."""
     # Mode
     mode: str = "new-family"             # "new-family" or "new-variant"
+
+    # Product type
+    product_type: str = "fixture"        # "fixture" | "tape" | "neon"
 
     # Series info
     series_name: str = ""                # e.g. "Castle"
@@ -229,6 +328,13 @@ class FixtureBuilderConfig:
 
     # Webflow
     webflow: WebflowDef = field(default_factory=WebflowDef)
+
+    # ── Tape / Neon sections ───────────────────────────────────────────
+    tape_specs: list[TapeSpecDef] = field(default_factory=list)
+    tape_offerings: list[TapeOfferingDef] = field(default_factory=list)
+    tape_neon_templates: list[TapeNeonTemplateDef] = field(default_factory=list)
+    neon_submittal_mapping: NeonSubmittalMappingDef = field(default_factory=NeonSubmittalMappingDef)
+    tape_neon_webflow: TapeNeonWebflowDef = field(default_factory=TapeNeonWebflowDef)
 
     def get_all_profile_families(self) -> list[str]:
         return [p.family for p in self.profiles]
@@ -274,6 +380,14 @@ class FixtureBuilderConfig:
             base_price_msrp=ft.base_price_msrp,
             price_per_ft_msrp=ft.price_per_ft_msrp,
         )
+
+    def get_tape_neon_template_codes(self) -> list[str]:
+        """Return all tape/neon template codes."""
+        return [t.template_code for t in self.tape_neon_templates]
+
+    def get_tape_spec_item_codes(self) -> list[str]:
+        """Return all tape spec item codes."""
+        return [ts.item_code for ts in self.tape_specs]
 
 
 def _nested_dataclass(cls, data):

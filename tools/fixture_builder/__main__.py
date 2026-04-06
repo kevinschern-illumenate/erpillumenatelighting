@@ -4,6 +4,8 @@ Usage:
     python -m tools.fixture_builder --config path/to/config.yaml --output path/to/output/
     python -m tools.fixture_builder --interactive --output path/to/output/
     python -m tools.fixture_builder --mode new-variant --config variant.yaml --output path/
+    python -m tools.fixture_builder --product-type tape --config tape.yaml --output ./output/tape/
+    python -m tools.fixture_builder --product-type neon --config neon.yaml --output ./output/neon/
 """
 
 from __future__ import annotations
@@ -26,6 +28,12 @@ from .generators import (
     gen_rel_driver_eligibility,
     gen_spec_submittal_mapping,
     gen_webflow_product,
+    gen_tape_item_csv,
+    gen_spec_led_tape,
+    gen_rel_tape_offering,
+    gen_tape_neon_template,
+    gen_neon_submittal_mapping,
+    gen_tape_neon_webflow,
 )
 
 
@@ -35,20 +43,57 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
 
     if not config.series_name:
         errors.append("series_name is required")
-    if not config.profiles:
-        if config.mode == "new-family":
-            errors.append("At least one profile is required for new-family mode")
-    if config.mode == "new-family":
-        if not config.lenses:
-            errors.append("At least one lens definition is required for new-family mode")
-        if not config.profile_lens_mappings:
-            errors.append("At least one profile-lens mapping is required for new-family mode")
 
-    for p in config.profiles:
-        if not p.family:
-            errors.append("Profile family code is required")
-        if not p.finishes:
-            errors.append(f"Profile {p.family}: at least one finish required")
+    if config.product_type == "fixture":
+        # Fixture-specific validation
+        if not config.profiles:
+            if config.mode == "new-family":
+                errors.append("At least one profile is required for new-family mode")
+        if config.mode == "new-family":
+            if not config.lenses:
+                errors.append("At least one lens definition is required for new-family mode")
+            if not config.profile_lens_mappings:
+                errors.append("At least one profile-lens mapping is required for new-family mode")
+
+        for p in config.profiles:
+            if not p.family:
+                errors.append("Profile family code is required")
+            if not p.finishes:
+                errors.append(f"Profile {p.family}: at least one finish required")
+
+    elif config.product_type in ("tape", "neon"):
+        # Tape/Neon-specific validation
+        if config.mode == "new-family":
+            if not config.tape_specs:
+                errors.append("At least one tape_spec is required for new-family mode")
+
+        if not config.tape_neon_templates:
+            errors.append("At least one tape_neon_template is required")
+
+        # Validate tape offering references
+        valid_spec_codes = {ts.item_code for ts in config.tape_specs}
+        for offering in config.tape_offerings:
+            if offering.tape_spec and offering.tape_spec not in valid_spec_codes:
+                errors.append(
+                    f"Tape offering references unknown tape_spec: {offering.tape_spec}"
+                )
+
+        # Validate template references
+        expected_category = "LED Tape" if config.product_type == "tape" else "LED Neon"
+        for tmpl in config.tape_neon_templates:
+            if not tmpl.template_code:
+                errors.append("Tape/neon template_code is required")
+            if tmpl.product_category and tmpl.product_category != expected_category:
+                errors.append(
+                    f"Template {tmpl.template_code}: product_category should be "
+                    f"'{expected_category}' for product_type='{config.product_type}'"
+                )
+            for spec_ref in tmpl.allowed_tape_specs:
+                if spec_ref.tape_spec and spec_ref.tape_spec not in valid_spec_codes:
+                    errors.append(
+                        f"Template {tmpl.template_code} references unknown "
+                        f"tape_spec: {spec_ref.tape_spec}"
+                    )
 
     return errors
 
@@ -56,6 +101,14 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
 def generate_all(config: FixtureBuilderConfig, output_dir: str,
                  source_submittal_csv: str = "") -> dict[str, str]:
     """Generate all CSV files and return {filename: filepath} mapping."""
+    if config.product_type in ("tape", "neon"):
+        return generate_all_tape_neon(config, output_dir, source_submittal_csv)
+    return generate_all_fixture(config, output_dir, source_submittal_csv)
+
+
+def generate_all_fixture(config: FixtureBuilderConfig, output_dir: str,
+                         source_submittal_csv: str = "") -> dict[str, str]:
+    """Generate all fixture CSV files and return {filename: filepath} mapping."""
     os.makedirs(output_dir, exist_ok=True)
     results = {}
 
@@ -78,6 +131,30 @@ def generate_all(config: FixtureBuilderConfig, output_dir: str,
         config, output_dir, source_csv_path=source_submittal_csv
     )
     results["ilL-Webflow-Product.csv"] = gen_webflow_product.generate(config, output_dir)
+
+    return results
+
+
+def generate_all_tape_neon(config: FixtureBuilderConfig, output_dir: str,
+                           source_submittal_csv: str = "") -> dict[str, str]:
+    """Generate all tape/neon CSV files and return {filename: filepath} mapping."""
+    os.makedirs(output_dir, exist_ok=True)
+    results = {}
+
+    is_new_family = config.mode == "new-family"
+
+    if is_new_family:
+        # Phase 1: New family CSVs (specs & offerings)
+        results["Item CSV.csv"] = gen_tape_item_csv.generate(config, output_dir)
+        results["ilL-Spec-LED Tape.csv"] = gen_spec_led_tape.generate(config, output_dir)
+        results["ilL-Rel-Tape Offering.csv"] = gen_rel_tape_offering.generate(config, output_dir)
+
+    # Phase 2: Both modes (templates, submittal, webflow)
+    results["ilL-Tape-Neon-Template.csv"] = gen_tape_neon_template.generate(config, output_dir)
+    results["ilL-Neon-Submittal-Mapping.csv"] = gen_neon_submittal_mapping.generate(
+        config, output_dir, source_csv_path=source_submittal_csv
+    )
+    results["ilL-Webflow-Product.csv"] = gen_tape_neon_webflow.generate(config, output_dir)
 
     return results
 
@@ -106,7 +183,13 @@ def main():
         "--mode", "-m",
         choices=["new-family", "new-variant"],
         default=None,
-        help="Generation mode: new-family (all 11 CSVs) or new-variant (6 CSVs)",
+        help="Generation mode: new-family (all CSVs) or new-variant (subset)",
+    )
+    parser.add_argument(
+        "--product-type", "-t",
+        choices=["fixture", "tape", "neon"],
+        default=None,
+        help="Product type: fixture (default), tape, or neon",
     )
     parser.add_argument(
         "--interactive", "-i",
@@ -134,6 +217,10 @@ def main():
     if args.mode:
         config.mode = args.mode
 
+    # Override product type if specified
+    if args.product_type:
+        config.product_type = args.product_type
+
     # Interactive prompts for missing data
     if args.interactive or not args.config:
         prompt_all(config)
@@ -147,7 +234,8 @@ def main():
         sys.exit(1)
 
     # Generate
-    print(f"\nGenerating CSVs for {config.series_name} series ({config.mode} mode)...")
+    ptype = config.product_type
+    print(f"\nGenerating CSVs for {config.series_name} series ({config.mode} mode, {ptype})...")
     print(f"Output directory: {os.path.abspath(args.output)}\n")
 
     results = generate_all(config, args.output, source_submittal_csv=args.source_submittal_csv)

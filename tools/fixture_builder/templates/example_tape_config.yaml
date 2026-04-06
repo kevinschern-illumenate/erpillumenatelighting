@@ -1,0 +1,189 @@
+# Example LED Tape Configuration
+# Usage: python -m tools.fixture_builder --product-type tape --config tools/fixture_builder/templates/example_tape_config.yaml --output ./output/my_tape/
+
+product_type: tape
+mode: new-family
+series_name: Flex
+series_code: FX
+
+supplier: "Linea Lighting Co., Limited"
+brand: ilLumenate Lighting
+warranty_days: 1825
+
+# ── Tape Spec Definitions ─────────────────────────────────────────────
+# Each entry becomes one ilL-Spec-LED Tape row + one Item CSV row.
+tape_specs:
+  - item_code: TAPE-FS-24V-4.4W
+    led_package: FS
+    product_category: LED Tape
+    input_voltage: "24V DC"
+    watts_per_foot: 4.4
+    lumens_per_foot: 400
+    cri_typical: 97
+    led_pitch_mm: 11.1
+    pcb_mounting: Adhesive Backed
+    pcb_finish: White
+    cut_increment_mm: 55.55
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+      - DALI
+
+  - item_code: TAPE-SW-24V-2.2W
+    led_package: SW
+    product_category: LED Tape
+    input_voltage: "24V DC"
+    watts_per_foot: 2.2
+    lumens_per_foot: 200
+    cri_typical: 90
+    led_pitch_mm: 22.2
+    pcb_mounting: Adhesive Backed
+    pcb_finish: White
+    cut_increment_mm: 66.66
+    is_free_cutting: false
+    leader_cable_item: ""
+    dimming_protocols:
+      - TRIAC
+      - 0-10V
+
+# ── Tape Offerings ────────────────────────────────────────────────────
+# CCT × Output Level combinations per tape spec.
+tape_offerings:
+  - tape_spec: TAPE-FS-24V-4.4W
+    cct: "2700K"
+    cri: 97
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+  - tape_spec: TAPE-FS-24V-4.4W
+    cct: "3000K"
+    cri: 97
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+  - tape_spec: TAPE-FS-24V-4.4W
+    cct: "3500K"
+    cri: 97
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+  - tape_spec: TAPE-FS-24V-4.4W
+    cct: "4000K"
+    cri: 97
+    sdcm: 3
+    led_package: FS
+    output_level: Standard
+
+  - tape_spec: TAPE-SW-24V-2.2W
+    cct: "3000K"
+    cri: 90
+    sdcm: 3
+    led_package: SW
+    output_level: Standard
+  - tape_spec: TAPE-SW-24V-2.2W
+    cct: "4000K"
+    cri: 90
+    sdcm: 3
+    led_package: SW
+    output_level: Standard
+
+# ── Tape/Neon Templates ──────────────────────────────────────────────
+tape_neon_templates:
+  - template_code: ILL-FX-FS
+    template_name: "Flex Full Spectrum"
+    product_category: LED Tape
+    series: Flex
+    default_tape_spec: TAPE-FS-24V-4.4W
+    base_price_msrp: 25.00
+    price_per_ft_msrp: 8.50
+    pricing_length_basis: L_tape_cut
+    leader_allowance_mm: 15
+    allowed_tape_specs:
+      - tape_spec: TAPE-FS-24V-4.4W
+        is_default: true
+        environment_rating: Dry
+    allowed_options:
+      - option_type: CCT
+        value: "2700K"
+        is_default: true
+        msrp_adder: 0
+      - option_type: CCT
+        value: "3000K"
+        msrp_adder: 0
+      - option_type: CCT
+        value: "3500K"
+        msrp_adder: 0
+      - option_type: CCT
+        value: "4000K"
+        msrp_adder: 0
+      - option_type: Output Level
+        value: Standard
+        is_default: true
+        msrp_adder: 0
+      - option_type: Environment Rating
+        value: Dry
+        is_default: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Single Feed
+        is_default: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Dual Feed
+        msrp_adder: 5.00
+
+  - template_code: ILL-FX-SW
+    template_name: "Flex Static White"
+    product_category: LED Tape
+    series: Flex
+    default_tape_spec: TAPE-SW-24V-2.2W
+    base_price_msrp: 20.00
+    price_per_ft_msrp: 6.00
+    pricing_length_basis: L_tape_cut
+    leader_allowance_mm: 15
+    allowed_tape_specs:
+      - tape_spec: TAPE-SW-24V-2.2W
+        is_default: true
+        environment_rating: Dry
+    allowed_options:
+      - option_type: CCT
+        value: "3000K"
+        is_default: true
+        msrp_adder: 0
+      - option_type: CCT
+        value: "4000K"
+        msrp_adder: 0
+      - option_type: Output Level
+        value: Standard
+        is_default: true
+        msrp_adder: 0
+      - option_type: Environment Rating
+        value: Dry
+        is_default: true
+        msrp_adder: 0
+      - option_type: Feed Direction
+        value: Single Feed
+        is_default: true
+        msrp_adder: 0
+
+# ── Neon Submittal Mapping ───────────────────────────────────────────
+neon_submittal_mapping:
+  clone_from_template: ""   # blank = use defaults
+
+# ── Webflow ──────────────────────────────────────────────────────────
+tape_neon_webflow:
+  product_category: led-tape
+  sublabel: ""
+  beam_angle: 110.0
+  operating_temp_min_c: -40
+  operating_temp_max_c: 60
+  l70_life_hours: 50000
+  warranty_years: 5
+  configurator_steps:
+    - Environment Rating
+    - CCT
+    - Output Level
+    - Length
+    - Feed Direction

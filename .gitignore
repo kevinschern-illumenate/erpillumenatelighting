@@ -7,3 +7,24 @@ node_modules
 __pycache__
 frappe-semgrep-rules/
 
+output/neon_test/ilL-Neon-Submittal-Mapping.csv
+output/neon_test/ilL-Rel-Tape Offering.csv
+output/neon_test/ilL-Spec-LED Tape.csv
+output/neon_test/ilL-Tape-Neon-Template.csv
+output/neon_test/ilL-Webflow-Product.csv
+output/neon_test/Item CSV.csv
+output/neon_variant_test/ilL-Neon-Submittal-Mapping.csv
+output/neon_variant_test/ilL-Tape-Neon-Template.csv
+output/neon_variant_test/ilL-Webflow-Product.csv
+output/pinnacle/ilL-Neon-Submittal-Mapping.csv
+output/pinnacle/ilL-Rel-Tape Offering.csv
+output/pinnacle/ilL-Spec-LED Tape.csv
+output/pinnacle/ilL-Tape-Neon-Template.csv
+output/pinnacle/ilL-Webflow-Product.csv
+output/pinnacle/Item CSV.csv
+output/tape_test/ilL-Neon-Submittal-Mapping.csv
+output/tape_test/ilL-Rel-Tape Offering.csv
+output/tape_test/ilL-Spec-LED Tape.csv
+output/tape_test/ilL-Tape-Neon-Template.csv
+output/tape_test/ilL-Webflow-Product.csv
+output/tape_test/Item CSV.csv

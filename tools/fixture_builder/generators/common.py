@@ -58,6 +58,40 @@ CONFIGURATOR_STEP_TYPES = {
     "Mounting Method": "Mounting",
     "Finish": "Finish",
     "Length": "Length",
+    "Feed Direction": "Feed Direction",
+    "Power Feed Type": "Power Feed",
+    "IP Rating": "IP Rating",
+    "PCB Mounting": "PCB Mounting",
+    "PCB Finish": "PCB Finish",
+    "Endcap Style": "Endcap Style",
+}
+
+# ── Tape / Neon constants ──────────────────────────────────────────────
+TAPE_NEON_OPTION_TYPES = {
+    "CCT": "cct",
+    "Output Level": "output_level",
+    "Environment Rating": "environment_rating",
+    "IP Rating": "ip_rating",
+    "Feed Direction": "feed_direction",
+    "Power Feed Type": "power_feed_type",
+    "PCB Mounting": "pcb_mounting",
+    "PCB Finish": "pcb_finish",
+    "Mounting Method": "mounting_method",
+    "Finish": "finish",
+    "Endcap Style": "endcap_style",
+}
+
+TAPE_NEON_CONFIGURATOR_STEPS = [
+    "Environment Rating",
+    "CCT",
+    "Output Level",
+    "Length",
+    "Feed Direction",
+]
+
+TAPE_ITEM_GROUPS = {
+    "LED Tape": "LED Tape",
+    "LED Neon": "LED Neon",
 }
 
 
