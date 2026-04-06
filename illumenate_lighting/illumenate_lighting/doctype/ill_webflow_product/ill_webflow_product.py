@@ -61,7 +61,7 @@ class ilLWebflowProduct(Document):
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data
-		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]
+		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "LED Neon", "Component", "Accessory"]
 		profile_spec: DF.Link | None
 		series_family_image: DF.AttachImage | None
 		short_description: DF.SmallText | None
@@ -69,6 +69,7 @@ class ilLWebflowProduct(Document):
 		specifications: DF.Table[ilLChildWebflowSpecification]
 		sync_error_message: DF.SmallText | None
 		sync_status: DF.Literal["Pending", "Synced", "Error", "Never Synced"]
+		tape_neon_template: DF.Link | None
 		tape_spec: DF.Link | None
 		warranty_years: DF.Int
 		webflow_collection_slug: DF.Data | None
@@ -87,6 +88,9 @@ class ilLWebflowProduct(Document):
 		
 		if self.is_configurable and self.fixture_template:
 			self.populate_configurator_options()
+
+		if self.is_configurable and self.tape_neon_template:
+			self.populate_tape_neon_configurator_options()
 		
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
@@ -97,15 +101,24 @@ class ilLWebflowProduct(Document):
 					self.sync_status = "Pending"
 
 	def on_update(self):
-		"""Update webflow_product backlink on linked fixture template after save."""
+		"""Update webflow_product backlink on linked templates after save."""
 		self._update_fixture_template_backlink()
+		self._update_tape_neon_template_backlink()
 
 	def on_trash(self):
-		"""Clear webflow_product backlink on linked fixture template before deletion."""
+		"""Clear webflow_product backlink on linked templates before deletion."""
 		if self.fixture_template:
 			frappe.db.set_value(
 				"ilL-Fixture-Template",
 				self.fixture_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+		if self.tape_neon_template:
+			frappe.db.set_value(
+				"ilL-Tape-Neon-Template",
+				self.tape_neon_template,
 				"webflow_product",
 				None,
 				update_modified=False,
@@ -140,6 +153,35 @@ class ilLWebflowProduct(Document):
 				update_modified=False,
 			)
 
+	def _update_tape_neon_template_backlink(self):
+		"""Set the webflow_product backlink on the linked tape/neon template.
+
+		Also clears the backlink on the previously linked tape/neon template
+		if the tape_neon_template field was changed.
+		"""
+		old_doc = self.get_doc_before_save()
+		old_tnt = old_doc.tape_neon_template if old_doc else None
+
+		# Clear backlink on old tape/neon template if it changed
+		if old_tnt and old_tnt != self.tape_neon_template:
+			frappe.db.set_value(
+				"ilL-Tape-Neon-Template",
+				old_tnt,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+
+		# Set backlink on new tape/neon template
+		if self.tape_neon_template:
+			frappe.db.set_value(
+				"ilL-Tape-Neon-Template",
+				self.tape_neon_template,
+				"webflow_product",
+				self.name,
+				update_modified=False,
+			)
+
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked source spec for each product type."""
 		attribute_links = []
@@ -150,7 +192,10 @@ class ilLWebflowProduct(Document):
 		# Handle Extrusion Kit
 		elif self.product_type == "Extrusion Kit":
 			self._populate_extrusion_kit_attributes(attribute_links)
-		# Handle LED Tape
+		# Handle LED Tape / LED Neon via tape_neon_template
+		elif self.product_type in ("LED Tape", "LED Neon") and self.tape_neon_template:
+			self._populate_tape_neon_template_attributes(attribute_links)
+		# Handle legacy LED Tape via tape_spec (deprecated fallback)
 		elif self.product_type == "LED Tape" and self.tape_spec:
 			self._populate_led_tape_attributes(attribute_links)
 		# Handle Driver
@@ -566,6 +611,200 @@ class ilLWebflowProduct(Document):
 						title="Extrusion Kit Attribute Population Error"
 					)
 					continue
+
+	def _populate_tape_neon_template_attributes(self, attribute_links):
+		"""Extract attributes from tape/neon template's allowed_options and allowed_tape_specs.
+
+		Mirrors _populate_fixture_template_attributes() but for ilL-Tape-Neon-Template.
+		Extracts from allowed_options (CCT, Output Level, Environment Rating, IP Rating,
+		Feed Direction, Power Feed Type, PCB Mounting, PCB Finish, Mounting Method, Finish,
+		Endcap Style) and from allowed_tape_specs → ilL-Spec-LED Tape (LED Package,
+		Input Voltage, CRI, Dimming Protocols).
+		"""
+		if not self.tape_neon_template:
+			return
+
+		try:
+			template = frappe.get_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"Tape/Neon template {self.tape_neon_template} not found for product {self.name}",
+				title="Tape Neon Template Not Found",
+			)
+			return
+
+		display_order = 0
+
+		# Map option types to (child-table field, attribute doctype)
+		option_mapping = {
+			"CCT": ("cct", "ilL-Attribute-CCT"),
+			"Output Level": ("output_level", "ilL-Attribute-Output Level"),
+			"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
+			"IP Rating": ("ip_rating", "ilL-Attribute-IP Rating"),
+			"Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
+			"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
+			"PCB Mounting": ("pcb_mounting", "ilL-Attribute-PCB Mounting"),
+			"PCB Finish": ("pcb_finish", "ilL-Attribute-PCB Finish"),
+			"Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method"),
+			"Finish": ("finish", "ilL-Attribute-Finish"),
+			"Endcap Style": ("endcap_style", "ilL-Attribute-Endcap Style"),
+		}
+
+		# Extract attributes from allowed_options
+		for opt in template.allowed_options or []:
+			if hasattr(opt, "is_active") and not opt.is_active:
+				continue
+
+			option_type = getattr(opt, "option_type", None)
+			if not option_type or option_type not in option_mapping:
+				continue
+
+			field_name, doctype = option_mapping[option_type]
+			attr_value = getattr(opt, field_name, None)
+			if not attr_value:
+				continue
+
+			# Skip duplicates
+			if any(
+				a["attribute_doctype"] == doctype and a["attribute_name"] == attr_value
+				for a in attribute_links
+			):
+				continue
+
+			display_order += 1
+			# Get display label from the attribute record
+			display_label = attr_value
+			if option_type == "CCT":
+				cct_data = frappe.db.get_value("ilL-Attribute-CCT", attr_value, ["label"], as_dict=True)
+				if cct_data and cct_data.get("label"):
+					display_label = cct_data["label"]
+			elif option_type == "Output Level":
+				level_data = frappe.db.get_value("ilL-Attribute-Output Level", attr_value, ["value"], as_dict=True)
+				if level_data and level_data.get("value"):
+					display_label = f"{level_data['value']} lm/ft"
+
+			webflow_id = self._get_attribute_webflow_id(doctype, attr_value)
+			attribute_links.append({
+				"attribute_type": option_type,
+				"attribute_doctype": doctype,
+				"attribute_name": attr_value,
+				"display_label": display_label,
+				"webflow_item_id": webflow_id,
+				"display_order": display_order,
+			})
+
+		# Extract attributes from allowed_tape_specs → ilL-Spec-LED Tape
+		for spec_row in template.allowed_tape_specs or []:
+			tape_spec_name = getattr(spec_row, "tape_spec", None)
+			if not tape_spec_name:
+				continue
+
+			try:
+				tape = frappe.get_doc("ilL-Spec-LED Tape", tape_spec_name)
+			except frappe.DoesNotExistError:
+				continue
+
+			# LED Package
+			if tape.led_package:
+				if not any(
+					a["attribute_doctype"] == "ilL-Attribute-LED Package"
+					and a["attribute_name"] == tape.led_package
+					for a in attribute_links
+				):
+					display_order += 1
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-LED Package", tape.led_package)
+					attribute_links.append({
+						"attribute_type": "LED Package",
+						"attribute_doctype": "ilL-Attribute-LED Package",
+						"attribute_name": tape.led_package,
+						"display_label": tape.led_package,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order,
+					})
+
+			# Input Voltage (mapped as Output Voltage attribute)
+			if tape.input_voltage:
+				if not any(
+					a["attribute_doctype"] == "ilL-Attribute-Output Voltage"
+					and a["attribute_name"] == tape.input_voltage
+					for a in attribute_links
+				):
+					display_order += 1
+					voltage_label = frappe.db.get_value(
+						"ilL-Attribute-Output Voltage", tape.input_voltage, "voltage"
+					)
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Voltage", tape.input_voltage)
+					attribute_links.append({
+						"attribute_type": "Output Voltage",
+						"attribute_doctype": "ilL-Attribute-Output Voltage",
+						"attribute_name": tape.input_voltage,
+						"display_label": f"{voltage_label} VDC" if voltage_label else tape.input_voltage,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order,
+					})
+
+			# CRI
+			if getattr(tape, "cri", None):
+				if not any(
+					a["attribute_doctype"] == "ilL-Attribute-CRI"
+					and a["attribute_name"] == tape.cri
+					for a in attribute_links
+				):
+					display_order += 1
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-CRI", tape.cri)
+					attribute_links.append({
+						"attribute_type": "CRI",
+						"attribute_doctype": "ilL-Attribute-CRI",
+						"attribute_name": tape.cri,
+						"display_label": tape.cri,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order,
+					})
+
+			# Dimming protocols
+			if getattr(tape, "input_protocol", None):
+				if not any(
+					a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+					and a["attribute_name"] == tape.input_protocol
+					for a in attribute_links
+				):
+					display_order += 1
+					proto_data = frappe.db.get_value(
+						"ilL-Attribute-Dimming Protocol", tape.input_protocol, ["label"], as_dict=True
+					)
+					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", tape.input_protocol)
+					attribute_links.append({
+						"attribute_type": "Dimming Protocol",
+						"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+						"attribute_name": tape.input_protocol,
+						"display_label": proto_data.get("label") if proto_data else tape.input_protocol,
+						"webflow_item_id": webflow_id,
+						"display_order": display_order,
+					})
+
+			for row in getattr(tape, "supported_dimming_protocols", []):
+				protocol_name = getattr(row, "protocol", None)
+				if not protocol_name:
+					continue
+				if any(
+					a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+					and a["attribute_name"] == protocol_name
+					for a in attribute_links
+				):
+					continue
+				display_order += 1
+				proto_data = frappe.db.get_value(
+					"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+				)
+				webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Dimming Protocol", protocol_name)
+				attribute_links.append({
+					"attribute_type": "Dimming Protocol",
+					"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+					"attribute_name": protocol_name,
+					"display_label": proto_data.get("label") if proto_data else protocol_name,
+					"webflow_item_id": webflow_id,
+					"display_order": display_order,
+				})
 
 	def _populate_led_tape_attributes(self, attribute_links):
 		"""Extract attributes from LED tape spec.
@@ -1536,6 +1775,141 @@ class ilLWebflowProduct(Document):
 				"depends_on_step": 4,
 				"allowed_values_json": frappe.as_json(fixture_output_levels)
 			})
+
+	def populate_tape_neon_configurator_options(self):
+		"""Populate configurator options from tape/neon template's allowed options.
+
+		LED Tape flow: Environment → CCT → Output → PCB Mounting → PCB Finish
+		    → Power Feed Type → Length.
+		LED Neon flow: CCT → Output → Mounting → Finish → IP Rating
+		    → Feed Direction → Length.
+		"""
+		template = frappe.get_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
+
+		if self.product_type == "LED Tape":
+			option_flow = [
+				(1, "Environment Rating", "Environment", 0),
+				(2, "CCT", "CCT", 1),
+				(3, "Output Level", "Output", 2),
+				(4, "PCB Mounting", "PCB Mounting", 0),
+				(5, "PCB Finish", "PCB Finish", 0),
+				(6, "Power Feed Type", "Power Feed Type", 0),
+				(7, "Length", "Length", 0),
+			]
+		else:
+			# LED Neon
+			option_flow = [
+				(1, "CCT", "CCT", 0),
+				(2, "Output Level", "Output", 1),
+				(3, "Mounting Method", "Mounting", 0),
+				(4, "Finish", "Finish", 0),
+				(5, "IP Rating", "IP Rating", 0),
+				(6, "Feed Direction", "Feed Direction", 0),
+				(7, "Length", "Length", 0),
+			]
+
+		# Clear existing and rebuild
+		self.configurator_options = []
+
+		for step, option_type, label, depends_on in option_flow:
+			allowed_values = self._get_tape_neon_allowed_values(template, option_type)
+			if allowed_values:
+				self.append("configurator_options", {
+					"option_step": step,
+					"option_type": option_type,
+					"option_label": label,
+					"is_required": 1,
+					"depends_on_step": depends_on,
+					"allowed_values_json": frappe.as_json(allowed_values),
+				})
+
+	def _get_tape_neon_allowed_values(self, template, option_type: str) -> list:
+		"""Extract allowed values from tape/neon template's allowed_options child table.
+
+		Filters by is_active, maps to [{value, label, code, is_default}] format.
+		For the Length step, returns length metadata instead.
+		"""
+		if option_type == "Length":
+			return self._get_tape_neon_length_metadata(template)
+
+		# Map option types to (child-table field, attribute doctype)
+		option_field_map = {
+			"CCT": ("cct", "ilL-Attribute-CCT"),
+			"Output Level": ("output_level", "ilL-Attribute-Output Level"),
+			"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
+			"IP Rating": ("ip_rating", "ilL-Attribute-IP Rating"),
+			"Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
+			"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
+			"PCB Mounting": ("pcb_mounting", "ilL-Attribute-PCB Mounting"),
+			"PCB Finish": ("pcb_finish", "ilL-Attribute-PCB Finish"),
+			"Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method"),
+			"Finish": ("finish", "ilL-Attribute-Finish"),
+			"Endcap Style": ("endcap_style", "ilL-Attribute-Endcap Style"),
+		}
+
+		if option_type not in option_field_map:
+			return []
+
+		field, doctype = option_field_map[option_type]
+		values = []
+		seen = set()
+
+		for opt in template.allowed_options or []:
+			if getattr(opt, "option_type", None) != option_type:
+				continue
+			if hasattr(opt, "is_active") and not opt.is_active:
+				continue
+
+			val = getattr(opt, field, None)
+			if not val or val in seen:
+				continue
+			seen.add(val)
+
+			is_default = getattr(opt, "is_default", False) if hasattr(opt, "is_default") else False
+			code = frappe.db.get_value(doctype, val, "code") or ""
+
+			# Build label
+			label = val
+			if option_type == "CCT":
+				cct_data = frappe.db.get_value("ilL-Attribute-CCT", val, ["label", "kelvin"], as_dict=True)
+				if cct_data:
+					label = cct_data.get("label") or val
+			elif option_type == "Output Level":
+				level_data = frappe.db.get_value("ilL-Attribute-Output Level", val, ["value"], as_dict=True)
+				if level_data and level_data.get("value"):
+					label = f"{level_data['value']} lm/ft"
+
+			values.append({
+				"value": val,
+				"label": label,
+				"code": code,
+				"is_default": is_default,
+			})
+
+		return values
+
+	def _get_tape_neon_length_metadata(self, template) -> list:
+		"""Get length constraints for tape/neon configurator Length step."""
+		min_mm = getattr(template, "min_length_mm", None)
+		max_mm = getattr(template, "max_length_mm", None)
+		default_mm = getattr(template, "default_length_mm", None)
+		increment_mm = getattr(template, "cut_increment_mm", None)
+
+		# Convert to inches with sensible defaults
+		min_inches = round(min_mm / 25.4, 1) if min_mm else 12
+		max_inches = round(max_mm / 25.4, 1) if max_mm else 120
+		default_inches = round(default_mm / 25.4, 1) if default_mm else 48
+		increment_inches = round(increment_mm / 25.4, 2) if increment_mm else 0.5
+
+		return [{
+			"value": "__length_metadata__",
+			"label": "Length",
+			"code": "",
+			"min_inches": min_inches,
+			"max_inches": max_inches,
+			"default_inches": default_inches,
+			"increment_inches": increment_inches,
+		}]
 
 	def _get_allowed_values_for_option(self, template, option_type: str, step: int = 0) -> list:
 		"""Get allowed values for a given option type.
