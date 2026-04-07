@@ -871,7 +871,10 @@ def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
 
     # Length: convert inches for the segment
     length_inches = selections.get("length_inches")
-    fixture_length_value = float(length_inches) if length_inches else 0
+    try:
+        fixture_length_value = float(length_inches) if length_inches else 0
+    except (ValueError, TypeError):
+        fixture_length_value = 0
 
     # IP rating — resolve or default to IP67
     ip_rating = _resolve_neon_attribute(
