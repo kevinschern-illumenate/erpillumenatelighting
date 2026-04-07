@@ -444,6 +444,26 @@ def download_spec_sheet(
     except (json.JSONDecodeError, TypeError):
         return {"success": False, "error": "Invalid selections JSON"}
 
+    # Determine product type to route to the correct generation pipeline
+    product = _get_configurable_product(product_slug)
+    product_type = getattr(product, "product_type", None) if product else None
+    tape_neon_template = getattr(product, "tape_neon_template", None) if product else None
+
+    if product_type in ("LED Tape", "LED Neon") or (
+        tape_neon_template and not getattr(product, "fixture_template", None)
+    ):
+        from illumenate_lighting.illumenate_lighting.api.spec_sheet_generator import (
+            generate_from_webflow_selections_neon,
+        )
+
+        return generate_from_webflow_selections_neon(
+            product_slug=product_slug,
+            selections=selections_dict,
+            project_name=project_name,
+            project_location=project_location,
+            fixture_type=fixture_type,
+        )
+
     from illumenate_lighting.illumenate_lighting.api.spec_sheet_generator import (
         generate_from_webflow_selections,
     )
@@ -1586,6 +1606,8 @@ def _get_configurable_product(product_slug: str):
     
     This allows the configurator to work with:
     1. Webflow products (product_slug matches ilL-Webflow-Product.product_slug)
+       - Fixture template products (has fixture_template)
+       - Tape/neon products (has tape_neon_template)
     2. Direct template codes (product_slug matches ilL-Fixture-Template.name)
     """
     # First, try to find a Webflow product
@@ -1594,8 +1616,9 @@ def _get_configurable_product(product_slug: str):
         
         is_configurable = getattr(product, 'is_configurable', False)
         fixture_template = getattr(product, 'fixture_template', None)
+        tape_neon_template = getattr(product, 'tape_neon_template', None)
         
-        if is_configurable and fixture_template:
+        if is_configurable and (fixture_template or tape_neon_template):
             return product
     
     # Fallback: treat product_slug as a fixture template code

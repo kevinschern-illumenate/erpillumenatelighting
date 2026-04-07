@@ -1866,7 +1866,9 @@ class ilLWebflowProduct(Document):
 			seen.add(val)
 
 			is_default = getattr(opt, "is_default", False) if hasattr(opt, "is_default") else False
-			code = frappe.db.get_value(doctype, val, "code") or ""
+			code = ""
+			if frappe.db.has_column(doctype, "code"):
+				code = frappe.db.get_value(doctype, val, "code") or ""
 
 			# Build label
 			label = val
