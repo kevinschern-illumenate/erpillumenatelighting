@@ -29,10 +29,26 @@
     'Mounting':             'mounting_method',
     'Finish':               'finish',
     'Start Feed Direction': 'start_feed_direction',
-    'End Feed Direction':   'end_feed_direction'
+    'End Feed Direction':   'end_feed_direction',
+    'Start Feed Length':    'start_feed_length_ft',
+    'End Feed Length':      'end_feed_length_ft'
   };
 
   // ─── Helpers ────────────────────────────────────────────────────
+
+  /**
+   * Detect the product type from the page.
+   * Checks data attribute first, then infers from available radio groups.
+   */
+  function getProductType() {
+    var el = document.querySelector('[data-ill-product-type]');
+    if (el) return el.getAttribute('data-ill-product-type');
+    // Infer from available radio groups — if no Lens/Mounting, it's neon
+    var hasLens = document.querySelector('input[name="Lens"]');
+    var hasMounting = document.querySelector('input[name="Mounting"]');
+    if (!hasLens && !hasMounting) return 'LED Neon';
+    return 'Fixture Template';
+  }
 
   function getProductSlug() {
     var el = document.querySelector('[data-ill-product-slug]');
@@ -101,13 +117,20 @@
 
   /**
    * Check minimum selections for a useful spec sheet.
+   * Required fields depend on the product type.
    */
   function hasMinimumSelections(selections) {
     if (!selections) return false;
-    var required = [
-      'environment_rating', 'cct', 'lens_appearance',
-      'finish', 'mounting_method', 'length_inches'
-    ];
+    var productType = getProductType();
+    var required;
+    if (productType === 'LED Neon' || productType === 'LED Tape') {
+      required = ['cct', 'output_level', 'finish', 'length_inches'];
+    } else {
+      required = [
+        'environment_rating', 'cct', 'lens_appearance',
+        'finish', 'mounting_method', 'length_inches'
+      ];
+    }
     var missing = [];
     required.forEach(function (key) {
       if (!selections[key]) missing.push(key);
@@ -132,10 +155,16 @@
       var selections = getSelections();
 
       if (!hasMinimumSelections(selections)) {
-        alert(
-          'Please complete your fixture configuration before downloading a spec sheet.\n\n' +
-          'Required: Environment, CCT, Lens, Mounting, Finish, and Length.'
-        );
+        var productType = getProductType();
+        var msg;
+        if (productType === 'LED Neon' || productType === 'LED Tape') {
+          msg = 'Please complete your configuration before downloading a spec sheet.\n\n' +
+            'Required: CCT, Output, Finish, and Length.';
+        } else {
+          msg = 'Please complete your fixture configuration before downloading a spec sheet.\n\n' +
+            'Required: Environment, CCT, Lens, Mounting, Finish, and Length.';
+        }
+        alert(msg);
         return;
       }
 

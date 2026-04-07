@@ -637,3 +637,388 @@ def _ensure_public_file(file_url: str) -> str:
             )
 
     return file_url
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# LED Neon / LED Tape — Webflow spec sheet generation
+# ──────────────────────────────────────────────────────────────────────────
+
+def generate_from_webflow_selections_neon(
+    product_slug: str,
+    selections: dict,
+    project_name: str = "",
+    project_location: str = "",
+    fixture_type: str = "",
+) -> dict:
+    """
+    Generate a spec sheet PDF from Webflow configurator selections for
+    LED Neon / LED Tape products.
+
+    Pipeline:
+    1. Resolve ilL-Webflow-Product → ilL-Tape-Neon-Template
+    2. Map Webflow radio selections to tape/neon configurator params
+    3. Call validate_neon_configuration() → creates ilL-Configured-Tape-Neon record
+    4. Call generate_filled_neon_submittal() for PDF generation
+    5. Make file public and return URL
+
+    Args:
+        product_slug: Webflow product slug
+        selections: Dict of configurator selections (cct, output_level, finish,
+                    length_inches, environment_rating, start_feed_direction, etc.)
+        project_name: Optional project name for the spec sheet header
+        project_location: Optional project location for the spec sheet header
+        fixture_type: Optional fixture type for the spec sheet header
+
+    Returns:
+        dict: {success, file_url, filename, part_number} or {success, error}
+    """
+    from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
+        _get_configurable_product,
+    )
+
+    # ── Step 1: Resolve product and tape/neon template ────────────────
+    product = _get_configurable_product(product_slug)
+    if not product:
+        return {"success": False, "error": "Product not found or not configurable"}
+
+    tape_neon_template_name = getattr(product, "tape_neon_template", None)
+    if not tape_neon_template_name:
+        return {
+            "success": False,
+            "error": "Product has no tape/neon template linked",
+        }
+
+    template = frappe.get_doc("ilL-Tape-Neon-Template", tape_neon_template_name)
+
+    # ── Step 2: Map Webflow selections to neon configurator params ────
+    neon_selections, neon_segments = _map_neon_selections(template, selections)
+
+    # ── Step 3: Run validate_neon_configuration ───────────────────────
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+        validate_neon_configuration,
+    )
+
+    validation_result = validate_neon_configuration(
+        selections=json.dumps(neon_selections),
+        segments_json=json.dumps(neon_segments),
+    )
+
+    if not validation_result.get("is_valid"):
+        error_msg = validation_result.get("error", "Configuration is invalid")
+        error_msgs = [
+            m["text"]
+            for m in validation_result.get("messages", [])
+            if m.get("severity") == "error"
+        ]
+        if error_msgs:
+            error_msg = "; ".join(error_msgs)
+        return {"success": False, "error": error_msg}
+
+    configured_tape_neon_id = validation_result.get("configured_tape_neon")
+    if not configured_tape_neon_id:
+        return {
+            "success": False,
+            "error": "Could not create configured tape/neon record for this configuration",
+        }
+
+    # ── Step 4: Check for submittal template and field mappings ───────
+    has_submittal_template = bool(
+        getattr(template, "spec_submittal_template", None)
+    )
+    has_field_mappings = bool(
+        frappe.db.count(
+            "ilL-Neon-Submittal-Mapping",
+            filters={"tape_neon_template": template.name},
+        )
+    )
+
+    if not has_submittal_template and not has_field_mappings:
+        # No submittal infrastructure — return static spec sheet if available
+        spec_sheet_url = getattr(template, "spec_sheet", None)
+        if spec_sheet_url:
+            part_number = validation_result.get("part_number", "")
+            return {
+                "success": True,
+                "file_url": spec_sheet_url,
+                "filename": f"Spec_Sheet_{part_number}.pdf",
+                "part_number": part_number,
+                "note": "Static spec sheet returned (no fillable template configured)",
+            }
+        return {
+            "success": False,
+            "error": "No spec submittal template or spec sheet configured for this product",
+        }
+
+    # ── Step 5: Generate the filled neon submittal PDF ────────────────
+    from illumenate_lighting.illumenate_lighting.api.spec_submittal import (
+        generate_filled_neon_submittal,
+    )
+
+    # Build webflow overrides
+    webflow_overrides = {}
+    if project_name:
+        webflow_overrides["project_name"] = project_name
+    if fixture_type:
+        webflow_overrides["fixture_type"] = fixture_type
+    if project_location:
+        webflow_overrides["project_location"] = project_location
+
+    # Forward feed-length and direction selections for PDF mapping
+    for key in (
+        "start_feed_length_ft", "end_feed_length_ft",
+        "start_feed_direction", "end_feed_direction",
+    ):
+        val = selections.get(key)
+        if val is not None and str(val) != "":
+            webflow_overrides[key] = str(val)
+
+    submittal_result = generate_filled_neon_submittal(
+        configured_tape_neon_name=configured_tape_neon_id,
+        webflow_overrides=webflow_overrides,
+    )
+
+    if not submittal_result.get("success") or not submittal_result.get("file_url"):
+        error_detail = submittal_result.get("message") or "Unknown error"
+        frappe.log_error(
+            title="Neon Spec Submittal Generation Failed",
+            message=(
+                f"generate_filled_neon_submittal returned failure for "
+                f"configured_tape_neon={configured_tape_neon_id}: {error_detail}"
+            ),
+        )
+        return {
+            "success": False,
+            "error": f"Could not generate filled spec submittal: {error_detail}",
+        }
+
+    # ── Step 6: Make the file publicly accessible ─────────────────────
+    file_url = submittal_result["file_url"]
+    file_url = _ensure_public_file(file_url)
+
+    part_number = validation_result.get("part_number", "")
+
+    return {
+        "success": True,
+        "file_url": file_url,
+        "filename": f"Spec_Sheet_{part_number}.pdf",
+        "part_number": part_number,
+    }
+
+
+def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
+    """
+    Map Webflow configurator radio selections to the format expected by
+    validate_neon_configuration().
+
+    The Webflow page sends values like "2700K", "150 lm/ft", "White" which
+    need to be resolved to ERPNext document names for the tape/neon
+    configurator.
+
+    Args:
+        template: ilL-Tape-Neon-Template document
+        selections: Raw Webflow selections dict
+
+    Returns:
+        Tuple of (neon_selections dict, segments list) ready for
+        validate_neon_configuration()
+    """
+
+    # ── Resolve top-level selections ──────────────────────────────────
+    cct = _resolve_neon_attribute(
+        selections, "cct", "cct_code",
+        "ilL-Attribute-CCT", "code",
+        template, "CCT", "cct",
+    )
+    output_level = _resolve_neon_attribute(
+        selections, "output_level", "output_level_code",
+        "ilL-Attribute-Output Level", "sku_code",
+        template, "Output Level", "output_level",
+    )
+    finish = _resolve_neon_attribute(
+        selections, "finish", "finish_code",
+        "ilL-Attribute-Finish", "code",
+        template, "Finish", "finish",
+    )
+
+    # Mounting method — neon uses "mounting" key in validate_neon_configuration
+    mounting = _resolve_neon_attribute(
+        selections, "mounting_method", "mounting_method_code",
+        "ilL-Attribute-Mounting Method", "code",
+        template, "Mounting Method", "mounting_method",
+    )
+    # If not found via mounting_method, try PCB Mounting (neon-specific)
+    if not mounting:
+        mounting = _resolve_neon_attribute(
+            selections, "mounting_method", "mounting_method_code",
+            "ilL-Attribute-PCB Mounting", "code",
+            template, "PCB Mounting", "pcb_mounting",
+        )
+    # Default to first available mounting from template
+    if not mounting:
+        mounting = _get_default_option(template, "Mounting Method", "mounting_method")
+    if not mounting:
+        mounting = _get_default_option(template, "PCB Mounting", "pcb_mounting")
+
+    neon_selections = {
+        "cct": cct,
+        "output_level": output_level,
+        "mounting": mounting,
+        "finish": finish,
+    }
+
+    # ── Build single segment from Webflow selections ──────────────────
+    # Webflow configurator currently supports single-segment neon.
+
+    # Length: convert inches for the segment
+    length_inches = selections.get("length_inches")
+    fixture_length_value = float(length_inches) if length_inches else 0
+
+    # IP rating — resolve or default to IP67
+    ip_rating = _resolve_neon_attribute(
+        selections, "environment_rating", "environment_rating_code",
+        "ilL-Attribute-IP Rating", "code",
+        template, "IP Rating", "ip_rating",
+    )
+    if not ip_rating:
+        # Try Environment Rating doctype
+        ip_rating = _resolve_neon_attribute(
+            selections, "environment_rating", "environment_rating_code",
+            "ilL-Attribute-Environment Rating", "code",
+            template, "Environment Rating", "environment_rating",
+        )
+    if not ip_rating:
+        # Default to first available or IP67
+        ip_rating = _get_default_option(template, "IP Rating", "ip_rating")
+    if not ip_rating:
+        ip_rating = "IP67"
+
+    # Feed directions
+    start_feed_direction = selections.get("start_feed_direction", "")
+    if start_feed_direction:
+        resolved = _resolve_neon_attribute(
+            selections, "start_feed_direction", "start_feed_direction_code",
+            "ilL-Attribute-Feed-Direction", "code",
+            template, "Feed Direction", "feed_direction",
+        )
+        if resolved:
+            start_feed_direction = resolved
+
+    if not start_feed_direction:
+        start_feed_direction = _get_default_option(
+            template, "Feed Direction", "feed_direction"
+        ) or "End"
+
+    end_feed_direction = selections.get("end_feed_direction", "")
+    if end_feed_direction:
+        resolved = _resolve_neon_attribute(
+            selections, "end_feed_direction", "end_feed_direction_code",
+            "ilL-Attribute-Feed-Direction", "code",
+            template, "Feed Direction", "feed_direction",
+        )
+        if resolved:
+            end_feed_direction = resolved
+
+    # Feed lengths — Webflow sends in feet, neon configurator expects inches
+    start_lead_length_inches = 0
+    start_ft = selections.get("start_feed_length_ft")
+    if start_ft:
+        try:
+            start_lead_length_inches = float(start_ft) * 12
+        except (ValueError, TypeError):
+            pass
+
+    end_feed_length_inches = 0
+    end_ft = selections.get("end_feed_length_ft")
+    if end_ft:
+        try:
+            end_feed_length_inches = float(end_ft) * 12
+        except (ValueError, TypeError):
+            pass
+
+    segment = {
+        "ip_rating": ip_rating,
+        "start_feed_direction": start_feed_direction,
+        "start_lead_length_inches": start_lead_length_inches,
+        "fixture_length_value": fixture_length_value,
+        "fixture_length_unit": "in",
+        "end_type": "Exit Cable" if end_feed_direction else "Endcap",
+        "end_feed_direction": end_feed_direction or "",
+        "end_feed_length_inches": end_feed_length_inches,
+    }
+
+    return neon_selections, [segment]
+
+
+def _resolve_neon_attribute(
+    selections: dict,
+    value_key: str,
+    code_key: str,
+    doctype: str,
+    code_field: str,
+    template,
+    option_type: str,
+    child_field: str,
+) -> str:
+    """
+    Resolve a Webflow selection to an ERPNext attribute document name.
+
+    Works like _resolve_attribute() but for tape/neon-specific doctypes.
+    Uses the template's allowed_options child table for fallback matching.
+
+    Tries in order:
+    1. The raw value — if it exists as a document name
+    2. The _code value — looked up by the code field
+    3. Raw value as a code lookup
+    4. Scan the template's allowed_options for a match by code or name
+
+    Returns the ERPNext document name, or empty string if not resolvable.
+    """
+    raw_value = selections.get(value_key, "")
+    code_value = selections.get(code_key, "")
+
+    if not raw_value and not code_value:
+        return ""
+
+    # Check if doctype exists
+    if not frappe.db.exists("DocType", doctype):
+        return raw_value
+
+    # Try 1: raw value is already a valid document name
+    if raw_value and frappe.db.exists(doctype, raw_value):
+        return raw_value
+
+    # Try 2: look up by code
+    has_code_field = frappe.db.has_column(doctype, code_field)
+    if has_code_field and code_value:
+        match = frappe.db.get_value(doctype, {code_field: code_value}, "name")
+        if match:
+            return match
+
+    # Try 3: raw value might be a code itself
+    if has_code_field and raw_value:
+        match = frappe.db.get_value(doctype, {code_field: raw_value}, "name")
+        if match:
+            return match
+
+    # Try 4: scan allowed_options on the template for a match
+    for opt in getattr(template, "allowed_options", []) or []:
+        if getattr(opt, "option_type", None) != option_type:
+            continue
+        if hasattr(opt, "is_active") and not getattr(opt, "is_active", True):
+            continue
+        attr_name = getattr(opt, child_field, "") or ""
+        if not attr_name:
+            continue
+
+        # Match by name
+        if attr_name == raw_value or attr_name == code_value:
+            return attr_name
+
+        # Match by code
+        if has_code_field:
+            attr_code = frappe.db.get_value(doctype, attr_name, code_field)
+            if attr_code and (attr_code == raw_value or attr_code == code_value):
+                return attr_name
+
+    # Last resort: return raw value
+    return raw_value
