@@ -286,5 +286,14 @@
 		"insert_after": "custom_qbo_id",
 		"label": "Synced From",
 		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_section_label",
+		"fieldtype": "Data",
+		"label": "Section / Room",
+		"insert_after": "item_code",
+		"in_list_view": 1
 	}
 ]

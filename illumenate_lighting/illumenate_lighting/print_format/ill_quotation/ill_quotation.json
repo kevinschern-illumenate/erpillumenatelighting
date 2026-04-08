@@ -1,0 +1,11 @@
+{
+	"doctype": "Print Format",
+	"name": "ilL Quotation",
+	"doc_type": "Quotation",
+	"module": "ilLumenate Lighting",
+	"print_format_type": "Jinja",
+	"standard": "No",
+	"custom_format": 1,
+	"default_print_language": "en",
+	"disabled": 0
+}

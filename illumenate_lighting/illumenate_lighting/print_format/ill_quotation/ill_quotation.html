@@ -1,0 +1,233 @@
+{#
+  ilLumenate Quotation Print Format
+  Matches the standard ilL quotation layout with section / room grouping.
+  Section-header rows (ill_section_label set, qty=0, no item_code) render as
+  bold header rows spanning the table.  All other rows tagged with the same
+  ill_section_label are grouped under that header with a section subtotal.
+#}
+
+{%- set has_sections = doc.items | selectattr("ill_section_label") | list | length > 0 -%}
+
+{#-- Build ordered list of sections and their items --#}
+{%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
+{%- for item in doc.items -%}
+    {%- set label = item.ill_section_label or "" -%}
+    {#-- Detect section-header-only rows --#}
+    {%- if label and (not item.item_code) and item.qty == 0 -%}
+        {%- if label not in ns.section_map -%}
+            {%- set _ = ns.sections.append(label) -%}
+            {%- set _ = ns.section_map.update({label: []}) -%}
+        {%- endif -%}
+        {%- set ns.current_section = label -%}
+    {%- else -%}
+        {#-- Use explicit label, or inherit from last section header --#}
+        {%- set effective = label or ns.current_section -%}
+        {%- if effective not in ns.section_map -%}
+            {%- set _ = ns.sections.append(effective) -%}
+            {%- set _ = ns.section_map.update({effective: []}) -%}
+        {%- endif -%}
+        {%- set _ = ns.section_map[effective].append(item) -%}
+    {%- endif -%}
+{%- endfor -%}
+
+<style>
+    .ill-section-header td {
+        background-color: #e8e8e8 !important;
+        font-weight: 700;
+        font-size: 10pt;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 8px 6px !important;
+        border-bottom: 2px solid #bbb !important;
+    }
+    .ill-section-subtotal td {
+        font-weight: 700;
+        border-top: 2px solid #ccc !important;
+        background-color: #f7f7f7 !important;
+    }
+</style>
+
+{#-- Header --#}
+<div id="custom-header-container" style="width: 100%; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #d1d8dd; overflow: hidden;">
+    <div style="width: 45%; float: left;">
+        <img src="/files/ilLumenate Logo_DW_Black_Main.png" style="max-height: 80px; width: auto; display: block;">
+    </div>
+    <div style="width: 50%; float: right; text-align: right; padding-top: 22px;">
+        <h2 style="margin: 0; line-height: 1.1; border: none !important;">
+            <div style="font-weight: bold; text-transform: uppercase; color: #000; font-size: 1.4em; border: none !important;">
+                Quotation
+            </div>
+            <small style="font-size: 0.6em; color: #888; display: block; margin-top: 2px; font-weight: normal; border: none !important;">
+                {{ doc.name }}
+            </small>
+        </h2>
+    </div>
+    <div style="clear: both;"></div>
+</div>
+
+{#-- Customer / Date info --#}
+<div class="row section-break">
+    <div class="col-xs-4 column-break">
+        <div class="row important data-field">
+            <div class="col-xs-12"><label>Customer Name: </label></div>
+            <div class="col-xs-12 value">{{ doc.customer_name }}</div>
+        </div>
+    </div>
+    <div class="col-xs-4 column-break">
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Date: </label></div>
+            <div class="col-xs-12 value">{{ doc.transaction_date | default('', true) }}</div>
+        </div>
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Valid Till: </label></div>
+            <div class="col-xs-12 value">{{ doc.valid_till | default('', true) }}</div>
+        </div>
+    </div>
+    <div class="col-xs-4 column-break"></div>
+</div>
+
+{#-- Items table --#}
+<div class="row section-break">
+    <div class="col-xs-12 column-break">
+        <table class="table table-bordered table-condensed">
+            <thead>
+                <tr>
+                    <th style="width: 40px" class="table-sr">Sr</th>
+                    <th style="width: 40%;">Item Name</th>
+                    <th style="width: 20%;">Item Code</th>
+                    <th style="width: 10%;" class="text-right">Quantity</th>
+                    <th style="width: 10%;" class="text-right">Rate</th>
+                    <th style="width: 20%;" class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+            {%- if has_sections -%}
+                {#-- Render grouped by section --#}
+                {%- set row_ns = namespace(sr=0) -%}
+                {%- for section_label in ns.sections -%}
+                    {%- set items = ns.section_map[section_label] -%}
+
+                    {%- if section_label -%}
+                    <tr class="ill-section-header">
+                        <td colspan="6">{{ section_label }}</td>
+                    </tr>
+                    {%- endif -%}
+
+                    {%- set sec_ns = namespace(subtotal=0) -%}
+                    {%- for item in items -%}
+                        {%- set row_ns.sr = row_ns.sr + 1 -%}
+                        {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
+                        <tr>
+                            <td class="table-sr">{{ row_ns.sr }}</td>
+                            <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
+                            <td><div class="value">{{ item.item_code or '' }}</div></td>
+                            <td class="text-right">
+                                <div class="value">
+                                    {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
+                                    {{ item.qty }}
+                                </div>
+                            </td>
+                            <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</div></td>
+                            <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</div></td>
+                        </tr>
+                    {%- endfor -%}
+
+                    {%- if section_label and ns.sections | length > 1 -%}
+                    <tr class="ill-section-subtotal">
+                        <td colspan="5" class="text-right">{{ section_label }} Subtotal</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(sec_ns.subtotal, currency=doc.currency) }}</td>
+                    </tr>
+                    {%- endif -%}
+                {%- endfor -%}
+            {%- else -%}
+                {#-- No sections — standard flat list --#}
+                {%- for item in doc.items -%}
+                <tr>
+                    <td class="table-sr">{{ item.idx }}</td>
+                    <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
+                    <td><div class="value">{{ item.item_code or '' }}</div></td>
+                    <td class="text-right">
+                        <div class="value">
+                            {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
+                            {{ item.qty }}
+                        </div>
+                    </td>
+                    <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</div></td>
+                    <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</div></td>
+                </tr>
+                {%- endfor -%}
+            {%- endif -%}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{#-- Totals --#}
+<div class="row section-break">
+    <div class="col-xs-4 column-break">
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Total Quantity: </label></div>
+            <div class="col-xs-12 value">{{ doc.total_qty }}</div>
+        </div>
+    </div>
+    <div class="col-xs-4 column-break"></div>
+    <div class="col-xs-4 column-break">
+        <div class="row data-field">
+            <div class="col-xs-5"><label>Total</label></div>
+            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.total, currency=doc.currency) }}</div>
+        </div>
+    </div>
+</div>
+
+{#-- Taxes --#}
+{% if doc.taxes %}
+<div class="row section-break" data-label="Taxes and Charges">
+    <div class="col-xs-4 column-break">
+        {% if doc.exempt_from_sales_tax %}
+        <div class="row data-field">
+            <div class="col-xs-9"><label>Is customer exempted from sales tax?: </label></div>
+            <div class="col-xs-3 value">
+                <svg viewBox="0 0 16 16" fill="transparent" stroke="#1F272E" stroke-width="2" xmlns="http://www.w3.org/2000/svg" style="width: 12px; height: 12px; margin-top: 5px;">
+                    <path d="M2 9.66667L5.33333 13L14 3" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-xs-4 column-break"></div>
+    <div class="col-xs-4 column-break"></div>
+</div>
+{% endif %}
+
+{#-- Grand Total --#}
+<div class="row section-break" data-label="Totals">
+    <div class="col-xs-6 column-break"></div>
+    <div class="col-xs-6 column-break">
+        <div class="row data-field">
+            <div class="col-xs-5"><label>Grand Total: </label></div>
+            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</div>
+        </div>
+    </div>
+</div>
+
+{#-- Billing Address --#}
+{% if doc.address_display %}
+<div class="row section-break" data-label="Billing Address">
+    <div class="col-xs-6 column-break">
+        <div class="row data-field">
+            <div class="col-xs-5"><label>Address: </label></div>
+            <div class="col-xs-7 value"><div class="ql-snow">{{ doc.address_display }}</div></div>
+        </div>
+    </div>
+    <div class="col-xs-6 column-break"></div>
+</div>
+{% endif %}
+
+{#-- Terms --#}
+{% if doc.terms %}
+<div class="row section-break" data-label="Terms and Conditions">
+    <div class="col-xs-12 column-break">
+        <div class="ql-snow">{{ doc.terms }}</div>
+    </div>
+</div>
+{% endif %}
