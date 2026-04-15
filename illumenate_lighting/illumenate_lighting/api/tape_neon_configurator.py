@@ -166,7 +166,6 @@ def _compute_template_tape_neon_pricing(
 		option_map = {
 			"CCT": ("cct", selections.get("cct")),
 			"Output Level": ("output_level", selections.get("output_level")),
-			"Mounting Method": ("mounting_method", selections.get("mounting")),
 			"Finish": ("finish", selections.get("finish")),
 		}
 	else:
@@ -174,8 +173,6 @@ def _compute_template_tape_neon_pricing(
 			"Environment Rating": ("environment_rating", selections.get("environment_rating")),
 			"CCT": ("cct", selections.get("cct")),
 			"Output Level": ("output_level", selections.get("output_level")),
-			"PCB Mounting": ("pcb_mounting", selections.get("pcb_mounting")),
-			"PCB Finish": ("pcb_finish", selections.get("pcb_finish")),
 			"Power Feed Type": ("power_feed_type", selections.get("feed_type")),
 		}
 
@@ -292,10 +289,6 @@ def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
         if ol.get("numeric_value"):
             ol["label"] = f"{ol['numeric_value']} lm/ft"
 
-    # Collect unique PCB mountings and PCB finishes from tape specs
-    pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
-    pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
-
     # Feed types
     feed_types = _get_feed_types()
 
@@ -320,8 +313,6 @@ def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
             "environment_ratings": environment_ratings,
             "ccts": ccts,
             "output_levels": output_levels,
-            "pcb_mountings": [{"value": m, "label": m} for m in pcb_mountings],
-            "pcb_finishes": [{"value": f, "label": f} for f in pcb_finishes],
             "feed_types": feed_types,
         },
     }
@@ -435,7 +426,7 @@ def validate_tape_configuration(
 
     # ── Required fields ───────────────────────────────────────────────
     # Check string fields for presence (non-empty); check numeric fields separately
-    required_str = ["cct", "output_level", "pcb_mounting", "pcb_finish", "feed_type"]
+    required_str = ["cct", "output_level", "feed_type"]
     missing = [f for f in required_str if not sel.get(f)]
     if sel.get("lead_length_inches") is None or sel.get("lead_length_inches") == "":
         missing.append("lead_length_inches")
@@ -687,8 +678,7 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
         if ol.get("numeric_value"):
             ol["label"] = f"{ol['numeric_value']} lm/ft"
 
-    # Neon-specific: mounting and finish options
-    pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
+    # Neon-specific: finish options
     pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
 
     # IP ratings for endcap selection (IP67 standard, IP68 waterproof)
@@ -717,7 +707,6 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
         "options": {
             "ccts": ccts,
             "output_levels": output_levels,
-            "mountings": [{"value": m, "label": m} for m in pcb_mountings],
             "finishes": [{"value": f, "label": f} for f in pcb_finishes],
             "ip_ratings": ip_ratings,
             "feed_directions": feed_directions,
@@ -765,7 +754,7 @@ def validate_neon_configuration(
     messages = []
 
     # ── Required top-level fields ─────────────────────────────────────
-    required = ["cct", "output_level", "mounting", "finish"]
+    required = ["cct", "output_level", "finish"]
     missing = [f for f in required if not sel.get(f)]
     if missing:
         logger.warning(f"validate_neon: Missing required fields: {missing}")
@@ -1300,10 +1289,6 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         options["environment_ratings"] = _get_environment_ratings_for_tape_offerings(
             tape_offerings, spec_names,
         )
-        pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
-        options["pcb_mountings"] = [{"value": m, "label": m} for m in pcb_mountings]
-        pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
-        options["pcb_finishes"] = [{"value": f, "label": f} for f in pcb_finishes]
         options["feed_types"] = _get_feed_types()
         options["feed_directions"] = _get_feed_directions()
     else:
@@ -1313,8 +1298,6 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         options["feed_directions"] = all_dirs
         options["start_feed_directions"] = all_dirs
         options["end_feed_directions"] = all_dirs
-        mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
-        options["mounting_methods"] = [{"value": m, "label": m} for m in mountings]
         finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
         options["finishes"] = [{"value": f, "label": f} for f in finishes]
 
@@ -2049,38 +2032,6 @@ def _build_template_options(
                 tape_offerings, [s.name for s in tape_specs]
             )
 
-        # PCB Mounting
-        pcb_mount_rows = grouped.get("PCB Mounting", [])
-        if pcb_mount_rows:
-            options["pcb_mountings"] = [
-                {
-                    "value": r.pcb_mounting,
-                    "label": r.pcb_mounting,
-                    "is_default": bool(r.is_default),
-                    "msrp_adder": r.msrp_adder or 0,
-                }
-                for r in pcb_mount_rows if r.pcb_mounting
-            ]
-        else:
-            pcb_mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
-            options["pcb_mountings"] = [{"value": m, "label": m} for m in pcb_mountings]
-
-        # PCB Finish
-        pcb_finish_rows = grouped.get("PCB Finish", [])
-        if pcb_finish_rows:
-            options["pcb_finishes"] = [
-                {
-                    "value": r.pcb_finish,
-                    "label": r.pcb_finish,
-                    "is_default": bool(r.is_default),
-                    "msrp_adder": r.msrp_adder or 0,
-                }
-                for r in pcb_finish_rows if r.pcb_finish
-            ]
-        else:
-            pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
-            options["pcb_finishes"] = [{"value": f, "label": f} for f in pcb_finishes]
-
         # Feed Type
         feed_type_rows = grouped.get("Power Feed Type", [])
         if feed_type_rows:
@@ -2145,23 +2096,6 @@ def _build_template_options(
             options["feed_directions"] = all_dirs
             options["start_feed_directions"] = all_dirs
             options["end_feed_directions"] = all_dirs
-
-        # Mounting Method
-        mm_rows = grouped.get("Mounting Method", [])
-        if mm_rows:
-            options["mounting_methods"] = [
-                {
-                    "value": r.mounting_method,
-                    "label": r.mounting_method,
-                    "is_default": bool(r.is_default),
-                    "msrp_adder": r.msrp_adder or 0,
-                }
-                for r in mm_rows if r.mounting_method
-            ]
-        else:
-            # Derive from tape specs (pcb_mounting represents mounting for neon)
-            mountings = sorted({s.pcb_mounting for s in tape_specs if s.pcb_mounting})
-            options["mounting_methods"] = [{"value": m, "label": m} for m in mountings]
 
         # Finish
         fin_rows = grouped.get("Finish", [])
@@ -2270,7 +2204,6 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
 
     if is_neon:
         hash_parts.extend([
-            sel.get("mounting", ""),
             sel.get("finish", ""),
         ])
         # Include segment details in hash
@@ -2288,8 +2221,6 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     else:
         hash_parts.extend([
             sel.get("environment_rating", ""),
-            sel.get("pcb_mounting", ""),
-            sel.get("pcb_finish", ""),
             sel.get("feed_type", ""),
             str(sel.get("lead_length_inches", "")),
             str(computed.get("manufacturable_length_mm", "")),
@@ -2322,7 +2253,6 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
     }
 
     if is_neon:
-        doc_data["mounting_method"] = sel.get("mounting")
         doc_data["finish"] = sel.get("finish")
         doc_data["total_segments"] = computed.get("segment_count", 0)
         doc_data["assembly_mode"] = "ASSEMBLED"
@@ -2348,8 +2278,6 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
             })
     else:
         doc_data["environment_rating"] = sel.get("environment_rating")
-        doc_data["pcb_mounting"] = sel.get("pcb_mounting")
-        doc_data["pcb_finish"] = sel.get("pcb_finish")
         doc_data["feed_type"] = sel.get("feed_type")
         doc_data["lead_length_inches"] = sel.get("lead_length_inches")
         doc_data["requested_length_mm"] = computed.get("requested_length_mm", 0)
