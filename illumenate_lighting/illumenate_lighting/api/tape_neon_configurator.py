@@ -678,7 +678,7 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
         if ol.get("numeric_value"):
             ol["label"] = f"{ol['numeric_value']} lm/ft"
 
-    # Neon-specific: finish options
+    # Neon-specific: PCB finish options
     pcb_finishes = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
 
     # IP ratings for endcap selection (IP67 standard, IP68 waterproof)
