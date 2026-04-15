@@ -35,7 +35,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
     """Generate ilL-Rel-Mounting-Accessory-Map.csv and return the filepath."""
     rows = []
 
-    # Get mounting accessories
+    # ── Fixture template mounting accessories (existing logic) ─────────
     mounting_accs = [a for a in config.accessories if a.accessory_type == "Mounting"]
 
     for profile in config.profiles:
@@ -61,6 +61,23 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
                     "CEIL",  # Rounding
                     1,       # Is Active
                 ])
+
+    # ── Tape/Neon template mounting accessories ───────────────────────
+    for tnt in config.tape_neon_templates:
+        for ma in config.mounting_accessories:
+            qty_rule_type = QTY_RULE_MAP.get(ma.qty_rule_type, ma.qty_rule_type)
+            rows.append([
+                "ilL-Tape-Neon-Template",
+                tnt.template_code,
+                ma.mounting_method,
+                ma.environment_rating,
+                ma.accessory_item,
+                qty_rule_type,
+                ma.qty_rule_value if ma.qty_rule_value else 1,
+                ma.min_qty,
+                ma.rounding,
+                1,       # Is Active
+            ])
 
     filepath = f"{output_dir}/ilL-Rel-Mounting-Accessory-Map.csv"
     write_csv(filepath, HEADERS, rows)

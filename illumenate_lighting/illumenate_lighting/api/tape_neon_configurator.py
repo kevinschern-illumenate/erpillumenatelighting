@@ -13,18 +13,20 @@ configured part number and calculate a manufacturable length based on the
 tape's cut increment (or free cutting flag).
 
 LED Tape flow:
-  Environment → CCT → Output → PCB Mounting → PCB Finish
-  → Feed Direction (always End) → Feed Type → Lead Length (in)
+  Environment → CCT → Output → Feed Type → Lead Length (in)
   → Tape Length (in / ft / ft+in) → Calculate ▸ Part Number + Mfg Length
+  → Optional Mounting Accessory selection (post-config)
 
 LED Neon flow (multi-segment):
-  CCT → Output → Mounting → Finish
+  CCT → Output → Finish
   Per-segment: IP type → Start Feed Direction → Start Lead Length
                → Fixture Length → End Feed Direction → End Feed (jumper) Length
+  → Optional Mounting Accessory selection (post-config)
 
 When added to a schedule and converted to a Sales Order, LED Tape produces
 two SO lines: leader cable (qty = lead length) and tape item (qty = mfg length).
-LED Neon produces similar lines per segment.
+LED Neon produces similar lines per segment.  If a mounting accessory is
+selected, an additional SO line is added for the accessory.
 """
 
 import json
@@ -2913,3 +2915,214 @@ def _build_neon_description(sel, tape_spec, tape_offering, segments) -> str:
         lines.append(f"Cut Increment: {tape_spec.cut_increment_mm} mm")
 
     return " | ".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# MOUNTING ACCESSORY API
+# ═══════════════════════════════════════════════════════════════════════
+
+@frappe.whitelist(allow_guest=True)
+def get_mounting_accessories(
+    template_code: str,
+    product_category: str = None,
+    length_mm: float = 0,
+    environment_rating: str = None,
+    segments: int = 1,
+) -> dict:
+    """
+    Return eligible mounting accessories for a tape/neon template.
+
+    Queries ``ilL-Rel-Mounting-Accessory-Map`` where
+    ``fixture_template = template_code`` and
+    ``template_type = 'ilL-Tape-Neon-Template'``.
+
+    For each row, calculates the recommended quantity based on the length
+    and the accessory's qty rule, then looks up the unit MSRP from
+    ``Item Price`` (Standard Selling).
+
+    Args:
+        template_code: The ilL-Tape-Neon-Template template_code (or name)
+        product_category: Optional filter — "LED Tape" or "LED Neon"
+        length_mm: Total tape/neon length in mm (for qty calculation)
+        environment_rating: Optional environment rating filter
+        segments: Number of neon segments (for PER_SEGMENT rule)
+
+    Returns:
+        dict with ``accessories`` list, each containing:
+        ``accessory_item``, ``item_name``, ``mounting_method``,
+        ``qty_recommended``, ``unit_msrp``, ``total_msrp``,
+        ``qty_rule_description``
+    """
+    if not template_code:
+        return {"success": False, "error": "template_code is required"}
+
+    length_mm = float(length_mm or 0)
+    segments = int(segments or 1)
+
+    # Resolve template name from template_code
+    template_name = frappe.db.get_value(
+        "ilL-Tape-Neon-Template",
+        {"template_code": template_code, "is_active": 1},
+        "name",
+    )
+    if not template_name:
+        # Try using template_code as a name directly
+        if frappe.db.exists("ilL-Tape-Neon-Template", template_code):
+            template_name = template_code
+        else:
+            return {"success": False, "error": f"Template '{template_code}' not found"}
+
+    # Query mounting accessory map
+    map_filters = {
+        "fixture_template": template_name,
+        "template_type": "ilL-Tape-Neon-Template",
+        "is_active": 1,
+    }
+    if environment_rating:
+        map_filters["environment_rating"] = environment_rating
+
+    accessory_rows = frappe.get_all(
+        "ilL-Rel-Mounting-Accessory-Map",
+        filters=map_filters,
+        fields=[
+            "name", "mounting_method", "accessory_item",
+            "qty_rule_type", "qty_rule_value", "min_qty", "rounding",
+            "environment_rating",
+        ],
+        order_by="mounting_method asc",
+        ignore_permissions=True,
+    )
+
+    if not accessory_rows:
+        # Also try with environment_rating unfiltered if nothing found
+        if environment_rating:
+            map_filters.pop("environment_rating", None)
+            accessory_rows = frappe.get_all(
+                "ilL-Rel-Mounting-Accessory-Map",
+                filters=map_filters,
+                fields=[
+                    "name", "mounting_method", "accessory_item",
+                    "qty_rule_type", "qty_rule_value", "min_qty", "rounding",
+                    "environment_rating",
+                ],
+                order_by="mounting_method asc",
+                ignore_permissions=True,
+            )
+
+    accessories = []
+    for row in accessory_rows:
+        item_code = row.accessory_item
+        if not item_code:
+            continue
+
+        # Look up item name
+        item_name = frappe.db.get_value("Item", item_code, "item_name") or item_code
+
+        # Look up unit MSRP from Item Price (Standard Selling)
+        unit_msrp = _get_item_msrp(item_code)
+
+        # Calculate recommended qty
+        qty_recommended = _calculate_accessory_qty(
+            qty_rule_type=row.qty_rule_type or "PER_X_MM",
+            qty_rule_value=float(row.qty_rule_value or 304.8),
+            min_qty=int(row.min_qty or 0),
+            rounding=row.rounding or "CEIL",
+            length_mm=length_mm,
+            segments=segments,
+        )
+
+        total_msrp = round(unit_msrp * qty_recommended, 2)
+
+        # Build human-readable qty rule description
+        qty_rule_desc = _describe_qty_rule(
+            row.qty_rule_type or "PER_X_MM",
+            float(row.qty_rule_value or 304.8),
+        )
+
+        accessories.append({
+            "accessory_item": item_code,
+            "item_name": item_name,
+            "mounting_method": row.mounting_method,
+            "qty_recommended": qty_recommended,
+            "unit_msrp": unit_msrp,
+            "total_msrp": total_msrp,
+            "qty_rule_description": qty_rule_desc,
+            "environment_rating": row.environment_rating or "",
+        })
+
+    return {
+        "success": True,
+        "accessories": accessories,
+        "can_skip": True,
+    }
+
+
+def _get_item_msrp(item_code: str) -> float:
+    """Look up the Standard Selling price for an item."""
+    price = frappe.db.get_value(
+        "Item Price",
+        {
+            "item_code": item_code,
+            "price_list": "Standard Selling",
+            "selling": 1,
+        },
+        "price_list_rate",
+    )
+    return float(price or 0)
+
+
+def _calculate_accessory_qty(
+    qty_rule_type: str,
+    qty_rule_value: float,
+    min_qty: int,
+    rounding: str,
+    length_mm: float,
+    segments: int = 1,
+) -> int:
+    """Calculate the recommended quantity for a mounting accessory."""
+    if qty_rule_type == "PER_FIXTURE":
+        qty = 1
+    elif qty_rule_type == "PER_SEGMENT":
+        qty = segments
+    elif qty_rule_type == "PER_RUN":
+        # Approximate: 1 per run, assume 1 run for now
+        qty = 1
+    elif qty_rule_type == "PER_X_MM":
+        if qty_rule_value > 0 and length_mm > 0:
+            qty = length_mm / qty_rule_value
+        else:
+            qty = 0
+    else:
+        qty = 1
+
+    # Apply rounding
+    if rounding == "CEIL":
+        qty = math.ceil(qty)
+    elif rounding == "FLOOR":
+        qty = math.floor(qty)
+    else:
+        qty = round(qty)
+
+    # Apply minimum
+    if min_qty and qty < min_qty:
+        qty = min_qty
+
+    return max(qty, 0)
+
+
+def _describe_qty_rule(qty_rule_type: str, qty_rule_value: float) -> str:
+    """Return a human-readable description of the qty rule."""
+    if qty_rule_type == "PER_FIXTURE":
+        return "1 per fixture"
+    elif qty_rule_type == "PER_SEGMENT":
+        return "1 per segment"
+    elif qty_rule_type == "PER_RUN":
+        return "1 per run"
+    elif qty_rule_type == "PER_X_MM":
+        if qty_rule_value > 0:
+            per_ft = 304.8 / qty_rule_value
+            if abs(per_ft - round(per_ft)) < 0.01:
+                return f"{int(round(per_ft))} per foot"
+            return f"1 per {qty_rule_value:.0f} mm"
+        return "Per length"
+    return qty_rule_type
