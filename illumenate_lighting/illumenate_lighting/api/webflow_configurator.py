@@ -1820,3 +1820,70 @@ def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id:
         return None
 
     return get_bom_stock_availability(cf_id)
+
+
+# =============================================================================
+# TAPE / NEON MOUNTING ACCESSORY WRAPPER
+# =============================================================================
+
+@frappe.whitelist(allow_guest=True)
+def get_tape_neon_mounting_options(
+    product_slug: str,
+    selections: str,
+) -> dict:
+    """
+    Guest-accessible wrapper that resolves a Webflow product slug to a
+    tape/neon template and returns eligible mounting accessories.
+
+    Args:
+        product_slug: The Webflow product slug or template code
+        selections: JSON string with at least ``length_mm`` (or length
+            info to derive it) and optionally ``environment_rating``
+
+    Returns:
+        dict: ``{success, accessories: [...], can_skip: True}``
+    """
+    try:
+        sel = json.loads(selections) if isinstance(selections, str) else selections
+    except (json.JSONDecodeError, TypeError):
+        return {"success": False, "error": "Invalid selections JSON"}
+
+    product = _get_configurable_product(product_slug)
+    if not product:
+        return {"success": False, "error": "Product not found"}
+
+    tape_neon_template = getattr(product, "tape_neon_template", None)
+    if not tape_neon_template:
+        return {"success": False, "error": "Product is not a tape/neon product"}
+
+    # Resolve template_code from template name
+    template_code = frappe.db.get_value(
+        "ilL-Tape-Neon-Template", tape_neon_template, "template_code",
+    ) or tape_neon_template
+
+    product_category = getattr(product, "product_type", None) or ""
+
+    # Extract length and segment info from selections
+    length_mm = float(sel.get("length_mm", 0))
+    if not length_mm:
+        # Try deriving from computed results
+        computed = sel.get("computed", {})
+        length_mm = float(
+            computed.get("total_manufacturable_length_mm", 0)
+            or computed.get("manufacturable_length_mm", 0)
+        )
+
+    segments = int(sel.get("segment_count", 1))
+    environment_rating = sel.get("environment_rating")
+
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+        get_mounting_accessories,
+    )
+
+    return get_mounting_accessories(
+        template_code=template_code,
+        product_category=product_category,
+        length_mm=length_mm,
+        environment_rating=environment_rating,
+        segments=segments,
+    )
