@@ -1214,6 +1214,22 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
                 )
                 items_added += 1
 
+    # ── Mounting accessory SO line (Phase 7b) ─────────────────────────
+    mounting_item = config_data.get("selections", {}).get("mounting_accessory_item")
+    mounting_qty = int(config_data.get("selections", {}).get("mounting_accessory_qty", 0))
+    mounting_unit_msrp = float(config_data.get("selections", {}).get("mounting_accessory_unit_msrp", 0))
+    if mounting_item and mounting_qty > 0:
+        so_item = so.append("items", {})
+        so_item.item_code = mounting_item
+        so_item.qty = mounting_qty
+        if mounting_unit_msrp > 0:
+            so_item.rate = mounting_unit_msrp
+        so_item.description = (
+            f"Mounting Accessory for {part_number} – "
+            f"{mounting_qty} pcs"
+        )
+        items_added += 1
+
     return {"items_added": items_added, "messages": messages}
 
 
@@ -1232,12 +1248,11 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
     templates are available for the selected product category.
 
     For LED Tape returns:
-      environment_ratings, ccts, output_levels, pcb_mountings, pcb_finishes,
-      feed_types
+      environment_ratings, ccts, output_levels, feed_types
 
     For LED Neon returns:
-      ccts, output_levels, ip_ratings, feed_directions, mounting_methods,
-      finishes, endcap_styles
+      ccts, output_levels, ip_ratings, feed_directions, finishes,
+      endcap_styles
     """
     if product_category not in ("LED Tape", "LED Neon"):
         return {"success": False, "error": f"Invalid product category: {product_category}"}
@@ -2322,6 +2337,14 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
         "adder_breakdown_json": json.dumps(pricing.get("adder_breakdown", [])),
         "timestamp": datetime.datetime.now().isoformat(),
     }]
+
+    # ── Mounting accessory fields (Phase 5c) ──────────────────────────
+    if sel.get("mounting_accessory_item"):
+        doc_data["include_mounting_accessory"] = 1
+        doc_data["mounting_accessory_item"] = sel["mounting_accessory_item"]
+        doc_data["mounting_accessory_qty"] = int(sel.get("mounting_accessory_qty", 0))
+        doc_data["mounting_accessory_unit_msrp"] = float(sel.get("mounting_accessory_unit_msrp", 0))
+        doc_data["mounting_accessory_total_msrp"] = float(sel.get("mounting_accessory_total_msrp", 0))
 
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
     logger.info(

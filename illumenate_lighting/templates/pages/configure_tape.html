@@ -361,6 +361,23 @@ Allows users to configure LED tape and neon products with step-by-step selection
 						<div id="resultSegmentsList"></div>
 					</div>
 
+					<!-- Mounting Accessory Picker (Phase 6) -->
+					<div id="mountingAccessorySection" class="mt-3" style="display: none;">
+						<hr>
+						<h6>{{ _("Select Mounting Accessory (Optional)") }}</h6>
+						<div class="mounting-accessory-cards" id="mountingAccessoryCards">
+							<!-- Cards rendered dynamically -->
+						</div>
+						<div id="mountingAccessoryQtyRow" class="mt-2" style="display: none;">
+							<div class="form-inline">
+								<label class="mr-2">{{ _("Qty:") }}</label>
+								<input type="number" class="form-control form-control-sm" id="mountingAccessoryQty"
+									   min="0" value="0" style="width: 80px;">
+								<span class="ml-2" id="mountingAccessoryPriceCalc"></span>
+							</div>
+						</div>
+					</div>
+
 					<!-- Save to Schedule -->
 					<hr>
 					<button type="button" class="btn btn-success btn-block" id="btnSaveToSchedule">
@@ -989,13 +1006,120 @@ Allows users to configure LED tape and neon products with step-by-step selection
 
 		// Enable/disable save button
 		$('#btnSaveToSchedule').prop('disabled', !CAN_SAVE && !$('#scheduleSelect').val());
+
+		// Load mounting accessories (post-config step)
+		loadMountingAccessories(result);
 	}
 
 	function showError(msg) {
 		$('#resultsCard').hide();
 		$('#errorsCard').show();
+		$('#mountingAccessorySection').hide();
 		$('#errorMessage').text(msg);
 	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// MOUNTING ACCESSORY PICKER (Phase 6)
+	// ═══════════════════════════════════════════════════════════════════
+	let selectedMountingAccessory = null;
+
+	function loadMountingAccessories(result) {
+		$('#mountingAccessorySection').hide();
+		selectedMountingAccessory = null;
+
+		// Need template_code from the result
+		var templateCode = result.template_code;
+		if (!templateCode) return;
+
+		var computed = result.computed || {};
+		var lengthMm = IS_NEON
+			? (computed.total_manufacturable_length_mm || 0)
+			: (computed.manufacturable_length_mm || 0);
+		var segmentCount = computed.segment_count || 1;
+
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_mounting_accessories',
+			args: {
+				template_code: templateCode,
+				product_category: PRODUCT_CATEGORY,
+				length_mm: lengthMm,
+				environment_rating: selections.environment_rating || '',
+				segments: segmentCount,
+			},
+			callback: function(r) {
+				if (r.message && r.message.success && r.message.accessories && r.message.accessories.length) {
+					renderMountingAccessoryCards(r.message.accessories);
+				}
+			}
+		});
+	}
+
+	function renderMountingAccessoryCards(accessories) {
+		var container = $('#mountingAccessoryCards');
+		container.empty();
+
+		// Skip option
+		var skipHtml = '<div class="card mb-2 mounting-card active" data-item="" style="cursor:pointer; border: 2px solid #007bff;">' +
+			'<div class="card-body py-2 px-3">' +
+			'<strong>Skip</strong> — No mounting accessory' +
+			'</div></div>';
+		container.append(skipHtml);
+
+		// Accessory cards
+		accessories.forEach(function(acc) {
+			var totalStr = '$' + acc.total_msrp.toFixed(2);
+			var unitStr = '$' + acc.unit_msrp.toFixed(2);
+			var html = '<div class="card mb-2 mounting-card" data-item="' + acc.accessory_item + '" ' +
+				'data-qty="' + acc.qty_recommended + '" ' +
+				'data-unit-msrp="' + acc.unit_msrp + '" ' +
+				'style="cursor:pointer;">' +
+				'<div class="card-body py-2 px-3">' +
+				'<strong>' + acc.mounting_method + '</strong> (' + acc.accessory_item + ')<br>' +
+				'<small class="text-muted">Recommended: ' + acc.qty_recommended + ' pcs × ' + unitStr + ' = ' + totalStr + '</small><br>' +
+				'<small class="text-muted">' + acc.qty_rule_description + '</small>' +
+				'</div></div>';
+			container.append(html);
+		});
+
+		// Bind click
+		container.find('.mounting-card').on('click', function() {
+			container.find('.mounting-card').css('border', '1px solid #dee2e6').removeClass('active');
+			$(this).css('border', '2px solid #007bff').addClass('active');
+
+			var itemCode = $(this).data('item');
+			if (itemCode) {
+				selectedMountingAccessory = {
+					accessory_item: itemCode,
+					qty: parseInt($(this).data('qty')) || 0,
+					unit_msrp: parseFloat($(this).data('unit-msrp')) || 0,
+				};
+				selectedMountingAccessory.total_msrp = selectedMountingAccessory.qty * selectedMountingAccessory.unit_msrp;
+				$('#mountingAccessoryQty').val(selectedMountingAccessory.qty);
+				updateMountingAccessoryPrice();
+				$('#mountingAccessoryQtyRow').show();
+			} else {
+				selectedMountingAccessory = null;
+				$('#mountingAccessoryQtyRow').hide();
+			}
+		});
+
+		$('#mountingAccessorySection').show();
+	}
+
+	function updateMountingAccessoryPrice() {
+		if (!selectedMountingAccessory) return;
+		var qty = parseInt($('#mountingAccessoryQty').val()) || 0;
+		selectedMountingAccessory.qty = qty;
+		selectedMountingAccessory.total_msrp = qty * selectedMountingAccessory.unit_msrp;
+		$('#mountingAccessoryPriceCalc').text(
+			'$' + selectedMountingAccessory.unit_msrp.toFixed(2) + ' × ' + qty +
+			' = $' + selectedMountingAccessory.total_msrp.toFixed(2)
+		);
+	}
+
+	$(document).on('change', '#mountingAccessoryQty', function() {
+		updateMountingAccessoryPrice();
+	});
 
 	// ═══════════════════════════════════════════════════════════════════
 	// SAVE TO SCHEDULE
@@ -1012,6 +1136,16 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			return;
 		}
 
+		// Inject mounting accessory into selections if selected
+		var resultToSave = JSON.parse(JSON.stringify(lastResult));
+		if (selectedMountingAccessory && selectedMountingAccessory.accessory_item) {
+			resultToSave.selections = resultToSave.selections || {};
+			resultToSave.selections.mounting_accessory_item = selectedMountingAccessory.accessory_item;
+			resultToSave.selections.mounting_accessory_qty = selectedMountingAccessory.qty;
+			resultToSave.selections.mounting_accessory_unit_msrp = selectedMountingAccessory.unit_msrp;
+			resultToSave.selections.mounting_accessory_total_msrp = selectedMountingAccessory.total_msrp;
+		}
+
 		const lineIdx = $('#lineSelect').val();
 		const lineIdxVal = (lineIdx && lineIdx !== '__new__') ? parseInt(lineIdx) : null;
 
@@ -1020,7 +1154,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			args: {
 				schedule_name: scheduleName,
 				line_idx: lineIdxVal,
-				configuration_result: JSON.stringify(lastResult),
+				configuration_result: JSON.stringify(resultToSave),
 			},
 			freeze: true,
 			freeze_message: 'Saving...',
