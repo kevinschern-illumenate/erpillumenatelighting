@@ -3106,7 +3106,8 @@ def _calculate_accessory_qty(
     elif qty_rule_type == "PER_SEGMENT":
         qty = segments
     elif qty_rule_type == "PER_RUN":
-        # Approximate: 1 per run, assume 1 run for now
+        # TODO: determine actual run count from run-splitting logic.
+        # Currently assumes 1 run; will need the run_split result when available.
         qty = 1
     elif qty_rule_type == "PER_X_MM":
         if qty_rule_value > 0 and length_mm > 0:
@@ -3141,7 +3142,7 @@ def _describe_qty_rule(qty_rule_type: str, qty_rule_value: float) -> str:
         return "1 per run"
     elif qty_rule_type == "PER_X_MM":
         if qty_rule_value > 0:
-            per_ft = 304.8 / qty_rule_value
+            per_ft = MM_PER_FOOT / qty_rule_value
             if abs(per_ft - round(per_ft)) < 0.01:
                 return f"{int(round(per_ft))} per foot"
             return f"1 per {qty_rule_value:.0f} mm"
