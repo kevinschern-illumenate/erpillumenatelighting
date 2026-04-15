@@ -333,7 +333,9 @@ def get_tape_cascading_options(
     Cascading logic:
       - Environment → filters available CCTs & outputs from matching tape offerings
       - CCT → filters available outputs
-      - PCB Mounting / Finish → filters available tape specs
+
+    pcb_mounting and pcb_finish are accepted for backward compatibility but are
+    no longer used by the configurator UI (mounting moved to post-config accessory step).
     """
     base_filters = {"product_category": "LED Tape"}
     spec_filters = dict(base_filters)
@@ -398,8 +400,6 @@ def validate_tape_configuration(
       - environment_rating     (str)
       - cct                    (str)
       - output_level           (str)
-      - pcb_mounting           (str)
-      - pcb_finish             (str)
       - feed_direction         (str) – always "End Feed" for tape
       - feed_type              (str) – power feed type code
       - lead_length_inches     (float)
@@ -407,6 +407,12 @@ def validate_tape_configuration(
       - tape_length_unit       (str) – "in", "ft", or "ft_in"
       - tape_length_feet       (float) – only when unit is ft_in
       - tape_length_inches     (float) – only when unit is ft_in
+
+    Optional post-config mounting accessory keys:
+      - mounting_accessory_item       (str) – accessory item code
+      - mounting_accessory_qty        (int)
+      - mounting_accessory_unit_msrp  (float)
+      - mounting_accessory_total_msrp (float)
 
     Returns:
       - is_valid
