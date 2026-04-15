@@ -127,18 +127,21 @@
                    {
                        "fieldname":  "pcb_section",
                        "fieldtype":  "Section Break",
+                       "hidden":  1,
                        "label":  "PCB Options"
                    },
                    {
                        "description":  "PCB mounting type (e.g. Adhesive Back, Screw Mounted)",
                        "fieldname":  "pcb_mounting",
                        "fieldtype":  "Data",
+                       "hidden":  1,
                        "label":  "PCB Mounting"
                    },
                    {
                        "description":  "PCB finish/color (e.g. White, Black)",
                        "fieldname":  "pcb_finish",
                        "fieldtype":  "Data",
+                       "hidden":  1,
                        "label":  "PCB Finish"
                    },
                    {

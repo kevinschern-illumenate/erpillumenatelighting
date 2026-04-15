@@ -73,7 +73,14 @@
         "work_order",
         "spec_submittal",
         "pricing_section",
-        "pricing_snapshot"
+        "pricing_snapshot",
+        "mounting_accessory_section",
+        "include_mounting_accessory",
+        "mounting_accessory_item",
+        "column_break_mounting_accessory",
+        "mounting_accessory_qty",
+        "mounting_accessory_unit_msrp",
+        "mounting_accessory_total_msrp"
     ],
     "fields": [
         {
@@ -188,6 +195,7 @@
             "description": "PCB mounting method (e.g. Rigid, Flex)",
             "fieldname": "pcb_mounting",
             "fieldtype": "Data",
+            "hidden": 1,
             "label": "PCB Mounting"
         },
         {
@@ -195,6 +203,7 @@
             "description": "PCB color/finish (e.g. White, Black)",
             "fieldname": "pcb_finish",
             "fieldtype": "Data",
+            "hidden": 1,
             "label": "PCB Finish"
         },
         {
@@ -233,6 +242,7 @@
             "description": "Neon extrusion mounting method",
             "fieldname": "mounting_method",
             "fieldtype": "Link",
+            "hidden": 1,
             "label": "Mounting Method",
             "options": "ilL-Attribute-Mounting Method"
         },
@@ -498,6 +508,45 @@
             "fieldtype": "Table",
             "label": "Pricing Snapshot",
             "options": "ilL-Child-Pricing-Snapshot"
+        },
+        {
+            "fieldname": "mounting_accessory_section",
+            "fieldtype": "Section Break",
+            "label": "Mounting Accessory"
+        },
+        {
+            "default": "0",
+            "fieldname": "include_mounting_accessory",
+            "fieldtype": "Check",
+            "label": "Include Mounting Accessory"
+        },
+        {
+            "fieldname": "mounting_accessory_item",
+            "fieldtype": "Link",
+            "label": "Mounting Accessory Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "column_break_mounting_accessory",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "fieldname": "mounting_accessory_qty",
+            "fieldtype": "Int",
+            "label": "Mounting Accessory Qty"
+        },
+        {
+            "fieldname": "mounting_accessory_unit_msrp",
+            "fieldtype": "Currency",
+            "label": "Unit MSRP",
+            "read_only": 1
+        },
+        {
+            "fieldname": "mounting_accessory_total_msrp",
+            "fieldtype": "Currency",
+            "label": "Total MSRP",
+            "read_only": 1
         }
     ],
     "grid_page_length": 50,
