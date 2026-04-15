@@ -461,15 +461,14 @@ def validate_tape_configuration(
         }
 
     # ── Find matching tape offering ───────────────────────────────────
-    # First attempt: filter specs by pcb_mounting + pcb_finish (exact match for standard tape)
-    logger.info(f"validate_tape: looking for tape specs with category=LED Tape, pcb_mounting={sel.get('pcb_mounting')}, pcb_finish={sel.get('pcb_finish')}")
+    # Mounting fields (pcb_mounting/pcb_finish) removed from selections.
+    # Search all LED Tape specs directly.
+    logger.info("validate_tape: looking for tape specs with category=LED Tape (no mounting filter)")
     all_matching_specs = _find_all_matching_tape_specs(
         product_category="LED Tape",
-        pcb_mounting=sel.get("pcb_mounting"),
-        pcb_finish=sel.get("pcb_finish"),
     )
     spec_names = [s.name for s in all_matching_specs]
-    logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs with pcb filter: {spec_names}")
+    logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs: {spec_names}")
 
     tape_offering = None
     if spec_names:
@@ -479,11 +478,9 @@ def validate_tape_configuration(
             output_level=sel.get("output_level"),
         )
 
-    # Fallback: if no offering found, search across ALL active LED Tape specs.
-    # This covers tape types (e.g. Tunable White) whose specs may have different
-    # or no pcb_mounting / pcb_finish values than what the user selected.
+    # Fallback: if no offering found with direct specs, search ALL LED Tape specs.
     if not tape_offering:
-        logger.info("validate_tape: no offering found with pcb filter – falling back to all LED Tape specs")
+        logger.info("validate_tape: no offering found – falling back to all LED Tape specs")
         all_tape_specs = _find_all_matching_tape_specs(product_category="LED Tape")
         all_spec_names = [s.name for s in all_tape_specs]
         tape_offering = _find_matching_tape_offering(
@@ -775,15 +772,14 @@ def validate_neon_configuration(
         }
 
     # ── Find matching tape offering ───────────────────────────────────
-    # First attempt: filter specs by mounting + finish (exact match for standard neon)
-    logger.info(f"validate_neon: looking for tape specs with category=LED Neon, pcb_mounting={sel.get('mounting')}, pcb_finish={sel.get('finish')}")
+    # Mounting removed from config selections; filter neon specs by finish only
+    logger.info(f"validate_neon: looking for tape specs with category=LED Neon, pcb_finish={sel.get('finish')}")
     all_matching_specs = _find_all_matching_tape_specs(
         product_category="LED Neon",
-        pcb_mounting=sel.get("mounting"),
         pcb_finish=sel.get("finish"),
     )
     spec_names = [s.name for s in all_matching_specs]
-    logger.info(f"validate_neon: found {len(all_matching_specs)} matching tape specs with mounting filter: {spec_names}")
+    logger.info(f"validate_neon: found {len(all_matching_specs)} matching tape specs with finish filter: {spec_names}")
 
     tape_offering = None
     if spec_names:
@@ -793,10 +789,9 @@ def validate_neon_configuration(
             output_level=sel.get("output_level"),
         )
 
-    # Fallback: search ALL LED Neon specs when no offering is found with the
-    # mounting/finish filter (covers neon types with different or null attribute values).
+    # Fallback: search ALL LED Neon specs when no offering is found.
     if not tape_offering:
-        logger.info("validate_neon: no offering found with mounting filter – falling back to all LED Neon specs")
+        logger.info("validate_neon: no offering found with finish filter – falling back to all LED Neon specs")
         all_neon_specs = _find_all_matching_tape_specs(product_category="LED Neon")
         all_spec_names = [s.name for s in all_neon_specs]
         tape_offering = _find_matching_tape_offering(
@@ -2825,8 +2820,6 @@ def _build_tape_description(sel, tape_spec, tape_offering, mfg_length_mm, lead_l
         lines.append(f"Environment: {sel['environment_rating']}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
     lines.append(f"Output: {sel.get('output_level', '-')}")
-    lines.append(f"PCB Mounting: {sel.get('pcb_mounting', '-')}")
-    lines.append(f"PCB Finish: {sel.get('pcb_finish', '-')}")
     lines.append(f"Feed Direction: End Feed")
     lines.append(f"Feed Type: {sel.get('feed_type', '-')}")
     lines.append(f"Lead Length: {lead_length_in}\"")
@@ -2914,7 +2907,6 @@ def _build_neon_description(sel, tape_spec, tape_offering, segments) -> str:
     lines.append(f"LED Neon: {tape_spec.name}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
     lines.append(f"Output: {sel.get('output_level', '-')}")
-    lines.append(f"Mounting: {sel.get('mounting', '-')}")
     lines.append(f"Finish: {sel.get('finish', '-')}")
     lines.append(f"Segments: {len(segments)}")
 
