@@ -187,27 +187,18 @@ Allows users to configure LED tape and neon products with step-by-step selection
 							</div>
 						</div>
 
-						<!-- STEP 4: PCB Mounting -->
-						<div class="config-step disabled-step" id="stepPCBMounting">
+						{% if IS_NEON %}
+						<!-- NEON: Finish step (mounting moved to post-config accessory) -->
+						<div class="config-step disabled-step" id="stepFinish">
 							<div class="option-group">
-								<label class="option-label">{{ _("PCB Mounting") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" id="pillPCBMounting"></div>
-								<select class="form-control select-fallback" id="selPCBMounting">
+								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+								<div class="pill-selector" id="pillFinish"></div>
+								<select class="form-control select-fallback" id="selFinish">
 									<option value="">{{ _("Select...") }}</option>
 								</select>
 							</div>
 						</div>
-
-						<!-- STEP 5: PCB Finish -->
-						<div class="config-step disabled-step" id="stepPCBFinish">
-							<div class="option-group">
-								<label class="option-label">{{ _("PCB Finish") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" id="pillPCBFinish"></div>
-								<select class="form-control select-fallback" id="selPCBFinish">
-									<option value="">{{ _("Select...") }}</option>
-								</select>
-							</div>
-						</div>
+						{% endif %}
 
 						{% if not is_neon %}
 						<!-- ═══ LED TAPE: Feed & Length ═══ -->
@@ -416,8 +407,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 		environment_rating: null,
 		cct: null,
 		output_level: null,
-		pcb_mounting: null,
-		pcb_finish: null,
 		feed_type: null,
 		lead_length_inches: null,
 		tape_length_unit: 'in',
@@ -425,7 +414,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 		tape_length_feet: null,
 		tape_length_inches: null,
 		// Neon top-level
-		mounting: null,
 		finish: null,
 	};
 
@@ -487,17 +475,10 @@ Allows users to configure LED tape and neon products with step-by-step selection
 				'value', 'label', onOutputSelect);
 		}
 
-		// Handle both tape keys (pcb_mountings) and neon keys (mountings)
-		var mountingOptions = options.pcb_mountings || options.mountings;
-		if (mountingOptions) {
-			populatePillSelector('pillPCBMounting', 'selPCBMounting', mountingOptions,
-				'value', 'label', onPCBMountingSelect);
-		}
-
-		var finishOptions = options.pcb_finishes || options.finishes;
-		if (finishOptions) {
-			populatePillSelector('pillPCBFinish', 'selPCBFinish', finishOptions,
-				'value', 'label', onPCBFinishSelect);
+		// Neon: populate Finish options
+		if (IS_NEON && options.finishes) {
+			populatePillSelector('pillFinish', 'selFinish', options.finishes,
+				'value', 'label', onFinishSelect);
 		}
 
 		if (!IS_NEON && options.feed_types) {
@@ -565,33 +546,22 @@ Allows users to configure LED tape and neon products with step-by-step selection
 
 	function onOutputSelect(val) {
 		selections.output_level = val;
-		$('#stepPCBMounting').removeClass('disabled-step');
-	}
-
-	function onPCBMountingSelect(val) {
 		if (IS_NEON) {
-			selections.mounting = val;
+			// Neon: next step is Finish
+			$('#stepFinish').removeClass('disabled-step');
 		} else {
-			selections.pcb_mounting = val;
-		}
-		$('#stepPCBFinish').removeClass('disabled-step');
-	}
-
-	function onPCBFinishSelect(val) {
-		if (IS_NEON) {
-			selections.finish = val;
-		} else {
-			selections.pcb_finish = val;
-		}
-
-		if (IS_NEON) {
-			$('#stepNeonSegments').removeClass('disabled-step');
-			// Auto-add first segment if none exist
-			if (neonSegmentCount === 0) {
-				addNeonSegment();
-			}
-		} else {
+			// Tape: next step is Feed & Length (mounting removed)
 			$('#stepTapeFeed').removeClass('disabled-step');
+		}
+		updateCalculateButton();
+	}
+
+	function onFinishSelect(val) {
+		selections.finish = val;
+		$('#stepNeonSegments').removeClass('disabled-step');
+		// Auto-add first segment if none exist
+		if (neonSegmentCount === 0) {
+			addNeonSegment();
 		}
 		updateCalculateButton();
 	}
@@ -609,8 +579,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			args: {
 				environment_rating: selections.environment_rating || '',
 				cct: selections.cct || '',
-				pcb_mounting: selections.pcb_mounting || '',
-				pcb_finish: selections.pcb_finish || '',
 			},
 			callback: function(r) {
 				if (r.message && r.message.success) {
@@ -809,7 +777,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			}
 
 			ready = selections.cct && selections.output_level
-				&& selections.pcb_mounting && selections.pcb_finish
 				&& selections.feed_type
 				&& parseFloat($('#leadLengthInches').val()) > 0
 				&& hasLength;
@@ -841,8 +808,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 				environment_rating: selections.environment_rating || '',
 				cct: selections.cct,
 				output_level: selections.output_level,
-				pcb_mounting: selections.pcb_mounting,
-				pcb_finish: selections.pcb_finish,
 				feed_direction: 'End Feed',
 				feed_type: selections.feed_type || '',
 				lead_length_inches: leadLength,
@@ -870,7 +835,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			selections: JSON.stringify({
 				cct: selections.cct,
 				output_level: selections.output_level,
-				mounting: selections.mounting,
 				finish: selections.finish,
 			}),
 			segments_json: JSON.stringify(segments),
