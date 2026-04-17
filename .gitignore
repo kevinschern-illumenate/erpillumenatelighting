@@ -28,3 +28,24 @@ output/tape_test/ilL-Spec-LED Tape.csv
 output/tape_test/ilL-Tape-Neon-Template.csv
 output/tape_test/ilL-Webflow-Product.csv
 output/tape_test/Item CSV.csv
+output/douglas/ilL-Neon-Submittal-Mapping.csv
+output/douglas/ilL-Rel-Tape Offering.csv
+output/douglas/ilL-Spec-LED Tape.csv
+output/douglas/ilL-Tape-Neon-Template.csv
+output/douglas/ilL-Webflow-Product.csv
+output/douglas/Item CSV.csv
+output/rusk/ilL-Neon-Submittal-Mapping.csv
+output/rusk/ilL-Rel-Tape Offering.csv
+output/rusk/ilL-Spec-LED Tape.csv
+output/rusk/ilL-Tape-Neon-Template.csv
+output/rusk/ilL-Webflow-Product.csv
+output/rusk/Item CSV.csv
+output/scimitar/ilL-Neon-Submittal-Mapping.csv
+output/scimitar/ilL-Rel-Tape Offering.csv
+output/scimitar/ilL-Spec-LED Tape.csv
+output/scimitar/ilL-Tape-Neon-Template.csv
+output/scimitar/ilL-Webflow-Product.csv
+output/scimitar/Item CSV.csv
+tools/fixture_builder/templates/dgl_config.yaml
+tools/fixture_builder/templates/rsk_config.yaml
+tools/fixture_builder/templates/scm_config.yaml

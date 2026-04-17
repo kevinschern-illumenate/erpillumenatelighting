@@ -731,7 +731,7 @@ class ilLWebflowProduct(Document):
 				):
 					display_order += 1
 					voltage_label = frappe.db.get_value(
-						"ilL-Attribute-Output Voltage", tape.input_voltage, "voltage"
+						"ilL-Attribute-Output Voltage", tape.input_voltage, "dc_voltage"
 					)
 					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Voltage", tape.input_voltage)
 					attribute_links.append({
@@ -843,7 +843,7 @@ class ilLWebflowProduct(Document):
 			display_order += 1
 			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Voltage", tape.input_voltage)
 			voltage_label = frappe.db.get_value(
-				"ilL-Attribute-Output Voltage", tape.input_voltage, "voltage"
+				"ilL-Attribute-Output Voltage", tape.input_voltage, "dc_voltage"
 			)
 			attribute_links.append({
 				"attribute_type": "Output Voltage",
@@ -920,7 +920,7 @@ class ilLWebflowProduct(Document):
 			display_order += 1
 			webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Output Voltage", driver.voltage_output)
 			voltage_label = frappe.db.get_value(
-				"ilL-Attribute-Output Voltage", driver.voltage_output, "voltage"
+				"ilL-Attribute-Output Voltage", driver.voltage_output, "dc_voltage"
 			)
 			attribute_links.append({
 				"attribute_type": "Output Voltage",

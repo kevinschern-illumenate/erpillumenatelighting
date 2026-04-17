@@ -703,7 +703,7 @@ def _collect_tape_neon_product_data(wp_doc):
 		if spec_row.tape_spec:
 			iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
 			if iv:
-				voltage_val = frappe.db.get_value("ilL-Attribute-Output Voltage", iv, "voltage")
+				voltage_val = frappe.db.get_value("ilL-Attribute-Output Voltage", iv, "dc_voltage")
 				if voltage_val:
 					input_voltage = f"{voltage_val} VDC"
 					break
