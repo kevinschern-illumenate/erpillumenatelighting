@@ -154,6 +154,14 @@ MAX_PN_OPTIONS_PER_SECTION = 10  # 10 option slots per section
 MAX_CCTS = 8                     # fixed CCT column count
 MAX_OUTPUT_LEVELS = 8            # fixed output-level block count
 
+# Total column count of the unified InDesign data-merge CSV.
+#   17 static + 39 custom_* + 8 CCT + 8 × (1 + 3×2 + 8×4) + 11 × 10 × 2 = 596
+# Keep this in sync with INDESIGN_PRODUCT_COLUMNS / _INDESIGN_LENS_GROUPS /
+# _INDESIGN_LUMEN_LENSES / STANDARD_PN_SECTIONS — an assert in
+# ``_generate_indesign_csv`` / ``_generate_tape_neon_indesign_csv`` enforces
+# that the two code paths can never drift apart.
+INDESIGN_TOTAL_COLUMNS = 596
+
 
 # ──────────────────────────────────────────────────────────
 # Internal helpers
@@ -806,7 +814,21 @@ def _collect_tape_neon_variant_rows(wp_doc, product_data):
 
 
 def _generate_tape_neon_csv(wp_doc):
-	"""Return CSV content for LED Tape / LED Neon products (flat format)."""
+	"""Return CSV content for LED Tape / LED Neon products (flat format).
+
+	.. deprecated::
+		This flat layout is incompatible with the marketing team's InDesign
+		data-merge template.  The default export for LED Tape / LED Neon now
+		uses :func:`_generate_tape_neon_indesign_csv` (same 596-column schema
+		as Fixture Template).  This flat writer is kept as an opt-in and is
+		only reached when ``format="tape_neon_flat"`` is explicitly passed
+		to :func:`export_spec_sheet_csv`.
+	"""
+	return _generate_tape_neon_flat_csv(wp_doc)
+
+
+def _generate_tape_neon_flat_csv(wp_doc):
+	"""Return CSV content for LED Tape / LED Neon products (legacy flat)."""
 	product_data = _collect_tape_neon_product_data(wp_doc)
 
 	output = io.StringIO()
@@ -818,6 +840,448 @@ def _generate_tape_neon_csv(wp_doc):
 	for row in _collect_tape_neon_variant_rows(wp_doc, product_data):
 		writer.writerow([row.get(col, "") for col in headers])
 
+	return output.getvalue()
+
+
+# ──────────────────────────────────────────────────────────
+# Tape / Neon InDesign CSV  (unified 596-column schema)
+# ──────────────────────────────────────────────────────────
+#
+# LED Tape and LED Neon share the Fixture-Template InDesign layout so that
+# marketing's single data-merge template accepts every product type.  Fields
+# that don't apply to tape/neon (driver max wattage, lens appearances, profile
+# dimensions) are emitted as blank cells rather than being dropped — InDesign
+# matches columns by header name, so a *missing* column silently shifts the
+# remaining fields.  See the module docstring for the full contract.
+#
+# Lens-bucket convention for neon / tape
+# --------------------------------------
+# Neon fixtures are single-lens and tape fixtures have no lens at all.  The
+# fixture schema has four lens slugs (white / frosted / clear / black); we
+# populate the ``frosted`` slug because ``_INDESIGN_LENS_GROUPS`` maps
+# "Other Lenses" → "frosted", which is where the marketing template routes
+# the lens-agnostic output on the neon/tape spec sheet.  The other three
+# slugs stay blank so they merge as empty fields.
+
+
+# option_type → STANDARD_PN_SECTIONS label for the tape/neon PN shim.
+#
+# "Feed Direction" / "Power Feed Type" fan out to Start/End based on
+# ``feed_position`` and are handled separately below.
+_TN_PN_SECTION_MAP = {
+	"CCT": "CCT",
+	"Output Level": "Output",
+	"Environment Rating": "Dry/Wet",
+	"IP Rating": "Dry/Wet",
+	"Mounting Method": "Mounting",
+	"Finish": "Finish",
+	"PCB Finish": "Finish",
+}
+
+# allowed_options.option_type → (link_fieldname, attribute_doctype) used to
+# render the human label for a PN option when the option row itself only
+# stores a link.  The option sku/code always comes from the attribute's
+# ``code`` field when it exists.
+_TN_OPTION_LINKS = {
+	"CCT": ("cct", "ilL-Attribute-CCT"),
+	"Output Level": ("output_level", "ilL-Attribute-Output Level"),
+	"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
+	"IP Rating": ("ip_rating", "ilL-Attribute-IP Rating"),
+	"Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
+	"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
+	"Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method"),
+	"Finish": ("finish", "ilL-Attribute-Finish"),
+	"PCB Finish": ("pcb_finish", "ilL-Attribute-PCB Finish"),
+}
+
+
+def _tn_option_label_code(opt):
+	"""Return ``(option_code, option_label)`` for a tape/neon allowed_option row.
+
+	The sku/code is read from the linked attribute doc's ``code`` field
+	(falls back to the link name); the label prefers a ``label`` /
+	``{type}_name`` field on the attribute, then the raw name.
+	Returns ``("", "")`` when the option has no resolvable link.
+	"""
+	otype = getattr(opt, "option_type", None)
+	link_spec = _TN_OPTION_LINKS.get(otype)
+	if not link_spec:
+		return "", ""
+	field, doctype = link_spec
+	link_name = getattr(opt, field, None)
+	if not link_name:
+		return "", ""
+
+	code = ""
+	label = link_name
+	try:
+		attr_doc = frappe.get_cached_doc(doctype, link_name)
+	except frappe.DoesNotExistError:
+		return "", link_name
+
+	if frappe.db.has_column(doctype, "code"):
+		code = getattr(attr_doc, "code", "") or ""
+	# Prefer the most descriptive human-readable label we can find.
+	for cand in ("label", "cct_name", "output_level_name", "finish_name",
+	             "direction_name", "mounting_method"):
+		val = getattr(attr_doc, cand, None)
+		if val:
+			label = val
+			break
+	return code, label
+
+
+def _collect_tn_pn_builder_columns(tnt_doc):
+	"""Return the same 220-column skeleton as :func:`_collect_pn_builder_columns`.
+
+	Populates the standard-section slots from a Tape/Neon Template's
+	``allowed_options`` + ``series`` so the neon InDesign CSV carries an
+	identically shaped Part Number Builder block (sparser, but same width).
+	"""
+	# Build the fixed 220-column skeleton via the canonical helper.
+	headers, data_dict = _collect_pn_builder_columns(None)
+
+	if not tnt_doc:
+		return headers, data_dict
+
+	# ── Series (single option slot) ──
+	if getattr(tnt_doc, "series", None):
+		try:
+			series_doc = frappe.get_cached_doc("ilL-Attribute-Series", tnt_doc.series)
+			data_dict["Part Number - Series - Option 1:"] = series_doc.code or ""
+			data_dict["Part Number - Series - Description 1:"] = (
+				series_doc.series_name or tnt_doc.series
+			)
+		except frappe.DoesNotExistError:
+			data_dict["Part Number - Series - Option 1:"] = ""
+			data_dict["Part Number - Series - Description 1:"] = tnt_doc.series
+
+	# ── Group allowed_options into standard-section buckets ──
+	section_buckets = {sec: [] for sec in STANDARD_PN_SECTIONS}
+	seen_codes = {sec: set() for sec in STANDARD_PN_SECTIONS}
+
+	for opt in (tnt_doc.allowed_options or []):
+		if hasattr(opt, "is_active") and not opt.is_active:
+			continue
+		otype = getattr(opt, "option_type", None)
+
+		# Feed Direction / Power Feed Type fan out to Start/End based on
+		# the feed_position flag.  "Both" emits into both buckets so the
+		# label is present wherever marketing looks for it.
+		if otype in ("Feed Direction", "Power Feed Type"):
+			code, label = _tn_option_label_code(opt)
+			if not (code or label):
+				continue
+			position = (getattr(opt, "feed_position", None) or "Both")
+			targets = []
+			if position in ("Start", "Both"):
+				targets.append("Start Feed Type")
+			if position in ("End", "Both"):
+				targets.append("End Feed Type")
+			for section in targets:
+				if code in seen_codes[section]:
+					continue
+				seen_codes[section].add(code)
+				section_buckets[section].append((code, label))
+			continue
+
+		section = _TN_PN_SECTION_MAP.get(otype)
+		if not section:
+			continue
+		code, label = _tn_option_label_code(opt)
+		if not (code or label):
+			continue
+		if code in seen_codes[section]:
+			continue
+		seen_codes[section].add(code)
+		section_buckets[section].append((code, label))
+
+	# ── Emit up to MAX_PN_OPTIONS_PER_SECTION per bucket ──
+	for section, opts in section_buckets.items():
+		if section == "Series":
+			continue  # already populated above
+		for idx, (code, label) in enumerate(opts[:MAX_PN_OPTIONS_PER_SECTION], 1):
+			data_dict[f"Part Number - {section} - Option {idx}:"] = code
+			data_dict[f"Part Number - {section} - Description {idx}:"] = label
+
+	return headers, data_dict
+
+
+def _collect_tape_neon_product_data_indesign(wp_doc):
+	"""Build a fixture-shaped product dict for LED Tape / LED Neon products.
+
+	Returns the same keys as :func:`_collect_product_data` (including every
+	:data:`CUSTOM_SPEC_COLUMNS` entry) so :func:`_pivot_to_indesign` can
+	consume it identically.  Fields that don't apply to tape/neon (lenses,
+	driver max wattage, profile dimensions) are populated as blank strings
+	— InDesign data merge silently shifts columns when a header is missing,
+	so every column must exist even when empty.
+	"""
+	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
+	attr_links = wp_doc.attribute_links or []
+	is_tape = wp_doc.product_type == "LED Tape"
+
+	# --- Certifications ---
+	certs = []
+	for row in (wp_doc.certifications or []):
+		if row.certification:
+			certs.append(row.certification)
+	certifications = ", ".join(sorted(set(certs)))
+
+	# --- Dimming protocols: prefer attribute_links, fall back to tape_spec ---
+	dimming_set = set()
+	for row in attr_links:
+		if row.attribute_type == "Dimming Protocol" and row.attribute_name:
+			dimming_set.add(row.attribute_name)
+	if not dimming_set:
+		for spec_row in (tnt_doc.allowed_tape_specs or []):
+			if not spec_row.tape_spec:
+				continue
+			try:
+				ts = frappe.get_cached_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
+			except frappe.DoesNotExistError:
+				continue
+			for p in (getattr(ts, "supported_dimming_protocols", None) or []):
+				proto = getattr(p, "protocol", None) or getattr(p, "dimming_protocol", None)
+				if proto:
+					dimming_set.add(proto)
+	dimming_protocols = ", ".join(sorted(dimming_set))
+
+	# --- Gather allowed_options lookups (done in one pass) ---
+	env_set = set()
+	mounting_set = set()
+	finish_set = set()
+	for opt in (tnt_doc.allowed_options or []):
+		if hasattr(opt, "is_active") and not opt.is_active:
+			continue
+		otype = getattr(opt, "option_type", None)
+		if otype == "Environment Rating" and opt.environment_rating:
+			env_set.add(opt.environment_rating)
+		elif otype == "IP Rating" and opt.ip_rating:
+			env_set.add(opt.ip_rating)
+		elif otype == "Mounting Method" and opt.mounting_method:
+			mounting_set.add(opt.mounting_method)
+		elif otype == "Finish" and opt.finish:
+			finish_set.add(opt.finish)
+		elif otype == "PCB Finish" and is_tape and getattr(opt, "pcb_finish", None):
+			finish_set.add(opt.pcb_finish)
+
+	# Back-fill environment ratings from attribute_links when template has none.
+	if not env_set:
+		for row in attr_links:
+			if row.attribute_type in ("Environment Rating", "IP Rating") and row.attribute_name:
+				env_set.add(row.attribute_name)
+
+	env_ratings = ", ".join(sorted(env_set))
+	mountings = ", ".join(sorted(mounting_set))
+	finishes = ", ".join(sorted(finish_set))
+
+	# --- Input voltage (tape voltage only — neon/tape have no driver) ---
+	input_voltage = ""
+	for spec_row in (tnt_doc.allowed_tape_specs or []):
+		if not spec_row.tape_spec:
+			continue
+		iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
+		if not iv:
+			continue
+		voltage_val = frappe.db.get_value("ilL-Attribute-Output Voltage", iv, "dc_voltage")
+		if voltage_val:
+			input_voltage = f"{voltage_val} VDC"
+			break
+
+	# --- Operating temp range ---
+	temp_range = ""
+	if wp_doc.operating_temp_min_c is not None and wp_doc.operating_temp_max_c is not None:
+		c_min = wp_doc.operating_temp_min_c
+		c_max = wp_doc.operating_temp_max_c
+		f_min = round(c_min * 9 / 5 + 32)
+		f_max = round(c_max * 9 / 5 + 32)
+		temp_range = f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)"
+
+	# --- Beam angle (typically blank for neon) ---
+	beam_angle = ""
+	if wp_doc.beam_angle:
+		val = wp_doc.beam_angle
+		beam_angle = f"{int(val)}°" if val == int(val) else f"{val}°"
+
+	result = {
+		"product_name": wp_doc.product_name or "",
+		"short_description": wp_doc.short_description or "",
+		"sublabel": wp_doc.sublabel or "",
+		"profile_dimensions": "",        # No profile concept for tape/neon
+		"input_voltage": input_voltage,
+		"beam_angle": beam_angle,
+		"operating_temp_range_c": temp_range,
+		"l70_life_hours": wp_doc.l70_life_hours or "",
+		"warranty_years": wp_doc.warranty_years or "",
+		"available_finishes": finishes,
+		"available_lenses": "",           # Neon/tape: no lens concept
+		"available_mountings": mountings,
+		"environment_ratings": env_ratings,
+		"certifications": certifications,
+		"dimming_protocols": dimming_protocols,
+		"driver_max_wattage": "",         # No driver for tape/neon
+	}
+
+	# Custom spec fields live directly on the Webflow Product regardless of
+	# product type, so they port over unchanged.
+	for col in CUSTOM_SPEC_COLUMNS:
+		result[col] = wp_doc.get(col) or ""
+
+	return result
+
+
+def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
+	"""Yield fixture-shaped variant rows for LED Tape / LED Neon products.
+
+	Produces one row per (CCT × Output Level) drawn from
+	``tnt_doc.allowed_options``.  For each cell the single available lens
+	bucket is populated — "frosted" — so the marketing InDesign template's
+	"Other Lenses" column (which maps to `frosted`) renders the data and
+	the remaining lens slugs stay blank.
+
+	Yields the same keys :func:`_collect_variant_rows` does, so
+	:func:`_pivot_to_indesign` can consume them identically.
+	"""
+	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
+	all_cols = VARIANT_COLUMNS + LENS_COLUMNS
+
+	# ── Distinct CCTs / Output Levels from allowed_options ──
+	ccts = OrderedDict()
+	output_levels = OrderedDict()
+	for opt in (tnt_doc.allowed_options or []):
+		if hasattr(opt, "is_active") and not opt.is_active:
+			continue
+		otype = getattr(opt, "option_type", None)
+		if otype == "CCT" and opt.cct and opt.cct not in ccts:
+			cct_data = frappe.db.get_value(
+				"ilL-Attribute-CCT", opt.cct,
+				["kelvin", "lumen_multiplier"], as_dict=True,
+			) or {}
+			ccts[opt.cct] = {
+				"kelvin": cct_data.get("kelvin") or 0,
+				"lumen_multiplier": cct_data.get("lumen_multiplier") or 1.0,
+			}
+		elif otype == "Output Level" and opt.output_level and opt.output_level not in output_levels:
+			level_data = frappe.db.get_value(
+				"ilL-Attribute-Output Level", opt.output_level,
+				["output_level_name", "value", "sku_code"], as_dict=True,
+			) or {}
+			output_levels[opt.output_level] = {
+				"name": level_data.get("output_level_name") or opt.output_level,
+				"value": level_data.get("value") or 0,
+				"sku_code": level_data.get("sku_code") or "",
+			}
+
+	# ── Shared tape spec for the variant data ──
+	tape_spec = None
+	for spec_row in (tnt_doc.allowed_tape_specs or []):
+		if not spec_row.tape_spec:
+			continue
+		try:
+			tape_spec = frappe.get_cached_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
+			break
+		except frappe.DoesNotExistError:
+			continue
+
+	# Precompute shared variant values (CRI / production interval / pitch)
+	cri_label = ""
+	if tape_spec and getattr(tape_spec, "cri_typical", None):
+		cri_label = _format_cri_quality(
+			# Synthesize a minimal cri_doc-like object so we can reuse the
+			# fixture-template formatter without hitting the DB.
+			type("CRI", (), {"cri_name": f"{int(tape_spec.cri_typical)} CRI"})(),
+			getattr(tape_spec, "sdcm", None),
+		)
+	production_interval = ""
+	led_pitch_mm = ""
+	tape_lumens = 0
+	watts_per_foot = ""
+	max_run_ft = ""
+	if tape_spec:
+		cut_mm = getattr(tape_spec, "cut_increment_mm", None) or 0
+		if cut_mm:
+			inches_str = format_length_inches(cut_mm, precision=2)
+			if inches_str:
+				mm_val = int(cut_mm) if cut_mm == int(cut_mm) else cut_mm
+				production_interval = f"{inches_str} ({mm_val}mm)"
+		led_pitch_mm = tape_spec.led_pitch_mm or ""
+		tape_lumens = tape_spec.lumens_per_foot or 0
+		watts_per_foot = tape_spec.watts_per_foot or ""
+		max_run_ft = tape_spec.voltage_drop_max_run_length_ft or ""
+
+	# ── No CCTs or no output levels: emit one sparse row ──
+	if not ccts or not output_levels:
+		row = dict(product_data)
+		row["cri_quality"] = cri_label
+		row["production_interval"] = production_interval
+		row["led_pitch_mm"] = led_pitch_mm
+		for col in all_cols:
+			row.setdefault(col, "")
+		yield row
+		return
+
+	# ── Emit one row per (output_level × CCT) ──
+	# The "frosted" slug is the primary (and only) lens bucket for tape/neon
+	# because _INDESIGN_LENS_GROUPS maps "Other Lenses" → "frosted".  The
+	# remaining three lens slugs stay blank.
+	primary_slug = "frosted"
+
+	for ol_name, ol_info in output_levels.items():
+		for cct_name, cct_info in ccts.items():
+			row = dict(product_data)
+			row["cct_name"] = cct_name
+			row["cct_kelvin"] = cct_info["kelvin"]
+			row["fixture_output_level"] = ol_info["name"]
+			row["cri_quality"] = cri_label
+			row["production_interval"] = production_interval
+			row["led_pitch_mm"] = led_pitch_mm
+
+			# Pre-blank every lens slug so missing columns never silently drop.
+			for slug in STANDARD_LENSES.values():
+				row[f"delivered_lumens_{slug}"] = ""
+				row[f"watts_per_foot_{slug}"] = ""
+				row[f"max_run_length_ft_{slug}"] = ""
+
+			# Populate the single primary bucket if we have tape data.
+			if tape_spec:
+				delivered = tape_lumens * 1.0 * (cct_info["lumen_multiplier"] or 1.0)
+				if delivered:
+					row[f"delivered_lumens_{primary_slug}"] = round(delivered, 1)
+				row[f"watts_per_foot_{primary_slug}"] = watts_per_foot
+				row[f"max_run_length_ft_{primary_slug}"] = max_run_ft
+
+			for col in all_cols:
+				row.setdefault(col, "")
+			yield row
+
+
+def _generate_tape_neon_indesign_csv(wp_doc):
+	"""Return CSV content for LED Tape / LED Neon in the InDesign pivot format.
+
+	Produces the **same 596-column layout** as :func:`_generate_indesign_csv`
+	so a single marketing InDesign data-merge template accepts both fixture
+	and tape/neon exports.  The guardrail ``assert`` below prevents the two
+	code paths from drifting apart.
+	"""
+	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
+
+	product_data = _collect_tape_neon_product_data_indesign(wp_doc)
+	variant_rows = list(_collect_tape_neon_variant_rows_indesign(wp_doc, product_data))
+	pn_builder_columns = _collect_tn_pn_builder_columns(tnt_doc)
+
+	headers, data_row = _pivot_to_indesign(product_data, variant_rows, pn_builder_columns)
+
+	# Guardrail: neon and fixture exports MUST share the same header width.
+	assert len(headers) == INDESIGN_TOTAL_COLUMNS, (
+		f"Tape/Neon InDesign CSV produced {len(headers)} columns, "
+		f"expected {INDESIGN_TOTAL_COLUMNS} (drift from fixture schema)."
+	)
+
+	output = io.StringIO()
+	writer = csv.writer(output)
+	writer.writerow(headers)
+	writer.writerow([data_row.get(col, "") for col in headers])
 	return output.getvalue()
 
 
@@ -1055,6 +1519,12 @@ def _generate_indesign_csv(wp_doc):
 
 	headers, data_row = _pivot_to_indesign(product_data, variant_rows, pn_builder_columns)
 
+	# Guardrail: header width must stay in lockstep with the tape/neon export.
+	assert len(headers) == INDESIGN_TOTAL_COLUMNS, (
+		f"Fixture InDesign CSV produced {len(headers)} columns, "
+		f"expected {INDESIGN_TOTAL_COLUMNS} (drift from unified schema)."
+	)
+
 	output = io.StringIO()
 	writer = csv.writer(output)
 	writer.writerow(headers)
@@ -1073,8 +1543,10 @@ def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dic
 	Args:
 		webflow_product: Name of the ilL-Webflow-Product document.
 		format: ``"indesign"`` (default) for the pivoted InDesign
-			data-merge layout, or ``"flat"`` for the legacy one-row-per-
-			CCT×output-level format.
+			data-merge layout, ``"flat"`` for the legacy fixture
+			one-row-per-CCT×output-level format, or
+			``"tape_neon_flat"`` to opt into the legacy flat layout
+			for LED Tape / LED Neon products.
 
 	Returns:
 		dict with ``success``, ``file_url``, and ``file_name``.
@@ -1084,7 +1556,13 @@ def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dic
 	if wp_doc.product_type in ("LED Tape", "LED Neon"):
 		if not wp_doc.tape_neon_template:
 			return {"success": False, "error": _("No Tape/Neon Template linked — please set the 'Tape / Neon Template' field to generate a spec sheet.")}
-		csv_content = _generate_tape_neon_csv(wp_doc)
+		# Default to the unified InDesign schema so marketing's data-merge
+		# template accepts tape/neon exports identically to fixtures.  The
+		# original flat layout remains available as an opt-in.
+		if format == "tape_neon_flat":
+			csv_content = _generate_tape_neon_flat_csv(wp_doc)
+		else:
+			csv_content = _generate_tape_neon_indesign_csv(wp_doc)
 	elif wp_doc.product_type == "Fixture Template":
 		if not wp_doc.fixture_template:
 			return {"success": False, "error": _("No Fixture Template linked — cannot generate spec sheet.")}
