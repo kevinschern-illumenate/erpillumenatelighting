@@ -1779,10 +1779,11 @@ class ilLWebflowProduct(Document):
 	def populate_tape_neon_configurator_options(self):
 		"""Populate configurator options from tape/neon template's allowed options.
 
-		LED Tape flow: Environment → CCT → Output → PCB Mounting → PCB Finish
-		    → Power Feed Type → Length.
-		LED Neon flow: CCT → Output → Mounting → Finish → IP Rating
-		    → Feed Direction → Length.
+		LED Tape flow: Environment → CCT → Output → Power Feed Type → Length.
+		LED Neon flow: CCT → Output → Finish → IP Rating → Feed Direction → Length.
+
+		Mounting selection (PCB Mounting for tape, Mounting Method for neon) has been
+		moved to a post-configuration mounting accessory step.
 		"""
 		template = frappe.get_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
 
@@ -1791,21 +1792,18 @@ class ilLWebflowProduct(Document):
 				(1, "Environment Rating", "Environment", 0),
 				(2, "CCT", "CCT", 1),
 				(3, "Output Level", "Output", 2),
-				(4, "PCB Mounting", "PCB Mounting", 0),
-				(5, "PCB Finish", "PCB Finish", 0),
-				(6, "Power Feed Type", "Power Feed Type", 0),
-				(7, "Length", "Length", 0),
+				(4, "Power Feed Type", "Power Feed Type", 0),
+				(5, "Length", "Length", 0),
 			]
 		else:
 			# LED Neon
 			option_flow = [
 				(1, "CCT", "CCT", 0),
 				(2, "Output Level", "Output", 1),
-				(3, "Mounting Method", "Mounting", 0),
-				(4, "Finish", "Finish", 0),
-				(5, "IP Rating", "IP Rating", 0),
-				(6, "Feed Direction", "Feed Direction", 0),
-				(7, "Length", "Length", 0),
+				(3, "Finish", "Finish", 0),
+				(4, "IP Rating", "IP Rating", 0),
+				(5, "Feed Direction", "Feed Direction", 0),
+				(6, "Length", "Length", 0),
 			]
 
 		# Clear existing and rebuild

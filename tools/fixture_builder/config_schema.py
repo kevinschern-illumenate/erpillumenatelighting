@@ -180,8 +180,8 @@ class TapeSpecDef:
     lumens_per_foot: float = 0.0
     cri_typical: int = 90
     led_pitch_mm: float = 0.0
-    pcb_mounting: str = ""                       # e.g. "Adhesive Backed"
-    pcb_finish: str = ""                         # e.g. "White"
+    pcb_mounting: str = ""                       # Deprecated — informational only
+    pcb_finish: str = ""                         # Deprecated — informational only
     cut_increment_mm: float = 0.0
     is_free_cutting: bool = False
     leader_cable_item: str = ""
@@ -199,6 +199,22 @@ class TapeOfferingDef:
     output_level: str = ""               # e.g. "Standard", "High"
     watts_per_ft_override: float = 0.0
     cut_increment_mm_override: float = 0.0
+
+
+@dataclass
+class MountingAccessoryDef:
+    """A mounting accessory definition for tape/neon products.
+
+    Defines available mounting accessories (clips, channels, brackets) that
+    are offered as a post-configuration add-on for LED Tape and LED Neon.
+    """
+    mounting_method: str = ""            # e.g. "Surface Mount", "Channel Mount"
+    accessory_item: str = ""             # Item code, e.g. "ACC-NF-SM"
+    qty_rule_type: str = "PER_X_MM"      # PER_FIXTURE, PER_SEGMENT, PER_RUN, PER_X_MM
+    qty_rule_value: float = 304.8        # Default: 1 per foot (304.8 mm)
+    min_qty: int = 0
+    rounding: str = "CEIL"               # CEIL, FLOOR, ROUND
+    environment_rating: str = ""         # Optional filter
 
 
 @dataclass
@@ -333,6 +349,7 @@ class FixtureBuilderConfig:
     tape_specs: list[TapeSpecDef] = field(default_factory=list)
     tape_offerings: list[TapeOfferingDef] = field(default_factory=list)
     tape_neon_templates: list[TapeNeonTemplateDef] = field(default_factory=list)
+    mounting_accessories: list[MountingAccessoryDef] = field(default_factory=list)
     neon_submittal_mapping: NeonSubmittalMappingDef = field(default_factory=NeonSubmittalMappingDef)
     tape_neon_webflow: TapeNeonWebflowDef = field(default_factory=TapeNeonWebflowDef)
 
