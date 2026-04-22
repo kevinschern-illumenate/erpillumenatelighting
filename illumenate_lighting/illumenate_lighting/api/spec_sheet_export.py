@@ -1187,12 +1187,12 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 	# Precompute shared variant values (CRI / production interval / pitch)
 	cri_label = ""
 	if tape_spec and getattr(tape_spec, "cri_typical", None):
-		cri_label = _format_cri_quality(
-			# Synthesize a minimal cri_doc-like object so we can reuse the
-			# fixture-template formatter without hitting the DB.
-			type("CRI", (), {"cri_name": f"{int(tape_spec.cri_typical)} CRI"})(),
-			getattr(tape_spec, "sdcm", None),
-		)
+		# _format_cri_quality expects a doc with a ``cri_name`` attribute.
+		# Tape specs store only the raw integer, so wrap it in a SimpleNamespace
+		# shim so we can reuse the fixture-template formatter without a DB hit.
+		from types import SimpleNamespace
+		cri_shim = SimpleNamespace(cri_name=f"{int(tape_spec.cri_typical)} CRI")
+		cri_label = _format_cri_quality(cri_shim, getattr(tape_spec, "sdcm", None))
 	production_interval = ""
 	led_pitch_mm = ""
 	tape_lumens = 0
