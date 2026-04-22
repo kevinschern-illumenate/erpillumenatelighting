@@ -907,3 +907,222 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
 		# No Part Number columns
 		self.assertFalse(any("Part Number" in h for h in headers))
+
+
+class TestSpecSheetExportNeonInDesign(FrappeTestCase):
+	"""Tape/Neon products must produce the same 596-column InDesign layout
+	as Fixture Template products so marketing's data-merge template accepts
+	both file types without column-shift garbage.
+	"""
+
+	def test_indesign_total_columns_constant(self):
+		"""Sanity check on the shared guardrail constant."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			INDESIGN_TOTAL_COLUMNS, INDESIGN_PRODUCT_COLUMNS, MAX_CCTS, MAX_OUTPUT_LEVELS,
+			STANDARD_PN_SECTIONS, MAX_PN_OPTIONS_PER_SECTION,
+			_INDESIGN_LENS_GROUPS, _INDESIGN_LUMEN_LENSES,
+		)
+
+		output_block = 1 + len(_INDESIGN_LENS_GROUPS) * 2 + MAX_CCTS * len(_INDESIGN_LUMEN_LENSES)
+		expected = (
+			len(INDESIGN_PRODUCT_COLUMNS)
+			+ MAX_CCTS
+			+ MAX_OUTPUT_LEVELS * output_block
+			+ len(STANDARD_PN_SECTIONS) * MAX_PN_OPTIONS_PER_SECTION * 2
+		)
+		self.assertEqual(INDESIGN_TOTAL_COLUMNS, 596)
+		self.assertEqual(INDESIGN_TOTAL_COLUMNS, expected)
+
+	def test_tn_pn_builder_empty_shape_matches_fixture(self):
+		"""`_collect_tn_pn_builder_columns(None)` must yield the exact same
+		220-column skeleton as the Fixture Template PN builder."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_collect_pn_builder_columns, _collect_tn_pn_builder_columns,
+		)
+		ft_headers, ft_data = _collect_pn_builder_columns(None)
+		tn_headers, tn_data = _collect_tn_pn_builder_columns(None)
+		self.assertEqual(tn_headers, ft_headers)
+		self.assertEqual(len(tn_headers), 220)
+		self.assertTrue(all(v == "" for v in tn_data.values()))
+
+	def test_pivot_header_parity_with_fixture(self):
+		"""Passing the neon PN shim into the same pivoter must yield an
+		identical 596-column header list to the fixture export."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_pivot_to_indesign, _collect_pn_builder_columns,
+			_collect_tn_pn_builder_columns, INDESIGN_TOTAL_COLUMNS,
+		)
+
+		product_data = {
+			"product_name": "Hdr", "input_voltage": "", "certifications": "",
+			"available_lenses": "", "available_finishes": "", "profile_dimensions": "",
+		}
+		fixture_headers, _ = _pivot_to_indesign(
+			product_data, [], _collect_pn_builder_columns(None)
+		)
+		neon_headers, _ = _pivot_to_indesign(
+			product_data, [], _collect_tn_pn_builder_columns(None)
+		)
+		self.assertEqual(neon_headers, fixture_headers)
+		self.assertEqual(len(neon_headers), INDESIGN_TOTAL_COLUMNS)
+
+	def test_tn_pn_builder_maps_option_types_to_standard_sections(self):
+		"""allowed_options option_types are routed to STANDARD_PN_SECTIONS
+		via the documented mapping (CCT→CCT, Output Level→Output,
+		Environment Rating / IP Rating→Dry/Wet, Mounting Method→Mounting,
+		Finish / PCB Finish→Finish)."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		# Fake attribute docs keyed by (doctype, name).
+		attr_fixtures = {
+			("ilL-Attribute-Series", "NT01"): SimpleNamespace(code="NT01", series_name="NeonOne"),
+			("ilL-Attribute-CCT", "3000K"): SimpleNamespace(code="30K", label="3000K"),
+			("ilL-Attribute-CCT", "4000K"): SimpleNamespace(code="40K", label="4000K"),
+			("ilL-Attribute-Output Level", "200lm"): SimpleNamespace(
+				code="02", output_level_name="200 lm/ft",
+			),
+			("ilL-Attribute-IP Rating", "IP67"): SimpleNamespace(code="67", label="IP67"),
+			("ilL-Attribute-Mounting Method", "Surface"): SimpleNamespace(
+				code="SM", label="Surface Mount", mounting_method="Surface",
+			),
+			("ilL-Attribute-Finish", "Black"): SimpleNamespace(
+				code="BK", finish_name="Black", label="Black",
+			),
+		}
+
+		def fake_get_cached_doc(doctype, name):
+			doc = attr_fixtures.get((doctype, name))
+			if doc is None:
+				raise sse.frappe.DoesNotExistError(f"{doctype} {name} not found")
+			return doc
+
+		allowed_options = [
+			SimpleNamespace(option_type="CCT", cct="3000K", is_active=1),
+			SimpleNamespace(option_type="CCT", cct="4000K", is_active=1),
+			SimpleNamespace(option_type="Output Level", output_level="200lm", is_active=1),
+			SimpleNamespace(option_type="IP Rating", ip_rating="IP67", is_active=1),
+			SimpleNamespace(option_type="Mounting Method", mounting_method="Surface", is_active=1),
+			SimpleNamespace(option_type="Finish", finish="Black", is_active=1),
+		]
+		tnt_doc = SimpleNamespace(series="NT01", allowed_options=allowed_options)
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe.db, "has_column", return_value=True):
+			headers, data = sse._collect_tn_pn_builder_columns(tnt_doc)
+
+		self.assertEqual(len(headers), 220)
+		# Series filled from tnt_doc.series
+		self.assertEqual(data["Part Number - Series - Option 1:"], "NT01")
+		self.assertEqual(data["Part Number - Series - Description 1:"], "NeonOne")
+		# CCT: two distinct entries
+		self.assertEqual(data["Part Number - CCT - Option 1:"], "30K")
+		self.assertEqual(data["Part Number - CCT - Option 2:"], "40K")
+		# Output
+		self.assertEqual(data["Part Number - Output - Option 1:"], "02")
+		# IP Rating → Dry/Wet
+		self.assertEqual(data["Part Number - Dry/Wet - Option 1:"], "67")
+		# Mounting
+		self.assertEqual(data["Part Number - Mounting - Option 1:"], "SM")
+		# Finish
+		self.assertEqual(data["Part Number - Finish - Option 1:"], "BK")
+		# Lens stays blank for neon
+		self.assertEqual(data["Part Number - Lens - Option 1:"], "")
+
+	def test_tn_pn_builder_feed_position_fanout(self):
+		"""Feed Direction rows fan out to Start / End Feed Type based on
+		`feed_position` (Both emits into both buckets)."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		attrs = {
+			("ilL-Attribute-Feed-Direction", "Start-A"): SimpleNamespace(
+				code="SA", direction_name="Start A",
+			),
+			("ilL-Attribute-Feed-Direction", "End-B"): SimpleNamespace(
+				code="EB", direction_name="End B",
+			),
+			("ilL-Attribute-Feed-Direction", "Both-C"): SimpleNamespace(
+				code="BC", direction_name="Both C",
+			),
+		}
+
+		def fake_gcd(doctype, name):
+			return attrs[(doctype, name)]
+
+		tnt_doc = SimpleNamespace(
+			series=None,
+			allowed_options=[
+				SimpleNamespace(option_type="Feed Direction", feed_direction="Start-A",
+				                feed_position="Start", is_active=1),
+				SimpleNamespace(option_type="Feed Direction", feed_direction="End-B",
+				                feed_position="End", is_active=1),
+				SimpleNamespace(option_type="Feed Direction", feed_direction="Both-C",
+				                feed_position="Both", is_active=1),
+			],
+		)
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_gcd), \
+			 patch.object(sse.frappe.db, "has_column", return_value=True):
+			_h, data = sse._collect_tn_pn_builder_columns(tnt_doc)
+
+		# Start-A goes only to Start
+		self.assertEqual(data["Part Number - Start Feed Type - Option 1:"], "SA")
+		# End-B goes only to End
+		self.assertEqual(data["Part Number - End Feed Type - Option 1:"], "EB")
+		# Both-C appears in both
+		self.assertIn("BC", [data["Part Number - Start Feed Type - Option 2:"],
+		                      data["Part Number - Start Feed Type - Option 1:"]])
+		self.assertIn("BC", [data["Part Number - End Feed Type - Option 2:"],
+		                      data["Part Number - End Feed Type - Option 1:"]])
+
+	def test_tn_pn_builder_inactive_options_skipped(self):
+		"""Options with is_active=0 must not occupy a slot."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		attrs = {
+			("ilL-Attribute-CCT", "3000K"): SimpleNamespace(code="30K", label="3000K"),
+			("ilL-Attribute-CCT", "4000K"): SimpleNamespace(code="40K", label="4000K"),
+		}
+		tnt_doc = SimpleNamespace(series=None, allowed_options=[
+			SimpleNamespace(option_type="CCT", cct="3000K", is_active=0),
+			SimpleNamespace(option_type="CCT", cct="4000K", is_active=1),
+		])
+		with patch.object(sse.frappe, "get_cached_doc",
+		                  side_effect=lambda dt, n: attrs[(dt, n)]), \
+			 patch.object(sse.frappe.db, "has_column", return_value=True):
+			_h, data = sse._collect_tn_pn_builder_columns(tnt_doc)
+
+		# Only the active CCT is filled into slot 1
+		self.assertEqual(data["Part Number - CCT - Option 1:"], "40K")
+		self.assertEqual(data["Part Number - CCT - Option 2:"], "")
+
+
+class TestSpecSheetExportTapeNeonRouting(FrappeTestCase):
+	"""Router must default LED Tape / LED Neon to the InDesign schema and
+	reserve the legacy flat layout for ``format='tape_neon_flat'``."""
+
+	def test_legacy_flat_helper_kept_as_alias(self):
+		"""`_generate_tape_neon_csv` remains importable as an alias for
+		back-compat (any existing downstream caller keeps working)."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_generate_tape_neon_csv, _generate_tape_neon_flat_csv,
+		)
+		# Both symbols should exist; one delegates to the other.
+		self.assertTrue(callable(_generate_tape_neon_csv))
+		self.assertTrue(callable(_generate_tape_neon_flat_csv))
+
+	def test_tape_neon_indesign_generator_exists(self):
+		"""The new unified generator must be importable."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
+			_generate_tape_neon_indesign_csv,
+			_collect_tape_neon_product_data_indesign,
+			_collect_tape_neon_variant_rows_indesign,
+		)
+		self.assertTrue(callable(_generate_tape_neon_indesign_csv))
+		self.assertTrue(callable(_collect_tape_neon_product_data_indesign))
+		self.assertTrue(callable(_collect_tape_neon_variant_rows_indesign))
