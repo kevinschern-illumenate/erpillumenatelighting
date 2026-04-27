@@ -62,6 +62,7 @@ def generate_manufacturing_artifacts(
 	configured_fixture_id: str,
 	qty: int = 1,
 	skip_if_exists: bool = True,
+	bom_name: Optional[str] = None,
 ) -> dict[str, Any]:
 	"""
 	Generate manufacturing artifacts (Item, BOM, Work Order) for a Configured Fixture.
@@ -76,6 +77,7 @@ def generate_manufacturing_artifacts(
 		configured_fixture_id: Name of the ilL-Configured-Fixture document
 		qty: Quantity to manufacture (default: 1)
 		skip_if_exists: If True, skip creation if artifacts already exist (default: True)
+		bom_name: Optional BOM to use for the Work Order instead of the fixture default
 
 	Returns:
 		dict: Response with created/existing artifact references and status messages
@@ -117,8 +119,12 @@ def generate_manufacturing_artifacts(
 		response["success"] = False
 		return response
 
-	# Step 2: Create or get BOM (Epic 3)
-	bom_result = _create_or_get_bom(fixture, item_result["item_code"], skip_if_exists)
+	# Step 2: Create or get BOM (Epic 3), or honor a line-specific BOM.
+	using_requested_bom = bool(bom_name)
+	if bom_name:
+		bom_result = _get_requested_bom_result(bom_name, item_result["item_code"])
+	else:
+		bom_result = _create_or_get_bom(fixture, item_result["item_code"], skip_if_exists)
 	response["bom_name"] = bom_result["bom_name"]
 	response["messages"].extend(bom_result["messages"])
 	response["created"]["bom"] = bom_result["created"]
@@ -141,8 +147,12 @@ def generate_manufacturing_artifacts(
 		response["success"] = False
 		return response
 
-	# Update configured fixture with links (Epic 6)
-	_update_fixture_links(fixture, item_result["item_code"], bom_result["bom_name"], wo_result["work_order_name"])
+	# Update configured fixture with links (Epic 6). A requested BOM can be line-specific,
+	# so don't overwrite the configured product's default BOM with it.
+	if using_requested_bom:
+		_update_fixture_item_work_order_links(fixture, item_result["item_code"], wo_result["work_order_name"])
+	else:
+		_update_fixture_links(fixture, item_result["item_code"], bom_result["bom_name"], wo_result["work_order_name"])
 
 	response["messages"].append({
 		"severity": "info",
@@ -194,6 +204,7 @@ def generate_from_sales_order(sales_order: str) -> dict[str, Any]:
 			configured_fixture_id=configured_fixture_id,
 			qty=item.qty or 1,
 			skip_if_exists=True,
+			bom_name=item.get("ill_bom"),
 		)
 
 		response["results"].append({
@@ -630,71 +641,12 @@ def _generate_tape_neon_item_description(configured_tape_neon) -> str:
 	return "\n".join(lines)
 
 
-def _create_or_get_bom(
-	fixture,
-	item_code: str,
-	skip_if_exists: bool = True,
-) -> dict[str, Any]:
-	"""
-	Create or retrieve BOM for a configured fixture (Epic 3).
-
-	BOM roles implemented:
-	- Profile (stock sticks + cut instructions)
-	- Lens (sticks)
-	- Endcaps (2 + extra pair rule = 4 total)
-	- Mounting accessories (qty rule)
-	- LED tape (total length in UOM)
-	- Drivers (from driver plan)
-
-	Args:
-		fixture: ilL-Configured-Fixture document
-		item_code: The configured item code
-		skip_if_exists: If True, return existing BOM without modification
-
-	Returns:
-		dict: {"success": bool, "bom_name": str, "created": bool, "skipped": bool, "messages": list}
-	"""
-	result = {
-		"success": True,
-		"bom_name": None,
-		"created": False,
-		"skipped": False,
-		"messages": [],
-	}
-
-	# Check if fixture already has a BOM
-	if fixture.bom and skip_if_exists:
-		if frappe.db.exists("BOM", fixture.bom):
-			result["bom_name"] = fixture.bom
-			result["skipped"] = True
-			result["messages"].append({
-				"severity": "info",
-				"text": f"Using existing BOM: {fixture.bom}",
-			})
-			return result
-
-	# Check if a default BOM already exists for this item
-	existing_bom = frappe.db.get_value(
-		"BOM",
-		{"item": item_code, "is_active": 1, "is_default": 1},
-		"name",
-	)
-
-	if existing_bom and skip_if_exists:
-		result["bom_name"] = existing_bom
-		result["skipped"] = True
-		result["messages"].append({
-			"severity": "info",
-			"text": f"Using existing default BOM: {existing_bom}",
-		})
-		return result
-
-	# Build BOM items list
+def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
+	"""Build default BOM rows for a configured fixture without creating a BOM."""
 	bom_items = []
-	
+
 	# Determine if this is a multi-segment fixture
 	is_multi_segment = fixture.is_multi_segment if hasattr(fixture, 'is_multi_segment') else 0
-	user_segment_count = fixture.user_segment_count if hasattr(fixture, 'user_segment_count') else 1
 
 	# --- Role 1: Profile ---
 	if fixture.profile_item:
@@ -723,7 +675,7 @@ def _create_or_get_bom(
 	# --- Role 3: Endcaps (properly counted for multi-segment fixtures) ---
 	# For multi-segment fixtures, calculate endcaps based on segment configuration
 	endcap_counts = _calculate_endcap_quantities(fixture)
-	
+
 	# Add feed-through endcaps (start endcap)
 	if endcap_counts.get("feed_through_qty", 0) > 0 and fixture.endcap_item_start:
 		bom_items.append({
@@ -732,7 +684,7 @@ def _create_or_get_bom(
 			"uom": "Nos",
 			"stock_uom": "Nos",
 		})
-	
+
 	# Add solid endcaps (end endcap)
 	if endcap_counts.get("solid_qty", 0) > 0 and fixture.endcap_item_end:
 		# Check if already added same item as feed-through
@@ -741,7 +693,7 @@ def _create_or_get_bom(
 			if item["item_code"] == fixture.endcap_item_end:
 				existing_endcap_idx = idx
 				break
-		
+
 		if existing_endcap_idx is not None and fixture.endcap_item_end == fixture.endcap_item_start:
 			# Same item for both - add to existing quantity
 			bom_items[existing_endcap_idx]["qty"] += endcap_counts["solid_qty"]
@@ -813,6 +765,106 @@ def _create_or_get_bom(
 					"uom": "Nos",
 					"stock_uom": "Nos",
 				})
+
+	return bom_items
+
+
+def _get_requested_bom_result(bom_name: str, item_code: str) -> dict[str, Any]:
+	"""Validate and wrap a requested BOM in the standard artifact result shape."""
+	result = {
+		"success": True,
+		"bom_name": None,
+		"created": False,
+		"skipped": False,
+		"messages": [],
+	}
+
+	if not frappe.db.exists("BOM", bom_name):
+		result["success"] = False
+		result["messages"].append({
+			"severity": "error",
+			"text": f"Requested BOM '{bom_name}' not found",
+		})
+		return result
+
+	bom_item = frappe.db.get_value("BOM", bom_name, "item")
+	if bom_item != item_code:
+		result["success"] = False
+		result["messages"].append({
+			"severity": "error",
+			"text": f"Requested BOM '{bom_name}' belongs to item '{bom_item}', not '{item_code}'",
+		})
+		return result
+
+	result["bom_name"] = bom_name
+	result["skipped"] = True
+	result["messages"].append({
+		"severity": "info",
+		"text": f"Using requested BOM: {bom_name}",
+	})
+	return result
+
+
+def _create_or_get_bom(
+	fixture,
+	item_code: str,
+	skip_if_exists: bool = True,
+) -> dict[str, Any]:
+	"""
+	Create or retrieve BOM for a configured fixture (Epic 3).
+
+	BOM roles implemented:
+	- Profile (stock sticks + cut instructions)
+	- Lens (sticks)
+	- Endcaps (2 + extra pair rule = 4 total)
+	- Mounting accessories (qty rule)
+	- LED tape (total length in UOM)
+	- Drivers (from driver plan)
+
+	Args:
+		fixture: ilL-Configured-Fixture document
+		item_code: The configured item code
+		skip_if_exists: If True, return existing BOM without modification
+
+	Returns:
+		dict: {"success": bool, "bom_name": str, "created": bool, "skipped": bool, "messages": list}
+	"""
+	result = {
+		"success": True,
+		"bom_name": None,
+		"created": False,
+		"skipped": False,
+		"messages": [],
+	}
+
+	# Check if fixture already has a BOM
+	if fixture.bom and skip_if_exists:
+		if frappe.db.exists("BOM", fixture.bom):
+			result["bom_name"] = fixture.bom
+			result["skipped"] = True
+			result["messages"].append({
+				"severity": "info",
+				"text": f"Using existing BOM: {fixture.bom}",
+			})
+			return result
+
+	# Check if a default BOM already exists for this item
+	existing_bom = frappe.db.get_value(
+		"BOM",
+		{"item": item_code, "is_active": 1, "is_default": 1},
+		"name",
+	)
+
+	if existing_bom and skip_if_exists:
+		result["bom_name"] = existing_bom
+		result["skipped"] = True
+		result["messages"].append({
+			"severity": "info",
+			"text": f"Using existing default BOM: {existing_bom}",
+		})
+		return result
+
+	bom_items = build_fixture_bom_items(fixture)
 
 	# Validate we have at least one BOM item
 	if not bom_items:
@@ -968,6 +1020,16 @@ def _update_fixture_links(fixture, item_code: str, bom_name: str, work_order_nam
 	try:
 		fixture.configured_item = item_code
 		fixture.bom = bom_name
+		fixture.work_order = work_order_name
+		fixture.save(ignore_permissions=True)
+	except Exception:
+		pass  # Non-critical, links are convenience
+
+
+def _update_fixture_item_work_order_links(fixture, item_code: str, work_order_name: str):
+	"""Update non-BOM links when a line-specific BOM was requested."""
+	try:
+		fixture.configured_item = item_code
 		fixture.work_order = work_order_name
 		fixture.save(ignore_permissions=True)
 	except Exception:

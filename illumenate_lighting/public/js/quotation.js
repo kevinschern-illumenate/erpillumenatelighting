@@ -1,6 +1,18 @@
 // ilLumenate Lighting - Quotation customizations
 // Adds "Section / Room" grouping support for complex multi-room quotes
 
+function with_quote_order_configurator(callback) {
+	const configurator = window.illumenate_lighting && window.illumenate_lighting.quote_order_configurator;
+	if (configurator) {
+		callback(configurator);
+		return;
+	}
+
+	frappe.require('/assets/illumenate_lighting/js/quote_order_configurator.js', function() {
+		callback(window.illumenate_lighting.quote_order_configurator);
+	});
+}
+
 frappe.ui.form.on('Quotation', {
 	refresh: function(frm) {
 		// Add a quick-entry button to insert a section separator row
@@ -31,6 +43,10 @@ frappe.ui.form.on('Quotation', {
 				);
 			}, __('Tools'));
 		}
+
+		with_quote_order_configurator(function(configurator) {
+			configurator.add_buttons(frm);
+		});
 	}
 });
 
