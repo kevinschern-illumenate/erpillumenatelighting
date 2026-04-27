@@ -5,8 +5,24 @@
 	const api = 'illumenate_lighting.illumenate_lighting.api.quote_order_configurator.';
 	const productTypes = ['Linear Fixture', 'LED Tape', 'LED Neon'];
 
+	function isReadOnly(frm) {
+		if (typeof frm.is_read_only === 'function') {
+			return frm.is_read_only();
+		}
+
+		return !!frm.read_only || (frm.doc && frm.doc.docstatus !== 0);
+	}
+
+	function isNew(frm) {
+		if (typeof frm.is_new === 'function') {
+			return frm.is_new();
+		}
+
+		return !!(frm.doc && frm.doc.__islocal);
+	}
+
 	function canConfigure(frm) {
-		return !frm.is_new() && !frm.is_read_only() && frm.doc.docstatus === 0;
+		return !isNew(frm) && !isReadOnly(frm) && frm.doc.docstatus === 0;
 	}
 
 	function addButtons(frm) {

@@ -13,10 +13,18 @@ function with_quote_order_configurator(callback) {
 	});
 }
 
+function is_quotation_read_only(frm) {
+	if (typeof frm.is_read_only === 'function') {
+		return frm.is_read_only();
+	}
+
+	return !!frm.read_only || (frm.doc && frm.doc.docstatus !== 0);
+}
+
 frappe.ui.form.on('Quotation', {
 	refresh: function(frm) {
 		// Add a quick-entry button to insert a section separator row
-		if (!frm.is_read_only()) {
+		if (!is_quotation_read_only(frm)) {
 			frm.add_custom_button(__('Add Section / Room'), function() {
 				frappe.prompt(
 					{
