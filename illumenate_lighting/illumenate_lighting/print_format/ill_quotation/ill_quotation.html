@@ -123,6 +123,12 @@
                     {%- for item in items -%}
                         {%- set row_ns.sr = row_ns.sr + 1 -%}
                         {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
+                        {%- if item.additional_notes -%}
+                        <tr>
+                            <td class="table-sr"></td>
+                            <td colspan="5" style="font-size: 0.9em; color: #555; padding-top: 2px; padding-bottom: 4px; border-bottom: none;"><em>{{ item.additional_notes }}</em></td>
+                        </tr>
+                        {%- endif -%}
                         <tr>
                             <td class="table-sr">{{ row_ns.sr }}</td>
                             <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
@@ -148,6 +154,12 @@
             {%- else -%}
                 {#-- No sections — standard flat list --#}
                 {%- for item in doc.items -%}
+                {%- if item.additional_notes -%}
+                <tr>
+                    <td class="table-sr"></td>
+                    <td colspan="5" style="font-size: 0.9em; color: #555; padding-top: 2px; padding-bottom: 4px; border-bottom: none;"><em>{{ item.additional_notes }}</em></td>
+                </tr>
+                {%- endif -%}
                 <tr>
                     <td class="table-sr">{{ item.idx }}</td>
                     <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>

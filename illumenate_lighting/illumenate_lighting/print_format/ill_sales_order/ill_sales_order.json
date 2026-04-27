@@ -1,0 +1,11 @@
+{
+	"doctype": "Print Format",
+	"name": "ilL Sales Order",
+	"doc_type": "Sales Order",
+	"module": "ilLumenate Lighting",
+	"print_format_type": "Jinja",
+	"standard": "No",
+	"custom_format": 1,
+	"default_print_language": "en",
+	"disabled": 0
+}

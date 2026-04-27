@@ -1,5 +1,5 @@
 {#
-  ilLumenate Purchase Order Print Format
+  ilLumenate Sales Order Print Format
   Matches the standard ilL layout with section / room grouping.
   Section-header rows (custom_ill_section_label set, qty=0, no item_code) render as
   bold header rows spanning the table.  All other rows tagged with the same
@@ -30,20 +30,6 @@
     {%- endif -%}
 {%- endfor -%}
 
-{#-- Build supplier part info lookup from Item Supplier master --#}
-{%- set sp_ns = namespace(map={}) -%}
-{%- for item in doc.items -%}
-    {%- if item.item_code and item.item_code not in sp_ns.map -%}
-        {%- set _sp_row = frappe.db.get_value("Item Supplier",
-            {"parent": item.item_code, "supplier": doc.supplier},
-            ["supplier_part_no", "custom_supplier_description"], as_dict=True) or {} -%}
-        {%- set _ = sp_ns.map.update({item.item_code: {
-            "supplier_part_no": _sp_row.get("supplier_part_no") or "",
-            "supplier_description": _sp_row.get("custom_supplier_description") or ""
-        }}) -%}
-    {%- endif -%}
-{%- endfor -%}
-
 <style>
     .ill-section-header td {
         background-color: #e8e8e8 !important;
@@ -69,7 +55,7 @@
     <div style="width: 50%; float: right; text-align: right; padding-top: 22px;">
         <h2 style="margin: 0; line-height: 1.1; border: none !important;">
             <div style="font-weight: bold; text-transform: uppercase; color: #000; font-size: 1.4em; border: none !important;">
-                Purchase Order
+                Sales Order
             </div>
             <small style="font-size: 0.6em; color: #888; display: block; margin-top: 2px; font-weight: normal; border: none !important;">
                 {{ doc.name }}
@@ -79,23 +65,24 @@
     <div style="clear: both;"></div>
 </div>
 
-{#-- Supplier / Date info --#}
+{#-- Customer / Date info --#}
 <div class="row section-break">
     <div class="col-xs-4 column-break">
         <div class="row important data-field">
-            <div class="col-xs-12"><label>Supplier: </label></div>
-            <div class="col-xs-12 value">{{ doc.supplier_name or doc.supplier }}</div>
+            <div class="col-xs-12"><label>Customer Name: </label></div>
+            <div class="col-xs-12 value">{{ doc.customer_name }}</div>
         </div>
-        {% if doc.supplier_address %}
+        {% if doc.po_no %}
         <div class="row data-field">
-            <div class="col-xs-12"><label>Supplier Address: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.address_display or '' }}</div></div>
+            <div class="col-xs-12"><label>Purchase Order: </label></div>
+            <div class="col-xs-12 value">{{ doc.po_no }}</div>
         </div>
         {% endif %}
-        {% if doc.contact_display %}
+        {% if doc.project %}
+        {% set project_name = frappe.db.get_value('Project', doc.project, 'project_name') %}
         <div class="row data-field">
-            <div class="col-xs-12"><label>Contact: </label></div>
-            <div class="col-xs-12 value">{{ doc.contact_display }}</div>
+            <div class="col-xs-12"><label>Project: </label></div>
+            <div class="col-xs-12 value">{{ project_name or doc.project }}</div>
         </div>
         {% endif %}
     </div>
@@ -104,10 +91,10 @@
             <div class="col-xs-12"><label>Date: </label></div>
             <div class="col-xs-12 value">{{ doc.transaction_date | default('', true) }}</div>
         </div>
-        {% if doc.schedule_date %}
+        {% if doc.delivery_date %}
         <div class="row data-field">
-            <div class="col-xs-12"><label>Required By: </label></div>
-            <div class="col-xs-12 value">{{ doc.schedule_date }}</div>
+            <div class="col-xs-12"><label>Delivery Date: </label></div>
+            <div class="col-xs-12 value">{{ doc.delivery_date }}</div>
         </div>
         {% endif %}
         {% if doc.company %}
@@ -118,10 +105,16 @@
         {% endif %}
     </div>
     <div class="col-xs-4 column-break">
-        {% if doc.shipping_address %}
+        {% if doc.contact_display %}
         <div class="row data-field">
-            <div class="col-xs-12"><label>Ship To: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.shipping_address_display or '' }}</div></div>
+            <div class="col-xs-12"><label>Contact: </label></div>
+            <div class="col-xs-12 value">{{ doc.contact_display }}</div>
+        </div>
+        {% endif %}
+        {% if doc.contact_email %}
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Email: </label></div>
+            <div class="col-xs-12 value">{{ doc.contact_email }}</div>
         </div>
         {% endif %}
     </div>
@@ -134,12 +127,11 @@
             <thead>
                 <tr>
                     <th style="width: 40px" class="table-sr">Sr</th>
-                    <th style="width: 15%;">Item Code</th>
-                    <th style="width: 15%;">Supplier Part No</th>
-                    <th style="width: 30%;">Supplier Description</th>
+                    <th style="width: 40%;">Item Name</th>
+                    <th style="width: 20%;">Item Code</th>
                     <th style="width: 10%;" class="text-right">Quantity</th>
                     <th style="width: 10%;" class="text-right">Rate</th>
-                    <th style="width: 15%;" class="text-right">Amount</th>
+                    <th style="width: 20%;" class="text-right">Amount</th>
                 </tr>
             </thead>
             <tbody>
@@ -151,7 +143,7 @@
 
                     {%- if section_label -%}
                     <tr class="ill-section-header">
-                        <td colspan="7">{{ section_label }}</td>
+                        <td colspan="6">{{ section_label }}</td>
                     </tr>
                     {%- endif -%}
 
@@ -159,12 +151,10 @@
                     {%- for item in items -%}
                         {%- set row_ns.sr = row_ns.sr + 1 -%}
                         {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
-                        {%- set _sp = sp_ns.map.get(item.item_code) or {} -%}
                         <tr>
                             <td class="table-sr">{{ row_ns.sr }}</td>
+                            <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
                             <td><div class="value">{{ item.item_code or '' }}</div></td>
-                            <td><div class="value">{{ _sp.supplier_part_no or '' }}</div></td>
-                            <td><div class="value">{{ _sp.supplier_description or '' }}</div></td>
                             <td class="text-right">
                                 <div class="value">
                                     {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
@@ -178,7 +168,7 @@
 
                     {%- if section_label and ns.sections | length > 1 -%}
                     <tr class="ill-section-subtotal">
-                        <td colspan="6" class="text-right">{{ section_label }} Subtotal</td>
+                        <td colspan="5" class="text-right">{{ section_label }} Subtotal</td>
                         <td class="text-right">{{ frappe.utils.fmt_money(sec_ns.subtotal, currency=doc.currency) }}</td>
                     </tr>
                     {%- endif -%}
@@ -186,12 +176,10 @@
             {%- else -%}
                 {#-- No sections — standard flat list --#}
                 {%- for item in doc.items -%}
-                {%- set _sp = sp_ns.map.get(item.item_code) or {} -%}
                 <tr>
                     <td class="table-sr">{{ item.idx }}</td>
+                    <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
                     <td><div class="value">{{ item.item_code or '' }}</div></td>
-                    <td><div class="value">{{ _sp.supplier_part_no or '' }}</div></td>
-                    <td><div class="value">{{ _sp.supplier_description or '' }}</div></td>
                     <td class="text-right">
                         <div class="value">
                             {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
@@ -238,10 +226,34 @@
 </div>
 {% endif %}
 
+{#-- Net Total (only if different from Total) --#}
+{% if doc.total != doc.net_total %}
+<div class="row section-break">
+    <div class="col-xs-6 column-break"></div>
+    <div class="col-xs-6 column-break">
+        <div class="row data-field">
+            <div class="col-xs-7 text-right"><label>Net Total:</label></div>
+            <div class="col-xs-5 text-right value">{{ frappe.utils.fmt_money(doc.net_total, currency=doc.currency) }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {#-- Taxes / Charges --#}
 {% if doc.taxes %}
 <div class="row section-break" data-label="Taxes and Charges">
-    <div class="col-xs-6 column-break"></div>
+    <div class="col-xs-6 column-break">
+        {% if doc.exempt_from_sales_tax %}
+        <div class="row data-field">
+            <div class="col-xs-9"><label>Is customer exempted from sales tax?: </label></div>
+            <div class="col-xs-3 value">
+                <svg viewBox="0 0 16 16" fill="transparent" stroke="#1F272E" stroke-width="2" xmlns="http://www.w3.org/2000/svg" style="width: 12px; height: 12px; margin-top: 5px;">
+                    <path d="M2 9.66667L5.33333 13L14 3" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </div>
+        </div>
+        {% endif %}
+    </div>
     <div class="col-xs-6 column-break">
         {% for tax in doc.taxes %}
         <div class="row data-field">
@@ -261,8 +273,42 @@
             <div class="col-xs-5"><label>Grand Total: </label></div>
             <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</div>
         </div>
+        {% if doc.advance_paid %}
+        <div class="row data-field">
+            <div class="col-xs-5"><label>Advance Paid: </label></div>
+            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.advance_paid, currency=doc.currency) }}</div>
+        </div>
+        {% endif %}
     </div>
 </div>
+
+{#-- Billing / Shipping Address --#}
+{% if doc.address_display or doc.shipping_address_display %}
+<div class="row section-break" data-label="Addresses">
+    {% if doc.shipping_address_display %}
+    <div class="col-xs-6 column-break">
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Billing Address: </label></div>
+            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.address_display }}</div></div>
+        </div>
+    </div>
+    <div class="col-xs-6 column-break">
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Shipping Address: </label></div>
+            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.shipping_address_display }}</div></div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-xs-6 column-break">
+        <div class="row data-field">
+            <div class="col-xs-12"><label>Billing / Shipping Address: </label></div>
+            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.address_display }}</div></div>
+        </div>
+    </div>
+    <div class="col-xs-6 column-break"></div>
+    {% endif %}
+</div>
+{% endif %}
 
 {#-- Terms --#}
 {% if doc.terms %}
