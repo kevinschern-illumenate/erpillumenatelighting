@@ -1101,6 +1101,186 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 		self.assertEqual(data["Part Number - CCT - Option 1:"], "40K")
 		self.assertEqual(data["Part Number - CCT - Option 2:"], "")
 
+	def test_tn_option_label_code_uses_output_sku_code(self):
+		"""Output Level PN options use sku_code when the attribute has no code field."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		def fake_has_column(_doctype, fieldname):
+			return fieldname == "sku_code"
+
+		with patch.object(
+			sse.frappe,
+			"get_cached_doc",
+			return_value=SimpleNamespace(sku_code="HO", output_level_name="High Output"),
+		), patch.object(sse.frappe.db, "has_column", side_effect=fake_has_column):
+			code, label = sse._tn_option_label_code(
+				SimpleNamespace(option_type="Output Level", output_level="High")
+			)
+
+		self.assertEqual(code, "HO")
+		self.assertEqual(label, "High Output")
+
+	def test_tape_neon_product_data_fills_template_driver_and_media_fields(self):
+		"""Tape/neon product columns pull from template specs, options, drivers, and media fallbacks."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(
+			name="WP-NEON", tape_neon_template="TNT-1", product_type="LED Tape",
+			product_name="Tape Product", short_description="Short", sublabel="Sub",
+			beam_angle=120, operating_temp_min_c=-20, operating_temp_max_c=45,
+			l70_life_hours=50000, warranty_years=5,
+			attribute_links=[],
+			certifications=[SimpleNamespace(certification="ETL")],
+			featured_image="", series_family_image="", dimensions_image="/files/dims.png",
+		)
+		wp_doc.get = lambda fieldname, default=None: getattr(wp_doc, fieldname, default)
+
+		tnt_doc = SimpleNamespace(
+			name="TNT-1", template_code="TN01", image="/files/template-hero.png",
+			default_tape_spec="TS-1",
+			allowed_tape_specs=[SimpleNamespace(tape_spec="TS-1", environment_rating="Wet")],
+			allowed_options=[
+				SimpleNamespace(option_type="PCB Mounting", pcb_mounting="Adhesive", is_active=1),
+				SimpleNamespace(option_type="PCB Finish", pcb_finish="White PCB", is_active=1),
+			],
+		)
+		tape_doc = SimpleNamespace(
+			input_voltage="24V Attribute", input_protocol="ELV",
+			supported_dimming_protocols=[SimpleNamespace(protocol="PWM")],
+		)
+		driver_doc = SimpleNamespace(
+			input_voltage_min=120, input_voltage_max=277, input_voltage_type="VAC",
+			max_wattage=96,
+			input_protocols=[SimpleNamespace(protocol="0-10V")],
+		)
+
+		def fake_get_cached_doc(doctype, name):
+			if doctype == "ilL-Tape-Neon-Template" and name == "TNT-1":
+				return tnt_doc
+			if doctype == "ilL-Spec-LED Tape" and name == "TS-1":
+				return tape_doc
+			if doctype == "ilL-Spec-Driver" and name == "DRV-1":
+				return driver_doc
+			raise sse.frappe.DoesNotExistError(f"{doctype} {name}")
+
+		def fake_get_all(doctype, **kwargs):
+			if doctype == "ilL-Rel-Driver-Eligibility":
+				return [SimpleNamespace(driver_spec="DRV-1")]
+			return []
+
+		def fake_get_value(doctype, name, fieldname, as_dict=False):
+			if doctype == "ilL-Attribute-Output Voltage":
+				return {"dc_voltage": "24V", "ac_voltage": ""}
+			return None
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe, "get_all", side_effect=fake_get_all), \
+			 patch.object(sse.frappe.db, "get_value", side_effect=fake_get_value), \
+			 patch.object(sse, "get_url", side_effect=lambda url: f"https://erp.test{url}"):
+			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
+
+		self.assertEqual(data["input_voltage"], "24VDC (Power Supply: 120V-277VAC)")
+		self.assertEqual(data["available_mountings"], "Adhesive")
+		self.assertEqual(data["available_finishes"], "White PCB")
+		self.assertEqual(data["environment_ratings"], "Wet")
+		self.assertEqual(data["certifications"], "ETL")
+		self.assertEqual(data["dimming_protocols"], "0-10V, ELV, PWM")
+		self.assertEqual(data["driver_max_wattage"], 96)
+		self.assertEqual(data["custom_image_hero"], "https://erp.test/files/template-hero.png")
+		self.assertEqual(data["custom_image_dimensions_1"], "https://erp.test/files/dims.png")
+
+	def test_tape_neon_variant_rows_use_matching_tape_offerings(self):
+		"""Tape/neon variant rows are populated per actual CCT/output offering."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(tape_neon_template="TNT-1")
+		tnt_doc = SimpleNamespace(
+			name="TNT-1",
+			default_tape_spec="TS-LOW",
+			allowed_tape_specs=[
+				SimpleNamespace(tape_spec="TS-LOW"),
+				SimpleNamespace(tape_spec="TS-HIGH"),
+			],
+			allowed_options=[
+				SimpleNamespace(option_type="CCT", cct="3000K", is_active=1),
+				SimpleNamespace(option_type="Output Level", output_level="Low", is_active=1),
+				SimpleNamespace(option_type="Output Level", output_level="High", is_active=1),
+			],
+		)
+		offerings = [
+			SimpleNamespace(
+				name="TO-LOW", tape_spec="TS-LOW", cct="3000K", cri="CRI90",
+				sdcm="SDCM2", led_package="PKG", output_level="Low",
+				watts_per_ft_override=4.2, cut_increment_mm_override=25,
+			),
+			SimpleNamespace(
+				name="TO-HIGH", tape_spec="TS-HIGH", cct="3000K", cri="CRI90",
+				sdcm="SDCM2", led_package="PKG", output_level="High",
+				watts_per_ft_override=0, cut_increment_mm_override=0,
+			),
+		]
+		tape_docs = {
+			"TS-LOW": SimpleNamespace(
+				lumens_per_foot=180, watts_per_foot=3.5, voltage_drop_max_run_length_ft=20,
+				cut_increment_mm=50, led_pitch_mm=8, led_package="PKG", cri_typical=90,
+			),
+			"TS-HIGH": SimpleNamespace(
+				lumens_per_foot=400, watts_per_foot=8.0, voltage_drop_max_run_length_ft=12,
+				cut_increment_mm=50, led_pitch_mm=6, led_package="PKG", cri_typical=90,
+			),
+		}
+
+		def fake_get_cached_doc(doctype, name):
+			if doctype == "ilL-Tape-Neon-Template" and name == "TNT-1":
+				return tnt_doc
+			if doctype == "ilL-Spec-LED Tape":
+				return tape_docs[name]
+			if doctype == "ilL-Attribute-CRI":
+				return SimpleNamespace(cri_name="90 CRI")
+			if doctype == "ilL-Attribute-SDCM":
+				return SimpleNamespace(sdcm=2)
+			raise sse.frappe.DoesNotExistError(f"{doctype} {name}")
+
+		def fake_get_all(doctype, **kwargs):
+			if doctype == "ilL-Rel-Tape Offering":
+				return offerings
+			return []
+
+		def fake_get_value(doctype, name, fieldname, as_dict=False):
+			if doctype == "ilL-Attribute-CCT":
+				return {"kelvin": 3000, "lumen_multiplier": 0.95}
+			if doctype == "ilL-Attribute-Output Level" and name == "Low":
+				return {"output_level_name": "180 lm/ft", "value": 180, "sku_code": "LO"}
+			if doctype == "ilL-Attribute-Output Level" and name == "High":
+				return {"output_level_name": "400 lm/ft", "value": 400, "sku_code": "HI"}
+			return None
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe, "get_all", side_effect=fake_get_all), \
+			 patch.object(sse.frappe.db, "get_value", side_effect=fake_get_value):
+			rows = list(sse._collect_tape_neon_variant_rows_indesign(wp_doc, {"product_name": "Tape"}))
+
+		self.assertEqual(len(rows), 2)
+		low = rows[0]
+		high = rows[1]
+		self.assertEqual(low["fixture_output_level"], "180 lm/ft")
+		self.assertEqual(low["delivered_lumens_frosted"], 171.0)
+		self.assertEqual(low["watts_per_foot_frosted"], 4.2)
+		self.assertEqual(low["max_run_length_ft_frosted"], 20)
+		self.assertIn("25mm", low["production_interval"])
+		self.assertEqual(low["cri_quality"], "90 CRI / 2 SDCM")
+		self.assertEqual(low["delivered_lumens_white"], "")
+		self.assertEqual(high["fixture_output_level"], "400 lm/ft")
+		self.assertEqual(high["delivered_lumens_frosted"], 380.0)
+		self.assertEqual(high["watts_per_foot_frosted"], 8.0)
+		self.assertEqual(high["max_run_length_ft_frosted"], 12)
+
 
 class TestSpecSheetExportTapeNeonRouting(FrappeTestCase):
 	"""Router must default LED Tape / LED Neon to the InDesign schema and
