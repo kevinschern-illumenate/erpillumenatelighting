@@ -969,8 +969,8 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 	def test_tn_pn_builder_maps_option_types_to_standard_sections(self):
 		"""allowed_options option_types are routed to STANDARD_PN_SECTIONS
 		via the documented mapping (CCT→CCT, Output Level→Output,
-		Environment Rating / IP Rating→Dry/Wet, Mounting Method→Mounting,
-		Finish / PCB Finish→Finish)."""
+		Lens Appearance→Lens, Environment Rating / IP Rating→Dry/Wet,
+		Mounting Method→Mounting, Finish / PCB Finish→Finish)."""
 		from types import SimpleNamespace
 		from unittest.mock import patch
 		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
@@ -982,6 +982,9 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			("ilL-Attribute-CCT", "4000K"): SimpleNamespace(code="40K", label="4000K"),
 			("ilL-Attribute-Output Level", "200lm"): SimpleNamespace(
 				code="02", output_level_name="200 lm/ft",
+			),
+			("ilL-Attribute-Lens Appearance", "Frosted"): SimpleNamespace(
+				code="FR", label="Frosted",
 			),
 			("ilL-Attribute-IP Rating", "IP67"): SimpleNamespace(code="67", label="IP67"),
 			("ilL-Attribute-Mounting Method", "Surface"): SimpleNamespace(
@@ -1002,6 +1005,7 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			SimpleNamespace(option_type="CCT", cct="3000K", is_active=1),
 			SimpleNamespace(option_type="CCT", cct="4000K", is_active=1),
 			SimpleNamespace(option_type="Output Level", output_level="200lm", is_active=1),
+			SimpleNamespace(option_type="Lens Appearance", lens_appearance="Frosted", is_active=1),
 			SimpleNamespace(option_type="IP Rating", ip_rating="IP67", is_active=1),
 			SimpleNamespace(option_type="Mounting Method", mounting_method="Surface", is_active=1),
 			SimpleNamespace(option_type="Finish", finish="Black", is_active=1),
@@ -1021,14 +1025,15 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 		self.assertEqual(data["Part Number - CCT - Option 2:"], "40K")
 		# Output
 		self.assertEqual(data["Part Number - Output - Option 1:"], "02")
+		# Lens Appearance → Lens
+		self.assertEqual(data["Part Number - Lens - Option 1:"], "FR")
 		# IP Rating → Dry/Wet
 		self.assertEqual(data["Part Number - Dry/Wet - Option 1:"], "67")
 		# Mounting
 		self.assertEqual(data["Part Number - Mounting - Option 1:"], "SM")
 		# Finish
 		self.assertEqual(data["Part Number - Finish - Option 1:"], "BK")
-		# Lens stays blank for neon
-		self.assertEqual(data["Part Number - Lens - Option 1:"], "")
+		self.assertEqual(data["Part Number - Lens - Description 1:"], "Frosted")
 
 	def test_tn_pn_builder_feed_position_fanout(self):
 		"""Feed Direction rows fan out to Start / End Feed Type based on
@@ -1192,6 +1197,80 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 		self.assertEqual(data["driver_max_wattage"], 96)
 		self.assertEqual(data["custom_image_hero"], "https://erp.test/files/template-hero.png")
 		self.assertEqual(data["custom_image_dimensions_1"], "https://erp.test/files/dims.png")
+
+	def test_tape_neon_product_data_uses_spec_sheet_fallback_fields(self):
+		"""Template spec-sheet fields fill CSV columns when structured relationships are sparse."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(
+			name="WP-NEON-FALLBACK", tape_neon_template="TNT-FALLBACK", product_type="LED Neon",
+			product_name="Fallback Neon", short_description="", sublabel="",
+			beam_angle=None, operating_temp_min_c=None, operating_temp_max_c=None,
+			l70_life_hours=None, warranty_years=None,
+			attribute_links=[], certifications=[],
+			featured_image="", series_family_image="", dimensions_image="",
+		)
+		wp_doc.get = lambda fieldname, default=None: getattr(wp_doc, fieldname, default)
+
+		tnt_doc = SimpleNamespace(
+			name="TNT-FALLBACK", template_code="TN-FB", image="",
+			default_tape_spec=None, allowed_tape_specs=[],
+			allowed_options=[
+				SimpleNamespace(option_type="Lens Appearance", lens_appearance="Frosted", is_active=1),
+				SimpleNamespace(option_type="Mounting Method", mounting_method="Channel", is_active=1),
+				SimpleNamespace(option_type="Finish", finish="Carbon", is_active=1),
+			],
+			spec_sheet_dimensions='0.63" W x 0.75" H',
+			available_lenses="Soft diffused",
+			available_finishes="Carbon",
+			available_mountings="3M Adhesive Back",
+			driver_max_wattage_override=60,
+			production_interval_mm=50,
+			certifications=[SimpleNamespace(certification="UL")],
+		)
+
+		attrs = {
+			("ilL-Attribute-Lens Appearance", "Frosted"): SimpleNamespace(code="FR", label="Frosted"),
+			("ilL-Attribute-Mounting Method", "Channel"): SimpleNamespace(
+				code="CH", label="Channel Mount",
+			),
+			("ilL-Attribute-Finish", "Carbon"): SimpleNamespace(code="CB", finish_name="Carbon"),
+		}
+
+		def fake_get_cached_doc(doctype, name):
+			if doctype == "ilL-Tape-Neon-Template" and name == "TNT-FALLBACK":
+				return tnt_doc
+			doc = attrs.get((doctype, name))
+			if doc:
+				return doc
+			raise sse.frappe.DoesNotExistError(f"{doctype} {name}")
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe, "get_all", return_value=[]), \
+			 patch.object(sse.frappe.db, "has_column", return_value=True):
+			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
+
+		self.assertEqual(data["profile_dimensions"], '0.63" W x 0.75" H')
+		self.assertEqual(data["available_lenses"], "Frosted, Soft diffused")
+		self.assertEqual(data["available_finishes"], "Carbon")
+		self.assertEqual(data["available_mountings"], "3M Adhesive Back, Channel Mount")
+		self.assertEqual(data["certifications"], "UL")
+		self.assertEqual(data["driver_max_wattage"], 60)
+		self.assertIn("50mm", data["production_interval"])
+
+	def test_pivot_uses_product_production_interval_fallback(self):
+		"""Product-level production interval is used when rows do not carry one."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "Fallback Interval",
+			"production_interval": '1.97" (50mm)',
+		}
+		_headers, data = _pivot_to_indesign(product_data, [{"fixture_output_level": "", "cct_name": ""}])
+
+		self.assertEqual(data["Production Interval"], '1.97" (50mm)')
 
 	def test_tape_neon_variant_rows_use_matching_tape_offerings(self):
 		"""Tape/neon variant rows are populated per actual CCT/output offering."""

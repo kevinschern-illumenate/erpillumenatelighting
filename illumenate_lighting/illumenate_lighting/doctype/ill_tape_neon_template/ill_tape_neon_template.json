@@ -19,6 +19,15 @@
         "image",
         "column_break_description",
         "notes",
+        "spec_sheet_details_section",
+        "spec_sheet_dimensions",
+        "available_lenses",
+        "available_finishes",
+        "column_break_spec_sheet_details",
+        "available_mountings",
+        "driver_max_wattage_override",
+        "production_interval_mm",
+        "certifications",
         "defaults_section",
         "default_tape_spec",
         "column_break_defaults",
@@ -115,6 +124,59 @@
             "fieldname": "notes",
             "fieldtype": "Small Text",
             "label": "Notes"
+        },
+        {
+            "collapsible": 1,
+            "description": "Values used by the Webflow Product spec-sheet CSV export when they are not captured by structured option/spec records.",
+            "fieldname": "spec_sheet_details_section",
+            "fieldtype": "Section Break",
+            "label": "Spec Sheet Details"
+        },
+        {
+            "description": "Display value for the CSV Dimensions (L×W×H) column.",
+            "fieldname": "spec_sheet_dimensions",
+            "fieldtype": "Data",
+            "label": "Dimensions (L×W×H)"
+        },
+        {
+            "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured.",
+            "fieldname": "available_lenses",
+            "fieldtype": "Small Text",
+            "label": "Available Lenses"
+        },
+        {
+            "description": "Fallback display value for the CSV Finish column when no Finish options are configured.",
+            "fieldname": "available_finishes",
+            "fieldtype": "Small Text",
+            "label": "Available Finishes"
+        },
+        {
+            "fieldname": "column_break_spec_sheet_details",
+            "fieldtype": "Column Break"
+        },
+        {
+            "description": "Fallback display value for the CSV Available Mountings column when no Mounting options are configured.",
+            "fieldname": "available_mountings",
+            "fieldtype": "Small Text",
+            "label": "Available Mountings"
+        },
+        {
+            "description": "Fallback/override value for the CSV Driver Max Wattage column when no preferred driver eligibility is configured.",
+            "fieldname": "driver_max_wattage_override",
+            "fieldtype": "Float",
+            "label": "Driver Max Wattage Override (W)"
+        },
+        {
+            "description": "Fallback production/cut interval in millimeters when the tape offering/spec does not provide a cut increment.",
+            "fieldname": "production_interval_mm",
+            "fieldtype": "Float",
+            "label": "Production Interval (mm)"
+        },
+        {
+            "fieldname": "certifications",
+            "fieldtype": "Table",
+            "label": "Certifications",
+            "options": "ilL-Child-Spec-Certification"
         },
         {
             "fieldname": "defaults_section",

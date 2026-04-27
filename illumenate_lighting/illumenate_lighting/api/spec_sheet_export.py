@@ -183,8 +183,34 @@ def _get_attribute_values_by_type(attribute_links, attr_type):
 	values = []
 	for row in attribute_links:
 		if row.attribute_type == attr_type and row.attribute_name:
-			values.append(row.attribute_name)
+			values.append(getattr(row, "display_label", None) or row.attribute_name)
 	return ", ".join(sorted(set(values)))
+
+
+def _add_list_values(values, *raw_values):
+	"""Add comma-separated display values into a set, skipping blanks."""
+	for raw_value in raw_values:
+		if not _has_value(raw_value):
+			continue
+		for value in str(raw_value).split(","):
+			value = value.strip()
+			if value:
+				values.add(value)
+
+
+def _join_list_values(values):
+	return ", ".join(sorted(values))
+
+
+def _collect_certification_values(*docs, attribute_links=None):
+	values = set()
+	for row in (attribute_links or []):
+		if getattr(row, "attribute_type", None) == "Certification":
+			_add_list_values(values, getattr(row, "display_label", None) or getattr(row, "attribute_name", None))
+	for doc in docs:
+		for row in (_doc_get(doc, "certifications", []) or []):
+			_add_list_values(values, _doc_get(row, "certification"))
+	return values
 
 
 def _doc_get(doc, fieldname, default=None):
@@ -279,6 +305,22 @@ def _format_driver_input_voltage(driver):
 		vtype = driver.input_voltage_type or "VAC"
 		return f"{driver.input_voltage_min}V-{driver.input_voltage_max}{vtype}"
 	return ""
+
+
+def _format_mm_interval(length_mm):
+	if not _has_value(length_mm):
+		return ""
+	try:
+		length_mm = float(length_mm)
+	except (TypeError, ValueError):
+		return ""
+	if not length_mm:
+		return ""
+	inches_str = format_length_inches(length_mm, precision=2)
+	if not inches_str:
+		return ""
+	mm_val = int(length_mm) if length_mm == int(length_mm) else length_mm
+	return f"{inches_str} ({mm_val}mm)"
 
 
 def _get_preferred_driver_info(template_type, template_name):
@@ -477,13 +519,7 @@ def _collect_tape_neon_offering_data(tnt_doc):
 def _format_production_interval(tape_offering, tape_spec):
 	"""Return production interval as '<inches>" (<mm>mm)' string."""
 	cut_mm = tape_offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
-	if not cut_mm:
-		return ""
-	inches_str = format_length_inches(cut_mm, precision=2)
-	if not inches_str:
-		return ""
-	mm_val = int(cut_mm) if cut_mm == int(cut_mm) else cut_mm
-	return f"{inches_str} ({mm_val}mm)"
+	return _format_mm_interval(cut_mm)
 
 
 def _format_cri_quality(cri_doc, sdcm_val):
@@ -600,11 +636,9 @@ def _collect_product_data(wp_doc):
 		env_ratings = ", ".join(sorted(set(ratings)))
 
 	# --- Certifications ---
-	certs = []
-	for row in (wp_doc.certifications or []):
-		if row.certification:
-			certs.append(row.certification)
-	certifications = ", ".join(sorted(set(certs)))
+	certifications = _join_list_values(
+		_collect_certification_values(wp_doc, attribute_links=attr_links)
+	)
 
 	# --- Combined input_voltage: tape voltage + driver voltage range ---
 	input_voltage = ""
@@ -1108,19 +1142,19 @@ def _generate_tape_neon_flat_csv(wp_doc):
 #
 # LED Tape and LED Neon share the Fixture-Template InDesign layout so that
 # marketing's single data-merge template accepts every product type.  Fields
-# that don't apply to tape/neon (lens appearances, profile dimensions) are
-# emitted as blank cells rather than being dropped — InDesign
-# matches columns by header name, so a *missing* column silently shifts the
-# remaining fields.  See the module docstring for the full contract.
+# that don't apply to a specific tape/neon product are emitted as blank cells
+# rather than being dropped — InDesign matches columns by header name, so a
+# *missing* column silently shifts the remaining fields.  See the module
+# docstring for the full contract.
 #
 # Lens-bucket convention for neon / tape
 # --------------------------------------
-# Neon fixtures are single-lens and tape fixtures have no lens at all.  The
-# fixture schema has four lens slugs (white / frosted / clear / black); we
-# populate the ``frosted`` slug because ``_INDESIGN_LENS_GROUPS`` maps
-# "Other Lenses" → "frosted", which is where the marketing template routes
-# the lens-agnostic output on the neon/tape spec sheet.  The other three
-# slugs stay blank so they merge as empty fields.
+# Neon/tape output is normally lens-agnostic even when the product records
+# carry lens-like display metadata.  The fixture schema has four lens slugs
+# (white / frosted / clear / black); we populate the ``frosted`` slug because
+# ``_INDESIGN_LENS_GROUPS`` maps "Other Lenses" → "frosted", which is where
+# the marketing template routes the lens-agnostic output on the neon/tape spec
+# sheet.  The other three slugs stay blank so they merge as empty fields.
 
 
 # option_type → STANDARD_PN_SECTIONS label for the tape/neon PN shim.
@@ -1130,6 +1164,7 @@ def _generate_tape_neon_flat_csv(wp_doc):
 _TN_PN_SECTION_MAP = {
 	"CCT": "CCT",
 	"Output Level": "Output",
+	"Lens Appearance": "Lens",
 	"Environment Rating": "Dry/Wet",
 	"IP Rating": "Dry/Wet",
 	"PCB Mounting": "Mounting",
@@ -1145,6 +1180,7 @@ _TN_PN_SECTION_MAP = {
 _TN_OPTION_LINKS = {
 	"CCT": ("cct", "ilL-Attribute-CCT"),
 	"Output Level": ("output_level", "ilL-Attribute-Output Level"),
+	"Lens Appearance": ("lens_appearance", "ilL-Attribute-Lens Appearance"),
 	"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
 	"IP Rating": ("ip_rating", "ilL-Attribute-IP Rating"),
 	"Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
@@ -1186,13 +1222,18 @@ def _tn_option_label_code(opt):
 			if code:
 				break
 	# Prefer the most descriptive human-readable label we can find.
-	for cand in ("label", "cct_name", "output_level_name", "finish_name",
-	             "direction_name", "mounting_method", "voltage_name"):
+	for cand in ("label", "cct_name", "output_level_name", "lens_name", "appearance_name",
+	             "finish_name", "direction_name", "mounting_method", "voltage_name"):
 		val = getattr(attr_doc, cand, None)
 		if val:
 			label = val
 			break
 	return code, label
+
+
+def _tn_option_display_label(opt):
+	_code, label = _tn_option_label_code(opt)
+	return label
 
 
 def _collect_tn_pn_builder_columns(tnt_doc):
@@ -1276,21 +1317,19 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 
 	Returns the same keys as :func:`_collect_product_data` (including every
 	:data:`CUSTOM_SPEC_COLUMNS` entry) so :func:`_pivot_to_indesign` can
-	consume it identically.  Fields that don't apply to tape/neon (lenses,
-	driver max wattage, profile dimensions) are populated as blank strings
-	— InDesign data merge silently shifts columns when a header is missing,
-	so every column must exist even when empty.
+	consume it identically.  Tape/neon can fill product-level display columns
+	from structured options first, then from template-level spec-sheet fallback
+	fields.  InDesign data merge silently shifts columns when a header is
+	missing, so every column must exist even when empty.
 	"""
 	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
 	attr_links = wp_doc.attribute_links or []
 	is_tape = wp_doc.product_type == "LED Tape"
 
 	# --- Certifications ---
-	certs = []
-	for row in (wp_doc.certifications or []):
-		if row.certification:
-			certs.append(row.certification)
-	certifications = ", ".join(sorted(set(certs)))
+	certifications = _join_list_values(
+		_collect_certification_values(wp_doc, tnt_doc, attribute_links=attr_links)
+	)
 
 	# --- Dimming protocols: prefer explicit links, then tape specs and driver eligibility ---
 	dimming_set = set()
@@ -1307,6 +1346,7 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 
 	# --- Gather allowed_options lookups (done in one pass) ---
 	env_set = set()
+	lens_set = set()
 	mounting_set = set()
 	finish_set = set()
 	for opt in (tnt_doc.allowed_options or []):
@@ -1317,14 +1357,16 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 			env_set.add(opt.environment_rating)
 		elif otype == "IP Rating" and opt.ip_rating:
 			env_set.add(opt.ip_rating)
+		elif otype == "Lens Appearance" and getattr(opt, "lens_appearance", None):
+			_add_list_values(lens_set, _tn_option_display_label(opt) or opt.lens_appearance)
 		elif otype == "Mounting Method" and opt.mounting_method:
-			mounting_set.add(opt.mounting_method)
+			_add_list_values(mounting_set, _tn_option_display_label(opt) or opt.mounting_method)
 		elif otype == "PCB Mounting" and is_tape and getattr(opt, "pcb_mounting", None):
-			mounting_set.add(opt.pcb_mounting)
+			_add_list_values(mounting_set, _tn_option_display_label(opt) or opt.pcb_mounting)
 		elif otype == "Finish" and opt.finish:
-			finish_set.add(opt.finish)
+			_add_list_values(finish_set, _tn_option_display_label(opt) or opt.finish)
 		elif otype == "PCB Finish" and is_tape and getattr(opt, "pcb_finish", None):
-			finish_set.add(opt.pcb_finish)
+			_add_list_values(finish_set, _tn_option_display_label(opt) or opt.pcb_finish)
 
 	for spec_row in (tnt_doc.allowed_tape_specs or []):
 		if getattr(spec_row, "environment_rating", None):
@@ -1336,9 +1378,29 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 			if row.attribute_type in ("Environment Rating", "IP Rating") and row.attribute_name:
 				env_set.add(row.attribute_name)
 
-	env_ratings = ", ".join(sorted(env_set))
-	mountings = ", ".join(sorted(mounting_set))
-	finishes = ", ".join(sorted(finish_set))
+	_add_list_values(lens_set, _get_attribute_values_by_type(attr_links, "Lens Appearance"))
+	_add_list_values(finish_set, _get_attribute_values_by_type(attr_links, "Finish"))
+	_add_list_values(mounting_set, _get_attribute_values_by_type(attr_links, "Mounting Method"))
+
+	for row in frappe.get_all(
+		"ilL-Rel-Mounting-Accessory-Map",
+		filters={
+			"template_type": "ilL-Tape-Neon-Template",
+			"fixture_template": tnt_doc.name,
+			"is_active": 1,
+		},
+		fields=["mounting_method"],
+	):
+		_add_list_values(mounting_set, _doc_get(row, "mounting_method"))
+
+	_add_list_values(lens_set, _doc_get(tnt_doc, "available_lenses"))
+	_add_list_values(finish_set, _doc_get(tnt_doc, "available_finishes"))
+	_add_list_values(mounting_set, _doc_get(tnt_doc, "available_mountings"))
+
+	env_ratings = _join_list_values(env_set)
+	lenses = _join_list_values(lens_set)
+	mountings = _join_list_values(mounting_set)
+	finishes = _join_list_values(finish_set)
 
 	# --- Input voltage: tape voltage + preferred power supply, mirroring fixtures ---
 	tape_voltage_label = ", ".join(_collect_tape_neon_voltage_labels(tnt_doc))
@@ -1346,6 +1408,7 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 	dimming_set.update(driver_info["dimming_protocols"])
 	dimming_protocols = ", ".join(sorted(dimming_set))
 	driver_voltage_str = driver_info["input_voltage"]
+	driver_max_wattage = _doc_get(tnt_doc, "driver_max_wattage_override") or driver_info["max_wattage"]
 	if tape_voltage_label and driver_voltage_str:
 		input_voltage = f"{tape_voltage_label} (Power Supply: {driver_voltage_str})"
 	elif tape_voltage_label:
@@ -1372,19 +1435,20 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 		"product_name": wp_doc.product_name or "",
 		"short_description": wp_doc.short_description or "",
 		"sublabel": wp_doc.sublabel or "",
-		"profile_dimensions": "",        # No profile concept for tape/neon
+		"profile_dimensions": _doc_get(tnt_doc, "spec_sheet_dimensions", ""),
 		"input_voltage": input_voltage,
 		"beam_angle": beam_angle,
 		"operating_temp_range_c": temp_range,
 		"l70_life_hours": wp_doc.l70_life_hours or "",
 		"warranty_years": wp_doc.warranty_years or "",
 		"available_finishes": finishes,
-		"available_lenses": "",           # Neon/tape: no lens concept
+		"available_lenses": lenses,
 		"available_mountings": mountings,
 		"environment_ratings": env_ratings,
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
-		"driver_max_wattage": driver_info["max_wattage"],
+		"driver_max_wattage": driver_max_wattage,
+		"production_interval": _format_mm_interval(_doc_get(tnt_doc, "production_interval_mm")),
 	}
 
 	_copy_custom_spec_fields(result, wp_doc, tnt_doc)
@@ -1691,7 +1755,7 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Driver Max Wattage": product_data.get("driver_max_wattage", ""),
 		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
 		"CRI Quality": ", ".join(cri_values),
-		"Production Interval": ", ".join(prod_interval_values),
+		"Production Interval": ", ".join(prod_interval_values) or product_data.get("production_interval", ""),
 	}
 
 	for label, field in _INDESIGN_SPEC_MAP:
