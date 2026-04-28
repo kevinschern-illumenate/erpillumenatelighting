@@ -65,7 +65,6 @@
 					fieldtype: 'Link',
 					label: __('Configured Fixture'),
 					options: 'ilL-Configured-Fixture',
-					hidden: 1,
 					onchange: function() {
 						loadPreview(dialog);
 					}
@@ -75,7 +74,6 @@
 					fieldtype: 'Link',
 					label: __('Configured Tape/Neon'),
 					options: 'ilL-Configured-Tape-Neon',
-					hidden: 1,
 					onchange: function() {
 						loadPreview(dialog);
 					}
@@ -94,6 +92,7 @@
 		});
 
 		dialog.show();
+		bindProductTypeChange(dialog);
 		updateProductFields(dialog);
 	}
 
@@ -111,6 +110,20 @@
 		setFieldVisible(dialog, 'configured_tape_neon', productType === 'LED Tape' || productType === 'LED Neon');
 	}
 
+	function bindProductTypeChange(dialog) {
+		const productTypeField = dialog.fields_dict.product_type;
+		if (!productTypeField || !productTypeField.$input) {
+			return;
+		}
+
+		productTypeField.$input.off('change.ill_configurator').on('change.ill_configurator', function() {
+			dialog.set_value('configured_fixture', null);
+			dialog.set_value('configured_tape_neon', null);
+			renderPreview(dialog, null);
+			updateProductFields(dialog);
+		});
+	}
+
 	function setFieldVisible(dialog, fieldname, visible) {
 		const field = dialog.fields_dict[fieldname];
 		if (!field) {
@@ -118,11 +131,16 @@
 		}
 
 		field.df.hidden = visible ? 0 : 1;
-		if (field.$wrapper) {
+		if (typeof field.toggle === 'function') {
+			field.toggle(!!visible);
+		} else if (field.$wrapper) {
 			field.$wrapper.toggle(!!visible);
 		}
 		if (field.refresh) {
 			field.refresh();
+		}
+		if (field.$wrapper) {
+			field.$wrapper.toggle(!!visible);
 		}
 	}
 
