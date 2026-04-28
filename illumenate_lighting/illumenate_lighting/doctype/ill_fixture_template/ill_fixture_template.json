@@ -20,6 +20,8 @@
                         "column_break_defaults",
                         "assembled_max_len_mm",
                         "leader_allowance_mm_per_fixture",
+                        "spec_sheet_details_section",
+                        "minimum_bend_diameter_mm",
                         "pricing_section",
                         "base_price_msrp",
                         "price_per_ft_msrp",
@@ -112,6 +114,19 @@
                        "fieldname":  "leader_allowance_mm_per_fixture",
                        "fieldtype":  "Int",
                        "label":  "Leader Allowance per Fixture (mm)"
+                   },
+                   {
+                       "collapsible":  1,
+                       "description":  "Values used by the Webflow Product spec-sheet CSV export.",
+                       "fieldname":  "spec_sheet_details_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet Details"
+                   },
+                   {
+                       "description":  "Smallest safe bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm).",
+                       "fieldname":  "minimum_bend_diameter_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Minimum Bend Diameter (mm)"
                    },
                    {
                        "fieldname":  "pricing_section",

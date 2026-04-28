@@ -10,8 +10,8 @@ for InDesign data merge.
 
 Supports two output formats:
   - ``"flat"`` – one row per CCT × output-level (original format)
-  - ``"indesign"`` – one pivoted row per product with **fixed** columns
-    (596 total) matching the marketing team's InDesign data-merge layout.
+	- ``"indesign"`` – one pivoted row per product with **fixed** columns
+		(621 total) matching the marketing team's InDesign data-merge layout.
     Column positions never shift between products.
 """
 
@@ -54,6 +54,7 @@ PRODUCT_COLUMNS = [
 	"certifications",
 	"dimming_protocols",
 	"driver_max_wattage",
+	"minimum_bend_diameters",
 ]
 
 CUSTOM_SPEC_COLUMNS = [
@@ -140,6 +141,7 @@ def _build_lens_columns():
 		cols.append(f"delivered_lumens_{slug}")
 		cols.append(f"watts_per_foot_{slug}")
 		cols.append(f"max_run_length_ft_{slug}")
+		cols.append(f"max_footage_per_100w_supply_{slug}")
 	return cols
 
 
@@ -161,12 +163,13 @@ MAX_CCTS = 8                     # fixed CCT column count
 MAX_OUTPUT_LEVELS = 8            # fixed output-level block count
 
 # Total column count of the unified InDesign data-merge CSV.
-#   17 static + 39 custom_* + 8 CCT + 8 × (1 + 3×2 + 8×4) + 11 × 10 × 2 = 596
+#   18 static + 39 custom_* + 8 CCT + 8 × (1 + 3×3 + 8×4) + 11 × 10 × 2 = 621
 # Keep this in sync with INDESIGN_PRODUCT_COLUMNS / _INDESIGN_LENS_GROUPS /
 # _INDESIGN_LUMEN_LENSES / STANDARD_PN_SECTIONS — an assert in
 # ``_generate_indesign_csv`` / ``_generate_tape_neon_indesign_csv`` enforces
 # that the two code paths can never drift apart.
-INDESIGN_TOTAL_COLUMNS = 596
+INDESIGN_TOTAL_COLUMNS = 621
+MAX_POWER_SUPPLY_USABLE_WATTS = 80
 
 
 # ──────────────────────────────────────────────────────────
@@ -229,6 +232,14 @@ def _doc_get(doc, fieldname, default=None):
 
 def _has_value(value):
 	return value is not None and value != ""
+
+
+def _is_checked(value):
+	if value is None:
+		return False
+	if isinstance(value, str):
+		return value.strip().lower() not in ("", "0", "false", "no", "none")
+	return bool(value)
 
 
 def _is_custom_link_column(fieldname):
@@ -321,6 +332,18 @@ def _format_mm_interval(length_mm):
 		return ""
 	mm_val = int(length_mm) if length_mm == int(length_mm) else length_mm
 	return f"{inches_str} ({mm_val}mm)"
+
+
+def _max_footage_per_100w_supply(watts_per_foot):
+	watts = _safe_float(watts_per_foot)
+	if not watts:
+		return ""
+	return round(MAX_POWER_SUPPLY_USABLE_WATTS / watts, 1)
+
+
+def _format_max_footage_per_100w_supply(watts_per_foot):
+	footage = _max_footage_per_100w_supply(watts_per_foot)
+	return f"{_fmt_num(footage)}ft" if footage != "" else ""
 
 
 def _get_preferred_driver_info(template_type, template_name):
@@ -484,8 +507,11 @@ def _collect_tape_neon_offering_data(tnt_doc):
 			)
 
 		tape_lumens = tape_spec.lumens_per_foot or output_value or 0
-		cut_mm = offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
-		production_interval = _format_production_interval(offering, tape_spec) if cut_mm else ""
+		template_free_cutting = _is_checked(_doc_get(tnt_doc, "is_free_cutting", 0))
+		cut_mm = 0 if template_free_cutting else offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
+		production_interval = (
+			"Free-Cutting" if template_free_cutting else _format_production_interval(offering, tape_spec)
+		)
 
 		offering_data.append({
 			"offering": offering,
@@ -518,6 +544,8 @@ def _collect_tape_neon_offering_data(tnt_doc):
 
 def _format_production_interval(tape_offering, tape_spec):
 	"""Return production interval as '<inches>" (<mm>mm)' string."""
+	if _is_checked(getattr(tape_spec, "is_free_cutting", 0)):
+		return "Free-Cutting"
 	cut_mm = tape_offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
 	return _format_mm_interval(cut_mm)
 
@@ -613,6 +641,12 @@ def _collect_product_data(wp_doc):
 	if profile:
 		profile_dimensions = profile.dimensions or compute_profile_dimensions(
 			profile.width_mm, profile.height_mm
+		)
+
+	minimum_bend_diameters = ""
+	if ft_doc:
+		minimum_bend_diameters = _format_mm_interval(
+			getattr(ft_doc, "minimum_bend_diameter_mm", None)
 		)
 
 	# --- Attribute lists ---
@@ -717,6 +751,7 @@ def _collect_product_data(wp_doc):
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
 		"driver_max_wattage": driver_max_wattage,
+		"minimum_bend_diameters": minimum_bend_diameters,
 	}
 
 	_copy_custom_spec_fields(result, wp_doc)
@@ -855,6 +890,7 @@ def _collect_variant_rows(wp_doc, product_data):
 					row[f"delivered_lumens_{slug}"] = ""
 					row[f"watts_per_foot_{slug}"] = ""
 					row[f"max_run_length_ft_{slug}"] = ""
+					row[f"max_footage_per_100w_supply_{slug}"] = ""
 					continue
 
 				# Filter tapes respecting lens_appearance constraint
@@ -869,6 +905,7 @@ def _collect_variant_rows(wp_doc, product_data):
 					row[f"delivered_lumens_{slug}"] = ""
 					row[f"watts_per_foot_{slug}"] = ""
 					row[f"max_run_length_ft_{slug}"] = ""
+					row[f"max_footage_per_100w_supply_{slug}"] = ""
 					continue
 
 				# Pick tape whose delivered lumens maps closest to this output level
@@ -888,12 +925,16 @@ def _collect_variant_rows(wp_doc, product_data):
 					row[f"delivered_lumens_{slug}"] = delivered_val
 					row[f"watts_per_foot_{slug}"] = best["watts_per_foot"] or ""
 					row[f"max_run_length_ft_{slug}"] = best["max_run_ft"]
+					row[f"max_footage_per_100w_supply_{slug}"] = _max_footage_per_100w_supply(
+						best["watts_per_foot"]
+					)
 					if shared_tape is None:
 						shared_tape = best
 				else:
 					row[f"delivered_lumens_{slug}"] = ""
 					row[f"watts_per_foot_{slug}"] = ""
 					row[f"max_run_length_ft_{slug}"] = ""
+					row[f"max_footage_per_100w_supply_{slug}"] = ""
 
 			if shared_tape is None:
 				shared_tape = cct_tapes[0] if cct_tapes else tape_data[0]
@@ -1112,7 +1153,7 @@ def _generate_tape_neon_csv(wp_doc):
 	.. deprecated::
 		This flat layout is incompatible with the marketing team's InDesign
 		data-merge template.  The default export for LED Tape / LED Neon now
-		uses :func:`_generate_tape_neon_indesign_csv` (same 596-column schema
+		uses :func:`_generate_tape_neon_indesign_csv` (same 621-column schema
 		as Fixture Template).  This flat writer is kept as an opt-in and is
 		only reached when ``format="tape_neon_flat"`` is explicitly passed
 		to :func:`export_spec_sheet_csv`.
@@ -1137,7 +1178,7 @@ def _generate_tape_neon_flat_csv(wp_doc):
 
 
 # ──────────────────────────────────────────────────────────
-# Tape / Neon InDesign CSV  (unified 596-column schema)
+# Tape / Neon InDesign CSV  (unified 621-column schema)
 # ──────────────────────────────────────────────────────────
 #
 # LED Tape and LED Neon share the Fixture-Template InDesign layout so that
@@ -1250,7 +1291,13 @@ def _collect_tn_pn_builder_columns(tnt_doc):
 		return headers, data_dict
 
 	# ── Series (single option slot) ──
-	if getattr(tnt_doc, "series", None):
+	# Tape/neon PN builder uses the template slug/code, not the shorter Series code.
+	if getattr(tnt_doc, "template_code", None):
+		data_dict["Part Number - Series - Option 1:"] = str(tnt_doc.template_code).upper()
+		data_dict["Part Number - Series - Description 1:"] = (
+			getattr(tnt_doc, "template_name", None) or tnt_doc.template_code
+		)
+	elif getattr(tnt_doc, "series", None):
 		try:
 			series_doc = frappe.get_cached_doc("ilL-Attribute-Series", tnt_doc.series)
 			data_dict["Part Number - Series - Option 1:"] = series_doc.code or ""
@@ -1448,7 +1495,11 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
 		"driver_max_wattage": driver_max_wattage,
-		"production_interval": _format_mm_interval(_doc_get(tnt_doc, "production_interval_mm")),
+		"minimum_bend_diameters": _format_mm_interval(_doc_get(tnt_doc, "minimum_bend_diameter_mm")),
+		"production_interval": (
+			"Free-Cutting" if _is_checked(_doc_get(tnt_doc, "is_free_cutting", 0))
+			else _format_mm_interval(_doc_get(tnt_doc, "production_interval_mm"))
+		),
 	}
 
 	_copy_custom_spec_fields(result, wp_doc, tnt_doc)
@@ -1493,12 +1544,16 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 				row[f"delivered_lumens_{slug}"] = ""
 				row[f"watts_per_foot_{slug}"] = ""
 				row[f"max_run_length_ft_{slug}"] = ""
+				row[f"max_footage_per_100w_supply_{slug}"] = ""
 
 			delivered = td["tape_lumens"] * (td["lumen_multiplier"] or 1.0)
 			if delivered:
 				row[f"delivered_lumens_{primary_slug}"] = round(delivered, 1)
 			row[f"watts_per_foot_{primary_slug}"] = td["watts_per_foot"]
 			row[f"max_run_length_ft_{primary_slug}"] = td["max_run_ft"]
+			row[f"max_footage_per_100w_supply_{primary_slug}"] = _max_footage_per_100w_supply(
+				td["watts_per_foot"]
+			)
 
 			for col in all_cols:
 				row.setdefault(col, "")
@@ -1548,6 +1603,7 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 				row[f"delivered_lumens_{slug}"] = ""
 				row[f"watts_per_foot_{slug}"] = ""
 				row[f"max_run_length_ft_{slug}"] = ""
+				row[f"max_footage_per_100w_supply_{slug}"] = ""
 			for col in all_cols:
 				row.setdefault(col, "")
 			yield row
@@ -1556,7 +1612,7 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 def _generate_tape_neon_indesign_csv(wp_doc):
 	"""Return CSV content for LED Tape / LED Neon in the InDesign pivot format.
 
-	Produces the **same 596-column layout** as :func:`_generate_indesign_csv`
+	Produces the **same 621-column layout** as :func:`_generate_indesign_csv`
 	so a single marketing InDesign data-merge template accepts both fixture
 	and tape/neon exports.  The guardrail ``assert`` below prevents the two
 	code paths from drifting apart.
@@ -1628,6 +1684,7 @@ INDESIGN_PRODUCT_COLUMNS = [
 	"Dimensions (L×W×H)",
 	"CRI Quality",
 	"Production Interval",
+	"Minimum Bend Diameters",
 ] + [label for label, _field in _INDESIGN_SPEC_MAP]
 
 # Lens groupings used for per-output-level watt/run columns.
@@ -1718,6 +1775,7 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		for label, _slug in _INDESIGN_LENS_GROUPS:
 			headers.append(f"Watts per Foot ({label}) {j}")
 			headers.append(f"Max Run Length ({label}) {j}")
+			headers.append(f"Max Footage per 100W Supply ({label}) {j}")
 		for i in range(1, MAX_CCTS + 1):
 			for label, _slug in _INDESIGN_LUMEN_LENSES:
 				headers.append(f"{label} - Output {j} - Lumen {i}")
@@ -1756,6 +1814,7 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
 		"CRI Quality": ", ".join(cri_values),
 		"Production Interval": ", ".join(prod_interval_values) or product_data.get("production_interval", ""),
+		"Minimum Bend Diameters": product_data.get("minimum_bend_diameters", ""),
 	}
 
 	for label, field in _INDESIGN_SPEC_MAP:
@@ -1787,6 +1846,9 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 					run_vals.append(r)
 			data_row[f"Watts per Foot ({label}) {j}"] = f"{_fmt_num(max(watts_vals))}W" if watts_vals else ""
 			data_row[f"Max Run Length ({label}) {j}"] = f"{_fmt_num(min(run_vals))}ft" if run_vals else ""
+			data_row[f"Max Footage per 100W Supply ({label}) {j}"] = (
+				_format_max_footage_per_100w_supply(max(watts_vals)) if watts_vals else ""
+			)
 
 		# Per-CCT lumen values
 		for i, (cct_name, _) in enumerate(ccts, 1):

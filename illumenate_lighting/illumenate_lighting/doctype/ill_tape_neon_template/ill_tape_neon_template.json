@@ -21,12 +21,14 @@
         "notes",
         "spec_sheet_details_section",
         "spec_sheet_dimensions",
+        "minimum_bend_diameter_mm",
         "available_lenses",
         "available_finishes",
         "column_break_spec_sheet_details",
         "available_mountings",
         "driver_max_wattage_override",
         "production_interval_mm",
+        "is_free_cutting",
         "certifications",
         "defaults_section",
         "default_tape_spec",
@@ -139,6 +141,12 @@
             "label": "Dimensions (L×W×H)"
         },
         {
+            "description": "Smallest safe bend diameter for bendable/flexible products, entered in millimeters and exported as inches (mm).",
+            "fieldname": "minimum_bend_diameter_mm",
+            "fieldtype": "Float",
+            "label": "Minimum Bend Diameter (mm)"
+        },
+        {
             "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured.",
             "fieldname": "available_lenses",
             "fieldtype": "Small Text",
@@ -171,6 +179,13 @@
             "fieldname": "production_interval_mm",
             "fieldtype": "Float",
             "label": "Production Interval (mm)"
+        },
+        {
+            "default": "0",
+            "description": "If checked, the CSV Production Interval column exports Free-Cutting.",
+            "fieldname": "is_free_cutting",
+            "fieldtype": "Check",
+            "label": "Free Cutting"
         },
         {
             "fieldname": "certifications",
