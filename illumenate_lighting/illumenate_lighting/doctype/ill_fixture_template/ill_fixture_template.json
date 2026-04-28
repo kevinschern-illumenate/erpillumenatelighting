@@ -21,7 +21,8 @@
                         "assembled_max_len_mm",
                         "leader_allowance_mm_per_fixture",
                         "spec_sheet_details_section",
-                        "minimum_bend_diameter_mm",
+                        "minimum_side_bend_diameter_mm",
+                        "minimum_top_bend_diameter_mm",
                         "pricing_section",
                         "base_price_msrp",
                         "price_per_ft_msrp",
@@ -123,10 +124,16 @@
                        "label":  "Spec Sheet Details"
                    },
                    {
-                       "description":  "Smallest safe bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm).",
-                       "fieldname":  "minimum_bend_diameter_mm",
+                       "description":  "Smallest safe side-bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm).",
+                       "fieldname":  "minimum_side_bend_diameter_mm",
                        "fieldtype":  "Float",
-                       "label":  "Minimum Bend Diameter (mm)"
+                       "label":  "Minimum Side Bend Diameter (mm)"
+                   },
+                   {
+                       "description":  "Smallest safe top-bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm).",
+                       "fieldname":  "minimum_top_bend_diameter_mm",
+                       "fieldtype":  "Float",
+                       "label":  "Minimum Top Bend Diameter (mm)"
                    },
                    {
                        "fieldname":  "pricing_section",

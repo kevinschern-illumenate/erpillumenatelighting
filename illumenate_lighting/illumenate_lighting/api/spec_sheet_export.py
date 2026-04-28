@@ -11,7 +11,7 @@ for InDesign data merge.
 Supports two output formats:
   - ``"flat"`` – one row per CCT × output-level (original format)
 	- ``"indesign"`` – one pivoted row per product with **fixed** columns
-		(621 total) matching the marketing team's InDesign data-merge layout.
+		(622 total) matching the marketing team's InDesign data-merge layout.
     Column positions never shift between products.
 """
 
@@ -54,7 +54,8 @@ PRODUCT_COLUMNS = [
 	"certifications",
 	"dimming_protocols",
 	"driver_max_wattage",
-	"minimum_bend_diameters",
+	"minimum_side_bend_diameter",
+	"minimum_top_bend_diameter",
 ]
 
 CUSTOM_SPEC_COLUMNS = [
@@ -163,12 +164,12 @@ MAX_CCTS = 8                     # fixed CCT column count
 MAX_OUTPUT_LEVELS = 8            # fixed output-level block count
 
 # Total column count of the unified InDesign data-merge CSV.
-#   18 static + 39 custom_* + 8 CCT + 8 × (1 + 3×3 + 8×4) + 11 × 10 × 2 = 621
+#   19 static + 39 custom_* + 8 CCT + 8 × (1 + 3×3 + 8×4) + 11 × 10 × 2 = 622
 # Keep this in sync with INDESIGN_PRODUCT_COLUMNS / _INDESIGN_LENS_GROUPS /
 # _INDESIGN_LUMEN_LENSES / STANDARD_PN_SECTIONS — an assert in
 # ``_generate_indesign_csv`` / ``_generate_tape_neon_indesign_csv`` enforces
 # that the two code paths can never drift apart.
-INDESIGN_TOTAL_COLUMNS = 621
+INDESIGN_TOTAL_COLUMNS = 622
 MAX_POWER_SUPPLY_USABLE_WATTS = 80
 
 
@@ -643,10 +644,14 @@ def _collect_product_data(wp_doc):
 			profile.width_mm, profile.height_mm
 		)
 
-	minimum_bend_diameters = ""
+	minimum_side_bend_diameter = ""
+	minimum_top_bend_diameter = ""
 	if ft_doc:
-		minimum_bend_diameters = _format_mm_interval(
-			getattr(ft_doc, "minimum_bend_diameter_mm", None)
+		minimum_side_bend_diameter = _format_mm_interval(
+			getattr(ft_doc, "minimum_side_bend_diameter_mm", None)
+		)
+		minimum_top_bend_diameter = _format_mm_interval(
+			getattr(ft_doc, "minimum_top_bend_diameter_mm", None)
 		)
 
 	# --- Attribute lists ---
@@ -751,7 +756,8 @@ def _collect_product_data(wp_doc):
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
 		"driver_max_wattage": driver_max_wattage,
-		"minimum_bend_diameters": minimum_bend_diameters,
+		"minimum_side_bend_diameter": minimum_side_bend_diameter,
+		"minimum_top_bend_diameter": minimum_top_bend_diameter,
 	}
 
 	_copy_custom_spec_fields(result, wp_doc)
@@ -1153,7 +1159,7 @@ def _generate_tape_neon_csv(wp_doc):
 	.. deprecated::
 		This flat layout is incompatible with the marketing team's InDesign
 		data-merge template.  The default export for LED Tape / LED Neon now
-		uses :func:`_generate_tape_neon_indesign_csv` (same 621-column schema
+		uses :func:`_generate_tape_neon_indesign_csv` (same 622-column schema
 		as Fixture Template).  This flat writer is kept as an opt-in and is
 		only reached when ``format="tape_neon_flat"`` is explicitly passed
 		to :func:`export_spec_sheet_csv`.
@@ -1178,7 +1184,7 @@ def _generate_tape_neon_flat_csv(wp_doc):
 
 
 # ──────────────────────────────────────────────────────────
-# Tape / Neon InDesign CSV  (unified 621-column schema)
+# Tape / Neon InDesign CSV  (unified 622-column schema)
 # ──────────────────────────────────────────────────────────
 #
 # LED Tape and LED Neon share the Fixture-Template InDesign layout so that
@@ -1495,7 +1501,12 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
 		"driver_max_wattage": driver_max_wattage,
-		"minimum_bend_diameters": _format_mm_interval(_doc_get(tnt_doc, "minimum_bend_diameter_mm")),
+		"minimum_side_bend_diameter": _format_mm_interval(
+			_doc_get(tnt_doc, "minimum_side_bend_diameter_mm")
+		),
+		"minimum_top_bend_diameter": _format_mm_interval(
+			_doc_get(tnt_doc, "minimum_top_bend_diameter_mm")
+		),
 		"production_interval": (
 			"Free-Cutting" if _is_checked(_doc_get(tnt_doc, "is_free_cutting", 0))
 			else _format_mm_interval(_doc_get(tnt_doc, "production_interval_mm"))
@@ -1612,7 +1623,7 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 def _generate_tape_neon_indesign_csv(wp_doc):
 	"""Return CSV content for LED Tape / LED Neon in the InDesign pivot format.
 
-	Produces the **same 621-column layout** as :func:`_generate_indesign_csv`
+	Produces the **same 622-column layout** as :func:`_generate_indesign_csv`
 	so a single marketing InDesign data-merge template accepts both fixture
 	and tape/neon exports.  The guardrail ``assert`` below prevents the two
 	code paths from drifting apart.
@@ -1684,7 +1695,8 @@ INDESIGN_PRODUCT_COLUMNS = [
 	"Dimensions (L×W×H)",
 	"CRI Quality",
 	"Production Interval",
-	"Minimum Bend Diameters",
+	"Minimum Side Bend Diameter",
+	"Minimum Top Bend Diameter",
 ] + [label for label, _field in _INDESIGN_SPEC_MAP]
 
 # Lens groupings used for per-output-level watt/run columns.
@@ -1814,7 +1826,8 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
 		"CRI Quality": ", ".join(cri_values),
 		"Production Interval": ", ".join(prod_interval_values) or product_data.get("production_interval", ""),
-		"Minimum Bend Diameters": product_data.get("minimum_bend_diameters", ""),
+		"Minimum Side Bend Diameter": product_data.get("minimum_side_bend_diameter", ""),
+		"Minimum Top Bend Diameter": product_data.get("minimum_top_bend_diameter", ""),
 	}
 
 	for label, field in _INDESIGN_SPEC_MAP:

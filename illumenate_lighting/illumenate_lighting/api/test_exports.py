@@ -593,7 +593,8 @@ class TestSpecSheetExport(FrappeTestCase):
 			"available_lenses": "White, Frosted",
 			"available_finishes": "Silver",
 			"profile_dimensions": "1×2×3",
-			"minimum_bend_diameters": '3.94" (100mm)',
+			"minimum_side_bend_diameter": '3.94" (100mm)',
+			"minimum_top_bend_diameter": '5.91" (150mm)',
 		}
 
 		variant_rows = [
@@ -633,7 +634,7 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
 
-		# Fixed total: 57 static + 8 CCT + 336 output = 401
+		# Fixed total: 58 static + 8 CCT + 336 output = 402
 		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 
 		# Static product columns come first
@@ -752,7 +753,7 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# Fixed: 57 static + 8 CCT + 336 output = 401
+		# Fixed: 58 static + 8 CCT + 336 output = 402
 		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 		self.assertEqual(data_row["Product Name"], "Empty")
 
@@ -885,7 +886,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertLess(series_section_idx, finish_section_idx)
 
 	def test_pivot_to_indesign_with_pn_builder_columns(self):
-		"""PN builder columns are appended at the end of the InDesign pivot (621 total)."""
+		"""PN builder columns are appended at the end of the InDesign pivot (622 total)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign, _collect_pn_builder_columns,
 		)
@@ -902,15 +903,15 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [], pn_builder_columns=(pn_headers, pn_data))
 
-		# 401 (pivot) + 220 (PN) = 621
-		self.assertEqual(len(headers), 621)
+		# 402 (pivot) + 220 (PN) = 622
+		self.assertEqual(len(headers), 622)
 		# PN columns should be at the end
 		self.assertTrue(headers[-1].startswith("Part Number"))
 		self.assertEqual(data_row["Part Number - Series - Option 1:"], "SH01")
 		self.assertEqual(data_row["Part Number - Series - Description 1:"], "Shadow")
 
 	def test_pivot_to_indesign_without_pn_builder(self):
-		"""Pivot without PN builder produces 401 columns (static + CCT + output blocks)."""
+		"""Pivot without PN builder produces 402 columns (static + CCT + output blocks)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
@@ -925,14 +926,14 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# 57 static + 8 CCT + 336 output = 401
+		# 58 static + 8 CCT + 336 output = 402
 		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 		# No Part Number columns
 		self.assertFalse(any("Part Number" in h for h in headers))
 
 
 class TestSpecSheetExportNeonInDesign(FrappeTestCase):
-	"""Tape/Neon products must produce the same 621-column InDesign layout
+	"""Tape/Neon products must produce the same 622-column InDesign layout
 	as Fixture Template products so marketing's data-merge template accepts
 	both file types without column-shift garbage.
 	"""
@@ -952,7 +953,7 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			+ MAX_OUTPUT_LEVELS * output_block
 			+ len(STANDARD_PN_SECTIONS) * MAX_PN_OPTIONS_PER_SECTION * 2
 		)
-		self.assertEqual(INDESIGN_TOTAL_COLUMNS, 621)
+		self.assertEqual(INDESIGN_TOTAL_COLUMNS, 622)
 		self.assertEqual(INDESIGN_TOTAL_COLUMNS, expected)
 
 	def test_tn_pn_builder_empty_shape_matches_fixture(self):
@@ -969,7 +970,7 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 
 	def test_pivot_header_parity_with_fixture(self):
 		"""Passing the neon PN shim into the same pivoter must yield an
-		identical 621-column header list to the fixture export."""
+		identical 622-column header list to the fixture export."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign, _collect_pn_builder_columns,
 			_collect_tn_pn_builder_columns, INDESIGN_TOTAL_COLUMNS,
@@ -1247,7 +1248,8 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 				SimpleNamespace(option_type="Finish", finish="Carbon", is_active=1),
 			],
 			spec_sheet_dimensions='0.63" W x 0.75" H',
-			minimum_bend_diameter_mm=100,
+			minimum_side_bend_diameter_mm=100,
+			minimum_top_bend_diameter_mm=150,
 			available_lenses="Soft diffused",
 			available_finishes="Carbon",
 			available_mountings="3M Adhesive Back",
@@ -1278,7 +1280,8 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
 
 		self.assertEqual(data["profile_dimensions"], '0.63" W x 0.75" H')
-		self.assertIn("100mm", data["minimum_bend_diameters"])
+		self.assertIn("100mm", data["minimum_side_bend_diameter"])
+		self.assertIn("150mm", data["minimum_top_bend_diameter"])
 		self.assertEqual(data["available_lenses"], "Frosted, Soft diffused")
 		self.assertEqual(data["available_finishes"], "Carbon")
 		self.assertEqual(data["available_mountings"], "3M Adhesive Back, Channel Mount")
