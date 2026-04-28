@@ -49,7 +49,7 @@
 						dialog.set_value('configured_fixture', null);
 						dialog.set_value('configured_tape_neon', null);
 						renderPreview(dialog, null);
-						refreshDialogFields(dialog);
+						updateProductFields(dialog);
 					}
 				},
 				{
@@ -65,7 +65,7 @@
 					fieldtype: 'Link',
 					label: __('Configured Fixture'),
 					options: 'ilL-Configured-Fixture',
-					depends_on: "eval:doc.product_type=='Linear Fixture'",
+					hidden: 1,
 					onchange: function() {
 						loadPreview(dialog);
 					}
@@ -75,7 +75,7 @@
 					fieldtype: 'Link',
 					label: __('Configured Tape/Neon'),
 					options: 'ilL-Configured-Tape-Neon',
-					depends_on: "eval:doc.product_type=='LED Tape'||doc.product_type=='LED Neon'",
+					hidden: 1,
 					onchange: function() {
 						loadPreview(dialog);
 					}
@@ -94,6 +94,7 @@
 		});
 
 		dialog.show();
+		updateProductFields(dialog);
 	}
 
 	function selectedItemRowName(frm) {
@@ -104,12 +105,25 @@
 		return selected.items[0];
 	}
 
-	function refreshDialogFields(dialog) {
-		['configured_fixture', 'configured_tape_neon'].forEach(function(fieldname) {
-			if (dialog.fields_dict[fieldname] && dialog.fields_dict[fieldname].refresh) {
-				dialog.fields_dict[fieldname].refresh();
-			}
-		});
+	function updateProductFields(dialog) {
+		const productType = dialog.get_value('product_type');
+		setFieldVisible(dialog, 'configured_fixture', productType === 'Linear Fixture');
+		setFieldVisible(dialog, 'configured_tape_neon', productType === 'LED Tape' || productType === 'LED Neon');
+	}
+
+	function setFieldVisible(dialog, fieldname, visible) {
+		const field = dialog.fields_dict[fieldname];
+		if (!field) {
+			return;
+		}
+
+		field.df.hidden = visible ? 0 : 1;
+		if (field.$wrapper) {
+			field.$wrapper.toggle(!!visible);
+		}
+		if (field.refresh) {
+			field.refresh();
+		}
 	}
 
 	function getDialogArgs(dialog) {
