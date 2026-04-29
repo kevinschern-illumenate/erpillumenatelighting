@@ -243,7 +243,7 @@
 				},
 				{
 					fieldtype: 'Link', fieldname: 'tape_offering_id',
-					label: __('Tape Offering'), options: 'ilL-Rel Tape Offering', reqd: 1
+					label: __('Tape Offering'), options: 'ilL-Rel-Tape Offering', reqd: 1
 				},
 				{ fieldtype: 'Column Break' },
 				{
