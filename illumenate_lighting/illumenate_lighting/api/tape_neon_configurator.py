@@ -392,6 +392,11 @@ def get_tape_cascading_options(
 def validate_tape_configuration(
     selections: str,
     _skip_record_creation: bool = False,
+    parent_configured_tape_neon: str | None = None,
+    include_power_supply: bool = True,
+    dimming_protocol_code: str | None = None,
+    variant_origin: str | None = None,
+    tape_neon_template: str | None = None,
 ) -> dict:
     """
     Validate a complete LED Tape configuration and compute manufacturable length.
@@ -427,6 +432,12 @@ def validate_tape_configuration(
         sel = json.loads(selections) if isinstance(selections, str) else selections
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid selections JSON"}
+
+    # Normalise stringy booleans (Frappe sends HTTP query params as strings)
+    if isinstance(_skip_record_creation, str):
+        _skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
+    if isinstance(include_power_supply, str):
+        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 
     logger.info(f"validate_tape_configuration called with selections: {sel}")
 
@@ -621,6 +632,8 @@ def validate_tape_configuration(
         try:
             configured_name = _create_or_reuse_configured_tape_neon(
                 None, return_result, is_neon=False,
+                parent_configured_tape_neon=parent_configured_tape_neon,
+                variant_origin=variant_origin,
             )
             return_result["configured_tape_neon"] = configured_name
         except Exception as e:
@@ -629,6 +642,25 @@ def validate_tape_configuration(
             return_result.setdefault("messages", []).append({
                 "severity": "warning",
                 "text": f"Could not create configured record: {str(e)}",
+            })
+
+    # ── Surface driver plan when an enabling template is supplied ─────
+    if tape_neon_template and include_power_supply:
+        try:
+            driver_plan, dp_messages = select_driver_plan_for_tape_neon(
+                tape_neon_template,
+                runs_count=return_result["computed"].get("runs_count", 1),
+                total_watts=return_result["computed"].get("total_watts", 0),
+                tape_offering_doc=tape_offering,
+                dimming_protocol_code=dimming_protocol_code,
+            )
+            return_result["resolved_items"]["driver_plan"] = driver_plan
+            if dp_messages:
+                return_result.setdefault("messages", []).extend(dp_messages)
+        except Exception as e:
+            return_result.setdefault("messages", []).append({
+                "severity": "warning",
+                "text": f"Driver plan selection failed: {str(e)}",
             })
 
     return return_result
@@ -726,6 +758,11 @@ def validate_neon_configuration(
     selections: str,
     segments_json: str,
     _skip_record_creation: bool = False,
+    parent_configured_tape_neon: str | None = None,
+    include_power_supply: bool = True,
+    dimming_protocol_code: str | None = None,
+    variant_origin: str | None = None,
+    tape_neon_template: str | None = None,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -753,6 +790,12 @@ def validate_neon_configuration(
         segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid JSON input"}
+
+    # Normalise stringy booleans
+    if isinstance(_skip_record_creation, str):
+        _skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
+    if isinstance(include_power_supply, str):
+        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 
     logger.info(f"validate_neon_configuration called with selections: {sel}, segments: {segments}")
 
@@ -999,6 +1042,8 @@ def validate_neon_configuration(
         try:
             configured_name = _create_or_reuse_configured_tape_neon(
                 None, return_result, is_neon=True,
+                parent_configured_tape_neon=parent_configured_tape_neon,
+                variant_origin=variant_origin,
             )
             return_result["configured_tape_neon"] = configured_name
         except Exception as e:
@@ -1007,6 +1052,25 @@ def validate_neon_configuration(
             return_result.setdefault("messages", []).append({
                 "severity": "warning",
                 "text": f"Could not create configured record: {str(e)}",
+            })
+
+    # ── Surface driver plan when an enabling template is supplied ─────
+    if tape_neon_template and include_power_supply:
+        try:
+            driver_plan, dp_messages = select_driver_plan_for_tape_neon(
+                tape_neon_template,
+                runs_count=return_result["computed"].get("total_runs", len(segments)),
+                total_watts=return_result["computed"].get("total_watts", 0),
+                tape_offering_doc=tape_offering,
+                dimming_protocol_code=dimming_protocol_code,
+            )
+            return_result["resolved_items"]["driver_plan"] = driver_plan
+            if dp_messages:
+                return_result.setdefault("messages", []).extend(dp_messages)
+        except Exception as e:
+            return_result.setdefault("messages", []).append({
+                "severity": "warning",
+                "text": f"Driver plan selection failed: {str(e)}",
             })
 
     return return_result
@@ -2188,7 +2252,156 @@ def _resolve_attribute_list(doctype: str, names: set, fields: list) -> list:
     return sorted(result, key=lambda x: x.get("label", ""))
 
 
-def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: bool) -> str:
+def _resolve_root_configured_tape_neon(name: str | None) -> str | None:
+    """Walk the ``parent_configured_tape_neon`` chain (max 16 hops) to return
+    the root ancestor.  Defends against accidental cycles.
+    """
+    if not name:
+        return None
+    current = name
+    visited: set[str] = set()
+    for _ in range(16):
+        if current in visited:
+            break
+        visited.add(current)
+        parent = frappe.db.get_value(
+            "ilL-Configured-Tape-Neon", current, "parent_configured_tape_neon"
+        )
+        if not parent:
+            return current
+        current = parent
+    return current
+
+
+@frappe.whitelist()
+def select_driver_plan_for_tape_neon(
+    tape_neon_template: str,
+    runs_count: int,
+    total_watts: float,
+    tape_offering_doc=None,
+    dimming_protocol_code: str | None = None,
+) -> tuple:
+    """Select a driver plan for a configured tape/neon record.
+
+    Mirrors the linear-fixture engine's ``_select_driver_plan`` shape so
+    callers (Quotation tool, Sales Order tool, Builder CLI) can render a
+    consistent driver-line selection UI.
+
+    Driver Eligibility filters:
+        - ``template_type = 'ilL-Tape-Neon-Template'``
+        - ``fixture_template = tape_neon_template``
+        - ``is_allowed = 1`` and ``is_active = 1``
+        - drivers whose ``output_protocol`` is compatible with the tape's
+          ``input_protocol`` and whose voltage matches the tape voltage.
+        - if ``dimming_protocol_code`` is given, drivers must support it.
+
+    Selection policy:
+        - Lowest ``cost_msrp`` first; ties broken by smallest ``max_wattage``
+          that still meets ``total_watts / runs_count``.
+
+    Returns ``(driver_plan_dict, messages_list)`` where the dict has keys
+    ``status`` (one of ``selected``/``not_required``/``no_eligible_drivers``/
+    ``no_matching_drivers``/``no_suitable_driver``/``none``), ``drivers``
+    (list of ``{driver_item, qty, max_wattage, cost_msrp}``), and
+    ``per_run_watts``.
+    """
+    messages: list[dict] = []
+
+    if not tape_neon_template:
+        return {"status": "none", "drivers": [], "per_run_watts": 0.0}, messages
+
+    if not total_watts or total_watts <= 0 or not runs_count or runs_count <= 0:
+        return {"status": "not_required", "drivers": [], "per_run_watts": 0.0}, messages
+
+    eligibility_rows = frappe.get_all(
+        "ilL-Rel-Driver-Eligibility",
+        filters={
+            "template_type": "ilL-Tape-Neon-Template",
+            "fixture_template": tape_neon_template,
+            "is_allowed": 1,
+            "is_active": 1,
+        },
+        fields=["driver"],
+    )
+    if not eligibility_rows:
+        messages.append({
+            "severity": "warning",
+            "text": f"No eligible drivers configured for template {tape_neon_template}.",
+        })
+        return {"status": "no_eligible_drivers", "drivers": [], "per_run_watts": 0.0}, messages
+
+    eligible_driver_codes = [row.driver for row in eligibility_rows if row.driver]
+
+    # Resolve the tape's input protocol & voltage from the tape offering doc
+    tape_voltage = None
+    tape_input_protocol = None
+    if tape_offering_doc is not None:
+        tape_voltage = getattr(tape_offering_doc, "voltage", None)
+        tape_input_protocol = getattr(tape_offering_doc, "input_protocol", None)
+
+    driver_filters = {"name": ["in", eligible_driver_codes]}
+    drivers = frappe.get_all(
+        "ilL-Spec-Driver",
+        filters=driver_filters,
+        fields=[
+            "name",
+            "output_protocol",
+            "voltage",
+            "max_wattage",
+            "cost_msrp",
+            "supported_dimming_protocols",
+            "item",
+        ],
+    )
+
+    if tape_voltage:
+        drivers = [d for d in drivers if not d.get("voltage") or str(d.get("voltage")) == str(tape_voltage)]
+    if tape_input_protocol:
+        drivers = [d for d in drivers if not d.get("output_protocol") or d.get("output_protocol") == tape_input_protocol]
+    if dimming_protocol_code:
+        drivers = [
+            d for d in drivers
+            if not d.get("supported_dimming_protocols")
+            or dimming_protocol_code in (d.get("supported_dimming_protocols") or "")
+        ]
+
+    if not drivers:
+        return {"status": "no_matching_drivers", "drivers": [], "per_run_watts": 0.0}, messages
+
+    per_run_watts = float(total_watts) / float(runs_count)
+    suitable = [d for d in drivers if (d.get("max_wattage") or 0) >= per_run_watts]
+    if not suitable:
+        return {
+            "status": "no_suitable_driver",
+            "drivers": [],
+            "per_run_watts": per_run_watts,
+        }, messages
+
+    suitable.sort(key=lambda d: (float(d.get("cost_msrp") or 0), float(d.get("max_wattage") or 0)))
+    chosen = suitable[0]
+
+    return {
+        "status": "selected",
+        "drivers": [{
+            "driver_code": chosen.get("name"),
+            "driver_item": chosen.get("item"),
+            "qty": int(runs_count),
+            "max_wattage": float(chosen.get("max_wattage") or 0),
+            "cost_msrp": float(chosen.get("cost_msrp") or 0),
+            "output_protocol": chosen.get("output_protocol"),
+            "voltage": chosen.get("voltage"),
+        }],
+        "per_run_watts": per_run_watts,
+    }, messages
+
+
+def _create_or_reuse_configured_tape_neon(
+    template,
+    validation_result,
+    is_neon: bool,
+    parent_configured_tape_neon: str | None = None,
+    variant_origin: str | None = None,
+) -> str:
     """
     Create an ilL-Configured-Tape-Neon record (or reuse an existing one
     with the same config_hash).
@@ -2246,20 +2459,35 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
 
     config_hash = hashlib.sha256("|".join(hash_parts).encode()).hexdigest()[:32]
 
-    # Check for existing record with same hash
-    existing = frappe.db.get_value(
-        "ilL-Configured-Tape-Neon",
-        {"config_hash": config_hash},
-        "name",
-    )
-    if existing:
-        return existing
+    # Variant branch: caller is creating a modified-of-existing record.  Skip
+    # the existing-by-hash reuse so historical orders pinned to the parent
+    # stay untouched, append a -V(XXXX) suffix to the part number, and link
+    # to the root ancestor.
+    is_variant = bool(parent_configured_tape_neon)
+    variant_suffix = ""
+    root_parent = None
+    if is_variant:
+        variant_suffix = hashlib.sha256("|".join(hash_parts).encode()).hexdigest()[:4].upper()
+        root_parent = _resolve_root_configured_tape_neon(parent_configured_tape_neon)
+    else:
+        # Check for existing record with same hash
+        existing = frappe.db.get_value(
+            "ilL-Configured-Tape-Neon",
+            {"config_hash": config_hash},
+            "name",
+        )
+        if existing:
+            return existing
 
     # Create new configured record
+    base_part_number = validation_result.get("part_number", "")
+    final_part_number = (
+        f"{base_part_number}-V({variant_suffix})" if is_variant and variant_suffix else base_part_number
+    )
     doc_data = {
         "doctype": "ilL-Configured-Tape-Neon",
         "config_hash": config_hash,
-        "part_number": validation_result.get("part_number", ""),
+        "part_number": final_part_number,
         "product_category": product_category,
         "tape_neon_template": template.name if template else None,
         "engine_version": "2.0",
@@ -2269,6 +2497,13 @@ def _create_or_reuse_configured_tape_neon(template, validation_result, is_neon: 
         "output_level": sel.get("output_level"),
         "build_description": validation_result.get("build_description", ""),
     }
+    if is_variant:
+        doc_data["parent_configured_tape_neon"] = root_parent
+        doc_data["variant_suffix"] = variant_suffix
+        if variant_origin:
+            doc_data["variant_origin"] = variant_origin
+    elif variant_origin:
+        doc_data["variant_origin"] = variant_origin
 
     if is_neon:
         doc_data["finish"] = sel.get("finish")

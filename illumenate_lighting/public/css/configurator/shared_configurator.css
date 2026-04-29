@@ -1,0 +1,92 @@
+/*
+ * Shared Configurator Styles (Phase 4)
+ *
+ * Loaded once per page; all rules are scoped under `.ill-configurator` so the
+ * same markup can be mounted multiple times (portal page, builder dialog,
+ * embedded preview) without leakage to the surrounding page.
+ *
+ * Submodule-specific styles live in fixture_steps.css and tape_neon_steps.css.
+ */
+
+/* Pill button selectors (shared between fixture and tape/neon) */
+.ill-configurator .pill-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.ill-configurator .pill-selector .pill,
+.ill-configurator .pill-selector .pill-option {
+	display: inline-block;
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: #495057;
+	background-color: #fff;
+	border: 1px solid #ced4da;
+	border-radius: 2rem;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+	user-select: none;
+}
+.ill-configurator .pill-selector .pill-option {
+	padding: 0.375rem 0.75rem;
+}
+.ill-configurator .pill-selector .pill:hover,
+.ill-configurator .pill-selector .pill-option:hover {
+	background-color: #e9ecef;
+	border-color: #adb5bd;
+}
+.ill-configurator .pill-selector .pill.active,
+.ill-configurator .pill-selector .pill-option.active {
+	background-color: #0d6efd;
+	border-color: #0d6efd;
+	color: #fff;
+}
+.ill-configurator .pill-selector .pill.active:hover,
+.ill-configurator .pill-selector .pill-option.active:hover {
+	background-color: #0b5ed7;
+	border-color: #0a58ca;
+}
+.ill-configurator .pill-selector .pill.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.ill-configurator .pill-selector .pill-option input[type="radio"] {
+	display: none;
+}
+
+/* Option group / select fallback */
+.ill-configurator .option-group {
+	margin-bottom: 1rem;
+}
+.ill-configurator .option-group label.option-label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+}
+.ill-configurator .option-group .select-fallback,
+.ill-configurator .config-section .select-fallback {
+	display: none;
+}
+@media (max-width: 767.98px) {
+	.ill-configurator .option-group .pill-selector,
+	.ill-configurator .config-section .pill-selector {
+		display: none !important;
+	}
+	.ill-configurator .option-group .select-fallback,
+	.ill-configurator .config-section .select-fallback {
+		display: block !important;
+	}
+}
+
+/* Schedule context selector card (shared by both pages) */
+.ill-configurator .schedule-context-card {
+	margin-bottom: 1rem;
+}
+
+/* Disabled / dimmed step */
+.ill-configurator .config-step.disabled-step {
+	opacity: 0.45;
+	pointer-events: none;
+}

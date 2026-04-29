@@ -25,15 +25,34 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/illumenate_lighting/css/illumenate_lighting.css"
-# app_include_js = "/assets/illumenate_lighting/js/illumenate_lighting.js"
+app_include_css = [
+	"/assets/illumenate_lighting/css/configurator/shared_configurator.css",
+	"/assets/illumenate_lighting/css/configurator/fixture_steps.css",
+	"/assets/illumenate_lighting/css/configurator/tape_neon_steps.css",
+]
+app_include_js = [
+	"/assets/illumenate_lighting/js/configurator/shared_configurator.js",
+	"/assets/illumenate_lighting/js/configurator/fixture_steps.js",
+	"/assets/illumenate_lighting/js/configurator/tape_neon_steps.js",
+	# Phase 5 — desk-side "Build / Add Configured Product" wizard.
+	"/assets/illumenate_lighting/js/desk/bom_review.js",
+	"/assets/illumenate_lighting/js/desk/desk_dialog.js",
+]
 
 # include js, css files in header of web template
 web_include_css = [
 	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
 	"/assets/illumenate_lighting/css/portal.css",
+	"/assets/illumenate_lighting/css/configurator/shared_configurator.css",
+	"/assets/illumenate_lighting/css/configurator/fixture_steps.css",
+	"/assets/illumenate_lighting/css/configurator/tape_neon_steps.css",
 ]
-web_include_js = "/assets/illumenate_lighting/js/portal.js"
+web_include_js = [
+	"/assets/illumenate_lighting/js/portal.js",
+	"/assets/illumenate_lighting/js/configurator/shared_configurator.js",
+	"/assets/illumenate_lighting/js/configurator/fixture_steps.js",
+	"/assets/illumenate_lighting/js/configurator/tape_neon_steps.js",
+]
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "illumenate_lighting/public/scss/website"

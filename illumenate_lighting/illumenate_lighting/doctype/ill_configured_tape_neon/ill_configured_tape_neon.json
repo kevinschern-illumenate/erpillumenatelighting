@@ -10,6 +10,9 @@
         "identity_section",
         "config_hash",
         "part_number",
+        "parent_configured_tape_neon",
+        "variant_suffix",
+        "variant_origin",
         "column_break_identity",
         "product_category",
         "tape_neon_template",
@@ -103,6 +106,31 @@
             "fieldtype": "Data",
             "in_list_view": 1,
             "label": "Part Number",
+            "read_only": 1
+        },
+        {
+            "description": "Original configured tape/neon this record was modified from. NULL for originals.",
+            "fieldname": "parent_configured_tape_neon",
+            "fieldtype": "Link",
+            "label": "Variant Of",
+            "options": "ilL-Configured-Tape-Neon",
+            "read_only": 1
+        },
+        {
+            "description": "4-char hex suffix appended to the part number for variants (e.g. ABCD in -V(ABCD)).",
+            "fieldname": "variant_suffix",
+            "fieldtype": "Data",
+            "label": "Variant Suffix",
+            "length": 8,
+            "read_only": 1
+        },
+        {
+            "default": "Portal",
+            "description": "Where this configured record was created.",
+            "fieldname": "variant_origin",
+            "fieldtype": "Select",
+            "label": "Origin",
+            "options": "Portal\nQuotation Tool\nSales Order Tool\nBuilder CLI\nAPI",
             "read_only": 1
         },
         {

@@ -13,9 +13,13 @@ from frappe.utils import cint, flt
 from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
 	DEFAULT_SELLING_PRICE_LIST,
 	DEFAULT_UOM,
+	CONFIGURED_ITEM_GROUP,
+	CONFIGURED_NEON_ITEM_GROUP,
+	CONFIGURED_TAPE_ITEM_GROUP,
 	_create_or_get_bom,
 	_create_or_get_configured_item,
 	_create_or_get_configured_tape_neon_item,
+	_ensure_item_group_exists,
 	build_fixture_bom_items,
 )
 
@@ -32,9 +36,59 @@ def get_product_types() -> list[dict[str, str]]:
 	"""Return product types supported by the quote/order configurator shell."""
 	return [
 		{"label": PRODUCT_TYPE_FIXTURE, "value": PRODUCT_TYPE_FIXTURE, "bom_status": "available"},
-		{"label": PRODUCT_TYPE_TAPE, "value": PRODUCT_TYPE_TAPE, "bom_status": "pending_builder"},
-		{"label": PRODUCT_TYPE_NEON, "value": PRODUCT_TYPE_NEON, "bom_status": "pending_builder"},
+		{"label": PRODUCT_TYPE_TAPE, "value": PRODUCT_TYPE_TAPE, "bom_status": "available"},
+		{"label": PRODUCT_TYPE_NEON, "value": PRODUCT_TYPE_NEON, "bom_status": "available"},
 	]
+
+
+@frappe.whitelist()
+def qoc_get_product_types() -> dict[str, Any]:
+	"""Builder-aware product types for the "Build / Add Configured Product"
+	tool.
+
+	Returns the same list as :func:`get_product_types`, plus a ``builders``
+	map pointing each product type at its engine + BOM dispatchers and the
+	doctype that holds the configured record.  This lets the client form
+	discover where to send subsequent ``calculate_and_lookup`` /
+	``save_and_apply`` calls without hard-coding doctype names.
+	"""
+	return {
+		"product_types": get_product_types(),
+		"builders": {
+			PRODUCT_TYPE_FIXTURE: {
+				"configured_doctype": "ilL-Configured-Fixture",
+				"template_doctype": "ilL-Fixture-Template",
+				"item_group": CONFIGURED_ITEM_GROUP,
+				"engine": "illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote",
+				"engine_multisegment": "illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment",
+				"init": "illumenate_lighting.illumenate_lighting.api.webflow_configurator.get_configurator_init_by_template",
+				"calculate_and_lookup": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.calculate_and_lookup",
+				"save_and_apply": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.save_and_apply",
+				"preview_bom": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.preview_bom",
+				"power_supply_supported": True,
+			},
+			PRODUCT_TYPE_TAPE: {
+				"configured_doctype": "ilL-Configured-Tape-Neon",
+				"template_doctype": "ilL-Tape-Neon-Template",
+				"item_group": CONFIGURED_TAPE_ITEM_GROUP,
+				"engine": "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration",
+				"calculate_and_lookup": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.calculate_and_lookup",
+				"save_and_apply": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.save_and_apply",
+				"preview_bom": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.preview_bom",
+				"power_supply_supported": True,
+			},
+			PRODUCT_TYPE_NEON: {
+				"configured_doctype": "ilL-Configured-Tape-Neon",
+				"template_doctype": "ilL-Tape-Neon-Template",
+				"item_group": CONFIGURED_NEON_ITEM_GROUP,
+				"engine": "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration",
+				"calculate_and_lookup": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.calculate_and_lookup",
+				"save_and_apply": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.save_and_apply",
+				"preview_bom": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.preview_bom",
+				"power_supply_supported": True,
+			},
+		},
+	}
 
 
 @frappe.whitelist()
@@ -88,7 +142,7 @@ def get_bom_preview(
 
 
 @frappe.whitelist()
-def apply_configured_product(
+def apply_existing_configured_product(
 	parent_doctype: str,
 	parent_name: str,
 	product_type: str,
@@ -99,7 +153,12 @@ def apply_configured_product(
 	configuration_json: str | dict[str, Any] | None = None,
 	bom_override_json: str | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-	"""Create/reuse configured artifacts and write the configured Item to a quote/order row."""
+	"""Apply an *already-saved* ilL-Configured-* record to a quote/order row.
+
+	For brand-new builds (or variant saves), use
+	``configured_product_builder.save_and_apply`` instead, which runs the
+	engine + variant logic before writing to the row.
+	"""
 	if bom_override_json:
 		frappe.throw(_("Edited BOM overrides are not supported in this first implementation slice."))
 
@@ -125,6 +184,18 @@ def apply_configured_product(
 		"bom": artifact.get("bom"),
 		"messages": artifact.get("messages", []),
 	}
+
+
+@frappe.whitelist()
+def apply_configured_product(*args, **kwargs) -> dict[str, Any]:
+	"""Deprecated alias of :func:`apply_existing_configured_product`.
+
+	Kept temporarily for backward compatibility with older client scripts.
+	New callers should use ``apply_existing_configured_product`` (apply
+	saved record) or ``configured_product_builder.save_and_apply`` (build
+	new / variant).
+	"""
+	return apply_existing_configured_product(*args, **kwargs)
 
 
 def _normalize_product_type(product_type: str) -> str:
@@ -174,6 +245,10 @@ def _ensure_configured_artifacts(
 ) -> dict[str, Any]:
 	if product_type == PRODUCT_TYPE_FIXTURE:
 		fixture = _get_required_doc("ilL-Configured-Fixture", configured_fixture, "configured_fixture")
+		# Idempotent guard so this entry point works on fresh sites where the
+		# Configured Fixtures Item Group hasn't yet been created by a prior
+		# manufacturing-generator run.
+		_ensure_item_group_exists(CONFIGURED_ITEM_GROUP)
 		item_result = _create_or_get_configured_item(fixture, skip_if_exists=True)
 		if not item_result.get("success"):
 			frappe.throw(_messages_to_html(item_result.get("messages")))
@@ -203,6 +278,7 @@ def _ensure_configured_artifacts(
 			"finish": fixture.finish,
 			"lens": fixture.lens_appearance,
 			"engine_version": getattr(fixture, "engine_version", None),
+			"parent_configured_fixture": getattr(fixture, "parent_configured_fixture", None),
 			"configuration_snapshot": _fixture_configuration_snapshot(fixture),
 			"messages": item_result.get("messages", []) + bom_result.get("messages", []),
 		}
@@ -212,12 +288,26 @@ def _ensure_configured_artifacts(
 		frappe.throw(_("Configured tape/neon product {0} is {1}, not {2}").format(
 			configured.name, configured.product_category, product_type
 		))
+	is_neon = product_type == PRODUCT_TYPE_NEON
+	_ensure_item_group_exists(
+		CONFIGURED_NEON_ITEM_GROUP if is_neon else CONFIGURED_TAPE_ITEM_GROUP
+	)
 	item_result = _create_or_get_configured_tape_neon_item(configured, skip_if_exists=True)
 	if not item_result.get("success"):
 		frappe.throw(_messages_to_html(item_result.get("messages")))
 
 	configured.configured_item = item_result["item_code"]
 	configured.save(ignore_permissions=True)
+
+	# Tape/neon BOM is now built by tape_neon_bom; defer import so this module
+	# stays free of circular dependencies on tape_neon_bom → manufacturing_generator.
+	from illumenate_lighting.illumenate_lighting.api import tape_neon_bom
+
+	bom_result = tape_neon_bom.create_or_get_tape_neon_bom(
+		configured, item_result["item_code"], skip_if_exists=True
+	)
+	bom_messages = bom_result.get("messages") or []
+	bom_name = bom_result.get("bom_name")
 
 	return {
 		"product_type": product_type,
@@ -226,7 +316,7 @@ def _ensure_configured_artifacts(
 		"configured_fixture": None,
 		"configured_tape_neon": configured.name,
 		"item_code": item_result["item_code"],
-		"bom": configured.bom if configured.bom and frappe.db.exists("BOM", configured.bom) else None,
+		"bom": bom_name,
 		"description": _line_description_from_item(item_result["item_code"]),
 		"template_code": configured.tape_neon_template,
 		"requested_length_mm": configured.requested_length_mm,
@@ -236,11 +326,9 @@ def _ensure_configured_artifacts(
 		"finish": getattr(configured, "finish", None) or getattr(configured, "pcb_finish", None),
 		"lens": None,
 		"engine_version": getattr(configured, "engine_version", None),
+		"parent_configured_tape_neon": getattr(configured, "parent_configured_tape_neon", None),
 		"configuration_snapshot": _tape_neon_configuration_snapshot(configured),
-		"messages": item_result.get("messages", []) + [{
-			"severity": "warning",
-			"text": _("Tape/neon configured Item was applied without a BOM; the tape/neon BOM builder is still pending."),
-		}],
+		"messages": (item_result.get("messages") or []) + bom_messages,
 	}
 
 
@@ -294,6 +382,21 @@ def _apply_artifact_to_row(parent_doc, row, artifact: dict[str, Any], qty: float
 	_set_child_value(row, "ill_engine_version", artifact.get("engine_version"))
 	_set_child_value(row, "ill_configuration_json", _serialize_json(configuration_json or artifact["configuration_snapshot"]))
 	_set_child_value(row, "ill_bom_override_json", None)
+
+	# Power-supply tagging (Phase 1 custom fields on Quotation Item /
+	# Sales Order Item).  Power-supply lines are written by the configured
+	# product builder when ``include_power_supply`` is enabled — the line
+	# itself sits at the row level so multiple PS items can be split out
+	# from a single configured fixture/tape/neon.
+	ps_meta = artifact.get("power_supply") or {}
+	_set_child_value(row, "ill_is_power_supply_line", 1 if ps_meta.get("is_power_supply_line") else 0)
+	_set_child_value(row, "ill_power_supply_for", ps_meta.get("power_supply_for"))
+	_set_child_value(
+		row,
+		"ill_parent_configured_fixture",
+		ps_meta.get("parent_configured_fixture")
+		or artifact.get("parent_configured_fixture"),
+	)
 
 	if parent_doc.doctype == "Sales Order" and artifact.get("bom"):
 		_set_child_value(row, "bom_no", artifact.get("bom"))

@@ -10,6 +10,9 @@
   "config_hash",
   "engine_version",
   "is_multi_segment",
+  "parent_configured_fixture",
+  "variant_suffix",
+  "variant_origin",
   "column_break_identity",
   "fixture_template",
   "selected_options_section",
@@ -123,6 +126,31 @@
    "fieldname": "is_multi_segment",
    "fieldtype": "Check",
    "label": "Multi-Segment Fixture"
+  },
+  {
+   "description": "Original configured fixture this record was modified from. NULL for originals.",
+   "fieldname": "parent_configured_fixture",
+   "fieldtype": "Link",
+   "label": "Variant Of",
+   "options": "ilL-Configured-Fixture",
+   "read_only": 1
+  },
+  {
+   "description": "4-char hex suffix appended to the part number for variants (e.g. ABCD in -V(ABCD)).",
+   "fieldname": "variant_suffix",
+   "fieldtype": "Data",
+   "label": "Variant Suffix",
+   "length": 8,
+   "read_only": 1
+  },
+  {
+   "default": "Portal",
+   "description": "Where this configured record was created.",
+   "fieldname": "variant_origin",
+   "fieldtype": "Select",
+   "label": "Origin",
+   "options": "Portal\nQuotation Tool\nSales Order Tool\nBuilder CLI\nAPI",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_identity",

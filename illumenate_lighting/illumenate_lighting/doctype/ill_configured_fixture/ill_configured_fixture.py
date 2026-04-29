@@ -404,7 +404,11 @@ class ilLConfiguredFixture(Document):
 			else:
 				parts.append("C")
 
-		return "-".join(parts)
+		base = "-".join(parts)
+		# Append variant suffix when this is a modified-of-existing record.
+		if getattr(self, "variant_suffix", None):
+			base = f"{base}-V({self.variant_suffix})"
+		return base
 
 	def _compute_segment_config_hash(self) -> str:
 		"""

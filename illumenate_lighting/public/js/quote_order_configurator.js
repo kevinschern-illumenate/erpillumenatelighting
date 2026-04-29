@@ -1,270 +1,36 @@
-// ilLumenate Lighting - shared Quotation/Sales Order configurator shell
+﻿/**
+ * Phase 5 — Legacy shim for window.illumenate_lighting.quote_order_configurator.
+ *
+ * The old simple "Configure Product" Tools dialog (existing-record picker
+ * only) has been replaced by the multi-step "Build / Add Configured Product"
+ * wizard in public/js/desk/desk_dialog.js (+ bom_review.js).
+ *
+ * Those modules are loaded globally via hooks.py (app_include_js). This
+ * shim preserves the old API surface so quotation.js / sales_order.js can
+ * keep calling configurator.add_buttons(frm) / configurator.show_dialog(frm)
+ * without changes.
+ */
+(function () {
+	var ns = window.illumenate_lighting = window.illumenate_lighting || {};
 
-(function() {
-	const root = window.illumenate_lighting = window.illumenate_lighting || {};
-	const api = 'illumenate_lighting.illumenate_lighting.api.quote_order_configurator.';
-	const productTypes = ['Linear Fixture', 'LED Tape', 'LED Neon'];
-
-	function isReadOnly(frm) {
-		if (typeof frm.is_read_only === 'function') {
-			return frm.is_read_only();
-		}
-
-		return !!frm.read_only || (frm.doc && frm.doc.docstatus !== 0);
-	}
-
-	function isNew(frm) {
-		if (typeof frm.is_new === 'function') {
-			return frm.is_new();
-		}
-
-		return !!(frm.doc && frm.doc.__islocal);
-	}
-
-	function canConfigure(frm) {
-		return !isNew(frm) && !isReadOnly(frm) && frm.doc.docstatus === 0;
-	}
-
-	function addButtons(frm) {
-		if (!canConfigure(frm)) {
-			return;
-		}
-
-		frm.add_custom_button(__('Configure Product'), function() {
-			showDialog(frm);
-		}, __('Tools'));
-	}
-
-	function showDialog(frm) {
-		const dialog = new frappe.ui.Dialog({
-			title: __('Configure Product'),
-			fields: [
-				{
-					fieldname: 'product_type',
-					fieldtype: 'Select',
-					label: __('Product Type'),
-					options: [''].concat(productTypes).join('\n'),
-					reqd: 1,
-					onchange: function() {
-						dialog.set_value('configured_fixture', null);
-						dialog.set_value('configured_tape_neon', null);
-						renderPreview(dialog, null);
-						updateProductFields(dialog);
-					}
-				},
-				{
-					fieldname: 'qty',
-					fieldtype: 'Float',
-					label: __('Qty'),
-					default: 1,
-					reqd: 1
-				},
-				{ fieldtype: 'Section Break' },
-				{
-					fieldname: 'configured_fixture',
-					fieldtype: 'Link',
-					label: __('Configured Fixture'),
-					options: 'ilL-Configured-Fixture',
-					onchange: function() {
-						loadPreview(dialog);
-					}
-				},
-				{
-					fieldname: 'configured_tape_neon',
-					fieldtype: 'Link',
-					label: __('Configured Tape/Neon'),
-					options: 'ilL-Configured-Tape-Neon',
-					onchange: function() {
-						loadPreview(dialog);
-					}
-				},
-				{ fieldtype: 'Section Break' },
-				{
-					fieldname: 'bom_preview',
-					fieldtype: 'HTML',
-					options: '<div class="ill-configurator-preview"></div>'
-				}
-			]
-		});
-
-		dialog.set_primary_action(__('Apply to Row'), function() {
-			applyConfiguredProduct(frm, dialog);
-		});
-
-		dialog.show();
-		bindProductTypeChange(dialog);
-		updateProductFields(dialog);
-	}
-
-	function selectedItemRowName(frm) {
-		const selected = frm.get_selected ? frm.get_selected() : null;
-		if (!selected || !selected.items || selected.items.length !== 1) {
-			return null;
-		}
-		return selected.items[0];
-	}
-
-	function updateProductFields(dialog) {
-		const productType = dialog.get_value('product_type');
-		setFieldVisible(dialog, 'configured_fixture', productType === 'Linear Fixture');
-		setFieldVisible(dialog, 'configured_tape_neon', productType === 'LED Tape' || productType === 'LED Neon');
-	}
-
-	function bindProductTypeChange(dialog) {
-		const productTypeField = dialog.fields_dict.product_type;
-		if (!productTypeField || !productTypeField.$input) {
-			return;
-		}
-
-		productTypeField.$input.off('change.ill_configurator').on('change.ill_configurator', function() {
-			dialog.set_value('configured_fixture', null);
-			dialog.set_value('configured_tape_neon', null);
-			renderPreview(dialog, null);
-			updateProductFields(dialog);
-		});
-	}
-
-	function setFieldVisible(dialog, fieldname, visible) {
-		const field = dialog.fields_dict[fieldname];
-		if (!field) {
-			return;
-		}
-
-		field.df.hidden = visible ? 0 : 1;
-		if (typeof field.toggle === 'function') {
-			field.toggle(!!visible);
-		} else if (field.$wrapper) {
-			field.$wrapper.toggle(!!visible);
-		}
-		if (field.refresh) {
-			field.refresh();
-		}
-		if (field.$wrapper) {
-			field.$wrapper.toggle(!!visible);
+	function add_buttons(frm) {
+		if (window.IllDesk && typeof window.IllDesk.addConfiguratorButton === 'function') {
+			window.IllDesk.addConfiguratorButton(frm);
+		} else {
+			console.warn('[illumenate_lighting] IllDesk.addConfiguratorButton not loaded; check hooks.py app_include_js order.');
 		}
 	}
 
-	function getDialogArgs(dialog) {
-		const productType = dialog.get_value('product_type');
-		return {
-			product_type: productType,
-			configured_fixture: productType === 'Linear Fixture' ? dialog.get_value('configured_fixture') : null,
-			configured_tape_neon: productType === 'LED Tape' || productType === 'LED Neon'
-				? dialog.get_value('configured_tape_neon')
-				: null
-		};
+	function show_dialog(frm) {
+		if (window.IllDesk && typeof window.IllDesk.openConfiguratorDialog === 'function') {
+			window.IllDesk.openConfiguratorDialog(frm);
+		} else {
+			console.warn('[illumenate_lighting] IllDesk.openConfiguratorDialog not loaded; check hooks.py app_include_js order.');
+		}
 	}
 
-	function loadPreview(dialog) {
-		const args = getDialogArgs(dialog);
-		if (!args.product_type || (!args.configured_fixture && !args.configured_tape_neon)) {
-			renderPreview(dialog, null);
-			return;
-		}
-
-		renderPreview(dialog, { loading: true });
-		frappe.call({
-			method: api + 'get_bom_preview',
-			args: args,
-			callback: function(response) {
-				renderPreview(dialog, response.message);
-			}
-		});
-	}
-
-	function renderPreview(dialog, preview) {
-		const wrapper = dialog.fields_dict.bom_preview.$wrapper.find('.ill-configurator-preview');
-		if (!preview) {
-			wrapper.empty();
-			return;
-		}
-
-		if (preview.loading) {
-			wrapper.html('<div class="text-muted small">' + __('Loading BOM...') + '</div>');
-			return;
-		}
-
-		const messages = (preview.messages || []).map(function(message) {
-			return '<div class="text-muted small">' + escapeHtml(message.text || '') + '</div>';
-		}).join('');
-
-		if (!preview.items || !preview.items.length) {
-			wrapper.html(messages);
-			return;
-		}
-
-		const rows = preview.items.map(function(item) {
-			return '<tr>' +
-				'<td>' + escapeHtml(item.item_code || '') + '</td>' +
-				'<td>' + escapeHtml(item.item_name || '') + '</td>' +
-				'<td class="text-right">' + escapeHtml(String(item.qty || '')) + '</td>' +
-				'<td>' + escapeHtml(item.uom || '') + '</td>' +
-			'</tr>';
-		}).join('');
-
-		wrapper.html(
-			messages +
-			'<div class="table-responsive" style="max-height: 260px; overflow:auto;">' +
-				'<table class="table table-bordered table-condensed">' +
-					'<thead><tr>' +
-						'<th>' + __('Item') + '</th>' +
-						'<th>' + __('Name') + '</th>' +
-						'<th class="text-right">' + __('Qty') + '</th>' +
-						'<th>' + __('UOM') + '</th>' +
-					'</tr></thead>' +
-					'<tbody>' + rows + '</tbody>' +
-				'</table>' +
-			'</div>'
-		);
-	}
-
-	function applyConfiguredProduct(frm, dialog) {
-		const values = dialog.get_values();
-		if (!values) {
-			return;
-		}
-
-		const args = getDialogArgs(dialog);
-		if (args.product_type === 'Linear Fixture' && !args.configured_fixture) {
-			frappe.msgprint(__('Select a configured fixture.'));
-			return;
-		}
-		if ((args.product_type === 'LED Tape' || args.product_type === 'LED Neon') && !args.configured_tape_neon) {
-			frappe.msgprint(__('Select a configured tape/neon product.'));
-			return;
-		}
-
-		frappe.call({
-			method: api + 'apply_configured_product',
-			args: Object.assign({}, args, {
-				parent_doctype: frm.doctype,
-				parent_name: frm.doc.name,
-				row_name: selectedItemRowName(frm),
-				qty: values.qty || 1
-			}),
-			freeze: true,
-			freeze_message: __('Applying configured product...'),
-			callback: function(response) {
-				if (!response.message || !response.message.success) {
-					return;
-				}
-
-				frappe.show_alert({
-					message: __('Configured product applied: {0}', [response.message.item_code]),
-					indicator: 'green'
-				});
-				dialog.hide();
-				frm.reload_doc();
-			}
-		});
-	}
-
-	function escapeHtml(value) {
-		return $('<div>').text(value || '').html();
-	}
-
-	root.quote_order_configurator = {
-		add_buttons: addButtons,
-		show_dialog: showDialog
+	ns.quote_order_configurator = {
+		add_buttons: add_buttons,
+		show_dialog: show_dialog
 	};
 })();
