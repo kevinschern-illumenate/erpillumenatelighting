@@ -290,6 +290,51 @@ def save_and_apply(
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# LINK FIELD QUERIES (used by the dialog's get_query)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def allowed_tape_offerings_for_template(
+    doctype: str,
+    txt: str,
+    searchfield: str,
+    start: int,
+    page_len: int,
+    filters: dict[str, Any] | None = None,
+) -> list[tuple]:
+    """Return tape offerings allowed by a Fixture Template.
+
+    Used as the ``query`` for the Tape Offering link in the Build /
+    Add Configured Product dialog so the user only sees offerings the
+    chosen template permits.
+    """
+    template = (filters or {}).get("fixture_template")
+    if not template:
+        return []
+    txt = f"%{txt or ''}%"
+    rows = frappe.db.sql(
+        """
+        SELECT ato.tape_offering
+        FROM `tabilL-Child-Template-Allowed-TapeOffering` ato
+        WHERE ato.parent = %(parent)s
+          AND ato.parenttype = 'ilL-Fixture-Template'
+          AND ato.tape_offering LIKE %(txt)s
+        ORDER BY ato.idx ASC
+        LIMIT %(start)s, %(page_len)s
+        """,
+        {
+            "parent": template,
+            "txt": txt,
+            "start": int(start or 0),
+            "page_len": int(page_len or 20),
+        },
+    )
+    return [(r[0],) for r in rows]
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # LINEAGE HELPERS
 # ═══════════════════════════════════════════════════════════════════════
 

@@ -237,7 +237,10 @@
 						var tpl = self.formFields.get_value('fixture_template_code');
 						self.formFields.set_value('tape_offering_id', null);
 						self.formFields.fields_dict.tape_offering_id.df.get_query = function () {
-							return { filters: { 'parent': tpl } };
+							return {
+								query: 'illumenate_lighting.illumenate_lighting.api.configured_product_builder.allowed_tape_offerings_for_template',
+								filters: { fixture_template: tpl }
+							};
 						};
 					}
 				},
