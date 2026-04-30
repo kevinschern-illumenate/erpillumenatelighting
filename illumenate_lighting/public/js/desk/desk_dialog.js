@@ -673,24 +673,144 @@
 		this.setPrimaryLabel(__('Save & Apply to Row'), __('Back'), this.renderCalculated.bind(this));
 
 		var $body = this.body$();
-		$body.html('');
+		var self = this;
 
-		// Best-effort prospective BOM rows from the validation response. The
-		// engines return resolved item lists (profile, tape, lens, endcaps,
-		// drivers, leader cables) under various keys. We surface what we can
-		// and note that the final BOM is generated on Save.
-		var v = this.validation || {};
-		var prospective = collectProspectiveItems(v);
+		// Tape/Neon path: keep existing best-effort behavior for now.
+		if (this.productType !== 'Linear Fixture') {
+			$body.html('');
+			var v = this.validation || {};
+			var prospective = collectProspectiveItems(v);
+			$body.append(
+				'<div class="alert alert-info py-2 px-2 small mb-2">'
+				+ __('A new Configured record will be created and its BOM generated on Save & Apply.')
+				+ '</div>'
+			);
+			IllDesk.renderBOMReview($body, prospective, {
+				title: __('Prospective BOM components'),
+				empty_message: __('Prospective component list not available; full BOM will be generated on save.')
+			});
+			return;
+		}
 
+		$body.html('<div class="text-muted small">' + __('Building prospective BOM...') + '</div>');
+
+		frappe.call({
+			method: API + 'preview_prospective_bom',
+			args: {
+				product_type: this.productType,
+				payload_json: JSON.stringify(this.payload),
+				parent_configured_fixture: this.parentConfiguredFixture
+			},
+			callback: function (r) {
+				$body.html('');
+				var msg = r.message || {};
+				if (!msg.success) {
+					$body.append(
+						'<div class="alert alert-warning py-2 px-2 small mb-2">'
+						+ escapeHtml((msg.messages || []).map(function (m) { return m.text; }).join(' \u2022 ')
+							|| msg.error || __('Could not build prospective BOM.'))
+						+ '</div>'
+					);
+					self.bomEdits = [];
+					return;
+				}
+				var rows = (msg.items || []).map(function (it) {
+					return {
+						item_code: it.item_code,
+						item_name: it.item_name,
+						description: it.description,
+						qty: Number(it.qty || 0),
+						uom: it.uom || it.stock_uom || 'Nos',
+						stock_uom: it.stock_uom || 'Nos'
+					};
+				});
+				self.bomEdits = rows;
+				self.renderEditableBomGrid($body, rows);
+			}
+		});
+	};
+
+	DialogController.prototype.renderEditableBomGrid = function ($body, rows) {
+		var self = this;
 		$body.append(
 			'<div class="alert alert-info py-2 px-2 small mb-2">'
-			+ __('A new Configured record will be created and its BOM generated on Save & Apply.')
+			+ __('Review and edit the BOM below. Changes here will be applied to the BOM created on Save.')
 			+ '</div>'
 		);
-		IllDesk.renderBOMReview($body, prospective, {
-			title: __('Prospective BOM components'),
-			empty_message: __('Prospective component list not available; full BOM will be generated on save.')
-		});
+		var $wrap = $('<div class="ill-desk-bom-editor"></div>');
+		$body.append($wrap);
+
+		function rebuild() {
+			$wrap.html('');
+			var $tbl = $(
+				'<table class="table table-sm table-bordered mb-2" style="font-size:12px;">'
+				+ '<thead><tr>'
+				+ '<th style="width:42%">' + __('Item') + '</th>'
+				+ '<th style="width:18%">' + __('Qty') + '</th>'
+				+ '<th style="width:14%">' + __('UOM') + '</th>'
+				+ '<th style="width:18%">' + __('Description') + '</th>'
+				+ '<th style="width:8%"></th>'
+				+ '</tr></thead><tbody></tbody></table>'
+			);
+			var $tb = $tbl.find('tbody');
+			rows.forEach(function (row, idx) {
+				var $tr = $('<tr></tr>');
+				$tr.append('<td><div class="ill-bom-item" data-idx="' + idx + '"></div></td>');
+				$tr.append('<td><input type="number" step="any" min="0" class="form-control input-sm ill-bom-qty" value="' + (row.qty || 0) + '" data-idx="' + idx + '"></td>');
+				$tr.append('<td><input type="text" class="form-control input-sm ill-bom-uom" value="' + escapeHtml(row.uom || '') + '" data-idx="' + idx + '"></td>');
+				$tr.append('<td class="text-muted small" style="vertical-align:middle">' + escapeHtml((row.description || '').slice(0, 80)) + '</td>');
+				$tr.append('<td><button class="btn btn-xs btn-danger ill-bom-del" data-idx="' + idx + '">&times;</button></td>');
+				$tb.append($tr);
+			});
+			$wrap.append($tbl);
+			var $add = $('<button class="btn btn-xs btn-default">+ ' + __('Add Row') + '</button>');
+			$add.on('click', function () {
+				rows.push({ item_code: '', item_name: '', description: '', qty: 1, uom: 'Nos', stock_uom: 'Nos' });
+				rebuild();
+			});
+			$wrap.append($add);
+
+			// Wire up Item link controls
+			rows.forEach(function (row, idx) {
+				var $cell = $wrap.find('.ill-bom-item[data-idx="' + idx + '"]');
+				var ctrl = frappe.ui.form.make_control({
+					df: { fieldtype: 'Link', options: 'Item', fieldname: 'item_code_' + idx, placeholder: __('Item code') },
+					parent: $cell[0],
+					render_input: true
+				});
+				ctrl.set_value(row.item_code || '');
+				ctrl.$input.on('change', function () {
+					row.item_code = ctrl.get_value() || '';
+					if (row.item_code) {
+						frappe.db.get_value('Item', row.item_code, ['item_name', 'description', 'stock_uom']).then(function (res) {
+							var v = (res && res.message) || {};
+							row.item_name = v.item_name || row.item_code;
+							row.description = v.description || '';
+							row.stock_uom = v.stock_uom || row.stock_uom || 'Nos';
+							if (!row.uom) row.uom = row.stock_uom;
+							rebuild();
+						});
+					}
+				});
+			});
+
+			$wrap.find('.ill-bom-qty').on('input', function () {
+				var i = parseInt($(this).attr('data-idx'), 10);
+				rows[i].qty = parseFloat($(this).val()) || 0;
+			});
+			$wrap.find('.ill-bom-uom').on('input', function () {
+				var i = parseInt($(this).attr('data-idx'), 10);
+				rows[i].uom = $(this).val() || '';
+			});
+			$wrap.find('.ill-bom-del').on('click', function () {
+				var i = parseInt($(this).attr('data-idx'), 10);
+				rows.splice(i, 1);
+				rebuild();
+			});
+		}
+
+		self.bomEdits = rows;
+		rebuild();
 	};
 
 	function collectProspectiveItems(validation) {
@@ -771,20 +891,24 @@
 
 	DialogController.prototype.saveAndApply = function () {
 		var self = this;
+		var args = {
+			parent_doctype: this.frm.doctype,
+			parent_name: this.frm.doc.name,
+			product_type: this.productType,
+			payload_json: JSON.stringify(this.payload),
+			parent_configured_fixture: this.parentConfiguredFixture,
+			parent_configured_tape_neon: this.parentConfiguredTapeNeon,
+			tape_neon_template: this.tapeNeonTemplate,
+			row_name: selectedItemRowName(this.frm),
+			qty: this.qty,
+			variant_origin: 'Quotation Tool'
+		};
+		if (this.productType === 'Linear Fixture' && Array.isArray(this.bomEdits) && this.bomEdits.length) {
+			args.bom_overrides_json = JSON.stringify(this.bomEdits);
+		}
 		frappe.call({
 			method: API + 'save_and_apply',
-			args: {
-				parent_doctype: this.frm.doctype,
-				parent_name: this.frm.doc.name,
-				product_type: this.productType,
-				payload_json: JSON.stringify(this.payload),
-				parent_configured_fixture: this.parentConfiguredFixture,
-				parent_configured_tape_neon: this.parentConfiguredTapeNeon,
-				tape_neon_template: this.tapeNeonTemplate,
-				row_name: selectedItemRowName(this.frm),
-				qty: this.qty,
-				variant_origin: 'Quotation Tool'
-			},
+			args: args,
 			freeze: true,
 			freeze_message: __('Saving & applying...'),
 			callback: function (r) {

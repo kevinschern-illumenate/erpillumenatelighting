@@ -203,6 +203,106 @@ def preview_bom(
 
 
 @frappe.whitelist()
+def preview_prospective_bom(
+    product_type: str,
+    payload_json: str | dict[str, Any] | None = None,
+    parent_configured_fixture: str | None = None,
+) -> dict[str, Any]:
+    """Build a default BOM preview for a not-yet-saved fixture configuration.
+
+    This runs the engine in dry-run mode (``_skip_record_creation=True``),
+    then synthesizes an in-memory ``ilL-Configured-Fixture`` doc and returns
+    the rows ``build_fixture_bom_items`` would emit for it.  No DB writes.
+    Tape/Neon previews still rely on the existing ``preview_bom`` flow.
+    """
+    product_type = _normalize_product_type(product_type)
+    if product_type != PRODUCT_TYPE_FIXTURE:
+        return {
+            "success": False,
+            "supported": False,
+            "items": [],
+            "messages": [{
+                "severity": "info",
+                "text": "Prospective BOM preview is currently fixture-only.",
+            }],
+        }
+
+    payload = _coerce_dict(payload_json) or {}
+    is_multi = bool(payload.get("segments_json") or payload.get("multi_segment"))
+    if is_multi:
+        return {
+            "success": False,
+            "supported": False,
+            "items": [],
+            "messages": [{
+                "severity": "info",
+                "text": "Multi-segment prospective BOM preview is not yet supported.",
+            }],
+        }
+
+    # Step 1 — run engine dry-run for full validation + computed/resolved data.
+    validation = _dispatch_calculate(
+        product_type,
+        payload,
+        parent_configured_fixture=parent_configured_fixture,
+        parent_configured_tape_neon=None,
+        tape_neon_template=None,
+    )
+    if not validation.get("is_valid"):
+        return {
+            "success": False,
+            "supported": True,
+            "items": [],
+            "validation": validation,
+            "messages": validation.get("messages") or [],
+            "error": validation.get("error"),
+        }
+
+    # Step 2 — synthesize an unsaved fixture doc using the engine internals.
+    from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+        build_fixture_bom_items,
+    )
+
+    kwargs = _fixture_singlesegment_kwargs(payload)
+    # Strip args not accepted by the populator
+    kwargs.pop("qty", None)
+    fixture_doc = configurator_engine._create_or_update_configured_fixture(
+        computed=validation.get("computed") or {},
+        resolved_items=validation.get("resolved_items") or {},
+        pricing=validation.get("pricing") or {
+            "msrp_unit": 0, "tier_unit": 0, "discount_amount": 0,
+            "discount_percentage": 0, "adder_breakdown": [],
+        },
+        parent_configured_fixture=parent_configured_fixture,
+        in_memory=True,
+        **kwargs,
+    )
+
+    # Step 3 — build the prospective BOM rows.
+    try:
+        items = build_fixture_bom_items(fixture_doc)
+    except Exception as e:  # noqa: BLE001
+        return {
+            "success": False,
+            "supported": True,
+            "items": [],
+            "messages": [{
+                "severity": "error",
+                "text": f"Could not build prospective BOM: {e}",
+            }],
+        }
+
+    return {
+        "success": True,
+        "supported": True,
+        "product_type": product_type,
+        "items": _format_bom_rows(items),
+        "candidate_part_number": validation.get("candidate_part_number"),
+        "messages": [],
+    }
+
+
+@frappe.whitelist()
 def save_and_apply(
     parent_doctype: str,
     parent_name: str,
@@ -214,6 +314,7 @@ def save_and_apply(
     row_name: str | None = None,
     qty: float = 1,
     variant_origin: str | None = "Quotation Tool",
+    bom_overrides_json: str | list | None = None,
 ) -> dict[str, Any]:
     """Persist the configured record (or variant) and write it to a row.
 
@@ -255,7 +356,8 @@ def save_and_apply(
         configured_name = validation.get("configured_fixture_id")
         if not configured_name:
             frappe.throw(_("Engine did not return a configured fixture id."))
-        artifact = _ensure_fixture_artifacts(configured_name)
+        bom_overrides = _coerce_bom_overrides(bom_overrides_json)
+        artifact = _ensure_fixture_artifacts(configured_name, bom_overrides=bom_overrides)
     else:
         configured_name = validation.get("configured_tape_neon")
         if not configured_name:
@@ -487,8 +589,16 @@ def _dispatch_save(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _ensure_fixture_artifacts(configured_fixture: str) -> dict[str, Any]:
-    """Build/reuse Item + BOM for a saved fixture and return the artifact dict."""
+def _ensure_fixture_artifacts(
+    configured_fixture: str,
+    bom_overrides: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build/reuse Item + BOM for a saved fixture and return the artifact dict.
+
+    When ``bom_overrides`` is provided, the BOM is built directly from the
+    user-supplied rows (no auto-build) and any pre-existing default BOM on
+    the item is superseded by a freshly created one.
+    """
     fixture = frappe.get_doc("ilL-Configured-Fixture", configured_fixture)
 
     # Idempotently ensure the Configured Fixtures Item Group exists before
@@ -501,7 +611,10 @@ def _ensure_fixture_artifacts(configured_fixture: str) -> dict[str, Any]:
     if not item_result.get("success"):
         frappe.throw(_messages_to_html(item_result.get("messages")))
 
-    bom_result = _create_or_get_bom(fixture, item_result["item_code"], skip_if_exists=True)
+    if bom_overrides:
+        bom_result = _create_bom_from_overrides(fixture, item_result["item_code"], bom_overrides)
+    else:
+        bom_result = _create_or_get_bom(fixture, item_result["item_code"], skip_if_exists=True)
     if not bom_result.get("success"):
         frappe.throw(_messages_to_html(bom_result.get("messages")))
 
@@ -693,6 +806,120 @@ def _format_bom_rows(rows) -> list[dict[str, Any]]:
                          or details.get("stock_uom"),
         })
     return formatted
+
+
+def _coerce_bom_overrides(value) -> list[dict[str, Any]]:
+    """Normalise the BOM overrides payload from the dialog."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            frappe.throw(_("Invalid JSON for bom_overrides_json"))
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for r in value:
+        if not isinstance(r, dict):
+            continue
+        item_code = (r.get("item_code") or "").strip()
+        if not item_code:
+            continue
+        try:
+            qty = flt(r.get("qty") or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        if qty <= 0:
+            continue
+        rows.append({
+            "item_code": item_code,
+            "qty": qty,
+            "uom": (r.get("uom") or "").strip() or None,
+            "stock_uom": (r.get("stock_uom") or "").strip() or None,
+        })
+    return rows
+
+
+def _create_bom_from_overrides(
+    fixture, item_code: str, overrides: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Create a fresh BOM from user-edited rows, bypassing the auto-builder."""
+    result: dict[str, Any] = {
+        "success": True,
+        "bom_name": None,
+        "created": False,
+        "skipped": False,
+        "messages": [],
+    }
+
+    bom_items: list[dict[str, Any]] = []
+    for r in overrides:
+        ic = r["item_code"]
+        if not frappe.db.exists("Item", ic):
+            result["success"] = False
+            result["messages"].append({
+                "severity": "error",
+                "text": f"BOM override references unknown Item: {ic}",
+            })
+            return result
+        stock_uom = frappe.db.get_value("Item", ic, "stock_uom") or "Nos"
+        bom_items.append({
+            "item_code": ic,
+            "qty": r["qty"],
+            "uom": r.get("uom") or stock_uom,
+            "stock_uom": r.get("stock_uom") or stock_uom,
+        })
+
+    if not bom_items:
+        result["success"] = False
+        result["messages"].append({
+            "severity": "error",
+            "text": "BOM overrides produced no usable rows.",
+        })
+        return result
+
+    try:
+        # Demote any existing default BOM on this item so the new one can be default.
+        existing_defaults = frappe.get_all(
+            "BOM",
+            filters={"item": item_code, "is_default": 1, "docstatus": ["<", 2]},
+            pluck="name",
+        )
+        for ed in existing_defaults:
+            frappe.db.set_value("BOM", ed, "is_default", 0)
+
+        from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+            _generate_bom_remarks,
+        )
+
+        bom_doc = frappe.get_doc({
+            "doctype": "BOM",
+            "item": item_code,
+            "quantity": 1,
+            "is_active": 1,
+            "is_default": 1,
+            "with_operations": 0,
+            "items": bom_items,
+            "remarks": _generate_bom_remarks(fixture) + "\n[BOM customized in Build/Add tool]",
+        })
+        bom_doc.insert(ignore_permissions=True)
+        bom_doc.submit()
+
+        result["bom_name"] = bom_doc.name
+        result["created"] = True
+        result["messages"].append({
+            "severity": "info",
+            "text": f"Created custom BOM: {bom_doc.name} with {len(bom_items)} items",
+        })
+    except Exception as e:  # noqa: BLE001
+        result["success"] = False
+        result["messages"].append({
+            "severity": "error",
+            "text": f"Failed to create custom BOM: {e!s}",
+        })
+
+    return result
 
 
 def _fixture_configuration_snapshot(fixture) -> dict[str, Any]:
