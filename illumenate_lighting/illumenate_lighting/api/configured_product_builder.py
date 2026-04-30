@@ -624,8 +624,31 @@ _FIXTURE_MULTI_KEYS = (
 )
 
 
+_FIXTURE_INT_KEYS = (
+    "requested_overall_length_mm",
+    "start_leader_len_mm",
+    "end_leader_len_mm",
+    "qty",
+    "include_power_supply",
+)
+
+
+def _coerce_fixture_ints(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Coerce numeric fixture kwargs to ``int`` so the engine's typed
+    signature accepts payloads coming from JS Float fields."""
+    for key in _FIXTURE_INT_KEYS:
+        if key in kwargs and kwargs[key] is not None and kwargs[key] != "":
+            try:
+                kwargs[key] = int(round(float(kwargs[key])))
+            except (TypeError, ValueError):
+                pass
+    return kwargs
+
+
 def _fixture_singlesegment_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
-    return {k: payload[k] for k in _FIXTURE_SINGLE_KEYS if k in payload}
+    return _coerce_fixture_ints(
+        {k: payload[k] for k in _FIXTURE_SINGLE_KEYS if k in payload}
+    )
 
 
 def _fixture_multisegment_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
@@ -633,7 +656,7 @@ def _fixture_multisegment_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
     segments = kwargs.get("segments_json")
     if isinstance(segments, list):
         kwargs["segments_json"] = json.dumps(segments)
-    return kwargs
+    return _coerce_fixture_ints(kwargs)
 
 
 def _coerce_dict(value) -> dict[str, Any] | None:
