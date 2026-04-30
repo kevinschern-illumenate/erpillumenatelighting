@@ -1,8 +1,24 @@
 // ilLumenate Lighting - Sales Order customizations
 // Adds button to generate manufacturing artifacts from configured fixtures
 
+function with_quote_order_configurator(callback) {
+	const configurator = window.illumenate_lighting && window.illumenate_lighting.quote_order_configurator;
+	if (configurator) {
+		callback(configurator);
+		return;
+	}
+
+	frappe.require('/assets/illumenate_lighting/js/quote_order_configurator.js', function() {
+		callback(window.illumenate_lighting.quote_order_configurator);
+	});
+}
+
 frappe.ui.form.on('Sales Order', {
 	refresh: function(frm) {
+		with_quote_order_configurator(function(configurator) {
+			configurator.add_buttons(frm);
+		});
+
 		// Add button to generate manufacturing artifacts if there are configured fixtures
 		if (frm.doc.docstatus === 1) {  // Only for submitted Sales Orders
 			// Check if any line item has a configured fixture

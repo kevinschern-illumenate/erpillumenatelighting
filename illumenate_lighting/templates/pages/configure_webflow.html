@@ -1,215 +1,22 @@
-{#
+﻿{#
 Portal Configurator Page (Webflow-Compatible)
 Follows the horizontal step flow matching the Webflow configurator UI:
-Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Length → Start Feed → End Feed
+Series â†’ Dry/Wet â†’ CCT â†’ Lens â†’ Output â†’ Mounting â†’ Finish â†’ Length â†’ Start Feed â†’ End Feed
 #}
 {% extends "templates/web.html" %}
 
 {% block title %}{{ _("Configure Fixture") }}{% endblock %}
 
-{% block style %}
-<style>
-/* Configurator Progress Bar */
-.configurator-progress {
-	display: flex;
-	justify-content: space-between;
-	padding: 1rem 0;
-	margin-bottom: 1.5rem;
-	border-bottom: 1px solid #dee2e6;
-	overflow-x: auto;
-}
-.progress-step {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	min-width: 80px;
-	padding: 0 0.5rem;
-}
-.progress-step .step-number {
-	width: 28px;
-	height: 28px;
-	border-radius: 50%;
-	background: #e9ecef;
-	color: #6c757d;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 0.75rem;
-	font-weight: 600;
-	margin-bottom: 0.25rem;
-}
-.progress-step.active .step-number {
-	background: #0d6efd;
-	color: white;
-}
-.progress-step.completed .step-number {
-	background: #198754;
-	color: white;
-}
-.progress-step .step-label {
-	font-size: 0.7rem;
-	color: #6c757d;
-	text-align: center;
-}
-.progress-step.active .step-label {
-	color: #0d6efd;
-	font-weight: 500;
-}
-
-/* Part Number Preview */
-.part-number-preview {
-	font-family: 'Courier New', monospace;
-	font-size: 1.25rem;
-	background: #f8f9fa;
-	padding: 1rem;
-	border-radius: 0.5rem;
-	border: 2px solid #dee2e6;
-	margin-bottom: 1rem;
-	text-align: center;
-}
-.part-number-preview .segment {
-	display: inline;
-}
-.part-number-preview .segment.unselected {
-	color: #adb5bd;
-}
-.part-number-preview .segment.selected {
-	color: #212529;
-	font-weight: 600;
-}
-.part-number-preview .segment.locked {
-	color: #0d6efd;
-}
-
-/* Pill Button Selector Styles */
-.pill-selector {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-.pill-selector .pill {
-	display: inline-block;
-	padding: 0.5rem 1rem;
-	font-size: 0.875rem;
-	font-weight: 400;
-	line-height: 1.5;
-	color: #495057;
-	background-color: #fff;
-	border: 1px solid #ced4da;
-	border-radius: 2rem;
-	cursor: pointer;
-	transition: all 0.15s ease-in-out;
-	user-select: none;
-}
-.pill-selector .pill:hover {
-	background-color: #e9ecef;
-	border-color: #adb5bd;
-}
-.pill-selector .pill.active {
-	background-color: #0d6efd;
-	border-color: #0d6efd;
-	color: #fff;
-}
-.pill-selector .pill.active:hover {
-	background-color: #0b5ed7;
-	border-color: #0a58ca;
-}
-.pill-selector .pill.disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
-/* Config Section Styles */
-.config-section {
-	margin-bottom: 1.5rem;
-	padding-bottom: 1rem;
-	border-bottom: 1px solid #f0f0f0;
-}
-.config-section h4 {
-	font-size: 1rem;
-	font-weight: 600;
-	margin-bottom: 0.75rem;
-	color: #333;
-}
-.config-section.locked h4 {
-	color: #6c757d;
-}
-.config-section .series-display {
-	background: #e7f1ff;
-	border: 1px solid #b6d4fe;
-	padding: 0.75rem 1rem;
-	border-radius: 0.5rem;
-}
-.config-section .series-display .series-name {
-	font-weight: 600;
-	color: #0d6efd;
-}
-
-/* Feed Configuration Styles */
-.feed-config {
-	display: flex;
-	gap: 1rem;
-	flex-wrap: wrap;
-}
-.feed-config .feed-direction,
-.feed-config .feed-length {
-	flex: 1;
-	min-width: 150px;
-}
-.feed-config label {
-	font-size: 0.875rem;
-	font-weight: 500;
-	margin-bottom: 0.5rem;
-	display: block;
-}
-
-/* Length Input Styles */
-.length-input-group {
-	display: flex;
-	gap: 0.5rem;
-}
-.length-input-group input {
-	flex: 2;
-}
-.length-input-group select {
-	flex: 1;
-}
-
-/* Complex Fixture Banner */
-.complex-fixture-banner {
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	color: white;
-	padding: 1rem;
-	border-radius: 0.5rem;
-	margin-top: 1.5rem;
-}
-.complex-fixture-banner a {
-	color: white;
-	text-decoration: underline;
-}
-
-/* Hidden select for mobile fallback */
-.config-section .select-fallback {
-	display: none;
-}
-@media (max-width: 767.98px) {
-	.config-section .pill-selector {
-		display: none !important;
-	}
-	.config-section .select-fallback {
-		display: block !important;
-	}
-}
-
-/* Output section hidden until lens selected */
-#outputSection.awaiting-lens {
-	display: none !important;
-}
-</style>
-{% endblock %}
+{# Phase 4: All configurator CSS lives in:
+   - public/css/configurator/shared_configurator.css
+   - public/css/configurator/fixture_steps.css
+   loaded globally via hooks.web_include_css. The configurator markup below
+   is wrapped in `.ill-configurator.ill-configurator-fixture` so the
+   scoped selectors apply correctly. #}
+{% block style %}{% endblock %}
 
 {% block page_content %}
-<div class="container portal-page">
+<div class="ill-configurator ill-configurator-fixture container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -238,7 +45,7 @@ Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Lengt
 					<!-- Progress Steps -->
 					<div class="configurator-progress" id="progressSteps">
 						<div class="progress-step completed" data-step="0">
-							<span class="step-number">✓</span>
+							<span class="step-number">âœ“</span>
 							<span class="step-label">Series</span>
 						</div>
 						<div class="progress-step" data-step="1">
@@ -506,9 +313,9 @@ Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Lengt
 {% endblock %}
 
 {% block script %}
-<script src="/assets/illumenate_lighting/js/webflow_configurator.js"></script>
+{# Phase 4: shared/fixture configurator modules are loaded globally via
+   hooks.web_include_js. We just instantiate here. #}
 <script>
-// Initialize configurator with context
 var configuratorContext = {
 	schedule_name: "{{ schedule.name if schedule else '' }}",
 	product_slug: "{{ product_slug or '' }}",

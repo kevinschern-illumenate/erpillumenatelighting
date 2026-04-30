@@ -125,6 +125,88 @@ def get_configurator_init(product_slug: str) -> dict:
     }
 
 
+@frappe.whitelist()
+def get_configurator_init_by_template(template_code: str) -> dict:
+    """
+    Initialize the configurator directly from a fixture template code.
+
+    Identical payload shape to ``get_configurator_init`` except:
+      - the caller bypasses the Webflow product lookup; a synthetic
+        ``VirtualProduct`` is built straight from the template
+      - no Webflow gallery/marketing fields are returned (per Q10)
+
+    Used by the Quotation/Sales-Order "Build Configured Product" tools where
+    the user picks a template (Linear Fixture / LED Tape / LED Neon) by code
+    rather than a marketing product slug.
+
+    Args:
+        template_code: The ``ilL-Fixture-Template`` name/code
+
+    Returns:
+        dict: Same shape as ``get_configurator_init`` (success, product,
+        series, steps, options, length_config, part_number_prefix)
+    """
+    if not template_code:
+        return {"success": False, "error": "template_code is required"}
+
+    if not frappe.db.exists("ilL-Fixture-Template", template_code):
+        return {
+            "success": False,
+            "error": f"Fixture template '{template_code}' not found",
+        }
+
+    template = frappe.get_doc("ilL-Fixture-Template", template_code)
+
+    class VirtualProduct:
+        pass
+
+    product = VirtualProduct()
+    product.product_slug = template_code
+    product.product_name = template.template_name
+    product.fixture_template = template.name
+    product.is_configurable = True
+    product.min_length_mm = getattr(template, "min_length_mm", None)
+    product.max_length_mm = getattr(template, "max_length_mm", None)
+
+    series_info = _get_series_info(template)
+    environment_options = _get_environment_ratings(template)
+    lens_options = _get_lens_appearances(template)
+    mounting_options = _get_mounting_methods(template)
+    finish_options = _get_finishes(template)
+    feed_direction_options = _get_feed_directions()
+    leader_length_options = _get_leader_length_options()
+
+    min_length_mm = product.min_length_mm
+    max_length_mm = product.max_length_mm
+    length_config = {
+        "min_inches": min_length_mm / 25.4 if min_length_mm else 12,
+        "max_inches": max_length_mm / 25.4 if max_length_mm else 120,
+        "default_inches": 50,
+        "max_run_note": "Maximum length is 30 ft",
+    }
+
+    return {
+        "success": True,
+        "product": {
+            "slug": product.product_slug,
+            "name": product.product_name,
+            "template_code": product.fixture_template,
+        },
+        "series": series_info,
+        "steps": CONFIGURATOR_STEPS,
+        "options": {
+            "environment_ratings": environment_options,
+            "lens_appearances": lens_options,
+            "mounting_methods": mounting_options,
+            "finishes": finish_options,
+            "feed_directions": feed_direction_options,
+            "leader_lengths_ft": leader_length_options,
+        },
+        "length_config": length_config,
+        "part_number_prefix": f"ILL-{series_info['series_code']}-{series_info['led_package_code']}",
+    }
+
+
 @frappe.whitelist(allow_guest=True)
 def get_cascading_options(
     product_slug: str,

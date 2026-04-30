@@ -10,8 +10,8 @@ for InDesign data merge.
 
 Supports two output formats:
   - ``"flat"`` – one row per CCT × output-level (original format)
-  - ``"indesign"`` – one pivoted row per product with **fixed** columns
-    (596 total) matching the marketing team's InDesign data-merge layout.
+	- ``"indesign"`` – one pivoted row per product with **fixed** columns
+		(622 total) matching the marketing team's InDesign data-merge layout.
     Column positions never shift between products.
 """
 
@@ -22,6 +22,7 @@ from collections import OrderedDict
 
 import frappe
 from frappe import _
+from frappe.utils import get_url
 from frappe.utils.file_manager import save_file
 
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
@@ -53,6 +54,8 @@ PRODUCT_COLUMNS = [
 	"certifications",
 	"dimming_protocols",
 	"driver_max_wattage",
+	"minimum_side_bend_diameter",
+	"minimum_top_bend_diameter",
 ]
 
 CUSTOM_SPEC_COLUMNS = [
@@ -108,6 +111,11 @@ CUSTOM_SPEC_COLUMNS = [
 # Label == field name for direct mapping.
 _INDESIGN_SPEC_MAP = [(col, col) for col in CUSTOM_SPEC_COLUMNS]
 
+CUSTOM_SPEC_FALLBACK_FIELDS = {
+	"custom_image_hero": ("featured_image", "series_family_image", "image"),
+	"custom_image_dimensions_1": ("dimensions_image",),
+}
+
 VARIANT_COLUMNS = [
 	"cct_name",
 	"cct_kelvin",
@@ -134,6 +142,7 @@ def _build_lens_columns():
 		cols.append(f"delivered_lumens_{slug}")
 		cols.append(f"watts_per_foot_{slug}")
 		cols.append(f"max_run_length_ft_{slug}")
+		cols.append(f"max_footage_per_100w_supply_{slug}")
 	return cols
 
 
@@ -155,12 +164,13 @@ MAX_CCTS = 8                     # fixed CCT column count
 MAX_OUTPUT_LEVELS = 8            # fixed output-level block count
 
 # Total column count of the unified InDesign data-merge CSV.
-#   17 static + 39 custom_* + 8 CCT + 8 × (1 + 3×2 + 8×4) + 11 × 10 × 2 = 596
+#   19 static + 39 custom_* + 8 CCT + 8 × (1 + 3×3 + 8×4) + 11 × 10 × 2 = 622
 # Keep this in sync with INDESIGN_PRODUCT_COLUMNS / _INDESIGN_LENS_GROUPS /
 # _INDESIGN_LUMEN_LENSES / STANDARD_PN_SECTIONS — an assert in
 # ``_generate_indesign_csv`` / ``_generate_tape_neon_indesign_csv`` enforces
 # that the two code paths can never drift apart.
-INDESIGN_TOTAL_COLUMNS = 596
+INDESIGN_TOTAL_COLUMNS = 622
+MAX_POWER_SUPPLY_USABLE_WATTS = 80
 
 
 # ──────────────────────────────────────────────────────────
@@ -177,20 +187,368 @@ def _get_attribute_values_by_type(attribute_links, attr_type):
 	values = []
 	for row in attribute_links:
 		if row.attribute_type == attr_type and row.attribute_name:
-			values.append(row.attribute_name)
+			values.append(getattr(row, "display_label", None) or row.attribute_name)
 	return ", ".join(sorted(set(values)))
+
+
+def _add_list_values(values, *raw_values):
+	"""Add comma-separated display values into a set, skipping blanks."""
+	for raw_value in raw_values:
+		if not _has_value(raw_value):
+			continue
+		for value in str(raw_value).split(","):
+			value = value.strip()
+			if value:
+				values.add(value)
+
+
+def _join_list_values(values):
+	return ", ".join(sorted(values))
+
+
+def _collect_certification_values(*docs, attribute_links=None):
+	values = set()
+	for row in (attribute_links or []):
+		if getattr(row, "attribute_type", None) == "Certification":
+			_add_list_values(values, getattr(row, "display_label", None) or getattr(row, "attribute_name", None))
+	for doc in docs:
+		for row in (_doc_get(doc, "certifications", []) or []):
+			_add_list_values(values, _doc_get(row, "certification"))
+	return values
+
+
+def _doc_get(doc, fieldname, default=None):
+	"""Safely read a field from a Frappe doc, dict, or test namespace."""
+	if not doc:
+		return default
+	if hasattr(doc, "get"):
+		try:
+			value = doc.get(fieldname)
+		except TypeError:
+			value = doc.get(fieldname, default)
+		if value is not None:
+			return value
+	return getattr(doc, fieldname, default)
+
+
+def _has_value(value):
+	return value is not None and value != ""
+
+
+def _is_checked(value):
+	if value is None:
+		return False
+	if isinstance(value, str):
+		return value.strip().lower() not in ("", "0", "false", "no", "none")
+	return bool(value)
+
+
+def _is_custom_link_column(fieldname):
+	return fieldname.startswith("custom_image_") or fieldname.endswith("_url")
+
+
+def _make_absolute_url(value):
+	"""Return an absolute URL for stored Frappe file paths."""
+	if not _has_value(value):
+		return ""
+	value = str(value).strip()
+	if not value:
+		return ""
+	if re.match(r"^[a-z][a-z0-9+.-]*:", value, flags=re.IGNORECASE):
+		return value
+	if value.startswith("/"):
+		return get_url(value)
+	return value
+
+
+def _copy_custom_spec_fields(result, wp_doc, *fallback_docs):
+	"""Copy custom spec columns, using safe fallbacks for common media fields."""
+	for col in CUSTOM_SPEC_COLUMNS:
+		value = _doc_get(wp_doc, col, None)
+		if not _has_value(value):
+			for fallback_field in CUSTOM_SPEC_FALLBACK_FIELDS.get(col, ()):
+				for doc in (wp_doc, *fallback_docs):
+					value = _doc_get(doc, fallback_field, None)
+					if _has_value(value):
+						break
+				if _has_value(value):
+					break
+		if _is_custom_link_column(col):
+			value = _make_absolute_url(value)
+		result[col] = value or ""
+
+
+def _format_voltage_value(value, suffix):
+	if not _has_value(value):
+		return ""
+	text = str(value).strip()
+	compact = text.upper().replace(" ", "")
+	if compact.endswith(suffix):
+		return text
+	if compact.endswith("V"):
+		return f"{text}{suffix[1:]}"
+	return f"{text}{suffix}"
+
+
+def _format_output_voltage(voltage_name):
+	"""Resolve an Output Voltage attribute to a display label."""
+	if not voltage_name:
+		return ""
+	voltage_data = frappe.db.get_value(
+		"ilL-Attribute-Output Voltage",
+		voltage_name,
+		["dc_voltage", "ac_voltage"],
+		as_dict=True,
+	)
+	if voltage_data:
+		dc_voltage = voltage_data.get("dc_voltage")
+		if dc_voltage:
+			return _format_voltage_value(dc_voltage, "VDC")
+		ac_voltage = voltage_data.get("ac_voltage")
+		if ac_voltage:
+			return _format_voltage_value(ac_voltage, "VAC")
+	return str(voltage_name)
+
+
+def _format_driver_input_voltage(driver):
+	if not driver:
+		return ""
+	if driver.input_voltage_min and driver.input_voltage_max:
+		vtype = driver.input_voltage_type or "VAC"
+		return f"{driver.input_voltage_min}V-{driver.input_voltage_max}{vtype}"
+	return ""
+
+
+def _format_mm_interval(length_mm):
+	if not _has_value(length_mm):
+		return ""
+	try:
+		length_mm = float(length_mm)
+	except (TypeError, ValueError):
+		return ""
+	if not length_mm:
+		return ""
+	inches_str = format_length_inches(length_mm, precision=2)
+	if not inches_str:
+		return ""
+	mm_val = int(length_mm) if length_mm == int(length_mm) else length_mm
+	return f"{inches_str} ({mm_val}mm)"
+
+
+def _max_footage_per_100w_supply(watts_per_foot):
+	watts = _safe_float(watts_per_foot)
+	if not watts:
+		return ""
+	return round(MAX_POWER_SUPPLY_USABLE_WATTS / watts, 1)
+
+
+def _format_max_footage_per_100w_supply(watts_per_foot):
+	footage = _max_footage_per_100w_supply(watts_per_foot)
+	return f"{_fmt_num(footage)}ft" if footage != "" else ""
+
+
+def _get_preferred_driver_info(template_type, template_name):
+	"""Return preferred driver details for a template, if eligibility is configured."""
+	info = {
+		"input_voltage": "",
+		"max_wattage": "",
+		"dimming_protocols": set(),
+	}
+	if not template_name:
+		return info
+
+	filters = {
+		"fixture_template": template_name,
+		"is_active": 1,
+		"is_allowed": 1,
+	}
+	if template_type:
+		filters["template_type"] = template_type
+
+	elig_rows = frappe.get_all(
+		"ilL-Rel-Driver-Eligibility",
+		filters=filters,
+		fields=["driver_spec"],
+		order_by="priority asc",
+		limit=1,
+	)
+	if not elig_rows or not elig_rows[0].driver_spec:
+		return info
+
+	driver = frappe.get_cached_doc("ilL-Spec-Driver", elig_rows[0].driver_spec)
+	info["input_voltage"] = _format_driver_input_voltage(driver)
+	info["max_wattage"] = driver.max_wattage or ""
+	for row in (driver.input_protocols or []):
+		if row.protocol:
+			info["dimming_protocols"].add(row.protocol)
+	return info
+
+
+def _get_tape_neon_spec_names(tnt_doc):
+	"""Return allowed tape spec names, preserving template/default priority."""
+	spec_names = []
+	default_spec = _doc_get(tnt_doc, "default_tape_spec")
+	if default_spec:
+		spec_names.append(default_spec)
+	for row in (_doc_get(tnt_doc, "allowed_tape_specs", []) or []):
+		tape_spec = _doc_get(row, "tape_spec")
+		if tape_spec and tape_spec not in spec_names:
+			spec_names.append(tape_spec)
+	return spec_names
+
+
+def _iter_tape_neon_specs(tnt_doc):
+	"""Yield cached tape spec docs for the template's allowed specs."""
+	for tape_spec in _get_tape_neon_spec_names(tnt_doc):
+		try:
+			yield frappe.get_cached_doc("ilL-Spec-LED Tape", tape_spec)
+		except frappe.DoesNotExistError:
+			continue
+
+
+def _collect_tape_neon_voltage_labels(tnt_doc):
+	labels = []
+	for tape_spec in _iter_tape_neon_specs(tnt_doc):
+		label = _format_output_voltage(getattr(tape_spec, "input_voltage", None))
+		if label and label not in labels:
+			labels.append(label)
+	return labels
+
+
+def _collect_tape_neon_template_values(tnt_doc, option_type, fieldname):
+	values = set()
+	for opt in (_doc_get(tnt_doc, "allowed_options", []) or []):
+		if hasattr(opt, "is_active") and not opt.is_active:
+			continue
+		if _doc_get(opt, "option_type") != option_type:
+			continue
+		value = _doc_get(opt, fieldname)
+		if value:
+			values.add(value)
+	return values
+
+
+def _collect_tape_neon_offering_data(tnt_doc):
+	"""Return offering-backed variant data for a Tape/Neon Template."""
+	spec_names = _get_tape_neon_spec_names(tnt_doc)
+	if not spec_names:
+		return []
+
+	offering_rows = frappe.get_all(
+		"ilL-Rel-Tape Offering",
+		filters={"tape_spec": ["in", spec_names], "is_active": 1},
+		fields=[
+			"name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level",
+			"watts_per_ft_override", "cut_increment_mm_override",
+		],
+		order_by="tape_spec asc, cct asc, output_level asc",
+	)
+
+	allowed_ccts = _collect_tape_neon_template_values(tnt_doc, "CCT", "cct")
+	allowed_outputs = _collect_tape_neon_template_values(tnt_doc, "Output Level", "output_level")
+
+	spec_rank = {name: idx for idx, name in enumerate(spec_names)}
+	offering_data = []
+	for offering in offering_rows:
+		if allowed_ccts and offering.cct not in allowed_ccts:
+			continue
+		if allowed_outputs and offering.output_level not in allowed_outputs:
+			continue
+		try:
+			tape_spec = frappe.get_cached_doc("ilL-Spec-LED Tape", offering.tape_spec)
+		except frappe.DoesNotExistError:
+			continue
+
+		cct_kelvin = ""
+		lumen_multiplier = 1.0
+		if offering.cct:
+			cct_data = frappe.db.get_value(
+				"ilL-Attribute-CCT",
+				offering.cct,
+				["kelvin", "lumen_multiplier"],
+				as_dict=True,
+			) or {}
+			cct_kelvin = cct_data.get("kelvin") or ""
+			lumen_multiplier = cct_data.get("lumen_multiplier") or 1.0
+
+		output_data = {}
+		if offering.output_level:
+			output_data = frappe.db.get_value(
+				"ilL-Attribute-Output Level",
+				offering.output_level,
+				["output_level_name", "value", "sku_code"],
+				as_dict=True,
+			) or {}
+		output_value = output_data.get("value") or 0
+		output_label = output_data.get("output_level_name") or (
+			f"{output_value} lm/ft" if output_value else offering.output_level or ""
+		)
+
+		cri_doc = None
+		if offering.cri:
+			try:
+				cri_doc = frappe.get_cached_doc("ilL-Attribute-CRI", offering.cri)
+			except frappe.DoesNotExistError:
+				cri_doc = None
+
+		sdcm_val = ""
+		if offering.sdcm:
+			try:
+				sdcm_doc = frappe.get_cached_doc("ilL-Attribute-SDCM", offering.sdcm)
+				sdcm_val = sdcm_doc.sdcm or ""
+			except frappe.DoesNotExistError:
+				sdcm_val = ""
+
+		cri_quality = _format_cri_quality(cri_doc, sdcm_val)
+		if not cri_quality and getattr(tape_spec, "cri_typical", None):
+			from types import SimpleNamespace
+			cri_quality = _format_cri_quality(
+				SimpleNamespace(cri_name=f"{int(tape_spec.cri_typical)} CRI"),
+				getattr(tape_spec, "sdcm", None),
+			)
+
+		tape_lumens = tape_spec.lumens_per_foot or output_value or 0
+		template_free_cutting = _is_checked(_doc_get(tnt_doc, "is_free_cutting", 0))
+		cut_mm = 0 if template_free_cutting else offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
+		production_interval = (
+			"Free-Cutting" if template_free_cutting else _format_production_interval(offering, tape_spec)
+		)
+
+		offering_data.append({
+			"offering": offering,
+			"tape_spec": tape_spec,
+			"cct_name": offering.cct or "",
+			"cct_kelvin": cct_kelvin,
+			"lumen_multiplier": lumen_multiplier,
+			"output_level": offering.output_level or "",
+			"output_label": output_label,
+			"output_value": output_value,
+			"led_package": offering.led_package or getattr(tape_spec, "led_package", "") or "",
+			"cri_quality": cri_quality,
+			"tape_lumens": tape_lumens,
+			"watts_per_foot": offering.watts_per_ft_override or tape_spec.watts_per_foot or "",
+			"max_run_ft": tape_spec.voltage_drop_max_run_length_ft or "",
+			"cut_increment_mm": cut_mm,
+			"production_interval": production_interval,
+			"led_pitch_mm": tape_spec.led_pitch_mm or "",
+			"sort_key": (
+				output_value or 0,
+				cct_kelvin or 0,
+				spec_rank.get(offering.tape_spec, len(spec_rank)),
+				offering.name,
+			),
+		})
+
+	offering_data.sort(key=lambda item: item["sort_key"])
+	return offering_data
 
 
 def _format_production_interval(tape_offering, tape_spec):
 	"""Return production interval as '<inches>" (<mm>mm)' string."""
+	if _is_checked(getattr(tape_spec, "is_free_cutting", 0)):
+		return "Free-Cutting"
 	cut_mm = tape_offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
-	if not cut_mm:
-		return ""
-	inches_str = format_length_inches(cut_mm, precision=2)
-	if not inches_str:
-		return ""
-	mm_val = int(cut_mm) if cut_mm == int(cut_mm) else cut_mm
-	return f"{inches_str} ({mm_val}mm)"
+	return _format_mm_interval(cut_mm)
 
 
 def _format_cri_quality(cri_doc, sdcm_val):
@@ -286,6 +644,16 @@ def _collect_product_data(wp_doc):
 			profile.width_mm, profile.height_mm
 		)
 
+	minimum_side_bend_diameter = ""
+	minimum_top_bend_diameter = ""
+	if ft_doc:
+		minimum_side_bend_diameter = _format_mm_interval(
+			getattr(ft_doc, "minimum_side_bend_diameter_mm", None)
+		)
+		minimum_top_bend_diameter = _format_mm_interval(
+			getattr(ft_doc, "minimum_top_bend_diameter_mm", None)
+		)
+
 	# --- Attribute lists ---
 	attr_links = wp_doc.attribute_links or []
 	finishes = _get_attribute_values_by_type(attr_links, "Finish")
@@ -307,11 +675,9 @@ def _collect_product_data(wp_doc):
 		env_ratings = ", ".join(sorted(set(ratings)))
 
 	# --- Certifications ---
-	certs = []
-	for row in (wp_doc.certifications or []):
-		if row.certification:
-			certs.append(row.certification)
-	certifications = ", ".join(sorted(set(certs)))
+	certifications = _join_list_values(
+		_collect_certification_values(wp_doc, attribute_links=attr_links)
+	)
 
 	# --- Combined input_voltage: tape voltage + driver voltage range ---
 	input_voltage = ""
@@ -390,10 +756,11 @@ def _collect_product_data(wp_doc):
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
 		"driver_max_wattage": driver_max_wattage,
+		"minimum_side_bend_diameter": minimum_side_bend_diameter,
+		"minimum_top_bend_diameter": minimum_top_bend_diameter,
 	}
 
-	for col in CUSTOM_SPEC_COLUMNS:
-		result[col] = wp_doc.get(col) or ""
+	_copy_custom_spec_fields(result, wp_doc)
 
 	return result
 
@@ -529,6 +896,7 @@ def _collect_variant_rows(wp_doc, product_data):
 					row[f"delivered_lumens_{slug}"] = ""
 					row[f"watts_per_foot_{slug}"] = ""
 					row[f"max_run_length_ft_{slug}"] = ""
+					row[f"max_footage_per_100w_supply_{slug}"] = ""
 					continue
 
 				# Filter tapes respecting lens_appearance constraint
@@ -543,6 +911,7 @@ def _collect_variant_rows(wp_doc, product_data):
 					row[f"delivered_lumens_{slug}"] = ""
 					row[f"watts_per_foot_{slug}"] = ""
 					row[f"max_run_length_ft_{slug}"] = ""
+					row[f"max_footage_per_100w_supply_{slug}"] = ""
 					continue
 
 				# Pick tape whose delivered lumens maps closest to this output level
@@ -562,12 +931,16 @@ def _collect_variant_rows(wp_doc, product_data):
 					row[f"delivered_lumens_{slug}"] = delivered_val
 					row[f"watts_per_foot_{slug}"] = best["watts_per_foot"] or ""
 					row[f"max_run_length_ft_{slug}"] = best["max_run_ft"]
+					row[f"max_footage_per_100w_supply_{slug}"] = _max_footage_per_100w_supply(
+						best["watts_per_foot"]
+					)
 					if shared_tape is None:
 						shared_tape = best
 				else:
 					row[f"delivered_lumens_{slug}"] = ""
 					row[f"watts_per_foot_{slug}"] = ""
 					row[f"max_run_length_ft_{slug}"] = ""
+					row[f"max_footage_per_100w_supply_{slug}"] = ""
 
 			if shared_tape is None:
 				shared_tape = cct_tapes[0] if cct_tapes else tape_data[0]
@@ -680,69 +1053,36 @@ TAPE_NEON_VARIANT_COLUMNS = [
 def _collect_tape_neon_product_data(wp_doc):
 	"""Build the product-level dict for LED Tape / LED Neon products."""
 	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
-
-	# --- Attribute lists ---
-	attr_links = wp_doc.attribute_links or []
-
-	# --- Certifications ---
-	certs = []
-	for row in (wp_doc.certifications or []):
-		if row.certification:
-			certs.append(row.certification)
-	certifications = ", ".join(sorted(set(certs)))
-
-	# --- Dimming from attribute links ---
-	dimming_set = set()
-	for row in attr_links:
-		if row.attribute_type == "Dimming Protocol" and row.attribute_name:
-			dimming_set.add(row.attribute_name)
-	dimming_protocols = ", ".join(sorted(dimming_set))
-
-	# --- Environment ratings from attribute links ---
-	env_set = set()
-	for row in attr_links:
-		if row.attribute_type == "Environment Rating" and row.attribute_name:
-			env_set.add(row.attribute_name)
-	env_ratings = ", ".join(sorted(env_set))
-
-	# --- Input voltage from allowed_tape_specs ---
-	input_voltage = ""
-	for spec_row in (tnt_doc.allowed_tape_specs or []):
-		if spec_row.tape_spec:
-			iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
-			if iv:
-				voltage_val = frappe.db.get_value("ilL-Attribute-Output Voltage", iv, "dc_voltage")
-				if voltage_val:
-					input_voltage = f"{voltage_val} VDC"
-					break
-
-	# --- Operating temp range ---
-	temp_range = ""
-	if wp_doc.operating_temp_min_c is not None and wp_doc.operating_temp_max_c is not None:
-		c_min = wp_doc.operating_temp_min_c
-		c_max = wp_doc.operating_temp_max_c
-		f_min = round(c_min * 9 / 5 + 32)
-		f_max = round(c_max * 9 / 5 + 32)
-		temp_range = f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)"
-
-	return {
-		"product_name": wp_doc.product_name or "",
-		"product_type": wp_doc.product_type or "",
-		"template_code": tnt_doc.template_code or tnt_doc.name,
-		"short_description": wp_doc.short_description or "",
-		"input_voltage": input_voltage,
-		"operating_temp_range_c": temp_range,
-		"l70_life_hours": wp_doc.l70_life_hours or "",
-		"warranty_years": wp_doc.warranty_years or "",
-		"certifications": certifications,
-		"dimming_protocols": dimming_protocols,
-		"environment_ratings": env_ratings,
-	}
+	result = _collect_tape_neon_product_data_indesign(wp_doc)
+	result["product_type"] = wp_doc.product_type or ""
+	result["template_code"] = tnt_doc.template_code or tnt_doc.name
+	return result
 
 
 def _collect_tape_neon_variant_rows(wp_doc, product_data):
 	"""Yield one dict per (CCT × Output Level) from tape/neon template."""
 	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
+	offering_data = _collect_tape_neon_offering_data(tnt_doc)
+	if offering_data:
+		seen_keys = set()
+		for td in offering_data:
+			key = (td["cct_name"], td["output_level"])
+			if key in seen_keys:
+				continue
+			seen_keys.add(key)
+			row = dict(product_data)
+			row["cct_name"] = td["cct_name"]
+			row["cct_kelvin"] = td["cct_kelvin"]
+			row["output_level"] = td["output_label"]
+			row["output_lm_ft"] = td["output_value"] or td["tape_lumens"]
+			row["led_package"] = td["led_package"]
+			row["cri"] = td["cri_quality"]
+			row["watts_per_foot"] = td["watts_per_foot"]
+			row["max_run_length_ft"] = td["max_run_ft"]
+			row["cut_increment_mm"] = td["cut_increment_mm"]
+			row["production_interval"] = td["production_interval"]
+			yield row
+		return
 
 	# Collect CCTs and output levels from allowed_options
 	ccts = OrderedDict()
@@ -819,7 +1159,7 @@ def _generate_tape_neon_csv(wp_doc):
 	.. deprecated::
 		This flat layout is incompatible with the marketing team's InDesign
 		data-merge template.  The default export for LED Tape / LED Neon now
-		uses :func:`_generate_tape_neon_indesign_csv` (same 596-column schema
+		uses :func:`_generate_tape_neon_indesign_csv` (same 622-column schema
 		as Fixture Template).  This flat writer is kept as an opt-in and is
 		only reached when ``format="tape_neon_flat"`` is explicitly passed
 		to :func:`export_spec_sheet_csv`.
@@ -844,24 +1184,24 @@ def _generate_tape_neon_flat_csv(wp_doc):
 
 
 # ──────────────────────────────────────────────────────────
-# Tape / Neon InDesign CSV  (unified 596-column schema)
+# Tape / Neon InDesign CSV  (unified 622-column schema)
 # ──────────────────────────────────────────────────────────
 #
 # LED Tape and LED Neon share the Fixture-Template InDesign layout so that
 # marketing's single data-merge template accepts every product type.  Fields
-# that don't apply to tape/neon (driver max wattage, lens appearances, profile
-# dimensions) are emitted as blank cells rather than being dropped — InDesign
-# matches columns by header name, so a *missing* column silently shifts the
-# remaining fields.  See the module docstring for the full contract.
+# that don't apply to a specific tape/neon product are emitted as blank cells
+# rather than being dropped — InDesign matches columns by header name, so a
+# *missing* column silently shifts the remaining fields.  See the module
+# docstring for the full contract.
 #
 # Lens-bucket convention for neon / tape
 # --------------------------------------
-# Neon fixtures are single-lens and tape fixtures have no lens at all.  The
-# fixture schema has four lens slugs (white / frosted / clear / black); we
-# populate the ``frosted`` slug because ``_INDESIGN_LENS_GROUPS`` maps
-# "Other Lenses" → "frosted", which is where the marketing template routes
-# the lens-agnostic output on the neon/tape spec sheet.  The other three
-# slugs stay blank so they merge as empty fields.
+# Neon/tape output is normally lens-agnostic even when the product records
+# carry lens-like display metadata.  The fixture schema has four lens slugs
+# (white / frosted / clear / black); we populate the ``frosted`` slug because
+# ``_INDESIGN_LENS_GROUPS`` maps "Other Lenses" → "frosted", which is where
+# the marketing template routes the lens-agnostic output on the neon/tape spec
+# sheet.  The other three slugs stay blank so they merge as empty fields.
 
 
 # option_type → STANDARD_PN_SECTIONS label for the tape/neon PN shim.
@@ -871,8 +1211,10 @@ def _generate_tape_neon_flat_csv(wp_doc):
 _TN_PN_SECTION_MAP = {
 	"CCT": "CCT",
 	"Output Level": "Output",
+	"Lens Appearance": "Lens",
 	"Environment Rating": "Dry/Wet",
 	"IP Rating": "Dry/Wet",
+	"PCB Mounting": "Mounting",
 	"Mounting Method": "Mounting",
 	"Finish": "Finish",
 	"PCB Finish": "Finish",
@@ -885,10 +1227,12 @@ _TN_PN_SECTION_MAP = {
 _TN_OPTION_LINKS = {
 	"CCT": ("cct", "ilL-Attribute-CCT"),
 	"Output Level": ("output_level", "ilL-Attribute-Output Level"),
+	"Lens Appearance": ("lens_appearance", "ilL-Attribute-Lens Appearance"),
 	"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
 	"IP Rating": ("ip_rating", "ilL-Attribute-IP Rating"),
 	"Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
 	"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
+	"PCB Mounting": ("pcb_mounting", "ilL-Attribute-PCB Mounting"),
 	"Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method"),
 	"Finish": ("finish", "ilL-Attribute-Finish"),
 	"PCB Finish": ("pcb_finish", "ilL-Attribute-PCB Finish"),
@@ -919,16 +1263,24 @@ def _tn_option_label_code(opt):
 	except frappe.DoesNotExistError:
 		return "", link_name
 
-	if frappe.db.has_column(doctype, "code"):
-		code = getattr(attr_doc, "code", "") or ""
+	for code_field in ("code", "sku_code", "voltage_code"):
+		if frappe.db.has_column(doctype, code_field):
+			code = getattr(attr_doc, code_field, "") or ""
+			if code:
+				break
 	# Prefer the most descriptive human-readable label we can find.
-	for cand in ("label", "cct_name", "output_level_name", "finish_name",
-	             "direction_name", "mounting_method"):
+	for cand in ("label", "cct_name", "output_level_name", "lens_name", "appearance_name",
+	             "finish_name", "direction_name", "mounting_method", "voltage_name"):
 		val = getattr(attr_doc, cand, None)
 		if val:
 			label = val
 			break
 	return code, label
+
+
+def _tn_option_display_label(opt):
+	_code, label = _tn_option_label_code(opt)
+	return label
 
 
 def _collect_tn_pn_builder_columns(tnt_doc):
@@ -945,7 +1297,13 @@ def _collect_tn_pn_builder_columns(tnt_doc):
 		return headers, data_dict
 
 	# ── Series (single option slot) ──
-	if getattr(tnt_doc, "series", None):
+	# Tape/neon PN builder uses the template slug/code, not the shorter Series code.
+	if getattr(tnt_doc, "template_code", None):
+		data_dict["Part Number - Series - Option 1:"] = str(tnt_doc.template_code).upper()
+		data_dict["Part Number - Series - Description 1:"] = (
+			getattr(tnt_doc, "template_name", None) or tnt_doc.template_code
+		)
+	elif getattr(tnt_doc, "series", None):
 		try:
 			series_doc = frappe.get_cached_doc("ilL-Attribute-Series", tnt_doc.series)
 			data_dict["Part Number - Series - Option 1:"] = series_doc.code or ""
@@ -1012,43 +1370,36 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 
 	Returns the same keys as :func:`_collect_product_data` (including every
 	:data:`CUSTOM_SPEC_COLUMNS` entry) so :func:`_pivot_to_indesign` can
-	consume it identically.  Fields that don't apply to tape/neon (lenses,
-	driver max wattage, profile dimensions) are populated as blank strings
-	— InDesign data merge silently shifts columns when a header is missing,
-	so every column must exist even when empty.
+	consume it identically.  Tape/neon can fill product-level display columns
+	from structured options first, then from template-level spec-sheet fallback
+	fields.  InDesign data merge silently shifts columns when a header is
+	missing, so every column must exist even when empty.
 	"""
 	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
 	attr_links = wp_doc.attribute_links or []
 	is_tape = wp_doc.product_type == "LED Tape"
 
 	# --- Certifications ---
-	certs = []
-	for row in (wp_doc.certifications or []):
-		if row.certification:
-			certs.append(row.certification)
-	certifications = ", ".join(sorted(set(certs)))
+	certifications = _join_list_values(
+		_collect_certification_values(wp_doc, tnt_doc, attribute_links=attr_links)
+	)
 
-	# --- Dimming protocols: prefer attribute_links, fall back to tape_spec ---
+	# --- Dimming protocols: prefer explicit links, then tape specs and driver eligibility ---
 	dimming_set = set()
 	for row in attr_links:
 		if row.attribute_type == "Dimming Protocol" and row.attribute_name:
 			dimming_set.add(row.attribute_name)
-	if not dimming_set:
-		for spec_row in (tnt_doc.allowed_tape_specs or []):
-			if not spec_row.tape_spec:
-				continue
-			try:
-				ts = frappe.get_cached_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
-			except frappe.DoesNotExistError:
-				continue
-			for p in (getattr(ts, "supported_dimming_protocols", None) or []):
-				proto = getattr(p, "protocol", None) or getattr(p, "dimming_protocol", None)
-				if proto:
-					dimming_set.add(proto)
-	dimming_protocols = ", ".join(sorted(dimming_set))
+	for ts in _iter_tape_neon_specs(tnt_doc):
+		if getattr(ts, "input_protocol", None):
+			dimming_set.add(ts.input_protocol)
+		for p in (getattr(ts, "supported_dimming_protocols", None) or []):
+			proto = getattr(p, "protocol", None) or getattr(p, "dimming_protocol", None)
+			if proto:
+				dimming_set.add(proto)
 
 	# --- Gather allowed_options lookups (done in one pass) ---
 	env_set = set()
+	lens_set = set()
 	mounting_set = set()
 	finish_set = set()
 	for opt in (tnt_doc.allowed_options or []):
@@ -1059,12 +1410,20 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 			env_set.add(opt.environment_rating)
 		elif otype == "IP Rating" and opt.ip_rating:
 			env_set.add(opt.ip_rating)
+		elif otype == "Lens Appearance" and getattr(opt, "lens_appearance", None):
+			_add_list_values(lens_set, _tn_option_display_label(opt) or opt.lens_appearance)
 		elif otype == "Mounting Method" and opt.mounting_method:
-			mounting_set.add(opt.mounting_method)
+			_add_list_values(mounting_set, _tn_option_display_label(opt) or opt.mounting_method)
+		elif otype == "PCB Mounting" and is_tape and getattr(opt, "pcb_mounting", None):
+			_add_list_values(mounting_set, _tn_option_display_label(opt) or opt.pcb_mounting)
 		elif otype == "Finish" and opt.finish:
-			finish_set.add(opt.finish)
+			_add_list_values(finish_set, _tn_option_display_label(opt) or opt.finish)
 		elif otype == "PCB Finish" and is_tape and getattr(opt, "pcb_finish", None):
-			finish_set.add(opt.pcb_finish)
+			_add_list_values(finish_set, _tn_option_display_label(opt) or opt.pcb_finish)
+
+	for spec_row in (tnt_doc.allowed_tape_specs or []):
+		if getattr(spec_row, "environment_rating", None):
+			env_set.add(spec_row.environment_rating)
 
 	# Back-fill environment ratings from attribute_links when template has none.
 	if not env_set:
@@ -1072,22 +1431,43 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 			if row.attribute_type in ("Environment Rating", "IP Rating") and row.attribute_name:
 				env_set.add(row.attribute_name)
 
-	env_ratings = ", ".join(sorted(env_set))
-	mountings = ", ".join(sorted(mounting_set))
-	finishes = ", ".join(sorted(finish_set))
+	_add_list_values(lens_set, _get_attribute_values_by_type(attr_links, "Lens Appearance"))
+	_add_list_values(finish_set, _get_attribute_values_by_type(attr_links, "Finish"))
+	_add_list_values(mounting_set, _get_attribute_values_by_type(attr_links, "Mounting Method"))
 
-	# --- Input voltage (tape voltage only — neon/tape have no driver) ---
-	input_voltage = ""
-	for spec_row in (tnt_doc.allowed_tape_specs or []):
-		if not spec_row.tape_spec:
-			continue
-		iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
-		if not iv:
-			continue
-		voltage_val = frappe.db.get_value("ilL-Attribute-Output Voltage", iv, "dc_voltage")
-		if voltage_val:
-			input_voltage = f"{voltage_val} VDC"
-			break
+	for row in frappe.get_all(
+		"ilL-Rel-Mounting-Accessory-Map",
+		filters={
+			"template_type": "ilL-Tape-Neon-Template",
+			"fixture_template": tnt_doc.name,
+			"is_active": 1,
+		},
+		fields=["mounting_method"],
+	):
+		_add_list_values(mounting_set, _doc_get(row, "mounting_method"))
+
+	_add_list_values(lens_set, _doc_get(tnt_doc, "available_lenses"))
+	_add_list_values(finish_set, _doc_get(tnt_doc, "available_finishes"))
+	_add_list_values(mounting_set, _doc_get(tnt_doc, "available_mountings"))
+
+	env_ratings = _join_list_values(env_set)
+	lenses = _join_list_values(lens_set)
+	mountings = _join_list_values(mounting_set)
+	finishes = _join_list_values(finish_set)
+
+	# --- Input voltage: tape voltage + preferred power supply, mirroring fixtures ---
+	tape_voltage_label = ", ".join(_collect_tape_neon_voltage_labels(tnt_doc))
+	driver_info = _get_preferred_driver_info("ilL-Tape-Neon-Template", tnt_doc.name)
+	dimming_set.update(driver_info["dimming_protocols"])
+	dimming_protocols = ", ".join(sorted(dimming_set))
+	driver_voltage_str = driver_info["input_voltage"]
+	driver_max_wattage = _doc_get(tnt_doc, "driver_max_wattage_override") or driver_info["max_wattage"]
+	if tape_voltage_label and driver_voltage_str:
+		input_voltage = f"{tape_voltage_label} (Power Supply: {driver_voltage_str})"
+	elif tape_voltage_label:
+		input_voltage = tape_voltage_label
+	else:
+		input_voltage = driver_voltage_str
 
 	# --- Operating temp range ---
 	temp_range = ""
@@ -1108,25 +1488,32 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 		"product_name": wp_doc.product_name or "",
 		"short_description": wp_doc.short_description or "",
 		"sublabel": wp_doc.sublabel or "",
-		"profile_dimensions": "",        # No profile concept for tape/neon
+		"profile_dimensions": _doc_get(tnt_doc, "spec_sheet_dimensions", ""),
 		"input_voltage": input_voltage,
 		"beam_angle": beam_angle,
 		"operating_temp_range_c": temp_range,
 		"l70_life_hours": wp_doc.l70_life_hours or "",
 		"warranty_years": wp_doc.warranty_years or "",
 		"available_finishes": finishes,
-		"available_lenses": "",           # Neon/tape: no lens concept
+		"available_lenses": lenses,
 		"available_mountings": mountings,
 		"environment_ratings": env_ratings,
 		"certifications": certifications,
 		"dimming_protocols": dimming_protocols,
-		"driver_max_wattage": "",         # No driver for tape/neon
+		"driver_max_wattage": driver_max_wattage,
+		"minimum_side_bend_diameter": _format_mm_interval(
+			_doc_get(tnt_doc, "minimum_side_bend_diameter_mm")
+		),
+		"minimum_top_bend_diameter": _format_mm_interval(
+			_doc_get(tnt_doc, "minimum_top_bend_diameter_mm")
+		),
+		"production_interval": (
+			"Free-Cutting" if _is_checked(_doc_get(tnt_doc, "is_free_cutting", 0))
+			else _format_mm_interval(_doc_get(tnt_doc, "production_interval_mm"))
+		),
 	}
 
-	# Custom spec fields live directly on the Webflow Product regardless of
-	# product type, so they port over unchanged.
-	for col in CUSTOM_SPEC_COLUMNS:
-		result[col] = wp_doc.get(col) or ""
+	_copy_custom_spec_fields(result, wp_doc, tnt_doc)
 
 	return result
 
@@ -1145,8 +1532,46 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 	"""
 	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
 	all_cols = VARIANT_COLUMNS + LENS_COLUMNS
+	primary_slug = "frosted"
 
-	# ── Distinct CCTs / Output Levels from allowed_options ──
+	offering_data = _collect_tape_neon_offering_data(tnt_doc)
+	if offering_data:
+		seen_keys = set()
+		for td in offering_data:
+			key = (td["output_label"], td["cct_name"])
+			if key in seen_keys:
+				continue
+			seen_keys.add(key)
+
+			row = dict(product_data)
+			row["cct_name"] = td["cct_name"]
+			row["cct_kelvin"] = td["cct_kelvin"]
+			row["fixture_output_level"] = td["output_label"]
+			row["cri_quality"] = td["cri_quality"]
+			row["production_interval"] = td["production_interval"]
+			row["led_pitch_mm"] = td["led_pitch_mm"]
+
+			for slug in STANDARD_LENSES.values():
+				row[f"delivered_lumens_{slug}"] = ""
+				row[f"watts_per_foot_{slug}"] = ""
+				row[f"max_run_length_ft_{slug}"] = ""
+				row[f"max_footage_per_100w_supply_{slug}"] = ""
+
+			delivered = td["tape_lumens"] * (td["lumen_multiplier"] or 1.0)
+			if delivered:
+				row[f"delivered_lumens_{primary_slug}"] = round(delivered, 1)
+			row[f"watts_per_foot_{primary_slug}"] = td["watts_per_foot"]
+			row[f"max_run_length_ft_{primary_slug}"] = td["max_run_ft"]
+			row[f"max_footage_per_100w_supply_{primary_slug}"] = _max_footage_per_100w_supply(
+				td["watts_per_foot"]
+			)
+
+			for col in all_cols:
+				row.setdefault(col, "")
+			yield row
+		return
+
+	# ── Fallback: sparse rows from allowed_options when no offerings exist ──
 	ccts = OrderedDict()
 	output_levels = OrderedDict()
 	for opt in (tnt_doc.allowed_options or []):
@@ -1173,84 +1598,23 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 				"sku_code": level_data.get("sku_code") or "",
 			}
 
-	# ── Shared tape spec for the variant data ──
-	tape_spec = None
-	for spec_row in (tnt_doc.allowed_tape_specs or []):
-		if not spec_row.tape_spec:
-			continue
-		try:
-			tape_spec = frappe.get_cached_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
-			break
-		except frappe.DoesNotExistError:
-			continue
+	if not ccts:
+		ccts[""] = {"kelvin": "", "lumen_multiplier": 1.0}
+	if not output_levels:
+		output_levels[""] = {"name": "", "value": 0, "sku_code": ""}
 
-	# Precompute shared variant values (CRI / production interval / pitch)
-	cri_label = ""
-	if tape_spec and getattr(tape_spec, "cri_typical", None):
-		# _format_cri_quality expects a doc with a ``cri_name`` attribute.
-		# Tape specs store only the raw integer, so wrap it in a SimpleNamespace
-		# shim so we can reuse the fixture-template formatter without a DB hit.
-		from types import SimpleNamespace
-		cri_shim = SimpleNamespace(cri_name=f"{int(tape_spec.cri_typical)} CRI")
-		cri_label = _format_cri_quality(cri_shim, getattr(tape_spec, "sdcm", None))
-	production_interval = ""
-	led_pitch_mm = ""
-	tape_lumens = 0
-	watts_per_foot = ""
-	max_run_ft = ""
-	if tape_spec:
-		cut_mm = getattr(tape_spec, "cut_increment_mm", None) or 0
-		if cut_mm:
-			inches_str = format_length_inches(cut_mm, precision=2)
-			if inches_str:
-				mm_val = int(cut_mm) if cut_mm == int(cut_mm) else cut_mm
-				production_interval = f"{inches_str} ({mm_val}mm)"
-		led_pitch_mm = tape_spec.led_pitch_mm or ""
-		tape_lumens = tape_spec.lumens_per_foot or 0
-		watts_per_foot = tape_spec.watts_per_foot or ""
-		max_run_ft = tape_spec.voltage_drop_max_run_length_ft or ""
-
-	# ── No CCTs or no output levels: emit one sparse row ──
-	if not ccts or not output_levels:
-		row = dict(product_data)
-		row["cri_quality"] = cri_label
-		row["production_interval"] = production_interval
-		row["led_pitch_mm"] = led_pitch_mm
-		for col in all_cols:
-			row.setdefault(col, "")
-		yield row
-		return
-
-	# ── Emit one row per (output_level × CCT) ──
-	# The "frosted" slug is the primary (and only) lens bucket for tape/neon
-	# because _INDESIGN_LENS_GROUPS maps "Other Lenses" → "frosted".  The
-	# remaining three lens slugs stay blank.
-	primary_slug = "frosted"
-
+	# The "frosted" slug is the primary (and only) lens bucket for tape/neon.
 	for ol_name, ol_info in output_levels.items():
 		for cct_name, cct_info in ccts.items():
 			row = dict(product_data)
 			row["cct_name"] = cct_name
 			row["cct_kelvin"] = cct_info["kelvin"]
 			row["fixture_output_level"] = ol_info["name"]
-			row["cri_quality"] = cri_label
-			row["production_interval"] = production_interval
-			row["led_pitch_mm"] = led_pitch_mm
-
-			# Pre-blank every lens slug so missing columns never silently drop.
 			for slug in STANDARD_LENSES.values():
 				row[f"delivered_lumens_{slug}"] = ""
 				row[f"watts_per_foot_{slug}"] = ""
 				row[f"max_run_length_ft_{slug}"] = ""
-
-			# Populate the single primary bucket if we have tape data.
-			if tape_spec:
-				delivered = tape_lumens * 1.0 * (cct_info["lumen_multiplier"] or 1.0)
-				if delivered:
-					row[f"delivered_lumens_{primary_slug}"] = round(delivered, 1)
-				row[f"watts_per_foot_{primary_slug}"] = watts_per_foot
-				row[f"max_run_length_ft_{primary_slug}"] = max_run_ft
-
+				row[f"max_footage_per_100w_supply_{slug}"] = ""
 			for col in all_cols:
 				row.setdefault(col, "")
 			yield row
@@ -1259,7 +1623,7 @@ def _collect_tape_neon_variant_rows_indesign(wp_doc, product_data):
 def _generate_tape_neon_indesign_csv(wp_doc):
 	"""Return CSV content for LED Tape / LED Neon in the InDesign pivot format.
 
-	Produces the **same 596-column layout** as :func:`_generate_indesign_csv`
+	Produces the **same 622-column layout** as :func:`_generate_indesign_csv`
 	so a single marketing InDesign data-merge template accepts both fixture
 	and tape/neon exports.  The guardrail ``assert`` below prevents the two
 	code paths from drifting apart.
@@ -1331,6 +1695,8 @@ INDESIGN_PRODUCT_COLUMNS = [
 	"Dimensions (L×W×H)",
 	"CRI Quality",
 	"Production Interval",
+	"Minimum Side Bend Diameter",
+	"Minimum Top Bend Diameter",
 ] + [label for label, _field in _INDESIGN_SPEC_MAP]
 
 # Lens groupings used for per-output-level watt/run columns.
@@ -1421,6 +1787,7 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		for label, _slug in _INDESIGN_LENS_GROUPS:
 			headers.append(f"Watts per Foot ({label}) {j}")
 			headers.append(f"Max Run Length ({label}) {j}")
+			headers.append(f"Max Footage per 100W Supply ({label}) {j}")
 		for i in range(1, MAX_CCTS + 1):
 			for label, _slug in _INDESIGN_LUMEN_LENSES:
 				headers.append(f"{label} - Output {j} - Lumen {i}")
@@ -1458,7 +1825,9 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 		"Driver Max Wattage": product_data.get("driver_max_wattage", ""),
 		"Dimensions (L×W×H)": product_data.get("profile_dimensions", ""),
 		"CRI Quality": ", ".join(cri_values),
-		"Production Interval": ", ".join(prod_interval_values),
+		"Production Interval": ", ".join(prod_interval_values) or product_data.get("production_interval", ""),
+		"Minimum Side Bend Diameter": product_data.get("minimum_side_bend_diameter", ""),
+		"Minimum Top Bend Diameter": product_data.get("minimum_top_bend_diameter", ""),
 	}
 
 	for label, field in _INDESIGN_SPEC_MAP:
@@ -1490,6 +1859,9 @@ def _pivot_to_indesign(product_data, variant_rows, pn_builder_columns=None):
 					run_vals.append(r)
 			data_row[f"Watts per Foot ({label}) {j}"] = f"{_fmt_num(max(watts_vals))}W" if watts_vals else ""
 			data_row[f"Max Run Length ({label}) {j}"] = f"{_fmt_num(min(run_vals))}ft" if run_vals else ""
+			data_row[f"Max Footage per 100W Supply ({label}) {j}"] = (
+				_format_max_footage_per_100w_supply(max(watts_vals)) if watts_vals else ""
+			)
 
 		# Per-CCT lumen values
 		for i, (cct_name, _) in enumerate(ccts, 1):

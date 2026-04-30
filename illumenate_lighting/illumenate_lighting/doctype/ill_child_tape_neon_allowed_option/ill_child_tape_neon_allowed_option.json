@@ -8,6 +8,7 @@
         "option_type",
         "cct",
         "output_level",
+        "lens_appearance",
         "environment_rating",
         "ip_rating",
         "feed_direction",
@@ -29,7 +30,7 @@
             "fieldtype": "Select",
             "in_list_view": 1,
             "label": "Option Type",
-            "options": "CCT\nOutput Level\nEnvironment Rating\nIP Rating\nFeed Direction\nPower Feed Type\nPCB Mounting\nPCB Finish\nMounting Method\nFinish\nEndcap Style",
+            "options": "CCT\nOutput Level\nLens Appearance\nEnvironment Rating\nIP Rating\nFeed Direction\nPower Feed Type\nPCB Mounting\nPCB Finish\nMounting Method\nFinish\nEndcap Style",
             "reqd": 1
         },
         {
@@ -49,6 +50,15 @@
             "label": "Output Level",
             "mandatory_depends_on": "eval:doc.option_type=='Output Level'",
             "options": "ilL-Attribute-Output Level"
+        },
+        {
+            "depends_on": "eval:doc.option_type=='Lens Appearance'",
+            "fieldname": "lens_appearance",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Lens Appearance",
+            "mandatory_depends_on": "eval:doc.option_type=='Lens Appearance'",
+            "options": "ilL-Attribute-Lens Appearance"
         },
         {
             "depends_on": "eval:doc.option_type=='Environment Rating'",

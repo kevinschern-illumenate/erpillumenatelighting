@@ -139,6 +139,249 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 ENGINE_VERSION = "1.0.0"
 
 
+def _build_singlesegment_config_data(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	endcap_color_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	requested_overall_length_mm: int,
+	start_feed_direction_code: str | None = None,
+	end_feed_direction_code: str = "C",
+	start_leader_len_mm: int = 0,
+	end_leader_len_mm: int = 0,
+) -> dict:
+	"""Return the canonical config-hash input dict for a single-segment fixture.
+
+	This is the single source of truth for the hash recipe; both
+	``_create_or_update_configured_fixture`` and the dry-run / variant paths
+	must call this helper so the resulting hash is byte-identical.
+	"""
+	return {
+		"fixture_template_code": fixture_template_code,
+		"finish_code": finish_code,
+		"lens_appearance_code": lens_appearance_code,
+		"mounting_method_code": mounting_method_code,
+		"endcap_style_start_code": endcap_style_start_code,
+		"endcap_style_end_code": endcap_style_end_code,
+		"endcap_color_code": endcap_color_code,
+		"power_feed_type_code": power_feed_type_code,
+		"environment_rating_code": environment_rating_code,
+		"tape_offering_id": tape_offering_id,
+		"requested_overall_length_mm": requested_overall_length_mm,
+		"start_feed_direction_code": start_feed_direction_code or "",
+		"end_feed_direction_code": end_feed_direction_code or "C",
+		"start_leader_len_mm": int(start_leader_len_mm or 0),
+		"end_leader_len_mm": int(end_leader_len_mm or 0),
+	}
+
+
+def _populate_temp_fixture_for_part_number(
+	doc,
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	endcap_color_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	requested_overall_length_mm: int,
+	start_leader_len_mm: int = 0,
+) -> None:
+	"""Populate the minimum fields required for ``_generate_part_number``."""
+	doc.fixture_template = fixture_template_code
+	doc.finish = finish_code
+	doc.lens_appearance = lens_appearance_code
+	doc.mounting_method = mounting_method_code
+	doc.endcap_style_start = endcap_style_start_code
+	doc.endcap_style_end = endcap_style_end_code
+	doc.endcap_color = endcap_color_code
+	doc.power_feed_type = power_feed_type_code
+	doc.environment_rating = environment_rating_code
+	doc.tape_offering = tape_offering_id
+	doc.requested_overall_length_mm = requested_overall_length_mm
+	doc.is_multi_segment = 0
+	# `_generate_part_number` reads leader length from user_segments[0] OR
+	# self.leader_cable_length_mm.  Set the latter as a runtime attribute so
+	# the suffix reflects the requested leader length.
+	if start_leader_len_mm:
+		doc.leader_cable_length_mm = int(start_leader_len_mm)
+
+
+def _compute_candidate_singlesegment(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_style_start_code: str,
+	endcap_style_end_code: str,
+	endcap_color_code: str,
+	power_feed_type_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	requested_overall_length_mm: int,
+	start_feed_direction_code: str | None = None,
+	end_feed_direction_code: str = "C",
+	start_leader_len_mm: int = 0,
+	end_leader_len_mm: int = 0,
+) -> tuple[str, str]:
+	"""Compute (config_hash, part_number) for a single-segment configuration
+	without persisting an ``ilL-Configured-Fixture`` record.
+	"""
+	config_data = _build_singlesegment_config_data(
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
+		endcap_color_code,
+		power_feed_type_code,
+		environment_rating_code,
+		tape_offering_id,
+		requested_overall_length_mm,
+		start_feed_direction_code=start_feed_direction_code,
+		end_feed_direction_code=end_feed_direction_code,
+		start_leader_len_mm=start_leader_len_mm,
+		end_leader_len_mm=end_leader_len_mm,
+	)
+	config_hash = hashlib.sha256(
+		json.dumps(config_data, sort_keys=True).encode()
+	).hexdigest()[:32]
+
+	doc = frappe.new_doc("ilL-Configured-Fixture")
+	doc.config_hash = config_hash
+	_populate_temp_fixture_for_part_number(
+		doc,
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
+		endcap_color_code,
+		power_feed_type_code,
+		environment_rating_code,
+		tape_offering_id,
+		requested_overall_length_mm,
+		start_leader_len_mm=start_leader_len_mm,
+	)
+	# Resolve end feed direction display value the same way
+	# `_create_or_update_configured_fixture` does so the part-number suffix
+	# matches a saved record.
+	eff_end_feed = end_feed_direction_code or "C"
+	if eff_end_feed != "C":
+		fd_end_name = frappe.db.get_value(
+			"ilL-Attribute-Feed-Direction", {"code": eff_end_feed}, "name"
+		)
+		doc.feed_direction_end = fd_end_name or eff_end_feed
+		doc.sku_feed_direction_end_code = eff_end_feed
+	else:
+		doc.feed_direction_end = "Endcap"
+	part_number = doc._generate_part_number()
+	return config_hash, part_number
+
+
+def _compute_candidate_multisegment(
+	fixture_template_code: str,
+	finish_code: str,
+	lens_appearance_code: str,
+	mounting_method_code: str,
+	endcap_color_code: str,
+	environment_rating_code: str,
+	tape_offering_id: str,
+	user_segments: list,
+	is_multi_segment: bool,
+	total_requested_length_mm: int,
+) -> tuple[str, str]:
+	"""Compute (config_hash, part_number) for a multi-segment configuration
+	without persisting an ``ilL-Configured-Fixture`` record.
+	"""
+	config_data = {
+		"fixture_template_code": fixture_template_code,
+		"finish_code": finish_code,
+		"lens_appearance_code": lens_appearance_code,
+		"mounting_method_code": mounting_method_code,
+		"endcap_color_code": endcap_color_code,
+		"environment_rating_code": environment_rating_code,
+		"tape_offering_id": tape_offering_id,
+		"user_segments": user_segments,
+		"is_multi_segment": is_multi_segment,
+	}
+	config_hash = hashlib.sha256(
+		json.dumps(config_data, sort_keys=True).encode()
+	).hexdigest()[:32]
+
+	doc = frappe.new_doc("ilL-Configured-Fixture")
+	doc.config_hash = config_hash
+	doc.fixture_template = fixture_template_code
+	doc.finish = finish_code
+	doc.lens_appearance = lens_appearance_code
+	doc.mounting_method = mounting_method_code
+	doc.endcap_color = endcap_color_code
+	doc.environment_rating = environment_rating_code
+	doc.tape_offering = tape_offering_id
+	doc.is_multi_segment = 1 if is_multi_segment else 0
+	doc.requested_overall_length_mm = total_requested_length_mm
+	first_segment = user_segments[0] if user_segments else {}
+	doc.power_feed_type = first_segment.get("start_power_feed_type", "")
+	for user_seg in user_segments:
+		doc.append("user_segments", {
+			"segment_index": user_seg.get("segment_index", 0),
+			"requested_length_mm": user_seg.get("requested_length_mm", 0),
+			"start_feed_direction": user_seg.get("start_feed_direction", ""),
+			"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
+			"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
+			"end_type": user_seg.get("end_type", "Endcap"),
+			"end_feed_direction": user_seg.get("end_feed_direction", ""),
+			"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
+			"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
+		})
+	part_number = doc._generate_part_number()
+	return config_hash, part_number
+
+
+def _resolve_root_configured_fixture(name: str | None) -> str | None:
+	"""Walk the ``parent_configured_fixture`` chain to return the root ancestor.
+
+	Bounded at 16 hops to defend against accidental cycles.  Returns ``None`` if
+	``name`` is falsy or the record does not exist.
+	"""
+	if not name:
+		return None
+	current = name
+	visited: set[str] = set()
+	for _ in range(16):
+		if current in visited:
+			break
+		visited.add(current)
+		parent = frappe.db.get_value(
+			"ilL-Configured-Fixture", current, "parent_configured_fixture"
+		)
+		if not parent:
+			return current
+		current = parent
+	return current
+
+
+def _compute_variant_suffix(config_data: dict) -> str:
+	"""Return the 4-char hex suffix used inside ``-V(XXXX)`` for variant
+	records.  Same algorithm shape as
+	``ilLConfiguredFixture._compute_segment_config_hash`` so users see a
+	familiar suffix style.
+	"""
+	config_str = json.dumps(config_data, sort_keys=True)
+	return hashlib.sha256(config_str.encode()).hexdigest()[:4].upper()
+
+
 def resolve_endcap_color_from_finish(finish_code: str) -> str:
 	"""
 	Resolve the endcap color from the finish using the ilL-Rel-Finish Endcap Color doctype.
@@ -247,6 +490,9 @@ def validate_and_quote(
 	start_leader_len_mm: int = 0,
 	end_leader_len_mm: int = 0,
 	include_power_supply: bool = True,
+	_skip_record_creation: bool = False,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
@@ -286,6 +532,8 @@ def validate_and_quote(
 	# Normalise include_power_supply (Frappe passes HTTP params as strings)
 	if isinstance(include_power_supply, str):
 		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+	if isinstance(_skip_record_creation, str):
+		_skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
 	# Auto-resolve endcap color from finish if not explicitly provided
 	if not endcap_color_code and finish_code:
 		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
@@ -474,31 +722,55 @@ def validate_and_quote(
 
 	response["pricing"].update(pricing_result)
 
-	# Step 5: Create or update configured fixture
-	fixture_id = _create_or_update_configured_fixture(
-		fixture_template_code,
-		finish_code,
-		lens_appearance_code,
-		mounting_method_code,
-		endcap_style_start_code,
-		endcap_style_end_code,
-		endcap_color_code,
-		power_feed_type_code,
-		environment_rating_code,
-		tape_offering_id,
-		requested_overall_length_mm,
-		response["computed"],
-		response["resolved_items"],
-		response["pricing"],
-		start_feed_direction_code=start_feed_direction_code,
-		end_feed_direction_code=end_feed_direction_code,
-		start_leader_len_mm=start_leader_len_mm,
-		end_leader_len_mm=end_leader_len_mm,
-		include_power_supply=include_power_supply,
-	)
-
-	response["configured_fixture_id"] = fixture_id
-	_set_fixture_part_number_in_pricing(response, fixture_id)
+	# Step 5: Create or update configured fixture (or compute candidate values
+	# only when the caller is doing a dry-run lookup).
+	if _skip_record_creation:
+		candidate_hash, candidate_part_number = _compute_candidate_singlesegment(
+			fixture_template_code,
+			finish_code,
+			lens_appearance_code,
+			mounting_method_code,
+			endcap_style_start_code,
+			endcap_style_end_code,
+			endcap_color_code,
+			power_feed_type_code,
+			environment_rating_code,
+			tape_offering_id,
+			requested_overall_length_mm,
+			start_feed_direction_code=start_feed_direction_code,
+			end_feed_direction_code=end_feed_direction_code,
+			start_leader_len_mm=start_leader_len_mm,
+			end_leader_len_mm=end_leader_len_mm,
+		)
+		response["configured_fixture_id"] = None
+		response["candidate_config_hash"] = candidate_hash
+		response["candidate_part_number"] = candidate_part_number
+	else:
+		fixture_id = _create_or_update_configured_fixture(
+			fixture_template_code,
+			finish_code,
+			lens_appearance_code,
+			mounting_method_code,
+			endcap_style_start_code,
+			endcap_style_end_code,
+			endcap_color_code,
+			power_feed_type_code,
+			environment_rating_code,
+			tape_offering_id,
+			requested_overall_length_mm,
+			response["computed"],
+			response["resolved_items"],
+			response["pricing"],
+			start_feed_direction_code=start_feed_direction_code,
+			end_feed_direction_code=end_feed_direction_code,
+			start_leader_len_mm=start_leader_len_mm,
+			end_leader_len_mm=end_leader_len_mm,
+			include_power_supply=include_power_supply,
+			parent_configured_fixture=parent_configured_fixture,
+			variant_origin=variant_origin,
+		)
+		response["configured_fixture_id"] = fixture_id
+		_set_fixture_part_number_in_pricing(response, fixture_id)
 
 	# Add inch values to computed results for US market display
 	response["computed"] = add_inch_values_to_computed(response["computed"])
@@ -522,6 +794,9 @@ def validate_and_quote_inches(
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 	include_power_supply: bool = True,
+	_skip_record_creation: bool = False,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration with length input in inches.
@@ -606,6 +881,9 @@ def validate_and_quote_inches(
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
 		include_power_supply=include_power_supply,
+		_skip_record_creation=_skip_record_creation,
+		parent_configured_fixture=parent_configured_fixture,
+		variant_origin=variant_origin,
 	)
 
 
@@ -627,6 +905,13 @@ def validate_and_quote_with_output(
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 	include_power_supply: bool = True,
+	start_feed_direction_code: str = None,
+	end_feed_direction_code: str = "C",
+	start_leader_len_mm: int = 0,
+	end_leader_len_mm: int = 0,
+	_skip_record_creation: bool = False,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration using the new cascading configurator flow.
@@ -730,6 +1015,13 @@ def validate_and_quote_with_output(
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
 		include_power_supply=include_power_supply,
+		start_feed_direction_code=start_feed_direction_code,
+		end_feed_direction_code=end_feed_direction_code,
+		start_leader_len_mm=start_leader_len_mm,
+		end_leader_len_mm=end_leader_len_mm,
+		_skip_record_creation=_skip_record_creation,
+		parent_configured_fixture=parent_configured_fixture,
+		variant_origin=variant_origin,
 	)
 
 	# Add the auto-selected tape info to the response
@@ -775,6 +1067,9 @@ def validate_and_quote_multisegment_with_output(
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 	include_power_supply: bool = True,
+	_skip_record_creation: bool = False,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture using the output-based cascading flow.
@@ -868,6 +1163,9 @@ def validate_and_quote_multisegment_with_output(
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
 		include_power_supply=include_power_supply,
+		_skip_record_creation=_skip_record_creation,
+		parent_configured_fixture=parent_configured_fixture,
+		variant_origin=variant_origin,
 	)
 
 	# Add auto-selected tape info
@@ -910,6 +1208,9 @@ def validate_and_quote_multisegment(
 	dimming_protocol_code: str = None,
 	qty: int = 1,
 	include_power_supply: bool = True,
+	_skip_record_creation: bool = False,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture configuration.
@@ -942,6 +1243,8 @@ def validate_and_quote_multisegment(
 	# Normalise include_power_supply (Frappe passes HTTP params as strings)
 	if isinstance(include_power_supply, str):
 		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+	if isinstance(_skip_record_creation, str):
+		_skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
 
 	# Parse segments
 	try:
@@ -1148,24 +1451,45 @@ def validate_and_quote_multisegment(
 
 	response["pricing"].update(pricing_result)
 
-	# Step 5: Create configured fixture document
-	fixture_id = _create_or_update_multisegment_fixture(
-		fixture_template_code,
-		finish_code,
-		lens_appearance_code,
-		mounting_method_code,
-		endcap_color_code,
-		environment_rating_code,
-		tape_offering_id,
-		segments,
-		response["computed"],
-		response["resolved_items"],
-		response["pricing"],
-		include_power_supply=include_power_supply,
-	)
-
-	response["configured_fixture_id"] = fixture_id
-	_set_fixture_part_number_in_pricing(response, fixture_id)
+	# Step 5: Create configured fixture document (or compute candidate values
+	# for a dry-run lookup).
+	if _skip_record_creation:
+		has_jumper = any(seg.get("end_type") == "Jumper" for seg in segments)
+		is_multi_segment = len(segments) > 1 or has_jumper
+		candidate_hash, candidate_part_number = _compute_candidate_multisegment(
+			fixture_template_code,
+			finish_code,
+			lens_appearance_code,
+			mounting_method_code,
+			endcap_color_code,
+			environment_rating_code,
+			tape_offering_id,
+			segments,
+			is_multi_segment,
+			response["computed"].get("total_requested_length_mm", 0),
+		)
+		response["configured_fixture_id"] = None
+		response["candidate_config_hash"] = candidate_hash
+		response["candidate_part_number"] = candidate_part_number
+	else:
+		fixture_id = _create_or_update_multisegment_fixture(
+			fixture_template_code,
+			finish_code,
+			lens_appearance_code,
+			mounting_method_code,
+			endcap_color_code,
+			environment_rating_code,
+			tape_offering_id,
+			segments,
+			response["computed"],
+			response["resolved_items"],
+			response["pricing"],
+			include_power_supply=include_power_supply,
+			parent_configured_fixture=parent_configured_fixture,
+			variant_origin=variant_origin,
+		)
+		response["configured_fixture_id"] = fixture_id
+		_set_fixture_part_number_in_pricing(response, fixture_id)
 
 	if response["is_valid"]:
 		response["messages"].append({
@@ -1827,6 +2151,8 @@ def _create_or_update_multisegment_fixture(
 	resolved_items: dict,
 	pricing: dict,
 	include_power_supply: bool = True,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> str:
 	"""
 	Create or update a multi-segment configured fixture document.
@@ -1856,50 +2182,63 @@ def _create_or_update_multisegment_fixture(
 	config_json = json.dumps(config_data, sort_keys=True)
 	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:32]
 
-	# Check for existing fixture with same hash
-	existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
-
-	# If not found by hash, also check by generated part number (to handle duplicates)
-	# Create a temporary doc to generate the part number
-	if not existing:
-		temp_doc = frappe.new_doc("ilL-Configured-Fixture")
-		temp_doc.fixture_template = fixture_template_code
-		temp_doc.finish = finish_code
-		temp_doc.lens_appearance = lens_appearance_code
-		temp_doc.mounting_method = mounting_method_code
-		temp_doc.endcap_color = endcap_color_code
-		temp_doc.environment_rating = environment_rating_code
-		temp_doc.tape_offering = tape_offering_id
-		temp_doc.is_multi_segment = 1 if is_multi_segment else 0
-		temp_doc.requested_overall_length_mm = computed.get("total_requested_length_mm", 0)
-		# Set power feed type and user segments for part number generation
-		first_segment = user_segments[0] if user_segments else {}
-		temp_doc.power_feed_type = first_segment.get("start_power_feed_type", "")
-		for user_seg in user_segments:
-			temp_doc.append("user_segments", {
-				"segment_index": user_seg.get("segment_index", 0),
-				"requested_length_mm": user_seg.get("requested_length_mm", 0),
-				"start_feed_direction": user_seg.get("start_feed_direction", ""),
-				"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
-				"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
-				"end_type": user_seg.get("end_type", "Endcap"),
-				"end_feed_direction": user_seg.get("end_feed_direction", ""),
-				"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
-				"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
-			})
-		# Generate the part number that would be used
-		generated_part_number = temp_doc._generate_part_number()
-		# Check if this part number already exists
-		if frappe.db.exists("ilL-Configured-Fixture", generated_part_number):
-			existing = generated_part_number
-
-	if existing:
-		doc = frappe.get_doc("ilL-Configured-Fixture", existing)
-		# Update config_hash if configuration changed
-		doc.config_hash = config_hash
-	else:
+	# Variant branch: skip hash/name reuse, always create a new record with a
+	# -V(XXXX) suffix and a parent link to the root ancestor.
+	if parent_configured_fixture:
+		root_parent = _resolve_root_configured_fixture(parent_configured_fixture)
+		variant_suffix = _compute_variant_suffix(config_data)
 		doc = frappe.new_doc("ilL-Configured-Fixture")
 		doc.config_hash = config_hash
+		doc.parent_configured_fixture = root_parent
+		doc.variant_suffix = variant_suffix
+		if variant_origin:
+			doc.variant_origin = variant_origin
+		existing = None
+	else:
+		# Check for existing fixture with same hash
+		existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
+
+		# If not found by hash, also check by generated part number (to handle duplicates)
+		# Create a temporary doc to generate the part number
+		if not existing:
+			temp_doc = frappe.new_doc("ilL-Configured-Fixture")
+			temp_doc.fixture_template = fixture_template_code
+			temp_doc.finish = finish_code
+			temp_doc.lens_appearance = lens_appearance_code
+			temp_doc.mounting_method = mounting_method_code
+			temp_doc.endcap_color = endcap_color_code
+			temp_doc.environment_rating = environment_rating_code
+			temp_doc.tape_offering = tape_offering_id
+			temp_doc.is_multi_segment = 1 if is_multi_segment else 0
+			temp_doc.requested_overall_length_mm = computed.get("total_requested_length_mm", 0)
+			# Set power feed type and user segments for part number generation
+			first_segment = user_segments[0] if user_segments else {}
+			temp_doc.power_feed_type = first_segment.get("start_power_feed_type", "")
+			for user_seg in user_segments:
+				temp_doc.append("user_segments", {
+					"segment_index": user_seg.get("segment_index", 0),
+					"requested_length_mm": user_seg.get("requested_length_mm", 0),
+					"start_feed_direction": user_seg.get("start_feed_direction", ""),
+					"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
+					"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
+					"end_type": user_seg.get("end_type", "Endcap"),
+					"end_feed_direction": user_seg.get("end_feed_direction", ""),
+					"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
+					"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
+				})
+			# Generate the part number that would be used
+			generated_part_number = temp_doc._generate_part_number()
+			# Check if this part number already exists
+			if frappe.db.exists("ilL-Configured-Fixture", generated_part_number):
+				existing = generated_part_number
+
+		if existing:
+			doc = frappe.get_doc("ilL-Configured-Fixture", existing)
+			# Update config_hash if configuration changed
+			doc.config_hash = config_hash
+		else:
+			doc = frappe.new_doc("ilL-Configured-Fixture")
+			doc.config_hash = config_hash
 
 	# Set values
 	doc.engine_version = ENGINE_VERSION
@@ -2040,6 +2379,8 @@ def _create_or_update_multisegment_fixture(
 	if existing:
 		doc.save()
 	else:
+		if variant_origin and not getattr(doc, "variant_origin", None):
+			doc.variant_origin = variant_origin
 		doc.insert()
 
 	return doc.name
@@ -3486,6 +3827,8 @@ def _create_or_update_configured_fixture(
 	start_leader_len_mm: int = 0,
 	end_leader_len_mm: int = 0,
 	include_power_supply: bool = True,
+	parent_configured_fixture: str | None = None,
+	variant_origin: str | None = None,
 ) -> str:
 	"""
 	Create or update an ilL-Configured-Fixture document.
@@ -3497,73 +3840,94 @@ def _create_or_update_configured_fixture(
 	config_hash, we validate that all key attributes match and update the
 	existing fixture (updating pricing, resolved items, etc.).
 
+	When ``parent_configured_fixture`` is provided, this is a *variant* save:
+	we skip the existing-by-hash lookup, compute a 4-char ``variant_suffix``
+	from the configuration, set the parent link (compressed to the root
+	ancestor), and insert a brand-new record whose name carries a
+	``-V(XXXX)`` suffix.
+
 	Returns:
 		str: Name of the created/updated ilL-Configured-Fixture document
 	"""
 	# Create config data for hashing (all input parameters)
-	config_data = {
-		"fixture_template_code": fixture_template_code,
-		"finish_code": finish_code,
-		"lens_appearance_code": lens_appearance_code,
-		"mounting_method_code": mounting_method_code,
-		"endcap_style_start_code": endcap_style_start_code,
-		"endcap_style_end_code": endcap_style_end_code,
-		"endcap_color_code": endcap_color_code,
-		"power_feed_type_code": power_feed_type_code,
-		"environment_rating_code": environment_rating_code,
-		"tape_offering_id": tape_offering_id,
-		"requested_overall_length_mm": requested_overall_length_mm,
-		"start_feed_direction_code": start_feed_direction_code or "",
-		"end_feed_direction_code": end_feed_direction_code or "C",
-		"start_leader_len_mm": int(start_leader_len_mm or 0),
-		"end_leader_len_mm": int(end_leader_len_mm or 0),
-	}
+	config_data = _build_singlesegment_config_data(
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
+		endcap_color_code,
+		power_feed_type_code,
+		environment_rating_code,
+		tape_offering_id,
+		requested_overall_length_mm,
+		start_feed_direction_code=start_feed_direction_code,
+		end_feed_direction_code=end_feed_direction_code,
+		start_leader_len_mm=start_leader_len_mm,
+		end_leader_len_mm=end_leader_len_mm,
+	)
 
 	# Generate hash: first 32 hex characters (128 bits of entropy) from SHA-256 for collision resistance
 	config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()[:32]
 
-	# Check if this configuration already exists by config_hash field
-	existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
-
-	if existing:
-		doc = frappe.get_doc("ilL-Configured-Fixture", existing)
-	else:
-		# No exact hash match - create a temporary doc to generate the part number
-		# then check if that part number already exists (collision handling)
+	# Variant branch: caller is creating a modified-of-existing record.  Do
+	# NOT reuse any existing record — a new doc with a -V(XXXX) suffix is
+	# always created so historical orders/quotes pinned to the parent stay
+	# untouched.
+	if parent_configured_fixture:
+		root_parent = _resolve_root_configured_fixture(parent_configured_fixture)
+		variant_suffix = _compute_variant_suffix(config_data)
 		doc = frappe.new_doc("ilL-Configured-Fixture")
 		doc.config_hash = config_hash
-		
-		# Populate key fields needed for part number generation
-		doc.fixture_template = fixture_template_code
-		doc.finish = finish_code
-		doc.lens_appearance = lens_appearance_code
-		doc.mounting_method = mounting_method_code
-		doc.endcap_style_start = endcap_style_start_code
-		doc.endcap_style_end = endcap_style_end_code
-		doc.endcap_color = endcap_color_code
-		doc.power_feed_type = power_feed_type_code
-		doc.environment_rating = environment_rating_code
-		doc.tape_offering = tape_offering_id
-		doc.requested_overall_length_mm = requested_overall_length_mm
-		doc.is_multi_segment = 0
-		
-		# Generate the part number that would be used
-		potential_part_number = doc._generate_part_number()
-		
-		# Check if this part number already exists
-		existing_by_name = frappe.db.exists("ilL-Configured-Fixture", potential_part_number)
-		
-		if existing_by_name:
-			# Part number collision - load existing fixture and validate/update it
-			doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
-			
-			# Validate that the key configuration attributes match
-			# If they match, this is the same fixture just needs updating
-			# Update the config_hash since the existing one may be outdated
+		doc.parent_configured_fixture = root_parent
+		doc.variant_suffix = variant_suffix
+		if variant_origin:
+			doc.variant_origin = variant_origin
+		existing = None
+	else:
+		# Check if this configuration already exists by config_hash field
+		existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
+
+		if existing:
+			doc = frappe.get_doc("ilL-Configured-Fixture", existing)
+		else:
+			# No exact hash match - create a temporary doc to generate the part number
+			# then check if that part number already exists (collision handling)
+			doc = frappe.new_doc("ilL-Configured-Fixture")
 			doc.config_hash = config_hash
-			
-			# Mark as existing for the save logic below
-			existing = existing_by_name
+
+			# Populate key fields needed for part number generation
+			doc.fixture_template = fixture_template_code
+			doc.finish = finish_code
+			doc.lens_appearance = lens_appearance_code
+			doc.mounting_method = mounting_method_code
+			doc.endcap_style_start = endcap_style_start_code
+			doc.endcap_style_end = endcap_style_end_code
+			doc.endcap_color = endcap_color_code
+			doc.power_feed_type = power_feed_type_code
+			doc.environment_rating = environment_rating_code
+			doc.tape_offering = tape_offering_id
+			doc.requested_overall_length_mm = requested_overall_length_mm
+			doc.is_multi_segment = 0
+
+			# Generate the part number that would be used
+			potential_part_number = doc._generate_part_number()
+
+			# Check if this part number already exists
+			existing_by_name = frappe.db.exists("ilL-Configured-Fixture", potential_part_number)
+
+			if existing_by_name:
+				# Part number collision - load existing fixture and validate/update it
+				doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
+
+				# Validate that the key configuration attributes match
+				# If they match, this is the same fixture just needs updating
+				# Update the config_hash since the existing one may be outdated
+				doc.config_hash = config_hash
+
+				# Mark as existing for the save logic below
+				existing = existing_by_name
 
 	# Set identity fields
 	doc.engine_version = ENGINE_VERSION
@@ -3720,6 +4084,8 @@ def _create_or_update_configured_fixture(
 		# For new documents, pre-set the name to avoid autoname regeneration issues
 		if not doc.name:
 			doc.name = doc._generate_part_number()
+		if variant_origin and not getattr(doc, "variant_origin", None):
+			doc.variant_origin = variant_origin
 		doc.insert(ignore_permissions=True)
 
 	return doc.name

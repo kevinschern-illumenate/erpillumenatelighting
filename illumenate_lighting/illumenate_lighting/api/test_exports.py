@@ -462,9 +462,13 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		expected = [
 			"delivered_lumens_white", "watts_per_foot_white", "max_run_length_ft_white",
+			"max_footage_per_100w_supply_white",
 			"delivered_lumens_frosted", "watts_per_foot_frosted", "max_run_length_ft_frosted",
+			"max_footage_per_100w_supply_frosted",
 			"delivered_lumens_clear", "watts_per_foot_clear", "max_run_length_ft_clear",
+			"max_footage_per_100w_supply_clear",
 			"delivered_lumens_black", "watts_per_foot_black", "max_run_length_ft_black",
+			"max_footage_per_100w_supply_black",
 		]
 		self.assertEqual(cols, expected)
 		self.assertEqual(LENS_COLUMNS, expected)
@@ -507,6 +511,15 @@ class TestSpecSheetExport(FrappeTestCase):
 		tape_offering = SimpleNamespace(cut_increment_mm_override=0)
 		tape_spec = SimpleNamespace(cut_increment_mm=0)
 		self.assertEqual(_format_production_interval(tape_offering, tape_spec), "")
+
+	def test_format_production_interval_free_cutting(self):
+		"""Free-cutting tape specs export a label instead of a numeric interval."""
+		from types import SimpleNamespace
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _format_production_interval
+
+		tape_offering = SimpleNamespace(cut_increment_mm_override=25)
+		tape_spec = SimpleNamespace(cut_increment_mm=50, is_free_cutting=1)
+		self.assertEqual(_format_production_interval(tape_offering, tape_spec), "Free-Cutting")
 
 	def test_format_cri_quality_full(self):
 		"""CRI quality with cri_name and SDCM."""
@@ -580,6 +593,8 @@ class TestSpecSheetExport(FrappeTestCase):
 			"available_lenses": "White, Frosted",
 			"available_finishes": "Silver",
 			"profile_dimensions": "1×2×3",
+			"minimum_side_bend_diameter": '3.94" (100mm)',
+			"minimum_top_bend_diameter": '5.91" (150mm)',
 		}
 
 		variant_rows = [
@@ -619,8 +634,8 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
 
-		# Fixed total: 56 static + 8 CCT + 312 output = 376
-		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# Fixed total: 58 static + 8 CCT + 336 output = 402
+		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 
 		# Static product columns come first
 		for col in INDESIGN_PRODUCT_COLUMNS:
@@ -637,8 +652,10 @@ class TestSpecSheetExport(FrappeTestCase):
 		# Per-output watt/run columns for lens groups
 		self.assertIn("Watts per Foot (White Lens) 1", headers)
 		self.assertIn("Max Run Length (White Lens) 1", headers)
+		self.assertIn("Max Footage per 100W Supply (White Lens) 1", headers)
 		self.assertIn("Watts per Foot (Black Lens) 1", headers)
 		self.assertIn("Max Run Length (Other Lenses) 2", headers)
+		self.assertIn("Max Footage per 100W Supply (Other Lenses) 2", headers)
 
 		# Lumen columns per output × CCT (using full MAX_CCTS range)
 		self.assertIn("White Lens - Output 1 - Lumen 1", headers)
@@ -709,6 +726,11 @@ class TestSpecSheetExport(FrappeTestCase):
 		# Other Lenses (frosted): min(20, 15) = 15 → "15ft"
 		self.assertEqual(data_row["Max Run Length (Other Lenses) 1"], "15ft")
 
+		# Max footage per 100W supply: 80W usable / max W/ft
+		self.assertEqual(data_row["Max Footage per 100W Supply (White Lens) 1"], "16ft")
+		self.assertEqual(data_row["Max Footage per 100W Supply (Black Lens) 1"], "16ft")
+		self.assertEqual(data_row["Max Footage per 100W Supply (Other Lenses) 1"], "16ft")
+
 		# Lumen pass-through (first value for each CCT × output)
 		self.assertEqual(data_row["White Lens - Output 1 - Lumen 1"], 190.0)
 		self.assertEqual(data_row["White Lens - Output 1 - Lumen 2"], 200.0)
@@ -731,14 +753,15 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# Fixed: 56 static + 8 CCT + 312 output = 376
-		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# Fixed: 58 static + 8 CCT + 336 output = 402
+		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 		self.assertEqual(data_row["Product Name"], "Empty")
 
 	def test_pivot_to_indesign_output_level_sort_order(self):
 		"""Output levels are sorted by leading integer, not lexicographically."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
+			INDESIGN_PRODUCT_COLUMNS,
 			MAX_CCTS,
 			MAX_OUTPUT_LEVELS,
 		)
@@ -757,7 +780,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		headers, data_row = _pivot_to_indesign(product_data, variant_rows)
 
 		# Fixed column count
-		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 
 		# Sorted by leading int: 50, 200, 400
 		self.assertEqual(data_row["Output Options 1"], "50 lm/ft")
@@ -863,7 +886,7 @@ class TestSpecSheetExport(FrappeTestCase):
 		self.assertLess(series_section_idx, finish_section_idx)
 
 	def test_pivot_to_indesign_with_pn_builder_columns(self):
-		"""PN builder columns are appended at the end of the InDesign pivot (596 total)."""
+		"""PN builder columns are appended at the end of the InDesign pivot (622 total)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign, _collect_pn_builder_columns,
 		)
@@ -880,15 +903,15 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [], pn_builder_columns=(pn_headers, pn_data))
 
-		# 376 (pivot) + 220 (PN) = 596
-		self.assertEqual(len(headers), 596)
+		# 402 (pivot) + 220 (PN) = 622
+		self.assertEqual(len(headers), 622)
 		# PN columns should be at the end
 		self.assertTrue(headers[-1].startswith("Part Number"))
 		self.assertEqual(data_row["Part Number - Series - Option 1:"], "SH01")
 		self.assertEqual(data_row["Part Number - Series - Description 1:"], "Shadow")
 
 	def test_pivot_to_indesign_without_pn_builder(self):
-		"""Pivot without PN builder produces 376 columns (static + CCT + output blocks)."""
+		"""Pivot without PN builder produces 402 columns (static + CCT + output blocks)."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign,
 			INDESIGN_PRODUCT_COLUMNS,
@@ -903,14 +926,14 @@ class TestSpecSheetExport(FrappeTestCase):
 
 		headers, data_row = _pivot_to_indesign(product_data, [])
 
-		# 56 static + 8 CCT + 312 output = 376
-		self.assertEqual(len(headers), 56 + MAX_CCTS + MAX_OUTPUT_LEVELS * 39)
+		# 58 static + 8 CCT + 336 output = 402
+		self.assertEqual(len(headers), len(INDESIGN_PRODUCT_COLUMNS) + MAX_CCTS + MAX_OUTPUT_LEVELS * 42)
 		# No Part Number columns
 		self.assertFalse(any("Part Number" in h for h in headers))
 
 
 class TestSpecSheetExportNeonInDesign(FrappeTestCase):
-	"""Tape/Neon products must produce the same 596-column InDesign layout
+	"""Tape/Neon products must produce the same 622-column InDesign layout
 	as Fixture Template products so marketing's data-merge template accepts
 	both file types without column-shift garbage.
 	"""
@@ -923,14 +946,14 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			_INDESIGN_LENS_GROUPS, _INDESIGN_LUMEN_LENSES,
 		)
 
-		output_block = 1 + len(_INDESIGN_LENS_GROUPS) * 2 + MAX_CCTS * len(_INDESIGN_LUMEN_LENSES)
+		output_block = 1 + len(_INDESIGN_LENS_GROUPS) * 3 + MAX_CCTS * len(_INDESIGN_LUMEN_LENSES)
 		expected = (
 			len(INDESIGN_PRODUCT_COLUMNS)
 			+ MAX_CCTS
 			+ MAX_OUTPUT_LEVELS * output_block
 			+ len(STANDARD_PN_SECTIONS) * MAX_PN_OPTIONS_PER_SECTION * 2
 		)
-		self.assertEqual(INDESIGN_TOTAL_COLUMNS, 596)
+		self.assertEqual(INDESIGN_TOTAL_COLUMNS, 622)
 		self.assertEqual(INDESIGN_TOTAL_COLUMNS, expected)
 
 	def test_tn_pn_builder_empty_shape_matches_fixture(self):
@@ -947,7 +970,7 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 
 	def test_pivot_header_parity_with_fixture(self):
 		"""Passing the neon PN shim into the same pivoter must yield an
-		identical 596-column header list to the fixture export."""
+		identical 622-column header list to the fixture export."""
 		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import (
 			_pivot_to_indesign, _collect_pn_builder_columns,
 			_collect_tn_pn_builder_columns, INDESIGN_TOTAL_COLUMNS,
@@ -969,8 +992,8 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 	def test_tn_pn_builder_maps_option_types_to_standard_sections(self):
 		"""allowed_options option_types are routed to STANDARD_PN_SECTIONS
 		via the documented mapping (CCT→CCT, Output Level→Output,
-		Environment Rating / IP Rating→Dry/Wet, Mounting Method→Mounting,
-		Finish / PCB Finish→Finish)."""
+		Lens Appearance→Lens, Environment Rating / IP Rating→Dry/Wet,
+		Mounting Method→Mounting, Finish / PCB Finish→Finish)."""
 		from types import SimpleNamespace
 		from unittest.mock import patch
 		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
@@ -982,6 +1005,9 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			("ilL-Attribute-CCT", "4000K"): SimpleNamespace(code="40K", label="4000K"),
 			("ilL-Attribute-Output Level", "200lm"): SimpleNamespace(
 				code="02", output_level_name="200 lm/ft",
+			),
+			("ilL-Attribute-Lens Appearance", "Frosted"): SimpleNamespace(
+				code="FR", label="Frosted",
 			),
 			("ilL-Attribute-IP Rating", "IP67"): SimpleNamespace(code="67", label="IP67"),
 			("ilL-Attribute-Mounting Method", "Surface"): SimpleNamespace(
@@ -1002,33 +1028,37 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 			SimpleNamespace(option_type="CCT", cct="3000K", is_active=1),
 			SimpleNamespace(option_type="CCT", cct="4000K", is_active=1),
 			SimpleNamespace(option_type="Output Level", output_level="200lm", is_active=1),
+			SimpleNamespace(option_type="Lens Appearance", lens_appearance="Frosted", is_active=1),
 			SimpleNamespace(option_type="IP Rating", ip_rating="IP67", is_active=1),
 			SimpleNamespace(option_type="Mounting Method", mounting_method="Surface", is_active=1),
 			SimpleNamespace(option_type="Finish", finish="Black", is_active=1),
 		]
 		tnt_doc = SimpleNamespace(series="NT01", allowed_options=allowed_options)
+		tnt_doc.template_code = "non-crb"
+		tnt_doc.template_name = "Carbon Single-Bending"
 
 		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
 			 patch.object(sse.frappe.db, "has_column", return_value=True):
 			headers, data = sse._collect_tn_pn_builder_columns(tnt_doc)
 
 		self.assertEqual(len(headers), 220)
-		# Series filled from tnt_doc.series
-		self.assertEqual(data["Part Number - Series - Option 1:"], "NT01")
-		self.assertEqual(data["Part Number - Series - Description 1:"], "NeonOne")
+		# Series is filled from the full tape/neon template slug/code, not the shorter Series code.
+		self.assertEqual(data["Part Number - Series - Option 1:"], "NON-CRB")
+		self.assertEqual(data["Part Number - Series - Description 1:"], "Carbon Single-Bending")
 		# CCT: two distinct entries
 		self.assertEqual(data["Part Number - CCT - Option 1:"], "30K")
 		self.assertEqual(data["Part Number - CCT - Option 2:"], "40K")
 		# Output
 		self.assertEqual(data["Part Number - Output - Option 1:"], "02")
+		# Lens Appearance → Lens
+		self.assertEqual(data["Part Number - Lens - Option 1:"], "FR")
 		# IP Rating → Dry/Wet
 		self.assertEqual(data["Part Number - Dry/Wet - Option 1:"], "67")
 		# Mounting
 		self.assertEqual(data["Part Number - Mounting - Option 1:"], "SM")
 		# Finish
 		self.assertEqual(data["Part Number - Finish - Option 1:"], "BK")
-		# Lens stays blank for neon
-		self.assertEqual(data["Part Number - Lens - Option 1:"], "")
+		self.assertEqual(data["Part Number - Lens - Description 1:"], "Frosted")
 
 	def test_tn_pn_builder_feed_position_fanout(self):
 		"""Feed Direction rows fan out to Start / End Feed Type based on
@@ -1100,6 +1130,294 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 		# Only the active CCT is filled into slot 1
 		self.assertEqual(data["Part Number - CCT - Option 1:"], "40K")
 		self.assertEqual(data["Part Number - CCT - Option 2:"], "")
+
+	def test_tn_option_label_code_uses_output_sku_code(self):
+		"""Output Level PN options use sku_code when the attribute has no code field."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		def fake_has_column(_doctype, fieldname):
+			return fieldname == "sku_code"
+
+		with patch.object(
+			sse.frappe,
+			"get_cached_doc",
+			return_value=SimpleNamespace(sku_code="HO", output_level_name="High Output"),
+		), patch.object(sse.frappe.db, "has_column", side_effect=fake_has_column):
+			code, label = sse._tn_option_label_code(
+				SimpleNamespace(option_type="Output Level", output_level="High")
+			)
+
+		self.assertEqual(code, "HO")
+		self.assertEqual(label, "High Output")
+
+	def test_tape_neon_product_data_fills_template_driver_and_media_fields(self):
+		"""Tape/neon product columns pull from template specs, options, drivers, and media fallbacks."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(
+			name="WP-NEON", tape_neon_template="TNT-1", product_type="LED Tape",
+			product_name="Tape Product", short_description="Short", sublabel="Sub",
+			beam_angle=120, operating_temp_min_c=-20, operating_temp_max_c=45,
+			l70_life_hours=50000, warranty_years=5,
+			attribute_links=[],
+			certifications=[SimpleNamespace(certification="ETL")],
+			featured_image="", series_family_image="", dimensions_image="/files/dims.png",
+		)
+		wp_doc.get = lambda fieldname, default=None: getattr(wp_doc, fieldname, default)
+
+		tnt_doc = SimpleNamespace(
+			name="TNT-1", template_code="TN01", image="/files/template-hero.png",
+			default_tape_spec="TS-1",
+			allowed_tape_specs=[SimpleNamespace(tape_spec="TS-1", environment_rating="Wet")],
+			allowed_options=[
+				SimpleNamespace(option_type="PCB Mounting", pcb_mounting="Adhesive", is_active=1),
+				SimpleNamespace(option_type="PCB Finish", pcb_finish="White PCB", is_active=1),
+			],
+		)
+		tape_doc = SimpleNamespace(
+			input_voltage="24V Attribute", input_protocol="ELV",
+			supported_dimming_protocols=[SimpleNamespace(protocol="PWM")],
+		)
+		driver_doc = SimpleNamespace(
+			input_voltage_min=120, input_voltage_max=277, input_voltage_type="VAC",
+			max_wattage=96,
+			input_protocols=[SimpleNamespace(protocol="0-10V")],
+		)
+
+		def fake_get_cached_doc(doctype, name):
+			if doctype == "ilL-Tape-Neon-Template" and name == "TNT-1":
+				return tnt_doc
+			if doctype == "ilL-Spec-LED Tape" and name == "TS-1":
+				return tape_doc
+			if doctype == "ilL-Spec-Driver" and name == "DRV-1":
+				return driver_doc
+			raise sse.frappe.DoesNotExistError(f"{doctype} {name}")
+
+		def fake_get_all(doctype, **kwargs):
+			if doctype == "ilL-Rel-Driver-Eligibility":
+				return [SimpleNamespace(driver_spec="DRV-1")]
+			return []
+
+		def fake_get_value(doctype, name, fieldname, as_dict=False):
+			if doctype == "ilL-Attribute-Output Voltage":
+				return {"dc_voltage": "24V", "ac_voltage": ""}
+			return None
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe, "get_all", side_effect=fake_get_all), \
+			 patch.object(sse.frappe.db, "get_value", side_effect=fake_get_value), \
+			 patch.object(sse, "get_url", side_effect=lambda url: f"https://erp.test{url}"):
+			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
+
+		self.assertEqual(data["input_voltage"], "24VDC (Power Supply: 120V-277VAC)")
+		self.assertEqual(data["available_mountings"], "Adhesive")
+		self.assertEqual(data["available_finishes"], "White PCB")
+		self.assertEqual(data["environment_ratings"], "Wet")
+		self.assertEqual(data["certifications"], "ETL")
+		self.assertEqual(data["dimming_protocols"], "0-10V, ELV, PWM")
+		self.assertEqual(data["driver_max_wattage"], 96)
+		self.assertEqual(data["custom_image_hero"], "https://erp.test/files/template-hero.png")
+		self.assertEqual(data["custom_image_dimensions_1"], "https://erp.test/files/dims.png")
+
+	def test_tape_neon_product_data_uses_spec_sheet_fallback_fields(self):
+		"""Template spec-sheet fields fill CSV columns when structured relationships are sparse."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(
+			name="WP-NEON-FALLBACK", tape_neon_template="TNT-FALLBACK", product_type="LED Neon",
+			product_name="Fallback Neon", short_description="", sublabel="",
+			beam_angle=None, operating_temp_min_c=None, operating_temp_max_c=None,
+			l70_life_hours=None, warranty_years=None,
+			attribute_links=[], certifications=[],
+			featured_image="", series_family_image="", dimensions_image="",
+		)
+		wp_doc.get = lambda fieldname, default=None: getattr(wp_doc, fieldname, default)
+
+		tnt_doc = SimpleNamespace(
+			name="TNT-FALLBACK", template_code="TN-FB", image="",
+			default_tape_spec=None, allowed_tape_specs=[],
+			allowed_options=[
+				SimpleNamespace(option_type="Lens Appearance", lens_appearance="Frosted", is_active=1),
+				SimpleNamespace(option_type="Mounting Method", mounting_method="Channel", is_active=1),
+				SimpleNamespace(option_type="Finish", finish="Carbon", is_active=1),
+			],
+			spec_sheet_dimensions='0.63" W x 0.75" H',
+			minimum_side_bend_diameter_mm=100,
+			minimum_top_bend_diameter_mm=150,
+			available_lenses="Soft diffused",
+			available_finishes="Carbon",
+			available_mountings="3M Adhesive Back",
+			driver_max_wattage_override=60,
+			production_interval_mm=50,
+			certifications=[SimpleNamespace(certification="UL")],
+		)
+
+		attrs = {
+			("ilL-Attribute-Lens Appearance", "Frosted"): SimpleNamespace(code="FR", label="Frosted"),
+			("ilL-Attribute-Mounting Method", "Channel"): SimpleNamespace(
+				code="CH", label="Channel Mount",
+			),
+			("ilL-Attribute-Finish", "Carbon"): SimpleNamespace(code="CB", finish_name="Carbon"),
+		}
+
+		def fake_get_cached_doc(doctype, name):
+			if doctype == "ilL-Tape-Neon-Template" and name == "TNT-FALLBACK":
+				return tnt_doc
+			doc = attrs.get((doctype, name))
+			if doc:
+				return doc
+			raise sse.frappe.DoesNotExistError(f"{doctype} {name}")
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe, "get_all", return_value=[]), \
+			 patch.object(sse.frappe.db, "has_column", return_value=True):
+			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
+
+		self.assertEqual(data["profile_dimensions"], '0.63" W x 0.75" H')
+		self.assertIn("100mm", data["minimum_side_bend_diameter"])
+		self.assertIn("150mm", data["minimum_top_bend_diameter"])
+		self.assertEqual(data["available_lenses"], "Frosted, Soft diffused")
+		self.assertEqual(data["available_finishes"], "Carbon")
+		self.assertEqual(data["available_mountings"], "3M Adhesive Back, Channel Mount")
+		self.assertEqual(data["certifications"], "UL")
+		self.assertEqual(data["driver_max_wattage"], 60)
+		self.assertIn("50mm", data["production_interval"])
+
+	def test_tape_neon_product_data_exports_free_cutting_label(self):
+		"""Template free-cutting flag wins over the numeric production interval fallback."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(
+			name="WP-FREE-CUT", tape_neon_template="TNT-FREE-CUT", product_type="LED Neon",
+			product_name="Free Cut Neon", short_description="", sublabel="",
+			beam_angle=None, operating_temp_min_c=None, operating_temp_max_c=None,
+			l70_life_hours=None, warranty_years=None,
+			attribute_links=[], certifications=[], featured_image="",
+			series_family_image="", dimensions_image="",
+		)
+		wp_doc.get = lambda fieldname, default=None: getattr(wp_doc, fieldname, default)
+
+		tnt_doc = SimpleNamespace(
+			name="TNT-FREE-CUT", template_code="TN-FC", image="",
+			default_tape_spec=None, allowed_tape_specs=[], allowed_options=[],
+			production_interval_mm=50, is_free_cutting=1,
+		)
+
+		with patch.object(sse.frappe, "get_cached_doc", return_value=tnt_doc), \
+			 patch.object(sse.frappe, "get_all", return_value=[]):
+			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
+
+		self.assertEqual(data["production_interval"], "Free-Cutting")
+
+	def test_pivot_uses_product_production_interval_fallback(self):
+		"""Product-level production interval is used when rows do not carry one."""
+		from illumenate_lighting.illumenate_lighting.api.spec_sheet_export import _pivot_to_indesign
+
+		product_data = {
+			"product_name": "Fallback Interval",
+			"production_interval": '1.97" (50mm)',
+		}
+		_headers, data = _pivot_to_indesign(product_data, [{"fixture_output_level": "", "cct_name": ""}])
+
+		self.assertEqual(data["Production Interval"], '1.97" (50mm)')
+
+	def test_tape_neon_variant_rows_use_matching_tape_offerings(self):
+		"""Tape/neon variant rows are populated per actual CCT/output offering."""
+		from types import SimpleNamespace
+		from unittest.mock import patch
+		from illumenate_lighting.illumenate_lighting.api import spec_sheet_export as sse
+
+		wp_doc = SimpleNamespace(tape_neon_template="TNT-1")
+		tnt_doc = SimpleNamespace(
+			name="TNT-1",
+			default_tape_spec="TS-LOW",
+			allowed_tape_specs=[
+				SimpleNamespace(tape_spec="TS-LOW"),
+				SimpleNamespace(tape_spec="TS-HIGH"),
+			],
+			allowed_options=[
+				SimpleNamespace(option_type="CCT", cct="3000K", is_active=1),
+				SimpleNamespace(option_type="Output Level", output_level="Low", is_active=1),
+				SimpleNamespace(option_type="Output Level", output_level="High", is_active=1),
+			],
+		)
+		offerings = [
+			SimpleNamespace(
+				name="TO-LOW", tape_spec="TS-LOW", cct="3000K", cri="CRI90",
+				sdcm="SDCM2", led_package="PKG", output_level="Low",
+				watts_per_ft_override=4.2, cut_increment_mm_override=25,
+			),
+			SimpleNamespace(
+				name="TO-HIGH", tape_spec="TS-HIGH", cct="3000K", cri="CRI90",
+				sdcm="SDCM2", led_package="PKG", output_level="High",
+				watts_per_ft_override=0, cut_increment_mm_override=0,
+			),
+		]
+		tape_docs = {
+			"TS-LOW": SimpleNamespace(
+				lumens_per_foot=180, watts_per_foot=3.5, voltage_drop_max_run_length_ft=20,
+				cut_increment_mm=50, led_pitch_mm=8, led_package="PKG", cri_typical=90,
+			),
+			"TS-HIGH": SimpleNamespace(
+				lumens_per_foot=400, watts_per_foot=8.0, voltage_drop_max_run_length_ft=12,
+				cut_increment_mm=50, led_pitch_mm=6, led_package="PKG", cri_typical=90,
+			),
+		}
+
+		def fake_get_cached_doc(doctype, name):
+			if doctype == "ilL-Tape-Neon-Template" and name == "TNT-1":
+				return tnt_doc
+			if doctype == "ilL-Spec-LED Tape":
+				return tape_docs[name]
+			if doctype == "ilL-Attribute-CRI":
+				return SimpleNamespace(cri_name="90 CRI")
+			if doctype == "ilL-Attribute-SDCM":
+				return SimpleNamespace(sdcm=2)
+			raise sse.frappe.DoesNotExistError(f"{doctype} {name}")
+
+		def fake_get_all(doctype, **kwargs):
+			if doctype == "ilL-Rel-Tape Offering":
+				return offerings
+			return []
+
+		def fake_get_value(doctype, name, fieldname, as_dict=False):
+			if doctype == "ilL-Attribute-CCT":
+				return {"kelvin": 3000, "lumen_multiplier": 0.95}
+			if doctype == "ilL-Attribute-Output Level" and name == "Low":
+				return {"output_level_name": "180 lm/ft", "value": 180, "sku_code": "LO"}
+			if doctype == "ilL-Attribute-Output Level" and name == "High":
+				return {"output_level_name": "400 lm/ft", "value": 400, "sku_code": "HI"}
+			return None
+
+		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
+			 patch.object(sse.frappe, "get_all", side_effect=fake_get_all), \
+			 patch.object(sse.frappe.db, "get_value", side_effect=fake_get_value):
+			rows = list(sse._collect_tape_neon_variant_rows_indesign(wp_doc, {"product_name": "Tape"}))
+
+		self.assertEqual(len(rows), 2)
+		low = rows[0]
+		high = rows[1]
+		self.assertEqual(low["fixture_output_level"], "180 lm/ft")
+		self.assertEqual(low["delivered_lumens_frosted"], 171.0)
+		self.assertEqual(low["watts_per_foot_frosted"], 4.2)
+		self.assertEqual(low["max_run_length_ft_frosted"], 20)
+		self.assertEqual(low["max_footage_per_100w_supply_frosted"], 19.0)
+		self.assertIn("25mm", low["production_interval"])
+		self.assertEqual(low["cri_quality"], "90 CRI / 2 SDCM")
+		self.assertEqual(low["delivered_lumens_white"], "")
+		self.assertEqual(high["fixture_output_level"], "400 lm/ft")
+		self.assertEqual(high["delivered_lumens_frosted"], 380.0)
+		self.assertEqual(high["watts_per_foot_frosted"], 8.0)
+		self.assertEqual(high["max_run_length_ft_frosted"], 12)
+		self.assertEqual(high["max_footage_per_100w_supply_frosted"], 10.0)
 
 
 class TestSpecSheetExportTapeNeonRouting(FrappeTestCase):

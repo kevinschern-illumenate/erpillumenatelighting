@@ -1,0 +1,56 @@
+/*
+ * Tape / Neon Configurator Styles (Phase 4)
+ * Scoped under .ill-configurator.ill-configurator-tape-neon
+ */
+
+/* Segment card */
+.ill-configurator-tape-neon .segment-card {
+	border: 1px solid #dee2e6;
+	border-radius: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+.ill-configurator-tape-neon .segment-card .card-header {
+	background-color: #f8f9fa;
+	padding: 0.5rem 1rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.ill-configurator-tape-neon .segment-card .card-body {
+	padding: 0.75rem 1rem;
+}
+
+/* Length input switcher */
+.ill-configurator-tape-neon .length-unit-tabs .nav-link {
+	padding: 0.25rem 0.5rem;
+	font-size: 0.85rem;
+}
+.ill-configurator-tape-neon .length-unit-tabs .nav-link.active {
+	background-color: #0d6efd;
+	color: #fff;
+	border-color: #0d6efd;
+}
+
+/* Results panel rows */
+.ill-configurator-tape-neon .result-row {
+	padding: 0.35rem 0;
+	border-bottom: 1px dotted #dee2e6;
+}
+.ill-configurator-tape-neon .result-row:last-child {
+	border-bottom: none;
+}
+.ill-configurator-tape-neon .result-label {
+	font-weight: 500;
+}
+.ill-configurator-tape-neon .result-value {
+	text-align: right;
+}
+
+/* Mounting accessory cards */
+.ill-configurator-tape-neon .mounting-card {
+	cursor: pointer;
+	transition: border-color 0.15s ease-in-out;
+}
+.ill-configurator-tape-neon .mounting-card.active {
+	border: 2px solid #007bff;
+}

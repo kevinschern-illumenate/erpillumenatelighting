@@ -2,11 +2,89 @@
 	{
 		"doctype": "Custom Field",
 		"dt": "Sales Order Item",
+		"fieldname": "ill_product_type",
+		"fieldtype": "Select",
+		"label": "Configured Product Type",
+		"options": "\nLinear Fixture\nLED Tape\nLED Neon",
+		"insert_after": "item_code",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
 		"fieldname": "ill_configured_fixture",
 		"fieldtype": "Link",
 		"label": "Configured Fixture",
 		"options": "ilL-Configured-Fixture",
-		"insert_after": "item_code",
+		"insert_after": "ill_product_type",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_configured_tape_neon",
+		"fieldtype": "Link",
+		"label": "Configured Tape/Neon",
+		"options": "ilL-Configured-Tape-Neon",
+		"insert_after": "ill_configured_fixture",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_configured_product_doctype",
+		"fieldtype": "Link",
+		"label": "Configured Product DocType",
+		"options": "DocType",
+		"insert_after": "ill_configured_tape_neon",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_configured_product",
+		"fieldtype": "Dynamic Link",
+		"label": "Configured Product",
+		"options": "ill_configured_product_doctype",
+		"insert_after": "ill_configured_product_doctype",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_configured_item",
+		"fieldtype": "Link",
+		"label": "Configured Item",
+		"options": "Item",
+		"insert_after": "ill_configured_product",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_bom",
+		"fieldtype": "Link",
+		"label": "Configured BOM",
+		"options": "BOM",
+		"insert_after": "ill_configured_item",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_configuration_json",
+		"fieldtype": "Long Text",
+		"label": "Configuration JSON",
+		"insert_after": "ill_bom",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_bom_override_json",
+		"fieldtype": "Long Text",
+		"label": "BOM Override JSON",
+		"insert_after": "ill_configuration_json",
 		"read_only": 1
 	},
 	{
@@ -15,7 +93,7 @@
 		"fieldname": "ill_template_code",
 		"fieldtype": "Data",
 		"label": "Template Code",
-		"insert_after": "ill_configured_fixture",
+		"insert_after": "ill_bom_override_json",
 		"read_only": 1
 	},
 	{
@@ -139,6 +217,16 @@
 		"label": "Configured Fixture",
 		"options": "ilL-Configured-Fixture",
 		"insert_after": "description",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Item",
+		"fieldname": "custom_ill_configured_tape_neon",
+		"fieldtype": "Link",
+		"label": "Configured Tape/Neon",
+		"options": "ilL-Configured-Tape-Neon",
+		"insert_after": "custom_ill_configured_fixture",
 		"read_only": 1
 	},
 	{
@@ -295,5 +383,165 @@
 		"label": "Section / Room",
 		"insert_after": "item_code",
 		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_product_type",
+		"fieldtype": "Select",
+		"label": "Configured Product Type",
+		"options": "\nLinear Fixture\nLED Tape\nLED Neon",
+		"insert_after": "ill_section_label",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_configured_fixture",
+		"fieldtype": "Link",
+		"label": "Configured Fixture",
+		"options": "ilL-Configured-Fixture",
+		"insert_after": "ill_product_type",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_configured_tape_neon",
+		"fieldtype": "Link",
+		"label": "Configured Tape/Neon",
+		"options": "ilL-Configured-Tape-Neon",
+		"insert_after": "ill_configured_fixture",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_configured_product_doctype",
+		"fieldtype": "Link",
+		"label": "Configured Product DocType",
+		"options": "DocType",
+		"insert_after": "ill_configured_tape_neon",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_configured_product",
+		"fieldtype": "Dynamic Link",
+		"label": "Configured Product",
+		"options": "ill_configured_product_doctype",
+		"insert_after": "ill_configured_product_doctype",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_configured_item",
+		"fieldtype": "Link",
+		"label": "Configured Item",
+		"options": "Item",
+		"insert_after": "ill_configured_product",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_bom",
+		"fieldtype": "Link",
+		"label": "Configured BOM",
+		"options": "BOM",
+		"insert_after": "ill_configured_item",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_configuration_json",
+		"fieldtype": "Long Text",
+		"label": "Configuration JSON",
+		"insert_after": "ill_bom",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_bom_override_json",
+		"fieldtype": "Long Text",
+		"label": "BOM Override JSON",
+		"insert_after": "ill_configuration_json",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_template_code",
+		"fieldtype": "Data",
+		"label": "Template Code",
+		"insert_after": "ill_bom_override_json",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_requested_length_mm",
+		"fieldtype": "Int",
+		"label": "Requested Length (mm)",
+		"insert_after": "ill_template_code",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_mfg_length_mm",
+		"fieldtype": "Int",
+		"label": "Mfg Length (mm)",
+		"insert_after": "ill_requested_length_mm",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_runs_count",
+		"fieldtype": "Int",
+		"label": "Runs Count",
+		"insert_after": "ill_mfg_length_mm",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_total_watts",
+		"fieldtype": "Float",
+		"label": "Total Watts",
+		"insert_after": "ill_runs_count",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_finish",
+		"fieldtype": "Data",
+		"label": "Finish",
+		"insert_after": "ill_total_watts",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_lens",
+		"fieldtype": "Data",
+		"label": "Lens",
+		"insert_after": "ill_finish",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_engine_version",
+		"fieldtype": "Data",
+		"label": "Engine Version",
+		"insert_after": "ill_lens",
+		"read_only": 1
 	}
 ]
