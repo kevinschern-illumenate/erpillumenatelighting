@@ -1354,6 +1354,58 @@ def _enrich_tape_neon_template_specs(product: dict, existing_labels: set) -> lis
                 "attribute_options": [],
             })
 
+    # ── Dimensions (from template.spec_sheet_dimensions) ──────
+    if "Dimensions" not in existing_labels:
+        dimensions = getattr(template, "spec_sheet_dimensions", None)
+        if dimensions:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": dimensions,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 70,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Minimum Bend Diameter (LED Neon only) ─────────────────
+    if product.get("product_type") == "LED Neon":
+        side_bend_mm = getattr(template, "minimum_side_bend_diameter_mm", None)
+        if side_bend_mm and "Minimum Side Bend Diameter" not in existing_labels:
+            formatted = format_length_inches(side_bend_mm, precision=2)
+            if formatted:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Minimum Side Bend Diameter",
+                    "spec_value": f"{formatted} ({side_bend_mm:g}mm)",
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 75,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+        top_bend_mm = getattr(template, "minimum_top_bend_diameter_mm", None)
+        if top_bend_mm and "Minimum Top Bend Diameter" not in existing_labels:
+            formatted = format_length_inches(top_bend_mm, precision=2)
+            if formatted:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Minimum Top Bend Diameter",
+                    "spec_value": f"{formatted} ({top_bend_mm:g}mm)",
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 76,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
     return specs
 
 
