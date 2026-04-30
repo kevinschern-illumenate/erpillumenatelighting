@@ -275,6 +275,14 @@
 					fieldtype: 'Link', fieldname: 'power_feed_type_code',
 					label: __('Power Feed Type'), options: 'ilL-Attribute-Power Feed Type'
 				},
+				{
+					fieldtype: 'Link', fieldname: 'endcap_style_start_code',
+					label: __('Endcap Style (Start)'), options: 'ilL-Attribute-Endcap Style', reqd: 1
+				},
+				{
+					fieldtype: 'Link', fieldname: 'endcap_style_end_code',
+					label: __('Endcap Style (End)'), options: 'ilL-Attribute-Endcap Style', reqd: 1
+				},
 				{ fieldtype: 'Section Break', label: __('Length & Feed') },
 				{
 					fieldtype: 'Check', fieldname: 'multi_segment',
@@ -430,6 +438,7 @@
 		[
 			'fixture_template_code', 'finish_code', 'lens_appearance_code',
 			'mounting_method_code', 'endcap_color_code', 'power_feed_type_code',
+			'endcap_style_start_code', 'endcap_style_end_code',
 			'environment_rating_code', 'tape_offering_id', 'dimming_protocol_code'
 		].forEach(function (k) {
 			if (values[k]) payload[k] = values[k];
