@@ -1,0 +1,15 @@
+{
+ "add_total_row": 0,
+ "columns": [],
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "module": "Accounts",
+ "name": "Sales Partner Invoice Report",
+ "ref_doctype": "Sales Invoice",
+ "report_name": "Sales Partner Invoice Report",
+ "report_type": "Script Report",
+ "roles": []
+}
