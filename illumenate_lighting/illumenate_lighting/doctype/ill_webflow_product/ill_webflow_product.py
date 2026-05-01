@@ -1809,12 +1809,19 @@ class ilLWebflowProduct(Document):
 				(6, "Length", "Length", 0),
 			]
 
-		# Preserve any user-modified is_required values before clearing the table
-		existing_is_required = {
-			int(o.option_step): int(o.is_required)
-			for o in (self.configurator_options or [])
-			if o.option_step is not None
-		}
+		# Preserve any user-modified is_required values from the database
+		existing_is_required = {}
+		if not self.is_new():
+			existing_opts = frappe.get_all(
+				"ilL-Child-Webflow-Configurator-Option",
+				filters={"parent": self.name, "parenttype": "ilL-Webflow-Product"},
+				fields=["option_step", "is_required"],
+			)
+			existing_is_required = {
+				int(opt.option_step): int(opt.is_required)
+				for opt in existing_opts
+				if opt.option_step is not None
+			}
 
 		# Clear existing and rebuild
 		self.configurator_options = []
