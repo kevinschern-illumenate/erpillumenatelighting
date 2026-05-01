@@ -3829,7 +3829,8 @@ def _create_or_update_configured_fixture(
 	include_power_supply: bool = True,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
-) -> str:
+	in_memory: bool = False,
+):
 	"""
 	Create or update an ilL-Configured-Fixture document.
 
@@ -4078,6 +4079,16 @@ def _create_or_update_configured_fixture(
 	)
 
 	# Save the document
+	if in_memory:
+		# Caller wants an unsaved, fully-populated doc (e.g. for prospective
+		# BOM preview).  Do not insert or save; just return the doc.
+		if not doc.name:
+			try:
+				doc.name = doc._generate_part_number()
+			except Exception:
+				doc.name = "PREVIEW"
+		return doc
+
 	if existing:
 		doc.save(ignore_permissions=True)
 	else:

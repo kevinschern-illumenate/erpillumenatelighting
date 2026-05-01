@@ -776,7 +776,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         )
     elif product_type in ("LED Tape", "LED Neon") and product.get("tape_neon_template"):
         additional_specs.extend(
-            _enrich_tape_neon_template_specs(product, existing_labels)
+            _enrich_tape_neon_template_specs(product, existing_labels, doc)
         )
     elif product_type == "LED Tape" and product.get("tape_spec"):
         additional_specs.extend(
@@ -1216,7 +1216,7 @@ def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
     return specs
 
 
-def _enrich_tape_neon_template_specs(product: dict, existing_labels: set) -> list:
+def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=None) -> list:
     """Add missing specs for LED Tape/Neon products linked via tape_neon_template."""
     specs = []
     try:
@@ -1332,14 +1332,21 @@ def _enrich_tape_neon_template_specs(product: dict, existing_labels: set) -> lis
     # ── Production Interval from allowed_tape_specs ───────────
     if "Production Interval" not in existing_labels:
         cut_increments = set()
-        for spec_row in template.allowed_tape_specs or []:
-            if not spec_row.tape_spec:
-                continue
-            cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cut_increment_mm")
-            if cut_mm:
-                formatted = format_length_inches(cut_mm, precision=2)
-                if formatted:
-                    cut_increments.add(formatted)
+        # Template-level override takes precedence if provided
+        template_pi = getattr(template, "production_interval_mm", None)
+        if template_pi:
+            formatted = format_length_inches(template_pi, precision=2)
+            if formatted:
+                cut_increments.add(formatted)
+        else:
+            for spec_row in template.allowed_tape_specs or []:
+                if not spec_row.tape_spec:
+                    continue
+                cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cut_increment_mm")
+                if cut_mm:
+                    formatted = format_length_inches(cut_mm, precision=2)
+                    if formatted:
+                        cut_increments.add(formatted)
         if cut_increments:
             specs.append({
                 "spec_group": "Physical",
@@ -1405,6 +1412,159 @@ def _enrich_tape_neon_template_specs(product: dict, existing_labels: set) -> lis
                     "attribute_options_json": None,
                     "attribute_options": [],
                 })
+
+    # ── Output Options (from allowed_options where option_type=Output Level) ──
+    if "Output Options" not in existing_labels:
+        output_options = []
+        seen_outputs = set()
+        for opt in template.allowed_options or []:
+            if opt.option_type != "Output Level" or not opt.is_active:
+                continue
+            ol_name = getattr(opt, "output_level", None)
+            if not ol_name or ol_name in seen_outputs:
+                continue
+            seen_outputs.add(ol_name)
+            ol_data = frappe.db.get_value(
+                "ilL-Attribute-Output Level", ol_name,
+                ["output_level_name", "value", "sku_code"],
+                as_dict=True,
+            )
+            if ol_data:
+                output_options.append({
+                    "attribute_type": "Output Level",
+                    "attribute_doctype": "ilL-Attribute-Output Level",
+                    "attribute_value": ol_name,
+                    "display_label": ol_data.get("output_level_name") or ol_name,
+                    "code": ol_data.get("sku_code") or "",
+                    "value": ol_data.get("value") or "",
+                })
+        if output_options:
+            display_values = [o["display_label"] for o in output_options]
+            specs.append({
+                "spec_group": "Performance",
+                "spec_label": "Output Options",
+                "spec_value": ", ".join(display_values),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 10,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Output Level",
+                "attribute_options_json": frappe.as_json(output_options),
+                "attribute_options": output_options,
+            })
+
+    # ── Watts per Foot (range from allowed tape specs) ────────
+    if "Watts per Foot" not in existing_labels:
+        wpf_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            wpf = frappe.db.get_value(
+                "ilL-Spec-LED Tape", spec_row.tape_spec, "watts_per_foot"
+            )
+            if wpf:
+                wpf_values.add(float(wpf))
+        if wpf_values:
+            sorted_vals = sorted(wpf_values)
+            if len(sorted_vals) == 1:
+                wpf_str = f"{sorted_vals[0]:g}"
+            else:
+                wpf_str = f"{sorted_vals[0]:g} - {sorted_vals[-1]:g}"
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Watts per Foot",
+                "spec_value": wpf_str,
+                "spec_unit": "W/ft",
+                "is_calculated": 1,
+                "display_order": 30,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Max Run Length (from allowed tape specs) ──────────────
+    if "Max Run Length" not in existing_labels:
+        run_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            mr = frappe.db.get_value(
+                "ilL-Spec-LED Tape", spec_row.tape_spec, "voltage_drop_max_run_length_ft"
+            )
+            if mr:
+                run_values.add(float(mr))
+        if run_values:
+            sorted_vals = sorted(run_values)
+            if len(sorted_vals) == 1:
+                run_str = f"{sorted_vals[0]:g}"
+            else:
+                run_str = f"{sorted_vals[0]:g} - {sorted_vals[-1]:g}"
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Max Run Length",
+                "spec_value": run_str,
+                "spec_unit": "ft",
+                "is_calculated": 1,
+                "display_order": 40,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Operating Temperature / L70 / Warranty (from product) ─
+    if doc is not None:
+        if (
+            "Operating Temperature" not in existing_labels
+            and getattr(doc, "operating_temp_min_c", None) is not None
+            and getattr(doc, "operating_temp_max_c", None) is not None
+        ):
+            c_min = doc.operating_temp_min_c
+            c_max = doc.operating_temp_max_c
+            f_min = round(c_min * 9 / 5 + 32)
+            f_max = round(c_max * 9 / 5 + 32)
+            specs.append({
+                "spec_group": "Environmental",
+                "spec_label": "Operating Temperature",
+                "spec_value": f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)",
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 80,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+        if "L70 Life" not in existing_labels and getattr(doc, "l70_life_hours", None):
+            specs.append({
+                "spec_group": "Performance",
+                "spec_label": "L70 Life",
+                "spec_value": f"{doc.l70_life_hours:,}",
+                "spec_unit": "hrs",
+                "is_calculated": 1,
+                "display_order": 82,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+        if "Warranty" not in existing_labels and getattr(doc, "warranty_years", None):
+            yrs = doc.warranty_years
+            specs.append({
+                "spec_group": "Performance",
+                "spec_label": "Warranty",
+                "spec_value": f"{yrs} year{'s' if yrs != 1 else ''}",
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 84,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
 
     return specs
 
