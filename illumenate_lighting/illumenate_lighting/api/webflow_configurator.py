@@ -33,7 +33,7 @@ CONFIGURATOR_STEPS = [
     {"step": 4, "name": "output_level", "label": "Output", "required": True, "locked": False, "depends_on": ["series", "environment_rating", "cct", "lens_appearance"]},
     {"step": 5, "name": "mounting_method", "label": "Mounting", "required": True, "locked": False, "depends_on": []},
     {"step": 6, "name": "finish", "label": "Finish", "required": True, "locked": False, "depends_on": []},
-    {"step": 7, "name": "length", "label": "Length", "required": True, "locked": False, "depends_on": []},
+    {"step": 7, "name": "length", "label": "Length", "required": False, "locked": False, "depends_on": []},
     {"step": 8, "name": "start_feed_direction", "label": "Start Feed Direction", "required": True, "locked": False, "depends_on": []},
     {"step": 9, "name": "start_feed_length", "label": "Start Feed Length", "required": True, "locked": False, "depends_on": ["start_feed_direction"]},
     {"step": 10, "name": "end_feed_direction", "label": "End Feed Direction", "required": True, "locked": False, "depends_on": []},
@@ -330,7 +330,7 @@ def validate_configuration(
     # Validate required fields
     required_fields = [
         "environment_rating", "cct", "output_level", "lens_appearance",
-        "mounting_method", "finish", "length_inches",
+        "mounting_method", "finish",
         "start_feed_direction", "start_feed_length_ft",
         "end_feed_direction", "end_feed_length_ft"
     ]
@@ -344,20 +344,21 @@ def validate_configuration(
             "missing_fields": missing
         }
     
-    # Validate length
-    length_inches = float(selections_dict.get("length_inches", 0))
-    min_length_mm = getattr(product, 'min_length_mm', None)
-    max_length_mm = getattr(product, 'max_length_mm', None)
-    min_len = min_length_mm / 25.4 if min_length_mm else 12
-    max_len = max_length_mm / 25.4 if max_length_mm else 120
-    
-    if length_inches < min_len or length_inches > max_len:
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": f"Length must be between {min_len:.0f} and {max_len:.0f} inches",
-            "field": "length_inches"
-        }
+    # Validate length only if provided
+    length_inches_raw = selections_dict.get("length_inches")
+    if length_inches_raw not in (None, ""):
+        length_inches = float(length_inches_raw)
+        min_length_mm = getattr(product, 'min_length_mm', None)
+        max_length_mm = getattr(product, 'max_length_mm', None)
+        min_len = min_length_mm / 25.4 if min_length_mm else 12
+        max_len = max_length_mm / 25.4 if max_length_mm else 120
+        if length_inches < min_len or length_inches > max_len:
+            return {
+                "success": False,
+                "is_valid": False,
+                "error": f"Length must be between {min_len:.0f} and {max_len:.0f} inches",
+                "field": "length_inches"
+            }
     
     # Validate tape offering exists for combination
     compatibility = _validate_option_compatibility(template, selections_dict)
