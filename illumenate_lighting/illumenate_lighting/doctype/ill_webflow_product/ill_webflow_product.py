@@ -1784,6 +1784,9 @@ class ilLWebflowProduct(Document):
 
 		Mounting selection (PCB Mounting for tape, Mounting Method for neon) has been
 		moved to a post-configuration mounting accessory step.
+
+		User-overridden is_required values are preserved across saves so that, for
+		example, Feed Direction can be marked as optional by unchecking the checkbox.
 		"""
 		template = frappe.get_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
 
@@ -1806,17 +1809,26 @@ class ilLWebflowProduct(Document):
 				(6, "Length", "Length", 0),
 			]
 
+		# Preserve any user-modified is_required values before clearing the table
+		existing_is_required = {
+			int(o.option_step): int(o.is_required)
+			for o in (self.configurator_options or [])
+			if o.option_step is not None
+		}
+
 		# Clear existing and rebuild
 		self.configurator_options = []
 
 		for step, option_type, label, depends_on in option_flow:
 			allowed_values = self._get_tape_neon_allowed_values(template, option_type)
 			if allowed_values:
+				# Use the previously saved is_required value if present; default to 1
+				is_required = existing_is_required.get(step, 1)
 				self.append("configurator_options", {
 					"option_step": step,
 					"option_type": option_type,
 					"option_label": label,
-					"is_required": 1,
+					"is_required": is_required,
 					"depends_on_step": depends_on,
 					"allowed_values_json": frappe.as_json(allowed_values),
 				})
