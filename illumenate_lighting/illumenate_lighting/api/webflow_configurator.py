@@ -34,10 +34,10 @@ CONFIGURATOR_STEPS = [
     {"step": 5, "name": "mounting_method", "label": "Mounting", "required": True, "locked": False, "depends_on": []},
     {"step": 6, "name": "finish", "label": "Finish", "required": True, "locked": False, "depends_on": []},
     {"step": 7, "name": "length", "label": "Length", "required": False, "locked": False, "depends_on": []},
-    {"step": 8, "name": "start_feed_direction", "label": "Start Feed Direction", "required": True, "locked": False, "depends_on": []},
-    {"step": 9, "name": "start_feed_length", "label": "Start Feed Length", "required": True, "locked": False, "depends_on": ["start_feed_direction"]},
-    {"step": 10, "name": "end_feed_direction", "label": "End Feed Direction", "required": True, "locked": False, "depends_on": []},
-    {"step": 11, "name": "end_feed_length", "label": "End Feed Length", "required": True, "locked": False, "depends_on": ["end_feed_direction"]},
+    {"step": 8, "name": "start_feed_direction", "label": "Start Feed Direction", "required": False, "locked": False, "depends_on": []},
+    {"step": 9, "name": "start_feed_length", "label": "Start Feed Length", "required": False, "locked": False, "depends_on": ["start_feed_direction"]},
+    {"step": 10, "name": "end_feed_direction", "label": "End Feed Direction", "required": False, "locked": False, "depends_on": []},
+    {"step": 11, "name": "end_feed_length", "label": "End Feed Length", "required": False, "locked": False, "depends_on": ["end_feed_direction"]},
 ]
 
 # Standard leader cable lengths in feet
@@ -327,14 +327,16 @@ def validate_configuration(
     template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
     series_info = _get_series_info(template)
     
-    # Validate required fields
+    # Validate required fields.  Length and feed start/end are now optional
+    # for linear fixtures — the part number renders "xx" for missing length
+    # and omits the feed suffix entirely when feed direction/length are not
+    # provided.  Mounting Method remains required for linear fixtures (only
+    # tape/neon dropped mounting from their part numbers).
     required_fields = [
         "environment_rating", "cct", "output_level", "lens_appearance",
         "mounting_method", "finish",
-        "start_feed_direction", "start_feed_length_ft",
-        "end_feed_direction", "end_feed_length_ft"
     ]
-    
+
     missing = [f for f in required_fields if not selections_dict.get(f)]
     if missing:
         return {
@@ -1293,24 +1295,28 @@ def _generate_part_number_preview(series_info: dict, selections: dict) -> dict:
     # Build main part number (without length/feed suffix for preview)
     main_codes = [s["code"] for s in segments]
     main_pn = "-".join(main_codes)
-    
-    # Add length and feed suffix if provided
+
+    # Add length and feed suffix.  Length always renders (with "xx" when not
+    # provided) so the placeholder is visible to the user.  Feed suffix is
+    # omitted entirely when no feed direction/length has been supplied.
     suffix_parts = []
-    
+
     if selections.get("length_inches"):
         suffix_parts.append(f"{float(selections['length_inches']):.0f}")
-    
+    else:
+        suffix_parts.append("xx")
+
     if selections.get("start_feed_direction") and selections.get("start_feed_length_ft"):
         start_dir_code = _get_feed_direction_code(selections["start_feed_direction"])
         suffix_parts.append(f"{start_dir_code}{selections['start_feed_length_ft']}")
-    
+
     if selections.get("end_feed_direction"):
         if selections["end_feed_direction"] == "Endcap":
             suffix_parts.append("CAP")
         elif selections.get("end_feed_length_ft"):
             end_dir_code = _get_feed_direction_code(selections["end_feed_direction"])
             suffix_parts.append(f"{end_dir_code}{selections['end_feed_length_ft']}")
-    
+
     if suffix_parts:
         main_pn += "-" + "-".join(suffix_parts)
     
