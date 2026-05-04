@@ -630,8 +630,13 @@ def validate_tape_configuration(
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
     if not _skip_record_creation:
         try:
+            template_for_record = None
+            if tape_neon_template:
+                template_for_record = frappe.get_doc(
+                    "ilL-Tape-Neon-Template", tape_neon_template
+                )
             configured_name = _create_or_reuse_configured_tape_neon(
-                None, return_result, is_neon=False,
+                template_for_record, return_result, is_neon=False,
                 parent_configured_tape_neon=parent_configured_tape_neon,
                 variant_origin=variant_origin,
             )
@@ -1039,8 +1044,16 @@ def validate_neon_configuration(
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
     if not _skip_record_creation:
         try:
+            # Resolve the tape_neon_template name to a doc when provided so
+            # _create_or_reuse_configured_tape_neon can populate the
+            # required tape_neon_template link field on the configured record.
+            template_for_record = None
+            if tape_neon_template:
+                template_for_record = frappe.get_doc(
+                    "ilL-Tape-Neon-Template", tape_neon_template
+                )
             configured_name = _create_or_reuse_configured_tape_neon(
-                None, return_result, is_neon=True,
+                template_for_record, return_result, is_neon=True,
                 parent_configured_tape_neon=parent_configured_tape_neon,
                 variant_origin=variant_origin,
             )

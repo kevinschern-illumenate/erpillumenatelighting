@@ -693,6 +693,37 @@ def generate_from_webflow_selections_neon(
     # ── Step 2: Map Webflow selections to neon configurator params ────
     neon_selections, neon_segments = _map_neon_selections(template, selections)
 
+    # Sanity-check: each top-level attribute must resolve to an existing
+    # ERPNext document.  When the Webflow page has a misaligned data-step
+    # (e.g. a Finish card sending its label into the output_level slot) we
+    # would otherwise pass a bogus value like "White" straight into the
+    # offering search and surface a confusing "no offering found" error.
+    _attribute_doctypes = {
+        "cct": "ilL-Attribute-CCT",
+        "output_level": "ilL-Attribute-Output Level",
+        "finish": "ilL-Attribute-Finish",
+    }
+    for field, doctype in _attribute_doctypes.items():
+        value = neon_selections.get(field)
+        if not value:
+            continue
+        if not frappe.db.exists(doctype, value):
+            raw = selections.get(field)
+            code = selections.get(f"{field}_code")
+            return {
+                "success": False,
+                "error": (
+                    f"The value sent for '{field}' ('{value}') is not a valid "
+                    f"{doctype.replace('ilL-Attribute-', '')}. The Webflow card "
+                    f"for this step appears to be sending the wrong selection "
+                    f"(received raw='{raw}', code='{code}'). Please check that "
+                    f"the .config-card with data-step matching '{field}' on "
+                    f"the LED Neon page is bound to the correct CMS field and "
+                    f"that each radio's data-label matches the ERPNext "
+                    f"attribute name."
+                ),
+            }
+
     # ── Step 3: Run validate_neon_configuration ───────────────────────
     from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
         validate_neon_configuration,
@@ -701,6 +732,7 @@ def generate_from_webflow_selections_neon(
     validation_result = validate_neon_configuration(
         selections=json.dumps(neon_selections),
         segments_json=json.dumps(neon_segments),
+        tape_neon_template=tape_neon_template_name,
     )
 
     if not validation_result.get("is_valid"):
@@ -716,9 +748,22 @@ def generate_from_webflow_selections_neon(
 
     configured_tape_neon_id = validation_result.get("configured_tape_neon")
     if not configured_tape_neon_id:
+        # Surface any warning the validator captured while trying to insert
+        # the ilL-Configured-Tape-Neon record so the caller sees the real
+        # underlying failure (e.g. a missing required field) instead of a
+        # generic "could not create" message.
+        warning_msgs = [
+            m.get("text", "")
+            for m in validation_result.get("messages", [])
+            if m.get("severity") == "warning" and "configured record" in m.get("text", "").lower()
+        ]
+        detail = "; ".join(w for w in warning_msgs if w)
+        error_text = "Could not create configured tape/neon record for this configuration"
+        if detail:
+            error_text = f"{error_text}: {detail}"
         return {
             "success": False,
-            "error": "Could not create configured tape/neon record for this configuration",
+            "error": error_text,
         }
 
     # ── Step 4: Check for submittal template and field mappings ───────
