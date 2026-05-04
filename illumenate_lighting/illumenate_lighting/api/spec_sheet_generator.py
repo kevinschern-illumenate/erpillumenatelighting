@@ -895,7 +895,9 @@ def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
     if not ip_rating:
         ip_rating = "IP67"
 
-    # Feed directions
+    # Feed directions (optional).  When the Webflow form no longer collects
+    # feed start/end, leave these blank so the part number omits the feed
+    # segment entirely instead of synthesising a default.
     start_feed_direction = selections.get("start_feed_direction", "")
     if start_feed_direction:
         resolved = _resolve_neon_attribute(
@@ -905,11 +907,6 @@ def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
         )
         if resolved:
             start_feed_direction = resolved
-
-    if not start_feed_direction:
-        start_feed_direction = _get_default_option(
-            template, "Feed Direction", "feed_direction"
-        ) or "End"
 
     end_feed_direction = selections.get("end_feed_direction", "")
     if end_feed_direction:

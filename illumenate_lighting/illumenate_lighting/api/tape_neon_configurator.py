@@ -444,11 +444,12 @@ def validate_tape_configuration(
     messages = []
 
     # ── Required fields ───────────────────────────────────────────────
-    # Check string fields for presence (non-empty); check numeric fields separately
-    required_str = ["cct", "output_level", "feed_type"]
+    # Only CCT and Output Level are required to build a part number.
+    # Length, feed_type, and lead_length_inches are now optional — the
+    # part number gracefully falls back to an "xx" length placeholder and
+    # omits the feed segment entirely when the user has not provided them.
+    required_str = ["cct", "output_level"]
     missing = [f for f in required_str if not sel.get(f)]
-    if sel.get("lead_length_inches") is None or sel.get("lead_length_inches") == "":
-        missing.append("lead_length_inches")
     if missing:
         logger.warning(f"validate_tape: Missing required fields: {missing}")
         return {
@@ -458,24 +459,20 @@ def validate_tape_configuration(
             "missing_fields": missing,
         }
 
-    # ── Parse requested tape length ───────────────────────────────────
+    # ── Parse requested tape length (optional) ────────────────────────
     requested_length_mm = _parse_tape_length(sel)
     logger.info(f"validate_tape: parsed tape length = {requested_length_mm} mm")
     if requested_length_mm is None or requested_length_mm <= 0:
-        logger.warning(f"validate_tape: Invalid tape length: {requested_length_mm}")
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": "Invalid tape length. Please enter a positive length.",
-        }
+        # Length is optional; treat missing/zero as "not specified".
+        requested_length_mm = 0
 
-    lead_length_inches = float(sel.get("lead_length_inches", 0))
-    if lead_length_inches <= 0:
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": "Lead length must be a positive number.",
-        }
+    # Lead length is optional; default to 0 (no leader cable).
+    try:
+        lead_length_inches = float(sel.get("lead_length_inches") or 0)
+    except (TypeError, ValueError):
+        lead_length_inches = 0.0
+    if lead_length_inches < 0:
+        lead_length_inches = 0.0
 
     # ── Find matching tape offering ───────────────────────────────────
     # Mounting fields (pcb_mounting/pcb_finish) removed from selections.
@@ -529,7 +526,10 @@ def validate_tape_configuration(
     is_free_cutting = tape_spec.is_free_cutting
     cut_increment_mm = tape_spec.cut_increment_mm or 0
 
-    if is_free_cutting or cut_increment_mm <= 0:
+    if requested_length_mm <= 0:
+        # Length not specified — skip cut-increment math and emit zero.
+        manufacturable_length_mm = 0
+    elif is_free_cutting or cut_increment_mm <= 0:
         manufacturable_length_mm = requested_length_mm
     else:
         # Snap to nearest cut increment
@@ -881,11 +881,12 @@ def validate_neon_configuration(
     for idx, seg in enumerate(segments):
         seg_num = idx + 1
 
-        # Validate required segment fields
-        seg_required = ["ip_rating", "start_feed_direction", "start_lead_length_inches"]
-        # end_feed fields only required when end_type is Jumper (not Endcap)
-        if seg.get("end_type", "Endcap") != "Endcap":
-            seg_required += ["end_feed_direction", "end_feed_length_inches"]
+        # Validate required segment fields.
+        # Only ip_rating is required per segment.  Feed start/end direction,
+        # lead lengths, and fixture length are all optional — the part number
+        # falls back to "xx" for length and omits the feed segment when those
+        # fields are not supplied.
+        seg_required = ["ip_rating"]
         seg_missing = [f for f in seg_required if not seg.get(f) and seg.get(f) != 0]
         if seg_missing:
             return {
@@ -894,17 +895,15 @@ def validate_neon_configuration(
                 "error": f"Segment {seg_num}: Missing fields: {', '.join(seg_missing)}",
             }
 
-        # Parse fixture length
+        # Parse fixture length (optional)
         fixture_length_mm = _parse_neon_fixture_length(seg)
         if fixture_length_mm is None or fixture_length_mm <= 0:
-            return {
-                "success": False,
-                "is_valid": False,
-                "error": f"Segment {seg_num}: Invalid fixture length.",
-            }
+            fixture_length_mm = 0
 
         # Compute manufacturable length
-        if is_free_cutting or cut_increment_mm <= 0:
+        if fixture_length_mm <= 0:
+            mfg_length_mm = 0
+        elif is_free_cutting or cut_increment_mm <= 0:
             mfg_length_mm = fixture_length_mm
         else:
             increments = math.floor(fixture_length_mm / cut_increment_mm)
@@ -3011,41 +3010,53 @@ def _build_tape_part_number(sel: dict, tape_spec, tape_offering, manufacturable_
     """
     Build LED Tape part number.
 
-    Format: {tape_spec_name}-{length_inches}-{feed_type_code}{leader_cable_ft}-C
+    Format: {tape_spec_name}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
 
     Uses the tape spec ID as the base, then appends the total manufacturable
-    length in inches, followed by the feed direction code with leader cable
-    length in feet, and "C" for endcapped (tape is always single-segment/endcapped).
+    length in inches (or "xx" when the length is not yet specified), followed
+    by an optional feed segment (feed-type code + leader cable length in feet)
+    and "C" for endcapped (tape is always single-segment/endcapped).
+
+    The feed segment is omitted entirely when neither a feed_type nor a
+    non-zero lead_length_inches is supplied.
     """
     parts = [tape_spec.name]
 
-    # Total length in inches (manufacturable)
+    # Total length in inches (manufacturable) — "xx" when not specified.
     if manufacturable_length_mm:
         length_in = manufacturable_length_mm / MM_PER_INCH
     else:
         tape_len_mm = _parse_tape_length(sel)
         length_in = (tape_len_mm / MM_PER_INCH) if tape_len_mm else 0
-    # Format: remove .0 if whole number, otherwise 1 decimal
-    if length_in == int(length_in):
-        length_str = str(int(length_in))
+    if length_in and length_in > 0:
+        # Format: remove .0 if whole number, otherwise 1 decimal
+        if length_in == int(length_in):
+            length_str = str(int(length_in))
+        else:
+            length_str = f"{length_in:.1f}"
     else:
-        length_str = f"{length_in:.1f}"
+        length_str = "xx"
     parts.append(length_str)
 
-    # Feed direction code + leader cable length in feet
-    feed_type_code = ""
+    # Feed direction code + leader cable length in feet (optional segment).
     feed_type = sel.get("feed_type", "")
-    if feed_type:
-        feed_type_code = _get_code("ilL-Attribute-Power Feed Type", feed_type)
+    try:
+        lead_length_in = float(sel.get("lead_length_inches") or 0)
+    except (TypeError, ValueError):
+        lead_length_in = 0.0
 
-    lead_length_in = float(sel.get("lead_length_inches", 0))
-    cable_length_ft = lead_length_in / INCHES_PER_FOOT
-    if cable_length_ft == int(cable_length_ft):
-        cable_length_str = str(int(cable_length_ft))
-    else:
-        cable_length_str = f"{cable_length_ft:.1f}"
+    if feed_type or lead_length_in > 0:
+        feed_type_code = ""
+        if feed_type:
+            feed_type_code = _get_code("ilL-Attribute-Power Feed Type", feed_type)
 
-    parts.append(f"{feed_type_code}{cable_length_str}")
+        cable_length_ft = lead_length_in / INCHES_PER_FOOT
+        if cable_length_ft == int(cable_length_ft):
+            cable_length_str = str(int(cable_length_ft))
+        else:
+            cable_length_str = f"{cable_length_ft:.1f}"
+
+        parts.append(f"{feed_type_code}{cable_length_str}")
 
     # Endcapped
     parts.append("C")
@@ -3097,30 +3108,42 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
 
     parts = [tape_spec.name]
 
-    # Total manufacturable length in inches (sum of all segments)
+    # Total manufacturable length in inches (sum of all segments).
+    # When no length has been provided yet, fall back to "xx".
     total_mfg_in = sum(s.get("manufacturable_length_in", 0) for s in segments)
-    if total_mfg_in == int(total_mfg_in):
-        length_str = str(int(total_mfg_in))
+    if total_mfg_in and total_mfg_in > 0:
+        if total_mfg_in == int(total_mfg_in):
+            length_str = str(int(total_mfg_in))
+        else:
+            length_str = f"{total_mfg_in:.1f}"
     else:
-        length_str = f"{total_mfg_in:.1f}"
+        length_str = "xx"
     parts.append(length_str)
 
     if len(segments) == 1:
-        # Single segment → endcapped: {feed_dir_code}{leader_ft}-C
+        # Single segment → endcapped.  Feed segment is optional: omit it
+        # entirely when neither feed direction nor a non-zero leader length
+        # has been supplied.
         seg = segments[0]
         feed_dir = seg.get("start_feed_direction", "")
-        feed_dir_code = ""
-        if feed_dir:
-            feed_dir_code = _get_feed_direction_code(feed_dir)
+        try:
+            lead_in = float(seg.get("start_lead_length_inches") or 0)
+        except (TypeError, ValueError):
+            lead_in = 0.0
 
-        lead_in = float(seg.get("start_lead_length_inches", 0))
-        cable_ft = lead_in / INCHES_PER_FOOT
-        if cable_ft == int(cable_ft):
-            cable_str = str(int(cable_ft))
-        else:
-            cable_str = f"{cable_ft:.1f}"
+        if feed_dir or lead_in > 0:
+            feed_dir_code = ""
+            if feed_dir:
+                feed_dir_code = _get_feed_direction_code(feed_dir)
 
-        parts.append(f"{feed_dir_code}{cable_str}")
+            cable_ft = lead_in / INCHES_PER_FOOT
+            if cable_ft == int(cable_ft):
+                cable_str = str(int(cable_ft))
+            else:
+                cable_str = f"{cable_ft:.1f}"
+
+            parts.append(f"{feed_dir_code}{cable_str}")
+
         parts.append("C")
     else:
         # Multi-segment → jumpered: J({hash})
