@@ -980,15 +980,23 @@ def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
         except (ValueError, TypeError):
             pass
 
+    # Map exit selection to the child doctype's allowed end_type values
+    # (Endcap | Jumper).  An empty exit direction OR an explicit "Endcap"
+    # selection means there is no jumper/exit cable on that side; any other
+    # feed-direction value (Side, Top, etc.) means a jumper is required.
+    end_dir_norm = str(end_feed_direction or "").strip().lower()
+    is_end_endcap = (not end_feed_direction) or end_dir_norm == "endcap"
+    end_type_value = "Endcap" if is_end_endcap else "Jumper"
+
     segment = {
         "ip_rating": ip_rating,
         "start_feed_direction": start_feed_direction,
         "start_lead_length_inches": start_lead_length_inches,
         "fixture_length_value": fixture_length_value,
         "fixture_length_unit": "in",
-        "end_type": "Exit Cable" if end_feed_direction else "Endcap",
-        "end_feed_direction": end_feed_direction or "",
-        "end_feed_length_inches": end_feed_length_inches,
+        "end_type": end_type_value,
+        "end_feed_direction": "" if is_end_endcap else end_feed_direction,
+        "end_feed_length_inches": 0 if is_end_endcap else end_feed_length_inches,
     }
 
     return neon_selections, [segment]
