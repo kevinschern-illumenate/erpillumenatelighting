@@ -109,7 +109,7 @@
                        "fieldname":  "transformation",
                        "fieldtype":  "Select",
                        "label":  "Transformation",
-                       "options":  "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT"
+                       "options":  "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT\nMAX_FOOTAGE_100W"
                    },
                    {
                        "collapsible":  1,
