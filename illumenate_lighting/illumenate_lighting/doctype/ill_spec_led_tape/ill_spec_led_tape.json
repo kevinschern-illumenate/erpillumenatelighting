@@ -18,6 +18,7 @@
                         "input_voltage",
                         "watts_per_foot",
                         "voltage_drop_max_run_length_ft",
+                        "operating_temp",
                         "input_protocol",
                         "optical_section",
                         "lumens_per_foot",
@@ -93,6 +94,12 @@
                        "fieldname":  "voltage_drop_max_run_length_ft",
                        "fieldtype":  "Float",
                        "label":  "Voltage Drop Max Run Length (ft)"
+                   },
+                   {
+                       "description":  "Operating temperature range (e.g. -40°C to +85°C)",
+                       "fieldname":  "operating_temp",
+                       "fieldtype":  "Data",
+                       "label":  "Operating Temperature"
                    },
                    {
                        "fieldname":  "input_protocol",

@@ -97,6 +97,16 @@ def _apply_transformation(value: Any, transformation: str | None) -> str:
 		except (ValueError, TypeError):
 			return str(value)
 
+	if transformation == "MAX_FOOTAGE_100W":
+		# 80W / (W/ft) = max footage at 80% derating of a 100W supply
+		try:
+			watts = float(value)
+			if not watts:
+				return ""
+			return str(round(80.0 / watts, 1))
+		except (ValueError, TypeError):
+			return str(value)
+
 	return str(value)
 
 

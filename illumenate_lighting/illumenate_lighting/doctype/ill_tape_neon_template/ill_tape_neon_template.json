@@ -31,6 +31,7 @@
         "production_interval_mm",
         "is_free_cutting",
         "certifications",
+        "warranty_years",
         "defaults_section",
         "default_tape_spec",
         "column_break_defaults",
@@ -199,6 +200,12 @@
             "fieldtype": "Table",
             "label": "Certifications",
             "options": "ilL-Child-Spec-Certification"
+        },
+        {
+            "description": "Product warranty duration in years",
+            "fieldname": "warranty_years",
+            "fieldtype": "Int",
+            "label": "Warranty (years)"
         },
         {
             "fieldname": "defaults_section",
