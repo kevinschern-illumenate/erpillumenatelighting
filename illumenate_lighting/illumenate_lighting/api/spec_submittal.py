@@ -1430,6 +1430,22 @@ def _get_neon_source_value(
 	try:
 		if source_doctype == "ilL-Configured-Tape-Neon" and configured_tape_neon:
 			val = getattr(configured_tape_neon, source_field, None)
+			# For neon products, several user-facing fields (start/end feed
+			# direction, lead/cable lengths, ip_rating, end_type) live on the
+			# first segment row rather than the parent doc.  When the parent
+			# doesn't expose the field directly, fall back to segment #1 so
+			# existing PDF mappings keep working without per-template changes.
+			if val in (None, "") and getattr(configured_tape_neon, "segments", None):
+				first_seg = None
+				for seg in configured_tape_neon.segments:
+					if (seg.segment_index or 0) == 1:
+						first_seg = seg
+						break
+				if first_seg is None:
+					first_seg = configured_tape_neon.segments[0]
+				seg_val = getattr(first_seg, source_field, None)
+				if seg_val not in (None, ""):
+					val = seg_val
 			_debug(
 				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
 				f"(doc={configured_tape_neon.name})",

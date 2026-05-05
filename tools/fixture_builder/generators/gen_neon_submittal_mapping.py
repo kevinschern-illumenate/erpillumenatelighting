@@ -30,7 +30,6 @@ HEADERS = [
 
 # Default mapping rows for tape/neon submittal PDFs
 DEFAULT_MAPPINGS = [
-    ("form", "ilL-Configured-Tape-Neon", "part_number", "", "", "", "", "", "", ""),
     ("cctcode", "ilL-Configured-Tape-Neon", "sku_cct_code", "", "", "", "", "", "", ""),
     ("outputcode", "ilL-Configured-Tape-Neon", "sku_output_code", "", "", "", "", "", "", ""),
     ("length", "ilL-Configured-Tape-Neon", "requested_length_mm", "", "", "MM_TO_INCHES", "", "", "", ""),
@@ -52,6 +51,13 @@ DEFAULT_MAPPINGS = [
     ("finish", "ilL-Configured-Tape-Neon", "finish", "", "", "", "", "", "", ""),
     ("feedtype", "ilL-Configured-Tape-Neon", "feed_type", "", "", "", "", "", "", ""),
     ("feeddir", "ilL-Configured-Tape-Neon", "feed_direction", "", "", "", "", "", "", ""),
+    # Start/End feed direction & length — sourced from segment #1 when not on
+    # the parent (handled by _get_neon_source_value fallback).  Webflow flow
+    # also forwards these as overrides so the PDF reflects user input.
+    ("starttype", "ilL-Configured-Tape-Neon", "start_feed_direction", "", "", "", "start_feed_direction", "", "", ""),
+    ("startlength", "ilL-Configured-Tape-Neon", "start_lead_length_inches", "", "", "", "start_feed_length_ft", "", "", ""),
+    ("endtype", "ilL-Configured-Tape-Neon", "end_feed_direction", "", "", "", "end_feed_direction", "", "", ""),
+    ("endlength", "ilL-Configured-Tape-Neon", "end_cable_length_inches", "", "", "", "end_feed_length_ft", "", "", ""),
     ("fixture_type", "ilL-Child-Fixture-Schedule-Line", "line_id", "", "", "", "", "", "", ""),
     ("project_name", "ilL-Project", "project_name", "", "", "", "project_name", "", "", ""),
     ("project_location", "ilL-Project", "location", "", "", "", "project_location", "", "", ""),
