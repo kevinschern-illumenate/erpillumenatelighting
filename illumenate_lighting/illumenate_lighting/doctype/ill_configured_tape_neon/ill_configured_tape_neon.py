@@ -24,8 +24,106 @@ class ilLConfiguredTapeNeon(Document):
 		if not self.config_hash:
 			self.config_hash = self._compute_config_hash()
 
+	def before_save(self):
+		"""Populate SKU code fields from the linked attribute records."""
+		self._populate_sku_codes()
+
 	def validate(self):
 		self._ensure_config_hash()
+
+	def _populate_sku_codes(self):
+		"""
+		Pull SKU codes from the linked attribute / template / offering records
+		so that downstream consumers (PDF submittal mapping, Webflow exports)
+		can read them off the configured doc directly.
+
+		Mirrors ilLConfiguredFixture._populate_sku_codes() but only covers the
+		sku_* fields that exist on ilL-Configured-Tape-Neon.
+		"""
+		# Series Code — from the tape/neon template's default profile family
+		# when present (otherwise leave blank — neon templates do not always
+		# carry a series code).
+		series_code = ""
+		if self.tape_neon_template:
+			series_code = (
+				frappe.db.get_value(
+					"ilL-Tape-Neon-Template", self.tape_neon_template,
+					"default_profile_family"
+				) or ""
+			)
+		self.sku_series_code = series_code
+
+		# LED Package Code — tape_offering → led_package → code
+		led_package_code = ""
+		if self.tape_offering:
+			led_package_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "led_package"
+			)
+			if led_package_name:
+				led_package_code = frappe.db.get_value(
+					"ilL-Attribute-LED Package", led_package_name, "code"
+				) or ""
+		self.sku_led_package_code = led_package_code
+
+		# CCT Code — prefer the configured doc's own cct link, fall back to
+		# the linked tape_offering's cct.
+		cct_code = ""
+		cct_name = self.cct
+		if not cct_name and self.tape_offering:
+			cct_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "cct"
+			)
+		if cct_name:
+			cct_code = frappe.db.get_value(
+				"ilL-Attribute-CCT", cct_name, "code"
+			) or ""
+		self.sku_cct_code = cct_code
+
+		# Output Code — output_level uses sku_code (not "code") on its
+		# attribute doctype, matching ilL-Configured-Fixture.sku_tape_output_code.
+		output_code = ""
+		output_level_name = self.output_level
+		if not output_level_name and self.tape_offering:
+			output_level_name = frappe.db.get_value(
+				"ilL-Rel-Tape Offering", self.tape_offering, "output_level"
+			)
+		if output_level_name:
+			output_code = frappe.db.get_value(
+				"ilL-Attribute-Output Level", output_level_name, "sku_code"
+			) or ""
+		self.sku_output_code = output_code
+
+		# Environment Code — environment_rating → code
+		env_code = ""
+		if self.environment_rating:
+			env_code = frappe.db.get_value(
+				"ilL-Attribute-Environment Rating", self.environment_rating, "code"
+			) or ""
+		self.sku_environment_code = env_code
+
+		# PCB Mounting Code — pcb_mounting → code
+		pcb_mounting_code = ""
+		if getattr(self, "pcb_mounting", None):
+			pcb_mounting_code = frappe.db.get_value(
+				"ilL-Attribute-PCB Mounting", self.pcb_mounting, "code"
+			) or ""
+		self.sku_pcb_mounting_code = pcb_mounting_code
+
+		# PCB Finish Code — pcb_finish → code (uses the Finish attribute)
+		pcb_finish_code = ""
+		if getattr(self, "pcb_finish", None):
+			pcb_finish_code = frappe.db.get_value(
+				"ilL-Attribute-Finish", self.pcb_finish, "code"
+			) or ""
+		self.sku_pcb_finish_code = pcb_finish_code
+
+		# Feed Type Code — feed_type → code
+		feed_type_code = ""
+		if self.feed_type:
+			feed_type_code = frappe.db.get_value(
+				"ilL-Attribute-Power Feed Type", self.feed_type, "code"
+			) or ""
+		self.sku_feed_type_code = feed_type_code
 
 	def _ensure_config_hash(self):
 		if not self.config_hash:
