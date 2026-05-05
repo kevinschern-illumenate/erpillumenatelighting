@@ -40,15 +40,14 @@ class ilLConfiguredTapeNeon(Document):
 		Mirrors ilLConfiguredFixture._populate_sku_codes() but only covers the
 		sku_* fields that exist on ilL-Configured-Tape-Neon.
 		"""
-		# Series Code — from the tape/neon template's default profile family
-		# when present (otherwise leave blank — neon templates do not always
-		# carry a series code).
+		# Series Code — pulled from the tape/neon template's series field.
+		# (Tape/Neon templates use `series` rather than the fixture template's
+		# `default_profile_family` field.)
 		series_code = ""
 		if self.tape_neon_template:
 			series_code = (
 				frappe.db.get_value(
-					"ilL-Tape-Neon-Template", self.tape_neon_template,
-					"default_profile_family"
+					"ilL-Tape-Neon-Template", self.tape_neon_template, "series"
 				) or ""
 			)
 		self.sku_series_code = series_code
