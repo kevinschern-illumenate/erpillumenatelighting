@@ -12,6 +12,33 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
 )
 
 
+def _resolve_attribute_code_field(doctype: str) -> str | None:
+	"""Look up the column on an attribute doctype that stores its short code.
+
+	Falls back to "code" for legacy/uncatalogued attribute doctypes; returns
+	None if no plausible code column exists on the doctype.
+
+	Most attribute doctypes use ``code``, but a few diverge
+	(e.g. ``ilL-Attribute-Output Level`` -> ``sku_code``,
+	``ilL-Attribute-Output Voltage`` -> ``voltage_code``).
+	"""
+	try:
+		from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+			ATTRIBUTE_DOCTYPES,
+		)
+	except Exception:
+		ATTRIBUTE_DOCTYPES = {}
+
+	for cfg in ATTRIBUTE_DOCTYPES.values():
+		if cfg.get("doctype") == doctype:
+			return cfg.get("code_field") or None
+
+	# Fallback: legacy default
+	if frappe.db.has_column(doctype, "code"):
+		return "code"
+	return None
+
+
 class ilLWebflowProduct(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
@@ -1865,8 +1892,9 @@ class ilLWebflowProduct(Document):
 
 			is_default = getattr(opt, "is_default", False) if hasattr(opt, "is_default") else False
 			code = ""
-			if frappe.db.has_column(doctype, "code"):
-				code = frappe.db.get_value(doctype, val, "code") or ""
+			code_field = _resolve_attribute_code_field(doctype)
+			if code_field:
+				code = frappe.db.get_value(doctype, val, code_field) or ""
 
 			# Build label
 			label = val
@@ -1938,7 +1966,8 @@ class ilLWebflowProduct(Document):
 					val = getattr(opt, field, None)
 					if val:
 						is_default = getattr(opt, 'is_default', False) if hasattr(opt, 'is_default') else False
-						code = frappe.db.get_value(doctype, val, "code") or ""
+						code_field = _resolve_attribute_code_field(doctype)
+						code = (frappe.db.get_value(doctype, val, code_field) or "") if code_field else ""
 						values.append({
 							"value": val,
 							"label": val,
