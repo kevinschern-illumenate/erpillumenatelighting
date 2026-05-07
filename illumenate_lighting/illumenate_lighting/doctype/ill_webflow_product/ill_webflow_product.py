@@ -1827,13 +1827,17 @@ class ilLWebflowProduct(Document):
 			]
 		else:
 			# LED Neon
+			# Feed Direction is split into Start/End so Webflow can render two
+			# distinct cards. The values are filtered by ``feed_position`` on each
+			# ilL-Child-Tape-Neon-Allowed-Option row (Both | Start | End).
 			option_flow = [
 				(1, "CCT", "CCT", 0),
 				(2, "Output Level", "Output", 1),
 				(3, "Finish", "Finish", 0),
 				(4, "IP Rating", "IP Rating", 0),
-				(5, "Feed Direction", "Feed Direction", 0),
-				(6, "Length", "Length", 0),
+				(5, "Start Feed Direction", "Start Feed Direction", 0),
+				(6, "End Feed Direction", "End Feed Direction", 0),
+				(7, "Length", "Length", 0),
 			]
 
 		# Preserve any user-modified is_required values from the database
@@ -1872,6 +1876,11 @@ class ilLWebflowProduct(Document):
 
 		Filters by is_active, maps to [{value, label, code, is_default}] format.
 		For the Length step, returns length metadata instead.
+
+		``Start Feed Direction`` / ``End Feed Direction`` resolve to the
+		template's Feed Direction rows filtered by ``feed_position`` (rows
+		marked Both appear in both buckets) so Webflow can render distinct
+		Start vs End cards in the part-number builder.
 		"""
 		if option_type == "Length":
 			return self._get_tape_neon_length_metadata(template)
@@ -1883,6 +1892,8 @@ class ilLWebflowProduct(Document):
 			"Environment Rating": ("environment_rating", "ilL-Attribute-Environment Rating"),
 			"IP Rating": ("ip_rating", "ilL-Attribute-IP Rating"),
 			"Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
+			"Start Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
+			"End Feed Direction": ("feed_direction", "ilL-Attribute-Feed-Direction"),
 			"Power Feed Type": ("power_feed_type", "ilL-Attribute-Power Feed Type"),
 			"PCB Mounting": ("pcb_mounting", "ilL-Attribute-PCB Mounting"),
 			"PCB Finish": ("pcb_finish", "ilL-Attribute-PCB Finish"),
@@ -1894,15 +1905,32 @@ class ilLWebflowProduct(Document):
 		if option_type not in option_field_map:
 			return []
 
+		# Position filter for the Start/End feed-direction buckets.
+		position_filter = None
+		template_option_type = option_type
+		if option_type == "Start Feed Direction":
+			position_filter = "Start"
+			template_option_type = "Feed Direction"
+		elif option_type == "End Feed Direction":
+			position_filter = "End"
+			template_option_type = "Feed Direction"
+
 		field, doctype = option_field_map[option_type]
 		values = []
 		seen = set()
 
 		for opt in template.allowed_options or []:
-			if getattr(opt, "option_type", None) != option_type:
+			if getattr(opt, "option_type", None) != template_option_type:
 				continue
 			if hasattr(opt, "is_active") and not opt.is_active:
 				continue
+
+			# For Start/End Feed Direction, include rows whose feed_position is
+			# "Both" OR matches the requested side.
+			if position_filter is not None:
+				row_position = (getattr(opt, "feed_position", None) or "Both")
+				if row_position not in (position_filter, "Both"):
+					continue
 
 			val = getattr(opt, field, None)
 			if not val or val in seen:
