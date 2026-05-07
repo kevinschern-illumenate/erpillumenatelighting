@@ -49,6 +49,71 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					});
 				}, __("Actions"));
 			}
+
+			// Per-brand "Sync Now" — flips sync_status=Pending on the chosen
+			// target_brand rows so n8n picks the product up on next run.
+			frm.add_custom_button(__("Sync Now (Per Brand)"), function() {
+				const targeted = (frm.doc.target_brands || [])
+					.filter(r => r.enabled)
+					.map(r => r.brand);
+				if (targeted.length === 0) {
+					frappe.msgprint(__("No target brands set on this product."));
+					return;
+				}
+				const dlg = new frappe.ui.Dialog({
+					title: __("Mark Product Pending Sync"),
+					fields: [
+						{
+							fieldtype: "MultiCheck",
+							fieldname: "brands",
+							label: __("Target Brands"),
+							options: targeted.map(b => ({ label: b, value: b, checked: 1 })),
+						},
+					],
+					primary_action_label: __("Mark Pending"),
+					primary_action(values) {
+						const selected = (values.brands || []);
+						if (!selected.length) {
+							frappe.msgprint(__("Pick at least one brand."));
+							return;
+						}
+						const calls = selected.map(brand => frappe.call({
+							method: "illumenate_lighting.illumenate_lighting.api.webflow_export.trigger_sync",
+							args: { product_slugs: [frm.doc.name], brand: brand },
+						}));
+						Promise.all(calls).then(() => {
+							frappe.show_alert({
+								message: __("Marked pending for: {0}", [selected.join(", ")]),
+								indicator: "green",
+							});
+							dlg.hide();
+							frm.reload_doc();
+						});
+					},
+				});
+				dlg.show();
+			}, __("Actions"));
+
+			// Per-brand Webflow CMS deep links built from sync_targets.
+			(frm.doc.sync_targets || []).forEach((row) => {
+				if (!row.webflow_item_id) return;
+				const label = __("Open in Webflow ({0})", [row.brand]);
+				frm.add_custom_button(label, function() {
+					frappe.call({
+						method: "illumenate_lighting.illumenate_lighting.api.webflow_brand.get_brand_config",
+						args: { brand: row.brand },
+						callback(r) {
+							const cfg = r.message || {};
+							const site = cfg.webflow_site_url || "";
+							if (!site) {
+								frappe.msgprint(__("No Webflow site URL configured for brand {0}.", [row.brand]));
+								return;
+							}
+							window.open(site, "_blank");
+						},
+					});
+				}, __("Open in Webflow"));
+			});
 		}
 
 		// Show sync status indicator

@@ -16,7 +16,10 @@
       "name": "Every 6 Hours",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {},
@@ -24,7 +27,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 200]
+      "position": [
+        0,
+        200
+      ]
     },
     {
       "parameters": {
@@ -38,6 +44,10 @@
             {
               "name": "limit",
               "value": "100"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $('Set Brand').item.json.brand }}"
             }
           ]
         },
@@ -47,7 +57,10 @@
       "name": "Fetch Products with Attribute Refs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [300, 100],
+      "position": [
+        300,
+        100
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -82,7 +95,10 @@
       "name": "Has Products?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [525, 100]
+      "position": [
+        525,
+        100
+      ]
     },
     {
       "parameters": {
@@ -93,7 +109,10 @@
       "name": "Split Products",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [750, 25]
+      "position": [
+        750,
+        25
+      ]
     },
     {
       "parameters": {
@@ -122,7 +141,10 @@
       "name": "Has Resolved Attributes?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [975, 25]
+      "position": [
+        975,
+        25
+      ]
     },
     {
       "parameters": {
@@ -132,12 +154,15 @@
       "name": "Build Webflow Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, -50]
+      "position": [
+        1200,
+        -50
+      ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://api.webflow.com/v2/collections/696fc3c5c42c86528e97f413/items/{{ $json.webflow_item_id }}",
+        "url": "=https://api.webflow.com/v2/collections/{{ $('Get Brand Config').item.json.message.products_collection_id }}/items/{{ $json.webflow_item_id }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -149,7 +174,10 @@
       "name": "Webflow: Update Product Filters",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1425, -50],
+      "position": [
+        1425,
+        -50
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -165,14 +193,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"product_slug\": \"{{ $('Build Webflow Payload').item.json.product_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"webflow_collection_slug\": \"products\"\n}",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $('Build Webflow Payload').item.json.product_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"webflow_collection_slug\": \"products\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-synced",
       "name": "Mark Synced",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1650, -50],
+      "position": [
+        1650,
+        -50
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -190,7 +221,10 @@
       "name": "Setup Instructions",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-450, -150]
+      "position": [
+        -450,
+        -150
+      ]
     },
     {
       "parameters": {
@@ -202,7 +236,77 @@
       "name": "Skip Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [975, 175]
+      "position": [
+        975,
+        175
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "brand",
+              "value": "illumenate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ill-set-brand-node",
+      "name": "Set Brand",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        17760,
+        5824
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_brand.get_brand_config",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "brand",
+              "value": "={{ $json.brand }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ill-get-brand-config-node",
+      "name": "Get Brand Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17968,
+        5824
+      ],
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Multi-brand setup\n\n**Brand:** Set in the 'Set Brand' node (default illumenate).\n\nCollection IDs and credentials are resolved per-brand via the 'Get Brand Config' HTTP node calling webflow_brand.get_brand_config.\n\n**To run for lighting_206:**\n1. Edit 'Set Brand' â \brand = lighting_206, OR clone the workflow and change the value there.\n2. Swap the credential on the Webflow HTTP nodes to the brand-specific credential (e.g. webflow-lighting_206). Expression-driven credentials are not supported on this node type â manual swap or workflow-clone is required.\n3. The configurator payload is auto-stripped server-side when include_configurator_payload=0 on the brand record. The product Transform node also has a defense-in-depth guard.\n",
+        "height": 380,
+        "width": 350
+      },
+      "id": "ill-multibrand-sticky",
+      "name": "Multi-Brand Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        17280,
+        5568
+      ]
     }
   ],
   "connections": {
@@ -210,7 +314,7 @@
       "main": [
         [
           {
-            "node": "Fetch Products with Attribute Refs",
+            "node": "Set Brand",
             "type": "main",
             "index": 0
           }
@@ -218,6 +322,28 @@
       ]
     },
     "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Brand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Brand": {
+      "main": [
+        [
+          {
+            "node": "Get Brand Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Brand Config": {
       "main": [
         [
           {

@@ -65,6 +65,7 @@ def create_lead_from_webflow(
     contact_form_file_url: Optional[str] = None,
     project_name: Optional[str] = None,
     products_interested: Optional[str] = None,
+    brand: Optional[str] = None,
 ) -> dict:
     """
     Create a CRM Lead from Webflow form submission data.
@@ -145,6 +146,17 @@ def create_lead_from_webflow(
                     "duplicate": True,
                 }
         
+        # Resolve brand for source labeling. Falls back to legacy ``source``
+        # value when no brand is supplied (e.g. legacy n8n workflow).
+        brand_label = source or "Webflow"
+        if brand:
+            try:
+                from illumenate_lighting.illumenate_lighting.api.webflow_brand import resolve_brand
+                brand_doc = resolve_brand(brand, allow_inactive=True)
+                brand_label = brand_doc.brand_label or brand_doc.brand_code or brand_label
+            except Exception:
+                brand_label = source or brand or "Webflow"
+
         # Build lead document data
         lead_data = {
             "doctype": "CRM Lead",
@@ -155,7 +167,7 @@ def create_lead_from_webflow(
             "organization": company_name,
             "job_title": job_title,
             "website": website,
-            "source": source or "Webflow",
+            "source": brand_label,
             "status": "New",
         }
         

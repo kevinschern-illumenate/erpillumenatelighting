@@ -357,6 +357,11 @@ doc_events = {
 	"ilL-Webflow-Category": {
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_category_update",
 	},
+	# Per-brand cache invalidation
+	"ilL-Webflow-Brand": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_brand_update",
+		"on_trash": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_brand_update",
+	},
 }
 
 # Scheduled Tasks

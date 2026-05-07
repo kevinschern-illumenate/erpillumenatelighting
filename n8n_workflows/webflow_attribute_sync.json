@@ -16,7 +16,10 @@
       "name": "Every 6 Hours",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {},
@@ -24,7 +27,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 200]
+      "position": [
+        0,
+        200
+      ]
     },
     {
       "parameters": {
@@ -38,6 +44,10 @@
             {
               "name": "sync_status",
               "value": "needs_sync"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $('Set Brand').item.json.brand }}"
             }
           ]
         },
@@ -47,7 +57,10 @@
       "name": "Get Pending Attribute Types",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [300, 100],
+      "position": [
+        300,
+        100
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -82,7 +95,10 @@
       "name": "Has Pending Attributes?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [550, 100]
+      "position": [
+        550,
+        100
+      ]
     },
     {
       "parameters": {
@@ -93,7 +109,10 @@
       "name": "Split Attribute Types",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [800, 25]
+      "position": [
+        800,
+        25
+      ]
     },
     {
       "parameters": {
@@ -122,7 +141,10 @@
       "name": "Has Webflow Collection ID?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1050, 25]
+      "position": [
+        1050,
+        25
+      ]
     },
     {
       "parameters": {
@@ -136,7 +158,10 @@
       "name": "Fetch Collection Fields",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1175, 0],
+      "position": [
+        1175,
+        0
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -165,6 +190,10 @@
             {
               "name": "limit",
               "value": "50"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $('Set Brand').item.json.brand }}"
             }
           ]
         },
@@ -174,7 +203,10 @@
       "name": "Fetch Attributes from ERPNext",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, -50],
+      "position": [
+        1300,
+        -50
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -209,7 +241,10 @@
       "name": "Has Attributes to Sync?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1550, -50]
+      "position": [
+        1550,
+        -50
+      ]
     },
     {
       "parameters": {
@@ -219,7 +254,10 @@
       "name": "Prepare Attributes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1800, -125]
+      "position": [
+        1800,
+        -125
+      ]
     },
     {
       "parameters": {
@@ -248,7 +286,10 @@
       "name": "Exists in Webflow?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2050, -125]
+      "position": [
+        2050,
+        -125
+      ]
     },
     {
       "parameters": {
@@ -265,7 +306,10 @@
       "name": "Webflow: Create Attribute",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2650, -200],
+      "position": [
+        2650,
+        -200
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -289,7 +333,10 @@
       "name": "Webflow: Update Attribute",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2650, -50],
+      "position": [
+        2650,
+        -50
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -325,7 +372,10 @@
       "name": "Create Successful?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2800, -200]
+      "position": [
+        2800,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -354,7 +404,10 @@
       "name": "Update Successful?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2800, -50]
+      "position": [
+        2800,
+        -50
+      ]
     },
     {
       "parameters": {
@@ -364,14 +417,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-synced-create",
       "name": "Mark Synced (Create)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3050, -275],
+      "position": [
+        3050,
+        -275
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -387,14 +443,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-synced-update",
       "name": "Mark Synced (Update)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3050, -125],
+      "position": [
+        3050,
+        -125
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -410,14 +469,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-error-create",
       "name": "Mark Error (Create)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3050, -425],
+      "position": [
+        3050,
+        -425
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -433,14 +495,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\"\n}",
+        "jsonBody": "={\n  \"attribute_type\": \"{{ $('Exists in Webflow?').item.json._meta.attributeType }}\",\n  \"doc_name\": \"{{ $('Exists in Webflow?').item.json.erp_doc_name }}\",\n  \"error_message\": \"{{ $json.message || $json.error || 'Unknown Webflow API error' }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-error-update",
       "name": "Mark Error (Update)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3050, 25],
+      "position": [
+        3050,
+        25
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -454,7 +519,10 @@
       "name": "No-Op (End)",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [800, 175]
+      "position": [
+        800,
+        175
+      ]
     },
     {
       "parameters": {},
@@ -462,7 +530,46 @@
       "name": "Skip (No Collection ID)",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1300, 100]
+      "position": [
+        1300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "brand",
+              "value": "illumenate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ill-set-brand-node",
+      "name": "Set Brand",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        17760,
+        5824
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Multi-brand setup\n\n**Brand:** Set in the 'Set Brand' node (default illumenate).\n\nCollection IDs and credentials are resolved per-brand via the 'Get Brand Config' HTTP node calling webflow_brand.get_brand_config.\n\n**To run for lighting_206:**\n1. Edit 'Set Brand' â \brand = lighting_206, OR clone the workflow and change the value there.\n2. Swap the credential on the Webflow HTTP nodes to the brand-specific credential (e.g. webflow-lighting_206). Expression-driven credentials are not supported on this node type â manual swap or workflow-clone is required.\n3. The configurator payload is auto-stripped server-side when include_configurator_payload=0 on the brand record. The product Transform node also has a defense-in-depth guard.\n",
+        "height": 380,
+        "width": 350
+      },
+      "id": "ill-multibrand-sticky",
+      "name": "Multi-Brand Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        17280,
+        5568
+      ]
     }
   ],
   "connections": {
@@ -470,7 +577,7 @@
       "main": [
         [
           {
-            "node": "Get Pending Attribute Types",
+            "node": "Set Brand",
             "type": "main",
             "index": 0
           }
@@ -478,6 +585,17 @@
       ]
     },
     "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Brand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Brand": {
       "main": [
         [
           {

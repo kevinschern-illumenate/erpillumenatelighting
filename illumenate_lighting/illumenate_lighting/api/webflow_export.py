@@ -27,35 +27,73 @@ from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
 )
+from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
+    DEFAULT_ERPNEXT_BASE_URL,
+    get_base_url,
+    get_default_brand,
+    include_configurator,
+    resolve_brand,
+)
 from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
     compute_profile_dimensions,
 )
 
-# Base URL for converting relative file paths to absolute URLs
-ERPNEXT_BASE_URL = "https://illumenatelighting.v.frappe.cloud"
+# Base URL for converting relative file paths to absolute URLs (legacy default;
+# per-brand overrides come from ilL-Webflow-Brand.erpnext_base_url).
+ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
 
 
-def _make_absolute_url(url: str) -> str:
+def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
     """Convert relative URL to absolute URL for Webflow.
-    
+
     Args:
-        url: The URL to convert (e.g., '/files/image.jpg')
-    
-    Returns:
-        Absolute URL (e.g., 'https://illumenatelighting.v.frappe.cloud/files/image.jpg')
+        url: The URL to convert (e.g., '/files/image.jpg').
+        brand_code: Optional brand override; defaults to the global base URL.
     """
     if not url:
         return url
-    
+
     # Already absolute
     if url.startswith('http://') or url.startswith('https://'):
         return url
-    
-    # Relative URL - prepend base URL
+
+    base = get_base_url(brand_code) if brand_code else ERPNEXT_BASE_URL
     if url.startswith('/'):
-        return f"{ERPNEXT_BASE_URL}{url}"
-    else:
-        return f"{ERPNEXT_BASE_URL}/{url}"
+        return f"{base}{url}"
+    return f"{base}/{url}"
+
+
+def _get_brand_sync_row(parent_doctype: str, parent_name: str, brand_code: str) -> dict | None:
+    """Return the per-brand sync_targets row for a parent doc, or None."""
+    rows = frappe.get_all(
+        "ilL-Child-Webflow-Sync-State",
+        filters={
+            "parenttype": parent_doctype,
+            "parent": parent_name,
+            "brand": brand_code,
+        },
+        fields=[
+            "name", "brand", "sync_status", "webflow_item_id",
+            "webflow_collection_slug", "last_synced_at", "sync_error_message",
+        ],
+        limit=1,
+    )
+    return rows[0] if rows else None
+
+
+def _is_targeted(parent_doctype: str, parent_name: str, brand_code: str) -> bool:
+    """Check whether a parent doc has the brand in target_brands and is enabled."""
+    rows = frappe.get_all(
+        "ilL-Child-Webflow-Brand-Target",
+        filters={
+            "parenttype": parent_doctype,
+            "parent": parent_name,
+            "brand": brand_code,
+            "enabled": 1,
+        },
+        limit=1,
+    )
+    return bool(rows)
 
 
 @frappe.whitelist(allow_guest=False)
@@ -64,40 +102,109 @@ def get_webflow_products(
     sync_status: str = None,
     limit: int = 100,
     offset: int = 0,
-    include_child_tables: bool = True
+    include_child_tables: bool = True,
+    brand: str = None,
 ) -> dict:
     """
     Get Webflow products for n8n export.
-    
+
     Args:
         product_type: Filter by product type (e.g., "Fixture Template", "Driver")
-        sync_status: Filter by sync status ("Pending", "Never Synced", "Error")
+        sync_status: Filter by sync status ("Pending", "Never Synced", "Error", "needs_sync")
         limit: Maximum records to return (default: 100)
         offset: Pagination offset (default: 0)
         include_child_tables: Whether to include expanded child table data (default: True)
-    
+        brand: Brand code (e.g. "illumenate", "lighting_206"). Defaults to the
+            default brand (back-compat). When supplied, products are filtered to
+            those whose ``target_brands`` table contains the brand (enabled=1)
+            OR — for back-compat — every product if no target_brands rows exist
+            yet anywhere (pre-migration). Sync-status filter is matched against
+            the per-brand sync row when available, falling back to the legacy
+            scalar.
+
     Returns:
-        dict: {
-            "products": [...],
-            "total": int,
-            "limit": int,
-            "offset": int
-        }
-    
-    Example:
-        >>> get_webflow_products(product_type="Fixture Template", sync_status="Pending")
+        dict: {"products": [...], "total": int, "limit": int, "offset": int, "brand": str}
     """
+    # Resolve brand (defaulting to the configured default brand for back-compat).
+    brand_code = brand or get_default_brand() or "illumenate"
+    try:
+        brand_cfg = resolve_brand(brand_code, allow_inactive=True)
+    except frappe.ValidationError:
+        brand_cfg = None
+    strip_configurator = brand_cfg is not None and not brand_cfg.get(
+        "include_configurator_payload", True
+    )
+
     filters = {"is_active": 1}
-    
+
     if product_type:
         filters["product_type"] = product_type
-    
+
+    # Determine the candidate name set from target_brands (per-brand); if no
+    # rows exist for this brand at all (pre-migration), skip the filter.
+    targeted_names: set[str] | None = None
+    if frappe.db.count(
+        "ilL-Child-Webflow-Brand-Target",
+        {"brand": brand_code, "parenttype": "ilL-Webflow-Product"},
+    ):
+        targeted = frappe.get_all(
+            "ilL-Child-Webflow-Brand-Target",
+            filters={
+                "brand": brand_code,
+                "enabled": 1,
+                "parenttype": "ilL-Webflow-Product",
+            },
+            pluck="parent",
+        )
+        targeted_names = set(targeted)
+        if not targeted_names:
+            # Brand exists but no products are targeted to it.
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = ["in", list(targeted_names)]
+
+    # Sync status filter: prefer per-brand row, fall back to legacy scalar.
+    pending_status_set = {"Pending", "Never Synced"}
+    sync_filter_set: set[str] | None = None
     if sync_status:
         if sync_status == "needs_sync":
-            # Special filter for products that need syncing
-            filters["sync_status"] = ["in", ["Pending", "Never Synced"]]
+            sync_filter_set = pending_status_set
         else:
-            filters["sync_status"] = sync_status
+            sync_filter_set = {sync_status}
+
+    if sync_filter_set:
+        # Find names matching per-brand sync row OR legacy scalar.
+        per_brand_match = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Product",
+                "brand": brand_code,
+                "sync_status": ["in", list(sync_filter_set)],
+            },
+            pluck="parent",
+        ))
+        # Legacy fallback only applies when there's no per-brand row at all
+        # for that product (during the dual-write window).
+        legacy_match = set(frappe.get_all(
+            "ilL-Webflow-Product",
+            filters={"sync_status": ["in", list(sync_filter_set)]},
+            pluck="name",
+        ))
+        # Exclude any product that already has a per-brand row for this brand
+        # (per-brand row is authoritative).
+        has_per_brand_row = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parenttype": "ilL-Webflow-Product", "brand": brand_code},
+            pluck="parent",
+        ))
+        legacy_only = legacy_match - has_per_brand_row
+        match_names = per_brand_match | legacy_only
+
+        if targeted_names is not None:
+            match_names &= targeted_names
+
+        if not match_names:
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = ["in", list(match_names)]
     
     # Get product list with basic fields
     products = frappe.get_all(
@@ -129,18 +236,30 @@ def get_webflow_products(
         # Expand child tables for each product
         for product in products:
             doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
-            
+
+            # Override sync fields with per-brand row when present.
+            per_brand_row = _get_brand_sync_row(
+                "ilL-Webflow-Product", product["name"], brand_code
+            )
+            if per_brand_row:
+                product["webflow_item_id"] = per_brand_row.get("webflow_item_id")
+                product["webflow_collection_slug"] = per_brand_row.get("webflow_collection_slug")
+                product["last_synced_at"] = per_brand_row.get("last_synced_at")
+                product["sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
+                product["sync_error_message"] = per_brand_row.get("sync_error_message")
+            product["brand"] = brand_code
+
             # Convert featured_image to absolute URL
             if product.get("featured_image"):
-                product["featured_image"] = _make_absolute_url(product["featured_image"])
-            
+                product["featured_image"] = _make_absolute_url(product["featured_image"], brand_code)
+
             # Convert dimensions_image to absolute URL
             if product.get("dimensions_image"):
-                product["dimensions_image"] = _make_absolute_url(product["dimensions_image"])
-            
+                product["dimensions_image"] = _make_absolute_url(product["dimensions_image"], brand_code)
+
             # Convert series_family_image to absolute URL
             if product.get("series_family_image"):
-                product["series_family_image"] = _make_absolute_url(product["series_family_image"])
+                product["series_family_image"] = _make_absolute_url(product["series_family_image"], brand_code)
             
             # Export specifications (supports both auto-calculated and manually-added specs)
             product["specifications"] = []
@@ -205,7 +324,7 @@ def get_webflow_products(
             
             product["gallery_images"] = [
                 {
-                    "image": _make_absolute_url(g.image),
+                    "image": _make_absolute_url(g.image, brand_code),
                     "alt_text": g.alt_text,
                     "caption": g.caption,
                     "display_order": g.display_order
@@ -215,7 +334,7 @@ def get_webflow_products(
             
             product["documents"] = [
                 {
-                    "document_file": _make_absolute_url(d.document_file),
+                    "document_file": _make_absolute_url(d.document_file, brand_code),
                     "document_type": d.document_type,
                     "document_title": d.document_title,
                     "display_order": d.display_order
@@ -311,12 +430,25 @@ def get_webflow_products(
                 product["features_json"] = "[]"
 
     total = frappe.db.count("ilL-Webflow-Product", filters)
-    
+
+    # Per-brand configurator stripping (defense-in-depth: enforce server-side
+    # so the configurator payload never leaks into a non-configurator brand).
+    if strip_configurator:
+        for product in products:
+            product["is_configurable"] = 0
+            product["configurator_options"] = []
+            product["kit_components"] = []
+            product["min_length_mm"] = None
+            product["max_length_mm"] = None
+            product["length_increment_mm"] = None
+            product["configurator_intro_text"] = None
+
     return {
         "products": products,
         "total": total,
         "limit": limit,
-        "offset": offset
+        "offset": offset,
+        "brand": brand_code,
     }
 
 
@@ -324,105 +456,169 @@ def get_webflow_products(
 def mark_webflow_synced(
     product_slug: str,
     webflow_item_id: str,
-    webflow_collection_slug: str
+    webflow_collection_slug: str,
+    brand: str = None,
 ) -> dict:
     """
     Mark a product as synced after n8n pushes to Webflow.
-    
-    Called by n8n after successful Webflow API call.
-    
-    Args:
-        product_slug: The product slug (document name)
-        webflow_item_id: The Webflow CMS item ID
-        webflow_collection_slug: The Webflow collection slug
-    
-    Returns:
-        dict: {"success": True, "synced_at": datetime}
-    
-    Raises:
-        frappe.DoesNotExistError: If product_slug doesn't exist
+
+    Writes the per-brand sync row and (during the dual-write window) also
+    updates the legacy scalars when ``brand`` is the default brand.
     """
     if not frappe.db.exists("ilL-Webflow-Product", product_slug):
         frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
-    
-    # Use set_value to update fields directly without triggering before_save,
-    # which runs heavy populate_attribute_links / populate_configurator_options
-    # logic that can fail if linked records have issues.
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    # Validate brand exists (allow inactive so we can still record sync results).
+    resolve_brand(brand_code, allow_inactive=True)
+
     synced_at = frappe.utils.now()
-    frappe.db.set_value("ilL-Webflow-Product", product_slug, {
-        "webflow_item_id": webflow_item_id,
-        "webflow_collection_slug": webflow_collection_slug,
-        "last_synced_at": synced_at,
-        "sync_status": "Synced",
-        "sync_error_message": None,
-    }, update_modified=True)
+
+    # 1) Per-brand row (authoritative).
+    existing = _get_brand_sync_row("ilL-Webflow-Product", product_slug, brand_code)
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+            "webflow_item_id": webflow_item_id,
+            "webflow_collection_slug": webflow_collection_slug,
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+            "sync_error_message": None,
+        }, update_modified=True)
+    else:
+        # Append a new child row via parent doc to ensure parent linkage is set.
+        parent = frappe.get_doc("ilL-Webflow-Product", product_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Synced",
+            "webflow_item_id": webflow_item_id,
+            "webflow_collection_slug": webflow_collection_slug,
+            "last_synced_at": synced_at,
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.flags.ignore_validate_update_after_submit = True
+        parent.save(ignore_permissions=True)
+
+    # 2) Legacy scalars: update only when brand is the default (back-compat).
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Product", product_slug, {
+            "webflow_item_id": webflow_item_id,
+            "webflow_collection_slug": webflow_collection_slug,
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+            "sync_error_message": None,
+        }, update_modified=True)
+
     frappe.db.commit()
-    
+
     return {
         "success": True,
         "synced_at": synced_at,
-        "product_slug": product_slug
+        "product_slug": product_slug,
+        "brand": brand_code,
     }
 
 
 @frappe.whitelist(allow_guest=False)
 def mark_webflow_error(
     product_slug: str,
-    error_message: str
+    error_message: str,
+    brand: str = None,
 ) -> dict:
-    """
-    Mark a product as having a sync error.
-    
-    Called by n8n when Webflow API call fails.
-    
-    Args:
-        product_slug: The product slug (document name)
-        error_message: The error message from Webflow
-    
-    Returns:
-        dict: {"success": True}
-    """
+    """Mark a product as having a sync error for the given brand."""
     if not frappe.db.exists("ilL-Webflow-Product", product_slug):
         frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
-    
-    # Use set_value to avoid triggering before_save hooks
-    frappe.db.set_value("ilL-Webflow-Product", product_slug, {
-        "sync_status": "Error",
-        "sync_error_message": (error_message[:500] if error_message else "Unknown error"),
-    }, update_modified=True)
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    truncated = (error_message[:500] if error_message else "Unknown error")
+
+    existing = _get_brand_sync_row("ilL-Webflow-Product", product_slug, brand_code)
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+            "sync_status": "Error",
+            "sync_error_message": truncated,
+        }, update_modified=True)
+    else:
+        parent = frappe.get_doc("ilL-Webflow-Product", product_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Error",
+            "sync_error_message": truncated,
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.flags.ignore_validate_update_after_submit = True
+        parent.save(ignore_permissions=True)
+
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Product", product_slug, {
+            "sync_status": "Error",
+            "sync_error_message": truncated,
+        }, update_modified=True)
+
     frappe.db.commit()
-    
-    return {
-        "success": True,
-        "product_slug": product_slug
-    }
+    return {"success": True, "product_slug": product_slug, "brand": brand_code}
 
 
 @frappe.whitelist(allow_guest=False)
 def get_webflow_categories(
     include_inactive: bool = False,
-    sync_status: str = None
+    sync_status: str = None,
+    brand: str = None,
 ) -> dict:
-    """
-    Get Webflow categories for navigation and filtering.
-    
-    Args:
-        include_inactive: Whether to include inactive categories
-        sync_status: Filter by sync status ("Pending", "Never Synced", "needs_sync")
-    
-    Returns:
-        dict: {"categories": [...], "total": int}
-    """
+    """Get Webflow categories for navigation and filtering, scoped by brand."""
+    brand_code = brand or get_default_brand() or "illumenate"
+
     filters = {}
     if not include_inactive:
         filters["is_active"] = 1
-    
+
+    # Per-brand target filter (only when target_brands has been backfilled).
+    if frappe.db.count(
+        "ilL-Child-Webflow-Brand-Target",
+        {"brand": brand_code, "parenttype": "ilL-Webflow-Category"},
+    ):
+        targeted = frappe.get_all(
+            "ilL-Child-Webflow-Brand-Target",
+            filters={
+                "brand": brand_code,
+                "enabled": 1,
+                "parenttype": "ilL-Webflow-Category",
+            },
+            pluck="parent",
+        )
+        if not targeted:
+            return {"categories": [], "all_categories": [], "total": 0, "brand": brand_code}
+        filters["name"] = ["in", targeted]
+
     if sync_status:
-        if sync_status == "needs_sync":
-            filters["sync_status"] = ["in", ["Pending", "Never Synced"]]
-        else:
-            filters["sync_status"] = sync_status
-    
+        statuses = ["Pending", "Never Synced"] if sync_status == "needs_sync" else [sync_status]
+        per_brand_match = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Category",
+                "brand": brand_code,
+                "sync_status": ["in", statuses],
+            },
+            pluck="parent",
+        ))
+        legacy_match = set(frappe.get_all(
+            "ilL-Webflow-Category",
+            filters={"sync_status": ["in", statuses]},
+            pluck="name",
+        ))
+        has_per_brand = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parenttype": "ilL-Webflow-Category", "brand": brand_code},
+            pluck="parent",
+        ))
+        match = per_brand_match | (legacy_match - has_per_brand)
+        # Intersect with the existing name filter if any.
+        if isinstance(filters.get("name"), list) and filters["name"][0] == "in":
+            match &= set(filters["name"][1])
+        if not match:
+            return {"categories": [], "all_categories": [], "total": 0, "brand": brand_code}
+        filters["name"] = ["in", list(match)]
+
     categories = frappe.get_all(
         "ilL-Webflow-Category",
         filters=filters,
@@ -434,7 +630,18 @@ def get_webflow_categories(
         ],
         order_by="display_order asc"
     )
-    
+
+    # Override sync fields with per-brand values when a row exists.
+    for cat in categories:
+        per_brand_row = _get_brand_sync_row("ilL-Webflow-Category", cat["name"], brand_code)
+        if per_brand_row:
+            cat["webflow_item_id"] = per_brand_row.get("webflow_item_id")
+            cat["last_synced_at"] = per_brand_row.get("last_synced_at")
+            cat["sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
+        cat["brand"] = brand_code
+        if cat.get("category_image"):
+            cat["category_image"] = _make_absolute_url(cat["category_image"], brand_code)
+
     # Build hierarchical structure
     category_map = {c["name"]: c for c in categories}
     for cat in categories:
@@ -443,88 +650,104 @@ def get_webflow_categories(
             "ilL-Webflow-Product",
             {"product_category": cat["name"], "is_active": 1}
         )
-    
-    # Assign children to parents
+
     for cat in categories:
         if cat.get("parent_category") and cat["parent_category"] in category_map:
             category_map[cat["parent_category"]]["children"].append(cat)
-    
-    # Filter to only top-level categories for root response
+
     root_categories = [c for c in categories if not c.get("parent_category")]
-    
+
     return {
         "categories": root_categories,
         "all_categories": categories,
-        "total": len(categories)
+        "total": len(categories),
+        "brand": brand_code,
     }
 
 
 @frappe.whitelist(allow_guest=False)
 def mark_category_synced(
     category_slug: str,
-    webflow_item_id: str
+    webflow_item_id: str,
+    brand: str = None,
 ) -> dict:
-    """
-    Mark a category as synced after n8n pushes to Webflow.
-    
-    Called by n8n after successful Webflow API call.
-    
-    Args:
-        category_slug: The category slug (document name)
-        webflow_item_id: The Webflow CMS item ID
-    
-    Returns:
-        dict: {"success": True, "synced_at": datetime}
-    """
+    """Mark a category as synced for the given brand."""
     if not frappe.db.exists("ilL-Webflow-Category", category_slug):
         frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
-    
-    doc = frappe.get_doc("ilL-Webflow-Category", category_slug)
-    doc.webflow_item_id = webflow_item_id
-    doc.last_synced_at = frappe.utils.now()
-    doc.sync_status = "Synced"
-    doc.save(ignore_permissions=True)
-    
-    return {
-        "success": True,
-        "synced_at": doc.last_synced_at,
-        "category_slug": category_slug
-    }
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    synced_at = frappe.utils.now()
+
+    existing = _get_brand_sync_row("ilL-Webflow-Category", category_slug, brand_code)
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+            "webflow_item_id": webflow_item_id,
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+            "sync_error_message": None,
+        }, update_modified=True)
+    else:
+        parent = frappe.get_doc("ilL-Webflow-Category", category_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Synced",
+            "webflow_item_id": webflow_item_id,
+            "last_synced_at": synced_at,
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.save(ignore_permissions=True)
+
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Category", category_slug, {
+            "webflow_item_id": webflow_item_id,
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+        }, update_modified=True)
+
+    frappe.db.commit()
+    return {"success": True, "synced_at": synced_at, "category_slug": category_slug, "brand": brand_code}
 
 
 @frappe.whitelist(allow_guest=False)
 def mark_category_error(
     category_slug: str,
-    error_message: str
+    error_message: str,
+    brand: str = None,
 ) -> dict:
-    """
-    Mark a category as having a sync error.
-    
-    Called by n8n when Webflow API call fails.
-    
-    Args:
-        category_slug: The category slug (document name)
-        error_message: The error message from Webflow
-    
-    Returns:
-        dict: {"success": True}
-    """
+    """Mark a category as errored for the given brand."""
     if not frappe.db.exists("ilL-Webflow-Category", category_slug):
         frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
-    
-    doc = frappe.get_doc("ilL-Webflow-Category", category_slug)
-    doc.sync_status = "Error"
-    doc.save(ignore_permissions=True)
-    
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    truncated = error_message[:1000] if error_message else "Unknown error"
+
+    existing = _get_brand_sync_row("ilL-Webflow-Category", category_slug, brand_code)
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+            "sync_status": "Error",
+            "sync_error_message": truncated[:500],
+        }, update_modified=True)
+    else:
+        parent = frappe.get_doc("ilL-Webflow-Category", category_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Error",
+            "sync_error_message": truncated[:500],
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.save(ignore_permissions=True)
+
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Category", category_slug, "sync_status", "Error")
+
     frappe.log_error(
-        message=error_message[:1000] if error_message else "Unknown error",
-        title=f"Webflow Category Sync Error: {category_slug}"
+        message=truncated,
+        title=f"Webflow Category Sync Error [{brand_code}]: {category_slug}",
     )
-    
-    return {
-        "success": True,
-        "category_slug": category_slug
-    }
+    frappe.db.commit()
+    return {"success": True, "category_slug": category_slug, "brand": brand_code}
 
 
 @frappe.whitelist(allow_guest=False)
@@ -532,75 +755,78 @@ def trigger_sync(
     product_slugs: list = None,
     product_type: str = None,
     category_slugs: list = None,
-    sync_all_categories: bool = False
+    sync_all_categories: bool = False,
+    brand: str = None,
 ) -> dict:
     """
     Mark products and/or categories as pending sync to trigger n8n workflow.
-    
-    Args:
-        product_slugs: List of specific product slugs to sync
-        product_type: Sync all products of this type
-        category_slugs: List of specific category slugs to sync
-        sync_all_categories: Sync all active categories
-    
-    Returns:
-        dict: {"success": True, "products_marked": int, "categories_marked": int}
+
+    Marks both the legacy scalar (during dual-write window) and the per-brand
+    sync row matching ``brand`` (default brand if not specified).
     """
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    is_default = brand_code == (get_default_brand() or "illumenate")
+
     products_marked = 0
     categories_marked = 0
-    
+
+    def _mark_pending(parent_doctype: str, parent_name: str) -> None:
+        existing = _get_brand_sync_row(parent_doctype, parent_name, brand_code)
+        if existing:
+            frappe.db.set_value(
+                "ilL-Child-Webflow-Sync-State", existing["name"],
+                "sync_status", "Pending", update_modified=False,
+            )
+        else:
+            parent = frappe.get_doc(parent_doctype, parent_name)
+            parent.append("sync_targets", {"brand": brand_code, "sync_status": "Pending"})
+            parent.flags._skip_webflow_sync = True
+            parent.save(ignore_permissions=True)
+        if is_default:
+            frappe.db.set_value(parent_doctype, parent_name, "sync_status", "Pending")
+
     # Handle products
     if product_slugs:
         for slug in product_slugs:
             if frappe.db.exists("ilL-Webflow-Product", slug):
-                frappe.db.set_value(
-                    "ilL-Webflow-Product", slug,
-                    "sync_status", "Pending"
-                )
+                _mark_pending("ilL-Webflow-Product", slug)
                 products_marked += 1
-    
+
     elif product_type:
-        products = frappe.get_all(
+        product_names = frappe.get_all(
             "ilL-Webflow-Product",
             filters={"product_type": product_type, "is_active": 1},
-            pluck="name"
+            pluck="name",
         )
-        for slug in products:
-            frappe.db.set_value(
-                "ilL-Webflow-Product", slug,
-                "sync_status", "Pending"
-            )
+        for slug in product_names:
+            _mark_pending("ilL-Webflow-Product", slug)
             products_marked += 1
-    
+
     # Handle categories
     if category_slugs:
         for slug in category_slugs:
             if frappe.db.exists("ilL-Webflow-Category", slug):
-                frappe.db.set_value(
-                    "ilL-Webflow-Category", slug,
-                    "sync_status", "Pending"
-                )
+                _mark_pending("ilL-Webflow-Category", slug)
                 categories_marked += 1
-    
+
     elif sync_all_categories:
-        categories = frappe.get_all(
+        cat_names = frappe.get_all(
             "ilL-Webflow-Category",
             filters={"is_active": 1},
-            pluck="name"
+            pluck="name",
         )
-        for slug in categories:
-            frappe.db.set_value(
-                "ilL-Webflow-Category", slug,
-                "sync_status", "Pending"
-            )
+        for slug in cat_names:
+            _mark_pending("ilL-Webflow-Category", slug)
             categories_marked += 1
-    
+
     frappe.db.commit()
-    
+
     return {
         "success": True,
         "products_marked": products_marked,
-        "categories_marked": categories_marked
+        "categories_marked": categories_marked,
+        "brand": brand_code,
     }
 
 
