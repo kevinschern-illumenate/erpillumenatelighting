@@ -46,6 +46,61 @@ from datetime import datetime
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
+    get_collection_id as _brand_get_collection_id,
+    get_default_brand,
+    list_active_brands,
+    resolve_brand,
+)
+
+
+# Mapping from internal attribute key -> ilL-Webflow-Brand-Collection.collection_kind
+ATTRIBUTE_KEY_TO_COLLECTION_KIND = {
+    "cct": "CCT",
+    "cri": "CRI",
+    "finish": "Finish",
+    "dimming_protocol": "Dimming Protocol",
+    "environment_rating": "Environment Rating",
+    "ip_rating": "IP Rating",
+    "led_package": "LED Package",
+    "lens_appearance": "Lens Appearance",
+    "mounting_method": "Mounting Method",
+    "output_level": "Output Level",
+    "output_voltage": "Output Voltage",
+    "certification": "Certification",
+    "endcap_style": "Endcap Style",
+    "endcap_color": "Endcap Color",
+    "feed_direction": "Feed-Direction",
+    "joiner_angle": "Joiner Angle",
+    "joiner_system": "Joiner System",
+    "lead_time_class": "Lead Time Class",
+    "leader_cable": "Leader Cable",
+    "lens_interface_type": "Lens Interface Type",
+    "power_feed_type": "Power Feed Type",
+    "pricing_class": "Pricing Class",
+    "sdcm": "SDCM",
+    "series": "Series",
+}
+
+
+def _get_attribute_brand_sync_row(doctype: str, doc_name: str, brand_code: str) -> dict | None:
+    """Return the per-brand webflow_sync_targets row for an attribute doc, or None."""
+    rows = frappe.get_all(
+        "ilL-Child-Webflow-Sync-State",
+        filters={
+            "parenttype": doctype,
+            "parent": doc_name,
+            "brand": brand_code,
+        },
+        fields=[
+            "name", "brand", "sync_status", "webflow_item_id",
+            "last_synced_at", "sync_error_message",
+        ],
+        limit=1,
+    )
+    return rows[0] if rows else None
+
+
 
 # ---------------------------------------------------------------------------
 # Human-readable attribute type → ATTRIBUTE_DOCTYPES key mapping
@@ -610,31 +665,24 @@ def get_webflow_attributes(
     attribute_type: str,
     sync_status: str = None,
     limit: int = 100,
-    offset: int = 0
+    offset: int = 0,
+    brand: str = None,
 ) -> dict:
-    """
-    Get attributes of a specific type for export to Webflow.
-    
+    """Get attributes of a specific type for export to Webflow, scoped by brand.
+
     Args:
-        attribute_type: Type of attribute to fetch (e.g., "cct", "finish", "dimming_protocol")
-        sync_status: Filter by sync status ("Pending", "Never Synced", "needs_sync")
-        limit: Maximum records to return (default: 100)
-        offset: Pagination offset (default: 0)
-    
-    Returns:
-        dict: {
-            "attributes": [...],
-            "total": int,
-            "limit": int,
-            "offset": int,
-            "attribute_type": str,
-            "doctype": str,
-            "webflow_collection_id": str
-        }
-    
-    Example:
-        >>> get_webflow_attributes(attribute_type="cct", sync_status="needs_sync")
+        attribute_type: Attribute type key (e.g. ``cct``, ``finish``).
+        sync_status: Filter by sync status. ``needs_sync`` matches
+            ``Pending``, ``Never Synced``, or empty.
+        limit / offset: Pagination.
+        brand: Brand code. Defaults to the default brand. Per-brand sync state
+            is read from the ``webflow_sync_targets`` table when present;
+            during the dual-write window this falls back to the legacy scalar
+            ``webflow_sync_status`` field.
     """
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+
     config = get_attribute_config(attribute_type)
     doctype = config["doctype"]
     
@@ -686,6 +734,14 @@ def get_webflow_attributes(
     
     # Add computed fields and webflow formatting
     for attr in attributes:
+        # Override webflow_item_id with per-brand row when present.
+        per_brand_row = _get_attribute_brand_sync_row(doctype, attr["name"], brand_code)
+        if per_brand_row:
+            attr["webflow_item_id"] = per_brand_row.get("webflow_item_id")
+            attr["webflow_sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
+            attr["webflow_last_synced"] = per_brand_row.get("last_synced_at")
+        attr["brand"] = brand_code
+
         # Generate slug from name field
         name_field = config["name_field"]
         attr["slug"] = slugify(attr.get(name_field, attr["name"]))
@@ -792,13 +848,17 @@ def get_webflow_attributes(
         attr["webflow_field_data"] = webflow_data
     
     total = frappe.db.count(doctype, filters)
-    
-    # Get webflow collection ID from settings if available
-    webflow_collection_id = config.get("webflow_collection_id", "")
-    settings_collection_id = get_webflow_collection_id(attribute_type)
-    if settings_collection_id:
-        webflow_collection_id = settings_collection_id
-    
+
+    # Resolve per-brand collection ID; fall back to settings/legacy.
+    brand_collection_id = _brand_get_collection_id(
+        brand_code, ATTRIBUTE_KEY_TO_COLLECTION_KIND.get(attribute_type, "")
+    ) if attribute_type in ATTRIBUTE_KEY_TO_COLLECTION_KIND else ""
+    webflow_collection_id = (
+        brand_collection_id
+        or get_webflow_collection_id(attribute_type)
+        or config.get("webflow_collection_id", "")
+    )
+
     return {
         "attributes": attributes,
         "total": total,
@@ -807,6 +867,11 @@ def get_webflow_attributes(
         "attribute_type": attribute_type,
         "doctype": doctype,
         "webflow_collection_id": webflow_collection_id,
+        "brand": brand_code,
+        "_meta": {
+            "brand": brand_code,
+            "collectionId": webflow_collection_id,
+        },
         "field_mapping": config["webflow_field_mapping"]
     }
 
@@ -884,50 +949,69 @@ def get_all_attributes_for_sync(
 def mark_attribute_synced(
     attribute_type: str,
     doc_name: str,
-    webflow_item_id: str
+    webflow_item_id: str,
+    brand: str = None,
 ) -> dict:
-    """
-    Mark an attribute as synced after n8n pushes to Webflow.
-    
-    Called by n8n after successful Webflow API call.
-    
-    Args:
-        attribute_type: The attribute type key (e.g., "cct", "finish")
-        doc_name: The document name in ERPNext
-        webflow_item_id: The Webflow CMS item ID
-    
-    Returns:
-        dict: {"success": True, "synced_at": datetime}
+    """Mark an attribute as synced for the given brand.
+
+    Writes the per-brand ``webflow_sync_targets`` row and (when ``brand`` is
+    the default brand) also the legacy scalar fields.
     """
     config = get_attribute_config(attribute_type)
     doctype = config["doctype"]
-    
+
     if not frappe.db.exists(doctype, doc_name):
         frappe.throw(_("{0} with name '{1}' not found").format(doctype, doc_name))
-    
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    synced_at = frappe.utils.now()
+
+    # Per-brand row (authoritative). Use the webflow_sync_targets custom field
+    # added by the migrate_attribute_sync_fields_to_brand_table patch.
     meta = frappe.get_meta(doctype)
-    
-    # Update webflow fields if they exist
-    update_fields = {}
-    
-    if meta.has_field("webflow_item_id"):
-        update_fields["webflow_item_id"] = webflow_item_id
-    if meta.has_field("webflow_sync_status"):
-        update_fields["webflow_sync_status"] = "Synced"
-    if meta.has_field("webflow_last_synced"):
-        update_fields["webflow_last_synced"] = frappe.utils.now()
-    if meta.has_field("webflow_sync_error"):
-        update_fields["webflow_sync_error"] = None
-    
-    if update_fields:
-        frappe.db.set_value(doctype, doc_name, update_fields)
-        frappe.db.commit()
-    
+    if meta.has_field("webflow_sync_targets"):
+        existing = _get_attribute_brand_sync_row(doctype, doc_name, brand_code)
+        if existing:
+            frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+                "webflow_item_id": webflow_item_id,
+                "sync_status": "Synced",
+                "last_synced_at": synced_at,
+                "sync_error_message": None,
+            }, update_modified=True)
+        else:
+            parent = frappe.get_doc(doctype, doc_name)
+            parent.append("webflow_sync_targets", {
+                "brand": brand_code,
+                "sync_status": "Synced",
+                "webflow_item_id": webflow_item_id,
+                "last_synced_at": synced_at,
+            })
+            parent.flags._skip_webflow_sync = True
+            parent.save(ignore_permissions=True)
+
+    # Legacy scalars (only on the default brand).
+    if brand_code == (get_default_brand() or "illumenate"):
+        update_fields = {}
+        if meta.has_field("webflow_item_id"):
+            update_fields["webflow_item_id"] = webflow_item_id
+        if meta.has_field("webflow_sync_status"):
+            update_fields["webflow_sync_status"] = "Synced"
+        if meta.has_field("webflow_last_synced"):
+            update_fields["webflow_last_synced"] = synced_at
+        if meta.has_field("webflow_sync_error"):
+            update_fields["webflow_sync_error"] = None
+        if update_fields:
+            frappe.db.set_value(doctype, doc_name, update_fields)
+
+    frappe.db.commit()
+
     return {
         "success": True,
-        "synced_at": frappe.utils.now(),
+        "synced_at": synced_at,
         "doc_name": doc_name,
-        "attribute_type": attribute_type
+        "attribute_type": attribute_type,
+        "brand": brand_code,
     }
 
 
@@ -935,48 +1019,57 @@ def mark_attribute_synced(
 def mark_attribute_error(
     attribute_type: str,
     doc_name: str,
-    error_message: str
+    error_message: str,
+    brand: str = None,
 ) -> dict:
-    """
-    Mark an attribute as having a sync error.
-    
-    Called by n8n when Webflow API call fails.
-    
-    Args:
-        attribute_type: The attribute type key (e.g., "cct", "finish")
-        doc_name: The document name in ERPNext
-        error_message: The error message from Webflow
-    
-    Returns:
-        dict: {"success": True}
-    """
+    """Mark an attribute as having a sync error for the given brand."""
     config = get_attribute_config(attribute_type)
     doctype = config["doctype"]
-    
+
     if not frappe.db.exists(doctype, doc_name):
         frappe.throw(_("{0} with name '{1}' not found").format(doctype, doc_name))
-    
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    truncated = (error_message[:500] if error_message else "Unknown error")
     meta = frappe.get_meta(doctype)
-    update_fields = {}
-    
-    if meta.has_field("webflow_sync_status"):
-        update_fields["webflow_sync_status"] = "Error"
-    if meta.has_field("webflow_sync_error"):
-        update_fields["webflow_sync_error"] = error_message[:500] if error_message else "Unknown error"
-    
-    if update_fields:
-        frappe.db.set_value(doctype, doc_name, update_fields)
-        frappe.db.commit()
-    
+
+    if meta.has_field("webflow_sync_targets"):
+        existing = _get_attribute_brand_sync_row(doctype, doc_name, brand_code)
+        if existing:
+            frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+                "sync_status": "Error",
+                "sync_error_message": truncated,
+            }, update_modified=True)
+        else:
+            parent = frappe.get_doc(doctype, doc_name)
+            parent.append("webflow_sync_targets", {
+                "brand": brand_code,
+                "sync_status": "Error",
+                "sync_error_message": truncated,
+            })
+            parent.flags._skip_webflow_sync = True
+            parent.save(ignore_permissions=True)
+
+    if brand_code == (get_default_brand() or "illumenate"):
+        update_fields = {}
+        if meta.has_field("webflow_sync_status"):
+            update_fields["webflow_sync_status"] = "Error"
+        if meta.has_field("webflow_sync_error"):
+            update_fields["webflow_sync_error"] = truncated
+        if update_fields:
+            frappe.db.set_value(doctype, doc_name, update_fields)
+
+    frappe.db.commit()
     frappe.log_error(
         message=error_message[:1000] if error_message else "Unknown error",
-        title=f"Webflow Attribute Sync Error: {doctype} - {doc_name}"
+        title=f"Webflow Attribute Sync Error [{brand_code}]: {doctype} - {doc_name}",
     )
-    
     return {
         "success": True,
         "doc_name": doc_name,
-        "attribute_type": attribute_type
+        "attribute_type": attribute_type,
+        "brand": brand_code,
     }
 
 

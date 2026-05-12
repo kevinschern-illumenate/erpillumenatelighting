@@ -6,6 +6,11 @@ This guide describes the authentication, pricing, and project management
 integration between Webflow and ERPNext. ERPNext is the single source of
 truth for user accounts, roles, and project data.
 
+> **Multi-brand:** The portal (login, projects, configurator) is hosted at
+> the ilLumenate ERPNext site and is embedded only by the ilLumenate Webflow
+> site. The 206 Lighting Webflow site does not link to portal/configurator
+> routes. See [MULTI_BRAND_WEBFLOW.md](MULTI_BRAND_WEBFLOW.md).
+
 ## Architecture
 
 ```

@@ -1,0 +1,32 @@
+{
+ "add_total_row": 1,
+ "columns": [],
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "letterhead": null,
+ "module": "ilLumenate Lighting",
+ "name": "Sales Team Commissions",
+ "ref_doctype": "Sales Invoice",
+ "report_name": "Sales Team Commissions",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Sales User"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "System Manager"
+  }
+ ]
+}

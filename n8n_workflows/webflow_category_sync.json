@@ -16,7 +16,10 @@
       "name": "Every 6 Hours",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {},
@@ -24,7 +27,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 150]
+      "position": [
+        0,
+        150
+      ]
     },
     {
       "parameters": {
@@ -38,6 +44,10 @@
             {
               "name": "sync_status",
               "value": "needs_sync"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $('Set Brand').item.json.brand }}"
             }
           ]
         },
@@ -47,7 +57,10 @@
       "name": "Fetch Categories from ERPNext",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [250, 75],
+      "position": [
+        250,
+        75
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -82,7 +95,10 @@
       "name": "Has Categories to Sync?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [475, 75]
+      "position": [
+        475,
+        75
+      ]
     },
     {
       "parameters": {
@@ -93,7 +109,10 @@
       "name": "Split Categories",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [700, 0]
+      "position": [
+        700,
+        0
+      ]
     },
     {
       "parameters": {
@@ -122,12 +141,15 @@
       "name": "Exists in Webflow?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [925, 0]
+      "position": [
+        925,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.webflow.com/v2/collections/697105f368b2ba752d0651b8/items",
+        "url": "=https://api.webflow.com/v2/collections/{{ $('Get Brand Config').item.json.message.categories_collection_id }}/items",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -139,7 +161,10 @@
       "name": "Webflow: Create Category",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1175, -75],
+      "position": [
+        1175,
+        -75
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -150,7 +175,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://api.webflow.com/v2/collections/697105f368b2ba752d0651b8/items/{{ $json.webflow_item_id }}",
+        "url": "=https://api.webflow.com/v2/collections/{{ $('Get Brand Config').item.json.message.categories_collection_id }}/items/{{ $json.webflow_item_id }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -162,7 +187,10 @@
       "name": "Webflow: Update Category",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1175, 75],
+      "position": [
+        1175,
+        75
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "webflow-api-token",
@@ -178,14 +206,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"category_slug\": \"{{ $('Split Categories').item.json.category_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "jsonBody": "={\n  \"category_slug\": \"{{ $('Split Categories').item.json.category_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-synced-new",
       "name": "Mark Synced (New)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1425, -75],
+      "position": [
+        1425,
+        -75
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -201,14 +232,17 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"category_slug\": \"{{ $('Split Categories').item.json.category_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\"\n}",
+        "jsonBody": "={\n  \"category_slug\": \"{{ $('Split Categories').item.json.category_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-synced-update",
       "name": "Mark Synced (Update)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1425, 75],
+      "position": [
+        1425,
+        75
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "erpnext-api-key",
@@ -226,7 +260,10 @@
       "name": "Setup Instructions",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-300, -100]
+      "position": [
+        -300,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -238,7 +275,77 @@
       "name": "No Sync Needed",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [700, 150]
+      "position": [
+        700,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "brand",
+              "value": "illumenate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ill-set-brand-node",
+      "name": "Set Brand",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        17760,
+        5824
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_brand.get_brand_config",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "brand",
+              "value": "={{ $json.brand }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ill-get-brand-config-node",
+      "name": "Get Brand Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17968,
+        5824
+      ],
+      "credentials": {
+        "erpNextApi": {
+          "id": "q5FbtRYh73x4yYeZ",
+          "name": "Webflow Marketing API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Multi-brand setup\n\n**Brand:** Set in the 'Set Brand' node (default illumenate).\n\nCollection IDs and credentials are resolved per-brand via the 'Get Brand Config' HTTP node calling webflow_brand.get_brand_config.\n\n**To run for lighting_206:**\n1. Edit 'Set Brand' â \brand = lighting_206, OR clone the workflow and change the value there.\n2. Swap the credential on the Webflow HTTP nodes to the brand-specific credential (e.g. webflow-lighting_206). Expression-driven credentials are not supported on this node type â manual swap or workflow-clone is required.\n3. The configurator payload is auto-stripped server-side when include_configurator_payload=0 on the brand record. The product Transform node also has a defense-in-depth guard.\n",
+        "height": 380,
+        "width": 350
+      },
+      "id": "ill-multibrand-sticky",
+      "name": "Multi-Brand Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        17280,
+        5568
+      ]
     }
   ],
   "connections": {
@@ -246,7 +353,7 @@
       "main": [
         [
           {
-            "node": "Fetch Categories from ERPNext",
+            "node": "Set Brand",
             "type": "main",
             "index": 0
           }
@@ -254,6 +361,28 @@
       ]
     },
     "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Brand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Brand": {
+      "main": [
+        [
+          {
+            "node": "Get Brand Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Brand Config": {
       "main": [
         [
           {

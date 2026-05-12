@@ -7,6 +7,13 @@ This document explains how ilLumenate Lighting's ERPNext system integrates with 
 2. **Real-time product data** (Webflow → ERPNext via JavaScript)
 3. **Fixture configurator** (Interactive configuration on product pages)
 
+> **Multi-brand:** ERPNext now publishes to multiple Webflow sites (one
+> brand per site). All product/category/attribute API endpoints accept an
+> optional `brand` query parameter (`illumenate`, `lighting_206`, ...).
+> See [MULTI_BRAND_WEBFLOW.md](MULTI_BRAND_WEBFLOW.md) for the brand model,
+> per-brand collection IDs, and n8n workflow setup. Without `brand`, the
+> default brand (`illumenate`) is used for back-compat.
+
 ---
 
 ## Architecture Diagram

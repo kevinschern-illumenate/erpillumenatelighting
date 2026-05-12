@@ -19,6 +19,9 @@
                         "description",
                         "category_image",
                         "sync_section",
+                        "target_brands",
+                        "sync_targets",
+                        "legacy_sync_section",
                         "webflow_item_id",
                         "column_break_sync",
                         "last_synced_at",
@@ -89,13 +92,37 @@
                        "collapsible":  1,
                        "fieldname":  "sync_section",
                        "fieldtype":  "Section Break",
-                       "label":  "Webflow Sync Status"
+                       "label":  "Webflow Brands \u0026 Sync"
                    },
                    {
-                       "description":  "Webflow CMS item ID (populated after sync)",
+                       "description":  "Brands (Webflow sites) this category should be published to.",
+                       "fieldname":  "target_brands",
+                       "fieldtype":  "Table",
+                       "label":  "Target Brands",
+                       "options":  "ilL-Child-Webflow-Brand-Target"
+                   },
+                   {
+                       "description":  "Per-brand sync state. One row per brand.",
+                       "fieldname":  "sync_targets",
+                       "fieldtype":  "Table",
+                       "label":  "Sync Targets",
+                       "options":  "ilL-Child-Webflow-Sync-State",
+                       "read_only":  1
+                   },
+                   {
+                       "collapsible":  1,
+                       "description":  "Deprecated single-brand fields, kept for backward compatibility.",
+                       "fieldname":  "legacy_sync_section",
+                       "fieldtype":  "Section Break",
+                       "hidden":  1,
+                       "label":  "Legacy Sync (Deprecated)"
+                   },
+                   {
+                       "description":  "DEPRECATED: use Sync Targets table.",
                        "fieldname":  "webflow_item_id",
                        "fieldtype":  "Data",
-                       "label":  "Webflow Item ID",
+                       "hidden":  1,
+                       "label":  "Webflow Item ID (legacy)",
                        "read_only":  1
                    },
                    {
@@ -105,15 +132,16 @@
                    {
                        "fieldname":  "last_synced_at",
                        "fieldtype":  "Datetime",
-                       "label":  "Last Synced At",
+                       "hidden":  1,
+                       "label":  "Last Synced At (legacy)",
                        "read_only":  1
                    },
                    {
                        "default":  "Never Synced",
                        "fieldname":  "sync_status",
                        "fieldtype":  "Select",
-                       "in_list_view":  1,
-                       "label":  "Sync Status",
+                       "hidden":  1,
+                       "label":  "Sync Status (legacy)",
                        "options":  "Pending\nSynced\nError\nNever Synced",
                        "read_only":  1
                    }
@@ -122,7 +150,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-21 10:00:00.000000",
+    "modified":  "2026-05-07 10:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Webflow-Category",

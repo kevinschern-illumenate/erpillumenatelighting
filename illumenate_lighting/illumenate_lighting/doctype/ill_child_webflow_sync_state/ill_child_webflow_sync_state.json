@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-07 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "sync_status",
+  "webflow_item_id",
+  "webflow_collection_slug",
+  "column_break_state",
+  "last_synced_at",
+  "sync_error_message"
+ ],
+ "fields": [
+  {
+   "description": "Webflow brand this sync row applies to.",
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Brand",
+   "options": "ilL-Webflow-Brand",
+   "reqd": 1
+  },
+  {
+   "default": "Never Synced",
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sync Status",
+   "options": "Never Synced\nPending\nSynced\nError"
+  },
+  {
+   "fieldname": "webflow_item_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Webflow Item ID",
+   "read_only": 1
+  },
+  {
+   "description": "Webflow collection slug (Product/Category only).",
+   "fieldname": "webflow_collection_slug",
+   "fieldtype": "Data",
+   "label": "Webflow Collection Slug",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_state",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_synced_at",
+   "fieldtype": "Datetime",
+   "label": "Last Synced At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sync_error_message",
+   "fieldtype": "Small Text",
+   "label": "Sync Error Message",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-07 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Webflow-Sync-State",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

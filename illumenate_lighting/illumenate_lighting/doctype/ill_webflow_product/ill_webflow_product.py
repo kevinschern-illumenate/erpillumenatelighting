@@ -1411,17 +1411,21 @@ class ilLWebflowProduct(Document):
 			})
 
 		if driver.voltage_output:
-			output_voltage = frappe.db.get_value(
+			voltage_data = frappe.db.get_value(
 				"ilL-Attribute-Output Voltage",
 				driver.voltage_output,
-				"voltage"
-			)
+				["dc_voltage", "ac_voltage"],
+				as_dict=True,
+			) or {}
+			dc_voltage = voltage_data.get("dc_voltage")
+			ac_voltage = voltage_data.get("ac_voltage")
+			output_voltage = dc_voltage or ac_voltage
 			if output_voltage:
 				specs_to_add.append({
 					"spec_group": "Electrical",
 					"spec_label": "Output Voltage",
 					"spec_value": str(output_voltage),
-					"spec_unit": "VDC",
+					"spec_unit": "VDC" if dc_voltage else "VAC",
 					"is_calculated": 1,
 					"display_order": 20
 				})
@@ -1594,17 +1598,21 @@ class ilLWebflowProduct(Document):
 			})
 
 		if tape.input_voltage:
-			voltage = frappe.db.get_value(
+			voltage_data = frappe.db.get_value(
 				"ilL-Attribute-Output Voltage",
 				tape.input_voltage,
-				"voltage"
-			)
-			if voltage:
+				["dc_voltage", "ac_voltage"],
+				as_dict=True,
+			) or {}
+			dc_voltage = voltage_data.get("dc_voltage")
+			ac_voltage = voltage_data.get("ac_voltage")
+			voltage_value = dc_voltage or ac_voltage
+			if voltage_value:
 				specs_to_add.append({
 					"spec_group": "Electrical",
 					"spec_label": "Input Voltage",
-					"spec_value": str(voltage),
-					"spec_unit": "VDC",
+					"spec_value": str(voltage_value),
+					"spec_unit": "VDC" if dc_voltage else "VAC",
 					"is_calculated": 1,
 					"display_order": 30
 				})

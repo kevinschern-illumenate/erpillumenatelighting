@@ -2,6 +2,14 @@
 
 This guide explains how to set up automatic lead creation in Frappe CRM v16 from Webflow form submissions via n8n, and the complete lead-to-customer journey.
 
+> **Multi-brand:** `create_lead_from_webflow` now accepts an optional
+> `brand` parameter (e.g. `illumenate`, `lighting_206`). When supplied,
+> CRM Lead `source` is set to the brand's label. Two n8n workflows ship:
+> [`webflow_lead_form.json`](../n8n_workflows/webflow_lead_form.json)
+> (webhook path `webflow-lead-form`, hardcoded `brand=illumenate`) and
+> [`webflow_lead_form_206.json`](../n8n_workflows/webflow_lead_form_206.json)
+> (webhook path `webflow-lead-form-206`, hardcoded `brand=lighting_206`).
+
 ## Overview
 
 ### System Architecture

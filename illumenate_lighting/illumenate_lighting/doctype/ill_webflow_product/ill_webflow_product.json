@@ -32,6 +32,7 @@
   "max_length_mm",
   "length_increment_mm",
   "configurator_options",
+  "feed_lengths",
   "kit_components_section",
   "kit_components",
   "marketing_section",
@@ -64,6 +65,9 @@
   "warranty_years",
   "fixture_weight_per_foot_grams",
   "sync_section",
+  "target_brands",
+  "sync_targets",
+  "legacy_sync_section",
   "webflow_item_id",
   "webflow_collection_slug",
   "column_break_sync",
@@ -242,6 +246,13 @@
    "fieldtype": "Table",
    "label": "Configurator Options",
    "options": "ilL-Child-Webflow-Configurator-Option"
+  },
+  {
+   "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext.",
+   "fieldname": "feed_lengths",
+   "fieldtype": "Table",
+   "label": "Feed Lengths (Webflow Configurator)",
+   "options": "ilL-Child-Webflow-Feed-Length"
   },
   {
    "collapsible": 1,
@@ -431,20 +442,46 @@
    "collapsible": 1,
    "fieldname": "sync_section",
    "fieldtype": "Section Break",
-   "label": "Webflow Sync Status"
+   "label": "Webflow Brands & Sync"
   },
   {
-   "description": "Webflow CMS item ID (populated after sync)",
-   "fieldname": "webflow_item_id",
-   "fieldtype": "Data",
-   "label": "Webflow Item ID",
+   "description": "Brands (Webflow sites) this product should be published to. Leave empty during migration; defaults to the default brand.",
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brands",
+   "options": "ilL-Child-Webflow-Brand-Target"
+  },
+  {
+   "description": "Per-brand sync state. One row per brand. Populated automatically.",
+   "fieldname": "sync_targets",
+   "fieldtype": "Table",
+   "label": "Sync Targets",
+   "options": "ilL-Child-Webflow-Sync-State",
    "read_only": 1
   },
   {
-   "description": "Webflow collection slug (e.g., 'fixtures', 'drivers')",
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:1",
+   "description": "Deprecated single-brand fields. Authoritative data lives in 'Sync Targets' above. These fields are kept temporarily for backward compatibility during the multi-brand migration and will be removed in a future release.",
+   "fieldname": "legacy_sync_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Legacy Sync (Deprecated)"
+  },
+  {
+   "description": "DEPRECATED: use Sync Targets table. Webflow CMS item ID for the default brand.",
+   "fieldname": "webflow_item_id",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Webflow Item ID (legacy)",
+   "read_only": 1
+  },
+  {
+   "description": "DEPRECATED: use Sync Targets table. Webflow collection slug for the default brand.",
    "fieldname": "webflow_collection_slug",
    "fieldtype": "Data",
-   "label": "Webflow Collection Slug",
+   "hidden": 1,
+   "label": "Webflow Collection Slug (legacy)",
    "read_only": 1
   },
   {
@@ -454,22 +491,24 @@
   {
    "fieldname": "last_synced_at",
    "fieldtype": "Datetime",
-   "label": "Last Synced At",
+   "hidden": 1,
+   "label": "Last Synced At (legacy)",
    "read_only": 1
   },
   {
    "default": "Never Synced",
    "fieldname": "sync_status",
    "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Sync Status",
+   "hidden": 1,
+   "label": "Sync Status (legacy)",
    "options": "Pending\nSynced\nError\nNever Synced",
    "read_only": 1
   },
   {
    "fieldname": "sync_error_message",
    "fieldtype": "Small Text",
-   "label": "Sync Error Message",
+   "hidden": 1,
+   "label": "Sync Error Message (legacy)",
    "read_only": 1
   }
  ],
