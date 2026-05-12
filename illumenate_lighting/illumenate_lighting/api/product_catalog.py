@@ -270,13 +270,17 @@ def get_catalog_product_detail(product_slug: str) -> dict:
     feed_lengths = []
     for fl in sorted(
         getattr(product, "feed_lengths", []) or [],
-        key=lambda r: (getattr(r, "display_order", 0) or 0, getattr(r, "idx", 0) or 0),
+        key=lambda r: (getattr(r, "step", 0) or 0, getattr(r, "display_order", 0) or 0, getattr(r, "idx", 0) or 0),
     ):
         label = (getattr(fl, "label", "") or "").strip()
         code = (getattr(fl, "code", "") or "").strip()
         if not (label or code):
             continue
-        feed_lengths.append({"label": label, "code": code})
+        feed_lengths.append({
+            "step": getattr(fl, "step", 0) or 0,
+            "label": label,
+            "code": code,
+        })
 
     # Compatible products
     compatible = []
