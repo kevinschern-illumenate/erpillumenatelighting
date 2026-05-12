@@ -266,6 +266,18 @@ def get_catalog_product_detail(product_slug: str) -> dict:
             "display_label": getattr(o, "display_label", ""),
         })
 
+    # Feed lengths offered on the Webflow part-number configurator
+    feed_lengths = []
+    for fl in sorted(
+        getattr(product, "feed_lengths", []) or [],
+        key=lambda r: (getattr(r, "display_order", 0) or 0, getattr(r, "idx", 0) or 0),
+    ):
+        label = (getattr(fl, "label", "") or "").strip()
+        code = (getattr(fl, "code", "") or "").strip()
+        if not (label or code):
+            continue
+        feed_lengths.append({"label": label, "code": code})
+
     # Compatible products
     compatible = []
     for cp in product.compatible_products or []:
@@ -306,6 +318,7 @@ def get_catalog_product_detail(product_slug: str) -> dict:
             "documents": docs,
             "attribute_links": attributes,
             "configurator_options": config_options,
+            "feed_lengths": feed_lengths,
             "compatible_products": compatible,
         },
     }

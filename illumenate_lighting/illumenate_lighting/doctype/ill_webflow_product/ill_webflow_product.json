@@ -32,6 +32,7 @@
   "max_length_mm",
   "length_increment_mm",
   "configurator_options",
+  "feed_lengths",
   "kit_components_section",
   "kit_components",
   "marketing_section",
@@ -245,6 +246,13 @@
    "fieldtype": "Table",
    "label": "Configurator Options",
    "options": "ilL-Child-Webflow-Configurator-Option"
+  },
+  {
+   "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext.",
+   "fieldname": "feed_lengths",
+   "fieldtype": "Table",
+   "label": "Feed Lengths (Webflow Configurator)",
+   "options": "ilL-Child-Webflow-Feed-Length"
   },
   {
    "collapsible": 1,

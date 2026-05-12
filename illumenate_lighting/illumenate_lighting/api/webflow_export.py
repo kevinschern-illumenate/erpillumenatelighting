@@ -309,6 +309,32 @@ def get_webflow_products(
                 }
                 for o in doc.configurator_options
             ]
+
+            # Feed lengths offered on the Webflow part-number configurator.
+            # Exported as both a structured list and a JSON string so the
+            # Webflow developer can drop the JSON directly into a plain-text
+            # CMS field if preferred. This does NOT constrain ERPNext-side
+            # configurator logic (custom jumper / leader cable lengths remain
+            # available via the full configurator).
+            _feed_length_rows = sorted(
+                getattr(doc, "feed_lengths", []) or [],
+                key=lambda r: (r.display_order or 0, r.idx or 0),
+            )
+            product["feed_lengths"] = [
+                {
+                    "label": (fl.label or "").strip(),
+                    "code": (fl.code or "").strip(),
+                    "display_order": fl.display_order or 0,
+                }
+                for fl in _feed_length_rows
+                if (fl.label or "").strip() or (fl.code or "").strip()
+            ]
+            product["feed_lengths_json"] = json.dumps(
+                [
+                    {"label": f["label"], "code": f["code"]}
+                    for f in product["feed_lengths"]
+                ]
+            )
             
             product["kit_components"] = [
                 {
@@ -442,6 +468,8 @@ def get_webflow_products(
             product["max_length_mm"] = None
             product["length_increment_mm"] = None
             product["configurator_intro_text"] = None
+            product["feed_lengths"] = []
+            product["feed_lengths_json"] = "[]"
 
     return {
         "products": products,
