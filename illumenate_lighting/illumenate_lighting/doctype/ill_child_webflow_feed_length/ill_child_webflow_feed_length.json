@@ -6,11 +6,20 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "step",
   "label",
   "code",
   "display_order"
  ],
  "fields": [
+  {
+   "description": "Configurator step this feed length belongs to (matches option_step in Configurator Options, e.g., 9 = Start Feed Length, 11 = End Feed Length). Tells the Webflow script where to insert this code in the part number.",
+   "fieldname": "step",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Step",
+   "reqd": 1
+  },
   {
    "description": "Display label shown to web users (e.g., '6 in', '12 in', '24 in')",
    "fieldname": "label",
