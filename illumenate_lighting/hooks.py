@@ -181,6 +181,8 @@ fixtures = [
 	{"dt": "Custom Field"},
 	# Workspace for sidebar navigation
 	{"dt": "Workspace", "filters": [["module", "=", "ilLumenate Lighting"]]},
+	# Dashboard number cards for the ilLumenate Lighting workspace
+	{"dt": "Number Card", "filters": [["module", "=", "ilLumenate Lighting"]]},
 ]
 
 # Uninstallation
