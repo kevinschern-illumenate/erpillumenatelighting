@@ -121,6 +121,11 @@ def generate_from_webflow_selections(
         end_feed_direction_code=engine_params.get("end_feed_direction_code", "C"),
         start_leader_len_mm=engine_params.get("start_leader_len_mm", 0),
         end_leader_len_mm=engine_params.get("end_leader_len_mm", 0),
+        # Webflow public flow: the spec sheet is informational only. Length
+        # is not yet meaningful (no project / runs / drivers being ordered)
+        # so we relax length-too-short edge cases to warnings. Strict
+        # manufacturability enforcement happens later in /portal.
+        relax_length_validation=True,
     )
 
     if not quote_result.get("is_valid"):

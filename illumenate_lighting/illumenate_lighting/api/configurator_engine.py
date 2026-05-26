@@ -493,9 +493,17 @@ def validate_and_quote(
 	_skip_record_creation: bool = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
+	relax_length_validation: bool = False,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
+
+	When ``relax_length_validation`` is True, length-related edge cases
+	(requested length too short for the selected endcaps/leaders, or tape
+	cut length rounding to 0mm) are surfaced as warnings instead of
+	blocking errors. This is used by the Webflow public spec-sheet flow,
+	where the length is informational only — actual manufacturability is
+	enforced later in the authenticated /portal pipeline.
 
 	This is the main entry point for the Rules Engine v1. It:
 	1. Validates all selections against the fixture template's allowed options
@@ -651,6 +659,7 @@ def validate_and_quote(
 		computed_result,
 		validation_result.get("template_doc"),
 		validation_result.get("tape_offering_doc"),
+		relax_length_validation=relax_length_validation,
 	)
 	response["messages"].extend(edge_case_messages)
 
@@ -2862,6 +2871,7 @@ def _validate_computed_edge_cases(
 	computed: dict[str, Any],
 	template_doc=None,
 	tape_offering_doc=None,
+	relax_length_validation: bool = False,
 ) -> tuple[list[dict[str, str]], bool]:
 	"""
 	Validate computed outputs for edge cases and return warnings/blocks.
@@ -2905,22 +2915,32 @@ def _validate_computed_edge_cases(
 	manufacturable_length = computed.get("manufacturable_overall_length_mm", 0)
 
 	# Check 1: Internal length ≤ 0 (too short)
+	# When ``relax_length_validation`` is set (e.g. public Webflow spec-sheet
+	# flow) we still surface the issue as a warning so the part number can be
+	# generated, but we do not block. Hard enforcement happens in /portal.
 	if internal_length <= 0:
-		min_length = int(total_endcap_allowance + leader_allowance + 1)  # Minimum to have positive internal
+		# Include any end-leader allowance in the displayed minimum so the
+		# message accurately reflects what the engine actually subtracted
+		# from the requested length (previously this omitted dual-feed
+		# end-leader length, producing confusing messages like
+		# "Requested 4597mm too short. Minimum 4577mm" where 4597 > 4577).
+		_end_leader = max(0, int(round(requested_length - internal_length - total_endcap_allowance - leader_allowance)))
+		min_length = int(total_endcap_allowance + leader_allowance + _end_leader + 1)
 		messages.append({
-			"severity": "error",
+			"severity": "warning" if relax_length_validation else "error",
 			"text": (
 				f"Requested length ({requested_length}mm) is too short. "
 				f"Minimum length with selected endcaps and leader allowance is {min_length}mm."
 			),
 			"field": "requested_overall_length_mm",
 		})
-		has_blocks = True
+		if not relax_length_validation:
+			has_blocks = True
 
 	# Check 2: Tape cut length is 0 after rounding (edge case)
 	elif tape_cut_length <= 0:
 		messages.append({
-			"severity": "error",
+			"severity": "warning" if relax_length_validation else "error",
 			"text": (
 				f"Configuration results in 0mm tape length. "
 				f"Internal length ({internal_length}mm) is less than one tape cut increment. "
@@ -2928,7 +2948,8 @@ def _validate_computed_edge_cases(
 			),
 			"field": "requested_overall_length_mm",
 		})
-		has_blocks = True
+		if not relax_length_validation:
+			has_blocks = True
 
 	# Check 3: Profile stock length missing or invalid
 	if profile_stock_len <= 0:
