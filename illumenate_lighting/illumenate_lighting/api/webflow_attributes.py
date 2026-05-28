@@ -722,8 +722,6 @@ def get_webflow_attributes(
             )
         )
 
-        match_names = set(per_brand_match)
-
         if has_webflow_sync_status:
             legacy_match = set(
                 frappe.get_all(
@@ -740,12 +738,12 @@ def get_webflow_attributes(
                 )
             )
             # Per-brand row is authoritative when present.
-            match_names |= legacy_match - has_per_brand_row
+            per_brand_match |= legacy_match - has_per_brand_row
 
-        if not match_names:
+        if not per_brand_match:
             filters["name"] = ["in", ["__none__"]]
         else:
-            filters["name"] = ["in", list(match_names)]
+            filters["name"] = ["in", list(per_brand_match)]
     
     # Get list of fields to fetch
     fields_to_fetch = ["name", "creation", "modified"]

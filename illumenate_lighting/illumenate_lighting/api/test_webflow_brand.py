@@ -229,11 +229,11 @@ class TestWebflowAttributesPerBrandSyncFilter(FrappeTestCase):
 			if frappe.db.exists("ilL-Attribute-CCT", name):
 				frappe.delete_doc("ilL-Attribute-CCT", name, force=1, ignore_permissions=True)
 
-	def _make_cct(self, name: str, legacy_status: str) -> str:
+	def _make_cct(self, cct_name: str, legacy_status: str) -> str:
 		doc = frappe.new_doc("ilL-Attribute-CCT")
 		doc.update({
-			"cct_name": name,
-			"code": name[-4:].upper(),
+			"cct_name": cct_name,
+			"code": cct_name[-4:].upper(),
 			"kelvin": 3000,
 			"is_active": 1,
 		})
