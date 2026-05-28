@@ -23,6 +23,23 @@ frappe.query_reports["Sales Partner Invoice Report"] = {
 			options: "Sales Partner",
 		},
 		{
+			fieldname: "status",
+			label: __("Status"),
+			fieldtype: "Select",
+			options: [
+				"",
+				"Paid",
+				"Unpaid",
+				"Overdue",
+				"Partly Paid",
+				"Credit Note Issued",
+				"Return",
+				"Draft",
+				"Cancelled",
+			].join("\n"),
+			default: "",
+		},
+		{
 			fieldname: "company",
 			label: __("Company"),
 			fieldtype: "Link",

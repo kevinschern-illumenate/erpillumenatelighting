@@ -49,6 +49,12 @@ def get_columns():
             "fieldtype": "Date",
             "width": 140,
         },
+        {
+            "label": _("Status"),
+            "fieldname": "status",
+            "fieldtype": "Data",
+            "width": 120,
+        },
     ]
 
 
@@ -72,7 +78,16 @@ def get_data(filters):
         conditions.append("company = %(company)s")
         values["company"] = filters["company"]
 
-    where_clause = "docstatus = 1"
+    status = (filters.get("status") or "").strip()
+    if status:
+        conditions.append("status = %(status)s")
+        values["status"] = status
+
+    # When a specific status is selected, include cancelled/draft invoices if asked.
+    if status in ("Draft", "Cancelled"):
+        where_clause = "1=1"
+    else:
+        where_clause = "docstatus = 1"
     if conditions:
         where_clause += " AND " + " AND ".join(conditions)
 
@@ -84,7 +99,8 @@ def get_data(filters):
             net_total,
             grand_total,
             posting_date,
-            due_date
+            due_date,
+            status
         FROM
             `tabSales Invoice`
         WHERE
