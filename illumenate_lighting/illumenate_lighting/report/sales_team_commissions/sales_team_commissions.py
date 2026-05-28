@@ -135,7 +135,13 @@ def get_data(filters):
 		conditions.append("si.customer = %(customer)s")
 		values["customer"] = filters["customer"]
 	if filters.get("sales_person"):
-		conditions.append("st.sales_person = %(sales_person)s")
+		conditions.append(
+			"si.customer IN ("
+			" SELECT cst.parent FROM `tabSales Team` cst"
+			" WHERE cst.parenttype = 'Customer'"
+			" AND cst.sales_person = %(sales_person)s"
+			")"
+		)
 		values["sales_person"] = filters["sales_person"]
 
 	payment_status = (filters.get("payment_status") or "Paid").strip()

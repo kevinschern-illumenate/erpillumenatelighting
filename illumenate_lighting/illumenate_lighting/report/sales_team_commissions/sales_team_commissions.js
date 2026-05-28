@@ -33,9 +33,12 @@ frappe.query_reports["Sales Team Commissions"] = {
 		},
 		{
 			fieldname: "sales_person",
-			label: __("Sales Person"),
+			label: __("Customer Sales Team Member"),
 			fieldtype: "Link",
 			options: "Sales Person",
+			description: __(
+				"Filters invoices whose Customer has this Sales Person in their Sales Team table."
+			),
 		},
 		{
 			fieldname: "customer",
