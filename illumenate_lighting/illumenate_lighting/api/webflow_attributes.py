@@ -701,12 +701,49 @@ def get_webflow_attributes(
     elif has_status:
         filters["status"] = "Active"
     
-    # Apply sync status filter if field exists
-    if sync_status and has_webflow_sync_status:
+    # Sync status filter: prefer per-brand row, fall back to legacy scalar.
+    sync_filter_set: set[str] | None = None
+    if sync_status:
         if sync_status == "needs_sync":
-            filters["webflow_sync_status"] = ["in", ["Pending", "Never Synced", ""]]
+            sync_filter_set = {"Pending", "Never Synced", ""}
         else:
-            filters["webflow_sync_status"] = sync_status
+            sync_filter_set = {sync_status}
+
+    if sync_filter_set:
+        per_brand_match = set(
+            frappe.get_all(
+                "ilL-Child-Webflow-Sync-State",
+                filters={
+                    "parenttype": doctype,
+                    "brand": brand_code,
+                    "sync_status": ["in", list(sync_filter_set)],
+                },
+                pluck="parent",
+            )
+        )
+
+        if has_webflow_sync_status:
+            legacy_match = set(
+                frappe.get_all(
+                    doctype,
+                    filters={"webflow_sync_status": ["in", list(sync_filter_set)]},
+                    pluck="name",
+                )
+            )
+            has_per_brand_row = set(
+                frappe.get_all(
+                    "ilL-Child-Webflow-Sync-State",
+                    filters={"parenttype": doctype, "brand": brand_code},
+                    pluck="parent",
+                )
+            )
+            # Per-brand row is authoritative when present.
+            per_brand_match |= legacy_match - has_per_brand_row
+
+        if not per_brand_match:
+            filters["name"] = ["in", ["__none__"]]
+        else:
+            filters["name"] = ["in", list(per_brand_match)]
     
     # Get list of fields to fetch
     fields_to_fetch = ["name", "creation", "modified"]
