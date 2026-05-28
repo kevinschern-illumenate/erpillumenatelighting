@@ -12,6 +12,9 @@ from illumenate_lighting.illumenate_lighting.api.webflow_export import (
 	get_webflow_products,
 	mark_webflow_synced,
 )
+from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+	get_webflow_attributes,
+)
 from illumenate_lighting.illumenate_lighting.api.webflow_sync_events import (
 	on_product_update,
 )
@@ -201,3 +204,93 @@ class TestWebflowSyncEvents(FrappeTestCase):
 		by_brand = {r["brand"]: r["sync_status"] for r in rows}
 		self.assertEqual(by_brand.get("illumenate"), "Pending")
 		self.assertNotIn("brand_206_test", by_brand)
+
+
+class TestWebflowAttributesPerBrandSyncFilter(FrappeTestCase):
+	@classmethod
+	def setUpClass(cls):
+		_ensure_brand("illumenate", is_default=1)
+		_ensure_brand("brand_206_test", is_active=1)
+		webflow_brand.clear_brand_cache()
+
+	def setUp(self):
+		self.created = []
+		for slug in [
+			"test-cct-per-brand-pending",
+			"test-cct-legacy-pending",
+			"test-cct-per-brand-synced-legacy-pending",
+			"test-cct-both-pending",
+		]:
+			if frappe.db.exists("ilL-Attribute-CCT", slug):
+				frappe.delete_doc("ilL-Attribute-CCT", slug, force=1, ignore_permissions=True)
+
+	def tearDown(self):
+		for name in self.created:
+			if frappe.db.exists("ilL-Attribute-CCT", name):
+				frappe.delete_doc("ilL-Attribute-CCT", name, force=1, ignore_permissions=True)
+
+	def _make_cct(self, name: str, legacy_status: str) -> str:
+		doc = frappe.new_doc("ilL-Attribute-CCT")
+		doc.update({
+			"cct_name": name,
+			"code": name[-4:].upper(),
+			"kelvin": 3000,
+			"is_active": 1,
+		})
+		doc.insert(ignore_permissions=True)
+		if frappe.get_meta("ilL-Attribute-CCT").has_field("webflow_sync_status"):
+			frappe.db.set_value("ilL-Attribute-CCT", doc.name, "webflow_sync_status", legacy_status)
+		self.created.append(doc.name)
+		return doc.name
+
+	def _set_brand_sync(self, doc_name: str, status: str):
+		row = frappe.db.get_value(
+			"ilL-Child-Webflow-Sync-State",
+			{
+				"parenttype": "ilL-Attribute-CCT",
+				"parent": doc_name,
+				"brand": "brand_206_test",
+			},
+			"name",
+		)
+		if row:
+			frappe.db.set_value("ilL-Child-Webflow-Sync-State", row, "sync_status", status)
+			return
+		parent = frappe.get_doc("ilL-Attribute-CCT", doc_name)
+		parent.append(
+			"webflow_sync_targets",
+			{"brand": "brand_206_test", "sync_status": status},
+		)
+		parent.save(ignore_permissions=True)
+
+	def test_needs_sync_prefers_per_brand_with_legacy_fallback(self):
+		meta = frappe.get_meta("ilL-Attribute-CCT")
+		if not meta.has_field("webflow_sync_status") or not meta.has_field("webflow_sync_targets"):
+			self.skipTest("CCT doctype missing webflow sync fields required for migration tests")
+
+		per_brand_pending = self._make_cct("test-cct-per-brand-pending", "Synced")
+		legacy_pending = self._make_cct("test-cct-legacy-pending", "Pending")
+		per_brand_synced_legacy_pending = self._make_cct(
+			"test-cct-per-brand-synced-legacy-pending", "Pending"
+		)
+		both_pending = self._make_cct("test-cct-both-pending", "Pending")
+
+		self._set_brand_sync(per_brand_pending, "Pending")
+		self._set_brand_sync(per_brand_synced_legacy_pending, "Synced")
+		self._set_brand_sync(both_pending, "Pending")
+		frappe.db.commit()
+
+		out = get_webflow_attributes(
+			attribute_type="cct",
+			sync_status="needs_sync",
+			brand="brand_206_test",
+			limit=200,
+		)
+		names = [a["name"] for a in out["attributes"]]
+		name_set = set(names)
+
+		self.assertIn(per_brand_pending, name_set)
+		self.assertIn(legacy_pending, name_set)
+		self.assertIn(both_pending, name_set)
+		self.assertNotIn(per_brand_synced_legacy_pending, name_set)
+		self.assertEqual(names.count(both_pending), 1)
