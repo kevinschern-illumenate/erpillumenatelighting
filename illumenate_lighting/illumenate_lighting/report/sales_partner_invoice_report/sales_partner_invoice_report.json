@@ -6,7 +6,7 @@
  "doctype": "Report",
  "filters": [],
  "is_standard": "Yes",
- "module": "Accounts",
+ "module": "ilLumenate Lighting",
  "name": "Sales Partner Invoice Report",
  "ref_doctype": "Sales Invoice",
  "report_name": "Sales Partner Invoice Report",
