@@ -60,6 +60,7 @@ class ilLWebflowProduct(Document):
 		attribute_links: DF.Table[ilLChildWebflowAttributeLink]
 		auto_calculate_specs: DF.Check
 		auto_populate_attributes: DF.Check
+		auto_populate_configurator_options: DF.Check
 		beam_angle: DF.Float
 		certifications: DF.Table[ilLChildWebflowCertificationLink]
 		compatible_products: DF.Table[ilLChildWebflowCompatibility]
@@ -114,10 +115,12 @@ class ilLWebflowProduct(Document):
 			self.calculate_specifications()
 		
 		if self.is_configurable and self.fixture_template:
-			self.populate_configurator_options()
+			if self.get("auto_populate_configurator_options", True):
+				self.populate_configurator_options()
 
 		if self.is_configurable and self.tape_neon_template:
-			self.populate_tape_neon_configurator_options()
+			if self.get("auto_populate_configurator_options", True):
+				self.populate_tape_neon_configurator_options()
 		
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)

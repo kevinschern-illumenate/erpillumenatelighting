@@ -31,6 +31,7 @@
   "min_length_mm",
   "max_length_mm",
   "length_increment_mm",
+  "auto_populate_configurator_options",
   "configurator_options",
   "feed_lengths",
   "kit_components_section",
@@ -239,6 +240,14 @@
    "fieldname": "length_increment_mm",
    "fieldtype": "Int",
    "label": "Length Increment (mm)"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.is_configurable",
+   "description": "When checked, the Configurator Options below are automatically rebuilt from the linked template every time you save (any manual edits are overwritten). Uncheck this to manually customize the Configurator Options rows without losing your changes on save, while keeping the configurator enabled.",
+   "fieldname": "auto_populate_configurator_options",
+   "fieldtype": "Check",
+   "label": "Auto-Populate Configurator Options on Save"
   },
   {
    "description": "Configuration steps and allowed values for each option",
