@@ -15,6 +15,7 @@ Endpoints:
 """
 
 import json
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import frappe
 from frappe import _
@@ -44,23 +45,35 @@ ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
 
 
 def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
-    """Convert relative URL to absolute URL for Webflow.
+    """Convert a relative URL to an absolute, percent-encoded URL for Webflow.
+
+    Spaces and other unsafe characters in the file path are percent-encoded so
+    external fetchers (e.g. Webflow) can download the asset. Without this, a
+    stored path like ``/files/My Family Hero.png`` yields a URL containing raw
+    spaces, which Webflow cannot fetch (the asset silently fails to ingest).
+
+    Encoding is idempotent: ``/`` separators and existing ``%XX`` escapes are
+    preserved, so re-running it (or the n8n encoder) does not double-encode.
 
     Args:
-        url: The URL to convert (e.g., '/files/image.jpg').
+        url: The URL to convert (e.g., '/files/My Image.png').
         brand_code: Optional brand override; defaults to the global base URL.
     """
     if not url:
         return url
 
-    # Already absolute
+    # Build the absolute URL.
     if url.startswith('http://') or url.startswith('https://'):
-        return url
+        absolute = url
+    else:
+        base = get_base_url(brand_code) if brand_code else ERPNEXT_BASE_URL
+        absolute = f"{base}{url}" if url.startswith('/') else f"{base}/{url}"
 
-    base = get_base_url(brand_code) if brand_code else ERPNEXT_BASE_URL
-    if url.startswith('/'):
-        return f"{base}{url}"
-    return f"{base}/{url}"
+    # Percent-encode the path portion only, leaving scheme/host/query/fragment
+    # untouched. ``safe="/%"`` keeps path separators and existing escapes intact.
+    parts = urlsplit(absolute)
+    safe_path = quote(parts.path, safe="/%")
+    return urlunsplit((parts.scheme, parts.netloc, safe_path, parts.query, parts.fragment))
 
 
 def _get_brand_sync_row(parent_doctype: str, parent_name: str, brand_code: str) -> dict | None:
