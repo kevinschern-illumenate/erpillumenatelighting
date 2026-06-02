@@ -177,3 +177,51 @@ def _fetch_webflow_gallery(webflow_product_names):
 			]
 
 	return webflow_product_gallery
+
+
+@frappe.whitelist()
+def get_configurator_markup(product_category="Linear Fixture", product_slug=None, selected_template=None):
+	"""Render the reusable scoped-class configurator partial for embedding
+	outside the portal page (e.g. the desk Quotation / Sales Order dialog).
+
+	The markup is wired to the IllConfigurator.Fixture / IllConfigurator.TapeNeon
+	classes:
+	  - Linear Fixture -> templates/includes/configurator_fixture_form.html
+	  - LED Tape / LED Neon -> templates/includes/configurator_tape_neon_form.html
+
+	The caller mounts the returned HTML inside a host element carrying
+	`.ill-configurator.ill-configurator-fixture` (fixtures) or
+	`.ill-configurator.ill-configurator-tape-neon` (tape/neon) and instantiates
+	the matching class against that root element.
+	"""
+	if frappe.session.user == "Guest":
+		frappe.throw("Please login to configure fixtures", frappe.PermissionError)
+
+	valid_categories = ["Linear Fixture", "LED Tape", "LED Neon"]
+	if product_category not in valid_categories:
+		product_category = "Linear Fixture"
+
+	if product_category == "Linear Fixture":
+		templates = _get_linear_fixture_templates()
+		context = {
+			"templates": templates,
+			"selected_template": selected_template,
+			"product_slug": product_slug or "",
+			"can_save": True,
+			"show_pricing": True,
+		}
+		return frappe.render_template(
+			"illumenate_lighting/templates/includes/configurator_fixture_form.html", context
+		)
+
+	title_map = {
+		"LED Tape": "Configure LED Tape",
+		"LED Neon": "Configure LED Neon",
+	}
+	context = {
+		"is_neon": product_category == "LED Neon",
+		"title": title_map.get(product_category, "Configure"),
+	}
+	return frappe.render_template(
+		"illumenate_lighting/templates/includes/configurator_tape_neon_form.html", context
+	)

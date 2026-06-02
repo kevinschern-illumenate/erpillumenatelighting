@@ -391,9 +391,155 @@ def save_and_apply(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# LINK FIELD QUERIES (used by the dialog's get_query)
-# ═══════════════════════════════════════════════════════════════════════
+@frappe.whitelist()
+def save_and_apply_from_portal(
+    parent_doctype: str,
+    parent_name: str,
+    product_type: str,
+    selections_json: str | dict[str, Any],
+    product_slug: str | None = None,
+    segments_json: str | list | None = None,
+    tape_neon_template: str | None = None,
+    row_name: str | None = None,
+    qty: float = 1,
+    variant_origin: str | None = "Quotation Tool",
+) -> dict[str, Any]:
+    """Persist + apply a configured product from *portal* selection shapes.
+
+    This is the parity adapter used by the embedded desk Quotation / Sales
+    Order configurator dialog. The portal configurator JS emits selections in
+    its own shape (e.g. ``environment_rating``, ``cct``, ``finish``,
+    ``length_inches``, feed directions) rather than the ``*_code`` engine kwargs
+    expected by :func:`save_and_apply`. This function maps those selections to
+    the engine payload — mirroring the proven portal save path in
+    ``webflow_schedule.add_to_schedule`` for fixtures — then delegates to
+    :func:`save_and_apply` so the persisted record, Item, BOM, lineage and row
+    write are identical to the portal.
+    """
+    product_type = _normalize_product_type(product_type)
+    selections = _coerce_dict(selections_json) or {}
+    qty = flt(qty) or 1
+
+    if product_type == PRODUCT_TYPE_FIXTURE:
+        payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
+        return save_and_apply(
+            parent_doctype,
+            parent_name,
+            product_type,
+            payload_json=payload,
+            row_name=row_name,
+            qty=qty,
+            variant_origin=variant_origin,
+        )
+
+    # ── LED Tape / LED Neon ──────────────────────────────────────────
+    payload: dict[str, Any] = {
+        "selections": selections,
+        "include_power_supply": selections.get("include_power_supply", True),
+        "dimming_protocol_code": selections.get("dimming_protocol_code"),
+    }
+    if product_type == PRODUCT_TYPE_NEON:
+        payload["segments_json"] = segments_json or selections.get("segments")
+
+    return save_and_apply(
+        parent_doctype,
+        parent_name,
+        product_type,
+        payload_json=payload,
+        tape_neon_template=tape_neon_template,
+        row_name=row_name,
+        qty=qty,
+        variant_origin=variant_origin,
+    )
+
+
+def _resolve_template_from_slug(product_slug: str | None):
+    """Resolve an ``ilL-Fixture-Template`` doc from a portal product slug.
+
+    Mirrors ``webflow_schedule.add_to_schedule``: prefer a Webflow product's
+    linked template, then fall back to treating the slug as a template code.
+    """
+    if not product_slug:
+        frappe.throw(_("Missing product_slug for the fixture configuration."))
+
+    template = None
+    if frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
+        product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+        if product.fixture_template:
+            template = frappe.get_doc("ilL-Fixture-Template", product.fixture_template)
+
+    if not template and frappe.db.exists("ilL-Fixture-Template", product_slug):
+        template = frappe.get_doc("ilL-Fixture-Template", product_slug)
+
+    if not template:
+        frappe.throw(_("Product or template not found: {0}").format(product_slug))
+
+    return template
+
+
+def _fixture_payload_from_portal_selections(
+    product_slug: str | None,
+    selections: dict[str, Any],
+    qty: float,
+) -> dict[str, Any]:
+    """Map portal fixture selections → ``configurator_engine`` payload kwargs.
+
+    Mirrors the mapping in ``webflow_schedule.add_to_schedule`` so a fixture
+    configured through the desk dialog is identical to one configured through
+    the portal.
+    """
+    from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
+        _resolve_tape_offering,
+    )
+    from illumenate_lighting.illumenate_lighting.api.webflow_schedule import (
+        _get_default_endcap_color,
+        _get_default_endcap_style,
+        _map_feed_direction_to_power_feed,
+    )
+
+    template = _resolve_template_from_slug(product_slug)
+
+    tape_offering_id = _resolve_tape_offering(template, selections)
+    if not tape_offering_id:
+        frappe.throw(_("Could not resolve tape offering for this configuration."))
+
+    finish_code = selections.get("finish")
+    default_endcap_style = _get_default_endcap_style(template)
+    default_endcap_color = _get_default_endcap_color(template, finish_code=finish_code)
+    power_feed_type = _map_feed_direction_to_power_feed(
+        selections.get("start_feed_direction", "End")
+    )
+
+    include_power_supply = selections.get("include_power_supply", True)
+    if isinstance(include_power_supply, str):
+        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+
+    payload: dict[str, Any] = {
+        "fixture_template_code": template.name,
+        "finish_code": finish_code,
+        "lens_appearance_code": selections.get("lens_appearance"),
+        "mounting_method_code": selections.get("mounting_method"),
+        "endcap_style_start_code": default_endcap_style,
+        "endcap_style_end_code": default_endcap_style,
+        "endcap_color_code": default_endcap_color,
+        "power_feed_type_code": power_feed_type,
+        "environment_rating_code": selections.get("environment_rating"),
+        "tape_offering_id": tape_offering_id,
+        "qty": qty,
+        "include_power_supply": include_power_supply,
+    }
+
+    length_inches_raw = selections.get("length_inches")
+    if length_inches_raw not in (None, ""):
+        try:
+            length_mm = int(round(float(length_inches_raw) * 25.4))
+        except (TypeError, ValueError):
+            length_mm = 0
+        if length_mm > 0:
+            payload["requested_overall_length_mm"] = length_mm
+
+    return payload
+
 
 
 @frappe.whitelist()

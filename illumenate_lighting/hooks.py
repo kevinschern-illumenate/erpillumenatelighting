@@ -29,13 +29,15 @@ app_include_css = [
 	"/assets/illumenate_lighting/css/configurator/shared_configurator.css",
 	"/assets/illumenate_lighting/css/configurator/fixture_steps.css",
 	"/assets/illumenate_lighting/css/configurator/tape_neon_steps.css",
+	# Desk-only overrides for the embedded quote/order configurator dialog.
+	"/assets/illumenate_lighting/css/configurator/desk_configurator.css",
 ]
 app_include_js = [
 	"/assets/illumenate_lighting/js/configurator/shared_configurator.js",
 	"/assets/illumenate_lighting/js/configurator/fixture_steps.js",
 	"/assets/illumenate_lighting/js/configurator/tape_neon_steps.js",
-	# Phase 5 — desk-side "Build / Add Configured Product" wizard.
-	"/assets/illumenate_lighting/js/desk/bom_review.js",
+	# Desk "Configure & Add Fixture" dialog — embeds the scoped portal
+	# configurator classes inside a Quotation / Sales Order modal.
 	"/assets/illumenate_lighting/js/desk/desk_dialog.js",
 ]
 

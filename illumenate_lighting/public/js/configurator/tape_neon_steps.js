@@ -376,20 +376,21 @@
 		var leadVal = parseFloat(this.$('#leadLengthInches').val());
 		var leadLength = (!isNaN(leadVal) && leadVal > 0) ? leadVal : 0;
 
-		var args = {
-			selections: JSON.stringify({
-				environment_rating: this.selections.environment_rating || '',
-				cct: this.selections.cct,
-				output_level: this.selections.output_level,
-				feed_direction: 'End Feed',
-				feed_type: this.selections.feed_type || '',
-				lead_length_inches: leadLength,
-				tape_length_unit: unit,
-				tape_length_value: parseFloat(this.$('#tapeLengthValue').val()) || 0,
-				tape_length_feet: parseFloat(this.$('#tapeLengthFeet').val()) || 0,
-				tape_length_inches: parseFloat(this.$('#tapeLengthInches').val()) || 0
-			})
+		var calcSelections = {
+			environment_rating: this.selections.environment_rating || '',
+			cct: this.selections.cct,
+			output_level: this.selections.output_level,
+			feed_direction: 'End Feed',
+			feed_type: this.selections.feed_type || '',
+			lead_length_inches: leadLength,
+			tape_length_unit: unit,
+			tape_length_value: parseFloat(this.$('#tapeLengthValue').val()) || 0,
+			tape_length_feet: parseFloat(this.$('#tapeLengthFeet').val()) || 0,
+			tape_length_inches: parseFloat(this.$('#tapeLengthInches').val()) || 0
 		};
+		this.lastCalcSelections = calcSelections;
+		this.lastCalcSegments = null;
+		var args = { selections: JSON.stringify(calcSelections) };
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
@@ -400,12 +401,15 @@
 	TapeNeon.prototype._calculateNeon = function () {
 		var self = this;
 		var segments = this._collectNeonSegments();
+		var calcSelections = {
+			cct: this.selections.cct,
+			output_level: this.selections.output_level,
+			finish: this.selections.finish
+		};
+		this.lastCalcSelections = calcSelections;
+		this.lastCalcSegments = segments;
 		var args = {
-			selections: JSON.stringify({
-				cct: this.selections.cct,
-				output_level: this.selections.output_level,
-				finish: this.selections.finish
-			}),
+			selections: JSON.stringify(calcSelections),
 			segments_json: JSON.stringify(segments)
 		};
 		frappe.call({
@@ -631,11 +635,6 @@
 			frappe.msgprint({ title: 'Error', message: 'Please calculate a valid configuration first', indicator: 'red' });
 			return;
 		}
-		var scheduleName = this.$('#scheduleSelect').val() || this.SCHEDULE_NAME;
-		if (!scheduleName) {
-			frappe.msgprint({ title: 'Error', message: 'Please select a schedule first', indicator: 'orange' });
-			return;
-		}
 
 		var resultToSave = JSON.parse(JSON.stringify(this.lastResult));
 		if (this.selectedMountingAccessory && this.selectedMountingAccessory.accessory_item) {
@@ -644,6 +643,35 @@
 			resultToSave.selections.mounting_accessory_qty = this.selectedMountingAccessory.qty;
 			resultToSave.selections.mounting_accessory_unit_msrp = this.selectedMountingAccessory.unit_msrp;
 			resultToSave.selections.mounting_accessory_total_msrp = this.selectedMountingAccessory.total_msrp;
+		}
+
+		// Pluggable save target (Phase C): delegate to a host-supplied handler
+		// (e.g. the desk quote/order dialog) when present.
+		if (typeof this.context.saveHandler === 'function') {
+			var handlerSelections = this.lastCalcSelections
+				? JSON.parse(JSON.stringify(this.lastCalcSelections))
+				: (resultToSave.selections || {});
+			if (this.selectedMountingAccessory && this.selectedMountingAccessory.accessory_item) {
+				handlerSelections.mounting_accessory_item = this.selectedMountingAccessory.accessory_item;
+				handlerSelections.mounting_accessory_qty = this.selectedMountingAccessory.qty;
+				handlerSelections.mounting_accessory_unit_msrp = this.selectedMountingAccessory.unit_msrp;
+				handlerSelections.mounting_accessory_total_msrp = this.selectedMountingAccessory.total_msrp;
+			}
+			this.context.saveHandler({
+				product_type: this.IS_NEON ? 'LED Neon' : 'LED Tape',
+				result: resultToSave,
+				selections: handlerSelections,
+				segments: this.lastCalcSegments || null,
+				validation: this.lastResult,
+				instance: this
+			});
+			return;
+		}
+
+		var scheduleName = this.$('#scheduleSelect').val() || this.SCHEDULE_NAME;
+		if (!scheduleName) {
+			frappe.msgprint({ title: 'Error', message: 'Please select a schedule first', indicator: 'orange' });
+			return;
 		}
 
 		var lineIdx = this.$('#lineSelect').val();

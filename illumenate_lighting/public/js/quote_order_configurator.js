@@ -1,13 +1,14 @@
 ﻿/**
- * Phase 5 — Legacy shim for window.illumenate_lighting.quote_order_configurator.
+ * Shim for window.illumenate_lighting.quote_order_configurator.
  *
  * The old simple "Configure Product" Tools dialog (existing-record picker
- * only) has been replaced by the multi-step "Build / Add Configured Product"
- * wizard in public/js/desk/desk_dialog.js (+ bom_review.js).
+ * only) has been replaced by the embedded "Configure & Add Fixture" dialog
+ * in public/js/desk/desk_dialog.js, which mounts the scoped portal
+ * configurator classes inside a Quotation / Sales Order modal.
  *
- * Those modules are loaded globally via hooks.py (app_include_js). This
- * shim preserves the old API surface so quotation.js / sales_order.js can
- * keep calling configurator.add_buttons(frm) / configurator.show_dialog(frm)
+ * That module is loaded globally via hooks.py (app_include_js). This shim
+ * preserves the old API surface so quotation.js / sales_order.js can keep
+ * calling configurator.add_buttons(frm) / configurator.show_dialog(frm)
  * without changes.
  */
 (function () {

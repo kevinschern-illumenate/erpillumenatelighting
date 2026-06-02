@@ -1,0 +1,272 @@
+{#
+Reusable LED Tape / LED Neon configurator markup (scoped IllConfigurator.TapeNeon).
+
+Source of truth for the fields/steps used by
+public/js/configurator/tape_neon_steps.js. Rendered both by the portal page
+templates/pages/configure_tape.html and by the in-quote desk dialog
+(see configured_product_builder/get_configurator_markup + desk_dialog.js).
+
+The host element must carry `.ill-configurator.ill-configurator-tape-neon`.
+All action buttons (#btnCalculate, #btnSaveToSchedule, #btnAddNeonSegment) are
+bound by the TapeNeon class via scoped id lookups, so multiple instances can
+coexist.
+
+Context:
+- is_neon: True for LED Neon, False for LED Tape
+- title: heading text for the configuration card
+#}
+<div class="row">
+	<!-- LEFT: Configuration Form -->
+	<div class="col-lg-7">
+		<div class="card mb-3">
+			<div class="card-header">
+				<h5 class="mb-0">{{ title }}</h5>
+			</div>
+			<div class="card-body">
+				<form id="tapeConfigForm">
+
+					<!-- STEP 1: Environment (LED Tape only) -->
+					{% if not is_neon %}
+					<div class="config-step" id="stepEnvironment">
+						<div class="option-group">
+							<label class="option-label">{{ _("Environment Rating") }}</label>
+							<div class="pill-selector" id="pillEnvironment"></div>
+							<select class="form-control select-fallback" id="selEnvironment">
+								<option value="">{{ _("Select...") }}</option>
+							</select>
+						</div>
+					</div>
+					{% endif %}
+
+					<!-- STEP 2: CCT -->
+					<div class="config-step{% if not is_neon %} disabled-step{% endif %}" id="stepCCT">
+						<div class="option-group">
+							<label class="option-label">{{ _("CCT (Correlated Color Temperature)") }} <span class="text-danger">*</span></label>
+							<div class="pill-selector" id="pillCCT"></div>
+							<select class="form-control select-fallback" id="selCCT">
+								<option value="">{{ _("Select...") }}</option>
+							</select>
+						</div>
+					</div>
+
+					<!-- STEP 3: Output -->
+					<div class="config-step disabled-step" id="stepOutput">
+						<div class="option-group">
+							<label class="option-label">{{ _("Output Level") }} <span class="text-danger">*</span></label>
+							<div class="pill-selector" id="pillOutput"></div>
+							<select class="form-control select-fallback" id="selOutput">
+								<option value="">{{ _("Select...") }}</option>
+							</select>
+						</div>
+					</div>
+
+					{% if is_neon %}
+					<!-- NEON: Finish step (mounting moved to post-config accessory) -->
+					<div class="config-step disabled-step" id="stepFinish">
+						<div class="option-group">
+							<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+							<div class="pill-selector" id="pillFinish"></div>
+							<select class="form-control select-fallback" id="selFinish">
+								<option value="">{{ _("Select...") }}</option>
+							</select>
+						</div>
+					</div>
+					{% endif %}
+
+					{% if not is_neon %}
+					<!-- LED TAPE: Feed & Length -->
+					<div class="config-step disabled-step" id="stepTapeFeed">
+						<hr>
+						<h6>{{ _("Feed & Length") }}</h6>
+
+						<!-- Feed Direction (always End Feed for tape) -->
+						<div class="option-group">
+							<label class="option-label">{{ _("Feed Direction") }}</label>
+							<input type="text" class="form-control" value="End Feed" disabled>
+							<input type="hidden" id="feedDirection" value="End Feed">
+						</div>
+
+						<!-- Feed Type -->
+						<div class="option-group">
+							<label class="option-label">{{ _("Feed Type") }} <span class="text-danger">*</span></label>
+							<div class="pill-selector" id="pillFeedType"></div>
+							<select class="form-control select-fallback" id="selFeedType">
+								<option value="">{{ _("Select...") }}</option>
+							</select>
+						</div>
+
+						<!-- Lead Length (inches) -->
+						<div class="option-group">
+							<label class="option-label">{{ _("Lead Length (inches)") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" id="leadLengthInches" min="0" step="0.25" placeholder="e.g. 12">
+						</div>
+
+						<!-- Tape Length -->
+						<div class="option-group">
+							<label class="option-label">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
+
+							<!-- Unit selector tabs -->
+							<ul class="nav nav-pills mb-2 length-unit-tabs" id="tapeLengthUnitTabs">
+								<li class="nav-item">
+									<a class="nav-link active" data-unit="in" href="#">{{ _("Inches") }}</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" data-unit="ft" href="#">{{ _("Feet") }}</a>
+								</li>
+								<li class="nav-item">
+									<a class="nav-link" data-unit="ft_in" href="#">{{ _("Feet + Inches") }}</a>
+								</li>
+							</ul>
+
+							<!-- Single value input (inches or feet) -->
+							<div id="tapeLengthSingle">
+								<input type="number" class="form-control" id="tapeLengthValue" min="0" step="0.125" placeholder="Enter length">
+							</div>
+
+							<!-- Feet + Inches input -->
+							<div id="tapeLengthFtIn" style="display: none;">
+								<div class="row">
+									<div class="col-6">
+										<input type="number" class="form-control" id="tapeLengthFeet" min="0" step="1" placeholder="Feet">
+									</div>
+									<div class="col-6">
+										<input type="number" class="form-control" id="tapeLengthInches" min="0" step="0.125" placeholder="Inches">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					{% endif %}
+
+					{% if is_neon %}
+					<!-- LED NEON: Segment Builder -->
+					<div class="config-step disabled-step" id="stepNeonSegments">
+						<hr>
+						<h6>{{ _("Segments") }}</h6>
+						<p class="text-muted small">
+							{{ _("Build your neon configuration segment by segment. The exit of one segment becomes the start feed of the next.") }}
+						</p>
+
+						<div id="neonSegmentContainer"></div>
+
+						<button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnAddNeonSegment">
+							<i class="fa fa-plus"></i> {{ _("Add Segment") }}
+						</button>
+					</div>
+					{% endif %}
+
+					<!-- Calculate Button -->
+					<div class="mt-3">
+						<button type="button" class="btn btn-primary btn-block" id="btnCalculate" disabled>
+							<i class="fa fa-calculator"></i> {{ _("Calculate") }}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<!-- RIGHT: Results Panel -->
+	<div class="col-lg-5">
+		<div class="card mb-3" id="resultsCard" style="display: none;">
+			<div class="card-header bg-success text-white">
+				<h5 class="mb-0"><i class="fa fa-check-circle"></i> {{ _("Configuration Result") }}</h5>
+			</div>
+			<div class="card-body">
+				<!-- Part Number -->
+				<div class="result-row">
+					<span class="result-label">{{ _("Part Number") }}</span>
+					<div class="result-value" id="resultPartNumber" style="font-family: monospace; font-weight: bold;"></div>
+				</div>
+
+				<!-- Description -->
+				<div class="result-row">
+					<span class="result-label">{{ _("Description") }}</span>
+					<div class="result-value small" id="resultDescription"></div>
+				</div>
+
+				<!-- Lengths -->
+				<div class="result-row">
+					<span class="result-label">{{ _("Manufacturable Length") }}</span>
+					<div class="result-value" id="resultMfgLength"></div>
+				</div>
+				<div class="result-row">
+					<span class="result-label">{{ _("Requested Length") }}</span>
+					<div class="result-value" id="resultReqLength"></div>
+				</div>
+				<div class="result-row">
+					<span class="result-label">{{ _("Difference") }}</span>
+					<div class="result-value" id="resultDifference"></div>
+				</div>
+				<div class="result-row">
+					<span class="result-label">{{ _("Total Watts") }}</span>
+					<div class="result-value" id="resultWatts"></div>
+				</div>
+
+				<!-- Run Splitting Info -->
+				<div class="result-row" id="resultMaxRunRow" style="display: none;">
+					<span class="result-label">{{ _("Max Run Length") }}</span>
+					<div class="result-value" id="resultMaxRunLength"></div>
+				</div>
+				<div class="result-row" id="resultRunsCountRow" style="display: none;">
+					<span class="result-label">{{ _("LED Tape Runs") }}</span>
+					<div class="result-value" id="resultRunsCount"></div>
+				</div>
+
+				<!-- Cut Info -->
+				<div class="result-row">
+					<span class="result-label">{{ _("Cut Info") }}</span>
+					<div class="result-value" id="resultCutInfo"></div>
+				</div>
+
+				<!-- Messages / Warnings -->
+				<div id="resultMessages" class="mt-2"></div>
+
+				<!-- Run Breakdown (when split into multiple runs) -->
+				<div id="resultRunBreakdown" class="mt-2" style="display: none;">
+					<h6>{{ _("Run Breakdown") }}</h6>
+					<div id="resultRunsList"></div>
+				</div>
+
+				<!-- Neon Segments Breakdown -->
+				<div id="resultSegments" class="mt-2" style="display: none;">
+					<h6>{{ _("Segment Details") }}</h6>
+					<div id="resultSegmentsList"></div>
+				</div>
+
+				<!-- Mounting Accessory Picker -->
+				<div id="mountingAccessorySection" class="mt-3" style="display: none;">
+					<hr>
+					<h6>{{ _("Select Mounting Accessory (Optional)") }}</h6>
+					<div class="mounting-accessory-cards" id="mountingAccessoryCards">
+						<!-- Cards rendered dynamically -->
+					</div>
+					<div id="mountingAccessoryQtyRow" class="mt-2" style="display: none;">
+						<div class="form-inline">
+							<label class="mr-2">{{ _("Qty:") }}</label>
+							<input type="number" class="form-control form-control-sm" id="mountingAccessoryQty"
+								   min="0" value="0" style="width: 80px;">
+							<span class="ml-2" id="mountingAccessoryPriceCalc"></span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Save to Schedule -->
+				<hr>
+				<button type="button" class="btn btn-success btn-block" id="btnSaveToSchedule">
+					<i class="fa fa-save"></i> {{ _("Save to Schedule") }}
+				</button>
+			</div>
+		</div>
+
+		<!-- Validation Errors -->
+		<div class="card mb-3" id="errorsCard" style="display: none;">
+			<div class="card-header bg-danger text-white">
+				<h5 class="mb-0"><i class="fa fa-exclamation-triangle"></i> {{ _("Validation Error") }}</h5>
+			</div>
+			<div class="card-body">
+				<p id="errorMessage"></p>
+			</div>
+		</div>
+	</div>
+</div>

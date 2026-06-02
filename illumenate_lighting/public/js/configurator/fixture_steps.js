@@ -715,6 +715,7 @@
 	};
 
 	Fixture.prototype._handleValidationResponse = function (data) {
+		this.lastValidation = data;
 		var $messages = this.$('#validationMessages');
 		var $messagesList = this.$('#messagesList');
 		$messagesList.empty();
@@ -827,6 +828,21 @@
 	// ────────────────────────────────────────────────────────────────
 	Fixture.prototype.addToSchedule = function () {
 		var self = this;
+
+		// Pluggable save target (Phase C): when the host (e.g. the desk
+		// quote/order dialog) supplies a saveHandler, delegate to it with the
+		// validated selections instead of writing to a portal schedule.
+		if (typeof this.context.saveHandler === 'function') {
+			this.context.saveHandler({
+				product_type: 'Linear Fixture',
+				selections: this._gatherAllSelections(),
+				product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val(),
+				validation: this.lastValidation || null,
+				instance: this
+			});
+			return;
+		}
+
 		var scheduleId = this.context.schedule_name;
 		if (!scheduleId) {
 			this._showScheduleSelectionDialog();

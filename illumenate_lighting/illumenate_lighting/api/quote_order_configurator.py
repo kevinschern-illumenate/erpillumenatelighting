@@ -360,10 +360,10 @@ def _apply_artifact_to_row(parent_doc, row, artifact: dict[str, Any], qty: float
 	if parent_doc.doctype == "Sales Order":
 		_set_child_value(row, "delivery_date", parent_doc.get("delivery_date"))
 
-	rate = _get_selling_rate(item_code)
-	if rate is not None:
-		row.rate = rate
-		_set_child_value(row, "price_list_rate", rate)
+	# Rate flows from the MSRP price list; customer-group Pricing Rules (keyed
+	# on Brand = ilLumenate Lighting + Customer Group) are applied on top so the
+	# final ``rate`` reflects the customer's tier discount.
+	_apply_pricing_to_row(parent_doc, row, item_code, qty, artifact)
 
 	_set_child_value(row, "ill_product_type", artifact["product_type"])
 	_set_child_value(row, "ill_configured_fixture", artifact.get("configured_fixture"))
@@ -411,10 +411,111 @@ def _set_child_value(row, fieldname: str, value):
 	row.set(fieldname, value)
 
 
-def _get_selling_rate(item_code: str) -> float | None:
+def _parent_selling_price_list(parent_doc) -> str:
+	"""Resolve the price list to read MSRP from.
+
+	Prefers the parent document's ``selling_price_list`` (so the quote/order
+	can drive which catalogue the configured Item is priced against), falling
+	back to the standard selling price list.
+	"""
+	return parent_doc.get("selling_price_list") or DEFAULT_SELLING_PRICE_LIST
+
+
+def _parent_customer(parent_doc) -> str | None:
+	"""Resolve the customer used for Pricing-Rule matching.
+
+	Quotation stores the customer in ``party_name`` (when ``quotation_to`` is
+	a Customer); Sales Order uses ``customer``.
+	"""
+	customer = parent_doc.get("customer")
+	if customer:
+		return customer
+	if parent_doc.doctype == "Quotation" and parent_doc.get("quotation_to") == "Customer":
+		return parent_doc.get("party_name")
+	return parent_doc.get("party_name")
+
+
+def _apply_pricing_to_row(parent_doc, row, item_code: str, qty: float, artifact: dict[str, Any]) -> None:
+	"""Set the row's price list rate and final rate.
+
+	Reads ``price_list_rate`` from the parent's selling price list (which is fed
+	from the configured Item's MSRP via ``_create_item_price_at_msrp``), then
+	lets ERPNext apply Pricing Rules — keyed on Customer Group + Brand — to
+	compute the discounted ``rate``. Falls back to the standard selling price
+	list and finally the engine MSRP when no Item Price/rule is found.
+	"""
+	price_list = _parent_selling_price_list(parent_doc)
+	details = None
+	try:
+		from erpnext.stock.get_item_details import get_item_details
+
+		args = frappe._dict({
+			"item_code": item_code,
+			"doctype": parent_doc.doctype,
+			"name": parent_doc.name,
+			"company": parent_doc.get("company"),
+			"customer": _parent_customer(parent_doc),
+			"price_list": price_list,
+			"currency": parent_doc.get("currency")
+				or frappe.defaults.get_global_default("currency"),
+			"price_list_currency": parent_doc.get("price_list_currency")
+				or parent_doc.get("currency"),
+			"conversion_rate": parent_doc.get("conversion_rate") or 1,
+			"plc_conversion_rate": parent_doc.get("plc_conversion_rate") or 1,
+			"qty": qty or 1,
+			"stock_qty": qty or 1,
+			"transaction_date": parent_doc.get("transaction_date"),
+			"ignore_pricing_rule": 0,
+		})
+		details = get_item_details(args)
+	except Exception as exc:  # noqa: BLE001 — pricing must never block the row write
+		frappe.log_error(
+			title=f"Configured row pricing failed for {item_code}",
+			message=str(exc),
+		)
+
+	if details and details.get("price_list_rate"):
+		_set_child_value(row, "price_list_rate", flt(details.get("price_list_rate")))
+		for fieldname in (
+			"discount_percentage",
+			"discount_amount",
+			"margin_type",
+			"margin_rate_or_amount",
+			"pricing_rules",
+		):
+			if details.get(fieldname) is not None:
+				_set_child_value(row, fieldname, details.get(fieldname))
+		row.rate = flt(details.get("rate") or details.get("price_list_rate"))
+		return
+
+	# Fallback: read the price list directly, then the engine MSRP snapshot.
+	rate = _get_selling_rate(item_code, price_list)
+	if rate is None and price_list != DEFAULT_SELLING_PRICE_LIST:
+		rate = _get_selling_rate(item_code, DEFAULT_SELLING_PRICE_LIST)
+	if rate is None:
+		rate = _artifact_msrp(artifact)
+	if rate is not None:
+		row.rate = rate
+		_set_child_value(row, "price_list_rate", rate)
+
+
+def _artifact_msrp(artifact: dict[str, Any]) -> float | None:
+	"""Best-effort engine MSRP fallback from the artifact payload."""
+	for key in ("msrp_unit", "msrp", "total_msrp"):
+		value = artifact.get(key)
+		if value:
+			return flt(value)
+	return None
+
+
+def _get_selling_rate(item_code: str, price_list: str | None = None) -> float | None:
 	prices = frappe.get_all(
 		"Item Price",
-		filters={"item_code": item_code, "price_list": DEFAULT_SELLING_PRICE_LIST, "selling": 1},
+		filters={
+			"item_code": item_code,
+			"price_list": price_list or DEFAULT_SELLING_PRICE_LIST,
+			"selling": 1,
+		},
 		fields=["price_list_rate"],
 		order_by="valid_from desc, modified desc",
 		limit=1,

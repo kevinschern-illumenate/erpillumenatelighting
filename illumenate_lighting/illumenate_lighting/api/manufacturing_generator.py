@@ -23,6 +23,7 @@ from typing import Any, Optional
 
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 # Engine version for tracking
 ENGINE_VERSION = "1.0.0"
@@ -287,10 +288,13 @@ def on_sales_order_submit(doc, method):
 
 
 def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_list: list) -> None:
-	"""Create an Item Price in the standard selling price list at MSRP.
+	"""Upsert an Item Price in the standard selling price list at MSRP.
 
 	Best-effort: logs an error if the price list doesn't exist but does not
-	raise, so item creation is never blocked.
+	raise, so item creation is never blocked. When an Item Price already
+	exists for ``item_code`` on the selling price list, its rate is updated
+	in place only when the MSRP has changed (so a reconfigured fixture with a
+	new MSRP refreshes the listed price); otherwise it is left untouched.
 
 	Args:
 		item_code: The Item code to price.
@@ -319,6 +323,37 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 			)
 			return
 
+		existing = frappe.get_all(
+			"Item Price",
+			filters={
+				"item_code": item_code,
+				"price_list": DEFAULT_SELLING_PRICE_LIST,
+				"selling": 1,
+			},
+			fields=["name", "price_list_rate"],
+			order_by="valid_from desc, modified desc",
+			limit=1,
+		)
+		if existing:
+			current_rate = flt(existing[0].price_list_rate)
+			if current_rate != flt(msrp):
+				frappe.db.set_value(
+					"Item Price", existing[0].name, "price_list_rate", msrp
+				)
+				messages_list.append({
+					"severity": "info",
+					"text": (
+						f"Updated Item Price for {item_code} from {current_rate} "
+						f"to MSRP {msrp}"
+					),
+				})
+			else:
+				messages_list.append({
+					"severity": "info",
+					"text": f"Item Price for {item_code} already at MSRP {msrp}; unchanged.",
+				})
+			return
+
 		item_price = frappe.new_doc("Item Price")
 		item_price.item_code = item_code
 		item_price.price_list = DEFAULT_SELLING_PRICE_LIST
@@ -337,6 +372,30 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 		})
 		frappe.log_error(
 			title=f"Item Price Creation Failed for {item_code}",
+			message=str(e),
+		)
+
+
+def _ensure_brand_exists(brand_name: str) -> None:
+	"""Create the Brand master if it does not exist.
+
+	Configured Items set ``Item.brand`` so customer-group Pricing Rules can be
+	keyed on ``Brand``. The Brand link target must exist before the Item is
+	inserted, otherwise validation fails on fresh sites.
+	"""
+	if not brand_name:
+		return
+	if frappe.db.exists("Brand", brand_name):
+		return
+	try:
+		frappe.get_doc({"doctype": "Brand", "brand": brand_name}).insert(
+			ignore_permissions=True
+		)
+	except frappe.DuplicateEntryError:
+		pass
+	except Exception as e:
+		frappe.log_error(
+			title=f"Brand Creation Failed for {brand_name}",
 			message=str(e),
 		)
 
@@ -444,6 +503,8 @@ def _create_or_get_configured_item(
 
 	# Ensure item group exists
 	_ensure_item_group_exists(CONFIGURED_ITEM_GROUP)
+	# Ensure the Brand master exists so Item.brand can be set
+	_ensure_brand_exists(ILLUMENATE_BRAND)
 
 	# Create the Item
 	try:
@@ -552,6 +613,8 @@ def _create_or_get_configured_tape_neon_item(
 
 	# Ensure item group exists
 	_ensure_item_group_exists(item_group)
+	# Ensure the Brand master exists so Item.brand can be set
+	_ensure_brand_exists(ILLUMENATE_BRAND)
 
 	try:
 		item_doc = frappe.get_doc({
