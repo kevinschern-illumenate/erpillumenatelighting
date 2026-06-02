@@ -443,7 +443,7 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
 	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
-	webflow_fields = ["webflow_field", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
+	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
 			"ilL-Spec-Submittal-Mapping",
@@ -1379,7 +1379,12 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 					webflow_product=webflow_product,
 					warnings=warnings,
 				)
-			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+			# Skip the transformation when a Webflow value is active and the
+			# mapping opts out (the Webflow value is already in its final format).
+			if webflow_active and mapping.get("webflow_skip_transformation"):
+				transformed_value = "" if value is None else str(value)
+			else:
+				transformed_value = _apply_transformation(value, mapping.get("transformation"))
 
 			# Determine prefix/suffix based on webflow_prefix_suffix setting
 			if webflow_active:
@@ -1625,7 +1630,7 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
 	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
-	webflow_fields = ["webflow_field", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
+	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
 			"ilL-Neon-Submittal-Mapping",
@@ -1800,7 +1805,12 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 					webflow_product=webflow_product,
 					warnings=warnings,
 				)
-			transformed_value = _apply_transformation(value, mapping.get("transformation"))
+			# Skip the transformation when a Webflow value is active and the
+			# mapping opts out (the Webflow value is already in its final format).
+			if webflow_active and mapping.get("webflow_skip_transformation"):
+				transformed_value = "" if value is None else str(value)
+			else:
+				transformed_value = _apply_transformation(value, mapping.get("transformation"))
 
 			# Determine prefix/suffix based on webflow_prefix_suffix setting
 			if webflow_active:

@@ -221,6 +221,7 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 	context = {
 		"is_neon": product_category == "LED Neon",
 		"title": title_map.get(product_category, "Configure"),
+		"templates": _get_tape_neon_templates(product_category),
 	}
 	return frappe.render_template(
 		"illumenate_lighting/templates/includes/configurator_tape_neon_form.html", context

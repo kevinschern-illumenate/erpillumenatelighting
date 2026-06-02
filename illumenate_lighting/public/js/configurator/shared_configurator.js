@@ -82,14 +82,16 @@
 	 * Used by both fixture and tape/neon configurators.
 	 */
 	function loadUserProjects($select, preSelect) {
+		if (!$select || !$select.length) return;
 		return frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_user_projects',
+			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_user_projects_for_configurator',
 			callback: function (r) {
-				if (!r.message) return;
+				var msg = r.message || {};
+				if (!msg.success) return;
 				$select.find('option:not(:first)').remove();
-				(r.message || []).forEach(function (p) {
+				(msg.projects || []).forEach(function (p) {
 					$select.append(
-						$('<option></option>').val(p.name).text(p.project_name || p.name)
+						$('<option></option>').val(p.value).text(p.label || p.value)
 					);
 				});
 				if (preSelect) {
@@ -100,14 +102,16 @@
 	}
 
 	function loadSchedulesForProject(projectName, $scheduleSelect, preSelect) {
+		if (!$scheduleSelect || !$scheduleSelect.length) return;
 		return frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedules_for_project',
 			args: { project_name: projectName },
 			callback: function (r) {
+				var msg = r.message || {};
 				$scheduleSelect.find('option:not(:first)').remove();
-				(r.message || []).forEach(function (s) {
+				(msg.schedules || []).forEach(function (s) {
 					$scheduleSelect.append(
-						$('<option></option>').val(s.name).text(s.schedule_name || s.name)
+						$('<option></option>').val(s.value).text(s.label || s.value)
 					);
 				});
 				$scheduleSelect.prop('disabled', false);
@@ -143,10 +147,13 @@
 			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator',
 			args: { schedule_name: scheduleName },
 			callback: function (r) {
+				var msg = r.message || {};
+				var lines = Array.isArray(msg) ? msg : (msg.lines || []);
 				$lineSelect.find('option:not(:first):not([value="__new__"])').remove();
-				(r.message || []).forEach(function (l) {
-					var label = (l.line_id || ('Row ' + l.idx)) + (l.configured_fixture ? ' \u2713' : '');
-					$lineSelect.append($('<option></option>').val(l.idx).text(label));
+				lines.forEach(function (l) {
+					var idx = (l.idx !== undefined ? l.idx : l.value);
+					var label = (l.label || l.line_id || ('Row ' + idx)) + (l.configured_fixture ? ' \u2713' : '');
+					$lineSelect.append($('<option></option>').val(idx).text(label));
 				});
 				$lineSelect.prop('disabled', false);
 				if (preSelect !== null && preSelect !== undefined) {

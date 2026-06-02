@@ -35,6 +35,8 @@
 		this.PROJECT_NAME = context.project_name || null;
 		this.LINE_IDX = (context.line_idx !== undefined) ? context.line_idx : null;
 		this.CAN_SAVE = !!context.can_save;
+		this.TEMPLATE_CODE = context.template_code || null;
+		this._hasTemplateSelect = false;
 
 		this.initData = null;
 		this.lastResult = null;
@@ -61,9 +63,68 @@
 	// Lifecycle
 	// ────────────────────────────────────────────────────────────────
 	TapeNeon.prototype.init = function () {
-		this._loadInitData();
+		var self = this;
+		var $tpl = this.$('#tapeNeonTemplateSelect');
+		this._hasTemplateSelect = $tpl.length > 0;
+
+		if (this._hasTemplateSelect) {
+			$tpl.on('change', function () {
+				self._onTemplateSelected($(this).val());
+			});
+			// Options load only after a template is chosen.
+			if (this.TEMPLATE_CODE) {
+				$tpl.val(this.TEMPLATE_CODE);
+				this._onTemplateSelected(this.TEMPLATE_CODE);
+			}
+		} else {
+			this._loadInitData();
+		}
+
 		this._bindEvents();
-		this._loadScheduleContext();
+
+		// Project/schedule pickers only exist on the portal page. In a
+		// host-driven context (desk dialog) the saveHandler owns persistence.
+		if (typeof this.context.saveHandler !== 'function') {
+			this._loadScheduleContext();
+		}
+	};
+
+	TapeNeon.prototype._onTemplateSelected = function (templateCode) {
+		var self = this;
+		this.TEMPLATE_CODE = templateCode || null;
+		this._resetForTemplateChange();
+		if (!templateCode) return;
+		frappe.call({
+			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_init',
+			args: { template_code: templateCode },
+			freeze: true,
+			freeze_message: 'Loading options...',
+			callback: function (r) {
+				if (r.message && r.message.success) {
+					self.initData = r.message;
+					self._populateOptions(r.message.options);
+				} else {
+					frappe.msgprint({
+						title: 'Error', indicator: 'red',
+						message: (r.message && r.message.error) || 'Failed to load template options'
+					});
+				}
+			}
+		});
+	};
+
+	TapeNeon.prototype._resetForTemplateChange = function () {
+		this.selections.environment_rating = null;
+		this.selections.cct = null;
+		this.selections.output_level = null;
+		this.selections.feed_type = null;
+		this.selections.finish = null;
+		this.lastResult = null;
+		this.neonSegmentCount = 0;
+		this.$('#neonSegmentContainer').empty();
+		this.$('#resultsCard').hide();
+		this.$('#errorsCard').hide();
+		this.$('#btnCalculate').prop('disabled', true);
 	};
 
 	TapeNeon.prototype._loadInitData = function () {
@@ -192,12 +253,24 @@
 	TapeNeon.prototype._cascadeOptions = function () {
 		if (this.IS_NEON) return;
 		var self = this;
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_cascading_options',
-			args: {
+		var method, args;
+		if (this.TEMPLATE_CODE) {
+			method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_cascading';
+			args = {
+				template_code: this.TEMPLATE_CODE,
 				environment_rating: this.selections.environment_rating || '',
 				cct: this.selections.cct || ''
-			},
+			};
+		} else {
+			method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_cascading_options';
+			args = {
+				environment_rating: this.selections.environment_rating || '',
+				cct: this.selections.cct || ''
+			};
+		}
+		frappe.call({
+			method: method,
+			args: args,
 			callback: function (r) {
 				if (r.message && r.message.success && r.message.output_levels) {
 					self._populatePill('pillOutput', 'selOutput', r.message.output_levels,
@@ -662,6 +735,7 @@
 				result: resultToSave,
 				selections: handlerSelections,
 				segments: this.lastCalcSegments || null,
+				tape_neon_template: this.TEMPLATE_CODE || null,
 				validation: this.lastResult,
 				instance: this
 			});

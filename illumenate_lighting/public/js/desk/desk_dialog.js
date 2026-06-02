@@ -312,8 +312,14 @@
 				self.saving = false;
 				var msg = (r && r.message) || {};
 				if (!msg.success) {
+					var detail = msg.error;
+					if (!detail && msg.messages && msg.messages.length) {
+						detail = msg.messages.map(function (m) {
+							return (m && (m.text || m.message)) || String(m);
+						}).join('<br>');
+					}
 					frappe.msgprint({ title: __('Save failed'), indicator: 'red',
-						message: (msg.error || __('Configured product save failed.')) });
+						message: (detail || __('Configured product save failed.')) });
 					return;
 				}
 				frappe.show_alert({

@@ -25,6 +25,21 @@ Context:
 			<div class="card-body">
 				<form id="tapeConfigForm">
 
+					<!-- STEP 0: Template (only when templates supplied, e.g. desk dialog) -->
+					{% if templates %}
+					<div class="config-step" id="stepTemplate">
+						<div class="option-group">
+							<label class="option-label">{{ _("Template") }} <span class="text-danger">*</span></label>
+							<select class="form-control" id="tapeNeonTemplateSelect">
+								<option value="">{{ _("Select Template...") }}</option>
+								{% for t in templates %}
+								<option value="{{ t.template_code }}">{{ t.template_name or t.template_code }} ({{ t.template_code }})</option>
+								{% endfor %}
+							</select>
+						</div>
+					</div>
+					{% endif %}
+
 					<!-- STEP 1: Environment (LED Tape only) -->
 					{% if not is_neon %}
 					<div class="config-step" id="stepEnvironment">

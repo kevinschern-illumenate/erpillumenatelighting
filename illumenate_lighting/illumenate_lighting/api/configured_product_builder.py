@@ -69,6 +69,29 @@ from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _error_text_from_messages(messages: list | None) -> str | None:
+    """Build a human-readable error string from engine ``messages``.
+
+    The configurator engine reports validation failures via a ``messages``
+    list of ``{"severity", "text", ...}`` dicts rather than a top-level
+    ``error`` key.  This collapses the error/warning entries into a single
+    string so callers (desk dialog, portal) can surface the real reason
+    instead of a generic "save failed" message.
+    """
+    if not messages:
+        return None
+    texts = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            texts.append(str(msg))
+            continue
+        if msg.get("severity") in (None, "error", "warning"):
+            text = msg.get("text") or msg.get("message")
+            if text:
+                texts.append(str(text))
+    return "; ".join(texts) or None
+
+
 @frappe.whitelist()
 def calculate_and_lookup(
     product_type: str,
@@ -127,7 +150,7 @@ def calculate_and_lookup(
             "existing_record": None,
             "validation": validation,
             "messages": validation.get("messages") or [],
-            "error": validation.get("error"),
+            "error": validation.get("error") or _error_text_from_messages(validation.get("messages")),
         }
 
     candidate_hash = validation.get("candidate_config_hash")
@@ -349,7 +372,7 @@ def save_and_apply(
             "product_type": product_type,
             "validation": validation,
             "messages": validation.get("messages") or [],
-            "error": validation.get("error"),
+            "error": validation.get("error") or _error_text_from_messages(validation.get("messages")),
         }
 
     if product_type == PRODUCT_TYPE_FIXTURE:

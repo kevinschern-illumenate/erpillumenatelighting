@@ -23,6 +23,7 @@
                         "transformation",
                         "webflow_section",
                         "webflow_field",
+                        "webflow_skip_transformation",
                         "webflow_prefix_suffix",
                         "column_break_webflow_prefix_suffix",
                         "webflow_prefix",
@@ -124,6 +125,14 @@
                        "fieldtype":  "Select",
                        "label":  "Webflow Field",
                        "options":  "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction"
+                   },
+                   {
+                       "default":  "0",
+                       "depends_on":  "eval:doc.webflow_field",
+                       "description":  "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format (e.g. feet) and should not be transformed.",
+                       "fieldname":  "webflow_skip_transformation",
+                       "fieldtype":  "Check",
+                       "label":  "Skip Transformation on Webflow Value"
                    },
                    {
                        "description":  "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely.",
