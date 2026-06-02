@@ -137,6 +137,54 @@ def _apply_prefix_suffix(value: str, prefix: str | None, suffix: str | None) -> 
 	return result
 
 
+def _get_linked_webflow_product(link_field: str, template_name: str, warnings: list | None = None) -> Any:
+	"""
+	Find the ilL-Webflow-Product linked to a fixture or tape/neon template.
+
+	Args:
+		link_field: The link field on ilL-Webflow-Product that references the
+			template ("fixture_template" or "tape_neon_template").
+		template_name: Name of the template to match.
+		warnings: Optional list that debug messages are appended to.
+
+	Returns:
+		The loaded ilL-Webflow-Product document, or None if none is linked.
+	"""
+	if not template_name:
+		return None
+	try:
+		# Prefer an active product; fall back to any linked product.
+		name = frappe.db.get_value(
+			"ilL-Webflow-Product",
+			{link_field: template_name, "is_active": 1},
+			"name",
+		) or frappe.db.get_value(
+			"ilL-Webflow-Product",
+			{link_field: template_name},
+			"name",
+		)
+		if not name:
+			_debug(
+				f"_get_linked_webflow_product: no ilL-Webflow-Product with "
+				f"{link_field}={template_name!r}",
+				warnings,
+			)
+			return None
+		doc = frappe.get_doc("ilL-Webflow-Product", name)
+		_debug(
+			f"_get_linked_webflow_product: {link_field}={template_name!r} → {name!r}",
+			warnings,
+		)
+		return doc
+	except Exception as e:
+		_debug(
+			f"_get_linked_webflow_product: EXCEPTION for {link_field}={template_name!r} – "
+			f"{type(e).__name__}: {e}",
+			warnings,
+		)
+		return None
+
+
 def _get_source_value(
 	source_doctype: str,
 	source_field: str,
@@ -145,6 +193,7 @@ def _get_source_value(
 	schedule: Any = None,
 	project: Any = None,
 	schedule_line: Any = None,
+	webflow_product: Any = None,
 	warnings: list | None = None,
 ) -> Any:
 	"""
@@ -158,12 +207,22 @@ def _get_source_value(
 		schedule: The schedule document
 		project: The project document
 		schedule_line: The fixture schedule line (child table row, if applicable)
+		webflow_product: The Webflow product linked to the fixture template (if applicable)
 		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		The value from the source field, or None if not found
 	"""
 	try:
+		if source_doctype == "ilL-Webflow-Product" and webflow_product:
+			val = getattr(webflow_product, source_field, None)
+			_debug(
+				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={webflow_product.name})",
+				warnings,
+			)
+			return val
+
 		if source_doctype == "ilL-Configured-Fixture" and configured_fixture:
 			# Computed virtual fields (prefixed with __) – resolve before getattr fallback
 			if source_field == "__start_leader_cable_len_mm":
@@ -354,6 +413,7 @@ def _get_source_value(
 			f"_get_source_value: NO MATCH for {source_doctype}.{source_field} – "
 			f"configured_fixture={'yes' if configured_fixture else 'NO'}, "
 			f"fixture_template={'yes' if fixture_template else 'NO'}, "
+			f"webflow_product={'yes' if webflow_product else 'NO'}, "
 			f"schedule={'yes' if schedule else 'NO'}, "
 			f"project={'yes' if project else 'NO'}, "
 			f"schedule_line={'yes' if schedule_line else 'NO'}",
@@ -1272,6 +1332,11 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 				if schedule and schedule.ill_project:
 					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
+		# Get the Webflow product linked to this fixture template (if any)
+		webflow_product = _get_linked_webflow_product(
+			"fixture_template", cf.fixture_template, warnings
+		)
+
 		# Build field values
 		_debug(
 			f"generate_filled_submittal: webflow_overrides={webflow_overrides!r}",
@@ -1311,6 +1376,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 					schedule=schedule,
 					project=project,
 					schedule_line=schedule_line,
+					webflow_product=webflow_product,
 					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))
@@ -1407,6 +1473,7 @@ def _get_neon_source_value(
 	schedule: Any = None,
 	project: Any = None,
 	schedule_line: Any = None,
+	webflow_product: Any = None,
 	warnings: list | None = None,
 ) -> Any:
 	"""
@@ -1422,12 +1489,22 @@ def _get_neon_source_value(
 		schedule: The schedule document
 		project: The project document
 		schedule_line: The fixture schedule line (child table row, if applicable)
+		webflow_product: The Webflow product linked to the tape/neon template (if applicable)
 		warnings: Optional list that debug messages are appended to
 
 	Returns:
 		The value from the source field, or None if not found
 	"""
 	try:
+		if source_doctype == "ilL-Webflow-Product" and webflow_product:
+			val = getattr(webflow_product, source_field, None)
+			_debug(
+				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+				f"(doc={webflow_product.name})",
+				warnings,
+			)
+			return val
+
 		if source_doctype == "ilL-Configured-Tape-Neon" and configured_tape_neon:
 			val = getattr(configured_tape_neon, source_field, None)
 			# For neon products, several user-facing fields (start/end feed
@@ -1518,6 +1595,7 @@ def _get_neon_source_value(
 			f"_get_neon_source_value: NO MATCH for {source_doctype}.{source_field} – "
 			f"configured_tape_neon={'yes' if configured_tape_neon else 'NO'}, "
 			f"tape_neon_template={'yes' if tape_neon_template else 'NO'}, "
+			f"webflow_product={'yes' if webflow_product else 'NO'}, "
 			f"schedule={'yes' if schedule else 'NO'}, "
 			f"project={'yes' if project else 'NO'}, "
 			f"schedule_line={'yes' if schedule_line else 'NO'}",
@@ -1675,6 +1753,11 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 				if schedule and schedule.ill_project:
 					project = frappe.get_doc("ilL-Project", schedule.ill_project)
 
+		# Get the Webflow product linked to this tape/neon template (if any)
+		webflow_product = _get_linked_webflow_product(
+			"tape_neon_template", ctn.tape_neon_template, warnings
+		)
+
 		# Build field values
 		_debug(
 			f"generate_filled_neon_submittal: webflow_overrides={webflow_overrides!r}",
@@ -1714,6 +1797,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 					schedule=schedule,
 					project=project,
 					schedule_line=schedule_line,
+					webflow_product=webflow_product,
 					warnings=warnings,
 				)
 			transformed_value = _apply_transformation(value, mapping.get("transformation"))

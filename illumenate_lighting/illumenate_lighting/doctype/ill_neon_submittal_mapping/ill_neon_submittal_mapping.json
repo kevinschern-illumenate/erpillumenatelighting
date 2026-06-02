@@ -55,7 +55,7 @@
                        "fieldtype":  "Select",
                        "in_list_view":  1,
                        "label":  "Source DocType",
-                       "options":  "ilL-Configured-Tape-Neon\nilL-Tape-Neon-Template\nilL-Spec-LED Tape\nilL-Rel-Tape Offering\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+                       "options":  "ilL-Configured-Tape-Neon\nilL-Tape-Neon-Template\nilL-Webflow-Product\nilL-Spec-LED Tape\nilL-Rel-Tape Offering\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
                        "reqd":  1
                    },
                    {
