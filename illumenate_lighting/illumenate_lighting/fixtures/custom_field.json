@@ -2,11 +2,20 @@
 	{
 		"doctype": "Custom Field",
 		"dt": "Sales Order Item",
+		"fieldname": "ill_section_label",
+		"fieldtype": "Data",
+		"label": "Section / Room",
+		"insert_after": "item_code",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
 		"options": "\nLinear Fixture\nLED Tape\nLED Neon",
-		"insert_after": "item_code",
+		"insert_after": "ill_section_label",
 		"read_only": 1
 	},
 	{
