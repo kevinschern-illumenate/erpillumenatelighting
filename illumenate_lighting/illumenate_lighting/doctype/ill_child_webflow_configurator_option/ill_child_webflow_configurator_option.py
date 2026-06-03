@@ -25,4 +25,14 @@ class ilLChildWebflowConfiguratorOption(Document):
 		parenttype: DF.Data
 	# end: auto-generated types
 
-	pass
+	def before_validate(self):
+		self._normalize_allowed_values_json()
+
+	def validate(self):
+		self._normalize_allowed_values_json()
+
+	def _normalize_allowed_values_json(self):
+		# MariaDB enforces a CHECK constraint that JSON columns contain valid JSON;
+		# the grid editor submits "" for cleared cells, which fails the constraint.
+		if isinstance(self.allowed_values_json, str) and not self.allowed_values_json.strip():
+			self.allowed_values_json = None
