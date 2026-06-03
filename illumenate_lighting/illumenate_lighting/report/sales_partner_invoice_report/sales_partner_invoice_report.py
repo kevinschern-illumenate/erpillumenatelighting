@@ -26,6 +26,12 @@ def get_columns():
             "width": 200,
         },
         {
+            "label": _("Customer Name"),
+            "fieldname": "customer_name",
+            "fieldtype": "Data",
+            "width": 200,
+        },
+        {
             "label": _("Net Total"),
             "fieldname": "net_total",
             "fieldtype": "Currency",
@@ -96,6 +102,7 @@ def get_data(filters):
         SELECT
             name,
             sales_partner,
+            customer_name,
             net_total,
             grand_total,
             posting_date,
