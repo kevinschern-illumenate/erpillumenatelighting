@@ -1,0 +1,5 @@
+Item,LED Package,Product Category,Input Voltage,Watts per Foot,Voltage Drop Max Run Length (ft),Input Protocol,Lumens per Foot,CRI Typical,LED Pitch (mm),PCB Mounting,PCB Finish,Cut Increment (mm),Is Free Cutting,Leader Cable Item,Protocol (Supported Dimming Protocols)
+NON-CRB-SW-67-27K-200,ilLumenate Static White,LED Neon,24VDC,2.74,0,,200,90,,None,White,,1,,PWM
+NON-CRB-SW-67-30K-200,ilLumenate Static White,LED Neon,24VDC,2.74,0,,200,90,,None,White,,1,,PWM
+NON-CRB-SW-67-35K-200,ilLumenate Static White,LED Neon,24VDC,2.74,0,,200,90,,None,White,,1,,PWM
+NON-CRB-SW-67-40K-200,ilLumenate Static White,LED Neon,24VDC,2.74,0,,200,90,,None,White,,1,,PWM

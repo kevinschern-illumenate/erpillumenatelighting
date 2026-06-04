@@ -1,0 +1,13 @@
+Template Code,Template Name,Is Active,Product Category,Series,Default Tape Spec,Base Price MSRP,Price per ft MSRP,Pricing Length Basis,Leader Allowance mm per Fixture,Tape Spec (Allowed Tape Specs),Is Default (Allowed Tape Specs),Environment Rating (Allowed Tape Specs),Option Type (Allowed Options),CCT (Allowed Options),Output Level (Allowed Options),Environment Rating (Allowed Options),IP Rating (Allowed Options),Feed Direction (Allowed Options),Power Feed Type (Allowed Options),PCB Mounting (Allowed Options),PCB Finish (Allowed Options),Mounting Method (Allowed Options),Finish (Allowed Options),Endcap Style (Allowed Options),Feed Position (Allowed Options),Is Default (Allowed Options),Is Active (Allowed Options),MSRP Adder (Allowed Options)
+non-crb-sw,Carbon [SB] Static White LED Neon,1,LED Neon,Glacier,NON-CRB-SW-67-27K-200,5,23.04,L_tape_cut,15,NON-CRB-SW-67-27K-200,0,Wet,CCT,2700K,,,,,,,,,,,,0,1,
+,,,,,,,,,,NON-CRB-SW-67-30K-200,1,Wet,CCT,3000K,,,,,,,,,,,,1,1,
+,,,,,,,,,,NON-CRB-SW-67-35K-200,0,Wet,CCT,3500K,,,,,,,,,,,,0,1,
+,,,,,,,,,,NON-CRB-SW-67-40K-200,0,Wet,CCT,4000K,,,,,,,,,,,,0,1,
+,,,,,,,,,,,,,Output Level,,200 lm/ft,,,,,,,,,,,1,1,
+,,,,,,,,,,,,,IP Rating,,,,IP67,,,,,,,,,1,1,
+,,,,,,,,,,,,,Environment Rating,,,Wet,,,,,,,,,,1,1,
+,,,,,,,,,,,,,Mounting Method,,,,,,,,,Mounting Clip,,,,1,1,
+,,,,,,,,,,,,,Mounting Method,,,,,,,,,Aluminum Channel,,,,0,1,
+,,,,,,,,,,,,,Finish,,,,,,,,,,White,,,1,1,
+,,,,,,,,,,,,,Feed Direction,,,,,End,,,,,,,,1,1,
+,,,,,,,,,,,,,Feed Direction,,,,,Back,,,,,,,,0,1,
