@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.utils import cint
+from frappe.query_builder.functions import Count
 
 
 ACTIVITY_TYPE_ALIASES = {
@@ -105,9 +106,7 @@ def get_data(filters):
 				"bounce_rate": 0,
 			},
 		)
-		template_summary[template][metric_field] = template_summary[template][metric_field] + cint(
-			row.get("activity_count")
-		)
+		template_summary[template][metric_field] += cint(row.get("activity_count"))
 
 	data = []
 	for template in sorted(template_summary):
@@ -129,37 +128,29 @@ def get_activity_counts(filters):
 	email_activity_doctype = get_email_activity_log_doctype()
 	if not email_activity_doctype:
 		return []
+	if not frappe.db.exists("DocType", email_activity_doctype):
+		return []
 
-	conditions = [
-		"parenttype = 'CRM Lead'",
-		"parentfield = 'email_activity_log'",
-		"activity_type IS NOT NULL",
-	]
-	values = {}
+	activity_log = frappe.qb.DocType(email_activity_doctype)
+	query = (
+		frappe.qb.from_(activity_log)
+		.select(
+			activity_log.email_template,
+			activity_log.activity_type,
+			Count("*").as_("activity_count"),
+		)
+		.where(activity_log.parenttype == "CRM Lead")
+		.where(activity_log.parentfield == "email_activity_log")
+		.where(activity_log.activity_type.isnotnull())
+		.groupby(activity_log.email_template, activity_log.activity_type)
+	)
 
 	if filters.get("from_date"):
-		conditions.append("activity_date >= %(from_date)s")
-		values["from_date"] = filters["from_date"]
+		query = query.where(activity_log.activity_date >= filters["from_date"])
 	if filters.get("to_date"):
-		conditions.append("activity_date <= %(to_date)s")
-		values["to_date"] = filters["to_date"]
+		query = query.where(activity_log.activity_date <= filters["to_date"])
 
-	table_name = f"`tab{email_activity_doctype.replace('`', '')}`"
-	where_clause = " AND ".join(conditions)
-
-	return frappe.db.sql(
-		f"""
-		SELECT
-			email_template,
-			activity_type,
-			COUNT(*) AS activity_count
-		FROM {table_name}
-		WHERE {where_clause}
-		GROUP BY email_template, activity_type
-		""",
-		values,
-		as_dict=True,
-	)
+	return query.run(as_dict=True)
 
 
 def get_email_activity_log_doctype():
