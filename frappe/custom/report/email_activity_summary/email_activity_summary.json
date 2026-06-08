@@ -1,0 +1,15 @@
+{
+ "add_total_row": 0,
+ "columns": [],
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "module": "Custom",
+ "name": "Email Activity Summary",
+ "ref_doctype": "CRM Lead",
+ "report_name": "Email Activity Summary",
+ "report_type": "Script Report",
+ "roles": []
+}
