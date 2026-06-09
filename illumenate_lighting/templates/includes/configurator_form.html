@@ -172,38 +172,17 @@
 		<hr>
 		<h6 class="mb-3">{{ _("PCB Options") }}</h6>
 
-		<!-- PCB Mounting (LED Tape only) -->
-		<div class="option-group">
-			<label class="option-label">{{ _("PCB Mounting") }} <span class="text-danger">*</span></label>
-			<div class="pill-selector" data-field="tn_pcb_mounting"></div>
-			<select class="form-control select-fallback" name="tn_pcb_mounting" required></select>
-		</div>
-
 		<!-- PCB Finish (LED Tape only) -->
 		<div class="option-group">
 			<label class="option-label">{{ _("PCB Finish") }} <span class="text-danger">*</span></label>
 			<div class="pill-selector" data-field="tn_pcb_finish"></div>
 			<select class="form-control select-fallback" name="tn_pcb_finish" required></select>
 		</div>
-
-		<!-- Feed Type (LED Tape only) -->
-		<div class="option-group">
-			<label class="option-label">{{ _("Feed Type") }} <span class="text-danger">*</span></label>
-			<div class="pill-selector" data-field="tn_feed_type"></div>
-			<select class="form-control select-fallback" name="tn_feed_type" required></select>
-		</div>
 		{% endif %}
 
 		{% if is_neon %}
 		<hr>
 		<h6 class="mb-3">{{ _("Fixture Options") }}</h6>
-
-		<!-- Mounting Method (LED Neon only) -->
-		<div class="option-group">
-			<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
-			<div class="pill-selector" data-field="tn_mounting_method"></div>
-			<select class="form-control select-fallback" name="tn_mounting_method" required></select>
-		</div>
 
 		<!-- Finish (LED Neon only) -->
 		<div class="option-group">

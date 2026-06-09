@@ -47,7 +47,6 @@
 			environment_rating: null,
 			cct: null,
 			output_level: null,
-			feed_type: null,
 			lead_length_inches: null,
 			tape_length_unit: 'in',
 			tape_length_value: null,
@@ -117,7 +116,6 @@
 		this.selections.environment_rating = null;
 		this.selections.cct = null;
 		this.selections.output_level = null;
-		this.selections.feed_type = null;
 		this.selections.finish = null;
 		this.lastResult = null;
 		this.neonSegmentCount = 0;
@@ -175,10 +173,6 @@
 		if (this.IS_NEON && options.finishes) {
 			this._populatePill('pillFinish', 'selFinish', options.finishes, 'value', 'label',
 				function (v, item) { self._onFinishSelect(v, item); });
-		}
-		if (!this.IS_NEON && options.feed_types) {
-			this._populatePill('pillFeedType', 'selFeedType', options.feed_types, 'value', 'label',
-				function (v, item) { self._onFeedTypeSelect(v, item); });
 		}
 		if (this.IS_NEON) {
 			this.$('#stepCCT').removeClass('disabled-step');
@@ -243,10 +237,6 @@
 		this.selections.finish = val;
 		this.$('#stepNeonSegments').removeClass('disabled-step');
 		if (this.neonSegmentCount === 0) this._addNeonSegment();
-		this._updateCalculateButton();
-	};
-	TapeNeon.prototype._onFeedTypeSelect = function (val) {
-		this.selections.feed_type = val;
 		this._updateCalculateButton();
 	};
 
@@ -429,7 +419,6 @@
 				hasLength = parseFloat(this.$('#tapeLengthValue').val()) > 0;
 			}
 			ready = this.selections.cct && this.selections.output_level
-				&& this.selections.feed_type
 				&& parseFloat(this.$('#leadLengthInches').val()) > 0
 				&& hasLength;
 		}
@@ -454,7 +443,6 @@
 			cct: this.selections.cct,
 			output_level: this.selections.output_level,
 			feed_direction: 'End Feed',
-			feed_type: this.selections.feed_type || '',
 			lead_length_inches: leadLength,
 			tape_length_unit: unit,
 			tape_length_value: parseFloat(this.$('#tapeLengthValue').val()) || 0,
