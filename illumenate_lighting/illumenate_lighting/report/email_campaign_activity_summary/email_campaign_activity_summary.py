@@ -13,6 +13,9 @@ ACTIVITY_TYPE_ALIASES = {
     "click": "click_count",
 }
 
+CRM_LEAD_DOCTYPE = "CRM Lead"
+EMAIL_ACTIVITY_LOG_FIELD = "email_activity_log"
+
 
 def execute(filters=None):
     filters = filters or {}
@@ -59,7 +62,7 @@ def get_data(filters):
     template_summary = {}
 
     for row in rows:
-        template = (row.get("email_template") or _("Unknown")).strip() or _("Unknown")
+        template = (row.get("email_template") or "").strip() or _("Unknown")
         metric_field = ACTIVITY_TYPE_ALIASES.get((row.get("activity_type") or "").strip().lower())
         if not metric_field:
             continue
@@ -81,7 +84,7 @@ def get_data(filters):
         summary = template_summary[template]
         delivered = summary["delivery_count"]
         opened = summary["open_count"]
-        summary["open_rate"] = round((opened / delivered) * 100, 2) if delivered else 0
+        summary["open_rate"] = round((opened / delivered) * 100, 2) if delivered > 0 else 0
         data.append(summary)
 
     return data
@@ -100,8 +103,8 @@ def get_activity_counts(filters):
             activity_log.activity_type,
             Count("*").as_("activity_count"),
         )
-        .where(activity_log.parenttype == "CRM Lead")
-        .where(activity_log.parentfield == "email_activity_log")
+        .where(activity_log.parenttype == CRM_LEAD_DOCTYPE)
+        .where(activity_log.parentfield == EMAIL_ACTIVITY_LOG_FIELD)
         .where(activity_log.activity_type.isnotnull())
         .groupby(activity_log.email_template, activity_log.activity_type)
     )
@@ -115,8 +118,8 @@ def get_activity_counts(filters):
 
 
 def get_email_activity_log_doctype():
-    lead_meta = frappe.get_meta("CRM Lead")
-    email_activity_field = lead_meta.get_field("email_activity_log")
+    lead_meta = frappe.get_meta(CRM_LEAD_DOCTYPE)
+    email_activity_field = lead_meta.get_field(EMAIL_ACTIVITY_LOG_FIELD)
     if email_activity_field and email_activity_field.options:
         return email_activity_field.options
     return None
