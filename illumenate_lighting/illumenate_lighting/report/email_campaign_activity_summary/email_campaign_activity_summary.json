@@ -48,7 +48,7 @@
     }
   ],
   "is_standard": "Yes",
-  "module": "CRM",
+  "module": "ilLumenate Lighting",
   "name": "Email Campaign Activity Summary",
   "ref_doctype": "CRM Lead",
   "report_name": "Email Campaign Activity Summary",
