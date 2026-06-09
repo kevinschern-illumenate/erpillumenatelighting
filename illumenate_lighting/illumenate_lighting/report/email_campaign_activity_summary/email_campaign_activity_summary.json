@@ -1,0 +1,15 @@
+{
+ "add_total_row": 0,
+ "columns": [],
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "module": "CRM",
+ "name": "Email Campaign Activity Summary",
+ "ref_doctype": "CRM Lead",
+ "report_name": "Email Campaign Activity Summary",
+ "report_type": "Query Report",
+ "roles": []
+}
