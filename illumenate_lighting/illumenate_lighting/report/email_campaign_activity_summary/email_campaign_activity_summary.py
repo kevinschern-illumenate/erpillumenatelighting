@@ -14,7 +14,7 @@ ACTIVITY_TYPE_ALIASES = {
 }
 
 CRM_LEAD_DOCTYPE = "CRM Lead"
-EMAIL_ACTIVITY_LOG_FIELD = "email_activity_log"
+EMAIL_ACTIVITY_LOG_FIELD = "custom_email_activity_log"
 
 
 def execute(filters=None):
