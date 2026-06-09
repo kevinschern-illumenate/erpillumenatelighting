@@ -1,0 +1,65 @@
+{
+  "autoname": "Email Campaign Benchmark Settings",
+  "creation": "2026-06-09T00:00:00.000000",
+  "docstatus": 0,
+  "doctype": "DocType",
+  "document_type": "Setup",
+  "engine": "InnoDB",
+  "field_order": [
+    "benchmark_section",
+    "open_rate_benchmark",
+    "click_rate_benchmark",
+    "ctr_benchmark"
+  ],
+  "fields": [
+    {
+      "fieldname": "benchmark_section",
+      "fieldtype": "Section Break",
+      "label": "Email Campaign Benchmarks"
+    },
+    {
+      "default": "20",
+      "fieldname": "open_rate_benchmark",
+      "fieldtype": "Percent",
+      "label": "Open Rate Benchmark (%)",
+      "description": "Industry average open rate target"
+    },
+    {
+      "default": "2",
+      "fieldname": "click_rate_benchmark",
+      "fieldtype": "Percent",
+      "label": "Click Rate Benchmark (%)",
+      "description": "Industry average click rate target"
+    },
+    {
+      "default": "10",
+      "fieldname": "ctr_benchmark",
+      "fieldtype": "Percent",
+      "label": "CTR Benchmark (%)",
+      "description": "Industry average click-through rate target"
+    }
+  ],
+  "issingle": 1,
+  "links": [],
+  "modified": "2026-06-09T00:00:00.000000",
+  "module": "ilLumenate Lighting",
+  "name": "Email Campaign Benchmark Settings",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "submit": 0,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}
