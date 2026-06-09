@@ -103,7 +103,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 							</div>
 						</div>
 
-						{% if IS_NEON %}
+						{% if is_neon %}
 						<!-- NEON: Finish step (mounting moved to post-config accessory) -->
 						<div class="config-step disabled-step" id="stepFinish">
 							<div class="option-group">
@@ -127,15 +127,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 								<label class="option-label">{{ _("Feed Direction") }}</label>
 								<input type="text" class="form-control" value="End Feed" disabled>
 								<input type="hidden" id="feedDirection" value="End Feed">
-							</div>
-
-							<!-- Feed Type -->
-							<div class="option-group">
-								<label class="option-label">{{ _("Feed Type") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" id="pillFeedType"></div>
-								<select class="form-control select-fallback" id="selFeedType">
-									<option value="">{{ _("Select...") }}</option>
-								</select>
 							</div>
 
 							<!-- Lead Length (inches) -->
