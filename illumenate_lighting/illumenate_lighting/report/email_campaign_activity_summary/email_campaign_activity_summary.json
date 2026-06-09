@@ -52,6 +52,6 @@
   "name": "Email Campaign Activity Summary",
   "ref_doctype": "CRM Lead",
   "report_name": "Email Campaign Activity Summary",
-  "report_type": "Query Report",
+  "report_type": "Script Report",
   "roles": []
 }
