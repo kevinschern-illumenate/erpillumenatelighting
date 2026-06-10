@@ -1616,14 +1616,18 @@ def _env_matches(tape_row, environment: str, env_code: str = None) -> bool:
     if row_env == environment:
         return True
     
-    # Match by code: compare the row's env rating code with the selection code
-    if env_code:
-        row_env_code = frappe.db.get_value(
-            "ilL-Attribute-Environment Rating", row_env, "code"
-        )
-        if row_env_code and row_env_code == env_code:
+    # Match by code: look up the row's env rating code and compare
+    row_env_code = frappe.db.get_value(
+        "ilL-Attribute-Environment Rating", row_env, "code"
+    )
+    if row_env_code:
+        # Match against the separate _code field (e.g. environment_rating_code='I')
+        if env_code and row_env_code == env_code:
             return True
-    
+        # Also try matching when the raw value itself is a code (e.g. environment_rating='I')
+        if row_env_code == environment:
+            return True
+
     return False
 
 

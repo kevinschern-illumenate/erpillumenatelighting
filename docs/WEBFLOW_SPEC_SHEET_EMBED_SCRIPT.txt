@@ -1,0 +1,402 @@
+<!--
+  ilLumenate Lighting — Spec Sheet Download Button
+  Webflow Custom Code Embed (paste into Page Settings > Before </body>)
+
+  SETUP CHECKLIST FOR MARKETING:
+  1. Every product page wrapper element should have:
+       data-ill-product-slug="your-product-slug"   ← the Webflow product slug
+       data-ill-product-type="LED Neon"             ← or "LED Tape" or "Fixture Template"
+
+  2. The Download Spec Sheet button must have EITHER:
+       id="ill-download-spec-sheet"
+       OR class="ill-download-spec-sheet"
+
+  3. The spec sheet modal wrapper must have class="spec-modal-wrapper"
+
+  4. Optional project fields (plain text inputs):
+       id="ill-project-name"
+       id="ill-project-location"
+       id="ill-fixture-type"
+
+  CONFIGURATOR OPTIONS — TWO SUPPORTED PATTERNS:
+  Pattern A — .config-card elements (Webflow CMS card layout):
+    Each config step is a div with class="config-card"
+    The step title element has class="options-title"
+    Each radio input has class="real-radio-input" and a data-code attribute
+    The length input has class="custom-length-input" (value in ACTUAL inches)
+
+  Pattern B — Named radio groups:
+    Each radio input has a name= attribute: "CCT", "Output", "Finish",
+    "Environment", "Lens", "Mounting", "Start Feed Direction", "End Feed Direction"
+    Each radio input has a data-code attribute
+    Length display element has id="length-card-display" (value in centi-inches: 5000 = 50.00 in)
+    Length input has id="length-input" (also centi-inches)
+    Feed length inputs: id="start-feed-length" and id="end-feed-length" (in feet)
+
+  Both patterns can coexist; named radio values take precedence in the merge.
+-->
+<script>
+(function () {
+  'use strict';
+
+  var ERPNEXT_SITE = 'https://illumenatelighting.v.frappe.cloud';
+  var API_ENDPOINT = ERPNEXT_SITE + '/api/method/illumenate_lighting.illumenate_lighting.api.webflow_configurator.download_spec_sheet';
+
+  // ─── Card title → API field (Pattern A: .config-card layout) ────────────
+  var CARD_TITLE_MAP = {
+    'environment':       'environment_rating',
+    'environment rating':'environment_rating',
+    'ip rating':         'environment_rating',
+    'dry/wet':           'environment_rating',
+    'cct':               'cct',
+    'output':            'output_level',
+    'output level':      'output_level',
+    'lens':              'lens_appearance',
+    'lens appearance':   'lens_appearance',
+    'mounting':          'mounting_method',
+    'mounting method':   'mounting_method',
+    'finish':            'finish',
+    'start feed direction': 'start_feed_direction',
+    'end feed direction':   'end_feed_direction',
+    'start feed length':    'start_feed_length_ft',
+    'end feed length':      'end_feed_length_ft'
+  };
+
+  // ─── Radio name → API field (Pattern B: input[name="CCT"] layout) ───────
+  var RADIO_NAME_MAP = {
+    'Series':               'series',
+    'Environment':          'environment_rating',
+    'CCT':                  'cct',
+    'Output':               'output_level',
+    'Lens':                 'lens_appearance',
+    'Mounting':             'mounting_method',
+    'Finish':               'finish',
+    'Start Feed Direction': 'start_feed_direction',
+    'End Feed Direction':   'end_feed_direction'
+  };
+
+  // ─── Utilities ───────────────────────────────────────────────────────────
+
+  function trimStr(v) {
+    return (v == null ? '' : String(v)).trim();
+  }
+
+  function parseNum(v) {
+    var n = parseFloat(trimStr(v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  // Store a selection value + optional code into the selections object.
+  function setField(sel, key, value, code) {
+    if (!key) return;
+    var v = trimStr(value);
+    var c = trimStr(code);
+    if (v !== '') sel[key]          = v;
+    if (c !== '') sel[key + '_code'] = c;
+  }
+
+  // ─── Product slug ────────────────────────────────────────────────────────
+
+  function getProductSlug() {
+    var el = document.querySelector('[data-ill-product-slug]');
+    if (el) { var s = trimStr(el.getAttribute('data-ill-product-slug')); if (s) return s; }
+
+    var cfgEl = document.querySelector('[data-configurator]');
+    if (cfgEl && cfgEl.dataset && cfgEl.dataset.productSlug) return cfgEl.dataset.productSlug;
+
+    var parts = window.location.pathname.replace(/\/+$/, '').split('/');
+    return parts[parts.length - 1] || '';
+  }
+
+  // ─── Product type detection ──────────────────────────────────────────────
+
+  function getProductType() {
+    // 1. Explicit data attribute wins. Add to your page wrapper element:
+    //    data-ill-product-type="LED Neon"  |  "LED Tape"  |  "Fixture Template"
+    var el = document.querySelector('[data-ill-product-type]');
+    if (el) return trimStr(el.getAttribute('data-ill-product-type'));
+
+    // 2. Fixture pages have Lens/Mounting radio groups; neon/tape pages do not.
+    //    Never use .config-card[data-step] — neon/tape pages share those classes.
+    if (document.querySelector('input[name="Lens"]') || document.querySelector('input[name="Mounting"]')) {
+      return 'Fixture Template';
+    }
+
+    // 3. Default to the neon/tape path (covers both LED Neon and LED Tape).
+    return 'LED Neon';
+  }
+
+  // ─── Selection reading ───────────────────────────────────────────────────
+
+  // Pattern A: read from .config-card elements.
+  // - Length card: contains .custom-length-input; value is ACTUAL inches (no division).
+  // - Option card: contains .real-radio-input or any radio; title from .options-title.
+  function readFromCards() {
+    var sel = {};
+    var cards = document.querySelectorAll('.config-card');
+
+    cards.forEach(function (card) {
+      // Length card — has a .custom-length-input (holds actual inches typed by user).
+      var customLen = card.querySelector('.custom-length-input');
+      if (customLen) {
+        var v = parseNum(customLen.value);
+        if (v > 0) sel.length_inches = v;
+        return; // this card is a length card; nothing else to read from it
+      }
+
+      // Option card — resolve the step title to an API field name.
+      var titleEl  = card.querySelector('.options-title');
+      var titleStr = titleEl ? trimStr(titleEl.textContent).toLowerCase() : '';
+      if (!titleStr) {
+        titleStr = trimStr(
+          card.getAttribute('data-step-name') || card.getAttribute('data-step-title') || ''
+        ).toLowerCase();
+      }
+      var apiField = CARD_TITLE_MAP[titleStr];
+      if (!apiField) return;
+
+      var checked = card.querySelector('.real-radio-input:checked') ||
+                    card.querySelector('input[type="radio"]:checked');
+      if (!checked) return;
+
+      // Value priority: input.value → data-label attribute.
+      // Code  priority: data-code attribute → card's data-selected-code.
+      var value = trimStr(checked.value) || trimStr(checked.getAttribute('data-label'));
+      var code  = trimStr(checked.getAttribute('data-code')) ||
+                  trimStr(card.getAttribute('data-selected-code'));
+
+      // Feed-length cards send a numeric value in feet.
+      if (apiField === 'start_feed_length_ft' || apiField === 'end_feed_length_ft') {
+        value = parseNum(value);
+      }
+
+      setField(sel, apiField, value, code);
+    });
+
+    return sel;
+  }
+
+  // Pattern B: read from named radio groups.
+  // IMPORTANT: #length-card-display and #length-input use centi-inch encoding —
+  // the Webflow configurator stores "5000" to mean 50.00 inches. Always divide by 100.
+  function readFromRadioGroups() {
+    var sel = {};
+
+    Object.keys(RADIO_NAME_MAP).forEach(function (groupName) {
+      var checked = document.querySelector('input[name="' + groupName + '"]:checked');
+      if (!checked) return;
+      var key   = RADIO_NAME_MAP[groupName];
+      var value = trimStr(checked.value) || trimStr(checked.getAttribute('data-label'));
+      var code  = trimStr(checked.getAttribute('data-code'));
+      setField(sel, key, value, code);
+    });
+
+    // Feed length inputs (in feet — no centi-inch encoding here).
+    var startFeed = document.getElementById('start-feed-length');
+    if (startFeed && startFeed.value) setField(sel, 'start_feed_length_ft', parseNum(startFeed.value), '');
+
+    var endFeed = document.getElementById('end-feed-length');
+    if (endFeed && endFeed.value) setField(sel, 'end_feed_length_ft', parseNum(endFeed.value), '');
+
+    // Length display card (centi-inch: always divide by 100).
+    var cardDisplay = document.getElementById('length-card-display');
+    if (cardDisplay && trimStr(cardDisplay.innerText) && cardDisplay.innerText !== 'XX') {
+      var cv = parseNum(cardDisplay.innerText) / 100;
+      if (cv > 0) sel.length_inches = cv;
+    }
+
+    // Length text input (centi-inch: always divide by 100) — fallback if card display absent.
+    if (!sel.length_inches) {
+      var lenInput = document.getElementById('length-input');
+      if (lenInput && lenInput.value) {
+        var iv = parseNum(lenInput.value) / 100;
+        if (iv > 0) sel.length_inches = iv;
+      }
+    }
+
+    return sel;
+  }
+
+  function getSelections() {
+    // Allow the page to supply a custom override — useful if the IllConfigurator
+    // instance is available and holds already-resolved ERPNext doc names.
+    if (typeof window.illGetSelections === 'function') {
+      try {
+        var custom = window.illGetSelections();
+        if (custom && typeof custom === 'object' && Object.keys(custom).length > 0) {
+          console.log('[ILL Spec Sheet] Using custom illGetSelections():', JSON.stringify(custom, null, 2));
+          return custom;
+        }
+      } catch (err) {
+        console.warn('[ILL Spec Sheet] illGetSelections() threw an error, falling back to DOM:', err);
+      }
+    }
+
+    var fromCards  = readFromCards();
+    var fromRadios = readFromRadioGroups();
+
+    // Merge: radio-group values take precedence over card values when both exist.
+    var merged = {};
+    Object.keys(fromCards).forEach(function (k)  { merged[k] = fromCards[k];  });
+    Object.keys(fromRadios).forEach(function (k) { merged[k] = fromRadios[k]; });
+
+    console.log('[ILL Spec Sheet] Selections read from DOM:', JSON.stringify(merged, null, 2));
+    return Object.keys(merged).length > 0 ? merged : null;
+  }
+
+  // ─── Validation ──────────────────────────────────────────────────────────
+
+  function validateSelections(selections) {
+    if (!selections || Object.keys(selections).length === 0) {
+      return {
+        ok: false,
+        missing: ['(no selections found — verify that your configurator cards have ' +
+                  'class="config-card" with class="options-title" on the step label and ' +
+                  'class="real-radio-input" on each radio, OR that radio inputs use the ' +
+                  'correct name= attributes listed in the setup checklist above)']
+      };
+    }
+
+    var productType = getProductType();
+    var required;
+
+    if (productType === 'LED Neon' || productType === 'LED Tape') {
+      // Backend validate_neon_configuration hard-requires only cct + output_level.
+      // - mounting was removed from the neon configurator entirely
+      // - finish has a full spec-search fallback when not supplied
+      // - length_inches is needed for a meaningful spec sheet
+      required = ['cct', 'output_level', 'length_inches'];
+    } else {
+      // Fixture Template: all four attributes + length are needed by
+      // _resolve_tape_offering (env + cct + output_level) and validate_and_quote
+      // (lens_appearance + finish).
+      required = [
+        'environment_rating',
+        'cct',
+        'output_level',
+        'lens_appearance',
+        'finish',
+        'length_inches'
+      ];
+    }
+
+    var missing = required.filter(function (key) { return !selections[key]; });
+    return { ok: missing.length === 0, missing: missing };
+  }
+
+  // ─── Button state ────────────────────────────────────────────────────────
+
+  function setBusy(btn, busy) {
+    btn.disabled    = busy;
+    btn.style.opacity = busy ? '0.6' : '1';
+    if (busy) {
+      btn.setAttribute('data-original-text', btn.textContent);
+      btn.textContent = 'Generating\u2026';
+    } else if (btn.hasAttribute('data-original-text')) {
+      btn.textContent = btn.getAttribute('data-original-text');
+      btn.removeAttribute('data-original-text');
+    }
+  }
+
+  // ─── Download ────────────────────────────────────────────────────────────
+
+  async function submitDownload(btn, modal) {
+    // Outer try/catch ensures that any unexpected JS error (even in selection
+    // reading or validation) shows a visible alert rather than failing silently.
+    try {
+      var selections = getSelections();
+      var validation = validateSelections(selections);
+
+      if (!validation.ok) {
+        alert(
+          'Please complete your configuration before downloading a spec sheet.\n\n' +
+          'Missing: ' + validation.missing.join(', ')
+        );
+        return;
+      }
+
+      var productSlug = getProductSlug();
+      if (!productSlug) {
+        alert('Could not determine product. Please refresh and try again.');
+        return;
+      }
+
+      var payload = {
+        product_slug:     productSlug,
+        selections:       JSON.stringify(selections),
+        project_name:     trimStr((document.getElementById('ill-project-name')     || {}).value),
+        project_location: trimStr((document.getElementById('ill-project-location') || {}).value),
+        fixture_type:     trimStr((document.getElementById('ill-fixture-type')     || {}).value)
+      };
+
+      setBusy(btn, true);
+
+      try {
+        var response = await fetch(API_ENDPOINT, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+          body:    new URLSearchParams(payload).toString()
+        });
+
+        var data = await response.json();
+
+        if (data.message && data.message.success && data.message.file_url) {
+          var link      = document.createElement('a');
+          link.href     = ERPNEXT_SITE + data.message.file_url;
+          link.download = data.message.filename || 'Spec_Sheet.pdf';
+          link.target   = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          if (modal) modal.style.setProperty('display', 'none', 'important');
+        } else {
+          var errorMsg = (data.message && data.message.error)
+            ? data.message.error
+            : 'Could not generate spec sheet. Please check your selections and try again.';
+          alert(errorMsg);
+        }
+      } catch (fetchErr) {
+        console.error('[ILL Spec Sheet] Fetch failed:', fetchErr);
+        alert('A network error occurred while generating the spec sheet. Please try again.');
+      } finally {
+        setBusy(btn, false);
+      }
+
+    } catch (outerErr) {
+      // Safety net: selection reading or validation threw an unexpected error.
+      console.error('[ILL Spec Sheet] Unexpected error:', outerErr);
+      alert('An unexpected error occurred. Please refresh the page and try again.\n\n' +
+            'Error: ' + (outerErr.message || String(outerErr)));
+    }
+  }
+
+  // ─── Click delegation ────────────────────────────────────────────────────
+  // Attaches to document instead of DOMContentLoaded so it works even when
+  // Webflow renders the modal/button dynamically well after page load.
+
+  function isDownloadBtn(el) {
+    if (!el) return false;
+    var id  = el.id || '';
+    var cls = typeof el.className === 'string' ? el.className : '';
+    return id === 'ill-download-spec-sheet' || cls.indexOf('ill-download-spec-sheet') >= 0;
+  }
+
+  document.addEventListener('click', function (e) {
+    // Walk up to 4 levels so clicks on child elements (e.g. an inner <span>)
+    // are still caught by the button's id/class.
+    var el = e.target;
+    for (var i = 0; i < 4; i++) {
+      if (!el) return;
+      if (isDownloadBtn(el)) {
+        e.preventDefault();
+        e.stopPropagation();
+        submitDownload(el, document.querySelector('.spec-modal-wrapper'));
+        return;
+      }
+      el = el.parentElement;
+    }
+  });
+
+})();
+</script>
