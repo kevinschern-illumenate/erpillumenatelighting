@@ -440,8 +440,12 @@ def _resolve_attribute(
         if attr_code and (attr_code == raw_value or attr_code == code_value):
             return attr_name
 
-    # Last resort: return raw value and let validate_and_quote fail gracefully
-    return raw_value
+    # Nothing resolved.  Return "" rather than the raw value: a value that was a
+    # valid document name would already have been returned by Try 1, so anything
+    # reaching here does not correspond to a real document.  Returning it would
+    # write a bogus Link value; "" instead surfaces a clear "<field> is required"
+    # error in _map_selections_to_engine_codes.
+    return ""
 
 
 def _get_default_option(template, option_type: str, child_field: str) -> str:
@@ -926,24 +930,11 @@ def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
     except (ValueError, TypeError):
         fixture_length_value = 0
 
-    # IP rating — resolve or default to IP67
-    ip_rating = _resolve_neon_attribute(
-        selections, "environment_rating", "environment_rating_code",
-        "ilL-Attribute-IP Rating", "code",
-        template, "IP Rating", "ip_rating",
-    )
-    if not ip_rating:
-        # Try Environment Rating doctype
-        ip_rating = _resolve_neon_attribute(
-            selections, "environment_rating", "environment_rating_code",
-            "ilL-Attribute-Environment Rating", "code",
-            template, "Environment Rating", "environment_rating",
-        )
-    if not ip_rating:
-        # Default to first available or IP67
-        ip_rating = _get_default_option(template, "IP Rating", "ip_rating")
-    if not ip_rating:
-        ip_rating = "IP67"
+    # IP rating — resolve from an explicit IP selection, otherwise map the
+    # environment (Dry → IP20, Damp → IP54, Wet → IP67), then template
+    # default, then a hard fallback.  Always yields a valid IP Rating document
+    # name so the segment insert never fails with "Could not find … IP Rating".
+    ip_rating = _resolve_ip_rating_from_selection(template, selections)
 
     # Feed directions (optional).  When the Webflow form no longer collects
     # feed start/end, leave these blank so the part number omits the feed
@@ -1078,5 +1069,112 @@ def _resolve_neon_attribute(
             if attr_code and (attr_code == raw_value or attr_code == code_value):
                 return attr_name
 
-    # Last resort: return raw value
-    return raw_value
+    # Nothing resolved.  Return "" rather than the raw value: a raw value that
+    # was a valid document name would already have been returned by Try 1, so
+    # anything reaching here is a code/label that does not correspond to a real
+    # document.  Returning it would write a bogus Link value (e.g. ip_rating="I")
+    # and break record creation, or silently poison fallback chains in callers.
+    return ""
+
+
+# =============================================================================
+# ENVIRONMENT RATING → IP RATING RESOLUTION (tape / neon)
+# =============================================================================
+
+# Maps an Environment Rating (by document name, lower-cased) to the IP Rating
+# document name used on tape/neon configured records.  The Webflow "Dry/Wet"
+# environment step is the user-facing control; the configured record needs a
+# concrete IP rating.  Indoor/dry installs default to IP20, damp to IP54, and
+# wet/outdoor to IP67.  Synonyms are included so either naming style resolves.
+_ENVIRONMENT_TO_IP_RATING = {
+    "dry": "IP20",
+    "indoor": "IP20",
+    "interior": "IP20",
+    "damp": "IP54",
+    "wet": "IP67",
+    "outdoor": "IP67",
+    "exterior": "IP67",
+}
+
+# Fallback IP rating labels, in priority order, when a mapped label is missing.
+_IP_RATING_FALLBACKS = ("IP67", "IP65", "IP54", "IP68", "IP20")
+
+
+def _resolve_environment_rating_name(selections: dict) -> str:
+    """Resolve the environment selection to an Environment Rating document name.
+
+    The Webflow page may send the environment as a document name ("Dry"), a
+    short code ("I", "D", "O"), or a label — in either ``environment_rating``
+    or ``environment_rating_code``.  Returns the document name, or "".
+    """
+    doctype = "ilL-Attribute-Environment Rating"
+    raw = (selections.get("environment_rating") or "").strip()
+    code = (selections.get("environment_rating_code") or "").strip()
+    for candidate in (raw, code):
+        if not candidate:
+            continue
+        if frappe.db.exists(doctype, candidate):
+            return candidate
+        by_code = frappe.db.get_value(doctype, {"code": candidate}, "name")
+        if by_code:
+            return by_code
+    return ""
+
+
+def _first_existing_ip_rating(*labels: str) -> str:
+    """Return the first IP Rating label/code that resolves to a real document."""
+    doctype = "ilL-Attribute-IP Rating"
+    for label in labels:
+        if not label:
+            continue
+        if frappe.db.exists(doctype, label):
+            return label
+        by_code = frappe.db.get_value(doctype, {"code": label}, "name")
+        if by_code:
+            return by_code
+    return ""
+
+
+def _resolve_ip_rating_from_selection(template, selections: dict) -> str:
+    """Resolve a valid IP Rating document name for a tape/neon segment.
+
+    Resolution order:
+      1. An explicit IP Rating selection (some pages send IP directly).
+      2. Map the environment (Dry/Damp/Wet) selection → IP rating.
+      3. The template's default IP Rating allowed option.
+      4. A sensible hard fallback (IP67 → IP65 → …).
+
+    Always returns an IP Rating that exists as a document, never a bare code,
+    so the configured record can be created without a Link validation error.
+    """
+    doctype = "ilL-Attribute-IP Rating"
+
+    # 1. Explicit IP Rating selection (value or code in dedicated keys)
+    explicit = _first_existing_ip_rating(
+        (selections.get("ip_rating") or "").strip(),
+        (selections.get("ip_rating_code") or "").strip(),
+    )
+    if explicit:
+        return explicit
+
+    # 2. Environment → IP rating mapping
+    env_name = _resolve_environment_rating_name(selections)
+    if env_name:
+        mapped = _ENVIRONMENT_TO_IP_RATING.get(env_name.strip().lower())
+        resolved = _first_existing_ip_rating(mapped)
+        if resolved:
+            return resolved
+
+    # 3. Template default IP rating option
+    template_default = _get_default_option(template, "IP Rating", "ip_rating")
+    resolved = _first_existing_ip_rating(template_default)
+    if resolved:
+        return resolved
+
+    # 4. Hard fallbacks
+    resolved = _first_existing_ip_rating(*_IP_RATING_FALLBACKS)
+    if resolved:
+        return resolved
+
+    # Last resort: the conventional default even if the attribute table is empty.
+    return "IP67"

@@ -1421,22 +1421,31 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     is_multi_cct = _is_multi_cct_template(template)
 
     # ── Resolve lens transmission ─────────────────────────────────────
+    # The Webflow page may send the lens as a document name ("White"), a
+    # short code ("WH"), or a display label — in either the value field or
+    # the *_code field.  Resolve the actual Lens Appearance document by
+    # trying each candidate as a name first, then as a code, so the
+    # transmission factor is always applied.  When left unresolved the
+    # delivered-lumens math silently uses 1.0 and the selected output level
+    # no longer matches any tape offering.
     lens_transmission = 1.0  # Default to 100% (clear lens / no lens)
-    lens_name = lens_appearance or lens_appearance_code
-    if lens_name:
-        # Try the raw value first (could be a document name)
-        transmission = frappe.db.get_value(
-            "ilL-Attribute-Lens Appearance", lens_name, "transmission"
+    lens_doc_name = None
+    for candidate in (lens_appearance, lens_appearance_code):
+        if not candidate:
+            continue
+        if frappe.db.exists("ilL-Attribute-Lens Appearance", candidate):
+            lens_doc_name = candidate
+            break
+        by_code = frappe.db.get_value(
+            "ilL-Attribute-Lens Appearance", {"code": candidate}, "name"
         )
-        if transmission is None and lens_appearance_code:
-            # Fallback: look up by code field
-            lens_doc_name = frappe.db.get_value(
-                "ilL-Attribute-Lens Appearance", {"code": lens_appearance_code}, "name"
-            )
-            if lens_doc_name:
-                transmission = frappe.db.get_value(
-                    "ilL-Attribute-Lens Appearance", lens_doc_name, "transmission"
-                )
+        if by_code:
+            lens_doc_name = by_code
+            break
+    if lens_doc_name:
+        transmission = frappe.db.get_value(
+            "ilL-Attribute-Lens Appearance", lens_doc_name, "transmission"
+        )
         if transmission is not None:
             lens_transmission = float(transmission)
 
@@ -1460,6 +1469,12 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
 
     best_match = None
     best_diff = float("inf")
+    # Tolerant fallback: track the offering whose delivered fixture-level
+    # output is numerically closest to the user's selection, in case no
+    # offering lands on an exact fixture-level value (rounding, sparse
+    # output-level table, etc.).
+    nearest_match = None
+    nearest_diff = float("inf")
 
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
@@ -1524,6 +1539,11 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         # Check if this tape's delivered output matches the user's selection
         matches = False
         if desired_output_value is not None:
+            # Track the numerically-closest candidate for the tolerant fallback
+            fixture_diff = abs((delivered_fixture_value or 0) - desired_output_value)
+            if fixture_diff < nearest_diff:
+                nearest_diff = fixture_diff
+                nearest_match = tape_offering
             # Numeric comparison against the fixture output level value
             if delivered_fixture_value == desired_output_value:
                 matches = True
@@ -1548,6 +1568,19 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
             f"_resolve_tape_offering: matched tape_offering={best_match}"
         )
         return best_match
+
+    # Tolerant fallback — accept the closest delivered output level when it is
+    # within ~15% of the requested value.  This keeps the public spec-sheet
+    # flow working when the configured output level doesn't land exactly on a
+    # fixture-level value, while still rejecting clearly-mismatched configs.
+    if nearest_match is not None and desired_output_value:
+        tolerance = max(1.0, desired_output_value * 0.15)
+        if nearest_diff <= tolerance:
+            frappe.logger().info(
+                f"_resolve_tape_offering: tolerant match tape_offering={nearest_match} "
+                f"(nearest_diff={nearest_diff}, tolerance={tolerance})"
+            )
+            return nearest_match
 
     frappe.logger().warning(
         f"_resolve_tape_offering: no tape found for template={template.name}, "
