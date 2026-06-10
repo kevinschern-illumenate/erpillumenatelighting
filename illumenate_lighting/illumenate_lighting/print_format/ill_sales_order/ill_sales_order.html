@@ -1,5 +1,471 @@
 {#
   ilLumenate Sales Order Print Format
+  Clean, readable layout with section / room grouping.
+#}
+
+{%- set has_sections = doc.items | selectattr("custom_ill_section_label") | list | length > 0 -%}
+
+{#-- Build ordered list of sections and their items --#}
+{%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
+{%- for item in doc.items -%}
+    {%- set label = item.custom_ill_section_label or "" -%}
+    {%- if label and (not item.item_code) and item.qty == 0 -%}
+        {%- if label not in ns.section_map -%}
+            {%- set _ = ns.sections.append(label) -%}
+            {%- set _ = ns.section_map.update({label: []}) -%}
+        {%- endif -%}
+        {%- set ns.current_section = label -%}
+    {%- else -%}
+        {%- set effective = label or ns.current_section -%}
+        {%- if effective not in ns.section_map -%}
+            {%- set _ = ns.sections.append(effective) -%}
+            {%- set _ = ns.section_map.update({effective: []}) -%}
+        {%- endif -%}
+        {%- set _ = ns.section_map[effective].append(item) -%}
+    {%- endif -%}
+{%- endfor -%}
+
+<style>
+    .ill-doc {
+        color: #1f272e;
+        font-size: 11px;
+        line-height: 1.45;
+    }
+    .ill-doc .ill-header {
+        border-bottom: 1px solid #d7dee5;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+    }
+    .ill-doc .ill-header-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .ill-doc .ill-header-table td {
+        vertical-align: middle;
+    }
+    .ill-doc .ill-logo {
+        max-height: 72px;
+        width: auto;
+    }
+    .ill-doc .ill-title-wrap {
+        text-align: right;
+    }
+    .ill-doc .ill-title {
+        font-size: 23px;
+        line-height: 1;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin: 0;
+    }
+    .ill-doc .ill-doc-no {
+        font-size: 11px;
+        color: #5f6c7b;
+        margin-top: 5px;
+    }
+
+    .ill-doc .ill-block {
+        margin-bottom: 12px;
+    }
+    .ill-doc .ill-grid {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .ill-doc .ill-col {
+        display: table-cell;
+        vertical-align: top;
+        padding-right: 10px;
+    }
+    .ill-doc .ill-col:last-child {
+        padding-right: 0;
+    }
+    .ill-doc .ill-info-row {
+        margin-bottom: 7px;
+    }
+    .ill-doc .ill-label {
+        color: #6c7886;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+    }
+    .ill-doc .ill-value {
+        color: #1f272e;
+    }
+
+    .ill-doc .ill-items {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        border: 1px solid #d7dee5;
+    }
+    .ill-doc .ill-items thead th {
+        background: #f2f5f8;
+        border-bottom: 1px solid #d7dee5;
+        color: #34414f;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.25px;
+        padding: 7px 6px;
+        text-transform: uppercase;
+    }
+    .ill-doc .ill-items td {
+        border-bottom: 1px solid #e7edf3;
+        padding: 6px;
+        vertical-align: top;
+        word-wrap: break-word;
+    }
+    .ill-doc .ill-items tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .ill-doc .ill-items .text-right {
+        text-align: right;
+    }
+    .ill-doc .ill-items .table-sr {
+        width: 40px;
+        text-align: center;
+    }
+    .ill-doc .ill-uom {
+        float: left;
+        color: #6c7886;
+        font-size: 10px;
+        margin-right: 4px;
+    }
+    .ill-doc .ill-note-row td {
+        background: #fafbfd;
+        color: #5f6c7b;
+        font-size: 10px;
+        font-style: italic;
+        border-bottom: 1px dashed #d7dee5;
+        padding-top: 4px;
+        padding-bottom: 5px;
+    }
+    .ill-doc .ill-section-header td {
+        background: #e8edf2;
+        border-top: 1px solid #d0d7df;
+        border-bottom: 1px solid #d0d7df;
+        color: #2f3a45;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        padding: 7px 6px;
+    }
+    .ill-doc .ill-section-subtotal td {
+        background: #f6f8fb;
+        border-top: 1px solid #d7dee5;
+        font-weight: 700;
+    }
+
+    .ill-doc .ill-totals {
+        border: 1px solid #d7dee5;
+        border-top: none;
+        padding: 8px 10px;
+    }
+    .ill-doc .ill-total-row {
+        display: table;
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    .ill-doc .ill-total-row:last-child {
+        margin-bottom: 0;
+    }
+    .ill-doc .ill-total-label,
+    .ill-doc .ill-total-value {
+        display: table-cell;
+        width: 50%;
+    }
+    .ill-doc .ill-total-label {
+        color: #4a5765;
+    }
+    .ill-doc .ill-total-value {
+        text-align: right;
+        font-weight: 600;
+    }
+    .ill-doc .ill-grand .ill-total-label,
+    .ill-doc .ill-grand .ill-total-value {
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .ill-doc .ill-address,
+    .ill-doc .ill-terms {
+        border: 1px solid #d7dee5;
+        padding: 9px 10px;
+    }
+    .ill-doc .ill-address-title,
+    .ill-doc .ill-terms-title {
+        color: #4a5765;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+    }
+    .ill-doc .ql-snow {
+        font-size: 11px;
+        line-height: 1.45;
+    }
+</style>
+
+<div class="ill-doc">
+    <div class="ill-header">
+        <table class="ill-header-table">
+            <tr>
+                <td style="width: 50%;">
+                    <img class="ill-logo" src="/files/ilLumenate%20Logo_DW_Black_Main.png">
+                </td>
+                <td style="width: 50%;" class="ill-title-wrap">
+                    <h2 class="ill-title">Sales Order</h2>
+                    <div class="ill-doc-no">{{ doc.name }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="ill-block">
+        <div class="ill-grid">
+            <div class="ill-col">
+                <div class="ill-info-row">
+                    <div class="ill-label">Customer Name</div>
+                    <div class="ill-value">{{ doc.customer_name }}</div>
+                </div>
+                {% if doc.po_no %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Purchase Order</div>
+                    <div class="ill-value">{{ doc.po_no }}</div>
+                </div>
+                {% endif %}
+                {% if doc.project %}
+                {% set project_name = frappe.db.get_value('Project', doc.project, 'project_name') %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Project</div>
+                    <div class="ill-value">{{ project_name or doc.project }}</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="ill-col">
+                <div class="ill-info-row">
+                    <div class="ill-label">Date</div>
+                    <div class="ill-value">{{ doc.transaction_date | default('', true) }}</div>
+                </div>
+                {% if doc.delivery_date %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Delivery Date</div>
+                    <div class="ill-value">{{ doc.delivery_date }}</div>
+                </div>
+                {% endif %}
+                {% if doc.company %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Company</div>
+                    <div class="ill-value">{{ doc.company }}</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="ill-col">
+                {% if doc.contact_display %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Contact</div>
+                    <div class="ill-value">{{ doc.contact_display }}</div>
+                </div>
+                {% endif %}
+                {% if doc.contact_email %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Email</div>
+                    <div class="ill-value">{{ doc.contact_email }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="ill-block">
+        <table class="ill-items">
+            <thead>
+                <tr>
+                    <th style="width: 40px;" class="table-sr">Sr</th>
+                    <th style="width: 40%;">Item Name</th>
+                    <th style="width: 20%;">Item Code</th>
+                    <th style="width: 10%;" class="text-right">Quantity</th>
+                    <th style="width: 10%;" class="text-right">Rate</th>
+                    <th style="width: 20%;" class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+            {%- if has_sections -%}
+                {%- set row_ns = namespace(sr=0) -%}
+                {%- for section_label in ns.sections -%}
+                    {%- set items = ns.section_map[section_label] -%}
+
+                    {%- if section_label -%}
+                    <tr class="ill-section-header">
+                        <td colspan="6">{{ section_label }}</td>
+                    </tr>
+                    {%- endif -%}
+
+                    {%- set sec_ns = namespace(subtotal=0) -%}
+                    {%- for item in items -%}
+                        {%- set row_ns.sr = row_ns.sr + 1 -%}
+                        {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
+                        <tr>
+                            <td class="table-sr">{{ row_ns.sr }}</td>
+                            <td>{{ item.item_name or item.description or '' }}</td>
+                            <td>{{ item.item_code or '' }}</td>
+                            <td class="text-right">
+                                {%- if item.uom -%}<span class="ill-uom">{{ item.uom }}</span>{%- endif -%}
+                                {{ item.qty }}
+                            </td>
+                            <td class="text-right">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td>
+                            <td class="text-right">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td>
+                        </tr>
+                        {%- if item.additional_notes -%}
+                        <tr class="ill-note-row">
+                            <td class="table-sr"></td>
+                            <td colspan="5">{{ item.additional_notes }}</td>
+                        </tr>
+                        {%- endif -%}
+                    {%- endfor -%}
+
+                    {%- if section_label and ns.sections | length > 1 -%}
+                    <tr class="ill-section-subtotal">
+                        <td colspan="5" class="text-right">{{ section_label }} Subtotal</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(sec_ns.subtotal, currency=doc.currency) }}</td>
+                    </tr>
+                    {%- endif -%}
+                {%- endfor -%}
+            {%- else -%}
+                {%- for item in doc.items -%}
+                <tr>
+                    <td class="table-sr">{{ item.idx }}</td>
+                    <td>{{ item.item_name or item.description or '' }}</td>
+                    <td>{{ item.item_code or '' }}</td>
+                    <td class="text-right">
+                        {%- if item.uom -%}<span class="ill-uom">{{ item.uom }}</span>{%- endif -%}
+                        {{ item.qty }}
+                    </td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td>
+                </tr>
+                {%- if item.additional_notes -%}
+                <tr class="ill-note-row">
+                    <td class="table-sr"></td>
+                    <td colspan="5">{{ item.additional_notes }}</td>
+                </tr>
+                {%- endif -%}
+                {%- endfor -%}
+            {%- endif -%}
+            </tbody>
+        </table>
+
+        <div class="ill-totals">
+            <div class="ill-grid">
+                <div class="ill-col">
+                    <div class="ill-total-row">
+                        <div class="ill-total-label">Total Quantity</div>
+                        <div class="ill-total-value">{{ doc.total_qty }}</div>
+                    </div>
+                </div>
+                <div class="ill-col"></div>
+                <div class="ill-col">
+                    <div class="ill-total-row">
+                        <div class="ill-total-label">Total</div>
+                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.total, currency=doc.currency) }}</div>
+                    </div>
+                    {% if doc.discount_amount %}
+                    <div class="ill-total-row">
+                        <div class="ill-total-label">Additional Discount{% if doc.additional_discount_percentage %} ({{ doc.additional_discount_percentage }}%){% endif %}</div>
+                        <div class="ill-total-value">-{{ frappe.utils.fmt_money(doc.discount_amount, currency=doc.currency) }}</div>
+                    </div>
+                    {% endif %}
+                    {% if doc.total != doc.net_total %}
+                    <div class="ill-total-row">
+                        <div class="ill-total-label">Net Total</div>
+                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.net_total, currency=doc.currency) }}</div>
+                    </div>
+                    {% endif %}
+                    {% if doc.taxes %}
+                        {% for tax in doc.taxes %}
+                        <div class="ill-total-row">
+                            <div class="ill-total-label">{{ tax.description }}</div>
+                            <div class="ill-total-value">{{ frappe.utils.fmt_money(tax.tax_amount, currency=doc.currency) }}</div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    <div class="ill-total-row ill-grand">
+                        <div class="ill-total-label">Grand Total</div>
+                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</div>
+                    </div>
+                    {% if doc.advance_paid %}
+                    <div class="ill-total-row">
+                        <div class="ill-total-label">Advance Paid</div>
+                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.advance_paid, currency=doc.currency) }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {%- set _has_separate_shipping = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
+    {%- set _shipping_display = doc.shipping_address_display -%}
+    {%- if _has_separate_shipping and not _shipping_display -%}
+        {%- set _addr = frappe.db.get_value('Address', doc.shipping_address_name, ['address_line1', 'address_line2', 'city', 'state', 'pincode', 'country'], as_dict=True) -%}
+        {%- if _addr -%}
+            {%- set _parts = [] -%}
+            {%- if _addr.address_line1 -%}{%- set _ = _parts.append(_addr.address_line1) -%}{%- endif -%}
+            {%- if _addr.address_line2 -%}{%- set _ = _parts.append(_addr.address_line2) -%}{%- endif -%}
+            {%- set _csz = [] -%}
+            {%- if _addr.city -%}{%- set _ = _csz.append(_addr.city) -%}{%- endif -%}
+            {%- if _addr.state -%}{%- set _ = _csz.append(_addr.state) -%}{%- endif -%}
+            {%- if _addr.pincode -%}{%- set _ = _csz.append(_addr.pincode) -%}{%- endif -%}
+            {%- if _csz -%}{%- set _ = _parts.append(_csz | join(', ')) -%}{%- endif -%}
+            {%- if _addr.country -%}{%- set _ = _parts.append(_addr.country) -%}{%- endif -%}
+            {%- set _shipping_display = _parts | join('<br>') -%}
+        {%- endif -%}
+    {%- endif -%}
+
+    {% if doc.address_display or _has_separate_shipping %}
+    <div class="ill-block">
+        <div class="ill-grid">
+            {% if _has_separate_shipping %}
+            <div class="ill-col">
+                <div class="ill-address">
+                    <div class="ill-address-title">Billing Address</div>
+                    <div class="ql-snow">{{ doc.address_display or '' }}</div>
+                </div>
+            </div>
+            <div class="ill-col">
+                <div class="ill-address">
+                    <div class="ill-address-title">Shipping Address</div>
+                    <div class="ql-snow">{{ _shipping_display or '' }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="ill-col">
+                <div class="ill-address">
+                    <div class="ill-address-title">Billing / Shipping Address</div>
+                    <div class="ql-snow">{{ doc.address_display }}</div>
+                </div>
+            </div>
+            <div class="ill-col"></div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if doc.terms %}
+    <div class="ill-block">
+        <div class="ill-terms">
+            <div class="ill-terms-title">Terms and Conditions</div>
+            <div class="ql-snow">{{ doc.terms }}</div>
+        </div>
+    </div>
+    {% endif %}
+</div>{#
+  ilLumenate Sales Order Print Format
   Matches the standard ilL layout with section / room grouping.
   Section-header rows (custom_ill_section_label set, qty=0, no item_code) render as
   bold header rows spanning the table.  All other rows tagged with the same
@@ -46,336 +512,3 @@
         background-color: #f7f7f7 !important;
     }
 
-    /* ── Layout Safety Net ──────────────────────────────────────────────
-       Force proper column layout regardless of Bootstrap CSS state.
-    ─────────────────────────────────────────────────────────────────── */
-    .row.section-break {
-        display: table !important;
-        width: 100% !important;
-        table-layout: fixed !important;
-        border-spacing: 0 !important;
-        margin-bottom: 10px;
-    }
-    .row.section-break > .column-break {
-        display: table-cell !important;
-        vertical-align: top !important;
-        padding-right: 8px;
-    }
-    .row.data-field {
-        overflow: hidden;
-        margin-bottom: 3px;
-    }
-    .row.data-field > div {
-        float: left;
-        box-sizing: border-box;
-    }
-    .col-xs-3  { width: 25% !important; }
-    .col-xs-4  { width: 33.33333% !important; }
-    .col-xs-5  { width: 41.66667% !important; }
-    .col-xs-6  { width: 50% !important; }
-    .col-xs-7  { width: 58.33333% !important; }
-    .col-xs-9  { width: 75% !important; }
-    .col-xs-12 { width: 100% !important; }
-    .text-right { text-align: right !important; }
-</style>
-
-{#-- Header --#}
-<div id="custom-header-container" style="width: 100%; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #d1d8dd; overflow: hidden;">
-    <div style="width: 45%; float: left;">
-        <img src="/files/ilLumenate%20Logo_DW_Black_Main.png" style="max-height: 80px; width: auto; display: block;">
-    </div>
-    <div style="width: 50%; float: right; text-align: right; padding-top: 22px;">
-        <h2 style="margin: 0; line-height: 1.1; border: none !important;">
-            <div style="font-weight: bold; text-transform: uppercase; color: #000; font-size: 1.4em; border: none !important;">
-                Sales Order
-            </div>
-            <small style="font-size: 0.6em; color: #888; display: block; margin-top: 2px; font-weight: normal; border: none !important;">
-                {{ doc.name }}
-            </small>
-        </h2>
-    </div>
-    <div style="clear: both;"></div>
-</div>
-
-{#-- Customer / Date info --#}
-<div class="row section-break">
-    <div class="col-xs-4 column-break">
-        <div class="row important data-field">
-            <div class="col-xs-12"><label>Customer Name: </label></div>
-            <div class="col-xs-12 value">{{ doc.customer_name }}</div>
-        </div>
-        {% if doc.po_no %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Purchase Order: </label></div>
-            <div class="col-xs-12 value">{{ doc.po_no }}</div>
-        </div>
-        {% endif %}
-        {% if doc.project %}
-        {% set project_name = frappe.db.get_value('Project', doc.project, 'project_name') %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Project: </label></div>
-            <div class="col-xs-12 value">{{ project_name or doc.project }}</div>
-        </div>
-        {% endif %}
-    </div>
-    <div class="col-xs-4 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Date: </label></div>
-            <div class="col-xs-12 value">{{ doc.transaction_date | default('', true) }}</div>
-        </div>
-        {% if doc.delivery_date %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Delivery Date: </label></div>
-            <div class="col-xs-12 value">{{ doc.delivery_date }}</div>
-        </div>
-        {% endif %}
-        {% if doc.company %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Company: </label></div>
-            <div class="col-xs-12 value">{{ doc.company }}</div>
-        </div>
-        {% endif %}
-    </div>
-    <div class="col-xs-4 column-break">
-        {% if doc.contact_display %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Contact: </label></div>
-            <div class="col-xs-12 value">{{ doc.contact_display }}</div>
-        </div>
-        {% endif %}
-        {% if doc.contact_email %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Email: </label></div>
-            <div class="col-xs-12 value">{{ doc.contact_email }}</div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{#-- Items table --#}
-<div class="row section-break">
-    <div class="col-xs-12 column-break">
-        <table class="table table-bordered table-condensed">
-            <thead>
-                <tr>
-                    <th style="width: 40px" class="table-sr">Sr</th>
-                    <th style="width: 40%;">Item Name</th>
-                    <th style="width: 20%;">Item Code</th>
-                    <th style="width: 10%;" class="text-right">Quantity</th>
-                    <th style="width: 10%;" class="text-right">Rate</th>
-                    <th style="width: 20%;" class="text-right">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-            {%- if has_sections -%}
-                {#-- Render grouped by section --#}
-                {%- set row_ns = namespace(sr=0) -%}
-                {%- for section_label in ns.sections -%}
-                    {%- set items = ns.section_map[section_label] -%}
-
-                    {%- if section_label -%}
-                    <tr class="ill-section-header">
-                        <td colspan="6">{{ section_label }}</td>
-                    </tr>
-                    {%- endif -%}
-
-                    {%- set sec_ns = namespace(subtotal=0) -%}
-                    {%- for item in items -%}
-                        {%- set row_ns.sr = row_ns.sr + 1 -%}
-                        {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
-                        {%- if item.additional_notes -%}
-                        <tr>
-                            <td class="table-sr"></td>
-                            <td colspan="5" style="font-size: 0.9em; color: #555; padding-top: 2px; padding-bottom: 4px; border-bottom: none;"><em>{{ item.additional_notes }}</em></td>
-                        </tr>
-                        {%- endif -%}
-                        <tr>
-                            <td class="table-sr">{{ row_ns.sr }}</td>
-                            <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
-                            <td><div class="value">{{ item.item_code or '' }}</div></td>
-                            <td class="text-right">
-                                <div class="value">
-                                    {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
-                                    {{ item.qty }}
-                                </div>
-                            </td>
-                            <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</div></td>
-                            <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</div></td>
-                        </tr>
-                    {%- endfor -%}
-
-                    {%- if section_label and ns.sections | length > 1 -%}
-                    <tr class="ill-section-subtotal">
-                        <td colspan="5" class="text-right">{{ section_label }} Subtotal</td>
-                        <td class="text-right">{{ frappe.utils.fmt_money(sec_ns.subtotal, currency=doc.currency) }}</td>
-                    </tr>
-                    {%- endif -%}
-                {%- endfor -%}
-            {%- else -%}
-                {#-- No sections — standard flat list --#}
-                {%- for item in doc.items -%}
-                {%- if item.additional_notes -%}
-                <tr>
-                    <td class="table-sr"></td>
-                    <td colspan="5" style="font-size: 0.9em; color: #555; padding-top: 2px; padding-bottom: 4px; border-bottom: none;"><em>{{ item.additional_notes }}</em></td>
-                </tr>
-                {%- endif -%}
-                <tr>
-                    <td class="table-sr">{{ item.idx }}</td>
-                    <td><div class="value">{{ item.item_name or item.description or '' }}</div></td>
-                    <td><div class="value">{{ item.item_code or '' }}</div></td>
-                    <td class="text-right">
-                        <div class="value">
-                            {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
-                            {{ item.qty }}
-                        </div>
-                    </td>
-                    <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</div></td>
-                    <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</div></td>
-                </tr>
-                {%- endfor -%}
-            {%- endif -%}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-{#-- Totals --#}
-<div class="row section-break">
-    <div class="col-xs-4 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Total Quantity: </label></div>
-            <div class="col-xs-12 value">{{ doc.total_qty }}</div>
-        </div>
-    </div>
-    <div class="col-xs-4 column-break"></div>
-    <div class="col-xs-4 column-break">
-        <div class="row data-field">
-            <div class="col-xs-5"><label>Total</label></div>
-            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.total, currency=doc.currency) }}</div>
-        </div>
-    </div>
-</div>
-
-{#-- Additional Discount --#}
-{% if doc.discount_amount %}
-<div class="row section-break">
-    <div class="col-xs-6 column-break"></div>
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-7 text-right"><label>Additional Discount{% if doc.additional_discount_percentage %} ({{ doc.additional_discount_percentage }}%){% endif %}:</label></div>
-            <div class="col-xs-5 text-right value">-{{ frappe.utils.fmt_money(doc.discount_amount, currency=doc.currency) }}</div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{#-- Net Total (only if different from Total) --#}
-{% if doc.total != doc.net_total %}
-<div class="row section-break">
-    <div class="col-xs-6 column-break"></div>
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-7 text-right"><label>Net Total:</label></div>
-            <div class="col-xs-5 text-right value">{{ frappe.utils.fmt_money(doc.net_total, currency=doc.currency) }}</div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{#-- Taxes / Charges --#}
-{% if doc.taxes %}
-<div class="row section-break" data-label="Taxes and Charges">
-    <div class="col-xs-6 column-break">
-        {% if doc.exempt_from_sales_tax %}
-        <div class="row data-field">
-            <div class="col-xs-9"><label>Is customer exempted from sales tax?: </label></div>
-            <div class="col-xs-3 value">
-                <svg viewBox="0 0 16 16" fill="transparent" stroke="#1F272E" stroke-width="2" xmlns="http://www.w3.org/2000/svg" style="width: 12px; height: 12px; margin-top: 5px;">
-                    <path d="M2 9.66667L5.33333 13L14 3" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-    <div class="col-xs-6 column-break">
-        {% for tax in doc.taxes %}
-        <div class="row data-field">
-            <div class="col-xs-7 text-right"><label>{{ tax.description }}:</label></div>
-            <div class="col-xs-5 text-right value">{{ frappe.utils.fmt_money(tax.tax_amount, currency=doc.currency) }}</div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-{#-- Grand Total --#}
-<div class="row section-break" data-label="Totals">
-    <div class="col-xs-6 column-break"></div>
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-5"><label>Grand Total: </label></div>
-            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</div>
-        </div>
-        {% if doc.advance_paid %}
-        <div class="row data-field">
-            <div class="col-xs-5"><label>Advance Paid: </label></div>
-            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.advance_paid, currency=doc.currency) }}</div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{#-- Billing / Shipping Address --#}
-{%- set _has_separate_shipping = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
-{%- set _shipping_display = doc.shipping_address_display -%}
-{%- if _has_separate_shipping and not _shipping_display -%}
-    {%- set _addr = frappe.db.get_value('Address', doc.shipping_address_name, ['address_line1', 'address_line2', 'city', 'state', 'pincode', 'country'], as_dict=True) -%}
-    {%- if _addr -%}
-        {%- set _parts = [] -%}
-        {%- if _addr.address_line1 -%}{%- set _ = _parts.append(_addr.address_line1) -%}{%- endif -%}
-        {%- if _addr.address_line2 -%}{%- set _ = _parts.append(_addr.address_line2) -%}{%- endif -%}
-        {%- set _csz = [] -%}
-        {%- if _addr.city -%}{%- set _ = _csz.append(_addr.city) -%}{%- endif -%}
-        {%- if _addr.state -%}{%- set _ = _csz.append(_addr.state) -%}{%- endif -%}
-        {%- if _addr.pincode -%}{%- set _ = _csz.append(_addr.pincode) -%}{%- endif -%}
-        {%- if _csz -%}{%- set _ = _parts.append(_csz | join(', ')) -%}{%- endif -%}
-        {%- if _addr.country -%}{%- set _ = _parts.append(_addr.country) -%}{%- endif -%}
-        {%- set _shipping_display = _parts | join('<br>') -%}
-    {%- endif -%}
-{%- endif -%}
-{% if doc.address_display or _has_separate_shipping %}
-<div class="row section-break" data-label="Addresses">
-    {% if _has_separate_shipping %}
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Billing Address: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.address_display or '' }}</div></div>
-        </div>
-    </div>
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Shipping Address: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ _shipping_display or '' }}</div></div>
-        </div>
-    </div>
-    {% else %}
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Billing / Shipping Address: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.address_display }}</div></div>
-        </div>
-    </div>
-    <div class="col-xs-6 column-break"></div>
-    {% endif %}
-</div>
-{% endif %}
-
-{#-- Terms --#}
-{% if doc.terms %}
-<div class="row section-break" data-label="Terms and Conditions">
-    <div class="col-xs-12 column-break">
-        <div class="ql-snow">{{ doc.terms }}</div>
-    </div>
-</div>
-{% endif %}
