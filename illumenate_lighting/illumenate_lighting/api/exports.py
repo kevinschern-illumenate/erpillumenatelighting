@@ -399,6 +399,43 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 					if snapshots:
 						fixtures_map[fixture_id]["latest_msrp_unit"] = float(snapshots[0].msrp_unit or 0)
 
+	# Pre-fetch all configured tape/neon records to avoid N+1 queries
+	ctn_ids = [
+		line.configured_tape_neon
+		for line in (schedule.lines or [])
+		if line.manufacturer_type == "ILLUMENATE"
+		and getattr(line, "product_type", None) in ("LED Tape", "LED Neon")
+		and line.configured_tape_neon
+	]
+
+	ctn_map = {}
+	if ctn_ids:
+		ctns = frappe.get_all(
+			"ilL-Configured-Tape-Neon",
+			filters={"name": ["in", ctn_ids]},
+			fields=[
+				"name", "part_number", "product_category", "tape_neon_template",
+				"cct", "output_level", "environment_rating", "finish",
+				"pcb_finish", "feed_type", "total_watts", "watts_per_foot",
+				"manufacturable_length_mm", "total_segments", "build_description",
+			],
+		)
+		for ctn in ctns:
+			ctn_map[ctn.name] = ctn
+
+		if include_pricing:
+			for ctn_id in ctn_ids:
+				if ctn_id in ctn_map:
+					snaps = frappe.get_all(
+						"ilL-Child-Pricing-Snapshot",
+						filters={"parent": ctn_id, "parenttype": "ilL-Configured-Tape-Neon"},
+						fields=["msrp_unit"],
+						order_by="timestamp desc",
+						limit=1,
+					)
+					if snaps:
+						ctn_map[ctn_id]["latest_msrp_unit"] = float(snaps[0].msrp_unit or 0)
+
 	# Build lines data
 	lines_data = []
 	schedule_total = 0.0
@@ -461,6 +498,105 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				line_data["requested_length_mm"] = 0
 				line_data["manufacturable_length_mm"] = line.manufacturable_length_mm or 0
 				line_data["runs_count"] = 0
+
+		elif (
+			line.manufacturer_type == "ILLUMENATE"
+			and getattr(line, "product_type", None) in ("LED Tape", "LED Neon")
+		):
+			# LED Tape / LED Neon — read from configured_tape_neon record or variant_selections
+			import json as _json_tn
+
+			line_data["is_tape_neon"] = True
+			line_data["product_type"] = line.product_type or ""
+
+			# --- Primary source: configured_tape_neon link field ---
+			ctn = ctn_map.get(line.configured_tape_neon) if line.configured_tape_neon else None
+
+			if ctn:
+				line_data["part_number"] = ctn.get("part_number") or line.ill_item_code or ""
+				line_data["product_category"] = ctn.get("product_category") or line.product_type or ""
+				line_data["cct"] = ctn.get("cct") or ""
+				line_data["output_level"] = ctn.get("output_level") or ""
+				line_data["environment_rating"] = ctn.get("environment_rating") or ""
+				line_data["finish"] = ctn.get("finish") or ""
+				line_data["pcb_finish"] = ctn.get("pcb_finish") or ""
+				line_data["feed_type"] = ctn.get("feed_type") or ""
+				line_data["total_watts"] = ctn.get("total_watts") or ""
+				line_data["manufacturable_length_mm"] = ctn.get("manufacturable_length_mm") or (line.manufacturable_length_mm or 0)
+				line_data["total_segments"] = ctn.get("total_segments") or 1
+				line_data["build_description"] = ctn.get("build_description") or ""
+				line_data["tape_neon_template"] = ctn.get("tape_neon_template") or (getattr(line, "tape_neon_template", None) or "")
+
+				# Resolve template name for display
+				if line_data["tape_neon_template"]:
+					tn_name = frappe.db.get_value(
+						"ilL-Tape-Neon-Template",
+						line_data["tape_neon_template"],
+						"template_name",
+					)
+					line_data["tape_neon_template_name"] = tn_name or line_data["tape_neon_template"]
+				else:
+					line_data["tape_neon_template_name"] = ""
+
+				if include_pricing and ctn.get("latest_msrp_unit"):
+					unit_price = float(ctn["latest_msrp_unit"])
+					line_data["unit_price"] = unit_price
+					line_data["line_total"] = unit_price * (line.qty or 1)
+					schedule_total += line_data["line_total"]
+
+			else:
+				# --- Fallback source: variant_selections JSON ---
+				vs_raw = getattr(line, "variant_selections", None)
+				vs = {}
+				if vs_raw:
+					try:
+						vs = _json_tn.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+					except (ValueError, TypeError):
+						vs = {}
+
+				selections = vs.get("selections", {})
+				computed = vs.get("computed", {})
+
+				line_data["part_number"] = vs.get("part_number") or line.ill_item_code or ""
+				line_data["product_category"] = vs.get("product_category") or line.product_type or ""
+				line_data["cct"] = selections.get("cct") or ""
+				line_data["output_level"] = selections.get("output_level") or ""
+				line_data["environment_rating"] = selections.get("environment_rating") or ""
+				line_data["finish"] = selections.get("finish") or ""
+				line_data["pcb_finish"] = selections.get("pcb_finish") or ""
+				line_data["feed_type"] = selections.get("feed_type") or ""
+				line_data["total_watts"] = computed.get("total_watts") or ""
+				line_data["manufacturable_length_mm"] = (
+					computed.get("manufacturable_length_mm")
+					or computed.get("total_manufacturable_length_mm")
+					or (line.manufacturable_length_mm or 0)
+				)
+				line_data["total_segments"] = computed.get("segment_count") or 1
+				line_data["build_description"] = vs.get("build_description") or ""
+				line_data["tape_neon_template"] = getattr(line, "tape_neon_template", None) or ""
+
+				if line_data["tape_neon_template"]:
+					tn_name = frappe.db.get_value(
+						"ilL-Tape-Neon-Template",
+						line_data["tape_neon_template"],
+						"template_name",
+					)
+					line_data["tape_neon_template_name"] = tn_name or line_data["tape_neon_template"]
+				else:
+					line_data["tape_neon_template_name"] = ""
+
+				if include_pricing:
+					total_msrp = computed.get("total_price_msrp")
+					if total_msrp:
+						unit_price = float(total_msrp)
+						line_data["unit_price"] = unit_price
+						line_data["line_total"] = unit_price * (line.qty or 1)
+						schedule_total += line_data["line_total"]
+
+			line_data["template_code"] = ""
+			line_data["config_summary"] = ""
+			line_data["requested_length_mm"] = 0
+			line_data["runs_count"] = 0
 
 		elif line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture:
 			# Unconfigured ILLUMENATE fixture - has template but not yet configured
@@ -738,6 +874,9 @@ def _build_pdf_description(line: dict) -> str:
 	Returns:
 		str: HTML fragment for the description ``<td>``
 	"""
+	if line.get("is_tape_neon"):
+		return _build_tape_neon_pdf_description(line)
+
 	if line["manufacturer_type"] == "ILLUMENATE" and not line.get("is_unconfigured"):
 		return _build_illumenate_description(line)
 
@@ -865,6 +1004,60 @@ def _build_other_description(line: dict) -> str:
 	parts.append(_detail_row(elec))
 	if line.get("spec_sheet"):
 		parts.append(f"<br><span class='desc-detail'>Spec: {line['spec_sheet']}</span>")
+	return "".join(parts)
+
+
+def _build_tape_neon_pdf_description(line: dict) -> str:
+	"""Build compact description for a configured LED Tape / LED Neon line."""
+	part_number = line.get("part_number") or "Configured"
+	product_category = line.get("product_category") or line.get("product_type") or "LED Tape"
+	parts = [f"<strong>{part_number}</strong> <span style='font-size:6.5px;'>({product_category})</span>"]
+
+	# Template/series reference
+	tpl_name = line.get("tape_neon_template_name") or line.get("tape_neon_template")
+	if tpl_name:
+		parts.append(f"<br><span class='desc-detail'>Series: {tpl_name}</span>")
+
+	# Optical: CCT · Output · Environment
+	optical = []
+	if line.get("cct"):
+		optical.append(line["cct"])
+	if line.get("output_level"):
+		optical.append(f"{line['output_level']} lm/ft")
+	if line.get("environment_rating"):
+		optical.append(line["environment_rating"])
+	if optical:
+		parts.append(_detail_row(optical))
+
+	# Physical: Finish / PCB Finish
+	physical = []
+	if line.get("finish"):
+		physical.append(f"Finish: {line['finish']}")
+	if line.get("pcb_finish"):
+		physical.append(f"PCB: {line['pcb_finish']}")
+	if physical:
+		parts.append(_detail_row(physical))
+
+	# Dimensions & electrical
+	elec = []
+	mfg_length_mm = line.get("manufacturable_length_mm") or 0
+	if mfg_length_mm:
+		length_in = mfg_length_mm / 25.4
+		elec.append(f'{length_in:.1f}"')
+	if line.get("total_watts"):
+		elec.append(f"{line['total_watts']}W")
+	if line.get("total_segments") and line["total_segments"] > 1:
+		elec.append(f"{line['total_segments']} segments")
+	if elec:
+		parts.append(_detail_row(elec))
+
+	# Build description (neon multi-segment)
+	if line.get("build_description"):
+		bd = convert_build_description_to_inches(line["build_description"]).replace("\n", "; ")
+		if len(bd) > 200:
+			bd = bd[:200] + "..."
+		parts.append(f"<br><span class='desc-detail'>{bd}</span>")
+
 	return "".join(parts)
 
 

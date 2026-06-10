@@ -807,7 +807,7 @@ def validate_neon_configuration(
     messages = []
 
     # ── Required top-level fields ─────────────────────────────────────
-    required = ["cct", "output_level", "finish"]
+    required = ["cct", "output_level"]
     missing = [f for f in required if not sel.get(f)]
     if missing:
         logger.warning(f"validate_neon: Missing required fields: {missing}")
@@ -1169,6 +1169,16 @@ def save_tape_to_schedule(
         line.ill_item_code = part_number
         line.manufacturable_length_mm = round(mfg_length_mm)
         line.notes = build_desc
+
+        # Persist configured tape/neon link if the validation created a record
+        if result.get("configured_tape_neon"):
+            line.configured_tape_neon = result.get("configured_tape_neon")
+
+        # Persist tape_neon_template link from selections or resolved data
+        if not getattr(line, "tape_neon_template", None):
+            tn_template = result.get("tape_neon_template") or result.get("selections", {}).get("tape_neon_template")
+            if tn_template:
+                line.tape_neon_template = tn_template
 
         # Store full configuration as JSON for later SO conversion
         line.variant_selections = json.dumps({

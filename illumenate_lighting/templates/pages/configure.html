@@ -2897,7 +2897,6 @@ function tnUpdateCascading() {
 			args.pcb_finish = $('select[name="tn_pcb_finish"]').val() || null;
 		}
 		if (isNeon) {
-			args.mounting_method = $('select[name="tn_mounting_method"]').val() || null;
 			args.finish = $('select[name="tn_finish"]').val() || null;
 		}
 	} else {
@@ -2994,11 +2993,13 @@ function tnUpdateUI() {
 	} else if (isNeon) {
 		var lastSeg = $('#neonSegmentsList .neon-segment-card').last();
 		var segmentsDone = lastSeg.length && lastSeg.find('[name="neon_end_type"]').val() === 'Endcap';
+		// Finish is optional — only require it when options are actually present
+		var finishSel = $('select[name="tn_finish"]');
+		var finishOk = finishSel.find('option[value!=""]').length === 0 || finishSel.val();
 		isComplete = (
 			$('select[name="tn_cct"]').val() &&
 			$('select[name="tn_output_level"]').val() &&
-			$('select[name="tn_mounting_method"]').val() &&
-			$('select[name="tn_finish"]').val() &&
+			finishOk &&
 			neonSegmentCount > 0 &&
 			segmentsDone
 		);
@@ -3070,8 +3071,7 @@ function tnValidateAndQuote() {
 		selections = {
 			cct: $('select[name="tn_cct"]').val(),
 			output_level: $('select[name="tn_output_level"]').val(),
-			mounting: $('select[name="tn_mounting_method"]').val(),
-			finish: $('select[name="tn_finish"]').val(),
+			finish: $('select[name="tn_finish"]').val() || '',
 		};
 	}
 

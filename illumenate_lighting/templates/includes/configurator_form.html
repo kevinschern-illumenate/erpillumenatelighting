@@ -198,18 +198,11 @@
 		<hr>
 		<h6 class="mb-3">{{ _("Fixture Options") }}</h6>
 
-		<!-- Mounting Method (LED Neon only) -->
-		<div class="option-group">
-			<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
-			<div class="pill-selector" data-field="tn_mounting_method"></div>
-			<select class="form-control select-fallback" name="tn_mounting_method" required></select>
-		</div>
-
 		<!-- Finish (LED Neon only) -->
-		<div class="option-group">
-			<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+		<div class="option-group" id="neonFinishGroup">
+			<label class="option-label">{{ _("Finish") }}</label>
 			<div class="pill-selector" data-field="tn_finish"></div>
-			<select class="form-control select-fallback" name="tn_finish" required></select>
+			<select class="form-control select-fallback" name="tn_finish"></select>
 		</div>
 		{% endif %}
 
