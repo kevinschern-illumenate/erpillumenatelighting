@@ -303,11 +303,11 @@
    "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Minimalist applications\"}]"
   },
   {
-   "fieldname": "product_badge",
-   "fieldtype": "Select",
-   "label": "Product Badge",
-   "options": "\nNew\nOn Sale\nQuick Ship"
-  },
+  "fieldname": "product_badge",
+  "fieldtype": "Select",
+  "label": "Product Badge",
+  "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+},
   {
    "fieldname": "featured_image",
    "fieldtype": "Attach Image",
