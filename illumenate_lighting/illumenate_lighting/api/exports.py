@@ -1187,6 +1187,42 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 
 
 @frappe.whitelist()
+def debug_schedule_lines(schedule_id: str) -> dict:
+	"""
+	Debug helper: dump raw field values for every line in a schedule.
+	Use from the browser console:
+	  frappe.call({method:'illumenate_lighting.illumenate_lighting.api.exports.debug_schedule_lines',
+	              args:{schedule_id:'SCHED-0001'}, callback: r => console.table(r.message.lines)})
+	"""
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_id)
+	lines = []
+	for line in schedule.lines or []:
+		lines.append({
+			"idx": line.idx,
+			"line_id": line.line_id,
+			"manufacturer_type": line.manufacturer_type,
+			"product_type": line.product_type,
+			"configuration_status": line.configuration_status,
+			"configured_fixture": line.configured_fixture,
+			"configured_tape_neon": getattr(line, "configured_tape_neon", None),
+			"tape_neon_template": getattr(line, "tape_neon_template", None),
+			"ill_item_code": getattr(line, "ill_item_code", None),
+			"manufacturable_length_mm": getattr(line, "manufacturable_length_mm", None),
+			"variant_selections_present": bool(getattr(line, "variant_selections", None)),
+			"notes_snippet": (line.notes or "")[:80],
+			# Which branch will exports.py take?
+			"_branch": (
+				"linear_fixture" if (line.manufacturer_type == "ILLUMENATE" and line.configured_fixture)
+				else "tape_neon" if (line.manufacturer_type == "ILLUMENATE" and getattr(line, "product_type", None) in ("LED Tape", "LED Neon"))
+				else "unconfigured" if (line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture)
+				else "accessory" if line.manufacturer_type == "ACCESSORY"
+				else "other"
+			),
+		})
+	return {"schedule": schedule_id, "line_count": len(lines), "lines": lines}
+
+
+@frappe.whitelist()
 def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 	"""
 	Generate a PDF export of a fixture schedule.
