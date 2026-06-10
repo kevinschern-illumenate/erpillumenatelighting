@@ -2699,19 +2699,7 @@ $(function() {
 		if (isPopulating) return;
 		tnUpdateUI();
 	});
-	$('select[name="tn_pcb_mounting"]').on('change', function() {
-		if (isPopulating) return;
-		tnUpdateUI();
-	});
 	$('select[name="tn_pcb_finish"]').on('change', function() {
-		if (isPopulating) return;
-		tnUpdateUI();
-	});
-	$('select[name="tn_feed_type"]').on('change', function() {
-		if (isPopulating) return;
-		tnUpdateUI();
-	});
-	$('select[name="tn_mounting_method"]').on('change', function() {
 		if (isPopulating) return;
 		tnUpdateUI();
 	});
@@ -2782,15 +2770,12 @@ function tnPopulateOptions(options) {
 			'environment_ratings': 'tn_environment_rating',
 			'ccts': 'tn_cct',
 			'output_levels': 'tn_output_level',
-			'pcb_mountings': 'tn_pcb_mounting',
 			'pcb_finishes': 'tn_pcb_finish',
-			'feed_types': 'tn_feed_type',
 		};
 	} else if (isNeon) {
 		fieldMap = {
 			'ccts': 'tn_cct',
 			'output_levels': 'tn_output_level',
-			'mounting_methods': 'tn_mounting_method',
 			'finishes': 'tn_finish',
 		};
 	}
@@ -2842,7 +2827,7 @@ function tnPopulateOptions(options) {
 
 	{% if is_tape %}
 	// Populate start/end feed direction dropdowns for tape.
-	// feed_directions = directional options (End, Back); feed_types = power-feed types.
+	// feed_directions = directional options (End, Back).
 	// We prefer feed_directions but fall back to a sensible default.
 	var feedDirs = options.feed_directions || [
 		{value: 'End', label: DEFAULT_FEED_DIRECTION}
@@ -2981,9 +2966,7 @@ function tnUpdateUI() {
 		isComplete = (
 			$('select[name="tn_cct"]').val() &&
 			$('select[name="tn_output_level"]').val() &&
-			$('select[name="tn_pcb_mounting"]').val() &&
 			$('select[name="tn_pcb_finish"]').val() &&
-			$('select[name="tn_feed_type"]').val() &&
 			parseFloat($('[name="tn_lead_length_inches"]').val()) > 0 &&
 			(parseFloat($('[name="tn_tape_length_value"]').val()) > 0 ||
 			 ($('[name="tn_tape_length_unit"]').val() === 'ft_in' &&
@@ -3054,9 +3037,7 @@ function tnValidateAndQuote() {
 			environment_rating: $('select[name="tn_environment_rating"]').val() || '',
 			cct: $('select[name="tn_cct"]').val(),
 			output_level: $('select[name="tn_output_level"]').val(),
-			pcb_mounting: $('select[name="tn_pcb_mounting"]').val(),
 			pcb_finish: $('select[name="tn_pcb_finish"]').val(),
-			feed_type: $('select[name="tn_feed_type"]').val(),
 			feed_direction: $('select[name="tn_start_feed_direction"]').val() || DEFAULT_FEED_DIRECTION,
 			lead_length_inches: parseFloat($('[name="tn_lead_length_inches"]').val()) || 12,
 			tape_length_value: parseFloat($('[name="tn_tape_length_value"]').val()) || 0,
@@ -3292,9 +3273,9 @@ function tnDisplayResults(result) {
 			var sel = result.selections || {};
 			var opts = (tnTemplateOptions.options || {});
 			var adderMappings = isNeon
-				? [['ccts', 'cct'], ['output_levels', 'output_level'], ['mounting_methods', 'mounting'], ['finishes', 'finish']]
+				? [['ccts', 'cct'], ['output_levels', 'output_level'], ['finishes', 'finish']]
 				: [['ccts', 'cct'], ['output_levels', 'output_level'], ['environment_ratings', 'environment_rating'],
-				   ['pcb_mountings', 'pcb_mounting'], ['pcb_finishes', 'pcb_finish'], ['feed_types', 'feed_type']];
+				   ['pcb_finishes', 'pcb_finish']];
 			adderMappings.forEach(function(pair) {
 				var optList = opts[pair[0]] || [];
 				var selVal = sel[pair[1]];

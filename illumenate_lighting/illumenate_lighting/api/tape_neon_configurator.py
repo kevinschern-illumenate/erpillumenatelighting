@@ -1395,6 +1395,8 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         )
         options["feed_types"] = _get_feed_types()
         options["feed_directions"] = _get_feed_directions()
+        pcb_fin_set = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
+        options["pcb_finishes"] = [{"value": f, "label": f} for f in pcb_fin_set]
     else:
         # LED Neon specific
         options["ip_ratings"] = _get_ip_ratings()
@@ -2149,6 +2151,22 @@ def _build_template_options(
             ]
         else:
             options["feed_types"] = _get_feed_types()
+
+        # PCB Finish
+        pcb_fin_rows = grouped.get("PCB Finish", [])
+        if pcb_fin_rows:
+            options["pcb_finishes"] = [
+                {
+                    "value": r.pcb_finish,
+                    "label": r.pcb_finish,
+                    "is_default": bool(r.is_default),
+                    "msrp_adder": r.msrp_adder or 0,
+                }
+                for r in pcb_fin_rows if r.pcb_finish
+            ]
+        else:
+            pcb_fin_set = sorted({s.pcb_finish for s in tape_specs if s.pcb_finish})
+            options["pcb_finishes"] = [{"value": f, "label": f} for f in pcb_fin_set]
 
     # ── LED Neon specific options ─────────────────────────────────────
     if is_neon:
