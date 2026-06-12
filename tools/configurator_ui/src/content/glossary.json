@@ -1,0 +1,110 @@
+{
+  "indoor_outdoor": {
+    "label": "Indoor vs. Outdoor",
+    "tooltip": "Where the fixture lives sets the baseline weather and ingress protection it must survive.",
+    "learnMore": "Indoor locations are typically Dry rated. Outdoor locations always need at least Damp protection, and most need Wet / IP67+ because they face rain, sprinklers, snow, or wash-down.",
+    "refs": ["ilL-Attribute-Environment Rating", "ilL-Attribute-IP Rating"]
+  },
+  "environment_rating": {
+    "label": "Environment Rating",
+    "tooltip": "How much moisture the location exposes the fixture to: Dry, Damp, or Wet.",
+    "learnMore": "Dry = conditioned interiors, no condensation. Damp = covered exterior / bathrooms where moisture is present but not direct. Wet = direct water contact (rain, sprinklers, fountains). The rating drives which profiles, lenses, and tape are eligible.",
+    "refs": ["ilL-Attribute-Environment Rating"]
+  },
+  "wet_rating": {
+    "label": "Wet Rating",
+    "tooltip": "Survives direct water contact such as rain, sprinklers, or wash-down.",
+    "learnMore": "Wet-rated assemblies are sealed (potting / gaskets) and pair with an IP rating, usually IP67 or IP68. Required for fountains, pool perimeters, and unprotected exterior runs.",
+    "refs": ["ilL-Attribute-Environment Rating", "ilL-Attribute-IP Rating"]
+  },
+  "ip_rating": {
+    "label": "IP Rating",
+    "tooltip": "Ingress Protection \u2014 resistance to dust and water.",
+    "learnMore": "IP65 = water jets from any direction. IP67 = temporary immersion up to ~1 m. IP68 = continuous immersion. Outdoor / wet locations need IP67 or higher.",
+    "refs": ["ilL-Attribute-IP Rating"]
+  },
+  "light_type": {
+    "label": "Light Type",
+    "tooltip": "The color behavior of the LED: fixed white, adjustable white, warm-dimming, or full color.",
+    "learnMore": "Static white = one fixed CCT. Tunable white = blends between cool and warm. Dim-to-warm = warms as it dims (like halogen). Full-color = RGB / RGBW and addressable pixels. We infer this from the LED package name because there is no single ERP 'light type' field.",
+    "refs": ["led_package"]
+  },
+  "color_mode": {
+    "label": "Color Mode",
+    "tooltip": "How full-color tape is driven: one color for the whole run, or individually addressable pixels.",
+    "learnMore": "Analog RGB / RGBW drives the whole strip to a single color at once. Addressable pixel (SPI) controls each pixel for chases, gradients, and video effects \u2014 and requires a DMX/SPI controller.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
+  "fixture_purpose": {
+    "label": "Fixture Purpose",
+    "tooltip": "What the light is for \u2014 used to target a brightness (lumens/ft) band.",
+    "learnMore": "Accent picks out an object or edge (lower output). Task lights a work surface (medium output). Ambient fills a room (higher output). These bands are a configurator heuristic, not an ERP field \u2014 they steer ranking, not hard filtering.",
+    "refs": []
+  },
+  "installation_method": {
+    "label": "Installation Method",
+    "tooltip": "How the fixture mounts to the building.",
+    "learnMore": "Surface mounts onto a finished face. Recessed sits inside a routed channel. Angled aims light from a corner. Drywall / plaster-in is mudded flush for a trimless look. Suspended hangs from cables. This selects the profile family.",
+    "refs": ["mounting_method"]
+  },
+  "target_cct": {
+    "label": "Color Temperature (CCT)",
+    "tooltip": "Warmth of white light, measured in Kelvin (K).",
+    "learnMore": "2700K is warm / residential, 3000K warm-neutral, 3500K neutral, 4000K cool / commercial. Tunable white products cover a range instead of one value.",
+    "refs": ["ilL-Attribute-CCT"]
+  },
+  "cri": {
+    "label": "CRI (Color Rendering)",
+    "tooltip": "How accurately colors appear under the light, on a 0\u2013100 scale.",
+    "learnMore": "90+ is the standard for quality architectural lighting. 95+ is premium (galleries, retail, hospitality) but has limited availability in our current data \u2014 confirm before committing.",
+    "refs": ["cri_typical", "ilL-Attribute-CRI"]
+  },
+  "run_length": {
+    "label": "Run Length",
+    "tooltip": "Total continuous length of the lit run, in feet.",
+    "learnMore": "Long runs can drop voltage and exceed a single supply's capacity. We compare your length against the tape's max single-feed run length to flag when power injection or multiple supplies are needed.",
+    "refs": ["voltage_drop_max_run_length_ft"]
+  },
+  "power_injection": {
+    "label": "Power Injection",
+    "tooltip": "Feeding power at more than one point along a run.",
+    "learnMore": "When a run exceeds the max single-feed length, or total watts exceed one supply, you inject power mid-run or add supplies to keep brightness even end-to-end. This is derived for you from watts/ft \u00d7 length vs. driver capacity.",
+    "refs": ["max_wattage", "watts_per_foot"]
+  },
+  "supply_voltage": {
+    "label": "Supply Voltage",
+    "tooltip": "The input voltage feeding the tape or driver.",
+    "learnMore": "24VDC is the common low-voltage tape standard. 120VAC line-voltage products have an integral or remote driver. The supply voltage must match the tape's input voltage and the driver's input type.",
+    "refs": ["input_voltage", "input_voltage_type"]
+  },
+  "dimming_protocol": {
+    "label": "Dimming Protocol",
+    "tooltip": "The control signal used to dim or color the fixture.",
+    "learnMore": "0-10V, TRIAC, ELV, and DALI dim white light. DMX512 and SPI drive color / pixels. The tape, driver, and controller must all speak the same protocol. Addressable pixel runs force DMX or SPI.",
+    "refs": ["ilL-Attribute-Dimming Protocol", "supported_dimming_protocols"]
+  },
+  "diffuser": {
+    "label": "Diffuser / Lens",
+    "tooltip": "The lens covering the LEDs \u2014 changes look and delivered brightness.",
+    "learnMore": "Clear is brightest but shows dots. Frosted hides dots with a small light loss. White diffuses fully (more loss, no hotspots). Black is a stealth daytime look. Lower transmission means fewer delivered lumens.",
+    "refs": ["lens_appearance", "transmission"]
+  },
+  "operating_temp": {
+    "label": "Operating Temperature",
+    "tooltip": "The ambient temperature range at the install location.",
+    "learnMore": "Extreme heat shortens LED life; extreme cold can affect some drivers. Tape operating temp is free-text in ERP, so this is optional and informational in the prototype.",
+    "refs": ["operating_temp"]
+  },
+  "finish": {
+    "label": "Finish",
+    "tooltip": "The visible color / finish of the extrusion.",
+    "learnMore": "Silver (mill / anodized), Black, and White are the common architectural finishes. Optional \u2014 it does not change the light, only the look of the channel.",
+    "refs": ["ilL-Attribute-Finish"]
+  },
+  "lumens_per_foot": {
+    "label": "Lumens per Foot",
+    "tooltip": "Light output per foot of tape \u2014 a brightness measure.",
+    "learnMore": "Higher lumens/ft = brighter. Our purpose bands (accent / task / ambient) map onto lumens/ft ranges to rank products by how close they are to your goal.",
+    "refs": ["lumens_per_foot"]
+  }
+}
