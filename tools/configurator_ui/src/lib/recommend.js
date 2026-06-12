@@ -15,10 +15,17 @@ const ENV_ORDER = { Dry: 0, Damp: 1, Wet: 2 };
 const IP_ORDER = { IP65: 0, IP67: 1, IP68: 2 };
 
 // Usable single-supply capacity assumption for power-injection math.
-// Mirrors ilL-Spec-Driver max_wattage (96W) * usable_load_factor (0.8) = §4.
+// Mirrors the ilL-Spec-Driver fields named in the implementation plan §4:
+// max_wattage (96 W) * usable_load_factor (0.8).
 const DRIVER_MAX_WATTAGE = 96;
 const USABLE_LOAD_FACTOR = 0.8;
 const USABLE_SUPPLY_W = DRIVER_MAX_WATTAGE * USABLE_LOAD_FACTOR;
+
+// The "Ambient" lumens band is open-ended (max ~99999 in questions.json). When a
+// band has no real upper bound we treat anything at/above this threshold as
+// "unbounded" and score closeness against an assumed spread instead of a midpoint.
+const LUMENS_UNBOUNDED_THRESHOLD = 9000;
+const UNBOUNDED_BAND_SPREAD = 400;
 
 function kelvinOf(cctValue) {
   if (!cctValue) return null;
@@ -140,8 +147,9 @@ function scoreProduct(product, answers) {
     if (soft.lumens) {
       score += 20;
     } else {
-      const mid = (band.min + (band.max > 9000 ? band.min + 400 : band.max)) / 2;
-      const spread = Math.max(150, band.max > 9000 ? 400 : band.max - band.min);
+      const unbounded = band.max > LUMENS_UNBOUNDED_THRESHOLD;
+      const mid = (band.min + (unbounded ? band.min + UNBOUNDED_BAND_SPREAD : band.max)) / 2;
+      const spread = Math.max(150, unbounded ? UNBOUNDED_BAND_SPREAD : band.max - band.min);
       score += Math.max(-10, 15 - (Math.abs(lpf - mid) / spread) * 15);
     }
   }

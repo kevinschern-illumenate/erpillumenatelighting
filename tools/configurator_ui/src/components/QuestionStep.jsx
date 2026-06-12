@@ -237,7 +237,11 @@ function PowerInjectionInfo({ answers }) {
       </div>
       <ul className="mt-2 space-y-1 text-sm text-ill-muted">
         <li>
-          Estimated load: <strong>{power.total_watts} W</strong> over {answers.run_length} ft
+          Estimated load:{' '}
+          <strong aria-label={`Estimated power load ${power.total_watts} watts`}>
+            {power.total_watts} W
+          </strong>{' '}
+          over {answers.run_length} ft
           {top ? ` (${top.sku})` : ''}.
         </li>
         <li>
