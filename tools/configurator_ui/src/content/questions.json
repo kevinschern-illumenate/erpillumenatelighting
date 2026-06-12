@@ -1,0 +1,251 @@
+{
+  "version": "1.0",
+  "_comment": "NON-ENGINEER EDITABLE. Each item in `questions` is one wizard step. `lumensBands` is a configurator heuristic (NOT an ERP field) mapping fixture purpose -> a target lumens/ft range used only for ranking. See README 'How to add a question'.",
+  "lumensBands": {
+    "_comment": "Configurator heuristic only. lumens_per_foot is a real ERP field, but the accent/task/ambient banding is our own and must not be presented as an ERP spec value.",
+    "Accent": { "min": 150, "max": 300, "label": "Accent (~150\u2013300 lm/ft)" },
+    "Task": { "min": 300, "max": 500, "label": "Task (~300\u2013500 lm/ft)" },
+    "Ambient": { "min": 500, "max": 99999, "label": "Ambient (~500+ lm/ft)" }
+  },
+  "questions": [
+    {
+      "id": "indoor_outdoor",
+      "label": "Is this an indoor or outdoor installation?",
+      "glossaryKey": "indoor_outdoor",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "value": "Indoor", "label": "Indoor" },
+        { "value": "Outdoor", "label": "Outdoor", "glossaryKey": "wet_rating" }
+      ]
+    },
+    {
+      "id": "moisture",
+      "label": "What moisture exposure will the location see?",
+      "glossaryKey": "environment_rating",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "environment_rating" },
+      "options": [
+        { "value": "Dry", "label": "Dry" },
+        { "value": "Damp", "label": "Damp" },
+        { "value": "Wet", "label": "Wet", "glossaryKey": "wet_rating" }
+      ]
+    },
+    {
+      "id": "ip_rating",
+      "label": "What IP (ingress protection) rating do you need?",
+      "glossaryKey": "ip_rating",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "ip_rating" },
+      "visibleWhen": { "any": [{ "q": "moisture", "in": ["Damp", "Wet"] }] },
+      "skipWhen": { "any": [{ "q": "moisture", "eq": "Dry" }] },
+      "options": [
+        { "value": "IP65", "label": "IP65 \u2014 water jets" },
+        { "value": "IP67", "label": "IP67 \u2014 temporary immersion" },
+        { "value": "IP68", "label": "IP68 \u2014 continuous immersion" }
+      ]
+    },
+    {
+      "id": "light_type",
+      "label": "What type of light do you need?",
+      "glossaryKey": "light_type",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "light_type" },
+      "options": [
+        { "value": "Static white", "label": "Static white" },
+        { "value": "Tunable white", "label": "Tunable white" },
+        { "value": "Dim-to-warm", "label": "Dim-to-warm" },
+        { "value": "Full-color", "label": "Full-color (RGB / RGBW / pixel)" }
+      ]
+    },
+    {
+      "id": "color_mode",
+      "label": "How should the color be controlled?",
+      "glossaryKey": "color_mode",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "dimming_protocol" },
+      "visibleWhen": { "all": [{ "q": "light_type", "eq": "Full-color" }] },
+      "options": [
+        { "value": "Analog RGB/RGBW", "label": "Analog RGB / RGBW (one color at a time)" },
+        { "value": "Addressable pixel (SPI)", "label": "Addressable pixel (SPI \u2014 per-pixel effects)" }
+      ]
+    },
+    {
+      "id": "fixture_purpose",
+      "label": "What is the primary purpose of this fixture?",
+      "glossaryKey": "fixture_purpose",
+      "type": "single",
+      "required": true,
+      "derives": { "band": "lumensBands" },
+      "options": [
+        { "value": "Accent", "label": "Accent \u2014 highlight an object or edge" },
+        { "value": "Task", "label": "Task \u2014 light a work surface" },
+        { "value": "Ambient", "label": "Ambient \u2014 fill a room" }
+      ]
+    },
+    {
+      "id": "installation_method",
+      "label": "How will the fixture be installed?",
+      "glossaryKey": "installation_method",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "mounting_method" },
+      "options": [
+        { "value": "Surface", "label": "Surface mount" },
+        { "value": "Recessed", "label": "Recessed" },
+        { "value": "Angled", "label": "Angled / corner" },
+        { "value": "Drywall-plaster-in", "label": "Drywall / plaster-in (trimless)" },
+        { "value": "Suspended", "label": "Suspended" }
+      ]
+    },
+    {
+      "id": "target_cct",
+      "label": "What color temperature (CCT) do you want?",
+      "glossaryKey": "target_cct",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "cct" },
+      "visibleWhen": { "all": [{ "q": "light_type", "in": ["Static white", "Dim-to-warm"] }] },
+      "skipWhen": { "any": [{ "q": "light_type", "eq": "Full-color" }] },
+      "options": [
+        { "value": "2700K", "label": "2700K \u2014 warm" },
+        { "value": "3000K", "label": "3000K \u2014 warm-neutral" },
+        { "value": "3500K", "label": "3500K \u2014 neutral" },
+        { "value": "4000K", "label": "4000K \u2014 cool" }
+      ]
+    },
+    {
+      "id": "cct_range",
+      "label": "Select the tunable white range you need.",
+      "glossaryKey": "target_cct",
+      "type": "range",
+      "required": true,
+      "filters": { "attribute": "cct" },
+      "visibleWhen": { "all": [{ "q": "light_type", "eq": "Tunable white" }] },
+      "min": 2700,
+      "max": 4000,
+      "step": 100,
+      "unit": "K",
+      "defaultLow": 2700,
+      "defaultHigh": 4000
+    },
+    {
+      "id": "cri",
+      "label": "What color rendering (CRI) do you require?",
+      "glossaryKey": "cri",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "cri" },
+      "options": [
+        { "value": "90+", "label": "90+ (standard architectural)" },
+        {
+          "value": "95+",
+          "label": "95+ (premium)",
+          "note": "Limited availability \u2014 confirm before committing."
+        }
+      ]
+    },
+    {
+      "id": "run_length",
+      "label": "How long is the continuous run?",
+      "glossaryKey": "run_length",
+      "type": "number",
+      "required": true,
+      "min": 1,
+      "max": 500,
+      "step": 1,
+      "unit": "ft",
+      "placeholder": "e.g. 24"
+    },
+    {
+      "id": "continuous_run",
+      "label": "Is this one continuous, unbroken run?",
+      "glossaryKey": "run_length",
+      "type": "single",
+      "required": false,
+      "options": [
+        { "value": "Yes", "label": "Yes \u2014 one continuous run" },
+        { "value": "No", "label": "No \u2014 multiple segments" }
+      ]
+    },
+    {
+      "id": "power_injection",
+      "label": "Power feed summary",
+      "glossaryKey": "power_injection",
+      "type": "info",
+      "required": false,
+      "visibleWhen": { "all": [{ "q": "run_length", "gt": 0 }] }
+    },
+    {
+      "id": "supply_voltage",
+      "label": "What supply voltage is available?",
+      "glossaryKey": "supply_voltage",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "input_voltage" },
+      "options": [
+        { "value": "24VDC", "label": "24VDC (low-voltage)" },
+        { "value": "120VAC", "label": "120VAC (line-voltage)" }
+      ]
+    },
+    {
+      "id": "dimming_protocol",
+      "label": "Which dimming / control protocol will you use?",
+      "glossaryKey": "dimming_protocol",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "dimming_protocol" },
+      "options": [
+        { "value": "0-10V", "label": "0-10V", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] } },
+        { "value": "TRIAC", "label": "TRIAC", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] } },
+        { "value": "ELV", "label": "ELV", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] } },
+        { "value": "DALI", "label": "DALI", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] } },
+        { "value": "DMX512", "label": "DMX512" },
+        { "value": "SPI", "label": "SPI (addressable pixel)" }
+      ]
+    },
+    {
+      "id": "diffuser",
+      "label": "What diffuser / lens appearance do you want?",
+      "glossaryKey": "diffuser",
+      "type": "single",
+      "required": true,
+      "filters": { "attribute": "lens_appearance" },
+      "options": [
+        { "value": "Clear", "label": "Clear (brightest)" },
+        { "value": "Frosted", "label": "Frosted (hides dots)" },
+        { "value": "White", "label": "White (fully diffused)" },
+        { "value": "Black", "label": "Black (stealth daytime)" }
+      ]
+    },
+    {
+      "id": "operating_temp",
+      "label": "What is the ambient operating temperature? (optional)",
+      "glossaryKey": "operating_temp",
+      "type": "number",
+      "required": false,
+      "min": -40,
+      "max": 80,
+      "step": 1,
+      "unit": "\u00b0C",
+      "placeholder": "e.g. 25"
+    },
+    {
+      "id": "finish",
+      "label": "What channel finish do you prefer? (optional)",
+      "glossaryKey": "finish",
+      "type": "single",
+      "required": false,
+      "filters": { "attribute": "finish" },
+      "options": [
+        { "value": "Silver", "label": "Silver" },
+        { "value": "Black", "label": "Black" },
+        { "value": "White", "label": "White" }
+      ]
+    }
+  ]
+}

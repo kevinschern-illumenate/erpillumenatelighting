@@ -1,0 +1,57 @@
+{
+  "_comment": "Controlled vocabularies seeded from real ERP attribute DocTypes (ilL-Attribute-*). Field names mirror §4 of the implementation plan. Used by the engine for labels, ordering, and the lumen multipliers used in ranking.",
+  "environment_rating": [
+    { "label": "Dry", "code": "DRY", "notes": "Conditioned interiors, no condensation." },
+    { "label": "Damp", "code": "DMP", "notes": "Covered exterior / humid interiors." },
+    { "label": "Wet", "code": "WET", "notes": "Direct water contact (rain, sprinklers)." }
+  ],
+  "ip_rating": [
+    { "label": "IP65", "code": "IP65", "notes": "Protected against water jets." },
+    { "label": "IP67", "code": "IP67", "notes": "Temporary immersion up to ~1 m." },
+    { "label": "IP68", "code": "IP68", "notes": "Continuous immersion." }
+  ],
+  "cct": [
+    { "label": "2700K", "code": "27K", "kelvin": 2700, "lumen_multiplier": 0.94, "hex_color": "#FFB46B" },
+    { "label": "3000K", "code": "30K", "kelvin": 3000, "lumen_multiplier": 0.97, "hex_color": "#FFC78E" },
+    { "label": "3500K", "code": "35K", "kelvin": 3500, "lumen_multiplier": 1.0, "hex_color": "#FFD9AE" },
+    { "label": "4000K", "code": "40K", "kelvin": 4000, "lumen_multiplier": 1.03, "hex_color": "#FDEBD0" }
+  ],
+  "cri": [
+    { "label": "90+", "code": "90", "minimum_ra": 90, "sdcm": 3 },
+    { "label": "95+", "code": "95", "minimum_ra": 95, "sdcm": 2, "notes": "Limited availability in current data." }
+  ],
+  "dimming_protocol": [
+    { "label": "0-10V", "protocol": "0-10V", "signal_type": "Analog", "requires_interface": false },
+    { "label": "TRIAC", "protocol": "TRIAC", "signal_type": "Phase-cut", "requires_interface": false },
+    { "label": "ELV", "protocol": "ELV", "signal_type": "Phase-cut", "requires_interface": false },
+    { "label": "MLV", "protocol": "MLV", "signal_type": "Phase-cut", "requires_interface": false },
+    { "label": "DALI", "protocol": "DALI", "signal_type": "Digital", "requires_interface": true },
+    { "label": "DMX512", "protocol": "DMX512", "signal_type": "Digital", "requires_interface": true },
+    { "label": "DMX/RDM", "protocol": "DMX/RDM", "signal_type": "Digital", "requires_interface": true },
+    { "label": "SPI", "protocol": "SPI", "signal_type": "Digital", "requires_interface": true },
+    { "label": "PWM", "protocol": "PWM", "signal_type": "Digital", "requires_interface": true }
+  ],
+  "lens_appearance": [
+    { "label": "Clear", "code": "CL", "transmission": 92 },
+    { "label": "Frosted", "code": "FR", "transmission": 82 },
+    { "label": "White", "code": "WH", "transmission": 68 },
+    { "label": "Black", "code": "BK", "transmission": 30 }
+  ],
+  "finish": [
+    { "label": "Silver", "code": "SV" },
+    { "label": "Black", "code": "BK" },
+    { "label": "White", "code": "WH" }
+  ],
+  "output_level": [
+    { "label": "150 lm/ft", "value": 150, "sku_code": "150", "is_tape_level": true },
+    { "label": "200 lm/ft", "value": 200, "sku_code": "200", "is_tape_level": true },
+    { "label": "250 lm/ft", "value": 250, "sku_code": "250", "is_tape_level": true }
+  ],
+  "light_type_from_led_package": {
+    "_comment": "GAP: no first-class ERP 'light type' field. Infer from the LED Package name (ilL-Attribute-LED Package / led_package).",
+    "Static white": ["Static White", "ilLumenate Static White"],
+    "Tunable white": ["Tunable White", "Tunable"],
+    "Dim-to-warm": ["Dim to Warm", "Dim-to-Warm", "DTW"],
+    "Full-color": ["RGB", "RGBW", "Full Color", "Pixel", "Addressable"]
+  }
+}
