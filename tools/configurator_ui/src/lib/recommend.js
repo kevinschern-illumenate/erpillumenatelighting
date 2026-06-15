@@ -17,7 +17,7 @@ const IP_ORDER = { IP65: 0, IP67: 1, IP68: 2 };
 // Usable single-supply capacity assumption for power-injection math.
 // Mirrors the ilL-Spec-Driver fields named in the implementation plan §4:
 // max_wattage (96 W) * usable_load_factor (0.8).
-const DRIVER_MAX_WATTAGE = 96;
+const DRIVER_MAX_WATTAGE = 100;
 const USABLE_LOAD_FACTOR = 0.8;
 const USABLE_SUPPLY_W = DRIVER_MAX_WATTAGE * USABLE_LOAD_FACTOR;
 
@@ -78,8 +78,10 @@ function hardFilterReasons(product, answers) {
   }
 
   // Supply voltage must match the tape input voltage.
-  if (answers.supply_voltage && product.input_voltage !== answers.supply_voltage) {
-    reasons.push(`needs ${answers.supply_voltage}`);
+  // TEMP: supply_voltage question is skipped; default to '24VDC' until re-enabled.
+  const effectiveVoltage = answers.supply_voltage ?? '24VDC';
+  if (product.input_voltage !== effectiveVoltage) {
+    reasons.push(`needs ${effectiveVoltage}`);
   }
 
   // Installation method -> profile family support.

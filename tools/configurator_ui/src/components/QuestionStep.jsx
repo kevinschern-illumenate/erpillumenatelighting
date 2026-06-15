@@ -4,6 +4,108 @@ import GlossaryTerm from './GlossaryTerm.jsx';
 import { visibleOptions } from '../lib/engine.js';
 import { recommend, computePower } from '../lib/recommend.js';
 
+// Indoor / Outdoor
+import indoorImg from '../assets/indoor-outdoor-indoor.jpg';
+import outdoorImg from '../assets/indoor-outdoor-outdoor.jpg';
+// Moisture
+import moistureDryImg from '../assets/moisture-dry.jpg';
+import moistureDampImg from '../assets/moisture-damp.jpg';
+import moistureWetImg from '../assets/moisture-wet.jpg';
+// IP Rating
+import ipRating65Img from '../assets/ip-rating-ip65.jpg';
+import ipRating67Img from '../assets/ip-rating-ip67.jpg';
+import ipRating68Img from '../assets/ip-rating-ip68.jpg';
+// Color Mode
+import colorModeAnalogImg from '../assets/color-mode-analog-rgb.jpg';
+import colorModePixelImg from '../assets/color-mode-addressable-pixel.jpg';
+// Fixture Purpose
+import fixtureAccentImg from '../assets/fixture-purpose-accent.jpg';
+import fixtureTaskImg from '../assets/fixture-purpose-task.jpg';
+import fixtureAmbientImg from '../assets/fixture-purpose-ambient.jpg';
+// Installation Method
+import installSurfaceImg from '../assets/installation-method-surface.jpg';
+import installRecessedImg from '../assets/installation-method-recessed.jpg';
+import installAngledImg from '../assets/installation-method-angled.jpg';
+import installDrywallImg from '../assets/installation-method-drywall-plaster-in.jpg';
+import installSuspendedImg from '../assets/installation-method-suspended.jpg';
+// CRI
+import cri90Img from '../assets/cri-90-plus.jpg';
+import cri95Img from '../assets/cri-95-plus.jpg';
+// Continuous Run
+import continuousRunYesImg from '../assets/continuous-run-yes.jpg';
+import continuousRunNoImg from '../assets/continuous-run-no.jpg';
+// Supply Voltage
+import voltage24vdcImg from '../assets/supply-voltage-24vdc.jpg';
+import voltage120vacImg from '../assets/supply-voltage-120vac.jpg';
+// Dimming Protocol
+import dimming010vImg from '../assets/dimming-protocol-0-10v.jpg';
+import dimmingTriacImg from '../assets/dimming-protocol-triac.jpg';
+import dimmingElvImg from '../assets/dimming-protocol-elv.jpg';
+import dimmingDaliImg from '../assets/dimming-protocol-dali.jpg';
+import dimmingDmx512Img from '../assets/dimming-protocol-dmx512.jpg';
+import dimmingSpiImg from '../assets/dimming-protocol-spi.jpg';
+// Diffuser
+import diffuserClearImg from '../assets/diffuser-clear.jpg';
+import diffuserFrostedImg from '../assets/diffuser-frosted.jpg';
+import diffuserWhiteImg from '../assets/diffuser-white.jpg';
+import diffuserBlackImg from '../assets/diffuser-black.jpg';
+// Finish
+import finishSilverImg from '../assets/finish-silver.jpg';
+import finishBlackImg from '../assets/finish-black.jpg';
+import finishWhiteImg from '../assets/finish-white.jpg';
+
+const imageMap = {
+  // Indoor / Outdoor
+  'indoor-outdoor-indoor': indoorImg,
+  'indoor-outdoor-outdoor': outdoorImg,
+  // Moisture
+  'moisture-dry': moistureDryImg,
+  'moisture-damp': moistureDampImg,
+  'moisture-wet': moistureWetImg,
+  // IP Rating
+  'ip-rating-ip65': ipRating65Img,
+  'ip-rating-ip67': ipRating67Img,
+  'ip-rating-ip68': ipRating68Img,
+  // Color Mode
+  'color-mode-analog-rgb': colorModeAnalogImg,
+  'color-mode-addressable-pixel': colorModePixelImg,
+  // Fixture Purpose
+  'fixture-purpose-accent': fixtureAccentImg,
+  'fixture-purpose-task': fixtureTaskImg,
+  'fixture-purpose-ambient': fixtureAmbientImg,
+  // Installation Method
+  'installation-method-surface': installSurfaceImg,
+  'installation-method-recessed': installRecessedImg,
+  'installation-method-angled': installAngledImg,
+  'installation-method-drywall-plaster-in': installDrywallImg,
+  'installation-method-suspended': installSuspendedImg,
+  // CRI
+  'cri-90-plus': cri90Img,
+  'cri-95-plus': cri95Img,
+  // Continuous Run
+  'continuous-run-yes': continuousRunYesImg,
+  'continuous-run-no': continuousRunNoImg,
+  // Supply Voltage
+  'supply-voltage-24vdc': voltage24vdcImg,
+  'supply-voltage-120vac': voltage120vacImg,
+  // Dimming Protocol
+  'dimming-protocol-0-10v': dimming010vImg,
+  'dimming-protocol-triac': dimmingTriacImg,
+  'dimming-protocol-elv': dimmingElvImg,
+  'dimming-protocol-dali': dimmingDaliImg,
+  'dimming-protocol-dmx512': dimmingDmx512Img,
+  'dimming-protocol-spi': dimmingSpiImg,
+  // Diffuser
+  'diffuser-clear': diffuserClearImg,
+  'diffuser-frosted': diffuserFrostedImg,
+  'diffuser-white': diffuserWhiteImg,
+  'diffuser-black': diffuserBlackImg,
+  // Finish
+  'finish-silver': finishSilverImg,
+  'finish-black': finishBlackImg,
+  'finish-white': finishWhiteImg,
+};
+
 /**
  * Renders one wizard step for a question definition.
  * Supported types: single | multi | number | range | info.
@@ -99,32 +201,59 @@ function OptionList({ question, options, value, onChange }) {
             aria-checked={selected}
             onClick={() => toggle(opt.value)}
             className={[
-              'flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition outline-none',
+              'flex w-full flex-col rounded-xl border text-left transition outline-none overflow-hidden',
               'focus-visible:ring-2 focus-visible:ring-ill-accent focus-visible:ring-offset-1',
               selected
                 ? 'border-ill-accent bg-ill-accentBg'
                 : 'border-ill-border bg-ill-paper hover:border-ill-borderStr',
             ].join(' ')}
           >
-            <span
-              aria-hidden="true"
-              className={[
-                'mt-0.5 flex h-5 w-5 flex-none items-center justify-center border',
-                multi ? 'rounded' : 'rounded-full',
-                selected ? 'border-ill-accent bg-ill-accent' : 'border-ill-borderStr bg-white',
-              ].join(' ')}
-            >
-              {selected && <span className="h-2 w-2 rounded-full bg-white" />}
-            </span>
-            <span className="flex-1">
-              <span className="flex items-center gap-2 font-medium text-ill-ink">
-                {opt.label}
-                {opt.glossaryKey && <GlossaryTerm termKey={opt.glossaryKey}>?</GlossaryTerm>}
+            <span className="flex items-start gap-3 px-4 py-3">
+              <span
+                aria-hidden="true"
+                className={[
+                  'mt-0.5 flex h-5 w-5 flex-none items-center justify-center border',
+                  multi ? 'rounded' : 'rounded-full',
+                  selected ? 'border-ill-accent bg-ill-accent' : 'border-ill-borderStr bg-white',
+                ].join(' ')}
+              >
+                {selected && <span className="h-2 w-2 rounded-full bg-white" />}
               </span>
-              {opt.note && (
-                <span className="mt-0.5 block text-xs text-ill-danger">{opt.note}</span>
-              )}
+              <span className="flex-1">
+                <span className="flex items-center gap-2 font-medium text-ill-ink">
+                  {opt.label}
+                  {opt.glossaryKey && <GlossaryTerm termKey={opt.glossaryKey}>?</GlossaryTerm>}
+                </span>
+                {opt.note && (
+                  <span className="mt-0.5 block text-xs text-ill-danger">{opt.note}</span>
+                )}
+              </span>
             </span>
+            {opt.imageId ? (
+              <div className="px-4 pb-4">
+                <img
+                  src={imageMap[opt.imageId]}
+                  alt=""
+                  className="w-full rounded-lg object-cover"
+                />
+              </div>
+            ) : opt.image ? (
+              <div className="px-4 pb-4">
+                <img
+                  src={opt.image}
+                  alt=""
+                  className="w-full rounded-lg object-cover"
+                />
+              </div>
+            ) : opt.color ? (
+              <div className="px-4 pb-4">
+                <div
+                  aria-hidden="true"
+                  className="w-full rounded-lg"
+                  style={{ background: opt.color, height: '5rem' }}
+                />
+              </div>
+            ) : null}
           </button>
         );
       })}

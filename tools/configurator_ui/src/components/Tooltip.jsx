@@ -21,6 +21,10 @@ export default function Tooltip({ label, tooltip, learnMore, children }) {
   const [expanded, setExpanded] = useState(false);
   const wrapRef = useRef(null);
   const tipId = useId();
+  const hideTimer = useRef(null);
+
+  // Clear pending hide timer on unmount.
+  useEffect(() => () => clearTimeout(hideTimer.current), []);
 
   // Close on Escape and on outside click/touch.
   useEffect(() => {
@@ -45,10 +49,18 @@ export default function Tooltip({ label, tooltip, learnMore, children }) {
     };
   }, [open]);
 
-  const show = () => setOpen(true);
+  const show = () => {
+    clearTimeout(hideTimer.current);
+    setOpen(true);
+  };
   const hide = () => {
-    // Keep open if the user expanded "Learn more" so they can read it.
-    if (!expanded) setOpen(false);
+    // Delay closing so the mouse can travel from the trigger into the popup
+    // (the popup is absolutely positioned below the trigger with a gap).
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      // Keep open if the user expanded "Learn more" so they can read it.
+      if (!expanded) setOpen(false);
+    }, 150);
   };
 
   return (

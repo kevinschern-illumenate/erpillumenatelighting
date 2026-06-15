@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  CheckCircle2, AlertTriangle, Download, Copy, RotateCcw, Terminal,
+  CheckCircle2, AlertTriangle, Download, Copy, RotateCcw, Terminal, FileText, FileCheck, Building,
 } from 'lucide-react';
 import CompareTable from './CompareTable.jsx';
 import { recommend, competitorRecommendations } from '../lib/recommend.js';
@@ -86,38 +86,89 @@ export default function Results({ answers, onRestart }) {
               i === 0 ? 'border-ill-accent bg-ill-accentBg' : 'border-ill-border bg-ill-paper',
             ].join(' ')}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-semibold text-ill-ink">{rec.sku}</span>
+            <div className="flex flex-col gap-4">
+              <div className="flex gap-4">
+                {/* Image with badge */}
+                <div className="relative inline-w-fit">
+                  {rec.attributes.image_hero_url && (
+                    <img
+                      src={rec.attributes.image_hero_url}
+                      alt={`${rec.family} fixture`}
+                      loading="lazy"
+                      className="h-48 w-96 rounded-lg border border-ill-border bg-white object-contain"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
                   {i === 0 && (
-                    <span className="rounded bg-ill-accent px-2 py-0.5 text-[11px] font-medium text-white">
+                    <span className="absolute top-2 left-2 rounded bg-ill-accent px-2 py-0.5 text-[11px] font-medium text-white">
                       Best match
                     </span>
                   )}
                 </div>
-                <div className="text-sm text-ill-muted">
-                  {rec.brand} &middot; {rec.family} &middot; {rec.attributes.lumens_per_foot} lm/ft
-                  &middot; CRI {rec.attributes.cri_typical} &middot; {rec.attributes.input_voltage}
+                {/* Links to the right of image */}
+                <div className="flex flex-col gap-2 justify-start">
+                  {rec.attributes.spec_sheet_url && (
+                    <a
+                      href={rec.attributes.spec_sheet_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-ill-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ill-accent"
+                    >
+                      <FileText size={16} aria-hidden="true" /> Spec Sheet
+                    </a>
+                  )}
+                  {rec.attributes.spec_submittal_url && (
+                    <a
+                      href={rec.attributes.spec_submittal_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-ill-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ill-accent"
+                    >
+                      <FileCheck size={16} aria-hidden="true" /> Spec Submittal
+                    </a>
+                  )}
+                  {rec.attributes.dealer_portal_url && (
+                    <a
+                      href={rec.attributes.dealer_portal_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-ill-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ill-accent"
+                    >
+                      <Building size={16} aria-hidden="true" /> Dealer Portal
+                    </a>
+                  )}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="font-display text-xl font-semibold text-ill-ink">{rec.score}</div>
-                <div className="text-[11px] uppercase tracking-wide text-ill-subtle">match score</div>
+              <div>
+                <div className="flex items-start justify-between gap-8">
+                  <div className="flex flex-col max-w-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-semibold text-ill-ink">{rec.sku}</span>
+                    </div>
+                    <div className="text-sm text-ill-muted">
+                      {rec.brand} &middot; {rec.family} &middot; {rec.attributes.lumens_per_foot} lm/ft
+                      &middot; CRI {rec.attributes.cri_typical} &middot; {rec.attributes.input_voltage}
+                    </div>
+                  </div>
+                  <div className="text-right flex-none">
+                    <div className="font-display text-xl font-semibold text-ill-ink">{rec.score}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-ill-subtle">match score</div>
+                  </div>
+                </div>
+                {rec.tradeoffs.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {rec.tradeoffs.map((t) => (
+                      <li
+                        key={t}
+                        className="rounded bg-ill-paper/70 px-2 py-0.5 text-xs text-ill-danger ring-1 ring-inset ring-ill-border"
+                      >
+                        {t}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
-            {rec.tradeoffs.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {rec.tradeoffs.map((t) => (
-                  <li
-                    key={t}
-                    className="rounded bg-ill-paper/70 px-2 py-0.5 text-xs text-ill-danger ring-1 ring-inset ring-ill-border"
-                  >
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         ))}
       </div>
