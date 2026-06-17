@@ -1510,6 +1510,21 @@ def _get_neon_source_value(
 			)
 			return val
 
+		if source_doctype == "ilL-Child-Tape-Neon-Segment" and configured_tape_neon:
+			segments = getattr(configured_tape_neon, "segments", None)
+			if segments:
+				first_seg = next(
+					(s for s in segments if (s.segment_index or 0) == 1),
+					segments[0],
+				)
+				val = getattr(first_seg, source_field, None)
+				_debug(
+					f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
+					f"(segment_index={first_seg.segment_index})",
+					warnings,
+				)
+				return val
+
 		if source_doctype == "ilL-Configured-Tape-Neon" and configured_tape_neon:
 			val = getattr(configured_tape_neon, source_field, None)
 			# For neon products, several user-facing fields (start/end feed
