@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Zap, Info as InfoIcon } from 'lucide-react';
 import GlossaryTerm from './GlossaryTerm.jsx';
 import { visibleOptions } from '../lib/engine.js';
-import { recommend, computePower } from '../lib/recommend.js';
+import { recommend, computePower, optionWouldEliminateAll } from '../lib/recommend.js';
 
 // Indoor / Outdoor
 import indoorImg from '../assets/indoor-outdoor-indoor.jpg';
@@ -154,6 +154,7 @@ export default function QuestionStep({ question, answers, onChange }) {
             question={question}
             options={opts}
             value={value}
+            answers={answers}
             onChange={onChange}
           />
         )}
@@ -174,9 +175,16 @@ export default function QuestionStep({ question, answers, onChange }) {
   );
 }
 
-function OptionList({ question, options, value, onChange }) {
+function OptionList({ question, options, value, answers, onChange }) {
   const multi = question.type === 'multi';
   const isSelected = (v) => (multi ? Array.isArray(value) && value.includes(v) : value === v);
+
+  const disabledMap = {};
+  for (const opt of options) {
+    disabledMap[opt.value] = optionWouldEliminateAll(question, opt.value, answers);
+  }
+  const allDisabled =
+    options.length > 0 && options.every((opt) => disabledMap[opt.value] && !isSelected(opt.value));
 
   const toggle = (v) => {
     if (!multi) {
@@ -191,21 +199,37 @@ function OptionList({ question, options, value, onChange }) {
 
   return (
     <div role={multi ? 'group' : 'radiogroup'} className="grid gap-2.5">
+      {allDisabled && (
+        <div
+          role="alert"
+          className="rounded-lg border border-ill-danger bg-ill-paper px-3 py-2 text-sm text-ill-danger"
+        >
+          No products match every previous answer. Go back and adjust an earlier
+          choice to continue.
+        </div>
+      )}
       {options.map((opt) => {
         const selected = isSelected(opt.value);
-        return (
+        const disabled = disabledMap[opt.value] && !selected;
+        const btn = (
           <button
             key={opt.value}
             type="button"
             role={multi ? 'checkbox' : 'radio'}
             aria-checked={selected}
-            onClick={() => toggle(opt.value)}
+            aria-disabled={disabled || undefined}
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return;
+              toggle(opt.value);
+            }}
             className={[
               'flex w-full flex-col rounded-xl border text-left transition outline-none overflow-hidden',
               'focus-visible:ring-2 focus-visible:ring-ill-accent focus-visible:ring-offset-1',
               selected
                 ? 'border-ill-accent bg-ill-accentBg'
                 : 'border-ill-border bg-ill-paper hover:border-ill-borderStr',
+              disabled ? 'cursor-not-allowed opacity-40 hover:border-ill-border' : '',
             ].join(' ')}
           >
             <span className="flex items-start gap-3 px-4 py-3">
@@ -256,7 +280,59 @@ function OptionList({ question, options, value, onChange }) {
             ) : null}
           </button>
         );
+
+        return disabled ? (
+          <DisabledOptionWrapper key={opt.value}>
+            {btn}
+          </DisabledOptionWrapper>
+        ) : (
+          <div key={opt.value}>{btn}</div>
+        );
       })}
+    </div>
+  );
+}
+
+/**
+ * Wraps a disabled option button. Shows a centered tooltip on hover that
+ * lingers for 400 ms so the user can move the mouse onto the email link.
+ */
+function DisabledOptionWrapper({ children }) {
+  const [open, setOpen] = useState(false);
+  const hideTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(hideTimer.current), []);
+
+  const show = () => {
+    clearTimeout(hideTimer.current);
+    setOpen(true);
+  };
+  const scheduleHide = () => {
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setOpen(false), 400);
+  };
+
+  return (
+    <div className="relative" onMouseEnter={show} onMouseLeave={scheduleHide}>
+      {children}
+      {open && (
+        <div
+          role="tooltip"
+          onMouseEnter={show}
+          onMouseLeave={scheduleHide}
+          className="absolute inset-x-2 top-1/2 z-10 -translate-y-1/2 rounded-lg border border-ill-border bg-ill-paper px-4 py-3 shadow-xl text-sm text-ill-ink text-center"
+        >
+          Please contact us at{' '}
+          <a
+            href="mailto:sales@illumenate.lighting"
+            className="font-medium text-ill-accent underline decoration-dotted underline-offset-2 hover:opacity-80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            sales@illumenate.lighting
+          </a>{' '}
+          for this configuration.
+        </div>
+      )}
     </div>
   );
 }

@@ -95,9 +95,34 @@ export default function Results({ answers, onRestart }) {
                       src={rec.attributes.image_hero_url}
                       alt={`${rec.family} fixture`}
                       loading="lazy"
+                      referrerPolicy="no-referrer"
                       className="h-48 w-96 rounded-lg border border-ill-border bg-white object-contain"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.style.display = 'none';
+                        const placeholder = el.parentElement.querySelector('[data-img-placeholder]');
+                        if (placeholder) placeholder.style.display = 'flex';
+                      }}
                     />
+                  )}
+                  {rec.attributes.image_hero_url && (
+                    <div
+                      data-img-placeholder="1"
+                      style={{ display: 'none' }}
+                      className="h-48 w-96 rounded-lg border border-ill-border bg-ill-paper flex flex-col items-center justify-center gap-1 text-ill-subtle text-xs"
+                    >
+                      <span className="text-2xl">🖼️</span>
+                      Image unavailable
+                      <a
+                        href={rec.attributes.image_hero_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-ill-accent underline decoration-dotted"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Open URL
+                      </a>
+                    </div>
                   )}
                   {i === 0 && (
                     <span className="absolute top-2 left-2 rounded bg-ill-accent px-2 py-0.5 text-[11px] font-medium text-white">

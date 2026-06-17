@@ -5,7 +5,7 @@
 import productsData from '../data/products.seed.json';
 import competitorsData from '../data/competitors.sample.json';
 import attributes from '../data/attributes.seed.json';
-import { lumensBandFor } from './engine.js';
+import { lumensBandFor, pruneHiddenAnswers } from './engine.js';
 
 export const PRODUCTS = productsData.products;
 export const COMPETITORS = competitorsData.competitors;
@@ -277,4 +277,31 @@ export function recommend(answers) {
 /** Competitor comparison stub, ranked the same way (illustrative only). */
 export function competitorRecommendations(answers) {
   return rank(COMPETITORS, answers);
+}
+
+/**
+ * Would any seeded product satisfy all hard filters for these answers?
+ * Used by the UI to grey out option choices that would eliminate every match.
+ */
+export function hasAnyEligibleProduct(answers) {
+  return PRODUCTS.some((p) => hardFilterReasons(p, answers).length === 0);
+}
+
+/**
+ * Predict whether picking `optionValue` for `question` would leave zero
+ * hard-eligible products. Currently-selected values never report as
+ * disabled (so users can always deselect or keep their choice).
+ */
+export function optionWouldEliminateAll(question, optionValue, answers) {
+  let next;
+  if (question.type === 'multi') {
+    const current = Array.isArray(answers[question.id]) ? answers[question.id] : [];
+    if (current.includes(optionValue)) return false;
+    next = { ...answers, [question.id]: [...current, optionValue] };
+  } else {
+    if (answers[question.id] === optionValue) return false;
+    next = { ...answers, [question.id]: optionValue };
+  }
+  next = pruneHiddenAnswers(next);
+  return !hasAnyEligibleProduct(next);
 }

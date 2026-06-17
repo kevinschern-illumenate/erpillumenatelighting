@@ -29,7 +29,7 @@
       "options": [
         { "value": "Dry", "label": "Dry", "imageId": "moisture-dry", "color": "#f9e79f" },
         { "value": "Damp", "label": "Damp", "imageId": "moisture-damp", "color": "#d6eaf8" },
-        { "value": "Wet", "label": "Wet", "glossaryKey": "wet_rating", "imageId": "moisture-wet", "color": "#a9ccf0" }
+        { "value": "Wet", "label": "Wet", "imageId": "moisture-wet", "color": "#a9ccf0" }
       ]
     },
     {

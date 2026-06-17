@@ -2,7 +2,7 @@
   "indoor_outdoor": {
     "label": "Indoor vs. Outdoor",
     "tooltip": "Where the fixture lives sets the baseline weather and ingress protection it must survive.",
-    "learnMore": "Indoor locations are typically Dry rated. Outdoor locations always need at least Damp protection, and most need Wet / IP67+ because they face rain, sprinklers, snow, or wash-down.",
+    "learnMore": "Indoor locations are typically Dry rated, however, you will be able to select Damp or Wet if needed for fixtures located in restrooms or similar. Outdoor locations always need at least Damp protection, and most need Wet / IP67+ because they face rain, sprinklers, snow, or wash-down.",
     "refs": ["ilL-Attribute-Environment Rating", "ilL-Attribute-IP Rating"]
   },
   "environment_rating": {
@@ -12,21 +12,21 @@
     "refs": ["ilL-Attribute-Environment Rating"]
   },
   "wet_rating": {
-    "label": "Wet Rating",
+    "label": "Outdoor / Wet Rating",
     "tooltip": "Survives direct water contact such as rain, sprinklers, or wash-down.",
-    "learnMore": "Wet-rated assemblies are sealed (potting / gaskets) and pair with an IP rating, usually IP67 or IP68. Required for fountains, pool perimeters, and unprotected exterior runs.",
+    "learnMore": "For outdoor installations, we recommend fully encapsulated IP67+ products that can survive rain and snow but are fully enclosed to also handle dirt and bugs.",
     "refs": ["ilL-Attribute-Environment Rating", "ilL-Attribute-IP Rating"]
   },
   "ip_rating": {
     "label": "IP Rating",
-    "tooltip": "Ingress Protection \u2014 resistance to dust and water.",
-    "learnMore": "IP65 = water jets from any direction. IP67 = temporary immersion up to ~1 m. IP68 = continuous immersion. Outdoor / wet locations need IP67 or higher.",
+    "tooltip": "A two-digit code that rates how well an enclosure resists solids (dust, debris) and liquids (water).",
+    "learnMore": "IP65 — Dust tight and protected against water jets, but not submersion. IP67 — Dust tight and can be temporarily submerged up to 1 meter for 30 minutes. IP68 — Dust tight and rated for continuous submersion beyond 1 meter at manufacturer-specified depth.",
     "refs": ["ilL-Attribute-IP Rating"]
   },
   "light_type": {
     "label": "Light Type",
-    "tooltip": "The color behavior of the LED: fixed white, adjustable white, warm-dimming, or full color.",
-    "learnMore": "Static white = one fixed CCT. Tunable white = blends between cool and warm. Dim-to-warm = warms as it dims (like halogen). Full-color = RGB / RGBW and addressable pixels. We infer this from the LED package name because there is no single ERP 'light type' field.",
+    "tooltip": "The color behavior of the LED: static white, tunable white, dim-to-warm, or full color.",
+    "learnMore": "Static white = one fixed CCT (e.g., 3000K). Tunable white = blends between two CCTs (e.g., 1800K to 4000K). Dim-to-warm = warms as it dims (like halogen / incandescent). Full-color = RGB / RGBW and addressable pixels.",
     "refs": ["led_package"]
   },
   "color_mode": {
@@ -37,8 +37,8 @@
   },
   "fixture_purpose": {
     "label": "Fixture Purpose",
-    "tooltip": "What the light is for \u2014 used to target a brightness (lumens/ft) band.",
-    "learnMore": "Accent picks out an object or edge (lower output). Task lights a work surface (medium output). Ambient fills a room (higher output). These bands are a configurator heuristic, not an ERP field \u2014 they steer ranking, not hard filtering.",
+    "tooltip": "What the light is used for \u2014 this will help determine the lumens/ft of the fixture.",
+    "learnMore": "Accent picks out an object or edge (lower output). Task lights a work surface (medium output). Ambient fills a room (higher output).",
     "refs": []
   },
   "installation_method": {

@@ -37,7 +37,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL01)%20Eldorado%20%5BSF%5D/Images/el01_fs_red_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/EL01-FS_Hero_Animated.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -101,50 +101,6 @@
                          "cri_typical":  95,
                          "voltage_drop_max_run_length_ft":  28.0,
                          "max_run_white_lens_ft":  28.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface",
-                                                  "Suspended"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/Eldorado%20%5BSF%5D_Hero_On.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Eldorado-SF-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Eldorado [SF] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
                          "supported_dimming_protocols":  [
                                                              "0-10V",
                                                              "ELV",
@@ -430,7 +386,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL01)%20Eldorado%20%5BSF%5D/Images/el01_tw_18_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/EL01-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -470,7 +426,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_fs_green_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/EL02-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -513,7 +469,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -556,50 +512,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Eldorado-RC-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Eldorado [RC] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Recessed"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -642,7 +555,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -685,7 +598,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -728,7 +641,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -771,7 +684,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -814,7 +727,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_recessed_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/el02_sw_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -854,7 +767,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(EL)%20Eldorado/(EL02)%20Eldorado%20%5BRC%5D/Images/el02_tw_18_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/EL02-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -895,7 +808,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/EL02-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -939,7 +852,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -983,51 +896,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Formidable-SF-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Formidable [SF] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface",
-                                                  "Suspended"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1071,7 +940,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1115,7 +984,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1159,7 +1028,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1203,7 +1072,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1247,7 +1116,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1288,7 +1157,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR01)%20Formidable%20%5BSF%5D/Images/fr01_tw_18_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/FR01-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1328,7 +1197,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_fs_red_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/FR02-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1371,7 +1240,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1414,50 +1283,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Formidable-RC-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Formidable [RC] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Recessed"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1500,7 +1326,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1543,7 +1369,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1586,7 +1412,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1629,7 +1455,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1672,7 +1498,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_sw_on.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/fr02_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1712,7 +1538,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(FR)%20Formidable/(FR02)%20Formidable%20%5BRC%5D/Images/fr02_tw_40_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/FR02-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -1817,50 +1643,6 @@
                          "cri_typical":  95,
                          "voltage_drop_max_run_length_ft":  28.0,
                          "max_run_white_lens_ft":  28.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White",
-                                                 "White Lens / Hex Louver",
-                                                 "White Lens / Linear Louver"
-                                             ],
-                         "finish":  [
-                                        "Black"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface",
-                                                  "Suspended"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/RA01_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Rainier-SF-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Rainier [SF] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
                          "supported_dimming_protocols":  [
                                                              "0-10V",
                                                              "ELV",
@@ -2278,49 +2060,6 @@
                          "dealer_portal_url":  "#"
                      },
                      {
-                         "sku":  "Rainier-RC-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Rainier [RC] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White",
-                                                 "White Lens / Hex Louver",
-                                                 "White Lens / Linear Louver"
-                                             ],
-                         "finish":  [
-                                        "Black"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Recessed"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/RA02_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
                          "sku":  "Rainier-RC-Static-White-300lmft",
                          "brand":  "ilLumenate Lighting",
                          "series":  "Rainier [RC] Static White",
@@ -2673,49 +2412,6 @@
                          "cri_typical":  95,
                          "voltage_drop_max_run_length_ft":  28.0,
                          "max_run_white_lens_ft":  28.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White",
-                                                 "White Lens / Hex Louver",
-                                                 "White Lens / Linear Louver"
-                                             ],
-                         "finish":  [
-                                        "Black"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/RA03_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Rainier-AN-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Rainier [AN] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
                          "supported_dimming_protocols":  [
                                                              "0-10V",
                                                              "ELV",
@@ -3126,49 +2822,6 @@
                          "dealer_portal_url":  "#"
                      },
                      {
-                         "sku":  "Rainier-AR-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Rainier [AR] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White",
-                                                 "White Lens / Hex Louver",
-                                                 "White Lens / Linear Louver"
-                                             ],
-                         "finish":  [
-                                        "Black"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Recessed"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/RA04_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
                          "sku":  "Rainier-AR-Static-White-300lmft",
                          "brand":  "ilLumenate Lighting",
                          "series":  "Rainier [AR] Static White",
@@ -3550,49 +3203,6 @@
                          "dealer_portal_url":  "#"
                      },
                      {
-                         "sku":  "Rainier-DR-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Rainier [DR] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  3.6,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_range_display":  "3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  23.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "White",
-                                                 "White Lens / Hex Louver",
-                                                 "White Lens / Linear Louver"
-                                             ],
-                         "finish":  [
-                                        "Black"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Drywall-plaster-in"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/RA05_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
                          "sku":  "Rainier-DR-Static-White-300lmft",
                          "brand":  "ilLumenate Lighting",
                          "series":  "Rainier [DR] Static White",
@@ -3888,7 +3498,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE01-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -3934,7 +3544,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE01-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -3984,7 +3594,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4034,57 +3644,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Sentinel-SF-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Sentinel [SF] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  1.7,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_per_foot_black_lens":  6.4,
-                         "watts_per_foot_other_lenses":  1.7,
-                         "watts_range_display":  "1.7-6.4W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  35.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "max_run_black_lens_ft":  15.0,
-                         "max_run_other_lenses_ft":  35.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "Black",
-                                                 "Frosted",
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface",
-                                                  "Suspended"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4134,7 +3694,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4184,7 +3744,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4234,7 +3794,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4284,7 +3844,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4334,7 +3894,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/se01_sw_on.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4380,7 +3940,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE01-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4426,7 +3986,7 @@
                                                   "Surface",
                                                   "Suspended"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE01)%20Sentinel%20%5BSF%5D/Images/se01_off.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE01-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4471,7 +4031,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_off_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE02-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4516,7 +4076,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_off_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE02-FS_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4565,7 +4125,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4614,56 +4174,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Sentinel-RC-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Sentinel [RC] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  1.7,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_per_foot_black_lens":  6.4,
-                         "watts_per_foot_other_lenses":  1.7,
-                         "watts_range_display":  "1.7-6.4W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  35.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "max_run_black_lens_ft":  15.0,
-                         "max_run_other_lenses_ft":  35.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "Black",
-                                                 "Frosted",
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Recessed"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4712,7 +4223,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4761,7 +4272,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4810,7 +4321,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4859,7 +4370,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4908,7 +4419,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channels%20Fixtures/(SE)%20Sentinel/(SE02)%20Sentinel%20%5BRC%5D/Images/sw02_on_recessed.jpg",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/sw02_on_recessed.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4953,7 +4464,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "WIP",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE02-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -4998,7 +4509,7 @@
                          "mounting_methods":  [
                                                   "Recessed"
                                               ],
-                         "image_hero_url":  "WIP",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SE02-TW_Hero_Animated_Final.webp",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5139,7 +4650,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5190,58 +4701,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "St-Helens-SF-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "St. Helens [SF] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  1.7,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_per_foot_black_lens":  6.4,
-                         "watts_per_foot_other_lenses":  1.7,
-                         "watts_range_display":  "1.7-6.4W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  35.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "max_run_black_lens_ft":  15.0,
-                         "max_run_other_lenses_ft":  35.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Damp",
-                         "lens_appearance":  [
-                                                 "Black",
-                                                 "Clear",
-                                                 "Frosted",
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface",
-                                                  "Angled"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5292,7 +4752,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5343,7 +4803,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5394,7 +4854,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5445,7 +4905,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5496,7 +4956,7 @@
                                                   "Surface",
                                                   "Angled"
                                               ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/Users/reigine-illumenate/Library/CloudStorage/GoogleDrive-reigine@illumenate.lighting/Shared%20drives/ilLumenate/Products/Tape%20+%20Channel%20Fixtures/St.%20Helens/Images/SH01%20-%20St.%20Helens%20%5BSF%5D/SH01%20Hero%20Image%20-%20TIF.tif",
+                         "image_hero_url":  "https://app.illumenate.lighting/files/SH01_LIT.jpg",
                          "spec_sheet_url":  "#",
                          "spec_submittal_url":  "#",
                          "dealer_portal_url":  "#"
@@ -5747,56 +5207,6 @@
                          "voltage_drop_max_run_length_ft":  35.0,
                          "max_run_white_lens_ft":  28.0,
                          "max_run_black_lens_ft":  20.0,
-                         "max_run_other_lenses_ft":  35.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "Black",
-                                                 "Clear",
-                                                 "Frosted",
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/SH02_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "St-Helens-RC-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "St. Helens [RC] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  1.7,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_per_foot_black_lens":  6.4,
-                         "watts_per_foot_other_lenses":  1.7,
-                         "watts_range_display":  "1.7-6.4W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  35.0,
-                         "max_run_white_lens_ft":  23.0,
-                         "max_run_black_lens_ft":  15.0,
                          "max_run_other_lenses_ft":  35.0,
                          "supported_dimming_protocols":  [
                                                              "0-10V",
@@ -6320,53 +5730,6 @@
                          "cri_typical":  95,
                          "voltage_drop_max_run_length_ft":  35.0,
                          "max_run_white_lens_ft":  28.0,
-                         "max_run_other_lenses_ft":  35.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "ELV",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Dry",
-                         "lens_appearance":  [
-                                                 "Clear",
-                                                 "Frosted",
-                                                 "White"
-                                             ],
-                         "finish":  [
-                                        "Anodized Silver",
-                                        "Black",
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/SH03_LIT.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "St-Helens-AN-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "St. Helens [AN] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  1.7,
-                         "watts_per_foot_white_lens":  3.6,
-                         "watts_per_foot_other_lenses":  1.7,
-                         "watts_range_display":  "1.7-3.6W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  95,
-                         "voltage_drop_max_run_length_ft":  35.0,
-                         "max_run_white_lens_ft":  23.0,
                          "max_run_other_lenses_ft":  35.0,
                          "supported_dimming_protocols":  [
                                                              "0-10V",
@@ -7293,50 +6656,6 @@
                          "cri_typical":  90,
                          "voltage_drop_max_run_length_ft":  22.0,
                          "max_run_other_lenses_ft":  22.0,
-                         "supported_dimming_protocols":  [
-                                                             "0-10V",
-                                                             "DALI",
-                                                             "DMX512",
-                                                             "ELV",
-                                                             "PWM",
-                                                             "TRIAC"
-                                                         ],
-                         "cct_available":  [
-                                               2700,
-                                               3000,
-                                               3500,
-                                               4000
-                                           ],
-                         "environment_rating":  "Wet",
-                         "lens_appearance":  [
-
-                                             ],
-                         "finish":  [
-                                        "White"
-                                    ],
-                         "mounting_methods":  [
-                                                  "Surface"
-                                              ],
-                         "image_hero_url":  "https://illumenatelighting.v.frappe.cloud/files/NON-PNC-SW_Hero.jpg",
-                         "spec_sheet_url":  "#",
-                         "spec_submittal_url":  "#",
-                         "dealer_portal_url":  "#"
-                     },
-                     {
-                         "sku":  "Glacier-Pinnacle-DB-Static-White-250lmft",
-                         "brand":  "ilLumenate Lighting",
-                         "series":  "Glacier: Pinnacle [DB] Static White",
-                         "product_category":  "LED Tape",
-                         "light_type":  "Static white",
-                         "input_voltage":  "24VDC",
-                         "watts_per_foot":  5.27,
-                         "watts_per_foot_other_lenses":  5.27,
-                         "watts_range_display":  "5.27W",
-                         "lumens_per_foot":  250,
-                         "output_label":  "250 lm/ft",
-                         "cri_typical":  90,
-                         "voltage_drop_max_run_length_ft":  15.0,
-                         "max_run_other_lenses_ft":  15.0,
                          "supported_dimming_protocols":  [
                                                              "0-10V",
                                                              "DALI",
