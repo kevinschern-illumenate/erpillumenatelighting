@@ -48,4 +48,5 @@ output/scimitar/ilL-Webflow-Product.csv
 output/scimitar/Item CSV.csv
 tools/fixture_builder/templates/dgl_config.yaml
 tools/fixture_builder/templates/rsk_config.yaml
+tools/seed_imports/*.csv
 tools/fixture_builder/templates/scm_config.yaml

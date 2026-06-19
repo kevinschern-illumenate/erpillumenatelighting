@@ -1,0 +1,38 @@
+/* Fonts (mirrors yaml_builder_ui). Safe to load inside Webflow.
+   @import must come before any other CSS statements. */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Scoped reset. Tailwind Preflight is disabled (see tailwind.config.js) so we do
+  not restyle the host page. These rules apply ONLY inside the embed root, which
+  keeps the configurator self-contained when dropped into Webflow.
+*/
+#ill-configurator-root {
+  box-sizing: border-box;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #172e48;
+  color: #172e48;
+  line-height: 1.5;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  text-align: left;
+}
+#ill-configurator-root *,
+#ill-configurator-root *::before,
+#ill-configurator-root *::after {
+  box-sizing: inherit;
+}
+#ill-configurator-root button {
+  font-family: inherit;
+  cursor: pointer;
+}
+#ill-configurator-root input,
+#ill-configurator-root select,
+#ill-configurator-root textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
