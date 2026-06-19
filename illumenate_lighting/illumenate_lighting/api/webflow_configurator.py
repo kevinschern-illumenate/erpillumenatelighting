@@ -1414,6 +1414,7 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     environment = selections.get("environment_rating")
     env_code = selections.get("environment_rating_code")
     cct = selections.get("cct")
+    cct_code = selections.get("cct_code") or cct
     output_level = selections.get("output_level")
     output_level_code = selections.get("output_level_code")
     lens_appearance = selections.get("lens_appearance")
@@ -1495,10 +1496,23 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         if not offering_data:
             continue
 
-        cct_matches = is_multi_cct or (offering_data.get("cct") == cct)
+        offering_cct_name = offering_data.get("cct")
+        cct_matches = is_multi_cct or (offering_cct_name == cct)
+
+        # Fallback: Webflow radio buttons send the CCT code ("30K") while the
+        # ERPNext document name may be "3000K".  Mirror the same code-lookup
+        # pattern that _env_matches() uses for environment rating.
+        if not cct_matches and not is_multi_cct and offering_cct_name:
+            tape_cct_code = frappe.db.get_value(
+                "ilL-Attribute-CCT", offering_cct_name, "code"
+            )
+            if tape_cct_code:
+                cct_matches = tape_cct_code == cct or tape_cct_code == cct_code
+
         if not cct_matches:
             frappe.logger().debug(
-                f"_resolve_tape_offering: skipped {tape_offering} (cct mismatch)"
+                f"_resolve_tape_offering: skipped {tape_offering} "
+                f"(cct mismatch: tape={offering_cct_name!r}, sel={cct!r}, code={cct_code!r})"
             )
             continue
 
