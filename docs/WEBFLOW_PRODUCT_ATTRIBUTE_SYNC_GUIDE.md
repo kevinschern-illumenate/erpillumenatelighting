@@ -114,6 +114,7 @@ GET /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.g
 | `sync_status`   | string  | Optional – filter by sync status         |
 | `limit`         | int     | Max results (default: 100)               |
 | `offset`        | int     | Pagination offset                        |
+| `brand`         | string  | Optional – brand code (defaults to the configured default brand). Filters to products targeted at the brand and prefers the per-brand Webflow Item ID / sync status. |
 
 **Response:**
 ```json
@@ -124,6 +125,7 @@ GET /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.g
         "product_slug": "luminaire-pro",
         "product_name": "Luminaire Pro",
         "webflow_item_id": "696fc3c5c42c86528e97f414",
+        "brand": "illumenate",
         "filter_field_data": {
           "output-levels-filter": "100lm/ft,200lm/ft,300lm/ft",
           "finish-filter": "Black Anodized,White",
@@ -133,6 +135,7 @@ GET /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.g
       }
     ],
     "total": 15,
+    "brand": "illumenate",
     "filter_field_slugs": {
       "Output Level": "output-levels-filter",
       "Finish": "finish-filter",
@@ -141,6 +144,20 @@ GET /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.g
   }
 }
 ```
+
+### `mark_filter_synced`
+
+Records that a product's Webflow **filter fields** were synced for a brand, without overwriting the product's `webflow_item_id` / `webflow_collection_slug`. The filter sync workflow calls this instead of `mark_webflow_synced` so a filter PATCH cannot clobber the main product sync state.
+
+```
+POST /api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.mark_filter_synced
+```
+
+**Parameters:**
+| Parameter      | Type   | Description                                  |
+|----------------|--------|----------------------------------------------|
+| `product_slug` | string | Required – the product to mark               |
+| `brand`        | string | Optional – brand code (defaults to default)  |
 
 ### `build_product_filter_field_data` (internal helper)
 
