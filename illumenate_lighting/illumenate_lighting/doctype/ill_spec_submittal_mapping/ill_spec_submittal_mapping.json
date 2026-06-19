@@ -132,7 +132,7 @@
                        "fieldname":  "webflow_field",
                        "fieldtype":  "Select",
                        "label":  "Webflow Field",
-                       "options":  "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction"
+                       "options":  "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction\nenvironment_rating"
                    },
                    {
                        "default":  "0",

@@ -212,6 +212,11 @@ def generate_from_webflow_selections(
     if end_feed_dir:
         webflow_overrides["end_feed_direction"] = str(end_feed_dir)
 
+    # Forward environment rating selection for PDF mapping
+    environment_rating = selections.get("environment_rating")
+    if environment_rating:
+        webflow_overrides["environment_rating"] = str(environment_rating)
+
     submittal_result = generate_filled_submittal(
         configured_fixture_id,
         webflow_overrides=webflow_overrides,
@@ -821,6 +826,7 @@ def generate_from_webflow_selections_neon(
     for key in (
         "start_feed_length_ft", "end_feed_length_ft",
         "start_feed_direction", "end_feed_direction",
+        "environment_rating",
     ):
         val = selections.get(key)
         if val is not None and str(val) != "":
