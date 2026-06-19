@@ -94,15 +94,40 @@ def get_product_detail(item_code: Optional[str] = None, sku: Optional[str] = Non
 			"is_stock_item": item_doc.is_stock_item,
 		}
 		
-		# Get pricing - look for standard selling price
-		price_data = _get_item_price(item_name)
-		product["price"] = price_data.get("price", 0.0)
-		product["currency"] = price_data.get("currency", "USD")
-		
-		# Get stock quantity
+		# Determine viewer privileges. Pricing and exact stock quantities are
+		# gated to authenticated Dealer / internal users to match the
+		# behaviour of get_pricing() and get_stock_status(). Guests and other
+		# users only see the in_stock flag, never price or exact qty.
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+			_is_dealer_user,
+			_is_internal_user,
+		)
+
+		user = frappe.session.user
+		can_view_pricing = (
+			user
+			and user != "Guest"
+			and (_is_dealer_user(user) or _is_internal_user(user))
+		)
+
+		# Get pricing - look for standard selling price (gated to authorized users)
+		if can_view_pricing:
+			price_data = _get_item_price(item_name)
+			product["price"] = price_data.get("price", 0.0)
+			product["currency"] = price_data.get("currency", "USD")
+		else:
+			product["price"] = None
+			product["currency"] = None
+
+		# Get stock quantity. The in_stock flag is public; the exact quantity
+		# is only exposed to authorized users.
 		stock_data = _get_stock_qty(item_name)
-		product["stock_qty"] = stock_data.get("qty", 0.0)
-		product["in_stock"] = stock_data.get("qty", 0.0) > 0
+		stock_qty = stock_data.get("qty", 0.0)
+		product["in_stock"] = stock_qty > 0
+		if can_view_pricing:
+			product["stock_qty"] = stock_qty
+		else:
+			product["stock_qty"] = None
 		
 		# Check if this is a configured fixture
 		is_configured_fixture = False
@@ -125,11 +150,15 @@ def get_product_detail(item_code: Optional[str] = None, sku: Optional[str] = Non
 			technical_specs = _get_technical_specs(configured_fixture_name, custom_attributes)
 			product["technical_specs"] = technical_specs
 			
-			# Get pricing from configured fixture if available
-			cf_pricing = _get_configured_fixture_pricing(configured_fixture_name)
-			if cf_pricing:
-				product["msrp_unit"] = cf_pricing.get("msrp_unit")
-				product["tier_unit"] = cf_pricing.get("tier_unit")
+			# Get pricing from configured fixture if available (gated to authorized users)
+			if can_view_pricing:
+				cf_pricing = _get_configured_fixture_pricing(configured_fixture_name)
+				if cf_pricing:
+					product["msrp_unit"] = cf_pricing.get("msrp_unit")
+					product["tier_unit"] = cf_pricing.get("tier_unit")
+			else:
+				product["msrp_unit"] = None
+				product["tier_unit"] = None
 		else:
 			product["custom_attributes"] = {}
 			product["technical_specs"] = {}

@@ -1448,8 +1448,11 @@ def validate_and_quote_multisegment(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
-		"FEED_THROUGH",  # Default endcap style for multi-segment
-		"SOLID",  # Default endcap style for multi-segment
+		# E11: use the real resolved endcap style codes for the multi-segment
+		# fixture (start + end) so endcap adders are priced correctly. Fall
+		# back to the prior placeholders only if resolution produced nothing.
+		resolved_result.get("endcap_style_start") or "FEED_THROUGH",
+		resolved_result.get("endcap_style_end") or "SOLID",
 		start_power_feed_type,
 		environment_rating_code,
 		tape_offering_id,
@@ -2084,6 +2087,8 @@ def _resolve_multisegment_items(
 	# Otherwise, look for a solid endcap
 	start_endcap_found = None
 	start_endcap_fallback = None
+	start_endcap_style = None
+	start_endcap_style_fallback = None
 	for ec_row in endcap_candidates:
 		if not ec_row.endcap_style:
 			continue
@@ -2095,22 +2100,29 @@ def _resolve_multisegment_items(
 			# Looking for feed-through endcap
 			if supports_feed or "feed" in style_name.lower():
 				start_endcap_found = ec_row.endcap_item
+				start_endcap_style = ec_row.endcap_style
 				break
 			if not start_endcap_fallback:
 				start_endcap_fallback = ec_row.endcap_item
+				start_endcap_style_fallback = ec_row.endcap_style
 		else:
 			# Looking for solid endcap
 			if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
 				start_endcap_found = ec_row.endcap_item
+				start_endcap_style = ec_row.endcap_style
 				break
 			if not start_endcap_fallback:
 				start_endcap_fallback = ec_row.endcap_item
+				start_endcap_style_fallback = ec_row.endcap_style
 
 	resolved["endcap_item_start"] = start_endcap_found or start_endcap_fallback
+	resolved["endcap_style_start"] = start_endcap_style or start_endcap_style_fallback
 
 	# Find end endcap: always solid (no power passing through the end)
 	end_endcap_found = None
 	end_endcap_fallback = None
+	end_endcap_style = None
+	end_endcap_style_fallback = None
 	for ec_row in endcap_candidates:
 		if not ec_row.endcap_style:
 			continue
@@ -2121,11 +2133,14 @@ def _resolve_multisegment_items(
 		# Looking for solid endcap
 		if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
 			end_endcap_found = ec_row.endcap_item
+			end_endcap_style = ec_row.endcap_style
 			break
 		if not end_endcap_fallback:
 			end_endcap_fallback = ec_row.endcap_item
+			end_endcap_style_fallback = ec_row.endcap_style
 
 	resolved["endcap_item_end"] = end_endcap_found or end_endcap_fallback
+	resolved["endcap_style_end"] = end_endcap_style or end_endcap_style_fallback
 
 	# Resolve leader cable item
 	if tape_offering_doc:
@@ -3780,9 +3795,16 @@ def _calculate_pricing(
 			# Look up MSRP from Item Price (Selling, Standard Selling price list)
 			driver_msrp = 0.0
 			try:
+				# E12: filter on the Standard Selling price list so the lookup
+				# returns the MSRP rate rather than an arbitrary selling price
+				# row that happens to exist for this item.
 				driver_price = frappe.db.get_value(
 					"Item Price",
-					{"item_code": driver_item_code, "selling": 1},
+					{
+						"item_code": driver_item_code,
+						"price_list": "Standard Selling",
+						"selling": 1,
+					},
 					"price_list_rate",
 				)
 				if driver_price:
