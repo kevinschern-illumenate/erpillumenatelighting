@@ -110,6 +110,36 @@ def _apply_transformation(value: Any, transformation: str | None) -> str:
 	return str(value)
 
 
+def _apply_logic(value: str, logic: str | None) -> str:
+	"""
+	Apply a post-transformation logic modifier to a value.
+
+	Args:
+		value: The (already transformed) value as a string
+		logic: The logic modifier to apply
+
+	Returns:
+		str: The modified value
+	"""
+	if not logic or logic == "None":
+		return value
+
+	if logic == "0.00_TO_BLANK":
+		if value is None:
+			return ""
+		stripped = str(value).strip()
+		if stripped == "":
+			return ""
+		try:
+			if float(stripped) == 0.0:
+				return ""
+		except (ValueError, TypeError):
+			pass
+		return value
+
+	return value
+
+
 def _apply_prefix_suffix(value: str, prefix: str | None, suffix: str | None) -> str:
 	"""
 	Apply prefix and/or suffix to a value.
@@ -442,7 +472,7 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
 	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
@@ -1386,6 +1416,8 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			else:
 				transformed_value = _apply_transformation(value, mapping.get("transformation"))
 
+			transformed_value = _apply_logic(transformed_value, mapping.get("logic"))
+
 			# Determine prefix/suffix based on webflow_prefix_suffix setting
 			if webflow_active:
 				ps_mode = mapping.get("webflow_prefix_suffix") or "Keep"
@@ -1410,6 +1442,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
 				f"raw={value!r} → final={transformed_value!r}"
 				+ (f" (transform={mapping.get('transformation')})" if mapping.get("transformation") else "")
+				+ (f" (logic={mapping.get('logic')})" if mapping.get("logic") else "")
 				+ (f" (prefix={mapping.get('prefix')!r})" if mapping.get("prefix") else "")
 				+ (f" (suffix={mapping.get('suffix')!r})" if mapping.get("suffix") else ""),
 				warnings,
@@ -1644,7 +1677,7 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "prefix", "suffix"]
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
 	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
@@ -1827,6 +1860,8 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			else:
 				transformed_value = _apply_transformation(value, mapping.get("transformation"))
 
+			transformed_value = _apply_logic(transformed_value, mapping.get("logic"))
+
 			# Determine prefix/suffix based on webflow_prefix_suffix setting
 			if webflow_active:
 				ps_mode = mapping.get("webflow_prefix_suffix") or "Keep"
@@ -1851,6 +1886,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
 				f"raw={value!r} → final={transformed_value!r}"
 				+ (f" (transform={mapping.get('transformation')})" if mapping.get("transformation") else "")
+				+ (f" (logic={mapping.get('logic')})" if mapping.get("logic") else "")
 				+ (f" (prefix={mapping.get('prefix')!r})" if mapping.get("prefix") else "")
 				+ (f" (suffix={mapping.get('suffix')!r})" if mapping.get("suffix") else ""),
 				warnings,

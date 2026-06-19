@@ -21,6 +21,7 @@
                         "suffix",
                         "transformation_section",
                         "transformation",
+                        "logic",
                         "webflow_section",
                         "webflow_field",
                         "webflow_skip_transformation",
@@ -113,6 +114,13 @@
                        "options":  "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT\nMAX_FOOTAGE_100W"
                    },
                    {
+                       "description":  "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead.",
+                       "fieldname":  "logic",
+                       "fieldtype":  "Select",
+                       "label":  "Logic",
+                       "options":  "\nNone\n0.00_TO_BLANK"
+                   },
+                   {
                        "collapsible":  1,
                        "description":  "When set, this PDF field can be filled from a Webflow request parameter instead of a DocType field. The Webflow value takes priority when available.",
                        "fieldname":  "webflow_section",
@@ -165,7 +173,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-23 00:00:00.000000",
+    "modified":  "2026-06-19 00:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Spec-Submittal-Mapping",
