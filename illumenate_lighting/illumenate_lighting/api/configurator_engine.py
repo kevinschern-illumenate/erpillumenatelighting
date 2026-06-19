@@ -2221,6 +2221,7 @@ def _create_or_update_multisegment_fixture(
 	else:
 		# Check for existing fixture with same hash
 		existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
+		collision_name = None
 
 		# If not found by hash, also check by generated part number (to handle duplicates)
 		# Create a temporary doc to generate the part number
@@ -2252,14 +2253,35 @@ def _create_or_update_multisegment_fixture(
 				})
 			# Generate the part number that would be used
 			generated_part_number = temp_doc._generate_part_number()
-			# Check if this part number already exists
+			# Check if this part number already exists. Because the exact
+			# config_hash lookup above failed, any record sharing this part
+			# number is a different configuration (a collision), not a reuse.
 			if frappe.db.exists("ilL-Configured-Fixture", generated_part_number):
-				existing = generated_part_number
+				collision_name = generated_part_number
 
 		if existing:
+			# Exact configuration match — safe to reuse/update this record.
 			doc = frappe.get_doc("ilL-Configured-Fixture", existing)
 			# Update config_hash if configuration changed
 			doc.config_hash = config_hash
+		elif collision_name:
+			# Part-number collision with a different configuration.
+			# E14: never mutate the colliding record (it may back historical
+			# orders/quotes/BOMs). Compare the full configuration and, on
+			# mismatch, create a variant so the original stays untouched.
+			collision_doc = frappe.get_doc("ilL-Configured-Fixture", collision_name)
+			if (collision_doc.config_hash or "") == config_hash:
+				doc = collision_doc
+				doc.config_hash = config_hash
+				existing = collision_name
+			else:
+				root_parent = _resolve_root_configured_fixture(collision_name)
+				doc = frappe.new_doc("ilL-Configured-Fixture")
+				doc.config_hash = config_hash
+				doc.parent_configured_fixture = root_parent
+				doc.variant_suffix = _compute_variant_suffix(config_data)
+				if variant_origin:
+					doc.variant_origin = variant_origin
 		else:
 			doc = frappe.new_doc("ilL-Configured-Fixture")
 			doc.config_hash = config_hash
@@ -3962,16 +3984,34 @@ def _create_or_update_configured_fixture(
 			existing_by_name = frappe.db.exists("ilL-Configured-Fixture", potential_part_number)
 
 			if existing_by_name:
-				# Part number collision - load existing fixture and validate/update it
-				doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
-
-				# Validate that the key configuration attributes match
-				# If they match, this is the same fixture just needs updating
-				# Update the config_hash since the existing one may be outdated
-				doc.config_hash = config_hash
-
-				# Mark as existing for the save logic below
-				existing = existing_by_name
+				# Part-number collision. The exact-config_hash lookup above
+				# already failed, so an existing record sharing this part
+				# number represents a *different* configuration.
+				#
+				# E14: never mutate that existing record — doing so silently
+				# rewrites the attributes/pricing of a fixture that historical
+				# orders, quotes and BOMs may be pinned to. Instead, compare
+				# the full configuration and, on mismatch, spin off a variant
+				# (a brand-new record with a ``-V(XXXX)`` suffix) so the
+				# original stays untouched.
+				existing_doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
+				if (existing_doc.config_hash or "") == config_hash:
+					# Identical configuration after all — safe to reuse/update.
+					doc = existing_doc
+					doc.config_hash = config_hash
+					existing = existing_by_name
+				else:
+					# Configuration mismatch → create a variant of the
+					# existing record's root ancestor.
+					root_parent = _resolve_root_configured_fixture(existing_by_name)
+					variant_doc = frappe.new_doc("ilL-Configured-Fixture")
+					variant_doc.config_hash = config_hash
+					variant_doc.parent_configured_fixture = root_parent
+					variant_doc.variant_suffix = _compute_variant_suffix(config_data)
+					if variant_origin:
+						variant_doc.variant_origin = variant_origin
+					doc = variant_doc
+					existing = None
 
 	# Set identity fields
 	doc.engine_version = ENGINE_VERSION
