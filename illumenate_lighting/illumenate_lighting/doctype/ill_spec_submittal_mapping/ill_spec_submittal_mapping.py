@@ -31,6 +31,7 @@ def get_doctype_fields(doctype: str) -> list:
 		"ilL-Configured-Fixture",
 		"ilL-Fixture-Template",
 		"ilL-Configured-Tape-Neon",
+		"ilL-Child-Tape-Neon-Segment",
 		"ilL-Tape-Neon-Template",
 		"ilL-Webflow-Product",
 		"ilL-Rel-Tape Offering",
