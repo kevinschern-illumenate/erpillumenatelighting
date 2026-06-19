@@ -64,6 +64,7 @@ def generate_manufacturing_artifacts(
 	qty: int = 1,
 	skip_if_exists: bool = True,
 	bom_name: Optional[str] = None,
+	sales_order: Optional[str] = None,
 ) -> dict[str, Any]:
 	"""
 	Generate manufacturing artifacts (Item, BOM, Work Order) for a Configured Fixture.
@@ -79,6 +80,10 @@ def generate_manufacturing_artifacts(
 		qty: Quantity to manufacture (default: 1)
 		skip_if_exists: If True, skip creation if artifacts already exist (default: True)
 		bom_name: Optional BOM to use for the Work Order instead of the fixture default
+		sales_order: Optional Sales Order the Work Order is being produced for. When
+			provided, Work Order idempotency is scoped to this Sales Order so that
+			repeat orders for the same configured product each get their own Work
+			Order instead of silently reusing another order's Work Order.
 
 	Returns:
 		dict: Response with created/existing artifact references and status messages
@@ -137,7 +142,8 @@ def generate_manufacturing_artifacts(
 
 	# Step 3: Create or get Work Order (Epic 5)
 	wo_result = _create_or_get_work_order(
-		fixture, item_result["item_code"], bom_result["bom_name"], qty, skip_if_exists
+		fixture, item_result["item_code"], bom_result["bom_name"], qty, skip_if_exists,
+		sales_order=sales_order,
 	)
 	response["work_order_name"] = wo_result["work_order_name"]
 	response["messages"].extend(wo_result["messages"])
@@ -206,6 +212,7 @@ def generate_from_sales_order(sales_order: str) -> dict[str, Any]:
 			qty=item.qty or 1,
 			skip_if_exists=True,
 			bom_name=item.get("ill_bom"),
+			sales_order=sales_order,
 		)
 
 		response["results"].append({
@@ -976,6 +983,7 @@ def _create_or_get_work_order(
 	bom_name: str,
 	qty: int = 1,
 	skip_if_exists: bool = True,
+	sales_order: Optional[str] = None,
 ) -> dict[str, Any]:
 	"""
 	Create or retrieve Work Order for a configured fixture (Epic 5).
@@ -990,6 +998,9 @@ def _create_or_get_work_order(
 		bom_name: The BOM name
 		qty: Quantity to manufacture
 		skip_if_exists: If True, return existing WO without modification
+		sales_order: Sales Order this Work Order is for. When provided, idempotency
+			is scoped to this Sales Order so repeat orders do not under-produce by
+			reusing a Work Order created for a different Sales Order.
 
 	Returns:
 		dict: {"success": bool, "work_order_name": str, "created": bool, "skipped": bool, "messages": list}
@@ -1002,12 +1013,19 @@ def _create_or_get_work_order(
 		"messages": [],
 	}
 
-	# Check if fixture already has a Work Order
+	# Check if fixture already has a Work Order.
+	# When a Sales Order is in scope, only reuse the linked Work Order if it
+	# belongs to the same Sales Order; otherwise a second order for the same
+	# configured fixture would silently reuse the first order's Work Order.
 	if fixture.work_order and skip_if_exists:
 		if frappe.db.exists("Work Order", fixture.work_order):
 			existing_wo = frappe.get_doc("Work Order", fixture.work_order)
+			same_sales_order = (
+				sales_order is None
+				or (existing_wo.get("sales_order") or None) == sales_order
+			)
 			# Validate qty matches
-			if existing_wo.qty == qty:
+			if same_sales_order and existing_wo.qty == qty:
 				result["work_order_name"] = fixture.work_order
 				result["skipped"] = True
 				result["messages"].append({
@@ -1015,21 +1033,27 @@ def _create_or_get_work_order(
 					"text": f"Using existing Work Order: {fixture.work_order}",
 				})
 				return result
-			else:
+			elif same_sales_order:
 				result["messages"].append({
 					"severity": "warning",
 					"text": f"Existing Work Order qty ({existing_wo.qty}) differs from requested ({qty})",
 				})
 
-	# Check for existing draft Work Orders for this item
+	# Check for existing draft Work Orders for this item. Scope the lookup to
+	# the Sales Order (when provided) so each Sales Order gets its own Work
+	# Order instead of deduplicating across unrelated orders.
+	wo_filters = {
+		"production_item": item_code,
+		"bom_no": bom_name,
+		"qty": qty,
+		"docstatus": ["<", 2],  # Not cancelled
+	}
+	if sales_order is not None:
+		wo_filters["sales_order"] = sales_order
+
 	existing_wo = frappe.db.get_value(
 		"Work Order",
-		{
-			"production_item": item_code,
-			"bom_no": bom_name,
-			"qty": qty,
-			"docstatus": ["<", 2],  # Not cancelled
-		},
+		wo_filters,
 		"name",
 	)
 
@@ -1047,7 +1071,7 @@ def _create_or_get_work_order(
 
 	# Create the Work Order
 	try:
-		wo_doc = frappe.get_doc({
+		wo_fields = {
 			"doctype": "Work Order",
 			"production_item": item_code,
 			"bom_no": bom_name,
@@ -1057,7 +1081,10 @@ def _create_or_get_work_order(
 			"remarks": traveler_notes,
 			# Epic 7: Custom field to link back to configured fixture
 			"ill_configured_fixture": fixture.name,
-		})
+		}
+		if sales_order is not None:
+			wo_fields["sales_order"] = sales_order
+		wo_doc = frappe.get_doc(wo_fields)
 
 		wo_doc.insert(ignore_permissions=True)
 

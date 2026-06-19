@@ -48,6 +48,17 @@ def _debug(msg: str, warnings: list | None = None) -> None:
 		warnings.append(f"[DEBUG] {msg}")
 
 
+def _warn(msg: str, warnings: list | None = None) -> None:
+	"""Surface an operational warning to the caller.
+
+	Unlike :func:`_debug`, this always appends to the ``warnings`` list
+	regardless of ``SPEC_DEBUG`` so that PDF-fill mismatches (a common
+	cause of silently blank submittals) reach the API response.
+	"""
+	if warnings is not None:
+		warnings.append(msg)
+
+
 def _apply_transformation(value: Any, transformation: str | None) -> str:
 	"""
 	Apply a transformation to a value before filling into PDF form field.
@@ -630,9 +641,25 @@ def _fill_pdf_form_fields(
 					f"_fill_pdf_form_fields: ⚠ MAPPING FIELDS NOT IN PDF: {sorted(in_mapping_not_pdf)}",
 					warnings,
 				)
+				_warn(
+					f"PDF template is missing {len(in_mapping_not_pdf)} mapped field(s); "
+					f"these values were not written: {sorted(in_mapping_not_pdf)}",
+					warnings,
+				)
 			if in_pdf_not_mapping:
 				_debug(
 					f"_fill_pdf_form_fields: ⚠ PDF FIELDS NOT IN MAPPING: {sorted(in_pdf_not_mapping)}",
+					warnings,
+				)
+				_warn(
+					f"{len(in_pdf_not_mapping)} PDF field(s) have no mapping and will be left "
+					f"blank: {sorted(in_pdf_not_mapping)}",
+					warnings,
+				)
+			if not matched:
+				_warn(
+					"No PDF form fields matched the field mapping; the generated "
+					"submittal will be blank.",
 					warnings,
 				)
 
@@ -659,6 +686,11 @@ def _fill_pdf_form_fields(
 			_debug(
 				"_fill_pdf_form_fields: WARNING – PDF has no AcroForm fields; "
 				"the template may not be a fillable PDF",
+				warnings,
+			)
+			_warn(
+				"PDF template has no fillable form fields; the generated submittal "
+				"will not contain any filled values.",
 				warnings,
 			)
 
@@ -1253,7 +1285,6 @@ def generate_spec_submittal_packet(
 		}
 
 
-@frappe.whitelist()
 def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
@@ -1261,22 +1292,32 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 	Uses the fixture template's spec_submittal_template and field mappings
 	to create a filled PDF.
 
+	.. note::
+		This is an internal helper and is intentionally **not** whitelisted.
+		Callers that need to expose it over HTTP (e.g. project schedule
+		packets or Webflow spec-sheet downloads) must do so through their
+		own whitelisted entry points, which are responsible for access
+		control (``_check_schedule_access``) and for publishing the file.
+
 	Args:
 		configured_fixture_name: Name of the ilL-Configured-Fixture
-		warnings: Optional list that debug messages are appended to
+		warnings: Optional list that debug/warning messages are appended to
 		webflow_overrides: Optional dict of webflow parameter values
 			(e.g. {"project_name": "...", "fixture_type": "..."}).
 			When a mapping has a webflow_field set and the corresponding
 			key exists in this dict, the webflow value takes priority
 			over the source_doctype/source_field value.
-		is_private: 1 for private files (default, used by project schedules),
-			0 for public files (used by Webflow guest downloads).
+		is_private: Retained for backwards compatibility but ignored; the
+			file is always created private. Callers that need a public file
+			must explicitly publish it after generation (e.g. via
+			``_ensure_public_file``).
 
 	Returns:
 		dict: Result with keys:
 			- success: bool
 			- file_url: URL of the generated submittal (if successful)
 			- message: Status message
+			- warnings: list of warnings raised during generation
 	"""
 	# Handle parameters that may arrive as JSON strings from the API
 	if isinstance(warnings, str):
@@ -1284,6 +1325,12 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			warnings = json.loads(warnings)
 		except (json.JSONDecodeError, TypeError):
 			warnings = None
+	if warnings is None:
+		warnings = []
+	# Security: never allow this helper to create a public file. Public
+	# exposure must be an explicit downstream step so it cannot be forced
+	# by an untrusted caller.
+	is_private = 1
 	if isinstance(webflow_overrides, str):
 		try:
 			webflow_overrides = json.loads(webflow_overrides)
@@ -1303,7 +1350,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		if not cf.fixture_template:
 			msg = "Configured fixture has no fixture template"
 			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _(msg)}
+			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		# Get the fixture template
 		template = frappe.get_doc("ilL-Fixture-Template", cf.fixture_template)
@@ -1323,7 +1370,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 				f"AND no spec_sheet attached – cannot generate filled submittal"
 			)
 			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _(msg)}
+			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		_debug(f"generate_filled_submittal: using pdf_template={pdf_template!r}", warnings)
 
@@ -1335,7 +1382,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		if not mappings:
 			msg = f"No field mappings defined for fixture template '{cf.fixture_template}'"
 			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _(msg)}
+			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		# Get project and schedule context (if available)
 		schedule = None
@@ -1460,7 +1507,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		if not filled_pdf:
 			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
 			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _("Failed to fill PDF form fields")}
+			return {"success": False, "message": _("Failed to fill PDF form fields"), "warnings": warnings}
 
 		_debug(f"generate_filled_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
@@ -1482,6 +1529,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			"success": True,
 			"file_url": file_doc.file_url,
 			"message": _("Spec submittal generated successfully"),
+			"warnings": warnings,
 		}
 
 	except Exception as e:
@@ -1495,6 +1543,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			"message": _("Error generating spec submittal: {0}: {1}").format(
 				type(e).__name__, str(e) or "insufficient permissions"
 			),
+			"warnings": warnings,
 		}
 
 
@@ -1699,7 +1748,6 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 		)
 
 
-@frappe.whitelist()
 def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured tape/neon product.
@@ -1707,9 +1755,14 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 	Uses the tape/neon template's spec_submittal_template and field mappings
 	to create a filled PDF.
 
+	.. note::
+		This is an internal helper and is intentionally **not** whitelisted.
+		Callers that expose it over HTTP must enforce their own access
+		control and are responsible for publishing the file.
+
 	Args:
 		configured_tape_neon_name: Name of the ilL-Configured-Tape-Neon
-		warnings: Optional list that debug messages are appended to
+		warnings: Optional list that debug/warning messages are appended to
 		webflow_overrides: Optional dict of webflow parameter values
 			(e.g. {"project_name": "...", "fixture_type": "..."}).
 			When a mapping has a webflow_field set and the corresponding
@@ -1721,6 +1774,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			- success: bool
 			- file_url: URL of the generated submittal (if successful)
 			- message: Status message
+			- warnings: list of warnings raised during generation
 	"""
 	# Handle parameters that may arrive as JSON strings from the API
 	if isinstance(warnings, str):
@@ -1728,6 +1782,8 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			warnings = json.loads(warnings)
 		except (json.JSONDecodeError, TypeError):
 			warnings = None
+	if warnings is None:
+		warnings = []
 	if isinstance(webflow_overrides, str):
 		try:
 			webflow_overrides = json.loads(webflow_overrides)
@@ -1747,7 +1803,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		if not ctn.tape_neon_template:
 			msg = "Configured tape/neon has no tape_neon_template"
 			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _(msg)}
+			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		# Get the tape/neon template
 		template = frappe.get_doc("ilL-Tape-Neon-Template", ctn.tape_neon_template)
@@ -1767,7 +1823,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 				f"AND no spec_sheet attached – cannot generate filled submittal"
 			)
 			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _(msg)}
+			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		_debug(f"generate_filled_neon_submittal: using pdf_template={pdf_template!r}", warnings)
 
@@ -1779,7 +1835,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		if not mappings:
 			msg = f"No field mappings defined for tape/neon template '{ctn.tape_neon_template}'"
 			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _(msg)}
+			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		# Get project and schedule context (if available)
 		schedule = None
@@ -1904,7 +1960,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		if not filled_pdf:
 			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
 			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
-			return {"success": False, "message": _("Failed to fill PDF form fields")}
+			return {"success": False, "message": _("Failed to fill PDF form fields"), "warnings": warnings}
 
 		_debug(f"generate_filled_neon_submittal: filled PDF size = {len(filled_pdf)} bytes", warnings)
 
@@ -1926,6 +1982,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			"success": True,
 			"file_url": file_doc.file_url,
 			"message": _("Spec submittal generated successfully"),
+			"warnings": warnings,
 		}
 
 	except Exception as e:
@@ -1939,4 +1996,5 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			"message": _("Error generating neon spec submittal: {0}: {1}").format(
 				type(e).__name__, str(e) or "insufficient permissions"
 			),
+			"warnings": warnings,
 		}
