@@ -149,15 +149,15 @@ def _resolve_item_hero_images(item_codes: list[str], brand_code: str | None = No
     deduped_codes = list(dict.fromkeys(codes))
     image_by_code: dict[str, str | None] = {}
 
-    # Try common Item image fields (website_image / image)
+    # Try common Item image fields (just 'image' for the standard Item doctype)
     rows = frappe.get_all(
         "Item",
         filters={"item_code": ["in", deduped_codes]},
-        fields=["item_code", "website_image", "image"],
+        fields=["item_code", "image"],
         limit_page_length=0,
     )
     for r in rows:
-        raw = r.get("website_image") or r.get("image")
+        raw = r.get("image")
         image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
 
     # Fill missing from attachments
