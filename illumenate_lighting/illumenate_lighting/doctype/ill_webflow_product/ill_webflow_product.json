@@ -201,7 +201,7 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon'], doc.product_type)",
+   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','Extrusion Kit'], doc.product_type)",
    "fieldname": "configurator_section",
    "fieldtype": "Section Break",
    "label": "Configurator Settings"
