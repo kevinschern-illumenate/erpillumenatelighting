@@ -410,20 +410,20 @@ def get_webflow_products(
             )
             
             component_codes = _collect_component_item_codes(doc.kit_components)
-component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
+			component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
 
-product["kit_components"] = [
-    {
-        "component_type": k.component_type,
-        "component_item": k.component_item,
-        "component_spec_doctype": k.component_spec_doctype,
-        "component_spec_name": k.component_spec_name,
-        "quantity": k.quantity,
-        "notes": k.notes,
-        "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
-    }
-    for k in doc.kit_components
-]
+			product["kit_components"] = [
+			    {
+			        "component_type": k.component_type,
+			        "component_item": k.component_item,
+			        "component_spec_doctype": k.component_spec_doctype,
+			        "component_spec_name": k.component_spec_name,
+			        "quantity": k.quantity,
+			        "notes": k.notes,
+			        "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
+			    }
+			    for k in doc.kit_components
+			]
             
             product["gallery_images"] = [
                 {
