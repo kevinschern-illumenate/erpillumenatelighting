@@ -108,46 +108,37 @@ def _is_targeted(parent_doctype: str, parent_name: str, brand_code: str) -> bool
     )
     return bool(rows)
 
-def _resolve_item_hero_images(item_codes: list[str], brand_code: str | None = None) -> dict[str, str]:
-    """Return {item_code: absolute_hero_image_url} for supplied item codes.
-
-    Hero image precedence:
-    1) hero_image (custom Item field, if present)
-    2) website_image
-    3) image
-    """
+def _get_item_attachment_image_map(item_codes: list[str], brand_code: str | None = None) -> dict[str, str | None]:
+    """Fallback image map from File attachments for Item records."""
     codes = [c.strip() for c in (item_codes or []) if c and str(c).strip()]
     if not codes:
         return {}
 
-    # de-dup while preserving order
-    deduped_codes = list(dict.fromkeys(codes))
-    image_by_code: dict[str, str] = {}
+    files = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Item",
+            "attached_to_name": ["in", codes],
+            "is_folder": 0,
+        },
+        fields=["attached_to_name", "file_url", "file_name", "creation"],
+        order_by="creation desc",
+        limit_page_length=0,
+    )
 
-    # Try with hero_image first; if field doesn't exist, fallback gracefully.
-    try:
-        rows = frappe.get_all(
-            "Item",
-            filters={"item_code": ["in", deduped_codes]},
-            fields=["item_code", "hero_image", "website_image", "image"],
-            limit_page_length=0,
-        )
-        for r in rows:
-            raw = r.get("hero_image") or r.get("website_image") or r.get("image")
-            image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
-        return image_by_code
-    except Exception:
-        # Fallback for sites without custom hero_image field
-        rows = frappe.get_all(
-            "Item",
-            filters={"item_code": ["in", deduped_codes]},
-            fields=["item_code", "website_image", "image"],
-            limit_page_length=0,
-        )
-        for r in rows:
-            raw = r.get("website_image") or r.get("image")
-            image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
-        return image_by_code
+    # pick first image attachment per item (most recent first due to order_by)
+    by_item = {}
+    for f in files:
+        item_code = f.get("attached_to_name")
+        if item_code in by_item:
+            continue
+        url = f.get("file_url") or ""
+        name = (f.get("file_name") or "").lower()
+        if any(url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]) or \
+           any(name.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]):
+            by_item[item_code] = _make_absolute_url(url, brand_code) if url else None
+
+    return by_item
 
 
 def _collect_component_item_codes(kit_components) -> list[str]:
