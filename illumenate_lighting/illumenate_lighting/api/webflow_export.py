@@ -140,6 +140,36 @@ def _get_item_attachment_image_map(item_codes: list[str], brand_code: str | None
 
     return by_item
 
+def _resolve_item_hero_images(item_codes: list[str], brand_code: str | None = None) -> dict[str, str | None]:
+    """Resolve item hero image URL by field first, then File attachments."""
+    codes = [c.strip() for c in (item_codes or []) if c and str(c).strip()]
+    if not codes:
+        return {}
+
+    deduped_codes = list(dict.fromkeys(codes))
+    image_by_code: dict[str, str | None] = {}
+
+    # Try common Item image fields (website_image / image)
+    rows = frappe.get_all(
+        "Item",
+        filters={"item_code": ["in", deduped_codes]},
+        fields=["item_code", "website_image", "image"],
+        limit_page_length=0,
+    )
+    for r in rows:
+        raw = r.get("website_image") or r.get("image")
+        image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
+
+    # Fill missing from attachments
+    missing = [c for c in deduped_codes if not image_by_code.get(c)]
+    if missing:
+        attachment_map = _get_item_attachment_image_map(missing, brand_code)
+        for c in missing:
+            if attachment_map.get(c):
+                image_by_code[c] = attachment_map[c]
+
+    return image_by_code
+
 
 def _collect_component_item_codes(kit_components) -> list[str]:
     """Extract component_item codes from child rows."""
@@ -401,20 +431,20 @@ def get_webflow_products(
             )
             
             component_codes = _collect_component_item_codes(doc.kit_components)
-			component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
+            component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
 
-			product["kit_components"] = [
-			    {
-			        "component_type": k.component_type,
-			        "component_item": k.component_item,
-			        "component_spec_doctype": k.component_spec_doctype,
-			        "component_spec_name": k.component_spec_name,
-			        "quantity": k.quantity,
-			        "notes": k.notes,
-			        "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
-			    }
-			    for k in doc.kit_components
-			]
+            product["kit_components"] = [
+                {
+                    "component_type": k.component_type,
+                    "component_item": k.component_item,
+                    "component_spec_doctype": k.component_spec_doctype,
+                    "component_spec_name": k.component_spec_name,
+                    "quantity": k.quantity,
+                    "notes": k.notes,
+                    "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
+                }
+                for k in doc.kit_components
+            ]
             
             product["gallery_images"] = [
                 {
