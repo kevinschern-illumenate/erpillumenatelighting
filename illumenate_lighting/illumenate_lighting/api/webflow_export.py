@@ -108,6 +108,57 @@ def _is_targeted(parent_doctype: str, parent_name: str, brand_code: str) -> bool
     )
     return bool(rows)
 
+def _resolve_item_hero_images(item_codes: list[str], brand_code: str | None = None) -> dict[str, str]:
+    """Return {item_code: absolute_hero_image_url} for supplied item codes.
+
+    Hero image precedence:
+    1) hero_image (custom Item field, if present)
+    2) website_image
+    3) image
+    """
+    codes = [c.strip() for c in (item_codes or []) if c and str(c).strip()]
+    if not codes:
+        return {}
+
+    # de-dup while preserving order
+    deduped_codes = list(dict.fromkeys(codes))
+    image_by_code: dict[str, str] = {}
+
+    # Try with hero_image first; if field doesn't exist, fallback gracefully.
+    try:
+        rows = frappe.get_all(
+            "Item",
+            filters={"item_code": ["in", deduped_codes]},
+            fields=["item_code", "hero_image", "website_image", "image"],
+            limit_page_length=0,
+        )
+        for r in rows:
+            raw = r.get("hero_image") or r.get("website_image") or r.get("image")
+            image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
+        return image_by_code
+    except Exception:
+        # Fallback for sites without custom hero_image field
+        rows = frappe.get_all(
+            "Item",
+            filters={"item_code": ["in", deduped_codes]},
+            fields=["item_code", "website_image", "image"],
+            limit_page_length=0,
+        )
+        for r in rows:
+            raw = r.get("website_image") or r.get("image")
+            image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
+        return image_by_code
+
+
+def _collect_component_item_codes(kit_components) -> list[str]:
+    """Extract component_item codes from child rows."""
+    codes = []
+    for k in (kit_components or []):
+        code = (getattr(k, "component_item", None) or "").strip()
+        if code:
+            codes.append(code)
+    return codes
+
 
 @frappe.whitelist(allow_guest=False)
 def get_webflow_products(
@@ -358,17 +409,21 @@ def get_webflow_products(
                 ]
             )
             
-            product["kit_components"] = [
-                {
-                    "component_type": k.component_type,
-                    "component_item": k.component_item,
-                    "component_spec_doctype": k.component_spec_doctype,
-                    "component_spec_name": k.component_spec_name,
-                    "quantity": k.quantity,
-                    "notes": k.notes
-                }
-                for k in doc.kit_components
-            ]
+            component_codes = _collect_component_item_codes(doc.kit_components)
+component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
+
+product["kit_components"] = [
+    {
+        "component_type": k.component_type,
+        "component_item": k.component_item,
+        "component_spec_doctype": k.component_spec_doctype,
+        "component_spec_name": k.component_spec_name,
+        "quantity": k.quantity,
+        "notes": k.notes,
+        "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
+    }
+    for k in doc.kit_components
+]
             
             product["gallery_images"] = [
                 {
