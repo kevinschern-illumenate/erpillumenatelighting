@@ -874,14 +874,27 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     Returns:
         list: Output options with delivered lumen values
     """
-    # Get lens transmission as decimal (stored as 0.56 = 56%)
+    # Get lens transmission as decimal (stored as 0.56 = 56%).
+    # The Webflow page may send the lens as a document name ("White") or a
+    # short code ("WH").  Resolve by name first, then by code, mirroring
+    # _resolve_tape_offering — otherwise the transmission silently stays 1.0
+    # and the displayed (delivered) output levels diverge from what the
+    # matcher computes, so the user's selection can never match an offering.
     lens_transmission = 1.0  # Default to 100% if no lens selected
     if lens_appearance:
-        transmission = frappe.db.get_value(
-            "ilL-Attribute-Lens Appearance", lens_appearance, "transmission"
-        )
-        if transmission:
-            lens_transmission = float(transmission)
+        lens_doc_name = None
+        if frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance):
+            lens_doc_name = lens_appearance
+        else:
+            lens_doc_name = frappe.db.get_value(
+                "ilL-Attribute-Lens Appearance", {"code": lens_appearance}, "name"
+            )
+        if lens_doc_name:
+            transmission = frappe.db.get_value(
+                "ilL-Attribute-Lens Appearance", lens_doc_name, "transmission"
+            )
+            if transmission:
+                lens_transmission = float(transmission)
     
     # Get fixture-level output levels for matching
     fixture_output_levels = frappe.get_all(
