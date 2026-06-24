@@ -595,6 +595,49 @@ def _make_form_fields_unique(writer, warnings: list | None = None) -> None:
 		)
 
 
+def _remove_form_fields(writer, warnings: list | None = None) -> None:
+	"""
+	Remove every AcroForm widget annotation and the AcroForm dictionary.
+
+	pypdf's native flattening — ``update_page_form_field_values(..., flatten=True)``
+	— bakes each field's appearance stream into the page content stream but, per
+	its documented API contract, *does not remove the widget annotation itself*.
+	A PDF viewer then renders both the baked-in text **and** the still-live widget
+	appearance, overlaying each value on top of itself (the doubled/overlapping
+	text seen after export). Dropping the now-redundant widgets (and the empty
+	AcroForm) ensures every flattened value is rendered exactly once.
+	"""
+	try:
+		from pypdf.generic import ArrayObject, NameObject
+
+		removed = 0
+		for page in writer.pages:
+			if "/Annots" not in page:
+				continue
+			kept = ArrayObject()
+			for annot_ref in page["/Annots"]:
+				annot = annot_ref.get_object()
+				if annot.get("/Subtype") == "/Widget":
+					removed += 1
+					continue
+				kept.append(annot_ref)
+			page[NameObject("/Annots")] = kept
+
+		root = writer._root_object
+		if "/AcroForm" in root:
+			del root[NameObject("/AcroForm")]
+
+		_debug(
+			f"_remove_form_fields: removed {removed} widget annotation(s) after native flatten",
+			warnings,
+		)
+	except Exception as e:  # pragma: no cover - defensive
+		_debug(
+			f"_remove_form_fields: EXCEPTION – {type(e).__name__}: {e}",
+			warnings,
+		)
+
+
 def _fill_pdf_form_fields(
 	pdf_template_path: str,
 	field_values: dict[str, str],
@@ -727,6 +770,13 @@ def _fill_pdf_form_fields(
 					writer.update_page_form_field_values(page, field_values)
 
 			if supports_flatten:
+				# Native flatten bakes each field's appearance stream into the
+				# page content but, per pypdf's API, leaves the widget annotation
+				# in place. Left alone, the viewer renders both the baked-in text
+				# and the live widget appearance, overlaying each value on itself.
+				# Remove the redundant widgets (and the AcroForm) so each value
+				# renders exactly once.
+				_remove_form_fields(writer, warnings)
 				_debug(
 					"_fill_pdf_form_fields: form fields flattened via native pypdf flatten",
 					warnings,
