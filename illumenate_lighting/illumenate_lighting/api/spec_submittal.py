@@ -18,6 +18,7 @@ Export Types:
 - SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals
 """
 
+import inspect
 import io
 import json
 import traceback
@@ -710,8 +711,6 @@ def _fill_pdf_form_fields(
 			# across every fixture. Native pypdf flattening (pypdf>=4.3) bakes the
 			# values into the page and removes the fields entirely; older versions
 			# fall back to the unique field-name safeguard below.
-			import inspect
-
 			try:
 				supports_flatten = "flatten" in inspect.signature(
 					writer.update_page_form_field_values
