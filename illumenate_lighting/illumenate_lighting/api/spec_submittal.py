@@ -18,6 +18,7 @@ Export Types:
 - SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals
 """
 
+import inspect
 import io
 import json
 import traceback
@@ -542,6 +543,58 @@ def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
 		return None
 
 
+def _make_form_fields_unique(writer, warnings: list | None = None) -> None:
+	"""
+	Give every top-level AcroForm field in ``writer`` a document-unique name.
+
+	When several filled copies of the *same* PDF template are merged into one
+	packet, AcroForm fields that share a fully-qualified name are treated by the
+	PDF specification as a single field with a single value. That is why the
+	spec-submittal data was repeating across every fixture in the packet: each
+	filled submittal reused the template's field names, so merging collapsed
+	them into one shared value.
+
+	Prefixing each document's field names with a random, document-unique token
+	keeps the fields — and their filled values and appearance streams —
+	independent after merging, while preserving the rendered text. This is a
+	version-independent safeguard that complements pypdf's native flattening
+	(which removes the fields entirely when available).
+	"""
+	try:
+		import uuid
+
+		from pypdf.generic import NameObject, TextStringObject
+
+		root = writer._root_object
+		if "/AcroForm" not in root:
+			return
+		acroform = root["/AcroForm"].get_object()
+		if "/Fields" not in acroform:
+			return
+
+		prefix = f"f{uuid.uuid4().hex[:10]}_"
+		renamed = 0
+		for field_ref in acroform["/Fields"]:
+			field = field_ref.get_object()
+			# Only rename top-level fields. Child widgets inherit their
+			# fully-qualified name from the parent, so prefixing the parent is
+			# sufficient (and prefixing a child would break that inheritance).
+			if "/Parent" in field:
+				continue
+			if "/T" in field:
+				field[NameObject("/T")] = TextStringObject(prefix + str(field["/T"]))
+				renamed += 1
+		_debug(
+			f"_make_form_fields_unique: prefixed {renamed} field name(s) with {prefix!r}",
+			warnings,
+		)
+	except Exception as e:  # pragma: no cover - defensive
+		_debug(
+			f"_make_form_fields_unique: EXCEPTION – {type(e).__name__}: {e}",
+			warnings,
+		)
+
+
 def _fill_pdf_form_fields(
 	pdf_template_path: str,
 	field_values: dict[str, str],
@@ -550,8 +603,14 @@ def _fill_pdf_form_fields(
 	"""
 	Fill form fields in a PDF template with the provided values and flatten the result.
 
-	Uses pypdf to fill AcroForm fields in the PDF, then flattens the PDF by removing
-	form field annotations to make the fields non-editable.
+	Uses pypdf to fill AcroForm fields in the PDF, then flattens the PDF so the
+	values become part of the page content. Flattening happens *per fixture*,
+	before the filled copies are merged into a packet, so that identically named
+	fields from different copies cannot collapse into a single shared value.
+
+	When the installed pypdf supports native flattening it is used directly;
+	otherwise every field is given a document-unique name as a fallback so the
+	merge cannot collapse same-named fields.
 
 	Args:
 		pdf_template_path: Path or URL to the PDF template (must be a Frappe file URL)
@@ -645,16 +704,48 @@ def _fill_pdf_form_fields(
 				warnings,
 			)
 
+			# Flatten each filled submittal *before* it is merged into a packet.
+			# Every copy of the same template carries identically named AcroForm
+			# fields, and merging live forms collapses same-named fields into a
+			# single shared value — which is why the submittal data was repeating
+			# across every fixture. Native pypdf flattening (pypdf>=4.3) bakes the
+			# values into the page and removes the fields entirely; older versions
+			# fall back to the unique field-name safeguard below.
+			try:
+				supports_flatten = "flatten" in inspect.signature(
+					writer.update_page_form_field_values
+				).parameters
+			except (TypeError, ValueError):
+				supports_flatten = False
+
 			for page in writer.pages:
-				writer.update_page_form_field_values(page, field_values)
+				if supports_flatten:
+					writer.update_page_form_field_values(
+						page, field_values, flatten=True
+					)
+				else:
+					writer.update_page_form_field_values(page, field_values)
+
+			if supports_flatten:
+				_debug(
+					"_fill_pdf_form_fields: form fields flattened via native pypdf flatten",
+					warnings,
+				)
 
 			# Explicitly set /NeedAppearances so PDF viewers regenerate
-			# appearance streams from the /V values we just wrote.
+			# appearance streams from the /V values we just wrote. This is a
+			# no-op when native flattening already removed the fields.
 			# update_page_form_field_values with auto_regenerate=True
 			# (default) should do this, but can fail silently when the
 			# writer was created via clone_from.
 			if "/AcroForm" in writer._root_object:
 				writer._root_object["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True)
+
+			# Give any remaining fields document-unique names so that merging
+			# multiple filled copies cannot collapse identically named fields
+			# into one shared value. When native flattening removed the fields
+			# this is a harmless no-op.
+			_make_form_fields_unique(writer, warnings)
 		else:
 			_debug(
 				"_fill_pdf_form_fields: WARNING – PDF has no AcroForm fields; "
