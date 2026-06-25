@@ -104,18 +104,6 @@ class ilLWebflowProduct(Document):
 		webflow_item_id: DF.Data | None
 	# end: auto-generated types
 
-	def _reset_webflow_sync_state_for_duplicate(self):
-		"""Ensure duplicated products do not inherit Webflow sync identity."""
-		self.webflow_item_id = None
-		self.webflow_collection_slug = None
-		self.last_synced_at = None
-		self.sync_error_message = None
-		self.sync_status = "Never Synced"
-
-		# Multi-brand authoritative sync rows
-		if hasattr(self, "sync_targets"):
-			self.set("sync_targets", [])
-
 	def _is_duplicate_flow(self) -> bool:
 		return bool(getattr(self.flags, "in_copy", False))
 
