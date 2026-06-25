@@ -108,24 +108,41 @@ function ill_open_fixture_schedule_picker(frm) {
 				frappe.msgprint(__('Please select a Fixture Schedule.'));
 				return;
 			}
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.quote_from_schedule.add_schedule_to_quotation',
-				args: {
-					quotation: frm.doc.name,
-					fixture_schedule: values.fixture_schedule,
-					include_accessories: values.include_accessories ? 1 : 0,
-					include_other: 0
-				},
-				freeze: true,
-				freeze_message: __('Adding schedule items to quotation...'),
-				callback: function(r) {
-					if (!r.message) {
-						return;
+
+			const run_import = function() {
+				frappe.call({
+					method: 'illumenate_lighting.illumenate_lighting.api.quote_from_schedule.add_schedule_to_quotation',
+					args: {
+						quotation: frm.doc.name,
+						fixture_schedule: values.fixture_schedule,
+						include_accessories: values.include_accessories ? 1 : 0,
+						include_other: 0
+					},
+					freeze: true,
+					freeze_message: __('Adding schedule items to quotation...'),
+					callback: function(r) {
+						if (!r.message) {
+							return;
+						}
+						dialog.hide();
+						ill_show_schedule_import_result(frm, r.message);
 					}
-					dialog.hide();
-					ill_show_schedule_import_result(frm, r.message);
-				}
-			});
+				});
+			};
+
+			// The server needs a persisted Quotation. Save first when the
+			// document is new or has unsaved changes, then run the import.
+			if (frm.is_new() || frm.is_dirty()) {
+				frm.save().then(run_import).catch(function() {
+					frappe.msgprint({
+						title: __('Save Required'),
+						indicator: 'orange',
+						message: __('Please save the quotation before adding items from a fixture schedule.')
+					});
+				});
+			} else {
+				run_import();
+			}
 		}
 	});
 
