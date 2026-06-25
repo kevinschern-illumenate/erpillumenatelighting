@@ -106,14 +106,19 @@ class ilLWebflowProduct(Document):
 
 	def before_save(self):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
+
+		# IMPORTANT: duplicate flow guard (works for duplicate+save path)
+		if getattr(self.flags, "in_copy", False):
+			self._reset_webflow_sync_state_for_duplicate()
+
 		# Populate attribute links from fixture template
 		if self.get("auto_populate_attributes", True):
 			self.populate_attribute_links()
-		
+
 		# Legacy: calculate specifications (deprecated - moving to attribute links)
 		if self.auto_calculate_specs:
 			self.calculate_specifications()
-		
+
 		if self.is_configurable and self.fixture_template:
 			if self.get("auto_populate_configurator_options", True):
 				self.populate_configurator_options()
@@ -121,11 +126,11 @@ class ilLWebflowProduct(Document):
 		if self.is_configurable and self.tape_neon_template:
 			if self.get("auto_populate_configurator_options", True):
 				self.populate_tape_neon_configurator_options()
-		
+
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
 		if not getattr(self, '_skip_sync_status_check', False):
-			if (self.has_value_changed("attribute_links") or 
+			if (self.has_value_changed("attribute_links") or
 			    self.has_value_changed("configurator_options")):
 				if self.sync_status == "Synced":
 					self.sync_status = "Pending"
@@ -134,6 +139,16 @@ class ilLWebflowProduct(Document):
 		"""Update webflow_product backlink on linked templates after save."""
 		self._update_fixture_template_backlink()
 		self._update_tape_neon_template_backlink()
+
+		# Hardening: ensure duplicates never persist inherited sync identity
+		if getattr(self.flags, "in_copy", False):
+			frappe.db.set_value("ilL-Webflow-Product", self.name, {
+				"webflow_item_id": None,
+				"webflow_collection_slug": None,
+				"last_synced_at": None,
+				"sync_error_message": None,
+				"sync_status": "Never Synced",
+			}, update_modified=False)
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
@@ -154,20 +169,17 @@ class ilLWebflowProduct(Document):
 				update_modified=False,
 			)
 
-	def before_insert(self):
-		"""When duplicating a product, clear Webflow sync identity/state."""
-		# Frappe sets this flag on duplicate flows.
-		if getattr(self.flags, "in_copy", False):
-			# Legacy scalar sync fields
-			self.webflow_item_id = None
-			self.webflow_collection_slug = None
-			self.last_synced_at = None
-			self.sync_error_message = None
-			self.sync_status = "Never Synced"
+	def _reset_webflow_sync_state_for_duplicate(self):
+		"""Ensure duplicated products do not inherit Webflow sync identity."""
+		self.webflow_item_id = None
+		self.webflow_collection_slug = None
+		self.last_synced_at = None
+		self.sync_error_message = None
+		self.sync_status = "Never Synced"
 
-			# Per-brand sync rows (authoritative in multi-brand mode)
-			if hasattr(self, "sync_targets"):
-				self.sync_targets = []
+		# Multi-brand authoritative sync rows
+		if hasattr(self, "sync_targets"):
+			self.sync_targets = []
 
 	def _update_fixture_template_backlink(self):
 		"""Set the webflow_product backlink on the linked fixture template.
