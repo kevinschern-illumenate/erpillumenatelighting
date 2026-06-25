@@ -154,6 +154,21 @@ class ilLWebflowProduct(Document):
 				update_modified=False,
 			)
 
+	def before_insert(self):
+		"""When duplicating a product, clear Webflow sync identity/state."""
+		# Frappe sets this flag on duplicate flows.
+		if getattr(self.flags, "in_copy", False):
+			# Legacy scalar sync fields
+			self.webflow_item_id = None
+			self.webflow_collection_slug = None
+			self.last_synced_at = None
+			self.sync_error_message = None
+			self.sync_status = "Never Synced"
+
+			# Per-brand sync rows (authoritative in multi-brand mode)
+			if hasattr(self, "sync_targets"):
+				self.sync_targets = []
+
 	def _update_fixture_template_backlink(self):
 		"""Set the webflow_product backlink on the linked fixture template.
 
