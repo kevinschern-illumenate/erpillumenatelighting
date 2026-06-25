@@ -3,17 +3,10 @@
 
 frappe.ui.form.on("ilL-Webflow-Product", {
 	refresh(frm) {
-		// If opened as a duplicated doc, clear sync sections immediately
-		if (frm.is_new() && frm.doc.__islocal) {
-			force_clear_webflow_brand_sync(frm);
+		// Detect if this is a newly duplicated document and clear sync fields
+		if (is_duplicate_doc(frm)) {
+			clear_only_webflow_sync_section(frm);
 		}
-
-		// Override Duplicate menu action explicitly
-		frm.page.clear_menu();
-		frm.page.add_menu_item(__("Duplicate"), () => {
-			frappe.model.copy_doc(frm.doc);
-			frappe.set_route("Form", frm.doctype, frappe.model.get_new_name(frm.doctype));
-		});
 
 		// Add button to recalculate specifications
 		if (!frm.is_new()) {
@@ -144,18 +137,10 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 	},
 
-	onload_post_render(frm) {
-		// Second-pass clear after grid rendering
-		if (frm.is_new() && frm.doc.__islocal) {
-			force_clear_webflow_brand_sync(frm);
-			frm.refresh_fields(["sync_targets", "target_brands", "webflow_item_id", "sync_status"]);
-		}
-	},
-
 	before_save(frm) {
-		// Hard safety before save
-		if (frm.is_new()) {
-			force_clear_webflow_brand_sync(frm);
+		// Hard safety net: clear fields again right before saving a duplicate
+		if (is_duplicate_doc(frm)) {
+			clear_only_webflow_sync_section(frm);
 		}
 	},
 
@@ -298,20 +283,31 @@ frappe.ui.form.on("ilL-Child-Webflow-Document", {
 	}
 });
 
-function force_clear_webflow_brand_sync(frm) {
-	// Parent sync fields
-	frm.set_value("webflow_item_id", "");
-	frm.set_value("webflow_collection_slug", "");
+// --- Helper Functions ---
+
+function is_duplicate_doc(frm) {
+	// Frappe duplicate creates a new unsaved doc with copied values
+	return frm.is_new() && !!frm.doc.__islocal && !!frm.doc.amended_from === false;
+}
+
+function clear_only_webflow_sync_section(frm) {
+	// Parent sync fields only
+	frm.set_value("webflow_item_id", null);
+	frm.set_value("webflow_collection_slug", null);
 	frm.set_value("last_synced_at", null);
-	frm.set_value("sync_error_message", "");
+	frm.set_value("sync_error_message", null);
 	frm.set_value("sync_status", "Never Synced");
 
-	// Child tables in Webflow Brands & Sync section
+	// Only clear Sync Targets (per-brand webflow IDs)
 	frm.set_value("sync_targets", []);
-	// Keep or clear target brands depending on your preference:
-	// frm.set_value("target_brands", []);
 
-	// Direct doc-level wipe in case grid model already holds rows
-	frm.doc.sync_targets = [];
-	if (frm.doc.webflow_item_id) frm.doc.webflow_item_id = "";
+	// KEEP target_brands and all other product data untouched
+	frm.refresh_fields([
+		"webflow_item_id",
+		"webflow_collection_slug",
+		"last_synced_at",
+		"sync_error_message",
+		"sync_status",
+		"sync_targets"
+	]);
 }
