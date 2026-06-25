@@ -283,8 +283,6 @@ frappe.ui.form.on("ilL-Child-Webflow-Document", {
 	}
 });
 
-// --- Helper Functions ---
-
 function is_duplicate_doc(frm) {
 	// Frappe duplicate creates a new unsaved doc with copied values
 	return frm.is_new() && !!frm.doc.__islocal && !!frm.doc.amended_from === false;
