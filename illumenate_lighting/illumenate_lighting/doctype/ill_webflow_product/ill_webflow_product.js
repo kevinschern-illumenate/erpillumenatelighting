@@ -3,6 +3,11 @@
 
 frappe.ui.form.on("ilL-Webflow-Product", {
 	refresh(frm) {
+		// Runs immediately when opening a duplicated doc from menu -> Duplicate
+		if (frm.is_copy && frm.is_copy()) {
+			clear_webflow_sync_state(frm);
+		}
+
 		// Add button to recalculate specifications
 		if (!frm.is_new()) {
 			frm.add_custom_button(__("Refresh Attribute Links"), function() {
@@ -129,6 +134,13 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			frm.dashboard.set_headline_alert(
 				`<span class="indicator red">Sync Error</span> - ${frm.doc.sync_error_message || "Unknown error"}`
 			);
+		}
+	},
+
+	before_save(frm) {
+		// Safety net in case refresh didn't run first
+		if (frm.is_copy && frm.is_copy()) {
+			clear_webflow_sync_state(frm);
 		}
 	},
 
@@ -270,3 +282,16 @@ frappe.ui.form.on("ilL-Child-Webflow-Document", {
 		}
 	}
 });
+
+// Helper function to clear Webflow sync data on duplication
+function clear_webflow_sync_state(frm) {
+	// Legacy scalar fields
+	frm.set_value("webflow_item_id", null);
+	frm.set_value("webflow_collection_slug", null);
+	frm.set_value("last_synced_at", null);
+	frm.set_value("sync_error_message", null);
+	frm.set_value("sync_status", "Never Synced");
+
+	// Per-brand sync rows
+	frm.set_value("sync_targets", []);
+}
