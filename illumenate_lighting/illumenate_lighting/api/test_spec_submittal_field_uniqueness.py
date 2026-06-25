@@ -32,6 +32,7 @@ except ImportError:  # pragma: no cover - pypdf is a declared dependency
 
 from illumenate_lighting.illumenate_lighting.api.spec_submittal import (  # noqa: E402
 	_make_form_fields_unique,
+	_remove_form_fields,
 )
 
 
@@ -99,6 +100,74 @@ class TestMakeFormFieldsUnique(unittest.TestCase):
 		writer = PdfWriter()
 		# Should not raise even though there is no /AcroForm.
 		_make_form_fields_unique(writer)
+
+
+@unittest.skipUnless(HAS_PYPDF, "pypdf is required for these tests")
+class TestRemoveFormFields(unittest.TestCase):
+	def _build_writer_with_widget_page(self):
+		"""Build a PdfWriter with one page holding a widget annotation and a link."""
+		from pypdf import PdfWriter
+		from pypdf.generic import (
+			ArrayObject,
+			DictionaryObject,
+			NameObject,
+			TextStringObject,
+		)
+
+		writer = PdfWriter()
+		page = writer.add_blank_page(width=200, height=200)
+
+		widget = DictionaryObject()
+		widget[NameObject("/Subtype")] = NameObject("/Widget")
+		widget[NameObject("/T")] = TextStringObject("fixture_name")
+
+		link = DictionaryObject()
+		link[NameObject("/Subtype")] = NameObject("/Link")
+
+		page[NameObject("/Annots")] = ArrayObject(
+			[writer._add_object(widget), writer._add_object(link)]
+		)
+
+		acroform = DictionaryObject()
+		acroform[NameObject("/Fields")] = ArrayObject([widget])
+		writer._root_object[NameObject("/AcroForm")] = acroform
+
+		return writer, page
+
+	def test_widget_annotations_are_removed(self):
+		"""Widget annotations (the form fields) are dropped after flattening."""
+		writer, page = self._build_writer_with_widget_page()
+
+		_remove_form_fields(writer)
+
+		subtypes = [a.get_object().get("/Subtype") for a in page["/Annots"]]
+		self.assertNotIn("/Widget", subtypes)
+
+	def test_non_widget_annotations_are_preserved(self):
+		"""Non-widget annotations such as links are left untouched."""
+		writer, page = self._build_writer_with_widget_page()
+
+		_remove_form_fields(writer)
+
+		subtypes = [a.get_object().get("/Subtype") for a in page["/Annots"]]
+		self.assertIn("/Link", subtypes)
+
+	def test_acroform_is_removed(self):
+		"""The now-empty AcroForm dictionary is removed from the document root."""
+		writer, _page = self._build_writer_with_widget_page()
+
+		_remove_form_fields(writer)
+
+		self.assertNotIn("/AcroForm", writer._root_object)
+
+	def test_no_annots_is_noop(self):
+		"""Pages without annotations are handled gracefully."""
+		from pypdf import PdfWriter
+
+		writer = PdfWriter()
+		writer.add_blank_page(width=200, height=200)
+		# Should not raise even though there are no annotations or AcroForm.
+		_remove_form_fields(writer)
 
 
 if __name__ == "__main__":
