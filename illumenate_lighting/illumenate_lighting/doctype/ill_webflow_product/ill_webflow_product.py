@@ -107,9 +107,17 @@ class ilLWebflowProduct(Document):
 	def before_save(self):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
 
-		# IMPORTANT: duplicate flow guard (works for duplicate+save path)
+		# Duplicate guard: wipe inherited sync state (parent + child table)
 		if getattr(self.flags, "in_copy", False):
-			self._reset_webflow_sync_state_for_duplicate()
+			self.webflow_item_id = None
+			self.webflow_collection_slug = None
+			self.last_synced_at = None
+			self.sync_error_message = None
+			self.sync_status = "Never Synced"
+
+			# CRITICAL: wipe copied child rows that hold per-brand webflow item IDs
+			if hasattr(self, "sync_targets"):
+				self.set("sync_targets", [])
 
 		# Populate attribute links from fixture template
 		if self.get("auto_populate_attributes", True):
@@ -136,19 +144,24 @@ class ilLWebflowProduct(Document):
 					self.sync_status = "Pending"
 
 	def on_update(self):
-		"""Update webflow_product backlink on linked templates after save."""
-		self._update_fixture_template_backlink()
-		self._update_tape_neon_template_backlink()
+	"""Update webflow_product backlink on linked templates after save."""
+	self._update_fixture_template_backlink()
+	self._update_tape_neon_template_backlink()
 
-		# Hardening: ensure duplicates never persist inherited sync identity
-		if getattr(self.flags, "in_copy", False):
-			frappe.db.set_value("ilL-Webflow-Product", self.name, {
-				"webflow_item_id": None,
-				"webflow_collection_slug": None,
-				"last_synced_at": None,
-				"sync_error_message": None,
-				"sync_status": "Never Synced",
-			}, update_modified=False)
+	if getattr(self.flags, "in_copy", False):
+		frappe.db.set_value("ilL-Webflow-Product", self.name, {
+			"webflow_item_id": None,
+			"webflow_collection_slug": None,
+			"last_synced_at": None,
+			"sync_error_message": None,
+			"sync_status": "Never Synced",
+		}, update_modified=False)
+
+		# CRITICAL: clear copied per-brand sync rows directly in DB
+		frappe.db.delete("ilL-Child-Webflow-Sync-State", {
+			"parenttype": "ilL-Webflow-Product",
+			"parent": self.name,
+		})
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
