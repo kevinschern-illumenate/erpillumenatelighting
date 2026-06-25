@@ -108,7 +108,7 @@ class ilLWebflowProduct(Document):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
 
 		# Duplicate guard: clear inherited Webflow sync identity/state
-		if getattr(self.flags, "in_copy", False):
+		if getattr(self.flags, "in_copy", False) or self.is_new():
 			self.webflow_item_id = None
 			self.webflow_collection_slug = None
 			self.last_synced_at = None
