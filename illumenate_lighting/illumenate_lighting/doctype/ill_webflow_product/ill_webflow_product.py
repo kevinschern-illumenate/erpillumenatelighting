@@ -144,24 +144,24 @@ class ilLWebflowProduct(Document):
 					self.sync_status = "Pending"
 
 	def on_update(self):
-	"""Update webflow_product backlink on linked templates after save."""
-	self._update_fixture_template_backlink()
-	self._update_tape_neon_template_backlink()
-
-	if getattr(self.flags, "in_copy", False):
-		frappe.db.set_value("ilL-Webflow-Product", self.name, {
-			"webflow_item_id": None,
-			"webflow_collection_slug": None,
-			"last_synced_at": None,
-			"sync_error_message": None,
-			"sync_status": "Never Synced",
-		}, update_modified=False)
-
-		# CRITICAL: clear copied per-brand sync rows directly in DB
-		frappe.db.delete("ilL-Child-Webflow-Sync-State", {
-			"parenttype": "ilL-Webflow-Product",
-			"parent": self.name,
-		})
+		"""Update webflow_product backlink on linked templates after save."""
+		self._update_fixture_template_backlink()
+		self._update_tape_neon_template_backlink()
+	
+		if getattr(self.flags, "in_copy", False):
+			frappe.db.set_value("ilL-Webflow-Product", self.name, {
+				"webflow_item_id": None,
+				"webflow_collection_slug": None,
+				"last_synced_at": None,
+				"sync_error_message": None,
+				"sync_status": "Never Synced",
+			}, update_modified=False)
+	
+			# CRITICAL: clear copied per-brand sync rows directly in DB
+			frappe.db.delete("ilL-Child-Webflow-Sync-State", {
+				"parenttype": "ilL-Webflow-Product",
+				"parent": self.name,
+			})
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
