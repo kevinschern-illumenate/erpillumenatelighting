@@ -5,8 +5,47 @@ import frappe
 from frappe.model.document import Document
 
 
+# Maps each allowed-option type to the Link field that carries its value.
+_ALLOWED_OPTION_VALUE_FIELD = {
+	"Finish": "finish",
+	"Lens Appearance": "lens_appearance",
+	"Mounting Method": "mounting_method",
+	"Endcap Style": "endcap_style",
+	"Power Feed Type": "power_feed_type",
+	"Environment Rating": "environment_rating",
+}
+
+
 class ilLFixtureTemplate(Document):
-	pass
+	def validate(self):
+		self._dedupe_allowed_options()
+
+	def _dedupe_allowed_options(self):
+		"""Remove duplicate ``(option_type, value)`` rows from allowed_options.
+
+		S5: first-match pricing (``configurator_engine`` uses ``matching_rows[0]``)
+		is row-order dependent, so duplicate option rows make pricing
+		non-deterministic. Keep the first row for each distinct
+		``(option_type, value)`` pair and drop the rest.
+		"""
+		rows = self.get("allowed_options") or []
+		if not rows:
+			return
+
+		seen = set()
+		kept = []
+		for row in rows:
+			option_type = getattr(row, "option_type", None)
+			value_field = _ALLOWED_OPTION_VALUE_FIELD.get(option_type)
+			value = getattr(row, value_field, None) if value_field else None
+			key = (option_type, value)
+			if key in seen:
+				continue
+			seen.add(key)
+			kept.append(row)
+
+		if len(kept) != len(rows):
+			self.set("allowed_options", kept)
 
 
 # ──────────────────────────────────────────────────────────

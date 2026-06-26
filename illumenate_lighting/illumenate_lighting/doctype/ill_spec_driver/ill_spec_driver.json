@@ -50,6 +50,7 @@
                        "fieldtype":  "Link",
                        "label":  "Driver Item",
                        "options":  "Item",
+                       "reqd":  1,
                        "unique":  1
                    },
                    {
@@ -90,7 +91,8 @@
                    {
                        "fieldname":  "outputs_count",
                        "fieldtype":  "Int",
-                       "label":  "Outputs"
+                       "label":  "Outputs",
+                       "reqd":  1
                    },
                    {
                        "fieldname":  "output_type",
@@ -112,7 +114,8 @@
                    {
                        "fieldname":  "max_wattage",
                        "fieldtype":  "Float",
-                       "label":  "Max Wattage (W)"
+                       "label":  "Max Wattage (W)",
+                       "reqd":  1
                    },
                    {
                        "fieldname":  "max_wattage_per_output",
