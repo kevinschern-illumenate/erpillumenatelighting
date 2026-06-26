@@ -454,7 +454,7 @@ def resolve_endcap_color_from_finish(finish_code: str) -> str:
 
 	# No active endcap-color mapping exists for this finish. Previously the code
 	# silently fell back to the first active endcap color in the whole table,
-	# which could attach an unrelated colour to the fixture. Treat the missing
+	# which could attach an unrelated color to the fixture. Treat the missing
 	# mapping as a hard error so the misconfiguration is fixed at the source.
 	frappe.throw(
 		_(
