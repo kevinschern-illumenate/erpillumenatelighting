@@ -303,7 +303,8 @@ def get_cascading_options(
 @frappe.whitelist(allow_guest=True)
 def validate_configuration(
     product_slug: str,
-    selections: str
+    selections: str,
+    override_max_run_ft: float | None = None,
 ) -> dict:
     """
     Validate a complete configuration and generate final part number.
@@ -311,6 +312,8 @@ def validate_configuration(
     Args:
         product_slug: The Webflow product slug
         selections: JSON string of all selections
+        override_max_run_ft: Optional user-supplied max run length (ft) that
+            replaces the computed effective max run when running the engine.
     
     Returns:
         dict: Validation result with part number or errors
@@ -319,6 +322,18 @@ def validate_configuration(
         selections_dict = json.loads(selections) if isinstance(selections, str) else selections
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
+
+    # Resolve and normalise the override (Frappe passes HTTP params as strings).
+    # Fall back to a value embedded in the selections payload when present.
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = selections_dict.get("override_max_run_ft")
+    override_active = False
+    if override_max_run_ft not in (None, ""):
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+            override_active = override_max_run_ft > 0
+        except (ValueError, TypeError):
+            override_max_run_ft = None
     
     product = _get_configurable_product(product_slug)
     if not product:
@@ -403,6 +418,17 @@ def validate_configuration(
         "can_add_to_cart": True,  # For future e-commerce
         "is_complex_fixture": False  # Single segment
     }
+    if override_active:
+        result["override_max_run_ft_active"] = True
+        result["override_max_run_ft"] = override_max_run_ft
+        result.setdefault("messages", []).append({
+            "severity": "warning",
+            "text": (
+                f"⚠ Max run length overridden to {override_max_run_ft:g} ft. "
+                "Verify compliance with applicable electrical codes."
+            ),
+            "field": "override_max_run_ft",
+        })
     if stock_availability is not None:
         result["stock_availability"] = stock_availability
     return result

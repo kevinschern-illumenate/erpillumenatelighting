@@ -397,6 +397,7 @@ def validate_tape_configuration(
     dimming_protocol_code: str | None = None,
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
+    override_max_run_ft: float | None = None,
 ) -> dict:
     """
     Validate a complete LED Tape configuration and compute manufacturable length.
@@ -438,6 +439,20 @@ def validate_tape_configuration(
         _skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
     if isinstance(include_power_supply, str):
         include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+
+    # Normalise the optional max run length override (Frappe sends strings).
+    # Fall back to a value embedded in the selections payload when present.
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = sel.get("override_max_run_ft")
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = None
+    else:
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+            if override_max_run_ft <= 0:
+                override_max_run_ft = None
+        except (ValueError, TypeError):
+            override_max_run_ft = None
 
     logger.info(f"validate_tape_configuration called with selections: {sel}")
 
@@ -563,7 +578,18 @@ def validate_tape_configuration(
         voltage_drop_max_run_ft=voltage_drop_max_run_ft,
         cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
         is_free_cutting=bool(is_free_cutting),
+        override_max_run_ft=override_max_run_ft,
     )
+
+    if run_split.get("override_max_run_ft_active"):
+        messages.append({
+            "severity": "warning",
+            "text": (
+                f"⚠ Max run length overridden to {override_max_run_ft:g} ft. "
+                "Verify compliance with applicable electrical codes."
+            ),
+            "field": "override_max_run_ft",
+        })
 
     if run_split["runs_count"] > 1:
         messages.append({
@@ -617,6 +643,8 @@ def validate_tape_configuration(
             "max_run_ft_by_watts": run_split["max_run_ft_by_watts"],
             "max_run_ft_by_voltage_drop": run_split["max_run_ft_by_voltage_drop"],
             "max_run_ft_effective": run_split["max_run_ft_effective"],
+            "override_max_run_ft_active": run_split.get("override_max_run_ft_active", False),
+            "override_max_run_ft": override_max_run_ft if run_split.get("override_max_run_ft_active") else None,
         },
         "resolved_items": {
             "tape_spec": tape_spec.name,
@@ -768,6 +796,7 @@ def validate_neon_configuration(
     dimming_protocol_code: str | None = None,
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
+    override_max_run_ft: float | None = None,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -801,6 +830,20 @@ def validate_neon_configuration(
         _skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
     if isinstance(include_power_supply, str):
         include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+
+    # Normalise the optional max run length override (Frappe sends strings).
+    # Fall back to a value embedded in the selections payload when present.
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = sel.get("override_max_run_ft")
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = None
+    else:
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+            if override_max_run_ft <= 0:
+                override_max_run_ft = None
+        except (ValueError, TypeError):
+            override_max_run_ft = None
 
     logger.info(f"validate_neon_configuration called with selections: {sel}, segments: {segments}")
 
@@ -1008,6 +1051,7 @@ def validate_neon_configuration(
             voltage_drop_max_run_ft=voltage_drop_max_run_ft,
             cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
             is_free_cutting=bool(is_free_cutting),
+            override_max_run_ft=override_max_run_ft,
         )
 
         if seg_run_split["runs_count"] > 1:
@@ -1066,7 +1110,18 @@ def validate_neon_configuration(
         voltage_drop_max_run_ft=voltage_drop_max_run_ft,
         cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
         is_free_cutting=bool(is_free_cutting),
+        override_max_run_ft=override_max_run_ft,
     )
+
+    if overall_run_split.get("override_max_run_ft_active"):
+        messages.append({
+            "severity": "warning",
+            "text": (
+                f"⚠ Max run length overridden to {override_max_run_ft:g} ft. "
+                "Verify compliance with applicable electrical codes."
+            ),
+            "field": "override_max_run_ft",
+        })
 
     # ── Build part number & description ───────────────────────────────
     part_number = _build_neon_part_number(sel, tape_spec, tape_offering, computed_segments)
@@ -1104,6 +1159,8 @@ def validate_neon_configuration(
             "max_run_ft_by_watts": overall_run_split["max_run_ft_by_watts"],
             "max_run_ft_by_voltage_drop": overall_run_split["max_run_ft_by_voltage_drop"],
             "max_run_ft_effective": overall_run_split["max_run_ft_effective"],
+            "override_max_run_ft_active": overall_run_split.get("override_max_run_ft_active", False),
+            "override_max_run_ft": override_max_run_ft if overall_run_split.get("override_max_run_ft_active") else None,
         },
         "resolved_items": {
             "tape_spec": tape_spec.name,
@@ -2546,6 +2603,11 @@ def _create_or_reuse_configured_tape_neon(
         sel.get("output_level", ""),
     ]
 
+    # Include any active max run length override so configurations that differ
+    # only by the override resolve to distinct records.
+    if computed.get("override_max_run_ft_active") and computed.get("override_max_run_ft"):
+        hash_parts.append(f"override:{float(computed.get('override_max_run_ft'))}")
+
     if is_neon:
         hash_parts.extend([
             sel.get("finish", ""),
@@ -2657,6 +2719,14 @@ def _create_or_reuse_configured_tape_neon(
     doc_data["is_free_cutting"] = computed.get("is_free_cutting", False)
     doc_data["watts_per_foot"] = computed.get("watts_per_foot", 0)
 
+    # Persist max run length override when supplied
+    if computed.get("override_max_run_ft_active") and computed.get("override_max_run_ft"):
+        doc_data["override_max_run_ft_enabled"] = 1
+        doc_data["override_max_run_ft"] = float(computed.get("override_max_run_ft"))
+    else:
+        doc_data["override_max_run_ft_enabled"] = 0
+        doc_data["override_max_run_ft"] = 0
+
     # Resolved items
     doc_data["tape_item"] = resolved.get("tape_item")
     doc_data["leader_cable_item"] = resolved.get("leader_cable_item")
@@ -2721,6 +2791,7 @@ def _compute_run_split(
     voltage_drop_max_run_ft: float,
     cut_increment_mm: float,
     is_free_cutting: bool = False,
+    override_max_run_ft: float | None = None,
 ) -> dict:
     """
     Compute run-splitting plan for a tape length that may exceed the max run.
@@ -2754,6 +2825,12 @@ def _compute_run_split(
     else:
         max_run_ft_effective = max_run_ft_by_watts
 
+    # User override: replaces both the watts and voltage-drop limits entirely.
+    override_max_run_ft_active = False
+    if override_max_run_ft is not None and override_max_run_ft > 0:
+        max_run_ft_effective = float(override_max_run_ft)
+        override_max_run_ft_active = True
+
     max_run_mm = (
         max_run_ft_effective * MM_PER_FOOT
         if max_run_ft_effective != float("inf")
@@ -2777,6 +2854,7 @@ def _compute_run_split(
                 round(max_run_ft_effective, 2)
                 if max_run_ft_effective != float("inf") else None
             ),
+            "override_max_run_ft_active": override_max_run_ft_active,
         }
 
     if max_run_mm != float("inf") and max_run_mm > 0 and tape_length_mm > max_run_mm:
@@ -2845,6 +2923,7 @@ def _compute_run_split(
             round(max_run_ft_effective, 2)
             if max_run_ft_effective != float("inf") else None
         ),
+        "override_max_run_ft_active": override_max_run_ft_active,
     }
 
 
