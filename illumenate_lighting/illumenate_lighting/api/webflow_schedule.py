@@ -104,6 +104,18 @@ def add_to_schedule(
     if isinstance(include_power_supply, str):
         include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 
+    # Extract optional max run length override from the configuration
+    override_max_run_ft = config.get("override_max_run_ft")
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = None
+    else:
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+            if override_max_run_ft <= 0:
+                override_max_run_ft = None
+        except (ValueError, TypeError):
+            override_max_run_ft = None
+
     # Try to call existing configurator engine
     try:
         from illumenate_lighting.illumenate_lighting.api.configurator_engine import validate_and_quote
@@ -122,6 +134,7 @@ def add_to_schedule(
             requested_overall_length_mm=length_mm,
             qty=quantity,
             include_power_supply=include_power_supply,
+            override_max_run_ft=override_max_run_ft,
         )
         
         if not engine_result.get("is_valid"):

@@ -60,6 +60,8 @@
         "column_break_computed",
         "total_segments",
         "assembly_mode",
+        "override_max_run_ft_enabled",
+        "override_max_run_ft",
         "build_description",
         "segments_section",
         "segments",
@@ -428,6 +430,20 @@
             "fieldtype": "Select",
             "label": "Assembly Mode",
             "options": "ASSEMBLED\nSHIP_PIECES"
+        },
+        {
+            "default": "0",
+            "description": "When enabled, the user-supplied max run length overrides the computed value",
+            "fieldname": "override_max_run_ft_enabled",
+            "fieldtype": "Check",
+            "label": "Override Max Run Length"
+        },
+        {
+            "depends_on": "eval:doc.override_max_run_ft_enabled == 1",
+            "description": "User-supplied max run length (ft) used in place of the computed value",
+            "fieldname": "override_max_run_ft",
+            "fieldtype": "Float",
+            "label": "Override Max Run (ft)"
         },
         {
             "fieldname": "build_description",

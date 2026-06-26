@@ -618,8 +618,18 @@
 				? '0'
 				: (this.$('input[name="end_feed_length_ft"]').val() || ''),
 			product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val(),
-			include_power_supply: this.$('#includePowerSupply').is(':checked')
+			include_power_supply: this.$('#includePowerSupply').is(':checked'),
+			override_max_run_ft: this._getOverrideMaxRunFt()
 		};
+	};
+
+	// Read the optional "Override Max Run Length" value. Returns the parsed
+	// float when the checkbox is ticked and a positive value is entered,
+	// otherwise an empty string (treated as "no override" by the backend).
+	Fixture.prototype._getOverrideMaxRunFt = function () {
+		if (!this.$('#overrideMaxRunCheck').is(':checked')) return '';
+		var val = parseFloat(this.$('#overrideMaxRunInput').val());
+		return (!isNaN(val) && val > 0) ? val : '';
 	};
 
 	// ────────────────────────────────────────────────────────────────
@@ -705,9 +715,12 @@
 		var self = this;
 		var productSlug = this.productSlug || this.$('#fixtureTemplateSelect').val();
 		var selections = this._gatherAllSelections();
+		var args = { product_slug: productSlug, selections: JSON.stringify(selections) };
+		var overrideMaxRun = this._getOverrideMaxRunFt();
+		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.validate_configuration',
-			args: { product_slug: productSlug, selections: JSON.stringify(selections) },
+			args: args,
 			freeze: true,
 			freeze_message: __('Validating configuration...'),
 			callback: function (r) { if (r.message) self._handleValidationResponse(r.message); }
@@ -737,6 +750,13 @@
 				this.$('#pricingPreview').show();
 			}
 			if (data.stock_availability) this._renderStockAvailability(data.stock_availability);
+			if (data.override_max_run_ft_active) {
+				$messagesList.append(
+					'<div class="alert alert-warning py-2"><i class="fa fa-exclamation-triangle mr-2"></i>'
+					+ __('Max run length overridden to {0} ft. Verify compliance with applicable electrical codes.',
+						[data.override_max_run_ft]) + '</div>'
+				);
+			}
 			if (!this.$('#includePowerSupply').is(':checked')) {
 				$messagesList.append(
 					'<div class="alert alert-info py-2"><i class="fa fa-info-circle mr-2"></i>'

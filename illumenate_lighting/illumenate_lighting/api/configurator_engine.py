@@ -612,6 +612,7 @@ def validate_and_quote(
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
 	relax_length_validation: bool = False,
+	override_max_run_ft: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
@@ -660,6 +661,15 @@ def validate_and_quote(
 		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 	if isinstance(_skip_record_creation, str):
 		_skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
+	# Normalise override_max_run_ft (Frappe passes HTTP params as strings)
+	if override_max_run_ft is not None:
+		try:
+			override_max_run_ft = float(override_max_run_ft)
+		except (ValueError, TypeError):
+			override_max_run_ft = None
+		else:
+			if override_max_run_ft <= 0:
+				override_max_run_ft = None
 	# Auto-resolve endcap color from finish if not explicitly provided
 	if not endcap_color_code and finish_code:
 		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
@@ -768,9 +778,21 @@ def validate_and_quote(
 		end_feed_direction_code=end_feed_direction_code,
 		end_leader_len_mm=end_leader_len_mm,
 		start_leader_len_mm=start_leader_len_mm,
+		override_max_run_ft=override_max_run_ft,
 	)
 
 	response["computed"].update(computed_result)
+
+	# Surface a caution message when the max run length was overridden
+	if computed_result.get("override_max_run_ft_active"):
+		response["messages"].append({
+			"severity": "warning",
+			"text": (
+				f"⚠ Max run length overridden to {override_max_run_ft:g} ft. "
+				"Verify compliance with applicable electrical codes."
+			),
+			"field": "override_max_run_ft",
+		})
 
 	# Step 2.5: Validate computed outputs for edge cases (Epic 2 Task 2.2)
 	edge_case_messages, edge_case_blocks = _validate_computed_edge_cases(
@@ -895,6 +917,7 @@ def validate_and_quote(
 			include_power_supply=include_power_supply,
 			parent_configured_fixture=parent_configured_fixture,
 			variant_origin=variant_origin,
+			override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
 		)
 		response["configured_fixture_id"] = fixture_id
 		_set_fixture_part_number_in_pricing(response, fixture_id)
@@ -2860,6 +2883,7 @@ def _compute_manufacturable_outputs(
 	end_feed_direction_code: str = "C",
 	end_leader_len_mm: int = 0,
 	start_leader_len_mm: int = 0,
+	override_max_run_ft: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable dimensions, segments, and runs.
@@ -3037,6 +3061,12 @@ def _compute_manufacturable_outputs(
 	else:
 		max_run_ft_effective = max_run_ft_by_watts
 
+	# User override: replaces both the watts and voltage-drop limits entirely.
+	override_max_run_ft_active = False
+	if override_max_run_ft is not None and override_max_run_ft > 0:
+		max_run_ft_effective = float(override_max_run_ft)
+		override_max_run_ft_active = True
+
 	# Compute run count: runs_count = ceil(total_ft / max_run_ft_effective)
 	# Handle edge case: if L_tape_cut is 0 or negative, no runs are needed
 	if L_tape_cut <= 0:
@@ -3118,6 +3148,7 @@ def _compute_manufacturable_outputs(
 		"max_run_ft_by_watts": round(max_run_ft_by_watts, 2) if max_run_ft_by_watts != float("inf") else None,
 		"max_run_ft_by_voltage_drop": round(max_run_ft_by_voltage_drop, 2) if max_run_ft_by_voltage_drop else None,
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
+		"override_max_run_ft_active": override_max_run_ft_active,
 		# Task 3.4 outputs
 		"assembly_mode": assembly_mode,
 		"assembled_max_len_mm": int(assembled_max_len_mm),
@@ -4118,6 +4149,7 @@ def _create_or_update_configured_fixture(
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
 	in_memory: bool = False,
+	override_max_run_ft: float | None = None,
 ):
 	"""
 	Create or update an ilL-Configured-Fixture document.
@@ -4287,6 +4319,14 @@ def _create_or_update_configured_fixture(
 	doc.max_run_ft_by_watts = computed.get("max_run_ft_by_watts")
 	doc.max_run_ft_by_voltage_drop = computed.get("max_run_ft_by_voltage_drop")
 	doc.max_run_ft_effective = computed.get("max_run_ft_effective")
+
+	# Persist max run length override when supplied
+	if override_max_run_ft is not None and override_max_run_ft > 0:
+		doc.override_max_run_ft_enabled = 1
+		doc.override_max_run_ft = float(override_max_run_ft)
+	else:
+		doc.override_max_run_ft_enabled = 0
+		doc.override_max_run_ft = 0
 
 	# Set resolved item links (cached for downstream BOM/WO generation)
 	doc.profile_item = resolved_items.get("profile_item")

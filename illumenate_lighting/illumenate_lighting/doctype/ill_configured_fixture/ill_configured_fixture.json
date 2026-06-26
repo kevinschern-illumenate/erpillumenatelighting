@@ -72,6 +72,8 @@
   "max_run_ft_by_voltage_drop",
   "column_break_run_metadata",
   "max_run_ft_effective",
+  "override_max_run_ft_enabled",
+  "override_max_run_ft",
   "resolved_items_section",
   "profile_item",
   "lens_item",
@@ -519,6 +521,20 @@
    "fieldname": "max_run_ft_effective",
    "fieldtype": "Float",
    "label": "Max Run (ft) Effective"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, the user-supplied max run length overrides the computed value",
+   "fieldname": "override_max_run_ft_enabled",
+   "fieldtype": "Check",
+   "label": "Override Max Run Length"
+  },
+  {
+   "depends_on": "eval:doc.override_max_run_ft_enabled == 1",
+   "description": "User-supplied max run length (ft) used in place of the computed value",
+   "fieldname": "override_max_run_ft",
+   "fieldtype": "Float",
+   "label": "Override Max Run (ft)"
   },
   {
    "collapsible": 1,

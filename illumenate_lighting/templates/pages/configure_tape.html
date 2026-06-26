@@ -189,6 +189,30 @@ Allows users to configure LED tape and neon products with step-by-step selection
 						</div>
 						{% endif %}
 
+						<!-- ═══ Override Max Run Length (tape + neon) ═══ -->
+						<div class="config-step mt-3" id="stepOverrideMaxRun">
+							<hr>
+							<div class="custom-control custom-checkbox">
+								<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
+									   onchange="(function(cb){var i=document.getElementById('overrideMaxRunGroup');var w=document.getElementById('overrideMaxRunWarning');if(i)i.style.display=cb.checked?'':'none';if(w)w.style.display=cb.checked?'':'none';})(this)">
+								<label class="custom-control-label" for="overrideMaxRunCheck">
+									{{ _("Override Max Run Length") }}
+								</label>
+							</div>
+							<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+								<input type="number" class="form-control" id="overrideMaxRunInput"
+									   min="0.5" step="0.5" placeholder="{{ _('Custom max run (ft)') }}">
+								<span class="input-group-text">ft</span>
+							</div>
+							<div class="alert alert-warning mt-2" id="overrideMaxRunWarning" style="display: none;">
+								<button type="button" class="close" aria-label="Close"
+										onclick="this.parentNode.style.display='none'">
+									<span aria-hidden="true">&times;</span>
+								</button>
+								<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+							</div>
+						</div>
+
 						<!-- Calculate Button -->
 						<div class="mt-3">
 							<button type="button" class="btn btn-primary btn-block" id="btnCalculate" disabled>
