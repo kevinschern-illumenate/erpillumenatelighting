@@ -401,6 +401,307 @@ class ilLProjectFixtureSchedule(Document):
 
 		return so.name
 
+	def get_transaction_line_summary(self, include_accessories=True, include_other=True):
+		"""Return a lightweight breakdown of how many lines of each type would
+		be imported into a Quotation / Sales Order.
+
+		Used by the desk "Get Items From → Fixture Schedule" picker to preview
+		the import before committing. Does not modify any documents.
+		"""
+		summary = {
+			"fixtures": 0,
+			"tape_neon": 0,
+			"kits": 0,
+			"accessories": 0,
+			"other": 0,
+			"unconfigured": 0,
+		}
+
+		for line in self.lines:
+			mt = line.manufacturer_type
+			if mt == "ILLUMENATE":
+				pt = line.product_type
+				if pt in ("LED Tape", "LED Neon"):
+					if line.variant_selections:
+						summary["tape_neon"] += 1
+					else:
+						summary["unconfigured"] += 1
+				elif pt == "Extrusion Kit":
+					if line.variant_selections:
+						summary["kits"] += 1
+					else:
+						summary["unconfigured"] += 1
+				elif line.configured_fixture:
+					summary["fixtures"] += 1
+				else:
+					summary["unconfigured"] += 1
+			elif mt == "ACCESSORY":
+				if line.accessory_item:
+					summary["accessories"] += 1
+				else:
+					summary["unconfigured"] += 1
+			elif mt == "OTHER":
+				summary["other"] += 1
+
+		return summary
+
+	def append_quote_lines(self, target_doc, include_accessories=True, include_other=False):
+		"""Append this schedule's line items onto a target transaction document
+		(Quotation or Sales Order) and return a summary dict.
+
+		The line representation mirrors :meth:`create_sales_order` so that a
+		quotation built from a schedule matches the eventual sales order:
+
+		* Configured fixtures → single configured Item row (Item + BOM ensured)
+		* LED Tape / LED Neon  → exploded component rows (leader + tape lengths)
+		* Extrusion Kit        → exploded component rows
+		* Accessories          → direct Item row
+		* Other manufacturer   → reported as skipped (no catalog Item)
+
+		The schedule status is left unchanged; only ``target_doc.items`` is
+		mutated. The caller is responsible for saving ``target_doc``.
+		"""
+		import json as _json
+
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_bom,
+			_create_or_get_configured_item,
+			_update_fixture_links,
+		)
+
+		counts = {
+			"fixtures": 0,
+			"tape_neon": 0,
+			"kits": 0,
+			"accessories": 0,
+			"other": 0,
+			"skipped": 0,
+			"rows_added": 0,
+			"items_created": 0,
+			"boms_created": 0,
+			"messages": [],
+		}
+
+		rows_before = len(target_doc.items)
+
+		for line in self.lines:
+			line_label = line.line_id or f"Row {line.idx}"
+			mt = line.manufacturer_type
+
+			# ── ilLumenate: LED Tape / LED Neon ───────────────────────
+			if mt == "ILLUMENATE" and line.product_type in ("LED Tape", "LED Neon"):
+				if not line.variant_selections:
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: {1} is not configured — skipped").format(
+							line_label, line.product_type
+						)
+					)
+					continue
+				try:
+					config_data = _json.loads(line.variant_selections)
+				except (ValueError, TypeError):
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: invalid {1} configuration data — skipped").format(
+							line_label, line.product_type
+						)
+					)
+					continue
+
+				from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+					create_tape_neon_so_lines,
+				)
+				result = create_tape_neon_so_lines(target_doc, line, config_data)
+				if result.get("items_added"):
+					counts["tape_neon"] += 1
+				else:
+					counts["skipped"] += 1
+				for msg in result.get("messages", []):
+					counts["messages"].append(_("Line {0}: {1}").format(line_label, msg))
+				continue
+
+			# ── ilLumenate: Extrusion Kit ─────────────────────────────
+			if mt == "ILLUMENATE" and line.product_type == "Extrusion Kit":
+				if not line.variant_selections:
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: Extrusion Kit is not configured — skipped").format(line_label)
+					)
+					continue
+				try:
+					config_data = _json.loads(line.variant_selections)
+				except (ValueError, TypeError):
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: invalid Extrusion Kit configuration data — skipped").format(line_label)
+					)
+					continue
+
+				from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+					create_kit_so_lines,
+				)
+				result = create_kit_so_lines(target_doc, line, config_data)
+				if result.get("items_added"):
+					counts["kits"] += 1
+				else:
+					counts["skipped"] += 1
+				for msg in result.get("messages", []):
+					counts["messages"].append(_("Line {0}: {1}").format(line_label, msg))
+				continue
+
+			# ── ilLumenate: Configured Fixture ────────────────────────
+			if mt == "ILLUMENATE":
+				if not line.configured_fixture:
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: fixture is not configured — skipped").format(line_label)
+					)
+					continue
+				if not frappe.db.exists("ilL-Configured-Fixture", line.configured_fixture):
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: configured fixture {1} no longer exists — skipped").format(
+							line_label, line.configured_fixture
+						)
+					)
+					continue
+
+				configured_fixture = frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
+
+				# Step 1: ensure the configured Item exists
+				item_code = configured_fixture.configured_item
+				item_existed = bool(item_code and frappe.db.exists("Item", item_code))
+				if not item_existed:
+					item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
+					if item_result.get("success") and item_result.get("item_code"):
+						item_code = item_result["item_code"]
+						if item_result.get("created"):
+							counts["items_created"] += 1
+					else:
+						counts["skipped"] += 1
+						counts["messages"].append(
+							_("Line {0}: failed to create Item for fixture {1} — skipped").format(
+								line_label, line.configured_fixture
+							)
+						)
+						continue
+
+				# Ensure brand + MSRP Item Price so the quotation rate populates.
+				self._check_and_update_item_pricing(item_code, configured_fixture)
+
+				# Step 2: ensure the BOM exists
+				bom_name = configured_fixture.bom
+				bom_existed = bool(bom_name and frappe.db.exists("BOM", bom_name))
+				if not bom_existed:
+					bom_result = _create_or_get_bom(configured_fixture, item_code, skip_if_exists=True)
+					if bom_result.get("success") and bom_result.get("bom_name"):
+						bom_name = bom_result["bom_name"]
+						if bom_result.get("created"):
+							counts["boms_created"] += 1
+					elif not bom_result.get("success"):
+						frappe.log_error(
+							title=f"Quote-from-Schedule BOM Warning for {line.configured_fixture}",
+							message="; ".join(m.get("text", "") for m in bom_result.get("messages", [])),
+						)
+
+				if not item_existed or not bom_existed:
+					_update_fixture_links(
+						configured_fixture,
+						item_code=item_code,
+						bom_name=bom_name,
+						work_order_name=None,
+					)
+
+				row = target_doc.append("items", {})
+				row.item_code = item_code
+				row.qty = line.qty or 1
+				row.description = self._build_item_description(line, configured_fixture)
+				self._set_optional_row_value(row, "ill_product_type", "Linear Fixture")
+				self._set_optional_row_value(row, "ill_configured_fixture", line.configured_fixture)
+				self._set_optional_row_value(row, "ill_configured_item", item_code)
+				self._set_optional_row_value(row, "ill_bom", bom_name)
+				self._set_optional_row_value(row, "ill_template_code", configured_fixture.fixture_template)
+				self._set_optional_row_value(
+					row, "ill_requested_length_mm", configured_fixture.requested_overall_length_mm
+				)
+				self._set_optional_row_value(
+					row, "ill_mfg_length_mm", configured_fixture.manufacturable_overall_length_mm
+				)
+				self._set_optional_row_value(row, "ill_runs_count", configured_fixture.runs_count)
+				self._set_optional_row_value(row, "ill_total_watts", configured_fixture.total_watts)
+				self._set_optional_row_value(row, "ill_finish", configured_fixture.finish)
+				self._set_optional_row_value(row, "ill_lens", configured_fixture.lens_appearance)
+				self._set_optional_row_value(row, "ill_engine_version", configured_fixture.engine_version)
+				if line.location:
+					self._set_optional_row_value(row, "ill_section_label", line.location)
+				counts["fixtures"] += 1
+				continue
+
+			# ── Accessory / Component ─────────────────────────────────
+			if mt == "ACCESSORY":
+				if not include_accessories:
+					counts["skipped"] += 1
+					continue
+				if not line.accessory_item:
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: accessory has no Item selected — skipped").format(line_label)
+					)
+					continue
+				if not frappe.db.exists("Item", line.accessory_item):
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: accessory Item {1} no longer exists — skipped").format(
+							line_label, line.accessory_item
+						)
+					)
+					continue
+
+				row = target_doc.append("items", {})
+				row.item_code = line.accessory_item
+				row.qty = line.qty or 1
+				desc_parts = []
+				if line.accessory_item_name:
+					desc_parts.append(line.accessory_item_name)
+				if line.location:
+					desc_parts.append(f"Location: {line.location}")
+				if line.notes:
+					desc_parts.append(f"Notes: {line.notes}")
+				if desc_parts:
+					row.description = " | ".join(desc_parts)
+				if line.location:
+					self._set_optional_row_value(row, "ill_section_label", line.location)
+				counts["accessories"] += 1
+				continue
+
+			# ── Other manufacturer (no catalog Item) ──────────────────
+			if mt == "OTHER":
+				counts["other"] += 1
+				if not include_other:
+					counts["skipped"] += 1
+				label_bits = [b for b in [line.manufacturer_name, line.fixture_model_number] if b]
+				counts["messages"].append(
+					_("Line {0}: other-manufacturer item ({1}) has no catalog Item and was not added").format(
+						line_label, " ".join(label_bits) or _("unspecified")
+					)
+				)
+				continue
+
+		counts["rows_added"] = len(target_doc.items) - rows_before
+		return counts
+
+	def _set_optional_row_value(self, row, fieldname, value):
+		"""Set a child-row field only when it exists on the target doctype."""
+		if value is None:
+			return
+		try:
+			if not row.meta.has_field(fieldname):
+				return
+		except Exception:
+			return
+		row.set(fieldname, value)
+
 	def _check_and_update_item_pricing(self, item_code, configured_fixture):
 		"""
 		Check if Item pricing and brand match the configured fixture and update if needed.

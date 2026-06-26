@@ -4719,9 +4719,12 @@ def get_delivered_outputs_for_template(
 
 		# -------------------------------------------------------------------
 		# Check if this is a multi-CCT LED package (Tunable White, etc.)
-		# For multi-CCT packages, the tape offering's CCT stores a generic
+		# For multi-CCT packages, the tape offering's CCT *may* store a generic
 		# value (e.g. "Tunable White") that won't match the user-selected
-		# individual CCT (e.g. "3000K"). Skip the CCT filter in that case.
+		# individual CCT (e.g. "3000K"). However, some multi-CCT families
+		# (e.g. Dim to Warm) still expose distinct tape offerings per individual
+		# CCT (1830K, 2230K, ...). Always filter by the selected CCT first and
+		# only fall back to skipping it when that yields no results.
 		# -------------------------------------------------------------------
 		MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
 		is_multi_cct = False
@@ -4734,8 +4737,9 @@ def get_delivered_outputs_for_template(
 			"name": ["in", valid_tape_offering_names],
 			"led_package": led_package_code,
 		}
-		# For multi-CCT packages, don't filter by CCT; also skip if cct_code not provided
-		if not is_multi_cct and cct_code:
+		# Always filter by the user-selected CCT when provided so outputs reflect
+		# the exact CCT choice (e.g. 1830K vs 2230K) even for multi-CCT packages.
+		if cct_code:
 			tape_filters["cct"] = cct_code
 		active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
 		if active_count > 0:
@@ -4748,6 +4752,18 @@ def get_delivered_outputs_for_template(
 			fields=["name", "output_level", "tape_spec"],
 			ignore_permissions=True,
 		)
+
+		# Fallback: multi-CCT packages whose tape offerings carry a generic CCT
+		# (e.g. "Tunable White") won't match an individual CCT code. Retry without
+		# the CCT filter only when the CCT-filtered query returned nothing.
+		if not tape_offerings and is_multi_cct and cct_code:
+			tape_filters.pop("cct", None)
+			tape_offerings = frappe.get_all(
+				"ilL-Rel-Tape Offering",
+				filters=tape_filters,
+				fields=["name", "output_level", "tape_spec"],
+				ignore_permissions=True,
+			)
 
 		if not tape_offerings:
 			return {"success": True, "delivered_outputs": [], "compatible_tapes": [], "lens_transmission_pct": lens_transmission_decimal * 100, "error": None}
@@ -4933,9 +4949,12 @@ def auto_select_tape_for_configuration(
 
 	# -------------------------------------------------------------------
 	# Check if this is a multi-CCT LED package (Tunable White, etc.)
-	# For multi-CCT packages, the tape offering's CCT field stores a generic
+	# For multi-CCT packages, the tape offering's CCT field *may* store a generic
 	# value (e.g. "Tunable White") that won't match the user-selected individual
-	# CCT (e.g. "3000K"). Skip the CCT filter in that case.
+	# CCT (e.g. "3000K"). However, some multi-CCT families (e.g. Dim to Warm)
+	# still expose distinct tape offerings per individual CCT (1830K, 2230K, ...).
+	# So we always try to filter by the selected CCT first, and only fall back to
+	# skipping the CCT filter when that yields no results.
 	# -------------------------------------------------------------------
 	MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW"}
 	is_multi_cct = False
@@ -4948,9 +4967,9 @@ def auto_select_tape_for_configuration(
 		"name": ["in", valid_tape_offering_names],
 		"led_package": led_package_code,
 	}
-	# For multi-CCT packages, don't filter by CCT (tape has generic CCT like "Tunable White")
-	# Also skip if cct_code not provided
-	if not is_multi_cct and cct_code:
+	# Always filter by the user-selected CCT when provided so we honour the exact
+	# CCT choice (e.g. 1830K vs 2230K) even for multi-CCT packages.
+	if cct_code:
 		tape_filters["cct"] = cct_code
 	active_count = frappe.db.count("ilL-Rel-Tape Offering", {"is_active": 1})
 	if active_count > 0:
@@ -4962,6 +4981,18 @@ def auto_select_tape_for_configuration(
 		fields=["name", "output_level", "tape_spec", "cri", "sdcm"],
 		ignore_permissions=True,
 	)
+
+	# Fallback: multi-CCT packages whose tape offerings carry a generic CCT
+	# (e.g. "Tunable White") won't match an individual CCT code. Retry without
+	# the CCT filter only when the CCT-filtered query returned nothing.
+	if not tape_offerings and is_multi_cct and cct_code:
+		tape_filters.pop("cct", None)
+		tape_offerings = frappe.get_all(
+			"ilL-Rel-Tape Offering",
+			filters=tape_filters,
+			fields=["name", "output_level", "tape_spec", "cri", "sdcm"],
+			ignore_permissions=True,
+		)
 
 	if not tape_offerings:
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No matching tapes found for selection"}

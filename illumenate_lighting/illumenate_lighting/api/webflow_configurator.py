@@ -874,14 +874,27 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     Returns:
         list: Output options with delivered lumen values
     """
-    # Get lens transmission as decimal (stored as 0.56 = 56%)
+    # Get lens transmission as decimal (stored as 0.56 = 56%).
+    # The Webflow page may send the lens as a document name ("White") or a
+    # short code ("WH").  Resolve by name first, then by code, mirroring
+    # _resolve_tape_offering — otherwise the transmission silently stays 1.0
+    # and the displayed (delivered) output levels diverge from what the
+    # matcher computes, so the user's selection can never match an offering.
     lens_transmission = 1.0  # Default to 100% if no lens selected
     if lens_appearance:
-        transmission = frappe.db.get_value(
-            "ilL-Attribute-Lens Appearance", lens_appearance, "transmission"
-        )
-        if transmission:
-            lens_transmission = float(transmission)
+        lens_doc_name = None
+        if frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance):
+            lens_doc_name = lens_appearance
+        else:
+            lens_doc_name = frappe.db.get_value(
+                "ilL-Attribute-Lens Appearance", {"code": lens_appearance}, "name"
+            )
+        if lens_doc_name:
+            transmission = frappe.db.get_value(
+                "ilL-Attribute-Lens Appearance", lens_doc_name, "transmission"
+            )
+            if transmission:
+                lens_transmission = float(transmission)
     
     # Get fixture-level output levels for matching
     fixture_output_levels = frappe.get_all(
@@ -1405,8 +1418,10 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     4. Finds the closest fixture-level output level.
     5. Checks whether that fixture-level output matches the user's selection.
 
-    For multi-CCT packages (Tunable White, etc.), skips the exact CCT match
-    since the tape carries a generic CCT while the user selects individual CCTs.
+    For multi-CCT packages (Tunable White, etc.) the user's exact CCT choice is
+    still honoured: an offering matching the selected CCT is preferred, and a
+    generic-CCT offering (e.g. one whose CCT is "Tunable White") is only used as
+    a fallback when no exact-CCT offering matches.
 
     Uses flexible matching for environment rating to handle Webflow page radio
     values that may be display labels/codes rather than exact ERPNext names.
@@ -1468,14 +1483,21 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         f"is_multi_cct={is_multi_cct}"
     )
 
+    # Exact-CCT matches are preferred. Generic-CCT matches (multi-CCT packages
+    # whose tape offering carries a generic CCT like "Tunable White") are only
+    # used as a fallback when no offering matches the user's exact CCT choice.
     best_match = None
     best_diff = float("inf")
+    best_generic_match = None
+    best_generic_diff = float("inf")
     # Tolerant fallback: track the offering whose delivered fixture-level
     # output is numerically closest to the user's selection, in case no
     # offering lands on an exact fixture-level value (rounding, sparse
     # output-level table, etc.).
     nearest_match = None
     nearest_diff = float("inf")
+    nearest_generic_match = None
+    nearest_generic_diff = float("inf")
 
     for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
         if not getattr(tape_row, 'is_active', True):
@@ -1496,20 +1518,11 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         if not offering_data:
             continue
 
-        offering_cct_name = offering_data.get("cct")
-        cct_matches = is_multi_cct or (offering_cct_name == cct)
-
-        # Fallback: Webflow radio buttons send the CCT code ("30K") while the
-        # ERPNext document name may be "3000K".  Mirror the same code-lookup
-        # pattern that _env_matches() uses for environment rating.
-        if not cct_matches and not is_multi_cct and offering_cct_name:
-            tape_cct_code = frappe.db.get_value(
-                "ilL-Attribute-CCT", offering_cct_name, "code"
-            )
-            if tape_cct_code:
-                cct_matches = tape_cct_code == cct or tape_cct_code == cct_code
-
-        if not cct_matches:
+        # Honour the user's exact CCT choice. Only consider a tape whose CCT
+        # does not match when this is a multi-CCT package (its offering may
+        # carry a generic CCT), and even then treat it strictly as a fallback.
+        is_exact_cct = (offering_data.get("cct") == cct)
+        if not is_exact_cct and not is_multi_cct:
             frappe.logger().debug(
                 f"_resolve_tape_offering: skipped {tape_offering} "
                 f"(cct mismatch: tape={offering_cct_name!r}, sel={cct!r}, code={cct_code!r})"
@@ -1553,11 +1566,18 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         # Check if this tape's delivered output matches the user's selection
         matches = False
         if desired_output_value is not None:
-            # Track the numerically-closest candidate for the tolerant fallback
+            # Track the numerically-closest candidate for the tolerant fallback,
+            # keeping exact-CCT and generic-CCT candidates separate so exact
+            # CCT matches are always preferred.
             fixture_diff = abs((delivered_fixture_value or 0) - desired_output_value)
-            if fixture_diff < nearest_diff:
-                nearest_diff = fixture_diff
-                nearest_match = tape_offering
+            if is_exact_cct:
+                if fixture_diff < nearest_diff:
+                    nearest_diff = fixture_diff
+                    nearest_match = tape_offering
+            else:
+                if fixture_diff < nearest_generic_diff:
+                    nearest_generic_diff = fixture_diff
+                    nearest_generic_match = tape_offering
             # Numeric comparison against the fixture output level value
             if delivered_fixture_value == desired_output_value:
                 matches = True
@@ -1573,28 +1593,38 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
 
         if matches:
             diff = abs(delivered_lm_ft - delivered_fixture_value)
-            if diff < best_diff:
-                best_diff = diff
-                best_match = tape_offering
+            if is_exact_cct:
+                if diff < best_diff:
+                    best_diff = diff
+                    best_match = tape_offering
+            else:
+                if diff < best_generic_diff:
+                    best_generic_diff = diff
+                    best_generic_match = tape_offering
 
-    if best_match:
+    # Prefer an exact-CCT match; only use a generic-CCT match as a fallback.
+    resolved_match = best_match or best_generic_match
+    if resolved_match:
         frappe.logger().info(
-            f"_resolve_tape_offering: matched tape_offering={best_match}"
+            f"_resolve_tape_offering: matched tape_offering={resolved_match}"
         )
-        return best_match
+        return resolved_match
 
     # Tolerant fallback — accept the closest delivered output level when it is
     # within ~15% of the requested value.  This keeps the public spec-sheet
     # flow working when the configured output level doesn't land exactly on a
     # fixture-level value, while still rejecting clearly-mismatched configs.
-    if nearest_match is not None and desired_output_value:
+    # Prefer the closest exact-CCT candidate over a generic-CCT one.
+    nearest_fallback = nearest_match if nearest_match is not None else nearest_generic_match
+    nearest_fallback_diff = nearest_diff if nearest_match is not None else nearest_generic_diff
+    if nearest_fallback is not None and desired_output_value:
         tolerance = max(1.0, desired_output_value * 0.15)
-        if nearest_diff <= tolerance:
+        if nearest_fallback_diff <= tolerance:
             frappe.logger().info(
-                f"_resolve_tape_offering: tolerant match tape_offering={nearest_match} "
-                f"(nearest_diff={nearest_diff}, tolerance={tolerance})"
+                f"_resolve_tape_offering: tolerant match tape_offering={nearest_fallback} "
+                f"(nearest_diff={nearest_fallback_diff}, tolerance={tolerance})"
             )
-            return nearest_match
+            return nearest_fallback
 
     frappe.logger().warning(
         f"_resolve_tape_offering: no tape found for template={template.name}, "
