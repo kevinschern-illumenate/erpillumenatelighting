@@ -1429,6 +1429,7 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     environment = selections.get("environment_rating")
     env_code = selections.get("environment_rating_code")
     cct = selections.get("cct")
+    cct_code = selections.get("cct_code") or cct
     output_level = selections.get("output_level")
     output_level_code = selections.get("output_level_code")
     lens_appearance = selections.get("lens_appearance")
@@ -1523,7 +1524,8 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         is_exact_cct = (offering_data.get("cct") == cct)
         if not is_exact_cct and not is_multi_cct:
             frappe.logger().debug(
-                f"_resolve_tape_offering: skipped {tape_offering} (cct mismatch)"
+                f"_resolve_tape_offering: skipped {tape_offering} "
+                f"(cct mismatch: tape={offering_cct_name!r}, sel={cct!r}, code={cct_code!r})"
             )
             continue
 

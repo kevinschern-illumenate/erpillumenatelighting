@@ -1448,8 +1448,11 @@ def validate_and_quote_multisegment(
 		finish_code,
 		lens_appearance_code,
 		mounting_method_code,
-		"FEED_THROUGH",  # Default endcap style for multi-segment
-		"SOLID",  # Default endcap style for multi-segment
+		# E11: use the real resolved endcap style codes for the multi-segment
+		# fixture (start + end) so endcap adders are priced correctly. Fall
+		# back to the prior placeholders only if resolution produced nothing.
+		resolved_result.get("endcap_style_start") or "FEED_THROUGH",
+		resolved_result.get("endcap_style_end") or "SOLID",
 		start_power_feed_type,
 		environment_rating_code,
 		tape_offering_id,
@@ -1513,6 +1516,50 @@ def validate_and_quote_multisegment(
 	return response
 
 
+def _resolve_multisegment_endcap_allowances(
+	fixture_template_code: str, endcap_color_code: str
+) -> dict[str, float]:
+	"""Resolve per-side endcap allowances (mm) from the Endcap Style attribute.
+
+	Returns a mapping of endcap *type* ("Feed-Through" / "Solid") to the
+	``allowance_mm_per_side`` configured on the matching
+	``ilL-Attribute-Endcap Style`` record for this template/colour. This makes
+	the multi-segment length math attribute-driven (E1) instead of relying on a
+	hard-coded constant. Returns an empty dict when nothing can be resolved so
+	callers can fall back to their default.
+	"""
+	result: dict[str, float] = {}
+	try:
+		candidates = frappe.get_all(
+			"ilL-Rel-Endcap-Map",
+			filters={
+				"fixture_template": fixture_template_code,
+				"endcap_color": endcap_color_code,
+				"is_active": 1,
+			},
+			fields=["endcap_style"],
+		)
+		style_names = list({c.endcap_style for c in candidates if c.endcap_style})
+		if not style_names:
+			return result
+		styles = frappe.get_all(
+			"ilL-Attribute-Endcap Style",
+			filters={"name": ["in", style_names]},
+			fields=["name", "style", "supports_feed", "allowance_mm_per_side"],
+		)
+		for s in styles:
+			allowance = float(s.get("allowance_mm_per_side") or 0)
+			style_name = (s.get("style") or "").lower()
+			is_feed = bool(s.get("supports_feed")) or "feed" in style_name
+			if is_feed:
+				result.setdefault("Feed-Through", allowance)
+			if "solid" in style_name or not is_feed:
+				result.setdefault("Solid", allowance)
+	except Exception:
+		return result
+	return result
+
+
 def _compute_multisegment_outputs(
 	fixture_template_code: str,
 	tape_offering_id: str,
@@ -1572,6 +1619,13 @@ def _compute_multisegment_outputs(
 	profile_stock_len_mm = float(template_doc.default_profile_stock_len_mm or 2000)
 	leader_allowance_mm = float(template_doc.leader_allowance_mm_per_fixture or 15)
 	assembled_max_len_mm = float(template_doc.assembled_max_len_mm or 2590)
+
+	# E1: Resolve attribute-driven per-side endcap allowances for this
+	# template/colour. Falls back to a default when not configured.
+	DEFAULT_ENDCAP_ALLOWANCE_PER_SIDE = 5.0  # mm
+	endcap_allowance_by_type = _resolve_multisegment_endcap_allowances(
+		fixture_template_code, endcap_color_code
+	)
 
 	# Compute max run length
 	if watts_per_ft > 0:
@@ -1654,16 +1708,27 @@ def _compute_multisegment_outputs(
 		# - Endcap: Solid (caps the fixture)
 		end_endcap_type = "Feed-Through" if end_type == "Jumper" else "Solid"
 
-		# Standard endcap allowance (can be made configurable per template)
-		endcap_allowance_per_side = 5.0  # mm
+		# Standard endcap allowance (E1: attribute-driven per-side allowance,
+		# resolved from the Endcap Style attribute, falling back to the default).
+		start_allowance = endcap_allowance_by_type.get(
+			start_endcap_type, DEFAULT_ENDCAP_ALLOWANCE_PER_SIDE
+		)
+		end_allowance = endcap_allowance_by_type.get(
+			end_endcap_type, DEFAULT_ENDCAP_ALLOWANCE_PER_SIDE
+		)
 
 		# Calculate internal length for this segment
 		# EVERY segment needs endcap allowance on BOTH ends:
 		# - Start: always has an endcap (feed-through or solid)
 		# - End: always has an endcap (feed-through for jumper, solid for cap)
-		total_endcap_allowance = endcap_allowance_per_side * 2  # Both ends
+		total_endcap_allowance = start_allowance + end_allowance  # Both ends
 
-		internal_len = requested_len - total_endcap_allowance - leader_allowance_mm
+		# E2: the per-fixture leader allowance is consumed once, at the leader
+		# entry point on the first segment only. Subsequent segments receive a
+		# jumper cable (handled separately) and must not deduct it again.
+		seg_leader_allowance = leader_allowance_mm if idx == 0 else 0
+
+		internal_len = requested_len - total_endcap_allowance - seg_leader_allowance
 
 		if internal_len <= 0:
 			error_messages.append({
@@ -1690,7 +1755,24 @@ def _compute_multisegment_outputs(
 			continue
 
 		# Calculate manufacturable length for this segment
-		mfg_len = tape_cut_len + total_endcap_allowance + leader_allowance_mm
+		mfg_len = tape_cut_len + total_endcap_allowance + seg_leader_allowance
+
+		# E3: each user segment is a single physical profile/lens piece that must
+		# be cut from one stock length. Guard against a segment that cannot be
+		# produced from a single profile stick.
+		if profile_stock_len_mm > 0 and mfg_len > profile_stock_len_mm:
+			error_messages.append({
+				"severity": "error",
+				"text": (
+					f"Segment {seg_index}: profile length {int(mfg_len)}mm exceeds the "
+					f"maximum profile stock length {int(profile_stock_len_mm)}mm; "
+					f"split this segment into shorter pieces."
+				),
+				"field": "segments_json",
+			})
+			has_errors = True
+			continue
+
 		total_manufacturable_length += mfg_len
 		total_tape_length += tape_cut_len
 
@@ -1825,46 +1907,29 @@ def _compute_multisegment_outputs(
 		assembly_mode = "SHIP_PIECES"
 
 	# ==========================================================================
-	# PHASE 3: Calculate profile/lens segments (cut plan based on stock length)
+	# PHASE 3: Per-segment profile/lens cut plan
 	# ==========================================================================
-	# Profile and lens stock comes in standard lengths (e.g., 2000mm).
-	# Calculate how many stock pieces are needed and the cut plan.
+	# Each user segment is a single physical profile/lens piece cut from one
+	# stock length. The over-length guard in PHASE 1 ensures every segment fits
+	# within profile_stock_len_mm, so each segment maps to exactly one cut. This
+	# matches the BOM profile/lens quantity (one stick per segment).
 	profile_lens_segments = []
-	profile_lens_segments_count = 0
-
-	if profile_stock_len_mm > 0 and total_manufacturable_length > 0:
-		profile_lens_segments_count = math.ceil(total_manufacturable_length / profile_stock_len_mm)
-
-		# Create cut plan: N-1 full stock segments, last is remainder
-		remaining_length = total_manufacturable_length
-		for i in range(profile_lens_segments_count):
-			segment_index = i + 1
-			if segment_index < profile_lens_segments_count:
-				# Full stock segment
-				cut_len = min(profile_stock_len_mm, remaining_length)
-				notes = f"Full stock segment ({int(profile_stock_len_mm)}mm)"
-			else:
-				# Last segment (remainder)
-				cut_len = max(0, remaining_length)
-				notes = f"Remainder segment ({int(cut_len)}mm)"
-
-			remaining_length = max(0, remaining_length - cut_len)
-
-			profile_lens_segments.append({
-				"segment_index": segment_index,
-				"profile_cut_len_mm": int(cut_len),
-				"lens_cut_len_mm": int(cut_len),
-				"notes": notes,
-			})
-	elif total_manufacturable_length > 0:
-		# No stock length defined, treat as single segment
-		profile_lens_segments_count = 1
+	for seg_data in segment_data_list:
+		cut_len = int(seg_data["mfg_len"])
+		if profile_stock_len_mm > 0:
+			notes = (
+				f"Segment {seg_data['seg_index']} profile/lens "
+				f"({cut_len}mm from {int(profile_stock_len_mm)}mm stock)"
+			)
+		else:
+			notes = f"Segment {seg_data['seg_index']} profile/lens ({cut_len}mm)"
 		profile_lens_segments.append({
-			"segment_index": 1,
-			"profile_cut_len_mm": int(total_manufacturable_length),
-			"lens_cut_len_mm": int(total_manufacturable_length),
-			"notes": f"Single segment ({int(total_manufacturable_length)}mm)",
+			"segment_index": seg_data["seg_index"],
+			"profile_cut_len_mm": cut_len,
+			"lens_cut_len_mm": cut_len,
+			"notes": notes,
 		})
+	profile_lens_segments_count = len(profile_lens_segments)
 
 	return {
 		"total_requested_length_mm": total_requested_length,
@@ -2084,6 +2149,8 @@ def _resolve_multisegment_items(
 	# Otherwise, look for a solid endcap
 	start_endcap_found = None
 	start_endcap_fallback = None
+	start_endcap_style = None
+	start_endcap_style_fallback = None
 	for ec_row in endcap_candidates:
 		if not ec_row.endcap_style:
 			continue
@@ -2095,22 +2162,29 @@ def _resolve_multisegment_items(
 			# Looking for feed-through endcap
 			if supports_feed or "feed" in style_name.lower():
 				start_endcap_found = ec_row.endcap_item
+				start_endcap_style = ec_row.endcap_style
 				break
 			if not start_endcap_fallback:
 				start_endcap_fallback = ec_row.endcap_item
+				start_endcap_style_fallback = ec_row.endcap_style
 		else:
 			# Looking for solid endcap
 			if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
 				start_endcap_found = ec_row.endcap_item
+				start_endcap_style = ec_row.endcap_style
 				break
 			if not start_endcap_fallback:
 				start_endcap_fallback = ec_row.endcap_item
+				start_endcap_style_fallback = ec_row.endcap_style
 
 	resolved["endcap_item_start"] = start_endcap_found or start_endcap_fallback
+	resolved["endcap_style_start"] = start_endcap_style or start_endcap_style_fallback
 
 	# Find end endcap: always solid (no power passing through the end)
 	end_endcap_found = None
 	end_endcap_fallback = None
+	end_endcap_style = None
+	end_endcap_style_fallback = None
 	for ec_row in endcap_candidates:
 		if not ec_row.endcap_style:
 			continue
@@ -2121,11 +2195,14 @@ def _resolve_multisegment_items(
 		# Looking for solid endcap
 		if "solid" in style_name.lower() or (not supports_feed and "feed" not in style_name.lower()):
 			end_endcap_found = ec_row.endcap_item
+			end_endcap_style = ec_row.endcap_style
 			break
 		if not end_endcap_fallback:
 			end_endcap_fallback = ec_row.endcap_item
+			end_endcap_style_fallback = ec_row.endcap_style
 
 	resolved["endcap_item_end"] = end_endcap_found or end_endcap_fallback
+	resolved["endcap_style_end"] = end_endcap_style or end_endcap_style_fallback
 
 	# Resolve leader cable item
 	if tape_offering_doc:
@@ -2206,6 +2283,7 @@ def _create_or_update_multisegment_fixture(
 	else:
 		# Check for existing fixture with same hash
 		existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
+		collision_name = None
 
 		# If not found by hash, also check by generated part number (to handle duplicates)
 		# Create a temporary doc to generate the part number
@@ -2237,14 +2315,35 @@ def _create_or_update_multisegment_fixture(
 				})
 			# Generate the part number that would be used
 			generated_part_number = temp_doc._generate_part_number()
-			# Check if this part number already exists
+			# Check if this part number already exists. Because the exact
+			# config_hash lookup above failed, any record sharing this part
+			# number is a different configuration (a collision), not a reuse.
 			if frappe.db.exists("ilL-Configured-Fixture", generated_part_number):
-				existing = generated_part_number
+				collision_name = generated_part_number
 
 		if existing:
+			# Exact configuration match — safe to reuse/update this record.
 			doc = frappe.get_doc("ilL-Configured-Fixture", existing)
 			# Update config_hash if configuration changed
 			doc.config_hash = config_hash
+		elif collision_name:
+			# Part-number collision with a different configuration.
+			# E14: never mutate the colliding record (it may back historical
+			# orders/quotes/BOMs). Compare the full configuration and, on
+			# mismatch, create a variant so the original stays untouched.
+			collision_doc = frappe.get_doc("ilL-Configured-Fixture", collision_name)
+			if (collision_doc.config_hash or "") == config_hash:
+				doc = collision_doc
+				doc.config_hash = config_hash
+				existing = collision_name
+			else:
+				root_parent = _resolve_root_configured_fixture(collision_name)
+				doc = frappe.new_doc("ilL-Configured-Fixture")
+				doc.config_hash = config_hash
+				doc.parent_configured_fixture = root_parent
+				doc.variant_suffix = _compute_variant_suffix(config_data)
+				if variant_origin:
+					doc.variant_origin = variant_origin
 		else:
 			doc = frappe.new_doc("ilL-Configured-Fixture")
 			doc.config_hash = config_hash
@@ -3780,9 +3879,16 @@ def _calculate_pricing(
 			# Look up MSRP from Item Price (Selling, Standard Selling price list)
 			driver_msrp = 0.0
 			try:
+				# E12: filter on the Standard Selling price list so the lookup
+				# returns the MSRP rate rather than an arbitrary selling price
+				# row that happens to exist for this item.
 				driver_price = frappe.db.get_value(
 					"Item Price",
-					{"item_code": driver_item_code, "selling": 1},
+					{
+						"item_code": driver_item_code,
+						"price_list": "Standard Selling",
+						"selling": 1,
+					},
 					"price_list_rate",
 				)
 				if driver_price:
@@ -3940,16 +4046,34 @@ def _create_or_update_configured_fixture(
 			existing_by_name = frappe.db.exists("ilL-Configured-Fixture", potential_part_number)
 
 			if existing_by_name:
-				# Part number collision - load existing fixture and validate/update it
-				doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
-
-				# Validate that the key configuration attributes match
-				# If they match, this is the same fixture just needs updating
-				# Update the config_hash since the existing one may be outdated
-				doc.config_hash = config_hash
-
-				# Mark as existing for the save logic below
-				existing = existing_by_name
+				# Part-number collision. The exact-config_hash lookup above
+				# already failed, so an existing record sharing this part
+				# number represents a *different* configuration.
+				#
+				# E14: never mutate that existing record — doing so silently
+				# rewrites the attributes/pricing of a fixture that historical
+				# orders, quotes and BOMs may be pinned to. Instead, compare
+				# the full configuration and, on mismatch, spin off a variant
+				# (a brand-new record with a ``-V(XXXX)`` suffix) so the
+				# original stays untouched.
+				existing_doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
+				if (existing_doc.config_hash or "") == config_hash:
+					# Identical configuration after all — safe to reuse/update.
+					doc = existing_doc
+					doc.config_hash = config_hash
+					existing = existing_by_name
+				else:
+					# Configuration mismatch → create a variant of the
+					# existing record's root ancestor.
+					root_parent = _resolve_root_configured_fixture(existing_by_name)
+					variant_doc = frappe.new_doc("ilL-Configured-Fixture")
+					variant_doc.config_hash = config_hash
+					variant_doc.parent_configured_fixture = root_parent
+					variant_doc.variant_suffix = _compute_variant_suffix(config_data)
+					if variant_origin:
+						variant_doc.variant_origin = variant_origin
+					doc = variant_doc
+					existing = None
 
 	# Set identity fields
 	doc.engine_version = ENGINE_VERSION

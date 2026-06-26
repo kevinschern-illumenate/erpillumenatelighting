@@ -188,12 +188,12 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_export.mark_webflow_synced",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.webflow_attributes.mark_filter_synced",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"product_slug\": \"{{ $('Build Webflow Payload').item.json.product_slug }}\",\n  \"webflow_item_id\": \"{{ $json.id }}\",\n  \"webflow_collection_slug\": \"products\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
+        "jsonBody": "={\n  \"product_slug\": \"{{ $('Build Webflow Payload').item.json.product_slug }}\",\n  \"brand\": \"{{ $('Set Brand').item.json.brand }}\"\n}",
         "options": {}
       },
       "id": "mark-synced",

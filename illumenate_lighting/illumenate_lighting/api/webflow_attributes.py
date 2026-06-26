@@ -1678,7 +1678,8 @@ def get_product_attribute_references(
     product_slugs: list = None,
     sync_status: str = None,
     limit: int = 100,
-    offset: int = 0
+    offset: int = 0,
+    brand: str = None
 ) -> dict:
     """
     Get products with their attribute links resolved to plain-text filter data.
@@ -1699,23 +1700,126 @@ def get_product_attribute_references(
         sync_status:    Optional filter (``"needs_sync"`` etc.).
         limit:          Max results (default 100).
         offset:         Pagination offset.
+        brand:          Brand code (e.g. "illumenate", "lighting_206"). Defaults
+            to the configured default brand (back-compat). When supplied,
+            products are filtered to those whose ``target_brands`` table contains
+            the brand (enabled=1); the per-brand Webflow Item ID and sync status
+            are preferred over the legacy scalars.
 
     Returns:
-        dict with ``products``, ``total``, ``limit``, ``offset``.
+        dict with ``products``, ``total``, ``limit``, ``offset``, ``brand``.
     """
-    filters: Dict[str, Any] = {"is_active": 1}
+    # Resolve brand (defaulting to the configured default brand for back-compat).
+    brand_code = brand or get_default_brand() or "illumenate"
+    try:
+        resolve_brand(brand_code, allow_inactive=True)
+    except frappe.ValidationError:
+        pass
+    is_default_brand = brand_code == (get_default_brand() or "illumenate")
 
-    # We only want products that are already in Webflow
-    filters["webflow_item_id"] = ["is", "set"]
+    filters: Dict[str, Any] = {"is_active": 1}
 
     if product_slugs:
         filters["name"] = ["in", product_slugs]
 
+    # Per-brand Webflow Item IDs: a product is "in Webflow" for this brand when
+    # it has a per-brand sync row carrying a webflow_item_id. During the
+    # dual-write window the default brand may only have the legacy scalar set.
+    per_brand_item_ids: Dict[str, str] = {
+        row["parent"]: row["webflow_item_id"]
+        for row in frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Product",
+                "brand": brand_code,
+                "webflow_item_id": ["is", "set"],
+            },
+            fields=["parent", "webflow_item_id"],
+        )
+    }
+    synced_names: set[str] = set(per_brand_item_ids)
+    if is_default_brand:
+        # Legacy scalar fallback (only products without a per-brand row).
+        legacy_synced = set(frappe.get_all(
+            "ilL-Webflow-Product",
+            filters={"webflow_item_id": ["is", "set"]},
+            pluck="name",
+        ))
+        synced_names |= legacy_synced
+
+    # Restrict to products targeted at this brand (when target rows exist).
+    if frappe.db.count(
+        "ilL-Child-Webflow-Brand-Target",
+        {"brand": brand_code, "parenttype": "ilL-Webflow-Product"},
+    ):
+        targeted_names = set(frappe.get_all(
+            "ilL-Child-Webflow-Brand-Target",
+            filters={
+                "brand": brand_code,
+                "enabled": 1,
+                "parenttype": "ilL-Webflow-Product",
+            },
+            pluck="parent",
+        ))
+        synced_names &= targeted_names
+
+    if product_slugs:
+        synced_names &= set(product_slugs)
+
+    if not synced_names:
+        return {
+            "products": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "brand": brand_code,
+            "filter_field_slugs": ATTRIBUTE_FILTER_FIELD_SLUGS,
+        }
+
+    # Sync status filter: prefer the per-brand row, fall back to legacy scalar
+    # (the latter only for the default brand and only when no per-brand row
+    # exists for that product).
     if sync_status:
         if sync_status == "needs_sync":
-            filters["sync_status"] = ["in", ["Pending", "Never Synced"]]
+            status_set = ["Pending", "Never Synced"]
         else:
-            filters["sync_status"] = sync_status
+            status_set = [sync_status]
+
+        per_brand_match = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Product",
+                "brand": brand_code,
+                "sync_status": ["in", status_set],
+            },
+            pluck="parent",
+        ))
+        has_per_brand_row = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parenttype": "ilL-Webflow-Product", "brand": brand_code},
+            pluck="parent",
+        ))
+        match_names = per_brand_match
+        if is_default_brand:
+            legacy_match = set(frappe.get_all(
+                "ilL-Webflow-Product",
+                filters={"sync_status": ["in", status_set]},
+                pluck="name",
+            ))
+            match_names = per_brand_match | (legacy_match - has_per_brand_row)
+        synced_names &= match_names
+
+        if not synced_names:
+            return {
+                "products": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "brand": brand_code,
+                "filter_field_slugs": ATTRIBUTE_FILTER_FIELD_SLUGS,
+            }
+
+    filters["name"] = ["in", list(synced_names)]
 
     products = frappe.get_all(
         "ilL-Webflow-Product",
@@ -1759,21 +1863,92 @@ def get_product_attribute_references(
         filter_data = build_product_filter_field_data(attr_links_by_type)
         attr_count = sum(len(v) for v in attr_links_by_type.values())
 
+        # Prefer the per-brand Webflow Item ID; fall back to legacy scalar.
+        webflow_item_id = per_brand_item_ids.get(product["name"]) or product["webflow_item_id"]
+
         result_products.append({
             "product_slug": product["product_slug"],
             "product_name": product["product_name"],
-            "webflow_item_id": product["webflow_item_id"],
+            "webflow_item_id": webflow_item_id,
+            "brand": brand_code,
             "attribute_links_by_type": attr_links_by_type,
             "filter_field_data": filter_data,
             "attribute_count": attr_count,
         })
 
-    total = frappe.db.count("ilL-Webflow-Product", filters)
-
     return {
         "products": result_products,
-        "total": total,
+        "total": len(synced_names),
         "limit": limit,
         "offset": offset,
+        "brand": brand_code,
         "filter_field_slugs": ATTRIBUTE_FILTER_FIELD_SLUGS,
+    }
+
+
+@frappe.whitelist(allow_guest=False)
+def mark_filter_synced(
+    product_slug: str,
+    brand: str = None,
+) -> dict:
+    """Mark a product's Webflow *filter fields* as synced for the given brand.
+
+    The product-attribute filter sync workflow PATCHes the plain-text filter
+    fields on a product that has already been synced to Webflow. It must record
+    that the filter sync succeeded *without* clobbering the product's
+    ``webflow_item_id`` / ``webflow_collection_slug`` (which is what the generic
+    :func:`webflow_export.mark_webflow_synced` callback does). This dedicated
+    endpoint only refreshes ``last_synced_at`` / ``sync_status`` and clears any
+    prior sync error, preserving the existing Webflow Item ID.
+    """
+    if not frappe.db.exists("ilL-Webflow-Product", product_slug):
+        frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    synced_at = frappe.utils.now()
+
+    # Per-brand row (authoritative): refresh timestamp/status, preserve item id.
+    existing = frappe.get_all(
+        "ilL-Child-Webflow-Sync-State",
+        filters={
+            "parenttype": "ilL-Webflow-Product",
+            "parent": product_slug,
+            "brand": brand_code,
+        },
+        fields=["name"],
+        limit=1,
+    )
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing[0]["name"], {
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+            "sync_error_message": None,
+        }, update_modified=True)
+    else:
+        parent = frappe.get_doc("ilL-Webflow-Product", product_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Synced",
+            "last_synced_at": synced_at,
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.flags.ignore_validate_update_after_submit = True
+        parent.save(ignore_permissions=True)
+
+    # Legacy scalars: only the timestamp/status on the default brand.
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Product", product_slug, {
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+            "sync_error_message": None,
+        }, update_modified=True)
+
+    frappe.db.commit()
+
+    return {
+        "success": True,
+        "synced_at": synced_at,
+        "product_slug": product_slug,
+        "brand": brand_code,
     }
