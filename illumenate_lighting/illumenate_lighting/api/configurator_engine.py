@@ -124,7 +124,7 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import now
+from frappe.utils import cint, now
 
 from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
     get_tier_price_for_customer,
@@ -137,6 +137,49 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 
 # Engine version - used for tracking configuration computation version
 ENGINE_VERSION = "1.0.0"
+
+
+# Whitelisted user-segment keys (with cast types) used for config hashing.
+# E15: hashing the raw client dicts let extra/unknown keys or string-vs-int
+# values change the hash for the same physical configuration, producing
+# duplicate records. Normalising through this whitelist keeps the hash stable.
+_USER_SEGMENT_INT_FIELDS = {
+	"segment_index": 0,
+	"requested_length_mm": 0,
+	"start_leader_cable_length_mm": 300,
+	"end_jumper_cable_length_mm": 0,
+}
+_USER_SEGMENT_STR_FIELDS = {
+	"start_feed_direction": "",
+	"start_power_feed_type": "",
+	"end_type": "Endcap",
+	"end_feed_direction": "",
+	"end_power_feed_type": "",
+}
+
+
+def _normalize_user_segments_for_hash(user_segments: list) -> list[dict]:
+	"""Return user segments reduced to whitelisted keys with cast types.
+
+	Used as the canonical hash input for multi-segment configurations so the
+	same physical config always hashes identically regardless of extra client
+	keys or string-vs-int value representations (E15).
+	"""
+	normalized: list[dict] = []
+	for position, seg in enumerate(user_segments or [], start=1):
+		row: dict[str, Any] = {}
+		for field, default in _USER_SEGMENT_INT_FIELDS.items():
+			value = seg.get(field, default)
+			row[field] = cint(value) if value not in (None, "") else cint(default)
+		for field, default in _USER_SEGMENT_STR_FIELDS.items():
+			value = seg.get(field, default)
+			row[field] = str(value) if value not in (None, "") else default
+		# S5: segment_index is client-supplied and may be non-contiguous; force
+		# it to the positional 1..N order so the hash is order-defined and matches
+		# the server-side renumbering applied when the fixture is saved.
+		row["segment_index"] = position
+		normalized.append(row)
+	return normalized
 
 
 def _build_singlesegment_config_data(
@@ -313,7 +356,7 @@ def _compute_candidate_multisegment(
 		"endcap_color_code": endcap_color_code,
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
-		"user_segments": user_segments,
+		"user_segments": _normalize_user_segments_for_hash(user_segments),
 		"is_multi_segment": is_multi_segment,
 	}
 	config_hash = hashlib.sha256(
@@ -409,14 +452,89 @@ def resolve_endcap_color_from_finish(finish_code: str) -> str:
 	if endcap_color:
 		return endcap_color
 
-	# Fallback: first active endcap color record
-	first_color = frappe.db.get_value(
-		"ilL-Attribute-Endcap Color",
-		{"is_active": 1},
-		"name",
-		order_by="sort_order ASC, name ASC",
+	# No active endcap-color mapping exists for this finish. Previously the code
+	# silently fell back to the first active endcap color in the whole table,
+	# which could attach an unrelated colour to the fixture. Treat the missing
+	# mapping as a hard error so the misconfiguration is fixed at the source.
+	frappe.throw(
+		_(
+			"No active endcap color is mapped to finish {0}. Configure an "
+			"ilL-Rel-Finish Endcap Color record (ideally one marked default) "
+			"for this finish."
+		).format(finish_code),
+		title=_("Missing Endcap Color Mapping"),
 	)
-	return first_color or ""
+
+
+def _validate_tape_spec_inputs(tape_offering_doc, tape_spec_doc) -> list[dict[str, str]]:
+	"""Return blocking message dicts for missing tape-spec electrical inputs.
+
+	S2: the engine previously substituted silent defaults (5.0 W/ft, 50 mm cut
+	increment) when a tape spec left ``watts_per_foot`` or ``cut_increment_mm``
+	blank, producing wrong run splitting, wattage, driver sizing, and pricing
+	with no warning. Instead, surface a blocking validation message so the spec
+	is corrected at the source.
+	"""
+	messages: list[dict[str, str]] = []
+
+	effective_cut = tape_offering_doc.cut_increment_mm_override or tape_spec_doc.cut_increment_mm
+	effective_wpf = tape_offering_doc.watts_per_ft_override or tape_spec_doc.watts_per_foot
+
+	if not effective_cut or float(effective_cut) <= 0:
+		messages.append({
+			"severity": "error",
+			"text": (
+				f"Tape spec '{tape_spec_doc.name}' is missing a cut increment "
+				f"(cut_increment_mm). Set it on the tape spec or provide a "
+				f"Cut Increment Override on the tape offering before quoting."
+			),
+			"field": "tape_offering_id",
+		})
+
+	if not effective_wpf or float(effective_wpf) <= 0:
+		messages.append({
+			"severity": "error",
+			"text": (
+				f"Tape spec '{tape_spec_doc.name}' is missing watts per foot "
+				f"(watts_per_foot). Set it on the tape spec or provide a "
+				f"Watts/ft Override on the tape offering before quoting."
+			),
+			"field": "tape_offering_id",
+		})
+
+	return messages
+
+
+def _coerce_segment_int(value, default=0) -> tuple[bool, int]:
+	"""Coerce a client-supplied segment numeric field to ``int``.
+
+	Returns ``(ok, value)``. ``ok`` is ``False`` when the value is present but
+	not a valid integer so callers can emit a field-level validation error
+	instead of letting a bare ``int()`` raise an unhandled 500 (E16). Empty or
+	missing values fall back to ``default``.
+	"""
+	if value is None or value == "":
+		return True, int(default)
+	try:
+		return True, int(value)
+	except (ValueError, TypeError):
+		return False, int(default)
+
+
+def _endcap_style_supports_feed(endcap_style_code: str) -> bool:
+	"""Return whether an endcap style is feed-through via its ``supports_feed`` flag.
+
+	``endcap_style_*_code`` is the document name of an ``ilL-Attribute-Endcap
+	Style``. Resolving the flag avoids hard-coding the endcap type (E5) and keeps
+	BOM endcap counting (manufacturing_generator R2) consistent with the actual
+	configured style. Falls back to a name heuristic for legacy raw values.
+	"""
+	if not endcap_style_code:
+		return False
+	supports = frappe.db.get_value("ilL-Attribute-Endcap Style", endcap_style_code, "supports_feed")
+	if supports is not None:
+		return bool(supports)
+	return "feed" in str(endcap_style_code).lower()
 
 
 @frappe.whitelist()
@@ -1376,6 +1494,17 @@ def validate_and_quote_multisegment(
 
 	tape_offering_doc = frappe.get_doc("ilL-Rel-Tape Offering", tape_offering_id)
 
+	# S2: block configurations whose tape spec lacks the electrical inputs the
+	# engine needs (watts/ft, cut increment) instead of silently substituting
+	# hard-coded defaults during computation.
+	if frappe.db.exists("ilL-Spec-LED Tape", tape_offering_doc.tape_spec):
+		tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
+		tape_spec_messages = _validate_tape_spec_inputs(tape_offering_doc, tape_spec_doc)
+		if tape_spec_messages:
+			response["is_valid"] = False
+			response["messages"].extend(tape_spec_messages)
+			return response
+
 	# Step 2: Compute multi-segment outputs
 	computed_result = _compute_multisegment_outputs(
 		fixture_template_code,
@@ -1601,17 +1730,17 @@ def _compute_multisegment_outputs(
 	if tape_offering_doc is None:
 		tape_offering_doc = frappe.get_doc("ilL-Rel-Tape Offering", tape_offering_id)
 
-	# Get tape spec for calculations
+	# Get tape spec for calculations.
+	# S2: no silent 50 mm / 5 W/ft fallback — callers validate the tape-spec
+	# electrical inputs via `_validate_tape_spec_inputs` before computing.
 	tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
 	cut_increment_mm = float(
 		tape_offering_doc.cut_increment_mm_override
 		or tape_spec_doc.cut_increment_mm
-		or 50.0
 	)
 	watts_per_ft = float(
 		tape_offering_doc.watts_per_ft_override
 		or tape_spec_doc.watts_per_foot
-		or 5.0
 	)
 	max_run_length_ft_voltage_drop = tape_spec_doc.voltage_drop_max_run_length_ft
 
@@ -1659,14 +1788,28 @@ def _compute_multisegment_outputs(
 
 	for idx, user_seg in enumerate(segments):
 		seg_index = idx + 1
-		requested_len = int(user_seg.get("requested_length_mm", 0))
+		# E16: coerce client-supplied numerics safely; a non-numeric value
+		# yields a field-level error rather than an unhandled 500.
+		ok_req, requested_len = _coerce_segment_int(user_seg.get("requested_length_mm", 0), 0)
 		end_type = user_seg.get("end_type", "Endcap")
 		start_feed_direction = user_seg.get("start_feed_direction", "")
 		start_power_feed = user_seg.get("start_power_feed_type", "")
-		start_cable_len = int(user_seg.get("start_leader_cable_length_mm", 300))
+		ok_start, start_cable_len = _coerce_segment_int(user_seg.get("start_leader_cable_length_mm", 300), 300)
 		end_feed_direction = user_seg.get("end_feed_direction", "") if end_type == "Jumper" else ""
 		end_power_feed = user_seg.get("end_power_feed_type", "") if end_type == "Jumper" else ""
-		end_cable_len = int(user_seg.get("end_jumper_cable_length_mm", 300)) if end_type == "Jumper" else 0
+		if end_type == "Jumper":
+			ok_end, end_cable_len = _coerce_segment_int(user_seg.get("end_jumper_cable_length_mm", 300), 300)
+		else:
+			ok_end, end_cable_len = True, 0
+
+		if not (ok_req and ok_start and ok_end):
+			error_messages.append({
+				"severity": "error",
+				"text": f"Segment {seg_index}: Numeric fields must be whole numbers",
+				"field": "segments_json",
+			})
+			has_errors = True
+			continue
 
 		if requested_len <= 0:
 			error_messages.append({
@@ -2262,7 +2405,7 @@ def _create_or_update_multisegment_fixture(
 		"endcap_color_code": endcap_color_code,
 		"environment_rating_code": environment_rating_code,
 		"tape_offering_id": tape_offering_id,
-		"user_segments": user_segments,
+		"user_segments": _normalize_user_segments_for_hash(user_segments),
 		"is_multi_segment": is_multi_segment,
 	}
 	config_json = json.dumps(config_data, sort_keys=True)
@@ -2681,6 +2824,16 @@ def _validate_configuration(
 				)
 				is_valid = False
 
+			# S2: block configurations whose tape spec lacks the electrical
+			# inputs the engine needs (watts/ft, cut increment) instead of
+			# silently substituting hard-coded defaults downstream.
+			if frappe.db.exists("ilL-Spec-LED Tape", tape_offering_doc.tape_spec):
+				tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
+				tape_spec_messages = _validate_tape_spec_inputs(tape_offering_doc, tape_spec_doc)
+				if tape_spec_messages:
+					messages.extend(tape_spec_messages)
+					is_valid = False
+
 	if is_valid:
 		messages.append(
 			{
@@ -2767,16 +2920,16 @@ def _compute_manufacturable_outputs(
 
 	if tape_offering_doc:
 		tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
-		# Use offering override if set, otherwise use tape spec value
+		# Use offering override if set, otherwise use tape spec value.
+		# S2: no silent 50 mm / 5 W/ft fallback — `_validate_configuration`
+		# blocks the quote when these tape-spec inputs are missing.
 		cut_increment_mm = float(
 			tape_offering_doc.cut_increment_mm_override
 			or tape_spec_doc.cut_increment_mm
-			or 50.0
 		)
 		watts_per_ft = float(
 			tape_offering_doc.watts_per_ft_override
 			or tape_spec_doc.watts_per_foot
-			or 5.0
 		)
 		max_run_length_ft_voltage_drop = tape_spec_doc.voltage_drop_max_run_length_ft
 
@@ -2807,9 +2960,14 @@ def _compute_manufacturable_outputs(
 
 	# Try to get from profile spec if available
 	profile_family = template_doc.default_profile_family or fixture_template_code
+	# E4: ``ilL-Spec-Profile.variant_code`` stores the finish *code*, not the
+	# finish document name. Resolve the code first (mirroring
+	# ``_resolve_multisegment_items``) so the lookup matches wherever the
+	# finish name differs from its code.
+	finish_variant_code = frappe.db.get_value("ilL-Attribute-Finish", finish_code, "code") or finish_code
 	profile_rows = frappe.get_all(
 		"ilL-Spec-Profile",
-		filters={"family": profile_family, "variant_code": finish_code, "is_active": 1},
+		filters={"family": profile_family, "variant_code": finish_variant_code, "is_active": 1},
 		fields=["stock_length_mm"],
 		limit=1,
 	)
@@ -3511,8 +3669,11 @@ def _select_driver_plan(
 		except frappe.DoesNotExistError:
 			continue  # Skip if driver spec doesn't exist
 
-		# Filter by voltage: driver's voltage_output must match tape's input_voltage
-		if tape_voltage and driver_spec.voltage_output and driver_spec.voltage_output != tape_voltage:
+		# Filter by voltage: driver's voltage_output must match tape's input_voltage.
+		# S3: a driver with no voltage_output is treated as non-matching (not a
+		# wildcard) when the tape requires a specific voltage — an unspecified
+		# output voltage cannot be guaranteed to drive the tape safely.
+		if tape_voltage and driver_spec.voltage_output != tape_voltage:
 			continue
 
 		# Filter by protocol: driver's output_protocol must match tape's input_protocol
@@ -4154,7 +4315,16 @@ def _create_or_update_configured_fixture(
 		# First segment: start endcap + leader cable
 		if seg_idx == 1:
 			seg_data["start_endcap_item"] = resolved_items.get("endcap_item_start")
-			seg_data["start_endcap_type"] = "Feed-Through" if resolved_items.get("endcap_item_start") else ""
+			# E5: derive the endcap type from the configured style's supports_feed
+			# flag instead of hard-coding "Feed-Through" for every start endcap.
+			if resolved_items.get("endcap_item_start"):
+				seg_data["start_endcap_type"] = (
+					"Feed-Through"
+					if _endcap_style_supports_feed(endcap_style_start_code)
+					else "Solid"
+				)
+			else:
+				seg_data["start_endcap_type"] = ""
 			seg_data["start_leader_item"] = resolved_items.get("leader_item")
 			# Use caller-provided start leader length if > 0, else use computed default
 			seg_data["start_leader_len_mm"] = (

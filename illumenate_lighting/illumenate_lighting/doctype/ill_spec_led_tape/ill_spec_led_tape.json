@@ -44,6 +44,7 @@
                        "fieldtype":  "Link",
                        "label":  "Tape Item",
                        "options":  "Item",
+                       "reqd":  1,
                        "unique":  1
                    },
                    {
@@ -83,12 +84,14 @@
                        "fieldname":  "input_voltage",
                        "fieldtype":  "Link",
                        "label":  "Input Voltage",
-                       "options":  "ilL-Attribute-Output Voltage"
+                       "options":  "ilL-Attribute-Output Voltage",
+                       "reqd":  1
                    },
                    {
                        "fieldname":  "watts_per_foot",
                        "fieldtype":  "Float",
-                       "label":  "W/ft"
+                       "label":  "W/ft",
+                       "reqd":  1
                    },
                    {
                        "fieldname":  "voltage_drop_max_run_length_ft",
@@ -159,7 +162,8 @@
                    {
                        "fieldname":  "cut_increment_mm",
                        "fieldtype":  "Float",
-                       "label":  "Cut Increment (mm)"
+                       "label":  "Cut Increment (mm)",
+                       "reqd":  1
                    },
                    {
                        "default":  "0",
