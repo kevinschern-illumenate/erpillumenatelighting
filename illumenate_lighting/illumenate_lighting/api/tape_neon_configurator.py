@@ -2605,7 +2605,7 @@ def _create_or_reuse_configured_tape_neon(
 
     # Include any active max run length override so configurations that differ
     # only by the override resolve to distinct records.
-    if computed.get("override_max_run_ft_active") and computed.get("override_max_run_ft"):
+    if computed.get("override_max_run_ft_active") and computed.get("override_max_run_ft") is not None:
         hash_parts.append(f"override:{float(computed.get('override_max_run_ft'))}")
 
     if is_neon:
@@ -2720,7 +2720,7 @@ def _create_or_reuse_configured_tape_neon(
     doc_data["watts_per_foot"] = computed.get("watts_per_foot", 0)
 
     # Persist max run length override when supplied
-    if computed.get("override_max_run_ft_active") and computed.get("override_max_run_ft"):
+    if computed.get("override_max_run_ft_active") and computed.get("override_max_run_ft") is not None:
         doc_data["override_max_run_ft_enabled"] = 1
         doc_data["override_max_run_ft"] = float(computed.get("override_max_run_ft"))
     else:
