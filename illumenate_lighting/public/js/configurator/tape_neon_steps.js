@@ -452,11 +452,22 @@
 		this.lastCalcSelections = calcSelections;
 		this.lastCalcSegments = null;
 		var args = { selections: JSON.stringify(calcSelections) };
+		var overrideMaxRun = this._getOverrideMaxRunFt();
+		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
 			callback: function (r) { self._handleResult(r.message); }
 		});
+	};
+
+	// Read the optional "Override Max Run Length" value. Returns the parsed
+	// float when the checkbox is ticked and a positive value is entered,
+	// otherwise an empty string (treated as "no override" by the backend).
+	TapeNeon.prototype._getOverrideMaxRunFt = function () {
+		if (!this.$('#overrideMaxRunCheck').is(':checked')) return '';
+		var val = parseFloat(this.$('#overrideMaxRunInput').val());
+		return (!isNaN(val) && val > 0) ? val : '';
 	};
 
 	TapeNeon.prototype._calculateNeon = function () {
@@ -473,6 +484,8 @@
 			selections: JSON.stringify(calcSelections),
 			segments_json: JSON.stringify(segments)
 		};
+		var overrideMaxRun = this._getOverrideMaxRunFt();
+		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
@@ -539,9 +552,19 @@
 		}
 
 		this.$('#resultMessages').empty();
+		if (c.override_max_run_ft_active) {
+			this.$('#resultMessages').append(
+				'<div class="alert alert-warning py-1 px-2 small">'
+				+ '<i class="fa fa-exclamation-triangle mr-1"></i>'
+				+ 'Max run length overridden to ' + c.override_max_run_ft
+				+ ' ft. Verify compliance with applicable electrical codes.</div>'
+			);
+		}
 		if (result.messages && result.messages.length) {
 			var $msg = this.$('#resultMessages');
 			result.messages.forEach(function (msg) {
+				// The override caution is rendered separately above; skip it here.
+				if (msg.field === 'override_max_run_ft') return;
 				var cls = msg.severity === 'warning' ? 'alert-warning' : 'alert-info';
 				$msg.append('<div class="alert ' + cls + ' py-1 px-2 small">' + msg.text + '</div>');
 			});
