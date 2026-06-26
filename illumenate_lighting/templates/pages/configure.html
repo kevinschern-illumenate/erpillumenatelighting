@@ -329,6 +329,28 @@ Allows users to configure fixtures using segment-based configuration
 					<div id="addSegmentHint" class="text-center py-3 text-muted" style="display: none;">
 						<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
 					</div>
+
+					<!-- Override Max Run Length -->
+					<hr>
+					<div class="custom-control custom-checkbox">
+						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
+							   onchange="(function(cb){var i=document.getElementById('overrideMaxRunGroup');var w=document.getElementById('overrideMaxRunWarning');if(i)i.style.display=cb.checked?'':'none';if(w)w.style.display=cb.checked?'':'none';})(this)">
+						<label class="custom-control-label" for="overrideMaxRunCheck">
+							{{ _("Override Max Run Length") }}
+						</label>
+					</div>
+					<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+						<input type="number" class="form-control" id="overrideMaxRunInput"
+							   min="0.5" step="0.5" placeholder="{{ _('Custom max run (ft)') }}">
+						<span class="input-group-text">ft</span>
+					</div>
+					<div class="alert alert-warning mt-2" id="overrideMaxRunWarning" style="display: none;">
+						<button type="button" class="close" aria-label="Close"
+								onclick="this.parentNode.style.display='none'">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+					</div>
 				</div>
 			</div>
 			{% endif %}
@@ -480,6 +502,31 @@ Allows users to configure fixtures using segment-based configuration
 				</div>
 			</div>
 			{% endif %}
+
+			<!-- Override Max Run Length (shared by LED Tape & LED Neon) -->
+			<div class="card mb-3" id="tnOverrideMaxRunCard" style="{% if is_tape_neon and not has_templates %}display: block;{% else %}display: none;{% endif %}">
+				<div class="card-body py-3">
+					<div class="custom-control custom-checkbox">
+						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
+							   onchange="(function(cb){var i=document.getElementById('overrideMaxRunGroup');var w=document.getElementById('overrideMaxRunWarning');if(i)i.style.display=cb.checked?'':'none';if(w)w.style.display=cb.checked?'':'none';})(this)">
+						<label class="custom-control-label" for="overrideMaxRunCheck">
+							<strong>{{ _("Override Max Run Length") }}</strong>
+						</label>
+					</div>
+					<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+						<input type="number" class="form-control" id="overrideMaxRunInput"
+							   min="0.5" step="0.5" placeholder="{{ _('Custom max run (ft)') }}">
+						<span class="input-group-text">ft</span>
+					</div>
+					<div class="alert alert-warning mt-2 mb-0" id="overrideMaxRunWarning" style="display: none;">
+						<button type="button" class="close" aria-label="Close"
+								onclick="this.parentNode.style.display='none'">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+					</div>
+				</div>
+			</div>
 
 			<!-- Tape/Neon Action Buttons -->
 			<div class="d-flex justify-content-between" id="tnActionButtons" style="{% if is_tape_neon and not has_templates %}display: flex;{% else %}display: none;{% endif %}">
@@ -1947,6 +1994,20 @@ function collectSegments() {
 	return segments;
 }
 
+function getOverrideMaxRunFt() {
+	// Returns the user-entered override (ft) when the override checkbox is
+	// checked and the value is a positive number; otherwise returns ''.
+	// Shared by both the linear-fixture and tape/neon validation flows on
+	// /portal/configure so they pick up the same override block.
+	var cb = document.getElementById('overrideMaxRunCheck');
+	if (!cb || !cb.checked) return '';
+	var inp = document.getElementById('overrideMaxRunInput');
+	if (!inp) return '';
+	var val = parseFloat(inp.value);
+	if (isNaN(val) || val <= 0) return '';
+	return val;
+}
+
 function validateAndQuote() {
 	var form = $('#configuratorForm');
 	var segments = collectSegments();
@@ -1980,6 +2041,15 @@ function validateAndQuote() {
 		segments_json: JSON.stringify(segments),
 		include_power_supply: $('#includePowerSupply').is(':checked')
 	};
+
+	// Optional user override of the engine-computed max run length. When
+	// the checkbox is unchecked or the value is non-positive, omit the
+	// param entirely so the backend keeps its computed (watts/voltage-drop)
+	// limit.
+	var overrideMaxRun = getOverrideMaxRunFt();
+	if (overrideMaxRun !== '') {
+		data.override_max_run_ft = overrideMaxRun;
+	}
 	
 	// Show loading state
 	$('#calculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ _("Calculating...") }}');
@@ -2131,7 +2201,9 @@ function displayResults(result) {
 		if (result.computed.max_run_ft_effective) {
 			$('#maxRunLengthRow').show();
 			var maxRunText = result.computed.max_run_ft_effective + ' ft';
-			if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
+			if (result.computed.override_max_run_ft_active) {
+				maxRunText += ' (override)';
+			} else if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
 				var limiting = (result.computed.max_run_ft_by_voltage_drop <= result.computed.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
 				maxRunText += ' (' + limiting + ')';
 			}
@@ -2530,7 +2602,7 @@ $(function() {
 				addNeonSegment(true);
 			}
 			{% endif %}
-			$('#tnActionButtons').show();
+			$('#tnActionButtons').show(); $('#tnOverrideMaxRunCard').show();
 		}
 	});
 	{% endif %}
@@ -2654,7 +2726,7 @@ $(function() {
 						addNeonSegment(true);
 					}
 					{% endif %}
-					$('#tnActionButtons').show();
+					$('#tnActionButtons').show(); $('#tnOverrideMaxRunCard').show();
 				} else {
 					console.warn('Template options load failed, hiding sections');
 				}
@@ -2667,7 +2739,7 @@ $(function() {
 			{% if is_neon %}
 			$('#neonSegmentsCard').hide();
 			{% endif %}
-			$('#tnActionButtons').hide();
+			$('#tnActionButtons').hide(); $('#tnOverrideMaxRunCard').hide();
 		}
 	});
 	{% endif %}
@@ -3056,6 +3128,14 @@ function tnValidateAndQuote() {
 		};
 	}
 
+	// Optional user override of the engine-computed max run length. The
+	// backend (validate_tape_configuration / validate_neon_configuration /
+	// validate_tape_neon_template_config) consumes selections.override_max_run_ft.
+	var tnOverrideMaxRun = getOverrideMaxRunFt();
+	if (tnOverrideMaxRun !== '') {
+		selections.override_max_run_ft = tnOverrideMaxRun;
+	}
+
 	var method, args;
 	if (templateCode && hasTemplates) {
 		method = 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_neon_template_config';
@@ -3216,7 +3296,9 @@ function tnDisplayResults(result) {
 		if (c.max_run_ft_effective) {
 			$('#maxRunLengthRow').show();
 			var maxRunText = c.max_run_ft_effective + ' ft';
-			if (c.max_run_ft_by_voltage_drop && c.max_run_ft_by_watts) {
+			if (c.override_max_run_ft_active) {
+				maxRunText += ' (override)';
+			} else if (c.max_run_ft_by_voltage_drop && c.max_run_ft_by_watts) {
 				var limiting = (c.max_run_ft_by_voltage_drop <= c.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
 				maxRunText += ' (' + limiting + ')';
 			}

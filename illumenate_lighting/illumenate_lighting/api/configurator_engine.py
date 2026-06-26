@@ -344,6 +344,7 @@ def _compute_candidate_multisegment(
 	user_segments: list,
 	is_multi_segment: bool,
 	total_requested_length_mm: int,
+	override_max_run_ft: float | None = None,
 ) -> tuple[str, str]:
 	"""Compute (config_hash, part_number) for a multi-segment configuration
 	without persisting an ``ilL-Configured-Fixture`` record.
@@ -359,6 +360,11 @@ def _compute_candidate_multisegment(
 		"user_segments": _normalize_user_segments_for_hash(user_segments),
 		"is_multi_segment": is_multi_segment,
 	}
+	# Include override so distinct overrides yield distinct hashes (and thus
+	# distinct configured fixture records). Mirrors the tape/neon behavior in
+	# ``_build_tape_neon_config_hash_parts``.
+	if override_max_run_ft is not None and override_max_run_ft > 0:
+		config_data["override_max_run_ft"] = float(override_max_run_ft)
 	config_hash = hashlib.sha256(
 		json.dumps(config_data, sort_keys=True).encode()
 	).hexdigest()[:32]
@@ -1220,6 +1226,7 @@ def validate_and_quote_multisegment_with_output(
 	_skip_record_creation: bool = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
+	override_max_run_ft: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture using the output-based cascading flow.
@@ -1316,6 +1323,7 @@ def validate_and_quote_multisegment_with_output(
 		_skip_record_creation=_skip_record_creation,
 		parent_configured_fixture=parent_configured_fixture,
 		variant_origin=variant_origin,
+		override_max_run_ft=override_max_run_ft,
 	)
 
 	# Add auto-selected tape info
@@ -1361,6 +1369,7 @@ def validate_and_quote_multisegment(
 	_skip_record_creation: bool = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
+	override_max_run_ft: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture configuration.
@@ -1395,6 +1404,16 @@ def validate_and_quote_multisegment(
 		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
 	if isinstance(_skip_record_creation, str):
 		_skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
+
+	# Normalise override_max_run_ft (Frappe passes HTTP params as strings)
+	if override_max_run_ft is not None:
+		try:
+			override_max_run_ft = float(override_max_run_ft)
+		except (ValueError, TypeError):
+			override_max_run_ft = None
+		else:
+			if override_max_run_ft <= 0:
+				override_max_run_ft = None
 
 	# Parse segments
 	try:
@@ -1539,9 +1558,23 @@ def validate_and_quote_multisegment(
 		lens_appearance_code,
 		template_doc=template_doc,
 		tape_offering_doc=tape_offering_doc,
+		override_max_run_ft=override_max_run_ft,
 	)
 
 	response["computed"].update(computed_result)
+
+	# Surface a warning when the user override is applied so the UI can show
+	# the standard caution banner via the messages panel.
+	if computed_result.get("override_max_run_ft_active"):
+		response["messages"].append({
+			"severity": "warning",
+			"text": (
+				f"⚠ Max run length overridden to {override_max_run_ft:g} ft. "
+				"This bypasses electrical (wattage) and voltage-drop safety limits. "
+				"Use only when instructed by a licensed engineer."
+			),
+			"field": "override_max_run_ft",
+		})
 
 	if computed_result.get("has_errors"):
 		response["is_valid"] = False
@@ -1631,6 +1664,7 @@ def validate_and_quote_multisegment(
 			segments,
 			is_multi_segment,
 			response["computed"].get("total_requested_length_mm", 0),
+			override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
 		)
 		response["configured_fixture_id"] = None
 		response["candidate_config_hash"] = candidate_hash
@@ -1651,6 +1685,7 @@ def validate_and_quote_multisegment(
 			include_power_supply=include_power_supply,
 			parent_configured_fixture=parent_configured_fixture,
 			variant_origin=variant_origin,
+			override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
 		)
 		response["configured_fixture_id"] = fixture_id
 		_set_fixture_part_number_in_pricing(response, fixture_id)
@@ -1722,6 +1757,7 @@ def _compute_multisegment_outputs(
 	lens_appearance_code: str,
 	template_doc=None,
 	tape_offering_doc=None,
+	override_max_run_ft: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable outputs for a multi-segment fixture.
@@ -1789,6 +1825,14 @@ def _compute_multisegment_outputs(
 		max_run_ft_effective = min(max_run_ft_by_watts, float(max_run_length_ft_voltage_drop))
 	else:
 		max_run_ft_effective = max_run_ft_by_watts
+
+	# Optional user override of the effective max run length. When > 0,
+	# bypass BOTH the watts-based and voltage-drop-based limits. This mirrors
+	# the single-segment _compute_manufacturable_outputs behavior.
+	override_max_run_ft_active = False
+	if override_max_run_ft is not None and override_max_run_ft > 0:
+		max_run_ft_effective = float(override_max_run_ft)
+		override_max_run_ft_active = True
 
 	max_run_mm = max_run_ft_effective * MM_PER_FOOT if max_run_ft_effective != float("inf") else float("inf")
 
@@ -2118,6 +2162,8 @@ def _compute_multisegment_outputs(
 		"max_run_ft_by_voltage_drop": round(float(max_run_length_ft_voltage_drop), 2) if max_run_length_ft_voltage_drop else None,
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
 		"max_run_mm": round(max_run_mm, 2) if max_run_mm != float("inf") else None,
+		"override_max_run_ft_active": override_max_run_ft_active,
+		"override_max_run_ft": float(override_max_run_ft) if override_max_run_ft_active else None,
 		"segments": profile_lens_segments,
 		"user_segments": all_segments,
 		"runs": all_runs,
@@ -2405,6 +2451,7 @@ def _create_or_update_multisegment_fixture(
 	include_power_supply: bool = True,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
+	override_max_run_ft: float | None = None,
 ) -> str:
 	"""
 	Create or update a multi-segment configured fixture document.
@@ -2431,6 +2478,10 @@ def _create_or_update_multisegment_fixture(
 		"user_segments": _normalize_user_segments_for_hash(user_segments),
 		"is_multi_segment": is_multi_segment,
 	}
+	# Include override so distinct overrides yield distinct hashes (and thus
+	# distinct configured fixture records). Mirrors tape/neon behavior.
+	if override_max_run_ft is not None and override_max_run_ft > 0:
+		config_data["override_max_run_ft"] = float(override_max_run_ft)
 	config_json = json.dumps(config_data, sort_keys=True)
 	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:32]
 
@@ -2548,6 +2599,15 @@ def _create_or_update_multisegment_fixture(
 	doc.max_run_ft_by_watts = computed.get("max_run_ft_by_watts")
 	doc.max_run_ft_by_voltage_drop = computed.get("max_run_ft_by_voltage_drop")
 	doc.max_run_ft_effective = computed.get("max_run_ft_effective")
+
+	# Persist override max run length so the record carries the user-applied
+	# bypass (mirrors single-segment _create_or_update_configured_fixture).
+	if override_max_run_ft is not None and override_max_run_ft > 0:
+		doc.override_max_run_ft_enabled = 1
+		doc.override_max_run_ft = float(override_max_run_ft)
+	else:
+		doc.override_max_run_ft_enabled = 0
+		doc.override_max_run_ft = 0
 
 	# Set resolved items
 	doc.profile_item = resolved_items.get("profile_item")
