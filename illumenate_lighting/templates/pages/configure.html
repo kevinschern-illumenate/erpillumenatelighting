@@ -331,6 +331,12 @@ Allows users to configure fixtures using segment-based configuration
 					</div>
 
 					<!-- Override Max Run Length -->
+					<!-- NOTE: IDs (overrideMaxRunCheck/Group/Input/Warning) are intentionally
+					     shared with the tape/neon override block below. The two blocks live
+					     in mutually exclusive Jinja branches ({% if not is_tape_neon %} vs
+					     the {% else %} branch keyed off the URL ?category= param), so only
+					     one is ever rendered into the DOM per request. The shared
+					     getOverrideMaxRunFt() JS helper picks up whichever is present. -->
 					<hr>
 					<div class="custom-control custom-checkbox">
 						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
@@ -504,6 +510,10 @@ Allows users to configure fixtures using segment-based configuration
 			{% endif %}
 
 			<!-- Override Max Run Length (shared by LED Tape & LED Neon) -->
+			<!-- NOTE: IDs (overrideMaxRunCheck/Group/Input/Warning) are intentionally
+			     shared with the linear-fixture override block above. The two blocks
+			     live in mutually exclusive Jinja branches keyed off the URL ?category=
+			     param, so only one is ever rendered into the DOM per request. -->
 			<div class="card mb-3" id="tnOverrideMaxRunCard" style="{% if is_tape_neon and not has_templates %}display: block;{% else %}display: none;{% endif %}">
 				<div class="card-body py-3">
 					<div class="custom-control custom-checkbox">
