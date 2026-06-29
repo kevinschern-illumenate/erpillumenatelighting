@@ -30,6 +30,12 @@
   font-family: inherit;
   cursor: pointer;
 }
+#ill-configurator-root ol,
+#ill-configurator-root ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 #ill-configurator-root input,
 #ill-configurator-root select,
 #ill-configurator-root textarea {
