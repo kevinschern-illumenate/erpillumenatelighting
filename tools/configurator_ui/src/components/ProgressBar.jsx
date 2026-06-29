@@ -24,8 +24,7 @@ export default function ProgressBar({ steps, currentIndex, maxReached, percent, 
       {/* ── Bubble row ─────────────────────────────────────────────────── */}
       <ol
         id={navId}
-        className="flex items-center gap-1 overflow-x-auto pb-1"
-        style={{ scrollbarWidth: 'none' }}
+        className="flex flex-wrap items-center justify-center gap-1.5 pb-1"
       >
         {steps.map((step, i) => {
           const isCurrent = i === currentIndex;
@@ -50,16 +49,15 @@ export default function ProgressBar({ steps, currentIndex, maxReached, percent, 
           }
 
           return (
-            <li key={step.id} className="flex-none">
+            <li key={step.id} className="relative flex-none group">
               <button
                 type="button"
-                title={step.shortLabel}
                 aria-label={`Step ${i + 1}: ${step.shortLabel}${isBroken ? ' — needs attention' : ''}${isCurrent ? ' (current)' : ''}`}
                 aria-current={isCurrent ? 'step' : undefined}
                 disabled={!isClickable}
                 onClick={() => isClickable && onJump(i)}
                 className={[
-                  'flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-semibold',
+                  'flex h-7 min-w-[1.75rem] px-1.5 flex-none items-center justify-center rounded-full text-xs font-semibold',
                   'outline-none transition focus-visible:ring-2 focus-visible:ring-ill-accent focus-visible:ring-offset-1',
                   bubbleClass,
                 ].join(' ')}
@@ -70,6 +68,16 @@ export default function ProgressBar({ steps, currentIndex, maxReached, percent, 
                   i + 1
                 )}
               </button>
+              {/* Hover tooltip */}
+              <div
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              >
+                <div className="whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-lg">
+                  {step.shortLabel}
+                </div>
+                <div className="mx-auto mt-0.5 h-0 w-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-900" />
+              </div>
             </li>
           );
         })}
