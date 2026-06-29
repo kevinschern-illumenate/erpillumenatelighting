@@ -135,11 +135,11 @@
       "required": true,
       "filters": { "attribute": "cct" },
       "visibleWhen": { "all": [{ "q": "light_type", "eq": "Tunable white" }] },
-      "min": 2700,
-      "max": 4000,
+      "min": 1800,
+      "max": 6500,
       "step": 100,
       "unit": "K",
-      "defaultLow": 2700,
+      "defaultLow": 1800,
       "defaultHigh": 4000
     },
     {
