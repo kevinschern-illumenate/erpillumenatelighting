@@ -4,7 +4,7 @@ import ProgressBar from './ProgressBar.jsx';
 import QuestionStep from './QuestionStep.jsx';
 import Results from './Results.jsx';
 import {
-  visibleQuestions, pruneHiddenAnswers, isAnswered, progress,
+  visibleQuestions, pruneHiddenAnswers, isAnswered, progress, isAnswerStillValid,
 } from '../lib/engine.js';
 
 /**
@@ -15,6 +15,7 @@ export default function Wizard() {
   const [answers, setAnswers] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
   const [done, setDone] = useState(false);
+  const [maxReachedIndex, setMaxReachedIndex] = useState(0);
 
   // Visible questions recompute on every answer change (branching/skip).
   const visible = useMemo(() => visibleQuestions(answers), [answers]);
@@ -36,10 +37,24 @@ export default function Wizard() {
   const canAdvance = current ? isAnswered(current, answers) : false;
   const isLast = safeIndex >= visible.length - 1;
 
+  const brokenSet = useMemo(() => {
+    const broken = new Set();
+    visible.forEach((q, i) => {
+      if (i === safeIndex) return;
+      if (answers[q.id] === undefined) return;
+      if (!isAnswerStillValid(q, answers)) broken.add(i);
+    });
+    return broken;
+  }, [visible, answers, safeIndex]);
+
   const goNext = () => {
     if (!canAdvance) return;
     if (isLast) setDone(true);
-    else setStepIndex(safeIndex + 1);
+    else {
+      const nextIndex = safeIndex + 1;
+      setStepIndex(nextIndex);
+      setMaxReachedIndex((prev) => Math.max(prev, nextIndex));
+    }
   };
   const goBack = () => {
     if (done) {
@@ -48,10 +63,14 @@ export default function Wizard() {
     }
     setStepIndex(Math.max(0, safeIndex - 1));
   };
+  const goJump = (index) => {
+    setStepIndex(index);
+  };
   const restart = () => {
     setAnswers({});
     setStepIndex(0);
     setDone(false);
+    setMaxReachedIndex(0);
   };
 
   return (
@@ -69,9 +88,12 @@ export default function Wizard() {
         ) : (
           <>
             <ProgressBar
-              current={safeIndex + 1}
-              total={visible.length}
+              steps={visible.map((q) => ({ id: q.id, shortLabel: q.shortLabel ?? q.id }))}
+              currentIndex={safeIndex}
+              maxReached={maxReachedIndex}
               percent={prog.percent}
+              brokenSet={brokenSet}
+              onJump={goJump}
             />
 
             {current && (
