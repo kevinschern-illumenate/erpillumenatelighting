@@ -1783,13 +1783,10 @@ def _compute_multisegment_outputs(
 		# record the first physical piece's index for run assignment below.
 		piece_lengths: list[float] = []
 		remaining_piece_len = mfg_len
-		for piece_i in range(num_pieces):
-			if piece_i < num_pieces - 1:
-				piece_len = min(profile_stock_len_mm, remaining_piece_len)
-			else:
-				piece_len = max(0.0, remaining_piece_len)
+		for _piece_i in range(num_pieces):
+			piece_len = min(profile_stock_len_mm, remaining_piece_len) if profile_stock_len_mm > 0 else remaining_piece_len
 			piece_lengths.append(piece_len)
-			remaining_piece_len = max(0.0, remaining_piece_len - piece_len)
+			remaining_piece_len -= piece_len
 
 		first_physical_seg_index = global_seg_index + 1
 
