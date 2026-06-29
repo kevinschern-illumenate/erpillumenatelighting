@@ -10,6 +10,7 @@
   "questions": [
     {
       "id": "indoor_outdoor",
+      "shortLabel": "Location",
       "label": "Is this an indoor or outdoor installation?",
       "glossaryKey": "indoor_outdoor",
       "type": "single",
@@ -21,6 +22,7 @@
     },
     {
       "id": "moisture",
+      "shortLabel": "Moisture",
       "label": "What moisture exposure will the location see?",
       "glossaryKey": "environment_rating",
       "type": "single",
@@ -34,6 +36,7 @@
     },
     {
       "id": "ip_rating",
+      "shortLabel": "IP Rating",
       "label": "What IP (ingress protection) rating do you need?",
       "glossaryKey": "ip_rating",
       "type": "single",
@@ -49,6 +52,7 @@
     },
     {
       "id": "light_type",
+      "shortLabel": "Light Type",
       "label": "What type of light do you need?",
       "glossaryKey": "light_type",
       "type": "single",
@@ -63,6 +67,7 @@
     },
     {
       "id": "color_mode",
+      "shortLabel": "Color Mode",
       "label": "How should the color be controlled?",
       "glossaryKey": "color_mode",
       "type": "single",
@@ -76,6 +81,7 @@
     },
     {
       "id": "fixture_purpose",
+      "shortLabel": "Purpose",
       "label": "What is the primary purpose of this fixture?",
       "glossaryKey": "fixture_purpose",
       "type": "single",
@@ -89,6 +95,7 @@
     },
     {
       "id": "installation_method",
+      "shortLabel": "Install Method",
       "label": "How will the fixture be installed?",
       "glossaryKey": "installation_method",
       "type": "single",
@@ -104,6 +111,7 @@
     },
     {
       "id": "target_cct",
+      "shortLabel": "Color Temp",
       "label": "What color temperature (CCT) do you want?",
       "glossaryKey": "target_cct",
       "type": "single",
@@ -120,6 +128,7 @@
     },
     {
       "id": "cct_range",
+      "shortLabel": "CCT Range",
       "label": "Select the tunable white range you need.",
       "glossaryKey": "target_cct",
       "type": "range",
@@ -135,6 +144,7 @@
     },
     {
       "id": "cri",
+      "shortLabel": "CRI",
       "label": "What color rendering (CRI) do you require?",
       "glossaryKey": "cri",
       "type": "single",
@@ -152,6 +162,7 @@
     },
     {
       "id": "run_length",
+      "shortLabel": "Run Length",
       "label": "How long is the continuous run?",
       "glossaryKey": "run_length",
       "type": "number",
@@ -164,6 +175,7 @@
     },
     {
       "id": "continuous_run",
+      "shortLabel": "Continuous?",
       "label": "Is this one continuous, unbroken run?",
       "glossaryKey": "run_length",
       "type": "single",
@@ -175,6 +187,7 @@
     },
     {
       "id": "power_injection",
+      "shortLabel": "Power Feed",
       "label": "Power feed summary",
       "glossaryKey": "power_injection",
       "type": "info",
@@ -183,6 +196,7 @@
     },
     {
       "id": "supply_voltage",
+      "shortLabel": "Voltage",
       "label": "What supply voltage is available?",
       "glossaryKey": "supply_voltage",
       "type": "single",
@@ -196,22 +210,24 @@
     },
     {
       "id": "dimming_protocol",
+      "shortLabel": "Dimming",
       "label": "Which dimming / control protocol will you use?",
       "glossaryKey": "dimming_protocol",
       "type": "single",
       "required": true,
       "filters": { "attribute": "dimming_protocol" },
       "options": [
-        { "value": "0-10V", "label": "0-10V", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-0-10v", "color": "linear-gradient(90deg, #c5cae9, #9fa8da)" },
-        { "value": "TRIAC", "label": "TRIAC", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-triac", "color": "#e0e0e0" },
-        { "value": "ELV", "label": "ELV", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-elv", "color": "#e8d7e8" },
-        { "value": "DALI", "label": "DALI", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-dali", "color": "#c8e6c9" },
-        { "value": "DMX512", "label": "DMX512", "imageId": "dimming-protocol-dmx512", "color": "#ffccbc" },
-        { "value": "SPI", "label": "SPI (addressable pixel)", "imageId": "dimming-protocol-spi", "color": "linear-gradient(90deg, #00bcd4, #03a9f4, #2196f3)" }
+        { "value": "0-10V", "label": "0-10V", "glossaryKey": "dimming_0_10v", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-0-10v", "color": "linear-gradient(90deg, #c5cae9, #9fa8da)" },
+        { "value": "TRIAC", "label": "TRIAC", "glossaryKey": "dimming_triac", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-triac", "color": "#e0e0e0" },
+        { "value": "ELV", "label": "ELV", "glossaryKey": "dimming_elv", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-elv", "color": "#e8d7e8" },
+        { "value": "DALI", "label": "DALI", "glossaryKey": "dimming_dali", "hideWhen": { "any": [{ "q": "color_mode", "eq": "Addressable pixel (SPI)" }] }, "imageId": "dimming-protocol-dali", "color": "#c8e6c9" },
+        { "value": "DMX512", "label": "DMX512", "glossaryKey": "dimming_dmx512", "imageId": "dimming-protocol-dmx512", "color": "#ffccbc" },
+        { "value": "SPI", "label": "SPI (addressable pixel)", "glossaryKey": "dimming_spi", "imageId": "dimming-protocol-spi", "color": "linear-gradient(90deg, #00bcd4, #03a9f4, #2196f3)" }
       ]
     },
     {
       "id": "diffuser",
+      "shortLabel": "Diffuser",
       "label": "What diffuser / lens appearance do you want?",
       "glossaryKey": "diffuser",
       "type": "single",
@@ -226,10 +242,15 @@
     },
     {
       "id": "operating_temp",
+      "shortLabel": "Temp",
       "label": "What is the ambient operating temperature? (optional)",
       "glossaryKey": "operating_temp",
       "type": "number",
       "required": false,
+      "skipWhen": {
+        "_note": "Hidden for now \u2014 remove this skipWhen block entirely to re-enable the question.",
+        "all": []
+      },
       "min": -40,
       "max": 80,
       "step": 1,
@@ -238,6 +259,7 @@
     },
     {
       "id": "finish",
+      "shortLabel": "Finish",
       "label": "What channel finish do you prefer? (optional)",
       "glossaryKey": "finish",
       "type": "single",

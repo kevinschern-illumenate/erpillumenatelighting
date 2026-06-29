@@ -36,3 +36,8 @@
   font-family: inherit;
   font-size: inherit;
 }
+
+/* Hide scrollbar on the progress bubble row without affecting scroll behaviour */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
