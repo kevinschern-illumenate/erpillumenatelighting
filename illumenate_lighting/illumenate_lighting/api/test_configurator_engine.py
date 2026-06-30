@@ -2196,6 +2196,219 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertEqual(fixture_doc.max_run_ft_by_voltage_drop, 16.0)
 		self.assertEqual(fixture_doc.max_run_ft_effective, 16.0)
 
+	def test_multisegment_override_max_run_ft_collapses_runs_for_whole_fixture(self):
+		"""
+		Test that override_max_run_ft applies to the multi-segment fixture as a
+		whole (the combined tape length across all jumper-connected segments),
+		not per individual user segment.
+
+		Reuses the 3-segment, ~18ft-total configuration from
+		test_multisegment_total_exceeds_max_run_creates_multiple_runs, which
+		produces >= 2 runs under the tape's default 16ft max run length. A
+		large override (100ft) should collapse it back down to a single run.
+		The override info should also be surfaced on both the computed dict
+		and the top-level response (matching
+		webflow_configurator.validate_configuration's shape), and persisted on
+		the saved ilL-Configured-Fixture document.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 3,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+			override_max_run_ft=100,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		computed = result["computed"]
+
+		# Override replaces the computed effective max run entirely and is
+		# applied once for the whole fixture, so the ~18ft total tape (which
+		# needs >= 2 runs under the default 16ft max) now fits in a single run.
+		self.assertEqual(computed["runs_count"], 1)
+		self.assertTrue(computed["override_max_run_ft_active"])
+		self.assertEqual(computed["max_run_ft_effective"], 100.0)
+
+		# Top-level response fields mirror webflow_configurator.validate_configuration
+		self.assertTrue(result.get("override_max_run_ft_active"))
+		self.assertEqual(result.get("override_max_run_ft"), 100.0)
+		override_messages = [m for m in result["messages"] if m.get("field") == "override_max_run_ft"]
+		self.assertEqual(len(override_messages), 1)
+		self.assertEqual(override_messages[0]["severity"], "warning")
+
+		# Persisted on the saved fixture document
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		self.assertEqual(fixture_doc.override_max_run_ft_enabled, 1)
+		self.assertEqual(fixture_doc.override_max_run_ft, 100.0)
+
+	def test_multisegment_override_max_run_ft_splits_combined_length_not_per_segment(self):
+		"""
+		Test that a tight override is evaluated against the fixture's total
+		combined tape length, not against each user segment individually.
+
+		Reuses the 2-segment, ~12ft-total configuration from
+		test_multisegment_two_segments_under_max_run_equals_one_run, which
+		normally produces exactly 1 run (well under the default 16ft max). A
+		small 2ft override should force multiple runs, proving the override
+		governs the whole fixture (jumper-connected segments form one
+		continuous tape run) per the resolved design answer: a multi-segment
+		fixture only needs a new leader/power supply when the *combined* run
+		exceeds the limit, not when any single user segment does.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+			override_max_run_ft=2,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		computed = result["computed"]
+		self.assertTrue(computed["override_max_run_ft_active"])
+		self.assertEqual(computed["max_run_ft_effective"], 2.0)
+		self.assertGreaterEqual(
+			computed["runs_count"], 2,
+			"A 2ft override on a ~12ft combined fixture should force multiple runs",
+		)
+
+	def test_multisegment_override_max_run_ft_absent_leaves_default_behavior_unchanged(self):
+		"""
+		Test that omitting override_max_run_ft leaves the existing default
+		max-run-length behavior (watts/voltage-drop derived limit) unchanged,
+		and that no override fields are set on the response or saved document.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 3,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		result = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+
+		self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+		computed = result["computed"]
+
+		# Unchanged from test_multisegment_total_exceeds_max_run_creates_multiple_runs:
+		# watts_per_ft=5 -> 17ft by watts, voltage_drop limit 16ft -> effective 16ft.
+		self.assertEqual(computed["max_run_ft_effective"], 16.0)
+		self.assertFalse(computed.get("override_max_run_ft_active"))
+		self.assertGreaterEqual(computed["runs_count"], 2)
+
+		self.assertNotIn("override_max_run_ft_active", result)
+		self.assertNotIn("override_max_run_ft", result)
+
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", result["configured_fixture_id"])
+		self.assertFalse(fixture_doc.override_max_run_ft_enabled)
+		self.assertFalse(fixture_doc.override_max_run_ft)
+
 	def test_multisegment_single_segment_endcap_types(self):
 		"""
 		Test that a single-segment fixture built via multi-segment flow has
