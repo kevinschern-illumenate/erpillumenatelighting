@@ -859,3 +859,110 @@
 	root.IllConfigurator.TapeNeon = TapeNeon;
 
 }(window));
+
+// ─── Quiz Handoff ────────────────────────────────────────────────────────────
+(function (root) {
+	'use strict';
+
+	function getHandoff() {
+		var h = (root.ILL_QUIZ_HANDOFF && Object.keys(root.ILL_QUIZ_HANDOFF).length)
+			? Object.assign({}, root.ILL_QUIZ_HANDOFF)
+			: {};
+
+		if (!h.template) {
+			try {
+				var raw = root.localStorage && root.localStorage.getItem('ilLumenate_quiz_session');
+				if (raw) {
+					var stored = JSON.parse(raw);
+					var age = Date.now() - (stored.savedAt || 0);
+					if (age < 3600000) {
+						var a = stored.answers || {};
+						Object.assign(h, {
+							template: stored.fixtureTemplateCode,
+							moisture: a.moisture,
+							ip_rating: a.ip_rating,
+							light_type: a.light_type,
+							cct: a.target_cct,
+							cct_low: a.cct_range && a.cct_range.low,
+							cct_high: a.cct_range && a.cct_range.high,
+							cri: a.cri,
+							dimming: a.dimming_protocol,
+							mounting: a.installation_method,
+							lens: a.diffuser,
+							finish: a.finish,
+							lumen_class: a.fixture_purpose
+						});
+					}
+					root.localStorage.removeItem('ilLumenate_quiz_session');
+				}
+			} catch (_) {}
+		}
+
+		return h;
+	}
+
+	function cssEscape(value) {
+		return root.CSS && root.CSS.escape ? root.CSS.escape(value) : String(value).replace(/"/g, '\\"');
+	}
+
+	function autoSelect(fieldName, value) {
+		if (!value) return;
+		var escaped = cssEscape(value);
+		var pill = document.querySelector('[data-field="' + fieldName + '"][data-value="' + escaped + '"], .pill-selector[data-field="' + fieldName + '"] input[value="' + escaped + '"]');
+		if (pill) { pill.click(); return; }
+
+		var sel = document.querySelector('select[name="' + fieldName + '"], select#' + fieldName);
+		if (sel) {
+			sel.value = value;
+			sel.dispatchEvent(new Event('change', { bubbles: true }));
+			return;
+		}
+
+		var radio = document.querySelector('input[type="radio"][name="' + fieldName + '"][value="' + escaped + '"]');
+		if (radio) radio.click();
+	}
+
+	function waitThenApply(fn, maxWaitMs, pollMs) {
+		maxWaitMs = maxWaitMs || 6000;
+		pollMs = pollMs || 200;
+		var start = Date.now();
+		var id = setInterval(function () {
+			var ready = document.querySelectorAll('.pill-selector input, [data-field]').length > 0;
+			if (ready || Date.now() - start > maxWaitMs) {
+				clearInterval(id);
+				fn();
+			}
+		}, pollMs);
+	}
+
+	function applyHandoff(h) {
+		if (!h || !Object.keys(h).length) return;
+		if (root.isTapeNeon === false) return;
+
+		var templateSel = document.querySelector('select[name="tape_neon_template"], select[name="fixture_template_code"], select#tape-neon-template-select, select.template-select');
+		if (templateSel && h.template && templateSel.value !== h.template) {
+			templateSel.value = h.template;
+			templateSel.dispatchEvent(new Event('change', { bubbles: true }));
+		}
+
+		waitThenApply(function () {
+			autoSelect('environment_rating', h.moisture);
+			autoSelect('tn_environment_rating', h.moisture);
+			autoSelect('ip_rating', h.ip_rating);
+			autoSelect('tn_ip_rating', h.ip_rating);
+			autoSelect('cct', h.cct);
+			autoSelect('tn_cct', h.cct);
+			autoSelect('dimming_protocol', h.dimming);
+			autoSelect('tn_dimming_protocol', h.dimming);
+		});
+	}
+
+	function initFromHandoff() {
+		var h = getHandoff();
+		if (h.template || h.moisture || h.cct) applyHandoff(h);
+	}
+
+	root.IllConfigurator = root.IllConfigurator || {};
+	root.IllConfigurator.initTapeNeonHandoff = initFromHandoff;
+	document.addEventListener('DOMContentLoaded', initFromHandoff);
+}(window));

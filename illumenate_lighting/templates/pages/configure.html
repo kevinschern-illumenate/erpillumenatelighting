@@ -8,18 +8,6 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block style %}
 <style>
-.segment-card {
-	border: 1px solid #dee2e6;
-	border-radius: 0.25rem;
-	margin-bottom: 0.5rem;
-}
-.segment-card .card-header {
-	background-color: #f8f9fa;
-	padding: 0.5rem 1rem;
-}
-.segment-card .card-body {
-	padding: 0.75rem 1rem;
-}
 .segment-inherited {
 	background-color: #e9ecef;
 	padding: 0.25rem 0.5rem;
@@ -48,42 +36,6 @@ Allows users to configure fixtures using segment-based configuration
 	margin-top: 0.5rem;
 }
 
-/* Pill Button Selector Styles */
-.pill-selector {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-.pill-selector .pill-option {
-	display: inline-block;
-	padding: 0.375rem 0.75rem;
-	font-size: 0.875rem;
-	font-weight: 400;
-	line-height: 1.5;
-	color: #495057;
-	background-color: #fff;
-	border: 1px solid #ced4da;
-	border-radius: 2rem;
-	cursor: pointer;
-	transition: all 0.15s ease-in-out;
-	user-select: none;
-}
-.pill-selector .pill-option:hover {
-	background-color: #e9ecef;
-	border-color: #adb5bd;
-}
-.pill-selector .pill-option.active {
-	background-color: #0d6efd;
-	border-color: #0d6efd;
-	color: #fff;
-}
-.pill-selector .pill-option.active:hover {
-	background-color: #0b5ed7;
-	border-color: #0a58ca;
-}
-.pill-selector .pill-option input[type="radio"] {
-	display: none;
-}
 .option-group {
 	margin-bottom: 1rem;
 }
@@ -247,7 +199,7 @@ Allows users to configure fixtures using segment-based configuration
 {% endblock %}
 
 {% block page_content %}
-<div class="container portal-page">
+<div class="ill-configurator container portal-page">
 	{% if has_quiz_handoff %}
 	<div class="ill-handoff-banner" role="status">
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -2548,99 +2500,6 @@ $(function() {
 });
 {% endif %}
 
-
-// ─── Quiz Handoff ────────────────────────────────────────────────────────────
-function getHandoff() {
-	var h = (window.ILL_QUIZ_HANDOFF && Object.keys(window.ILL_QUIZ_HANDOFF).length) ? Object.assign({}, window.ILL_QUIZ_HANDOFF) : {};
-	if (!h.template) {
-		try {
-			var raw = localStorage.getItem('ilLumenate_quiz_session');
-			if (raw) {
-				var stored = JSON.parse(raw);
-				var age = Date.now() - (stored.savedAt || 0);
-				if (age < 3600000) {
-					var a = stored.answers || {};
-					Object.assign(h, {
-						template: stored.fixtureTemplateCode,
-						moisture: a.moisture,
-						ip_rating: a.ip_rating,
-						light_type: a.light_type,
-						cct: a.target_cct,
-						cct_low: a.cct_range && a.cct_range.low,
-						cct_high: a.cct_range && a.cct_range.high,
-						cri: a.cri,
-						dimming: a.dimming_protocol,
-						mounting: a.installation_method,
-						lens: a.diffuser,
-						finish: a.finish,
-						lumen_class: a.fixture_purpose,
-					});
-				}
-				localStorage.removeItem('ilLumenate_quiz_session');
-			}
-		} catch (_) {}
-	}
-	return h;
-}
-
-function autoSelect(fieldName, value) {
-	if (!value) return;
-	var escaped = window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/"/g, '\\"');
-	var pill = document.querySelector('.pill-selector[data-field="' + fieldName + '"] input[value="' + escaped + '"]');
-	if (pill) { pill.click(); return; }
-	var sel = document.querySelector('select[name="' + fieldName + '"], select#' + fieldName);
-	if (sel) {
-		sel.value = value;
-		sel.dispatchEvent(new Event('change', { bubbles: true }));
-		return;
-	}
-	var radio = document.querySelector('input[type="radio"][name="' + fieldName + '"][value="' + escaped + '"]');
-	if (radio) radio.click();
-}
-
-function waitThenApply(fn, maxWaitMs, pollMs) {
-	maxWaitMs = maxWaitMs || 6000;
-	pollMs = pollMs || 200;
-	var start = Date.now();
-	var id = setInterval(function() {
-		var ready = document.querySelectorAll('.pill-selector input, [data-field] input').length > 0;
-		if (ready || Date.now() - start > maxWaitMs) {
-			clearInterval(id);
-			fn();
-		}
-	}, pollMs);
-}
-
-function applyHandoff(h) {
-	if (!h || !Object.keys(h).length) return;
-	var templateSel = document.querySelector('select[name="fixture_template_code"]');
-	if (templateSel && h.template && templateSel.value !== h.template) {
-		templateSel.value = h.template;
-		templateSel.dispatchEvent(new Event('change', { bubbles: true }));
-	}
-	waitThenApply(function() {
-		if (isTapeNeon) {
-			autoSelect('tn_environment_rating', h.moisture);
-			autoSelect('tn_cct', h.cct);
-			autoSelect('tn_dimming_protocol', h.dimming);
-		} else {
-			autoSelect('environment_rating_code', h.moisture);
-			autoSelect('cct', h.cct);
-			autoSelect('cri', h.cri);
-			autoSelect('dimming_protocol', h.dimming);
-			autoSelect('mounting_method_code', h.mounting);
-			autoSelect('lens_appearance_code', h.lens);
-			autoSelect('finish_code', h.finish);
-		}
-	}, 6000, 200);
-}
-
-function initFromHandoff() {
-	var h = getHandoff();
-	if (h.template || h.moisture || h.cct) applyHandoff(h);
-}
-
-$(function() { initFromHandoff(); });
 
 // ═════════════════════════════════════════════════════════════════════
 // CATEGORY SWITCHING
