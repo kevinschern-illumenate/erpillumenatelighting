@@ -112,6 +112,7 @@ website_route_rules = [
 	# Configurator
 	{"from_route": "/portal/configure", "to_route": "configure"},
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
+	{"from_route": "/portal/request-dealer-access", "to_route": "request_dealer_access"},
 	{"from_route": "/portal/configure-webflow", "to_route": "configure_webflow"},
 	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
 	{"from_route": "/portal/configure-tape", "to_route": "configure_tape"},

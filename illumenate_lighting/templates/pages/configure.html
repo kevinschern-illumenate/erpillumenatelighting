@@ -248,6 +248,12 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block page_content %}
 <div class="container portal-page">
+	{% if has_quiz_handoff %}
+	<div class="ill-handoff-banner alert alert-info d-flex align-items-center" role="status">
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+		<span>Your selections from the configurator have been pre-filled below. Review and adjust as needed.</span>
+	</div>
+	{% endif %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -913,6 +919,9 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block script %}
 <script>
+// Quiz handoff from Webflow configurator — consumed by this page
+window.ILL_QUIZ_HANDOFF = {{ quiz_handoff_json | safe }};
+
 var schedule_name = "{{ schedule_name }}";
 var line_idx = {{ line_idx if line_idx is not none else 'null' }};
 var prefill_project = "{{ project_name }}";
@@ -2536,6 +2545,100 @@ $(function() {
 	{% endif %}
 });
 {% endif %}
+
+
+// ─── Quiz Handoff ────────────────────────────────────────────────────────────
+function getHandoff() {
+	var h = (window.ILL_QUIZ_HANDOFF && Object.keys(window.ILL_QUIZ_HANDOFF).length) ? Object.assign({}, window.ILL_QUIZ_HANDOFF) : {};
+	if (!h.template) {
+		try {
+			var raw = localStorage.getItem('ilLumenate_quiz_session');
+			if (raw) {
+				var stored = JSON.parse(raw);
+				var age = Date.now() - (stored.savedAt || 0);
+				if (age < 3600000) {
+					var a = stored.answers || {};
+					Object.assign(h, {
+						template: stored.fixtureTemplateCode,
+						moisture: a.moisture,
+						ip_rating: a.ip_rating,
+						light_type: a.light_type,
+						cct: a.target_cct,
+						cct_low: a.cct_range && a.cct_range.low,
+						cct_high: a.cct_range && a.cct_range.high,
+						cri: a.cri,
+						dimming: a.dimming_protocol,
+						mounting: a.installation_method,
+						lens: a.diffuser,
+						finish: a.finish,
+						lumen_class: a.fixture_purpose,
+					});
+				}
+				localStorage.removeItem('ilLumenate_quiz_session');
+			}
+		} catch (_) {}
+	}
+	return h;
+}
+
+function autoSelect(fieldName, value) {
+	if (!value) return;
+	var escaped = window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/"/g, '\\"');
+	var pill = document.querySelector('.pill-selector[data-field="' + fieldName + '"] input[value="' + escaped + '"]');
+	if (pill) { pill.click(); return; }
+	var sel = document.querySelector('select[name="' + fieldName + '"], select#' + fieldName);
+	if (sel) {
+		sel.value = value;
+		sel.dispatchEvent(new Event('change', { bubbles: true }));
+		return;
+	}
+	var radio = document.querySelector('input[type="radio"][name="' + fieldName + '"][value="' + escaped + '"]');
+	if (radio) radio.click();
+}
+
+function waitThenApply(fn, maxWaitMs, pollMs) {
+	maxWaitMs = maxWaitMs || 6000;
+	pollMs = pollMs || 200;
+	var start = Date.now();
+	var id = setInterval(function() {
+		var ready = document.querySelectorAll('.pill-selector input, [data-field] input').length > 0;
+		if (ready || Date.now() - start > maxWaitMs) {
+			clearInterval(id);
+			fn();
+		}
+	}, pollMs);
+}
+
+function applyHandoff(h) {
+	if (!h || !Object.keys(h).length) return;
+	var templateSel = document.querySelector('select[name="fixture_template_code"]');
+	if (templateSel && h.template && templateSel.value !== h.template) {
+		templateSel.value = h.template;
+		templateSel.dispatchEvent(new Event('change', { bubbles: true }));
+	}
+	waitThenApply(function() {
+		if (isTapeNeon) {
+			autoSelect('tn_environment_rating', h.moisture);
+			autoSelect('tn_cct', h.cct);
+			autoSelect('tn_dimming_protocol', h.dimming);
+		} else {
+			autoSelect('environment_rating_code', h.moisture);
+			autoSelect('cct', h.cct);
+			autoSelect('cri', h.cri);
+			autoSelect('dimming_protocol', h.dimming);
+			autoSelect('mounting_method_code', h.mounting);
+			autoSelect('lens_appearance_code', h.lens);
+			autoSelect('finish_code', h.finish);
+		}
+	}, 6000, 200);
+}
+
+function initFromHandoff() {
+	var h = getHandoff();
+	if (h.template || h.moisture || h.cct) applyHandoff(h);
+}
+
+$(function() { initFromHandoff(); });
 
 // ═════════════════════════════════════════════════════════════════════
 // CATEGORY SWITCHING
