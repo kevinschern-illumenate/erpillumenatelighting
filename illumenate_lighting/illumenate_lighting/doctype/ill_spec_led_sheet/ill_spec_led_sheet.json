@@ -13,16 +13,22 @@
   "sheet_width_ft",
   "sheet_height_ft",
   "sheet_area_sqft",
+  "cut_interval_width_in",
+  "cut_interval_height_in",
   "performance_section",
   "watts_per_sqft",
   "total_sheet_watts",
   "lumens_per_sqft",
   "total_sheet_lumens",
+  "max_sqft_per_100w",
   "attributes_section",
   "input_voltage",
+  "cct",
   "cri",
   "ip_rating",
   "certifications",
+  "operating_temp_min_c",
+  "operating_temp_max_c",
   "sku_section",
   "sku_series_code",
   "sku_led_package_code"
@@ -75,6 +81,16 @@
    "read_only": 1
   },
   {
+   "fieldname": "cut_interval_width_in",
+   "fieldtype": "Float",
+   "label": "Cut Interval Width (in)"
+  },
+  {
+   "fieldname": "cut_interval_height_in",
+   "fieldtype": "Float",
+   "label": "Cut Interval Height (in)"
+  },
+  {
    "fieldname": "performance_section",
    "fieldtype": "Section Break",
    "label": "Performance"
@@ -102,6 +118,11 @@
    "read_only": 1
   },
   {
+   "fieldname": "max_sqft_per_100w",
+   "fieldtype": "Float",
+   "label": "Max Squarefootage per 100W"
+  },
+  {
    "fieldname": "attributes_section",
    "fieldtype": "Section Break",
    "label": "Attributes"
@@ -111,6 +132,12 @@
    "fieldtype": "Link",
    "label": "Input Voltage",
    "options": "ilL-Attribute-Output Voltage"
+  },
+  {
+   "fieldname": "cct",
+   "fieldtype": "Link",
+   "label": "CCT",
+   "options": "ilL-Attribute-CCT"
   },
   {
    "fieldname": "cri",
@@ -129,6 +156,16 @@
    "fieldtype": "Table",
    "label": "Certifications",
    "options": "ilL-Child-Spec-Certification"
+  },
+  {
+   "fieldname": "operating_temp_min_c",
+   "fieldtype": "Float",
+   "label": "Operating Temperature Min (°C)"
+  },
+  {
+   "fieldname": "operating_temp_max_c",
+   "fieldtype": "Float",
+   "label": "Operating Temperature Max (°C)"
   },
   {
    "fieldname": "sku_section",
