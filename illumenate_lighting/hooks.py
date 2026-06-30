@@ -181,6 +181,8 @@ fixtures = [
 	# Webflow configurator fixtures (Phase 2)
 	{"dt": "ilL-Attribute-Feed-Direction"},
 	# LED Sheet seed data (Snowfield; Analog RGBW intentionally excluded pending series code)
+	{"dt": "ilL-Spec-Driver"},
+	{"dt": "ilL-Rel-Driver-Eligibility"},
 	{"dt": "ilL-Spec-LED-Sheet"},
 	{"dt": "ilL-LED-Sheet-Template"},
 	{"dt": "Item", "filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER"]]]},

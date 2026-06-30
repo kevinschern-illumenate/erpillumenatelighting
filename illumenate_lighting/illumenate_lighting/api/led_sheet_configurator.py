@@ -108,12 +108,16 @@ def _build_groups(sheets_needed: int, watts_per_sheet: float, drivers: list[dict
         frappe.throw(_("LED Sheet spec must have total sheet watts greater than zero."))
     if not drivers:
         frappe.throw(_("No compatible drivers are configured for this LED Sheet template."))
-    smallest_sheet_driver = next((d for d in drivers if d["max_wattage"] >= watts_per_sheet), None)
-    if not smallest_sheet_driver:
+    compatible_drivers = [d for d in drivers if d["max_wattage"] >= watts_per_sheet]
+    if not compatible_drivers:
         largest = max(drivers, key=lambda d: d["max_wattage"])
         frappe.throw(_("One LED Sheet ({0}W) exceeds the largest compatible driver ({1}W).").format(watts_per_sheet, largest["max_wattage"]))
-    group_capacity = smallest_sheet_driver["max_wattage"]
 
+    # Pack groups against the largest eligible tier first to avoid creating
+    # unnecessary leaders/drivers when higher-capacity supplies are configured.
+    # _finish_group still selects the smallest driver that can support each
+    # finalized group, so a small leftover group can use a smaller supply.
+    group_capacity = max(d["max_wattage"] for d in compatible_drivers)
     groups = []
     current_count = 0
     current_watts = 0.0

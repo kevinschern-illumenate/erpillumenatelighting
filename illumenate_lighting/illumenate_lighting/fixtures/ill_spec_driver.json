@@ -8,5 +8,25 @@
   "usable_load_factor": 0.8,
   "cost": 75,
   "is_active": 1
+ },
+ {
+  "doctype": "ilL-Spec-Driver",
+  "item": "LED-SNF-DRIVER-60W",
+  "voltage_output": "24V",
+  "outputs_count": 1,
+  "max_wattage": 60,
+  "usable_load_factor": 0.8,
+  "cost": 45,
+  "is_active": 1
+ },
+ {
+  "doctype": "ilL-Spec-Driver",
+  "item": "LED-SNF-DRIVER-300W",
+  "voltage_output": "24V",
+  "outputs_count": 1,
+  "max_wattage": 300,
+  "usable_load_factor": 0.8,
+  "cost": 150,
+  "is_active": 1
  }
 ]

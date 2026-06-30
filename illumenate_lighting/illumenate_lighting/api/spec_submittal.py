@@ -1265,6 +1265,14 @@ def _gather_line_documents(
 					_debug(f"Line {line.line_id}: Template spec_sheet = {template_spec!r}", warnings)
 					if template_spec:
 						doc_info["spec_document_url"] = template_spec
+				elif getattr(line, "led_sheet_template", None):
+					doc_info["led_sheet_template"] = line.led_sheet_template
+					template_spec = frappe.db.get_value(
+						"ilL-LED-Sheet-Template", line.led_sheet_template, "spec_sheet"
+					)
+					_debug(f"Line {line.line_id}: LED Sheet template spec_sheet = {template_spec!r}", warnings)
+					if template_spec:
+						doc_info["spec_document_url"] = template_spec
 
 		elif line.manufacturer_type == "OTHER":
 			# Other manufacturer - use attached spec sheet
@@ -1747,9 +1755,13 @@ def _get_sheet_source_value(source_doctype, source_field, configured_sheet_doc=N
 	}
 	doc = lookup.get(source_doctype)
 	if doc:
-		val = getattr(doc, source_field, None)
-		_debug(f"_get_sheet_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
-		return val
+		try:
+			val = getattr(doc, source_field, None)
+			_debug(f"_get_sheet_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+			return val
+		except Exception as e:
+			_debug(f"_get_sheet_source_value: missing {source_doctype}.{source_field}: {e}", warnings)
+			return None
 	_debug(f"_get_sheet_source_value: NO MATCH for {source_doctype}.{source_field}", warnings)
 	return None
 

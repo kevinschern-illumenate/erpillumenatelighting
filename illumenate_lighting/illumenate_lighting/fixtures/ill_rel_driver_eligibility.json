@@ -6,5 +6,95 @@
   "is_allowed": 1,
   "is_active": 1,
   "priority": 0
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-SW",
+  "driver_spec": "LED-SNF-DRIVER-60W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 0
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-SW",
+  "driver_spec": "LED-SNF-DRIVER-300W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 1
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-TW",
+  "driver_spec": "LED-SNF-DRIVER-60W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 0
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-TW",
+  "driver_spec": "LED-SNF-DRIVER-300W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 1
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-FS",
+  "driver_spec": "LED-SNF-DRIVER-60W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 0
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-FS",
+  "driver_spec": "LED-SNF-DRIVER-300W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 1
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-PX",
+  "driver_spec": "LED-SNF-DRIVER-60W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 0
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-PX",
+  "driver_spec": "LED-SNF-DRIVER-300W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 1
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-DX",
+  "driver_spec": "LED-SNF-DRIVER-60W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 0
+ },
+ {
+  "doctype": "ilL-Rel-Driver-Eligibility",
+  "template_type": "ilL-LED-Sheet-Template",
+  "fixture_template": "LED-SNF-DX",
+  "driver_spec": "LED-SNF-DRIVER-300W",
+  "is_allowed": 1,
+  "is_active": 1,
+  "priority": 1
  }
 ]
