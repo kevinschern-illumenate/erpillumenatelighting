@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProgressBar from './ProgressBar.jsx';
 import QuestionStep from './QuestionStep.jsx';
 import Results from './Results.jsx';
@@ -75,13 +75,6 @@ export default function Wizard() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <header className="mb-6 flex items-center gap-2">
-        <Sparkles size={22} className="text-ill-gold" aria-hidden="true" />
-        <h1 className="font-display text-xl font-semibold text-white">
-          ilLumenate Product Configurator
-        </h1>
-      </header>
-
       <div className="rounded-2xl border border-ill-border bg-ill-paper p-5 shadow-sm sm:p-7">
         {done ? (
           <Results answers={answers} onRestart={restart} />
