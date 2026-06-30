@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react';
 import {
-  CheckCircle2, AlertTriangle, Download, Copy, RotateCcw, Terminal, FileText, FileCheck, Building,
+  CheckCircle2, AlertTriangle, Download, Copy, RotateCcw, Terminal, FileText, FileCheck, Building, ArrowRight, Lock,
 } from 'lucide-react';
 import CompareTable from './CompareTable.jsx';
 import { recommend, competitorRecommendations } from '../lib/recommend.js';
 import { buildResultObject, downloadResultObject } from '../lib/resultObject.js';
 import { lumensBandFor } from '../lib/engine.js';
+import {
+  buildConfigureUrl,
+  buildLoginUrl,
+  checkAuthState,
+  saveToLocalStorage,
+  saveServerSession,
+} from '../lib/configureHandoff.js';
 
 /**
  * Final results screen: ranked ilLumenate recommendations, no-match relaxation
@@ -17,6 +24,8 @@ import { lumensBandFor } from '../lib/engine.js';
  */
 export default function Results({ answers, onRestart }) {
   const [copied, setCopied] = useState(false);
+  const [configureLoading, setConfigureLoading] = useState(false);
+  const [showDealerMsg, setShowDealerMsg] = useState(false);
 
   const { recommendations, relaxedLabels, noHardMatch } = useMemo(
     () => recommend(answers),
@@ -27,6 +36,29 @@ export default function Results({ answers, onRestart }) {
 
   const band = lumensBandFor(answers.fixture_purpose);
   const top = recommendations[0] || null;
+
+  async function handleConfigureNow() {
+    if (!top) return;
+    setConfigureLoading(true);
+    setShowDealerMsg(false);
+
+    const configureUrl = buildConfigureUrl(top, answers);
+    saveToLocalStorage(top, answers);
+
+    const auth = await checkAuthState();
+
+    if (auth?.isLoggedIn) {
+      if (auth.isDealer) {
+        await saveServerSession(top, answers);
+        window.location.href = configureUrl;
+      } else {
+        setShowDealerMsg(true);
+        setConfigureLoading(false);
+      }
+    } else {
+      window.location.href = buildLoginUrl(configureUrl);
+    }
+  }
 
   const copyJson = async () => {
     try {
@@ -206,6 +238,43 @@ export default function Results({ answers, onRestart }) {
         How the ilLumenate pick stacks up against comparable competitor products.
       </p>
       <CompareTable primary={top} competitors={competitors.slice(0, 3)} />
+
+      {/* Configure Now CTA */}
+      {top && !noHardMatch && (
+        <div className="mt-6 rounded-xl border border-ill-accent bg-ill-accentBg p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-display font-semibold text-ill-ink">
+                Ready to configure your {top.family}?
+              </p>
+              <p className="mt-0.5 text-sm text-ill-muted">
+                Log in to the dealer portal to set lengths, feeds, and add to a project.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleConfigureNow}
+              disabled={configureLoading}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-ill-accent px-5 py-2.5 font-medium text-white outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ill-accent focus-visible:ring-offset-2 disabled:opacity-60"
+            >
+              {configureLoading ? 'Redirecting…' : <><ArrowRight size={16} aria-hidden="true" /> Configure Now</>}
+            </button>
+          </div>
+
+          {showDealerMsg && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-ill-danger bg-ill-dangerBg p-3 text-sm text-ill-ink">
+              <Lock size={16} className="mt-0.5 flex-none text-ill-danger" aria-hidden="true" />
+              <span>
+                The configurator is available to authorized ilLumenate dealers.{' '}
+                <a href="mailto:dealers@illumenate.lighting" className="font-medium text-ill-accent underline decoration-dotted">
+                  Contact us
+                </a>{' '}
+                to request access.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Export / actions */}
       <div className="mt-8 flex flex-wrap gap-2 border-t border-ill-border pt-5">

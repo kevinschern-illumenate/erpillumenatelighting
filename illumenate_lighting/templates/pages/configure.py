@@ -4,6 +4,7 @@
 import json
 
 import frappe
+from frappe.utils import quote
 
 no_cache = 1
 
@@ -17,7 +18,34 @@ def get_context(context):
 	  - LED Neon – uses ilL-Tape-Neon-Template (product_category='LED Neon')
 	"""
 	if frappe.session.user == "Guest":
-		frappe.throw("Please login to configure fixtures", frappe.PermissionError)
+		current_url = frappe.utils.get_url(frappe.request.path)
+		qs = frappe.request.query_string
+		if qs:
+			current_url += f"?{qs.decode('utf-8') if isinstance(qs, bytes) else qs}"
+		frappe.local.flags.redirect_location = f"/login?redirect-to={quote(current_url, safe='')}"
+		raise frappe.Redirect
+
+	allowed_roles = {"Dealer", "System Manager", "Administrator"}
+	if not (set(frappe.get_roles(frappe.session.user)) & allowed_roles):
+		frappe.local.flags.redirect_location = "/portal/request-dealer-access"
+		raise frappe.Redirect
+
+	quiz_handoff = {
+		"template": frappe.form_dict.get("template"),
+		"moisture": frappe.form_dict.get("moisture"),
+		"ip_rating": frappe.form_dict.get("ip_rating"),
+		"light_type": frappe.form_dict.get("light_type"),
+		"cct": frappe.form_dict.get("cct"),
+		"cct_low": frappe.form_dict.get("cct_low"),
+		"cct_high": frappe.form_dict.get("cct_high"),
+		"cri": frappe.form_dict.get("cri"),
+		"dimming": frappe.form_dict.get("dimming"),
+		"mounting": frappe.form_dict.get("mounting"),
+		"lens": frappe.form_dict.get("lens"),
+		"finish": frappe.form_dict.get("finish"),
+		"lumen_class": frappe.form_dict.get("lumen_class"),
+	}
+	quiz_handoff = {k: v for k, v in quiz_handoff.items() if v is not None}
 
 	# Product category selection (default to Linear Fixture)
 	product_category = frappe.form_dict.get("category", "Linear Fixture")
@@ -88,6 +116,8 @@ def get_context(context):
 	context.selected_template = template_code
 	context.show_pricing = show_pricing
 	context.title = title_map.get(product_category, "Configure Fixture")
+	context.quiz_handoff_json = frappe.as_json(quiz_handoff)
+	context.has_quiz_handoff = bool(quiz_handoff)
 	context.no_cache = 1
 
 	return context
