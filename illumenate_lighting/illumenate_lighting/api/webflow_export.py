@@ -990,7 +990,7 @@ def get_sync_statistics() -> dict:
             stats["products"]["needs_sync"] += count
     
     # Product stats - Count by product type
-    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "LED Neon", "Component", "Accessory"]:
+    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "LED Neon", "LED Sheet", "Component", "Accessory"]:
         count = frappe.db.count(
             "ilL-Webflow-Product",
             {"product_type": ptype, "is_active": 1}
@@ -1607,11 +1607,13 @@ def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> lis
     areas = sorted({str(getattr(d, "sheet_area_sqft", "")) for d in spec_docs if getattr(d, "sheet_area_sqft", None)})
     voltages = sorted({str(getattr(d, "input_voltage", "")) for d in spec_docs if getattr(d, "input_voltage", None)})
     ip_ratings = sorted({str(getattr(d, "ip_rating", "")) for d in spec_docs if getattr(d, "ip_rating", None)})
+    cri_values = sorted({str(getattr(d, "cri", "")) for d in spec_docs if getattr(d, "cri", None)})
 
     add("Sheet Wattage", "Electrical", ", ".join(wattages), "W", 30)
     add("Sheet Lumens", "Optical", ", ".join(lumens), "lm", 40)
     add("Sheet Area", "Physical", ", ".join(areas), "sq ft", 35)
     add("Input Voltage", "Electrical", ", ".join(voltages), "", 25, "ilL-Attribute-Output Voltage")
+    add("Color Rendering", "Optical", ", ".join(cri_values), "CRI", 55)
     add("IP Rating", "Certifications & Ratings", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
     add("Warranty", "Warranty", getattr(template, "warranty", None), "", 90)
     return specs

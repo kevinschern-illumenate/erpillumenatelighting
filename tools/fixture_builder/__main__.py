@@ -105,10 +105,30 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
             errors.append("At least one led_sheet_template is required")
         if not config.series_code:
             errors.append("series_code is required for led-sheet")
+        if not config.led_package:
+            errors.append("led_package is required for led-sheet")
+        if config.sheet_dimensions.width_ft <= 0 or config.sheet_dimensions.height_ft <= 0:
+            errors.append("sheet_dimensions.width_ft and sheet_dimensions.height_ft must be greater than zero")
+        if config.watts_per_sqft <= 0:
+            errors.append("watts_per_sqft must be greater than zero for led-sheet")
+        if config.lumens_per_sqft <= 0:
+            errors.append("lumens_per_sqft must be greater than zero for led-sheet")
+        for field_name in ("cct_options", "output_options", "environment_options", "mounting_options", "finish_options"):
+            if not getattr(config, field_name):
+                errors.append(f"{field_name} must include at least one value for led-sheet")
         if not (config.jumper_cable_item or any(t.jumper_cable_item for t in config.led_sheet_templates)):
             errors.append("jumper_cable_item is required for led-sheet")
         if not (config.leader_cable_item or any(t.leader_cable_item for t in config.led_sheet_templates)):
             errors.append("leader_cable_item is required for led-sheet")
+        for spec in config.led_sheet_specs:
+            if not spec.led_package:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: led_package is required")
+            if spec.sheet_dimensions.width_ft <= 0 or spec.sheet_dimensions.height_ft <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: sheet_dimensions must be greater than zero")
+            if spec.watts_per_sqft <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: watts_per_sqft must be greater than zero")
+            if spec.lumens_per_sqft <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: lumens_per_sqft must be greater than zero")
 
     return errors
 

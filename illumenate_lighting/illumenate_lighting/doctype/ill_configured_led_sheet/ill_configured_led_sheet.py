@@ -78,6 +78,16 @@ class ilLConfiguredLEDSheet(Document):
 		]
 		if all(segments):
 			self.part_number = "-".join(segments)
+		else:
+			missing = [label for label, value in zip(
+				["series", "environment", "cct", "output", "mounting", "finish"],
+				segments,
+			) if not value]
+			frappe.logger().warning(
+				"Configured LED Sheet %s part number not assembled; missing SKU segment(s): %s",
+				self.name or "(new)",
+				", ".join(missing),
+			)
 
 	def _compute_msrp(self):
 		if not self.sheet_template:

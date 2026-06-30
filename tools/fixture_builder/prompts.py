@@ -25,6 +25,11 @@ from .config_schema import (
     TapeNeonTemplateDef,
     NeonSubmittalMappingDef,
     TapeNeonWebflowDef,
+    SheetDimensionsDef,
+    LedSheetSpecDef,
+    LedSheetAllowedSpecDef,
+    LedSheetAllowedOptionDef,
+    LedSheetTemplateDef,
 )
 
 
@@ -310,6 +315,9 @@ def prompt_all(config: FixtureBuilderConfig) -> None:
     if config.product_type in ("tape", "neon"):
         prompt_all_tape_neon(config)
         return
+    if config.product_type == "led-sheet":
+        prompt_all_led_sheet(config)
+        return
 
     if config.mode == "new-family":
         prompt_profiles(config)
@@ -321,6 +329,77 @@ def prompt_all(config: FixtureBuilderConfig) -> None:
     prompt_fixture_templates(config)
     prompt_drivers(config)
     prompt_submittal_mapping(config)
+
+
+def prompt_all_led_sheet(config: FixtureBuilderConfig) -> None:
+    """Run all interactive prompts for LED Sheet config."""
+    if not config.led_package:
+        config.led_package = _input("LED package (e.g., Static White, Tunable White)", "Static White")
+    if config.sheet_dimensions.width_ft <= 0 or config.sheet_dimensions.height_ft <= 0:
+        config.sheet_dimensions = SheetDimensionsDef(
+            width_ft=_input_float("Sheet width (ft)", 1.0),
+            height_ft=_input_float("Sheet height (ft)", 2.0),
+        )
+    if config.watts_per_sqft <= 0:
+        config.watts_per_sqft = _input_float("Watts per square foot", 5.0)
+    if config.lumens_per_sqft <= 0:
+        config.lumens_per_sqft = _input_float("Lumens per square foot", 500.0)
+    if not config.cct_options:
+        config.cct_options = _input_list("CCT options", "3000K,3500K,4000K")
+    if not config.output_options:
+        config.output_options = _input_list("Output options", "Standard")
+    if not config.environment_options:
+        config.environment_options = _input_list("Environment options", "Dry,Damp")
+    if not config.mounting_options:
+        config.mounting_options = _input_list("Mounting options", "Adhesive")
+    if not config.finish_options:
+        config.finish_options = _input_list("Finish options", "White")
+    if not config.jumper_cable_item:
+        config.jumper_cable_item = _input("Jumper cable item", "")
+    if not config.leader_cable_item:
+        config.leader_cable_item = _input("Leader cable item", "")
+
+    if not config.led_sheet_specs:
+        spec_item = _input("LED Sheet spec item code", f"LED-{config.series_code}-SHEET")
+        config.led_sheet_specs.append(LedSheetSpecDef(
+            item_code=spec_item,
+            led_package=config.led_package,
+            sheet_dimensions=config.sheet_dimensions,
+            watts_per_sqft=config.watts_per_sqft,
+            lumens_per_sqft=config.lumens_per_sqft,
+            sku_series_code=f"LED-{config.series_code}",
+            sku_led_package_code=config.series_code,
+        ))
+
+    if not config.led_sheet_templates:
+        template_code = _input("LED Sheet template code", f"LED-{config.series_code}")
+        options = []
+        for option_type, values in (
+            ("CCT", config.cct_options),
+            ("Output Level", config.output_options),
+            ("Environment Rating", config.environment_options),
+            ("Mounting", config.mounting_options),
+            ("Finish", config.finish_options),
+        ):
+            for idx, value in enumerate(values):
+                options.append(LedSheetAllowedOptionDef(
+                    option_type=option_type,
+                    value=value,
+                    attribute_link=value,
+                    option_code=value,
+                    is_default=idx == 0,
+                ))
+        config.led_sheet_templates.append(LedSheetTemplateDef(
+            template_code=template_code,
+            template_name=config.series_name,
+            series=config.series_name,
+            sku_series_code=template_code,
+            price_per_sheet_msrp=config.price_per_sheet_msrp,
+            jumper_cable_item=config.jumper_cable_item,
+            leader_cable_item=config.leader_cable_item,
+            allowed_specs=[LedSheetAllowedSpecDef(spec=s.item_code) for s in config.led_sheet_specs],
+            allowed_options=options,
+        ))
 
 
 # ── Tape / Neon prompts ───────────────────────────────────────────────
