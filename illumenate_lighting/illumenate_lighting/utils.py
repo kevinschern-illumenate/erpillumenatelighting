@@ -24,6 +24,7 @@ ALLOWED_ORIGINS = [
 	"https://stagingillumenatelighting.v.frappe.cloud",
 	"https://illumenate-staging.webflow.io",
 	"https://app.illumenate.lighting",
+	"https://configurator-ui-olive.vercel.app",
 ]
 
 
