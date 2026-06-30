@@ -1,14 +1,6 @@
 [
  {
   "doctype": "ilL-Rel-Driver-Eligibility",
-  "fixture_template": "SH01",
-  "driver_spec": "DRIVER-SH01-100W",
-  "is_allowed": 1,
-  "is_active": 1,
-  "priority": 0
- },
- {
-  "doctype": "ilL-Rel-Driver-Eligibility",
   "template_type": "ilL-LED-Sheet-Template",
   "fixture_template": "LED-SNF-SW",
   "driver_spec": "LED-SNF-DRIVER-60W",

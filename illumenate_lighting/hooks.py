@@ -181,11 +181,14 @@ fixtures = [
 	# Webflow configurator fixtures (Phase 2)
 	{"dt": "ilL-Attribute-Feed-Direction"},
 	# LED Sheet seed data (Snowfield; Analog RGBW intentionally excluded pending series code)
-	{"dt": "ilL-Spec-Driver"},
-	{"dt": "ilL-Rel-Driver-Eligibility"},
+	{"dt": "ilL-Spec-Driver", "filters": [["item", "in", ["LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]]},
+	{"dt": "ilL-Rel-Driver-Eligibility", "filters": [["template_type", "=", "ilL-LED-Sheet-Template"]]},
 	{"dt": "ilL-Spec-LED-Sheet"},
 	{"dt": "ilL-LED-Sheet-Template"},
-	{"dt": "Item", "filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER"]]]},
+	{
+		"dt": "Item",
+		"filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER", "LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]],
+	},
 	# Job Title Master for CRM Lead integration
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields for CRM Lead and other DocTypes
