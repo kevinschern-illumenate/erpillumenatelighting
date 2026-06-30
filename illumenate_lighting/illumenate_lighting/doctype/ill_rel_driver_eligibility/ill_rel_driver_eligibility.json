@@ -29,7 +29,7 @@
                        "fieldtype":  "Select",
                        "in_list_view":  1,
                        "label":  "Template Type",
-                       "options":  "ilL-Fixture-Template\nilL-Tape-Neon-Template",
+                       "options":  "ilL-Fixture-Template\nilL-Tape-Neon-Template\nilL-LED-Sheet-Template",
                        "reqd":  1
                    },
                    {

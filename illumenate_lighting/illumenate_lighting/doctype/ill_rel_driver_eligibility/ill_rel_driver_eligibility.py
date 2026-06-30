@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 
-VALID_TEMPLATE_TYPES = ("ilL-Fixture-Template", "ilL-Tape-Neon-Template")
+VALID_TEMPLATE_TYPES = ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template")
 
 
 class ilLRelDriverEligibility(Document):
