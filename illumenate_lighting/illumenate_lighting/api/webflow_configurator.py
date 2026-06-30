@@ -1547,7 +1547,17 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
         # Honour the user's exact CCT choice. Only consider a tape whose CCT
         # does not match when this is a multi-CCT package (its offering may
         # carry a generic CCT), and even then treat it strictly as a fallback.
-        is_exact_cct = (offering_data.get("cct") == cct)
+        # Webflow may send the CCT *code* (e.g. "30K") while the offering stores
+        # the CCT *document name* (e.g. "3000K"), so also compare the offering's
+        # CCT code — mirroring the code-fallback logic in ``_env_matches``.
+        offering_cct_name = offering_data.get("cct")
+        is_exact_cct = (offering_cct_name == cct)
+        if not is_exact_cct and offering_cct_name:
+            offering_cct_code = frappe.db.get_value(
+                "ilL-Attribute-CCT", offering_cct_name, "code"
+            )
+            if offering_cct_code and offering_cct_code in (cct, cct_code):
+                is_exact_cct = True
         if not is_exact_cct and not is_multi_cct:
             frappe.logger().debug(
                 f"_resolve_tape_offering: skipped {tape_offering} "

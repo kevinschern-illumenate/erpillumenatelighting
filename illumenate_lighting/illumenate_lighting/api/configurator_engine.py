@@ -1809,6 +1809,13 @@ def _compute_multisegment_outputs(
 	# Collect segment data first
 	segment_data_list = []
 
+	# Global running index across all physical profile/lens pieces produced
+	# for this fixture. When a user segment is longer than the profile stock
+	# length, it is split into multiple physical pieces (joined in the field)
+	# and the fixture is shipped in pieces; the sequential `segment_index`
+	# below numbers those physical pieces, not the user segments.
+	global_seg_index = 0
+
 	for idx, user_seg in enumerate(segments):
 		seg_index = idx + 1
 		# E16: coerce client-supplied numerics safely; a non-numeric value
@@ -1923,28 +1930,40 @@ def _compute_multisegment_outputs(
 		# Calculate manufacturable length for this segment
 		mfg_len = tape_cut_len + total_endcap_allowance + seg_leader_allowance
 
-		# E3: each user segment is a single physical profile/lens piece that must
-		# be cut from one stock length. Guard against a segment that cannot be
-		# produced from a single profile stick.
+		# E3: each user segment maps to one or more physical profile/lens
+		# pieces. When the user segment's manufacturable length exceeds the
+		# profile stock length, we split it into multiple physical pieces
+		# (joined in the field) and ship the fixture in pieces. The first
+		# physical piece carries the user segment's start endcap and leader
+		# cable; the last physical piece carries the end endcap and jumper
+		# cable; any internal pieces are plain joiners with no endcaps.
 		if profile_stock_len_mm > 0 and mfg_len > profile_stock_len_mm:
-			error_messages.append({
-				"severity": "error",
-				"text": (
-					f"Segment {seg_index}: profile length {int(mfg_len)}mm exceeds the "
-					f"maximum profile stock length {int(profile_stock_len_mm)}mm; "
-					f"split this segment into shorter pieces."
-				),
-				"field": "segments_json",
-			})
-			has_errors = True
-			continue
+			num_pieces = int(math.ceil(mfg_len / profile_stock_len_mm))
+		else:
+			num_pieces = 1
 
 		total_manufacturable_length += mfg_len
 		total_tape_length += tape_cut_len
 
-		# Store segment data for later use in run calculation
+		# Compute the cut lengths for each physical piece up front so we can
+		# record the first physical piece's index for run assignment below.
+		piece_lengths: list[float] = []
+		remaining_piece_len = mfg_len
+		for _piece_i in range(num_pieces):
+			piece_len = min(profile_stock_len_mm, remaining_piece_len) if profile_stock_len_mm > 0 else remaining_piece_len
+			piece_lengths.append(piece_len)
+			remaining_piece_len -= piece_len
+
+		first_physical_seg_index = global_seg_index + 1
+
+		# Store segment data for later use in run calculation. Tape runs for
+		# a multi-segment fixture flow continuously across the physical
+		# joins within a single user segment, so run assignment is still
+		# keyed by user segment (and reports the first physical piece's
+		# index for display).
 		segment_data_list.append({
-			"seg_index": seg_index,
+			"seg_index": first_physical_seg_index,
+			"user_seg_index": seg_index,
 			"tape_cut_len": tape_cut_len,
 			"mfg_len": mfg_len,
 			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
@@ -1955,26 +1974,52 @@ def _compute_multisegment_outputs(
 			"end_power_feed": end_power_feed,
 			"end_cable_len": end_cable_len,
 			"total_endcap_allowance": total_endcap_allowance,
+			"num_pieces": num_pieces,
+			"piece_lengths": piece_lengths,
 		})
 
-		# Count endcaps for this segment
-		# EVERY segment has 2 endcaps - one at start and one at end
-		# The type varies (feed-through vs solid) but each physical end needs an endcap
+		# Count endcaps for this user segment
+		# EVERY user segment has 2 endcaps - one at start and one at end
+		# (carried by the first and last physical piece respectively).
 		segment_endcaps = 2  # Start endcap + End endcap
 		total_endcaps += segment_endcaps
 
-		# Create segment record for manufacturing
-		all_segments.append({
-			"segment_index": seg_index,
-			"profile_cut_len_mm": int(mfg_len),
-			"lens_cut_len_mm": int(mfg_len),
-			"tape_cut_len_mm": int(tape_cut_len),
-			"start_endcap_type": start_endcap_type,  # Every segment has a start endcap
-			"end_endcap_type": end_endcap_type,  # Every segment has an end endcap
-			"start_leader_len_mm": start_cable_len if idx == 0 else 0,
-			"end_jumper_len_mm": end_cable_len,
-			"notes": f"Segment {seg_index}: {int(mfg_len)}mm",
-		})
+		# Create one segment record per physical profile/lens piece.
+		for piece_i, piece_len in enumerate(piece_lengths):
+			global_seg_index += 1
+			is_first_piece = piece_i == 0
+			is_last_piece = piece_i == num_pieces - 1
+
+			piece_start_endcap_type = start_endcap_type if is_first_piece else ""
+			piece_end_endcap_type = end_endcap_type if is_last_piece else ""
+			piece_start_leader_len = start_cable_len if (idx == 0 and is_first_piece) else 0
+			piece_end_jumper_len = end_cable_len if is_last_piece else 0
+			# Tape for this user segment is a single continuous run across
+			# its physical pieces; record it on the first piece only so
+			# downstream totals based on per-segment tape lengths remain
+			# accurate without double-counting.
+			piece_tape_cut_len = int(tape_cut_len) if is_first_piece else 0
+
+			if num_pieces == 1:
+				piece_notes = f"Segment {seg_index}: {int(mfg_len)}mm"
+			else:
+				piece_notes = (
+					f"Segment {seg_index} piece {piece_i + 1} of {num_pieces}: "
+					f"{int(piece_len)}mm (shipped in pieces, joined in the field)"
+				)
+
+			all_segments.append({
+				"segment_index": global_seg_index,
+				"user_segment_index": seg_index,
+				"profile_cut_len_mm": int(piece_len),
+				"lens_cut_len_mm": int(piece_len),
+				"tape_cut_len_mm": piece_tape_cut_len,
+				"start_endcap_type": piece_start_endcap_type,
+				"end_endcap_type": piece_end_endcap_type,
+				"start_leader_len_mm": piece_start_leader_len,
+				"end_jumper_len_mm": piece_end_jumper_len,
+				"notes": piece_notes,
+			})
 
 		# Build description (mm for internal use / BOM)
 		desc_parts = [f"Seg {seg_index}: {int(mfg_len)}mm"]
@@ -2075,22 +2120,24 @@ def _compute_multisegment_outputs(
 	# ==========================================================================
 	# PHASE 3: Per-segment profile/lens cut plan
 	# ==========================================================================
-	# Each user segment is a single physical profile/lens piece cut from one
-	# stock length. The over-length guard in PHASE 1 ensures every segment fits
-	# within profile_stock_len_mm, so each segment maps to exactly one cut. This
-	# matches the BOM profile/lens quantity (one stick per segment).
+	# Each user segment maps to one or more physical profile/lens pieces. When
+	# a user segment's manufacturable length exceeds the profile stock length
+	# we ship the fixture in pieces and the customer joins them in the field.
+	# This list mirrors `all_segments` (one entry per physical cut) so that the
+	# BOM profile/lens quantity reflects the number of physical sticks needed.
 	profile_lens_segments = []
-	for seg_data in segment_data_list:
-		cut_len = int(seg_data["mfg_len"])
+	for seg in all_segments:
+		cut_len = int(seg["profile_cut_len_mm"])
+		user_seg_idx = seg.get("user_segment_index", seg["segment_index"])
 		if profile_stock_len_mm > 0:
 			notes = (
-				f"Segment {seg_data['seg_index']} profile/lens "
+				f"Segment {user_seg_idx} profile/lens piece "
 				f"({cut_len}mm from {int(profile_stock_len_mm)}mm stock)"
 			)
 		else:
-			notes = f"Segment {seg_data['seg_index']} profile/lens ({cut_len}mm)"
+			notes = f"Segment {user_seg_idx} profile/lens ({cut_len}mm)"
 		profile_lens_segments.append({
-			"segment_index": seg_data["seg_index"],
+			"segment_index": seg["segment_index"],
 			"profile_cut_len_mm": cut_len,
 			"lens_cut_len_mm": cut_len,
 			"notes": notes,
