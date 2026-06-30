@@ -299,7 +299,7 @@ def get_webflow_products(
             "name", "product_name", "product_slug", "product_type",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
-            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "accessory_spec",
+            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
@@ -1131,6 +1131,10 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         additional_specs.extend(
             _enrich_tape_neon_template_specs(product, existing_labels, doc)
         )
+    elif product_type == "LED Sheet" and product.get("led_sheet_template"):
+        additional_specs.extend(
+            _enrich_led_sheet_template_specs(product, existing_labels)
+        )
     elif product_type == "LED Tape" and product.get("tape_spec"):
         additional_specs.extend(
             _enrich_tape_specs(product, existing_labels)
@@ -1568,6 +1572,49 @@ def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
 
     return specs
 
+
+
+def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for LED Sheet products linked via led_sheet_template."""
+    specs = []
+    try:
+        template = frappe.get_doc("ilL-LED-Sheet-Template", product["led_sheet_template"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    spec_names = [row.spec for row in (template.allowed_specs or []) if getattr(row, "spec", None)]
+    if not spec_names:
+        return specs
+
+    def add(label, group, value, unit="", order=50, attr_doctype=""):
+        if value and label not in existing_labels:
+            specs.append({
+                "spec_group": group,
+                "spec_label": label,
+                "spec_value": value,
+                "spec_unit": unit,
+                "is_calculated": 1,
+                "display_order": order,
+                "show_on_card": 0,
+                "attribute_doctype": attr_doctype,
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    spec_docs = [frappe.get_doc("ilL-Spec-LED-Sheet", name) for name in spec_names if frappe.db.exists("ilL-Spec-LED-Sheet", name)]
+    wattages = sorted({str(getattr(d, "total_sheet_watts", "")) for d in spec_docs if getattr(d, "total_sheet_watts", None)})
+    lumens = sorted({str(getattr(d, "total_sheet_lumens", "")) for d in spec_docs if getattr(d, "total_sheet_lumens", None)})
+    areas = sorted({str(getattr(d, "sheet_area_sqft", "")) for d in spec_docs if getattr(d, "sheet_area_sqft", None)})
+    voltages = sorted({str(getattr(d, "input_voltage", "")) for d in spec_docs if getattr(d, "input_voltage", None)})
+    ip_ratings = sorted({str(getattr(d, "ip_rating", "")) for d in spec_docs if getattr(d, "ip_rating", None)})
+
+    add("Sheet Wattage", "Electrical", ", ".join(wattages), "W", 30)
+    add("Sheet Lumens", "Optical", ", ".join(lumens), "lm", 40)
+    add("Sheet Area", "Physical", ", ".join(areas), "sq ft", 35)
+    add("Input Voltage", "Electrical", ", ".join(voltages), "", 25, "ilL-Attribute-Output Voltage")
+    add("IP Rating", "Certifications & Ratings", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
+    add("Warranty", "Warranty", getattr(template, "warranty", None), "", 90)
+    return specs
 
 def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=None) -> list:
     """Add missing specs for LED Tape/Neon products linked via tape_neon_template."""

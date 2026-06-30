@@ -277,6 +277,96 @@ class TapeNeonWebflowDef:
     ])
 
 
+
+# ── LED Sheet dataclasses ─────────────────────────────────────────────
+
+@dataclass
+class SheetDimensionsDef:
+    """Nominal LED sheet dimensions in feet."""
+    width_ft: float = 1.0
+    height_ft: float = 2.0
+
+
+@dataclass
+class LedSheetSpecDef:
+    """One ilL-Spec-LED-Sheet row."""
+    item_code: str = ""
+    led_package: str = ""
+    sheet_dimensions: SheetDimensionsDef = field(default_factory=SheetDimensionsDef)
+    watts_per_sqft: float = 0.0
+    lumens_per_sqft: float = 0.0
+    input_voltage: str = "24V"
+    cri: str = ""
+    ip_rating: str = ""
+    sku_series_code: str = ""
+    sku_led_package_code: str = ""
+
+
+@dataclass
+class LedSheetAllowedSpecDef:
+    """One LED Sheet template allowed spec child row."""
+    spec: str = ""
+    is_active: bool = True
+
+
+@dataclass
+class LedSheetAllowedOptionDef:
+    """One LED Sheet template allowed option child row."""
+    option_type: str = ""
+    value: str = ""
+    attribute_link: str = ""
+    option_code: str = ""
+    is_default: bool = False
+    is_active: bool = True
+    msrp_adder: float = 0.0
+
+
+@dataclass
+class LedSheetTemplateDef:
+    """One ilL-LED-Sheet-Template row."""
+    template_code: str = ""
+    template_name: str = ""
+    series: str = ""
+    sku_series_code: str = ""
+    webflow_product: str = ""
+    price_per_sheet_msrp: float = 0.0
+    pricing_class: str = ""
+    lead_time_class: str = ""
+    jumper_cable_item: str = ""
+    leader_cable_item: str = ""
+    spec_submittal_template: str = ""
+    spec_sheet: str = ""
+    warranty: str = ""
+    allowed_specs: list[LedSheetAllowedSpecDef] = field(default_factory=list)
+    allowed_options: list[LedSheetAllowedOptionDef] = field(default_factory=list)
+
+
+@dataclass
+class LedSheetSubmittalMappingDef:
+    """Submittal config for LED Sheets."""
+    clone_from_template: str = ""
+
+
+@dataclass
+class LedSheetWebflowDef:
+    """Webflow product config for LED Sheets."""
+    product_category: str = "led-sheets"
+    sublabel: str = ""
+    beam_angle: float = 120.0
+    operating_temp_min_c: int = -40
+    operating_temp_max_c: int = 60
+    l70_life_hours: int = 50000
+    warranty_years: int = 5
+    configurator_steps: list[str] = field(default_factory=lambda: [
+        "Environment Rating",
+        "CCT",
+        "Output Level",
+        "Mounting Method",
+        "Finish",
+        "Coverage Width",
+        "Coverage Height",
+    ])
+
 @dataclass
 class WebflowDef:
     """Webflow product skeleton configuration."""
@@ -306,7 +396,7 @@ class FixtureBuilderConfig:
     mode: str = "new-family"             # "new-family" or "new-variant"
 
     # Product type
-    product_type: str = "fixture"        # "fixture" | "tape" | "neon"
+    product_type: str = "fixture"        # "fixture" | "tape" | "neon" | "led-sheet"
 
     # Series info
     series_name: str = ""                # e.g. "Castle"
@@ -352,6 +442,24 @@ class FixtureBuilderConfig:
     mounting_accessories: list[MountingAccessoryDef] = field(default_factory=list)
     neon_submittal_mapping: NeonSubmittalMappingDef = field(default_factory=NeonSubmittalMappingDef)
     tape_neon_webflow: TapeNeonWebflowDef = field(default_factory=TapeNeonWebflowDef)
+
+    # ── LED Sheet sections ────────────────────────────────────────────
+    led_package: str = ""
+    sheet_dimensions: SheetDimensionsDef = field(default_factory=SheetDimensionsDef)
+    watts_per_sqft: float = 0.0
+    lumens_per_sqft: float = 0.0
+    cct_options: list[str] = field(default_factory=list)
+    output_options: list[str] = field(default_factory=list)
+    environment_options: list[str] = field(default_factory=list)
+    mounting_options: list[str] = field(default_factory=list)
+    finish_options: list[str] = field(default_factory=list)
+    price_per_sheet_msrp: float = 0.0
+    jumper_cable_item: str = ""
+    leader_cable_item: str = ""
+    led_sheet_specs: list[LedSheetSpecDef] = field(default_factory=list)
+    led_sheet_templates: list[LedSheetTemplateDef] = field(default_factory=list)
+    led_sheet_submittal_mapping: LedSheetSubmittalMappingDef = field(default_factory=LedSheetSubmittalMappingDef)
+    led_sheet_webflow: LedSheetWebflowDef = field(default_factory=LedSheetWebflowDef)
 
     def get_all_profile_families(self) -> list[str]:
         return [p.family for p in self.profiles]
@@ -405,6 +513,14 @@ class FixtureBuilderConfig:
     def get_tape_spec_item_codes(self) -> list[str]:
         """Return all tape spec item codes."""
         return [ts.item_code for ts in self.tape_specs]
+
+    def get_led_sheet_template_codes(self) -> list[str]:
+        """Return all LED Sheet template codes."""
+        return [t.template_code for t in self.led_sheet_templates]
+
+    def get_led_sheet_spec_item_codes(self) -> list[str]:
+        """Return all LED Sheet spec item codes."""
+        return [s.item_code for s in self.led_sheet_specs]
 
 
 def _nested_dataclass(cls, data):
