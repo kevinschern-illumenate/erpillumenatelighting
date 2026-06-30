@@ -1,0 +1,43 @@
+[
+ {
+  "doctype": "ilL-LED-Sheet-Template",
+  "template_code": "LED-SNF-SW",
+  "template_name": "Snowfield Static White",
+  "series": "Snowfield",
+  "sku_series_code": "LED-SNF-SW",
+  "price_per_sheet_msrp": 125,
+  "jumper_cable_item": "LED-SNF-JUMPER",
+  "leader_cable_item": "LED-SNF-LEADER",
+  "warranty": "5 Years",
+  "is_active": 1,
+  "allowed_specs": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Spec","spec":"LED-SNF-SW-O-10W-SHEET","is_active":1}],
+  "allowed_options": [
+   {"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Environment Rating","attribute_link":"Outdoor","option_code":"O","is_default":1,"is_active":1},
+   {"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"CCT","attribute_link":"3000K","option_code":"30K","is_default":1,"is_active":1},
+   {"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"CCT","attribute_link":"4000K","option_code":"40K","is_default":0,"is_active":1},
+   {"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Output Level","attribute_link":"10W","option_code":"10W","is_default":1,"is_active":1},
+   {"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Mounting","attribute_link":"3M Adhesive","option_code":"3M","is_default":1,"is_active":1},
+   {"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Finish","attribute_link":"White","option_code":"WH","is_default":1,"is_active":1}
+  ]
+ },
+ {
+  "doctype": "ilL-LED-Sheet-Template", "template_code": "LED-SNF-TW", "template_name": "Snowfield Tunable White", "series": "Snowfield", "sku_series_code": "LED-SNF-TW", "price_per_sheet_msrp": 145, "jumper_cable_item": "LED-SNF-JUMPER", "leader_cable_item": "LED-SNF-LEADER", "warranty": "5 Years", "is_active": 1,
+  "allowed_specs": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Spec","spec":"LED-SNF-TW-O-10W-SHEET","is_active":1}],
+  "allowed_options": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Environment Rating","attribute_link":"Outdoor","option_code":"O","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"CCT","attribute_link":"1800K-4000K","option_code":"1840K","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Output Level","attribute_link":"10W","option_code":"10W","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Mounting","attribute_link":"3M Adhesive","option_code":"3M","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Finish","attribute_link":"White","option_code":"WH","is_default":1,"is_active":1}]
+ },
+ {
+  "doctype": "ilL-LED-Sheet-Template", "template_code": "LED-SNF-FS", "template_name": "Snowfield Full Spectrum", "series": "Snowfield", "sku_series_code": "LED-SNF-FS", "price_per_sheet_msrp": 175, "jumper_cable_item": "LED-SNF-JUMPER", "leader_cable_item": "LED-SNF-LEADER", "warranty": "5 Years", "is_active": 1,
+  "allowed_specs": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Spec","spec":"LED-SNF-FS-O-20W-SHEET","is_active":1}],
+  "allowed_options": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Environment Rating","attribute_link":"Outdoor","option_code":"O","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"CCT","attribute_link":"RGB + 1800K-4000K","option_code":"RGB+1840K","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Output Level","attribute_link":"20W","option_code":"20W","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Mounting","attribute_link":"3M Adhesive","option_code":"3M","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Finish","attribute_link":"White","option_code":"WH","is_default":1,"is_active":1}]
+ },
+ {
+  "doctype": "ilL-LED-Sheet-Template", "template_code": "LED-SNF-PX", "template_name": "Snowfield SPI Pixel / Digital RGBW", "series": "Snowfield", "sku_series_code": "LED-SNF-PX", "price_per_sheet_msrp": 195, "jumper_cable_item": "LED-SNF-JUMPER", "leader_cable_item": "LED-SNF-LEADER", "warranty": "5 Years", "is_active": 1,
+  "allowed_specs": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Spec","spec":"LED-SNF-PX-O-20W-SHEET","is_active":1}],
+  "allowed_options": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Environment Rating","attribute_link":"Outdoor","option_code":"O","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"CCT","attribute_link":"RGBW Pixel","option_code":"RGBW","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Output Level","attribute_link":"20W","option_code":"20W","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Mounting","attribute_link":"3M Adhesive","option_code":"3M","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Finish","attribute_link":"White","option_code":"WH","is_default":1,"is_active":1}]
+ },
+ {
+  "doctype": "ilL-LED-Sheet-Template", "template_code": "LED-SNF-DX", "template_name": "Snowfield DMX Pixel / Digital RGBW", "series": "Snowfield", "sku_series_code": "LED-SNF-DX", "price_per_sheet_msrp": 205, "jumper_cable_item": "LED-SNF-JUMPER", "leader_cable_item": "LED-SNF-LEADER", "warranty": "5 Years", "is_active": 1,
+  "allowed_specs": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Spec","spec":"LED-SNF-DX-O-20W-SHEET","is_active":1}],
+  "allowed_options": [{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Environment Rating","attribute_link":"Outdoor","option_code":"O","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"CCT","attribute_link":"RGBW Pixel","option_code":"RGBW","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Output Level","attribute_link":"20W","option_code":"20W","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Mounting","attribute_link":"3M Adhesive","option_code":"3M","is_default":1,"is_active":1},{"doctype":"ilL-Child-LED-Sheet-Allowed-Option","option_type":"Finish","attribute_link":"White","option_code":"WH","is_default":1,"is_active":1}]
+ }
+]

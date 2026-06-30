@@ -2093,3 +2093,68 @@ def get_tape_neon_mounting_options(
         environment_rating=environment_rating,
         segments=segments,
     )
+
+
+@frappe.whitelist(allow_guest=True)
+def get_sheet_configurator_data(webflow_product_slug: str) -> dict:
+    """Initialize Webflow-side configurator data for an LED Sheet product page."""
+    if not webflow_product_slug:
+        return {"success": False, "error": "webflow_product_slug is required"}
+
+    product = frappe.get_all(
+        "ilL-Webflow-Product",
+        filters={"product_slug": webflow_product_slug, "product_type": "LED Sheet", "is_active": 1},
+        fields=["name", "product_name", "product_slug", "led_sheet_template"],
+        limit=1,
+    )
+    if not product or not product[0].get("led_sheet_template"):
+        return {"success": False, "error": "LED Sheet product not found or not linked to a template"}
+
+    template = frappe.get_doc("ilL-LED-Sheet-Template", product[0]["led_sheet_template"])
+    specs = []
+    for row in template.allowed_specs or []:
+        if not getattr(row, "is_active", 1) or not getattr(row, "spec", None):
+            continue
+        spec = frappe.get_doc("ilL-Spec-LED-Sheet", row.spec)
+        specs.append({
+            "name": spec.name,
+            "item": getattr(spec, "item", None),
+            "led_package": getattr(spec, "led_package", None),
+            "sheet_width_ft": getattr(spec, "sheet_width_ft", None),
+            "sheet_height_ft": getattr(spec, "sheet_height_ft", None),
+            "sheet_area_sqft": getattr(spec, "sheet_area_sqft", None),
+            "watts_per_sqft": getattr(spec, "watts_per_sqft", None),
+            "total_sheet_watts": getattr(spec, "total_sheet_watts", None),
+            "lumens_per_sqft": getattr(spec, "lumens_per_sqft", None),
+            "total_sheet_lumens": getattr(spec, "total_sheet_lumens", None),
+            "input_voltage": getattr(spec, "input_voltage", None),
+            "ip_rating": getattr(spec, "ip_rating", None),
+        })
+
+    options = {}
+    for row in template.allowed_options or []:
+        if not getattr(row, "is_active", 1):
+            continue
+        options.setdefault(row.option_type, []).append({
+            "attribute": getattr(row, "attribute_link", None),
+            "code": getattr(row, "option_code", None),
+            "is_default": getattr(row, "is_default", 0),
+            "msrp_adder": getattr(row, "msrp_adder", 0),
+        })
+
+    return {
+        "success": True,
+        "product": product[0],
+        "template": {
+            "name": template.name,
+            "template_code": getattr(template, "template_code", None),
+            "template_name": getattr(template, "template_name", None),
+            "sku_series_code": getattr(template, "sku_series_code", None),
+            "price_per_sheet_msrp": getattr(template, "price_per_sheet_msrp", 0),
+            "jumper_cable_item": getattr(template, "jumper_cable_item", None),
+            "leader_cable_item": getattr(template, "leader_cable_item", None),
+        },
+        "specs": specs,
+        "options": options,
+        "pricing_preview": {"price_per_sheet_msrp": getattr(template, "price_per_sheet_msrp", 0)},
+    }
