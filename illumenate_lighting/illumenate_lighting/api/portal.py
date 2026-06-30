@@ -327,6 +327,8 @@ def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
 			"fixture_template": line.fixture_template or None,
 			"tape_neon_template": line.tape_neon_template or None,
 			"configured_tape_neon": line.configured_tape_neon or None,
+			"led_sheet_template": getattr(line, "led_sheet_template", None) or None,
+			"configured_led_sheet": getattr(line, "configured_led_sheet", None) or None,
 			"product_type": line.product_type or None,
 			"manufacturer_name": line.manufacturer_name or None,
 			"fixture_model_number": line.fixture_model_number or None,
@@ -346,6 +348,10 @@ def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
 					summary_parts.append(f"Length: {length_in}\"")
 			elif line.configured_tape_neon:
 				summary_parts.append(f"Configured Tape/Neon: {line.configured_tape_neon}")
+			elif getattr(line, "configured_led_sheet", None):
+				summary_parts.append(f"Configured LED Sheet: {line.configured_led_sheet}")
+			elif getattr(line, "led_sheet_template", None):
+				summary_parts.append(f"LED Sheet Template: {line.led_sheet_template} (not configured)")
 			elif line.tape_neon_template:
 				product_type = line.product_type or "Tape/Neon"
 				summary_parts.append(f"{product_type} Template: {line.tape_neon_template} (not configured)")
@@ -4248,3 +4254,59 @@ def create_website_user(email: str, first_name: str, last_name: str = "", send_i
 	except Exception as e:
 		frappe.log_error(f"Error creating website user: {str(e)}")
 		return {"success": False, "error": f"Failed to create user: {str(e)}"}
+
+
+@frappe.whitelist()
+def get_led_sheet_templates() -> dict:
+	"""Return active LED Sheet templates with specs and allowed options."""
+	templates = frappe.get_all(
+		"ilL-LED-Sheet-Template",
+		filters={"is_active": 1},
+		fields=["name", "template_code", "template_name", "sku_series_code", "price_per_sheet_msrp", "jumper_cable_item", "leader_cable_item"],
+		order_by="template_name asc, name asc",
+	)
+	for template in templates:
+		doc = frappe.get_doc("ilL-LED-Sheet-Template", template.name)
+		template["allowed_specs"] = []
+		for row in doc.allowed_specs or []:
+			if not row.is_active:
+				continue
+			spec = frappe.db.get_value(
+				"ilL-Spec-LED-Sheet", row.spec,
+				["name", "item", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
+				as_dict=True,
+			)
+			if spec:
+				template["allowed_specs"].append(spec)
+		template["allowed_options"] = [
+			{
+				"option_type": row.option_type,
+				"attribute_link": row.attribute_link,
+				"option_code": row.option_code,
+				"is_default": row.is_default,
+				"msrp_adder": row.msrp_adder,
+			}
+			for row in (doc.allowed_options or []) if row.is_active
+		]
+	return {"success": True, "templates": templates}
+
+
+@frappe.whitelist()
+def get_configured_sheet_for_line(schedule_name: str, line_idx: int) -> dict:
+	"""Return an existing configured LED Sheet payload for a schedule line."""
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+	idx = int(line_idx)
+	if idx < 1 or idx > len(schedule.lines or []):
+		return {"success": False, "error": "Line not found"}
+	line = schedule.lines[idx - 1]
+	name = getattr(line, "configured_led_sheet", None)
+	if not name:
+		return {"success": True, "configured_led_sheet": None}
+	doc = frappe.get_doc("ilL-Configured-LED-Sheet", name)
+	return {
+		"success": True,
+		"configured_led_sheet": doc.name,
+		"data": doc.as_dict(),
+	}

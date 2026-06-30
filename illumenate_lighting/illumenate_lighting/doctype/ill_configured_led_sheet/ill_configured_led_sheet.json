@@ -38,6 +38,8 @@
   "sku_output_code",
   "sku_mounting_code",
   "sku_finish_code",
+  "configured_item",
+  "bom",
   "pricing_section",
   "msrp",
   "spec_submittal",
@@ -245,6 +247,20 @@
    "fieldtype": "Table",
    "label": "Groups",
    "options": "ilL-Child-LED-Sheet-Group"
+  },
+  {
+   "fieldname": "configured_item",
+   "fieldtype": "Link",
+   "label": "Configured Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "BOM",
+   "options": "BOM",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
