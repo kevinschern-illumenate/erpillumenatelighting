@@ -11,12 +11,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         entryFileNames: 'configurator-ui.js',
-        chunkFileNames: 'configurator-ui.js', // collapses into entry, see manualChunks below
         assetFileNames: (assetInfo) => {
           if (assetInfo.name?.endsWith('.css')) return 'configurator-ui.css';
-          return 'assets/[name]-[hash][extname]';
+          return 'assets/[name]-[hash][extname]'; // images/fonts etc., fine to keep hashed
         },
-        manualChunks: undefined, // force a single JS file, no dynamic-import splitting
+        // No lazy-loaded routes in this widget, so collapse everything into
+        // one file rather than letting dynamic imports spawn extra chunks.
+        inlineDynamicImports: true,
       },
     },
   },
