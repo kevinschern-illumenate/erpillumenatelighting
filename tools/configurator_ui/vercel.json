@@ -8,11 +8,11 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://illumenate.lighting" },
+        { "key": "Access-Control-Allow-Origin", "value": "https://illumenate-staging.webflow.io" },
         { "key": "Access-Control-Allow-Credentials", "value": "true" },
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "X-Frame-Options", "value": "ALLOW-FROM https://illumenate.lighting" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://illumenate.lighting https://*.webflow.io" }
+        { "key": "X-Frame-Options", "value": "ALLOW-FROM https://illumenate-staging.webflow.io" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://illumenate-staging.webflow.io https://*.webflow.io" }
       ]
     }
   ]
