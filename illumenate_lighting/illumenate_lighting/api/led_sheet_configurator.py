@@ -108,15 +108,17 @@ def _build_groups(sheets_needed: int, watts_per_sheet: float, drivers: list[dict
         frappe.throw(_("LED Sheet spec must have total sheet watts greater than zero."))
     if not drivers:
         frappe.throw(_("No compatible drivers are configured for this LED Sheet template."))
-    largest = max(drivers, key=lambda d: d["max_wattage"])
-    if watts_per_sheet > largest["max_wattage"]:
+    smallest_sheet_driver = next((d for d in drivers if d["max_wattage"] >= watts_per_sheet), None)
+    if not smallest_sheet_driver:
+        largest = max(drivers, key=lambda d: d["max_wattage"])
         frappe.throw(_("One LED Sheet ({0}W) exceeds the largest compatible driver ({1}W).").format(watts_per_sheet, largest["max_wattage"]))
+    group_capacity = smallest_sheet_driver["max_wattage"]
 
     groups = []
     current_count = 0
     current_watts = 0.0
     for _idx in range(sheets_needed):
-        if current_count and current_watts + watts_per_sheet > largest["max_wattage"]:
+        if current_count and current_watts + watts_per_sheet > group_capacity:
             groups.append(_finish_group(len(groups) + 1, current_count, current_watts, drivers))
             current_count = 0
             current_watts = 0.0
@@ -153,6 +155,21 @@ def _hash_payload(payload: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
+def _config_hash_payload(template, spec, options: dict[str, Any], coverage_width_ft, coverage_height_ft) -> dict[str, Any]:
+    """Return the canonical configured LED Sheet hash payload used by the DocType controller."""
+    return {
+        "sheet_template": template,
+        "sheet_spec": spec,
+        "selected_cct": options.get("CCT"),
+        "selected_output_level": options.get("Output Level"),
+        "selected_environment_rating": options.get("Environment Rating"),
+        "selected_mounting": options.get("Mounting"),
+        "selected_finish": options.get("Finish"),
+        "coverage_width_ft": coverage_width_ft,
+        "coverage_height_ft": coverage_height_ft,
+    }
+
+
 @frappe.whitelist()
 def validate_sheet_configuration(template, spec, options=None, coverage_width_ft=0, coverage_height_ft=0, schedule_name=None, line_idx=None):
     template_doc = frappe.get_doc("ilL-LED-Sheet-Template", template)
@@ -187,13 +204,14 @@ def validate_sheet_configuration(template, spec, options=None, coverage_width_ft
     leader_cable_msrp = leader_cable_qty * _item_price(template_doc.leader_cable_item)
     extra_jumper_msrp = jumper_cables_extra * _item_price(template_doc.jumper_cable_item)
     msrp = sheets_msrp + option_msrp + leader_cable_msrp + extra_jumper_msrp
-    payload = {"template": template, "spec": spec, "options": {k: v["value"] for k, v in resolved.items()}, "coverage_width_ft": width, "coverage_height_ft": height}
+    options_payload = {k: v["value"] for k, v in resolved.items()}
+    payload = _config_hash_payload(template, spec, options_payload, width, height)
 
     return {
         "success": True,
         "template": template,
         "spec": spec,
-        "options": payload["options"],
+        "options": options_payload,
         **sku,
         "part_number": part_number,
         "coverage_width_ft": width,
@@ -218,10 +236,22 @@ def validate_sheet_configuration(template, spec, options=None, coverage_width_ft
 
 @frappe.whitelist()
 def save_sheet_configuration(template, spec, options=None, coverage_width_ft=0, coverage_height_ft=0, schedule_name=None, line_idx=None):
+    schedule = None
+    if schedule_name:
+        schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+        from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+            has_permission,
+        )
+        if not has_permission(schedule, "write", frappe.session.user):
+            frappe.throw(_("No write permission on this schedule"))
+
     result = validate_sheet_configuration(template, spec, options, coverage_width_ft, coverage_height_ft, schedule_name, line_idx)
     existing = frappe.db.get_value("ilL-Configured-LED-Sheet", {"config_hash": result["config_hash"]}, "name")
     if existing:
         doc = frappe.get_doc("ilL-Configured-LED-Sheet", existing)
+        if flt(doc.msrp) != flt(result["msrp"]):
+            doc.msrp = result["msrp"]
+            doc.save(ignore_permissions=True)
     else:
         opts = result["options"]
         doc = frappe.get_doc({
@@ -235,13 +265,16 @@ def save_sheet_configuration(template, spec, options=None, coverage_width_ft=0, 
             "selected_finish": opts.get("Finish"),
             "coverage_width_ft": result["coverage_width_ft"],
             "coverage_height_ft": result["coverage_height_ft"],
+            "total_coverage_sqft": result["total_coverage_sqft"],
+            "sheets_needed": result["sheets_needed"],
+            "total_system_watts": result["total_system_watts"],
+            "total_groups": result["total_groups"],
             "msrp": result["msrp"],
             "status": "Configured",
             "groups": result["groups"],
         })
         doc.insert(ignore_permissions=True)
     if schedule_name and line_idx not in (None, ""):
-        schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
         idx = int(line_idx)
         if idx < 1 or idx > len(schedule.lines):
             frappe.throw(_("Line index {0} was not found on schedule {1}").format(line_idx, schedule_name))

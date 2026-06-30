@@ -4297,6 +4297,11 @@ def get_configured_sheet_for_line(schedule_name: str, line_idx: int) -> dict:
 	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
 		return {"success": False, "error": "Schedule not found"}
 	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+	if not has_permission(schedule, "read", frappe.session.user):
+		return {"success": False, "error": "No read permission on this schedule"}
 	idx = int(line_idx)
 	if idx < 1 or idx > len(schedule.lines or []):
 		return {"success": False, "error": "Line not found"}

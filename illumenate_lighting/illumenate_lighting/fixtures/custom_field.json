@@ -14,7 +14,7 @@
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
-		"options": "\nLinear Fixture\nLED Tape\nLED Neon",
+		"options": "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet",
 		"insert_after": "ill_section_label",
 		"read_only": 1
 	},
@@ -41,11 +41,21 @@
 	{
 		"doctype": "Custom Field",
 		"dt": "Sales Order Item",
+		"fieldname": "ill_configured_led_sheet",
+		"fieldtype": "Link",
+		"label": "Configured LED Sheet",
+		"options": "ilL-Configured-LED-Sheet",
+		"insert_after": "ill_configured_tape_neon",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
 		"fieldname": "ill_configured_product_doctype",
 		"fieldtype": "Link",
 		"label": "Configured Product DocType",
 		"options": "DocType",
-		"insert_after": "ill_configured_tape_neon",
+		"insert_after": "ill_configured_led_sheet",
 		"read_only": 1
 	},
 	{
@@ -399,7 +409,7 @@
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
-		"options": "\nLinear Fixture\nLED Tape\nLED Neon",
+		"options": "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet",
 		"insert_after": "ill_section_label",
 		"read_only": 1
 	},
@@ -426,11 +436,21 @@
 	{
 		"doctype": "Custom Field",
 		"dt": "Quotation Item",
+		"fieldname": "ill_configured_led_sheet",
+		"fieldtype": "Link",
+		"label": "Configured LED Sheet",
+		"options": "ilL-Configured-LED-Sheet",
+		"insert_after": "ill_configured_tape_neon",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
 		"fieldname": "ill_configured_product_doctype",
 		"fieldtype": "Link",
 		"label": "Configured Product DocType",
 		"options": "DocType",
-		"insert_after": "ill_configured_tape_neon",
+		"insert_after": "ill_configured_led_sheet",
 		"read_only": 1
 	},
 	{

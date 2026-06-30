@@ -24,7 +24,7 @@
    "fieldname": "attribute_doctype",
    "fieldtype": "Select",
    "label": "Attribute DocType",
-   "options": "ilL-Attribute-CCT\nilL-Attribute-Output-Level\nilL-Attribute-Environment-Rating\nilL-Attribute-Mounting-Method\nilL-Attribute-Finish"
+   "options": "ilL-Attribute-CCT\nilL-Attribute-Output Level\nilL-Attribute-Environment Rating\nilL-Attribute-Mounting Method\nilL-Attribute-Finish"
   },
   {
    "fieldname": "attribute_link",
