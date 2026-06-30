@@ -1,3 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Poppins:wght@400;500;600&display=swap');
+
+/* ── ilLumenate Design Tokens (sourced from tailwind.config.js) ── */
+:root {
+	/* Colors */
+	--ill-bg:          #e8f0f6;
+	--ill-paper:       #ffffff;
+	--ill-ink:         #172e48;
+	--ill-muted:       #7f8080;
+	--ill-subtle:      #b3b4b3;
+	--ill-border:      #dce2e8;
+	--ill-border-str:  #8b97a4;
+	--ill-accent:      #00588c;
+	--ill-accent-soft: #b3d1e5;
+	--ill-accent-bg:   #e6f0f7;
+	--ill-gold:        #fdc757;
+	--ill-gold-bg:     #fff6e0;
+	--ill-danger:      #d63b2f;
+	--ill-danger-bg:   #fae5e3;
+	--ill-success:     #006833;
+	--ill-success-bg:  #cce1d6;
+
+	/* Typography */
+	--ill-font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+	--ill-font-body:    'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+	--ill-font-mono:    'JetBrains Mono', 'Menlo', monospace;
+
+	/* Geometry */
+	--ill-radius:      8px;
+	--ill-radius-lg:   12px;
+	--ill-radius-xl:   16px;
+	--ill-radius-pill: 9999px;
+	--ill-shadow:      0 1px 3px rgba(23, 46, 72, 0.08), 0 1px 2px rgba(23, 46, 72, 0.05);
+	--ill-shadow-lg:   0 4px 12px rgba(23, 46, 72, 0.10), 0 2px 4px rgba(23, 46, 72, 0.06);
+
+	/* Transitions */
+	--ill-transition: 150ms ease;
+}
+
+/* Apply body font globally across portal */
+body, .portal-layout, .container {
+	font-family: var(--ill-font-body);
+	color: var(--ill-ink);
+	background-color: var(--ill-bg);
+}
+
 /**
  * ilLumenate Lighting Portal Styles
  * Global styles for all portal pages
@@ -69,6 +115,36 @@
 	--ill-transition-fast: 0.15s ease;
 	--ill-transition-normal: 0.25s ease;
 	--ill-transition-slow: 0.35s ease;
+}
+
+/* ilLumenate configurator token overrides keep React/Webflow palette authoritative. */
+:root {
+	--ill-bg:          #e8f0f6;
+	--ill-paper:       #ffffff;
+	--ill-ink:         #172e48;
+	--ill-muted:       #7f8080;
+	--ill-subtle:      #b3b4b3;
+	--ill-border:      #dce2e8;
+	--ill-border-str:  #8b97a4;
+	--ill-accent:      #00588c;
+	--ill-accent-soft: #b3d1e5;
+	--ill-accent-bg:   #e6f0f7;
+	--ill-gold:        #fdc757;
+	--ill-gold-bg:     #fff6e0;
+	--ill-danger:      #d63b2f;
+	--ill-danger-bg:   #fae5e3;
+	--ill-success:     #006833;
+	--ill-success-bg:  #cce1d6;
+	--ill-font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+	--ill-font-body:    'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+	--ill-font-mono:    'JetBrains Mono', 'Menlo', monospace;
+	--ill-radius:      8px;
+	--ill-radius-lg:   12px;
+	--ill-radius-xl:   16px;
+	--ill-radius-pill: 9999px;
+	--ill-shadow:      0 1px 3px rgba(23, 46, 72, 0.08), 0 1px 2px rgba(23, 46, 72, 0.05);
+	--ill-shadow-lg:   0 4px 12px rgba(23, 46, 72, 0.10), 0 2px 4px rgba(23, 46, 72, 0.06);
+	--ill-transition: 150ms ease;
 }
 
 /* ============================================
@@ -475,4 +551,86 @@
    ============================================ */
 .product-grid .product-card {
 	animation: fadeIn 0.25s ease-out;
+}
+
+
+/* ── ilLumenate Portal Components ── */
+.ill-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 9px 18px;
+	border-radius: var(--ill-radius);
+	font-family: var(--ill-font-body);
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: opacity var(--ill-transition), box-shadow var(--ill-transition), border-color var(--ill-transition), color var(--ill-transition);
+	text-decoration: none;
+	border: 1.5px solid transparent;
+}
+.ill-btn-primary { background: var(--ill-accent); color: #fff; }
+.ill-btn-primary:hover { opacity: 0.9; color: #fff; text-decoration: none; }
+.ill-btn-secondary { background: var(--ill-paper); color: var(--ill-ink); border-color: var(--ill-border-str); }
+.ill-btn-secondary:hover { border-color: var(--ill-accent); color: var(--ill-ink); text-decoration: none; }
+.ill-btn-ghost { background: transparent; color: var(--ill-muted); border-color: var(--ill-border); }
+.ill-btn-ghost:hover { color: var(--ill-ink); text-decoration: none; }
+
+.ill-card {
+	background: var(--ill-paper);
+	border: 1px solid var(--ill-border);
+	border-radius: var(--ill-radius-lg);
+	box-shadow: var(--ill-shadow);
+	padding: 20px 24px;
+}
+
+.ill-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 10px;
+	border-radius: var(--ill-radius-pill);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.ill-badge-draft { background: var(--ill-bg); color: var(--ill-muted); }
+.ill-badge-active { background: var(--ill-accent-bg); color: var(--ill-accent); }
+.ill-badge-quoted { background: var(--ill-gold-bg); color: #7a5500; }
+.ill-badge-ordered { background: var(--ill-success-bg); color: var(--ill-success); }
+
+.ill-access-gate {
+	min-height: 70vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 40px 20px;
+}
+.ill-access-gate-card {
+	background: var(--ill-paper);
+	border: 1px solid var(--ill-border);
+	border-radius: var(--ill-radius-xl);
+	box-shadow: var(--ill-shadow-lg);
+	padding: 48px 40px;
+	max-width: 480px;
+	width: 100%;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	align-items: center;
+}
+.ill-access-gate-icon { font-size: 40px; }
+.ill-access-gate-title {
+	font-family: var(--ill-font-display);
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--ill-ink);
+	margin: 0;
+}
+.ill-access-gate-body {
+	font-size: 14px;
+	color: var(--ill-muted);
+	line-height: 1.6;
+	margin: 0;
 }
