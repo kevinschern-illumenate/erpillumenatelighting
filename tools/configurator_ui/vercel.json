@@ -3,9 +3,7 @@
   "outputDirectory": "dist-preview",
   "installCommand": "npm install",
   "framework": null,
-  "rewrites": [
-    { "source": "/((?!configurator-ui\\.(js|css)|assets/).*)", "destination": "/" }
-  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
   "headers": [
     {
       "source": "/(.*)",
