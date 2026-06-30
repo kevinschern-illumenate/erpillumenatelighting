@@ -23,6 +23,7 @@
   "lens_spec",
   "tape_spec",
   "tape_neon_template",
+  "led_sheet_template",
   "accessory_spec",
   "configurator_section",
   "is_configurable",
@@ -109,7 +110,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Product Type",
-   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory",
+   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
    "reqd": 1
   },
   {
@@ -191,6 +192,13 @@
    "fieldtype": "Link",
    "label": "Tape / Neon Template",
    "options": "ilL-Tape-Neon-Template"
+  },
+  {
+   "depends_on": "eval:doc.product_type=='LED Sheet'",
+   "fieldname": "led_sheet_template",
+   "fieldtype": "Link",
+   "label": "LED Sheet Template",
+   "options": "ilL-LED-Sheet-Template"
   },
   {
    "depends_on": "eval:doc.product_type=='Accessory'",

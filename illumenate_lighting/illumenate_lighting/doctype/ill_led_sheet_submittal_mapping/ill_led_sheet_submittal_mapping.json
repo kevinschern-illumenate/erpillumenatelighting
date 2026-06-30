@@ -1,0 +1,209 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{led_sheet_template}-{pdf_field_name}",
+ "creation": "2026-03-10 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "led_sheet_template",
+  "pdf_field_name",
+  "column_break_main",
+  "source_doctype",
+  "source_field",
+  "show_fields_button",
+  "available_fields_html",
+  "prefix_suffix_section",
+  "prefix",
+  "column_break_prefix_suffix",
+  "suffix",
+  "transformation_section",
+  "transformation",
+  "logic",
+  "webflow_section",
+  "webflow_field",
+  "webflow_skip_transformation",
+  "webflow_prefix_suffix",
+  "column_break_webflow_prefix_suffix",
+  "webflow_prefix",
+  "webflow_suffix"
+ ],
+ "fields": [
+  {
+   "fieldname": "led_sheet_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "LED Sheet Template",
+   "options": "ilL-LED-Sheet-Template",
+   "reqd": 1
+  },
+  {
+   "description": "The name of the form field in the fillable PDF template",
+   "fieldname": "pdf_field_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "PDF Field Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The DocType to pull the source value from",
+   "fieldname": "source_doctype",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Source DocType",
+   "options": "ilL-Configured-LED-Sheet\nilL-LED-Sheet-Template\nilL-Spec-LED-Sheet\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+   "reqd": 1
+  },
+  {
+   "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options.",
+   "fieldname": "source_field",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source Field",
+   "reqd": 1
+  },
+  {
+   "fieldname": "show_fields_button",
+   "fieldtype": "Button",
+   "label": "Show Available Fields"
+  },
+  {
+   "fieldname": "available_fields_html",
+   "fieldtype": "HTML",
+   "label": "Available Fields"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "prefix_suffix_section",
+   "fieldtype": "Section Break",
+   "label": "Prefix & Suffix"
+  },
+  {
+   "description": "Text to prepend before the value",
+   "fieldname": "prefix",
+   "fieldtype": "Data",
+   "label": "Prefix"
+  },
+  {
+   "fieldname": "column_break_prefix_suffix",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Text to append after the value",
+   "fieldname": "suffix",
+   "fieldtype": "Data",
+   "label": "Suffix"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "transformation_section",
+   "fieldtype": "Section Break",
+   "label": "Transformation"
+  },
+  {
+   "description": "Optional transformation to apply to the source value before filling",
+   "fieldname": "transformation",
+   "fieldtype": "Select",
+   "label": "Transformation",
+   "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT\nMAX_FOOTAGE_100W"
+  },
+  {
+   "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead.",
+   "fieldname": "logic",
+   "fieldtype": "Select",
+   "label": "Logic",
+   "options": "\nNone\n0.00_TO_BLANK"
+  },
+  {
+   "collapsible": 1,
+   "description": "When set, this PDF field can be filled from a Webflow request parameter instead of a DocType field. The Webflow value takes priority when available.",
+   "fieldname": "webflow_section",
+   "fieldtype": "Section Break",
+   "label": "Webflow Override"
+  },
+  {
+   "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided.",
+   "fieldname": "webflow_field",
+   "fieldtype": "Select",
+   "label": "Webflow Field",
+   "options": "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction\nenvironment_rating"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.webflow_field",
+   "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format (e.g. feet) and should not be transformed.",
+   "fieldname": "webflow_skip_transformation",
+   "fieldtype": "Check",
+   "label": "Skip Transformation on Webflow Value"
+  },
+  {
+   "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely.",
+   "fieldname": "webflow_prefix_suffix",
+   "fieldtype": "Select",
+   "label": "Webflow Prefix/Suffix",
+   "options": "\nKeep\nOverride\nNone"
+  },
+  {
+   "fieldname": "column_break_webflow_prefix_suffix",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.webflow_prefix_suffix=='Override'",
+   "description": "Text to prepend before the Webflow override value",
+   "fieldname": "webflow_prefix",
+   "fieldtype": "Data",
+   "label": "Webflow Prefix"
+  },
+  {
+   "depends_on": "eval:doc.webflow_prefix_suffix=='Override'",
+   "description": "Text to append after the Webflow override value",
+   "fieldname": "webflow_suffix",
+   "fieldtype": "Data",
+   "label": "Webflow Suffix"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-LED-Sheet-Submittal-Mapping",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "tape_neon_template, pdf_field_name, source_field",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "allow_import": 1
+}

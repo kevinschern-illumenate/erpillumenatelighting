@@ -1,0 +1,181 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "template_code",
+  "template_name",
+  "is_active",
+  "series",
+  "sku_series_code",
+  "webflow_product",
+  "pricing_section",
+  "price_per_sheet_msrp",
+  "pricing_class",
+  "lead_time_class",
+  "accessories_section",
+  "jumper_cable_item",
+  "leader_cable_item",
+  "configuration_section",
+  "allowed_specs",
+  "allowed_options",
+  "documents_section",
+  "spec_submittal_template",
+  "spec_sheet",
+  "certifications",
+  "warranty"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "template_code",
+   "fieldtype": "Data",
+   "label": "Template Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "label": "Template Name"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
+  },
+  {
+   "fieldname": "sku_series_code",
+   "fieldtype": "Data",
+   "label": "SKU Series Code"
+  },
+  {
+   "fieldname": "webflow_product",
+   "fieldtype": "Link",
+   "label": "Webflow Product",
+   "options": "ilL-Webflow-Product"
+  },
+  {
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "fieldname": "price_per_sheet_msrp",
+   "fieldtype": "Currency",
+   "label": "Price per Sheet MSRP"
+  },
+  {
+   "fieldname": "pricing_class",
+   "fieldtype": "Link",
+   "label": "Pricing Class",
+   "options": "ilL-Attribute-Pricing-Class"
+  },
+  {
+   "fieldname": "lead_time_class",
+   "fieldtype": "Link",
+   "label": "Lead Time Class",
+   "options": "ilL-Attribute-Lead-Time-Class"
+  },
+  {
+   "fieldname": "accessories_section",
+   "fieldtype": "Section Break",
+   "label": "Accessories"
+  },
+  {
+   "fieldname": "jumper_cable_item",
+   "fieldtype": "Link",
+   "label": "Jumper Cable Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "leader_cable_item",
+   "fieldtype": "Link",
+   "label": "Leader Cable Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "configuration_section",
+   "fieldtype": "Section Break",
+   "label": "Configuration"
+  },
+  {
+   "fieldname": "allowed_specs",
+   "fieldtype": "Table",
+   "label": "Allowed Specs",
+   "options": "ilL-Child-LED-Sheet-Allowed-Spec"
+  },
+  {
+   "fieldname": "allowed_options",
+   "fieldtype": "Table",
+   "label": "Allowed Options",
+   "options": "ilL-Child-LED-Sheet-Allowed-Option"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "spec_submittal_template",
+   "fieldtype": "Attach",
+   "label": "Spec Submittal Template"
+  },
+  {
+   "fieldname": "spec_sheet",
+   "fieldtype": "Attach",
+   "label": "Spec Sheet"
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Certification"
+  },
+  {
+   "fieldname": "warranty",
+   "fieldtype": "Data",
+   "label": "Warranty"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-06-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-LED-Sheet-Template",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:template_code",
+ "title_field": "template_name"
+}
