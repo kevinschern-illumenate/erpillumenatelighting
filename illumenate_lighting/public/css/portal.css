@@ -1,49 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Poppins:wght@400;500;600&display=swap');
 
-/* ── ilLumenate Design Tokens (sourced from tailwind.config.js) ── */
-:root {
-	/* Colors */
-	--ill-bg:          #e8f0f6;
-	--ill-paper:       #ffffff;
-	--ill-ink:         #172e48;
-	--ill-muted:       #7f8080;
-	--ill-subtle:      #b3b4b3;
-	--ill-border:      #dce2e8;
-	--ill-border-str:  #8b97a4;
-	--ill-accent:      #00588c;
-	--ill-accent-soft: #b3d1e5;
-	--ill-accent-bg:   #e6f0f7;
-	--ill-gold:        #fdc757;
-	--ill-gold-bg:     #fff6e0;
-	--ill-danger:      #d63b2f;
-	--ill-danger-bg:   #fae5e3;
-	--ill-success:     #006833;
-	--ill-success-bg:  #cce1d6;
-
-	/* Typography */
-	--ill-font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
-	--ill-font-body:    'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
-	--ill-font-mono:    'JetBrains Mono', 'Menlo', monospace;
-
-	/* Geometry */
-	--ill-radius:      8px;
-	--ill-radius-lg:   12px;
-	--ill-radius-xl:   16px;
-	--ill-radius-pill: 9999px;
-	--ill-shadow:      0 1px 3px rgba(23, 46, 72, 0.08), 0 1px 2px rgba(23, 46, 72, 0.05);
-	--ill-shadow-lg:   0 4px 12px rgba(23, 46, 72, 0.10), 0 2px 4px rgba(23, 46, 72, 0.06);
-
-	/* Transitions */
-	--ill-transition: 150ms ease;
-}
-
-/* Apply body font globally across portal */
-body, .portal-layout, .container {
-	font-family: var(--ill-font-body);
-	color: var(--ill-ink);
-	background-color: var(--ill-bg);
-}
-
 /**
  * ilLumenate Lighting Portal Styles
  * Global styles for all portal pages
