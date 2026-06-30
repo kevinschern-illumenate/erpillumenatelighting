@@ -90,3 +90,82 @@
 	opacity: 0.45;
 	pointer-events: none;
 }
+
+
+/* ── Option pills (matching QuestionStep.jsx pill buttons) ── */
+.ill-option-pill,
+.ill-configurator .pill-selector .pill,
+.ill-configurator .pill-selector .pill-option {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 18px;
+	border: 1.5px solid var(--ill-border);
+	border-radius: var(--ill-radius-pill);
+	background: var(--ill-paper);
+	cursor: pointer;
+	transition: border-color var(--ill-transition), background var(--ill-transition), color var(--ill-transition), box-shadow var(--ill-transition);
+	font-family: var(--ill-font-body);
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--ill-ink);
+	user-select: none;
+}
+.ill-option-pill:hover,
+.ill-configurator .pill-selector .pill:hover,
+.ill-configurator .pill-selector .pill-option:hover { border-color: var(--ill-accent); background: var(--ill-paper); }
+.ill-option-pill.selected,
+.ill-option-pill[aria-pressed="true"],
+.ill-configurator .pill-selector .pill.active,
+.ill-configurator .pill-selector .pill-option.active {
+	border-color: var(--ill-accent);
+	background: var(--ill-accent);
+	color: #fff;
+}
+.ill-option-pill:disabled,
+.ill-configurator .pill-selector .pill.disabled { opacity: 0.45; cursor: not-allowed; }
+
+.ill-option-card {
+	display: flex;
+	flex-direction: column;
+	border: 1.5px solid var(--ill-border);
+	border-radius: var(--ill-radius-lg);
+	overflow: hidden;
+	cursor: pointer;
+	transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
+	background: var(--ill-paper);
+}
+.ill-option-card:hover { box-shadow: var(--ill-shadow-lg); }
+.ill-option-card.selected { border-color: var(--ill-accent); box-shadow: 0 0 0 3px var(--ill-accent-soft); }
+.ill-option-card img { width: 100%; aspect-ratio: 4/3; object-fit: cover; }
+.ill-option-card-label { padding: 10px 12px; font-family: var(--ill-font-body); font-size: 13px; font-weight: 500; color: var(--ill-ink); }
+
+.ill-progress { display: flex; gap: 4px; margin-bottom: 24px; }
+.ill-progress-step { height: 4px; flex: 1; border-radius: 2px; background: var(--ill-border); transition: background var(--ill-transition); }
+.ill-progress-step.done { background: var(--ill-accent-soft); }
+.ill-progress-step.active { background: var(--ill-accent); }
+
+.ill-config-section,
+.ill-configurator .config-section {
+	background: var(--ill-paper);
+	border: 1px solid var(--ill-border);
+	border-radius: var(--ill-radius-lg);
+	padding: 20px 24px;
+	margin-bottom: 14px;
+	box-shadow: var(--ill-shadow);
+}
+.ill-config-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-family: var(--ill-font-display); font-size: 16px; font-weight: 600; color: var(--ill-ink); }
+.ill-config-step-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--ill-accent-bg); color: var(--ill-accent); font-size: 12px; font-weight: 700; flex-shrink: 0; }
+
+.ill-handoff-banner {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: var(--ill-accent-bg);
+	border: 1px solid var(--ill-accent-soft);
+	border-radius: var(--ill-radius);
+	padding: 10px 16px;
+	margin-bottom: 20px;
+	font-size: 13px;
+	color: var(--ill-accent);
+}

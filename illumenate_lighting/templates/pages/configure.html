@@ -249,8 +249,10 @@ Allows users to configure fixtures using segment-based configuration
 {% block page_content %}
 <div class="container portal-page">
 	{% if has_quiz_handoff %}
-	<div class="ill-handoff-banner alert alert-info d-flex align-items-center" role="status">
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+	<div class="ill-handoff-banner" role="status">
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+			<polyline points="20 6 9 17 4 12"/>
+		</svg>
 		<span>Your selections from the configurator have been pre-filled below. Review and adjust as needed.</span>
 	</div>
 	{% endif %}
