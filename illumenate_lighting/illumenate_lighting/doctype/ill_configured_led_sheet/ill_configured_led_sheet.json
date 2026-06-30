@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "identity_section",
+  "naming_series",
   "sheet_template",
   "sheet_spec",
   "config_hash",
@@ -52,6 +53,14 @@
    "label": "Identity"
   },
   {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "ILL-CLS-.#####",
+   "default": "ILL-CLS-.#####",
+   "reqd": 1
+  },
+  {
    "fieldname": "sheet_template",
    "fieldtype": "Link",
    "label": "Sheet Template",
@@ -96,19 +105,19 @@
    "fieldname": "selected_output_level",
    "fieldtype": "Link",
    "label": "Selected Output Level",
-   "options": "ilL-Attribute-Output-Level"
+   "options": "ilL-Attribute-Output Level"
   },
   {
    "fieldname": "selected_environment_rating",
    "fieldtype": "Link",
    "label": "Selected Environment Rating",
-   "options": "ilL-Attribute-Environment-Rating"
+   "options": "ilL-Attribute-Environment Rating"
   },
   {
    "fieldname": "selected_mounting",
    "fieldtype": "Link",
    "label": "Selected Mounting",
-   "options": "ilL-Attribute-Mounting-Method"
+   "options": "ilL-Attribute-Mounting Method"
   },
   {
    "fieldname": "selected_finish",
@@ -288,5 +297,6 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "part_number"
+ "title_field": "part_number",
+ "autoname": "naming_series:"
 }

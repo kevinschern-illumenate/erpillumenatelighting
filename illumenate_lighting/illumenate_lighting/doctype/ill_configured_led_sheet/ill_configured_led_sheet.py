@@ -33,6 +33,7 @@ class ilLConfiguredLEDSheet(Document):
 	def before_save(self):
 		self._compute_from_links()
 		self._compute_quantities()
+		self._compute_msrp()
 		self._assemble_part_number()
 		self._compute_config_hash()
 
@@ -77,6 +78,31 @@ class ilLConfiguredLEDSheet(Document):
 		]
 		if all(segments):
 			self.part_number = "-".join(segments)
+
+	def _compute_msrp(self):
+		if not self.sheet_template:
+			return
+		template = frappe.get_doc("ilL-LED-Sheet-Template", self.sheet_template)
+		sheets_needed = int(self.sheets_needed or 0)
+		msrp = sheets_needed * float(template.price_per_sheet_msrp or 0)
+		for row in template.allowed_options or []:
+			field = OPTION_FIELD_BY_TYPE.get(row.option_type)
+			if row.is_active and field and row.attribute_link == self.get(field):
+				msrp += sheets_needed * float(row.msrp_adder or 0)
+		msrp += int(self.leader_cable_qty or 0) * self._item_price(template.leader_cable_item)
+		msrp += int(self.jumper_cables_extra or 0) * self._item_price(template.jumper_cable_item)
+		self.msrp = msrp
+
+	def _item_price(self, item_code):
+		if not item_code:
+			return 0.0
+		price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": item_code, "selling": 1},
+			"price_list_rate",
+			order_by="valid_from desc, modified desc",
+		)
+		return float(price or 0)
 
 	def _compute_config_hash(self):
 		payload = {

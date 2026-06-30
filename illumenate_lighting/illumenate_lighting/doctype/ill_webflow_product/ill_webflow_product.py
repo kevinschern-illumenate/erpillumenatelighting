@@ -133,6 +133,10 @@ class ilLWebflowProduct(Document):
 			if self.get("auto_populate_configurator_options", True):
 				self.populate_tape_neon_configurator_options()
 
+		if self.is_configurable and self.led_sheet_template:
+			if self.get("auto_populate_configurator_options", True):
+				self.populate_led_sheet_configurator_options()
+
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
 		if not getattr(self, "_skip_sync_status_check", False):
@@ -147,6 +151,7 @@ class ilLWebflowProduct(Document):
 		"""Update webflow_product backlink on linked templates after save."""
 		self._update_fixture_template_backlink()
 		self._update_tape_neon_template_backlink()
+		self._update_led_sheet_template_backlink()
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
@@ -225,6 +230,26 @@ class ilLWebflowProduct(Document):
 				update_modified=False,
 			)
 
+	def _update_led_sheet_template_backlink(self):
+		old_doc = self.get_doc_before_save()
+		old_template = old_doc.led_sheet_template if old_doc else None
+		if old_template and old_template != self.led_sheet_template:
+			frappe.db.set_value(
+				"ilL-LED-Sheet-Template",
+				old_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+		if self.led_sheet_template:
+			frappe.db.set_value(
+				"ilL-LED-Sheet-Template",
+				self.led_sheet_template,
+				"webflow_product",
+				self.name,
+				update_modified=False,
+			)
+
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked source spec for each product type."""
 		attribute_links = []
@@ -238,6 +263,8 @@ class ilLWebflowProduct(Document):
 		# Handle LED Tape / LED Neon via tape_neon_template
 		elif self.product_type in ("LED Tape", "LED Neon") and self.tape_neon_template:
 			self._populate_tape_neon_template_attributes(attribute_links)
+		elif self.product_type == "LED Sheet" and self.led_sheet_template:
+			self._populate_led_sheet_template_attributes(attribute_links)
 		# Handle legacy LED Tape via tape_spec (deprecated fallback)
 		elif self.product_type == "LED Tape" and self.tape_spec:
 			self._populate_led_tape_attributes(attribute_links)
@@ -654,6 +681,44 @@ class ilLWebflowProduct(Document):
 						title="Extrusion Kit Attribute Population Error"
 					)
 					continue
+
+	def _populate_led_sheet_template_attributes(self, attribute_links):
+		if not self.led_sheet_template:
+			return
+		try:
+			template = frappe.get_doc("ilL-LED-Sheet-Template", self.led_sheet_template)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"LED Sheet template {self.led_sheet_template} not found for product {self.name}",
+				title="LED Sheet Template Not Found",
+			)
+			return
+		option_mapping = {
+			"CCT": "ilL-Attribute-CCT",
+			"Output Level": "ilL-Attribute-Output Level",
+			"Environment Rating": "ilL-Attribute-Environment Rating",
+			"Mounting": "ilL-Attribute-Mounting Method",
+			"Finish": "ilL-Attribute-Finish",
+		}
+		display_order = len(attribute_links)
+		for opt in template.allowed_options or []:
+			if not getattr(opt, "is_active", 1):
+				continue
+			doctype = option_mapping.get(getattr(opt, "option_type", None))
+			attr_value = getattr(opt, "attribute_link", None)
+			if not doctype or not attr_value:
+				continue
+			if any(a["attribute_doctype"] == doctype and a["attribute_name"] == attr_value for a in attribute_links):
+				continue
+			display_order += 1
+			attribute_links.append({
+				"attribute_type": opt.option_type,
+				"attribute_doctype": doctype,
+				"attribute_name": attr_value,
+				"display_label": attr_value,
+				"webflow_item_id": self._get_attribute_webflow_id(doctype, attr_value),
+				"display_order": display_order,
+			})
 
 	def _populate_tape_neon_template_attributes(self, attribute_links):
 		"""Extract attributes from tape/neon template's allowed_options and allowed_tape_specs.
@@ -1826,6 +1891,64 @@ class ilLWebflowProduct(Document):
 				"depends_on_step": 4,
 				"allowed_values_json": frappe.as_json(fixture_output_levels)
 			})
+
+	def populate_led_sheet_configurator_options(self):
+		"""Populate configurator options from LED Sheet template allowed options."""
+		template = frappe.get_doc("ilL-LED-Sheet-Template", self.led_sheet_template)
+		option_flow = [
+			(1, "CCT", "CCT", 0),
+			(2, "Output Level", "Output", 1),
+			(3, "Environment Rating", "Environment", 0),
+			(4, "Mounting", "Mounting", 0),
+			(5, "Finish", "Finish", 0),
+			(6, "Coverage", "Coverage", 0),
+		]
+
+		existing_is_required = {}
+		if not self.is_new():
+			existing_opts = frappe.get_all(
+				"ilL-Child-Webflow-Configurator-Option",
+				filters={"parent": self.name, "parenttype": "ilL-Webflow-Product"},
+				fields=["option_step", "is_required"],
+			)
+			existing_is_required = {
+				int(opt.option_step): int(opt.is_required)
+				for opt in existing_opts
+				if opt.option_step is not None
+			}
+
+		self.configurator_options = []
+		for step, option_type, label, depends_on in option_flow:
+			allowed_values = self._get_led_sheet_allowed_values(template, option_type)
+			if allowed_values:
+				self.append("configurator_options", {
+					"option_step": step,
+					"option_type": option_type,
+					"option_label": label,
+					"is_required": existing_is_required.get(step, 1),
+					"depends_on_step": depends_on,
+					"allowed_values_json": frappe.as_json(allowed_values),
+				})
+
+	def _get_led_sheet_allowed_values(self, template, option_type: str) -> list:
+		if option_type == "Coverage":
+			return [{"value": "__coverage_metadata__", "label": "Coverage", "code": ""}]
+		values = []
+		seen = set()
+		for opt in template.allowed_options or []:
+			if getattr(opt, "option_type", None) != option_type or not getattr(opt, "is_active", 1):
+				continue
+			val = getattr(opt, "attribute_link", None)
+			if not val or val in seen:
+				continue
+			seen.add(val)
+			values.append({
+				"value": val,
+				"label": val,
+				"code": getattr(opt, "option_code", "") or "",
+				"is_default": getattr(opt, "is_default", False),
+			})
+		return values
 
 	def populate_tape_neon_configurator_options(self):
 		"""Populate configurator options from tape/neon template's allowed options.

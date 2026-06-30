@@ -200,7 +200,7 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "search_fields": "tape_neon_template, pdf_field_name, source_field",
+ "search_fields": "led_sheet_template, pdf_field_name, source_field",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

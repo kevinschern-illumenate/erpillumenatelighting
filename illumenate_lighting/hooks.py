@@ -183,6 +183,7 @@ fixtures = [
 	# LED Sheet seed data (Snowfield; Analog RGBW intentionally excluded pending series code)
 	{"dt": "ilL-Spec-LED-Sheet"},
 	{"dt": "ilL-LED-Sheet-Template"},
+	{"dt": "Item", "filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER"]]]},
 	# Job Title Master for CRM Lead integration
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields for CRM Lead and other DocTypes
