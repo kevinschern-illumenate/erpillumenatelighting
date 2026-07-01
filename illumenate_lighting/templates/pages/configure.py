@@ -12,10 +12,11 @@ no_cache = 1
 def get_context(context):
 	"""Get context for the unified configurator portal page.
 
-	Supports three product categories via ?category= parameter:
+	Supports four product categories via ?category= parameter:
 	  - Linear Fixture (default) – uses ilL-Fixture-Template
 	  - LED Tape – uses ilL-Tape-Neon-Template (product_category='LED Tape')
 	  - LED Neon – uses ilL-Tape-Neon-Template (product_category='LED Neon')
+	  - LED Sheet / LED Sheets – uses ilL-LED-Sheet-Template
 	"""
 	if frappe.session.user == "Guest":
 		current_url = frappe.utils.get_url(frappe.request.path)
@@ -47,11 +48,10 @@ def get_context(context):
 	}
 	quiz_handoff = {k: v for k, v in quiz_handoff.items() if v is not None}
 
-	# Product category selection (default to Linear Fixture)
-	product_category = frappe.form_dict.get("category", "Linear Fixture")
-	valid_categories = ["Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"]
-	if product_category not in valid_categories:
-		product_category = "Linear Fixture"
+	# Product category selection (default to Linear Fixture). Normalize common
+	# labels/slugs so external links like ?category=LED%20Sheets route to the
+	# singular internal LED Sheet configurator instead of falling back to Linear.
+	product_category = _normalize_product_category(frappe.form_dict.get("category"))
 
 	# Configurator UI mode: "coordinator" (default, multi-segment/tape-neon
 	# builder) or "wizard" (guided step-by-step flow, Linear Fixture only,
@@ -149,6 +149,28 @@ def get_context(context):
 	context.no_cache = 1
 
 	return context
+
+
+def _normalize_product_category(category):
+	"""Return the canonical configurator category for URL/input aliases."""
+	category = (category or "Linear Fixture").strip()
+	category_map = {
+		"Linear Fixture": "Linear Fixture",
+		"Linear Fixtures": "Linear Fixture",
+		"linear-fixture": "Linear Fixture",
+		"linear-fixtures": "Linear Fixture",
+		"LED Tape": "LED Tape",
+		"LED Tapes": "LED Tape",
+		"led-tape": "LED Tape",
+		"LED Neon": "LED Neon",
+		"LED Neons": "LED Neon",
+		"led-neon": "LED Neon",
+		"LED Sheet": "LED Sheet",
+		"LED Sheets": "LED Sheet",
+		"led-sheet": "LED Sheet",
+		"led-sheets": "LED Sheet",
+	}
+	return category_map.get(category, "Linear Fixture")
 
 
 def _get_linear_fixture_templates():
@@ -255,9 +277,9 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 	if frappe.session.user == "Guest":
 		frappe.throw("Please login to configure fixtures", frappe.PermissionError)
 
-	valid_categories = ["Linear Fixture", "LED Tape", "LED Neon"]
-	if product_category not in valid_categories:
-		product_category = "Linear Fixture"
+	product_category = _normalize_product_category(product_category)
+	if product_category == "LED Sheet":
+		frappe.throw("LED Sheets are only available from the portal configurator page.")
 
 	if product_category == "Linear Fixture":
 		templates = _get_linear_fixture_templates()
