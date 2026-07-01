@@ -19,6 +19,7 @@
   "selected_mounting",
   "selected_finish",
   "coverage_section",
+  "include_power_supply",
   "coverage_width_ft",
   "coverage_height_ft",
   "total_coverage_sqft",
@@ -129,6 +130,13 @@
    "fieldname": "coverage_section",
    "fieldtype": "Section Break",
    "label": "Coverage"
+  },
+  {
+   "fieldname": "include_power_supply",
+   "fieldtype": "Check",
+   "label": "Include Power Supply",
+   "default": "1",
+   "description": "When checked, compatible drivers/power supplies are priced and added as their own schedule lines."
   },
   {
    "fieldname": "coverage_width_ft",

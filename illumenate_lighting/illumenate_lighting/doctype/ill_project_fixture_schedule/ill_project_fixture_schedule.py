@@ -63,6 +63,11 @@ class ilLProjectFixtureSchedule(Document):
 					if not line.variant_selections:
 						line_id = line.line_id or f"Row {line.idx}"
 						unconfigured_lines.append(line_id)
+				# LED Sheet lines are configured when a configured LED Sheet record exists
+				elif line.product_type == "LED Sheet":
+					if not line.configured_led_sheet:
+						line_id = line.line_id or f"Row {line.idx}"
+						unconfigured_lines.append(line_id)
 				elif not line.configured_fixture:
 					line_id = line.line_id or f"Row {line.idx}"
 					unconfigured_lines.append(line_id)

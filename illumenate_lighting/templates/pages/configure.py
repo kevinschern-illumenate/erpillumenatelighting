@@ -49,7 +49,7 @@ def get_context(context):
 
 	# Product category selection (default to Linear Fixture)
 	product_category = frappe.form_dict.get("category", "Linear Fixture")
-	valid_categories = ["Linear Fixture", "LED Tape", "LED Neon"]
+	valid_categories = ["Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"]
 	if product_category not in valid_categories:
 		product_category = "Linear Fixture"
 
@@ -88,8 +88,21 @@ def get_context(context):
 
 	# Fetch templates based on product category
 	templates = []
+	led_sheet_templates = []
+	existing_configured_sheet = None
 	if product_category == "Linear Fixture":
 		templates = _get_linear_fixture_templates()
+	elif product_category == "LED Sheet":
+		from illumenate_lighting.illumenate_lighting.api.portal import (
+			get_configured_sheet_for_line,
+			get_led_sheet_templates,
+		)
+		led_sheet_templates = get_led_sheet_templates().get("templates", [])
+		# Pre-fill an existing configured LED Sheet for this line (zero-based idx)
+		if schedule_name and line_idx is not None:
+			existing_configured_sheet = get_configured_sheet_for_line(
+				schedule_name, int(line_idx)
+			).get("data")
 	else:
 		templates = _get_tape_neon_templates(product_category)
 
@@ -104,6 +117,7 @@ def get_context(context):
 		"Linear Fixture": "Configure Fixture",
 		"LED Tape": "Configure LED Tape",
 		"LED Neon": "Configure LED Neon",
+		"LED Sheet": "Configure LED Sheet",
 	}
 
 	# For tape/neon, track whether templates exist.  When none are available
@@ -114,7 +128,10 @@ def get_context(context):
 	context.is_tape_neon = product_category in ("LED Tape", "LED Neon")
 	context.is_neon = product_category == "LED Neon"
 	context.is_tape = product_category == "LED Tape"
+	context.is_led_sheet = product_category == "LED Sheet"
 	context.has_templates = has_templates
+	context.led_sheet_templates = led_sheet_templates
+	context.existing_configured_sheet = existing_configured_sheet
 	context.schedule = schedule
 	context.schedule_name = schedule_name or ""
 	context.project_name = project_name or ""

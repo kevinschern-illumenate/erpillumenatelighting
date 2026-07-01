@@ -596,6 +596,11 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 			name_lower = (name or "").lower()
 			return name_lower in ("led tape", "led neon") or name_lower.startswith("led tape") or name_lower.startswith("led neon")
 
+		# Define which item groups should show LED Sheet templates instead of items
+		def is_led_sheet_group(name):
+			name_lower = (name or "").lower()
+			return name_lower in ("led sheet", "led sheets") or name_lower.startswith("led sheet")
+
 		def _build_group_tree(parent_group_name, root_group_label):
 			"""Build a nested tree of item groups under a parent."""
 			if not frappe.db.exists("Item Group", parent_group_name):
@@ -623,6 +628,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"is_header": False,
 					"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
 					"is_tape_neon_type": is_tape_neon_group(child.name) or is_tape_neon_group(child.item_group_name),
+					"is_led_sheet_type": is_led_sheet_group(child.name) or is_led_sheet_group(child.item_group_name),
 				})
 
 				# If include_subgroups, fetch sub-groups
@@ -645,6 +651,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 							"is_header": False,
 							"is_fixture_type": is_fixture_group(sub.name) or is_fixture_group(sub.item_group_name),
 							"is_tape_neon_type": is_tape_neon_group(sub.name) or is_tape_neon_group(sub.item_group_name),
+							"is_led_sheet_type": is_led_sheet_group(sub.name) or is_led_sheet_group(sub.item_group_name),
 						})
 
 						# Grandchild groups (level 2)
@@ -666,6 +673,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 								"is_header": False,
 								"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
 								"is_tape_neon_type": is_tape_neon_group(grandchild.name) or is_tape_neon_group(grandchild.item_group_name),
+								"is_led_sheet_type": is_led_sheet_group(grandchild.name) or is_led_sheet_group(grandchild.item_group_name),
 							})
 
 			return items
@@ -709,6 +717,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"is_header": True,
 					"is_fixture_type": False,
 					"is_tape_neon_type": False,
+					"is_led_sheet_type": False,
 				})
 				result.extend(group_items)
 
@@ -724,6 +733,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 				"is_header": False,
 				"is_fixture_type": True,
 				"is_tape_neon_type": False,
+				"is_led_sheet_type": False,
 			}]
 
 		return {"success": True, "product_types": result}
@@ -1355,6 +1365,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.product_type = line_data.get("product_type")
 			line.fixture_template = line_data.get("fixture_template")
 			line.tape_neon_template = line_data.get("tape_neon_template")
+			line.led_sheet_template = line_data.get("led_sheet_template")
 			line.configuration_status = line_data.get("configuration_status", "Pending")
 
 		if line.manufacturer_type == "ACCESSORY":
@@ -4303,9 +4314,9 @@ def get_configured_sheet_for_line(schedule_name: str, line_idx: int) -> dict:
 	if not has_permission(schedule, "read", frappe.session.user):
 		return {"success": False, "error": "No read permission on this schedule"}
 	idx = int(line_idx)
-	if idx < 1 or idx > len(schedule.lines or []):
+	if idx < 0 or idx >= len(schedule.lines or []):
 		return {"success": False, "error": "Line not found"}
-	line = schedule.lines[idx - 1]
+	line = schedule.lines[idx]
 	name = getattr(line, "configured_led_sheet", None)
 	if not name:
 		return {"success": True, "configured_led_sheet": None}
