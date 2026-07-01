@@ -3179,10 +3179,18 @@ function loadExportHistory() {
 				$('#exportHistoryContainer').html(
 					'<div class="text-center text-muted py-3">' +
 					'<i class="fa fa-exclamation-circle"></i> ' +
-					(r.message.error || 'Error loading export history') +
+					((r.message && r.message.error) || 'Error loading export history') +
 					'</div>'
 				);
 			}
+		},
+		error: function() {
+			$('#exportHistoryContainer').html(
+				'<div class="text-center text-muted py-3">' +
+				'<i class="fa fa-exclamation-circle"></i> ' +
+				'{{ _("Error loading export history") }}' +
+				'</div>'
+			);
 		}
 	});
 }
