@@ -219,7 +219,20 @@ Allows users to configure fixtures using segment-based configuration
 		</ol>
 	</nav>
 
+
 	{% if is_led_sheet %}
+	<!-- Product Category Selector -->
+	<div class="form-group mb-3" id="categorySelector">
+		<label class="option-label">{{ _("Product Category") }} <span class="text-danger">*</span></label>
+		<div class="pill-selector">
+			<a class="pill-option {% if product_category == 'Linear Fixture' %}active{% endif %}" href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("Linear Fixture") }}</a>
+			<a class="pill-option {% if product_category == 'LED Tape' %}active{% endif %}" href="/portal/configure?category=LED%20Tape{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Tape") }}</a>
+			<a class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" href="/portal/configure?category=LED%20Neon{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Neon") }}</a>
+			<a class="pill-option {% if product_category == 'LED Sheet' %}active{% endif %}" href="/portal/configure?category=LED%20Sheet{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Sheets") }}</a>
+		</div>
+	</div>
+	<hr class="mt-1 mb-3">
+
 	<!-- ─────────── LED Sheet Configurator ─────────── -->
 	<div class="ill-configurator-sheet">
 	<div class="card mb-3" id="scheduleContextCard">
