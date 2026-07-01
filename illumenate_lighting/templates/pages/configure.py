@@ -53,6 +53,15 @@ def get_context(context):
 	if product_category not in valid_categories:
 		product_category = "Linear Fixture"
 
+	# Configurator UI mode: "coordinator" (default, multi-segment/tape-neon
+	# builder) or "wizard" (guided step-by-step flow, Linear Fixture only,
+	# reusing templates/includes/configurator_fixture_form.html + fixture_steps.js).
+	configurator_mode = frappe.form_dict.get("mode", "coordinator")
+	if configurator_mode not in ("coordinator", "wizard"):
+		configurator_mode = "coordinator"
+	if product_category != "Linear Fixture":
+		configurator_mode = "coordinator"
+
 	# Get optional schedule context (pre-fill from fixture schedule line UI)
 	schedule_name = frappe.form_dict.get("schedule")
 	line_idx = frappe.form_dict.get("line_idx")
@@ -114,6 +123,8 @@ def get_context(context):
 	context.is_system_manager = is_system_manager
 	context.templates = templates
 	context.selected_template = template_code
+	context.configurator_mode = configurator_mode
+	context.product_slug = frappe.form_dict.get("product_slug", "")
 	context.show_pricing = show_pricing
 	context.title = title_map.get(product_category, "Configure Fixture")
 	context.quiz_handoff_json = frappe.as_json(quiz_handoff)

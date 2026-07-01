@@ -219,6 +219,23 @@ Allows users to configure fixtures using segment-based configuration
 		</ol>
 	</nav>
 
+	{% if product_category == 'Linear Fixture' %}
+	<!-- Configurator Mode Toggle (Linear Fixture only) -->
+	<div class="d-flex justify-content-end mb-3">
+		<div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Configurator Mode') }}">
+			<a href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}{% if selected_template %}&template={{ selected_template }}{% endif %}"
+			   class="btn btn-outline-primary {% if configurator_mode != 'wizard' %}active{% endif %}">
+				<i class="fa fa-th-large"></i> {{ _("Multi-Segment Coordinator") }}
+			</a>
+			<a href="/portal/configure?category=Linear%20Fixture&mode=wizard{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}{% if selected_template %}&template={{ selected_template }}{% endif %}"
+			   class="btn btn-outline-primary {% if configurator_mode == 'wizard' %}active{% endif %}">
+				<i class="fa fa-magic"></i> {{ _("Guided Wizard") }}
+			</a>
+		</div>
+	</div>
+	{% endif %}
+
+	{% if configurator_mode != 'wizard' %}
 	<!-- Schedule Context Selector -->
 	<div class="card mb-3" id="scheduleContextCard">
 		<div class="card-header d-flex justify-content-between align-items-center">
@@ -260,7 +277,17 @@ Allows users to configure fixtures using segment-based configuration
 			</div>
 		</div>
 	</div>
+	{% endif %}
 
+	{% if configurator_mode == 'wizard' %}
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="ill-configurator ill-configurator-fixture">
+				{% include "illumenate_lighting/templates/includes/configurator_fixture_form.html" %}
+			</div>
+		</div>
+	</div>
+	{% else %}
 	<div class="row">
 		<!-- Configurator Form -->
 		<div class="col-lg-7">
@@ -303,6 +330,28 @@ Allows users to configure fixtures using segment-based configuration
 							<strong>{{ _("Include Power Supplies?") }}</strong>
 							<small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies from this fixture and source them separately.") }}</small>
 						</label>
+					</div>
+
+					<!-- Override Max Run Length -->
+					<div class="custom-control custom-checkbox mt-3">
+						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
+							   onchange="(function(cb){var i=document.getElementById('overrideMaxRunGroup');var w=document.getElementById('overrideMaxRunWarning');if(i)i.style.display=cb.checked?'':'none';if(w)w.style.display=cb.checked?'':'none';})(this)">
+						<label class="custom-control-label" for="overrideMaxRunCheck">
+							<strong>{{ _("Override Max Run Length") }}</strong>
+						</label>
+					</div>
+					<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+						<input type="number" name="override_max_run_ft" id="overrideMaxRunInput"
+							   class="form-control" min="0.5" step="0.5"
+							   placeholder="{{ _('Custom max run (ft)') }}">
+						<span class="input-group-text">ft</span>
+					</div>
+					<div class="alert alert-warning mt-2 py-2" id="overrideMaxRunWarning" style="display: none;">
+						<button type="button" class="close" aria-label="Close"
+								onclick="this.parentNode.style.display='none'">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
 					</div>
 				</div>
 			</div>
@@ -611,6 +660,7 @@ Allows users to configure fixtures using segment-based configuration
 			</div>
 		</div>
 	</div>
+	{% endif %}
 </div>
 
 <!-- Segment Template -->
@@ -873,6 +923,22 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block script %}
 <script>
+{% if configurator_mode == 'wizard' %}
+{# Guided Wizard mode: the fixture_steps.js / configurator_fixture_form.html
+   scoped configurator handles everything (including override_max_run_ft)
+   via the same webflow_configurator.* endpoints used by configure_webflow.html. #}
+var configuratorContext = {
+	schedule_name: "{{ schedule_name }}",
+	product_slug: "{{ product_slug or '' }}",
+	session_id: "",
+	can_save: {{ 'true' if can_save else 'false' }},
+	show_pricing: {{ 'true' if show_pricing else 'false' }}
+};
+
+$(function() {
+	initWebflowConfigurator(configuratorContext);
+});
+{% else %}
 // Quiz handoff from Webflow configurator — consumed by this page
 window.ILL_QUIZ_HANDOFF = {{ quiz_handoff_json | safe }};
 
@@ -1943,6 +2009,14 @@ function validateAndQuote() {
 		segments_json: JSON.stringify(segments),
 		include_power_supply: $('#includePowerSupply').is(':checked')
 	};
+
+	// Optional fixture-wide max run length override
+	if ($('#overrideMaxRunCheck').is(':checked')) {
+		var overrideMaxRunVal = parseFloat($('#overrideMaxRunInput').val());
+		if (!isNaN(overrideMaxRunVal) && overrideMaxRunVal > 0) {
+			data.override_max_run_ft = overrideMaxRunVal;
+		}
+	}
 	
 	// Show loading state
 	$('#calculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ _("Calculating...") }}');
@@ -2094,7 +2168,9 @@ function displayResults(result) {
 		if (result.computed.max_run_ft_effective) {
 			$('#maxRunLengthRow').show();
 			var maxRunText = result.computed.max_run_ft_effective + ' ft';
-			if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
+			if (result.computed.override_max_run_ft_active) {
+				maxRunText += ' (' + __('Overridden') + ')';
+			} else if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
 				var limiting = (result.computed.max_run_ft_by_voltage_drop <= result.computed.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
 				maxRunText += ' (' + limiting + ')';
 			}
@@ -3543,6 +3619,7 @@ function tnCollectNeonSegments() {
 }
 {% endif %}
 
+{% endif %}
 {% endif %}
 </script>
 {% endblock %}
