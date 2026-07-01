@@ -4,7 +4,7 @@
 """Backward-compatible redirect for the legacy LED Sheet configurator page.
 
 LED Sheet is now a first-class category on the unified ``/portal/configure``
-page.  This page redirects to it while translating the legacy **one-based**
+page. This page redirects to it while translating the legacy **one-based**
 ``line_idx`` used by the old configure-sheet flow into the **zero-based**
 ``line_idx`` that the unified configurator (and schedule links) now use.
 """

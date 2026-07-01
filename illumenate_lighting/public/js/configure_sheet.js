@@ -80,6 +80,6 @@
       $id('sheetIncludePowerSupply').checked = existing.include_power_supply == null ? true : !!existing.include_power_supply;
     }
     $id('calculateSheet').addEventListener('click', function () { call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.validate_sheet_configuration', payload(), function (r) { lastResult = r; render(r); $id('saveSheet').disabled = !(r.success && ctx.can_save); }); });
-    $id('saveSheet').addEventListener('click', function () { call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.save_sheet_configuration', payload(), function () { const sched = currentSchedule(); window.location.href = sched ? `/portal/schedules/${sched}` : '/portal/projects'; }); });
+    $id('saveSheet').addEventListener('click', function () { call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.save_sheet_configuration', payload(), function () { const sched = currentSchedule(); window.location.href = sched ? `/portal/schedules/${encodeURIComponent(sched)}` : '/portal/projects'; }); });
   });
 })();
