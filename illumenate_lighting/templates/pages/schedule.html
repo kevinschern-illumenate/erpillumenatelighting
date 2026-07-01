@@ -2814,8 +2814,8 @@ function configureLedSheetFromAddModal() {
 				var newLineIdx = r.message.line_idx;
 				$('#addLineModal').modal('hide');
 				window.location.href = '/portal/configure?category=' + encodeURIComponent('LED Sheet') +
-					'&schedule=' + schedule_name +
-					'&line_idx=' + newLineIdx +
+					'&schedule=' + encodeURIComponent(schedule_name) +
+					'&line_idx=' + encodeURIComponent(newLineIdx) +
 					'&template=' + encodeURIComponent(ledSheetTemplate);
 			} else {
 				frappe.msgprint((r.message && r.message.error) || 'Error adding line');

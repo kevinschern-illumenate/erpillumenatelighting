@@ -237,12 +237,14 @@ def validate_sheet_configuration(
     sku = {SKU_FIELD_BY_TYPE[k]: v["code"] for k, v in resolved.items()}
     sku["sku_series_code"] = template_doc.sku_series_code
     part_number = "-".join([
-        sku.get("sku_series_code") or "",
-        sku.get("sku_environment_code") or "",
-        sku.get("sku_cct_code") or "",
-        sku.get("sku_output_code") or "",
-        sku.get("sku_mounting_code") or "",
-        sku.get("sku_finish_code") or "",
+        part for part in [
+            sku.get("sku_series_code") or "",
+            sku.get("sku_environment_code") or "",
+            sku.get("sku_cct_code") or "",
+            sku.get("sku_output_code") or "",
+            sku.get("sku_mounting_code") or "",
+            sku.get("sku_finish_code") or "",
+        ] if part
     ])
 
     # Pricing: the panel line carries panel + option MSRP.  Cables and power
