@@ -12,15 +12,34 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 def build_led_sheet_bom_items(configured) -> list[dict[str, Any]]:
     items = []
     spec = frappe.get_doc("ilL-Spec-LED-Sheet", configured.sheet_spec) if configured.sheet_spec else None
-    if spec and spec.item and int(configured.sheets_needed or 0) > 0:
-        uom = frappe.db.get_value("Item", spec.item, "stock_uom") or DEFAULT_UOM
-        items.append({"item_code": spec.item, "qty": int(configured.sheets_needed or 0), "uom": uom, "stock_uom": uom})
-    if configured.leader_cable_item and int(configured.leader_cable_qty or 0) > 0:
-        uom = frappe.db.get_value("Item", configured.leader_cable_item, "stock_uom") or DEFAULT_UOM
-        items.append({"item_code": configured.leader_cable_item, "qty": int(configured.leader_cable_qty or 0), "uom": uom, "stock_uom": uom})
-    if configured.jumper_cable_item and int(configured.jumper_cables_extra or 0) > 0:
-        uom = frappe.db.get_value("Item", configured.jumper_cable_item, "stock_uom") or DEFAULT_UOM
-        items.append({"item_code": configured.jumper_cable_item, "qty": int(configured.jumper_cables_extra or 0), "uom": uom, "stock_uom": uom})
+    panels_needed = int(configured.sheets_needed or 0)
+    total_groups = int(configured.total_groups or 0)
+
+    def _uom(item_code):
+        return frappe.db.get_value("Item", item_code, "stock_uom") or DEFAULT_UOM
+
+    # Panels
+    if spec and spec.item and panels_needed > 0:
+        uom = _uom(spec.item)
+        items.append({"item_code": spec.item, "qty": panels_needed, "uom": uom, "stock_uom": uom})
+    # Jumpers: two per panel
+    if configured.jumper_cable_item and panels_needed > 0:
+        uom = _uom(configured.jumper_cable_item)
+        items.append({"item_code": configured.jumper_cable_item, "qty": panels_needed * 2, "uom": uom, "stock_uom": uom})
+    # Leaders: one per group
+    if configured.leader_cable_item and total_groups > 0:
+        uom = _uom(configured.leader_cable_item)
+        items.append({"item_code": configured.leader_cable_item, "qty": total_groups, "uom": uom, "stock_uom": uom})
+    # Power supplies: only when included, aggregated by driver item from group rows
+    if int(getattr(configured, "include_power_supply", 0) or 0):
+        driver_qty: dict[str, int] = {}
+        for group in configured.groups or []:
+            driver_item = getattr(group, "compatible_driver", None)
+            if driver_item:
+                driver_qty[driver_item] = driver_qty.get(driver_item, 0) + 1
+        for driver_item, qty in driver_qty.items():
+            uom = _uom(driver_item)
+            items.append({"item_code": driver_item, "qty": qty, "uom": uom, "stock_uom": uom})
     return items
 
 

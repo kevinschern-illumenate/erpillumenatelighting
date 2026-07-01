@@ -55,9 +55,16 @@ class ilLConfiguredLEDSheet(Document):
 		self.total_coverage_sqft = width * height
 		if self.sheet_spec:
 			spec = frappe.get_doc("ilL-Spec-LED-Sheet", self.sheet_spec)
-			area = float(spec.sheet_area_sqft or 0)
+			sheet_width = float(spec.sheet_width_ft or 0)
+			sheet_height = float(spec.sheet_height_ft or 0)
 			watts = float(spec.total_sheet_watts or 0)
-			self.sheets_needed = math.ceil(self.total_coverage_sqft / area) if area else 0
+			# Panel count uses actual sheet dimensions (per-axis ceil tiling),
+			# not area-only division, to match the configurator engine.
+			if sheet_width > 0 and sheet_height > 0 and width > 0 and height > 0:
+				self.sheets_needed = math.ceil(width / sheet_width) * math.ceil(height / sheet_height)
+			else:
+				area = float(spec.sheet_area_sqft or 0)
+				self.sheets_needed = math.ceil(self.total_coverage_sqft / area) if area else 0
 			self.total_system_watts = self.sheets_needed * watts
 		self.total_groups = len(self.groups or [])
 		if not self.total_groups and self.sheets_needed:
@@ -94,13 +101,15 @@ class ilLConfiguredLEDSheet(Document):
 			return
 		template = frappe.get_doc("ilL-LED-Sheet-Template", self.sheet_template)
 		sheets_needed = int(self.sheets_needed or 0)
+		# The configured LED Sheet MSRP represents the panel line only. Jumper,
+		# leader, and power-supply cables/drivers are saved as their own
+		# accessory schedule lines priced from Item Price, so they are excluded
+		# here to avoid double-counting.
 		msrp = sheets_needed * float(template.price_per_sheet_msrp or 0)
 		for row in template.allowed_options or []:
 			field = OPTION_FIELD_BY_TYPE.get(row.option_type)
 			if row.is_active and field and row.attribute_link == self.get(field):
 				msrp += sheets_needed * float(row.msrp_adder or 0)
-		msrp += int(self.leader_cable_qty or 0) * self._item_price(template.leader_cable_item)
-		msrp += int(self.jumper_cables_extra or 0) * self._item_price(template.jumper_cable_item)
 		self.msrp = msrp
 
 	def _item_price(self, item_code):
@@ -125,6 +134,7 @@ class ilLConfiguredLEDSheet(Document):
 			"selected_finish": self.selected_finish,
 			"coverage_width_ft": self.coverage_width_ft,
 			"coverage_height_ft": self.coverage_height_ft,
+			"include_power_supply": bool(self.include_power_supply),
 		}
 		self.config_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 

@@ -219,6 +219,47 @@ Allows users to configure fixtures using segment-based configuration
 		</ol>
 	</nav>
 
+	{% if is_led_sheet %}
+	<!-- ─────────── LED Sheet Configurator ─────────── -->
+	<div class="ill-configurator-sheet">
+	<div class="card mb-3" id="scheduleContextCard">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+			<small class="text-muted">{{ _("Select a project and line to save this configuration") }}</small>
+		</div>
+		<div class="card-body">
+			<div class="row">
+				<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold">{{ _("Project") }}</label><select class="form-control" id="projectSelect"><option value="">{{ _("Select Project...") }}</option></select></div></div>
+				<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold">{{ _("Fixture Schedule") }}</label><select class="form-control" id="scheduleSelect" disabled><option value="">{{ _("Select Schedule...") }}</option></select></div></div>
+				<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold">{{ _("Line") }}</label><select class="form-control" id="lineSelect" disabled><option value="">{{ _("Select Line...") }}</option><option value="__new__">{{ _("+ New Line") }}</option></select></div></div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-lg-7">
+			<div class="card mb-3"><div class="card-header"><h5 class="mb-0">{{ _("LED Sheet Configuration") }}</h5></div><div class="card-body">
+				<form id="ledSheetConfigForm">
+					<div class="form-group"><label>{{ _("LED Sheet Template") }}</label><select class="form-control" id="sheetTemplate"><option value="">{{ _("Select...") }}</option></select></div>
+					<div class="form-group"><label>{{ _("Sheet Fixture / Spec Template") }}</label><select class="form-control" id="sheetSpec"><option value="">{{ _("Select...") }}</option></select></div>
+					<div class="row"><div class="col-md-6"><div class="form-group"><label>{{ _("CCT") }}</label><select class="form-control" id="sheetCct"></select></div></div><div class="col-md-6"><div class="form-group"><label>{{ _("Output Level") }}</label><select class="form-control" id="sheetOutput"></select></div></div></div>
+					<div class="row"><div class="col-md-4"><div class="form-group"><label>{{ _("Environment Rating") }}</label><select class="form-control" id="sheetEnvironment"></select></div></div><div class="col-md-4"><div class="form-group"><label>{{ _("Mounting") }}</label><select class="form-control" id="sheetMounting"></select></div></div><div class="col-md-4"><div class="form-group"><label>{{ _("Finish") }}</label><select class="form-control" id="sheetFinish"></select></div></div></div>
+					<div class="form-group form-check"><input type="checkbox" class="form-check-input" id="sheetIncludePowerSupply" checked><label class="form-check-label" for="sheetIncludePowerSupply">{{ _("Include power supplies") }}</label></div>
+					<hr><h6>{{ _("Coverage Area") }}</h6>
+					<div class="row">
+						<div class="col-md-6"><div class="form-group"><label>{{ _("Requested Width") }}</label><div class="input-group"><input type="number" min="0" step="0.01" class="form-control" id="coverageWidthValue"><div class="input-group-append"><select class="form-control" id="coverageWidthUnit"><option value="in">{{ _("inches") }}</option><option value="ft" selected>{{ _("feet") }}</option></select></div></div></div></div>
+						<div class="col-md-6"><div class="form-group"><label>{{ _("Requested Height") }}</label><div class="input-group"><input type="number" min="0" step="0.01" class="form-control" id="coverageHeightValue"><div class="input-group-append"><select class="form-control" id="coverageHeightUnit"><option value="in">{{ _("inches") }}</option><option value="ft" selected>{{ _("feet") }}</option></select></div></div></div></div>
+					</div>
+					<button type="button" class="btn btn-secondary" id="calculateSheet">{{ _("Calculate &amp; Validate") }}</button>
+					<button type="button" class="btn btn-primary" id="saveSheet" disabled>{{ _("Add to Schedule") }}</button>
+				</form>
+			</div></div>
+		</div>
+		<div class="col-lg-5"><div class="card sticky-top"><div class="card-header"><h5 class="mb-0">{{ _("Results") }}</h5></div><div class="card-body" id="sheetSummary"><p class="text-muted">{{ _("Enter dimensions and calculate to view panel count, groups, accessories, and pricing.") }}</p></div></div></div>
+	</div>
+	</div>
+	{% endif %}
+
+	{% if not is_led_sheet %}
 	{% if product_category == 'Linear Fixture' %}
 	<!-- Configurator Mode Toggle (Linear Fixture only) -->
 	<div class="d-flex justify-content-end mb-3">
@@ -919,10 +960,16 @@ Allows users to configure fixtures using segment-based configuration
 	</div>
 </template>
 {% endif %}
+{% endif %}
 {% endblock %}
 
 {% block script %}
 <script>
+{% if is_led_sheet %}
+window.ILL_LED_SHEET_TEMPLATES = {{ led_sheet_templates | tojson }};
+window.ILL_LED_SHEET_EXISTING = {{ existing_configured_sheet | tojson }};
+window.ILL_LED_SHEET_CONTEXT = {schedule_name: {{ schedule_name | tojson }}, line_idx: {{ line_idx | tojson }}, can_save: {{ 'true' if can_save else 'false' }}};
+{% else %}
 {% if configurator_mode == 'wizard' %}
 {# Guided Wizard mode: the fixture_steps.js / configurator_fixture_form.html
    scoped configurator handles everything (including override_max_run_ft)
@@ -3622,5 +3669,7 @@ function tnCollectNeonSegments() {
 
 {% endif %}
 {% endif %}
+{% endif %}
 </script>
+{% if is_led_sheet %}<script src="/assets/illumenate_lighting/js/configure_sheet.js"></script>{% endif %}
 {% endblock %}
