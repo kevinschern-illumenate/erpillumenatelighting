@@ -926,7 +926,8 @@ Allows users to configure fixtures using segment-based configuration
 {% if configurator_mode == 'wizard' %}
 {# Guided Wizard mode: the fixture_steps.js / configurator_fixture_form.html
    scoped configurator handles everything (including override_max_run_ft)
-   via the same webflow_configurator.* endpoints used by configure_webflow.html. #}
+   via the same webflow_configurator.* endpoints previously used by the
+   retired /portal/configure-webflow page. #}
 var configuratorContext = {
 	schedule_name: "{{ schedule_name }}",
 	product_slug: "{{ product_slug or '' }}",

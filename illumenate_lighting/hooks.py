@@ -113,8 +113,6 @@ website_route_rules = [
 	{"from_route": "/portal/configure", "to_route": "configure"},
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
 	{"from_route": "/portal/request-dealer-access", "to_route": "request_dealer_access"},
-	{"from_route": "/portal/configure-webflow", "to_route": "configure_webflow"},
-	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
 	{"from_route": "/portal/configure-tape", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-sheet", "to_route": "configure_sheet"},
@@ -145,6 +143,16 @@ website_route_rules = [
 	# Account
 	{"from_route": "/portal/account", "to_route": "account"},
 	{"from_route": "/portal/account/notifications", "to_route": "account"},
+]
+
+# Website Redirects
+# ------------------
+# /portal/configure-webflow was retired in favor of the "Guided Wizard" mode
+# of the unified /portal/configure page (same fixture_steps.js / webflow_configurator.py
+# backend, just merged into one page). Redirect old links/bookmarks/embeds.
+website_redirects = [
+	{"source": r"/portal/configure-webflow/(.*)", "target": r"/portal/configure?template=\1&category=Linear Fixture&mode=wizard"},
+	{"source": r"/portal/configure-webflow", "target": r"/portal/configure?category=Linear Fixture&mode=wizard"},
 ]
 
 # Generators

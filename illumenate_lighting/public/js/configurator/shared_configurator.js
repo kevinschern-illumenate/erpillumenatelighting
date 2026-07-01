@@ -6,7 +6,8 @@
  *   - IllConfigurator.Base class with rootEl-scoped DOM helpers
  *   - Shared schedule-context loaders (project / schedule / line dropdowns)
  *   - Backwards-compatibility globals for legacy callers (product_detail.js,
- *     inline onclick handlers in configure_webflow.html etc.).
+ *     the Guided Wizard mode of configure.html, the desk configurator dialog,
+ *     etc.).
  *
  * Multi-instance-safe: every DOM lookup goes through `instance.$(selector)`
  * which scopes to the configurator root element passed at construction time.
