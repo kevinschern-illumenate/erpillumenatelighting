@@ -960,9 +960,68 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 												{% endif %}
 											</div>
 										</div>
+										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_led_sheet') %}
+										{% set cls_details = line.get('cls_details', {}) %}
+										<div class="fixture-details">
+											<!-- Part Number -->
+											<strong class="text-primary">
+												{{ cls_details.get('part_number') or 'Configured' }}
+											</strong>
+											<span class="badge badge-info ml-1">{{ _('LED Sheet') }}</span>
+											{% if line.get('led_sheet_template_name') or line.get('led_sheet_template') %}
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Template: <strong>{{ line.get('led_sheet_template_name') or line.get('led_sheet_template') }}</strong>
+											</div>
+											{% endif %}
+											<div class="small text-muted mt-1">
+												{% if cls_details.get('sheet_spec') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Spec: <strong>{{ cls_details.get('sheet_spec') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('cct') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cls_details.get('cct') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('output_level') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cls_details.get('output_level') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('environment_rating') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cls_details.get('environment_rating') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('mounting') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cls_details.get('mounting') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('finish') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cls_details.get('finish') }}</strong></span>
+												{% endif %}
+											</div>
+											<div class="small text-muted mt-1">
+												{% if cls_details.get('coverage_width_ft') and cls_details.get('coverage_height_ft') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Requested: <strong>{{ cls_details.get('coverage_width_ft') }}ft &times; {{ cls_details.get('coverage_height_ft') }}ft</strong></span>
+												{% endif %}
+												{% if cls_details.get('total_panels') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Panels: <strong>{{ cls_details.get('total_panels') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('total_groups') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Groups: <strong>{{ cls_details.get('total_groups') }}</strong></span>
+												{% endif %}
+												{% if cls_details.get('total_system_watts') %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cls_details.get('total_system_watts') }}W</strong></span>
+												{% endif %}
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power Supplies: <strong>{{ 'Yes' if cls_details.get('include_power_supply') else 'No' }}</strong></span>
+											</div>
+										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<div class="fixture-details">
-											{% if line.get('tape_neon_template') %}
+											{% if line.get('led_sheet_template') %}
+											<!-- Unconfigured LED Sheet line -->
+											<strong>{{ line.get('led_sheet_template_name') or line.get('led_sheet_template') }}</strong>
+											<span class="badge badge-info ml-1">{{ _('LED Sheet') }}</span>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Template: <strong>{{ line.get('led_sheet_template') }}</strong>
+											</div>
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+											</div>
+											{% elif line.get('tape_neon_template') %}
 											<!-- Unconfigured Tape/Neon line -->
 											<strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
 											<span class="badge badge-info ml-1">{{ line.get('product_type') or 'Tape/Neon' }}</span>
@@ -1038,8 +1097,17 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 												<a href="/portal/configure?category={{ line.get('product_type') or 'LED Tape' }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
+												{% elif line.get('configured_led_sheet') %}
+												<!-- Configured LED Sheet - edit link -->
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+												</a>
+												{% elif line.get('led_sheet_template') %}
+												<!-- Unconfigured LED Sheet - configure link -->
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+													<i class="fa fa-cog"></i> {{ _('Configure') }}
+												</a>
 												{% elif line.get('tape_neon_template') %}
-												<!-- Unconfigured tape/neon - configure link -->
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
 												<a href="/portal/configure?category={{ tn_category }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
@@ -1243,6 +1311,13 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 										<option value="">{{ _("Select Product Series...") }}</option>
 									</select>
 								</div>
+								<!-- LED Sheet Template dropdown (shown when LED Sheet selected) -->
+								<div class="form-group led-sheet-template-group" style="display: none;">
+									<label>{{ _("LED Sheet Template") }}</label>
+									<select class="form-control" name="led_sheet_template" id="add_led_sheet_template">
+										<option value="">{{ _("Select LED Sheet Template...") }}</option>
+									</select>
+								</div>
 								<!-- Item dropdown (shown when non-Linear Fixture category selected) -->
 								<div class="form-group item-selection-group" style="display: none;">
 									<label>{{ _("Item") }}</label>
@@ -1310,6 +1385,17 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
 								<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
+							</button>
+						</div>
+
+						<!-- LED Sheet configure section (shown for LED Sheet) -->
+						<div class="led-sheet-configure-section" style="display: none;">
+							<div class="alert alert-info">
+								<i class="fa fa-info-circle"></i>
+								{{ _("You can add this LED Sheet unconfigured and configure it later, or click below to configure now.") }}
+							</div>
+							<button type="button" class="btn btn-primary btn-block" id="configureLedSheetFromAddBtn" onclick="configureLedSheetFromAddModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}
 							</button>
 						</div>
 
@@ -1734,10 +1820,12 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('#add_product_type').val('');
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
+	$('.led-sheet-template-group').hide();
 	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
+	$('.led-sheet-configure-section').hide();
 	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
@@ -1746,6 +1834,7 @@ $('#addLineModal').on('show.bs.modal', function() {
 	resetAddLineGallery();
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
 	$('#add_tape_neon_template').html('<option value="">{{ _("Select Product Series...") }}</option>');
+	$('#add_led_sheet_template').html('<option value="">{{ _("Select LED Sheet Template...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	// Reset configure button text to default
 	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
@@ -1779,14 +1868,18 @@ $('#add_product_type').on('change', function() {
 	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
 	var rawIsTapeNeonType = $selected.data('is-tape-neon-type');
 	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
+	var rawIsLedSheetType = $selected.data('is-led-sheet-type');
+	var isLedSheetType = rawIsLedSheetType === 1 || rawIsLedSheetType === '1' || rawIsLedSheetType === true || rawIsLedSheetType === 'true';
 	
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
+	$('.led-sheet-template-group').hide();
 	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
+	$('.led-sheet-configure-section').hide();
 	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
@@ -1818,6 +1911,11 @@ $('#add_product_type').on('change', function() {
 		} else {
 			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Tape Now") }}');
 		}
+	} else if (isLedSheetType) {
+		// LED Sheet — show LED Sheet template dropdown + configure section
+		$('.led-sheet-template-group').show();
+		$('.led-sheet-configure-section').show();
+		loadLedSheetTemplates(productType);
 	} else {
 		// For all other product types, show item selection dropdown
 		$('.item-selection-group').show();
@@ -1879,6 +1977,28 @@ function loadTapeNeonTemplates(productType) {
 		},
 		error: function() {
 			$('#add_tape_neon_template').html('<option value="">{{ _("Error loading series") }}</option>');
+		}
+	});
+}
+
+// Load LED Sheet templates from the server
+function loadLedSheetTemplates(productType) {
+	$('#add_led_sheet_template').html('<option value="">{{ _("Loading...") }}</option>');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_led_sheet_templates',
+		callback: function(r) {
+			var options = '<option value="">{{ _("Select LED Sheet Template...") }}</option>';
+			if (r.message && r.message.templates) {
+				r.message.templates.forEach(function(template) {
+					var label = template.template_name + (template.template_code ? ' (' + template.template_code + ')' : '');
+					options += '<option value="' + template.name + '">' + label + '</option>';
+				});
+			}
+			$('#add_led_sheet_template').html(options);
+		},
+		error: function() {
+			$('#add_led_sheet_template').html('<option value="">{{ _("Error loading templates") }}</option>');
 		}
 	});
 }
@@ -2059,8 +2179,8 @@ function loadProductCategories() {
 					} else if (pt.level === 2) {
 						indent = '        └─ ';
 					}
-					// Store is_fixture_type and is_tape_neon_type as data attributes
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+					// Store is_fixture_type, is_tape_neon_type, is_led_sheet_type as data attributes
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -2395,6 +2515,8 @@ function addLine() {
 	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
 	var rawIsTapeNeonType = $productTypeSelected.data('is-tape-neon-type');
 	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
+	var rawIsLedSheetType = $productTypeSelected.data('is-led-sheet-type');
+	var isLedSheetType = rawIsLedSheetType === 1 || rawIsLedSheetType === '1' || rawIsLedSheetType === true || rawIsLedSheetType === 'true';
 	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
@@ -2425,6 +2547,20 @@ function addLine() {
 				return;
 			}
 			data.tape_neon_template = tapeNeonTemplate;
+			data.configuration_status = 'Pending';
+		} else if (isLedSheetType) {
+			// LED Sheet path - uses LED Sheet template and configurator
+			var ledSheetTemplate = form.find('[name="led_sheet_template"]').val();
+			if (!ledSheetTemplate) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select an LED Sheet Template before adding the line.") }}'
+				});
+				return;
+			}
+			data.product_type = 'LED Sheet';
+			data.led_sheet_template = ledSheetTemplate;
 			data.configuration_status = 'Pending';
 		} else if (productType) {
 			// Other product types - uses item selection (potentially with variants)
@@ -2638,7 +2774,59 @@ function configureFromAddModal() {
 	});
 }
 
-function duplicateLine(line_idx) {
+function configureLedSheetFromAddModal() {
+	var form = $('#addLineForm');
+	var manufacturerType = form.find('[name="manufacturer_type"]').val();
+	var ledSheetTemplate = form.find('[name="led_sheet_template"]').val();
+
+	if (manufacturerType !== 'ILLUMENATE' || !ledSheetTemplate) {
+		frappe.msgprint({
+			title: '{{ _("Selection Required") }}',
+			indicator: 'orange',
+			message: '{{ _("Please select an LED Sheet Template before configuring.") }}'
+		});
+		return;
+	}
+
+	var data = {
+		line_id: form.find('[name="line_id"]').val(),
+		qty: form.find('[name="qty"]').val(),
+		location: form.find('[name="location"]').val(),
+		manufacturer_type: 'ILLUMENATE',
+		product_type: 'LED Sheet',
+		led_sheet_template: ledSheetTemplate,
+		configuration_status: 'Pending',
+		notes: form.find('[name="notes"]').val()
+	};
+
+	// Disable the configure button to prevent double clicks
+	$('#configureLedSheetFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
+
+	// Create the pending panel line first, then redirect to the unified configurator
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
+		args: {
+			schedule_name: schedule_name,
+			line_data: data
+		},
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				var newLineIdx = r.message.line_idx;
+				$('#addLineModal').modal('hide');
+				window.location.href = '/portal/configure?category=' + encodeURIComponent('LED Sheet') +
+					'&schedule=' + schedule_name +
+					'&line_idx=' + newLineIdx +
+					'&template=' + encodeURIComponent(ledSheetTemplate);
+			} else {
+				frappe.msgprint((r.message && r.message.error) || 'Error adding line');
+				$('#configureLedSheetFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}');
+			}
+		},
+		error: function() {
+			$('#configureLedSheetFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}');
+		}
+	});
+}
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.duplicate_schedule_line',
 		args: {
