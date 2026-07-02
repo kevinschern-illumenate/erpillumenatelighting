@@ -2,6 +2,7 @@
   const templates = window.ILL_LED_SHEET_TEMPLATES || [];
   const ctx = window.ILL_LED_SHEET_CONTEXT || {};
   let lastResult = null;
+  let selectedScheduleCanSave = !!ctx.can_save;
   const $id = (id) => document.getElementById(id);
   const money = (v) => `$${Number(v || 0).toFixed(2)}`;
   const option = (value, label) => { const o = document.createElement('option'); o.value = value || ''; o.textContent = label || value || ''; return o; };
@@ -11,6 +12,8 @@
   function renderTemplate() { const t = selectedTemplate(); fill($id('sheetSpec'), t ? t.allowed_specs : [], r => `${r.name} (${r.total_sheet_watts || 0}W, ${r.sheet_width_ft || 0}x${r.sheet_height_ft || 0} ft)`); fill($id('sheetCct'), byType(t, 'CCT'), r => r.option_code); fill($id('sheetOutput'), byType(t, 'Output Level'), r => r.option_code); fill($id('sheetEnvironment'), byType(t, 'Environment Rating'), r => r.option_code); fill($id('sheetMounting'), byType(t, 'Mounting'), r => r.option_code); fill($id('sheetFinish'), byType(t, 'Finish'), r => r.option_code); }
   function currentSchedule() { return ($id('scheduleSelect') && $id('scheduleSelect').value) || ctx.schedule_name; }
   function currentLine() { const sel = $id('lineSelect'); if (sel && sel.value && sel.value !== '__new__') return sel.value; return ctx.line_idx; }
+  function canSaveCurrentSelection() { return !!currentSchedule() && !!(ctx.can_save || selectedScheduleCanSave); }
+  function updateSaveState() { if ($id('saveSheet')) $id('saveSheet').disabled = !(lastResult && lastResult.success && canSaveCurrentSelection()); }
   function payload() {
     return {
       template: $id('sheetTemplate').value,
@@ -57,15 +60,15 @@
       `<tr class="font-weight-bold"><td>Total MSRP</td><td class="text-right">${money(p.total_msrp != null ? p.total_msrp : r.total_msrp)}</td></tr>` +
       `</tbody></table>`;
   }
-  function call(method, args, cb) { frappe.call({ method, args, freeze: true, callback: (r) => cb(r.message || r) }); }
+  function call(method, args, cb, errCb) { frappe.call({ method, args, freeze: true, callback: (r) => cb(r.message || r), error: (r) => { if (errCb) errCb(r); } }); }
   function populateSelect(select, rows) { if (!select) return; rows = rows || []; select.innerHTML = '<option value="">Select...</option>'; rows.forEach(r => select.appendChild(option(r.value, r.label))); select.disabled = !rows.length; }
   function loadProjects() { call('illumenate_lighting.illumenate_lighting.api.portal.get_user_projects_for_configurator', {}, function (r) { populateSelect($id('projectSelect'), r.projects); }); }
-  function loadSchedules(project) { populateSelect($id('scheduleSelect'), []); populateSelect($id('lineSelect'), [{ value: '__new__', label: '+ New Line' }]); if (!project) return; call('illumenate_lighting.illumenate_lighting.api.portal.get_schedules_for_project', { project_name: project }, function (r) { populateSelect($id('scheduleSelect'), r.schedules); }); }
-  function loadLines(schedule) { populateSelect($id('lineSelect'), [{ value: '__new__', label: '+ New Line' }]); if (!schedule) return; call('illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator', { schedule_name: schedule }, function (r) { const lines = (r.lines || []).map(l => ({ value: l.idx, label: `${l.line_id || ('Line ' + (l.idx + 1))} — ${l.summary || ''}` })); populateSelect($id('lineSelect'), [{ value: '__new__', label: '+ New Line' }].concat(lines)); }); }
+  function loadSchedules(project) { selectedScheduleCanSave = !!ctx.can_save; populateSelect($id('scheduleSelect'), []); populateSelect($id('lineSelect'), [{ value: '__new__', label: '+ New Line' }]); updateSaveState(); if (!project) return; call('illumenate_lighting.illumenate_lighting.api.portal.get_schedules_for_project', { project_name: project }, function (r) { populateSelect($id('scheduleSelect'), r.schedules); if (ctx.schedule_name) { $id('scheduleSelect').value = ctx.schedule_name; loadLines(ctx.schedule_name); } }); }
+  function loadLines(schedule) { selectedScheduleCanSave = !!ctx.can_save; populateSelect($id('lineSelect'), [{ value: '__new__', label: '+ New Line' }]); updateSaveState(); if (!schedule) return; call('illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator', { schedule_name: schedule }, function (r) { selectedScheduleCanSave = !!r.can_save; const lines = (r.lines || []).map(l => ({ value: l.idx, label: `${l.line_id || ('Line ' + (l.idx + 1))} — ${l.summary || ''}` })); populateSelect($id('lineSelect'), [{ value: '__new__', label: '+ New Line' }].concat(lines)); if (ctx.line_idx !== null && ctx.line_idx !== undefined && ctx.line_idx !== '') $id('lineSelect').value = String(ctx.line_idx); updateSaveState(); }); }
   document.addEventListener('DOMContentLoaded', function () {
     if (!$id('sheetTemplate')) return;
     fill($id('sheetTemplate'), templates.map(t => ({ name: t.name })), r => r.name); $id('sheetTemplate').addEventListener('change', renderTemplate);
-    loadProjects(); if ($id('projectSelect')) $id('projectSelect').addEventListener('change', e => loadSchedules(e.target.value)); if ($id('scheduleSelect')) $id('scheduleSelect').addEventListener('change', e => loadLines(e.target.value));
+    loadProjects(); if ($id('projectSelect')) $id('projectSelect').addEventListener('change', e => loadSchedules(e.target.value)); if ($id('scheduleSelect')) $id('scheduleSelect').addEventListener('change', e => loadLines(e.target.value)); if ($id('lineSelect')) $id('lineSelect').addEventListener('change', updateSaveState);
     const existing = window.ILL_LED_SHEET_EXISTING || null;
     if (existing) {
       $id('sheetTemplate').value = existing.sheet_template || ''; renderTemplate();
@@ -79,7 +82,15 @@
       $id('coverageHeightValue').value = existing.coverage_height_ft || ''; $id('coverageHeightUnit').value = 'ft';
       $id('sheetIncludePowerSupply').checked = existing.include_power_supply == null ? true : !!existing.include_power_supply;
     }
-    $id('calculateSheet').addEventListener('click', function () { call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.validate_sheet_configuration', payload(), function (r) { lastResult = r; render(r); $id('saveSheet').disabled = !(r.success && ctx.can_save); }); });
-    $id('saveSheet').addEventListener('click', function () { call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.save_sheet_configuration', payload(), function () { const sched = currentSchedule(); window.location.href = sched ? `/portal/schedules/${encodeURIComponent(sched)}` : '/portal/projects'; }); });
+    $id('calculateSheet').addEventListener('click', function () { call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.validate_sheet_configuration', payload(), function (r) { lastResult = r; render(r); updateSaveState(); }); });
+    $id('saveSheet').addEventListener('click', function () {
+      const savePayload = payload();
+      const finishSave = (lineIdx) => { savePayload.line_idx = lineIdx; call('illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.save_sheet_configuration', savePayload, function () { const sched = currentSchedule(); window.location.href = sched ? `/portal/schedules/${encodeURIComponent(sched)}` : '/portal/projects'; }); };
+      if ($id('lineSelect') && $id('lineSelect').value === '__new__') {
+        call('illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line', { schedule_name: currentSchedule(), line_data: { manufacturer_type: 'ILLUMENATE', product_type: 'LED Sheet', led_sheet_template: savePayload.template, configuration_status: 'Pending', qty: 1 } }, function (r) { if (r && r.success) finishSave(r.line_idx); });
+      } else {
+        finishSave(currentLine());
+      }
+    });
   });
 })();
