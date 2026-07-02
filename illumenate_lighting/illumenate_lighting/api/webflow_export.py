@@ -442,7 +442,8 @@ def get_webflow_products(
                     "quantity": k.quantity,
                     "notes": k.notes,
                     "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
-					"webflow_description": k.custom_webflow_description,
+                    "webflow_title": k.custom_webflow_title,  # <-- added
+                    "webflow_description": k.custom_webflow_description,
                 }
                 for k in doc.kit_components
             ]
