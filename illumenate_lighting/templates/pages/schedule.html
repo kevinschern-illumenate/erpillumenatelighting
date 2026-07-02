@@ -2827,6 +2827,8 @@ function configureLedSheetFromAddModal() {
 		}
 	});
 }
+
+function duplicateLine(line_idx) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.duplicate_schedule_line',
 		args: {
