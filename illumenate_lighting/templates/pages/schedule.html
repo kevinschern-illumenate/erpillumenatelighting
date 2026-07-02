@@ -3167,30 +3167,46 @@ function generateExport(format, priced) {
 }
 
 function loadExportHistory() {
+	var $container = $('#exportHistoryContainer');
+	var completed = false;
+	var loadingTimer = setTimeout(function() {
+		if (!completed && $container.text().indexOf('{{ _("Loading export history...") }}') !== -1) {
+			$container.html(
+				'<div class="text-center text-muted py-3">' +
+				'<i class="fa fa-exclamation-circle"></i> ' +
+				'{{ _("Export history is taking longer than expected. Please refresh or try again.") }}' +
+				'</div>'
+			);
+		}
+	}, 15000);
+
+	function showExportHistoryError(message) {
+		completed = true;
+		clearTimeout(loadingTimer);
+		$container.html(
+			'<div class="text-center text-muted py-3">' +
+			'<i class="fa fa-exclamation-circle"></i> ' +
+			(message || '{{ _("Error loading export history") }}') +
+			'</div>'
+		);
+	}
+
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.exports.get_export_history',
 		args: {
 			schedule_id: schedule_name
 		},
 		callback: function(r) {
+			completed = true;
+			clearTimeout(loadingTimer);
 			if (r.message && r.message.success) {
-				renderExportHistory(r.message.exports);
+				renderExportHistory(r.message.exports || []);
 			} else {
-				$('#exportHistoryContainer').html(
-					'<div class="text-center text-muted py-3">' +
-					'<i class="fa fa-exclamation-circle"></i> ' +
-					((r.message && r.message.error) || 'Error loading export history') +
-					'</div>'
-				);
+				showExportHistoryError((r.message && r.message.error) || '{{ _("Error loading export history") }}');
 			}
 		},
-		error: function() {
-			$('#exportHistoryContainer').html(
-				'<div class="text-center text-muted py-3">' +
-				'<i class="fa fa-exclamation-circle"></i> ' +
-				'{{ _("Error loading export history") }}' +
-				'</div>'
-			);
+		error: function(r) {
+			showExportHistoryError((r && r.message) || '{{ _("Error loading export history") }}');
 		}
 	});
 }

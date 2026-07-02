@@ -721,7 +721,27 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 				})
 				result.extend(group_items)
 
-		# If no groups found, return default
+		# If root discovery yields no children (common in partially seeded
+		# ERPNext sites), fall back to well-known selectable categories that
+		# actually exist before using the hardcoded Linear Fixture minimum.
+		if not result:
+			fallback_names = ["Linear Fixture", "Linear Fixtures", "LED Tape", "LED Neon", "LED Sheet", "LED Sheets"]
+			for group_name in fallback_names:
+				if frappe.db.exists("Item Group", group_name):
+					label = frappe.db.get_value("Item Group", group_name, "item_group_name") or group_name
+					result.append({
+						"value": group_name,
+						"label": label,
+						"item_group": group_name,
+						"level": 0,
+						"parent": None,
+						"root_group": "Products",
+						"is_header": False,
+						"is_fixture_type": is_fixture_group(group_name),
+						"is_tape_neon_type": is_tape_neon_group(group_name),
+						"is_led_sheet_type": is_led_sheet_group(group_name),
+					})
+
 		if not result:
 			result = [{
 				"value": "Linear Fixture",
