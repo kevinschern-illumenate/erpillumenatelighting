@@ -16,6 +16,7 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 	CONFIGURED_ITEM_GROUP,
 	CONFIGURED_NEON_ITEM_GROUP,
 	CONFIGURED_TAPE_ITEM_GROUP,
+	_create_item_price_at_msrp,
 	_create_or_get_bom,
 	_create_or_get_configured_item,
 	_create_or_get_configured_tape_neon_item,
@@ -93,10 +94,12 @@ def qoc_get_product_types() -> dict[str, Any]:
 				"configured_doctype": "ilL-Configured-LED-Sheet",
 				"template_doctype": "ilL-LED-Sheet-Template",
 				"item_group": "Configured LED Sheets",
+				# LED Sheet is NOT handled by the generic configured_product_builder
+				# (fixture/tape/neon only). It uses its own engine and the
+				# quote/order apply + BOM-preview endpoints below.
 				"engine": "illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.validate_sheet_configuration",
-				"calculate_and_lookup": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.calculate_and_lookup",
-				"save_and_apply": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.save_and_apply",
-				"preview_bom": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.preview_bom",
+				"apply_existing": "illumenate_lighting.illumenate_lighting.api.quote_order_configurator.apply_configured_product",
+				"preview_bom": "illumenate_lighting.illumenate_lighting.api.quote_order_configurator.get_bom_preview",
 				"power_supply_supported": True,
 			},
 		},
@@ -328,13 +331,20 @@ def _ensure_configured_artifacts(
 		sheet.save(ignore_permissions=True)
 		from illumenate_lighting.illumenate_lighting.api import led_sheet_bom
 		bom_result = led_sheet_bom.create_or_get_led_sheet_bom(sheet, item_code, skip_if_exists=True)
+		messages = list(bom_result.get("messages", []))
+		# Publish the configured MSRP as an Item Price so quote/order rows price
+		# correctly (mirrors the fixture/tape/neon item-creation path). Without
+		# this the row would fall back to the artifact MSRP or price to zero.
+		sheet_msrp = flt(sheet.msrp) or None
+		_create_item_price_at_msrp(item_code, sheet_msrp, messages)
 		return {
 			"product_type": product_type, "source_doctype": "ilL-Configured-LED-Sheet", "source_name": sheet.name,
 			"configured_fixture": None, "configured_tape_neon": None, "configured_led_sheet": sheet.name,
 			"item_code": item_code, "bom": bom_result.get("bom_name"), "description": _line_description_from_item(item_code),
 			"template_code": sheet.sheet_template, "requested_length_mm": None, "mfg_length_mm": None,
 			"runs_count": sheet.total_groups, "total_watts": sheet.total_system_watts, "finish": sheet.selected_finish,
-			"lens": None, "configuration_snapshot": _led_sheet_configuration_snapshot(sheet), "messages": bom_result.get("messages", []),
+			"lens": None, "msrp_unit": sheet_msrp, "total_msrp": sheet_msrp,
+			"configuration_snapshot": _led_sheet_configuration_snapshot(sheet), "messages": messages,
 		}
 
 	configured = _get_required_doc("ilL-Configured-Tape-Neon", configured_tape_neon, "configured_tape_neon")

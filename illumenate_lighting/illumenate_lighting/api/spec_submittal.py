@@ -1238,7 +1238,7 @@ def _gather_line_documents(
 						_debug(f"Line {line.line_id}: ✗ No LED Sheet spec sheet found", warnings)
 				else:
 					_debug(f"Line {line.line_id}: Generating filled LED Sheet submittal (regenerate)...", warnings)
-					result = generate_filled_sheet_submittal(line.configured_led_sheet, warnings=warnings)
+					result = generate_filled_sheet_submittal(line.configured_led_sheet, warnings=warnings, schedule_line=line.name)
 					if result.get("success") and result.get("file_url"):
 						doc_info["spec_document_url"] = result["file_url"]
 						doc_info["has_submittal"] = True
@@ -1766,7 +1766,7 @@ def _get_sheet_source_value(source_doctype, source_field, configured_sheet_doc=N
 	return None
 
 
-def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
+def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1, schedule_line: str | None = None) -> dict:
 	if isinstance(warnings, str):
 		try:
 			warnings = json.loads(warnings)
@@ -1793,7 +1793,15 @@ def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list |
 		if not mappings:
 			return {"success": False, "message": _("No LED Sheet field mappings defined"), "warnings": warnings}
 		schedule = project = line = None
-		line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", {"configured_led_sheet": configured_sheet_name}, ["name", "parent"], as_dict=True)
+		# Prefer the caller-supplied schedule line so the correct
+		# schedule/project/line context is used when the same configured sheet is
+		# reused across multiple schedules/lines. Fall back to a global lookup
+		# (first matching line) only when no explicit line context was provided.
+		line_data = None
+		if schedule_line and frappe.db.exists("ilL-Child-Fixture-Schedule-Line", schedule_line):
+			line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", schedule_line, ["name", "parent"], as_dict=True)
+		if not line_data:
+			line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", {"configured_led_sheet": configured_sheet_name}, ["name", "parent"], as_dict=True)
 		if line_data:
 			line = frappe.get_doc("ilL-Child-Fixture-Schedule-Line", line_data.name)
 			if line_data.parent:

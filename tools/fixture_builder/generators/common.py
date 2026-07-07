@@ -49,6 +49,27 @@ LED_PACKAGE_NAMES = {
     "TW": "Tunable White",
 }
 
+# ── LED Sheet option type → attribute DocType ──────────────────────────
+# The LED Sheet allowed-option child stores a Dynamic Link keyed on
+# ``attribute_doctype``. The option_type label does NOT always match the
+# DocType suffix (e.g. "Mounting" → "ilL-Attribute-Mounting Method"), so a
+# naive ``ilL-Attribute-{option_type}`` derivation is wrong.
+LED_SHEET_OPTION_TYPE_TO_ATTRIBUTE_DOCTYPE = {
+    "CCT": "ilL-Attribute-CCT",
+    "Output Level": "ilL-Attribute-Output Level",
+    "Environment Rating": "ilL-Attribute-Environment Rating",
+    "Mounting": "ilL-Attribute-Mounting Method",
+    "Finish": "ilL-Attribute-Finish",
+}
+
+
+def led_sheet_attribute_doctype(option_type: str) -> str:
+    """Return the attribute DocType for an LED Sheet option type."""
+    return LED_SHEET_OPTION_TYPE_TO_ATTRIBUTE_DOCTYPE.get(
+        option_type, f"ilL-Attribute-{option_type}"
+    )
+
+
 # ── Webflow configurator step defaults ─────────────────────────────────
 CONFIGURATOR_STEP_TYPES = {
     "Environment Rating": "Dry/Wet",

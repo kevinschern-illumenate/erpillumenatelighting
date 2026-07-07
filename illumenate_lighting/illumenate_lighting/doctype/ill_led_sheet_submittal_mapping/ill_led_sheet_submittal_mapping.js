@@ -6,19 +6,19 @@ frappe.ui.form.on("ilL-LED-Sheet-Submittal-Mapping", {
 		// Clear HTML field on refresh
 		frm.set_df_property('available_fields_html', 'options', '');
 	},
-	
+
 	source_doctype: function(frm) {
 		// Clear the fields display when doctype changes
 		frm.set_df_property('available_fields_html', 'options', '');
 		frm.set_value('source_field', '');
 	},
-	
+
 	show_fields_button: function(frm) {
 		if (!frm.doc.source_doctype) {
 			frappe.msgprint(__('Please select a Source DocType first'));
 			return;
 		}
-		
+
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.doctype.ill_led_sheet_submittal_mapping.ill_led_sheet_submittal_mapping.get_doctype_fields',
 			args: {
@@ -39,7 +39,7 @@ function build_fields_table(fields, frm) {
 	if (!fields || fields.length === 0) {
 		return '<p class="text-muted">No fields found for this DocType</p>';
 	}
-	
+
 	let html = `
 		<div class="available-fields-container" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: 10px;">
 			<table class="table table-bordered table-sm" style="margin-bottom: 0;">
@@ -53,7 +53,7 @@ function build_fields_table(fields, frm) {
 				</thead>
 				<tbody>
 	`;
-	
+
 	for (let field of fields) {
 		let linkedTo = field.options ? `<br><small class="text-muted">→ ${field.options}</small>` : '';
 		html += `
@@ -69,7 +69,7 @@ function build_fields_table(fields, frm) {
 			</tr>
 		`;
 	}
-	
+
 	html += `
 				</tbody>
 			</table>
@@ -78,7 +78,7 @@ function build_fields_table(fields, frm) {
 			<strong>Tip:</strong> Click "Use" to populate the Source Field, or type the field name manually.
 		</p>
 	`;
-	
+
 	// Add click handler after render
 	setTimeout(() => {
 		document.querySelectorAll('.use-field-btn').forEach(btn => {
@@ -92,6 +92,6 @@ function build_fields_table(fields, frm) {
 			});
 		});
 	}, 100);
-	
+
 	return html;
 }

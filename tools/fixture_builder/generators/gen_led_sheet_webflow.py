@@ -8,7 +8,7 @@ product type set to "LED Sheet".
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv, CONFIGURATOR_STEP_TYPES
+from .common import write_csv, CONFIGURATOR_STEP_TYPES, led_sheet_attribute_doctype
 
 # Use the same headers as the fixture webflow generator for compatibility
 HEADERS = [
@@ -180,7 +180,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
             seen_types.add(attr_key)
 
             attr_order += 1
-            attr_doctype = f"ilL-Attribute-{opt.option_type}"
+            attr_doctype = led_sheet_attribute_doctype(opt.option_type)
             child_rows.append(("attr", _build_attribute_link(
                 attr_doctype, opt.value, opt.option_type,
                 opt.value, attr_order

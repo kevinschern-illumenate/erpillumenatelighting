@@ -37,8 +37,6 @@ def get_user_context() -> dict:
 	is_internal = False
 	customer = None
 	customer_name = None
-	api_key = None
-	api_secret = None
 
 	if is_logged_in:
 		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
@@ -53,8 +51,12 @@ def get_user_context() -> dict:
 		customer = _get_user_customer(user)
 		if customer:
 			customer_name = frappe.db.get_value("Customer", customer, "customer_name")
-		api_key, api_secret = _get_or_generate_api_credentials(user)
 
+	# SECURITY: API key/secret are intentionally NOT returned here. This endpoint
+	# is guest-whitelisted and reflects CORS credentials to preview/app subdomains
+	# (*.webflow.io, *.vercel.app); returning secrets would let any such origin
+	# read a logged-in user's API secret. The widget authenticates subsequent
+	# calls via the session cookie (credentials: 'include') instead.
 	return {
 		"success": is_logged_in,
 		"is_logged_in": is_logged_in,
@@ -64,37 +66,4 @@ def get_user_context() -> dict:
 		"is_internal": is_internal,
 		"customer": customer,
 		"customer_name": customer_name,
-		"api_key": api_key,
-		"api_secret": api_secret,
 	}
-
-def _get_or_generate_api_credentials(user: str) -> tuple:
-	"""
-	Get existing API key/secret for a user, or generate new ones.
-
-	Args:
-		user: The user email/name
-
-	Returns:
-		tuple: (api_key, api_secret) or (None, None) if generation fails
-	"""
-	user_doc = frappe.get_doc("User", user)
-
-	api_key = user_doc.api_key
-	api_secret = None
-
-	if not api_key:
-		api_key = frappe.generate_hash(length=15)
-		user_doc.api_key = api_key
-		user_doc.save(ignore_permissions=True)
-
-	api_secret = frappe.utils.password.get_decrypted_password(
-		"User", user, fieldname="api_secret"
-	)
-
-	if not api_secret:
-		api_secret = frappe.generate_hash(length=15)
-		user_doc.api_secret = api_secret
-		user_doc.save(ignore_permissions=True)
-
-	return api_key, api_secret

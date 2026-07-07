@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv
+from .common import write_csv, led_sheet_attribute_doctype
 
 SPEC_HEADERS = [
     "Item", "LED Package", "Sheet Width (ft)", "Sheet Height (ft)",
@@ -16,7 +16,8 @@ TEMPLATE_HEADERS = [
     "Price per Sheet MSRP", "Pricing Class", "Lead Time Class", "Jumper Cable Item",
     "Leader Cable Item", "Spec Submittal Template", "Spec Sheet", "Warranty", "Is Active",
     "Spec (Allowed Specs)", "Is Active (Allowed Specs)",
-    "Option Type (Allowed Options)", "Attribute Link (Allowed Options)",
+    "Option Type (Allowed Options)", "Attribute DocType (Allowed Options)",
+    "Attribute Link (Allowed Options)",
     "Option Code (Allowed Options)", "Is Default (Allowed Options)",
     "Is Active (Allowed Options)", "MSRP Adder (Allowed Options)",
 ]
@@ -47,6 +48,7 @@ def _option_rows(tmpl) -> list[list]:
     for opt in tmpl.allowed_options:
         rows.append([
             opt.option_type,
+            led_sheet_attribute_doctype(opt.option_type),
             opt.attribute_link or opt.value,
             opt.option_code or opt.value,
             1 if opt.is_default else 0,
@@ -88,12 +90,12 @@ def generate_templates(config: FixtureBuilderConfig, output_dir: str) -> str:
             1,
         ]
         if not child_rows:
-            rows.append(primary + [""] * 8)
+            rows.append(primary + [""] * 9)
             continue
         for idx, (kind, data) in enumerate(child_rows):
             row = (primary if idx == 0 else [""] * 14)
             if kind == "spec":
-                row += data + [""] * 6
+                row += data + [""] * 7
             else:
                 row += [""] * 2 + data
             rows.append(row)
