@@ -63,6 +63,60 @@ def leader_cable_qty(total_groups: int) -> int:
     return int(total_groups or 0)
 
 
+def generated_accessory_marker(configured_name: str) -> str:
+    """Notes marker used to tag the auto-generated LED Sheet accessory rows for a
+    single configured sheet.  Present in the ``notes`` of every generated jumper,
+    leader and power-supply schedule line so they can be found and cleaned up."""
+    return f"for LED Sheet {configured_name}"
+
+
+def is_generated_accessory_line(manufacturer_type: str, notes: str, markers) -> bool:
+    """Return ``True`` when a schedule line is an auto-generated LED Sheet
+    accessory row matching any marker in ``markers``."""
+    if manufacturer_type != "ACCESSORY":
+        return False
+    text = notes or ""
+    return any(marker and marker in text for marker in markers)
+
+
+def build_accessory_lines(
+    *,
+    configured_name: str,
+    bundle_qty: int,
+    jumper_item: Any = None,
+    jumper_qty_per_bundle: int = 0,
+    leader_item: Any = None,
+    leader_qty_per_bundle: int = 0,
+    power_supplies: list[dict[str, Any]] | None = None,
+    include_power_supply: bool = True,
+) -> list[dict[str, Any]]:
+    """Build the generated accessory line specs for one configured LED Sheet.
+
+    Quantities are *per-configuration* values multiplied by ``bundle_qty`` - the
+    user-entered fixture/bundle count on the schedule line - so the generated
+    jumper / leader / power-supply rows reflect the accessories required for every
+    identical bundle.  Returns a list of ``{"item_code", "qty", "notes"}`` dicts.
+    """
+    marker = generated_accessory_marker(configured_name)
+    qty = max(int(bundle_qty or 0), 0)
+    lines: list[dict[str, Any]] = []
+    if jumper_item and jumper_qty_per_bundle:
+        lines.append(
+            {"item_code": jumper_item, "qty": int(jumper_qty_per_bundle) * qty, "notes": f"Jumpers {marker}"}
+        )
+    if leader_item and leader_qty_per_bundle:
+        lines.append(
+            {"item_code": leader_item, "qty": int(leader_qty_per_bundle) * qty, "notes": f"Leaders {marker}"}
+        )
+    if include_power_supply:
+        for ps in power_supplies or []:
+            if ps.get("driver_item") and ps.get("qty"):
+                lines.append(
+                    {"item_code": ps["driver_item"], "qty": int(ps["qty"]) * qty, "notes": f"Power supplies {marker}"}
+                )
+    return lines
+
+
 def build_groups(
     panels_needed: int, watts_per_panel: float, drivers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:

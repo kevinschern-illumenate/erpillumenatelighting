@@ -13,8 +13,11 @@ from frappe.utils import cint, flt
 
 from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
     aggregate_power_supplies,
+    build_accessory_lines,
     build_groups,
     compute_panel_layout,
+    generated_accessory_marker,
+    is_generated_accessory_line,
     jumper_cable_qty,
     leader_cable_qty,
     normalize_dimension,
@@ -317,7 +320,7 @@ def validate_sheet_configuration(
 
 
 def _generated_accessory_marker(configured_name: str) -> str:
-    return f"for LED Sheet {configured_name}"
+    return generated_accessory_marker(configured_name)
 
 
 def _append_accessory_line(schedule, item_code, qty, notes):
@@ -331,49 +334,112 @@ def _append_accessory_line(schedule, item_code, qty, notes):
     return line
 
 
-def _apply_multi_line_schedule(schedule, panel_line_idx: int, template, doc, result: dict[str, Any]):
-    """Update the pending LED Sheet line as the panel line and (re)generate the
-    jumper / leader / power supply accessory lines."""
-    configured_name = doc.name
-    marker = _generated_accessory_marker(configured_name)
-
-    # Remove any previously generated accessory lines for this configured sheet
-    # so re-saving does not duplicate them.
+def _remove_generated_accessory_lines(schedule, markers, keep_line=None):
+    """Drop auto-generated LED Sheet accessory rows matching any marker in
+    ``markers`` while preserving ``keep_line`` (the panel line) by identity."""
     remaining = [
-        l
-        for l in schedule.lines
-        if not (l.manufacturer_type == "ACCESSORY" and marker in (l.notes or ""))
+        line
+        for line in schedule.lines
+        if line is keep_line
+        or not is_generated_accessory_line(line.manufacturer_type, line.notes, markers)
     ]
     schedule.set("lines", remaining)
 
+
+def _configured_sheet_accessory_specs(doc, bundle_qty: int) -> list[dict[str, Any]]:
+    """Recompute the generated accessory line specs for an already-configured LED
+    Sheet ``doc`` scaled to ``bundle_qty``, using the panel/group data stored on
+    the configured record."""
+    template_doc = frappe.get_doc("ilL-LED-Sheet-Template", doc.sheet_template)
+    panels_needed = cint(doc.sheets_needed)
+    groups = [
+        {"compatible_driver": g.compatible_driver, "driver_max_wattage": g.driver_max_wattage}
+        for g in (doc.groups or [])
+    ]
+    power_supplies = aggregate_power_supplies(groups)
+    for ps in power_supplies:
+        ps["item_name"] = _item_name(ps.get("driver_item"))
+    return build_accessory_lines(
+        configured_name=doc.name,
+        bundle_qty=bundle_qty,
+        jumper_item=template_doc.jumper_cable_item,
+        jumper_qty_per_bundle=jumper_cable_qty(panels_needed),
+        leader_item=template_doc.leader_cable_item,
+        leader_qty_per_bundle=leader_cable_qty(len(groups)),
+        power_supplies=power_supplies,
+        include_power_supply=bool(doc.include_power_supply),
+    )
+
+
+def resync_led_sheet_line_accessories(schedule, panel_line, bundle_qty: int):
+    """Remove and re-create the generated accessory rows for a single configured
+    LED Sheet panel line, scaled to ``bundle_qty``.  Only touches accessory rows
+    tagged for this line's configured sheet; other lines are left untouched."""
+    configured_name = getattr(panel_line, "configured_led_sheet", None)
+    if not configured_name:
+        return
+    doc = frappe.get_doc("ilL-Configured-LED-Sheet", configured_name)
+    marker = generated_accessory_marker(configured_name)
+    _remove_generated_accessory_lines(schedule, [marker], keep_line=panel_line)
+    for spec in _configured_sheet_accessory_specs(doc, bundle_qty):
+        _append_accessory_line(schedule, spec["item_code"], spec["qty"], spec["notes"])
+
+
+def _apply_multi_line_schedule(schedule, panel_line_idx: int, template, doc, result: dict[str, Any]):
+    """Update the pending LED Sheet line as the panel line and (re)generate the
+    jumper / leader / power supply accessory lines.
+
+    The schedule line ``qty`` is preserved as the user-entered fixture/bundle
+    count; the per-bundle panel count lives on the configured LED Sheet record.
+    Generated accessory rows are scaled by the bundle quantity so totals cover
+    every identical bundle.
+    """
     if panel_line_idx < 0 or panel_line_idx >= len(schedule.lines):
         frappe.throw(_("Line index {0} was not found on schedule {1}").format(panel_line_idx, schedule.name))
 
+    configured_name = doc.name
+    marker = generated_accessory_marker(configured_name)
+
     panel_line = schedule.lines[panel_line_idx]
+
+    # Preserve the user-entered bundle quantity - how many identical configured
+    # LED Sheet bundles the user wants.  This must NOT be overwritten with the
+    # per-bundle panel count.
+    bundle_qty = cint(panel_line.qty) or 1
+
+    # Clean up stale generated accessory rows for both the previously configured
+    # sheet on this line (dimensions/options may have changed to a different
+    # configured sheet) and the new configured sheet, so re-saving never leaves
+    # orphaned or duplicate rows behind.
+    markers_to_remove = [marker]
+    previous_configured = getattr(panel_line, "configured_led_sheet", None)
+    if previous_configured and previous_configured != configured_name:
+        markers_to_remove.append(generated_accessory_marker(previous_configured))
+    _remove_generated_accessory_lines(schedule, markers_to_remove, keep_line=panel_line)
+
     panel_line.manufacturer_type = "ILLUMENATE"
     panel_line.product_type = "LED Sheet"
     panel_line.led_sheet_template = template
     panel_line.configured_led_sheet = configured_name
     panel_line.configuration_status = "Configured"
-    panel_line.qty = int(result["panels_needed"])
+    panel_line.qty = bundle_qty
     panel_line.notes = (
         f"Configured LED Sheet {configured_name} | {result.get('part_number', '')} | "
         f"{result['panels_wide']}x{result['panels_tall']} panels, "
         f"{result['total_groups']} group(s)"
     )
 
-    jumper_item = result.get("jumper_cable_item")
-    if jumper_item and result.get("jumper_cable_qty"):
-        _append_accessory_line(schedule, jumper_item, result["jumper_cable_qty"], f"Jumpers {marker}")
-
-    leader_item = result.get("leader_cable_item")
-    if leader_item and result.get("leader_cable_qty"):
-        _append_accessory_line(schedule, leader_item, result["leader_cable_qty"], f"Leaders {marker}")
-
-    if result.get("include_power_supply"):
-        for ps in result.get("power_supplies", []):
-            if ps.get("driver_item") and ps.get("qty"):
-                _append_accessory_line(schedule, ps["driver_item"], ps["qty"], f"Power supplies {marker}")
+    for spec in build_accessory_lines(
+        configured_name=configured_name,
+        bundle_qty=bundle_qty,
+        jumper_item=result.get("jumper_cable_item"),
+        jumper_qty_per_bundle=result.get("jumper_cable_qty"),
+        leader_item=result.get("leader_cable_item"),
+        leader_qty_per_bundle=result.get("leader_cable_qty"),
+        power_supplies=result.get("power_supplies"),
+        include_power_supply=bool(result.get("include_power_supply")),
+    ):
+        _append_accessory_line(schedule, spec["item_code"], spec["qty"], spec["notes"])
 
     schedule.save(ignore_permissions=True)
 

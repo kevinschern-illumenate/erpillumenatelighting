@@ -16,8 +16,11 @@ import unittest
 
 from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
     aggregate_power_supplies,
+    build_accessory_lines,
     build_groups,
     compute_panel_layout,
+    generated_accessory_marker,
+    is_generated_accessory_line,
     jumper_cable_qty,
     leader_cable_qty,
     normalize_dimension,
@@ -197,6 +200,145 @@ class TestIncludeExcludePowerSupply(unittest.TestCase):
         # ... but no power-supply lines are derived.
         supplies = aggregate_power_supplies(groups) if include_power_supply else []
         self.assertEqual(supplies, [])
+
+
+class TestGeneratedAccessoryLines(unittest.TestCase):
+    """The schedule line ``qty`` stays the user's bundle count; the generated
+    jumper / leader / power-supply rows scale with that bundle quantity so totals
+    cover every identical bundle (regression for the 13x13 double-count bug)."""
+
+    def _power_supplies(self):
+        return [
+            {"driver_item": "ITEM-DRV-200", "qty": 2},
+            {"driver_item": "ITEM-DRV-100", "qty": 1},
+        ]
+
+    def test_marker_is_configured_sheet_scoped(self):
+        self.assertEqual(generated_accessory_marker("CLS-0001"), "for LED Sheet CLS-0001")
+        self.assertNotEqual(
+            generated_accessory_marker("CLS-0001"), generated_accessory_marker("CLS-0002")
+        )
+
+    def test_bundle_qty_one_keeps_per_config_quantities(self):
+        # A 5ft x 5ft sheet -> 13 panels: qty 1 must NOT explode into 13x pricing.
+        lines = build_accessory_lines(
+            configured_name="CLS-0001",
+            bundle_qty=1,
+            jumper_item="ITEM-JUMPER",
+            jumper_qty_per_bundle=jumper_cable_qty(13),
+            leader_item="ITEM-LEADER",
+            leader_qty_per_bundle=leader_cable_qty(2),
+            power_supplies=self._power_supplies(),
+            include_power_supply=True,
+        )
+        by_item = {l["item_code"]: l["qty"] for l in lines}
+        self.assertEqual(by_item["ITEM-JUMPER"], 26)  # 13 panels * 2
+        self.assertEqual(by_item["ITEM-LEADER"], 2)  # 2 groups
+        self.assertEqual(by_item["ITEM-DRV-200"], 2)
+        self.assertEqual(by_item["ITEM-DRV-100"], 1)
+
+    def test_bundle_qty_scales_all_rows(self):
+        lines = build_accessory_lines(
+            configured_name="CLS-0001",
+            bundle_qty=3,
+            jumper_item="ITEM-JUMPER",
+            jumper_qty_per_bundle=jumper_cable_qty(13),
+            leader_item="ITEM-LEADER",
+            leader_qty_per_bundle=leader_cable_qty(2),
+            power_supplies=self._power_supplies(),
+            include_power_supply=True,
+        )
+        by_item = {l["item_code"]: l["qty"] for l in lines}
+        self.assertEqual(by_item["ITEM-JUMPER"], 78)  # 26 * 3
+        self.assertEqual(by_item["ITEM-LEADER"], 6)  # 2 * 3
+        self.assertEqual(by_item["ITEM-DRV-200"], 6)  # 2 * 3
+        self.assertEqual(by_item["ITEM-DRV-100"], 3)  # 1 * 3
+
+    def test_all_rows_tagged_with_marker(self):
+        lines = build_accessory_lines(
+            configured_name="CLS-0001",
+            bundle_qty=2,
+            jumper_item="ITEM-JUMPER",
+            jumper_qty_per_bundle=jumper_cable_qty(4),
+            leader_item="ITEM-LEADER",
+            leader_qty_per_bundle=leader_cable_qty(1),
+            power_supplies=self._power_supplies(),
+            include_power_supply=True,
+        )
+        marker = generated_accessory_marker("CLS-0001")
+        self.assertTrue(lines)
+        for line in lines:
+            self.assertIn(marker, line["notes"])
+
+    def test_power_supply_excluded_omits_power_supply_rows(self):
+        lines = build_accessory_lines(
+            configured_name="CLS-0001",
+            bundle_qty=2,
+            jumper_item="ITEM-JUMPER",
+            jumper_qty_per_bundle=jumper_cable_qty(4),
+            leader_item="ITEM-LEADER",
+            leader_qty_per_bundle=leader_cable_qty(1),
+            power_supplies=self._power_supplies(),
+            include_power_supply=False,
+        )
+        items = {l["item_code"] for l in lines}
+        self.assertIn("ITEM-JUMPER", items)
+        self.assertIn("ITEM-LEADER", items)
+        self.assertNotIn("ITEM-DRV-200", items)
+        self.assertNotIn("ITEM-DRV-100", items)
+
+    def test_zero_per_config_quantities_are_skipped(self):
+        lines = build_accessory_lines(
+            configured_name="CLS-0001",
+            bundle_qty=5,
+            jumper_item="ITEM-JUMPER",
+            jumper_qty_per_bundle=0,
+            leader_item=None,
+            leader_qty_per_bundle=0,
+            power_supplies=[],
+            include_power_supply=True,
+        )
+        self.assertEqual(lines, [])
+
+
+class TestGeneratedAccessoryFiltering(unittest.TestCase):
+    """Re-saving a configured LED Sheet must remove stale generated rows for both
+    the old and new configured sheet while leaving unrelated lines untouched."""
+
+    def _lines(self):
+        # (manufacturer_type, notes)
+        return [
+            ("ILLUMENATE", "Configured LED Sheet CLS-0001 | ..."),
+            ("ACCESSORY", "Jumpers " + generated_accessory_marker("CLS-0001")),
+            ("ACCESSORY", "Leaders " + generated_accessory_marker("CLS-0001")),
+            ("ACCESSORY", "Hand-added extra cable"),  # user accessory, keep
+            ("ACCESSORY", "Power supplies " + generated_accessory_marker("CLS-0002")),
+        ]
+
+    def test_matches_only_generated_accessory_rows(self):
+        rows = self._lines()
+        markers = [generated_accessory_marker("CLS-0001"), generated_accessory_marker("CLS-0002")]
+        kept = [r for r in rows if not is_generated_accessory_line(r[0], r[1], markers)]
+        self.assertEqual(
+            kept,
+            [
+                ("ILLUMENATE", "Configured LED Sheet CLS-0001 | ..."),
+                ("ACCESSORY", "Hand-added extra cable"),
+            ],
+        )
+
+    def test_non_accessory_rows_never_match(self):
+        markers = [generated_accessory_marker("CLS-0001")]
+        self.assertFalse(
+            is_generated_accessory_line("ILLUMENATE", "Jumpers for LED Sheet CLS-0001", markers)
+        )
+
+    def test_unrelated_configured_sheet_not_removed(self):
+        rows = self._lines()
+        markers = [generated_accessory_marker("CLS-0001")]  # only the old sheet
+        kept = [r for r in rows if not is_generated_accessory_line(r[0], r[1], markers)]
+        # The CLS-0002 power supply row survives because its marker is not targeted.
+        self.assertIn(("ACCESSORY", "Power supplies " + generated_accessory_marker("CLS-0002")), kept)
 
 
 if __name__ == "__main__":

@@ -1575,6 +1575,19 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 			line.line_id = line_data.get("line_id")
 		if "qty" in line_data:
 			line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
+			# For a configured LED Sheet, the line qty is the bundle/fixture count.
+			# Re-sync only this sheet's generated jumper/leader/power-supply rows so
+			# their quantities scale with the new bundle quantity.
+			if (
+				line.manufacturer_type == "ILLUMENATE"
+				and getattr(line, "product_type", None) == "LED Sheet"
+				and getattr(line, "configured_led_sheet", None)
+			):
+				from illumenate_lighting.illumenate_lighting.api.led_sheet_configurator import (
+					resync_led_sheet_line_accessories,
+				)
+
+				resync_led_sheet_line_accessories(schedule, line, line.qty)
 		if "location" in line_data:
 			line.location = line_data.get("location")
 		if "notes" in line_data:
