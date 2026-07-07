@@ -70,10 +70,10 @@ class TestWebflowAuth(FrappeTestCase):
 						with patch.object(
 							frappe.db, "get_value", return_value="Test Customer"
 						):
-						with patch.object(
-							frappe.utils, "get_fullname", return_value="Dealer User"
-						):
-							result = get_user_context()
+							with patch.object(
+								frappe.utils, "get_fullname", return_value="Dealer User"
+							):
+								result = get_user_context()
 		self.assertFalse(result["is_internal"])
 		self.assertEqual(result["customer"], "TEST-CUST-001")
 		self.assertEqual(result["customer_name"], "Test Customer")
