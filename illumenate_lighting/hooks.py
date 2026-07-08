@@ -374,7 +374,7 @@ doc_events = {
 scheduler_events = {
     "cron": {
         "*/5 * * * *": [
-            "illumenate_lighting.email_campaign_scheduler.run_scheduled_campaigns"
+            "illumenate_lighting.illumenate_lighting.email_campaign_scheduler.run_scheduled_campaigns"
         ]
     }
 }
