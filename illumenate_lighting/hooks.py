@@ -371,23 +371,13 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"illumenate_lighting.tasks.all"
-# 	],
-# 	"daily": [
-# 		"illumenate_lighting.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"illumenate_lighting.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"illumenate_lighting.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"illumenate_lighting.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+    "cron": {
+        "*/5 * * * *": [
+            "illumenate_lighting.email_campaign_scheduler.run_scheduled_campaigns"
+        ]
+    }
+}
 
 # Testing
 # -------
