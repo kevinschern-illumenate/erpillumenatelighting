@@ -12,11 +12,12 @@ def run_scheduled_campaigns():
         frappe.log_error("Missing n8n_campaign_webhook_url in site config", "Campaign Scheduler")
         return
 
+    # 1. Updated filters, fields, and order_by
     campaigns = frappe.get_all(
         "Postmark Campaign",
         filters={
-            "status": "Scheduled",
-            "scheduled_time": ["<=", now_datetime()],
+            "pstmrk_status": "Scheduled",
+            "pstmrk_scheduled_time": ["<=", now_datetime()],
         },
         fields=[
             "name",
@@ -27,19 +28,20 @@ def run_scheduled_campaigns():
             "pstmrk_html_content",
             "pstmrk_text_content",
             "pstmrk_test_email",
-            "status",
+            "pstmrk_status",
             "pstmrk_tag",
         ],
-        order_by="scheduled_time asc",
+        order_by="pstmrk_scheduled_time asc",
         limit=50,
     )
 
     for c in campaigns:
+        # 2. Updated the raw SQL query to use pstmrk_status
         frappe.db.sql(
             """
             UPDATE `tabPostmark Campaign`
-            SET status='Processing', modified=NOW()
-            WHERE name=%s AND status='Scheduled'
+            SET pstmrk_status='Processing', modified=NOW()
+            WHERE name=%s AND pstmrk_status='Scheduled'
             """,
             (c.name,),
         )
@@ -66,11 +68,17 @@ def run_scheduled_campaigns():
             r = requests.post(webhook_url, data=json.dumps(payload), headers={"Content-Type": "application/json"}, timeout=20)
             r.raise_for_status()
 
-            frappe.db.set_value("Postmark Campaign", c.name, "status", "Sent to n8n")
+            # 3. Updated set_value for success
+            frappe.db.set_value("Postmark Campaign", c.name, "pstmrk_status", "Sent to n8n")
             frappe.db.commit()
 
         except Exception as e:
-            frappe.db.set_value("Postmark Campaign", c.name, "status", "Failed")
+            # 4. Updated set_value for failure
+            frappe.db.set_value("Postmark Campaign", c.name, "pstmrk_status", "Failed")
+            
+            # NOTE: If you also named the failure reason field "pstmrk_failure_reason", 
+            # change the field name in the line below to match!
             frappe.db.set_value("Postmark Campaign", c.name, "failure_reason", str(e)[:140])
+            
             frappe.db.commit()
             frappe.log_error(frappe.get_traceback(), f"Campaign webhook failed: {c.name}")
