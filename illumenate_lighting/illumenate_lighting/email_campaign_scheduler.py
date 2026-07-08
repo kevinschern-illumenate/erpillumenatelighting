@@ -70,7 +70,11 @@ def run_scheduled_campaigns():
             frappe.db.set_value("Postmark Campaign", c.name, "status", "Sent to n8n")
             frappe.db.commit()
 
-        except Exception:
-            frappe.db.set_value("Postmark Campaign", c.name, "status", "Scheduled")
+        except Exception as e:
+            # If the webhook fails, stamp it as Failed and write the reason
+            frappe.db.set_value("Postmark Campaign", c.name, {
+                "status": "Failed",
+                "failure_reason": str(e)[:140] # Grabs the clean, short error message
+            })
             frappe.db.commit()
             frappe.log_error(frappe.get_traceback(), f"Campaign webhook failed: {c.name}")
