@@ -112,10 +112,10 @@ export default function Wizard() {
           />
         </div>
 
-        <div className="md:flex md:gap-8 md:items-start">
+        <div className="md:flex md:gap-8">
 
           {/* Desktop: sticky sidebar that follows scroll */}
-          <aside className="hidden md:block md:w-14 flex-none">
+          <aside className="hidden md:block md:w-14 flex-none sticky top-8 self-start">
             <SideNav
               steps={navSteps}
               currentIndex={currentIndex}

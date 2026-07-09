@@ -20,7 +20,7 @@ import { AlertTriangle } from 'lucide-react';
  */
 export default function SideNav({ steps, currentIndex, revealedCount, brokenSet, onJump }) {
   return (
-    <nav aria-label="Configuration progress" className="sticky top-8 self-start">
+    <nav aria-label="Configuration progress">
       <ol className="flex flex-col gap-3 py-1">
         {steps.map((step, i) => {
           const isRevealed = i < revealedCount;
