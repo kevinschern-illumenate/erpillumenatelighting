@@ -120,3 +120,32 @@ export function progress(answers) {
 export function lumensBandFor(purpose) {
   return purpose ? LUMENS_BANDS[purpose] || null : null;
 }
+
+/**
+ * Returns true when the stored answer for `question` is still a valid choice
+ * given the current `answers` map (i.e., the option has not been hidden by a
+ * `hideWhen` rule).
+ *
+ * Always returns true for non-option question types (number, range, info)
+ * because those are free-entry and cannot become "stale" through branching.
+ */
+export function isAnswerStillValid(question, answers) {
+  const value = answers[question.id];
+
+  if (value === undefined || value === null) return true;
+
+  if (question.type !== 'single' && question.type !== 'multi') return true;
+
+  const opts = visibleOptions(question, answers);
+  const validValues = new Set(opts.map((o) => o.value));
+
+  if (question.type === 'single') {
+    return validValues.has(value);
+  }
+
+  if (question.type === 'multi' && Array.isArray(value)) {
+    return value.every((v) => validValues.has(v));
+  }
+
+  return true;
+}

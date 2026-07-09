@@ -3,5 +3,23 @@
   "outputDirectory": "dist-preview",
   "installCommand": "npm install",
   "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://illumenate-staging.webflow.io" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "X-Frame-Options", "value": "ALLOW-FROM https://illumenate-staging.webflow.io" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://illumenate-staging.webflow.io https://*.webflow.io" }
+      ]
+    },
+    {
+      "source": "/configurator-ui.(js|css)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    }
+  ]
 }

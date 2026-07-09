@@ -1,0 +1,213 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "item",
+  "led_package",
+  "is_active",
+  "dimensions_section",
+  "sheet_width_ft",
+  "sheet_height_ft",
+  "sheet_area_sqft",
+  "cut_interval_width_in",
+  "cut_interval_height_in",
+  "performance_section",
+  "watts_per_sqft",
+  "total_sheet_watts",
+  "lumens_per_sqft",
+  "total_sheet_lumens",
+  "max_sqft_per_100w",
+  "attributes_section",
+  "input_voltage",
+  "cct",
+  "cri",
+  "ip_rating",
+  "certifications",
+  "operating_temp_min_c",
+  "operating_temp_max_c",
+  "sku_section",
+  "sku_series_code",
+  "sku_led_package_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "led_package",
+   "fieldtype": "Link",
+   "label": "LED Package",
+   "options": "ilL-Attribute-LED Package"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Sheet Dimensions"
+  },
+  {
+   "fieldname": "sheet_width_ft",
+   "fieldtype": "Float",
+   "label": "Sheet Width (ft)",
+   "default": "1.0"
+  },
+  {
+   "fieldname": "sheet_height_ft",
+   "fieldtype": "Float",
+   "label": "Sheet Height (ft)",
+   "default": "2.0"
+  },
+  {
+   "fieldname": "sheet_area_sqft",
+   "fieldtype": "Float",
+   "label": "Sheet Area (sq ft)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cut_interval_width_in",
+   "fieldtype": "Float",
+   "label": "Cut Interval Width (in)"
+  },
+  {
+   "fieldname": "cut_interval_height_in",
+   "fieldtype": "Float",
+   "label": "Cut Interval Height (in)"
+  },
+  {
+   "fieldname": "performance_section",
+   "fieldtype": "Section Break",
+   "label": "Performance"
+  },
+  {
+   "fieldname": "watts_per_sqft",
+   "fieldtype": "Float",
+   "label": "Watts per sq ft"
+  },
+  {
+   "fieldname": "total_sheet_watts",
+   "fieldtype": "Float",
+   "label": "Total Sheet Watts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lumens_per_sqft",
+   "fieldtype": "Float",
+   "label": "Lumens per sq ft"
+  },
+  {
+   "fieldname": "total_sheet_lumens",
+   "fieldtype": "Float",
+   "label": "Total Sheet Lumens",
+   "read_only": 1
+  },
+  {
+   "fieldname": "max_sqft_per_100w",
+   "fieldtype": "Float",
+   "label": "Max Squarefootage per 100W"
+  },
+  {
+   "fieldname": "attributes_section",
+   "fieldtype": "Section Break",
+   "label": "Attributes"
+  },
+  {
+   "fieldname": "input_voltage",
+   "fieldtype": "Link",
+   "label": "Input Voltage",
+   "options": "ilL-Attribute-Output Voltage"
+  },
+  {
+   "fieldname": "cct",
+   "fieldtype": "Link",
+   "label": "CCT",
+   "options": "ilL-Attribute-CCT"
+  },
+  {
+   "fieldname": "cri",
+   "fieldtype": "Link",
+   "label": "CRI",
+   "options": "ilL-Attribute-CRI"
+  },
+  {
+   "fieldname": "ip_rating",
+   "fieldtype": "Link",
+   "label": "IP Rating",
+   "options": "ilL-Attribute-IP Rating"
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification"
+  },
+  {
+   "fieldname": "operating_temp_min_c",
+   "fieldtype": "Float",
+   "label": "Operating Temperature Min (°C)"
+  },
+  {
+   "fieldname": "operating_temp_max_c",
+   "fieldtype": "Float",
+   "label": "Operating Temperature Max (°C)"
+  },
+  {
+   "fieldname": "sku_section",
+   "fieldtype": "Section Break",
+   "label": "SKU"
+  },
+  {
+   "fieldname": "sku_series_code",
+   "fieldtype": "Data",
+   "label": "SKU Series Code"
+  },
+  {
+   "fieldname": "sku_led_package_code",
+   "fieldtype": "Data",
+   "label": "SKU LED Package Code"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-06-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-LED-Sheet",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "item",
+ "autoname": "field:item"
+}

@@ -34,6 +34,9 @@ from .generators import (
     gen_tape_neon_template,
     gen_neon_submittal_mapping,
     gen_tape_neon_webflow,
+    gen_led_sheet_template,
+    gen_led_sheet_submittal_mapping,
+    gen_led_sheet_webflow,
 )
 
 
@@ -95,6 +98,38 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
                         f"tape_spec: {spec_ref.tape_spec}"
                     )
 
+    elif config.product_type == "led-sheet":
+        if not config.led_sheet_specs:
+            errors.append("At least one led_sheet_spec is required")
+        if not config.led_sheet_templates:
+            errors.append("At least one led_sheet_template is required")
+        if not config.series_code:
+            errors.append("series_code is required for led-sheet")
+        if not config.led_package:
+            errors.append("led_package is required for led-sheet")
+        if config.sheet_dimensions.width_ft <= 0 or config.sheet_dimensions.height_ft <= 0:
+            errors.append("sheet_dimensions.width_ft and sheet_dimensions.height_ft must be greater than zero")
+        if config.watts_per_sqft <= 0:
+            errors.append("watts_per_sqft must be greater than zero for led-sheet")
+        if config.lumens_per_sqft <= 0:
+            errors.append("lumens_per_sqft must be greater than zero for led-sheet")
+        for field_name in ("cct_options", "output_options", "environment_options", "mounting_options", "finish_options"):
+            if not getattr(config, field_name):
+                errors.append(f"{field_name} must include at least one value for led-sheet")
+        if not (config.jumper_cable_item or any(t.jumper_cable_item for t in config.led_sheet_templates)):
+            errors.append("jumper_cable_item is required for led-sheet")
+        if not (config.leader_cable_item or any(t.leader_cable_item for t in config.led_sheet_templates)):
+            errors.append("leader_cable_item is required for led-sheet")
+        for spec in config.led_sheet_specs:
+            if not spec.led_package:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: led_package is required")
+            if spec.sheet_dimensions.width_ft <= 0 or spec.sheet_dimensions.height_ft <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: sheet_dimensions must be greater than zero")
+            if spec.watts_per_sqft <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: watts_per_sqft must be greater than zero")
+            if spec.lumens_per_sqft <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: lumens_per_sqft must be greater than zero")
+
     return errors
 
 
@@ -103,6 +138,8 @@ def generate_all(config: FixtureBuilderConfig, output_dir: str,
     """Generate all CSV files and return {filename: filepath} mapping."""
     if config.product_type in ("tape", "neon"):
         return generate_all_tape_neon(config, output_dir, source_submittal_csv)
+    if config.product_type == "led-sheet":
+        return generate_all_led_sheet(config, output_dir, source_submittal_csv)
     return generate_all_fixture(config, output_dir, source_submittal_csv)
 
 
@@ -159,6 +196,20 @@ def generate_all_tape_neon(config: FixtureBuilderConfig, output_dir: str,
     return results
 
 
+def generate_all_led_sheet(config: FixtureBuilderConfig, output_dir: str,
+                           source_submittal_csv: str = "") -> dict[str, str]:
+    """Generate all LED Sheet CSV files and return {filename: filepath}."""
+    os.makedirs(output_dir, exist_ok=True)
+    results = {}
+    results.update(gen_led_sheet_template.generate(config, output_dir))
+    results["ilL-LED-Sheet-Submittal-Mapping.csv"] = gen_led_sheet_submittal_mapping.generate(
+        config, output_dir, source_csv_path=source_submittal_csv
+    )
+    # LED Sheet Webflow uses the same wide import columns with LED Sheet product type.
+    results["ilL-Webflow-Product.csv"] = gen_led_sheet_webflow.generate(config, output_dir)
+    return results
+
+
 def _count_data_rows(filepath: str) -> int:
     """Count non-header rows in a CSV file."""
     with open(filepath, "r", encoding="utf-8") as f:
@@ -187,9 +238,9 @@ def main():
     )
     parser.add_argument(
         "--product-type", "-t",
-        choices=["fixture", "tape", "neon"],
+        choices=["fixture", "tape", "neon", "led-sheet"],
         default=None,
-        help="Product type: fixture (default), tape, or neon",
+        help="Product type: fixture (default), tape, neon, or led-sheet",
     )
     parser.add_argument(
         "--interactive", "-i",

@@ -72,6 +72,8 @@
   "max_run_ft_by_voltage_drop",
   "column_break_run_metadata",
   "max_run_ft_effective",
+  "override_max_run_ft_enabled",
+  "override_max_run_ft",
   "resolved_items_section",
   "profile_item",
   "lens_item",
@@ -133,7 +135,8 @@
    "fieldtype": "Link",
    "label": "Variant Of",
    "options": "ilL-Configured-Fixture",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "description": "4-char hex suffix appended to the part number for variants (e.g. ABCD in -V(ABCD)).",
@@ -174,19 +177,22 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Finish",
-   "options": "ilL-Attribute-Finish"
+   "options": "ilL-Attribute-Finish",
+   "reqd": 1
   },
   {
    "fieldname": "lens_appearance",
    "fieldtype": "Link",
    "label": "Lens Appearance",
-   "options": "ilL-Attribute-Lens Appearance"
+   "options": "ilL-Attribute-Lens Appearance",
+   "reqd": 1
   },
   {
    "fieldname": "mounting_method",
    "fieldtype": "Link",
    "label": "Mounting Method",
-   "options": "ilL-Attribute-Mounting Method"
+   "options": "ilL-Attribute-Mounting Method",
+   "reqd": 1
   },
   {
    "fieldname": "endcap_style_start",
@@ -208,7 +214,8 @@
    "fieldname": "endcap_color",
    "fieldtype": "Link",
    "label": "Endcap Color",
-   "options": "ilL-Attribute-Endcap Color"
+   "options": "ilL-Attribute-Endcap Color",
+   "reqd": 1
   },
   {
    "fieldname": "power_feed_type",
@@ -235,7 +242,8 @@
    "fieldname": "environment_rating",
    "fieldtype": "Link",
    "label": "Environment Rating",
-   "options": "ilL-Attribute-Environment Rating"
+   "options": "ilL-Attribute-Environment Rating",
+   "reqd": 1
   },
   {
    "fieldname": "tape_offering",
@@ -410,7 +418,8 @@
    "fieldname": "requested_overall_length_mm",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Requested Overall Length (mm)"
+   "label": "Requested Overall Length (mm)",
+   "reqd": 1
   },
   {
    "fieldname": "endcap_allowance_mm_per_side",
@@ -514,6 +523,20 @@
    "label": "Max Run (ft) Effective"
   },
   {
+   "default": "0",
+   "description": "When enabled, the user-supplied max run length overrides the computed value",
+   "fieldname": "override_max_run_ft_enabled",
+   "fieldtype": "Check",
+   "label": "Override Max Run Length"
+  },
+  {
+   "depends_on": "eval:doc.override_max_run_ft_enabled == 1",
+   "description": "User-supplied max run length (ft) used in place of the computed value",
+   "fieldname": "override_max_run_ft",
+   "fieldtype": "Float",
+   "label": "Override Max Run (ft)"
+  },
+  {
    "collapsible": 1,
    "fieldname": "resolved_items_section",
    "fieldtype": "Section Break",
@@ -581,13 +604,15 @@
    "fieldname": "configured_item",
    "fieldtype": "Link",
    "label": "Configured Item",
-   "options": "Item"
+   "options": "Item",
+   "search_index": 1
   },
   {
    "fieldname": "bom",
    "fieldtype": "Link",
    "label": "BOM",
-   "options": "BOM"
+   "options": "BOM",
+   "search_index": 1
   },
   {
    "fieldname": "column_break_erp",
@@ -597,7 +622,8 @@
    "fieldname": "work_order",
    "fieldtype": "Link",
    "label": "Work Order",
-   "options": "Work Order"
+   "options": "Work Order",
+   "search_index": 1
   },
   {
    "collapsible": 1,

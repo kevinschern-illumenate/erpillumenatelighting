@@ -14,7 +14,6 @@
 #ill-configurator-root {
   box-sizing: border-box;
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #172e48;
   color: #172e48;
   line-height: 1.5;
   min-height: 100dvh;
@@ -30,9 +29,20 @@
   font-family: inherit;
   cursor: pointer;
 }
+#ill-configurator-root ol,
+#ill-configurator-root ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 #ill-configurator-root input,
 #ill-configurator-root select,
 #ill-configurator-root textarea {
   font-family: inherit;
   font-size: inherit;
+}
+
+/* Hide scrollbar on the progress bubble row without affecting scroll behaviour */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

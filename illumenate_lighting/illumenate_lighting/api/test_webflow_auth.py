@@ -29,30 +29,23 @@ class TestWebflowAuth(FrappeTestCase):
 
 		# Use Administrator for testing since it always exists
 		with patch.object(frappe, "session", MagicMock(user="Administrator")):
-			with patch(
-				"illumenate_lighting.illumenate_lighting.api.webflow_auth._get_or_generate_api_credentials",
-				return_value=("test-api-key", "test-api-secret"),
-			):
-				result = get_user_context()
+			result = get_user_context()
 
 		self.assertTrue(result["success"])
 		self.assertEqual(result["user"], "Administrator")
 		self.assertIn("is_dealer", result)
 		self.assertIn("is_internal", result)
 		self.assertIn("customer", result)
-		self.assertIn("api_key", result)
-		self.assertIn("api_secret", result)
+		# SECURITY: credentials must never be exposed by this guest/CORS endpoint.
+		self.assertNotIn("api_key", result)
+		self.assertNotIn("api_secret", result)
 
 	def test_get_user_context_has_full_name(self):
 		"""Test get_user_context includes full_name"""
 		from illumenate_lighting.illumenate_lighting.api.webflow_auth import get_user_context
 
 		with patch.object(frappe, "session", MagicMock(user="Administrator")):
-			with patch(
-				"illumenate_lighting.illumenate_lighting.api.webflow_auth._get_or_generate_api_credentials",
-				return_value=("key", "secret"),
-			):
-				result = get_user_context()
+			result = get_user_context()
 
 		self.assertTrue(result["success"])
 		self.assertIn("full_name", result)
@@ -77,17 +70,10 @@ class TestWebflowAuth(FrappeTestCase):
 						with patch.object(
 							frappe.db, "get_value", return_value="Test Customer"
 						):
-							with patch(
-								"illumenate_lighting.illumenate_lighting.api.webflow_auth._get_or_generate_api_credentials",
-								return_value=("key", "secret"),
+							with patch.object(
+								frappe.utils, "get_fullname", return_value="Dealer User"
 							):
-								with patch.object(
-									frappe.utils, "get_fullname", return_value="Dealer User"
-								):
-									result = get_user_context()
-
-		self.assertTrue(result["success"])
-		self.assertTrue(result["is_dealer"])
+								result = get_user_context()
 		self.assertFalse(result["is_internal"])
 		self.assertEqual(result["customer"], "TEST-CUST-001")
 		self.assertEqual(result["customer_name"], "Test Customer")

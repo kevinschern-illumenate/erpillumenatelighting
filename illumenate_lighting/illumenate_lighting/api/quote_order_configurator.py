@@ -16,6 +16,7 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 	CONFIGURED_ITEM_GROUP,
 	CONFIGURED_NEON_ITEM_GROUP,
 	CONFIGURED_TAPE_ITEM_GROUP,
+	_create_item_price_at_msrp,
 	_create_or_get_bom,
 	_create_or_get_configured_item,
 	_create_or_get_configured_tape_neon_item,
@@ -28,7 +29,8 @@ PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 PRODUCT_TYPE_FIXTURE = "Linear Fixture"
 PRODUCT_TYPE_TAPE = "LED Tape"
 PRODUCT_TYPE_NEON = "LED Neon"
-PRODUCT_TYPES = {PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON}
+PRODUCT_TYPE_SHEET = "LED Sheet"
+PRODUCT_TYPES = {PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON, PRODUCT_TYPE_SHEET}
 
 
 @frappe.whitelist()
@@ -38,6 +40,7 @@ def get_product_types() -> list[dict[str, str]]:
 		{"label": PRODUCT_TYPE_FIXTURE, "value": PRODUCT_TYPE_FIXTURE, "bom_status": "available"},
 		{"label": PRODUCT_TYPE_TAPE, "value": PRODUCT_TYPE_TAPE, "bom_status": "available"},
 		{"label": PRODUCT_TYPE_NEON, "value": PRODUCT_TYPE_NEON, "bom_status": "available"},
+		{"label": PRODUCT_TYPE_SHEET, "value": PRODUCT_TYPE_SHEET, "bom_status": "available"},
 	]
 
 
@@ -87,6 +90,18 @@ def qoc_get_product_types() -> dict[str, Any]:
 				"preview_bom": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.preview_bom",
 				"power_supply_supported": True,
 			},
+			PRODUCT_TYPE_SHEET: {
+				"configured_doctype": "ilL-Configured-LED-Sheet",
+				"template_doctype": "ilL-LED-Sheet-Template",
+				"item_group": "Configured LED Sheets",
+				# LED Sheet is NOT handled by the generic configured_product_builder
+				# (fixture/tape/neon only). It uses its own engine and the
+				# quote/order apply + BOM-preview endpoints below.
+				"engine": "illumenate_lighting.illumenate_lighting.api.led_sheet_configurator.validate_sheet_configuration",
+				"apply_existing": "illumenate_lighting.illumenate_lighting.api.quote_order_configurator.apply_configured_product",
+				"preview_bom": "illumenate_lighting.illumenate_lighting.api.quote_order_configurator.get_bom_preview",
+				"power_supply_supported": True,
+			},
 		},
 	}
 
@@ -96,6 +111,7 @@ def get_bom_preview(
 	product_type: str,
 	configured_fixture: str | None = None,
 	configured_tape_neon: str | None = None,
+	configured_led_sheet: str | None = None,
 	bom: str | None = None,
 ) -> dict[str, Any]:
 	"""Preview the BOM rows for a configured product without modifying quote/order docs."""
@@ -119,6 +135,19 @@ def get_bom_preview(
 			"bom_status": "preview",
 			"messages": [],
 			"items": _format_bom_items(build_fixture_bom_items(fixture)),
+		}
+
+	if product_type == PRODUCT_TYPE_SHEET:
+		configured_sheet = _get_required_doc("ilL-Configured-LED-Sheet", configured_led_sheet, "configured_led_sheet")
+		if configured_sheet.bom and frappe.db.exists("BOM", configured_sheet.bom):
+			return _preview_existing_bom(product_type, configured_sheet.bom)
+		from illumenate_lighting.illumenate_lighting.api.led_sheet_bom import build_led_sheet_bom_items
+		return {
+			"success": True, "product_type": product_type, "configured_fixture": None,
+			"configured_tape_neon": None, "configured_led_sheet": configured_sheet.name,
+			"item_code": configured_sheet.configured_item or configured_sheet.part_number,
+			"bom": None, "bom_status": "preview", "messages": [],
+			"items": _format_bom_items(build_led_sheet_bom_items(configured_sheet)),
 		}
 
 	configured = _get_required_doc("ilL-Configured-Tape-Neon", configured_tape_neon, "configured_tape_neon")
@@ -148,6 +177,7 @@ def apply_existing_configured_product(
 	product_type: str,
 	configured_fixture: str | None = None,
 	configured_tape_neon: str | None = None,
+	configured_led_sheet: str | None = None,
 	row_name: str | None = None,
 	qty: float = 1,
 	configuration_json: str | dict[str, Any] | None = None,
@@ -166,7 +196,7 @@ def apply_existing_configured_product(
 	parent_doc = _get_editable_parent(parent_doctype, parent_name)
 	qty = flt(qty) or 1
 
-	artifact = _ensure_configured_artifacts(product_type, configured_fixture, configured_tape_neon)
+	artifact = _ensure_configured_artifacts(product_type, configured_fixture, configured_tape_neon, locals().get("configured_led_sheet"))
 	row = _get_or_add_item_row(parent_doc, row_name)
 	_apply_artifact_to_row(parent_doc, row, artifact, qty, configuration_json)
 
@@ -180,6 +210,7 @@ def apply_existing_configured_product(
 		"product_type": product_type,
 		"configured_fixture": artifact.get("configured_fixture"),
 		"configured_tape_neon": artifact.get("configured_tape_neon"),
+		"configured_led_sheet": artifact.get("configured_led_sheet"),
 		"item_code": artifact["item_code"],
 		"bom": artifact.get("bom"),
 		"messages": artifact.get("messages", []),
@@ -210,6 +241,9 @@ def _normalize_product_type(product_type: str) -> str:
 		"led neon": PRODUCT_TYPE_NEON,
 		"neon": PRODUCT_TYPE_NEON,
 		"led_neon": PRODUCT_TYPE_NEON,
+		"led sheet": PRODUCT_TYPE_SHEET,
+		"sheet": PRODUCT_TYPE_SHEET,
+		"led_sheet": PRODUCT_TYPE_SHEET,
 	}
 	normalized = lookup.get(value.lower(), value)
 	if normalized not in PRODUCT_TYPES:
@@ -242,6 +276,7 @@ def _ensure_configured_artifacts(
 	product_type: str,
 	configured_fixture: str | None,
 	configured_tape_neon: str | None,
+	configured_led_sheet: str | None = None,
 ) -> dict[str, Any]:
 	if product_type == PRODUCT_TYPE_FIXTURE:
 		fixture = _get_required_doc("ilL-Configured-Fixture", configured_fixture, "configured_fixture")
@@ -281,6 +316,35 @@ def _ensure_configured_artifacts(
 			"parent_configured_fixture": getattr(fixture, "parent_configured_fixture", None),
 			"configuration_snapshot": _fixture_configuration_snapshot(fixture),
 			"messages": item_result.get("messages", []) + bom_result.get("messages", []),
+		}
+
+	if product_type == PRODUCT_TYPE_SHEET:
+		sheet = _get_required_doc("ilL-Configured-LED-Sheet", configured_led_sheet, "configured_led_sheet")
+		_ensure_item_group_exists("Configured LED Sheets")
+		item_code = sheet.configured_item or sheet.part_number
+		if not item_code:
+			frappe.throw(_("Configured LED Sheet has no part number."))
+		if not frappe.db.exists("Item", item_code):
+			item = frappe.get_doc({"doctype": "Item", "item_code": item_code, "item_name": sheet.part_number or sheet.name, "item_group": "Configured LED Sheets", "stock_uom": DEFAULT_UOM, "is_stock_item": 1, "description": f"Configured LED Sheet: {sheet.name}"})
+			item.insert(ignore_permissions=True)
+		sheet.configured_item = item_code
+		sheet.save(ignore_permissions=True)
+		from illumenate_lighting.illumenate_lighting.api import led_sheet_bom
+		bom_result = led_sheet_bom.create_or_get_led_sheet_bom(sheet, item_code, skip_if_exists=True)
+		messages = list(bom_result.get("messages", []))
+		# Publish the configured MSRP as an Item Price so quote/order rows price
+		# correctly (mirrors the fixture/tape/neon item-creation path). Without
+		# this the row would fall back to the artifact MSRP or price to zero.
+		sheet_msrp = flt(sheet.msrp) or None
+		_create_item_price_at_msrp(item_code, sheet_msrp, messages)
+		return {
+			"product_type": product_type, "source_doctype": "ilL-Configured-LED-Sheet", "source_name": sheet.name,
+			"configured_fixture": None, "configured_tape_neon": None, "configured_led_sheet": sheet.name,
+			"item_code": item_code, "bom": bom_result.get("bom_name"), "description": _line_description_from_item(item_code),
+			"template_code": sheet.sheet_template, "requested_length_mm": None, "mfg_length_mm": None,
+			"runs_count": sheet.total_groups, "total_watts": sheet.total_system_watts, "finish": sheet.selected_finish,
+			"lens": None, "msrp_unit": sheet_msrp, "total_msrp": sheet_msrp,
+			"configuration_snapshot": _led_sheet_configuration_snapshot(sheet), "messages": messages,
 		}
 
 	configured = _get_required_doc("ilL-Configured-Tape-Neon", configured_tape_neon, "configured_tape_neon")
@@ -368,6 +432,7 @@ def _apply_artifact_to_row(parent_doc, row, artifact: dict[str, Any], qty: float
 	_set_child_value(row, "ill_product_type", artifact["product_type"])
 	_set_child_value(row, "ill_configured_fixture", artifact.get("configured_fixture"))
 	_set_child_value(row, "ill_configured_tape_neon", artifact.get("configured_tape_neon"))
+	_set_child_value(row, "ill_configured_led_sheet", artifact.get("configured_led_sheet"))
 	_set_child_value(row, "ill_configured_product_doctype", artifact.get("source_doctype"))
 	_set_child_value(row, "ill_configured_product", artifact.get("source_name"))
 	_set_child_value(row, "ill_configured_item", item_code)
@@ -610,3 +675,30 @@ def _serialize_json(value) -> str:
 def _messages_to_html(messages) -> str:
 	texts = [message.get("text") for message in messages or [] if message.get("text")]
 	return "<br>".join(texts) if texts else _("Configured product artifact generation failed.")
+
+def _led_sheet_configuration_snapshot(sheet) -> dict[str, Any]:
+	return {
+		"product_type": PRODUCT_TYPE_SHEET,
+		"configured_led_sheet": sheet.name,
+		"sheet_template": sheet.sheet_template,
+		"sheet_spec": sheet.sheet_spec,
+		"selected_cct": sheet.selected_cct,
+		"selected_output_level": sheet.selected_output_level,
+		"selected_environment_rating": sheet.selected_environment_rating,
+		"selected_mounting": sheet.selected_mounting,
+		"selected_finish": sheet.selected_finish,
+		"coverage_width_ft": sheet.coverage_width_ft,
+		"coverage_height_ft": sheet.coverage_height_ft,
+		"sheets_needed": sheet.sheets_needed,
+	}
+
+
+@frappe.whitelist()
+def add_configured_sheet_to_quote_order(configured_sheet_name: str, quote_name: str) -> dict[str, Any]:
+	"""Add a configured LED Sheet to a draft Quotation."""
+	return apply_existing_configured_product(
+		parent_doctype="Quotation",
+		parent_name=quote_name,
+		product_type=PRODUCT_TYPE_SHEET,
+		configured_led_sheet=configured_sheet_name,
+	)

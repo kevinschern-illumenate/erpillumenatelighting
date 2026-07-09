@@ -21,7 +21,7 @@ class ilLChildFixtureScheduleLine(Document):
 		- Configured: Has a linked configured_fixture
 		"""
 		if self.manufacturer_type == "ILLUMENATE":
-			if self.configured_fixture:
+			if self.configured_fixture or self.configured_tape_neon or self.configured_led_sheet:
 				self.configuration_status = "Configured"
 			else:
 				self.configuration_status = "Pending"
@@ -71,6 +71,25 @@ class ilLChildFixtureScheduleLine(Document):
 					"ilL-Fixture-Template", self.fixture_template, "spec_sheet"
 				)
 
+			elif self.configured_led_sheet:
+				result = frappe.db.sql(
+					"""
+					SELECT st.spec_sheet
+					FROM `tabilL-Configured-LED-Sheet` cs
+					INNER JOIN `tabilL-LED-Sheet-Template` st ON cs.sheet_template = st.name
+					WHERE cs.name = %s
+					LIMIT 1
+					""",
+					(self.configured_led_sheet,),
+					as_dict=True,
+				)
+				if result:
+					self.linked_spec_document = result[0].get("spec_sheet")
+			elif self.led_sheet_template:
+				self.linked_spec_document = frappe.db.get_value(
+					"ilL-LED-Sheet-Template", self.led_sheet_template, "spec_sheet"
+				)
+
 		elif self.manufacturer_type == "OTHER":
 			# Priority 4: Use attached spec sheet for OTHER manufacturers
 			self.linked_spec_document = self.spec_sheet
@@ -89,4 +108,4 @@ class ilLChildFixtureScheduleLine(Document):
 			return True
 
 		# ILLUMENATE lines need a configured fixture
-		return bool(self.configured_fixture)
+		return bool(self.configured_fixture or self.configured_tape_neon or self.configured_led_sheet)

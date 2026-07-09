@@ -83,6 +83,42 @@
     "learnMore": "0-10V, TRIAC, ELV, and DALI dim white light. DMX512 and SPI drive color / pixels. The tape, driver, and controller must all speak the same protocol. Addressable pixel runs force DMX or SPI.",
     "refs": ["ilL-Attribute-Dimming Protocol", "supported_dimming_protocols"]
   },
+  "dimming_0_10v": {
+    "label": "0-10V Dimming",
+    "tooltip": "An analog signal between 0 and 10 volts controls brightness. 10V = full output, 1V = dim-low, 0V = off.",
+    "learnMore": "0-10V is the most common protocol in architectural LED lighting. The driver needs a dedicated 0-10V input; standard wall dimmers will not work without a 0-10V wall station. Supported by virtually all LED tape drivers in our catalog.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
+  "dimming_triac": {
+    "label": "TRIAC Dimming",
+    "tooltip": "Phase-cut dimming that works with most standard wall dimmers — common for residential and retrofit 120VAC applications.",
+    "learnMore": "TRIAC (also called Forward Phase dimming) clips the AC sine wave to reduce average power. Works with most standard incandescent-style wall dimmers. Best for 120VAC line-voltage products. Some LED drivers have a minimum-load threshold below which they may flicker — confirm driver compatibility.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
+  "dimming_elv": {
+    "label": "ELV Dimming",
+    "tooltip": "Electronic Low Voltage dimming — also called Reverse Phase dimming. Smoother phase-cut than TRIAC for many LED loads.",
+    "learnMore": "ELV removes the trailing edge of the AC waveform rather than the leading edge (TRIAC). Many modern LED drivers prefer ELV because it puts less stress on the switching circuitry, resulting in smoother dimming and fewer compatibility issues. Requires an ELV-compatible wall dimmer.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
+  "dimming_dali": {
+    "label": "DALI",
+    "tooltip": "Digital Addressable Lighting Interface — a two-wire digital bus that can independently address up to 64 fixtures on one circuit.",
+    "learnMore": "DALI (IEC 62386) is the premium protocol for commercial and architectural projects. Each device has a unique address so scenes, schedules, and occupancy responses can be programmed per fixture without re-wiring. Provides status feedback (lamp failure, power failure) back to the building management system. Requires a DALI controller and DALI-capable drivers.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
+  "dimming_dmx512": {
+    "label": "DMX512",
+    "tooltip": "Industry-standard digital protocol for stage and architectural lighting. One universe = up to 512 channels of control.",
+    "learnMore": "DMX512 (EIA-485) is used for color mixing, effects, and architectural dynamic lighting. A single DMX run (universe) can carry 512 channels; RGB tape uses 3 channels per zone, RGBW uses 4. Requires a DMX controller (hardware or software). Common for hospitality, retail, and entertainment-grade color installations.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
+  "dimming_spi": {
+    "label": "SPI (Addressable Pixel)",
+    "tooltip": "High-speed serial protocol that gives each pixel its own IC chip — enables per-pixel chases, gradients, and video-mapped effects.",
+    "learnMore": "SPI (e.g., WS2812B, SK6812, APA102) embeds a controller IC inside every pixel. Each pixel is independently addressable, so thousands of pixels can run different colors simultaneously. Requires an SPI-compatible pixel controller and appropriate power injection. This is automatically forced when you select Addressable Pixel in the Color Mode question.",
+    "refs": ["ilL-Attribute-Dimming Protocol"]
+  },
   "diffuser": {
     "label": "Diffuser / Lens",
     "tooltip": "The lens covering the LEDs \u2014 changes look and delivered brightness.",

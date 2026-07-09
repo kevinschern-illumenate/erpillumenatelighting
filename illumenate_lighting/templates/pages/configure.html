@@ -8,18 +8,6 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block style %}
 <style>
-.segment-card {
-	border: 1px solid #dee2e6;
-	border-radius: 0.25rem;
-	margin-bottom: 0.5rem;
-}
-.segment-card .card-header {
-	background-color: #f8f9fa;
-	padding: 0.5rem 1rem;
-}
-.segment-card .card-body {
-	padding: 0.75rem 1rem;
-}
 .segment-inherited {
 	background-color: #e9ecef;
 	padding: 0.25rem 0.5rem;
@@ -48,42 +36,6 @@ Allows users to configure fixtures using segment-based configuration
 	margin-top: 0.5rem;
 }
 
-/* Pill Button Selector Styles */
-.pill-selector {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-.pill-selector .pill-option {
-	display: inline-block;
-	padding: 0.375rem 0.75rem;
-	font-size: 0.875rem;
-	font-weight: 400;
-	line-height: 1.5;
-	color: #495057;
-	background-color: #fff;
-	border: 1px solid #ced4da;
-	border-radius: 2rem;
-	cursor: pointer;
-	transition: all 0.15s ease-in-out;
-	user-select: none;
-}
-.pill-selector .pill-option:hover {
-	background-color: #e9ecef;
-	border-color: #adb5bd;
-}
-.pill-selector .pill-option.active {
-	background-color: #0d6efd;
-	border-color: #0d6efd;
-	color: #fff;
-}
-.pill-selector .pill-option.active:hover {
-	background-color: #0b5ed7;
-	border-color: #0a58ca;
-}
-.pill-selector .pill-option input[type="radio"] {
-	display: none;
-}
 .option-group {
 	margin-bottom: 1rem;
 }
@@ -247,7 +199,15 @@ Allows users to configure fixtures using segment-based configuration
 {% endblock %}
 
 {% block page_content %}
-<div class="container portal-page">
+<div class="ill-configurator container portal-page">
+	{% if has_quiz_handoff %}
+	<div class="ill-handoff-banner" role="status">
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+			<polyline points="20 6 9 17 4 12"/>
+		</svg>
+		<span>Your selections from the configurator have been pre-filled below. Review and adjust as needed.</span>
+	</div>
+	{% endif %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -259,6 +219,77 @@ Allows users to configure fixtures using segment-based configuration
 		</ol>
 	</nav>
 
+
+	{% if is_led_sheet %}
+	<!-- Product Category Selector -->
+	<div class="form-group mb-3" id="categorySelector">
+		<label class="option-label">{{ _("Product Category") }} <span class="text-danger">*</span></label>
+		<div class="pill-selector">
+			<a class="pill-option {% if product_category == 'Linear Fixture' %}active{% endif %}" href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("Linear Fixture") }}</a>
+			<a class="pill-option {% if product_category == 'LED Tape' %}active{% endif %}" href="/portal/configure?category=LED%20Tape{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Tape") }}</a>
+			<a class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" href="/portal/configure?category=LED%20Neon{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Neon") }}</a>
+			<a class="pill-option {% if product_category == 'LED Sheet' %}active{% endif %}" href="/portal/configure?category=LED%20Sheet{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Sheets") }}</a>
+		</div>
+	</div>
+	<hr class="mt-1 mb-3">
+
+	<!-- ─────────── LED Sheet Configurator ─────────── -->
+	<div class="ill-configurator-sheet">
+	<div class="card mb-3" id="scheduleContextCard">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+			<small class="text-muted">{{ _("Select a project and line to save this configuration") }}</small>
+		</div>
+		<div class="card-body">
+			<div class="row">
+				<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold">{{ _("Project") }}</label><select class="form-control" id="projectSelect"><option value="">{{ _("Select Project...") }}</option></select></div></div>
+				<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold">{{ _("Fixture Schedule") }}</label><select class="form-control" id="scheduleSelect" disabled><option value="">{{ _("Select Schedule...") }}</option></select></div></div>
+				<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold">{{ _("Line") }}</label><select class="form-control" id="lineSelect" disabled><option value="">{{ _("Select Line...") }}</option><option value="__new__">{{ _("+ New Line") }}</option></select></div></div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-lg-7">
+			<div class="card mb-3"><div class="card-header"><h5 class="mb-0">{{ _("LED Sheet Configuration") }}</h5></div><div class="card-body">
+				<form id="ledSheetConfigForm">
+					<div class="form-group"><label>{{ _("LED Sheet Template") }}</label><select class="form-control" id="sheetTemplate"><option value="">{{ _("Select...") }}</option></select></div>
+					<div class="form-group"><label>{{ _("Sheet Fixture / Spec Template") }}</label><select class="form-control" id="sheetSpec"><option value="">{{ _("Select...") }}</option></select></div>
+					<div class="row"><div class="col-md-6"><div class="form-group"><label>{{ _("CCT") }}</label><select class="form-control" id="sheetCct"></select></div></div><div class="col-md-6"><div class="form-group"><label>{{ _("Output Level") }}</label><select class="form-control" id="sheetOutput"></select></div></div></div>
+					<div class="row"><div class="col-md-4"><div class="form-group"><label>{{ _("Environment Rating") }}</label><select class="form-control" id="sheetEnvironment"></select></div></div><div class="col-md-4"><div class="form-group"><label>{{ _("Mounting") }}</label><select class="form-control" id="sheetMounting"></select></div></div><div class="col-md-4"><div class="form-group"><label>{{ _("Finish") }}</label><select class="form-control" id="sheetFinish"></select></div></div></div>
+					<div class="form-group form-check"><input type="checkbox" class="form-check-input" id="sheetIncludePowerSupply" checked><label class="form-check-label" for="sheetIncludePowerSupply">{{ _("Include power supplies") }}</label></div>
+					<hr><h6>{{ _("Coverage Area") }}</h6>
+					<div class="row">
+						<div class="col-md-6"><div class="form-group"><label>{{ _("Requested Width") }}</label><div class="input-group"><input type="number" min="0" step="0.01" class="form-control" id="coverageWidthValue"><div class="input-group-append"><select class="form-control" id="coverageWidthUnit"><option value="in">{{ _("inches") }}</option><option value="ft" selected>{{ _("feet") }}</option></select></div></div></div></div>
+						<div class="col-md-6"><div class="form-group"><label>{{ _("Requested Height") }}</label><div class="input-group"><input type="number" min="0" step="0.01" class="form-control" id="coverageHeightValue"><div class="input-group-append"><select class="form-control" id="coverageHeightUnit"><option value="in">{{ _("inches") }}</option><option value="ft" selected>{{ _("feet") }}</option></select></div></div></div></div>
+					</div>
+					<button type="button" class="btn btn-secondary" id="calculateSheet">{{ _("Calculate &amp; Validate") }}</button>
+					<button type="button" class="btn btn-primary" id="saveSheet" disabled>{{ _("Add to Schedule") }}</button>
+				</form>
+			</div></div>
+		</div>
+		<div class="col-lg-5"><div class="card sticky-top"><div class="card-header"><h5 class="mb-0">{{ _("Results") }}</h5></div><div class="card-body" id="sheetSummary"><p class="text-muted">{{ _("Enter dimensions and calculate to view panel count, groups, accessories, and pricing.") }}</p></div></div></div>
+	</div>
+	</div>
+	{% endif %}
+
+	{% if not is_led_sheet %}
+	{% if product_category == 'Linear Fixture' %}
+	<!-- Configurator Mode Toggle (Linear Fixture only) -->
+	<div class="d-flex justify-content-end mb-3">
+		<div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Configurator Mode') }}">
+			<a href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}{% if selected_template %}&template={{ selected_template }}{% endif %}"
+			   class="btn btn-outline-primary {% if configurator_mode != 'wizard' %}active{% endif %}">
+				<i class="fa fa-th-large"></i> {{ _("Multi-Segment Coordinator") }}
+			</a>
+			<a href="/portal/configure?category=Linear%20Fixture&mode=wizard{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}{% if selected_template %}&template={{ selected_template }}{% endif %}"
+			   class="btn btn-outline-primary {% if configurator_mode == 'wizard' %}active{% endif %}">
+				<i class="fa fa-magic"></i> {{ _("Guided Wizard") }}
+			</a>
+		</div>
+	</div>
+	{% endif %}
+
+	{% if configurator_mode != 'wizard' %}
 	<!-- Schedule Context Selector -->
 	<div class="card mb-3" id="scheduleContextCard">
 		<div class="card-header d-flex justify-content-between align-items-center">
@@ -300,7 +331,17 @@ Allows users to configure fixtures using segment-based configuration
 			</div>
 		</div>
 	</div>
+	{% endif %}
 
+	{% if configurator_mode == 'wizard' %}
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="ill-configurator ill-configurator-fixture">
+				{% include "illumenate_lighting/templates/includes/configurator_fixture_form.html" %}
+			</div>
+		</div>
+	</div>
+	{% else %}
 	<div class="row">
 		<!-- Configurator Form -->
 		<div class="col-lg-7">
@@ -343,6 +384,28 @@ Allows users to configure fixtures using segment-based configuration
 							<strong>{{ _("Include Power Supplies?") }}</strong>
 							<small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies from this fixture and source them separately.") }}</small>
 						</label>
+					</div>
+
+					<!-- Override Max Run Length -->
+					<div class="custom-control custom-checkbox mt-3">
+						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
+							   onchange="(function(cb){var i=document.getElementById('overrideMaxRunGroup');var w=document.getElementById('overrideMaxRunWarning');if(i)i.style.display=cb.checked?'':'none';if(w)w.style.display=cb.checked?'':'none';})(this)">
+						<label class="custom-control-label" for="overrideMaxRunCheck">
+							<strong>{{ _("Override Max Run Length") }}</strong>
+						</label>
+					</div>
+					<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+						<input type="number" name="override_max_run_ft" id="overrideMaxRunInput"
+							   class="form-control" min="0.5" step="0.5"
+							   placeholder="{{ _('Custom max run (ft)') }}">
+						<span class="input-group-text">ft</span>
+					</div>
+					<div class="alert alert-warning mt-2 py-2" id="overrideMaxRunWarning" style="display: none;">
+						<button type="button" class="close" aria-label="Close"
+								onclick="this.parentNode.style.display='none'">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
 					</div>
 				</div>
 			</div>
@@ -651,6 +714,7 @@ Allows users to configure fixtures using segment-based configuration
 			</div>
 		</div>
 	</div>
+	{% endif %}
 </div>
 
 <!-- Segment Template -->
@@ -909,10 +973,36 @@ Allows users to configure fixtures using segment-based configuration
 	</div>
 </template>
 {% endif %}
+{% endif %}
 {% endblock %}
 
 {% block script %}
 <script>
+{% if is_led_sheet %}
+window.ILL_LED_SHEET_TEMPLATES = {{ led_sheet_templates | tojson }};
+window.ILL_LED_SHEET_EXISTING = {{ existing_configured_sheet | tojson }};
+window.ILL_LED_SHEET_CONTEXT = {schedule_name: {{ schedule_name | tojson }}, line_idx: {{ line_idx | tojson }}, can_save: {{ 'true' if can_save else 'false' }}};
+{% else %}
+{% if configurator_mode == 'wizard' %}
+{# Guided Wizard mode: the fixture_steps.js / configurator_fixture_form.html
+   scoped configurator handles everything (including override_max_run_ft)
+   via the same webflow_configurator.* endpoints previously used by the
+   retired /portal/configure-webflow page. #}
+var configuratorContext = {
+	schedule_name: "{{ schedule_name }}",
+	product_slug: "{{ product_slug or '' }}",
+	session_id: "",
+	can_save: {{ 'true' if can_save else 'false' }},
+	show_pricing: {{ 'true' if show_pricing else 'false' }}
+};
+
+$(function() {
+	initWebflowConfigurator(configuratorContext);
+});
+{% else %}
+// Quiz handoff from Webflow configurator — consumed by this page
+window.ILL_QUIZ_HANDOFF = {{ quiz_handoff_json | safe }};
+
 var schedule_name = "{{ schedule_name }}";
 var line_idx = {{ line_idx if line_idx is not none else 'null' }};
 var prefill_project = "{{ project_name }}";
@@ -1980,6 +2070,14 @@ function validateAndQuote() {
 		segments_json: JSON.stringify(segments),
 		include_power_supply: $('#includePowerSupply').is(':checked')
 	};
+
+	// Optional fixture-wide max run length override
+	if ($('#overrideMaxRunCheck').is(':checked')) {
+		var overrideMaxRunVal = parseFloat($('#overrideMaxRunInput').val());
+		if (!isNaN(overrideMaxRunVal) && overrideMaxRunVal > 0) {
+			data.override_max_run_ft = overrideMaxRunVal;
+		}
+	}
 	
 	// Show loading state
 	$('#calculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ _("Calculating...") }}');
@@ -2131,7 +2229,9 @@ function displayResults(result) {
 		if (result.computed.max_run_ft_effective) {
 			$('#maxRunLengthRow').show();
 			var maxRunText = result.computed.max_run_ft_effective + ' ft';
-			if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
+			if (result.computed.override_max_run_ft_active) {
+				maxRunText += ' (' + __('Overridden') + ')';
+			} else if (result.computed.max_run_ft_by_voltage_drop && result.computed.max_run_ft_by_watts) {
 				var limiting = (result.computed.max_run_ft_by_voltage_drop <= result.computed.max_run_ft_by_watts) ? 'voltage drop' : 'wattage';
 				maxRunText += ' (' + limiting + ')';
 			}
@@ -2536,6 +2636,7 @@ $(function() {
 	{% endif %}
 });
 {% endif %}
+
 
 // ═════════════════════════════════════════════════════════════════════
 // CATEGORY SWITCHING
@@ -3580,5 +3681,8 @@ function tnCollectNeonSegments() {
 {% endif %}
 
 {% endif %}
+{% endif %}
+{% endif %}
 </script>
+{% if is_led_sheet %}<script src="/assets/illumenate_lighting/js/configure_sheet.js"></script>{% endif %}
 {% endblock %}

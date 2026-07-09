@@ -18,9 +18,11 @@
   "fixture_template",
   "kit_template",
   "tape_neon_template",
+  "led_sheet_template",
   "column_break_illumenate",
   "configured_fixture",
   "configured_tape_neon",
+  "configured_led_sheet",
   "ill_item_code",
   "manufacturable_length_mm",
   "accessory_section",
@@ -107,7 +109,7 @@
    "fieldname": "product_type",
    "fieldtype": "Select",
    "label": "Product Type",
-   "options": "\nLinear Fixture\nLinear Fixtures\nLED Tape\nLED Neon\nExtrusion Kit"
+   "options": "\nLinear Fixture\nLinear Fixtures\nLED Tape\nLED Neon\nLED Sheet\nExtrusion Kit"
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type",
@@ -134,7 +136,15 @@
    "options": "ilL-Tape-Neon-Template"
   },
   {
-   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && (doc.fixture_template || doc.kit_template || doc.tape_neon_template)",
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.product_type=='LED Sheet'",
+   "description": "Select an LED Sheet template (family) to configure",
+   "fieldname": "led_sheet_template",
+   "fieldtype": "Link",
+   "label": "LED Sheet Template",
+   "options": "ilL-LED-Sheet-Template"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && (doc.fixture_template || doc.kit_template || doc.tape_neon_template || doc.led_sheet_template)",
    "fieldname": "column_break_illumenate",
    "fieldtype": "Column Break"
   },
@@ -154,6 +164,14 @@
    "fieldtype": "Link",
    "label": "Configured Tape/Neon",
    "options": "ilL-Configured-Tape-Neon"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' && doc.led_sheet_template",
+   "description": "Link to the fully configured LED Sheet product",
+   "fieldname": "configured_led_sheet",
+   "fieldtype": "Link",
+   "label": "Configured LED Sheet",
+   "options": "ilL-Configured-LED-Sheet"
   },
   {
    "depends_on": "eval:doc.configured_fixture",

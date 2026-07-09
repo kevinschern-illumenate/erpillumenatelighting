@@ -1,0 +1,310 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "naming_series",
+  "sheet_template",
+  "sheet_spec",
+  "config_hash",
+  "part_number",
+  "status",
+  "selection_section",
+  "selected_cct",
+  "selected_output_level",
+  "selected_environment_rating",
+  "selected_mounting",
+  "selected_finish",
+  "coverage_section",
+  "include_power_supply",
+  "coverage_width_ft",
+  "coverage_height_ft",
+  "total_coverage_sqft",
+  "sheets_needed",
+  "total_system_watts",
+  "total_groups",
+  "accessory_section",
+  "jumper_cable_item",
+  "jumper_cables_included",
+  "jumper_cables_needed",
+  "jumper_cables_extra",
+  "leader_cable_item",
+  "leader_cable_qty",
+  "sku_section",
+  "sku_series_code",
+  "sku_environment_code",
+  "sku_cct_code",
+  "sku_output_code",
+  "sku_mounting_code",
+  "sku_finish_code",
+  "configured_item",
+  "bom",
+  "pricing_section",
+  "msrp",
+  "spec_submittal",
+  "groups"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "ILL-CLS-.#####",
+   "default": "ILL-CLS-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sheet_template",
+   "fieldtype": "Link",
+   "label": "Sheet Template",
+   "options": "ilL-LED-Sheet-Template"
+  },
+  {
+   "fieldname": "sheet_spec",
+   "fieldtype": "Link",
+   "label": "Sheet Spec",
+   "options": "ilL-Spec-LED-Sheet"
+  },
+  {
+   "fieldname": "config_hash",
+   "fieldtype": "Data",
+   "label": "Config Hash",
+   "unique": 1
+  },
+  {
+   "fieldname": "part_number",
+   "fieldtype": "Data",
+   "label": "Part Number"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nConfigured\nQuoted\nOrdered",
+   "default": "Draft"
+  },
+  {
+   "fieldname": "selection_section",
+   "fieldtype": "Section Break",
+   "label": "Selections"
+  },
+  {
+   "fieldname": "selected_cct",
+   "fieldtype": "Link",
+   "label": "Selected CCT",
+   "options": "ilL-Attribute-CCT"
+  },
+  {
+   "fieldname": "selected_output_level",
+   "fieldtype": "Link",
+   "label": "Selected Output Level",
+   "options": "ilL-Attribute-Output Level"
+  },
+  {
+   "fieldname": "selected_environment_rating",
+   "fieldtype": "Link",
+   "label": "Selected Environment Rating",
+   "options": "ilL-Attribute-Environment Rating"
+  },
+  {
+   "fieldname": "selected_mounting",
+   "fieldtype": "Link",
+   "label": "Selected Mounting",
+   "options": "ilL-Attribute-Mounting Method"
+  },
+  {
+   "fieldname": "selected_finish",
+   "fieldtype": "Link",
+   "label": "Selected Finish",
+   "options": "ilL-Attribute-Finish"
+  },
+  {
+   "fieldname": "coverage_section",
+   "fieldtype": "Section Break",
+   "label": "Coverage"
+  },
+  {
+   "fieldname": "include_power_supply",
+   "fieldtype": "Check",
+   "label": "Include Power Supply",
+   "default": "1",
+   "description": "When checked, compatible drivers/power supplies are priced and added as their own schedule lines."
+  },
+  {
+   "fieldname": "coverage_width_ft",
+   "fieldtype": "Float",
+   "label": "Coverage Width (ft)"
+  },
+  {
+   "fieldname": "coverage_height_ft",
+   "fieldtype": "Float",
+   "label": "Coverage Height (ft)"
+  },
+  {
+   "fieldname": "total_coverage_sqft",
+   "fieldtype": "Float",
+   "label": "Total Coverage (sq ft)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sheets_needed",
+   "fieldtype": "Int",
+   "label": "Sheets Needed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_system_watts",
+   "fieldtype": "Float",
+   "label": "Total System Watts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_groups",
+   "fieldtype": "Int",
+   "label": "Total Groups",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accessory_section",
+   "fieldtype": "Section Break",
+   "label": "Accessories"
+  },
+  {
+   "fieldname": "jumper_cable_item",
+   "fieldtype": "Link",
+   "label": "Jumper Cable Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "jumper_cables_included",
+   "fieldtype": "Int",
+   "label": "Jumper Cables Included"
+  },
+  {
+   "fieldname": "jumper_cables_needed",
+   "fieldtype": "Int",
+   "label": "Jumper Cables Needed"
+  },
+  {
+   "fieldname": "jumper_cables_extra",
+   "fieldtype": "Int",
+   "label": "Jumper Cables Extra"
+  },
+  {
+   "fieldname": "leader_cable_item",
+   "fieldtype": "Link",
+   "label": "Leader Cable Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "leader_cable_qty",
+   "fieldtype": "Int",
+   "label": "Leader Cable Qty"
+  },
+  {
+   "fieldname": "sku_section",
+   "fieldtype": "Section Break",
+   "label": "SKU"
+  },
+  {
+   "fieldname": "sku_series_code",
+   "fieldtype": "Data",
+   "label": "SKU Series Code"
+  },
+  {
+   "fieldname": "sku_environment_code",
+   "fieldtype": "Data",
+   "label": "SKU Environment Code"
+  },
+  {
+   "fieldname": "sku_cct_code",
+   "fieldtype": "Data",
+   "label": "SKU CCT Code"
+  },
+  {
+   "fieldname": "sku_output_code",
+   "fieldtype": "Data",
+   "label": "SKU Output Code"
+  },
+  {
+   "fieldname": "sku_mounting_code",
+   "fieldtype": "Data",
+   "label": "SKU Mounting Code"
+  },
+  {
+   "fieldname": "sku_finish_code",
+   "fieldtype": "Data",
+   "label": "SKU Finish Code"
+  },
+  {
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "fieldname": "msrp",
+   "fieldtype": "Currency",
+   "label": "MSRP"
+  },
+  {
+   "fieldname": "spec_submittal",
+   "fieldtype": "Attach",
+   "label": "Spec Submittal"
+  },
+  {
+   "fieldname": "groups",
+   "fieldtype": "Table",
+   "label": "Groups",
+   "options": "ilL-Child-LED-Sheet-Group"
+  },
+  {
+   "fieldname": "configured_item",
+   "fieldtype": "Link",
+   "label": "Configured Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "BOM",
+   "options": "BOM",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-06-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Configured-LED-Sheet",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "part_number",
+ "autoname": "naming_series:"
+}

@@ -2,8 +2,8 @@
 Reusable Linear Fixture configurator markup (scoped IllConfigurator.Fixture).
 
 Source of truth for the fields/sections used by
-public/js/configurator/fixture_steps.js. Rendered both by the portal page
-templates/pages/configure_webflow.html and by the in-quote desk dialog
+public/js/configurator/fixture_steps.js. Rendered both by the Guided Wizard
+mode of templates/pages/configure.html and by the in-quote desk dialog
 (see configured_product_builder/get_configurator_markup + desk_dialog.js).
 
 The host element must carry `.ill-configurator.ill-configurator-fixture`.
@@ -155,6 +155,28 @@ Context:
 								</select>
 							</div>
 							<small class="text-muted mt-1 d-block" id="lengthNote">{{ _("Maximum length is 30 ft") }}</small>
+
+							<!-- Override Max Run Length -->
+							<div class="custom-control custom-checkbox mt-3">
+								<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck"
+									   onchange="(function(cb){var i=document.getElementById('overrideMaxRunGroup');var w=document.getElementById('overrideMaxRunWarning');if(i)i.style.display=cb.checked?'':'none';if(w)w.style.display=cb.checked?'':'none';})(this)">
+								<label class="custom-control-label" for="overrideMaxRunCheck">
+									{{ _("Override Max Run Length") }}
+								</label>
+							</div>
+							<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+								<input type="number" name="override_max_run_ft" id="overrideMaxRunInput"
+									   class="form-control" min="0.5" step="0.5"
+									   placeholder="{{ _('Custom max run (ft)') }}">
+								<span class="input-group-text">ft</span>
+							</div>
+							<div class="alert alert-warning mt-2" id="overrideMaxRunWarning" style="display: none;">
+								<button type="button" class="close" aria-label="Close"
+										onclick="this.parentNode.style.display='none'">
+									<span aria-hidden="true">&times;</span>
+								</button>
+								<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+							</div>
 						</div>
 
 						<!-- Section 8: Start Feed Direction & Length -->

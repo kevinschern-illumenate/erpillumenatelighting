@@ -8,7 +8,7 @@
 	which builds the same context variables before calling frappe.render_template.
 
 	Expected context variables:
-		product_category   – "Linear Fixture" | "LED Tape" | "LED Neon"
+		product_category   – "Linear Fixture" | "LED Tape" | "LED Neon" | "LED Sheet"
 		is_tape_neon       – bool
 		is_tape            – bool
 		is_neon            – bool
@@ -30,6 +30,9 @@
 			</span>
 			<span class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" data-category="LED Neon" role="button" tabindex="0">
 				{{ _("LED Neon") }}
+			</span>
+			<span class="pill-option {% if product_category == 'LED Sheet' %}active{% endif %}" data-category="LED Sheet" role="button" tabindex="0">
+				{{ _("LED Sheets") }}
 			</span>
 		</div>
 	</div>

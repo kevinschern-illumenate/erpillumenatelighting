@@ -9,6 +9,21 @@ from frappe.model.document import Document
 
 
 class ilLConfiguredFixture(Document):
+	def validate(self):
+		"""Server-side normalization run before ``before_save``.
+
+		S5: ``user_segments.segment_index`` is client-supplied and never checked
+		for 1..N contiguity, yet the engine assumes positional order. Renumber the
+		rows in document order so the stored index is always contiguous and the
+		config hash (computed in ``before_save``) is order-defined.
+		"""
+		self._renumber_user_segments()
+
+	def _renumber_user_segments(self):
+		"""Renumber ``user_segments.segment_index`` to a contiguous 1..N in row order."""
+		for position, seg in enumerate(self.get("user_segments") or [], start=1):
+			seg.segment_index = position
+
 	def autoname(self):
 		"""
 		Generate part number in format:

@@ -1,0 +1,42 @@
+[
+ {
+  "doctype": "Item",
+  "item_code": "LED-SNF-JUMPER",
+  "item_name": "Snowfield Jumper Cable",
+  "item_group": "Products",
+  "stock_uom": "Nos",
+  "is_stock_item": 1,
+  "include_item_in_manufacturing": 1,
+  "disabled": 0
+ },
+ {
+  "doctype": "Item",
+  "item_code": "LED-SNF-LEADER",
+  "item_name": "Snowfield Leader Cable",
+  "item_group": "Products",
+  "stock_uom": "Nos",
+  "is_stock_item": 1,
+  "include_item_in_manufacturing": 1,
+  "disabled": 0
+ },
+ {
+  "doctype": "Item",
+  "item_code": "LED-SNF-DRIVER-60W",
+  "item_name": "Snowfield 60W Driver",
+  "item_group": "Products",
+  "stock_uom": "Nos",
+  "is_stock_item": 1,
+  "include_item_in_manufacturing": 1,
+  "disabled": 0
+ },
+ {
+  "doctype": "Item",
+  "item_code": "LED-SNF-DRIVER-300W",
+  "item_name": "Snowfield 300W Driver",
+  "item_group": "Products",
+  "stock_uom": "Nos",
+  "is_stock_item": 1,
+  "include_item_in_manufacturing": 1,
+  "disabled": 0
+ }
+]

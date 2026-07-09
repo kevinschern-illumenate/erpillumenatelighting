@@ -303,7 +303,8 @@ def get_cascading_options(
 @frappe.whitelist(allow_guest=True)
 def validate_configuration(
     product_slug: str,
-    selections: str
+    selections: str,
+    override_max_run_ft: float | None = None,
 ) -> dict:
     """
     Validate a complete configuration and generate final part number.
@@ -311,6 +312,8 @@ def validate_configuration(
     Args:
         product_slug: The Webflow product slug
         selections: JSON string of all selections
+        override_max_run_ft: Optional user-supplied max run length (ft) that
+            replaces the computed effective max run when running the engine.
     
     Returns:
         dict: Validation result with part number or errors
@@ -319,6 +322,18 @@ def validate_configuration(
         selections_dict = json.loads(selections) if isinstance(selections, str) else selections
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
+
+    # Resolve and normalise the override (Frappe passes HTTP params as strings).
+    # Fall back to a value embedded in the selections payload when present.
+    if override_max_run_ft in (None, ""):
+        override_max_run_ft = selections_dict.get("override_max_run_ft")
+    override_active = False
+    if override_max_run_ft not in (None, ""):
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+            override_active = override_max_run_ft > 0
+        except (ValueError, TypeError):
+            override_max_run_ft = None
     
     product = _get_configurable_product(product_slug)
     if not product:
@@ -403,6 +418,17 @@ def validate_configuration(
         "can_add_to_cart": True,  # For future e-commerce
         "is_complex_fixture": False  # Single segment
     }
+    if override_active:
+        result["override_max_run_ft_active"] = True
+        result["override_max_run_ft"] = override_max_run_ft
+        result.setdefault("messages", []).append({
+            "severity": "warning",
+            "text": (
+                f"⚠ Max run length overridden to {override_max_run_ft:g} ft. "
+                "Verify compliance with applicable electrical codes."
+            ),
+            "field": "override_max_run_ft",
+        })
     if stock_availability is not None:
         result["stock_availability"] = stock_availability
     return result
@@ -2067,3 +2093,68 @@ def get_tape_neon_mounting_options(
         environment_rating=environment_rating,
         segments=segments,
     )
+
+
+@frappe.whitelist(allow_guest=True)
+def get_sheet_configurator_data(webflow_product_slug: str) -> dict:
+    """Initialize Webflow-side configurator data for an LED Sheet product page."""
+    if not webflow_product_slug:
+        return {"success": False, "error": "webflow_product_slug is required"}
+
+    product = frappe.get_all(
+        "ilL-Webflow-Product",
+        filters={"product_slug": webflow_product_slug, "product_type": "LED Sheet", "is_active": 1},
+        fields=["name", "product_name", "product_slug", "led_sheet_template"],
+        limit=1,
+    )
+    if not product or not product[0].get("led_sheet_template"):
+        return {"success": False, "error": "LED Sheet product not found or not linked to a template"}
+
+    template = frappe.get_doc("ilL-LED-Sheet-Template", product[0]["led_sheet_template"])
+    specs = []
+    for row in template.allowed_specs or []:
+        if not getattr(row, "is_active", 1) or not getattr(row, "spec", None):
+            continue
+        spec = frappe.get_doc("ilL-Spec-LED-Sheet", row.spec)
+        specs.append({
+            "name": spec.name,
+            "item": getattr(spec, "item", None),
+            "led_package": getattr(spec, "led_package", None),
+            "sheet_width_ft": getattr(spec, "sheet_width_ft", None),
+            "sheet_height_ft": getattr(spec, "sheet_height_ft", None),
+            "sheet_area_sqft": getattr(spec, "sheet_area_sqft", None),
+            "watts_per_sqft": getattr(spec, "watts_per_sqft", None),
+            "total_sheet_watts": getattr(spec, "total_sheet_watts", None),
+            "lumens_per_sqft": getattr(spec, "lumens_per_sqft", None),
+            "total_sheet_lumens": getattr(spec, "total_sheet_lumens", None),
+            "input_voltage": getattr(spec, "input_voltage", None),
+            "ip_rating": getattr(spec, "ip_rating", None),
+        })
+
+    options = {}
+    for row in template.allowed_options or []:
+        if not getattr(row, "is_active", 1):
+            continue
+        options.setdefault(row.option_type, []).append({
+            "attribute": getattr(row, "attribute_link", None),
+            "code": getattr(row, "option_code", None),
+            "is_default": getattr(row, "is_default", 0),
+            "msrp_adder": getattr(row, "msrp_adder", 0),
+        })
+
+    return {
+        "success": True,
+        "product": product[0],
+        "template": {
+            "name": template.name,
+            "template_code": getattr(template, "template_code", None),
+            "template_name": getattr(template, "template_name", None),
+            "sku_series_code": getattr(template, "sku_series_code", None),
+            "price_per_sheet_msrp": getattr(template, "price_per_sheet_msrp", 0),
+            "jumper_cable_item": getattr(template, "jumper_cable_item", None),
+            "leader_cable_item": getattr(template, "leader_cable_item", None),
+        },
+        "specs": specs,
+        "options": options,
+        "pricing_preview": {"price_per_sheet_msrp": getattr(template, "price_per_sheet_msrp", 0)},
+    }

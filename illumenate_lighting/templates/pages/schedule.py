@@ -157,6 +157,11 @@ def get_context(context):
 			"tape_neon_template_description": "",  # Will be populated below
 			"configured_tape_neon": line.configured_tape_neon,
 			"ctn_details": {},  # Configured tape/neon details
+			# LED Sheet fields
+			"led_sheet_template": getattr(line, "led_sheet_template", None),
+			"led_sheet_template_name": None,  # Will be populated below
+			"configured_led_sheet": getattr(line, "configured_led_sheet", None),
+			"cls_details": {},  # Configured LED Sheet display details
 			# Accessory/Component fields
 			"accessory_product_type": line.accessory_product_type,
 			"accessory_item": line.accessory_item,
@@ -208,6 +213,16 @@ def get_context(context):
 			ctn_details = _get_configured_tape_neon_display_details(line.configured_tape_neon)
 			line_dict["ctn_details"] = ctn_details
 
+		# For ilLumenate LED Sheet lines, fetch template name and configured details
+		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "led_sheet_template", None):
+			ls_template_name = frappe.db.get_value(
+				"ilL-LED-Sheet-Template", line.led_sheet_template, "template_name"
+			)
+			if ls_template_name:
+				line_dict["led_sheet_template_name"] = ls_template_name
+		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
+			line_dict["cls_details"] = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+
 		# For accessory/component items, fetch item description
 		if line.manufacturer_type == "ACCESSORY" and line.accessory_item:
 			item_desc = frappe.db.get_value(
@@ -254,6 +269,9 @@ def get_context(context):
 				# Fallback: read from variant_selections when snapshot pricing is missing
 				if not unit_price:
 					unit_price = _get_msrp_from_variant_selections(line)
+			elif line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
+				# Panel line pricing comes from the configured LED Sheet MSRP
+				unit_price = line_dict.get("cls_details", {}).get("msrp")
 			elif getattr(line, "product_type", None) in ("LED Tape", "LED Neon") and getattr(line, "tape_neon_template", None):
 				# Tape/neon template line without configured record – read from variant_selections
 				unit_price = _get_msrp_from_variant_selections(line)
@@ -655,6 +673,46 @@ def _get_configured_tape_neon_display_details(configured_tape_neon_id):
 	except Exception as e:
 		frappe.log_error(
 			message=f"Tape/Neon: {configured_tape_neon_id}\nError: {str(e)}",
+			title="Schedule Display Error"
+		)
+		return {}
+
+
+def _get_configured_led_sheet_display_details(configured_led_sheet_id):
+	"""Get display-ready details for a configured LED Sheet product.
+
+	Returns a dict of enriched values (part number, template, spec, selected
+	options, requested dimensions, total panels, groups, total watts, whether
+	power supplies are included, and MSRP) for portal display.
+	"""
+	if not configured_led_sheet_id or not frappe.db.exists("ilL-Configured-LED-Sheet", configured_led_sheet_id):
+		return {}
+
+	try:
+		cls = frappe.get_doc("ilL-Configured-LED-Sheet", configured_led_sheet_id)
+		return {
+			"name": cls.name,
+			"part_number": cls.part_number or cls.config_hash,
+			"sheet_template": cls.sheet_template,
+			"sheet_spec": cls.sheet_spec,
+			"cct": cls.selected_cct,
+			"output_level": cls.selected_output_level,
+			"environment_rating": cls.selected_environment_rating,
+			"mounting": cls.selected_mounting,
+			"finish": cls.selected_finish,
+			"coverage_width_ft": cls.coverage_width_ft,
+			"coverage_height_ft": cls.coverage_height_ft,
+			"total_coverage_sqft": cls.total_coverage_sqft,
+			"sheets_needed": cls.sheets_needed,
+			"total_panels": cls.sheets_needed,
+			"total_groups": cls.total_groups,
+			"total_system_watts": cls.total_system_watts,
+			"include_power_supply": bool(cls.include_power_supply),
+			"msrp": float(cls.msrp or 0),
+		}
+	except Exception as e:
+		frappe.log_error(
+			message=f"LED Sheet: {configured_led_sheet_id}\nError: {str(e)}",
 			title="Schedule Display Error"
 		)
 		return {}

@@ -149,3 +149,55 @@
 .ill-configurator-fixture #outputSection.awaiting-lens {
 	display: none !important;
 }
+
+
+/* ── ilLumenate tokenized segment/length controls ── */
+.ill-configurator-fixture .segment-card,
+.segment-card {
+	border-radius: var(--ill-radius-lg);
+	border: 1.5px solid var(--ill-border);
+	background: var(--ill-paper);
+	box-shadow: var(--ill-shadow);
+	padding: 16px 20px;
+	margin-bottom: 12px;
+}
+.ill-configurator-fixture .segment-card.active-segment,
+.segment-card.active-segment { border-color: var(--ill-accent); }
+
+.ill-configurator-fixture .length-input-group input[type="number"],
+.length-input-group input[type="number"] {
+	font-family: var(--ill-font-mono);
+	border: 1.5px solid var(--ill-border);
+	border-radius: var(--ill-radius);
+	padding: 8px 12px;
+	font-size: 14px;
+	color: var(--ill-ink);
+	background: var(--ill-paper);
+	transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
+}
+.ill-configurator-fixture .length-input-group input:focus,
+.length-input-group input:focus {
+	outline: none;
+	border-color: var(--ill-accent);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft);
+}
+
+.ill-configurator-fixture .feed-config select,
+.ill-configurator-fixture .length-input-group select {
+	border: 1.5px solid var(--ill-border);
+	border-radius: var(--ill-radius);
+	color: var(--ill-ink);
+	background-color: var(--ill-paper);
+	transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
+}
+.ill-configurator-fixture .feed-config select:focus,
+.ill-configurator-fixture .length-input-group select:focus {
+	outline: none;
+	border-color: var(--ill-accent);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft);
+}
+
+.end-type-pill {
+	font-size: 12px;
+	padding: 6px 14px;
+}

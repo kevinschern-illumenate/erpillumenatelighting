@@ -647,6 +647,23 @@ def resolve_root_configured(name: str, doctype: str) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _assert_builder_supported(product_type: str) -> None:
+    """Guard: the generic builder handles fixture/tape/neon only.
+
+    LED Sheet (and any other product type) has its own configurator + apply
+    flow. Without this guard an unsupported type would silently fall through
+    into the LED Neon branch and fail later with a confusing tape/neon error
+    (e.g. "Engine did not return a configured tape/neon id.").
+    """
+    if product_type not in (PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON):
+        frappe.throw(
+            _(
+                "The configured-product builder supports Linear Fixture, LED Tape, "
+                "and LED Neon only. Use the LED Sheet configurator for '{0}'."
+            ).format(product_type)
+        )
+
+
 def _dispatch_calculate(
     product_type: str,
     payload: dict[str, Any],
@@ -656,6 +673,7 @@ def _dispatch_calculate(
     tape_neon_template: str | None,
 ) -> dict[str, Any]:
     """Run the appropriate engine entry point with ``_skip_record_creation=True``."""
+    _assert_builder_supported(product_type)
     if product_type == PRODUCT_TYPE_FIXTURE:
         if payload.get("segments_json") or payload.get("multi_segment"):
             return configurator_engine.validate_and_quote_multisegment(
@@ -708,6 +726,7 @@ def _dispatch_save(
     variant_origin: str | None,
 ) -> dict[str, Any]:
     """Run the engine with persistence enabled."""
+    _assert_builder_supported(product_type)
     if product_type == PRODUCT_TYPE_FIXTURE:
         if payload.get("segments_json") or payload.get("multi_segment"):
             return configurator_engine.validate_and_quote_multisegment(

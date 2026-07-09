@@ -23,6 +23,7 @@
   "lens_spec",
   "tape_spec",
   "tape_neon_template",
+  "led_sheet_template",
   "accessory_spec",
   "configurator_section",
   "is_configurable",
@@ -109,7 +110,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Product Type",
-   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory",
+   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
    "reqd": 1
   },
   {
@@ -193,6 +194,13 @@
    "options": "ilL-Tape-Neon-Template"
   },
   {
+   "depends_on": "eval:doc.product_type=='LED Sheet'",
+   "fieldname": "led_sheet_template",
+   "fieldtype": "Link",
+   "label": "LED Sheet Template",
+   "options": "ilL-LED-Sheet-Template"
+  },
+  {
    "depends_on": "eval:doc.product_type=='Accessory'",
    "fieldname": "accessory_spec",
    "fieldtype": "Link",
@@ -201,7 +209,7 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','Extrusion Kit'], doc.product_type)",
+   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
    "fieldname": "configurator_section",
    "fieldtype": "Section Break",
    "label": "Configurator Settings"
@@ -303,11 +311,11 @@
    "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Minimalist applications\"}]"
   },
   {
-  "fieldname": "product_badge",
-  "fieldtype": "Select",
-  "label": "Product Badge",
-  "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-},
+   "fieldname": "product_badge",
+   "fieldtype": "Select",
+   "label": "Product Badge",
+   "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+  },
   {
    "fieldname": "featured_image",
    "fieldtype": "Attach Image",
@@ -407,7 +415,7 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','Extrusion Kit'], doc.product_type)",
+   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
    "description": "Data not captured elsewhere \u2014 fill in for spec sheet export",
    "fieldname": "spec_sheet_data_section",
    "fieldtype": "Section Break",

@@ -1221,6 +1221,38 @@ def _gather_line_documents(
 						else:
 							_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
 
+			elif getattr(line, "configured_led_sheet", None):
+				configured_sheet = frappe.get_doc("ilL-Configured-LED-Sheet", line.configured_led_sheet)
+				doc_info["configured_led_sheet"] = line.configured_led_sheet
+				doc_info["led_sheet_template"] = configured_sheet.sheet_template
+				if include_all_specs:
+					spec_url = None
+					if configured_sheet.sheet_template:
+						template_data = frappe.db.get_value("ilL-LED-Sheet-Template", configured_sheet.sheet_template, ["spec_sheet", "spec_submittal_template"], as_dict=True)
+						if template_data:
+							spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+					if spec_url:
+						doc_info["spec_document_url"] = spec_url
+						_debug(f"Line {line.line_id}: ✓ LED Sheet spec sheet resolved to {spec_url}", warnings)
+					else:
+						_debug(f"Line {line.line_id}: ✗ No LED Sheet spec sheet found", warnings)
+				else:
+					_debug(f"Line {line.line_id}: Generating filled LED Sheet submittal (regenerate)...", warnings)
+					result = generate_filled_sheet_submittal(line.configured_led_sheet, warnings=warnings, schedule_line=line.name)
+					if result.get("success") and result.get("file_url"):
+						doc_info["spec_document_url"] = result["file_url"]
+						doc_info["has_submittal"] = True
+					else:
+						spec_url = None
+						if configured_sheet.sheet_template:
+							template_data = frappe.db.get_value("ilL-LED-Sheet-Template", configured_sheet.sheet_template, ["spec_sheet", "spec_submittal_template"], as_dict=True)
+							if template_data:
+								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
+						if spec_url:
+							doc_info["spec_document_url"] = spec_url
+						else:
+							_debug(f"Line {line.line_id}: ✗ ALL LED Sheet spec fallbacks exhausted", warnings)
+
 			elif include_all_specs:
 				# Unconfigured line - use template override or fixture template
 				template_name = line.fixture_template_override or line.fixture_template
@@ -1231,6 +1263,14 @@ def _gather_line_documents(
 						"ilL-Fixture-Template", template_name, "spec_sheet"
 					)
 					_debug(f"Line {line.line_id}: Template spec_sheet = {template_spec!r}", warnings)
+					if template_spec:
+						doc_info["spec_document_url"] = template_spec
+				elif getattr(line, "led_sheet_template", None):
+					doc_info["led_sheet_template"] = line.led_sheet_template
+					template_spec = frappe.db.get_value(
+						"ilL-LED-Sheet-Template", line.led_sheet_template, "spec_sheet"
+					)
+					_debug(f"Line {line.line_id}: LED Sheet template spec_sheet = {template_spec!r}", warnings)
 					if template_spec:
 						doc_info["spec_document_url"] = template_spec
 
@@ -1686,6 +1726,114 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			),
 			"warnings": warnings,
 		}
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# LED SHEET SUBMITTAL SUPPORT
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _gather_sheet_field_mappings(led_sheet_template_name: str) -> list[dict]:
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
+	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
+	try:
+		return frappe.get_all("ilL-LED-Sheet-Submittal-Mapping", filters={"led_sheet_template": led_sheet_template_name}, fields=base_fields + webflow_fields)
+	except Exception:
+		return frappe.get_all("ilL-LED-Sheet-Submittal-Mapping", filters={"led_sheet_template": led_sheet_template_name}, fields=base_fields)
+
+
+def _get_sheet_source_value(source_doctype, source_field, configured_sheet_doc=None, template_doc=None, spec_doc=None, schedule_doc=None, project_doc=None, line_doc=None, warnings=None):
+	lookup = {
+		"ilL-Configured-LED-Sheet": configured_sheet_doc,
+		"ilL-LED-Sheet-Template": template_doc,
+		"ilL-Spec-LED-Sheet": spec_doc,
+		"ilL-Project-Fixture-Schedule": schedule_doc,
+		"ilL-Project": project_doc,
+		"ilL-Child-Fixture-Schedule-Line": line_doc,
+	}
+	doc = lookup.get(source_doctype)
+	if doc:
+		try:
+			val = getattr(doc, source_field, None)
+			_debug(f"_get_sheet_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+			return val
+		except Exception as e:
+			_debug(f"_get_sheet_source_value: missing {source_doctype}.{source_field}: {e}", warnings)
+			return None
+	_debug(f"_get_sheet_source_value: NO MATCH for {source_doctype}.{source_field}", warnings)
+	return None
+
+
+def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1, schedule_line: str | None = None) -> dict:
+	if isinstance(warnings, str):
+		try:
+			warnings = json.loads(warnings)
+		except Exception:
+			warnings = None
+	if warnings is None:
+		warnings = []
+	if isinstance(webflow_overrides, str):
+		try:
+			webflow_overrides = json.loads(webflow_overrides)
+		except Exception:
+			webflow_overrides = None
+	try:
+		from illumenate_lighting.illumenate_lighting.api.exports import _save_file_ignore_permissions
+		configured = frappe.get_doc("ilL-Configured-LED-Sheet", configured_sheet_name)
+		if not configured.sheet_template:
+			return {"success": False, "message": _("Configured LED Sheet has no sheet_template"), "warnings": warnings}
+		template = frappe.get_doc("ilL-LED-Sheet-Template", configured.sheet_template)
+		spec = frappe.get_doc("ilL-Spec-LED-Sheet", configured.sheet_spec) if configured.sheet_spec else None
+		pdf_template = template.spec_submittal_template or template.spec_sheet
+		if not pdf_template:
+			return {"success": False, "message": _("LED Sheet template has no spec submittal template or spec sheet"), "warnings": warnings}
+		mappings = _gather_sheet_field_mappings(configured.sheet_template)
+		if not mappings:
+			return {"success": False, "message": _("No LED Sheet field mappings defined"), "warnings": warnings}
+		schedule = project = line = None
+		# Prefer the caller-supplied schedule line so the correct
+		# schedule/project/line context is used when the same configured sheet is
+		# reused across multiple schedules/lines. Fall back to a global lookup
+		# (first matching line) only when no explicit line context was provided.
+		line_data = None
+		if schedule_line and frappe.db.exists("ilL-Child-Fixture-Schedule-Line", schedule_line):
+			line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", schedule_line, ["name", "parent"], as_dict=True)
+		if not line_data:
+			line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", {"configured_led_sheet": configured_sheet_name}, ["name", "parent"], as_dict=True)
+		if line_data:
+			line = frappe.get_doc("ilL-Child-Fixture-Schedule-Line", line_data.name)
+			if line_data.parent:
+				schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", line_data.parent)
+				if schedule and schedule.ill_project:
+					project = frappe.get_doc("ilL-Project", schedule.ill_project)
+		field_values = {}
+		for mapping in mappings:
+			webflow_key = mapping.get("webflow_field")
+			webflow_active = webflow_key and webflow_overrides and webflow_key in webflow_overrides
+			value = webflow_overrides[webflow_key] if webflow_active else _get_sheet_source_value(mapping.get("source_doctype"), mapping.get("source_field"), configured, template, spec, schedule, project, line, warnings)
+			transformed = "" if value is None else str(value) if webflow_active and mapping.get("webflow_skip_transformation") else _apply_transformation(value, mapping.get("transformation"))
+			transformed = _apply_logic(transformed, mapping.get("logic"))
+			prefix, suffix = mapping.get("prefix"), mapping.get("suffix")
+			if webflow_active:
+				mode = mapping.get("webflow_prefix_suffix") or "Keep"
+				if mode == "Override":
+					prefix, suffix = mapping.get("webflow_prefix"), mapping.get("webflow_suffix")
+				elif mode == "None":
+					prefix = suffix = None
+			field_values[mapping.get("pdf_field_name")] = _apply_prefix_suffix(transformed, prefix, suffix)
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+		if not filled_pdf:
+			return {"success": False, "message": _("Failed to fill LED Sheet PDF form fields"), "warnings": warnings}
+		filename = f"Spec_Submittal_{configured_sheet_name}_{nowdate()}.pdf"
+		file_doc = _save_file_ignore_permissions(filename, filled_pdf, "ilL-Configured-LED-Sheet", configured_sheet_name, is_private=is_private)
+		configured.spec_submittal = file_doc.file_url
+		configured.save(ignore_permissions=True)
+		return {"success": True, "file_url": file_doc.file_url, "message": _("Spec submittal generated successfully"), "warnings": warnings}
+	except Exception as exc:
+		_debug(f"generate_filled_sheet_submittal: EXCEPTION – {type(exc).__name__}: {exc}", warnings)
+		return {"success": False, "message": str(exc), "warnings": warnings}
 
 
 # ═══════════════════════════════════════════════════════════════════════

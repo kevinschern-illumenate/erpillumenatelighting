@@ -2196,6 +2196,135 @@ class TestConfiguratorEngine(FrappeTestCase):
 		self.assertEqual(fixture_doc.max_run_ft_by_voltage_drop, 16.0)
 		self.assertEqual(fixture_doc.max_run_ft_effective, 16.0)
 
+		# Override absent: default behavior unchanged, override fields cleared
+		self.assertFalse(result["computed"].get("override_max_run_ft_active"))
+		self.assertEqual(fixture_doc.override_max_run_ft_enabled, 0)
+		self.assertEqual(fixture_doc.override_max_run_ft, 0)
+
+	def test_multisegment_override_max_run_ft_applies_to_whole_fixture(self):
+		"""
+		Test that override_max_run_ft on a multi-segment fixture applies to the
+		fixture's total tape length as a whole (not per-segment).
+
+		Two 6ft segments (~1829mm each) produce ~3600mm (~11.8ft) of total tape
+		length, which is a single run under the default 16ft effective max.
+		Overriding to 5ft must force the SAME total tape length to split into
+		ceil(3600 / (5 * 304.8)) = 3 runs, proving the override is evaluated
+		against the combined multi-segment tape length rather than any single
+		segment.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Jumper",
+				"end_power_feed_type": "END",
+				"end_jumper_cable_length_mm": 150,
+			},
+			{
+				"segment_index": 2,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 150,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		# Baseline: no override, default effective max (16ft) yields 1 run.
+		baseline = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+		)
+		self.assertTrue(baseline["is_valid"], f"Expected valid, got: {baseline.get('messages')}")
+		self.assertEqual(baseline["computed"]["runs_count"], 1)
+		self.assertFalse(baseline["computed"].get("override_max_run_ft_active"))
+
+		# Override to a much shorter max run length (5ft) - must force 3 runs
+		# from the SAME total tape length, proving the override applies to the
+		# fixture as a whole rather than to any individual segment.
+		overridden = validate_and_quote_multisegment(
+			fixture_template_code=self.template_code,
+			finish_code=self.finish_code,
+			lens_appearance_code=self.lens_appearance_code,
+			mounting_method_code=self.mounting_method_code,
+			endcap_color_code=self.endcap_color_code,
+			environment_rating_code=self.environment_rating_code,
+			tape_offering_id=self.tape_offering_id,
+			segments_json=json.dumps(segments),
+			qty=1,
+			override_max_run_ft=5,
+		)
+		self.assertTrue(overridden["is_valid"], f"Expected valid, got: {overridden.get('messages')}")
+		computed = overridden["computed"]
+		self.assertTrue(computed.get("override_max_run_ft_active"))
+		self.assertEqual(computed["max_run_ft_effective"], 5.0)
+		self.assertEqual(computed["runs_count"], 3, "3600mm total tape / (5ft * 304.8mm) should need 3 runs")
+
+		# A warning message should surface the override to the caller.
+		warning_texts = [m["text"] for m in overridden["messages"] if m.get("severity") == "warning"]
+		self.assertTrue(
+			any("overridden" in text.lower() for text in warning_texts),
+			f"Expected an override warning message, got: {overridden['messages']}",
+		)
+
+		# Persisted fixture document must reflect the override.
+		fixture_doc = frappe.get_doc("ilL-Configured-Fixture", overridden["configured_fixture_id"])
+		self.assertEqual(fixture_doc.override_max_run_ft_enabled, 1)
+		self.assertEqual(fixture_doc.override_max_run_ft, 5.0)
+		self.assertEqual(fixture_doc.max_run_ft_effective, 5.0)
+
+	def test_multisegment_override_max_run_ft_invalid_values_ignored(self):
+		"""Non-positive or non-numeric override values are ignored (treated as absent)."""
+		from illumenate_lighting.illumenate_lighting.api.configurator_engine import (
+			validate_and_quote_multisegment,
+		)
+
+		segments = [
+			{
+				"segment_index": 1,
+				"requested_length_mm": 1829,
+				"start_power_feed_type": "END",
+				"start_leader_cable_length_mm": 300,
+				"end_type": "Endcap",
+				"end_power_feed_type": None,
+				"end_jumper_cable_length_mm": None,
+			},
+		]
+
+		for bad_value in (0, -5, "not-a-number"):
+			result = validate_and_quote_multisegment(
+				fixture_template_code=self.template_code,
+				finish_code=self.finish_code,
+				lens_appearance_code=self.lens_appearance_code,
+				mounting_method_code=self.mounting_method_code,
+				endcap_color_code=self.endcap_color_code,
+				environment_rating_code=self.environment_rating_code,
+				tape_offering_id=self.tape_offering_id,
+				segments_json=json.dumps(segments),
+				qty=1,
+				override_max_run_ft=bad_value,
+			)
+			self.assertTrue(result["is_valid"], f"Expected valid, got: {result.get('messages')}")
+			self.assertFalse(
+				result["computed"].get("override_max_run_ft_active"),
+				f"Expected override inactive for bad_value={bad_value!r}",
+			)
+
 	def test_multisegment_single_segment_endcap_types(self):
 		"""
 		Test that a single-segment fixture built via multi-segment flow has

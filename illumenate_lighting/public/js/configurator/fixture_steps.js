@@ -618,8 +618,18 @@
 				? '0'
 				: (this.$('input[name="end_feed_length_ft"]').val() || ''),
 			product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val(),
-			include_power_supply: this.$('#includePowerSupply').is(':checked')
+			include_power_supply: this.$('#includePowerSupply').is(':checked'),
+			override_max_run_ft: this._getOverrideMaxRunFt()
 		};
+	};
+
+	// Read the optional "Override Max Run Length" value. Returns the parsed
+	// float when the checkbox is ticked and a positive value is entered,
+	// otherwise an empty string (treated as "no override" by the backend).
+	Fixture.prototype._getOverrideMaxRunFt = function () {
+		if (!this.$('#overrideMaxRunCheck').is(':checked')) return '';
+		var val = parseFloat(this.$('#overrideMaxRunInput').val());
+		return (!isNaN(val) && val > 0) ? val : '';
 	};
 
 	// ────────────────────────────────────────────────────────────────
@@ -705,9 +715,12 @@
 		var self = this;
 		var productSlug = this.productSlug || this.$('#fixtureTemplateSelect').val();
 		var selections = this._gatherAllSelections();
+		var args = { product_slug: productSlug, selections: JSON.stringify(selections) };
+		var overrideMaxRun = this._getOverrideMaxRunFt();
+		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.webflow_configurator.validate_configuration',
-			args: { product_slug: productSlug, selections: JSON.stringify(selections) },
+			args: args,
 			freeze: true,
 			freeze_message: __('Validating configuration...'),
 			callback: function (r) { if (r.message) self._handleValidationResponse(r.message); }
@@ -737,6 +750,13 @@
 				this.$('#pricingPreview').show();
 			}
 			if (data.stock_availability) this._renderStockAvailability(data.stock_availability);
+			if (data.override_max_run_ft_active) {
+				$messagesList.append(
+					'<div class="alert alert-warning py-2"><i class="fa fa-exclamation-triangle mr-2"></i>'
+					+ __('Max run length overridden to {0} ft. Verify compliance with applicable electrical codes.',
+						[data.override_max_run_ft]) + '</div>'
+				);
+			}
 			if (!this.$('#includePowerSupply').is(':checked')) {
 				$messagesList.append(
 					'<div class="alert alert-info py-2"><i class="fa fa-info-circle mr-2"></i>'
@@ -1040,4 +1060,115 @@
 
 	root.IllConfigurator.Fixture = Fixture;
 
+}(window));
+
+// ─── Quiz Handoff ────────────────────────────────────────────────────────────
+(function (root) {
+	'use strict';
+
+	function getHandoff() {
+		var h = (root.ILL_QUIZ_HANDOFF && Object.keys(root.ILL_QUIZ_HANDOFF).length)
+			? Object.assign({}, root.ILL_QUIZ_HANDOFF)
+			: {};
+
+		if (!h.template) {
+			try {
+				var raw = root.localStorage && root.localStorage.getItem('ilLumenate_quiz_session');
+				if (raw) {
+					var stored = JSON.parse(raw);
+					var age = Date.now() - (stored.savedAt || 0);
+					if (age < 3600000) {
+						var a = stored.answers || {};
+						Object.assign(h, {
+							template: stored.fixtureTemplateCode,
+							moisture: a.moisture,
+							ip_rating: a.ip_rating,
+							light_type: a.light_type,
+							cct: a.target_cct,
+							cct_low: a.cct_range && a.cct_range.low,
+							cct_high: a.cct_range && a.cct_range.high,
+							cri: a.cri,
+							dimming: a.dimming_protocol,
+							mounting: a.installation_method,
+							lens: a.diffuser,
+							finish: a.finish,
+							lumen_class: a.fixture_purpose
+						});
+					}
+					root.localStorage.removeItem('ilLumenate_quiz_session');
+				}
+			} catch (_) {}
+		}
+
+		return h;
+	}
+
+	function cssEscape(value) {
+		return root.CSS && root.CSS.escape ? root.CSS.escape(value) : String(value).replace(/"/g, '\\"');
+	}
+
+	function autoSelect(fieldName, value) {
+		if (!value) return;
+		var escaped = cssEscape(value);
+		var pill = document.querySelector('[data-field="' + fieldName + '"][data-value="' + escaped + '"], .pill-selector[data-field="' + fieldName + '"] input[value="' + escaped + '"]');
+		if (pill) { pill.click(); return; }
+
+		var sel = document.querySelector('select[name="' + fieldName + '"], select#' + fieldName);
+		if (sel) {
+			sel.value = value;
+			sel.dispatchEvent(new Event('change', { bubbles: true }));
+			return;
+		}
+
+		var radio = document.querySelector('input[type="radio"][name="' + fieldName + '"][value="' + escaped + '"]');
+		if (radio) radio.click();
+	}
+
+	function waitThenApply(fn, maxWaitMs, pollMs) {
+		maxWaitMs = maxWaitMs || 6000;
+		pollMs = pollMs || 200;
+		var start = Date.now();
+		var id = setInterval(function () {
+			var ready = document.querySelectorAll('.pill-selector input, [data-field]').length > 0;
+			if (ready || Date.now() - start > maxWaitMs) {
+				clearInterval(id);
+				fn();
+			}
+		}, pollMs);
+	}
+
+	function applyHandoff(h) {
+		if (!h || !Object.keys(h).length) return;
+		if (root.isTapeNeon === true) return;
+
+		var templateSel = document.querySelector('select[name="fixture_template"], select[name="fixture_template_code"], select#fixture-template-select, select.template-select');
+		if (templateSel && h.template && templateSel.value !== h.template) {
+			templateSel.value = h.template;
+			templateSel.dispatchEvent(new Event('change', { bubbles: true }));
+		}
+
+		waitThenApply(function () {
+			autoSelect('environment_rating', h.moisture);
+			autoSelect('environment_rating_code', h.moisture);
+			autoSelect('ip_rating', h.ip_rating);
+			autoSelect('cct', h.cct);
+			autoSelect('cri', h.cri);
+			autoSelect('dimming_protocol', h.dimming);
+			autoSelect('mounting_method', h.mounting);
+			autoSelect('mounting_method_code', h.mounting);
+			autoSelect('lens_appearance', h.lens);
+			autoSelect('lens_appearance_code', h.lens);
+			autoSelect('finish', h.finish);
+			autoSelect('finish_code', h.finish);
+		});
+	}
+
+	function initFromHandoff() {
+		var h = getHandoff();
+		if (h.template || h.moisture || h.cct) applyHandoff(h);
+	}
+
+	root.IllConfigurator = root.IllConfigurator || {};
+	root.IllConfigurator.initFixtureHandoff = initFromHandoff;
+	document.addEventListener('DOMContentLoaded', initFromHandoff);
 }(window));

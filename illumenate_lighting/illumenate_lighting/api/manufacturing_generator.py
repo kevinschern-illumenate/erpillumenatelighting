@@ -1515,6 +1515,25 @@ def _get_tape_item(fixture) -> Optional[str]:
 	return frappe.db.get_value("ilL-Spec-LED Tape", tape_offering, "item")
 
 
+def _endcap_style_supports_feed(style_name) -> bool:
+	"""Return whether an endcap style is feed-through.
+
+	R2: ``endcap_style_start``/``endcap_style_end`` store the *document name* of
+	an ``ilL-Attribute-Endcap Style`` (e.g. ``Feed-Through``), so the old
+	``style.upper() == "FEED_THROUGH"`` string match never fired on a hyphenated
+	name and feed-through endcaps were silently counted as solid. Resolve the
+	attribute's ``supports_feed`` flag instead (mirroring
+	``configurator_engine._resolve_multisegment_items``). Falls back to a name
+	heuristic for any legacy raw value that is not an attribute document.
+	"""
+	if not style_name:
+		return False
+	supports = frappe.db.get_value("ilL-Attribute-Endcap Style", style_name, "supports_feed")
+	if supports is not None:
+		return bool(supports)
+	return "feed" in str(style_name).lower()
+
+
 def _calculate_endcap_quantities(fixture) -> dict:
 	"""
 	Calculate accurate endcap quantities based on actual fixture configuration.
@@ -1554,16 +1573,16 @@ def _calculate_endcap_quantities(fixture) -> dict:
 		# Single-segment fixture: check configured endcap styles
 		start_style = getattr(fixture, 'endcap_style_start', '') or ''
 		end_style = getattr(fixture, 'endcap_style_end', '') or ''
-		
-		# Count start endcap type
-		if start_style.upper() == "FEED_THROUGH":
+
+		# Count start endcap type (R2: resolve supports_feed, not name match)
+		if _endcap_style_supports_feed(start_style):
 			feed_through_count += 1
 		else:
 			# Default to solid if not specified or SOLID
 			solid_count += 1
-		
+
 		# Count end endcap type
-		if end_style.upper() == "FEED_THROUGH":
+		if _endcap_style_supports_feed(end_style):
 			feed_through_count += 1
 		else:
 			# Default to solid if not specified or SOLID
@@ -1613,13 +1632,13 @@ def _calculate_endcap_quantities(fixture) -> dict:
 			# No segments defined - use fixture-level styles or defaults
 			start_style = getattr(fixture, 'endcap_style_start', '') or ''
 			end_style = getattr(fixture, 'endcap_style_end', '') or ''
-			
-			if start_style.upper() == "FEED_THROUGH":
+
+			if _endcap_style_supports_feed(start_style):
 				feed_through_count += 1
 			else:
 				solid_count += 1
-			
-			if end_style.upper() == "FEED_THROUGH":
+
+			if _endcap_style_supports_feed(end_style):
 				feed_through_count += 1
 			else:
 				solid_count += 1

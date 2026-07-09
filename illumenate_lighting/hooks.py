@@ -112,10 +112,11 @@ website_route_rules = [
 	# Configurator
 	{"from_route": "/portal/configure", "to_route": "configure"},
 	{"from_route": "/portal/configure/<template>", "to_route": "configure"},
-	{"from_route": "/portal/configure-webflow", "to_route": "configure_webflow"},
-	{"from_route": "/portal/configure-webflow/<template>", "to_route": "configure_webflow"},
+	{"from_route": "/portal/request-dealer-access", "to_route": "request_dealer_access"},
 	{"from_route": "/portal/configure-tape", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
+	{"from_route": "/portal/configure-sheet", "to_route": "configure_sheet"},
+	{"from_route": "/configure-sheet", "to_route": "configure_sheet"},
 	{"from_route": "/portal/configure-kit", "to_route": "configure_kit"},
 	{"from_route": "/portal/configure-kit/<template>", "to_route": "configure_kit"},
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
@@ -142,6 +143,16 @@ website_route_rules = [
 	# Account
 	{"from_route": "/portal/account", "to_route": "account"},
 	{"from_route": "/portal/account/notifications", "to_route": "account"},
+]
+
+# Website Redirects
+# ------------------
+# /portal/configure-webflow was retired in favor of the "Guided Wizard" mode
+# of the unified /portal/configure page (same fixture_steps.js / webflow_configurator.py
+# backend, just merged into one page). Redirect old links/bookmarks/embeds.
+website_redirects = [
+	{"source": r"/portal/configure-webflow/(.*)", "target": r"/portal/configure?template=\1&category=Linear Fixture&mode=wizard"},
+	{"source": r"/portal/configure-webflow", "target": r"/portal/configure?category=Linear Fixture&mode=wizard"},
 ]
 
 # Generators
@@ -177,6 +188,15 @@ fixtures = [
 	{"dt": "ilL-Webflow-Category"},
 	# Webflow configurator fixtures (Phase 2)
 	{"dt": "ilL-Attribute-Feed-Direction"},
+	# LED Sheet seed data (Snowfield; Analog RGBW intentionally excluded pending series code)
+	{"dt": "ilL-Spec-Driver", "filters": [["item", "in", ["LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]]},
+	{"dt": "ilL-Rel-Driver-Eligibility", "filters": [["template_type", "=", "ilL-LED-Sheet-Template"]]},
+	{"dt": "ilL-Spec-LED-Sheet"},
+	{"dt": "ilL-LED-Sheet-Template"},
+	{
+		"dt": "Item",
+		"filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER", "LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]],
+	},
 	# Job Title Master for CRM Lead integration
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields for CRM Lead and other DocTypes

@@ -1,0 +1,69 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "option_type",
+  "attribute_doctype",
+  "attribute_link",
+  "option_code",
+  "is_default",
+  "is_active",
+  "msrp_adder"
+ ],
+ "fields": [
+  {
+   "fieldname": "option_type",
+   "fieldtype": "Select",
+   "label": "Option Type",
+   "options": "CCT\nOutput Level\nEnvironment Rating\nMounting\nFinish"
+  },
+  {
+   "fieldname": "attribute_doctype",
+   "fieldtype": "Select",
+   "label": "Attribute DocType",
+   "options": "ilL-Attribute-CCT\nilL-Attribute-Output Level\nilL-Attribute-Environment Rating\nilL-Attribute-Mounting Method\nilL-Attribute-Finish"
+  },
+  {
+   "fieldname": "attribute_link",
+   "fieldtype": "Dynamic Link",
+   "label": "Attribute Link",
+   "options": "attribute_doctype"
+  },
+  {
+   "fieldname": "option_code",
+   "fieldtype": "Data",
+   "label": "Option Code"
+  },
+  {
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Is Default"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "msrp_adder",
+   "fieldtype": "Currency",
+   "label": "MSRP Adder"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-LED-Sheet-Allowed-Option",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
