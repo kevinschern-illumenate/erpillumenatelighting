@@ -195,6 +195,22 @@ Allows users to configure fixtures using segment-based configuration
 .neon-segment-card .card-body {
 	padding: 0.75rem 1rem;
 }
+/* Bulk reel mode */
+#tapeModeToggleCard {
+	background: #f8f9fa;
+	border: 1px solid #dee2e6;
+	border-radius: 0.375rem;
+}
+.bulk-reel-pill {
+	min-width: 88px;
+	text-align: center;
+	padding: 0.5rem 1rem;
+	line-height: 1.4;
+	cursor: pointer;
+}
+.bulk-reel-pill:hover {
+	background-color: #e9ecef;
+}
 </style>
 {% endblock %}
 
@@ -431,7 +447,21 @@ Allows users to configure fixtures using segment-based configuration
 			<!-- ═══ LED TAPE / LED NEON LENGTH & SEGMENTS ═══ -->
 
 			{% if is_tape %}
-			<!-- LED Tape: Feed & Length Card -->
+			<!-- LED Tape Order Mode Toggle: Custom Length vs Bulk Reels (shown when template selected) -->
+			<div class="d-flex align-items-center mb-3 px-2 py-2" id="tapeModeToggleCard" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+				<span class="mr-3 small font-weight-bold text-secondary">{{ _("Order Mode:") }}</span>
+				<div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Tape order mode') }}">
+					<button type="button" class="btn btn-primary active" id="tapeModeCustomBtn" onclick="setTapeMode('custom')">
+						<i class="fa fa-ruler"></i> {{ _("Custom Length") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary" id="tapeModeReelBtn" onclick="setTapeMode('reel')">
+						<i class="fa fa-circle-o"></i> {{ _("Bulk Reels") }}
+					</button>
+				</div>
+				<small class="text-muted ml-3" id="tapeModeReelHint" style="display: none;">{{ _("16.4 ft, 50 ft, or 100 ft standard reels — no pigtail") }}</small>
+			</div>
+
+			<!-- LED Tape: Feed & Length Card (Custom Length Mode) -->
 			<div class="card mb-3" id="tapeLengthCard" style="{% if not has_templates %}display: block;{% else %}display: none;{% endif %}">
 				<div class="card-header">
 					<h5 class="mb-0">{{ _("Feed & Tape Length") }}</h5>
@@ -523,6 +553,79 @@ Allows users to configure fixtures using segment-based configuration
 								</div>
 							</div>
 						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- LED Tape: Bulk Reel Card (shown when Bulk Reels mode is active) -->
+			<div class="card mb-3" id="bulkReelCard" style="display: none;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0"><i class="fa fa-circle-o mr-2"></i>{{ _("Bulk Reel Configuration") }}</h5>
+					<span class="badge badge-info">{{ _("Standard Reel Lengths") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">{{ _("Order standard LED tape reels. Pick your spec options, then select a reel length.") }}</p>
+
+					<!-- CCT -->
+					<div class="option-group">
+						<label class="option-label">{{ _("CCT") }} <span class="text-danger">*</span></label>
+						<div class="pill-selector" id="brCctPills"></div>
+						<input type="hidden" id="brCct" value="">
+					</div>
+
+					<!-- Output Level -->
+					<div class="option-group">
+						<label class="option-label">{{ _("Output Level") }} <span class="text-danger">*</span></label>
+						<div class="pill-selector" id="brOutputPills"></div>
+						<input type="hidden" id="brOutput" value="">
+					</div>
+
+					<!-- Environment Rating (hidden when only one option) -->
+					<div class="option-group" id="brEnvironmentGroup">
+						<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+						<div class="pill-selector" id="brEnvironmentPills"></div>
+						<input type="hidden" id="brEnvironment" value="">
+					</div>
+
+					<hr>
+
+					<!-- Reel Length -->
+					<div class="option-group">
+						<label class="option-label">{{ _("Reel Length") }} <span class="text-danger">*</span></label>
+						<div class="d-flex flex-wrap" id="brReelLengthPills" style="gap: 0.5rem;">
+							<label class="pill-option bulk-reel-pill" id="brReel164" onclick="selectBulkReelLength(16.4)">
+								<span class="d-block font-weight-bold">16.4 ft</span>
+								<span class="d-block small text-muted">5 m</span>
+							</label>
+							<label class="pill-option bulk-reel-pill" id="brReel50" onclick="selectBulkReelLength(50)">
+								<span class="d-block font-weight-bold">50 ft</span>
+							</label>
+							<label class="pill-option bulk-reel-pill" id="brReel100" onclick="selectBulkReelLength(100)">
+								<span class="d-block font-weight-bold">100 ft</span>
+							</label>
+						</div>
+						<input type="hidden" id="brReelLength" value="">
+					</div>
+
+					<hr>
+
+					<!-- Include Power Supply -->
+					<div class="custom-control custom-checkbox mb-3">
+						<input type="checkbox" class="custom-control-input" id="brIncludePowerSupply">
+						<label class="custom-control-label" for="brIncludePowerSupply">
+							<strong>{{ _("Include Power Supply?") }}</strong>
+							<small class="text-muted d-block">{{ _("Add a recommended power supply for this reel, or add one separately from the main schedules page.") }}</small>
+						</label>
+					</div>
+
+					<!-- Bulk Reel Action Buttons -->
+					<div class="d-flex flex-wrap" style="gap: 0.5rem;">
+						<button type="button" class="btn btn-primary" id="brCalculateBtn" onclick="bulkReelCalculate()" disabled>
+							<i class="fa fa-calculator"></i> {{ _("Calculate &amp; Validate") }}
+						</button>
+						<button type="button" class="btn btn-success" id="brSaveBtn" onclick="bulkReelSave()" style="display: none;" disabled>
+							<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+						</button>
 					</div>
 				</div>
 			</div>
@@ -1027,6 +1130,9 @@ var isTape = {{ 'true' if is_tape else 'false' }};
 var hasTemplates = {{ 'true' if has_templates else 'false' }};
 var tnTemplateOptions = null;     // Tape/Neon template init data
 var tnCurrentResult = null;       // Tape/Neon validation result
+var bulkReelMode = false;         // Whether bulk reel mode is active (tape only)
+var bulkReelCurrentResult = null; // Bulk reel validation result
+var bulkReelSelectedLength = null;// Selected bulk reel length in feet
 var neonSegmentCount = 0;         // Neon segment counter
 var DEFAULT_FEED_DIRECTION = 'End Feed';  // Default feed direction for tape
 
@@ -2623,6 +2729,7 @@ $(function() {
 			$('#templateOptions').show();
 			{% if is_tape %}
 			$('#tapeLengthCard').show();
+			$('#tapeModeToggleCard').show();
 			{% endif %}
 			{% if is_neon %}
 			$('#neonSegmentsCard').show();
@@ -2748,6 +2855,7 @@ $(function() {
 					$('#templateOptions').show();
 					{% if is_tape %}
 					$('#tapeLengthCard').show();
+					$('#tapeModeToggleCard').show();
 					{% endif %}
 					{% if is_neon %}
 					$('#neonSegmentsCard').show();
@@ -2764,6 +2872,9 @@ $(function() {
 			$('#templateOptions').hide();
 			{% if is_tape %}
 			$('#tapeLengthCard').hide();
+			$('#tapeModeToggleCard').hide();
+			$('#bulkReelCard').hide();
+			if (bulkReelMode) { setTapeMode('custom'); }
 			{% endif %}
 			{% if is_neon %}
 			$('#neonSegmentsCard').hide();
@@ -2828,6 +2939,9 @@ function tnLoadTemplateOptions(templateCode, onComplete) {
 				tnTemplateOptions = r.message;
 				console.log('Tape/Neon template options received:', tnTemplateOptions);
 				tnPopulateOptions(r.message.options);
+				if (isTape) {
+					bulkReelPopulateOptions(r.message.options);
+				}
 				$('#templateOptions').show();
 				if (typeof onComplete === 'function') onComplete(true);
 			} else if (r.message && r.message.error) {
@@ -3061,6 +3175,12 @@ function tnPopulateSinglePillSelector(fieldName, opts) {
 
 // ─── UI state update for tape/neon ───────────────────────────────────
 function tnUpdateUI() {
+	// When bulk reel mode is active, delegate to that flow
+	if (bulkReelMode) {
+		bulkReelUpdateCalculateBtn();
+		bulkReelUpdateSaveBtn();
+		return;
+	}
 	var isComplete = false;
 
 	if (isTape) {
@@ -3101,6 +3221,10 @@ function tnUpdateUI() {
 }
 
 function tnUpdateSaveButtonVisibility() {
+	if (bulkReelMode) {
+		bulkReelUpdateSaveBtn();
+		return;
+	}
 	var hasSchedule = !!$('#scheduleSelect').val();
 	var hasLine = !!$('#lineSelect').val();
 
@@ -3122,6 +3246,355 @@ function tnUpdateBuildButtonVisibility() {
 	} else {
 		$('#tnBuildItemBtn').hide();
 	}
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// BULK REEL MODE (LED Tape only)
+// ═════════════════════════════════════════════════════════════════════
+
+function setTapeMode(mode) {
+	bulkReelMode = (mode === 'reel');
+	if (bulkReelMode) {
+		$('#tapeLengthCard').hide();
+		$('#bulkReelCard').show();
+		$('#tapeModeCustomBtn').removeClass('btn-primary active').addClass('btn-outline-secondary');
+		$('#tapeModeReelBtn').removeClass('btn-outline-secondary').addClass('btn-primary active');
+		$('#tapeModeReelHint').show();
+		$('#tnActionButtons').hide();
+		bulkReelCurrentResult = null;
+		bulkReelUpdateCalculateBtn();
+		bulkReelUpdateSaveBtn();
+	} else {
+		$('#bulkReelCard').hide();
+		$('#tapeLengthCard').show();
+		$('#tapeModeCustomBtn').removeClass('btn-outline-secondary').addClass('btn-primary active');
+		$('#tapeModeReelBtn').removeClass('btn-primary active').addClass('btn-outline-secondary');
+		$('#tapeModeReelHint').hide();
+		$('#tnActionButtons').show();
+		tnUpdateUI();
+	}
+}
+
+function selectBulkReelLength(lengthFt) {
+	bulkReelSelectedLength = lengthFt;
+	$('#brReelLengthPills .bulk-reel-pill').removeClass('active');
+	if (lengthFt === 16.4) { $('#brReel164').addClass('active'); }
+	else if (lengthFt === 50) { $('#brReel50').addClass('active'); }
+	else if (lengthFt === 100) { $('#brReel100').addClass('active'); }
+	$('#brReelLength').val(lengthFt);
+	bulkReelCurrentResult = null;
+	bulkReelUpdateSaveBtn();
+	bulkReelUpdateCalculateBtn();
+}
+
+function bulkReelUpdateCalculateBtn() {
+	var cct = $('#brCct').val();
+	var output = $('#brOutput').val();
+	var length = bulkReelSelectedLength;
+	$('#brCalculateBtn').prop('disabled', !(cct && output && length));
+}
+
+function bulkReelUpdateSaveBtn() {
+	var hasSchedule = !!$('#scheduleSelect').val();
+	var hasLine = !!$('#lineSelect').val();
+	if (hasSchedule && hasLine && canSaveToSchedule && bulkReelCurrentResult && bulkReelCurrentResult.is_valid) {
+		$('#brSaveBtn').show().prop('disabled', false);
+	} else {
+		$('#brSaveBtn').hide();
+	}
+}
+
+function bulkReelPopulateOptions(options) {
+	// ── CCT pills ──────────────────────────────────────────────────────
+	var cctPills = $('#brCctPills').empty();
+	$('#brCct').val('');
+	(options.ccts || []).forEach(function(opt) {
+		var pill = $('<label class="pill-option">' + (opt.label || opt.value) + '</label>');
+		pill.on('click', function() {
+			cctPills.find('.pill-option').removeClass('active');
+			$(this).addClass('active');
+			$('#brCct').val(opt.value);
+			bulkReelCascadeOutput(opt.value);
+			bulkReelCurrentResult = null;
+			bulkReelUpdateSaveBtn();
+			bulkReelUpdateCalculateBtn();
+		});
+		if (opt.is_default) { pill.addClass('active'); $('#brCct').val(opt.value); }
+		cctPills.append(pill);
+	});
+
+	// ── Output Level pills ─────────────────────────────────────────────
+	var outputPills = $('#brOutputPills').empty();
+	$('#brOutput').val('');
+	(options.output_levels || []).forEach(function(opt) {
+		var pill = $('<label class="pill-option">' + (opt.label || opt.value) + '</label>');
+		pill.on('click', function() {
+			outputPills.find('.pill-option').removeClass('active');
+			$(this).addClass('active');
+			$('#brOutput').val(opt.value);
+			bulkReelCurrentResult = null;
+			bulkReelUpdateSaveBtn();
+			bulkReelUpdateCalculateBtn();
+		});
+		if (opt.is_default) { pill.addClass('active'); $('#brOutput').val(opt.value); }
+		outputPills.append(pill);
+	});
+
+	// ── Environment Rating pills ───────────────────────────────────────
+	var envRatings = options.environment_ratings || [];
+	var envPills = $('#brEnvironmentPills').empty();
+	$('#brEnvironment').val('');
+	if (envRatings.length <= 1) {
+		$('#brEnvironmentGroup').hide();
+		if (envRatings.length === 1) { $('#brEnvironment').val(envRatings[0].value); }
+	} else {
+		$('#brEnvironmentGroup').show();
+		envRatings.forEach(function(opt) {
+			var pill = $('<label class="pill-option">' + (opt.label || opt.value) + '</label>');
+			pill.on('click', function() {
+				envPills.find('.pill-option').removeClass('active');
+				$(this).addClass('active');
+				$('#brEnvironment').val(opt.value);
+				bulkReelCurrentResult = null;
+				bulkReelUpdateSaveBtn();
+			});
+			if (opt.is_default) { pill.addClass('active'); $('#brEnvironment').val(opt.value); }
+			envPills.append(pill);
+		});
+	}
+
+	bulkReelUpdateCalculateBtn();
+}
+
+function bulkReelCascadeOutput(cct) {
+	var templateCode = $('select[name="fixture_template_code"]').val();
+	if (!templateCode || !cct) return;
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_cascading',
+		args: { template_code: templateCode, cct: cct },
+		callback: function(r) {
+			if (r.message && r.message.success && r.message.output_levels && r.message.output_levels.length) {
+				var outputPills = $('#brOutputPills').empty();
+				$('#brOutput').val('');
+				r.message.output_levels.forEach(function(opt) {
+					var pill = $('<label class="pill-option">' + (opt.label || opt.value) + '</label>');
+					pill.on('click', function() {
+						outputPills.find('.pill-option').removeClass('active');
+						$(this).addClass('active');
+						$('#brOutput').val(opt.value);
+						bulkReelCurrentResult = null;
+						bulkReelUpdateSaveBtn();
+						bulkReelUpdateCalculateBtn();
+					});
+					if (opt.is_default || r.message.output_levels.length === 1) {
+						if (!$('#brOutput').val()) {
+							pill.addClass('active');
+							$('#brOutput').val(opt.value);
+						}
+					}
+					outputPills.append(pill);
+				});
+				bulkReelUpdateCalculateBtn();
+			}
+		}
+	});
+}
+
+function bulkReelCalculate() {
+	var templateCode = $('select[name="fixture_template_code"]').val();
+	if (!templateCode) {
+		frappe.msgprint(__('Please select a product family first'));
+		return;
+	}
+	var cct = $('#brCct').val();
+	var output = $('#brOutput').val();
+	var environment = $('#brEnvironment').val();
+	var lengthFt = bulkReelSelectedLength;
+	var includePowerSupply = $('#brIncludePowerSupply').prop('checked') ? 1 : 0;
+
+	if (!cct || !output || !lengthFt) {
+		frappe.msgprint(__('Please complete all selections: CCT, Output Level, and Reel Length'));
+		return;
+	}
+
+	var selections = {
+		environment_rating: environment || '',
+		cct: cct,
+		output_level: output,
+		feed_direction: 'End Feed',
+		lead_length_inches: 0,
+		tape_length_value: lengthFt,
+		tape_length_unit: 'ft',
+		include_power_supply: includePowerSupply,
+	};
+
+	$('#brCalculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ _("Calculating...") }}');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_neon_template_config',
+		args: {
+			template_code: templateCode,
+			selections: JSON.stringify(selections),
+		},
+		callback: function(r) {
+			$('#brCalculateBtn').prop('disabled', false).html('<i class="fa fa-calculator"></i> {{ _("Calculate &amp; Validate") }}');
+			if (r.message) {
+				bulkReelCurrentResult = r.message;
+				bulkReelCurrentResult._reel_length_ft = lengthFt;
+				bulkReelCurrentResult._include_power_supply = includePowerSupply;
+				bulkReelDisplayResults(r.message);
+				bulkReelUpdateSaveBtn();
+			}
+		},
+		error: function(r) {
+			$('#brCalculateBtn').prop('disabled', false).html('<i class="fa fa-calculator"></i> {{ _("Calculate &amp; Validate") }}');
+			frappe.msgprint({ title: __('Calculation Error'), message: __('An error occurred. Please check your selections.'), indicator: 'red' });
+		}
+	});
+}
+
+function bulkReelDisplayResults(result) {
+	var statusBadge = $('#validationStatus');
+	$('#noResults').hide();
+
+	if (result.is_valid) {
+		statusBadge.removeClass('badge-secondary badge-danger').addClass('badge-success').text(__('Valid'));
+	} else {
+		statusBadge.removeClass('badge-secondary badge-success').addClass('badge-danger').text(__('Invalid'));
+		$('#messagesPanel').show();
+		$('#messagesList').empty().append(
+			'<div class="alert alert-danger py-2 mb-1"><i class="fa fa-exclamation-circle mr-1"></i> ' +
+			(result.error || __('Validation failed')) + '</div>'
+		);
+		$('#partNumberPanel, #lengthResults, #manufacturingResults, #buildDescriptionPanel, #driverResults, #pricingResults').hide();
+		return;
+	}
+
+	// Messages (warnings / info)
+	if (result.messages && result.messages.length > 0) {
+		$('#messagesPanel').show();
+		var msgList = $('#messagesList').empty();
+		result.messages.forEach(function(msg) {
+			var cls = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
+			msgList.append('<div class="alert alert-' + cls + ' py-2 mb-1">' + msg.text + '</div>');
+		});
+	} else {
+		$('#messagesPanel').hide();
+	}
+
+	// Part number
+	if (result.part_number) {
+		$('#partNumberPanel').show();
+		$('#partNumberValue').text(result.part_number);
+		$('#partDescriptionValue').text(result.build_description || '-');
+	} else {
+		$('#partNumberPanel').hide();
+	}
+
+	// Length + wattage summary
+	if (result.computed) {
+		var c = result.computed;
+		$('#lengthResults').show();
+		var reelLabel = bulkReelCurrentResult && bulkReelCurrentResult._reel_length_ft
+			? ' [' + bulkReelCurrentResult._reel_length_ft + ' ft reel]' : '';
+		$('#requestedLength').text((c.requested_length_in || 0) + '"' + reelLabel);
+		$('#mfgLength').text((c.manufacturable_length_in || 0) + '" (' + (c.manufacturable_length_mm || 0) + ' mm)');
+		$('#segmentCountResult').text('1');
+		$('#manufacturingResults').show();
+		$('#runsCount').text(c.runs_count || 1);
+		$('#maxRunLengthRow').hide();
+		$('#profileSegmentsCount, #endcapsCount, #mountingCount').each(function() { $(this).text('\u2014'); });
+		$('#totalWatts').text((c.total_watts || 0) + ' W');
+		$('#assemblyMode').text(__('Bulk Reel'));
+	}
+
+	// Build description
+	if (result.build_description) {
+		$('#buildDescriptionPanel').show();
+		$('#buildDescription').text(result.build_description);
+	}
+
+	// Driver plan (when include_power_supply was checked)
+	if (result.resolved_items && result.resolved_items.driver_plan) {
+		var dp = result.resolved_items.driver_plan;
+		$('#driverResults').show();
+		if (dp.status === 'not_required') {
+			$('#driverPlan').html(
+				'<div class="alert alert-info py-2 mb-0"><i class="fa fa-info-circle mr-2"></i>' +
+				__('Power supply excluded from this configuration.') + '</div>'
+			);
+		} else if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
+			var dpHtml = '<table class="table table-sm mb-0">';
+			dp.drivers.forEach(function(d) {
+				dpHtml += '<tr><td>' + d.item_code + '</td><td>\xd7' + d.qty + '</td></tr>';
+			});
+			dpHtml += '</table>';
+			$('#driverPlan').html(dpHtml);
+		} else {
+			$('#driverPlan').html('<span class="text-muted small">' + (dp.status || 'N/A') + '</span>');
+		}
+	} else {
+		$('#driverResults').hide();
+	}
+}
+
+function bulkReelSave() {
+	if (!bulkReelCurrentResult || !bulkReelCurrentResult.is_valid) {
+		frappe.msgprint(__('Cannot save: please calculate first to validate the configuration'));
+		return;
+	}
+	var selectedSchedule = $('#scheduleSelect').val();
+	var selectedLine = $('#lineSelect').val();
+	if (!selectedSchedule) {
+		frappe.msgprint(__('Please select a schedule to save to'));
+		return;
+	}
+	if (!selectedLine) {
+		frappe.msgprint(__('Please select a line or choose \u201cNew Line\u201d'));
+		return;
+	}
+	var saveLine = (selectedLine === '__new__') ? null : parseInt(selectedLine);
+	var templateCode = $('select[name="fixture_template_code"]').val();
+
+	// Embed reel metadata for traceability
+	var resultToSave = $.extend({}, bulkReelCurrentResult, {
+		is_bulk_reel: true,
+		reel_length_ft: bulkReelCurrentResult._reel_length_ft,
+		include_power_supply: bulkReelCurrentResult._include_power_supply || 0,
+	});
+	delete resultToSave._reel_length_ft;
+	delete resultToSave._include_power_supply;
+
+	$('#brSaveBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ _("Saving...") }}');
+
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.save_tape_neon_template_to_schedule',
+		args: {
+			schedule_name: selectedSchedule,
+			line_idx: saveLine,
+			template_code: templateCode,
+			configuration_result: JSON.stringify(resultToSave),
+		},
+		callback: function(r) {
+			$('#brSaveBtn').html('<i class="fa fa-save"></i> {{ _("Add to Schedule") }}');
+			bulkReelUpdateSaveBtn();
+			if (r.message && r.message.success) {
+				frappe.msgprint({
+					title: __('Success'),
+					indicator: 'green',
+					message: r.message.message || __('Bulk reel saved to schedule')
+				});
+				window.location.href = '/portal/schedules/' + selectedSchedule;
+			} else {
+				frappe.msgprint((r.message && r.message.error) || __('Error saving to schedule'));
+			}
+		},
+		error: function(r) {
+			$('#brSaveBtn').html('<i class="fa fa-save"></i> {{ _("Add to Schedule") }}');
+			bulkReelUpdateSaveBtn();
+			frappe.msgprint({ title: __('Save Error'), message: __('An error occurred while saving. Please try again.'), indicator: 'red' });
+		}
+	});
 }
 
 // ─── Validate & Quote (tape/neon) ────────────────────────────────────
