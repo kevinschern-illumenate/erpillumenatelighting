@@ -4359,3 +4359,203 @@ def get_configured_sheet_for_line(schedule_name: str, line_idx: int) -> dict:
 		"configured_led_sheet": doc.name,
 		"data": doc.as_dict(),
 	}
+
+
+@frappe.whitelist()
+def get_schedule_dealer_pricing(schedule_name: str) -> dict:
+	"""Return dealer (customer-group tier) pricing for a fixture schedule.
+
+	This endpoint recalculates each schedule line's MSRP through the logged-in
+	dealer's Customer Group pricing rules and returns tier-discounted prices so
+	the schedule page can swap MSRP for dealer pricing in-place.
+
+	Security (enforced server-side, in order):
+	  1. Guest sessions are rejected outright.
+	  2. The session user must hold the Dealer role (or be an internal user).
+	  3. The customer identity is resolved from ``frappe.session.user`` only –
+	     any client-supplied customer is ignored, so a dealer cannot impersonate
+	     another pricing tier.
+	  4. ``_check_schedule_access`` verifies the dealer has read access to the
+	     requested schedule, preventing cross-company data access.
+
+	Args:
+		schedule_name: Name of the ``ilL-Project-Fixture-Schedule`` document.
+
+	Returns:
+		On success::
+
+			{
+				"lines": {idx: {"msrp_unit", "tier_unit", "line_total_msrp",
+					"line_total_tier", "discount_percentage",
+					"driver_msrp_unit", "driver_tier_unit"}},
+				"schedule_total_msrp": float,
+				"schedule_total_tier": float,
+				"customer_group": str,
+				"discount_percentage": float,
+			}
+
+		On a recoverable problem, a structured error such as
+		``{"error": "no_customer_linked"}`` or ``{"error": "no_customer_group"}``.
+	"""
+	# 1. Reject unauthenticated sessions immediately.
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please login to view dealer pricing"), frappe.PermissionError)
+
+	# 2. Server-side role gate: only Dealers (or internal users) may proceed.
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	if not (_is_dealer_user(frappe.session.user) or _is_internal_user(frappe.session.user)):
+		frappe.throw(
+			_("You do not have permission to view dealer pricing"),
+			frappe.PermissionError,
+		)
+
+	# 3. Resolve the customer strictly from the session – never from the client.
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+		get_customer_for_session_user,
+		get_tier_price_for_customer,
+	)
+
+	customer = get_customer_for_session_user()
+	if not customer:
+		return {"error": "no_customer_linked"}
+
+	# 4. Confirm the customer's group.
+	customer_group = frappe.db.get_value("Customer", customer, "customer_group")
+	if not customer_group:
+		return {"error": "no_customer_group"}
+
+	# 5. Verify read access to the requested schedule.
+	from illumenate_lighting.illumenate_lighting.api.exports import _check_schedule_access
+
+	has_access, access_error = _check_schedule_access(schedule_name)
+	if not has_access:
+		frappe.throw(access_error or _("You do not have access to this schedule"), frappe.PermissionError)
+
+	# 6. Load the schedule and compute per-line MSRP + tier pricing.
+	from illumenate_lighting.templates.pages.schedule import (
+		_get_configured_fixture_display_details,
+		_get_configured_led_sheet_display_details,
+		compute_line_msrp,
+	)
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+	lines = schedule.lines or []
+
+	# Batch-fetch the latest pricing snapshots for configured fixtures / tape-neon
+	# so MSRP resolution mirrors the schedule page (which uses the same source).
+	cf_ids = [
+		line.configured_fixture
+		for line in lines
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+	]
+	pricing_map = {}
+	if cf_ids:
+		for snap in frappe.get_all(
+			"ilL-Child-Pricing-Snapshot",
+			filters={"parent": ["in", cf_ids], "parenttype": "ilL-Configured-Fixture"},
+			fields=["parent", "msrp_unit", "timestamp"],
+			order_by="timestamp desc",
+		):
+			if snap.parent not in pricing_map and snap.msrp_unit:
+				pricing_map[snap.parent] = float(snap.msrp_unit)
+
+	ctn_ids = [
+		line.configured_tape_neon
+		for line in lines
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon
+	]
+	ctn_pricing_map = {}
+	if ctn_ids:
+		for snap in frappe.get_all(
+			"ilL-Child-Pricing-Snapshot",
+			filters={"parent": ["in", ctn_ids], "parenttype": "ilL-Configured-Tape-Neon"},
+			fields=["parent", "msrp_unit", "timestamp"],
+			order_by="timestamp desc",
+		):
+			if snap.parent not in ctn_pricing_map and snap.msrp_unit:
+				ctn_pricing_map[snap.parent] = float(snap.msrp_unit)
+
+	result_lines: dict = {}
+	schedule_total_msrp = 0.0
+	schedule_total_tier = 0.0
+	overall_discount_percentage = 0.0
+
+	for line in lines:
+		fixture_snapshot_price = (
+			pricing_map.get(line.configured_fixture)
+			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+			else None
+		)
+		ctn_snapshot_price = (
+			ctn_pricing_map.get(line.configured_tape_neon)
+			if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon
+			else None
+		)
+
+		cf_details = None
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
+		cls_details = None
+		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
+			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+
+		msrp = compute_line_msrp(
+			line,
+			cf_details=cf_details,
+			cls_details=cls_details,
+			fixture_snapshot_price=fixture_snapshot_price,
+			ctn_snapshot_price=ctn_snapshot_price,
+		)
+
+		msrp_unit = msrp["unit"]
+		driver_msrp_unit = msrp["driver_unit"]
+		if not msrp_unit and not driver_msrp_unit:
+			# Lines without any MSRP (e.g. unconfigured) are left untouched.
+			continue
+
+		qty = line.qty or 1
+		entry: dict = {
+			"msrp_unit": None,
+			"tier_unit": None,
+			"line_total_msrp": None,
+			"line_total_tier": None,
+			"discount_percentage": 0.0,
+			"driver_msrp_unit": None,
+			"driver_tier_unit": None,
+		}
+
+		if msrp_unit:
+			tier = get_tier_price_for_customer(msrp_unit, customer=customer)
+			tier_unit = tier["tier_unit"]
+			entry["msrp_unit"] = round(msrp_unit, 2)
+			entry["tier_unit"] = tier_unit
+			entry["line_total_msrp"] = round(msrp_unit * qty, 2)
+			entry["line_total_tier"] = round(tier_unit * qty, 2)
+			entry["discount_percentage"] = tier["discount_percentage"]
+			schedule_total_msrp += msrp_unit * qty
+			schedule_total_tier += tier_unit * qty
+			overall_discount_percentage = tier["discount_percentage"]
+
+		if driver_msrp_unit:
+			driver_tier = get_tier_price_for_customer(driver_msrp_unit, customer=customer)
+			driver_tier_unit = driver_tier["tier_unit"]
+			entry["driver_msrp_unit"] = round(driver_msrp_unit, 2)
+			entry["driver_tier_unit"] = driver_tier_unit
+			schedule_total_msrp += driver_msrp_unit * qty
+			schedule_total_tier += driver_tier_unit * qty
+			if not msrp_unit:
+				overall_discount_percentage = driver_tier["discount_percentage"]
+
+		result_lines[str(line.idx)] = entry
+
+	return {
+		"lines": result_lines,
+		"schedule_total_msrp": round(schedule_total_msrp, 2),
+		"schedule_total_tier": round(schedule_total_tier, 2),
+		"customer_group": customer_group,
+		"discount_percentage": overall_discount_percentage,
+	}

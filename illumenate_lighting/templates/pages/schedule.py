@@ -53,6 +53,21 @@ def get_context(context):
 	is_dealer = _is_dealer_user(frappe.session.user)
 	is_internal = _is_internal_user(frappe.session.user)
 
+	# Dealers can toggle their customer-group tier pricing in-page. Resolve
+	# their linked customer group up-front so the UI can label it without an
+	# extra round-trip. This is distinct from can_view_pricing.
+	can_show_dealer_pricing = is_dealer
+	dealer_customer_group = None
+	if is_dealer:
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+			get_customer_for_session_user,
+		)
+		dealer_customer = get_customer_for_session_user()
+		if dealer_customer:
+			dealer_customer_group = frappe.db.get_value(
+				"Customer", dealer_customer, "customer_group"
+			)
+
 	# Get project
 	project = None
 	if schedule.ill_project:
@@ -261,54 +276,34 @@ def get_context(context):
 
 		# Populate pricing if user can view pricing
 		if can_view_pricing:
-			unit_price = None
-			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-				unit_price = pricing_map.get(line.configured_fixture)
-			elif line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon:
-				unit_price = ctn_pricing_map.get(line.configured_tape_neon)
-				# Fallback: read from variant_selections when snapshot pricing is missing
-				if not unit_price:
-					unit_price = _get_msrp_from_variant_selections(line)
-			elif line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
-				# Panel line pricing comes from the configured LED Sheet MSRP
-				unit_price = line_dict.get("cls_details", {}).get("msrp")
-			elif getattr(line, "product_type", None) in ("LED Tape", "LED Neon") and getattr(line, "tape_neon_template", None):
-				# Tape/neon template line without configured record – read from variant_selections
-				unit_price = _get_msrp_from_variant_selections(line)
-			elif getattr(line, "product_type", None) == "Extrusion Kit":
-				# Kit pricing stored in variant_selections JSON
-				vs_raw = getattr(line, "variant_selections", None)
-				if vs_raw:
-					import json as _json_kit
-					try:
-						vs_data = _json_kit.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
-						kit_pricing = vs_data.get("pricing", {})
-						kit_msrp = kit_pricing.get("total_price_msrp")
-						if kit_msrp:
-							unit_price = float(kit_msrp)
-					except (ValueError, TypeError):
-						pass
-			elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
-				item_price = frappe.db.get_value(
-					"Item Price",
-					{"item_code": line.accessory_item, "price_list": "Standard Selling", "selling": 1},
-					"price_list_rate",
-				)
-				if item_price:
-					unit_price = float(item_price)
+			fixture_snapshot_price = (
+				pricing_map.get(line.configured_fixture)
+				if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
+				else None
+			)
+			ctn_snapshot_price = (
+				ctn_pricing_map.get(line.configured_tape_neon)
+				if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon
+				else None
+			)
+			msrp = compute_line_msrp(
+				line,
+				cf_details=line_dict.get("cf_details"),
+				cls_details=line_dict.get("cls_details"),
+				fixture_snapshot_price=fixture_snapshot_price,
+				ctn_snapshot_price=ctn_snapshot_price,
+			)
 
-			if unit_price:
-				line_dict["unit_price"] = unit_price
-				line_dict["line_total"] = unit_price * (line.qty or 1)
+			if msrp["unit"]:
+				line_dict["unit_price"] = msrp["unit"]
+				line_dict["line_total"] = msrp["unit"] * (line.qty or 1)
 				schedule_total += line_dict["line_total"]
 
 			# Add driver MSRP as separate sub-line pricing for ilLumenate fixtures
-			if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-				driver_msrp = line_dict.get("cf_details", {}).get("driver_msrp_unit")
-				if driver_msrp:
-					line_dict["driver_unit_price"] = driver_msrp
-					line_dict["driver_line_total"] = driver_msrp * (line.qty or 1)
-					schedule_total += line_dict["driver_line_total"]
+			if msrp["driver_unit"]:
+				line_dict["driver_unit_price"] = msrp["driver_unit"]
+				line_dict["driver_line_total"] = msrp["driver_unit"] * (line.qty or 1)
+				schedule_total += line_dict["driver_line_total"]
 
 		# Attach stock availability
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
@@ -347,6 +342,8 @@ def get_context(context):
 	context.can_view_pricing = can_view_pricing
 	context.is_dealer = is_dealer
 	context.is_internal = is_internal
+	context.can_show_dealer_pricing = can_show_dealer_pricing
+	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count
 	context.other_count = other_count
@@ -626,6 +623,83 @@ def _get_msrp_from_variant_selections(line):
 		return float(msrp) if msrp else None
 	except (ValueError, TypeError):
 		return None
+
+
+def compute_line_msrp(
+	line,
+	cf_details=None,
+	cls_details=None,
+	fixture_snapshot_price=None,
+	ctn_snapshot_price=None,
+):
+	"""Compute the MSRP unit price (and driver MSRP unit) for a schedule line.
+
+	Centralises the per-line MSRP resolution logic so it can be shared between
+	the schedule page context (``get_context``) and the dealer pricing API
+	endpoint, keeping both in sync.
+
+	Args:
+		line: A schedule line document/child row.
+		cf_details: Pre-computed configured-fixture display details (used for
+			the driver MSRP sub-line).  When ``None`` and needed, it is fetched.
+		cls_details: Pre-computed configured LED sheet display details (used for
+			panel line MSRP).  When ``None`` and needed, it is fetched.
+		fixture_snapshot_price: Latest pricing-snapshot ``msrp_unit`` for the
+			line's configured fixture, when already resolved by the caller.
+		ctn_snapshot_price: Latest pricing-snapshot ``msrp_unit`` for the line's
+			configured tape/neon, when already resolved by the caller.
+
+	Returns:
+		dict with keys ``unit`` (float | None) and ``driver_unit`` (float | None).
+	"""
+	unit_price = None
+	mt = line.manufacturer_type
+
+	if mt == "ILLUMENATE" and line.configured_fixture:
+		unit_price = fixture_snapshot_price
+	elif mt == "ILLUMENATE" and line.configured_tape_neon:
+		unit_price = ctn_snapshot_price
+		# Fallback: read from variant_selections when snapshot pricing is missing
+		if not unit_price:
+			unit_price = _get_msrp_from_variant_selections(line)
+	elif mt == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
+		if cls_details is None:
+			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+		unit_price = (cls_details or {}).get("msrp")
+	elif getattr(line, "product_type", None) in ("LED Tape", "LED Neon") and getattr(line, "tape_neon_template", None):
+		unit_price = _get_msrp_from_variant_selections(line)
+	elif getattr(line, "product_type", None) == "Extrusion Kit":
+		vs_raw = getattr(line, "variant_selections", None)
+		if vs_raw:
+			import json as _json_kit
+			try:
+				vs_data = _json_kit.loads(vs_raw) if isinstance(vs_raw, str) else vs_raw
+				kit_msrp = (vs_data.get("pricing") or {}).get("total_price_msrp")
+				if kit_msrp:
+					unit_price = float(kit_msrp)
+			except (ValueError, TypeError):
+				pass
+	elif mt == "ACCESSORY" and line.accessory_item:
+		item_price = frappe.db.get_value(
+			"Item Price",
+			{"item_code": line.accessory_item, "price_list": "Standard Selling", "selling": 1},
+			"price_list_rate",
+		)
+		if item_price:
+			unit_price = float(item_price)
+
+	driver_unit = None
+	if mt == "ILLUMENATE" and line.configured_fixture:
+		if cf_details is None:
+			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
+		driver_msrp = (cf_details or {}).get("driver_msrp_unit")
+		if driver_msrp:
+			driver_unit = float(driver_msrp)
+
+	return {
+		"unit": float(unit_price) if unit_price else None,
+		"driver_unit": driver_unit,
+	}
 
 
 def _get_configured_tape_neon_display_details(configured_tape_neon_id):
