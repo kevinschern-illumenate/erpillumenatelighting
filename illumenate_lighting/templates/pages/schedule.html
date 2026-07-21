@@ -3536,12 +3536,11 @@ function restoreMsrpPricing() {
 }
 
 function _setHeaderDealerSuffix(active) {
-	['unitPriceHeader', 'lineTotalHeader'].forEach(function(id) {
-		var th = document.getElementById(id);
-		if (!th) { return; }
-		var base = th.getAttribute('data-base-label') || th.textContent;
-		th.textContent = active ? (base + ' (' + __('Dealer') + ')') : base;
-	});
+	var unitTh = document.getElementById('unitPriceHeader');
+	if (unitTh) {
+		unitTh.textContent = active ? __('Dealer Price') : __('Unit Price');
+	}
+	// Line Total header stays unchanged in both modes
 }
 {% endif %}
 {% endif %}
