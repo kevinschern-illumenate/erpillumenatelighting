@@ -1999,8 +1999,11 @@ def validate_tape_neon_template_config(
         _include_ps = sel_dict.pop("include_power_supply", True)
         if isinstance(_include_ps, str):
             _include_ps = _include_ps.lower() not in ("0", "false", "no", "")
+        # validate_tape_configuration is whitelisted with a `selections: str`
+        # annotation enforced by Frappe's typing validation, so re-serialize
+        # the dict back to JSON rather than passing the dict directly.
         result = validate_tape_configuration(
-            sel_dict,
+            json.dumps(sel_dict),
             _skip_record_creation=True,
             tape_neon_template=template.name,
             include_power_supply=bool(_include_ps),
