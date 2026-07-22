@@ -118,7 +118,7 @@
       "required": true,
       "filters": { "attribute": "cct" },
       "visibleWhen": { "all": [{ "q": "light_type", "in": ["Static white", "Dim-to-warm"] }] },
-      "skipWhen": { "any": [{ "q": "light_type", "eq": "Full-color" }] },
+      "skipWhen": { "_note": "Hidden for now — remove this skipWhen to re-enable; original: any light_type eq Full-color", "all": [] },
       "options": [
         { "value": "2700K", "label": "2700K — warm", "color": "#ff9800" },
         { "value": "3000K", "label": "3000K — warm-neutral", "color": "#ffc107" },
@@ -167,6 +167,7 @@
       "glossaryKey": "run_length",
       "type": "number",
       "required": true,
+      "skipWhen": { "_note": "Hidden for now — remove this skipWhen to re-enable", "all": [] },
       "min": 1,
       "max": 500,
       "step": 1,
@@ -180,6 +181,7 @@
       "glossaryKey": "run_length",
       "type": "single",
       "required": false,
+      "skipWhen": { "_note": "Hidden for now — remove this skipWhen to re-enable", "all": [] },
       "options": [
         { "value": "Yes", "label": "Yes — one continuous run", "imageId": "continuous-run-yes", "color": "#c8e6c9" },
         { "value": "No", "label": "No — multiple segments", "imageId": "continuous-run-no", "color": "#ffccbc" }
@@ -192,6 +194,7 @@
       "glossaryKey": "power_injection",
       "type": "info",
       "required": false,
+      "skipWhen": { "_note": "Hidden for now — remove this skipWhen to re-enable", "all": [] },
       "visibleWhen": { "all": [{ "q": "run_length", "gt": 0 }] }
     },
     {
