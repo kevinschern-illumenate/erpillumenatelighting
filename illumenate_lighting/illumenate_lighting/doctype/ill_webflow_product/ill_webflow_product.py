@@ -1276,6 +1276,8 @@ class ilLWebflowProduct(Document):
 			self._calculate_driver_specs()
 		elif self.product_type == "Controller" and self.controller_spec:
 			self._calculate_controller_specs()
+		elif self.product_type == "LED Sheet" and self.led_sheet_template:
+			self._calculate_led_sheet_specs()
 		elif self.product_type == "LED Tape" and self.tape_spec:
 			self._calculate_tape_specs()
 		elif self.product_type in ["Component", "Extrusion Kit"] and self.profile_spec:
@@ -1817,6 +1819,67 @@ class ilLWebflowProduct(Document):
 				})
 
 		# Clear existing calculated specs and add new ones
+		self.specifications = [
+			s for s in (self.specifications or [])
+			if not s.is_calculated
+		]
+		for spec in specs_to_add:
+			self.append("specifications", spec)
+
+	def _calculate_led_sheet_specs(self):
+		"""Calculate specs from the linked LED Sheet template's allowed_specs.
+
+		Mirrors _enrich_led_sheet_template_specs() in webflow_export.py so the
+		persisted Desk-form "Specifications" section matches what the Webflow
+		sync will emit. Only active allowed_specs rows pointing at existing
+		ilL-Spec-LED-Sheet docs with non-empty computed values contribute rows.
+		"""
+		try:
+			template = frappe.get_doc("ilL-LED-Sheet-Template", self.led_sheet_template)
+		except frappe.DoesNotExistError:
+			return
+
+		spec_names = [
+			row.spec for row in (template.allowed_specs or [])
+			if getattr(row, "spec", None) and getattr(row, "is_active", 1)
+		]
+		spec_docs = [
+			frappe.get_doc("ilL-Spec-LED-Sheet", name)
+			for name in spec_names
+			if frappe.db.exists("ilL-Spec-LED-Sheet", name)
+		]
+
+		wattages = sorted({str(getattr(d, "total_sheet_watts", "")) for d in spec_docs if getattr(d, "total_sheet_watts", None)})
+		lumens = sorted({str(getattr(d, "total_sheet_lumens", "")) for d in spec_docs if getattr(d, "total_sheet_lumens", None)})
+		areas = sorted({str(getattr(d, "sheet_area_sqft", "")) for d in spec_docs if getattr(d, "sheet_area_sqft", None)})
+		voltages = sorted({str(getattr(d, "input_voltage", "")) for d in spec_docs if getattr(d, "input_voltage", None)})
+		ip_ratings = sorted({str(getattr(d, "ip_rating", "")) for d in spec_docs if getattr(d, "ip_rating", None)})
+		cri_values = sorted({str(getattr(d, "cri", "")) for d in spec_docs if getattr(d, "cri", None)})
+
+		specs_to_add = []
+
+		def add(label, group, value, unit="", order=50, attr_doctype=None):
+			if value:
+				specs_to_add.append({
+					"spec_group": group,
+					"spec_label": label,
+					"spec_value": value,
+					"spec_unit": unit,
+					"is_calculated": 1,
+					"display_order": order,
+					"attribute_doctype": attr_doctype,
+				})
+
+		# NOTE: spec_group must be a valid ilL-Child-Webflow-Specification Select
+		# value (Electrical, Physical, Performance, Optical, Control, Environmental).
+		add("Sheet Wattage", "Electrical", ", ".join(wattages), "W", 30)
+		add("Sheet Area", "Physical", ", ".join(areas), "sq ft", 35)
+		add("Sheet Lumens", "Optical", ", ".join(lumens), "lm", 40)
+		add("Input Voltage", "Electrical", ", ".join(voltages), "", 25, "ilL-Attribute-Output Voltage")
+		add("Color Rendering", "Optical", ", ".join(cri_values), "CRI", 55)
+		add("IP Rating", "Environmental", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
+		add("Warranty", "Performance", getattr(template, "warranty", None), "", 90)
+
 		self.specifications = [
 			s for s in (self.specifications or [])
 			if not s.is_calculated

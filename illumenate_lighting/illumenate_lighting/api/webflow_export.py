@@ -1104,11 +1104,69 @@ def _get_series_webflow_item_id(series_name: str) -> str:
 # ============================================================
 
 
+@frappe.whitelist(allow_guest=False)
+def preview_specifications(webflow_product: str) -> dict:
+    """Debug endpoint: run just the spec-enrichment step for one product.
+
+    Returns the fully-enriched specifications list plus any non-fatal warnings
+    raised during enrichment, without performing a Webflow sync. Use this to
+    diagnose "product syncs but the Specifications section is silently empty"
+    bugs directly from the Desk UI or Postman.
+
+    Args:
+        webflow_product: Name of the ilL-Webflow-Product record.
+
+    Returns:
+        dict: {"webflow_product", "product_type", "specifications", "warnings"}
+    """
+    doc = frappe.get_doc("ilL-Webflow-Product", webflow_product)
+
+    product = {
+        "name": doc.name,
+        "product_name": doc.product_name,
+        "product_type": doc.product_type,
+        "fixture_template": doc.get("fixture_template"),
+        "driver_spec": doc.get("driver_spec"),
+        "controller_spec": doc.get("controller_spec"),
+        "tape_spec": doc.get("tape_spec"),
+        "tape_neon_template": doc.get("tape_neon_template"),
+        "led_sheet_template": doc.get("led_sheet_template"),
+        "profile_spec": doc.get("profile_spec"),
+        "specifications": [],
+    }
+
+    for s in doc.specifications:
+        product["specifications"].append({
+            "spec_group": s.spec_group,
+            "spec_label": s.spec_label,
+            "spec_value": s.spec_value,
+            "spec_unit": s.spec_unit,
+            "is_calculated": s.is_calculated,
+            "display_order": s.display_order,
+            "show_on_card": s.show_on_card,
+            "attribute_doctype": s.attribute_doctype,
+            "attribute_options_json": s.attribute_options_json,
+        })
+
+    _enrich_specifications_from_linked_doctypes(product, doc)
+
+    return {
+        "webflow_product": doc.name,
+        "product_type": doc.product_type,
+        "specifications": product["specifications"],
+        "warnings": product.get("_spec_warnings", []),
+    }
+
+
 def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
     """Enrich the product specifications list with data from linked doctypes.
 
     Adds missing spec entries for: Color Rendering (CRI), Input Voltage,
     Dimensions, Dimming, Production Interval, and Certifications & Ratings.
+
+    Any product whose product_type expects a source template/spec link but has
+    none set records a non-fatal warning (via ``_record_spec_warning``) and a
+    ``frappe.log_error`` entry instead of silently producing zero specs.
     """
     existing_labels = {s["spec_label"] for s in product["specifications"]}
     additional_specs = []
@@ -1143,6 +1201,32 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         additional_specs.extend(
             _enrich_profile_specs(product, existing_labels)
         )
+    else:
+        # No enrichment branch matched. If this product_type is expected to
+        # derive its specs from a source link but that link is missing, warn
+        # loudly instead of silently emitting zero additional specs.
+        expected_links = {
+            "Fixture Template": ["fixture_template"],
+            "Driver": ["driver_spec"],
+            "Controller": ["controller_spec"],
+            "LED Tape": ["tape_neon_template", "tape_spec"],
+            "LED Neon": ["tape_neon_template"],
+            "LED Sheet": ["led_sheet_template"],
+            "Component": ["profile_spec"],
+            "Extrusion Kit": ["profile_spec"],
+        }.get(product_type)
+        if (
+            product_type
+            and expected_links
+            and not any(product.get(field) for field in expected_links)
+        ):
+            msg = (
+                f"Webflow product '{product.get('name')}' (type '{product_type}') "
+                f"has no source link set ({' or '.join(expected_links)}); "
+                f"specifications could not be enriched from a linked template/spec."
+            )
+            _record_spec_warning(product, msg)
+            frappe.log_error(message=msg, title="Webflow Spec Enrichment Skipped")
 
     # Certifications & Ratings (icons) — applies to all product types
     if "Certifications & Ratings" not in existing_labels:
@@ -1151,6 +1235,17 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
             additional_specs.append(cert_spec)
 
     product["specifications"].extend(additional_specs)
+
+
+def _record_spec_warning(product: dict, message: str) -> None:
+    """Append a non-fatal spec-enrichment warning to the product payload.
+
+    Warnings are surfaced by the ``preview_specifications`` debug endpoint so
+    silent "product syncs but a section is empty" bugs can be diagnosed without
+    a full n8n round-trip.
+    """
+    product.setdefault("_spec_warnings", []).append(message)
+
 
 
 def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
@@ -1575,15 +1670,42 @@ def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
 
 
 def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> list:
-    """Add missing specs for LED Sheet products linked via led_sheet_template."""
+    """Add missing specs for LED Sheet products linked via led_sheet_template.
+
+    Emits a non-fatal warning (via ``_record_spec_warning``) whenever the chain
+    of allowed_specs → active rows → populated ilL-Spec-LED-Sheet values is
+    broken, so an empty specifications section is never produced silently.
+    """
     specs = []
     try:
         template = frappe.get_doc("ilL-LED-Sheet-Template", product["led_sheet_template"])
     except frappe.DoesNotExistError:
+        _record_spec_warning(
+            product,
+            f"LED Sheet template '{product.get('led_sheet_template')}' does not exist "
+            f"for product '{product.get('name')}'.",
+        )
         return specs
 
-    spec_names = [row.spec for row in (template.allowed_specs or []) if getattr(row, "spec", None)]
-    if not spec_names:
+    all_rows = template.allowed_specs or []
+    if not all_rows:
+        _record_spec_warning(
+            product,
+            f"LED Sheet template '{template.name}' has an empty allowed_specs table; "
+            f"no specifications generated for product '{product.get('name')}'.",
+        )
+        return specs
+
+    active_rows = [
+        row for row in all_rows
+        if getattr(row, "spec", None) and getattr(row, "is_active", 1)
+    ]
+    if not active_rows:
+        _record_spec_warning(
+            product,
+            f"LED Sheet template '{template.name}' has {len(all_rows)} allowed_specs "
+            f"row(s) but none are active with a valid spec link.",
+        )
         return specs
 
     def add(label, group, value, unit="", order=50, attr_doctype=""):
@@ -1601,13 +1723,32 @@ def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> lis
                 "attribute_options": [],
             })
 
-    spec_docs = [frappe.get_doc("ilL-Spec-LED-Sheet", name) for name in spec_names if frappe.db.exists("ilL-Spec-LED-Sheet", name)]
+    spec_docs = []
+    for row in active_rows:
+        if frappe.db.exists("ilL-Spec-LED-Sheet", row.spec):
+            spec_docs.append(frappe.get_doc("ilL-Spec-LED-Sheet", row.spec))
+        else:
+            _record_spec_warning(
+                product,
+                f"LED Sheet spec '{row.spec}' referenced by template "
+                f"'{template.name}' does not exist.",
+            )
+
     wattages = sorted({str(getattr(d, "total_sheet_watts", "")) for d in spec_docs if getattr(d, "total_sheet_watts", None)})
     lumens = sorted({str(getattr(d, "total_sheet_lumens", "")) for d in spec_docs if getattr(d, "total_sheet_lumens", None)})
     areas = sorted({str(getattr(d, "sheet_area_sqft", "")) for d in spec_docs if getattr(d, "sheet_area_sqft", None)})
     voltages = sorted({str(getattr(d, "input_voltage", "")) for d in spec_docs if getattr(d, "input_voltage", None)})
     ip_ratings = sorted({str(getattr(d, "ip_rating", "")) for d in spec_docs if getattr(d, "ip_rating", None)})
     cri_values = sorted({str(getattr(d, "cri", "")) for d in spec_docs if getattr(d, "cri", None)})
+    warranty = getattr(template, "warranty", None)
+
+    if not any([wattages, lumens, areas, voltages, ip_ratings, cri_values, warranty]):
+        _record_spec_warning(
+            product,
+            f"LED Sheet specs for template '{template.name}' produced no non-empty "
+            f"values (check total_sheet_watts / total_sheet_lumens / sheet_area_sqft / "
+            f"input_voltage / cri / ip_rating on the linked ilL-Spec-LED-Sheet docs).",
+        )
 
     add("Sheet Wattage", "Electrical", ", ".join(wattages), "W", 30)
     add("Sheet Lumens", "Optical", ", ".join(lumens), "lm", 40)
@@ -1615,7 +1756,7 @@ def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> lis
     add("Input Voltage", "Electrical", ", ".join(voltages), "", 25, "ilL-Attribute-Output Voltage")
     add("Color Rendering", "Optical", ", ".join(cri_values), "CRI", 55)
     add("IP Rating", "Certifications & Ratings", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
-    add("Warranty", "Warranty", getattr(template, "warranty", None), "", 90)
+    add("Warranty", "Warranty", warranty, "", 90)
     return specs
 
 def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=None) -> list:
