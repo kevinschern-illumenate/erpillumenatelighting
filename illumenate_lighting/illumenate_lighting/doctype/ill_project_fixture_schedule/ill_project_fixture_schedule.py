@@ -1030,9 +1030,11 @@ class ilLProjectFixtureSchedule(Document):
 		"""
 		Move a schedule line from one position to another.
 
-		Frappe re-numbers child-table ``idx`` sequentially based on the
-		in-memory list order on save, so a plain pop/insert on ``self.lines``
-		followed by ``save()`` is all that's needed to persist the new order.
+		After reordering the in-memory list, each child row's ``idx`` is
+		explicitly renumbered (1-based) so the new order is persisted on
+		``save()``. Frappe orders child rows by ``idx`` on load, so simply
+		reordering the Python list is not enough — the ``idx`` values must be
+		reassigned to match the new positions.
 
 		Args:
 			from_idx: Current index of the line to move
@@ -1054,6 +1056,11 @@ class ilLProjectFixtureSchedule(Document):
 
 		line = self.lines.pop(from_idx)
 		self.lines.insert(to_idx, line)
+
+		# Renumber idx to persist the new order.
+		for position, row in enumerate(self.lines):
+			row.idx = position + 1
+
 		self.save()
 
 		return to_idx
