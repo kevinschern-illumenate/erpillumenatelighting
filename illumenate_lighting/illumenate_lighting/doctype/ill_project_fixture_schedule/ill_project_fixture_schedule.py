@@ -1025,6 +1025,39 @@ class ilLProjectFixtureSchedule(Document):
 
 		return len(self.lines) - 1
 
+	@frappe.whitelist()
+	def move_line(self, from_idx, to_idx):
+		"""
+		Move a schedule line from one position to another.
+
+		Frappe re-numbers child-table ``idx`` sequentially based on the
+		in-memory list order on save, so a plain pop/insert on ``self.lines``
+		followed by ``save()`` is all that's needed to persist the new order.
+
+		Args:
+			from_idx: Current index of the line to move
+			to_idx: Target index to insert the line at
+
+		Returns:
+			int: The target index the line was moved to
+		"""
+		from_idx = int(from_idx)
+		to_idx = int(to_idx)
+
+		if from_idx < 0 or from_idx >= len(self.lines):
+			frappe.throw(_("Invalid source line index"))
+		if to_idx < 0 or to_idx >= len(self.lines):
+			frappe.throw(_("Invalid target line index"))
+
+		if from_idx == to_idx:
+			return to_idx
+
+		line = self.lines.pop(from_idx)
+		self.lines.insert(to_idx, line)
+		self.save()
+
+		return to_idx
+
 	def _build_item_description(self, line, configured_fixture):
 		"""Build a descriptive text for the SO item."""
 		parts = []

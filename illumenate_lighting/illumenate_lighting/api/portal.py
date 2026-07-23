@@ -1518,6 +1518,60 @@ def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 
 
 @frappe.whitelist()
+def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
+	"""
+	Move (reorder) a line in a fixture schedule.
+
+	Args:
+		schedule_name: Name of the schedule
+		from_idx: Current index of the line to move
+		to_idx: Target index to insert the line at
+
+	Returns:
+		dict: {"success": True/False, "to_idx": index, "error": "message if error"}
+	"""
+	# Validate schedule exists
+	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		return {"success": False, "error": "Schedule not found"}
+
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+
+	# Check permission
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission,
+	)
+
+	if not has_permission(schedule, "write", frappe.session.user):
+		return {"success": False, "error": "You don't have permission to edit this schedule"}
+
+	# Check if schedule is locked
+	if schedule.get("is_locked"):
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
+	# Validate status
+	if schedule.status not in ["DRAFT", "READY"]:
+		return {"success": False, "error": "Cannot reorder lines in a schedule in this status"}
+
+	try:
+		from_idx = int(from_idx)
+		to_idx = int(to_idx)
+	except (ValueError, TypeError):
+		return {"success": False, "error": "Invalid line index"}
+
+	if from_idx < 0 or from_idx >= len(schedule.lines):
+		return {"success": False, "error": "Invalid source line index"}
+	if to_idx < 0 or to_idx >= len(schedule.lines):
+		return {"success": False, "error": "Invalid target line index"}
+
+	try:
+		# Call the DocType method to move the line
+		new_idx = schedule.move_line(from_idx, to_idx)
+		return {"success": True, "to_idx": new_idx}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str, dict]) -> dict:
 	"""
 	Update an existing line in a fixture schedule.
