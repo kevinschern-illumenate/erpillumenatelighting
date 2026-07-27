@@ -391,6 +391,7 @@ def get_tape_cascading_options(
 @frappe.whitelist()
 def validate_tape_configuration(
     selections: str,
+    segments_json: str | None = None,
     _skip_record_creation: bool = False,
     parent_configured_tape_neon: str | None = None,
     include_power_supply: bool = True,
@@ -420,6 +421,17 @@ def validate_tape_configuration(
       - mounting_accessory_unit_msrp  (float)
       - mounting_accessory_total_msrp (float)
 
+    Optional segments list (jumper-chained tape runs).  When supplied the flat
+    `tape_length_*` keys on `selections` are ignored and each segment carries
+    its own length + end configuration:
+      - tape_length_value / tape_length_unit / tape_length_feet / tape_length_inches
+      - start_feed_direction     (str) – first segment only; later segments
+                                        inherit the prior segment's jumper
+      - start_lead_length_inches (float)
+      - end_type                 (str) – "Endcap" or "Jumper"
+      - end_feed_direction       (str) – when end_type is "Jumper"
+      - end_feed_length_inches   (float) – jumper cable length
+
     Returns:
       - is_valid
       - part_number
@@ -433,6 +445,11 @@ def validate_tape_configuration(
         sel = json.loads(selections) if isinstance(selections, str) else selections
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid selections JSON"}
+
+    try:
+        segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
+    except json.JSONDecodeError:
+        return {"success": False, "is_valid": False, "error": "Invalid segments JSON"}
 
     # Normalise stringy booleans (Frappe sends HTTP query params as strings)
     if isinstance(_skip_record_creation, str):
@@ -474,16 +491,17 @@ def validate_tape_configuration(
             "missing_fields": missing,
         }
 
-    # ── Parse requested tape length (optional) ────────────────────────
-    requested_length_mm = _parse_tape_length(sel)
-    logger.info(f"validate_tape: parsed tape length = {requested_length_mm} mm")
-    if requested_length_mm is None or requested_length_mm <= 0:
-        # Length is optional; treat missing/zero as "not specified".
-        requested_length_mm = 0
+    # ── Normalise segments ────────────────────────────────────────────
+    # Legacy callers send a single flat length payload on `selections`;
+    # the configurator sends a `segments` array when runs are chained with
+    # jumper cables.  Both shapes normalise to the same list.
+    tape_segments = _normalize_tape_segments(sel, segments)
+    is_multi_segment = len(tape_segments) > 1
+    logger.info(f"validate_tape: processing {len(tape_segments)} tape segment(s)")
 
     # Lead length is optional; default to 0 (no leader cable).
     try:
-        lead_length_inches = float(sel.get("lead_length_inches") or 0)
+        lead_length_inches = float(tape_segments[0].get("start_lead_length_inches") or 0)
     except (TypeError, ValueError):
         lead_length_inches = 0.0
     if lead_length_inches < 0:
@@ -537,41 +555,127 @@ def validate_tape_configuration(
     tape_spec = next(s for s in all_matching_specs if s.name == tape_offering.tape_spec)
     logger.info(f"validate_tape: resolved tape spec = {tape_spec.name} from offering")
 
-    # ── Compute manufacturable length ─────────────────────────────────
+    # ── Compute manufacturable length (per segment) ───────────────────
     is_free_cutting = tape_spec.is_free_cutting
     cut_increment_mm = tape_spec.cut_increment_mm or 0
-
-    if requested_length_mm <= 0:
-        # Length not specified — skip cut-increment math and emit zero.
-        manufacturable_length_mm = 0
-    elif is_free_cutting or cut_increment_mm <= 0:
-        manufacturable_length_mm = requested_length_mm
-    else:
-        # Snap to nearest cut increment
-        increments = math.floor(requested_length_mm / cut_increment_mm)
-        if increments < 1:
-            increments = 1
-        manufacturable_length_mm = increments * cut_increment_mm
-
-    difference_mm = requested_length_mm - manufacturable_length_mm
-
-    # Warn if there's a length difference
-    if abs(difference_mm) > 0.5:
-        diff_in = difference_mm / MM_PER_INCH
-        messages.append({
-            "severity": "warning",
-            "text": (
-                f"Requested length adjusted by {abs(diff_in):.2f}\" "
-                f"({abs(difference_mm):.1f} mm) to fit the nearest cut increment "
-                f"of {cut_increment_mm:.1f} mm."
-            ),
-            "field": "tape_length",
-        })
-
-    # ── Run splitting ─────────────────────────────────────────────────
     watts_per_ft = float(tape_spec.watts_per_foot or 0)
     voltage_drop_max_run_ft = float(tape_spec.voltage_drop_max_run_length_ft or 0)
 
+    computed_segments = []
+    requested_length_mm = 0.0
+    manufacturable_length_mm = 0.0
+
+    for idx, seg in enumerate(tape_segments):
+        seg_num = idx + 1
+
+        seg_requested_mm = _parse_tape_length(seg)
+        if seg_requested_mm is None or seg_requested_mm <= 0:
+            # Length is optional; treat missing/zero as "not specified".
+            seg_requested_mm = 0
+
+        if seg_requested_mm <= 0:
+            # Length not specified — skip cut-increment math and emit zero.
+            seg_mfg_mm = 0
+        elif is_free_cutting or cut_increment_mm <= 0:
+            seg_mfg_mm = seg_requested_mm
+        else:
+            # Snap to nearest cut increment
+            increments = math.floor(seg_requested_mm / cut_increment_mm)
+            if increments < 1:
+                increments = 1
+            seg_mfg_mm = increments * cut_increment_mm
+
+        seg_diff_mm = seg_requested_mm - seg_mfg_mm
+
+        # Warn if there's a length difference
+        if abs(seg_diff_mm) > 0.5:
+            diff_in = seg_diff_mm / MM_PER_INCH
+            if is_multi_segment:
+                text = (
+                    f"Segment {seg_num}: Length adjusted by {abs(diff_in):.2f}\" "
+                    f"({abs(seg_diff_mm):.1f} mm) to fit the nearest cut increment "
+                    f"of {cut_increment_mm:.1f} mm."
+                )
+            else:
+                text = (
+                    f"Requested length adjusted by {abs(diff_in):.2f}\" "
+                    f"({abs(seg_diff_mm):.1f} mm) to fit the nearest cut increment "
+                    f"of {cut_increment_mm:.1f} mm."
+                )
+            messages.append({
+                "severity": "warning",
+                "text": text,
+                "field": "tape_length" if not is_multi_segment else f"segment_{seg_num}_length",
+            })
+
+        # ── Run splitting (per segment) ───────────────────────────────
+        seg_run_split = _compute_run_split(
+            tape_length_mm=seg_mfg_mm,
+            watts_per_ft=watts_per_ft,
+            voltage_drop_max_run_ft=voltage_drop_max_run_ft,
+            cut_increment_mm=cut_increment_mm if not is_free_cutting else 0,
+            is_free_cutting=bool(is_free_cutting),
+            override_max_run_ft=override_max_run_ft,
+        )
+
+        if seg_run_split["runs_count"] > 1:
+            if is_multi_segment:
+                text = (
+                    f"Segment {seg_num}: Length exceeds the maximum run of "
+                    f"{seg_run_split['max_run_ft_effective']:.1f} ft. "
+                    f"Splitting into {seg_run_split['runs_count']} equal runs."
+                )
+            else:
+                text = (
+                    f"Requested length exceeds the maximum run of "
+                    f"{seg_run_split['max_run_ft_effective']:.1f} ft. "
+                    f"Splitting into {seg_run_split['runs_count']} equal segments."
+                )
+            messages.append({
+                "severity": "info",
+                "text": text,
+                "field": "tape_length" if not is_multi_segment else f"segment_{seg_num}_length",
+            })
+
+        requested_length_mm += seg_requested_mm
+        manufacturable_length_mm += seg_mfg_mm
+
+        computed_segments.append({
+            "segment_index": seg_num,
+            "requested_length_mm": round(seg_requested_mm, 1),
+            "requested_length_in": round(seg_requested_mm / MM_PER_INCH, 2),
+            "manufacturable_length_mm": round(seg_mfg_mm, 1),
+            "manufacturable_length_in": round(seg_mfg_mm / MM_PER_INCH, 2),
+            "difference_mm": round(seg_diff_mm, 1),
+            "start_feed_direction": seg.get("start_feed_direction"),
+            "start_lead_length_inches": float(seg.get("start_lead_length_inches") or 0),
+            "end_type": seg.get("end_type") or "Endcap",
+            "end_feed_direction": seg.get("end_feed_direction") or "",
+            "end_feed_length_inches": float(seg.get("end_feed_length_inches") or 0),
+            "runs_count": seg_run_split["runs_count"],
+            "runs": seg_run_split["runs"],
+            "leader_qty": seg_run_split["runs_count"],
+        })
+
+    difference_mm = requested_length_mm - manufacturable_length_mm
+
+    # ── Aggregate run-split data across all segments ──────────────────
+    total_runs_count = sum(s["runs_count"] for s in computed_segments)
+    all_runs = []
+    run_offset = 0
+    for cseg in computed_segments:
+        for run in cseg["runs"]:
+            run_offset += 1
+            all_runs.append({
+                "run_index": run_offset,
+                "segment_index": cseg["segment_index"],
+                "run_len_mm": run["run_len_mm"],
+                "run_len_in": run["run_len_in"],
+                "run_len_ft": run["run_len_ft"],
+                "run_watts": run["run_watts"],
+            })
+
+    # Overall run-split metadata (max-run limits are spec-level, not per segment)
     run_split = _compute_run_split(
         tape_length_mm=manufacturable_length_mm,
         watts_per_ft=watts_per_ft,
@@ -591,26 +695,18 @@ def validate_tape_configuration(
             "field": "override_max_run_ft",
         })
 
-    if run_split["runs_count"] > 1:
-        messages.append({
-            "severity": "info",
-            "text": (
-                f"Requested length exceeds the maximum run of "
-                f"{run_split['max_run_ft_effective']:.1f} ft. "
-                f"Splitting into {run_split['runs_count']} equal segments."
-            ),
-            "field": "tape_length",
-        })
-
     # ── Build part number ─────────────────────────────────────────────
-    part_number = _build_tape_part_number(sel, tape_spec, tape_offering, manufacturable_length_mm)
+    part_number = _build_tape_part_number(
+        sel, tape_spec, tape_offering, manufacturable_length_mm, computed_segments
+    )
 
     # ── Build description ─────────────────────────────────────────────
     mfg_length_in = manufacturable_length_mm / MM_PER_INCH
     mfg_length_ft = manufacturable_length_mm / MM_PER_FOOT
     build_description = _build_tape_description(sel, tape_spec, tape_offering,
                                                 manufacturable_length_mm,
-                                                lead_length_inches)
+                                                lead_length_inches,
+                                                computed_segments)
 
     # ── Resolved items ────────────────────────────────────────────────
     # The tape item is from the tape spec, leader cable item is also on the spec
@@ -636,10 +732,13 @@ def validate_tape_configuration(
             "lead_length_inches": lead_length_inches,
             "watts_per_foot": watts_per_ft,
             "total_watts": round((mfg_length_ft) * watts_per_ft, 2),
-            # Run splitting outputs
-            "runs_count": run_split["runs_count"],
-            "runs": run_split["runs"],
-            "leader_qty": run_split["runs_count"],
+            # Multi-segment (jumper-chained) outputs
+            "segment_count": len(computed_segments),
+            "segments": computed_segments,
+            # Run splitting outputs (aggregate across all segments)
+            "runs_count": total_runs_count,
+            "runs": all_runs,
+            "leader_qty": total_runs_count,
             "max_run_ft_by_watts": run_split["max_run_ft_by_watts"],
             "max_run_ft_by_voltage_drop": run_split["max_run_ft_by_voltage_drop"],
             "max_run_ft_effective": run_split["max_run_ft_effective"],
@@ -1957,7 +2056,9 @@ def validate_tape_neon_template_config(
     Args:
         template_code: The ilL-Tape-Neon-Template template_code
         selections: JSON string of configuration selections
-        segments_json: JSON string of neon segments (required for LED Neon)
+        segments_json: JSON string of segments — required for LED Neon,
+            optional for LED Tape (omitted by Bulk Reels and legacy callers,
+            which stay on the single flat length payload)
     """
     if not template_code:
         return {"success": False, "is_valid": False, "error": "template_code is required"}
@@ -2002,8 +2103,11 @@ def validate_tape_neon_template_config(
         # validate_tape_configuration is whitelisted with a `selections: str`
         # annotation enforced by Frappe's typing validation, so re-serialize
         # the dict back to JSON rather than passing the dict directly.
+        # segments_json is optional for tape: Bulk Reels and legacy callers
+        # send a single flat length payload instead.
         result = validate_tape_configuration(
             json.dumps(sel_dict),
+            segments_json=segments_json,
             _skip_record_creation=True,
             tape_neon_template=template.name,
             include_power_supply=bool(_include_ps),
@@ -2646,6 +2750,18 @@ def _create_or_reuse_configured_tape_neon(
             str(sel.get("lead_length_inches", "")),
             str(computed.get("manufacturable_length_mm", "")),
         ])
+        # Include jumper-chained segment details so two configurations with the
+        # same total length but different segment layouts stay distinct.
+        tape_segments = computed.get("segments", [])
+        if len(tape_segments) > 1:
+            for seg in tape_segments:
+                hash_parts.extend([
+                    str(seg.get("segment_index", "")),
+                    str(seg.get("manufacturable_length_mm", "")),
+                    seg.get("end_type", ""),
+                    seg.get("end_feed_direction", "") or "",
+                    str(seg.get("end_feed_length_inches", "")),
+                ])
 
     config_hash = hashlib.sha256("|".join(hash_parts).encode()).hexdigest()[:32]
 
@@ -2728,7 +2844,26 @@ def _create_or_reuse_configured_tape_neon(
         doc_data["difference_mm"] = computed.get("difference_mm", 0)
         doc_data["total_watts"] = computed.get("total_watts", 0)
         doc_data["assembly_mode"] = "ASSEMBLED"
-        doc_data["total_segments"] = 1
+
+        # Persist jumper-chained tape segments.  Single-segment tape keeps the
+        # historical shape (no child rows) so existing records are unaffected.
+        tape_segments = computed.get("segments", [])
+        doc_data["total_segments"] = len(tape_segments) or 1
+        if len(tape_segments) > 1:
+            doc_data["segments"] = [
+                {
+                    "segment_index": seg.get("segment_index"),
+                    "requested_length_mm": seg.get("requested_length_mm", 0),
+                    "manufacturable_length_mm": seg.get("manufacturable_length_mm", 0),
+                    "difference_mm": seg.get("difference_mm", 0),
+                    "start_feed_direction": _valid_feed_direction(seg.get("start_feed_direction")),
+                    "start_lead_length_inches": seg.get("start_lead_length_inches", 0),
+                    "end_feed_direction": _valid_feed_direction(seg.get("end_feed_direction")),
+                    "end_cable_length_inches": seg.get("end_feed_length_inches", 0),
+                    "end_type": seg.get("end_type", "Endcap"),
+                }
+                for seg in tape_segments
+            ]
 
     doc_data["cut_increment_mm"] = computed.get("cut_increment_mm", 0)
     doc_data["is_free_cutting"] = computed.get("is_free_cutting", False)
@@ -2957,6 +3092,43 @@ def _parse_tape_length(sel: dict) -> Optional[float]:
     else:  # "in" or default
         inches = float(sel.get("tape_length_value", 0) or 0)
         return inches * MM_PER_INCH
+
+
+def _normalize_tape_segments(sel: dict, segments: list | None) -> list:
+    """
+    Normalise a LED Tape configuration into a list of segments.
+
+    LED Tape used to be modelled as a single continuous run whose length lived
+    directly on `selections`.  The configurator can now chain runs together
+    with jumper cables and sends a `segments` array instead.  Both shapes are
+    reduced to the same list so the single-segment path behaves exactly as
+    before (Bulk Reels and other legacy callers never send segments).
+    """
+    if segments:
+        normalized = []
+        for idx, raw in enumerate(segments):
+            seg = dict(raw or {})
+            if idx == 0:
+                # The first segment's feed comes from the top-level selections
+                # when the caller did not repeat it on the segment itself.
+                if not seg.get("start_feed_direction"):
+                    seg["start_feed_direction"] = sel.get("feed_direction") or ""
+                if seg.get("start_lead_length_inches") in (None, ""):
+                    seg["start_lead_length_inches"] = sel.get("lead_length_inches") or 0
+            normalized.append(seg)
+        return normalized
+
+    return [{
+        "tape_length_value": sel.get("tape_length_value"),
+        "tape_length_unit": sel.get("tape_length_unit", "in"),
+        "tape_length_feet": sel.get("tape_length_feet"),
+        "tape_length_inches": sel.get("tape_length_inches"),
+        "start_feed_direction": sel.get("feed_direction") or "",
+        "start_lead_length_inches": sel.get("lead_length_inches") or 0,
+        "end_type": sel.get("end_type") or "Endcap",
+        "end_feed_direction": sel.get("end_feed_direction") or "",
+        "end_feed_length_inches": sel.get("end_feed_length_inches") or 0,
+    }]
 
 
 def _parse_neon_fixture_length(seg: dict) -> Optional[float]:
@@ -3197,6 +3369,15 @@ def _get_code(doctype: str, name: str, code_field: str = "code") -> str:
     return code or "xx"
 
 
+def _valid_feed_direction(direction: str | None) -> str | None:
+    """Return the feed direction only when it is a real ilL-Attribute-Feed-Direction."""
+    if not direction:
+        return None
+    if not frappe.db.exists("ilL-Attribute-Feed-Direction", direction):
+        return None
+    return direction
+
+
 def _get_feed_direction_code(direction: str) -> str:
     """Get the short code for a feed direction value."""
     if not direction:
@@ -3214,20 +3395,34 @@ def _get_feed_direction_code(direction: str) -> str:
     return direction_codes.get(direction, "X")
 
 
-def _build_tape_part_number(sel: dict, tape_spec, tape_offering, manufacturable_length_mm: float = 0) -> str:
+def _build_tape_part_number(
+    sel: dict,
+    tape_spec,
+    tape_offering,
+    manufacturable_length_mm: float = 0,
+    segments: list | None = None,
+) -> str:
     """
     Build LED Tape part number.
 
-    Format: {tape_spec_name}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
+    Single-segment (endcapped):
+        {tape_spec_name}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
+
+    Multi-segment (jumper-chained):
+        {tape_spec_name}-{total_length_inches}-J({hash})
 
     Uses the tape spec ID as the base, then appends the total manufacturable
     length in inches (or "xx" when the length is not yet specified), followed
     by an optional feed segment (feed-type code + leader cable length in feet)
-    and "C" for endcapped (tape is always single-segment/endcapped).
+    and "C" for endcapped.  Jumper-chained configurations replace the feed
+    segment and "C" with "-J({hash})", where the hash differentiates different
+    segment layouts that share the same total length.
 
     The feed segment is omitted entirely when neither a feed_type nor a
     non-zero lead_length_inches is supplied.
     """
+    import hashlib
+
     parts = [tape_spec.name]
 
     # Total length in inches (manufacturable) — "xx" when not specified.
@@ -3246,12 +3441,35 @@ def _build_tape_part_number(sel: dict, tape_spec, tape_offering, manufacturable_
         length_str = "xx"
     parts.append(length_str)
 
+    if segments and len(segments) > 1:
+        # Multi-segment → jumpered: J({hash})
+        seg_data = []
+        for seg in segments:
+            seg_data.append({
+                "segment_index": seg.get("segment_index"),
+                "manufacturable_length_in": seg.get("manufacturable_length_in"),
+                "start_feed_direction": seg.get("start_feed_direction", ""),
+                "start_lead_length_inches": seg.get("start_lead_length_inches", 0),
+                "end_type": seg.get("end_type", "Endcap"),
+                "end_feed_direction": seg.get("end_feed_direction", ""),
+                "end_feed_length_inches": seg.get("end_feed_length_inches", 0),
+            })
+        config_str = json.dumps(seg_data, sort_keys=True)
+        seg_hash = hashlib.sha256(config_str.encode()).hexdigest()[:4].upper()
+        parts.append(f"J({seg_hash})")
+        return "-".join(parts)
+
     # Feed direction code + leader cable length in feet (optional segment).
     feed_type = sel.get("feed_type", "")
     try:
         lead_length_in = float(sel.get("lead_length_inches") or 0)
     except (TypeError, ValueError):
         lead_length_in = 0.0
+    if not lead_length_in and segments:
+        try:
+            lead_length_in = float(segments[0].get("start_lead_length_inches") or 0)
+        except (TypeError, ValueError):
+            lead_length_in = 0.0
 
     if feed_type or lead_length_in > 0:
         feed_type_code = ""
@@ -3272,7 +3490,9 @@ def _build_tape_part_number(sel: dict, tape_spec, tape_offering, manufacturable_
     return "-".join(parts)
 
 
-def _build_tape_description(sel, tape_spec, tape_offering, mfg_length_mm, lead_length_in) -> str:
+def _build_tape_description(
+    sel, tape_spec, tape_offering, mfg_length_mm, lead_length_in, segments=None
+) -> str:
     """Build a human-readable description for LED Tape configuration."""
     lines = []
     lines.append(f"LED Tape: {tape_spec.name}")
@@ -3287,6 +3507,21 @@ def _build_tape_description(sel, tape_spec, tape_offering, mfg_length_mm, lead_l
     mfg_in = mfg_length_mm / MM_PER_INCH
     mfg_ft = mfg_length_mm / MM_PER_FOOT
     lines.append(f"Manufacturable Length: {mfg_in:.2f}\" ({mfg_ft:.2f} ft)")
+
+    if segments and len(segments) > 1:
+        lines.append(f"Segments: {len(segments)}")
+        for seg in segments:
+            seg_idx = seg.get("segment_index")
+            seg_in = seg.get("manufacturable_length_in", 0)
+            end_type = seg.get("end_type", "Endcap")
+            if end_type == "Jumper":
+                end_desc = (
+                    f"Jumper {seg.get('end_feed_direction') or '-'} "
+                    f"{seg.get('end_feed_length_inches', 0)}\""
+                )
+            else:
+                end_desc = "Endcap"
+            lines.append(f"Seg {seg_idx}: {seg_in}\" | End: {end_desc}")
 
     if tape_spec.is_free_cutting:
         lines.append("Cutting: Free cutting (no cut increment)")

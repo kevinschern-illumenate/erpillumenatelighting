@@ -195,6 +195,18 @@ Allows users to configure fixtures using segment-based configuration
 .neon-segment-card .card-body {
 	padding: 0.75rem 1rem;
 }
+.tape-segment-card {
+	border: 1px solid #dee2e6;
+	border-radius: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+.tape-segment-card .card-header {
+	background-color: #f8f9fa;
+	padding: 0.5rem 1rem;
+}
+.tape-segment-card .card-body {
+	padding: 0.75rem 1rem;
+}
 /* Bulk reel mode */
 #tapeModeToggleCard {
 	background: #f8f9fa;
@@ -463,97 +475,15 @@ Allows users to configure fixtures using segment-based configuration
 
 			<!-- LED Tape: Feed & Length Card (Custom Length Mode) -->
 			<div class="card mb-3" id="tapeLengthCard" style="{% if not has_templates %}display: block;{% else %}display: none;{% endif %}">
-				<div class="card-header">
+				<div class="card-header d-flex justify-content-between align-items-center">
 					<h5 class="mb-0">{{ _("Feed & Tape Length") }}</h5>
+					<span class="badge badge-info" id="tapeSegmentCountBadge">0 {{ _("runs") }}</span>
 				</div>
 				<div class="card-body tape-length-section">
-					<div class="row">
-						<div class="col-md-6">
-							<div class="form-group">
-								<label class="small font-weight-bold">{{ _("Start Feed Direction") }} <span class="text-danger">*</span></label>
-								<div class="pill-selector" data-field="tn_start_feed_direction"></div>
-								<select class="form-control select-fallback" name="tn_start_feed_direction">
-									<option value="End" selected>End Feed</option>
-								</select>
-							</div>
-						</div>
-					</div>
-					<div class="row">
-						<div class="col-md-6">
-							<div class="form-group">
-								<label class="small font-weight-bold">{{ _("Lead Length (inches)") }} <span class="text-danger">*</span></label>
-								<input type="number" class="form-control" name="tn_lead_length_inches" value="12" min="1" step="0.5">
-							</div>
-						</div>
-					</div>
-					<hr>
-					<div class="row">
-						<div class="col-md-4">
-							<div class="form-group">
-								<label class="small font-weight-bold">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
-								<input type="number" class="form-control" name="tn_tape_length_value" min="0.1" step="0.1" required placeholder="e.g., 48">
-							</div>
-						</div>
-						<div class="col-md-3">
-							<div class="form-group">
-								<label class="small">{{ _("Unit") }}</label>
-								<select class="form-control" name="tn_tape_length_unit">
-									<option value="in" selected>inches</option>
-									<option value="ft">feet</option>
-									<option value="ft_in">feet + inches</option>
-								</select>
-							</div>
-						</div>
-						<!-- Feet + Inches (shown when unit is ft_in) -->
-						<div class="col-md-5 tn-ft-in-row" style="display: none;">
-							<div class="row">
-								<div class="col-6">
-									<div class="form-group">
-										<label class="small">{{ _("Feet") }}</label>
-										<input type="number" class="form-control form-control-sm" name="tn_tape_length_feet" min="0" value="0">
-									</div>
-								</div>
-								<div class="col-6">
-									<div class="form-group">
-										<label class="small">{{ _("Inches") }}</label>
-										<input type="number" class="form-control form-control-sm" name="tn_tape_length_inches" min="0" max="11.99" step="0.1" value="0">
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<hr>
-					<!-- End type: Endcap or Jumper (for segment chaining) -->
-					<div class="form-group">
-						<label class="small font-weight-bold">{{ _("Segment End") }}</label>
-						<div class="end-type-toggle mb-2">
-							<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn active" data-type="Endcap" onclick="setTapeEndType('Endcap')">
-								<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
-							</button>
-							<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Jumper" onclick="setTapeEndType('Jumper')">
-								<i class="fa fa-link"></i> {{ _("Exit Feed / Jumper") }}
-							</button>
-						</div>
-						<input type="hidden" name="tn_end_type" value="Endcap">
-						<div class="tape-jumper-fields" style="display: none;">
-							<div class="row">
-								<div class="col-md-6">
-									<div class="form-group mb-2">
-										<label class="small">{{ _("Exit Feed Direction") }}</label>
-										<select class="form-control form-control-sm" name="tn_end_feed_direction">
-											<option value="End">End</option>
-										</select>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="form-group mb-2">
-										<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
-										<input type="number" class="form-control form-control-sm" name="tn_end_feed_length_inches" value="12" min="0" step="0.5">
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
+					<p class="text-muted small mb-3">
+						{{ _("Define each run of tape. End a run with an endcap to finish, or with a jumper cable to continue into another run.") }}
+					</p>
+					<div id="tapeSegmentsList"></div>
 				</div>
 			</div>
 
@@ -932,6 +862,118 @@ Allows users to configure fixtures using segment-based configuration
 	</div>
 </template>
 
+{% if is_tape %}
+<!-- Tape Segment (Run) Template -->
+<template id="tapeSegmentTemplate">
+	<div class="tape-segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Run") }} <span class="tape-segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-tape-segment-btn" onclick="removeTapeSegment(this)" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- Start Section -->
+			<div class="tape-segment-start mb-3">
+				<label class="small font-weight-bold">{{ _("Run Start") }}</label>
+				<div class="tape-first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Start Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="tape_start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Lead Length (in)") }} <span class="text-danger">*</span></label>
+								<input type="number" class="form-control form-control-sm" name="tape_start_lead_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="tape-inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="tape-inherited-text">{{ _("Inherited from prior run") }}</span>
+				</div>
+			</div>
+
+			<!-- Run Length -->
+			<div class="tape-segment-length mb-3">
+				<div class="row">
+					<div class="col-md-5">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="tape_length_value" min="0.1" step="0.1" required placeholder="e.g., 48">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="tape_length_unit">
+								<option value="in" selected>inches</option>
+								<option value="ft">feet</option>
+								<option value="ft_in">feet + inches</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row tape-ft-in-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="tape_length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="tape_length_inches" min="0" max="11.99" step="0.1" value="0">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="tape-segment-end">
+				<label class="small font-weight-bold">{{ _("Run End") }}</label>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Endcap" onclick="setTapeEndType(this, 'Endcap')">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Jumper" onclick="setTapeEndType(this, 'Jumper')">
+						<i class="fa fa-link"></i> {{ _("Exit Feed / Jumper") }}
+					</button>
+				</div>
+				<input type="hidden" name="tape_end_type" value="Endcap">
+
+				<div class="tape-endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Run will be capped with an endcap") }}
+					</div>
+				</div>
+
+				<div class="tape-jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Exit Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="tape_end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="tape_end_feed_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+{% endif %}
+
 {% if is_neon %}
 <!-- Neon Segment Template -->
 <template id="neonSegmentTemplate">
@@ -1111,6 +1153,7 @@ var bulkReelMode = false;         // Whether bulk reel mode is active (tape only
 var bulkReelCurrentResult = null; // Bulk reel validation result
 var bulkReelSelectedLength = null;// Selected bulk reel length in feet
 var neonSegmentCount = 0;         // Neon segment counter
+var tapeSegmentCount = 0;         // Tape run/segment counter (jumper chaining)
 var DEFAULT_FEED_DIRECTION = 'End Feed';  // Default feed direction for tape
 
 console.log('Configurator script loaded');
@@ -2707,6 +2750,9 @@ $(function() {
 			{% if is_tape %}
 			$('#tapeLengthCard').show();
 			$('#tapeModeToggleCard').show();
+			if (tapeSegmentCount === 0) {
+				addTapeSegment(true);
+			}
 			{% endif %}
 			{% if is_neon %}
 			$('#neonSegmentsCard').show();
@@ -2764,19 +2810,185 @@ $(document).on('keydown', '#categorySelector .pill-option[data-category]', funct
 // LED TAPE & LED NEON CONFIGURATOR (template-aware + spec-fallback)
 // ═════════════════════════════════════════════════════════════════════
 
-// ─── Tape end type toggle (endcap vs jumper) ─────────────────────────
-function setTapeEndType(type) {
-	var $endTypeInput = $('[name="tn_end_type"]');
-	$('.tape-end-type-btn').removeClass('active');
-	$('.tape-end-type-btn[data-type="' + type + '"]').addClass('active');
-	$endTypeInput.val(type);
-	if (type === 'Jumper') {
-		$('.tape-jumper-fields').show();
-	} else {
-		$('.tape-jumper-fields').hide();
+{% if is_tape %}
+// ═════════════════════════════════════════════════════════════════════
+// LED TAPE RUN / SEGMENT MANAGEMENT (jumper chaining)
+// ═════════════════════════════════════════════════════════════════════
+
+function tnPopulateTapeSegmentOptions(segmentCard) {
+	var opts = (tnTemplateOptions && tnTemplateOptions.options) || {};
+
+	// feed_directions = directional options (End, Back).
+	var feedDirs = opts.feed_directions || [{value: 'End', label: DEFAULT_FEED_DIRECTION}];
+	var startDirs = opts.start_feed_directions || feedDirs;
+	var endDirs = opts.end_feed_directions || feedDirs;
+
+	var startSelect = segmentCard.find('[name="tape_start_feed_direction"]');
+	if (startSelect.length) {
+		var prevStart = startSelect.val();
+		startSelect.empty();
+		startDirs.forEach(function(opt) {
+			startSelect.append('<option value="' + opt.value + '">' + (opt.label || opt.value) + '</option>');
+		});
+		if (prevStart) { startSelect.val(prevStart); }
 	}
+
+	var endSelect = segmentCard.find('[name="tape_end_feed_direction"]');
+	if (endSelect.length) {
+		var prevEnd = endSelect.val();
+		endSelect.empty();
+		endDirs.forEach(function(opt) {
+			endSelect.append('<option value="' + opt.value + '">' + (opt.label || opt.value) + '</option>');
+		});
+		if (prevEnd) { endSelect.val(prevEnd); }
+	}
+}
+
+function addTapeSegment(isFirst) {
+	tapeSegmentCount++;
+	var template = document.getElementById('tapeSegmentTemplate');
+	if (!template) return;
+	var clone = template.content.cloneNode(true);
+	var card = clone.querySelector('.tape-segment-card');
+
+	card.dataset.segmentIndex = tapeSegmentCount;
+	card.querySelector('.tape-segment-number').textContent = tapeSegmentCount;
+
+	if (isFirst) {
+		card.querySelector('.tape-first-segment-start').style.display = 'block';
+		card.querySelector('.tape-inherited-start').style.display = 'none';
+	} else {
+		card.querySelector('.tape-first-segment-start').style.display = 'none';
+		card.querySelector('.tape-inherited-start').style.display = 'block';
+		card.querySelector('.remove-tape-segment-btn').style.display = 'inline-block';
+
+		// Copy inherited info from the prior run's jumper
+		var priorSegment = $('#tapeSegmentsList .tape-segment-card').last();
+		if (priorSegment.length) {
+			var priorEndDir = priorSegment.find('[name="tape_end_feed_direction"]').val() || '';
+			var priorJumperIn = priorSegment.find('[name="tape_end_feed_length_inches"]').val() || '12';
+			card.dataset.inheritedFeedDirection = priorEndDir;
+			card.dataset.inheritedCableLength = priorJumperIn;
+			card.querySelector('.tape-inherited-text').textContent =
+				'From prior run: ' + priorEndDir + ', ' + priorJumperIn + '" jumper';
+		}
+	}
+
+	document.getElementById('tapeSegmentsList').appendChild(clone);
+
+	var segmentCard = $('#tapeSegmentsList .tape-segment-card').last();
+	tnPopulateTapeSegmentOptions(segmentCard);
+
+	// Default to Endcap
+	setTapeEndType(segmentCard.find('.tape-end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+
 	tnUpdateUI();
 }
+
+function removeTapeSegment(btn) {
+	var card = $(btn).closest('.tape-segment-card');
+	var index = parseInt(card.data('segment-index'));
+	if (index <= 1) return;
+
+	// Remove this and all following runs
+	$('#tapeSegmentsList .tape-segment-card').each(function() {
+		if (parseInt($(this).data('segment-index')) >= index) {
+			$(this).remove();
+			tapeSegmentCount--;
+		}
+	});
+
+	// Cap off the new last run
+	var lastSeg = $('#tapeSegmentsList .tape-segment-card').last();
+	if (lastSeg.length) {
+		setTapeEndType(lastSeg.find('.tape-end-type-btn[data-type="Endcap"]')[0], 'Endcap');
+	}
+
+	tnUpdateUI();
+}
+
+function setTapeEndType(btn, type) {
+	if (!btn) return;
+	var card = $(btn).closest('.tape-segment-card');
+	card.find('.tape-end-type-btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+	$(btn).removeClass('btn-outline-secondary').addClass('active btn-primary');
+	card.find('[name="tape_end_type"]').val(type);
+
+	var currentIndex = parseInt(card.data('segment-index'));
+
+	if (type === 'Endcap') {
+		card.find('.tape-endcap-fields').show();
+		card.find('.tape-jumper-fields').hide();
+
+		// Remove subsequent runs
+		$('#tapeSegmentsList .tape-segment-card').each(function() {
+			if (parseInt($(this).data('segment-index')) > currentIndex) {
+				$(this).remove();
+				tapeSegmentCount--;
+			}
+		});
+	} else {
+		card.find('.tape-endcap-fields').hide();
+		card.find('.tape-jumper-fields').show();
+
+		// Auto-add the next run
+		var hasNext = false;
+		$('#tapeSegmentsList .tape-segment-card').each(function() {
+			if (parseInt($(this).data('segment-index')) > currentIndex) hasNext = true;
+		});
+		if (!hasNext) {
+			setTimeout(function() { addTapeSegment(false); }, 100);
+		}
+	}
+
+	tnUpdateUI();
+}
+
+function tnCollectTapeSegments() {
+	var segments = [];
+	$('#tapeSegmentsList .tape-segment-card').each(function(index) {
+		var card = $(this);
+
+		var seg = {
+			tape_length_unit: card.find('[name="tape_length_unit"]').val() || 'in',
+			tape_length_value: parseFloat(card.find('[name="tape_length_value"]').val()) || 0,
+			tape_length_feet: parseFloat(card.find('[name="tape_length_feet"]').val()) || 0,
+			tape_length_inches: parseFloat(card.find('[name="tape_length_inches"]').val()) || 0,
+			end_type: card.find('[name="tape_end_type"]').val() || 'Endcap',
+			end_feed_direction: card.find('[name="tape_end_feed_direction"]').val() || '',
+			end_feed_length_inches: parseFloat(card.find('[name="tape_end_feed_length_inches"]').val()) || 0,
+		};
+
+		if (index === 0) {
+			seg.start_feed_direction = card.find('[name="tape_start_feed_direction"]').val() || '';
+			seg.start_lead_length_inches = parseFloat(card.find('[name="tape_start_lead_length_inches"]').val()) || 0;
+		} else {
+			seg.start_feed_direction = card[0].dataset.inheritedFeedDirection || '';
+			seg.start_lead_length_inches = parseFloat(card[0].dataset.inheritedCableLength) || 0;
+		}
+
+		segments.push(seg);
+	});
+	return segments;
+}
+
+// Keep the Calculate button in sync while the user types run lengths, and
+// toggle the feet+inches inputs per run.
+$(document).on('change', '#tapeSegmentsList [name="tape_length_unit"]', function() {
+	var card = $(this).closest('.tape-segment-card');
+	if ($(this).val() === 'ft_in') {
+		card.find('.tape-ft-in-row').show();
+		card.find('[name="tape_length_value"]').closest('.form-group').hide();
+	} else {
+		card.find('.tape-ft-in-row').hide();
+		card.find('[name="tape_length_value"]').closest('.form-group').show();
+	}
+	tnUpdateUI();
+});
+$(document).on('input change', '#tapeSegmentsList input, #tapeSegmentsList select', function() {
+	tnUpdateUI();
+});
+{% endif %}
 
 // ─── Spec-based init (no template needed) ────────────────────────────
 function tnLoadSpecOptions() {
@@ -2810,6 +3022,11 @@ $(function() {
 	{% if not has_templates %}
 	// No templates available – load spec-derived options immediately
 	tnLoadSpecOptions();
+	{% if is_tape %}
+	if (tapeSegmentCount === 0) {
+		addTapeSegment(true);
+	}
+	{% endif %}
 	{% if is_neon %}
 	if (neonSegmentCount === 0) {
 		addNeonSegment(true);
@@ -2833,6 +3050,9 @@ $(function() {
 					{% if is_tape %}
 					$('#tapeLengthCard').show();
 					$('#tapeModeToggleCard').show();
+					if (tapeSegmentCount === 0) {
+						addTapeSegment(true);
+					}
 					{% endif %}
 					{% if is_neon %}
 					$('#neonSegmentsCard').show();
@@ -2860,18 +3080,6 @@ $(function() {
 		}
 	});
 	{% endif %}
-
-	// Tape length unit toggle
-	$('select[name="tn_tape_length_unit"]').on('change', function() {
-		var unit = $(this).val();
-		if (unit === 'ft_in') {
-			$('.tn-ft-in-row').show();
-			$('[name="tn_tape_length_value"]').closest('.form-group').hide();
-		} else {
-			$('.tn-ft-in-row').hide();
-			$('[name="tn_tape_length_value"]').closest('.form-group').show();
-		}
-	});
 
 	// Cascading option change handlers for tape/neon
 	$('select[name="tn_environment_rating"]').on('change', function() {
@@ -3015,20 +3223,9 @@ function tnPopulateOptions(options) {
 	{% endif %}
 
 	{% if is_tape %}
-	// Populate start/end feed direction dropdowns for tape.
-	// feed_directions = directional options (End, Back).
-	// We prefer feed_directions but fall back to a sensible default.
-	var feedDirs = options.feed_directions || [
-		{value: 'End', label: DEFAULT_FEED_DIRECTION}
-	];
-	['tn_start_feed_direction', 'tn_end_feed_direction'].forEach(function(fieldName) {
-		var select = $('select[name="' + fieldName + '"]');
-		if (select.length) {
-			select.empty();
-			feedDirs.forEach(function(opt) {
-				select.append('<option value="' + opt.value + '">' + (opt.label || opt.value) + '</option>');
-			});
-		}
+	// Populate start/end feed direction dropdowns on each tape run card.
+	$('#tapeSegmentsList .tape-segment-card').each(function() {
+		tnPopulateTapeSegmentOptions($(this));
 	});
 	{% endif %}
 
@@ -3158,15 +3355,27 @@ function tnUpdateUI() {
 	var isComplete = false;
 
 	if (isTape) {
-		isComplete = (
+		var lastTapeSeg = $('#tapeSegmentsList .tape-segment-card').last();
+		var tapeSegmentsDone = lastTapeSeg.length && lastTapeSeg.find('[name="tape_end_type"]').val() === 'Endcap';
+		// Every run needs a positive length
+		var allTapeLengthsSet = tapeSegmentCount > 0;
+		$('#tapeSegmentsList .tape-segment-card').each(function() {
+			var card = $(this);
+			var unit = card.find('[name="tape_length_unit"]').val();
+			var hasLength = (parseFloat(card.find('[name="tape_length_value"]').val()) > 0) ||
+				(unit === 'ft_in' &&
+				 (parseFloat(card.find('[name="tape_length_feet"]').val()) > 0 ||
+				  parseFloat(card.find('[name="tape_length_inches"]').val()) > 0));
+			if (!hasLength) { allTapeLengthsSet = false; }
+		});
+		var firstTapeSeg = $('#tapeSegmentsList .tape-segment-card').first();
+		isComplete = !!(
 			$('select[name="tn_cct"]').val() &&
 			$('select[name="tn_output_level"]').val() &&
 			$('select[name="tn_pcb_finish"]').val() &&
-			parseFloat($('[name="tn_lead_length_inches"]').val()) > 0 &&
-			(parseFloat($('[name="tn_tape_length_value"]').val()) > 0 ||
-			 ($('[name="tn_tape_length_unit"]').val() === 'ft_in' &&
-			  (parseFloat($('[name="tn_tape_length_feet"]').val()) > 0 ||
-			   parseFloat($('[name="tn_tape_length_inches"]').val()) > 0)))
+			parseFloat(firstTapeSeg.find('[name="tape_start_lead_length_inches"]').val()) > 0 &&
+			allTapeLengthsSet &&
+			tapeSegmentsDone
 		);
 	} else if (isNeon) {
 		var lastSeg = $('#neonSegmentsList .neon-segment-card').last();
@@ -3191,6 +3400,11 @@ function tnUpdateUI() {
 	{% if is_neon %}
 	// Update neon segment count badge
 	$('#neonSegmentCountBadge').text(neonSegmentCount + ' segment' + (neonSegmentCount !== 1 ? 's' : ''));
+	{% endif %}
+
+	{% if is_tape %}
+	// Update tape run count badge
+	$('#tapeSegmentCountBadge').text(tapeSegmentCount + ' run' + (tapeSegmentCount !== 1 ? 's' : ''));
 	{% endif %}
 }
 
@@ -3485,21 +3699,19 @@ function tnValidateAndQuote() {
 	}
 
 	var selections = {};
+	var tapeSegments = null;
 	if (isTape) {
+		tapeSegments = tnCollectTapeSegments();
+		var firstTapeSegment = tapeSegments[0] || {};
 		selections = {
 			environment_rating: $('select[name="tn_environment_rating"]').val() || '',
 			cct: $('select[name="tn_cct"]').val(),
 			output_level: $('select[name="tn_output_level"]').val(),
 			pcb_finish: $('select[name="tn_pcb_finish"]').val(),
-			feed_direction: $('select[name="tn_start_feed_direction"]').val() || DEFAULT_FEED_DIRECTION,
-			lead_length_inches: parseFloat($('[name="tn_lead_length_inches"]').val()) || 12,
-			tape_length_value: parseFloat($('[name="tn_tape_length_value"]').val()) || 0,
-			tape_length_unit: $('[name="tn_tape_length_unit"]').val(),
-			tape_length_feet: parseFloat($('[name="tn_tape_length_feet"]').val()) || 0,
-			tape_length_inches: parseFloat($('[name="tn_tape_length_inches"]').val()) || 0,
-			end_type: $('[name="tn_end_type"]').val() || 'Endcap',
-			end_feed_direction: $('select[name="tn_end_feed_direction"]').val() || '',
-			end_feed_length_inches: parseFloat($('[name="tn_end_feed_length_inches"]').val()) || 0,
+			// Top-level feed mirrors the first run so legacy consumers
+			// (configured record fields, pricing) keep working.
+			feed_direction: firstTapeSegment.start_feed_direction || DEFAULT_FEED_DIRECTION,
+			lead_length_inches: firstTapeSegment.start_lead_length_inches || 12,
 		};
 	} else if (isNeon) {
 		selections = {
@@ -3529,6 +3741,9 @@ function tnValidateAndQuote() {
 
 	if (isNeon && templateCode && hasTemplates) {
 		args.segments_json = JSON.stringify(tnCollectNeonSegments());
+	}
+	if (isTape && tapeSegments && tapeSegments.length) {
+		args.segments_json = JSON.stringify(tapeSegments);
 	}
 
 	// Debug: log what we're sending
@@ -3653,7 +3868,7 @@ function tnDisplayResults(result) {
 		} else {
 			$('#requestedLength').text((c.requested_length_in || 0) + '" (' + (c.requested_length_mm || 0) + ' mm)');
 			$('#mfgLength').text((c.manufacturable_length_in || 0) + '" (' + (c.manufacturable_length_mm || 0) + ' mm)');
-			$('#segmentCountResult').text('1');
+			$('#segmentCountResult').text(c.segment_count || 1);
 		}
 
 		// Manufacturing summary
@@ -3663,7 +3878,7 @@ function tnDisplayResults(result) {
 		$('#endcapsCount').text('-');
 		$('#mountingCount').text('-');
 		$('#totalWatts').text((c.total_watts || 0) + ' W');
-		$('#assemblyMode').text(isNeon ? (c.segment_count > 1 ? 'Multi-Segment' : 'Single') : 'Single');
+		$('#assemblyMode').text((c.segment_count || 1) > 1 ? 'Multi-Segment' : 'Single');
 
 		// Max run length display
 		if (c.max_run_ft_effective) {
