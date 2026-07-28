@@ -22,6 +22,8 @@ from frappe.utils import cint
 
 SUPPORTED_PARENTS = {"Quotation", "Sales Order"}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
+TAPE_NEON_MODES = {"configured_item", "raw_components"}
+DEFAULT_TAPE_NEON_MODE = "configured_item"
 
 
 @frappe.whitelist()
@@ -53,14 +55,19 @@ def add_schedule_to_quotation(
 	fixture_schedule: str,
 	include_accessories: int | str = 1,
 	include_other: int | str = 0,
+	tape_neon_mode: str = DEFAULT_TAPE_NEON_MODE,
 ) -> dict[str, Any]:
 	"""Append all line items from ``fixture_schedule`` onto ``quotation``.
 
 	The quotation must be an existing draft (docstatus 0) that the current
 	user can write to. The schedule status is left untouched.
+
+	``tape_neon_mode`` controls how LED Tape / LED Neon lines are represented:
+	``"configured_item"`` (default) adds a single row for the configured SKU,
+	``"raw_components"`` explodes the line into its component rows.
 	"""
 	return _add_schedule_to_transaction(
-		"Quotation", quotation, fixture_schedule, include_accessories, include_other
+		"Quotation", quotation, fixture_schedule, include_accessories, include_other, tape_neon_mode
 	)
 
 
@@ -71,10 +78,16 @@ def add_schedule_to_transaction(
 	fixture_schedule: str,
 	include_accessories: int | str = 1,
 	include_other: int | str = 0,
+	tape_neon_mode: str = DEFAULT_TAPE_NEON_MODE,
 ) -> dict[str, Any]:
 	"""Generic entry point — append schedule lines to a Quotation or Sales Order."""
 	return _add_schedule_to_transaction(
-		parent_doctype, parent_name, fixture_schedule, include_accessories, include_other
+		parent_doctype,
+		parent_name,
+		fixture_schedule,
+		include_accessories,
+		include_other,
+		tape_neon_mode,
 	)
 
 
@@ -84,6 +97,7 @@ def _add_schedule_to_transaction(
 	fixture_schedule: str,
 	include_accessories: int | str,
 	include_other: int | str,
+	tape_neon_mode: str = DEFAULT_TAPE_NEON_MODE,
 ) -> dict[str, Any]:
 	if parent_doctype not in SUPPORTED_PARENTS:
 		frappe.throw(_("Schedule items can only be added to Quotations and Sales Orders."))
@@ -91,6 +105,15 @@ def _add_schedule_to_transaction(
 		frappe.throw(_("Missing the target {0}.").format(parent_doctype))
 	if not fixture_schedule:
 		frappe.throw(_("Please select a Fixture Schedule."))
+
+	tape_neon_mode = (tape_neon_mode or DEFAULT_TAPE_NEON_MODE).strip()
+	if tape_neon_mode not in TAPE_NEON_MODES:
+		frappe.throw(
+			_("Invalid LED Tape/Neon mode {0}. Expected one of: {1}").format(
+				tape_neon_mode, ", ".join(sorted(TAPE_NEON_MODES))
+			)
+		)
+
 	if not frappe.db.exists(parent_doctype, parent_name):
 		frappe.throw(_("{0} {1} was not found.").format(parent_doctype, parent_name))
 	if not frappe.db.exists(SCHEDULE_DOCTYPE, fixture_schedule):
@@ -108,6 +131,7 @@ def _add_schedule_to_transaction(
 		target_doc,
 		include_accessories=bool(cint(include_accessories)),
 		include_other=bool(cint(include_other)),
+		tape_neon_mode=tape_neon_mode,
 	)
 
 	if counts.get("rows_added"):

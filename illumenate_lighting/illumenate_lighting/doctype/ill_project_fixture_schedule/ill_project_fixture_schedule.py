@@ -11,6 +11,25 @@ MM_PER_FOOT = 304.8
 # Default price list for configured fixture pricing
 DEFAULT_SELLING_PRICE_LIST = "Standard Selling"
 
+# How LED Tape / LED Neon schedule lines are represented on a transaction:
+#   configured_item → one row for the single configured SKU (default)
+#   raw_components  → exploded leader / tape / jumper / mounting rows
+TAPE_NEON_MODE_CONFIGURED = "configured_item"
+TAPE_NEON_MODE_RAW = "raw_components"
+TAPE_NEON_MODES = (TAPE_NEON_MODE_CONFIGURED, TAPE_NEON_MODE_RAW)
+
+
+def _validate_tape_neon_mode(mode):
+	"""Normalise and validate a tape/neon representation mode."""
+	mode = (mode or TAPE_NEON_MODE_CONFIGURED).strip()
+	if mode not in TAPE_NEON_MODES:
+		frappe.throw(
+			_("Invalid LED Tape/Neon mode {0}. Expected one of: {1}").format(
+				mode, ", ".join(TAPE_NEON_MODES)
+			)
+		)
+	return mode
+
 
 # Import permission helpers from project module
 def _is_internal_user(user=None):
@@ -152,7 +171,7 @@ class ilLProjectFixtureSchedule(Document):
 		return new_schedule.name
 
 	@frappe.whitelist()
-	def create_sales_order(self):
+	def create_sales_order(self, tape_neon_mode=TAPE_NEON_MODE_CONFIGURED):
 		"""
 		Convert this fixture schedule to a Sales Order.
 
@@ -167,9 +186,16 @@ class ilLProjectFixtureSchedule(Document):
 		The Sales Order is created for the owner's company (the dealer), not the
 		end-client customer. The end-client is stored for reference.
 
+		Args:
+			tape_neon_mode: ``"configured_item"`` (default) adds a single row per
+				configured tape/neon SKU; ``"raw_components"`` explodes the line
+				into its component rows.
+
 		Returns:
 			str: Name of the created Sales Order document
 		"""
+		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
+
 		# Validate status is READY
 		if self.status != "READY":
 			frappe.throw(_("Schedule must be in READY status to convert to Sales Order"))
@@ -229,6 +255,8 @@ class ilLProjectFixtureSchedule(Document):
 
 		# Add SO items for each ILLUMENATE line
 		for line in illumenate_lines:
+			line_label = line.line_id or f"Row {line.idx}"
+
 			# ── LED Tape / LED Neon lines ─────────────────────────────
 			if line.product_type in ("LED Tape", "LED Neon") and line.variant_selections:
 				import json as _json
@@ -237,30 +265,53 @@ class ilLProjectFixtureSchedule(Document):
 				except _json.JSONDecodeError:
 					frappe.throw(
 						_("Line {0}: Invalid configuration data for {1}").format(
-							line.line_id or line.idx, line.product_type
+							line_label, line.product_type
 						)
 					)
 
 				from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
 					create_tape_neon_so_lines,
 				)
-				result = create_tape_neon_so_lines(so, line, config_data)
-				items_created += result.get("items_added", 0)
-				for msg in result.get("messages", []):
-					frappe.log_error(
-						title=f"SO Creation: {line.product_type} - {line.line_id or line.idx}",
-						message=msg,
-					)
 
-				# Verify brand + MSRP Item Price on the configured tape/neon Item
-				ctn_name = getattr(line, "configured_tape_neon", None)
-				if ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name):
-					ctn_doc = frappe.get_doc("ilL-Configured-Tape-Neon", ctn_name)
-					ctn_item_code = ctn_doc.configured_item
-					if ctn_item_code and frappe.db.exists("Item", ctn_item_code):
-						if self._check_and_update_tape_neon_item_pricing(ctn_item_code, ctn_doc):
-							items_updated += 1
+				line_rows_before = len(so.items)
+				use_raw_components = tape_neon_mode == TAPE_NEON_MODE_RAW
+				so_counts = {"items_created": 0, "boms_created": 0, "messages": []}
 
+				if not use_raw_components:
+					ctn_name = line.get("configured_tape_neon")
+					if not (ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name)):
+						use_raw_components = True
+					elif not self._append_configured_tape_neon_row(
+						so, line, line_label, ctn_name, so_counts
+					):
+						frappe.throw(
+							_("Line {0}: Failed to create configured Item for {1} {2}").format(
+								line_label, line.product_type, ctn_name
+							)
+						)
+
+					items_created += so_counts["items_created"]
+					boms_created += so_counts["boms_created"]
+
+				if use_raw_components:
+					result = create_tape_neon_so_lines(so, line, config_data)
+					items_created += result.get("items_added", 0)
+					for msg in result.get("messages", []):
+						frappe.log_error(
+							title=f"SO Creation: {line.product_type} - {line_label}",
+							message=msg,
+						)
+
+					# Verify brand + MSRP Item Price on the configured tape/neon Item
+					ctn_name = line.get("configured_tape_neon")
+					if ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name):
+						ctn_doc = frappe.get_doc("ilL-Configured-Tape-Neon", ctn_name)
+						ctn_item_code = ctn_doc.configured_item
+						if ctn_item_code and frappe.db.exists("Item", ctn_item_code):
+							if self._check_and_update_tape_neon_item_pricing(ctn_item_code, ctn_doc):
+								items_updated += 1
+
+				self._stamp_group_fields(so, line_rows_before, line)
 				continue
 
 			# ── Extrusion Kit lines ────────────────────────────────────
@@ -271,20 +322,22 @@ class ilLProjectFixtureSchedule(Document):
 				except _json.JSONDecodeError:
 					frappe.throw(
 						_("Line {0}: Invalid configuration data for Extrusion Kit").format(
-							line.line_id or line.idx
+							line_label
 						)
 					)
 
 				from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
 					create_kit_so_lines,
 				)
+				line_rows_before = len(so.items)
 				result = create_kit_so_lines(so, line, config_data)
 				items_created += result.get("items_added", 0)
 				for msg in result.get("messages", []):
 					frappe.log_error(
-						title=f"SO Creation: Extrusion Kit - {line.line_id or line.idx}",
+						title=f"SO Creation: Extrusion Kit - {line_label}",
 						message=msg,
 					)
+				self._stamp_group_fields(so, line_rows_before, line)
 				continue
 
 			# ── Standard Configured Fixture lines ─────────────────────
@@ -318,7 +371,7 @@ class ilLProjectFixtureSchedule(Document):
 							"Line {0}: Failed to create configured Item for fixture {1}. "
 							"{2}"
 						).format(
-							line.line_id or line.idx,
+							line_label,
 							line.configured_fixture,
 							"; ".join(m.get("text", "") for m in item_result.get("messages", [])),
 						)
@@ -364,6 +417,7 @@ class ilLProjectFixtureSchedule(Document):
 				line.ill_item_code = item_code
 
 			# Add line to Sales Order
+			line_rows_before = len(so.items)
 			so_item = so.append("items", {})
 			so_item.item_code = item_code
 			so_item.qty = line.qty or 1
@@ -379,6 +433,8 @@ class ilLProjectFixtureSchedule(Document):
 			so_item.ill_finish = configured_fixture.finish
 			so_item.ill_lens = configured_fixture.lens_appearance
 			so_item.ill_engine_version = configured_fixture.engine_version
+
+			self._stamp_group_fields(so, line_rows_before, line)
 
 		so.insert()
 
@@ -450,7 +506,13 @@ class ilLProjectFixtureSchedule(Document):
 
 		return summary
 
-	def append_quote_lines(self, target_doc, include_accessories=True, include_other=False):
+	def append_quote_lines(
+		self,
+		target_doc,
+		include_accessories=True,
+		include_other=False,
+		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
+	):
 		"""Append this schedule's line items onto a target transaction document
 		(Quotation or Sales Order) and return a summary dict.
 
@@ -458,15 +520,22 @@ class ilLProjectFixtureSchedule(Document):
 		quotation built from a schedule matches the eventual sales order:
 
 		* Configured fixtures → single configured Item row (Item + BOM ensured)
-		* LED Tape / LED Neon  → exploded component rows (leader + tape lengths)
+		* LED Tape / LED Neon  → single configured Item row, or exploded
+		  component rows when ``tape_neon_mode="raw_components"``
 		* Extrusion Kit        → exploded component rows
 		* Accessories          → direct Item row
 		* Other manufacturer   → reported as skipped (no catalog Item)
+
+		Every row appended for a schedule line is stamped with
+		``ill_section_label`` (from ``line.location``) and ``additional_notes``
+		(fixture type + notes).
 
 		The schedule status is left unchanged; only ``target_doc.items`` is
 		mutated. The caller is responsible for saving ``target_doc``.
 		"""
 		import json as _json
+
+		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
 
 		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
 			_create_or_get_bom,
@@ -517,13 +586,38 @@ class ilLProjectFixtureSchedule(Document):
 				from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
 					create_tape_neon_so_lines,
 				)
-				result = create_tape_neon_so_lines(target_doc, line, config_data)
-				if result.get("items_added"):
-					counts["tape_neon"] += 1
-				else:
-					counts["skipped"] += 1
-				for msg in result.get("messages", []):
-					counts["messages"].append(_("Line {0}: {1}").format(line_label, msg))
+
+				line_rows_before = len(target_doc.items)
+				use_raw_components = tape_neon_mode == TAPE_NEON_MODE_RAW
+
+				if not use_raw_components:
+					ctn_name = line.get("configured_tape_neon")
+					if not (ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name)):
+						use_raw_components = True
+						counts["messages"].append(
+							_(
+								"Line {0}: no configured tape/neon record — "
+								"imported as raw components instead"
+							).format(line_label)
+						)
+					else:
+						if self._append_configured_tape_neon_row(
+							target_doc, line, line_label, ctn_name, counts
+						):
+							counts["tape_neon"] += 1
+						else:
+							counts["skipped"] += 1
+
+				if use_raw_components:
+					result = create_tape_neon_so_lines(target_doc, line, config_data)
+					if result.get("items_added"):
+						counts["tape_neon"] += 1
+					else:
+						counts["skipped"] += 1
+					for msg in result.get("messages", []):
+						counts["messages"].append(_("Line {0}: {1}").format(line_label, msg))
+
+				self._stamp_group_fields(target_doc, line_rows_before, line)
 				continue
 
 			# ── ilLumenate: Extrusion Kit ─────────────────────────────
@@ -546,6 +640,7 @@ class ilLProjectFixtureSchedule(Document):
 				from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
 					create_kit_so_lines,
 				)
+				line_rows_before = len(target_doc.items)
 				result = create_kit_so_lines(target_doc, line, config_data)
 				if result.get("items_added"):
 					counts["kits"] += 1
@@ -553,6 +648,7 @@ class ilLProjectFixtureSchedule(Document):
 					counts["skipped"] += 1
 				for msg in result.get("messages", []):
 					counts["messages"].append(_("Line {0}: {1}").format(line_label, msg))
+				self._stamp_group_fields(target_doc, line_rows_before, line)
 				continue
 
 			# ── ilLumenate: Configured Fixture ────────────────────────
@@ -638,8 +734,7 @@ class ilLProjectFixtureSchedule(Document):
 				self._set_optional_row_value(row, "ill_finish", configured_fixture.finish)
 				self._set_optional_row_value(row, "ill_lens", configured_fixture.lens_appearance)
 				self._set_optional_row_value(row, "ill_engine_version", configured_fixture.engine_version)
-				if line.location:
-					self._set_optional_row_value(row, "ill_section_label", line.location)
+				self._stamp_group_fields(target_doc, len(target_doc.items) - 1, line)
 				counts["fixtures"] += 1
 				continue
 
@@ -666,17 +761,9 @@ class ilLProjectFixtureSchedule(Document):
 				row = target_doc.append("items", {})
 				row.item_code = line.accessory_item
 				row.qty = line.qty or 1
-				desc_parts = []
 				if line.accessory_item_name:
-					desc_parts.append(line.accessory_item_name)
-				if line.location:
-					desc_parts.append(f"Location: {line.location}")
-				if line.notes:
-					desc_parts.append(f"Notes: {line.notes}")
-				if desc_parts:
-					row.description = " | ".join(desc_parts)
-				if line.location:
-					self._set_optional_row_value(row, "ill_section_label", line.location)
+					row.description = line.accessory_item_name
+				self._stamp_group_fields(target_doc, len(target_doc.items) - 1, line)
 				counts["accessories"] += 1
 				continue
 
@@ -706,6 +793,109 @@ class ilLProjectFixtureSchedule(Document):
 		except Exception:
 			return
 		row.set(fieldname, value)
+
+	def _schedule_line_group_fields(self, line):
+		"""Return ``(section_label, additional_notes)`` for a schedule line.
+
+		``line.location`` (label "Location") drives the print-format section
+		grouping via ``ill_section_label`` ("Section / Room"). The fixture type
+		(``line.line_id``, label "Fixture Type") and any free-text notes go to
+		the standard ``additional_notes`` field, which the print formats render
+		as an italic note under the item.
+		"""
+		section_label = line.location or None
+
+		note_parts = []
+		if line.line_id:
+			note_parts.append(_("Fixture Type: {0}").format(line.line_id))
+		if line.notes:
+			note_parts.append(line.notes)
+
+		return section_label, "\n".join(note_parts) if note_parts else None
+
+	def _stamp_group_fields(self, target_doc, rows_before_count, line):
+		"""Stamp section label + additional notes on every row a branch appended.
+
+		Using a before/after row-count diff means this works whether the branch
+		added a single row (fixture, accessory, configured tape/neon) or several
+		(raw tape/neon components, extrusion kit components).
+		"""
+		section_label, additional_notes = self._schedule_line_group_fields(line)
+		if not section_label and not additional_notes:
+			return
+
+		for row in target_doc.items[rows_before_count:]:
+			self._set_optional_row_value(row, "ill_section_label", section_label)
+			self._set_optional_row_value(row, "additional_notes", additional_notes)
+
+	def _append_configured_tape_neon_row(self, target_doc, line, line_label, ctn_name, counts):
+		"""Append a single row for the configured tape/neon SKU of ``line``.
+
+		Ensures the configured Item, its BOM and its MSRP Item Price exist, then
+		appends one row carrying ``line.qty``. Returns ``True`` when a row was
+		appended, ``False`` when the line had to be skipped (a message is added
+		to ``counts["messages"]`` in that case).
+		"""
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			_create_or_get_configured_tape_neon_item,
+		)
+		from illumenate_lighting.illumenate_lighting.api.tape_neon_bom import (
+			create_or_get_tape_neon_bom,
+		)
+
+		configured = frappe.get_doc("ilL-Configured-Tape-Neon", ctn_name)
+
+		# Step 1: ensure the configured Item exists
+		item_code = configured.configured_item
+		if not (item_code and frappe.db.exists("Item", item_code)):
+			item_result = _create_or_get_configured_tape_neon_item(configured, skip_if_exists=True)
+			if not (item_result.get("success") and item_result.get("item_code")):
+				counts["messages"].append(
+					_("Line {0}: failed to create Item for configured {1} {2} — skipped").format(
+						line_label, line.product_type, ctn_name
+					)
+				)
+				return False
+			item_code = item_result["item_code"]
+			if item_result.get("created"):
+				counts["items_created"] += 1
+			if configured.configured_item != item_code:
+				configured.db_set("configured_item", item_code, update_modified=False)
+				configured.configured_item = item_code
+
+		# Ensure brand + MSRP Item Price so the transaction rate populates.
+		self._check_and_update_tape_neon_item_pricing(item_code, configured)
+
+		# Step 2: ensure the BOM exists
+		bom_name = configured.bom
+		if not (bom_name and frappe.db.exists("BOM", bom_name)):
+			bom_result = create_or_get_tape_neon_bom(configured, item_code, skip_if_exists=True)
+			if bom_result.get("success") and bom_result.get("bom_name"):
+				bom_name = bom_result["bom_name"]
+				if bom_result.get("created"):
+					counts["boms_created"] += 1
+			else:
+				frappe.log_error(
+					title=f"Quote-from-Schedule BOM Warning for {ctn_name}",
+					message="; ".join(m.get("text", "") for m in bom_result.get("messages", [])),
+				)
+
+		row = target_doc.append("items", {})
+		row.item_code = item_code
+		row.qty = line.qty or 1
+		row.description = self._build_tape_neon_item_description(line, configured)
+		self._set_optional_row_value(row, "ill_product_type", line.product_type)
+		self._set_optional_row_value(row, "ill_configured_tape_neon", ctn_name)
+		self._set_optional_row_value(row, "ill_configured_item", item_code)
+		self._set_optional_row_value(row, "ill_bom", bom_name)
+		self._set_optional_row_value(row, "ill_template_code", configured.tape_neon_template)
+		self._set_optional_row_value(row, "ill_requested_length_mm", configured.requested_length_mm)
+		self._set_optional_row_value(row, "ill_mfg_length_mm", configured.manufacturable_length_mm)
+		self._set_optional_row_value(row, "ill_runs_count", configured.total_segments)
+		self._set_optional_row_value(row, "ill_total_watts", configured.total_watts)
+		self._set_optional_row_value(row, "ill_finish", configured.finish)
+		self._set_optional_row_value(row, "ill_engine_version", configured.engine_version)
+		return True
 
 	def _check_and_update_item_pricing(self, item_code, configured_fixture):
 		"""
@@ -1082,11 +1272,32 @@ class ilLProjectFixtureSchedule(Document):
 		if configured_fixture.lens_appearance:
 			parts.append(configured_fixture.lens_appearance)
 
-		if line.location:
-			parts.append(f"Location: {line.location}")
+		return " | ".join(parts) if parts else None
 
-		if line.notes:
-			parts.append(f"Notes: {line.notes}")
+	def _build_tape_neon_item_description(self, line, configured_tape_neon):
+		"""Build a descriptive text for a single configured tape/neon item row.
+
+		Mirrors :meth:`_build_item_description`. Location and fixture type are
+		deliberately excluded — they live on ``ill_section_label`` and
+		``additional_notes``.
+		"""
+		parts = []
+
+		if configured_tape_neon.tape_neon_template:
+			parts.append(configured_tape_neon.tape_neon_template)
+
+		if configured_tape_neon.manufacturable_length_mm:
+			length_inches = configured_tape_neon.manufacturable_length_mm / 25.4
+			parts.append(f'{length_inches:.1f}"')
+
+		if configured_tape_neon.cct:
+			parts.append(configured_tape_neon.cct)
+
+		if configured_tape_neon.output_level:
+			parts.append(configured_tape_neon.output_level)
+
+		if configured_tape_neon.finish:
+			parts.append(configured_tape_neon.finish)
 
 		return " | ".join(parts) if parts else None
 

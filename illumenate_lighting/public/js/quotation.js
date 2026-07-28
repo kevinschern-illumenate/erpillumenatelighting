@@ -100,6 +100,14 @@ function ill_open_fixture_schedule_picker(frm) {
 				fieldtype: 'Check',
 				label: __('Include Accessories / Power Supplies'),
 				default: 1
+			},
+			{
+				fieldname: 'tape_neon_mode',
+				fieldtype: 'Select',
+				label: __('LED Tape / Neon As'),
+				options: ['Single Configured Item', 'Raw Components (Item + Qty)'].join('\n'),
+				default: 'Single Configured Item',
+				description: __('Single Configured Item adds one row per configured tape/neon SKU. Raw Components explodes the line into tape, leader cable, jumpers and mounting rows.')
 			}
 		],
 		primary_action_label: __('Add Items'),
@@ -116,7 +124,9 @@ function ill_open_fixture_schedule_picker(frm) {
 						quotation: frm.doc.name,
 						fixture_schedule: values.fixture_schedule,
 						include_accessories: values.include_accessories ? 1 : 0,
-						include_other: 0
+						include_other: 0,
+						tape_neon_mode: (values.tape_neon_mode === 'Raw Components (Item + Qty)')
+							? 'raw_components' : 'configured_item'
 					},
 					freeze: true,
 					freeze_message: __('Adding schedule items to quotation...'),
