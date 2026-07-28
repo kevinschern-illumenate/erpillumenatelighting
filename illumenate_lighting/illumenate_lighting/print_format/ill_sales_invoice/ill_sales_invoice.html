@@ -7,6 +7,7 @@
 
 {#-- Build ordered list of sections and their items --#}
 {%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
+{%- set refs = namespace(sales_orders=[], delivery_notes=[]) -%}
 {%- for item in doc.items -%}
     {%- set label = item.custom_ill_section_label or "" -%}
     {%- if label and (not item.item_code) and item.qty == 0 -%}
@@ -23,7 +24,14 @@
         {%- endif -%}
         {%- set _ = ns.section_map[effective].append(item) -%}
     {%- endif -%}
+    {%- if item.sales_order and item.sales_order not in refs.sales_orders -%}
+        {%- set _ = refs.sales_orders.append(item.sales_order) -%}
+    {%- endif -%}
+    {%- if item.delivery_note and item.delivery_note not in refs.delivery_notes -%}
+        {%- set _ = refs.delivery_notes.append(item.delivery_note) -%}
+    {%- endif -%}
 {%- endfor -%}
+{%- set company_payment_instructions = frappe.db.get_value('Company', doc.company, 'custom_invoice_payment_instructions') if doc.company else '' -%}
 
 <style>
     .ill-doc {
@@ -94,6 +102,22 @@
     }
     .ill-doc .ill-value {
         color: #1f272e;
+    }
+    .ill-doc .ill-summary {
+        background: #f2f5f8;
+        border: 1px solid #d7dee5;
+        margin-bottom: 12px;
+        padding: 9px 10px;
+    }
+    .ill-doc .ill-summary-value {
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .ill-doc .ill-alert {
+        color: #a33a2b;
+        font-size: 10px;
+        font-weight: 700;
+        margin-top: 2px;
     }
 
     .ill-doc .ill-items {
@@ -192,12 +216,14 @@
     }
 
     .ill-doc .ill-address,
-    .ill-doc .ill-terms {
+    .ill-doc .ill-terms,
+    .ill-doc .ill-reference {
         border: 1px solid #d7dee5;
         padding: 9px 10px;
     }
     .ill-doc .ill-address-title,
-    .ill-doc .ill-terms-title {
+    .ill-doc .ill-terms-title,
+    .ill-doc .ill-reference-title {
         color: #4a5765;
         font-size: 10px;
         font-weight: 700;
@@ -266,21 +292,80 @@
                 {% endif %}
             </div>
             <div class="ill-col">
-                {% if doc.contact_display %}
+                {% if doc.payment_terms_template %}
                 <div class="ill-info-row">
-                    <div class="ill-label">Contact</div>
-                    <div class="ill-value">{{ doc.contact_display }}</div>
+                    <div class="ill-label">Payment Terms</div>
+                    <div class="ill-value">{{ doc.payment_terms_template }}</div>
                 </div>
                 {% endif %}
-                {% if doc.contact_email %}
+                {% if doc.mode_of_payment %}
                 <div class="ill-info-row">
-                    <div class="ill-label">Email</div>
-                    <div class="ill-value">{{ doc.contact_email }}</div>
+                    <div class="ill-label">Payment Method</div>
+                    <div class="ill-value">{{ doc.mode_of_payment }}</div>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
+
+    {%- set paid_amount = doc.grand_total - doc.outstanding_amount -%}
+    <div class="ill-summary">
+        <div class="ill-grid">
+            <div class="ill-col">
+                <div class="ill-label">Invoice Status</div>
+                <div class="ill-summary-value">{{ doc.status or 'Draft' }}</div>
+            </div>
+            <div class="ill-col">
+                <div class="ill-label">Amount Paid</div>
+                <div class="ill-summary-value">{{ frappe.utils.fmt_money(paid_amount, currency=doc.currency) }}</div>
+            </div>
+            <div class="ill-col">
+                <div class="ill-label">Balance Due</div>
+                <div class="ill-summary-value">{{ frappe.utils.fmt_money(doc.outstanding_amount, currency=doc.currency) }}</div>
+                {% if doc.docstatus == 1 and doc.outstanding_amount > 0 and doc.due_date and frappe.utils.date_diff(frappe.utils.today(), doc.due_date) > 0 %}
+                <div class="ill-alert">Past due by {{ frappe.utils.date_diff(frappe.utils.today(), doc.due_date) }} day{% if frappe.utils.date_diff(frappe.utils.today(), doc.due_date) != 1 %}s{% endif %}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if refs.sales_orders or refs.delivery_notes or doc.tax_id or doc.company_tax_id %}
+    <div class="ill-block">
+        <div class="ill-reference">
+            <div class="ill-reference-title">Invoice References</div>
+            <div class="ill-grid">
+                <div class="ill-col">
+                    {% if refs.sales_orders %}
+                    <div class="ill-info-row">
+                        <div class="ill-label">Sales Order</div>
+                        <div class="ill-value">{{ refs.sales_orders | join(', ') }}</div>
+                    </div>
+                    {% endif %}
+                    {% if refs.delivery_notes %}
+                    <div class="ill-info-row">
+                        <div class="ill-label">Delivery Note / Shipment</div>
+                        <div class="ill-value">{{ refs.delivery_notes | join(', ') }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="ill-col">
+                    {% if doc.company_tax_id %}
+                    <div class="ill-info-row">
+                        <div class="ill-label">Company Tax ID</div>
+                        <div class="ill-value">{{ doc.company_tax_id }}</div>
+                    </div>
+                    {% endif %}
+                    {% if doc.tax_id %}
+                    <div class="ill-info-row">
+                        <div class="ill-label">Customer Tax ID</div>
+                        <div class="ill-value">{{ doc.tax_id }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="ill-block">
         <table class="ill-items">
@@ -389,7 +474,7 @@
                     {% if doc.taxes %}
                         {% for tax in doc.taxes %}
                         <div class="ill-total-row">
-                            <div class="ill-total-label">{{ tax.description }}</div>
+                            <div class="ill-total-label">{{ tax.description }}{% if tax.charge_type != 'Actual' and tax.rate %} ({{ tax.rate }}%){% endif %}</div>
                             <div class="ill-total-value">{{ frappe.utils.fmt_money(tax.tax_amount, currency=doc.currency) }}</div>
                         </div>
                         {% endfor %}
@@ -410,7 +495,7 @@
     </div>
 
     {%- set _has_separate_shipping = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
-    {%- set _shipping_display = doc.shipping_address -%}
+    {%- set _shipping_display = doc.shipping_address_display -%}
     {%- if _has_separate_shipping and not _shipping_display -%}
         {%- set _addr = frappe.db.get_value('Address', doc.shipping_address_name, ['address_line1', 'address_line2', 'city', 'state', 'pincode', 'country'], as_dict=True) -%}
         {%- if _addr -%}
@@ -451,6 +536,28 @@
                 </div>
             </div>
             <div class="ill-col"></div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if doc.payment_schedule or company_payment_instructions %}
+    <div class="ill-block">
+        <div class="ill-terms">
+            <div class="ill-terms-title">Payment Details</div>
+            {% if doc.payment_schedule %}
+                {% for payment in doc.payment_schedule %}
+                <div class="ill-total-row">
+                    <div class="ill-total-label">Due {{ payment.due_date }}{% if payment.invoice_portion %} ({{ payment.invoice_portion }}%){% endif %}</div>
+                    <div class="ill-total-value">{{ frappe.utils.fmt_money(payment.payment_amount, currency=doc.currency) }}</div>
+                </div>
+                {% endfor %}
+            {% endif %}
+            {% if company_payment_instructions %}
+            <div class="ill-info-row" style="margin-top: 8px;">
+                <div class="ill-label">Remittance Instructions</div>
+                <div class="ill-value" style="white-space: pre-line;">{{ company_payment_instructions }}</div>
+            </div>
             {% endif %}
         </div>
     </div>

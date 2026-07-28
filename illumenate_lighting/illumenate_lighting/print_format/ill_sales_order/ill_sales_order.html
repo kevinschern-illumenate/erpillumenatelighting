@@ -95,6 +95,16 @@
     .ill-doc .ill-value {
         color: #1f272e;
     }
+    .ill-doc .ill-summary {
+        background: #f2f5f8;
+        border: 1px solid #d7dee5;
+        margin-bottom: 12px;
+        padding: 9px 10px;
+    }
+    .ill-doc .ill-summary-value {
+        font-size: 12px;
+        font-weight: 700;
+    }
 
     .ill-doc .ill-items {
         width: 100%;
@@ -266,18 +276,35 @@
                 {% endif %}
             </div>
             <div class="ill-col">
-                {% if doc.contact_display %}
+                {% if doc.shipping_rule %}
                 <div class="ill-info-row">
-                    <div class="ill-label">Contact</div>
-                    <div class="ill-value">{{ doc.contact_display }}</div>
+                    <div class="ill-label">Shipping Method</div>
+                    <div class="ill-value">{{ doc.shipping_rule }}</div>
                 </div>
                 {% endif %}
-                {% if doc.contact_email %}
+                {% if doc.incoterm %}
                 <div class="ill-info-row">
-                    <div class="ill-label">Email</div>
-                    <div class="ill-value">{{ doc.contact_email }}</div>
+                    <div class="ill-label">Shipping Terms</div>
+                    <div class="ill-value">{{ doc.incoterm }}{% if doc.named_place %} — {{ doc.named_place }}{% endif %}</div>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="ill-summary">
+        <div class="ill-grid">
+            <div class="ill-col">
+                <div class="ill-label">Order Status</div>
+                <div class="ill-summary-value">{{ doc.status or 'Draft' }}</div>
+            </div>
+            <div class="ill-col">
+                <div class="ill-label">Fulfilled</div>
+                <div class="ill-summary-value">{{ frappe.utils.fmt_money(doc.per_delivered or 0, precision=1) }}%</div>
+            </div>
+            <div class="ill-col">
+                <div class="ill-label">Pending Delivery</div>
+                <div class="ill-summary-value">{{ frappe.utils.fmt_money(100 - (doc.per_delivered or 0), precision=1) }}%</div>
             </div>
         </div>
     </div>
