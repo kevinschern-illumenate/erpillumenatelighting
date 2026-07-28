@@ -20,6 +20,44 @@ from illumenate_lighting.illumenate_lighting.utils import (
 )
 
 
+def _safe_error(e, log_prefix: str, **extra) -> dict:
+	"""
+	Build a safe error response for a portal API endpoint.
+
+	The full exception (with traceback) is written to the Error Log so it stays
+	available for debugging, while the browser only receives either an
+	intentional, user-facing validation/permission message or a generic message.
+	This prevents internal details (table names, field names, driver errors)
+	from leaking to portal users.
+
+	Args:
+		e: The caught exception.
+		log_prefix: Short description of the failing operation, used as the
+			Error Log title.
+		**extra: Additional keys to merge into the response (e.g. items=[]).
+
+	Returns:
+		dict: {"success": False, "error": <message>, **extra}
+	"""
+	try:
+		frappe.log_error(title=log_prefix[:140], message=frappe.get_traceback() or str(e))
+	except Exception:
+		# Never let logging failures mask the original error response.
+		pass
+
+	if isinstance(e, (frappe.ValidationError, frappe.PermissionError)):
+		# frappe.throw() messages are authored for end users — keep them,
+		# but strip any markup before returning them as JSON.
+		message = frappe.utils.strip_html(str(e)).strip()
+	else:
+		message = ""
+
+	if not message:
+		message = _("An unexpected error occurred. Please try again or contact support.")
+
+	return {"success": False, "error": message, **extra}
+
+
 @frappe.whitelist()
 def get_allowed_customers_for_project() -> dict:
 	"""
@@ -136,6 +174,33 @@ def get_allowed_customers_for_project() -> dict:
 	}
 
 
+# Whitelist of project-access WHERE clauses used by
+# get_user_projects_for_configurator(). These are static SQL fragments that bind
+# values exclusively through named placeholders. Never build entries here
+# dynamically from user input.
+_PROJECT_ACCESS_CLAUSES = {
+	"customer_or_owner_or_collaborator": """
+		(
+			(`tabilL-Project`.owner_customer = %(user_customer)s AND `tabilL-Project`.is_private = 0)
+			OR `tabilL-Project`.owner = %(user)s
+			OR `tabilL-Project`.name IN (
+				SELECT parent FROM `tabilL-Child-Project-Collaborator`
+				WHERE user = %(user)s AND is_active = 1
+			)
+		)
+	""",
+	"owner_or_collaborator": """
+		(
+			`tabilL-Project`.owner = %(user)s
+			OR `tabilL-Project`.name IN (
+				SELECT parent FROM `tabilL-Child-Project-Collaborator`
+				WHERE user = %(user)s AND is_active = 1
+			)
+		)
+	""",
+}
+
+
 @frappe.whitelist()
 def get_user_projects_for_configurator() -> dict:
 	"""
@@ -177,33 +242,21 @@ def get_user_projects_for_configurator() -> dict:
 
 	user_customer = _get_user_customer(user)
 
+	# SECURITY: `conditions` must only ever contain entries from
+	# _PROJECT_ACCESS_CLAUSES below. Every clause is a hard-coded literal that
+	# references named placeholders (%(name)s) only — never interpolate field
+	# names, table names or user-supplied values into these strings, because the
+	# joined result is embedded into the SQL statement with an f-string.
 	conditions = []
 	params = {"user": user}
 
 	if user_customer:
 		params["user_customer"] = user_customer
 		# Company-level projects (non-private) + private ones user owns or collaborates on
-		conditions.append("""
-			(
-				(`tabilL-Project`.owner_customer = %(user_customer)s AND `tabilL-Project`.is_private = 0)
-				OR `tabilL-Project`.owner = %(user)s
-				OR `tabilL-Project`.name IN (
-					SELECT parent FROM `tabilL-Child-Project-Collaborator`
-					WHERE user = %(user)s AND is_active = 1
-				)
-			)
-		""")
+		conditions.append(_PROJECT_ACCESS_CLAUSES["customer_or_owner_or_collaborator"])
 	else:
 		# No customer link — only own projects or collaborations
-		conditions.append("""
-			(
-				`tabilL-Project`.owner = %(user)s
-				OR `tabilL-Project`.name IN (
-					SELECT parent FROM `tabilL-Child-Project-Collaborator`
-					WHERE user = %(user)s AND is_active = 1
-				)
-			)
-		""")
+		conditions.append(_PROJECT_ACCESS_CLAUSES["owner_or_collaborator"])
 
 	where_clause = " AND ".join(conditions) if conditions else "1=1"
 
@@ -759,12 +812,11 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 		return {"success": True, "product_types": result}
 
 	except Exception as e:
-		frappe.log_error(f"Error fetching product types: {str(e)}")
-		return {
-			"success": False,
-			"error": str(e),
-			"product_types": [{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}],
-		}
+		return _safe_error(
+			e,
+			"Portal: error fetching product types",
+			product_types=[{"value": "Linear Fixture", "label": "Linear Fixture", "item_group": None, "level": 0, "parent": None}],
+		)
 
 
 @frappe.whitelist()
@@ -800,6 +852,9 @@ def get_items_by_product_type(product_type: str, exclude_variants: bool = True) 
 	try:
 		if not product_type:
 			return {"success": False, "error": "Product type is required", "items": []}
+
+		if not frappe.db.exists("Item Group", product_type):
+			return {"success": False, "error": "Product type not found", "items": []}
 
 		# Fetch items from this item group and its descendants
 		# First, get all descendant item groups
@@ -861,8 +916,7 @@ def get_items_by_product_type(product_type: str, exclude_variants: bool = True) 
 		return {"success": True, "items": result}
 
 	except Exception as e:
-		frappe.log_error(f"Error fetching items for product type {product_type}: {str(e)}")
-		return {"success": False, "error": str(e), "items": []}
+		return _safe_error(e, f"Portal: error fetching items for product type {product_type}", items=[])
 
 
 @frappe.whitelist()
@@ -966,8 +1020,7 @@ def get_item_variant_attributes(template_item: str) -> dict:
 		}
 
 	except Exception as e:
-		frappe.log_error(f"Error fetching variant attributes for {template_item}: {str(e)}")
-		return {"success": False, "error": str(e), "attributes": []}
+		return _safe_error(e, f"Portal: error fetching variant attributes for {template_item}", attributes=[])
 
 
 @frappe.whitelist()
@@ -1059,8 +1112,7 @@ def get_filtered_variant_attributes(template_item: str, selected_attributes: Uni
 		return {"success": True, "attributes": attributes}
 
 	except Exception as e:
-		frappe.log_error(f"Error fetching filtered variant attributes for {template_item}: {str(e)}")
-		return {"success": False, "error": str(e), "attributes": []}
+		return _safe_error(e, f"Portal: error fetching filtered variant attributes for {template_item}", attributes=[])
 
 
 @frappe.whitelist()
@@ -1124,8 +1176,7 @@ def get_item_variants(template_item: str) -> dict:
 		return {"success": True, "template_item": template_item, "variants": result}
 
 	except Exception as e:
-		frappe.log_error(f"Error fetching variants for {template_item}: {str(e)}")
-		return {"success": False, "error": str(e), "variants": []}
+		return _safe_error(e, f"Portal: error fetching variants for {template_item}", variants=[])
 
 
 @frappe.whitelist()
@@ -1153,11 +1204,17 @@ def find_matching_variant(template_item: str, selected_attributes: Union[str, di
 		if not template_item:
 			return {"success": False, "error": "Template item is required"}
 
+		if not frappe.db.exists("Item", template_item):
+			return {"success": False, "error": "Template item not found"}
+
 		# Parse selected_attributes if it's a string
 		if isinstance(selected_attributes, str):
-			selected_attributes = json.loads(selected_attributes)
+			try:
+				selected_attributes = json.loads(selected_attributes)
+			except ValueError:
+				return {"success": False, "error": "Selected attributes are not valid JSON"}
 
-		if not selected_attributes:
+		if not selected_attributes or not isinstance(selected_attributes, dict):
 			return {"success": False, "error": "Selected attributes are required"}
 
 		# Get all variants of this template
@@ -1192,8 +1249,7 @@ def find_matching_variant(template_item: str, selected_attributes: Union[str, di
 		return {"success": True, "found": False, "variant": None, "message": "No matching variant found"}
 
 	except Exception as e:
-		frappe.log_error(f"Error finding variant for {template_item}: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error finding variant for {template_item}")
 
 
 @frappe.whitelist()
@@ -1417,7 +1473,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		schedule.save()
 		return {"success": True, "line_idx": len(schedule.lines) - 1}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error adding line to schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -1468,7 +1524,7 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		schedule.save()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -1514,7 +1570,7 @@ def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		new_idx = schedule.duplicate_line(line_idx)
 		return {"success": True, "new_line_idx": new_idx}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error duplicating line on schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -1568,7 +1624,7 @@ def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
 		new_idx = schedule.move_line(from_idx, to_idx)
 		return {"success": True, "to_idx": new_idx}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error moving line on schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -1673,7 +1729,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 		schedule.save()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error updating line on schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -1801,7 +1857,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 
 		return {"success": True, "details": details}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error fetching configured fixture details for {configured_fixture_id}")
 
 
 @frappe.whitelist()
@@ -1890,7 +1946,7 @@ def save_configured_fixture_to_schedule(
 		schedule.save()
 		return {"success": True, "line_idx": len(schedule.lines) - 1 if line_idx is None else line_idx}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error saving configured fixture to schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -1942,7 +1998,7 @@ def build_configured_fixture_and_item(configured_fixture_id: str) -> dict:
 			"messages": item_result.get("messages", []),
 		}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error building item for configured fixture {configured_fixture_id}")
 
 
 @frappe.whitelist()
@@ -1997,7 +2053,7 @@ def build_configured_tape_neon_and_item(configured_tape_neon_id: str) -> dict:
 			"messages": item_result.get("messages", []),
 		}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error building item for configured tape/neon {configured_tape_neon_id}")
 
 
 @frappe.whitelist()
@@ -2072,7 +2128,7 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		project.insert()
 		return {"success": True, "project_name": project.name}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error creating project")
 
 
 @frappe.whitelist()
@@ -2140,7 +2196,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error updating project {project_name}")
 
 
 @frappe.whitelist()
@@ -2175,7 +2231,7 @@ def archive_project(project_name: str) -> dict:
 		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error archiving project {project_name}")
 
 
 @frappe.whitelist()
@@ -2211,7 +2267,7 @@ def unarchive_project(project_name: str) -> dict:
 		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error unarchiving project {project_name}")
 
 
 @frappe.whitelist()
@@ -2261,7 +2317,7 @@ def create_schedule(schedule_data: Union[str, dict]) -> dict:
 		schedule.insert()
 		return {"success": True, "schedule_name": schedule.name}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error creating schedule in project {project_name}")
 
 
 @frappe.whitelist()
@@ -2299,7 +2355,7 @@ def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
 		schedule.save()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error renaming schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -2336,7 +2392,7 @@ def delete_schedule(schedule_name: str) -> dict:
 		frappe.delete_doc("ilL-Project-Fixture-Schedule", schedule_name)
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error deleting schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -2382,7 +2438,7 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 		project.save()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error updating collaborators on project {project_name}")
 
 
 @frappe.whitelist()
@@ -2411,7 +2467,7 @@ def toggle_project_privacy(project_name: str, is_private: int) -> dict:
 		project.save()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error toggling privacy on project {project_name}")
 
 
 @frappe.whitelist()
@@ -2442,7 +2498,7 @@ def request_schedule_quote(schedule_name: str) -> dict:
 		schedule.request_quote()
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error requesting quote for schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -2522,7 +2578,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 		frappe.db.commit()
 		return {"success": True, "new_status": new_status}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error updating status for schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -2553,7 +2609,7 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 		sales_order = schedule.create_sales_order()
 		return {"success": True, "sales_order": sales_order}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error creating sales order for schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -2606,8 +2662,7 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 
 		return {"success": True, "customer_name": customer.name}
 	except Exception as e:
-		frappe.log_error(f"Error creating customer: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error creating customer")
 
 
 @frappe.whitelist()
@@ -2671,8 +2726,7 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 			frappe.db.commit()
 			return {"success": True, "request_name": doc.name}
 	except Exception as e:
-		frappe.log_error(f"Error creating drawing request: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error creating drawing request")
 
 
 def _get_or_create_request_type(drawing_type: str) -> str:
@@ -2757,8 +2811,7 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		doc.insert(ignore_permissions=True)
 		return {"success": True, "ticket_name": doc.name}
 	except Exception as e:
-		frappe.log_error(f"Error creating support ticket: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error creating support ticket")
 
 
 @frappe.whitelist()
@@ -2795,8 +2848,7 @@ def update_user_profile(profile_data: Union[str, dict]) -> dict:
 		user.save()
 		return {"success": True}
 	except Exception as e:
-		frappe.log_error(f"Error updating user profile: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error updating user profile")
 
 
 def _update_contact_job_title(user, job_title):
@@ -2867,8 +2919,7 @@ def get_account_settings() -> dict:
 			},
 		}
 	except Exception as e:
-		frappe.log_error(f"Error getting account settings: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error getting account settings")
 
 
 @frappe.whitelist()
@@ -2906,8 +2957,7 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
-		frappe.log_error(f"Error saving notification preferences: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error saving notification preferences")
 
 
 @frappe.whitelist()
@@ -2942,8 +2992,7 @@ def save_portal_preferences(preferences: Union[str, dict]) -> dict:
 		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
-		frappe.log_error(f"Error saving portal preferences: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error saving portal preferences")
 
 
 @frappe.whitelist()
@@ -2972,6 +3021,11 @@ def get_order_details(order_name: str) -> dict:
 	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
 	if not is_system_manager and order.customer != user_customer:
 		return {"success": False, "error": "You don't have permission to view this order"}
+
+	# Portal users may only view submitted orders. Drafts (docstatus 0) are
+	# internal-only until confirmed and cancelled orders (docstatus 2) are hidden.
+	if not is_system_manager and order.docstatus != 1:
+		return {"success": False, "error": "Order not found"}
 
 	# Get order items
 	items = []
@@ -3192,8 +3246,7 @@ def invite_project_collaborator(
 			user.append("roles", {"role": "Website User"})
 			user.insert(ignore_permissions=True)
 		except Exception as e:
-			frappe.log_error(f"Error creating user for collaborator: {str(e)}")
-			return {"success": False, "error": f"Failed to create user: {str(e)}"}
+			return _safe_error(e, f"Portal: error creating user {email} for collaborator invite")
 
 	# Check if already a collaborator on this project
 	existing_collab = None
@@ -3217,7 +3270,7 @@ def invite_project_collaborator(
 	try:
 		project.save(ignore_permissions=True)
 	except Exception as e:
-		return {"success": False, "error": f"Failed to add collaborator: {str(e)}"}
+		return _safe_error(e, f"Portal: error adding collaborator to project {project.name}")
 
 	# Send invitation email if requested and user already existed (new users get welcome email)
 	if send_invite and not is_new_user:
@@ -3317,7 +3370,7 @@ def remove_project_collaborator(project_name: str, user_email: str) -> dict:
 		project.save(ignore_permissions=True)
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error removing collaborator from project {project_name}")
 
 
 @frappe.whitelist()
@@ -3439,8 +3492,7 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		contact.insert(ignore_permissions=True)
 		return {"success": True, "contact_name": contact.name}
 	except Exception as e:
-		frappe.log_error(f"Error creating contact: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error creating contact")
 
 
 @frappe.whitelist()
@@ -3607,8 +3659,7 @@ def get_contacts_for_project() -> dict:
 		return {"success": True, "contacts": contacts}
 		
 	except Exception as e:
-		frappe.log_error(f"Error getting contacts: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error getting contacts")
 
 
 @frappe.whitelist()
@@ -3677,8 +3728,7 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 	except frappe.DuplicateEntryError:
 		return {"success": False, "error": "A contact with this information already exists"}
 	except Exception as e:
-		frappe.log_error(f"Error creating contact: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, "Portal: error creating contact")
 
 
 @frappe.whitelist()
@@ -3891,8 +3941,7 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 		}
 
 	except Exception as e:
-		frappe.log_error(f"Error getting fixture configuration: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error getting fixture configuration for {configured_fixture_id}")
 
 
 @frappe.whitelist()
@@ -3993,8 +4042,7 @@ def update_configured_fixture_on_schedule(
 		return {"success": True}
 
 	except Exception as e:
-		frappe.log_error(f"Error updating fixture on schedule: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error updating fixture on schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -4030,7 +4078,7 @@ def create_schedule_version(schedule_name: str, version_notes: str = None) -> di
 		new_name = schedule.create_new_version(version_notes=version_notes)
 		return {"success": True, "new_schedule_name": new_name}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _safe_error(e, f"Portal: error creating version of schedule {schedule_name}")
 
 
 @frappe.whitelist()
@@ -4350,8 +4398,7 @@ def create_website_user(email: str, first_name: str, last_name: str = "", send_i
 			"full_name": user.full_name,
 		}
 	except Exception as e:
-		frappe.log_error(f"Error creating website user: {str(e)}")
-		return {"success": False, "error": f"Failed to create user: {str(e)}"}
+		return _safe_error(e, f"Portal: error creating website user {email}")
 
 
 @frappe.whitelist()

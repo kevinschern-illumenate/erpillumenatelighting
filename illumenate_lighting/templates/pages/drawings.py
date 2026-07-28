@@ -77,14 +77,6 @@ def get_context(context):
 			order_by="creation desc",
 		)
 
-		# Add project names and type display
-		for req in context.pending_requests:
-			if req.project:
-				req.project_name = frappe.db.get_value("ilL-Project", req.project, "project_name")
-			req.drawing_type = _request_type_to_drawing_type(req.request_type)
-			req.drawing_type_display = req.request_type or _("Request")
-			req.custom_reference = req.fixture_or_product_text
-
 		context.pending_count = len(context.pending_requests)
 
 		# Completed requests
@@ -106,18 +98,6 @@ def get_context(context):
 			limit=20,
 		)
 
-		for req in context.completed_requests:
-			if req.project:
-				req.project_name = frappe.db.get_value("ilL-Project", req.project, "project_name")
-			req.drawing_type = _request_type_to_drawing_type(req.request_type)
-			req.drawing_type_display = req.request_type or _("Request")
-			req.custom_reference = req.fixture_or_product_text
-			# Check if there are file attachments
-			req.has_attachments = frappe.db.count(
-				"File",
-				{"attached_to_doctype": "ilL-Document-Request", "attached_to_name": req.name}
-			) > 0
-
 		# All requests
 		context.all_requests = frappe.get_all(
 			"ilL-Document-Request",
@@ -134,11 +114,25 @@ def get_context(context):
 			limit=50,
 		)
 
-		for req in context.all_requests:
+		# Resolve project names for every list in a single query
+		all_rows = context.pending_requests + context.completed_requests + context.all_requests
+		project_names = _get_project_names({req.project for req in all_rows if req.project})
+
+		for req in all_rows:
 			if req.project:
-				req.project_name = frappe.db.get_value("ilL-Project", req.project, "project_name")
+				req.project_name = project_names.get(req.project)
 			req.drawing_type = _request_type_to_drawing_type(req.request_type)
 			req.drawing_type_display = req.request_type or _("Request")
+
+		for req in context.pending_requests + context.completed_requests:
+			req.custom_reference = req.fixture_or_product_text
+
+		# Resolve attachment presence for completed requests in a single query
+		requests_with_files = _get_requests_with_attachments(
+			[req.name for req in context.completed_requests]
+		)
+		for req in context.completed_requests:
+			req.has_attachments = req.name in requests_with_files
 
 	# Helper function for icons
 	context.drawing_type_icon = _drawing_type_icon
@@ -147,6 +141,36 @@ def get_context(context):
 	context.no_cache = 1
 
 	return context
+
+
+def _get_project_names(project_names):
+	"""Return a {project name: project_name label} map for the given projects."""
+	if not project_names:
+		return {}
+
+	rows = frappe.get_all(
+		"ilL-Project",
+		filters={"name": ["in", list(project_names)]},
+		fields=["name", "project_name"],
+	)
+	return {p.name: p.project_name for p in rows}
+
+
+def _get_requests_with_attachments(request_names):
+	"""Return the set of document requests that have at least one attached file."""
+	if not request_names:
+		return set()
+
+	rows = frappe.get_all(
+		"File",
+		filters={
+			"attached_to_doctype": "ilL-Document-Request",
+			"attached_to_name": ["in", request_names],
+		},
+		fields=["attached_to_name"],
+		distinct=True,
+	)
+	return {f.attached_to_name for f in rows}
 
 
 def _get_drawing_type_display(drawing_type):

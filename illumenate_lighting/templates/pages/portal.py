@@ -40,9 +40,10 @@ def get_context(context):
 
 	# Get recent orders
 	if customer:
+		# Only submitted orders — drafts are internal-only until confirmed.
 		context.recent_orders = frappe.get_all(
 			"Sales Order",
-			filters={"customer": customer, "docstatus": ["!=", 2]},
+			filters={"customer": customer, "docstatus": 1},
 			fields=["name", "transaction_date", "status", "grand_total"],
 			order_by="creation desc",
 			limit=5,

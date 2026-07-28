@@ -28,7 +28,9 @@ def get_context(context):
 			"Sales Order",
 			filters={
 				"customer": customer,
-				"docstatus": ["!=", 2],  # Exclude cancelled
+				# Only submitted orders. Drafts (docstatus 0) are internal-only until
+				# confirmed, cancelled (docstatus 2) are never shown.
+				"docstatus": 1,
 			},
 			fields=[
 				"name",
@@ -46,9 +48,10 @@ def get_context(context):
 			order_by="creation desc",
 		)
 
-		# Add production status info
+		# Add production status info (batched to avoid one query per order)
+		production_sos = _get_sales_orders_in_production([o.name for o in orders])
 		for order in orders:
-			order["production_started"] = _check_production_started(order.name)
+			order["production_started"] = order.name in production_sos
 
 		context.orders = orders
 	else:
@@ -69,14 +72,18 @@ def _get_user_customer(user):
 	return _get_user_customer(user)
 
 
-def _check_production_started(sales_order):
-	"""Check if production has started for a sales order."""
-	# Check if there are any Work Orders linked to this Sales Order
-	work_orders = frappe.db.count(
+def _get_sales_orders_in_production(order_names):
+	"""Return the set of sales orders that have at least one submitted Work Order."""
+	if not order_names:
+		return set()
+
+	rows = frappe.get_all(
 		"Work Order",
-		{"sales_order": sales_order, "docstatus": 1}
+		filters={"sales_order": ["in", order_names], "docstatus": 1},
+		fields=["sales_order"],
+		distinct=True,
 	)
-	return work_orders > 0
+	return {r.sales_order for r in rows if r.sales_order}
 
 
 def _order_status_class(status):
