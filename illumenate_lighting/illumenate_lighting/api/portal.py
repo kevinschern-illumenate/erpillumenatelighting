@@ -3043,7 +3043,7 @@ def get_portal_notifications() -> dict:
 		# Check for quotes ready
 		quoted_schedules = frappe.db.count(
 			"ilL-Project-Fixture-Schedule",
-			{"status": "QUOTED"}
+			{"status": "QUOTED", "customer": customer}
 		)
 		if quoted_schedules > 0:
 			notifications.append({
