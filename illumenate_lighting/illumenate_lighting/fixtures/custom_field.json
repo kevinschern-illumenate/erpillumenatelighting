@@ -572,5 +572,14 @@
 		"label": "Engine Version",
 		"insert_after": "ill_lens",
 		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Company",
+		"fieldname": "custom_invoice_payment_instructions",
+		"fieldtype": "Small Text",
+		"label": "Invoice Payment Instructions",
+		"insert_after": "tax_id",
+		"description": "Remittance instructions displayed on sales invoices"
 	}
 ]
