@@ -39,6 +39,31 @@ def _resolve_attribute_code_field(doctype: str) -> str | None:
 	return None
 
 
+def _default_variant_spec(
+	template_doctype: str, variant_doctype: str, template_name: str | None, spec_fieldname: str
+) -> str | None:
+	"""Return the spec linked by a template's default (or first active) variant.
+
+	Used so a Driver/Controller product that points at a template instead of a
+	single spec still has a representative spec to describe itself with.
+	"""
+	if not template_name:
+		return None
+
+	variants = frappe.get_all(
+		variant_doctype,
+		filters={
+			"parent": template_name,
+			"parenttype": template_doctype,
+			"is_active": 1,
+		},
+		fields=[spec_fieldname, "is_default"],
+		order_by="is_default desc, idx asc",
+		limit=1,
+	)
+	return variants[0].get(spec_fieldname) if variants else None
+
+
 class ilLWebflowProduct(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
@@ -67,8 +92,10 @@ class ilLWebflowProduct(Document):
 		configurator_intro_text: DF.SmallText | None
 		configurator_options: DF.Table[ilLChildWebflowConfiguratorOption]
 		controller_spec: DF.Link | None
+		controller_template: DF.Link | None
 		documents: DF.Table[ilLChildWebflowDocument]
 		driver_spec: DF.Link | None
+		driver_template: DF.Link | None
 		featured_image: DF.AttachImage | None
 		features: DF.JSON | None
 		fixture_template: DF.Link | None
@@ -137,6 +164,14 @@ class ilLWebflowProduct(Document):
 			if self.get("auto_populate_configurator_options", True):
 				self.populate_led_sheet_configurator_options()
 
+		if self.is_configurable and self.driver_template:
+			if self.get("auto_populate_configurator_options", True):
+				self.populate_driver_configurator_options()
+
+		if self.is_configurable and self.controller_template:
+			if self.get("auto_populate_configurator_options", True):
+				self.populate_controller_configurator_options()
+
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
 		if not getattr(self, "_skip_sync_status_check", False):
@@ -152,6 +187,8 @@ class ilLWebflowProduct(Document):
 		self._update_fixture_template_backlink()
 		self._update_tape_neon_template_backlink()
 		self._update_led_sheet_template_backlink()
+		self._update_driver_template_backlink()
+		self._update_controller_template_backlink()
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
@@ -167,6 +204,30 @@ class ilLWebflowProduct(Document):
 			frappe.db.set_value(
 				"ilL-Tape-Neon-Template",
 				self.tape_neon_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+		if self.led_sheet_template:
+			frappe.db.set_value(
+				"ilL-LED-Sheet-Template",
+				self.led_sheet_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+		if self.driver_template:
+			frappe.db.set_value(
+				"ilL-Driver-Template",
+				self.driver_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+		if self.controller_template:
+			frappe.db.set_value(
+				"ilL-Controller-Template",
+				self.controller_template,
 				"webflow_product",
 				None,
 				update_modified=False,
@@ -250,6 +311,40 @@ class ilLWebflowProduct(Document):
 				update_modified=False,
 			)
 
+	def _update_driver_template_backlink(self):
+		self._update_template_backlink("ilL-Driver-Template", "driver_template")
+
+	def _update_controller_template_backlink(self):
+		self._update_template_backlink("ilL-Controller-Template", "controller_template")
+
+	def _update_template_backlink(self, template_doctype: str, fieldname: str):
+		"""Point the template's webflow_product backlink at this product.
+
+		Also clears the backlink on the previously linked template when the
+		link field was changed.
+		"""
+		old_doc = self.get_doc_before_save()
+		old_template = old_doc.get(fieldname) if old_doc else None
+		new_template = self.get(fieldname)
+
+		if old_template and old_template != new_template:
+			frappe.db.set_value(
+				template_doctype,
+				old_template,
+				"webflow_product",
+				None,
+				update_modified=False,
+			)
+
+		if new_template:
+			frappe.db.set_value(
+				template_doctype,
+				new_template,
+				"webflow_product",
+				self.name,
+				update_modified=False,
+			)
+
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked source spec for each product type."""
 		attribute_links = []
@@ -269,10 +364,10 @@ class ilLWebflowProduct(Document):
 		elif self.product_type == "LED Tape" and self.tape_spec:
 			self._populate_led_tape_attributes(attribute_links)
 		# Handle Driver
-		elif self.product_type == "Driver" and self.driver_spec:
+		elif self.product_type == "Driver" and self._resolve_driver_spec():
 			self._populate_driver_attributes(attribute_links)
 		# Handle Controller
-		elif self.product_type == "Controller" and self.controller_spec:
+		elif self.product_type == "Controller" and self._resolve_controller_spec():
 			self._populate_controller_attributes(attribute_links)
 		# Handle Accessory
 		elif self.product_type == "Accessory" and self.accessory_spec:
@@ -1004,19 +1099,47 @@ class ilLWebflowProduct(Document):
 				"display_order": display_order,
 			})
 
+	def _resolve_driver_spec(self) -> str | None:
+		"""Driver spec to describe this product with.
+
+		Prefers the explicit ``driver_spec`` link; otherwise falls back to the
+		default (or first active) variant of the linked Driver template so that
+		template-only products still publish attributes.
+		"""
+		if self.driver_spec:
+			return self.driver_spec
+		return _default_variant_spec(
+			"ilL-Driver-Template",
+			"ilL-Child-Driver-Template-Variant",
+			self.driver_template,
+			"driver_spec",
+		)
+
+	def _resolve_controller_spec(self) -> str | None:
+		"""Controller spec to describe this product with (see _resolve_driver_spec)."""
+		if self.controller_spec:
+			return self.controller_spec
+		return _default_variant_spec(
+			"ilL-Controller-Template",
+			"ilL-Child-Controller-Template-Variant",
+			self.controller_template,
+			"controller_spec",
+		)
+
 	def _populate_driver_attributes(self, attribute_links):
 		"""Extract attributes from driver spec.
 
-		Note: Caller must ensure self.driver_spec is set before calling this method.
+		Note: Caller must ensure a driver spec is resolvable before calling this method.
 		"""
-		if not self.driver_spec:
+		driver_spec = self._resolve_driver_spec()
+		if not driver_spec:
 			return
 
 		try:
-			driver = frappe.get_doc("ilL-Spec-Driver", self.driver_spec)
+			driver = frappe.get_doc("ilL-Spec-Driver", driver_spec)
 		except frappe.DoesNotExistError:
 			frappe.log_error(
-				message=f"Driver spec {self.driver_spec} not found for product {self.name}",
+				message=f"Driver spec {driver_spec} not found for product {self.name}",
 				title="Driver Spec Not Found",
 			)
 			return
@@ -1084,16 +1207,17 @@ class ilLWebflowProduct(Document):
 	def _populate_controller_attributes(self, attribute_links):
 		"""Extract attributes from controller spec.
 
-		Note: Caller must ensure self.controller_spec is set before calling this method.
+		Note: Caller must ensure a controller spec is resolvable before calling this method.
 		"""
-		if not self.controller_spec:
+		controller_spec = self._resolve_controller_spec()
+		if not controller_spec:
 			return
 
 		try:
-			controller = frappe.get_doc("ilL-Spec-Controller", self.controller_spec)
+			controller = frappe.get_doc("ilL-Spec-Controller", controller_spec)
 		except frappe.DoesNotExistError:
 			frappe.log_error(
-				message=f"Controller spec {self.controller_spec} not found for product {self.name}",
+				message=f"Controller spec {controller_spec} not found for product {self.name}",
 				title="Controller Spec Not Found",
 			)
 			return
@@ -2011,6 +2135,119 @@ class ilLWebflowProduct(Document):
 				"code": getattr(opt, "option_code", "") or "",
 				"is_default": getattr(opt, "is_default", False),
 			})
+		return values
+
+	def _get_existing_is_required(self) -> dict:
+		"""Return {option_step: is_required} as currently stored in the database.
+
+		Lets an admin uncheck "Is Required" on a step without the value being
+		clobbered the next time options are auto-populated.
+		"""
+		if self.is_new():
+			return {}
+		existing_opts = frappe.get_all(
+			"ilL-Child-Webflow-Configurator-Option",
+			filters={"parent": self.name, "parenttype": "ilL-Webflow-Product"},
+			fields=["option_step", "is_required"],
+		)
+		return {
+			int(opt.option_step): int(opt.is_required)
+			for opt in existing_opts
+			if opt.option_step is not None
+		}
+
+	def populate_driver_configurator_options(self):
+		"""Populate configurator options from the linked Driver template.
+
+		Driver flow: Wattage → Voltage Output → Input Protocol → Output Protocol.
+		Every axis is independent; the configurator resolves the full selection
+		to exactly one ilL-Child-Driver-Template-Variant row.
+		"""
+		template = frappe.get_doc("ilL-Driver-Template", self.driver_template)
+		option_flow = [
+			(1, "Wattage", "Wattage", 0),
+			(2, "Voltage Output", "Output Voltage", 0),
+			(3, "Input Protocol", "Dimming Input", 0),
+			(4, "Output Protocol", "Output Protocol", 0),
+		]
+		self._populate_variant_configurator_options(template, option_flow)
+
+	def populate_controller_configurator_options(self):
+		"""Populate configurator options from the linked Controller template.
+
+		Controller flow: Controller Type → Channels → Zones → Input Protocol →
+		Output Protocol → Wireless Protocol → Mounting Type. Channels and Zones
+		depend on Controller Type; the rest are independent.
+		"""
+		template = frappe.get_doc("ilL-Controller-Template", self.controller_template)
+		option_flow = [
+			(1, "Controller Type", "Controller Type", 0),
+			(2, "Channels", "Channels", 1),
+			(3, "Zones", "Zones", 1),
+			(4, "Input Protocol", "Input Protocol", 0),
+			(5, "Output Protocol", "Output Protocol", 0),
+			(6, "Wireless Protocol", "Wireless Protocol", 0),
+			(7, "Mounting Type", "Mounting Type", 0),
+		]
+		self._populate_variant_configurator_options(template, option_flow)
+
+	def _populate_variant_configurator_options(self, template, option_flow):
+		"""Shared rebuild of configurator_options for variant-matched templates.
+
+		Used by the Driver and Controller flows, whose allowed_options child
+		tables share the same shape (option_type / attribute_link / option_value
+		/ option_label / option_code / is_default / is_active).
+		"""
+		existing_is_required = self._get_existing_is_required()
+
+		self.configurator_options = []
+		for step, option_type, label, depends_on in option_flow:
+			allowed_values = self._get_variant_allowed_values(template, option_type)
+			if not allowed_values:
+				continue
+			self.append("configurator_options", {
+				"option_step": step,
+				"option_type": option_type,
+				"option_label": label,
+				"is_required": existing_is_required.get(step, 1),
+				"depends_on_step": depends_on,
+				"allowed_values_json": frappe.as_json(allowed_values),
+			})
+
+	def _get_variant_allowed_values(self, template, option_type: str) -> list:
+		"""Extract allowed values for one option type from a template's allowed_options.
+
+		Attribute-backed rows resolve through ``attribute_link``; scalar rows
+		(Wattage, Channels, Zones, Wireless Protocol) use ``option_value``.
+		"""
+		values = []
+		seen = set()
+
+		for opt in template.allowed_options or []:
+			if getattr(opt, "option_type", None) != option_type:
+				continue
+			if hasattr(opt, "is_active") and not opt.is_active:
+				continue
+
+			val = getattr(opt, "attribute_link", None) or getattr(opt, "option_value", None)
+			if not val or val in seen:
+				continue
+			seen.add(val)
+
+			code = getattr(opt, "option_code", "") or ""
+			attribute_doctype = getattr(opt, "attribute_doctype", None)
+			if not code and attribute_doctype:
+				code_field = _resolve_attribute_code_field(attribute_doctype)
+				if code_field:
+					code = frappe.db.get_value(attribute_doctype, val, code_field) or ""
+
+			values.append({
+				"value": val,
+				"label": getattr(opt, "option_label", None) or val,
+				"code": code,
+				"is_default": bool(getattr(opt, "is_default", False)),
+			})
+
 		return values
 
 	def populate_tape_neon_configurator_options(self):

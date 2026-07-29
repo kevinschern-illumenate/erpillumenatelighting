@@ -5,7 +5,8 @@
   SETUP CHECKLIST FOR MARKETING:
   1. Every product page wrapper element should have:
        data-ill-product-slug="your-product-slug"   ← the Webflow product slug
-       data-ill-product-type="LED Neon"             ← or "LED Tape" or "Fixture Template"
+       data-ill-product-type="LED Neon"             ← or "LED Tape", "Fixture Template",
+                                                       "Driver", "Controller"
 
   2. The Download Spec Sheet button must have EITHER:
        id="ill-download-spec-sheet"
@@ -59,7 +60,20 @@
     'start feed direction': 'start_feed_direction',
     'end feed direction':   'end_feed_direction',
     'start feed length':    'start_feed_length_ft',
-    'end feed length':      'end_feed_length_ft'
+    'end feed length':      'end_feed_length_ft',
+    // ── Driver steps ─────────────────────────────────────────────────────
+    'wattage':           'wattage',
+    'output voltage':    'voltage_output',
+    'voltage output':    'voltage_output',
+    'dimming input':     'input_protocol',
+    'input protocol':    'input_protocol',
+    'output protocol':   'output_protocol',
+    // ── Controller steps ─────────────────────────────────────────────────
+    'controller type':   'controller_type',
+    'channels':          'channels',
+    'zones':             'zones',
+    'wireless protocol': 'wireless_protocol',
+    'mounting type':     'mounting_type'
   };
 
   // ─── Radio name → API field (Pattern B: input[name="CCT"] layout) ───────
@@ -72,7 +86,19 @@
     'Mounting':             'mounting_method',
     'Finish':               'finish',
     'Start Feed Direction': 'start_feed_direction',
-    'End Feed Direction':   'end_feed_direction'
+    'End Feed Direction':   'end_feed_direction',
+    // ── Driver groups ────────────────────────────────────────────────────
+    'Wattage':              'wattage',
+    'Output Voltage':       'voltage_output',
+    'Dimming Input':        'input_protocol',
+    'Input Protocol':       'input_protocol',
+    'Output Protocol':      'output_protocol',
+    // ── Controller groups ────────────────────────────────────────────────
+    'Controller Type':      'controller_type',
+    'Channels':             'channels',
+    'Zones':                'zones',
+    'Wireless Protocol':    'wireless_protocol',
+    'Mounting Type':        'mounting_type'
   };
 
   // ─── Utilities ───────────────────────────────────────────────────────────
@@ -112,7 +138,8 @@
 
   function getProductType() {
     // 1. Explicit data attribute wins. Add to your page wrapper element:
-    //    data-ill-product-type="LED Neon"  |  "LED Tape"  |  "Fixture Template"
+    //    data-ill-product-type="LED Neon" | "LED Tape" | "Fixture Template"
+    //                          | "Driver" | "Controller"
     var el = document.querySelector('[data-ill-product-type]');
     if (el) return trimStr(el.getAttribute('data-ill-product-type'));
 
@@ -123,6 +150,8 @@
     }
 
     // 3. Default to the neon/tape path (covers both LED Neon and LED Tape).
+    //    Driver and Controller pages MUST set data-ill-product-type explicitly;
+    //    there is no reliable DOM signature to sniff them from.
     return 'LED Neon';
   }
 
@@ -266,6 +295,11 @@
       // - finish has a full spec-search fallback when not supplied
       // - length_inches is needed for a meaningful spec sheet
       required = ['cct', 'output_level', 'length_inches'];
+    } else if (productType === 'Driver' || productType === 'Controller') {
+      // Driver/Controller steps are entirely template-driven (a template may
+      // expose anywhere from one to seven axes), so the client cannot know
+      // which are required. The backend returns a missing_steps list instead.
+      required = [];
     } else {
       // Fixture Template: all four attributes + length are needed by
       // _resolve_tape_offering (env + cct + output_level) and validate_and_quote

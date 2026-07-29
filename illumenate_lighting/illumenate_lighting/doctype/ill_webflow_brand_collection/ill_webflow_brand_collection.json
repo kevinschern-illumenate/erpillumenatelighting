@@ -16,7 +16,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Collection Kind",
-   "options": "Products\nCategories\nSeries\nCCT\nCRI\nCertification\nDimming Protocol\nEndcap Color\nEndcap Style\nEnvironment Rating\nFeed-Direction\nFinish\nIP Rating\nJoiner Angle\nJoiner System\nLead Time Class\nLeader Cable\nLED Package\nLens Appearance\nLens Interface Type\nMounting Method\nOutput Level\nOutput Voltage\nPower Feed Type\nPricing Class\nSDCM",
+   "options": "Products\nCategories\nSeries\nCCT\nCRI\nCertification\nController Type\nDimming Protocol\nEndcap Color\nEndcap Style\nEnvironment Rating\nFeed-Direction\nFinish\nIP Rating\nJoiner Angle\nJoiner System\nLead Time Class\nLeader Cable\nLED Package\nLens Appearance\nLens Interface Type\nMounting Method\nMounting Type\nOutput Level\nOutput Voltage\nPower Feed Type\nPricing Class\nSDCM",
    "reqd": 1
   },
   {

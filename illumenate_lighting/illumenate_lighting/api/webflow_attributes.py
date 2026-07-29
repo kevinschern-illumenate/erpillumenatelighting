@@ -80,6 +80,8 @@ ATTRIBUTE_KEY_TO_COLLECTION_KIND = {
     "pricing_class": "Pricing Class",
     "sdcm": "SDCM",
     "series": "Series",
+    "controller_type": "Controller Type",
+    "mounting_type": "Mounting Type",
 }
 
 
@@ -132,6 +134,8 @@ ATTRIBUTE_TYPE_DISPLAY_MAP = {
     "Pricing Class": "pricing_class",
     "SDCM": "sdcm",
     "Series": "series",
+    "Controller Type": "controller_type",
+    "Mounting Type": "mounting_type",
 }
 
 # Reverse mapping: ATTRIBUTE_DOCTYPES key → display name
@@ -154,6 +158,8 @@ ATTRIBUTE_FILTER_FIELD_SLUGS = {
     "Feed Direction": "feed-direction-filter",
     "LED Package": "led-package-filter",
     "Dimming Protocol": "dimming-filter",
+    "Controller Type": "controller-type-filter",
+    "Mounting Type": "mounting-type-filter",
 }
 
 
@@ -535,6 +541,36 @@ ATTRIBUTE_DOCTYPES = {
             "short-description": "short_description",
             "description": "description",
             "featured-image": "featured_image",
+            "sort-order": "sort_order"
+        }
+    },
+    "controller_type": {
+        "doctype": "ilL-Attribute-Controller Type",
+        "name_field": "label",
+        "code_field": "code",
+        "slug_field": "label",
+        "webflow_collection_id": "",
+        "fields": ["label", "code", "description", "sort_order", "is_active", "notes"],
+        "webflow_field_mapping": {
+            "name": "label",
+            "slug": "label",
+            "controller-type-code": "code",
+            "description": "description",
+            "sort-order": "sort_order"
+        }
+    },
+    "mounting_type": {
+        "doctype": "ilL-Attribute-Mounting Type",
+        "name_field": "label",
+        "code_field": "code",
+        "slug_field": "label",
+        "webflow_collection_id": "",
+        "fields": ["label", "code", "description", "sort_order", "is_active", "notes"],
+        "webflow_field_mapping": {
+            "name": "label",
+            "slug": "label",
+            "mounting-type-code": "code",
+            "description": "description",
             "sort-order": "sort_order"
         }
     }

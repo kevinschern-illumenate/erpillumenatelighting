@@ -555,9 +555,34 @@ def download_spec_sheet(
     except (json.JSONDecodeError, TypeError):
         return {"success": False, "error": "Invalid selections JSON"}
 
-    # Determine product type to route to the correct generation pipeline
+    # Determine product type to route to the correct generation pipeline.
+    # Read the type straight from the DB: _get_configurable_product() below only
+    # resolves fixture/tape-neon products, so Driver/Controller slugs would
+    # otherwise fall through to the fixture pipeline.
+    product_type = frappe.db.get_value(
+        "ilL-Webflow-Product", {"product_slug": product_slug}, "product_type"
+    )
+
+    if product_type in ("Driver", "Controller"):
+        from illumenate_lighting.illumenate_lighting.api.spec_sheet_generator import (
+            generate_from_webflow_selections_controller,
+            generate_from_webflow_selections_driver,
+        )
+
+        generator = (
+            generate_from_webflow_selections_driver
+            if product_type == "Driver"
+            else generate_from_webflow_selections_controller
+        )
+        return generator(
+            product_slug=product_slug,
+            selections=selections_dict,
+            project_name=project_name,
+            project_location=project_location,
+            fixture_type=fixture_type,
+        )
+
     product = _get_configurable_product(product_slug)
-    product_type = getattr(product, "product_type", None) if product else None
     tape_neon_template = getattr(product, "tape_neon_template", None) if product else None
 
     if product_type in ("LED Tape", "LED Neon") or (

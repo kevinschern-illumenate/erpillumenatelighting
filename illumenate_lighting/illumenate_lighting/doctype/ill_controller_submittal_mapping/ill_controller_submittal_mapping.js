@@ -1,41 +1,39 @@
 // Copyright (c) 2026, ilLumenate Lighting and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("ilL-LED-Sheet-Submittal-Mapping", {
-	refresh: function(frm) {
-		// Clear HTML field on refresh
-		frm.set_df_property('available_fields_html', 'options', '');
+frappe.ui.form.on("ilL-Controller-Submittal-Mapping", {
+	refresh: function (frm) {
+		frm.set_df_property("available_fields_html", "options", "");
 	},
 
-	source_doctype: function(frm) {
-		// Clear the fields display when doctype changes
-		frm.set_df_property('available_fields_html', 'options', '');
-		frm.set_value('source_field', '');
+	source_doctype: function (frm) {
+		frm.set_df_property("available_fields_html", "options", "");
+		frm.set_value("source_field", "");
 	},
 
-	show_fields_button: function(frm) {
+	show_fields_button: function (frm) {
 		if (!frm.doc.source_doctype) {
-			frappe.msgprint(__('Please select a Source DocType first'));
+			frappe.msgprint(__("Please select a Source DocType first"));
 			return;
 		}
 
 		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.doctype.ill_led_sheet_submittal_mapping.ill_led_sheet_submittal_mapping.get_doctype_fields',
-			args: {
-				doctype: frm.doc.source_doctype
-			},
-			callback: function(r) {
+			method: "illumenate_lighting.illumenate_lighting.doctype.ill_controller_submittal_mapping.ill_controller_submittal_mapping.get_doctype_fields",
+			args: { doctype: frm.doc.source_doctype },
+			callback: function (r) {
 				if (r.message) {
-					let fields = r.message;
-					let html = build_led_sheet_fields_table(fields, frm);
-					frm.set_df_property('available_fields_html', 'options', html);
+					frm.set_df_property(
+						"available_fields_html",
+						"options",
+						build_controller_fields_table(r.message, frm)
+					);
 				}
-			}
+			},
 		});
-	}
+	},
 });
 
-function build_led_sheet_fields_table(fields, frm) {
+function build_controller_fields_table(fields, frm) {
 	if (!fields || fields.length === 0) {
 		return '<p class="text-muted">No fields found for this DocType</p>';
 	}
@@ -55,7 +53,7 @@ function build_led_sheet_fields_table(fields, frm) {
 	`;
 
 	for (let field of fields) {
-		let linkedTo = field.options ? `<br><small class="text-muted">→ ${field.options}</small>` : '';
+		let linkedTo = field.options ? `<br><small class="text-muted">→ ${field.options}</small>` : "";
 		html += `
 			<tr>
 				<td><code>${field.fieldname}</code></td>
@@ -79,16 +77,15 @@ function build_led_sheet_fields_table(fields, frm) {
 		</p>
 	`;
 
-	// Add click handler after render
 	setTimeout(() => {
-		document.querySelectorAll('.use-field-btn').forEach(btn => {
-			btn.addEventListener('click', function() {
-				let fieldname = this.getAttribute('data-fieldname');
-				frm.set_value('source_field', fieldname);
-				frappe.show_alert({
-					message: __('Source Field set to: {0}', [fieldname]),
-					indicator: 'green'
-				}, 3);
+		document.querySelectorAll(".use-field-btn").forEach((btn) => {
+			btn.addEventListener("click", function () {
+				let fieldname = this.getAttribute("data-fieldname");
+				frm.set_value("source_field", fieldname);
+				frappe.show_alert(
+					{ message: __("Source Field set to: {0}", [fieldname]), indicator: "green" },
+					3
+				);
 			});
 		});
 	}, 100);

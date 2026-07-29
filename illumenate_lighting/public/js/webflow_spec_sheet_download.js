@@ -31,14 +31,36 @@
     'Start Feed Direction': 'start_feed_direction',
     'End Feed Direction':   'end_feed_direction',
     'Start Feed Length':    'start_feed_length_ft',
-    'End Feed Length':      'end_feed_length_ft'
+    'End Feed Length':      'end_feed_length_ft',
+    // Driver / Controller configurator axes
+    'Wattage':              'wattage',
+    'Output Voltage':       'voltage_output',
+    'Dimming Input':        'input_protocol',
+    'Input Protocol':       'input_protocol',
+    'Output Protocol':      'output_protocol',
+    'Controller Type':      'controller_type',
+    'Channels':             'channels',
+    'Zones':                'zones',
+    'Wireless Protocol':    'wireless_protocol',
+    'Mounting Type':        'mounting_type'
   };
+
+  // Product types whose configurator steps are entirely template-driven, so
+  // the browser cannot know which of them are required. The backend validates.
+  var VARIANT_PRODUCT_TYPES = ['Driver', 'Controller'];
+
+  function isVariantProductType(productType) {
+    return VARIANT_PRODUCT_TYPES.indexOf(productType) !== -1;
+  }
 
   // ─── Helpers ────────────────────────────────────────────────────
 
   /**
    * Detect the product type from the page.
    * Checks data attribute first, then infers from available radio groups.
+   *
+   * Driver and Controller pages MUST declare data-ill-product-type — they
+   * cannot be inferred, because their radio groups are template-driven.
    */
   function getProductType() {
     var el = document.querySelector('[data-ill-product-type]');
@@ -123,7 +145,12 @@
     if (!selections) return false;
     var productType = getProductType();
     var required;
-    if (productType === 'LED Neon' || productType === 'LED Tape') {
+    if (isVariantProductType(productType)) {
+      // Driver / Controller steps come from the template's allowed options, so
+      // the required set is only known server-side. Let the backend decide and
+      // report any missing steps.
+      required = [];
+    } else if (productType === 'LED Neon' || productType === 'LED Tape') {
       required = ['cct', 'output_level', 'finish', 'length_inches'];
     } else {
       required = [
@@ -157,7 +184,9 @@
       if (!hasMinimumSelections(selections)) {
         var productType = getProductType();
         var msg;
-        if (productType === 'LED Neon' || productType === 'LED Tape') {
+        if (isVariantProductType(productType)) {
+          msg = 'Please complete your configuration before downloading a spec sheet.';
+        } else if (productType === 'LED Neon' || productType === 'LED Tape') {
           msg = 'Please complete your configuration before downloading a spec sheet.\n\n' +
             'Required: CCT, Output, Finish, and Length.';
         } else {

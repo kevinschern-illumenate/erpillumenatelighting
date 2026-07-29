@@ -2287,3 +2287,340 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			),
 			"warnings": warnings,
 		}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DRIVER / CONTROLLER SUBMITTAL SUPPORT
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Drivers and controllers have no "configured" record: a configuration is
+# just a template + one of its pre-defined variant rows. The submittal is
+# therefore generated straight from
+#   ilL-<Kind>-Template → ilL-Child-<Kind>-Template-Variant → ilL-Spec-<Kind>
+# with the same mapping/transformation/webflow-override semantics used by the
+# fixture, neon and LED sheet pipelines.
+
+_VARIANT_SUBMITTAL_KINDS = {
+	"Driver": {
+		"template_doctype": "ilL-Driver-Template",
+		"variant_doctype": "ilL-Child-Driver-Template-Variant",
+		"spec_doctype": "ilL-Spec-Driver",
+		"spec_field": "driver_spec",
+		"mapping_doctype": "ilL-Driver-Submittal-Mapping",
+		"mapping_filter_field": "driver_template",
+		"product_link_field": "driver_template",
+	},
+	"Controller": {
+		"template_doctype": "ilL-Controller-Template",
+		"variant_doctype": "ilL-Child-Controller-Template-Variant",
+		"spec_doctype": "ilL-Spec-Controller",
+		"spec_field": "controller_spec",
+		"mapping_doctype": "ilL-Controller-Submittal-Mapping",
+		"mapping_filter_field": "controller_template",
+		"product_link_field": "controller_template",
+	},
+}
+
+
+def _gather_variant_field_mappings(kind: str, template_name: str) -> list[dict]:
+	"""Get all submittal field mappings for a driver/controller template."""
+	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
+	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
+	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
+	filters = {cfg["mapping_filter_field"]: template_name}
+	try:
+		return frappe.get_all(cfg["mapping_doctype"], filters=filters, fields=base_fields + webflow_fields)
+	except Exception as e:
+		# The webflow columns may not exist yet if migration is pending.
+		frappe.log_error(
+			title=f"{kind} Submittal: webflow fields query failed, falling back",
+			message=f"Error querying webflow fields for {template_name}: {e}",
+		)
+		return frappe.get_all(cfg["mapping_doctype"], filters=filters, fields=base_fields)
+
+
+def _get_variant_source_value(
+	kind: str,
+	source_doctype: str,
+	source_field: str,
+	template: Any = None,
+	variant: Any = None,
+	spec: Any = None,
+	webflow_product: Any = None,
+	warnings: list | None = None,
+) -> Any:
+	"""Resolve one mapping row against the driver/controller doctype chain."""
+	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
+	lookup = {
+		cfg["template_doctype"]: template,
+		cfg["variant_doctype"]: variant,
+		cfg["spec_doctype"]: spec,
+		"ilL-Webflow-Product": webflow_product,
+	}
+	doc = lookup.get(source_doctype)
+	if doc is None:
+		_debug(
+			f"_get_variant_source_value[{kind}]: NO MATCH for {source_doctype}.{source_field}",
+			warnings,
+		)
+		return None
+	try:
+		val = doc.get(source_field) if hasattr(doc, "get") else getattr(doc, source_field, None)
+		_debug(
+			f"_get_variant_source_value[{kind}]: {source_doctype}.{source_field} → {val!r}",
+			warnings,
+		)
+		return val
+	except Exception as e:
+		_debug(
+			f"_get_variant_source_value[{kind}]: EXCEPTION for {source_doctype}.{source_field} – "
+			f"{type(e).__name__}: {e}",
+			warnings,
+		)
+		return None
+
+
+def _get_driver_source_value(
+	source_doctype: str,
+	source_field: str,
+	driver_template: Any = None,
+	variant: Any = None,
+	driver_spec: Any = None,
+	webflow_product: Any = None,
+	warnings: list | None = None,
+) -> Any:
+	"""Get a value from the driver template / variant / spec / product chain."""
+	return _get_variant_source_value(
+		"Driver", source_doctype, source_field,
+		template=driver_template, variant=variant, spec=driver_spec,
+		webflow_product=webflow_product, warnings=warnings,
+	)
+
+
+def _get_controller_source_value(
+	source_doctype: str,
+	source_field: str,
+	controller_template: Any = None,
+	variant: Any = None,
+	controller_spec: Any = None,
+	webflow_product: Any = None,
+	warnings: list | None = None,
+) -> Any:
+	"""Get a value from the controller template / variant / spec / product chain."""
+	return _get_variant_source_value(
+		"Controller", source_doctype, source_field,
+		template=controller_template, variant=variant, spec=controller_spec,
+		webflow_product=webflow_product, warnings=warnings,
+	)
+
+
+def _resolve_template_variant(template: Any, variant_name: str | None):
+	"""Pick the variant row to fill from: the requested row, else the default."""
+	rows = getattr(template, "variants", None) or []
+	if variant_name:
+		for row in rows:
+			if row.name == variant_name:
+				return row
+	active = [r for r in rows if r.is_active]
+	if not active:
+		return None
+	default = [r for r in active if r.is_default]
+	return (default or active)[0]
+
+
+def _generate_filled_variant_submittal(
+	kind: str,
+	template_name: str,
+	variant_name: str | None = None,
+	warnings: list | None = None,
+	webflow_overrides: dict | None = None,
+	is_private: int = 1,
+) -> dict:
+	"""Shared implementation behind the driver and controller submittal generators."""
+	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
+
+	if isinstance(warnings, str):
+		try:
+			warnings = json.loads(warnings)
+		except (json.JSONDecodeError, TypeError):
+			warnings = None
+	if warnings is None:
+		warnings = []
+	if isinstance(webflow_overrides, str):
+		try:
+			webflow_overrides = json.loads(webflow_overrides)
+		except (json.JSONDecodeError, TypeError):
+			webflow_overrides = None
+
+	try:
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_save_file_ignore_permissions,
+		)
+
+		_debug(f"_generate_filled_variant_submittal[{kind}]: START template={template_name}", warnings)
+
+		template = frappe.get_doc(cfg["template_doctype"], template_name)
+
+		pdf_template = template.spec_submittal_template or template.spec_sheet
+		if not pdf_template:
+			msg = (
+				f"{kind} template '{template_name}' has no spec_submittal_template "
+				f"AND no spec_sheet attached – cannot generate filled submittal"
+			)
+			_debug(f"_generate_filled_variant_submittal[{kind}]: FAIL – {msg}", warnings)
+			return {"success": False, "message": _(msg), "warnings": warnings}
+
+		mappings = _gather_variant_field_mappings(kind, template_name)
+		if not mappings:
+			msg = f"No field mappings defined for {kind.lower()} template '{template_name}'"
+			_debug(f"_generate_filled_variant_submittal[{kind}]: FAIL – {msg}", warnings)
+			return {"success": False, "message": _(msg), "warnings": warnings}
+
+		variant = _resolve_template_variant(template, variant_name)
+		if not variant:
+			msg = f"{kind} template '{template_name}' has no active variant to generate from"
+			_debug(f"_generate_filled_variant_submittal[{kind}]: FAIL – {msg}", warnings)
+			return {"success": False, "message": _(msg), "warnings": warnings}
+
+		spec_name = variant.get(cfg["spec_field"])
+		spec = frappe.get_doc(cfg["spec_doctype"], spec_name) if spec_name else None
+
+		webflow_product = _get_linked_webflow_product(
+			cfg["product_link_field"], template_name, warnings
+		)
+
+		field_values = {}
+		for mapping in mappings:
+			pdf_field = mapping["pdf_field_name"]
+			webflow_key = mapping.get("webflow_field")
+			webflow_active = bool(webflow_key and webflow_overrides and webflow_key in webflow_overrides)
+
+			if webflow_active:
+				value = webflow_overrides[webflow_key]
+			else:
+				value = _get_variant_source_value(
+					kind,
+					mapping.get("source_doctype"),
+					mapping.get("source_field"),
+					template=template,
+					variant=variant,
+					spec=spec,
+					webflow_product=webflow_product,
+					warnings=warnings,
+				)
+
+			if webflow_active and mapping.get("webflow_skip_transformation"):
+				transformed = "" if value is None else str(value)
+			else:
+				transformed = _apply_transformation(value, mapping.get("transformation"))
+			transformed = _apply_logic(transformed, mapping.get("logic"))
+
+			prefix, suffix = mapping.get("prefix"), mapping.get("suffix")
+			if webflow_active:
+				ps_mode = mapping.get("webflow_prefix_suffix") or "Keep"
+				if ps_mode == "Override":
+					prefix, suffix = mapping.get("webflow_prefix"), mapping.get("webflow_suffix")
+				elif ps_mode == "None":
+					prefix = suffix = None
+
+			field_values[pdf_field] = _apply_prefix_suffix(transformed, prefix, suffix)
+
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+		if not filled_pdf:
+			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
+			_debug(f"_generate_filled_variant_submittal[{kind}]: FAIL – {msg}", warnings)
+			return {"success": False, "message": _("Failed to fill PDF form fields"), "warnings": warnings}
+
+		suffix_code = (variant.get("variant_code") or variant.name or "").replace("/", "-")
+		filename = f"Spec_Submittal_{template_name}_{suffix_code}_{nowdate()}.pdf"
+		file_doc = _save_file_ignore_permissions(
+			filename, filled_pdf, cfg["template_doctype"], template_name, is_private=is_private
+		)
+
+		_debug(
+			f"_generate_filled_variant_submittal[{kind}]: SUCCESS – file_url={file_doc.file_url}",
+			warnings,
+		)
+		return {
+			"success": True,
+			"file_url": file_doc.file_url,
+			"message": _("Spec submittal generated successfully"),
+			"warnings": warnings,
+		}
+
+	except Exception as e:
+		_debug(f"_generate_filled_variant_submittal[{kind}]: EXCEPTION – {type(e).__name__}: {e}", warnings)
+		frappe.log_error(
+			f"Error generating filled {kind.lower()} submittal: {type(e).__name__}: {e}\n"
+			f"{traceback.format_exc()}",
+			f"{kind} Spec Submittal Generation Error",
+		)
+		return {
+			"success": False,
+			"message": _("Error generating {0} spec submittal: {1}: {2}").format(
+				kind.lower(), type(e).__name__, str(e) or "insufficient permissions"
+			),
+			"warnings": warnings,
+		}
+
+
+def generate_filled_driver_submittal(
+	driver_template_name: str,
+	variant_name: str | None = None,
+	warnings: list | None = None,
+	webflow_overrides: dict | None = None,
+	is_private: int = 1,
+) -> dict:
+	"""
+	Generate a filled spec submittal PDF for a configured driver.
+
+	.. note::
+		This is an internal helper and is intentionally **not** whitelisted.
+		Callers that expose it over HTTP must enforce their own access control.
+
+	Args:
+		driver_template_name: Name of the ilL-Driver-Template
+		variant_name: Child row name of the ilL-Child-Driver-Template-Variant to
+			fill from. Falls back to the template's default/first active variant.
+		warnings: Optional list that debug/warning messages are appended to
+		webflow_overrides: Optional dict of webflow parameter values that take
+			priority over the mapped source field (e.g. {"project_name": "..."})
+		is_private: Whether the generated File should be private
+
+	Returns:
+		dict: {success, file_url, message, warnings}
+	"""
+	return _generate_filled_variant_submittal(
+		"Driver", driver_template_name, variant_name, warnings, webflow_overrides, is_private
+	)
+
+
+def generate_filled_controller_submittal(
+	controller_template_name: str,
+	variant_name: str | None = None,
+	warnings: list | None = None,
+	webflow_overrides: dict | None = None,
+	is_private: int = 1,
+) -> dict:
+	"""
+	Generate a filled spec submittal PDF for a configured controller.
+
+	.. note::
+		This is an internal helper and is intentionally **not** whitelisted.
+		Callers that expose it over HTTP must enforce their own access control.
+
+	Args:
+		controller_template_name: Name of the ilL-Controller-Template
+		variant_name: Child row name of the ilL-Child-Controller-Template-Variant
+			to fill from. Falls back to the default/first active variant.
+		warnings: Optional list that debug/warning messages are appended to
+		webflow_overrides: Optional dict of webflow parameter values that take
+			priority over the mapped source field
+		is_private: Whether the generated File should be private
+
+	Returns:
+		dict: {success, file_url, message, warnings}
+	"""
+	return _generate_filled_variant_submittal(
+		"Controller", controller_template_name, variant_name, warnings, webflow_overrides, is_private
+	)

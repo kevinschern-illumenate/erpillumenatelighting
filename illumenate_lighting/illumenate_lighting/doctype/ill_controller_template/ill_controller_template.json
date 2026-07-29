@@ -1,0 +1,200 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:template_code",
+ "creation": "2026-07-28 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "template_code",
+  "template_name",
+  "is_active",
+  "column_break_identity",
+  "series",
+  "sku_series_code",
+  "webflow_product",
+  "pricing_section",
+  "base_price_msrp",
+  "column_break_pricing",
+  "pricing_class",
+  "lead_time_class",
+  "configuration_section",
+  "variants",
+  "allowed_options",
+  "documents_section",
+  "spec_submittal_template",
+  "spec_sheet",
+  "certifications",
+  "warranty",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "description": "Unique code for this controller family, e.g. 'CTRL-DMX'",
+   "fieldname": "template_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Template Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Template Name"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
+  },
+  {
+   "description": "Short series code used as the part-number prefix.",
+   "fieldname": "sku_series_code",
+   "fieldtype": "Data",
+   "label": "SKU Series Code"
+  },
+  {
+   "fieldname": "webflow_product",
+   "fieldtype": "Link",
+   "label": "Webflow Product",
+   "options": "ilL-Webflow-Product",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "description": "Fallback base MSRP used when the matched variant has no MSRP of its own.",
+   "fieldname": "base_price_msrp",
+   "fieldtype": "Currency",
+   "label": "Base Price MSRP"
+  },
+  {
+   "fieldname": "column_break_pricing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pricing_class",
+   "fieldtype": "Link",
+   "label": "Pricing Class",
+   "options": "ilL-Attribute-Pricing Class"
+  },
+  {
+   "fieldname": "lead_time_class",
+   "fieldtype": "Link",
+   "label": "Lead Time Class",
+   "options": "ilL-Attribute-Lead Time Class"
+  },
+  {
+   "fieldname": "configuration_section",
+   "fieldtype": "Section Break",
+   "label": "Configuration"
+  },
+  {
+   "description": "Every orderable controller in this family. The configurator resolves a selection to exactly one row.",
+   "fieldname": "variants",
+   "fieldtype": "Table",
+   "label": "Variants",
+   "options": "ilL-Child-Controller-Template-Variant"
+  },
+  {
+   "description": "Selectable options exposed by the Webflow configurator, with optional MSRP adders.",
+   "fieldname": "allowed_options",
+   "fieldtype": "Table",
+   "label": "Allowed Options",
+   "options": "ilL-Child-Controller-Allowed-Option"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Documents"
+  },
+  {
+   "description": "Fillable PDF used to generate configured spec sheets.",
+   "fieldname": "spec_submittal_template",
+   "fieldtype": "Attach",
+   "label": "Spec Submittal Template"
+  },
+  {
+   "fieldname": "spec_sheet",
+   "fieldtype": "Attach",
+   "label": "Spec Sheet"
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification"
+  },
+  {
+   "fieldname": "warranty",
+   "fieldtype": "Data",
+   "label": "Warranty"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-07-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Controller-Template",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "search_fields": "template_name, sku_series_code",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "template_name",
+ "track_changes": 1
+}

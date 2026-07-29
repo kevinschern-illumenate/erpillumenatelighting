@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "driver_spec",
+  "is_default",
+  "is_active",
+  "column_break_identity",
+  "variant_code",
+  "msrp",
+  "axes_section",
+  "wattage",
+  "voltage_output",
+  "column_break_axes",
+  "input_protocol",
+  "output_protocol",
+  "snapshot_section",
+  "item",
+  "outputs_count",
+  "column_break_snapshot",
+  "input_voltage_min",
+  "input_voltage_max",
+  "input_voltage_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "driver_spec",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Driver Spec",
+   "options": "ilL-Spec-Driver",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Pre-select this variant when the configurator loads.",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Is Default"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Short code for this variant, used when building the configured part number.",
+   "fieldname": "variant_code",
+   "fieldtype": "Data",
+   "label": "Variant Code"
+  },
+  {
+   "fieldname": "msrp",
+   "fieldtype": "Currency",
+   "label": "MSRP"
+  },
+  {
+   "description": "Selectable axes. A configuration matches this variant only when every populated axis equals the user's selection.",
+   "fieldname": "axes_section",
+   "fieldtype": "Section Break",
+   "label": "Configurator Axes"
+  },
+  {
+   "description": "Rated wattage advertised for this variant (matches the Wattage option value).",
+   "fieldname": "wattage",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Wattage (W)"
+  },
+  {
+   "fetch_from": "driver_spec.voltage_output",
+   "fetch_if_empty": 1,
+   "fieldname": "voltage_output",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Voltage Output",
+   "options": "ilL-Attribute-Output Voltage"
+  },
+  {
+   "fieldname": "column_break_axes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Dimming signal this variant accepts (0-10V, DALI, Triac, ...).",
+   "fieldname": "input_protocol",
+   "fieldtype": "Link",
+   "label": "Input Protocol",
+   "options": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "fetch_from": "driver_spec.output_protocol",
+   "fetch_if_empty": 1,
+   "fieldname": "output_protocol",
+   "fieldtype": "Link",
+   "label": "Output Protocol",
+   "options": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "collapsible": 1,
+   "description": "Read-only values pulled from the linked Driver Spec for display on the product page.",
+   "fieldname": "snapshot_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Snapshot"
+  },
+  {
+   "fetch_from": "driver_spec.item",
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Driver Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "driver_spec.outputs_count",
+   "fieldname": "outputs_count",
+   "fieldtype": "Int",
+   "label": "Outputs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_snapshot",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "driver_spec.input_voltage_min",
+   "fieldname": "input_voltage_min",
+   "fieldtype": "Int",
+   "label": "Input Voltage Min",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "driver_spec.input_voltage_max",
+   "fieldname": "input_voltage_max",
+   "fieldtype": "Int",
+   "label": "Input Voltage Max",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "driver_spec.input_voltage_type",
+   "fieldname": "input_voltage_type",
+   "fieldtype": "Data",
+   "label": "Input Voltage Type",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Driver-Template-Variant",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}

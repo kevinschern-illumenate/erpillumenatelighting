@@ -299,6 +299,7 @@ def get_webflow_products(
             "name", "product_name", "product_slug", "product_type",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
+            "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
@@ -1129,6 +1130,8 @@ def preview_specifications(webflow_product: str) -> dict:
         "fixture_template": doc.get("fixture_template"),
         "driver_spec": doc.get("driver_spec"),
         "controller_spec": doc.get("controller_spec"),
+        "driver_template": doc.get("driver_template"),
+        "controller_template": doc.get("controller_template"),
         "tape_spec": doc.get("tape_spec"),
         "tape_neon_template": doc.get("tape_neon_template"),
         "led_sheet_template": doc.get("led_sheet_template"),
@@ -1182,9 +1185,17 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         additional_specs.extend(
             _enrich_driver_specs(product, existing_labels)
         )
+    elif product_type == "Driver" and product.get("driver_template"):
+        additional_specs.extend(
+            _enrich_driver_template_variants(product, existing_labels)
+        )
     elif product_type == "Controller" and product.get("controller_spec"):
         additional_specs.extend(
             _enrich_controller_specs(product, existing_labels)
+        )
+    elif product_type == "Controller" and product.get("controller_template"):
+        additional_specs.extend(
+            _enrich_controller_template_variants(product, existing_labels)
         )
     elif product_type in ("LED Tape", "LED Neon") and product.get("tape_neon_template"):
         additional_specs.extend(
@@ -1208,8 +1219,8 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         # loudly instead of silently emitting zero additional specs.
         expected_links = {
             "Fixture Template": ["fixture_template"],
-            "Driver": ["driver_spec"],
-            "Controller": ["controller_spec"],
+            "Driver": ["driver_spec", "driver_template"],
+            "Controller": ["controller_spec", "controller_template"],
             "LED Tape": ["tape_neon_template", "tape_spec"],
             "LED Neon": ["tape_neon_template"],
             "LED Sheet": ["led_sheet_template"],
@@ -1667,6 +1678,109 @@ def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
             })
 
     return specs
+
+
+_VARIANT_TEMPLATE_ENRICHMENT = {
+    "Driver": {
+        "product_field": "driver_template",
+        "template_doctype": "ilL-Driver-Template",
+        "variant_doctype": "ilL-Child-Driver-Template-Variant",
+        "spec_field": "driver_spec",
+        "spec_product_field": "driver_spec",
+        "models_label": "Available Models",
+        "models_display_order": 10,
+    },
+    "Controller": {
+        "product_field": "controller_template",
+        "template_doctype": "ilL-Controller-Template",
+        "variant_doctype": "ilL-Child-Controller-Template-Variant",
+        "spec_field": "controller_spec",
+        "spec_product_field": "controller_spec",
+        "models_label": "Available Models",
+        "models_display_order": 10,
+    },
+}
+
+
+def _enrich_variant_template_specs(kind: str, product: dict, existing_labels: set) -> list:
+    """Add missing specs for a Driver/Controller product linked via a template.
+
+    Configurable driver/controller products point at a template holding a list
+    of pre-defined variants rather than a single spec. The default variant's
+    spec drives the normal electrical/physical enrichment, and an extra
+    "Available Models" spec lists every active variant so the Webflow product
+    card can show the range.
+    """
+    cfg = _VARIANT_TEMPLATE_ENRICHMENT[kind]
+    specs = []
+
+    # Seed the warning list up front so the shallow `scoped` copy below shares
+    # the same list object and warnings raised by the delegated enricher are
+    # not lost.
+    product.setdefault("_spec_warnings", [])
+
+    template_name = product.get(cfg["product_field"])
+    variants = frappe.get_all(
+        cfg["variant_doctype"],
+        filters={
+            "parent": template_name,
+            "parenttype": cfg["template_doctype"],
+            "is_active": 1,
+        },
+        fields=[cfg["spec_field"], "variant_code", "item"],
+        order_by="is_default desc, idx asc",
+    )
+
+    if not variants:
+        msg = (
+            f"Webflow product '{product.get('name')}' (type '{kind}') is linked to "
+            f"{cfg['template_doctype']} '{template_name}' but that template has no "
+            f"active variants; specifications could not be enriched."
+        )
+        _record_spec_warning(product, msg)
+        frappe.log_error(message=msg, title="Webflow Spec Enrichment Skipped")
+        return specs
+
+    # Base electrical/physical/control specs come from the default variant's spec.
+    default_spec = variants[0].get(cfg["spec_field"])
+    if default_spec:
+        scoped = dict(product)
+        scoped[cfg["spec_product_field"]] = default_spec
+        enricher = _enrich_driver_specs if kind == "Driver" else _enrich_controller_specs
+        specs.extend(enricher(scoped, existing_labels))
+
+    # "Available Models" — the configurable range offered on the product page.
+    if cfg["models_label"] not in existing_labels:
+        labels = [
+            (v.get("variant_code") or v.get("item") or "").strip()
+            for v in variants
+        ]
+        labels = [label for label in labels if label]
+        if labels:
+            specs.append({
+                "spec_group": "Identification",
+                "spec_label": cfg["models_label"],
+                "spec_value": ", ".join(labels),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": cfg["models_display_order"],
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    return specs
+
+
+def _enrich_driver_template_variants(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Driver products linked via driver_template."""
+    return _enrich_variant_template_specs("Driver", product, existing_labels)
+
+
+def _enrich_controller_template_variants(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Controller products linked via controller_template."""
+    return _enrich_variant_template_specs("Controller", product, existing_labels)
 
 
 

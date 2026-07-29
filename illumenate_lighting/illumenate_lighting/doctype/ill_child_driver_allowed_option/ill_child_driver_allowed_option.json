@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "option_type",
+  "attribute_doctype",
+  "attribute_link",
+  "option_value",
+  "column_break_option",
+  "option_label",
+  "option_code",
+  "is_default",
+  "is_active",
+  "msrp_adder"
+ ],
+ "fields": [
+  {
+   "fieldname": "option_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Option Type",
+   "options": "Wattage\nVoltage Output\nInput Protocol\nOutput Protocol\nMounting Type",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:['Voltage Output','Input Protocol','Output Protocol','Mounting Type'].includes(doc.option_type)",
+   "fieldname": "attribute_doctype",
+   "fieldtype": "Select",
+   "label": "Attribute DocType",
+   "options": "\nilL-Attribute-Output Voltage\nilL-Attribute-Dimming Protocol\nilL-Attribute-Mounting Type"
+  },
+  {
+   "depends_on": "attribute_doctype",
+   "fieldname": "attribute_link",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Attribute Link",
+   "options": "attribute_doctype"
+  },
+  {
+   "depends_on": "eval:doc.option_type=='Wattage'",
+   "description": "Scalar value for non-attribute option types (e.g. '60' for Wattage).",
+   "fieldname": "option_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Option Value"
+  },
+  {
+   "fieldname": "column_break_option",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Display label override shown in the Webflow configurator.",
+   "fieldname": "option_label",
+   "fieldtype": "Data",
+   "label": "Option Label"
+  },
+  {
+   "description": "Short code used when building the configured part number.",
+   "fieldname": "option_code",
+   "fieldtype": "Data",
+   "label": "Option Code"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Is Default"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "msrp_adder",
+   "fieldtype": "Currency",
+   "label": "MSRP Adder"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Driver-Allowed-Option",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}

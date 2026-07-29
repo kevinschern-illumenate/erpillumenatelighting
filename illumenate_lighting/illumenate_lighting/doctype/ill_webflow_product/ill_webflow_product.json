@@ -17,7 +17,9 @@
   "source_reference_section",
   "fixture_template",
   "driver_spec",
+  "driver_template",
   "controller_spec",
+  "controller_template",
   "column_break_source",
   "profile_spec",
   "lens_spec",
@@ -148,17 +150,35 @@
   },
   {
    "depends_on": "eval:doc.product_type=='Driver'",
+   "description": "Single driver. Leave blank and use Driver Template instead when the product page offers a configurable family.",
    "fieldname": "driver_spec",
    "fieldtype": "Link",
    "label": "Driver Spec",
    "options": "ilL-Spec-Driver"
   },
   {
+   "depends_on": "eval:doc.product_type=='Driver'",
+   "description": "Driver family used to drive the Webflow configurator (wattage, output voltage, dimming protocol).",
+   "fieldname": "driver_template",
+   "fieldtype": "Link",
+   "label": "Driver Template",
+   "options": "ilL-Driver-Template"
+  },
+  {
    "depends_on": "eval:doc.product_type=='Controller'",
+   "description": "Single controller. Leave blank and use Controller Template instead when the product page offers a configurable family.",
    "fieldname": "controller_spec",
    "fieldtype": "Link",
    "label": "Controller Spec",
    "options": "ilL-Spec-Controller"
+  },
+  {
+   "depends_on": "eval:doc.product_type=='Controller'",
+   "description": "Controller family used to drive the Webflow configurator (type, channels, zones, protocols).",
+   "fieldname": "controller_template",
+   "fieldtype": "Link",
+   "label": "Controller Template",
+   "options": "ilL-Controller-Template"
   },
   {
    "fieldname": "column_break_source",
@@ -209,7 +229,7 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
+   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','LED Sheet','Extrusion Kit','Driver','Controller'], doc.product_type)",
    "fieldname": "configurator_section",
    "fieldtype": "Section Break",
    "label": "Configurator Settings"

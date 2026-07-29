@@ -1184,3 +1184,189 @@ def _resolve_ip_rating_from_selection(template, selections: dict) -> str:
 
     # Last resort: the conventional default even if the attribute table is empty.
     return "IP67"
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Driver / Controller — Webflow spec sheet generation
+# ──────────────────────────────────────────────────────────────────────────
+
+_VARIANT_SPEC_SHEET_KINDS = {
+    "Driver": {
+        "template_doctype": "ilL-Driver-Template",
+        "product_field": "driver_template",
+        "mapping_doctype": "ilL-Driver-Submittal-Mapping",
+        "mapping_filter_field": "driver_template",
+    },
+    "Controller": {
+        "template_doctype": "ilL-Controller-Template",
+        "product_field": "controller_template",
+        "mapping_doctype": "ilL-Controller-Submittal-Mapping",
+        "mapping_filter_field": "controller_template",
+    },
+}
+
+
+def _generate_from_webflow_selections_variant(
+    kind: str,
+    product_slug: str,
+    selections: dict,
+    project_name: str = "",
+    project_location: str = "",
+    fixture_type: str = "",
+) -> dict:
+    """Shared driver/controller spec sheet pipeline.
+
+    Unlike fixtures and tape/neon there is no configured record to create:
+    the selections resolve to exactly one pre-defined template variant, which
+    is then used to fill the template's submittal PDF.
+    """
+    from illumenate_lighting.illumenate_lighting.api.driver_controller_configurator import (
+        _get_configurable_product,
+        _validate_configuration,
+    )
+
+    cfg = _VARIANT_SPEC_SHEET_KINDS[kind]
+
+    # ── Step 1: Resolve product and template ──────────────────────────
+    product = _get_configurable_product(kind, product_slug)
+    if not product:
+        return {"success": False, "error": f"{kind} product not found or not configurable"}
+
+    template_name = product.get(cfg["product_field"])
+    template = frappe.get_doc(cfg["template_doctype"], template_name)
+
+    # ── Step 2: Validate the selections against the variant table ─────
+    validation = _validate_configuration(kind, product_slug, json.dumps(selections))
+    if not validation.get("success"):
+        return {"success": False, "error": validation.get("error") or "Configuration is invalid"}
+
+    part_number = validation.get("part_number") or ""
+    variant_name = (validation.get("variant") or {}).get("variant_name")
+
+    # ── Step 3: Fall back to the static sheet when no fillable setup ──
+    has_submittal_template = bool(getattr(template, "spec_submittal_template", None))
+    has_field_mappings = bool(
+        frappe.db.count(cfg["mapping_doctype"], filters={cfg["mapping_filter_field"]: template_name})
+    )
+    if not has_submittal_template and not has_field_mappings:
+        spec_sheet_url = getattr(template, "spec_sheet", None)
+        if spec_sheet_url:
+            return {
+                "success": True,
+                "file_url": spec_sheet_url,
+                "filename": f"Spec_Sheet_{part_number or template_name}.pdf",
+                "part_number": part_number,
+                "note": "Static spec sheet returned (no fillable template configured)",
+            }
+        return {
+            "success": False,
+            "error": "No spec submittal template or spec sheet configured for this product",
+        }
+
+    # ── Step 4: Generate the filled submittal PDF ─────────────────────
+    from illumenate_lighting.illumenate_lighting.api.spec_submittal import (
+        generate_filled_controller_submittal,
+        generate_filled_driver_submittal,
+    )
+
+    webflow_overrides = {}
+    if project_name:
+        webflow_overrides["project_name"] = project_name
+    if fixture_type:
+        webflow_overrides["fixture_type"] = fixture_type
+    if project_location:
+        webflow_overrides["project_location"] = project_location
+    if part_number:
+        webflow_overrides["part_number"] = part_number
+
+    generator = (
+        generate_filled_driver_submittal if kind == "Driver" else generate_filled_controller_submittal
+    )
+    submittal_result = generator(
+        template_name,
+        variant_name=variant_name,
+        webflow_overrides=webflow_overrides,
+    )
+
+    if not submittal_result.get("success") or not submittal_result.get("file_url"):
+        error_detail = submittal_result.get("message") or "Unknown error"
+        frappe.log_error(
+            title=f"{kind} Spec Submittal Generation Failed",
+            message=(
+                f"generate_filled_{kind.lower()}_submittal returned failure for "
+                f"template={template_name}, variant={variant_name}: {error_detail}"
+            ),
+        )
+        return {
+            "success": False,
+            "error": f"Could not generate filled spec submittal: {error_detail}",
+        }
+
+    # ── Step 5: Make the file publicly accessible ─────────────────────
+    file_url = _ensure_public_file(submittal_result["file_url"])
+
+    return {
+        "success": True,
+        "file_url": file_url,
+        "filename": f"Spec_Sheet_{part_number or template_name}.pdf",
+        "part_number": part_number,
+    }
+
+
+def generate_from_webflow_selections_driver(
+    product_slug: str,
+    selections: dict,
+    project_name: str = "",
+    project_location: str = "",
+    fixture_type: str = "",
+) -> dict:
+    """
+    Generate a spec sheet PDF from Webflow configurator selections for a Driver.
+
+    Pipeline:
+    1. Resolve ilL-Webflow-Product → ilL-Driver-Template
+    2. Validate the selections against the template's variant table
+    3. Fill the template's submittal PDF from the matched variant
+    4. Make the file public and return the URL
+
+    Args:
+        product_slug: Webflow product slug
+        selections: Dict of configurator selections (wattage, voltage_output,
+                    input_protocol, output_protocol)
+        project_name: Optional project name for the spec sheet header
+        project_location: Optional project location for the spec sheet header
+        fixture_type: Optional fixture type for the spec sheet header
+
+    Returns:
+        dict: {success, file_url, filename, part_number} or {success, error}
+    """
+    return _generate_from_webflow_selections_variant(
+        "Driver", product_slug, selections, project_name, project_location, fixture_type
+    )
+
+
+def generate_from_webflow_selections_controller(
+    product_slug: str,
+    selections: dict,
+    project_name: str = "",
+    project_location: str = "",
+    fixture_type: str = "",
+) -> dict:
+    """
+    Generate a spec sheet PDF from Webflow configurator selections for a Controller.
+
+    Args:
+        product_slug: Webflow product slug
+        selections: Dict of configurator selections (controller_type, channels,
+                    zones, input_protocol, output_protocol, wireless_protocol,
+                    mounting_type)
+        project_name: Optional project name for the spec sheet header
+        project_location: Optional project location for the spec sheet header
+        fixture_type: Optional fixture type for the spec sheet header
+
+    Returns:
+        dict: {success, file_url, filename, part_number} or {success, error}
+    """
+    return _generate_from_webflow_selections_variant(
+        "Controller", product_slug, selections, project_name, project_location, fixture_type
+    )
