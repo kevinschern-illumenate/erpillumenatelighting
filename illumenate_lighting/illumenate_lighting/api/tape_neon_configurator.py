@@ -556,8 +556,21 @@ def validate_tape_configuration(
     logger.info(f"validate_tape: resolved tape spec = {tape_spec.name} from offering")
 
     # ── Compute manufacturable length (per segment) ───────────────────
-    is_free_cutting = tape_spec.is_free_cutting
-    cut_increment_mm = tape_spec.cut_increment_mm or 0
+    # A template flagged free-cutting overrides the spec's cut increment, and
+    # an offering-level override beats the spec default (same precedence the
+    # spec sheet export uses).
+    template_free_cutting = bool(
+        frappe.db.get_value("ilL-Tape-Neon-Template", tape_neon_template, "is_free_cutting")
+    ) if tape_neon_template else False
+    is_free_cutting = bool(tape_spec.is_free_cutting) or template_free_cutting
+    if is_free_cutting:
+        cut_increment_mm = 0
+    else:
+        cut_increment_mm = float(
+            getattr(tape_offering, "cut_increment_mm_override", None)
+            or tape_spec.cut_increment_mm
+            or 0
+        )
     watts_per_ft = float(tape_spec.watts_per_foot or 0)
     voltage_drop_max_run_ft = float(tape_spec.voltage_drop_max_run_length_ft or 0)
 
@@ -706,7 +719,9 @@ def validate_tape_configuration(
     build_description = _build_tape_description(sel, tape_spec, tape_offering,
                                                 manufacturable_length_mm,
                                                 lead_length_inches,
-                                                computed_segments)
+                                                computed_segments,
+                                                is_free_cutting=is_free_cutting,
+                                                cut_increment_mm=cut_increment_mm)
 
     # ── Resolved items ────────────────────────────────────────────────
     # The tape item is from the tape spec, leader cable item is also on the spec
@@ -975,13 +990,24 @@ def validate_neon_configuration(
     #   4. All LED Neon specs, no finish filter (global fallback, no finish)
     # Using the template's allowed specs first ensures we find offerings even
     # when the linked tape spec's product_category differs from "LED Neon".
+    # Steps 3 & 4 only run when the template did not constrain the search —
+    # a global search would otherwise resolve an unrelated neon product.
 
     tape_offering = None
     all_matching_specs = []
+    template_free_cutting = False
+    template_scoped = False
 
     # ── Step 1 & 2: Template-scoped search ───────────────────────────
     if tape_neon_template:
         logger.info(f"validate_neon: fetching allowed tape specs from template '{tape_neon_template}'")
+        _tpl_meta = frappe.db.get_value(
+            "ilL-Tape-Neon-Template",
+            tape_neon_template,
+            ["is_free_cutting", "default_tape_spec"],
+            as_dict=True,
+        ) or {}
+        template_free_cutting = bool(_tpl_meta.get("is_free_cutting"))
         _tpl_spec_rows = frappe.get_all(
             "ilL-Child-Tape-Neon-Allowed-Spec",
             filters={"parent": tape_neon_template, "parenttype": "ilL-Tape-Neon-Template"},
@@ -990,7 +1016,18 @@ def validate_neon_configuration(
             ignore_permissions=True,
         )
         _tpl_spec_names = [r.tape_spec for r in _tpl_spec_rows if r.tape_spec]
+        _default_spec = _tpl_meta.get("default_tape_spec")
+        if not _tpl_spec_names and _default_spec:
+            # Mirrors get_tape_neon_template_init: an empty allowed-spec table
+            # still resolves through the template's default spec.
+            _tpl_spec_names = [_default_spec]
+        # The template's default spec wins when several allowed specs carry an
+        # offering for the same CCT/output combination.
+        if _default_spec and _default_spec in _tpl_spec_names:
+            _tpl_spec_names.remove(_default_spec)
+            _tpl_spec_names.insert(0, _default_spec)
         if _tpl_spec_names:
+            template_scoped = True
             _tpl_specs = frappe.get_all(
                 "ilL-Spec-LED Tape",
                 filters={"name": ["in", _tpl_spec_names]},
@@ -1002,6 +1039,7 @@ def validate_neon_configuration(
                 ],
                 ignore_permissions=True,
             )
+            _tpl_specs.sort(key=lambda s: _tpl_spec_names.index(s.name))
             _tpl_fetched_names = [s.name for s in _tpl_specs]
             logger.info(
                 f"validate_neon: template has {len(_tpl_specs)} allowed tape specs: {_tpl_fetched_names}"
@@ -1039,7 +1077,7 @@ def validate_neon_configuration(
                     )
 
     # ── Step 3: Global LED Neon specs + finish filter ─────────────────
-    if not tape_offering:
+    if not tape_offering and not template_scoped:
         logger.info(
             f"validate_neon: looking for tape specs with category=LED Neon, pcb_finish={sel.get('finish')}"
         )
@@ -1059,7 +1097,7 @@ def validate_neon_configuration(
             )
 
     # ── Step 4: All LED Neon specs, no finish filter ──────────────────
-    if not tape_offering:
+    if not tape_offering and not template_scoped:
         logger.info("validate_neon: no offering found with finish filter – falling back to all LED Neon specs")
         all_neon_specs = _find_all_matching_tape_specs(product_category="LED Neon")
         all_spec_names = [s.name for s in all_neon_specs]
@@ -1074,11 +1112,16 @@ def validate_neon_configuration(
 
     if not tape_offering:
         logger.warning(f"validate_neon: No offering found for cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+        scope_hint = (
+            f" on the tape specs allowed by template '{tape_neon_template}'"
+            if template_scoped else ""
+        )
         return {
             "success": False,
             "is_valid": False,
             "error": (
-                f"No neon offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}'. "
+                f"No neon offering found for CCT='{sel.get('cct')}' and "
+                f"Output Level='{sel.get('output_level')}'{scope_hint}. "
                 "Check that a matching ilL-Rel-Tape Offering record exists and is active."
             ),
         }
@@ -1089,8 +1132,18 @@ def validate_neon_configuration(
     logger.info(f"validate_neon: resolved tape spec = {tape_spec.name} from offering")
 
     # ── Process each segment ──────────────────────────────────────────
-    is_free_cutting = tape_spec.is_free_cutting
-    cut_increment_mm = tape_spec.cut_increment_mm or 0
+    # A template flagged free-cutting overrides the spec's cut increment, and
+    # an offering-level override beats the spec default (same precedence the
+    # spec sheet export uses).
+    is_free_cutting = bool(tape_spec.is_free_cutting) or template_free_cutting
+    if is_free_cutting:
+        cut_increment_mm = 0
+    else:
+        cut_increment_mm = float(
+            getattr(tape_offering, "cut_increment_mm_override", None)
+            or tape_spec.cut_increment_mm
+            or 0
+        )
     watts_per_ft = float(tape_spec.watts_per_foot or 0)
     voltage_drop_max_run_ft = float(tape_spec.voltage_drop_max_run_length_ft or 0)
 
@@ -1224,7 +1277,11 @@ def validate_neon_configuration(
 
     # ── Build part number & description ───────────────────────────────
     part_number = _build_neon_part_number(sel, tape_spec, tape_offering, computed_segments)
-    build_description = _build_neon_description(sel, tape_spec, tape_offering, computed_segments)
+    build_description = _build_neon_description(
+        sel, tape_spec, tape_offering, computed_segments,
+        is_free_cutting=is_free_cutting,
+        cut_increment_mm=cut_increment_mm,
+    )
 
     # ── Resolved items ────────────────────────────────────────────────
     tape_item = tape_spec.item
@@ -1771,6 +1828,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
             "series", "description", "image", "notes",
             "default_tape_spec", "leader_allowance_mm_per_fixture",
             "base_price_msrp", "price_per_ft_msrp",
+            "is_free_cutting",
             "webflow_product",
         ],
         limit=1,
@@ -1849,6 +1907,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
     # Use the default spec (or first spec) for meta
     default_spec_name = template.default_tape_spec or spec_names[0]
     default_spec = next((s for s in tape_specs if s.name == default_spec_name), tape_specs[0])
+    meta_free_cutting = bool(template.is_free_cutting) or bool(default_spec.is_free_cutting)
 
     return {
         "success": True,
@@ -1880,8 +1939,8 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         ],
         "options": options,
         "meta": {
-            "cut_increment_mm": default_spec.cut_increment_mm or 0,
-            "is_free_cutting": bool(default_spec.is_free_cutting),
+            "cut_increment_mm": 0 if meta_free_cutting else (default_spec.cut_increment_mm or 0),
+            "is_free_cutting": meta_free_cutting,
             "watts_per_foot": default_spec.watts_per_foot or 0,
             "max_run_length_ft": default_spec.voltage_drop_max_run_length_ft or 0,
             "input_voltage": default_spec.input_voltage,
@@ -2090,7 +2149,19 @@ def validate_tape_neon_template_config(
             return {"success": False, "is_valid": False,
                     "error": "segments_json is required for LED Neon"}
         logger.info("validate_tape_neon_template_config: Delegating to validate_neon_configuration")
-        result = validate_neon_configuration(selections, segments_json, _skip_record_creation=True)
+        # The template must be forwarded: it scopes tape spec resolution to the
+        # template's allowed specs and carries the free-cutting flag.
+        _neon_sel = json.loads(selections) if isinstance(selections, str) else dict(selections or {})
+        _neon_include_ps = _neon_sel.pop("include_power_supply", True)
+        if isinstance(_neon_include_ps, str):
+            _neon_include_ps = _neon_include_ps.lower() not in ("0", "false", "no", "")
+        result = validate_neon_configuration(
+            json.dumps(_neon_sel),
+            segments_json,
+            _skip_record_creation=True,
+            tape_neon_template=template.name,
+            include_power_supply=bool(_neon_include_ps),
+        )
     else:
         logger.info("validate_tape_neon_template_config: Delegating to validate_tape_configuration")
         # Extract include_power_supply from the selections dict so it can be
@@ -3206,14 +3277,18 @@ def _find_matching_tape_offering(
     """Find an ilL-Rel-Tape Offering matching the tape spec(s), CCT and output.
 
     Args:
-        tape_spec_name: A single spec name (str) or list of spec names.
+        tape_spec_name: A single spec name (str) or list of spec names.  When a
+            list is given its order is the preference order — the offering whose
+            tape spec appears earliest wins.
         cct: CCT attribute name to filter on.
         output_level: Output level attribute name to filter on.
     """
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
     # Accept either a single name or a list of names
+    spec_rank = None
     if isinstance(tape_spec_name, list):
         spec_filter = ["in", tape_spec_name]
+        spec_rank = {name: idx for idx, name in enumerate(tape_spec_name)}
     else:
         spec_filter = tape_spec_name
     filters: dict[str, Any] = {"tape_spec": spec_filter, "is_active": 1}
@@ -3227,8 +3302,12 @@ def _find_matching_tape_offering(
     offerings = frappe.get_all(
         "ilL-Rel-Tape Offering",
         filters=filters,
-        fields=["name", "tape_spec", "cct", "cri", "sdcm", "led_package", "output_level"],
-        limit=1,
+        fields=[
+            "name", "tape_spec", "cct", "cri", "sdcm", "led_package",
+            "output_level", "cut_increment_mm_override",
+        ],
+        # A ranked list needs every candidate so the preferred spec can win.
+        **({} if spec_rank else {"limit": 1}),
     )
     if not offerings:
         # Log all available offerings for debugging
@@ -3241,7 +3320,12 @@ def _find_matching_tape_offering(
             f"_find_matching_tape_offering: No match for {filters}. "
             f"Available offerings for {tape_spec_name}: {all_offerings}"
         )
-    return offerings[0] if offerings else None
+        return None
+    if spec_rank and len(offerings) > 1:
+        offerings.sort(
+            key=lambda o: (spec_rank.get(o.tape_spec, len(spec_rank)), o.name)
+        )
+    return offerings[0]
 
 
 def _get_environment_ratings_for_tape_offerings(tape_offerings, spec_names) -> list:
@@ -3491,9 +3575,19 @@ def _build_tape_part_number(
 
 
 def _build_tape_description(
-    sel, tape_spec, tape_offering, mfg_length_mm, lead_length_in, segments=None
+    sel, tape_spec, tape_offering, mfg_length_mm, lead_length_in, segments=None,
+    is_free_cutting=None, cut_increment_mm=None,
 ) -> str:
-    """Build a human-readable description for LED Tape configuration."""
+    """Build a human-readable description for LED Tape configuration.
+
+    *is_free_cutting* / *cut_increment_mm* carry the effective values resolved
+    by the caller (template flag and offering override applied); they fall back
+    to the raw spec values when omitted.
+    """
+    if is_free_cutting is None:
+        is_free_cutting = bool(tape_spec.is_free_cutting)
+    if cut_increment_mm is None:
+        cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
     lines.append(f"LED Tape: {tape_spec.name}")
     if sel.get("environment_rating"):
@@ -3523,10 +3617,10 @@ def _build_tape_description(
                 end_desc = "Endcap"
             lines.append(f"Seg {seg_idx}: {seg_in}\" | End: {end_desc}")
 
-    if tape_spec.is_free_cutting:
+    if is_free_cutting:
         lines.append("Cutting: Free cutting (no cut increment)")
     else:
-        lines.append(f"Cut Increment: {tape_spec.cut_increment_mm} mm")
+        lines.append(f"Cut Increment: {cut_increment_mm} mm")
 
     return " | ".join(lines)
 
@@ -3608,8 +3702,20 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     return "-".join(parts)
 
 
-def _build_neon_description(sel, tape_spec, tape_offering, segments) -> str:
-    """Build a human-readable description for LED Neon configuration."""
+def _build_neon_description(
+    sel, tape_spec, tape_offering, segments,
+    is_free_cutting=None, cut_increment_mm=None,
+) -> str:
+    """Build a human-readable description for LED Neon configuration.
+
+    *is_free_cutting* / *cut_increment_mm* carry the effective values resolved
+    by the caller (template flag and offering override applied); they fall back
+    to the raw spec values when omitted.
+    """
+    if is_free_cutting is None:
+        is_free_cutting = bool(tape_spec.is_free_cutting)
+    if cut_increment_mm is None:
+        cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
     lines.append(f"LED Neon: {tape_spec.name}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
@@ -3631,10 +3737,10 @@ def _build_neon_description(sel, tape_spec, tape_offering, segments) -> str:
             f"End: {end_dir} {end_lead}\""
         )
 
-    if tape_spec.is_free_cutting:
+    if is_free_cutting:
         lines.append("Cutting: Free cutting")
     else:
-        lines.append(f"Cut Increment: {tape_spec.cut_increment_mm} mm")
+        lines.append(f"Cut Increment: {cut_increment_mm} mm")
 
     return " | ".join(lines)
 
