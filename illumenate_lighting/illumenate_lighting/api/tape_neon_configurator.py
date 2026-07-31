@@ -508,44 +508,97 @@ def validate_tape_configuration(
         lead_length_inches = 0.0
 
     # ── Find matching tape offering ───────────────────────────────────
-    # Mounting fields (pcb_mounting/pcb_finish) removed from selections.
-    # Search all LED Tape specs directly.
-    logger.info("validate_tape: looking for tape specs with category=LED Tape (no mounting filter)")
-    all_matching_specs = _find_all_matching_tape_specs(
-        product_category="LED Tape",
-    )
-    spec_names = [s.name for s in all_matching_specs]
-    logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs: {spec_names}")
-
+    # Search priority:
+    #   1. Template's allowed specs for the selected environment rating,
+    #      narrowed by any PCB mounting/finish selection
+    #   2. Same specs, PCB filters dropped
+    #   3. Every spec the template allows (environment filter dropped)
+    #   4. All LED Tape specs (only when the template constrains nothing)
+    # Scoping to the template is what stops e.g. a Tunable White request from
+    # resolving to a Dim-to-Warm spec that happens to publish an offering for
+    # the same CCT / output level.
     tape_offering = None
-    if spec_names:
-        tape_offering = _find_matching_tape_offering(
-            tape_spec_name=spec_names,
-            cct=sel.get("cct"),
-            output_level=sel.get("output_level"),
-        )
+    all_matching_specs = []
+    template_free_cutting = False
+    template_scoped = False
 
-    # Fallback: if no offering found with direct specs, search ALL LED Tape specs.
-    if not tape_offering:
-        logger.info("validate_tape: no offering found – falling back to all LED Tape specs")
-        all_tape_specs = _find_all_matching_tape_specs(product_category="LED Tape")
-        all_spec_names = [s.name for s in all_tape_specs]
-        tape_offering = _find_matching_tape_offering(
-            tape_spec_name=all_spec_names,
-            cct=sel.get("cct"),
-            output_level=sel.get("output_level"),
+    if tape_neon_template:
+        _tpl_ctx = _get_template_spec_context(
+            tape_neon_template, environment_rating=sel.get("environment_rating")
         )
-        if tape_offering:
-            all_matching_specs = all_tape_specs
-            logger.info(f"validate_tape: found offering via all-specs fallback: {tape_offering.name}")
+        template_free_cutting = _tpl_ctx["free_cutting"]
+        _tpl_all_names = _tpl_ctx["spec_names"]
+        _tpl_env_names = _tpl_ctx["env_spec_names"]
+        if _tpl_all_names:
+            template_scoped = True
+            _tpl_specs = frappe.get_all(
+                "ilL-Spec-LED Tape",
+                filters={"name": ["in", _tpl_all_names]},
+                fields=_TAPE_SPEC_FIELDS,
+                ignore_permissions=True,
+            )
+            _spec_by_name = {s.name: s for s in _tpl_specs}
+            _env_specs = [_spec_by_name[n] for n in _tpl_env_names if n in _spec_by_name]
+            _all_specs = [_spec_by_name[n] for n in _tpl_all_names if n in _spec_by_name]
+            logger.info(
+                f"validate_tape: template '{tape_neon_template}' allows "
+                f"{[s.name for s in _all_specs]} (environment-scoped: "
+                f"{[s.name for s in _env_specs]})"
+            )
+
+            # Step 1: environment-scoped specs + PCB mounting/finish filters
+            _pcb_mounting = sel.get("pcb_mounting")
+            _pcb_finish = sel.get("pcb_finish")
+            _pcb_filtered = [
+                s for s in _env_specs
+                if (not _pcb_mounting or s.pcb_mounting == _pcb_mounting)
+                and (not _pcb_finish or s.pcb_finish == _pcb_finish)
+            ]
+            _cct = sel.get("cct")
+            _plan = [
+                (_pcb_filtered, _cct, "environment + PCB filters"),
+                (_env_specs, _cct, "environment scope"),
+                (_all_specs, _cct, "all template specs"),
+            ]
+            # Multi-CCT families publish a generic offering CCT that never
+            # matches an individually selected one, so retry without it.
+            if _cct and _has_multi_cct_package(_all_specs):
+                _plan += [
+                    (_pcb_filtered, None, "multi-CCT + environment + PCB filters"),
+                    (_env_specs, None, "multi-CCT + environment scope"),
+                    (_all_specs, None, "multi-CCT, all template specs"),
+                ]
+            tape_offering, all_matching_specs = _search_offering_plan(
+                _plan, sel.get("output_level"), logger, "validate_tape"
+            )
+
+    # Global fallback — only when the template did not constrain the search.
+    if not tape_offering and not template_scoped:
+        logger.info("validate_tape: looking for tape specs with category=LED Tape (no mounting filter)")
+        all_matching_specs = _find_all_matching_tape_specs(
+            product_category="LED Tape",
+        )
+        spec_names = [s.name for s in all_matching_specs]
+        logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs: {spec_names}")
+        if spec_names:
+            tape_offering = _find_matching_tape_offering(
+                tape_spec_name=spec_names,
+                cct=sel.get("cct"),
+                output_level=sel.get("output_level"),
+            )
 
     if not tape_offering:
         logger.warning(f"validate_tape: No offering found for cct={sel.get('cct')}, output_level={sel.get('output_level')}")
+        scope_hint = (
+            f" on the tape specs allowed by template '{tape_neon_template}'"
+            if template_scoped else ""
+        )
         return {
             "success": False,
             "is_valid": False,
             "error": (
-                f"No tape offering found for CCT='{sel.get('cct')}' and Output Level='{sel.get('output_level')}'. "
+                f"No tape offering found for CCT='{sel.get('cct')}' and "
+                f"Output Level='{sel.get('output_level')}'{scope_hint}. "
                 "Check that a matching ilL-Rel-Tape Offering record exists and is active."
             ),
         }
@@ -559,9 +612,6 @@ def validate_tape_configuration(
     # A template flagged free-cutting overrides the spec's cut increment, and
     # an offering-level override beats the spec default (same precedence the
     # spec sheet export uses).
-    template_free_cutting = bool(
-        frappe.db.get_value("ilL-Tape-Neon-Template", tape_neon_template, "is_free_cutting")
-    ) if tape_neon_template else False
     is_free_cutting = bool(tape_spec.is_free_cutting) or template_free_cutting
     if is_free_cutting:
         cut_increment_mm = 0
@@ -1001,45 +1051,19 @@ def validate_neon_configuration(
     # ── Step 1 & 2: Template-scoped search ───────────────────────────
     if tape_neon_template:
         logger.info(f"validate_neon: fetching allowed tape specs from template '{tape_neon_template}'")
-        _tpl_meta = frappe.db.get_value(
-            "ilL-Tape-Neon-Template",
-            tape_neon_template,
-            ["is_free_cutting", "default_tape_spec"],
-            as_dict=True,
-        ) or {}
-        template_free_cutting = bool(_tpl_meta.get("is_free_cutting"))
-        _tpl_spec_rows = frappe.get_all(
-            "ilL-Child-Tape-Neon-Allowed-Spec",
-            filters={"parent": tape_neon_template, "parenttype": "ilL-Tape-Neon-Template"},
-            fields=["tape_spec"],
-            order_by="idx asc",
-            ignore_permissions=True,
-        )
-        _tpl_spec_names = [r.tape_spec for r in _tpl_spec_rows if r.tape_spec]
-        _default_spec = _tpl_meta.get("default_tape_spec")
-        if not _tpl_spec_names and _default_spec:
-            # Mirrors get_tape_neon_template_init: an empty allowed-spec table
-            # still resolves through the template's default spec.
-            _tpl_spec_names = [_default_spec]
-        # The template's default spec wins when several allowed specs carry an
-        # offering for the same CCT/output combination.
-        if _default_spec and _default_spec in _tpl_spec_names:
-            _tpl_spec_names.remove(_default_spec)
-            _tpl_spec_names.insert(0, _default_spec)
+        _tpl_ctx = _get_template_spec_context(tape_neon_template)
+        template_free_cutting = _tpl_ctx["free_cutting"]
+        _tpl_spec_names = _tpl_ctx["spec_names"]
         if _tpl_spec_names:
             template_scoped = True
             _tpl_specs = frappe.get_all(
                 "ilL-Spec-LED Tape",
                 filters={"name": ["in", _tpl_spec_names]},
-                fields=[
-                    "name", "item", "led_package", "input_voltage",
-                    "watts_per_foot", "cut_increment_mm", "is_free_cutting",
-                    "pcb_mounting", "pcb_finish", "lumens_per_foot",
-                    "leader_cable_item", "voltage_drop_max_run_length_ft",
-                ],
+                fields=_TAPE_SPEC_FIELDS,
                 ignore_permissions=True,
             )
-            _tpl_specs.sort(key=lambda s: _tpl_spec_names.index(s.name))
+            _spec_by_name = {s.name: s for s in _tpl_specs}
+            _tpl_specs = [_spec_by_name[n] for n in _tpl_spec_names if n in _spec_by_name]
             _tpl_fetched_names = [s.name for s in _tpl_specs]
             logger.info(
                 f"validate_neon: template has {len(_tpl_specs)} allowed tape specs: {_tpl_fetched_names}"
@@ -1051,30 +1075,21 @@ def validate_neon_configuration(
                 [s for s in _tpl_specs if s.pcb_finish == _finish]
                 if _finish else _tpl_specs
             )
-            if _finish_filtered:
-                tape_offering = _find_matching_tape_offering(
-                    tape_spec_name=[s.name for s in _finish_filtered],
-                    cct=sel.get("cct"),
-                    output_level=sel.get("output_level"),
-                )
-                if tape_offering:
-                    all_matching_specs = _finish_filtered
-                    logger.info(
-                        f"validate_neon: found offering via template specs (finish={_finish}): {tape_offering.name}"
-                    )
-
-            # Step 2: all template specs, no finish filter
-            if not tape_offering and _finish:
-                tape_offering = _find_matching_tape_offering(
-                    tape_spec_name=_tpl_fetched_names,
-                    cct=sel.get("cct"),
-                    output_level=sel.get("output_level"),
-                )
-                if tape_offering:
-                    all_matching_specs = _tpl_specs
-                    logger.info(
-                        f"validate_neon: found offering via template specs (no finish filter): {tape_offering.name}"
-                    )
+            _cct = sel.get("cct")
+            _plan = [
+                (_finish_filtered, _cct, f"template specs (finish={_finish})"),
+                (_tpl_specs, _cct, "template specs (no finish filter)"),
+            ]
+            # Multi-CCT families publish a generic offering CCT that never
+            # matches an individually selected one, so retry without it.
+            if _cct and _has_multi_cct_package(_tpl_specs):
+                _plan += [
+                    (_finish_filtered, None, f"multi-CCT template specs (finish={_finish})"),
+                    (_tpl_specs, None, "multi-CCT template specs (no finish filter)"),
+                ]
+            tape_offering, all_matching_specs = _search_offering_plan(
+                _plan, sel.get("output_level"), logger, "validate_neon"
+            )
 
     # ── Step 3: Global LED Neon specs + finish filter ─────────────────
     if not tape_offering and not template_scoped:
@@ -3227,6 +3242,122 @@ def _find_matching_tape_spec(
     """Find an ilL-Spec-LED Tape matching the given filters (returns first match)."""
     specs = _find_all_matching_tape_specs(product_category, pcb_mounting, pcb_finish)
     return specs[0] if specs else None
+
+
+# Fields every tape spec lookup in this module needs.
+_TAPE_SPEC_FIELDS = [
+    "name", "item", "led_package", "input_voltage",
+    "watts_per_foot", "cut_increment_mm", "is_free_cutting",
+    "pcb_mounting", "pcb_finish", "lumens_per_foot",
+    "leader_cable_item", "voltage_drop_max_run_length_ft",
+]
+
+
+def _get_template_spec_context(
+    template_name: str,
+    environment_rating: str = None,
+) -> dict:
+    """Resolve an ilL-Tape-Neon-Template's allowed tape specs in preference order.
+
+    Returns ``{"spec_names", "env_spec_names", "free_cutting"}``:
+      - ``spec_names``     – every allowed spec, ordered
+      - ``env_spec_names`` – narrowed to *environment_rating* when that filter
+        leaves anything (rows with no rating always qualify), else identical to
+        ``spec_names``
+      - ``free_cutting``   – the template-level override flag
+
+    Ordering puts ``is_default`` rows first, then the template's
+    ``default_tape_spec``, then child-table order.  Callers pass the list to
+    ``_find_matching_tape_offering``, which treats it as a preference order.
+    """
+    meta = frappe.db.get_value(
+        "ilL-Tape-Neon-Template",
+        template_name,
+        ["is_free_cutting", "default_tape_spec"],
+        as_dict=True,
+    ) or {}
+    rows = frappe.get_all(
+        "ilL-Child-Tape-Neon-Allowed-Spec",
+        filters={"parent": template_name, "parenttype": "ilL-Tape-Neon-Template"},
+        fields=["tape_spec", "environment_rating", "is_default"],
+        order_by="idx asc",
+        ignore_permissions=True,
+    )
+    rows = [r for r in rows if r.tape_spec]
+    default_spec = meta.get("default_tape_spec")
+
+    def _order(spec_rows):
+        ordered = []
+        for row in spec_rows:
+            if row.tape_spec not in ordered:
+                ordered.append(row.tape_spec)
+        lead = [r.tape_spec for r in spec_rows if r.is_default]
+        if default_spec:
+            lead.append(default_spec)
+        for name in reversed(lead):
+            if name in ordered:
+                ordered.remove(name)
+                ordered.insert(0, name)
+        return ordered
+
+    spec_names = _order(rows)
+    if not spec_names and default_spec:
+        # Mirrors get_tape_neon_template_init: an empty allowed-spec table
+        # still resolves through the template's default spec.
+        spec_names = [default_spec]
+
+    env_spec_names = spec_names
+    if environment_rating and rows:
+        env_rows = [
+            r for r in rows
+            if not r.environment_rating or r.environment_rating == environment_rating
+        ]
+        if env_rows:
+            env_spec_names = _order(env_rows)
+
+    return {
+        "spec_names": spec_names,
+        "env_spec_names": env_spec_names,
+        "free_cutting": bool(meta.get("is_free_cutting")),
+    }
+
+
+# Families whose tape offerings carry one generic CCT (e.g. "Tunable White")
+# instead of the individual CCTs the user picks from.  Mirrors
+# configurator_engine.MULTI_CCT_SPECTRUM_TYPES.
+_MULTI_CCT_SPECTRUM_TYPES = {
+    "Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", "RGB+W", "RGBW",
+}
+
+
+def _has_multi_cct_package(specs: list) -> bool:
+    """True when any of *specs* belongs to a multi-CCT LED package."""
+    for pkg in {s.led_package for s in specs if s.led_package}:
+        spectrum = frappe.db.get_value(
+            "ilL-Attribute-LED Package", pkg, "spectrum_type"
+        ) or ""
+        if spectrum in _MULTI_CCT_SPECTRUM_TYPES:
+            return True
+    return False
+
+
+def _search_offering_plan(plan: list, output_level: str, logger, log_prefix: str):
+    """Run an ordered ``(candidate_specs, cct, label)`` search plan.
+
+    Returns the first ``(offering, candidate_specs)`` hit, or ``(None, [])``.
+    """
+    for candidates, cct, label in plan:
+        if not candidates:
+            continue
+        offering = _find_matching_tape_offering(
+            tape_spec_name=[s.name for s in candidates],
+            cct=cct,
+            output_level=output_level,
+        )
+        if offering:
+            logger.info(f"{log_prefix}: found offering via {label}: {offering.name}")
+            return offering, candidates
+    return None, []
 
 
 def _find_all_matching_tape_specs(

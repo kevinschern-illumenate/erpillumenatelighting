@@ -452,6 +452,8 @@
 		this.lastCalcSelections = calcSelections;
 		this.lastCalcSegments = null;
 		var args = { selections: JSON.stringify(calcSelections) };
+		// Scopes tape spec resolution to the template's allowed specs.
+		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
 		frappe.call({
@@ -484,6 +486,8 @@
 			selections: JSON.stringify(calcSelections),
 			segments_json: JSON.stringify(segments)
 		};
+		// Scopes tape spec resolution to the template's allowed specs.
+		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
 		frappe.call({
