@@ -183,12 +183,92 @@ class ilLWebflowProduct(Document):
 					self.sync_status = "Pending"
 
 	def on_update(self):
-		"""Update webflow_product backlink on linked templates after save."""
+		"""Update webflow_product backlink on linked templates after save and sync compatibilities."""
+		# 1. Prevent infinite loops globally for this compatibility sync transaction
+		if not self.flags.syncing_compatibility:
+			# 2. Run deletions first, then additions
+			self.handle_deletions()
+			self.sync_compatible_products()
+
 		self._update_fixture_template_backlink()
 		self._update_tape_neon_template_backlink()
 		self._update_led_sheet_template_backlink()
 		self._update_driver_template_backlink()
 		self._update_controller_template_backlink()
+
+	def handle_deletions(self):
+		"""Handle removal of bi-directional compatibility links upon row deletion."""
+		old_doc = self.get_doc_before_save()
+		if not old_doc:
+			return # This is a brand new document, so nothing could have been deleted
+
+		child_table = "compatible_products"
+		related_field = "related_product"
+		rel_type_field = "relationship_type"
+
+		# Create sets of (product, relationship) tuples to easily compare before and after
+		old_items = {(row.get(related_field), row.get(rel_type_field)) for row in old_doc.get(child_table) if row.get(related_field)}
+		new_items = {(row.get(related_field), row.get(rel_type_field)) for row in self.get(child_table) if row.get(related_field)}
+		
+		# Find what exists in the old document but is missing from the new one
+		deleted_items = old_items - new_items
+
+		for target_product, relationship in deleted_items:
+			try:
+				target_doc = frappe.get_doc("ilL-Webflow-Product", target_product)
+			except frappe.DoesNotExistError:
+				continue
+			
+			# Rebuild the child table on the target document, EXCLUDING the deleted link
+			original_row_count = len(target_doc.get(child_table))
+			filtered_rows = [
+				row for row in target_doc.get(child_table) 
+				if not (row.get(related_field) == self.name and row.get(rel_type_field) == relationship)
+			]
+			
+			# If a row was successfully filtered out, update the table and save
+			if len(filtered_rows) < original_row_count:
+				target_doc.set(child_table, filtered_rows)
+				
+				# Flag to prevent infinite loops
+				target_doc.flags.syncing_compatibility = True
+				target_doc.save(ignore_permissions=True)
+
+	def sync_compatible_products(self):
+		"""Handle additions for bi-directional compatibility links."""
+		child_table = "compatible_products" 
+		related_field = "related_product"
+		rel_type_field = "relationship_type"
+
+		for row in self.get(child_table):
+			if not row.get(related_field):
+				continue
+
+			target_product = row.get(related_field)
+			relationship = row.get(rel_type_field)
+
+			try:
+				target_doc = frappe.get_doc("ilL-Webflow-Product", target_product)
+			except frappe.DoesNotExistError:
+				continue
+
+			# Check if the reciprocal link already exists in the target doc
+			exists = any(
+				r.get(related_field) == self.name and 
+				r.get(rel_type_field) == relationship 
+				for r in target_doc.get(child_table)
+			)
+
+			# If it doesn't exist, append it and save the target doc
+			if not exists:
+				target_doc.append(child_table, {
+					related_field: self.name,
+					rel_type_field: relationship
+				})
+				
+				# Flag to prevent infinite loops
+				target_doc.flags.syncing_compatibility = True
+				target_doc.save(ignore_permissions=True)
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
