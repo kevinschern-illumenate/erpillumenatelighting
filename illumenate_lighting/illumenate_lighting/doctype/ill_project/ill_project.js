@@ -3,6 +3,11 @@
 
 frappe.ui.form.on("ilL-Project", {
 	refresh: function (frm) {
+		// Owner Company controls who can see the project - internal users only
+		const can_edit_owner_company =
+			frappe.session.user === "Administrator" || frappe.user.has_role("System Manager");
+		frm.set_df_property("owner_customer", "read_only", can_edit_owner_company ? 0 : 1);
+
 		// Add button to create a new schedule
 		if (!frm.is_new()) {
 			frm.add_custom_button(

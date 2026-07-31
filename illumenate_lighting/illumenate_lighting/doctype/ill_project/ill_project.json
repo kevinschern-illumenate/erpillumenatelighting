@@ -78,12 +78,11 @@
                        "label":  "Is Active"
                    },
                    {
-                       "description":  "The company (Customer) of the user who created this project. Used for visibility - all users at this company can view non-private projects.",
+                       "description":  "The company (Customer) that owns this project. Used for visibility - all users at this company can view non-private projects. Only System Managers can change this after creation; changing it transfers project (and schedule) visibility to the new company.",
                        "fieldname":  "owner_customer",
                        "fieldtype":  "Link",
                        "label":  "Owner Company",
-                       "options":  "Customer",
-                       "read_only":  1
+                       "options":  "Customer"
                    },
                    {
                        "fieldname":  "description_section",
@@ -201,7 +200,7 @@
                       "link_fieldname":  "ill_project"
                   }
               ],
-    "modified":  "2026-01-12 00:42:00.000000",
+    "modified":  "2026-07-31 00:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Project",

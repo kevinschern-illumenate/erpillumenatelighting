@@ -53,6 +53,22 @@ class ilLProject(Document):
 	def validate(self):
 		"""Validate project data."""
 		self._validate_private_requires_owner_access()
+		self._validate_owner_customer_change()
+
+	def _validate_owner_customer_change(self):
+		"""Only internal users may reassign the Owner Company of an existing project."""
+		if self.is_new() or self.flags.ignore_permissions:
+			return
+
+		previous = self.get_doc_before_save()
+		if not previous or previous.owner_customer == self.owner_customer:
+			return
+
+		if not _is_internal_user():
+			frappe.throw(
+				_("Only internal users can change the Owner Company of a project."),
+				frappe.PermissionError,
+			)
 
 	def _validate_private_requires_owner_access(self):
 		"""Ensure owner always has access if project is private."""
