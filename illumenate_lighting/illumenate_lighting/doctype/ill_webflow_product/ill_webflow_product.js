@@ -108,20 +108,6 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				});
 				dlg.show();
 			}, __("Actions"));
-
-			// Per-brand Webflow deep links built from sync_targets.
-			(frm.doc.sync_targets || []).forEach((row) => {
-				if (!row.webflow_item_id) return;
-				const label = __("Open in Webflow ({0})", [row.brand]);
-				frm.add_custom_button(label, function() {
-					const slug = frm.doc.product_slug || frm.doc.name;
-					if (!slug) {
-						frappe.msgprint(__("No product slug found for this product."));
-						return;
-					}
-					window.open(`https://illumenate.lighting/products/${slug}`, "_blank");
-				}, __("Open in Webflow"));
-			});
 		}
 
 		// Show sync status indicator
