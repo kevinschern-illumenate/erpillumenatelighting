@@ -8,8 +8,18 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			clear_only_webflow_sync_section(frm);
 		}
 
-		// Add button to recalculate specifications
 		if (!frm.is_new()) {
+			// Direct link to open live product on Webflow site
+			frm.add_custom_button(__("Open in Webflow"), function() {
+				const slug = frm.doc.product_slug || frm.doc.name;
+				if (!slug) {
+					frappe.msgprint(__("No product slug found for this product."));
+					return;
+				}
+				window.open(`https://illumenate.lighting/products/${slug}`, "_blank");
+			});
+
+			// Add button to recalculate specifications
 			frm.add_custom_button(__("Refresh Attribute Links"), function() {
 				frm.set_value("auto_populate_attributes", 1);
 				frm.save().then(() => {
@@ -99,24 +109,17 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				dlg.show();
 			}, __("Actions"));
 
-			// Per-brand Webflow CMS deep links built from sync_targets.
+			// Per-brand Webflow deep links built from sync_targets.
 			(frm.doc.sync_targets || []).forEach((row) => {
 				if (!row.webflow_item_id) return;
 				const label = __("Open in Webflow ({0})", [row.brand]);
 				frm.add_custom_button(label, function() {
-					frappe.call({
-						method: "illumenate_lighting.illumenate_lighting.api.webflow_brand.get_brand_config",
-						args: { brand: row.brand },
-						callback(r) {
-							const cfg = r.message || {};
-							const site = cfg.webflow_site_url || "";
-							if (!site) {
-								frappe.msgprint(__("No Webflow site URL configured for brand {0}.", [row.brand]));
-								return;
-							}
-							window.open(site, "_blank");
-						},
-					});
+					const slug = frm.doc.product_slug || frm.doc.name;
+					if (!slug) {
+						frappe.msgprint(__("No product slug found for this product."));
+						return;
+					}
+					window.open(`https://illumenate.lighting/products/${slug}`, "_blank");
 				}, __("Open in Webflow"));
 			});
 		}
