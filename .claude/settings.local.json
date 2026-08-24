@@ -3,5 +3,8 @@
     "allow": [
       "Bash(xargs ls *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "repowise"
+  ]
 }
