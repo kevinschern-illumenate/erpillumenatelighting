@@ -1,0 +1,12 @@
+editor_files:
+  agents_md: true
+provider: openai
+model: gpt-5.4-nano
+embedder: openai
+reasoning: auto
+distill:
+  commands:
+    enabled: true
+hooks:
+  read_skeleton: true
+  search_digest: true
