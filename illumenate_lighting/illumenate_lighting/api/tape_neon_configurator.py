@@ -36,7 +36,7 @@ from typing import Any, Optional
 
 import frappe
 from frappe import _
-from frappe.utils import now
+from frappe.utils import flt, now
 
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     inches_to_mm,
@@ -1502,7 +1502,7 @@ def save_tape_to_schedule(
         return {"success": False, "error": str(e)}
 
 
-def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
+def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) -> dict:
     """
     Called during Sales Order creation to add LED Tape / LED Neon item lines.
 
@@ -1517,6 +1517,9 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
         so: The Sales Order document being built
         line: The schedule line
         config_data: Parsed JSON from line.variant_selections
+        qty_multiplier: How many copies of the configured run the schedule
+            line asks for. Every component quantity (leader / tape / jumper
+            lengths and mounting accessories) is multiplied by this value.
 
     Returns:
         dict with items_added count and messages
@@ -1531,6 +1534,8 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
     part_number = config_data.get("part_number", "")
     build_desc = config_data.get("build_description", "")
 
+    qty_multiplier = flt(qty_multiplier) or 1
+
     items_added = 0
     messages = []
 
@@ -1542,7 +1547,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
         if leader_cable_item and lead_length_in > 0:
             so_item = so.append("items", {})
             so_item.item_code = leader_cable_item
-            so_item.qty = lead_length_in
+            so_item.qty = flt(lead_length_in) * qty_multiplier
             so_item.description = f"Leader Cable for {part_number} – {lead_length_in}\" lead"
             items_added += 1
         elif not leader_cable_item:
@@ -1552,7 +1557,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
         if tape_item and mfg_length_in > 0:
             so_item = so.append("items", {})
             so_item.item_code = tape_item
-            so_item.qty = mfg_length_in
+            so_item.qty = flt(mfg_length_in) * qty_multiplier
             so_item.description = (
                 f"{part_number}\n{build_desc}"
             )
@@ -1572,7 +1577,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
             if leader_cable_item and lead_in > 0:
                 so_item = so.append("items", {})
                 so_item.item_code = leader_cable_item
-                so_item.qty = lead_in
+                so_item.qty = flt(lead_in) * qty_multiplier
                 so_item.description = (
                     f"Leader Cable for {part_number} Seg {seg_idx} – "
                     f"{lead_in}\" lead"
@@ -1583,7 +1588,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
             if tape_item and mfg_in > 0:
                 so_item = so.append("items", {})
                 so_item.item_code = tape_item
-                so_item.qty = mfg_in
+                so_item.qty = flt(mfg_in) * qty_multiplier
                 so_item.description = (
                     f"{part_number} Seg {seg_idx} – "
                     f"{mfg_in}\" manufacturable length"
@@ -1595,7 +1600,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
             if leader_cable_item and end_feed_in > 0:
                 so_item = so.append("items", {})
                 so_item.item_code = leader_cable_item
-                so_item.qty = end_feed_in
+                so_item.qty = flt(end_feed_in) * qty_multiplier
                 so_item.description = (
                     f"Jumper Cable for {part_number} Seg {seg_idx} → "
                     f"Seg {seg_idx + 1} – {end_feed_in}\" jumper"
@@ -1609,7 +1614,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict) -> dict:
     if mounting_item and mounting_qty > 0:
         so_item = so.append("items", {})
         so_item.item_code = mounting_item
-        so_item.qty = mounting_qty
+        so_item.qty = flt(mounting_qty) * qty_multiplier
         if mounting_unit_msrp > 0:
             so_item.rate = mounting_unit_msrp
         so_item.description = (

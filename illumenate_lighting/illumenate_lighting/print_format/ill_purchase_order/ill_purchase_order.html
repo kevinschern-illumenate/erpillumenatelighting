@@ -1,17 +1,17 @@
 {#
   ilLumenate Purchase Order Print Format
   Matches the standard ilL layout with section / room grouping.
-  Section-header rows (custom_ill_section_label set, qty=0, no item_code) render as
+  Section-header rows (ill_section_label set, qty=0, no item_code) render as
   bold header rows spanning the table.  All other rows tagged with the same
-  custom_ill_section_label are grouped under that header with a section subtotal.
+  ill_section_label are grouped under that header with a section subtotal.
 #}
 
-{%- set has_sections = doc.items | selectattr("custom_ill_section_label") | list | length > 0 -%}
+{%- set has_sections = doc.items | selectattr("ill_section_label") | list | length > 0 -%}
 
 {#-- Build ordered list of sections and their items --#}
 {%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
 {%- for item in doc.items -%}
-    {%- set label = item.custom_ill_section_label or "" -%}
+    {%- set label = item.ill_section_label or "" -%}
     {#-- Detect section-header-only rows --#}
     {%- if label and (not item.item_code) and item.qty == 0 -%}
         {%- if label not in ns.section_map -%}

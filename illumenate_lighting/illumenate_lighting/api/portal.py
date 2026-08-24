@@ -2590,7 +2590,8 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 		schedule_name: Name of the schedule
 
 	Returns:
-		dict: {"success": True/False, "sales_order": "SO name", "error": "message if error"}
+		dict: {"success": True/False, "sales_order": "SO name",
+		       "warnings": [str, ...], "error": "message if error"}
 	"""
 	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
 		return {"success": False, "error": "Schedule not found"}
@@ -2606,8 +2607,13 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 		return {"success": False, "error": "You don't have permission to create a Sales Order for this schedule"}
 
 	try:
-		sales_order = schedule.create_sales_order()
-		return {"success": True, "sales_order": sales_order}
+		result = schedule.create_sales_order_result()
+		return {
+			"success": True,
+			"sales_order": result["sales_order"],
+			"warnings": result.get("warnings") or [],
+			"counts": result.get("counts") or {},
+		}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error creating sales order for schedule {schedule_name}")
 

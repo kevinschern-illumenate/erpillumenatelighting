@@ -29,9 +29,9 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 			});
 		}
 
-		// Add "Convert to Sales Order" button for schedules in READY status
+		// Add "Convert to Sales Order" button for schedules in READY / QUOTED status
 		// Per workflow: user sets status to READY then clicks to convert
-		if (!frm.is_new() && frm.doc.status === "READY") {
+		if (!frm.is_new() && ["READY", "QUOTED"].includes(frm.doc.status)) {
 			frm.add_custom_button(
 				__("Convert to Sales Order"),
 				function () {

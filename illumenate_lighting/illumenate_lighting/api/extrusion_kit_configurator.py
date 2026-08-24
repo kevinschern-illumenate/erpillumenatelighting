@@ -31,6 +31,7 @@ from typing import Any, Optional
 
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -645,7 +646,7 @@ def save_kit_to_schedule(
         return {"success": False, "error": str(e)}
 
 
-def create_kit_so_lines(so, line, config_data: dict) -> dict:
+def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) -> dict:
     """
     Called during Sales Order creation to add Extrusion Kit item lines.
 
@@ -660,6 +661,9 @@ def create_kit_so_lines(so, line, config_data: dict) -> dict:
         so: The Sales Order document being built
         line: The schedule line
         config_data: Parsed JSON from line.variant_selections
+        qty_multiplier: How many copies of the kit the schedule line asks
+            for. Every component quantity is multiplied by this value, so a
+            line for 5 kits produces 5 kits' worth of components.
 
     Returns:
         dict with items_added count and messages
@@ -668,6 +672,8 @@ def create_kit_so_lines(so, line, config_data: dict) -> dict:
     part_number = config_data.get("part_number", "")
     build_desc = config_data.get("build_description", "")
     kit_template = config_data.get("kit_template", {})
+
+    qty_multiplier = flt(qty_multiplier) or 1
 
     items_added = 0
     messages = []
@@ -691,7 +697,7 @@ def create_kit_so_lines(so, line, config_data: dict) -> dict:
 
         so_item = so.append("items", {})
         so_item.item_code = item_code
-        so_item.qty = qty
+        so_item.qty = flt(qty) * qty_multiplier
 
         length_info = ""
         if comp.get("length_mm"):
@@ -834,8 +840,6 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 	Returns the structured stock result dict.
 	"""
 	import math
-
-	from frappe.utils import flt
 
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
 		_bulk_stock_query,

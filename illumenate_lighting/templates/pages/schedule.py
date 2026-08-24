@@ -801,6 +801,10 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 	the result into the standard ``stock_availability`` format used by the
 	schedule template.
 
+	``get_kit_component_stock`` reports *per-kit* quantities, so the required
+	quantities are scaled by ``line.qty`` to match what the Sales Order will
+	actually consume for a multi-kit line.
+
 	Args:
 		line: Child table row from ilL-Project-Fixture-Schedule.
 		show_qty: Whether to include numeric quantities (for dealers/internal).
@@ -843,20 +847,27 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 	if not stock_result.get("success"):
 		return None
 
+	kit_qty = frappe.utils.flt(getattr(line, "qty", None)) or 1
 	components = stock_result.get("components", [])
-	all_in_stock = all(c.get("in_stock", False) for c in components)
 
 	items = []
+	all_in_stock = True
 	for c in components:
+		qty_required = frappe.utils.flt(c.get("qty_per_kit") or 0) * kit_qty
+		is_sufficient = bool(c.get("item_code")) and (
+			frappe.utils.flt(c.get("stock_qty") or 0) >= qty_required
+		)
+		all_in_stock = all_in_stock and is_sufficient
+
 		entry = {
 			"item_code": c.get("item_code") or "",
 			"item_name": c.get("item_name") or "",
 			"component_type": c.get("component", ""),
-			"is_sufficient": c.get("in_stock", False),
+			"is_sufficient": is_sufficient,
 			"lead_time_class": c.get("lead_time_class", ""),
 		}
 		if show_qty:
-			entry["qty_required"] = c.get("qty_per_kit", 0)
+			entry["qty_required"] = qty_required
 			entry["qty_available"] = c.get("stock_qty", 0)
 		items.append(entry)
 

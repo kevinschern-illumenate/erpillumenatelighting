@@ -3131,8 +3131,25 @@ function createSalesOrder() {
 			},
 			callback: function(r) {
 				if (r.message && r.message.success) {
-					frappe.msgprint('Sales Order ' + r.message.sales_order + ' created successfully');
-					location.reload();
+					var message = 'Sales Order ' + r.message.sales_order + ' created successfully';
+					var warnings = r.message.warnings || [];
+					if (warnings.length) {
+						message += '<br><br><b>Some lines were not added:</b><ul>' +
+							warnings.map(function(w) {
+								return '<li>' + frappe.utils.escape_html(w) + '</li>';
+							}).join('') + '</ul>';
+					}
+					var dialog = frappe.msgprint({
+						title: warnings.length ? 'Sales Order Created With Warnings' : 'Sales Order Created',
+						indicator: warnings.length ? 'orange' : 'green',
+						message: message
+					});
+					// Let the user read the warnings before the page reloads.
+					if (warnings.length && dialog) {
+						dialog.onhide = function() { location.reload(); };
+					} else {
+						location.reload();
+					}
 				} else {
 					frappe.msgprint(r.message.error || 'Error creating Sales Order');
 				}

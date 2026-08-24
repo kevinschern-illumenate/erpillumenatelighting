@@ -10,8 +10,9 @@ configured LED tape & neon, extrusion kits, accessories / power supplies — are
 appended to the quotation.
 
 The heavy lifting lives on the schedule controller
-(``ilLProjectFixtureSchedule.append_quote_lines``) so the line representation
-stays in lock-step with ``create_sales_order``.
+(``ilLProjectFixtureSchedule.append_quote_lines``), the single schedule →
+transaction converter that ``create_sales_order`` also delegates to, so a
+quotation and a sales order built from the same schedule always match.
 """
 
 from typing import Any
