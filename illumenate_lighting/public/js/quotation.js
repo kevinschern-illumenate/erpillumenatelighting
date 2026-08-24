@@ -21,34 +21,49 @@ function is_quotation_read_only(frm) {
 	return !!frm.read_only || (frm.doc && frm.doc.docstatus !== 0);
 }
 
+// Tags item rows with a Section / Room. The print formats group rows by
+// ill_section_label, so a real item row carrying the label is all that is
+// needed — a standalone separator row (no item_code, qty 0) cannot be saved
+// because ERPNext rejects zero-quantity lines.
+function ill_apply_section_label(frm) {
+	frappe.prompt(
+		{
+			label: __('Section / Room Name'),
+			fieldname: 'section_label',
+			fieldtype: 'Data',
+			reqd: 1
+		},
+		function(values) {
+			const selected = (frm.get_selected() || {}).items || [];
+			const targets = selected.length
+				? frm.doc.items.filter(function(row) { return selected.indexOf(row.name) !== -1; })
+				: frm.doc.items.filter(function(row) { return !row.ill_section_label; });
+
+			if (!targets.length) {
+				frappe.msgprint(__('Every item row already has a Section / Room. Select the rows you want to re-tag first.'));
+				return;
+			}
+
+			targets.forEach(function(row) {
+				frappe.model.set_value(row.doctype, row.name, 'ill_section_label', values.section_label);
+			});
+			frm.refresh_field('items');
+			frappe.show_alert({
+				message: __('Tagged {0} row(s) as "{1}".', [targets.length, values.section_label]),
+				indicator: 'blue'
+			});
+		},
+		__('Set Section / Room'),
+		__('Apply')
+	);
+}
+
 frappe.ui.form.on('Quotation', {
 	refresh: function(frm) {
-		// Add a quick-entry button to insert a section separator row
+		// Tag the selected item rows (or every untagged row) with a section
 		if (!is_quotation_read_only(frm)) {
-			frm.add_custom_button(__('Add Section / Room'), function() {
-				frappe.prompt(
-					{
-						label: __('Section / Room Name'),
-						fieldname: 'section_label',
-						fieldtype: 'Data',
-						reqd: 1
-					},
-					function(values) {
-						let row = frm.add_child('items');
-						row.ill_section_label = values.section_label;
-						row.item_code = '';
-						row.qty = 0;
-						row.rate = 0;
-						row.description = values.section_label;
-						frm.refresh_field('items');
-						frappe.show_alert({
-							message: __('Section "{0}" added. Add items below it.', [values.section_label]),
-							indicator: 'blue'
-						});
-					},
-					__('New Section'),
-					__('Add')
-				);
+			frm.add_custom_button(__('Set Section / Room'), function() {
+				ill_apply_section_label(frm);
 			}, __('Tools'));
 		}
 
@@ -186,6 +201,7 @@ function ill_render_schedule_preview(data) {
 		[__('Configured Fixtures'), s.fixtures || 0],
 		[__('LED Tape / Neon'), s.tape_neon || 0],
 		[__('Extrusion Kits'), s.kits || 0],
+		[__('LED Sheets'), s.sheets || 0],
 		[__('Accessories / Power Supplies'), s.accessories || 0],
 		[__('Other Manufacturer (not imported)'), s.other || 0],
 		[__('Unconfigured (skipped)'), s.unconfigured || 0]
@@ -213,6 +229,7 @@ function ill_show_schedule_import_result(frm, result) {
 	if (result.fixtures) parts.push(__('{0} configured fixture(s)', [result.fixtures]));
 	if (result.tape_neon) parts.push(__('{0} tape/neon line(s)', [result.tape_neon]));
 	if (result.kits) parts.push(__('{0} extrusion kit(s)', [result.kits]));
+	if (result.sheets) parts.push(__('{0} LED sheet(s)', [result.sheets]));
 	if (result.accessories) parts.push(__('{0} accessory line(s)', [result.accessories]));
 
 	let message = '';
@@ -242,8 +259,9 @@ function ill_show_schedule_import_result(frm, result) {
 frappe.ui.form.on('Quotation Item', {
 	ill_section_label: function(frm, cdt, cdn) {
 		let row = locals[cdt][cdn];
-		if (row.ill_section_label) {
-			// Auto-populate description to match the section label
+		// Only a genuine separator row (no item, no qty) borrows the section
+		// label as its description — never clobber a real item's build spec.
+		if (row.ill_section_label && !row.item_code && !flt(row.qty)) {
 			frappe.model.set_value(cdt, cdn, 'description', row.ill_section_label);
 		}
 	}

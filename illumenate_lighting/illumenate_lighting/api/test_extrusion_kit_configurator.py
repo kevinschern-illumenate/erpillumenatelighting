@@ -403,3 +403,71 @@ class TestComputeKitPricing(FrappeTestCase):
 
         result = _compute_kit_pricing({})
         self.assertEqual(result["total_price_msrp"], 0)
+
+
+class TestComputeKitStockForLine(FrappeTestCase):
+    """The portal stock panel must agree with the Sales Order quantities."""
+
+    VARIANT_SELECTIONS = json.dumps({"selections": {"kit_template": "_TEST-KT"}})
+
+    def _stock_result(self):
+        return {
+            "success": True,
+            "components": [
+                {
+                    "component": "Profile", "item_code": "ITEM-PROF", "item_name": "Profile",
+                    "qty_per_kit": 1, "stock_qty": 100, "in_stock": True,
+                    "lead_time_class": "in-stock",
+                },
+                {
+                    "component": "Mounting Accessory", "item_code": "ITEM-MOUNT",
+                    "item_name": "Mounting", "qty_per_kit": 6, "stock_qty": 10,
+                    "in_stock": True, "lead_time_class": "in-stock",
+                },
+            ],
+        }
+
+    def _compute(self, qty, show_qty=True):
+        from unittest.mock import patch
+
+        from illumenate_lighting.templates.pages.schedule import _compute_kit_stock_for_line
+
+        line = frappe._dict({
+            "variant_selections": self.VARIANT_SELECTIONS,
+            "kit_template": "_TEST-KT",
+            "qty": qty,
+        })
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator"
+            ".get_kit_component_stock",
+            return_value=self._stock_result(),
+        ):
+            return _compute_kit_stock_for_line(line, show_qty)
+
+    def test_single_kit_requires_per_kit_qty(self):
+        """A one-kit line needs exactly one kit's worth of components."""
+        result = self._compute(1)
+        self.assertEqual([i["qty_required"] for i in result["items"]], [1, 6])
+        self.assertTrue(result["all_in_stock"])
+
+    def test_multi_kit_line_scales_required_qty(self):
+        """A three-kit line needs three kits' worth — matching the Sales Order."""
+        result = self._compute(3)
+        self.assertEqual([i["qty_required"] for i in result["items"]], [3, 18])
+        # 10 mounting accessories in stock cannot cover 18
+        self.assertFalse(result["items"][1]["is_sufficient"])
+        self.assertFalse(result["all_in_stock"])
+
+    def test_missing_qty_defaults_to_one_kit(self):
+        """A blank or zero qty is treated as a single kit."""
+        for qty in (None, 0):
+            result = self._compute(qty)
+            self.assertEqual([i["qty_required"] for i in result["items"]], [1, 6])
+
+    def test_quantities_hidden_from_non_privileged_users(self):
+        """Guests see sufficiency flags but never raw quantities."""
+        result = self._compute(3, show_qty=False)
+        for item in result["items"]:
+            self.assertNotIn("qty_required", item)
+            self.assertNotIn("qty_available", item)
+        self.assertFalse(result["all_in_stock"])

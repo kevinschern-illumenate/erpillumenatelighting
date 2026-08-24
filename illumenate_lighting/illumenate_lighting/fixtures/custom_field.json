@@ -11,11 +11,20 @@
 	{
 		"doctype": "Custom Field",
 		"dt": "Sales Order Item",
+		"fieldname": "ill_fixture_type",
+		"fieldtype": "Data",
+		"label": "Fixture Type",
+		"insert_after": "ill_section_label",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
 		"options": "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet",
-		"insert_after": "ill_section_label",
+		"insert_after": "ill_fixture_type",
 		"read_only": 1
 	},
 	{
@@ -176,6 +185,15 @@
 		"fieldtype": "Data",
 		"label": "Engine Version",
 		"insert_after": "ill_lens",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order Item",
+		"fieldname": "ill_schedule_line_id",
+		"fieldtype": "Data",
+		"label": "Schedule Line ID",
+		"insert_after": "ill_engine_version",
 		"read_only": 1
 	},
 	{
@@ -406,11 +424,20 @@
 	{
 		"doctype": "Custom Field",
 		"dt": "Quotation Item",
+		"fieldname": "ill_fixture_type",
+		"fieldtype": "Data",
+		"label": "Fixture Type",
+		"insert_after": "ill_section_label",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
 		"options": "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet",
-		"insert_after": "ill_section_label",
+		"insert_after": "ill_fixture_type",
 		"read_only": 1
 	},
 	{
@@ -571,6 +598,80 @@
 		"fieldtype": "Data",
 		"label": "Engine Version",
 		"insert_after": "ill_lens",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation Item",
+		"fieldname": "ill_schedule_line_id",
+		"fieldtype": "Data",
+		"label": "Schedule Line ID",
+		"insert_after": "ill_engine_version",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Delivery Note Item",
+		"fieldname": "ill_section_label",
+		"fieldtype": "Data",
+		"label": "Section / Room",
+		"insert_after": "item_code",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Delivery Note Item",
+		"fieldname": "ill_fixture_type",
+		"fieldtype": "Data",
+		"label": "Fixture Type",
+		"insert_after": "ill_section_label",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Invoice Item",
+		"fieldname": "ill_section_label",
+		"fieldtype": "Data",
+		"label": "Section / Room",
+		"insert_after": "item_code",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Invoice Item",
+		"fieldname": "ill_fixture_type",
+		"fieldtype": "Data",
+		"label": "Fixture Type",
+		"insert_after": "ill_section_label",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Purchase Order Item",
+		"fieldname": "ill_section_label",
+		"fieldtype": "Data",
+		"label": "Section / Room",
+		"insert_after": "item_code",
+		"in_list_view": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Sales Order",
+		"fieldname": "ill_fixture_schedule",
+		"fieldtype": "Link",
+		"label": "Fixture Schedule",
+		"options": "ilL-Project-Fixture-Schedule",
+		"insert_after": "project",
+		"read_only": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Quotation",
+		"fieldname": "ill_fixture_schedule",
+		"fieldtype": "Link",
+		"label": "Fixture Schedule",
+		"options": "ilL-Project-Fixture-Schedule",
+		"insert_after": "company",
 		"read_only": 1
 	},
 	{

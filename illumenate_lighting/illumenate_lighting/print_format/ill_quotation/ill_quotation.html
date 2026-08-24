@@ -1,14 +1,14 @@
-﻿{#
+{#
   ilLumenate Quotation Print Format
   Clean, readable layout with section / room grouping.
 #}
 
-{%- set has_sections = doc.items | selectattr("custom_ill_section_label") | list | length > 0 -%}
+{%- set has_sections = doc.items | selectattr("ill_section_label") | list | length > 0 -%}
 
 {#-- Build ordered list of sections and their items --#}
 {%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
 {%- for item in doc.items -%}
-    {%- set label = item.custom_ill_section_label or "" -%}
+    {%- set label = item.ill_section_label or "" -%}
     {%- if label and (not item.item_code) and item.qty == 0 -%}
         {%- if label not in ns.section_map -%}
             {%- set _ = ns.sections.append(label) -%}

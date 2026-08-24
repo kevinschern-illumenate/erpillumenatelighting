@@ -97,6 +97,24 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		for ctn in test_ctn:
 			frappe.delete_doc("ilL-Configured-Tape-Neon", ctn, force=True)
 
+		# Delete test quotations
+		test_quotations = frappe.get_all(
+			"Quotation",
+			filters={"party_name": self.customer_name},
+			pluck="name",
+		)
+		for quotation in test_quotations:
+			frappe.delete_doc("Quotation", quotation, force=True)
+
+		# Delete test configured LED sheets created during tests
+		test_sheets = frappe.get_all(
+			"ilL-Configured-LED-Sheet",
+			filters={"part_number": ["like", "_TEST-SHEET%"]},
+			pluck="name",
+		)
+		for sheet in test_sheets:
+			frappe.delete_doc("ilL-Configured-LED-Sheet", sheet, force=True)
+
 	def test_create_sales_order_basic(self):
 		"""Test basic Sales Order creation from fixture schedule"""
 		# Create a schedule with ILLUMENATE lines
@@ -151,7 +169,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(schedule.status, "ORDERED")
 
 	def test_create_sales_order_filters_illumenate_only(self):
-		"""Test that only ILLUMENATE lines are included in the Sales Order"""
+		"""OTHER-manufacturer lines have no catalog Item and are not imported"""
 		# Create a schedule with mixed lines
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule Mixed"
@@ -186,8 +204,8 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(len(so.items), 1)
 		self.assertEqual(so.items[0].ill_configured_fixture, self.config_hash)
 
-	def test_create_sales_order_no_illumenate_lines_throws(self):
-		"""Test that schedule with no ILLUMENATE lines throws an error"""
+	def test_create_sales_order_other_only_throws(self):
+		"""A schedule with only OTHER lines has nothing orderable and throws"""
 		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
 		schedule.schedule_name = "_Test Schedule No ILL Lines"
 		schedule.ill_project = self.project.name
@@ -201,7 +219,115 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		})
 		schedule.insert(ignore_permissions=True)
 
-		# Attempt to create Sales Order - should throw
+		# Attempt to create Sales Order - should throw and say why
+		with self.assertRaises(frappe.exceptions.ValidationError) as ctx:
+			schedule.create_sales_order()
+
+		message = str(ctx.exception)
+		self.assertIn("Nothing could be added to a Sales Order", message)
+		self.assertIn("other-manufacturer", message)
+
+	def test_create_sales_order_accessory_only(self):
+		"""ACCESSORY-only schedules convert — this is the reported regression."""
+		accessory_item = self._ensure_item("_Test Accessory Only Driver Item")
+
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Accessory Only"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "READY"
+		schedule.append("lines", {
+			"line_id": "PS1",
+			"qty": 4,
+			"location": "Electrical Room",
+			"notes": "Remote driver",
+			"manufacturer_type": "ACCESSORY",
+			"accessory_item": accessory_item,
+		})
+		schedule.insert(ignore_permissions=True)
+
+		so_name = schedule.create_sales_order()
+		so = frappe.get_doc("Sales Order", so_name)
+
+		self.assertEqual(len(so.items), 1)
+		self.assertEqual(so.items[0].item_code, accessory_item)
+		self.assertEqual(so.items[0].qty, 4)
+		self.assertEqual(so.items[0].ill_section_label, "Electrical Room")
+		self.assertEqual(so.items[0].ill_fixture_type, "PS1")
+
+		schedule.reload()
+		self.assertEqual(schedule.status, "ORDERED")
+
+	def test_create_sales_order_mixed_fixture_and_accessory(self):
+		"""Fixture and accessory rows are both imported, in schedule order."""
+		accessory_item = self._ensure_item("_Test Accessory Mixed Driver Item")
+
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Mixed Fixture Accessory"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "READY"
+		schedule.append("lines", {
+			"line_id": "A1",
+			"qty": 2,
+			"location": "Open Office",
+			"manufacturer_type": "ILLUMENATE",
+			"configured_fixture": self.config_hash,
+		})
+		schedule.append("lines", {
+			"line_id": "PS1",
+			"qty": 1,
+			"location": "Electrical Room",
+			"manufacturer_type": "ACCESSORY",
+			"accessory_item": accessory_item,
+		})
+		schedule.insert(ignore_permissions=True)
+
+		so_name = schedule.create_sales_order()
+		so = frappe.get_doc("Sales Order", so_name)
+
+		self.assertEqual(len(so.items), 2)
+		self.assertEqual(so.items[0].ill_configured_fixture, self.config_hash)
+		self.assertEqual(so.items[0].ill_fixture_type, "A1")
+		self.assertEqual(so.items[1].item_code, accessory_item)
+		self.assertEqual(so.items[1].ill_fixture_type, "PS1")
+
+	def test_create_sales_order_from_quoted_status(self):
+		"""QUOTED schedules can be converted, not just READY ones."""
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Quoted Convert"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "QUOTED"
+		schedule.append("lines", {
+			"line_id": "L1",
+			"qty": 1,
+			"manufacturer_type": "ILLUMENATE",
+			"configured_fixture": self.config_hash,
+		})
+		schedule.insert(ignore_permissions=True)
+
+		so_name = schedule.create_sales_order()
+		self.assertTrue(frappe.db.exists("Sales Order", so_name))
+
+		schedule.reload()
+		self.assertEqual(schedule.status, "ORDERED")
+
+	def test_create_sales_order_draft_status_throws(self):
+		"""DRAFT schedules still cannot be converted."""
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule Draft Convert"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "DRAFT"
+		schedule.append("lines", {
+			"line_id": "L1",
+			"qty": 1,
+			"manufacturer_type": "ILLUMENATE",
+			"configured_fixture": self.config_hash,
+		})
+		schedule.insert(ignore_permissions=True)
+
 		with self.assertRaises(frappe.exceptions.ValidationError):
 			schedule.create_sales_order()
 
@@ -293,6 +419,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 
 		# Location / fixture type / notes live on dedicated fields
 		self.assertEqual(so.items[0].ill_section_label, "Reception Desk")
+		self.assertEqual(so.items[0].ill_fixture_type, "L1")
 		self.assertIn("Fixture Type: L1", so.items[0].additional_notes)
 		self.assertIn("Under cabinet mount", so.items[0].additional_notes)
 
@@ -603,6 +730,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(row.ill_product_type, "LED Tape")
 		self.assertEqual(row.ill_mfg_length_mm, 2950)
 		self.assertEqual(row.ill_section_label, "Lobby")
+		self.assertEqual(row.ill_fixture_type, "T1")
 		self.assertIn("Fixture Type: T1", row.additional_notes)
 
 		# MSRP Item Price is ensured so the saved quotation picks up a rate
@@ -639,6 +767,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(len(quotation.items), counts["rows_added"])
 		for row in quotation.items:
 			self.assertEqual(row.ill_section_label, "Corridor")
+			self.assertEqual(row.ill_fixture_type, "T2")
 			self.assertIn("Fixture Type: T2", row.additional_notes)
 			self.assertIn("Continuous run", row.additional_notes)
 
@@ -680,6 +809,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(counts["rows_added"], 5)
 		for row in quotation.items:
 			self.assertEqual(row.ill_section_label, "Conference Room")
+			self.assertEqual(row.ill_fixture_type, "K1")
 			self.assertIn("Fixture Type: K1", row.additional_notes)
 			self.assertIn("Recessed", row.additional_notes)
 
@@ -720,12 +850,14 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		fixture_row, accessory_row = quotation.items[0], quotation.items[1]
 
 		self.assertEqual(fixture_row.ill_section_label, "Open Office")
+		self.assertEqual(fixture_row.ill_fixture_type, "A1")
 		self.assertIn("Fixture Type: A1", fixture_row.additional_notes)
 		self.assertIn("Suspended", fixture_row.additional_notes)
 		self.assertNotIn("Location:", fixture_row.description or "")
 		self.assertNotIn("Notes:", fixture_row.description or "")
 
 		self.assertEqual(accessory_row.ill_section_label, "Electrical Room")
+		self.assertEqual(accessory_row.ill_fixture_type, "PS1")
 		self.assertIn("Fixture Type: PS1", accessory_row.additional_notes)
 		self.assertIn("Remote driver", accessory_row.additional_notes)
 		self.assertNotIn("Location:", accessory_row.description or "")
@@ -737,4 +869,206 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 
 		with self.assertRaises(frappe.exceptions.ValidationError):
 			schedule.append_quote_lines(quotation, tape_neon_mode="nope")
+
+	# ── Quantity multipliers ──────────────────────────────────────────────
+
+	def test_create_kit_so_lines_multiplies_qty(self):
+		"""A schedule line for N kits produces N kits' worth of components."""
+		import json
+
+		from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+			create_kit_so_lines,
+		)
+
+		config_data = json.loads(self._kit_variant_selections())
+		schedule = self._schedule_with_line("_Test Schedule Kit Qty", {
+			"line_id": "K3",
+			"qty": 3,
+			"manufacturer_type": "ILLUMENATE",
+			"product_type": "Extrusion Kit",
+			"variant_selections": json.dumps(config_data),
+		})
+
+		single = self._new_quotation()
+		create_kit_so_lines(single, schedule.lines[0], config_data, qty_multiplier=1)
+
+		tripled = self._new_quotation()
+		create_kit_so_lines(tripled, schedule.lines[0], config_data, qty_multiplier=3)
+
+		self.assertEqual(len(tripled.items), len(single.items))
+		for base_row, scaled_row in zip(single.items, tripled.items, strict=True):
+			self.assertEqual(scaled_row.item_code, base_row.item_code)
+			self.assertEqual(scaled_row.qty, base_row.qty * 3)
+
+	def test_append_quote_lines_kit_uses_line_qty(self):
+		"""append_quote_lines feeds line.qty into the kit multiplier."""
+		schedule = self._schedule_with_line("_Test Schedule Kit Line Qty", {
+			"line_id": "K4",
+			"qty": 5,
+			"location": "Gallery",
+			"manufacturer_type": "ILLUMENATE",
+			"product_type": "Extrusion Kit",
+			"variant_selections": self._kit_variant_selections(),
+		})
+
+		quotation = self._new_quotation()
+		schedule.append_quote_lines(quotation)
+
+		# Kit composition: profile 1, lens 1, solid endcap 2,
+		# feed-through endcap 2, mounting 6 - all times 5.
+		self.assertEqual([row.qty for row in quotation.items], [5, 5, 10, 10, 30])
+
+	def test_create_tape_neon_so_lines_multiplies_qty(self):
+		"""Raw tape/neon component lengths scale with the schedule line qty."""
+		import json
+
+		from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
+			create_tape_neon_so_lines,
+		)
+
+		config_data = json.loads(self._tape_variant_selections())
+		schedule = self._schedule_with_line("_Test Schedule Tape Qty", {
+			"line_id": "T4",
+			"qty": 2,
+			"manufacturer_type": "ILLUMENATE",
+			"product_type": "LED Tape",
+			"variant_selections": json.dumps(config_data),
+		})
+
+		single = self._new_quotation()
+		create_tape_neon_so_lines(single, schedule.lines[0], config_data, qty_multiplier=1)
+
+		doubled = self._new_quotation()
+		create_tape_neon_so_lines(doubled, schedule.lines[0], config_data, qty_multiplier=2)
+
+		self.assertEqual(len(doubled.items), len(single.items))
+		for base_row, scaled_row in zip(single.items, doubled.items, strict=True):
+			self.assertEqual(scaled_row.item_code, base_row.item_code)
+			self.assertEqual(scaled_row.qty, base_row.qty * 2)
+
+	# ── LED Sheet ─────────────────────────────────────────────────────────
+
+	def _ensure_configured_led_sheet(self):
+		"""Create (once) a configured LED Sheet with an Item and an MSRP."""
+		existing = frappe.db.get_value(
+			"ilL-Configured-LED-Sheet", {"part_number": "_TEST-SHEET-0001"}, "name"
+		)
+		if existing:
+			return frappe.get_doc("ilL-Configured-LED-Sheet", existing)
+
+		self.sheet_item_code = self._ensure_item("_Test Configured Sheet Item")
+
+		sheet = frappe.new_doc("ilL-Configured-LED-Sheet")
+		sheet.part_number = "_TEST-SHEET-0001"
+		sheet.coverage_width_ft = 4
+		sheet.coverage_height_ft = 4
+		sheet.sheets_needed = 4
+		sheet.total_system_watts = 120
+		sheet.jumper_cable_item = self._ensure_item("_Test Sheet Jumper Item")
+		sheet.leader_cable_item = self._ensure_item("_Test Sheet Leader Item")
+		sheet.msrp = 1200.0
+		sheet.configured_item = self.sheet_item_code
+		sheet.insert(ignore_permissions=True)
+		return sheet
+
+	def test_create_sales_order_led_sheet(self):
+		"""LED Sheet lines are no longer silently dropped."""
+		sheet = self._ensure_configured_led_sheet()
+
+		schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
+		schedule.schedule_name = "_Test Schedule LED Sheet"
+		schedule.ill_project = self.project.name
+		schedule.customer = self.customer_name
+		schedule.status = "READY"
+		schedule.append("lines", {
+			"line_id": "S1",
+			"qty": 2,
+			"location": "Atrium",
+			"manufacturer_type": "ILLUMENATE",
+			"product_type": "LED Sheet",
+			"configured_led_sheet": sheet.name,
+		})
+		schedule.insert(ignore_permissions=True)
+
+		so_name = schedule.create_sales_order()
+		so = frappe.get_doc("Sales Order", so_name)
+
+		self.assertEqual(len(so.items), 1)
+		row = so.items[0]
+		self.assertEqual(row.item_code, sheet.configured_item)
+		# qty is the bundle count from the schedule line, never sheets_needed
+		self.assertEqual(row.qty, 2)
+		self.assertEqual(row.ill_configured_led_sheet, sheet.name)
+		self.assertEqual(row.ill_product_type, "LED Sheet")
+		self.assertEqual(row.ill_section_label, "Atrium")
+		self.assertEqual(row.ill_fixture_type, "S1")
+		self.assertAlmostEqual(float(row.rate), 1200.0, places=2)
+
+	def test_led_sheet_summary_counts_sheets(self):
+		"""LED Sheet lines are previewed as sheets, not as unconfigured."""
+		sheet = self._ensure_configured_led_sheet()
+		schedule = self._schedule_with_line("_Test Schedule LED Sheet Summary", {
+			"line_id": "S2",
+			"qty": 1,
+			"manufacturer_type": "ILLUMENATE",
+			"product_type": "LED Sheet",
+			"configured_led_sheet": sheet.name,
+		})
+
+		summary = schedule.get_transaction_line_summary()
+		self.assertEqual(summary["sheets"], 1)
+		self.assertEqual(summary["unconfigured"], 0)
+
+	def test_append_quote_lines_unconfigured_led_sheet_is_reported(self):
+		"""An unconfigured LED Sheet is skipped with an explanatory message."""
+		schedule = self._schedule_with_line("_Test Schedule LED Sheet Unconfigured", {
+			"line_id": "S3",
+			"qty": 1,
+			"manufacturer_type": "ILLUMENATE",
+			"product_type": "LED Sheet",
+		})
+
+		quotation = self._new_quotation()
+		counts = schedule.append_quote_lines(quotation)
+
+		self.assertEqual(counts["rows_added"], 0)
+		self.assertEqual(counts["skipped"], 1)
+		self.assertTrue(any("LED Sheet is not configured" in m for m in counts["messages"]))
+
+	# ── Field mapping through the document chain ──────────────────────────
+
+	def test_section_and_fixture_type_survive_quotation_to_sales_order(self):
+		"""ill_section_label / ill_fixture_type map from Quotation to SO."""
+		from erpnext.selling.doctype.quotation.quotation import make_sales_order
+
+		from illumenate_lighting.illumenate_lighting.api.quote_from_schedule import (
+			add_schedule_to_quotation,
+		)
+
+		schedule = self._schedule_with_line("_Test Schedule Quote To Order", {
+			"line_id": "L9",
+			"qty": 2,
+			"location": "Board Room",
+			"notes": "Pendant",
+			"manufacturer_type": "ILLUMENATE",
+			"configured_fixture": self.config_hash,
+		})
+
+		quotation = self._new_quotation()
+		quotation.insert(ignore_permissions=True)
+
+		add_schedule_to_quotation(quotation.name, schedule.name)
+		quotation.reload()
+
+		self.assertEqual(len(quotation.items), 1)
+		self.assertEqual(quotation.items[0].ill_section_label, "Board Room")
+		self.assertEqual(quotation.items[0].ill_fixture_type, "L9")
+
+		quotation.submit()
+		sales_order = make_sales_order(quotation.name)
+
+		self.assertEqual(len(sales_order.items), 1)
+		self.assertEqual(sales_order.items[0].ill_section_label, "Board Room")
+		self.assertEqual(sales_order.items[0].ill_fixture_type, "L9")
+
 

@@ -4,6 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
@@ -171,17 +172,28 @@ class ilLProjectFixtureSchedule(Document):
 		return new_schedule.name
 
 	@frappe.whitelist()
-	def create_sales_order(self, tape_neon_mode=TAPE_NEON_MODE_CONFIGURED):
+	def create_sales_order(
+		self,
+		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
+		include_accessories=1,
+		include_other=0,
+	):
 		"""
 		Convert this fixture schedule to a Sales Order.
 
-		This is the main workflow for dealers: when the schedule is in READY status,
-		they click "Convert to Sales Order" which:
+		This is the main workflow for dealers: when the schedule is in READY
+		(or QUOTED) status they click "Convert to Sales Order", which:
+
 		1. Creates configured Items for each fixture (if they don't exist)
 		2. Checks if Items already exist and updates pricing if there are discrepancies
 		3. Creates BOMs for each configured fixture (if they don't exist)
 		4. Checks if BOMs already exist and updates if there are discrepancies
 		5. Creates the Sales Order with all line items
+
+		The line-building itself is delegated to :meth:`append_quote_lines`, the
+		single converter shared with the desk "Get Items From → Fixture Schedule"
+		flow, so a Sales Order always matches the Quotation built from the same
+		schedule.
 
 		The Sales Order is created for the owner's company (the dealer), not the
 		end-client customer. The end-client is stored for reference.
@@ -190,17 +202,42 @@ class ilLProjectFixtureSchedule(Document):
 			tape_neon_mode: ``"configured_item"`` (default) adds a single row per
 				configured tape/neon SKU; ``"raw_components"`` explodes the line
 				into its component rows.
+			include_accessories: Include ACCESSORY lines (default on).
+			include_other: Include OTHER-manufacturer lines (default off — they
+				have no catalog Item, so they are only reported).
 
 		Returns:
 			str: Name of the created Sales Order document
 		"""
+		return self.create_sales_order_result(
+			tape_neon_mode=tape_neon_mode,
+			include_accessories=include_accessories,
+			include_other=include_other,
+		)["sales_order"]
+
+	@frappe.whitelist()
+	def create_sales_order_result(
+		self,
+		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
+		include_accessories=1,
+		include_other=0,
+	):
+		"""Convert this schedule to a Sales Order and return the full result.
+
+		Same behaviour as :meth:`create_sales_order` but returns a dict::
+
+			{"sales_order": "SAL-ORD-0001", "warnings": [...], "counts": {...}}
+
+		so callers (portal, desk) can surface skipped lines instead of silently
+		dropping them.
+		"""
 		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
 
-		# Validate status is READY
-		if self.status != "READY":
-			frappe.throw(_("Schedule must be in READY status to convert to Sales Order"))
+		if self.status not in ("READY", "QUOTED"):
+			frappe.throw(
+				_("Schedule must be in READY or QUOTED status to convert to a Sales Order")
+			)
 
-		# Get the project to access owner_customer
 		if not self.ill_project:
 			frappe.throw(_("Project is required to create a Sales Order"))
 
@@ -213,228 +250,33 @@ class ilLProjectFixtureSchedule(Document):
 		if not so_customer:
 			frappe.throw(_("Owner Company is required to create a Sales Order"))
 
-		# Filter lines to ILLUMENATE manufacturer type that are configured
-		# Fixture lines have a configured_fixture link; LED Tape/Neon lines
-		# have configuration stored in variant_selections JSON.
-		illumenate_lines = [
-			line for line in self.lines
-			if line.manufacturer_type == "ILLUMENATE"
-			and (
-				line.configured_fixture
-				or (line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit") and line.variant_selections)
-			)
-		]
-
-		if not illumenate_lines:
-			frappe.throw(
-				_("No ilLumenate configured lines found in this schedule")
-			)
-
-		# Import manufacturing generator functions
-		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-			_create_or_get_bom,
-			_create_or_get_configured_item,
-			_update_fixture_links,
-		)
-
-		# Track messages for user feedback
-		items_created = 0
-		items_updated = 0
-		boms_created = 0
-		boms_updated = 0
-
-		# Create Sales Order
 		so = frappe.new_doc("Sales Order")
 		so.customer = so_customer
 		so.project = self.project
 		so.delivery_date = frappe.utils.add_days(frappe.utils.nowdate(), 30)
+		self._set_optional_doc_value(so, "ill_fixture_schedule", self.name)
 
 		# Store the end-client reference in remarks if different from SO customer
 		if project.customer and project.customer != so_customer:
 			so.remarks = _("End-Client: {0}").format(project.customer)
 
-		# Add SO items for each ILLUMENATE line
-		for line in illumenate_lines:
-			line_label = line.line_id or f"Row {line.idx}"
+		counts = self.append_quote_lines(
+			so,
+			include_accessories=bool(cint(include_accessories)),
+			include_other=bool(cint(include_other)),
+			tape_neon_mode=tape_neon_mode,
+			sync_existing_boms=True,
+		)
 
-			# ── LED Tape / LED Neon lines ─────────────────────────────
-			if line.product_type in ("LED Tape", "LED Neon") and line.variant_selections:
-				import json as _json
-				try:
-					config_data = _json.loads(line.variant_selections)
-				except _json.JSONDecodeError:
-					frappe.throw(
-						_("Line {0}: Invalid configuration data for {1}").format(
-							line_label, line.product_type
-						)
-					)
-
-				from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
-					create_tape_neon_so_lines,
-				)
-
-				line_rows_before = len(so.items)
-				use_raw_components = tape_neon_mode == TAPE_NEON_MODE_RAW
-				so_counts = {"items_created": 0, "boms_created": 0, "messages": []}
-
-				if not use_raw_components:
-					ctn_name = line.get("configured_tape_neon")
-					if not (ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name)):
-						use_raw_components = True
-					elif not self._append_configured_tape_neon_row(
-						so, line, line_label, ctn_name, so_counts
-					):
-						frappe.throw(
-							_("Line {0}: Failed to create configured Item for {1} {2}").format(
-								line_label, line.product_type, ctn_name
-							)
-						)
-
-					items_created += so_counts["items_created"]
-					boms_created += so_counts["boms_created"]
-
-				if use_raw_components:
-					result = create_tape_neon_so_lines(so, line, config_data)
-					items_created += result.get("items_added", 0)
-					for msg in result.get("messages", []):
-						frappe.log_error(
-							title=f"SO Creation: {line.product_type} - {line_label}",
-							message=msg,
-						)
-
-					# Verify brand + MSRP Item Price on the configured tape/neon Item
-					ctn_name = line.get("configured_tape_neon")
-					if ctn_name and frappe.db.exists("ilL-Configured-Tape-Neon", ctn_name):
-						ctn_doc = frappe.get_doc("ilL-Configured-Tape-Neon", ctn_name)
-						ctn_item_code = ctn_doc.configured_item
-						if ctn_item_code and frappe.db.exists("Item", ctn_item_code):
-							if self._check_and_update_tape_neon_item_pricing(ctn_item_code, ctn_doc):
-								items_updated += 1
-
-				self._stamp_group_fields(so, line_rows_before, line)
-				continue
-
-			# ── Extrusion Kit lines ────────────────────────────────────
-			if line.product_type == "Extrusion Kit" and line.variant_selections:
-				import json as _json
-				try:
-					config_data = _json.loads(line.variant_selections)
-				except _json.JSONDecodeError:
-					frappe.throw(
-						_("Line {0}: Invalid configuration data for Extrusion Kit").format(
-							line_label
-						)
-					)
-
-				from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
-					create_kit_so_lines,
-				)
-				line_rows_before = len(so.items)
-				result = create_kit_so_lines(so, line, config_data)
-				items_created += result.get("items_added", 0)
-				for msg in result.get("messages", []):
-					frappe.log_error(
-						title=f"SO Creation: Extrusion Kit - {line_label}",
-						message=msg,
-					)
-				self._stamp_group_fields(so, line_rows_before, line)
-				continue
-
-			# ── Standard Configured Fixture lines ─────────────────────
-			if not line.configured_fixture:
-				continue
-
-			# Fetch the configured fixture to get computed values
-			configured_fixture = frappe.get_doc(
-				"ilL-Configured-Fixture", line.configured_fixture
+		if not counts.get("rows_added"):
+			detail = "<br>".join(counts.get("messages") or []) or _(
+				"The schedule has no orderable lines."
 			)
-
-			# Get template code from the fixture template
-			template_code = None
-			if configured_fixture.fixture_template:
-				template_code = configured_fixture.fixture_template
-
-			# Step 1: Get or create the configured Item
-			item_code = configured_fixture.configured_item
-			item_existed = bool(item_code and frappe.db.exists("Item", item_code))
-
-			if not item_existed:
-				# Auto-create the configured item for this fixture
-				item_result = _create_or_get_configured_item(configured_fixture, skip_if_exists=True)
-				if item_result.get("success") and item_result.get("item_code"):
-					item_code = item_result["item_code"]
-					if item_result.get("created"):
-						items_created += 1
-				else:
-					frappe.throw(
-						_(
-							"Line {0}: Failed to create configured Item for fixture {1}. "
-							"{2}"
-						).format(
-							line_label,
-							line.configured_fixture,
-							"; ".join(m.get("text", "") for m in item_result.get("messages", [])),
-						)
-					)
-			else:
-				# Item exists - check for pricing discrepancies and update if needed
-				updated = self._check_and_update_item_pricing(item_code, configured_fixture)
-				if updated:
-					items_updated += 1
-
-			# Step 2: Get or create the BOM
-			bom_name = configured_fixture.bom
-			bom_existed = bool(bom_name and frappe.db.exists("BOM", bom_name))
-
-			if not bom_existed:
-				# Auto-create the BOM for this fixture
-				bom_result = _create_or_get_bom(configured_fixture, item_code, skip_if_exists=True)
-				if bom_result.get("success") and bom_result.get("bom_name"):
-					bom_name = bom_result["bom_name"]
-					if bom_result.get("created"):
-						boms_created += 1
-				elif not bom_result.get("success"):
-					# Log warning but don't block SO creation
-					frappe.log_error(
-						title=f"BOM Creation Warning for {line.configured_fixture}",
-						message="; ".join(m.get("text", "") for m in bom_result.get("messages", []))
-					)
-			else:
-				# BOM exists - check for discrepancies and update if needed
-				updated = self._check_and_update_bom(bom_name, configured_fixture)
-				if updated:
-					boms_updated += 1
-
-			# Update fixture links if we created new artifacts
-			if not item_existed or not bom_existed:
-				_update_fixture_links(
-					configured_fixture,
-					item_code=item_code,
-					bom_name=bom_name,
-					work_order_name=None,
+			frappe.throw(
+				_("Nothing could be added to a Sales Order from this schedule.<br><br>{0}").format(
+					detail
 				)
-				# Also update the cached item code on the schedule line
-				line.ill_item_code = item_code
-
-			# Add line to Sales Order
-			line_rows_before = len(so.items)
-			so_item = so.append("items", {})
-			so_item.item_code = item_code
-			so_item.qty = line.qty or 1
-			so_item.description = self._build_item_description(line, configured_fixture)
-
-			# Set custom fields for quick visibility
-			so_item.ill_configured_fixture = line.configured_fixture
-			so_item.ill_template_code = template_code
-			so_item.ill_requested_length_mm = configured_fixture.requested_overall_length_mm
-			so_item.ill_mfg_length_mm = configured_fixture.manufacturable_overall_length_mm
-			so_item.ill_runs_count = configured_fixture.runs_count
-			so_item.ill_total_watts = configured_fixture.total_watts
-			so_item.ill_finish = configured_fixture.finish
-			so_item.ill_lens = configured_fixture.lens_appearance
-			so_item.ill_engine_version = configured_fixture.engine_version
-
-			self._stamp_group_fields(so, line_rows_before, line)
+			)
 
 		so.insert()
 
@@ -445,22 +287,33 @@ class ilLProjectFixtureSchedule(Document):
 		msg_parts = [_("Sales Order {0} created successfully").format(
 			frappe.utils.get_link_to_form("Sales Order", so.name)
 		)]
-		if items_created > 0:
-			msg_parts.append(_("{0} Item(s) created").format(items_created))
-		if items_updated > 0:
-			msg_parts.append(_("{0} Item(s) updated").format(items_updated))
-		if boms_created > 0:
-			msg_parts.append(_("{0} BOM(s) created").format(boms_created))
-		if boms_updated > 0:
-			msg_parts.append(_("{0} BOM(s) updated").format(boms_updated))
+		if counts.get("items_created"):
+			msg_parts.append(_("{0} Item(s) created").format(counts["items_created"]))
+		if counts.get("items_updated"):
+			msg_parts.append(_("{0} Item(s) updated").format(counts["items_updated"]))
+		if counts.get("boms_created"):
+			msg_parts.append(_("{0} BOM(s) created").format(counts["boms_created"]))
+		if counts.get("boms_updated"):
+			msg_parts.append(_("{0} BOM(s) updated").format(counts["boms_updated"]))
+
+		warnings = list(counts.get("messages") or [])
+
+		message = ". ".join(msg_parts)
+		if warnings:
+			warning_list = "<br>".join(warnings)
+			message += f"<br><br>{_('Some lines were not added:')}<br>{warning_list}"
 
 		frappe.msgprint(
-			". ".join(msg_parts),
-			indicator="green",
-			alert=True,
+			message,
+			indicator="orange" if warnings else "green",
+			alert=not warnings,
 		)
 
-		return so.name
+		return {
+			"sales_order": so.name,
+			"warnings": warnings,
+			"counts": counts,
+		}
 
 	def get_transaction_line_summary(self, include_accessories=True, include_other=True):
 		"""Return a lightweight breakdown of how many lines of each type would
@@ -473,6 +326,7 @@ class ilLProjectFixtureSchedule(Document):
 			"fixtures": 0,
 			"tape_neon": 0,
 			"kits": 0,
+			"sheets": 0,
 			"accessories": 0,
 			"other": 0,
 			"unconfigured": 0,
@@ -490,6 +344,11 @@ class ilLProjectFixtureSchedule(Document):
 				elif pt == "Extrusion Kit":
 					if line.variant_selections:
 						summary["kits"] += 1
+					else:
+						summary["unconfigured"] += 1
+				elif pt == "LED Sheet":
+					if line.configured_led_sheet:
+						summary["sheets"] += 1
 					else:
 						summary["unconfigured"] += 1
 				elif line.configured_fixture:
@@ -512,23 +371,33 @@ class ilLProjectFixtureSchedule(Document):
 		include_accessories=True,
 		include_other=False,
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
+		sync_existing_boms=False,
 	):
 		"""Append this schedule's line items onto a target transaction document
 		(Quotation or Sales Order) and return a summary dict.
 
-		The line representation mirrors :meth:`create_sales_order` so that a
-		quotation built from a schedule matches the eventual sales order:
+		This is the single schedule → transaction converter. ``create_sales_order``
+		delegates to it so a Sales Order and a Quotation built from the same
+		schedule always contain the same rows:
 
 		* Configured fixtures → single configured Item row (Item + BOM ensured)
 		* LED Tape / LED Neon  → single configured Item row, or exploded
 		  component rows when ``tape_neon_mode="raw_components"``
-		* Extrusion Kit        → exploded component rows
+		* Extrusion Kit        → exploded component rows (times ``line.qty``)
+		* LED Sheet            → single configured Item row (qty = ``line.qty``)
 		* Accessories          → direct Item row
 		* Other manufacturer   → reported as skipped (no catalog Item)
 
 		Every row appended for a schedule line is stamped with
-		``ill_section_label`` (from ``line.location``) and ``additional_notes``
-		(fixture type + notes).
+		``ill_section_label`` (from ``line.location``), ``ill_fixture_type``
+		(from ``line.line_id``), ``ill_schedule_line_id`` and
+		``additional_notes`` (fixture type + notes).
+
+		Args:
+			sync_existing_boms: When ``True`` an *existing* BOM that no longer
+				matches its configured fixture is regenerated. Only the Sales
+				Order path enables this — building a quotation must not
+				deactivate submitted BOMs.
 
 		The schedule status is left unchanged; only ``target_doc.items`` is
 		mutated. The caller is responsible for saving ``target_doc``.
@@ -547,12 +416,15 @@ class ilLProjectFixtureSchedule(Document):
 			"fixtures": 0,
 			"tape_neon": 0,
 			"kits": 0,
+			"sheets": 0,
 			"accessories": 0,
 			"other": 0,
 			"skipped": 0,
 			"rows_added": 0,
 			"items_created": 0,
+			"items_updated": 0,
 			"boms_created": 0,
+			"boms_updated": 0,
 			"messages": [],
 		}
 
@@ -609,7 +481,9 @@ class ilLProjectFixtureSchedule(Document):
 							counts["skipped"] += 1
 
 				if use_raw_components:
-					result = create_tape_neon_so_lines(target_doc, line, config_data)
+					result = create_tape_neon_so_lines(
+						target_doc, line, config_data, qty_multiplier=line.qty or 1
+					)
 					if result.get("items_added"):
 						counts["tape_neon"] += 1
 					else:
@@ -641,7 +515,9 @@ class ilLProjectFixtureSchedule(Document):
 					create_kit_so_lines,
 				)
 				line_rows_before = len(target_doc.items)
-				result = create_kit_so_lines(target_doc, line, config_data)
+				result = create_kit_so_lines(
+					target_doc, line, config_data, qty_multiplier=line.qty or 1
+				)
 				if result.get("items_added"):
 					counts["kits"] += 1
 				else:
@@ -649,6 +525,56 @@ class ilLProjectFixtureSchedule(Document):
 				for msg in result.get("messages", []):
 					counts["messages"].append(_("Line {0}: {1}").format(line_label, msg))
 				self._stamp_group_fields(target_doc, line_rows_before, line)
+				continue
+
+			# ── ilLumenate: LED Sheet ─────────────────────────────────
+			if mt == "ILLUMENATE" and line.product_type == "LED Sheet":
+				if not line.configured_led_sheet:
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: LED Sheet is not configured — skipped").format(line_label)
+					)
+					continue
+				if not frappe.db.exists("ilL-Configured-LED-Sheet", line.configured_led_sheet):
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: configured LED Sheet {1} no longer exists — skipped").format(
+							line_label, line.configured_led_sheet
+						)
+					)
+					continue
+
+				from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
+					PRODUCT_TYPE_SHEET,
+					_apply_artifact_to_row,
+					_ensure_configured_artifacts,
+				)
+
+				try:
+					artifact = _ensure_configured_artifacts(
+						PRODUCT_TYPE_SHEET, None, None, line.configured_led_sheet
+					)
+				except Exception as exc:
+					counts["skipped"] += 1
+					counts["messages"].append(
+						_("Line {0}: could not prepare LED Sheet {1} — skipped ({2})").format(
+							line_label, line.configured_led_sheet, str(exc)
+						)
+					)
+					frappe.log_error(
+						title=f"Schedule Conversion: LED Sheet {line.configured_led_sheet}",
+						message=frappe.get_traceback(),
+					)
+					continue
+
+				line_rows_before = len(target_doc.items)
+				row = target_doc.append("items", {})
+				# qty is the *bundle* count from the schedule line — never
+				# sheets_needed. The configured sheet MSRP already prices the
+				# whole bundle, so multiplying by sheets_needed double-counts.
+				_apply_artifact_to_row(target_doc, row, artifact, line.qty or 1, None)
+				self._stamp_group_fields(target_doc, line_rows_before, line)
+				counts["sheets"] += 1
 				continue
 
 			# ── ilLumenate: Configured Fixture ────────────────────────
@@ -689,7 +615,8 @@ class ilLProjectFixtureSchedule(Document):
 						continue
 
 				# Ensure brand + MSRP Item Price so the quotation rate populates.
-				self._check_and_update_item_pricing(item_code, configured_fixture)
+				if self._check_and_update_item_pricing(item_code, configured_fixture):
+					counts["items_updated"] += 1
 
 				# Step 2: ensure the BOM exists
 				bom_name = configured_fixture.bom
@@ -705,6 +632,9 @@ class ilLProjectFixtureSchedule(Document):
 							title=f"Quote-from-Schedule BOM Warning for {line.configured_fixture}",
 							message="; ".join(m.get("text", "") for m in bom_result.get("messages", [])),
 						)
+				elif sync_existing_boms and self._check_and_update_bom(bom_name, configured_fixture):
+					counts["boms_updated"] += 1
+					bom_name = configured_fixture.bom or bom_name
 
 				if not item_existed or not bom_existed:
 					_update_fixture_links(
@@ -713,6 +643,8 @@ class ilLProjectFixtureSchedule(Document):
 						bom_name=bom_name,
 						work_order_name=None,
 					)
+
+				self._cache_line_item_code(line, item_code)
 
 				row = target_doc.append("items", {})
 				row.item_code = item_code
@@ -784,7 +716,7 @@ class ilLProjectFixtureSchedule(Document):
 		return counts
 
 	def _set_optional_row_value(self, row, fieldname, value):
-		"""Set a child-row field only when it exists on the target doctype."""
+		"""Set a document/child-row field only when it exists on that doctype."""
 		if value is None:
 			return
 		try:
@@ -794,14 +726,38 @@ class ilLProjectFixtureSchedule(Document):
 			return
 		row.set(fieldname, value)
 
+	# Parent documents (Quotation / Sales Order headers) use the same guard.
+	_set_optional_doc_value = _set_optional_row_value
+
+	def _cache_line_item_code(self, line, item_code):
+		"""Persist the resolved configured Item back onto the schedule line.
+
+		Mutating ``line`` alone is a no-op because the schedule is never saved
+		during a conversion, so the value is written straight to the child row.
+		"""
+		if not item_code or line.get("ill_item_code") == item_code:
+			return
+		line.ill_item_code = item_code
+		if not line.get("name") or line.get("__islocal"):
+			return
+		try:
+			frappe.db.set_value(
+				line.doctype, line.name, "ill_item_code", item_code, update_modified=False
+			)
+		except Exception:
+			frappe.log_error(
+				title=f"Schedule line item-code cache failed for {line.name}",
+				message=frappe.get_traceback(),
+			)
+
 	def _schedule_line_group_fields(self, line):
 		"""Return ``(section_label, additional_notes)`` for a schedule line.
 
 		``line.location`` (label "Location") drives the print-format section
 		grouping via ``ill_section_label`` ("Section / Room"). The fixture type
-		(``line.line_id``, label "Fixture Type") and any free-text notes go to
-		the standard ``additional_notes`` field, which the print formats render
-		as an italic note under the item.
+		(``line.line_id``) is stamped onto ``ill_fixture_type`` and *also* kept
+		in the standard ``additional_notes`` field, which the print formats
+		render as an italic note under the item.
 		"""
 		section_label = line.location or None
 
@@ -814,18 +770,23 @@ class ilLProjectFixtureSchedule(Document):
 		return section_label, "\n".join(note_parts) if note_parts else None
 
 	def _stamp_group_fields(self, target_doc, rows_before_count, line):
-		"""Stamp section label + additional notes on every row a branch appended.
+		"""Stamp grouping + traceability fields on every row a branch appended.
 
 		Using a before/after row-count diff means this works whether the branch
-		added a single row (fixture, accessory, configured tape/neon) or several
-		(raw tape/neon components, extrusion kit components).
+		added a single row (fixture, accessory, configured tape/neon, LED sheet)
+		or several (raw tape/neon components, extrusion kit components).
 		"""
 		section_label, additional_notes = self._schedule_line_group_fields(line)
-		if not section_label and not additional_notes:
+		fixture_type = line.line_id or None
+		schedule_line_id = line.get("name") or None
+
+		if not (section_label or additional_notes or fixture_type or schedule_line_id):
 			return
 
 		for row in target_doc.items[rows_before_count:]:
 			self._set_optional_row_value(row, "ill_section_label", section_label)
+			self._set_optional_row_value(row, "ill_fixture_type", fixture_type)
+			self._set_optional_row_value(row, "ill_schedule_line_id", schedule_line_id)
 			self._set_optional_row_value(row, "additional_notes", additional_notes)
 
 	def _append_configured_tape_neon_row(self, target_doc, line, line_label, ctn_name, counts):
@@ -864,7 +825,8 @@ class ilLProjectFixtureSchedule(Document):
 				configured.configured_item = item_code
 
 		# Ensure brand + MSRP Item Price so the transaction rate populates.
-		self._check_and_update_tape_neon_item_pricing(item_code, configured)
+		if self._check_and_update_tape_neon_item_pricing(item_code, configured):
+			counts["items_updated"] = counts.get("items_updated", 0) + 1
 
 		# Step 2: ensure the BOM exists
 		bom_name = configured.bom
