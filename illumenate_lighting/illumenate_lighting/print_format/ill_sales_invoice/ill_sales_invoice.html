@@ -3,13 +3,14 @@
   Clean, readable layout with section / room grouping.
 #}
 
-{%- set has_sections = doc.items | selectattr("ill_section_label") | list | length > 0 -%}
-
 {#-- Build ordered list of sections and their items --#}
-{%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
+{%- set ns = namespace(sections=[], section_map={}, current_section="", has_sections=false) -%}
 {%- set refs = namespace(sales_orders=[], delivery_notes=[]) -%}
 {%- for item in doc.items -%}
-    {%- set label = item.ill_section_label or "" -%}
+    {%- set label = item.get("ill_section_label") or item.get("custom_ill_section_label") or "" -%}
+    {%- if label -%}
+        {%- set ns.has_sections = true -%}
+    {%- endif -%}
     {%- if label and (not item.item_code) and item.qty == 0 -%}
         {%- if label not in ns.section_map -%}
             {%- set _ = ns.sections.append(label) -%}
@@ -31,6 +32,7 @@
         {%- set _ = refs.delivery_notes.append(item.delivery_note) -%}
     {%- endif -%}
 {%- endfor -%}
+{%- set has_sections = ns.has_sections -%}
 {%- set company_payment_instructions = frappe.db.get_value('Company', doc.company, 'custom_invoice_payment_instructions') if doc.company else '' -%}
 
 <style>
