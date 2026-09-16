@@ -54,31 +54,33 @@ def _get_user_customer_or_fail(user: str) -> str:
 	return _get_user_customer(user)
 
 
-def _verify_project_ownership(project_name: str, user: str) -> dict | None:
+def _verify_project_ownership(project_name: str, user: str, ptype: str = "read") -> dict | None:
 	"""
-	Verify that the user's customer matches the project's customer.
+	Verify that the user may access the project.
+
+	Delegates to the canonical ilL-Project permission rule so the Webflow
+	endpoints apply the same privacy and collaborator scoping as the portal
+	instead of a looser customer-field comparison.
 
 	Returns None on success, or an error dict on failure.
 	"""
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_is_internal_user,
 		_get_user_customer,
+		_is_internal_user,
+		has_permission as project_has_permission,
 	)
 
 	if _is_internal_user(user):
 		return None  # Internal users bypass ownership check
 
-	user_customer = _get_user_customer(user)
-	if not user_customer:
-		return {"success": False, "error": _("No customer linked to your account")}
-
 	if not frappe.db.exists("ilL-Project", project_name):
 		return {"success": False, "error": _("Project not found")}
 
-	project_customer = frappe.db.get_value("ilL-Project", project_name, "customer")
-	owner_customer = frappe.db.get_value("ilL-Project", project_name, "owner_customer")
+	if not _get_user_customer(user):
+		return {"success": False, "error": _("No customer linked to your account")}
 
-	if user_customer not in (project_customer, owner_customer):
+	project = frappe.get_doc("ilL-Project", project_name)
+	if not project_has_permission(project, ptype, user):
 		return {"success": False, "error": _("Permission denied")}
 
 	return None
@@ -129,6 +131,19 @@ def get_projects() -> dict:
 		fields=["name", "project_name", "customer", "status", "location"],
 		order_by="modified desc",
 	)
+
+	if user_customer is not None:
+		# A shared customer is not access on its own — private projects are
+		# limited to their owner and invited collaborators.
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+			has_permission as project_has_permission,
+		)
+
+		projects = [
+			p
+			for p in projects
+			if project_has_permission(frappe.get_doc("ilL-Project", p.name), "read", user)
+		]
 
 	return {
 		"success": True,
@@ -312,7 +327,7 @@ def add_fixture_to_schedule(
 		}
 
 	# Verify ownership
-	err = _verify_project_ownership(project, user)
+	err = _verify_project_ownership(project, user, ptype="write")
 	if err:
 		return err
 

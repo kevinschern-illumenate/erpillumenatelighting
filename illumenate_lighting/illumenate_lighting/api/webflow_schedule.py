@@ -293,7 +293,7 @@ def get_user_schedules() -> dict:
                 WHERE pc.parent = s.ill_project AND pc.user = %(user)s
             )
         )
-        AND s.status IN ('Draft', 'In Progress')
+        AND s.status IN ('DRAFT', 'READY')
         ORDER BY s.creation DESC
         LIMIT 50
     """, {"user": user}, as_dict=True)
@@ -325,14 +325,14 @@ def create_quick_project_and_schedule(
         project = frappe.new_doc("ilL-Project")
         project.project_name = project_name
         project.owner = frappe.session.user
-        project.status = "Draft"
+        project.status = "ACTIVE"
         project.insert()
         
         # Create schedule
         schedule = frappe.new_doc("ilL-Project-Fixture-Schedule")
         schedule.ill_project = project.name
         schedule.schedule_name = schedule_name or "Main Schedule"
-        schedule.status = "Draft"
+        schedule.status = "DRAFT"
         schedule.insert()
         
         frappe.db.commit()
@@ -518,7 +518,7 @@ def update_line_quantity(
     line = frappe.db.get_value(
         "ilL-Child-Fixture-Schedule-Line",
         line_name,
-        ["parent", "quantity"],
+        ["parent", "qty"],
         as_dict=True
     )
     
@@ -534,16 +534,17 @@ def update_line_quantity(
     frappe.db.set_value(
         "ilL-Child-Fixture-Schedule-Line",
         line_name,
-        "quantity",
+        "qty",
         new_quantity
     )
     
-    frappe.db.commit()
+    # No commit here: Frappe commits the request transaction on success, and
+    # committing mid-request would make a later failure unrecoverable.
     
     return {
         "success": True,
         "line_name": line_name,
-        "old_quantity": line.quantity,
+        "old_quantity": line.qty,
         "new_quantity": new_quantity
     }
 

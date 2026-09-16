@@ -19,6 +19,12 @@ TAPE_NEON_MODE_CONFIGURED = "configured_item"
 TAPE_NEON_MODE_RAW = "raw_components"
 TAPE_NEON_MODES = (TAPE_NEON_MODE_CONFIGURED, TAPE_NEON_MODE_RAW)
 
+# Savepoint wrapping the whole schedule → Sales Order conversion.
+SO_CONVERSION_SAVEPOINT = "ill_schedule_to_sales_order"
+
+# Statuses from which a schedule may still be converted to a Sales Order.
+CONVERTIBLE_STATUSES = ("READY", "QUOTED")
+
 
 def _validate_tape_neon_mode(mode):
 	"""Normalise and validate a tape/neon representation mode."""
@@ -161,7 +167,8 @@ class ilLProjectFixtureSchedule(Document):
 					new_collab.set(field, collab.get(field))
 
 		new_schedule.insert(ignore_permissions=True)
-		frappe.db.commit()
+		# No commit here: callers compose this with other writes (e.g. the
+		# QUOTED → READY auto-version) and must stay able to roll the lot back.
 
 		frappe.msgprint(
 			_("Version {0} created: {1}").format(new_schedule.version, new_schedule.name),
@@ -230,62 +237,65 @@ class ilLProjectFixtureSchedule(Document):
 
 		so callers (portal, desk) can surface skipped lines instead of silently
 		dropping them.
+
+		The conversion is atomic and idempotent: the schedule row is locked for
+		the rest of the request, an already-linked Sales Order is returned as-is,
+		and every Item / Item Price / BOM / configured-record write is rolled
+		back to a savepoint if anything fails before the order is inserted.
 		"""
 		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
 
-		if self.status not in ("READY", "QUOTED"):
+		allowed, reason = can_convert_schedule_to_order(self, frappe.session.user)
+		if not allowed:
+			frappe.throw(reason, frappe.PermissionError)
+
+		# Serialise concurrent conversions of the same schedule. The lock is held
+		# until the request transaction ends, so a second caller blocks here and
+		# then sees the order the first one linked instead of creating its own.
+		frappe.db.sql(
+			"select name from `tabilL-Project-Fixture-Schedule` where name = %s for update",
+			(self.name,),
+		)
+
+		existing = self.get_linked_sales_order()
+		if existing:
+			return {
+				"sales_order": existing,
+				"warnings": [],
+				"counts": {},
+				"already_existed": True,
+			}
+
+		# Re-read under the lock: the status may have changed since this document
+		# was loaded (including by a conversion that just finished).
+		current_status = frappe.db.get_value(
+			"ilL-Project-Fixture-Schedule", self.name, "status"
+		)
+		if current_status not in CONVERTIBLE_STATUSES:
 			frappe.throw(
 				_("Schedule must be in READY or QUOTED status to convert to a Sales Order")
 			)
 
-		if not self.ill_project:
-			frappe.throw(_("Project is required to create a Sales Order"))
-
-		project = frappe.get_doc("ilL-Project", self.ill_project)
-
-		# Use owner_customer (the dealer's company) for the Sales Order
-		# Fall back to the project's customer if owner_customer is not set
-		so_customer = project.owner_customer or self.customer
-
-		if not so_customer:
-			frappe.throw(_("Owner Company is required to create a Sales Order"))
-
-		so = frappe.new_doc("Sales Order")
-		so.customer = so_customer
-		so.project = self.project
-		so.delivery_date = frappe.utils.add_days(frappe.utils.nowdate(), 30)
-		self._set_optional_doc_value(so, "ill_fixture_schedule", self.name)
-
-		# Store the end-client reference in remarks if different from SO customer
-		if project.customer and project.customer != so_customer:
-			so.remarks = _("End-Client: {0}").format(project.customer)
-
-		counts = self.append_quote_lines(
-			so,
-			include_accessories=bool(cint(include_accessories)),
-			include_other=bool(cint(include_other)),
-			tape_neon_mode=tape_neon_mode,
-			sync_existing_boms=True,
-		)
-
-		if not counts.get("rows_added"):
-			detail = "<br>".join(counts.get("messages") or []) or _(
-				"The schedule has no orderable lines."
+		frappe.db.savepoint(SO_CONVERSION_SAVEPOINT)
+		try:
+			so_name, counts = self._build_and_insert_sales_order(
+				tape_neon_mode=tape_neon_mode,
+				include_accessories=bool(cint(include_accessories)),
+				include_other=bool(cint(include_other)),
 			)
-			frappe.throw(
-				_("Nothing could be added to a Sales Order from this schedule.<br><br>{0}").format(
-					detail
-				)
-			)
-
-		so.insert()
+		except Exception:
+			# Items, Item Prices, BOMs and configured-record links are written
+			# before the Sales Order insert. Without this rollback a failed
+			# attempt would leave those partial manufacturing changes behind.
+			frappe.db.rollback(save_point=SO_CONVERSION_SAVEPOINT)
+			raise
 
 		# Update schedule status to ORDERED
 		self.db_set("status", "ORDERED")
 
 		# Build success message
 		msg_parts = [_("Sales Order {0} created successfully").format(
-			frappe.utils.get_link_to_form("Sales Order", so.name)
+			frappe.utils.get_link_to_form("Sales Order", so_name)
 		)]
 		if counts.get("items_created"):
 			msg_parts.append(_("{0} Item(s) created").format(counts["items_created"]))
@@ -310,10 +320,82 @@ class ilLProjectFixtureSchedule(Document):
 		)
 
 		return {
-			"sales_order": so.name,
+			"sales_order": so_name,
 			"warnings": warnings,
 			"counts": counts,
 		}
+
+	def get_linked_sales_order(self):
+		"""Return the active Sales Order already created from this schedule, if any.
+
+		Cancelled orders (docstatus 2) do not count, so a schedule can be
+		re-converted after its order was cancelled.
+		"""
+		if not frappe.get_meta("Sales Order").has_field("ill_fixture_schedule"):
+			return None
+
+		return frappe.db.get_value(
+			"Sales Order",
+			{"ill_fixture_schedule": self.name, "docstatus": ["<", 2]},
+			"name",
+			order_by="creation asc",
+		)
+
+	def _build_and_insert_sales_order(
+		self,
+		tape_neon_mode,
+		include_accessories,
+		include_other,
+	):
+		"""Build the Sales Order rows and insert the order. Returns ``(name, counts)``.
+
+		Must be called inside :attr:`SO_CONVERSION_SAVEPOINT` — it mutates Items,
+		Item Prices, BOMs and configured records before inserting the order.
+		"""
+		if not self.ill_project:
+			frappe.throw(_("Project is required to create a Sales Order"))
+
+		project = frappe.get_doc("ilL-Project", self.ill_project)
+
+		# Use owner_customer (the dealer's company) for the Sales Order
+		# Fall back to the project's customer if owner_customer is not set
+		so_customer = project.owner_customer or self.customer
+
+		if not so_customer:
+			frappe.throw(_("Owner Company is required to create a Sales Order"))
+
+		so = frappe.new_doc("Sales Order")
+		so.customer = so_customer
+		so.project = self.project
+		so.delivery_date = frappe.utils.add_days(frappe.utils.nowdate(), 30)
+		self._set_optional_doc_value(so, "ill_fixture_schedule", self.name)
+
+		# Store the end-client reference in remarks if different from SO customer
+		if project.customer and project.customer != so_customer:
+			so.remarks = _("End-Client: {0}").format(project.customer)
+
+		counts = self.append_quote_lines(
+			so,
+			include_accessories=include_accessories,
+			include_other=include_other,
+			tape_neon_mode=tape_neon_mode,
+			sync_existing_boms=True,
+			require_bom=True,
+		)
+
+		if not counts.get("rows_added"):
+			detail = "<br>".join(counts.get("messages") or []) or _(
+				"The schedule has no orderable lines."
+			)
+			frappe.throw(
+				_("Nothing could be added to a Sales Order from this schedule.<br><br>{0}").format(
+					detail
+				)
+			)
+
+		so.insert()
+
+		return so.name, counts
 
 	def get_transaction_line_summary(self, include_accessories=True, include_other=True):
 		"""Return a lightweight breakdown of how many lines of each type would
@@ -372,6 +454,7 @@ class ilLProjectFixtureSchedule(Document):
 		include_other=False,
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
 		sync_existing_boms=False,
+		require_bom=False,
 	):
 		"""Append this schedule's line items onto a target transaction document
 		(Quotation or Sales Order) and return a summary dict.
@@ -398,6 +481,9 @@ class ilLProjectFixtureSchedule(Document):
 				matches its configured fixture is regenerated. Only the Sales
 				Order path enables this — building a quotation must not
 				deactivate submitted BOMs.
+			require_bom: When ``True`` a manufactured line without a usable BOM
+				aborts the whole conversion instead of being ordered unbuildable.
+				Only the Sales Order path enables this.
 
 		The schedule status is left unchanged; only ``target_doc.items`` is
 		mutated. The caller is responsible for saving ``target_doc``.
@@ -474,7 +560,7 @@ class ilLProjectFixtureSchedule(Document):
 						)
 					else:
 						if self._append_configured_tape_neon_row(
-							target_doc, line, line_label, ctn_name, counts
+							target_doc, line, line_label, ctn_name, counts, require_bom=require_bom
 						):
 							counts["tape_neon"] += 1
 						else:
@@ -621,20 +707,35 @@ class ilLProjectFixtureSchedule(Document):
 				# Step 2: ensure the BOM exists
 				bom_name = configured_fixture.bom
 				bom_existed = bool(bom_name and frappe.db.exists("BOM", bom_name))
+				bom_detail = ""
 				if not bom_existed:
 					bom_result = _create_or_get_bom(configured_fixture, item_code, skip_if_exists=True)
 					if bom_result.get("success") and bom_result.get("bom_name"):
 						bom_name = bom_result["bom_name"]
 						if bom_result.get("created"):
 							counts["boms_created"] += 1
-					elif not bom_result.get("success"):
+					else:
+						bom_detail = "; ".join(
+							m.get("text", "") for m in bom_result.get("messages", [])
+						)
 						frappe.log_error(
 							title=f"Quote-from-Schedule BOM Warning for {line.configured_fixture}",
-							message="; ".join(m.get("text", "") for m in bom_result.get("messages", [])),
+							message=bom_detail,
 						)
+						bom_name = None
 				elif sync_existing_boms and self._check_and_update_bom(bom_name, configured_fixture):
 					counts["boms_updated"] += 1
 					bom_name = configured_fixture.bom or bom_name
+
+				if require_bom and not bom_name:
+					# A manufactured fixture with no BOM cannot be built, so ordering
+					# it would create an unfulfillable line.
+					frappe.throw(
+						_(
+							"Line {0}: a BOM could not be generated for fixture {1}, "
+							"so the order was not created. {2}"
+						).format(line_label, line.configured_fixture, bom_detail)
+					)
 
 				if not item_existed or not bom_existed:
 					_update_fixture_links(
@@ -789,13 +890,18 @@ class ilLProjectFixtureSchedule(Document):
 			self._set_optional_row_value(row, "ill_schedule_line_id", schedule_line_id)
 			self._set_optional_row_value(row, "additional_notes", additional_notes)
 
-	def _append_configured_tape_neon_row(self, target_doc, line, line_label, ctn_name, counts):
+	def _append_configured_tape_neon_row(
+		self, target_doc, line, line_label, ctn_name, counts, require_bom=False
+	):
 		"""Append a single row for the configured tape/neon SKU of ``line``.
 
 		Ensures the configured Item, its BOM and its MSRP Item Price exist, then
 		appends one row carrying ``line.qty``. Returns ``True`` when a row was
 		appended, ``False`` when the line had to be skipped (a message is added
 		to ``counts["messages"]`` in that case).
+
+		With ``require_bom`` a missing BOM aborts the conversion instead of
+		producing an unbuildable order line.
 		"""
 		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
 			_create_or_get_configured_tape_neon_item,
@@ -837,10 +943,20 @@ class ilLProjectFixtureSchedule(Document):
 				if bom_result.get("created"):
 					counts["boms_created"] += 1
 			else:
+				bom_detail = "; ".join(m.get("text", "") for m in bom_result.get("messages", []))
 				frappe.log_error(
 					title=f"Quote-from-Schedule BOM Warning for {ctn_name}",
-					message="; ".join(m.get("text", "") for m in bom_result.get("messages", [])),
+					message=bom_detail,
 				)
+				bom_name = None
+				if require_bom:
+					# A manufactured tape/neon SKU with no BOM cannot be built.
+					frappe.throw(
+						_(
+							"Line {0}: a BOM could not be generated for configured "
+							"{1} {2}, so the order was not created. {3}"
+						).format(line_label, line.product_type, ctn_name, bom_detail)
+					)
 
 		row = target_doc.append("items", {})
 		row.item_code = item_code
@@ -1015,51 +1131,30 @@ class ilLProjectFixtureSchedule(Document):
 
 		bom = frappe.get_doc("BOM", bom_name)
 
-		# Build expected BOM items from configured fixture
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			build_fixture_bom_items,
+		)
+
+		# Compare against the same generator that builds a BOM, so a changed or
+		# extra component is detected rather than only the handful of roles a
+		# hand-maintained expectation map happened to cover.
 		expected_items = {}
+		for row in build_fixture_bom_items(configured_fixture) or []:
+			expected_items[row["item_code"]] = expected_items.get(row["item_code"], 0) + row["qty"]
 
-		# Calculate segments count once for reuse
-		segments_count = len(configured_fixture.segments) if configured_fixture.segments else 1
+		if not expected_items:
+			# Nothing to compare against — leave the existing BOM alone rather
+			# than destroying it based on an empty expectation.
+			return False
 
-		# Profile
-		if configured_fixture.profile_item:
-			expected_items[configured_fixture.profile_item] = segments_count
+		bom_items = {}
+		for item in bom.items or []:
+			bom_items[item.item_code] = bom_items.get(item.item_code, 0) + item.qty
 
-		# Lens
-		if configured_fixture.lens_item:
-			expected_items[configured_fixture.lens_item] = segments_count
-
-		# Endcaps (4 total with extra pair rule)
-		if configured_fixture.endcap_item_start:
-			if configured_fixture.endcap_item_start == configured_fixture.endcap_item_end:
-				expected_items[configured_fixture.endcap_item_start] = 4
-			else:
-				expected_items[configured_fixture.endcap_item_start] = 2
-				if configured_fixture.endcap_item_end:
-					expected_items[configured_fixture.endcap_item_end] = 2
-
-		# Mounting
-		if configured_fixture.mounting_item:
-			# Use mounting qty from fixture if available, default to 2
-			mounting_qty = configured_fixture.total_mounting_accessories or 2
-			expected_items[configured_fixture.mounting_item] = mounting_qty
-
-		# Leader cables
-		if configured_fixture.leader_item:
-			expected_items[configured_fixture.leader_item] = configured_fixture.runs_count or 1
-
-		# Check for discrepancies
-		# Handle case where bom.items may be None or empty
-		bom_items = {item.item_code: item.qty for item in (bom.items or [])}
-		has_discrepancy = False
-
-		for item_code, expected_qty in expected_items.items():
-			if item_code not in bom_items:
-				has_discrepancy = True
-				break
-			if abs(bom_items[item_code] - expected_qty) > 0.001:
-				has_discrepancy = True
-				break
+		has_discrepancy = set(expected_items) != set(bom_items) or any(
+			abs(float(bom_items[code]) - float(qty)) > 0.001
+			for code, qty in expected_items.items()
+		)
 
 		if not has_discrepancy:
 			return False
@@ -1078,50 +1173,40 @@ class ilLProjectFixtureSchedule(Document):
 			_create_or_get_bom,
 		)
 
-		# Handle based on BOM status
-		if bom.docstatus == 0:
-			# Draft BOM - delete and recreate
-			frappe.delete_doc("BOM", bom_name, force=True)
+		if bom.docstatus not in (0, 1):
+			return False
 
-			# Clear the BOM link from fixture
-			configured_fixture.bom = None
-			configured_fixture.save(ignore_permissions=True)
+		# Build the replacement *before* retiring the current BOM so a failure
+		# here leaves the fixture with its existing, working BOM.
+		# Submitting a new default BOM re-points the Item at it automatically.
+		previous_bom = configured_fixture.bom
+		configured_fixture.bom = None
+		bom_result = _create_or_get_bom(
+			configured_fixture,
+			item_code,
+			skip_if_exists=False
+		)
 
-			# Create new BOM
-			bom_result = _create_or_get_bom(
-				configured_fixture,
-				item_code,
-				skip_if_exists=False
+		if not (bom_result.get("success") and bom_result.get("bom_name")):
+			configured_fixture.bom = previous_bom
+			frappe.log_error(
+				title=f"BOM Update Failed for {configured_fixture.name}",
+				message="; ".join(m.get("text", "") for m in bom_result.get("messages", [])),
 			)
+			return False
 
-			if bom_result.get("success") and bom_result.get("bom_name"):
-				configured_fixture.bom = bom_result["bom_name"]
-				configured_fixture.save(ignore_permissions=True)
-				return True
+		configured_fixture.bom = bom_result["bom_name"]
+		configured_fixture.save(ignore_permissions=True)
 
-		elif bom.docstatus == 1:
-			# Submitted BOM - deactivate and create new one
+		# Replacement is in place — now retire the superseded BOM.
+		if bom.docstatus == 0:
+			frappe.delete_doc("BOM", bom_name, force=True)
+		else:
 			bom.is_active = 0
 			bom.is_default = 0
 			bom.save(ignore_permissions=True)
 
-			# Clear the BOM link from fixture so a new one will be created
-			configured_fixture.bom = None
-			configured_fixture.save(ignore_permissions=True)
-
-			# Create new BOM
-			bom_result = _create_or_get_bom(
-				configured_fixture,
-				item_code,
-				skip_if_exists=False
-			)
-
-			if bom_result.get("success") and bom_result.get("bom_name"):
-				configured_fixture.bom = bom_result["bom_name"]
-				configured_fixture.save(ignore_permissions=True)
-				return True
-
-		return False
+		return True
 
 	@frappe.whitelist()
 	def request_quote(self):
@@ -1396,3 +1481,52 @@ def has_permission(doc, ptype="read", user=None):
 			return True
 
 	return False
+
+
+def can_convert_schedule_to_order(doc, user=None):
+	"""Single policy for "may this user convert this schedule to a Sales Order?".
+
+	Used by the portal page context, the portal endpoint and the conversion
+	itself so the button, the API and the document all agree. Previously the
+	rule only existed in the page template, which let any collaborator with
+	write access call the endpoint directly.
+
+	Args:
+		doc: Schedule document or its name.
+		user: Defaults to the session user.
+
+	Returns:
+		tuple[bool, str]: ``(allowed, reason)`` where ``reason`` is a
+		user-facing message when the conversion is not allowed.
+	"""
+	if not user:
+		user = frappe.session.user
+
+	if isinstance(doc, str):
+		if not frappe.db.exists("ilL-Project-Fixture-Schedule", doc):
+			return False, _("Schedule not found")
+		doc = frappe.get_doc("ilL-Project-Fixture-Schedule", doc)
+
+	if user == "Guest":
+		return False, _("Please log in to convert this schedule")
+
+	if not has_permission(doc, "write", user):
+		return False, _("You don't have permission to create a Sales Order for this schedule")
+
+	if doc.get("is_locked"):
+		return False, _("This schedule version is locked and cannot be converted")
+
+	status = doc.get("status")
+	is_privileged = _is_internal_user(user) or _is_dealer_user(user)
+
+	if is_privileged:
+		if status not in CONVERTIBLE_STATUSES:
+			return False, _(
+				"Schedule must be in READY or QUOTED status to convert to a Sales Order"
+			)
+	elif status != "QUOTED":
+		# Non-dealer portal users (including EDIT collaborators) must go through
+		# Request Quote first.
+		return False, _("This schedule must be quoted before it can be converted to a Sales Order")
+
+	return True, ""

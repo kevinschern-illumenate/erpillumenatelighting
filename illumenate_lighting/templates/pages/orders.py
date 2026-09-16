@@ -28,9 +28,11 @@ def get_context(context):
 			"Sales Order",
 			filters={
 				"customer": customer,
-				# Only submitted orders. Drafts (docstatus 0) are internal-only until
-				# confirmed, cancelled (docstatus 2) are never shown.
-				"docstatus": 1,
+				# Drafts (docstatus 0) are the "order requests" the portal
+				# creates when a schedule is converted — hiding them made a
+				# successful conversion look like it did nothing. Cancelled
+				# orders (docstatus 2) are never shown.
+				"docstatus": ["<", 2],
 			},
 			fields=[
 				"name",
@@ -52,6 +54,9 @@ def get_context(context):
 		production_sos = _get_sales_orders_in_production([o.name for o in orders])
 		for order in orders:
 			order["production_started"] = order.name in production_sos
+			order["is_request"] = order.docstatus == 0
+			if order["is_request"]:
+				order["status"] = _("Order Request")
 
 		context.orders = orders
 	else:
@@ -90,6 +95,7 @@ def _order_status_class(status):
 	"""Get Bootstrap badge class for order status."""
 	status_map = {
 		"Draft": "secondary",
+		"Order Request": "secondary",
 		"On Hold": "warning",
 		"To Deliver and Bill": "info",
 		"To Bill": "primary",

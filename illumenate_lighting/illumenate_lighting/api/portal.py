@@ -58,6 +58,56 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 	return {"success": False, "error": message, **extra}
 
 
+def _can_access_configured_record(doctype: str, name: str, line_fieldname: str) -> bool:
+	"""Check that a configured product is reachable by the current user.
+
+	Knowing a configured-fixture / tape-neon / sheet id is not authorisation on
+	its own: these ids are guessable sequence names. Access has to be proven
+	through a schedule the user may read, or by having created the record.
+
+	Args:
+		doctype: The configured-record doctype.
+		name: The configured-record name.
+		line_fieldname: Field on ``ilL-Child-Fixture-Schedule-Line`` that links
+			to this doctype.
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_internal_user,
+	)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		has_permission as schedule_has_permission,
+	)
+
+	user = frappe.session.user
+
+	if user == "Guest":
+		return False
+
+	if _is_internal_user(user):
+		return True
+
+	if frappe.db.get_value(doctype, name, "owner") == user:
+		return True
+
+	schedule_names = frappe.get_all(
+		"ilL-Child-Fixture-Schedule-Line",
+		filters={
+			line_fieldname: name,
+			"parenttype": "ilL-Project-Fixture-Schedule",
+		},
+		pluck="parent",
+	)
+
+	for schedule_name in set(schedule_names):
+		if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+			continue
+		schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
+		if schedule_has_permission(schedule, "read", user):
+			return True
+
+	return False
+
+
 @frappe.whitelist()
 def get_allowed_customers_for_project() -> dict:
 	"""
@@ -1755,6 +1805,11 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
 		return {"success": False, "error": "Configured fixture not found"}
 
+	if not _can_access_configured_record(
+		"ilL-Configured-Fixture", configured_fixture_id, "configured_fixture"
+	):
+		return {"success": False, "error": "Configured fixture not found"}
+
 	try:
 		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
 
@@ -2598,13 +2653,15 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 
 	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
 
-	# Check permission
+	# Single server-side policy — the page template applies the same rule, but
+	# the endpoint must not rely on the UI for enforcement.
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
-		has_permission,
+		can_convert_schedule_to_order,
 	)
 
-	if not has_permission(schedule, "write", frappe.session.user):
-		return {"success": False, "error": "You don't have permission to create a Sales Order for this schedule"}
+	allowed, reason = can_convert_schedule_to_order(schedule, frappe.session.user)
+	if not allowed:
+		return {"success": False, "error": reason}
 
 	try:
 		result = schedule.create_sales_order_result()
@@ -2613,8 +2670,12 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 			"sales_order": result["sales_order"],
 			"warnings": result.get("warnings") or [],
 			"counts": result.get("counts") or {},
+			"already_existed": bool(result.get("already_existed")),
 		}
 	except Exception as e:
+		# The conversion writes Items, Item Prices and BOMs before inserting the
+		# order; drop everything this request changed so a retry starts clean.
+		frappe.db.rollback()
 		return _safe_error(e, f"Portal: error creating sales order for schedule {schedule_name}")
 
 
@@ -2633,6 +2694,18 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 	Returns:
 		dict: {"success": True/False, "customer_name": name, "error": "message if error"}
 	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	# This endpoint inserts with ignore_permissions, so it must carry its own
+	# role gate — otherwise any authenticated user could create Customer masters.
+	is_internal = _is_internal_user(frappe.session.user)
+	is_dealer = _is_dealer_user(frappe.session.user)
+	if not (is_dealer or is_internal):
+		return {"success": False, "error": _("You don't have permission to create customers")}
+
 	# Parse customer_data if it's a string
 	if isinstance(customer_data, str):
 		try:
@@ -2652,11 +2725,19 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 		customer.customer_name = customer_data.get("customer_name")
 		customer.customer_type = customer_data.get("customer_type", "Company")
 		customer.territory = customer_data.get("territory", frappe.db.get_single_value("Selling Settings", "territory") or "All Territories")
-		customer.customer_group = customer_data.get("customer_group", frappe.db.get_single_value("Selling Settings", "customer_group") or "All Customer Groups")
 
-		# Set default currency if provided
-		if customer_data.get("default_currency"):
-			customer.default_currency = customer_data.get("default_currency")
+		default_customer_group = (
+			frappe.db.get_single_value("Selling Settings", "customer_group")
+			or "All Customer Groups"
+		)
+		# Customer Group drives pricing tiers and currency drives invoicing, so
+		# portal callers may not choose them — only internal users may.
+		if is_internal:
+			customer.customer_group = customer_data.get("customer_group", default_customer_group)
+			if customer_data.get("default_currency"):
+				customer.default_currency = customer_data.get("default_currency")
+		else:
+			customer.customer_group = default_customer_group
 
 		customer.insert(ignore_permissions=True)
 
@@ -3028,9 +3109,9 @@ def get_order_details(order_name: str) -> dict:
 	if not is_system_manager and order.customer != user_customer:
 		return {"success": False, "error": "You don't have permission to view this order"}
 
-	# Portal users may only view submitted orders. Drafts (docstatus 0) are
-	# internal-only until confirmed and cancelled orders (docstatus 2) are hidden.
-	if not is_system_manager and order.docstatus != 1:
+	# Portal users may view their own draft "order requests" and submitted
+	# orders. Cancelled orders (docstatus 2) stay hidden.
+	if not is_system_manager and order.docstatus == 2:
 		return {"success": False, "error": "Order not found"}
 
 	# Get order items
@@ -3070,7 +3151,9 @@ def get_order_details(order_name: str) -> dict:
 			"name": order.name,
 			"transaction_date": order.transaction_date,
 			"delivery_date": order.delivery_date,
-			"status": order.status,
+			"status": _("Order Request") if order.docstatus == 0 else order.status,
+			"docstatus": order.docstatus,
+			"is_request": order.docstatus == 0,
 			"grand_total": order.grand_total,
 			"currency": order.currency,
 			"customer": order.customer,
@@ -3481,6 +3564,18 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		contact.company_name = contact_data.get("company_name", "")
 		contact.designation = contact_data.get("designation", "")
 
+		if contact_data.get("email_id"):
+			contact.append("email_ids", {
+				"email_id": contact_data.get("email_id"),
+				"is_primary": 1,
+			})
+
+		if contact_data.get("phone"):
+			contact.append("phone_nos", {
+				"phone": contact_data.get("phone"),
+				"is_primary_phone": 1,
+			})
+
 		# Link to user's customer (for dealers)
 		if user_customer and not is_internal:
 			contact.append("links", {
@@ -3497,6 +3592,8 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 
 		contact.insert(ignore_permissions=True)
 		return {"success": True, "contact_name": contact.name}
+	except frappe.DuplicateEntryError:
+		return {"success": False, "error": _("A contact with this information already exists")}
 	except Exception as e:
 		return _safe_error(e, "Portal: error creating contact")
 
@@ -3669,75 +3766,6 @@ def get_contacts_for_project() -> dict:
 
 
 @frappe.whitelist()
-def create_contact(contact_data: Union[str, dict]) -> dict:
-	"""
-	Create a new contact.
-	
-	Args:
-		contact_data: Dictionary containing contact information:
-			- first_name (required)
-			- last_name (optional)
-			- email_id (optional)
-			- phone (optional)
-			- company_name (optional)
-			- designation (optional)
-	
-	Returns:
-		dict: {
-			"success": True/False,
-			"contact_name": str (contact name if successful),
-			"error": str (if failed)
-		}
-	"""
-	try:
-		# Parse JSON if needed
-		if isinstance(contact_data, str):
-			contact_data = json.loads(contact_data)
-		
-		# Validate required fields
-		if not contact_data.get("first_name"):
-			return {"success": False, "error": "First name is required"}
-		
-		# Create contact
-		contact = frappe.get_doc({
-			"doctype": "Contact",
-			"first_name": contact_data.get("first_name"),
-			"last_name": contact_data.get("last_name"),
-			"email_id": contact_data.get("email_id"),
-			"phone": contact_data.get("phone"),
-			"company_name": contact_data.get("company_name"),
-			"designation": contact_data.get("designation")
-		})
-		
-		# Add email to child table if provided
-		if contact_data.get("email_id"):
-			contact.append("email_ids", {
-				"email_id": contact_data.get("email_id"),
-				"is_primary": 1
-			})
-		
-		# Add phone to child table if provided
-		if contact_data.get("phone"):
-			contact.append("phone_nos", {
-				"phone": contact_data.get("phone"),
-				"is_primary_phone": 1
-			})
-		
-		contact.insert(ignore_permissions=False)
-		frappe.db.commit()
-		
-		return {
-			"success": True,
-			"contact_name": contact.name
-		}
-		
-	except frappe.DuplicateEntryError:
-		return {"success": False, "error": "A contact with this information already exists"}
-	except Exception as e:
-		return _safe_error(e, "Portal: error creating contact")
-
-
-@frappe.whitelist()
 def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 	"""
 	Get the full configuration of an existing fixture for editing in the configurator.
@@ -3770,6 +3798,11 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 		}
 	"""
 	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+
+	if not _can_access_configured_record(
+		"ilL-Configured-Fixture", configured_fixture_id, "configured_fixture"
+	):
 		return {"success": False, "error": "Configured fixture not found"}
 
 	try:

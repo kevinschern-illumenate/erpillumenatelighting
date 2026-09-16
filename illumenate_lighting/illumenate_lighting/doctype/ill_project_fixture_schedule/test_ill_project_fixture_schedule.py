@@ -37,6 +37,18 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 			item.is_stock_item = 0
 			item.insert(ignore_permissions=True)
 
+		# Component Item so a BOM can actually be generated. Sales Order
+		# conversion treats a missing BOM as a hard failure.
+		self.profile_item_code = "_Test Profile Stick Item"
+		if not frappe.db.exists("Item", self.profile_item_code):
+			item = frappe.new_doc("Item")
+			item.item_code = self.profile_item_code
+			item.item_name = self.profile_item_code
+			item.item_group = "Products"
+			item.stock_uom = "Nos"
+			item.is_stock_item = 0
+			item.insert(ignore_permissions=True)
+
 		# Create test fixture template
 		self.template_code = "_Test Template"
 		if not frappe.db.exists("ilL-Fixture-Template", self.template_code):
@@ -60,6 +72,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 			config_fixture.finish = "Silver"
 			config_fixture.lens_appearance = "Clear"
 			config_fixture.configured_item = self.item_code
+			config_fixture.profile_item = self.profile_item_code
 			config_fixture.insert(ignore_permissions=True)
 
 	def tearDown(self):
@@ -347,6 +360,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 			config_fixture.finish = "Black"
 			config_fixture.lens_appearance = "Frosted"
 			config_fixture.configured_item = self.item_code
+			config_fixture.profile_item = self.profile_item_code
 			config_fixture.insert(ignore_permissions=True)
 
 		# Create schedule with multiple ILLUMENATE lines

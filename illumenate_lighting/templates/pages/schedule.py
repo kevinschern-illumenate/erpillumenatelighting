@@ -53,6 +53,12 @@ def get_context(context):
 	is_dealer = _is_dealer_user(frappe.session.user)
 	is_internal = _is_internal_user(frappe.session.user)
 
+	# Same policy the endpoint enforces, so the button and the API never diverge.
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+		can_convert_schedule_to_order,
+	)
+	can_create_order = can_convert_schedule_to_order(schedule, frappe.session.user)[0]
+
 	# Dealers can toggle their customer-group tier pricing in-page. Resolve
 	# their linked customer group up-front so the UI can label it without an
 	# extra round-trip. This is distinct from can_view_pricing.
@@ -342,6 +348,7 @@ def get_context(context):
 	context.can_view_pricing = can_view_pricing
 	context.is_dealer = is_dealer
 	context.is_internal = is_internal
+	context.can_create_order = can_create_order
 	context.can_show_dealer_pricing = can_show_dealer_pricing
 	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty
