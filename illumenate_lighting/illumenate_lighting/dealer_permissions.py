@@ -27,7 +27,9 @@ DEALER_ROLE = "Dealer"
 
 # Every permission flag we manage, in an order where dependencies come first
 # (Frappe requires `read` before `create`, etc.). Flags omitted from a doctype's
-# entry below are explicitly set to 0.
+# entry below are explicitly set to 0. Flags absent from the site's DocPerm
+# schema are skipped -- Frappe drops flags between versions (e.g.
+# `set_user_permissions`), and querying a dropped column is a hard SQL error.
 _MANAGED_PTYPES = (
 	"select",
 	"read",
@@ -85,14 +87,13 @@ def apply_dealer_permissions() -> list[str]:
 
 		add_permission(doctype, DEALER_ROLE, 0)
 
+		table = _permission_table(doctype)
 		doctype_changed = False
-		for ptype in _MANAGED_PTYPES:
+		for ptype in _supported_ptypes(table):
 			value = 1 if granted.get(ptype) else 0
-			if _current_permission_value(doctype, ptype) == value:
+			if _current_permission_value(doctype, ptype, table) == value:
 				continue
-			update_permission_property(
-				doctype, DEALER_ROLE, 0, ptype, value, validate=False
-			)
+			update_permission_property(doctype, DEALER_ROLE, 0, ptype, value, validate=False)
 			doctype_changed = True
 
 		if doctype_changed:
@@ -104,13 +105,20 @@ def apply_dealer_permissions() -> list[str]:
 	return changed
 
 
-def _current_permission_value(doctype: str, ptype: str):
+def _permission_table(doctype: str) -> str:
+	"""Return the table the Dealer's permissions for ``doctype`` actually live in."""
+	return "Custom DocPerm" if frappe.db.exists("Custom DocPerm", {"parent": doctype}) else "DocPerm"
+
+
+def _supported_ptypes(table: str) -> tuple[str, ...]:
+	"""Return the managed flags that exist as columns on ``table``."""
+	columns = set(frappe.db.get_table_columns(table))
+	return tuple(ptype for ptype in _MANAGED_PTYPES if ptype in columns)
+
+
+def _current_permission_value(doctype: str, ptype: str, table: str | None = None):
 	"""Return the Dealer's current value for ``ptype`` on ``doctype``, or None."""
-	table = (
-		"Custom DocPerm"
-		if frappe.db.exists("Custom DocPerm", {"parent": doctype})
-		else "DocPerm"
-	)
+	table = table or _permission_table(doctype)
 	value = frappe.db.get_value(
 		table,
 		{"parent": doctype, "role": DEALER_ROLE, "permlevel": 0},
