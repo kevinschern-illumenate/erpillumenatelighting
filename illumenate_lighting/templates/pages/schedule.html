@@ -485,11 +485,29 @@ body.reorder-no-select {
 								{{ _("This is Version {0} (locked). You can view and export but not modify. Create a new version to make changes.").format(schedule.version or 1) }}
 							</div>
 							{% endif %}
+							{% if schedule.status == 'ISSUE' %}
+							<div class="alert alert-danger mb-2" role="alert">
+								<i class="fa fa-exclamation-triangle"></i>
+								{{ schedule.status_note or _("We were unable to complete this order request. Please reach out to sales@illumenate.lighting for more information if we have not already been in contact with you.") }}
+							</div>
+							{% elif schedule.status == 'ORDER_REQUESTED' %}
+							<div class="alert alert-info mb-2" role="alert">
+								<i class="fa fa-clock-o"></i>
+								{{ _("Your order request has been submitted and is awaiting approval by ilLumenate.") }}
+								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order }}">{{ _("View order request") }}</a>{% endif %}
+							</div>
+							{% elif schedule.status == 'ORDERED' and schedule.sales_order %}
+							<div class="alert alert-success mb-2" role="alert">
+								<i class="fa fa-check-circle"></i>
+								{{ _("This schedule has been ordered.") }}
+								<a href="/portal/orders/{{ schedule.sales_order }}">{{ _("View order") }}</a>
+							</div>
+							{% endif %}
 							<div class="d-flex align-items-center gap-2">
-								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge">
-									{{ schedule.status }}
+								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge" title="{{ schedule_status_description(schedule.status) }}">
+									{{ schedule_status_label(schedule.status) }}
 								</span>
-								{% if can_edit and not schedule.is_locked and schedule.status not in ['ORDERED', 'CLOSED'] %}
+								{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
 								<div class="dropdown d-inline-block ml-2">
 									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 										<i class="fa fa-exchange"></i> {{ _("Change Status") }}
@@ -594,15 +612,31 @@ body.reorder-no-select {
 	<!-- Stock Summary -->
 	<div class="row mb-4">
 		<div class="col-12">
-			<div class="d-flex align-items-center">
+			<div class="d-flex align-items-center flex-wrap">
 				{% if stock_lines_in_stock == stock_lines_total %}
-				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts In Stock") }}</span>
+				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts Available Now") }}</span>
 				{% elif stock_lines_in_stock > 0 %}
-				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock }} / {{ stock_lines_total }} {{ _("lines fully in stock") }}</span>
+				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock }} / {{ stock_lines_total }} {{ _("lines fully available now") }}</span>
 				{% else %}
-				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully in stock") }}</span>
+				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully available now") }}</span>
+				{% endif %}
+				{% if stock_scope %}
+				<small class="text-muted">
+					{{ _("Based on the full schedule quantities; on hand minus reserved") }}
+					{% if stock_scope.warehouse_scoped %}{{ _("in") }} {{ stock_scope.warehouse_scope | join(", ") }}{% endif %}
+					{{ _("as of") }} {{ frappe.utils.format_datetime(stock_scope.as_of) }}.
+					{{ _("Stock is only reserved once an order is approved.") }}
+				</small>
 				{% endif %}
 			</div>
+			{% if stock_shortages and (is_dealer or is_internal) %}
+			<div class="small text-muted mt-1">
+				{{ _("Short across the schedule:") }}
+				{% for s in stock_shortages %}
+				<span class="badge badge-light border mr-1">{{ s.item_code }}{% if s.shortage is defined %} &minus;{{ s.shortage | round(2) }}{% endif %}</span>
+				{% endfor %}
+			</div>
+			{% endif %}
 		</div>
 	</div>
 	{% endif %}
@@ -1324,9 +1358,6 @@ body.reorder-no-select {
 		<div class="card">
 			<div class="card-header d-flex justify-content-between align-items-center">
 				<h6 class="mb-0"><i class="fa fa-history"></i> {{ _("Version History") }}</h6>
-				<button class="btn btn-sm btn-link text-muted disabled" title="{{ _('Compare with previous version — coming soon') }}">
-					<i class="fa fa-columns"></i> {{ _("Compare Versions") }}
-				</button>
 			</div>
 			<div class="card-body" id="versionHistory">
 				<div class="text-center py-3">
@@ -3082,9 +3113,15 @@ function changeStatus(new_status) {
 			callback: function(r) {
 				if (r.message && r.message.success) {
 					frappe.show_alert({
-						message: 'Status updated to ' + new_status,
+						message: 'Status updated to ' + (statusLabels[r.message.new_status] || new_status),
 						indicator: 'green'
 					});
+					if (r.message.auto_versioned && r.message.new_schedule_name) {
+						// Leaving QUOTED keeps this version as a locked snapshot;
+						// continue on the new version.
+						window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
+						return;
+					}
 					location.reload();
 				} else {
 					frappe.msgprint({
@@ -3650,16 +3687,20 @@ function renderVersionHistory(versions, current) {
 	versions.forEach(function(v) {
 		var isCurrent = (v.name === current);
 		var statusClass = {
-			'DRAFT': 'warning', 'READY': 'info', 'QUOTED': 'primary',
-			'ORDERED': 'success', 'CLOSED': 'secondary'
+			'DRAFT': 'warning', 'READY': 'info', 'QUOTED': 'primary', 'ORDER_REQUESTED': 'info',
+			'ORDERED': 'success', 'ISSUE': 'danger', 'CLOSED': 'secondary'
 		}[v.status] || 'secondary';
+		var statusLabel = {
+			'DRAFT': 'Draft', 'READY': 'Ready', 'QUOTED': 'Quoted', 'ORDER_REQUESTED': 'Order Requested',
+			'ORDERED': 'Ordered', 'ISSUE': 'Issue', 'CLOSED': 'Closed'
+		}[v.status] || v.status;
 		html += '<tr' + (isCurrent ? ' class="table-active"' : '') + '>';
 		html += '<td><strong>v' + (v.version || 1) + '</strong>';
 		if (v.is_locked) html += ' <i class="fa fa-lock text-muted" title="Locked"></i>';
 		if (isCurrent) html += ' <span class="badge badge-primary ml-1">current</span>';
 		html += '</td>';
-		html += '<td><span class="badge badge-' + statusClass + '">' + v.status + '</span></td>';
-		html += '<td>' + (v.version_notes || '<span class="text-muted">—</span>') + '</td>';
+		html += '<td><span class="badge badge-' + statusClass + '">' + frappe.utils.escape_html(statusLabel) + '</span></td>';
+		html += '<td>' + (v.version_notes ? frappe.utils.escape_html(v.version_notes) : '<span class="text-muted">—</span>') + '</td>';
 		html += '<td>' + (v.modified ? frappe.datetime.prettyDate(v.modified) : '-') + '</td>';
 		html += '<td>';
 		if (!isCurrent) {
@@ -3822,6 +3863,9 @@ function applyDealerPricing(data) {
 		} else {
 			label.textContent = __('No dealer discount configured for your account');
 		}
+		// The portal applies the customer-group rule only; ERPNext prices the
+		// order with its full pricing engine when the request is created.
+		label.textContent += ' \u2014 ' + __('estimate; final pricing is confirmed on your order request');
 		label.style.display = '';
 	}
 

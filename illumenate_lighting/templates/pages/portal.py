@@ -10,6 +10,15 @@ Main dashboard page for portal users showing quick access to all features.
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.portal.access import (
+	can_view_catalog,
+	get_actor,
+	project_query_conditions,
+	schedule_query_conditions,
+)
+from illumenate_lighting.illumenate_lighting.portal.orders import list_orders
+from illumenate_lighting.illumenate_lighting.portal.status import order_status_class
+
 no_cache = 1
 
 
@@ -23,12 +32,12 @@ def get_context(context):
 	user_doc = frappe.get_doc("User", frappe.session.user)
 	context.user_name = user_doc.first_name or user_doc.full_name or user_doc.name.split("@")[0]
 
-	# Get user's customer
-	customer = _get_user_customer(frappe.session.user)
+	actor = get_actor(frappe.session.user)
 	context.customer_name = _get_user_customer_name(frappe.session.user)
 
-	# Get statistics (filtered by customer)
-	context.stats = _get_portal_stats(customer)
+	# Same read model as /portal/orders so counts, labels and recents agree.
+	orders = list_orders(actor.user)
+	context.stats = _get_portal_stats(actor, orders)
 
 	# Get recent projects (respects permission_query_conditions)
 	context.recent_projects = frappe.get_list(
@@ -38,21 +47,10 @@ def get_context(context):
 		limit=5,
 	)
 
-	# Get recent orders
-	if customer:
-		# Only submitted orders — drafts are internal-only until confirmed.
-		context.recent_orders = frappe.get_all(
-			"Sales Order",
-			filters={"customer": customer, "docstatus": 1},
-			fields=["name", "transaction_date", "status", "grand_total"],
-			order_by="creation desc",
-			limit=5,
-		)
-	else:
-		context.recent_orders = []
-
-	# Helper function for order status badge class
-	context.order_status_class = _order_status_class
+	# Order requests are shown too, so a successful conversion is visible here.
+	context.recent_orders = orders[:5]
+	context.order_status_class = order_status_class
+	context.can_view_catalog = can_view_catalog(actor.user)
 
 	context.title = _("Portal")
 	context.no_cache = 1
@@ -76,92 +74,48 @@ def _get_user_customer_name(user):
 	return None
 
 
-def _get_portal_stats(customer=None):
-	"""Get statistics for the portal dashboard, scoped to the user's customer."""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_is_internal_user,
-	)
+def _scoped_count(doctype, conditions, extra_where="", params=None):
+	"""Count rows the actor may read, using the same predicate as the lists."""
+	where = [c for c in (conditions, extra_where) if c]
+	sql = f"SELECT COUNT(*) FROM `tab{doctype}`"
+	if where:
+		sql += " WHERE " + " AND ".join(where)
+	return frappe.db.sql(sql, params or {})[0][0]
 
+
+def _get_portal_stats(actor, orders):
+	"""Dashboard counts derived from the actor's visibility, not from a raw Customer filter."""
 	stats = {
 		"active_projects": 0,
 		"total_schedules": 0,
+		"order_requests": 0,
 		"pending_orders": 0,
 		"ready_orders": 0,
 		"pending_drawings": 0,
 		"ready_drawings": 0,
 	}
 
-	is_internal = _is_internal_user(frappe.session.user)
+	stats["active_projects"] = _scoped_count(
+		"ilL-Project", project_query_conditions(actor.user), "`tabilL-Project`.status = 'ACTIVE'"
+	)
+	stats["total_schedules"] = _scoped_count(
+		"ilL-Project-Fixture-Schedule", schedule_query_conditions(actor.user)
+	)
 
-	if is_internal:
-		# Internal users see global counts
-		stats["active_projects"] = frappe.db.count("ilL-Project", {"status": "ACTIVE"})
-		stats["total_schedules"] = frappe.db.count("ilL-Project-Fixture-Schedule")
-	elif customer:
-		# Portal users see only their customer's counts
-		stats["active_projects"] = frappe.db.count(
-			"ilL-Project",
-			{"status": "ACTIVE", "owner_customer": customer},
-		)
-		stats["total_schedules"] = frappe.db.count(
-			"ilL-Project-Fixture-Schedule",
-			{"customer": customer},
-		)
+	for order in orders:
+		key = order.get("portal_status")
+		if key == "order_request":
+			stats["order_requests"] += 1
+		elif key in ("approved", "in_production", "production_complete", "on_hold"):
+			stats["pending_orders"] += 1
+		elif key in ("partially_shipped", "shipped"):
+			stats["ready_orders"] += 1
 
-	# Count orders by status
-	if customer:
-		stats["pending_orders"] = frappe.db.count(
-			"Sales Order",
-			{"customer": customer, "status": ["in", ["To Deliver and Bill", "To Deliver"]], "docstatus": 1}
-		)
-		stats["ready_orders"] = frappe.db.count(
-			"Sales Order",
-			{"customer": customer, "status": "To Bill", "docstatus": 1}
-		)
-	elif is_internal:
-		stats["pending_orders"] = frappe.db.count(
-			"Sales Order",
-			{"status": ["in", ["To Deliver and Bill", "To Deliver"]], "docstatus": 1}
-		)
-		stats["ready_orders"] = frappe.db.count(
-			"Sales Order",
-			{"status": "To Bill", "docstatus": 1}
-		)
+	from illumenate_lighting.illumenate_lighting.api.document_requests import (
+		_scoped_request_count,
+	)
 
-	# Count drawing requests if the doctype exists
-	if frappe.db.exists("DocType", "ilL-Document-Request"):
-		if is_internal:
-			stats["pending_drawings"] = frappe.db.count(
-				"ilL-Document-Request",
-				{"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]}
-			)
-			stats["ready_drawings"] = frappe.db.count(
-				"ilL-Document-Request",
-				{"status": ["in", ["Completed", "Closed"]]}
-			)
-		elif customer:
-			stats["pending_drawings"] = frappe.db.count(
-				"ilL-Document-Request",
-				{"status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]], "owner_customer": customer}
-			)
-			stats["ready_drawings"] = frappe.db.count(
-				"ilL-Document-Request",
-				{"status": ["in", ["Completed", "Closed"]], "owner_customer": customer}
-			)
+	stats["pending_drawings"] = _scoped_request_count("pending", actor.user)
+	stats["ready_drawings"] = _scoped_request_count("completed", actor.user)
 
 	return stats
-
-
-def _order_status_class(status):
-	"""Get Bootstrap badge class for order status."""
-	status_map = {
-		"Draft": "secondary",
-		"On Hold": "warning",
-		"To Deliver and Bill": "info",
-		"To Bill": "primary",
-		"To Deliver": "info",
-		"Completed": "success",
-		"Cancelled": "danger",
-		"Closed": "dark",
-	}
-	return status_map.get(status, "secondary")

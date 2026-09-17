@@ -417,7 +417,7 @@ Also handles new project creation when is_new is True
 					</a>
 					<div class="d-flex align-items-center ml-3">
 						<span class="badge badge-{{ schedule_status_class(schedule.status) }} mr-2">
-							{{ schedule.status }}
+							{{ schedule_status_label(schedule.status) }}
 						</span>
 						{% if can_edit %}
 						<button class="btn btn-sm btn-outline-secondary mr-1" onclick="event.stopPropagation(); openRenameModal('{{ schedule.name | e }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Rename') }}">
@@ -1325,7 +1325,9 @@ function schedule_status_class(status) {
 		'DRAFT': 'warning',
 		'READY': 'info',
 		'QUOTED': 'primary',
+		'ORDER_REQUESTED': 'info',
 		'ORDERED': 'success',
+		'ISSUE': 'danger',
 		'CLOSED': 'secondary'
 	};
 	return classMap[status] || 'secondary';

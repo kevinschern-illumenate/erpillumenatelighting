@@ -21,6 +21,137 @@ from illumenate_lighting.illumenate_lighting.utils import (
 	MAX_PAGE_SIZE,
 )
 
+REQUEST_TABLE = "`tabilL-Document-Request`"
+VALID_PRIORITIES = ("Normal", "High", "Rush")
+
+
+def _not_found() -> dict:
+	# Guessed ids must not reveal whether a request exists.
+	return {"success": False, "error": "Request not found"}
+
+
+def _login_required() -> dict:
+	return {"success": False, "error": "Please log in to continue"}
+
+
+def _error_response(e, log_prefix: str) -> dict:
+	from illumenate_lighting.illumenate_lighting.api.portal import _safe_error
+
+	return _safe_error(e, log_prefix)
+
+
+def _get_accessible_request(request_name: str, ptype: str):
+	"""Load a request the session user may access, or ``None``."""
+	if frappe.session.user == "Guest" or not request_name:
+		return None
+	if not frappe.db.exists("ilL-Document-Request", request_name):
+		return None
+
+	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
+		has_permission,
+	)
+
+	doc = frappe.get_doc("ilL-Document-Request", request_name)
+	if not has_permission(doc, ptype, frappe.session.user):
+		return None
+	return doc
+
+
+def resolve_active_request_type(request_type: str):
+	"""Return the name of an active request type, or ``None``.
+
+	Portal input never creates request-type masters.
+	"""
+	if not request_type:
+		return None
+	return frappe.db.get_value(
+		"ilL-Request-Type", {"name": request_type, "is_active": 1}, "name"
+	)
+
+
+def create_portal_document_request(
+	*,
+	request_type: str,
+	description: str,
+	project: str | None = None,
+	fixture_or_product_text: str | None = None,
+	item: str | None = None,
+	priority: str | None = None,
+	requested_due_date=None,
+	custom_fields: dict | None = None,
+	submit: bool = False,
+):
+	"""Single request-creation service shared by every portal entry point.
+
+	Validates the caller, the request type, and every referenced record
+	against the portal access policy before inserting. Raises
+	``frappe.PermissionError`` / ``frappe.ValidationError``; the caller owns
+	the transaction.
+	"""
+	user = frappe.session.user
+	if user == "Guest":
+		frappe.throw(_("Please log in to submit a request"), frappe.PermissionError)
+
+	if not (description or "").strip():
+		frappe.throw(_("Description is required"))
+
+	resolved_type = resolve_active_request_type(request_type)
+	if not resolved_type:
+		frappe.throw(_("This request type is not available"))
+
+	if project:
+		from illumenate_lighting.illumenate_lighting.portal.access import can_read_project
+
+		if not frappe.db.exists("ilL-Project", project):
+			frappe.throw(_("Project not found"), frappe.PermissionError)
+		if not can_read_project(frappe.get_doc("ilL-Project", project), user):
+			frappe.throw(_("Project not found"), frappe.PermissionError)
+
+	if item and not frappe.db.exists("Item", item):
+		frappe.throw(_("Item not found"))
+
+	if priority and priority not in VALID_PRIORITIES:
+		frappe.throw(_("Invalid priority"))
+
+	doc = frappe.new_doc("ilL-Document-Request")
+	doc.request_type = resolved_type
+	doc.description = description
+	doc.created_from_portal = 1
+	doc.status = "Draft"
+	doc.requester_user = user
+	if project:
+		doc.project = project
+	if fixture_or_product_text:
+		doc.fixture_or_product_text = fixture_or_product_text
+	if item:
+		doc.item = item
+	if priority:
+		doc.priority = priority
+	if requested_due_date:
+		doc.requested_due_date = requested_due_date
+
+	if custom_fields:
+		request_type_doc = frappe.get_doc("ilL-Request-Type", resolved_type)
+		field_defs = {f.field_key: f for f in request_type_doc.custom_fields or []}
+		for field_key, value in custom_fields.items():
+			field_def = field_defs.get(field_key)
+			if not field_def:
+				continue
+			field_value = doc.append("custom_field_values", {})
+			field_value.field_key = field_key
+			field_value.label = field_def.label
+			_store_field_value(field_value, field_def.fieldtype, value)
+
+	# Portal users may lack role permissions on the doctype; access has
+	# already been validated above.
+	doc.insert(ignore_permissions=True)
+
+	if submit:
+		doc.status = "Submitted"
+		doc.save(ignore_permissions=True)
+
+	return doc
+
 
 @frappe.whitelist()
 def get_request_types() -> dict:
@@ -155,6 +286,9 @@ def create_request(request_data: Union[str, dict]) -> dict:
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid request_data format"}
 
+	if frappe.session.user == "Guest":
+		return _login_required()
+
 	# Validate required fields
 	if not request_data.get("request_type"):
 		return {"success": False, "error": "Request type is required"}
@@ -162,61 +296,21 @@ def create_request(request_data: Union[str, dict]) -> dict:
 	if not request_data.get("description"):
 		return {"success": False, "error": "Description is required"}
 
-	if not frappe.db.exists("ilL-Request-Type", request_data.get("request_type")):
-		return {"success": False, "error": "Invalid request type"}
-
 	try:
-		# Create the request
-		doc = frappe.new_doc("ilL-Document-Request")
-		doc.request_type = request_data.get("request_type")
-		doc.description = request_data.get("description")
-		doc.created_from_portal = 1
-		doc.status = "Draft"
-
-		# Optional fields
-		if request_data.get("project"):
-			doc.project = request_data.get("project")
-
-		if request_data.get("fixture_or_product_text"):
-			doc.fixture_or_product_text = request_data.get("fixture_or_product_text")
-
-		if request_data.get("item"):
-			doc.item = request_data.get("item")
-
-		if request_data.get("priority"):
-			doc.priority = request_data.get("priority")
-
-		if request_data.get("requested_due_date"):
-			doc.requested_due_date = request_data.get("requested_due_date")
-
-		# Process custom fields
-		custom_fields = request_data.get("custom_fields", {})
-		if custom_fields:
-			request_type_doc = frappe.get_doc("ilL-Request-Type", doc.request_type)
-			field_defs = {f.field_key: f for f in request_type_doc.custom_fields or []}
-
-			for field_key, value in custom_fields.items():
-				if field_key in field_defs:
-					field_def = field_defs[field_key]
-					field_value = doc.append("custom_field_values", {})
-					field_value.field_key = field_key
-					field_value.label = field_def.label
-
-					# Store value in appropriate column based on type
-					_store_field_value(field_value, field_def.fieldtype, value)
-
-		doc.insert()
-
-		# Auto-submit if requested
-		if request_data.get("auto_submit"):
-			doc.status = "Submitted"
-			doc.save()
-
+		doc = create_portal_document_request(
+			request_type=request_data.get("request_type"),
+			description=request_data.get("description"),
+			project=request_data.get("project") or None,
+			fixture_or_product_text=request_data.get("fixture_or_product_text"),
+			item=request_data.get("item") or None,
+			priority=request_data.get("priority") or None,
+			requested_due_date=request_data.get("requested_due_date") or None,
+			custom_fields=request_data.get("custom_fields") or {},
+			submit=bool(request_data.get("auto_submit")),
+		)
 		return {"success": True, "request_name": doc.name}
-
 	except Exception as e:
-		frappe.log_error(f"Error creating document request: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return _error_response(e, "Portal: error creating document request")
 
 
 def _store_field_value(field_value, fieldtype: str, value):
@@ -268,27 +362,19 @@ def submit_request(request_name: str) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": str}
 	"""
-	if not frappe.db.exists("ilL-Document-Request", request_name):
-		return {"success": False, "error": "Request not found"}
-
-	doc = frappe.get_doc("ilL-Document-Request", request_name)
-
-	# Check permission
-	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
-		has_permission,
-	)
-	if not has_permission(doc, "write", frappe.session.user):
-		return {"success": False, "error": "Permission denied"}
+	doc = _get_accessible_request(request_name, "write")
+	if doc is None:
+		return _not_found()
 
 	if doc.status != "Draft":
 		return {"success": False, "error": "Only draft requests can be submitted"}
 
 	try:
 		doc.status = "Submitted"
-		doc.save()
+		doc.save(ignore_permissions=True)
 		return {"success": True}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _error_response(e, f"Portal: error submitting document request {request_name}")
 
 
 @frappe.whitelist()
@@ -320,51 +406,30 @@ def list_requests(
 	page = parse_positive_int(page, default=1, minimum=1)
 	page_size = min(MAX_PAGE_SIZE, parse_positive_int(page_size, default=DEFAULT_PAGE_SIZE, minimum=1))
 
-	filters = {"hide_from_portal": 0}
+	if frappe.session.user == "Guest":
+		return _login_required()
 
-	# Apply tab filter
-	if tab == "pending":
-		filters["portal_status_group"] = "Pending"
-	elif tab == "completed":
-		filters["portal_status_group"] = "Completed"
+	conditions, params = _scoped_request_conditions(tab=tab, search=search)
+	where = " AND ".join(conditions)
 
-	# Build search filter
-	or_filters = None
-	if search:
-		or_filters = [
-			["name", "like", f"%{search}%"],
-			["request_type", "like", f"%{search}%"],
-			["fixture_or_product_text", "like", f"%{search}%"],
-		]
+	total = frappe.db.sql(
+		f"SELECT COUNT(*) FROM {REQUEST_TABLE} WHERE {where}", params
+	)[0][0]
 
-	# Get total count first
-	total = frappe.db.count(
-		"ilL-Document-Request",
-		filters=filters,
-		or_filters=or_filters,
-	)
-
-	# Get paginated results
 	start = (page - 1) * page_size
-	requests = frappe.get_all(
-		"ilL-Document-Request",
-		filters=filters,
-		or_filters=or_filters,
-		fields=[
-			"name",
-			"request_type",
-			"project",
-			"fixture_or_product_text",
-			"status",
-			"priority",
-			"creation",
-			"sla_deadline",
-			"completed_on",
-			"requester_user",
-		],
-		order_by="creation desc",
-		start=start,
-		limit=page_size,
+	params.update({"start": start, "page_size": page_size})
+	requests = frappe.db.sql(
+		f"""
+		SELECT
+			name, request_type, project, fixture_or_product_text, status, priority,
+			creation, sla_deadline, completed_on, requester_user
+		FROM {REQUEST_TABLE}
+		WHERE {where}
+		ORDER BY creation DESC
+		LIMIT %(page_size)s OFFSET %(start)s
+		""",
+		params,
+		as_dict=True,
 	)
 
 	# Enrich with request type labels
@@ -393,6 +458,49 @@ def list_requests(
 	}
 
 
+def _scoped_request_conditions(tab: str = "all", search: str = None, user=None):
+	"""WHERE fragments + params for portal request queries.
+
+	The caller scope comes from the doctype's own permission predicate so
+	these APIs can never see more than the Desk list would.
+	"""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
+		get_permission_query_conditions,
+	)
+
+	user = user or frappe.session.user
+	conditions = [f"{REQUEST_TABLE}.hide_from_portal = 0"]
+	params = {}
+
+	scope = get_permission_query_conditions(user)
+	if scope:
+		conditions.append(scope)
+
+	if tab == "pending":
+		conditions.append(f"{REQUEST_TABLE}.portal_status_group = 'Pending'")
+	elif tab == "completed":
+		conditions.append(f"{REQUEST_TABLE}.portal_status_group = 'Completed'")
+
+	if search:
+		params["search"] = f"%{search}%"
+		conditions.append(
+			f"""(
+			{REQUEST_TABLE}.name LIKE %(search)s
+			OR {REQUEST_TABLE}.request_type LIKE %(search)s
+			OR {REQUEST_TABLE}.fixture_or_product_text LIKE %(search)s
+		)"""
+		)
+
+	return conditions, params
+
+
+def _scoped_request_count(tab: str, user=None) -> int:
+	conditions, params = _scoped_request_conditions(tab=tab, user=user)
+	return frappe.db.sql(
+		f"SELECT COUNT(*) FROM {REQUEST_TABLE} WHERE {' AND '.join(conditions)}", params
+	)[0][0]
+
+
 @frappe.whitelist()
 def get_request_detail(request_name: str) -> dict:
 	"""
@@ -404,17 +512,9 @@ def get_request_detail(request_name: str) -> dict:
 	Returns:
 		dict: Full request details including custom fields and deliverables
 	"""
-	if not frappe.db.exists("ilL-Document-Request", request_name):
-		return {"success": False, "error": "Request not found"}
-
-	doc = frappe.get_doc("ilL-Document-Request", request_name)
-
-	# Check permission
-	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
-		has_permission,
-	)
-	if not has_permission(doc, "read", frappe.session.user):
-		return {"success": False, "error": "Permission denied"}
+	doc = _get_accessible_request(request_name, "read")
+	if doc is None:
+		return _not_found()
 
 	# Get request type info
 	request_type_info = None
@@ -513,17 +613,9 @@ def add_request_attachment(request_name: str, file_url: str, filename: str = Non
 	Returns:
 		dict: {"success": True/False, "error": str}
 	"""
-	if not frappe.db.exists("ilL-Document-Request", request_name):
-		return {"success": False, "error": "Request not found"}
-
-	doc = frappe.get_doc("ilL-Document-Request", request_name)
-
-	# Check permission
-	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
-		has_permission,
-	)
-	if not has_permission(doc, "write", frappe.session.user):
-		return {"success": False, "error": "Permission denied"}
+	doc = _get_accessible_request(request_name, "write")
+	if doc is None:
+		return _not_found()
 
 	# Check status allows attachments
 	if doc.status in ["Completed", "Closed", "Cancelled"]:
@@ -541,7 +633,7 @@ def add_request_attachment(request_name: str, file_url: str, filename: str = Non
 
 		return {"success": True, "file_name": file_doc.name}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _error_response(e, f"Portal: error attaching file to request {request_name}")
 
 
 @frappe.whitelist()
@@ -663,15 +755,11 @@ def get_request_counts() -> dict:
 	Returns:
 		dict: {"pending": int, "completed": int, "all": int}
 	"""
-	pending = frappe.db.count(
-		"ilL-Document-Request",
-		filters={"portal_status_group": "Pending", "hide_from_portal": 0},
-	)
+	if frappe.session.user == "Guest":
+		return _login_required()
 
-	completed = frappe.db.count(
-		"ilL-Document-Request",
-		filters={"portal_status_group": "Completed", "hide_from_portal": 0},
-	)
+	pending = _scoped_request_count("pending")
+	completed = _scoped_request_count("completed")
 
 	return {
 		"success": True,

@@ -179,7 +179,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 
 		# Verify schedule status was updated
 		schedule.reload()
-		self.assertEqual(schedule.status, "ORDERED")
+		self.assertEqual(schedule.status, "ORDER_REQUESTED")
 
 	def test_create_sales_order_filters_illumenate_only(self):
 		"""OTHER-manufacturer lines have no catalog Item and are not imported"""
@@ -269,7 +269,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(so.items[0].ill_fixture_type, "PS1")
 
 		schedule.reload()
-		self.assertEqual(schedule.status, "ORDERED")
+		self.assertEqual(schedule.status, "ORDER_REQUESTED")
 
 	def test_create_sales_order_mixed_fixture_and_accessory(self):
 		"""Fixture and accessory rows are both imported, in schedule order."""
@@ -324,7 +324,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertTrue(frappe.db.exists("Sales Order", so_name))
 
 		schedule.reload()
-		self.assertEqual(schedule.status, "ORDERED")
+		self.assertEqual(schedule.status, "ORDER_REQUESTED")
 
 	def test_create_sales_order_draft_status_throws(self):
 		"""DRAFT schedules still cannot be converted."""
@@ -434,7 +434,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		# Location / fixture type / notes live on dedicated fields
 		self.assertEqual(so.items[0].ill_section_label, "Reception Desk")
 		self.assertEqual(so.items[0].ill_fixture_type, "L1")
-		self.assertIn("Fixture Type: L1", so.items[0].additional_notes)
+		self.assertNotIn("Fixture Type:", so.items[0].additional_notes or "")
 		self.assertIn("Under cabinet mount", so.items[0].additional_notes)
 
 	def test_schedule_inherits_customer_from_project(self):
@@ -745,7 +745,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		self.assertEqual(row.ill_mfg_length_mm, 2950)
 		self.assertEqual(row.ill_section_label, "Lobby")
 		self.assertEqual(row.ill_fixture_type, "T1")
-		self.assertIn("Fixture Type: T1", row.additional_notes)
+		self.assertNotIn("Fixture Type:", row.additional_notes or "")
 
 		# MSRP Item Price is ensured so the saved quotation picks up a rate
 		price = frappe.db.get_value(
@@ -782,7 +782,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		for row in quotation.items:
 			self.assertEqual(row.ill_section_label, "Corridor")
 			self.assertEqual(row.ill_fixture_type, "T2")
-			self.assertIn("Fixture Type: T2", row.additional_notes)
+			self.assertNotIn("Fixture Type:", row.additional_notes or "")
 			self.assertIn("Continuous run", row.additional_notes)
 
 	def test_append_quote_lines_tape_neon_falls_back_without_configured_record(self):
@@ -824,7 +824,7 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 		for row in quotation.items:
 			self.assertEqual(row.ill_section_label, "Conference Room")
 			self.assertEqual(row.ill_fixture_type, "K1")
-			self.assertIn("Fixture Type: K1", row.additional_notes)
+			self.assertNotIn("Fixture Type:", row.additional_notes or "")
 			self.assertIn("Recessed", row.additional_notes)
 
 	def test_append_quote_lines_fixture_and_accessory_group_fields(self):
@@ -865,14 +865,14 @@ class TestilLProjectFixtureSchedule(FrappeTestCase):
 
 		self.assertEqual(fixture_row.ill_section_label, "Open Office")
 		self.assertEqual(fixture_row.ill_fixture_type, "A1")
-		self.assertIn("Fixture Type: A1", fixture_row.additional_notes)
+		self.assertNotIn("Fixture Type:", fixture_row.additional_notes or "")
 		self.assertIn("Suspended", fixture_row.additional_notes)
 		self.assertNotIn("Location:", fixture_row.description or "")
 		self.assertNotIn("Notes:", fixture_row.description or "")
 
 		self.assertEqual(accessory_row.ill_section_label, "Electrical Room")
 		self.assertEqual(accessory_row.ill_fixture_type, "PS1")
-		self.assertIn("Fixture Type: PS1", accessory_row.additional_notes)
+		self.assertNotIn("Fixture Type:", accessory_row.additional_notes or "")
 		self.assertIn("Remote driver", accessory_row.additional_notes)
 		self.assertNotIn("Location:", accessory_row.description or "")
 

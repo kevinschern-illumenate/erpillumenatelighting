@@ -231,14 +231,19 @@ Central hub for portal users to access all features
 				<div class="portal-card-body">
 					<p>{{ _("View your sales orders, track production status, and monitor shipment progress.") }}</p>
 					<div class="d-flex gap-2 flex-wrap">
+						{% if stats.order_requests > 0 %}
+						<span class="stat-badge pending">
+							<i class="fa fa-hourglass-half"></i> {{ stats.order_requests }} {{ _("Awaiting Approval") }}
+						</span>
+						{% endif %}
 						{% if stats.pending_orders > 0 %}
 						<span class="stat-badge pending">
-							<i class="fa fa-clock-o"></i> {{ stats.pending_orders }} {{ _("In Production") }}
+							<i class="fa fa-clock-o"></i> {{ stats.pending_orders }} {{ _("In Progress") }}
 						</span>
 						{% endif %}
 						{% if stats.ready_orders > 0 %}
 						<span class="stat-badge active">
-							<i class="fa fa-truck"></i> {{ stats.ready_orders }} {{ _("Ready to Ship") }}
+							<i class="fa fa-truck"></i> {{ stats.ready_orders }} {{ _("Shipped") }}
 						</span>
 						{% endif %}
 					</div>
@@ -292,6 +297,33 @@ Central hub for portal users to access all features
 				</div>
 			</div>
 		</div>
+
+		{% if can_view_catalog %}
+		<!-- Product Catalog Card (Dealers & staff) -->
+		<div class="col-md-6 col-lg-4 mb-4">
+			<div class="portal-card">
+				<div class="portal-card-header">
+					<div class="portal-card-icon drawings">
+						<i class="fa fa-th-large fa-2x"></i>
+					</div>
+					<div>
+						<h5 class="mb-0">{{ _("Product Catalog") }}</h5>
+						<small class="text-muted">{{ _("Browse fixtures, tape, kits and components") }}</small>
+					</div>
+				</div>
+				<div class="portal-card-body">
+					<p>{{ _("Filter the ilLumenate catalog by attribute, review MSRP and configure products directly.") }}</p>
+				</div>
+				<div class="portal-card-footer">
+					<div class="quick-actions">
+						<a href="/portal/products" class="btn btn-outline-secondary btn-sm">
+							<i class="fa fa-th-large"></i> {{ _("Browse Catalog") }}
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+		{% endif %}
 	</div>
 
 	<!-- Secondary Row -->
@@ -406,8 +438,8 @@ Central hub for portal users to access all features
 								<a href="/portal/orders/{{ order.name }}" class="item-name">{{ order.name }}</a>
 								<div class="item-meta">{{ frappe.utils.format_date(order.transaction_date) }}</div>
 							</div>
-							<span class="badge badge-{{ order_status_class(order.status) }}">
-								{{ order.status }}
+							<span class="badge badge-{{ order.portal_status_class }}" title="{{ order.erp_status }}">
+								{{ order.portal_status_label }}
 							</span>
 						</li>
 						{% endfor %}

@@ -203,8 +203,9 @@ View and track sales orders with production and shipment status
 	<div class="filter-bar">
 		<div class="filter-tabs">
 			<button class="filter-tab active" data-filter="all">{{ _("All Orders") }}</button>
+			<button class="filter-tab" data-filter="requests">{{ _("Order Requests") }}</button>
 			<button class="filter-tab" data-filter="active">{{ _("In Production") }}</button>
-			<button class="filter-tab" data-filter="shipping">{{ _("Ready to Ship") }}</button>
+			<button class="filter-tab" data-filter="shipping">{{ _("Shipping") }}</button>
 			<button class="filter-tab" data-filter="completed">{{ _("Completed") }}</button>
 		</div>
 	</div>
@@ -213,13 +214,13 @@ View and track sales orders with production and shipment status
 	<div id="ordersList">
 		{% if orders %}
 		{% for order in orders %}
-		<div class="order-card" data-status="{{ order.status }}">
+		<div class="order-card" data-status="{{ order.portal_status }}">
 			<div class="order-header">
 				<a href="/portal/orders/{{ order.name }}" class="order-id">
 					<i class="fa fa-file-text-o"></i> {{ order.name }}
 				</a>
-				<span class="badge badge-{{ order_status_class(order.status) }}">
-					{{ order.status }}
+				<span class="badge badge-{{ order.portal_status_class }}" title="{{ order.erp_status }}">
+					{{ order.portal_status_label }}
 				</span>
 			</div>
 			<div class="order-body">
@@ -254,22 +255,22 @@ View and track sales orders with production and shipment status
 						<div class="step-icon {{ 'completed' if order.docstatus >= 1 else '' }}">
 							<i class="fa fa-check"></i>
 						</div>
-						<span class="step-label">{{ _("Confirmed") }}</span>
+						<span class="step-label">{{ _("Approved") if order.docstatus >= 1 else _("Requested") }}</span>
 					</div>
 					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.status in ['To Deliver', 'To Deliver and Bill', 'To Bill', 'Completed'] and order.production_started else '' }} {{ 'active' if order.status == 'To Deliver and Bill' and not order.production_started else '' }}">
+						<div class="step-icon {{ 'completed' if order.production_complete else '' }} {{ 'active' if order.production_started and not order.production_complete else '' }}">
 							<i class="fa fa-cogs"></i>
 						</div>
 						<span class="step-label">{{ _("In Production") }}</span>
 					</div>
 					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.per_delivered >= 100 else '' }} {{ 'active' if order.status == 'To Deliver' else '' }}">
+						<div class="step-icon {{ 'completed' if (order.per_delivered or 0) >= 100 else '' }} {{ 'active' if 0 < (order.per_delivered or 0) < 100 else '' }}">
 							<i class="fa fa-truck"></i>
 						</div>
 						<span class="step-label">{{ _("Shipped") }}</span>
 					</div>
 					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.status == 'Completed' else '' }}">
+						<div class="step-icon {{ 'completed' if order.portal_status == 'completed' else '' }}">
 							<i class="fa fa-check-circle"></i>
 						</div>
 						<span class="step-label">{{ _("Completed") }}</span>
@@ -314,12 +315,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 				if (filter === 'all') {
 					show = true;
+				} else if (filter === 'requests') {
+					show = ['order_request', 'issue'].includes(status);
 				} else if (filter === 'active') {
-					show = ['To Deliver and Bill', 'To Deliver'].includes(status);
+					show = ['approved', 'in_production', 'production_complete', 'on_hold'].includes(status);
 				} else if (filter === 'shipping') {
-					show = status === 'To Bill';
+					show = ['partially_shipped', 'shipped'].includes(status);
 				} else if (filter === 'completed') {
-					show = ['Completed', 'Closed'].includes(status);
+					show = ['completed', 'cancelled'].includes(status);
 				}
 
 				card.style.display = show ? 'block' : 'none';

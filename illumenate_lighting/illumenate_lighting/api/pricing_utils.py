@@ -13,7 +13,7 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, now_datetime
 
 
 def get_customer_for_session_user() -> str | None:
@@ -174,6 +174,52 @@ def _is_privileged_user() -> bool:
     return _is_dealer_user(user) or _is_internal_user(user)
 
 
+# Product decision: only this warehouse counts towards portal availability and
+# inter-warehouse stock is not promised. Matched on Warehouse.warehouse_name so
+# the company suffix ("ilL-Stores - ILL") does not matter.
+PORTAL_STOCK_WAREHOUSE_NAME = "ilL-Stores"
+
+
+def _eligible_warehouses() -> list[str]:
+    """Warehouse names that count for portal availability (cached per request)."""
+    cached = getattr(frappe.local, "_ill_portal_warehouses", None)
+    if cached is not None:
+        return cached
+    names = frappe.get_all(
+        "Warehouse",
+        filters={"warehouse_name": PORTAL_STOCK_WAREHOUSE_NAME, "is_group": 0, "disabled": 0},
+        pluck="name",
+    )
+    frappe.local._ill_portal_warehouses = names
+    return names
+
+
+def stock_scope_info() -> dict[str, Any]:
+    """Describe how availability is calculated, for honest labelling in the UI."""
+    warehouses = _eligible_warehouses()
+    return {
+        "basis": "available_now",
+        "label": _("Available now (on hand minus reserved)"),
+        "warehouse_scope": warehouses or ["all"],
+        "warehouse_scoped": bool(warehouses),
+        "as_of": now_datetime(),
+    }
+
+
+def _available_qty_sql(item_placeholders: str) -> tuple[str, list[str]]:
+    """SQL summing available (actual - reserved) qty over eligible warehouses."""
+    warehouses = _eligible_warehouses()
+    where = f"item_code IN ({item_placeholders})"
+    if warehouses:
+        where += " AND warehouse IN (" + ", ".join(["%s"] * len(warehouses)) + ")"
+    sql = f"""SELECT item_code,
+                    IFNULL(SUM(actual_qty - IFNULL(reserved_qty, 0)), 0) AS available_qty
+               FROM `tabBin`
+              WHERE {where}
+              GROUP BY item_code"""
+    return sql, warehouses
+
+
 def _resolve_bundle_stock(item_codes: list[str]) -> dict[str, float]:
     """
     For any item codes that are Product Bundles, compute effective stock as
@@ -204,15 +250,13 @@ def _resolve_bundle_stock(item_codes: list[str]) -> dict[str, float]:
     # Gather all child item codes for a single Bin query
     child_codes = list({r.item_code for r in bundle_children})
     child_placeholders = ", ".join(["%s"] * len(child_codes))
+    child_sql, warehouses = _available_qty_sql(child_placeholders)
     child_rows = frappe.db.sql(
-        f"""SELECT item_code, IFNULL(SUM(actual_qty), 0) AS total_qty
-           FROM `tabBin`
-           WHERE item_code IN ({child_placeholders})
-           GROUP BY item_code""",
-        tuple(child_codes),
+        child_sql,
+        tuple(child_codes) + tuple(warehouses),
         as_dict=True,
     )
-    child_stock = {r.item_code: flt(r.total_qty) for r in child_rows}
+    child_stock = {r.item_code: flt(r.available_qty) for r in child_rows}
 
     # Compute effective stock per bundle
     bundle_stock: dict[str, float] = {}
@@ -234,7 +278,8 @@ def _resolve_bundle_stock(item_codes: list[str]) -> dict[str, float]:
 
 def _bulk_stock_query(item_codes: list[str]) -> dict[str, float]:
     """
-    Query ``tabBin`` for actual_qty summed across all warehouses.
+    Query ``tabBin`` for *available now* quantity (actual minus reserved) in the
+    eligible portal warehouse(s).
 
     Product Bundle items (virtual items with no Bin entries) are automatically
     detected and their stock is computed from child component availability.
@@ -243,22 +288,16 @@ def _bulk_stock_query(item_codes: list[str]) -> dict[str, float]:
         item_codes: List of distinct item codes.
 
     Returns:
-        Mapping of item_code → total actual_qty (float).
+        Mapping of item_code → available qty (float).
     """
     if not item_codes:
         return {}
 
     placeholders = ", ".join(["%s"] * len(item_codes))
-    rows = frappe.db.sql(
-        f"""SELECT item_code, IFNULL(SUM(actual_qty), 0) AS total_qty
-           FROM `tabBin`
-           WHERE item_code IN ({placeholders})
-           GROUP BY item_code""",
-        tuple(item_codes),
-        as_dict=True,
-    )
+    sql, warehouses = _available_qty_sql(placeholders)
+    rows = frappe.db.sql(sql, tuple(item_codes) + tuple(warehouses), as_dict=True)
 
-    stock_map: dict[str, float] = {r.item_code: flt(r.total_qty) for r in rows}
+    stock_map: dict[str, float] = {r.item_code: flt(r.available_qty) for r in rows}
     # Ensure every requested item appears (even with 0)
     for ic in item_codes:
         stock_map.setdefault(ic, 0.0)
@@ -331,35 +370,13 @@ def _expand_product_bundles(
     return expanded
 
 
-def get_bom_stock_availability(configured_fixture_id: str) -> dict[str, Any]:
-    """
-    Check stock for every BOM component of a configured fixture.
+def fixture_components(cf) -> list[tuple[str, str, float, str]]:
+    """Component demand for ONE unit of a configured fixture.
 
-    Mirrors the BOM roles from ``manufacturing_generator._create_or_get_bom()``:
-    profile, lens, endcap-start, endcap-end, mounting, tape, drivers.
-
-    Access control:
-        - Guests see only ``is_sufficient`` booleans per item.
-        - Dealers / internal users also see ``qty_required`` and ``qty_available``.
-
-    Args:
-        configured_fixture_id: Name of an ``ilL-Configured-Fixture`` document.
-
-    Returns:
-        dict: ``{all_in_stock: bool, items: [...]}``.
-    """
-    if not configured_fixture_id or not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
-        return {"all_in_stock": False, "items": []}
-
-    cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
-    return _compute_stock_for_fixture(cf)
-
-
-def _compute_stock_for_fixture(cf) -> dict[str, Any]:
-    """
-    Core logic shared by single-fixture and batch-fixture stock checks.
-
-    Accepts an already-loaded ``ilL-Configured-Fixture`` document.
+    Single source for both the single-fixture and batch stock paths, so they
+    cannot disagree (e.g. on ``include_power_supply``). Returns
+    ``[(component_type, item_code, qty_per_unit, uom), ...]`` with Product
+    Bundles already expanded.
     """
     from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
         _calculate_profile_quantity,
@@ -370,7 +387,6 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
         _calculate_total_tape_length,
     )
 
-    # Build component list: (component_type, item_code, qty_required, uom)
     components: list[tuple[str, str, float, str]] = []
 
     if cf.profile_item:
@@ -411,11 +427,42 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
             if driver.driver_item and (driver.driver_qty or 0) > 0:
                 components.append(("Driver", driver.driver_item, driver.driver_qty, "Nos"))
 
-    if not components:
+    return _expand_product_bundles(components) if components else []
+
+
+def get_bom_stock_availability(configured_fixture_id: str) -> dict[str, Any]:
+    """
+    Check stock for every BOM component of a configured fixture.
+
+    Mirrors the BOM roles from ``manufacturing_generator._create_or_get_bom()``:
+    profile, lens, endcap-start, endcap-end, mounting, tape, drivers.
+
+    Access control:
+        - Guests see only ``is_sufficient`` booleans per item.
+        - Dealers / internal users also see ``qty_required`` and ``qty_available``.
+
+    Args:
+        configured_fixture_id: Name of an ``ilL-Configured-Fixture`` document.
+
+    Returns:
+        dict: ``{all_in_stock: bool, items: [...]}``.
+    """
+    if not configured_fixture_id or not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
         return {"all_in_stock": False, "items": []}
 
-    # Expand any Product Bundle items into their child items
-    components = _expand_product_bundles(components)
+    cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+    return _compute_stock_for_fixture(cf)
+
+
+def _compute_stock_for_fixture(cf) -> dict[str, Any]:
+    """
+    Core logic shared by single-fixture and batch-fixture stock checks.
+
+    Accepts an already-loaded ``ilL-Configured-Fixture`` document.
+    """
+    components = fixture_components(cf)
+    if not components:
+        return {"all_in_stock": False, "items": [], "availability": "unknown"}
 
     # Batch stock query
     distinct_items = list({c[1] for c in components})
@@ -443,7 +490,12 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
 
         items.append(entry)
 
-    return {"all_in_stock": all_ok, "items": items}
+    return {
+        "all_in_stock": all_ok,
+        "items": items,
+        "availability": "available" if all_ok else "partial",
+        "scope": stock_scope_info(),
+    }
 
 
 def get_bom_stock_for_items(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -504,10 +556,15 @@ def get_bom_stock_for_items(items: list[dict[str, Any]]) -> dict[str, Any]:
     return {"all_in_stock": all_ok, "items": result_items}
 
 
-@frappe.whitelist(allow_guest=True)
+MAX_STOCK_API_ITEMS = 50
+
+
+@frappe.whitelist()
 def get_bom_stock_for_items_api(items_json: str) -> dict[str, Any]:
     """
-    Public API endpoint wrapping :func:`get_bom_stock_for_items`.
+    Authenticated API endpoint wrapping :func:`get_bom_stock_for_items`.
+
+    Input is capped so the endpoint cannot be used to probe the whole catalog.
 
     Args:
         items_json: JSON array of ``{item_code, qty}`` objects.
@@ -516,18 +573,111 @@ def get_bom_stock_for_items_api(items_json: str) -> dict[str, Any]:
         dict: ``{all_in_stock, items}``.
     """
     import json
+
+    if frappe.session.user == "Guest":
+        frappe.throw(_("Please log in to check stock availability"), frappe.PermissionError)
+
     try:
         items = json.loads(items_json) if isinstance(items_json, str) else items_json
     except (json.JSONDecodeError, TypeError):
         return {"all_in_stock": False, "items": [], "error": _("Invalid JSON")}
-    return get_bom_stock_for_items(items)
+
+    if not isinstance(items, list):
+        return {"all_in_stock": False, "items": [], "error": _("Expected a list of items")}
+    if len(items) > MAX_STOCK_API_ITEMS:
+        return {
+            "all_in_stock": False,
+            "items": [],
+            "error": _("At most {0} items can be checked at once").format(MAX_STOCK_API_ITEMS),
+        }
+
+    clean: list[dict[str, Any]] = []
+    for it in items:
+        if not isinstance(it, dict) or not isinstance(it.get("item_code"), str):
+            return {"all_in_stock": False, "items": [], "error": _("Each item needs an item_code")}
+        qty = flt(it.get("qty", 0))
+        if qty <= 0:
+            return {"all_in_stock": False, "items": [], "error": _("Quantities must be positive")}
+        clean.append({"item_code": it["item_code"][:140], "qty": qty})
+
+    return get_bom_stock_for_items(clean)
+
+
+def batch_stock_for_schedule_lines(line_specs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Schedule-level availability: aggregate demand, then allocate in line order.
+
+    Each spec: ``{"key": <stable line key>, "qty": <line qty>,
+    "components": [(component_type, item_code, qty_per_unit, uom), ...]}``.
+    Component demand is multiplied by the line quantity and shared components
+    across lines compete for the same available stock, so ten fixtures that
+    each need one profile are no longer "all in stock" because one exists.
+
+    Returns ``{"lines": {key: availability_dict}, "shortages": [...], "scope": {...}}``.
+    """
+    item_codes: set[str] = set()
+    for spec in line_specs:
+        for _ctype, item_code, _qty, _uom in spec.get("components") or []:
+            item_codes.add(item_code)
+
+    stock_map = _bulk_stock_query(list(item_codes)) if item_codes else {}
+    remaining = dict(stock_map)
+    demand: dict[str, float] = {}
+    show_qty = _is_privileged_user()
+    scope = stock_scope_info()
+
+    lines: dict[Any, dict[str, Any]] = {}
+    for spec in line_specs:
+        components = spec.get("components") or []
+        line_qty = flt(spec.get("qty")) or 1
+        if not components:
+            lines[spec["key"]] = {"all_in_stock": False, "items": [], "availability": "unknown"}
+            continue
+
+        items: list[dict[str, Any]] = []
+        all_ok = True
+        for comp_type, item_code, qty_per_unit, _uom in components:
+            qty_req = flt(qty_per_unit) * line_qty
+            demand[item_code] = demand.get(item_code, 0.0) + qty_req
+            available_for_line = remaining.get(item_code, 0.0)
+            sufficient = available_for_line >= qty_req
+            remaining[item_code] = available_for_line - qty_req
+            if not sufficient:
+                all_ok = False
+            entry: dict[str, Any] = {
+                "component_type": comp_type,
+                "item_code": item_code,
+                "is_sufficient": sufficient,
+            }
+            if show_qty:
+                entry["qty_required"] = qty_req
+                entry["qty_available"] = max(available_for_line, 0.0)
+                entry["qty_available_total"] = stock_map.get(item_code, 0.0)
+            items.append(entry)
+
+        lines[spec["key"]] = {
+            "all_in_stock": all_ok,
+            "items": items,
+            "availability": "available" if all_ok else "partial",
+        }
+
+    shortages = []
+    for item_code, required in demand.items():
+        available = stock_map.get(item_code, 0.0)
+        if required > available:
+            shortage: dict[str, Any] = {"item_code": item_code}
+            if show_qty:
+                shortage.update({"required": required, "available": available, "shortage": required - available})
+            shortages.append(shortage)
+
+    return {"lines": lines, "shortages": shortages, "scope": scope}
 
 
 def batch_stock_for_fixtures(configured_fixture_ids: list[str]) -> dict[str, dict[str, Any]]:
     """
     Batch-check stock for multiple configured fixtures with a single Bin query.
 
-    Used by the schedule page to avoid N+1 queries.
+    Per-fixture (single unit) view; use :func:`batch_stock_for_schedule_lines`
+    when line quantities and shared demand matter.
 
     Args:
         configured_fixture_ids: List of ``ilL-Configured-Fixture`` names.
@@ -535,101 +685,27 @@ def batch_stock_for_fixtures(configured_fixture_ids: list[str]) -> dict[str, dic
     Returns:
         Mapping of configured_fixture_id → stock availability dict.
     """
-    from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-        _calculate_profile_quantity,
-        _calculate_lens_quantity,
-        _calculate_endcap_quantities,
-        _calculate_mounting_quantity,
-        _get_tape_item,
-        _calculate_total_tape_length,
-    )
-
     if not configured_fixture_ids:
         return {}
 
-    # Load all fixture docs
-    fixtures: dict[str, Any] = {}
+    fixture_components_map: dict[str, list[tuple[str, str, float, str]]] = {}
     for cf_id in configured_fixture_ids:
-        if frappe.db.exists("ilL-Configured-Fixture", cf_id):
-            fixtures[cf_id] = frappe.get_doc("ilL-Configured-Fixture", cf_id)
+        if cf_id in fixture_components_map or not frappe.db.exists("ilL-Configured-Fixture", cf_id):
+            continue
+        fixture_components_map[cf_id] = fixture_components(frappe.get_doc("ilL-Configured-Fixture", cf_id))
 
-    if not fixtures:
+    if not fixture_components_map:
         return {}
 
-    # Collect all component lists per fixture
-    fixture_components: dict[str, list[tuple[str, str, float, str]]] = {}
-    all_item_codes: set[str] = set()
-
-    for cf_id, cf in fixtures.items():
-        comps: list[tuple[str, str, float, str]] = []
-
-        if cf.profile_item:
-            qty = _calculate_profile_quantity(cf)
-            if qty > 0:
-                comps.append(("Profile", cf.profile_item, qty, "Nos"))
-                all_item_codes.add(cf.profile_item)
-
-        if cf.lens_item:
-            qty = _calculate_lens_quantity(cf)
-            if qty > 0:
-                comps.append(("Lens", cf.lens_item, qty, "Nos"))
-                all_item_codes.add(cf.lens_item)
-
-        endcap_counts = _calculate_endcap_quantities(cf)
-        if endcap_counts.get("feed_through_qty", 0) > 0 and cf.endcap_item_start:
-            comps.append(("Endcap (Start)", cf.endcap_item_start, endcap_counts["feed_through_qty"], "Nos"))
-            all_item_codes.add(cf.endcap_item_start)
-        if endcap_counts.get("solid_qty", 0) > 0 and cf.endcap_item_end:
-            comps.append(("Endcap (End)", cf.endcap_item_end, endcap_counts["solid_qty"], "Nos"))
-            all_item_codes.add(cf.endcap_item_end)
-
-        if cf.mounting_item:
-            qty = _calculate_mounting_quantity(cf)
-            if qty > 0:
-                comps.append(("Mounting Accessory", cf.mounting_item, qty, "Nos"))
-                all_item_codes.add(cf.mounting_item)
-
-        tape_item = _get_tape_item(cf)
-        if tape_item:
-            total_tape_mm = _calculate_total_tape_length(cf)
-            tape_length_ft = total_tape_mm / 304.8
-            if tape_length_ft > 0:
-                comps.append(("LED Tape", tape_item, round(tape_length_ft, 2), "Foot"))
-                all_item_codes.add(tape_item)
-
-        # TODO: re-enable leader cables when ready to include in stock availability
-        # if cf.leader_item:
-        #     leader_qty = cf.runs_count or 1
-        #     comps.append(("Leader Cable", cf.leader_item, leader_qty, "Nos"))
-        #     all_item_codes.add(cf.leader_item)
-
-        if cf.drivers:
-            for driver in cf.drivers:
-                if driver.driver_item and (driver.driver_qty or 0) > 0:
-                    comps.append(("Driver", driver.driver_item, driver.driver_qty, "Nos"))
-                    all_item_codes.add(driver.driver_item)
-
-        fixture_components[cf_id] = comps
-
-    # Expand Product Bundles in each fixture's component list and rebuild
-    # the set of item codes that actually need a stock query.
-    all_item_codes = set()
-    for cf_id, comps in fixture_components.items():
-        expanded = _expand_product_bundles(comps)
-        fixture_components[cf_id] = expanded
-        for _, item_code, _, _ in expanded:
-            all_item_codes.add(item_code)
-
-    # Single bulk stock query
+    all_item_codes = {item_code for comps in fixture_components_map.values() for _, item_code, _, _ in comps}
     stock_map = _bulk_stock_query(list(all_item_codes))
 
-    # Distribute results
     show_qty = _is_privileged_user()
     results: dict[str, dict[str, Any]] = {}
 
-    for cf_id, comps in fixture_components.items():
+    for cf_id, comps in fixture_components_map.items():
         if not comps:
-            results[cf_id] = {"all_in_stock": False, "items": []}
+            results[cf_id] = {"all_in_stock": False, "items": [], "availability": "unknown"}
             continue
 
         items_list: list[dict[str, Any]] = []
@@ -649,6 +725,10 @@ def batch_stock_for_fixtures(configured_fixture_ids: list[str]) -> dict[str, dic
                 entry["qty_available"] = qty_avail
             items_list.append(entry)
 
-        results[cf_id] = {"all_in_stock": all_ok, "items": items_list}
+        results[cf_id] = {
+            "all_in_stock": all_ok,
+            "items": items_list,
+            "availability": "available" if all_ok else "partial",
+        }
 
     return results

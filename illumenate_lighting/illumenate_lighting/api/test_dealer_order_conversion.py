@@ -220,7 +220,38 @@ class TestDealerOrderConversion(FrappeTestCase):
 
 		frappe.set_user("Administrator")
 		schedule.reload()
+		# A draft Sales Order is only an order request until our team submits it.
+		self.assertEqual(schedule.status, "ORDER_REQUESTED")
+		self.assertEqual(schedule.sales_order, result["sales_order"])
+
+	def test_submitting_the_order_marks_the_schedule_ordered(self):
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+			on_sales_order_cancel,
+			on_sales_order_submit,
+			on_sales_order_trash,
+		)
+
+		schedule = self._make_schedule("Lifecycle")
+		frappe.set_user(DEALER_USER)
+		result = portal.create_schedule_sales_order(schedule.name)
+		frappe.set_user("Administrator")
+		self.assertTrue(result.get("success"), result.get("error"))
+		so = frappe.get_doc("Sales Order", result["sales_order"])
+
+		on_sales_order_submit(so)
+		schedule.reload()
 		self.assertEqual(schedule.status, "ORDERED")
+
+		on_sales_order_cancel(so)
+		schedule.reload()
+		self.assertEqual(schedule.status, "ISSUE")
+		self.assertIn("sales@illumenate.lighting", schedule.status_note or "")
+
+		# Deleting an un-submitted request is also an exception state.
+		schedule.set_lifecycle_status("ORDER_REQUESTED", sales_order=so.name)
+		on_sales_order_trash(so)
+		schedule.reload()
+		self.assertEqual(schedule.status, "ISSUE")
 
 	def test_dealer_without_create_permission_is_blocked_and_rolls_back(self):
 		"""No Sales Order create permission → no order and no orphan Item/BOM.
@@ -273,7 +304,7 @@ class TestDealerOrderConversion(FrappeTestCase):
 
 		allowed, reason = can_convert_schedule_to_order(schedule, COLLABORATOR_USER)
 		self.assertFalse(allowed)
-		self.assertIn("quoted", reason.lower())
+		self.assertIn("dealer", reason.lower())
 
 		frappe.set_user(COLLABORATOR_USER)
 		result = portal.create_schedule_sales_order(schedule.name)
@@ -284,10 +315,14 @@ class TestDealerOrderConversion(FrappeTestCase):
 			frappe.db.get_value("Sales Order", {"ill_fixture_schedule": schedule.name}, "name")
 		)
 
-	def test_edit_collaborator_can_convert_quoted_schedule(self):
+	def test_edit_collaborator_cannot_convert_quoted_schedule(self):
+		"""Only Dealers and internal users place orders, even once quoted."""
 		schedule = self._make_schedule("Collab Quoted", status="QUOTED")
 
 		allowed, _reason = can_convert_schedule_to_order(schedule, COLLABORATOR_USER)
+		self.assertFalse(allowed)
+
+		allowed, _reason = can_convert_schedule_to_order(schedule, DEALER_USER)
 		self.assertTrue(allowed)
 
 	def test_guest_cannot_convert(self):
@@ -365,7 +400,7 @@ class TestDealerOrderConversion(FrappeTestCase):
 		self.assertTrue(details["order"]["is_request"])
 
 		schedule.reload()
-		self.assertEqual(schedule.status, "ORDERED")
+		self.assertEqual(schedule.status, "ORDER_REQUESTED")
 
 	def test_order_of_another_customer_is_not_visible(self):
 		schedule = self._make_schedule("Foreign Order")

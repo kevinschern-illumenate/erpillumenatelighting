@@ -155,6 +155,27 @@
         padding-top: 4px;
         padding-bottom: 5px;
     }
+    .ill-doc .ill-fixture-type-row td {
+        background: #fbfcfd;
+        color: #34414f;
+        font-size: 10px;
+        font-weight: 600;
+        border-bottom: none;
+        padding-top: 5px;
+        padding-bottom: 2px;
+    }
+    .ill-doc .ill-fixture-type-row .ill-inline-label {
+        color: #6c7886;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        margin-right: 6px;
+    }
+    .ill-doc .ill-item-desc {
+        color: #5f6c7b;
+        font-size: 10px;
+        margin-top: 2px;
+    }
     .ill-doc .ill-section-header td {
         background: #e8edf2;
         border-top: 1px solid #d0d7df;
@@ -258,6 +279,22 @@
                     <div class="ill-value">{{ project_name or doc.project }}</div>
                 </div>
                 {% endif %}
+                {% if doc.get('ill_fixture_schedule') %}
+                {% set ill_sched = frappe.db.get_value('ilL-Project-Fixture-Schedule', doc.ill_fixture_schedule, ['schedule_name', 'ill_project'], as_dict=True) %}
+                {% if ill_sched %}
+                {% set ill_proj_name = frappe.db.get_value('ilL-Project', ill_sched.ill_project, 'project_name') if ill_sched.ill_project else None %}
+                {% if ill_proj_name and not doc.project %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Project</div>
+                    <div class="ill-value">{{ ill_proj_name | e }}</div>
+                </div>
+                {% endif %}
+                <div class="ill-info-row">
+                    <div class="ill-label">Fixture Schedule</div>
+                    <div class="ill-value">{{ (ill_sched.schedule_name or doc.ill_fixture_schedule) | e }}</div>
+                </div>
+                {% endif %}
+                {% endif %}
             </div>
             <div class="ill-col">
                 <div class="ill-info-row">
@@ -339,9 +376,15 @@
                     {%- for item in items -%}
                         {%- set row_ns.sr = row_ns.sr + 1 -%}
                         {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
+                        {%- if item.get("ill_fixture_type") -%}
+                        <tr class="ill-fixture-type-row">
+                            <td class="table-sr"></td>
+                            <td colspan="5"><span class="ill-inline-label">Fixture Type</span>{{ item.ill_fixture_type | e }}</td>
+                        </tr>
+                        {%- endif -%}
                         <tr>
                             <td class="table-sr">{{ row_ns.sr }}</td>
-                            <td>{{ item.item_name or item.description or '' }}</td>
+                            <td>{{ item.item_name or item.item_code or '' }}{% if item.description and item.description != item.item_name %}<div class="ill-item-desc">{{ item.description }}</div>{% endif %}</td>
                             <td>{{ item.item_code or '' }}</td>
                             <td class="text-right">
                                 {%- if item.uom -%}<span class="ill-uom">{{ item.uom }}</span>{%- endif -%}
@@ -353,7 +396,7 @@
                         {%- if item.additional_notes -%}
                         <tr class="ill-note-row">
                             <td class="table-sr"></td>
-                            <td colspan="5">{{ item.additional_notes }}</td>
+                            <td colspan="5">{{ item.additional_notes | e | replace('\n', '<br>') }}</td>
                         </tr>
                         {%- endif -%}
                     {%- endfor -%}
@@ -367,9 +410,15 @@
                 {%- endfor -%}
             {%- else -%}
                 {%- for item in doc.items -%}
+                {%- if item.get("ill_fixture_type") -%}
+                <tr class="ill-fixture-type-row">
+                    <td class="table-sr"></td>
+                    <td colspan="5"><span class="ill-inline-label">Fixture Type</span>{{ item.ill_fixture_type | e }}</td>
+                </tr>
+                {%- endif -%}
                 <tr>
                     <td class="table-sr">{{ item.idx }}</td>
-                    <td>{{ item.item_name or item.description or '' }}</td>
+                    <td>{{ item.item_name or item.item_code or '' }}{% if item.description and item.description != item.item_name %}<div class="ill-item-desc">{{ item.description }}</div>{% endif %}</td>
                     <td>{{ item.item_code or '' }}</td>
                     <td class="text-right">
                         {%- if item.uom -%}<span class="ill-uom">{{ item.uom }}</span>{%- endif -%}
@@ -381,7 +430,7 @@
                 {%- if item.additional_notes -%}
                 <tr class="ill-note-row">
                     <td class="table-sr"></td>
-                    <td colspan="5">{{ item.additional_notes }}</td>
+                    <td colspan="5">{{ item.additional_notes | e | replace('\n', '<br>') }}</td>
                 </tr>
                 {%- endif -%}
                 {%- endfor -%}

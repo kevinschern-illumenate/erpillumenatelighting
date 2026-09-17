@@ -4,6 +4,10 @@
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
+from illumenate_lighting.illumenate_lighting.portal.status import (
+	schedule_status_description,
+	schedule_status_label,
+)
 
 no_cache = 1
 
@@ -126,28 +130,45 @@ def get_context(context):
 				if snap.parent not in ctn_pricing_map and snap.msrp_unit:
 					ctn_pricing_map[snap.parent] = float(snap.msrp_unit)
 
-	# Batch-fetch stock availability for all configured fixtures (Phase 3 - Stock Level Visibility)
+	# Stock availability from the FULL schedule demand: component needs are
+	# scaled by line qty and shared components compete for the same stock.
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
-		batch_stock_for_fixtures,
-		get_bom_stock_for_items,
+		batch_stock_for_schedule_lines,
+		fixture_components,
+		_get_product_bundle_items,
 	)
-	stock_cf_ids = [
-		line.configured_fixture for line in lines
-		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture
-	]
-	fixture_stock_map = batch_stock_for_fixtures(stock_cf_ids) if stock_cf_ids else {}
 
-	# Batch-fetch stock for accessory items
-	accessory_items_for_stock = [
-		{"item_code": line.accessory_item, "qty": line.qty or 1}
-		for line in lines
-		if line.manufacturer_type == "ACCESSORY" and line.accessory_item
-	]
-	accessory_stock_result = get_bom_stock_for_items(accessory_items_for_stock) if accessory_items_for_stock else {"items": []}
-	# Build a lookup: item_code -> stock entry
-	accessory_stock_map = {}
-	for idx, entry in enumerate(accessory_stock_result.get("items", [])):
-		accessory_stock_map[entry.get("item_code", "")] = entry
+	fixture_component_cache = {}
+	line_stock_specs = []
+	for line in lines:
+		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+			if line.configured_fixture not in fixture_component_cache:
+				if frappe.db.exists("ilL-Configured-Fixture", line.configured_fixture):
+					fixture_component_cache[line.configured_fixture] = fixture_components(
+						frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
+					)
+				else:
+					fixture_component_cache[line.configured_fixture] = []
+			line_stock_specs.append({
+				"key": line.idx,
+				"qty": line.qty or 1,
+				"components": fixture_component_cache[line.configured_fixture],
+			})
+		elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
+			bundle_children = _get_product_bundle_items(line.accessory_item)
+			if bundle_children:
+				components = [
+					("Accessory", child["item_code"], float(child["qty"]), child.get("uom") or "Nos")
+					for child in bundle_children
+				]
+			else:
+				components = [("Accessory", line.accessory_item, 1.0, "Nos")]
+			line_stock_specs.append({"key": line.idx, "qty": line.qty or 1, "components": components})
+
+	schedule_stock = (
+		batch_stock_for_schedule_lines(line_stock_specs) if line_stock_specs else {"lines": {}, "shortages": [], "scope": None}
+	)
+	line_stock_map = schedule_stock["lines"]
 
 	# Create enriched line data for template display
 	# We'll add cf_details directly to each line for easy access in the template
@@ -311,20 +332,17 @@ def get_context(context):
 				line_dict["driver_line_total"] = msrp["driver_unit"] * (line.qty or 1)
 				schedule_total += line_dict["driver_line_total"]
 
-		# Attach stock availability
+		# Attach stock availability (schedule-level allocation, keyed by line idx)
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-			line_dict["stock_availability"] = fixture_stock_map.get(line.configured_fixture, {})
+			line_dict["stock_availability"] = line_stock_map.get(line.idx, {})
 		elif getattr(line, "product_type", None) == "Extrusion Kit":
 			kit_stock = _compute_kit_stock_for_line(line, is_dealer or is_internal)
 			if kit_stock:
 				line_dict["stock_availability"] = kit_stock
 		elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
-			acc_stock = accessory_stock_map.get(line.accessory_item)
+			acc_stock = line_stock_map.get(line.idx)
 			if acc_stock:
-				line_dict["stock_availability"] = {
-					"all_in_stock": acc_stock.get("is_sufficient", False),
-					"items": [acc_stock],
-				}
+				line_dict["stock_availability"] = acc_stock
 
 		lines_with_details.append(line_dict)
 		lines_json.append(line_dict)
@@ -356,7 +374,11 @@ def get_context(context):
 	context.other_count = other_count
 	context.stock_lines_total = stock_lines_total
 	context.stock_lines_in_stock = stock_lines_in_stock
+	context.stock_shortages = schedule_stock.get("shortages") or []
+	context.stock_scope = schedule_stock.get("scope")
 	context.schedule_status_class = schedule_status_class
+	context.schedule_status_label = schedule_status_label
+	context.schedule_status_description = schedule_status_description
 	context.title = schedule.schedule_name
 	context.no_cache = 1
 
@@ -388,15 +410,12 @@ def _get_new_schedule_context(context, project_name):
 
 
 def schedule_status_class(status):
-	"""Return CSS class for schedule status badge."""
-	class_map = {
-		"DRAFT": "warning",
-		"READY": "info",
-		"QUOTED": "primary",
-		"ORDERED": "success",
-		"CLOSED": "secondary",
-	}
-	return class_map.get(status, "secondary")
+	"""Return CSS class for schedule status badge (shared vocabulary)."""
+	from illumenate_lighting.illumenate_lighting.portal.status import (
+		schedule_status_class as _status_class,
+	)
+
+	return _status_class(status)
 
 
 def _get_configured_fixture_display_details(configured_fixture_id):

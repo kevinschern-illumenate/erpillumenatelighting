@@ -259,11 +259,22 @@ Detailed view of a single sales order with tracking and items
 							<h1>{{ order.name }}</h1>
 							<p class="mb-0 opacity-75">{{ order.customer_name }}</p>
 						</div>
-						<span class="badge badge-light text-dark px-3 py-2">
+						<span class="badge badge-light text-dark px-3 py-2" title="{{ order.erp_status }}">
 							{{ order.status }}
 						</span>
 					</div>
 				</div>
+				{% if order.is_request %}
+				<div class="alert alert-info mb-0 rounded-0" role="alert">
+					<i class="fa fa-clock-o"></i>
+					{{ _("This order request is awaiting approval by ilLumenate. It becomes an order once our team confirms it.") }}
+				</div>
+				{% elif order.is_cancelled %}
+				<div class="alert alert-danger mb-0 rounded-0" role="alert">
+					<i class="fa fa-exclamation-triangle"></i>
+					{{ _("This order was cancelled. Please reach out to sales@illumenate.lighting for more information if we have not already been in contact with you.") }}
+				</div>
+				{% endif %}
 				<div class="order-header-details">
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Order Date") }}</span>
@@ -275,7 +286,14 @@ Detailed view of a single sales order with tracking and items
 					</div>
 					<div class="detail-group">
 						<span class="detail-label">{{ _("PO Number") }}</span>
-						<span class="detail-value">{{ order.po_no or "-" }}</span>
+						<span class="detail-value">
+							<span id="poNumberValue">{{ order.po_no or "-" }}</span>
+							{% if actions.can_set_po_number %}
+							<button type="button" class="btn btn-sm btn-link p-0 ml-1" onclick="editPoNumber()" title="{{ _('Set your PO number before this request is approved') }}">
+								<i class="fa fa-pencil"></i>
+							</button>
+							{% endif %}
+						</span>
 					</div>
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Total") }}</span>
@@ -288,35 +306,25 @@ Detailed view of a single sales order with tracking and items
 			<div class="order-progress-card">
 				<h5 class="mb-4"><i class="fa fa-tasks"></i> {{ _("Order Progress") }}</h5>
 				<div class="progress-timeline">
+					{% for step in timeline %}
 					<div class="timeline-step">
-						<div class="step-circle {{ 'completed' if (order.docstatus or 0) >= 1 else '' }}">
-							<i class="fa fa-check"></i>
+						<div class="step-circle {{ 'completed' if step.done else '' }} {{ 'active' if step.get('active') else '' }}">
+							{% if step.key == 'production' %}<i class="fa fa-cogs"></i>
+							{% elif step.key == 'shipped' %}<i class="fa fa-truck"></i>
+							{% elif step.key == 'completed' %}<i class="fa fa-check-circle"></i>
+							{% elif step.key == 'cancelled' %}<i class="fa fa-times"></i>
+							{% else %}<i class="fa fa-check"></i>{% endif %}
 						</div>
-						<span class="step-title">{{ _("Confirmed") }}</span>
-						<span class="step-date">{{ frappe.utils.format_date(order.transaction_date) }}</span>
+						<span class="step-title">{{ step.label }}</span>
+						<span class="step-date">{{ frappe.utils.format_date(step.date) if step.date else "-" }}</span>
 					</div>
-					<div class="timeline-step">
-						<div class="step-circle {{ 'completed' if production_started else '' }} {{ 'active' if order.status in ['To Deliver and Bill'] and not production_complete else '' }}">
-							<i class="fa fa-cogs"></i>
-						</div>
-						<span class="step-title">{{ _("In Production") }}</span>
-						<span class="step-date">{{ production_date or "-" }}</span>
-					</div>
-					<div class="timeline-step">
-						<div class="step-circle {{ 'completed' if (order.per_delivered or 0) >= 100 else '' }} {{ 'active' if (order.per_delivered or 0) > 0 and (order.per_delivered or 0) < 100 else '' }}">
-							<i class="fa fa-truck"></i>
-						</div>
-						<span class="step-title">{{ _("Shipped") }}</span>
-						<span class="step-date">{% if deliveries %}{{ frappe.utils.format_date(deliveries[0].posting_date) }}{% else %}-{% endif %}</span>
-					</div>
-					<div class="timeline-step">
-						<div class="step-circle {{ 'completed' if order.status == 'Completed' else '' }}">
-							<i class="fa fa-check-circle"></i>
-						</div>
-						<span class="step-title">{{ _("Completed") }}</span>
-						<span class="step-date">-</span>
-					</div>
+					{% endfor %}
 				</div>
+				{% if order.production and order.production.work_order_count %}
+				<p class="text-muted small mt-3 mb-0">
+					{{ _("Production: {0} of {1} units built across {2} work order(s)").format(order.production.produced_qty | int, order.production.planned_qty | int, order.production.work_order_count) }}
+				</p>
+				{% endif %}
 			</div>
 
 			<!-- Order Items -->
@@ -338,8 +346,13 @@ Detailed view of a single sales order with tracking and items
 						{% for item in items %}
 						<tr>
 							<td>
+								{% if item.fixture_type %}<div class="text-muted small text-uppercase">{{ _("Fixture Type") }} {{ item.fixture_type }}</div>{% endif %}
 								<div class="item-name">{{ item.item_name }}</div>
-								<div class="item-code">{{ item.item_code }}</div>
+								<div class="item-code">{{ item.item_code }}{% if item.section_room %} &middot; {{ item.section_room }}{% endif %}</div>
+								{% if item.customer_note %}<div class="text-muted small font-italic">{{ item.customer_note }}</div>{% endif %}
+								{% if order.docstatus == 1 and (item.produced_qty or item.delivered_qty) %}
+								<div class="text-muted small">{{ _("Built") }} {{ item.produced_qty | int }} &middot; {{ _("Shipped") }} {{ item.delivered_qty | int }} / {{ item.qty | int }}</div>
+								{% endif %}
 							</td>
 							<td class="text-center">{{ item.qty | int }}</td>
 							<td class="text-right">{{ frappe.format_value(item.rate, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
@@ -362,17 +375,48 @@ Detailed view of a single sales order with tracking and items
 						<h6>{{ delivery.name }}</h6>
 						<div class="shipment-meta">
 							{{ frappe.utils.format_date(delivery.posting_date) }}
-							{% if delivery.transporter %}• {{ delivery.transporter }}{% endif %}
+							{% if delivery.carrier %}&bull; {{ delivery.carrier }}{% endif %}
+							{% if delivery.items %}&bull; {{ delivery.items | length }} {{ _("line(s)") }}{% endif %}
 						</div>
 					</div>
-					<div>
-						{% if delivery.tracking_no %}
-						<a href="#" class="tracking-link">
-							<i class="fa fa-external-link"></i> {{ delivery.tracking_no }}
-						</a>
+					<div class="text-right">
+						{% if delivery.tracking_number %}
+						<div class="tracking-link" title="{{ _('Tracking number') }}">
+							<i class="fa fa-barcode"></i> {{ delivery.tracking_number }}
+						</div>
 						{% else %}
-						<span class="text-muted">{{ _("No tracking") }}</span>
+						<span class="text-muted">{{ _("No tracking yet") }}</span>
 						{% endif %}
+						<a class="d-block small" href="{{ download_url }}?doctype=Delivery%20Note&name={{ delivery.name | urlencode }}">
+							<i class="fa fa-list-alt"></i> {{ _("Packing slip") }}
+						</a>
+					</div>
+				</div>
+				{% endfor %}
+			</div>
+			{% endif %}
+
+			<!-- Invoices -->
+			{% if invoices %}
+			<div class="shipment-card">
+				<div class="shipment-header">
+					<h5 class="mb-0"><i class="fa fa-file-pdf-o"></i> {{ _("Invoices") }}</h5>
+				</div>
+				{% for invoice in invoices %}
+				<div class="shipment-item">
+					<div class="shipment-info">
+						<h6>{{ invoice.name }}</h6>
+						<div class="shipment-meta">
+							{{ frappe.utils.format_date(invoice.posting_date) }}
+							&bull; {{ invoice.status }}
+							{% if invoice.due_date %}&bull; {{ _("Due") }} {{ frappe.utils.format_date(invoice.due_date) }}{% endif %}
+						</div>
+					</div>
+					<div class="text-right">
+						<div>{{ frappe.format_value(invoice.grand_total, {"fieldtype": "Currency", "currency": invoice.currency}) }}</div>
+						<a class="d-block small" href="{{ download_url }}?doctype=Sales%20Invoice&name={{ invoice.name | urlencode }}">
+							<i class="fa fa-download"></i> {{ _("Download PDF") }}
+						</a>
 					</div>
 				</div>
 				{% endfor %}
@@ -385,14 +429,18 @@ Detailed view of a single sales order with tracking and items
 			<!-- Actions -->
 			<div class="sidebar-card">
 				<h5><i class="fa fa-bolt"></i> {{ _("Quick Actions") }}</h5>
-				<a href="#" class="action-btn" onclick="downloadInvoice()">
+				{% for download in actions.downloads %}
+				<a href="{{ download_url }}?doctype={{ download.doctype | urlencode }}&name={{ download.name | urlencode }}" class="action-btn">
 					<i class="fa fa-file-pdf-o"></i>
-					<span>{{ _("Download Invoice") }}</span>
+					<span>{{ download.label }}</span>
 				</a>
-				<a href="#" class="action-btn" onclick="downloadPackingSlip()">
-					<i class="fa fa-list-alt"></i>
-					<span>{{ _("Packing Slip") }}</span>
+				{% endfor %}
+				{% if schedule %}
+				<a href="/portal/schedules/{{ schedule.name }}" class="action-btn">
+					<i class="fa fa-list-ol"></i>
+					<span>{{ _("Fixture Schedule") }}: {{ schedule.schedule_name }}</span>
 				</a>
+				{% endif %}
 				<a href="/portal/drawings" class="action-btn">
 					<i class="fa fa-pencil-square-o"></i>
 					<span>{{ _("Request Drawing") }}</span>
@@ -444,12 +492,28 @@ Detailed view of a single sales order with tracking and items
 
 {% block script %}
 <script>
-function downloadInvoice() {
-	frappe.msgprint('{{ _("Invoice download coming soon!") }}');
-}
-
-function downloadPackingSlip() {
-	frappe.msgprint('{{ _("Packing slip download coming soon!") }}');
+function editPoNumber() {
+	var current = $('#poNumberValue').text().trim();
+	if (current === '-') current = '';
+	frappe.prompt(
+		[{fieldname: 'po_no', fieldtype: 'Data', label: '{{ _("PO Number") }}', default: current, reqd: 0}],
+		function(values) {
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.set_order_request_po_number',
+				args: {order_name: '{{ order.name }}', po_no: values.po_no || ''},
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						$('#poNumberValue').text(r.message.po_no || '-');
+						frappe.show_alert({message: '{{ _("PO number saved") }}', indicator: 'green'});
+					} else {
+						frappe.msgprint({title: '{{ _("Error") }}', indicator: 'red', message: (r.message && r.message.error) || '{{ _("Could not save PO number") }}'});
+					}
+				}
+			});
+		},
+		'{{ _("Set PO Number") }}',
+		'{{ _("Save") }}'
+	);
 }
 </script>
 {% endblock %}

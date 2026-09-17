@@ -49,63 +49,30 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 		# frappe.throw() messages are authored for end users — keep them,
 		# but strip any markup before returning them as JSON.
 		message = frappe.utils.strip_html(str(e)).strip()
+		error_code = "permission_denied" if isinstance(e, frappe.PermissionError) else "validation_error"
 	else:
 		message = ""
+		error_code = "internal_error"
 
 	if not message:
 		message = _("An unexpected error occurred. Please try again or contact support.")
 
-	return {"success": False, "error": message, **extra}
+	# ``success``/``error`` are the legacy contract; ``error_code`` lets
+	# frontends branch without parsing message text.
+	return {"success": False, "error": message, "error_code": error_code, **extra}
 
 
 def _can_access_configured_record(doctype: str, name: str, line_fieldname: str) -> bool:
 	"""Check that a configured product is reachable by the current user.
 
-	Knowing a configured-fixture / tape-neon / sheet id is not authorisation on
-	its own: these ids are guessable sequence names. Access has to be proven
-	through a schedule the user may read, or by having created the record.
-
-	Args:
-		doctype: The configured-record doctype.
-		name: The configured-record name.
-		line_fieldname: Field on ``ilL-Child-Fixture-Schedule-Line`` that links
-			to this doctype.
+	Thin wrapper kept for existing call sites; the rule lives in
+	``portal.access.can_read_configured_record``.
 	"""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_is_internal_user,
-	)
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
-		has_permission as schedule_has_permission,
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_read_configured_record,
 	)
 
-	user = frappe.session.user
-
-	if user == "Guest":
-		return False
-
-	if _is_internal_user(user):
-		return True
-
-	if frappe.db.get_value(doctype, name, "owner") == user:
-		return True
-
-	schedule_names = frappe.get_all(
-		"ilL-Child-Fixture-Schedule-Line",
-		filters={
-			line_fieldname: name,
-			"parenttype": "ilL-Project-Fixture-Schedule",
-		},
-		pluck="parent",
-	)
-
-	for schedule_name in set(schedule_names):
-		if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
-			continue
-		schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
-		if schedule_has_permission(schedule, "read", user):
-			return True
-
-	return False
+	return can_read_configured_record(doctype, name)
 
 
 @frappe.whitelist()
@@ -1948,8 +1915,14 @@ def save_configured_fixture_to_schedule(
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
-	# Validate configured fixture exists
+	# Validate configured fixture exists and the caller has provenance for it
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_attach_configured_record,
+	)
+
 	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+	if not can_attach_configured_record("ilL-Configured-Fixture", configured_fixture_id):
 		return {"success": False, "error": "Configured fixture not found"}
 
 	try:
@@ -2129,12 +2102,8 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid project_data format"}
 
-	# Get user's customer
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-	)
-
-	user_customer = _get_user_customer(frappe.session.user)
+	if frappe.session.user == "Guest":
+		return {"success": False, "error": "Please log in to create a project"}
 
 	if not project_data.get("customer"):
 		return {"success": False, "error": "Customer is required"}
@@ -2148,15 +2117,12 @@ def create_project(project_data: Union[str, dict]) -> dict:
 
 	chosen_customer = project_data.get("customer")
 
-	# System Manager bypass: allow any valid customer
+	# System Manager bypass: allow any valid customer. Everyone else must pick
+	# from their allowed list; never silently substitute a different company.
 	if is_system_manager and frappe.db.exists("Customer", chosen_customer):
-		pass  # Allow the chosen customer
+		pass
 	elif chosen_customer not in allowed_customer_names:
-		# If user doesn't have access to this customer, use their own company
-		if user_customer:
-			chosen_customer = user_customer
-		else:
-			return {"success": False, "error": "You don't have permission to create projects for this customer"}
+		return {"success": False, "error": "You don't have permission to create projects for this customer"}
 
 	try:
 		project = frappe.new_doc("ilL-Project")
@@ -2248,7 +2214,6 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 				project.set(field, value)
 
 		project.save()
-		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error updating project {project_name}")
@@ -2283,7 +2248,6 @@ def archive_project(project_name: str) -> dict:
 		project.status = "ARCHIVED"
 		project.is_active = 0
 		project.save()
-		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error archiving project {project_name}")
@@ -2319,7 +2283,6 @@ def unarchive_project(project_name: str) -> dict:
 		project.status = "ACTIVE"
 		project.is_active = 1
 		project.save()
-		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error unarchiving project {project_name}")
@@ -2467,9 +2430,12 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 
 	project = frappe.get_doc("ilL-Project", project_name)
 
-	# Only owner can update collaborators
-	if project.owner != frappe.session.user and "System Manager" not in frappe.get_roles(frappe.session.user):
-		return {"success": False, "error": "Only the project owner can manage collaborators"}
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_manage_project_collaborators,
+	)
+
+	if not can_manage_project_collaborators(project, frappe.session.user):
+		return {"success": False, "error": "You don't have permission to manage collaborators on this project"}
 
 	# Parse collaborators if string
 	if isinstance(collaborators, str):
@@ -2478,7 +2444,13 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid collaborators format"}
 
+	for collab in collaborators:
+		if collab.get("access_level", "VIEW") not in VALID_ACCESS_LEVELS:
+			return {"success": False, "error": f"Invalid access_level. Must be one of: {', '.join(VALID_ACCESS_LEVELS)}"}
+
 	try:
+		previous = {c.user: c.access_level for c in project.collaborators or [] if c.is_active}
+
 		# Clear existing collaborators
 		project.collaborators = []
 
@@ -2490,7 +2462,18 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 				"is_active": collab.get("is_active", 1),
 			})
 
-		project.save()
+		project.save(ignore_permissions=True)
+
+		current = {c.user: c.access_level for c in project.collaborators or [] if c.is_active}
+		added = sorted(f"{u} ({lvl})" for u, lvl in current.items() if previous.get(u) != lvl)
+		removed = sorted(u for u in previous if u not in current)
+		if added or removed:
+			project.add_comment(
+				"Info",
+				_("Collaborators updated. Added/changed: {0}. Removed: {1}.").format(
+					", ".join(added) or _("none"), ", ".join(removed) or _("none")
+				),
+			)
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error updating collaborators on project {project_name}")
@@ -2513,13 +2496,21 @@ def toggle_project_privacy(project_name: str, is_private: int) -> dict:
 
 	project = frappe.get_doc("ilL-Project", project_name)
 
-	# Only owner can change privacy
-	if project.owner != frappe.session.user and "System Manager" not in frappe.get_roles(frappe.session.user):
-		return {"success": False, "error": "Only the project owner can change privacy settings"}
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_manage_project_collaborators,
+	)
+
+	if not can_manage_project_collaborators(project, frappe.session.user):
+		return {"success": False, "error": "You don't have permission to change privacy settings on this project"}
 
 	try:
-		project.is_private = int(is_private)
-		project.save()
+		new_value = int(is_private)
+		if int(project.is_private or 0) != new_value:
+			project.is_private = new_value
+			project.save(ignore_permissions=True)
+			project.add_comment(
+				"Info", _("Project set to {0}").format(_("private") if new_value else _("company-visible"))
+			)
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error toggling privacy on project {project_name}")
@@ -2561,20 +2552,22 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	"""
 	Update the status of a fixture schedule.
 
-	Status transitions allowed:
-	- DRAFT -> READY (by anyone with write permission)
-	- READY -> DRAFT (by anyone with write permission)
-	- READY -> QUOTED (by internal/dealer users only)
-	- QUOTED -> DRAFT (by anyone with write permission)
-	- QUOTED -> READY (by anyone with write permission)
-	- ORDERED and CLOSED statuses cannot be set via portal
+	Transitions are defined once, on the schedule domain module
+	(``allowed_portal_transitions`` / ``transition_schedule_status``):
+	- DRAFT -> READY (anyone with write permission)
+	- READY -> DRAFT (anyone with write permission)
+	- READY -> QUOTED (internal/dealer users only)
+	- QUOTED -> DRAFT / READY (auto-versions: the quoted state is kept as a
+	  locked snapshot and editing continues on a new version)
+	- ORDER_REQUESTED, ORDERED, ISSUE and CLOSED are system-driven
 
 	Args:
 		schedule_name: Name of the schedule
 		new_status: New status to set (DRAFT, READY, QUOTED)
 
 	Returns:
-		dict: {"success": True/False, "error": "message if error"}
+		dict: {"success": True/False, "new_status": str,
+		       "new_schedule_name": str, "auto_versioned": bool, "error": str}
 	"""
 	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
 		return {"success": False, "error": "Schedule not found"}
@@ -2584,54 +2577,15 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	# Check permission
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
 		has_permission,
-		_is_dealer_user,
-		_is_internal_user,
+		transition_schedule_status,
 	)
 
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to update this schedule"}
 
-	# Check if schedule is locked
-	if schedule.get("is_locked"):
-		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
-
-	# Validate status value
-	valid_statuses = ["DRAFT", "READY", "QUOTED"]
-	if new_status not in valid_statuses:
-		return {"success": False, "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}
-
-	current_status = schedule.status
-	is_privileged = _is_dealer_user(frappe.session.user) or _is_internal_user(frappe.session.user)
-
-	# Define allowed transitions
-	allowed_transitions = {
-		"DRAFT": ["READY"],
-		"READY": ["DRAFT", "QUOTED"] if is_privileged else ["DRAFT"],
-		"QUOTED": ["DRAFT", "READY"] if is_privileged else ["DRAFT", "READY"],
-	}
-
-	# Check if transition is allowed
-	if new_status == current_status:
-		return {"success": True}  # No change needed
-
-	if current_status not in allowed_transitions:
-		return {"success": False, "error": f"Cannot change status from {current_status}"}
-
-	if new_status not in allowed_transitions.get(current_status, []):
-		return {"success": False, "error": f"Cannot change status from {current_status} to {new_status}"}
-
 	try:
-		# Auto-version when going from QUOTED back to DRAFT
-		# This preserves the quoted state as a locked snapshot
-		if current_status == "QUOTED" and new_status == "READY":
-			new_name = schedule.create_new_version(
-				version_notes="Auto-versioned: reverting from QUOTED to continue editing"
-			)
-			return {"success": True, "new_status": "DRAFT", "new_schedule_name": new_name, "auto_versioned": True}
-
-		schedule.db_set("status", new_status)
-		frappe.db.commit()
-		return {"success": True, "new_status": new_status}
+		outcome = transition_schedule_status(schedule, new_status, frappe.session.user)
+		return {"success": True, **outcome}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error updating status for schedule {schedule_name}")
 
@@ -2770,83 +2724,62 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid request_data format"}
 
+	if frappe.session.user == "Guest":
+		return {"success": False, "error": "Please log in to submit a request"}
+
 	if not request_data.get("description"):
 		return {"success": False, "error": "Description is required"}
 
+	from illumenate_lighting.illumenate_lighting.api.document_requests import (
+		create_portal_document_request,
+	)
+
+	drawing_type = request_data.get("drawing_type") or "shop_drawing"
+	request_type = _request_type_for_drawing_type(drawing_type)
+	if not request_type:
+		return {"success": False, "error": "This request type is not available"}
+
+	project = request_data.get("project")
+	if project == "_custom":
+		project = None
+
+	priority_map = {"low": "Normal", "normal": "Normal", "high": "High", "rush": "Rush"}
+	priority = priority_map.get(str(request_data.get("priority") or "normal").lower(), "Normal")
+
 	try:
-		# Check if Document Request doctype exists, if not create the request as an Issue
-		if frappe.db.exists("DocType", "ilL-Document-Request"):
-			# Map drawing_type to a request type
-			drawing_type = request_data.get("drawing_type", "shop_drawing")
-			request_type = _get_or_create_request_type(drawing_type)
-
-			doc = frappe.new_doc("ilL-Document-Request")
-			doc.request_type = request_type
-			doc.project = request_data.get("project") if request_data.get("project") != "_custom" else None
-			doc.fixture_or_product_text = request_data.get("fixture_reference") or request_data.get("custom_reference")
-			doc.description = request_data.get("description")
-			# Map priority values
-			priority_map = {"low": "Normal", "normal": "Normal", "high": "High", "rush": "Rush"}
-			doc.priority = priority_map.get(request_data.get("priority", "normal").lower(), "Normal")
-			doc.status = "Submitted"
-			doc.requester_user = frappe.session.user
-			doc.created_from_portal = 1
-			doc.insert(ignore_permissions=True)
-			frappe.db.commit()
-			return {"success": True, "request_name": doc.name}
-		else:
-			# Fallback: Create as an Issue with drawing request info
-			doc = frappe.new_doc("Issue")
-			drawing_type = request_data.get("drawing_type", "shop_drawing")
-			doc.subject = f"Drawing Request: {drawing_type.replace('_', ' ').title()}"
-			doc.description = f"""
-**Drawing Type:** {drawing_type.replace('_', ' ').title()}
-**Project:** {request_data.get('project') or request_data.get('custom_reference') or 'N/A'}
-**Fixture Reference:** {request_data.get('fixture_reference') or 'N/A'}
-**Priority:** {request_data.get('priority', 'normal').title()}
-
-**Description:**
-{request_data.get('description')}
-"""
-			doc.raised_by = frappe.session.user
-			doc.insert(ignore_permissions=True)
-			frappe.db.commit()
-			return {"success": True, "request_name": doc.name}
+		doc = create_portal_document_request(
+			request_type=request_type,
+			description=request_data.get("description"),
+			project=project or None,
+			fixture_or_product_text=request_data.get("fixture_reference")
+			or request_data.get("custom_reference"),
+			priority=priority,
+			submit=True,
+		)
+		return {"success": True, "request_name": doc.name}
 	except Exception as e:
 		return _safe_error(e, "Portal: error creating drawing request")
 
 
-def _get_or_create_request_type(drawing_type: str) -> str:
+def _request_type_for_drawing_type(drawing_type: str):
 	"""
-	Get or create a request type based on drawing_type.
+	Map a legacy portal ``drawing_type`` key to an active ``ilL-Request-Type``.
 
-	Args:
-		drawing_type: The type of drawing (shop_drawing, spec_sheet, etc.)
-
-	Returns:
-		str: The name of the request type
+	Returns ``None`` when no active type matches. Request-type masters are
+	never created from portal input.
 	"""
+	from illumenate_lighting.illumenate_lighting.api.document_requests import (
+		resolve_active_request_type,
+	)
+
 	type_name_map = {
 		"shop_drawing": "Shop Drawing",
 		"spec_sheet": "Spec Sheet",
 		"installation": "Installation Guide",
 		"ies_file": "IES File",
 	}
-	type_name = type_name_map.get(drawing_type, drawing_type.replace("_", " ").title())
-
-	# Check if the request type exists
-	if frappe.db.exists("ilL-Request-Type", type_name):
-		return type_name
-
-	# Create the request type if it doesn't exist
-	request_type_doc = frappe.new_doc("ilL-Request-Type")
-	request_type_doc.type_name = type_name
-	request_type_doc.category = "Drawing"
-	request_type_doc.is_active = 1
-	request_type_doc.portal_label = type_name
-	request_type_doc.insert(ignore_permissions=True)
-	frappe.db.commit()
-	return type_name
+	type_name = type_name_map.get(drawing_type, str(drawing_type).replace("_", " ").title())
+	return resolve_active_request_type(type_name)
 
 
 @frappe.whitelist()
@@ -2974,7 +2907,6 @@ def _get_or_create_portal_settings(user=None):
 	settings = frappe.new_doc("ilL-Portal-User-Settings")
 	settings.user = user
 	settings.insert(ignore_permissions=True)
-	frappe.db.commit()
 	return settings
 
 
@@ -3041,7 +2973,6 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 				setattr(settings, field, 1 if preferences[field] else 0)
 
 		settings.save(ignore_permissions=True)
-		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, "Portal: error saving notification preferences")
@@ -3076,7 +3007,6 @@ def save_portal_preferences(preferences: Union[str, dict]) -> dict:
 				setattr(settings, field, preferences[field])
 
 		settings.save(ignore_permissions=True)
-		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, "Portal: error saving portal preferences")
@@ -3087,84 +3017,56 @@ def get_order_details(order_name: str) -> dict:
 	"""
 	Get detailed information about a sales order for the portal.
 
+	Thin wrapper over ``portal.orders.get_order_read_model`` so the API, the
+	orders list and the order detail page share one access rule and one
+	status mapping.
+
 	Args:
 		order_name: Name of the Sales Order
 
 	Returns:
-		dict: Order details including items and status
+		dict: {"success", "order", "items", "deliveries", "lines",
+		       "production", "shipments", "invoices", "schedule",
+		       "timeline", "actions"}
 	"""
-	if not frappe.db.exists("Sales Order", order_name):
+	from illumenate_lighting.illumenate_lighting.portal.orders import get_order_read_model
+
+	model = get_order_read_model(order_name, frappe.session.user)
+	if model is None:
 		return {"success": False, "error": "Order not found"}
-
-	# Verify user has access to this order's customer
-	order = frappe.get_doc("Sales Order", order_name)
-
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-	)
-	user_customer = _get_user_customer(frappe.session.user)
-
-	# Check if System Manager or customer matches
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
-	if not is_system_manager and order.customer != user_customer:
-		return {"success": False, "error": "You don't have permission to view this order"}
-
-	# Portal users may view their own draft "order requests" and submitted
-	# orders. Cancelled orders (docstatus 2) stay hidden.
-	if not is_system_manager and order.docstatus == 2:
-		return {"success": False, "error": "Order not found"}
-
-	# Get order items
-	items = []
-	for item in order.items:
-		items.append({
-			"item_code": item.item_code,
-			"item_name": item.item_name,
-			"qty": item.qty,
-			"rate": item.rate,
-			"amount": item.amount,
-			"delivery_date": item.delivery_date,
-			"configured_fixture": item.get("ill_configured_fixture"),
-		})
-
-	# Get delivery notes linked to this order
-	delivery_notes = frappe.get_all(
-		"Delivery Note Item",
-		filters={"against_sales_order": order_name, "docstatus": 1},
-		fields=["parent"],
-		distinct=True,
-	)
-	deliveries = []
-	for dn in delivery_notes:
-		dn_doc = frappe.get_doc("Delivery Note", dn.parent)
-		deliveries.append({
-			"name": dn_doc.name,
-			"posting_date": dn_doc.posting_date,
-			"status": dn_doc.status,
-			"tracking_no": dn_doc.get("tracking_no"),
-			"transporter": dn_doc.get("transporter_name"),
-		})
 
 	return {
 		"success": True,
-		"order": {
-			"name": order.name,
-			"transaction_date": order.transaction_date,
-			"delivery_date": order.delivery_date,
-			"status": _("Order Request") if order.docstatus == 0 else order.status,
-			"docstatus": order.docstatus,
-			"is_request": order.docstatus == 0,
-			"grand_total": order.grand_total,
-			"currency": order.currency,
-			"customer": order.customer,
-			"customer_name": order.customer_name,
-			"po_no": order.po_no,
-			"per_delivered": order.per_delivered,
-			"per_billed": order.per_billed,
-		},
-		"items": items,
-		"deliveries": deliveries,
+		# Legacy keys kept for existing callers.
+		"items": model["lines"],
+		"deliveries": model["shipments"],
+		**model,
 	}
+
+
+@frappe.whitelist()
+def set_order_request_po_number(order_name: str, po_no: str = "") -> dict:
+	"""Record the Dealer's PO number on a pending order request (draft Sales Order)."""
+	from illumenate_lighting.illumenate_lighting.portal.orders import (
+		set_order_request_po_number as _set_po,
+	)
+
+	try:
+		order = _set_po(order_name, po_no, frappe.session.user)
+		return {"success": True, "po_no": order.po_no}
+	except Exception as e:
+		return _safe_error(e, f"Portal: error setting PO number on {order_name}")
+
+
+@frappe.whitelist()
+def download_order_document(doctype: str, name: str):
+	"""Stream an access-checked PDF of an order, invoice or packing slip."""
+	from illumenate_lighting.illumenate_lighting.portal.orders import get_order_document_pdf
+
+	filename, pdf = get_order_document_pdf(doctype, name, frappe.session.user)
+	frappe.local.response.filename = filename
+	frappe.local.response.filecontent = pdf
+	frappe.local.response.type = "pdf"
 
 
 @frappe.whitelist()
@@ -3284,23 +3186,13 @@ def invite_project_collaborator(
 	Returns:
 		dict: {"success": True/False, "user": email, "is_new_user": bool, "error": str}
 	"""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-		_is_dealer_user,
-		_is_internal_user,
-		has_permission as project_has_permission,
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_manage_project_collaborators,
 	)
 
 	# Validate access_level
 	if access_level not in VALID_ACCESS_LEVELS:
 		return {"success": False, "error": f"Invalid access_level. Must be one of: {', '.join(VALID_ACCESS_LEVELS)}"}
-
-	# Check if caller has permission to invite collaborators
-	is_dealer = _is_dealer_user(frappe.session.user)
-	is_internal = _is_internal_user(frappe.session.user)
-
-	if not is_dealer and not is_internal:
-		return {"success": False, "error": "You don't have permission to invite collaborators"}
 
 	# Validate project exists
 	if not frappe.db.exists("ilL-Project", project_name):
@@ -3308,12 +3200,12 @@ def invite_project_collaborator(
 
 	project = frappe.get_doc("ilL-Project", project_name)
 
-	# Check permission on project
-	if not project_has_permission(project, "write", frappe.session.user):
-		return {"success": False, "error": "You don't have permission to manage this project"}
+	# Single collaborator-management rule shared with the collaborators page
+	if not can_manage_project_collaborators(project, frappe.session.user):
+		return {"success": False, "error": "You don't have permission to manage collaborators on this project"}
 
 	# Validate email
-	email = email.strip().lower()
+	email = (email or "").strip().lower()
 	if not frappe.utils.validate_email_address(email):
 		return {"success": False, "error": "Invalid email address"}
 
@@ -3358,6 +3250,9 @@ def invite_project_collaborator(
 
 	try:
 		project.save(ignore_permissions=True)
+		project.add_comment(
+			"Info", _("Collaborator {0} invited with {1} access").format(email, access_level)
+		)
 	except Exception as e:
 		return _safe_error(e, f"Portal: error adding collaborator to project {project.name}")
 
@@ -3423,26 +3318,17 @@ def remove_project_collaborator(project_name: str, user_email: str) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": str}
 	"""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_is_dealer_user,
-		_is_internal_user,
-		has_permission as project_has_permission,
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_manage_project_collaborators,
 	)
-
-	# Check if caller has permission
-	is_dealer = _is_dealer_user(frappe.session.user)
-	is_internal = _is_internal_user(frappe.session.user)
-
-	if not is_dealer and not is_internal and frappe.session.user != frappe.db.get_value("ilL-Project", project_name, "owner"):
-		return {"success": False, "error": "You don't have permission to manage collaborators"}
 
 	if not frappe.db.exists("ilL-Project", project_name):
 		return {"success": False, "error": "Project not found"}
 
 	project = frappe.get_doc("ilL-Project", project_name)
 
-	if not project_has_permission(project, "write", frappe.session.user):
-		return {"success": False, "error": "You don't have permission to manage this project"}
+	if not can_manage_project_collaborators(project, frappe.session.user):
+		return {"success": False, "error": "You don't have permission to manage collaborators on this project"}
 
 	# Find and deactivate the collaborator
 	found = False
@@ -3457,6 +3343,7 @@ def remove_project_collaborator(project_name: str, user_email: str) -> dict:
 
 	try:
 		project.save(ignore_permissions=True)
+		project.add_comment("Info", _("Collaborator {0} removed").format(user_email))
 		return {"success": True}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error removing collaborator from project {project_name}")
@@ -4036,8 +3923,14 @@ def update_configured_fixture_on_schedule(
 	if line_idx < 0 or line_idx >= len(schedule.lines):
 		return {"success": False, "error": "Invalid line index"}
 
-	# Validate the new configured fixture exists
+	# Validate the new configured fixture exists and the caller has provenance for it
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_attach_configured_record,
+	)
+
 	if not frappe.db.exists("ilL-Configured-Fixture", new_configured_fixture_id):
+		return {"success": False, "error": "Configured fixture not found"}
+	if not can_attach_configured_record("ilL-Configured-Fixture", new_configured_fixture_id):
 		return {"success": False, "error": "Configured fixture not found"}
 
 	try:
@@ -4076,7 +3969,6 @@ def update_configured_fixture_on_schedule(
 				)
 
 		schedule.save()
-		frappe.db.commit()
 
 		return {"success": True}
 
@@ -4428,8 +4320,6 @@ def create_website_user(email: str, first_name: str, last_name: str = "", send_i
 				"link_name": user_customer,
 			})
 			contact.insert(ignore_permissions=True)
-
-		frappe.db.commit()
 
 		return {
 			"success": True,

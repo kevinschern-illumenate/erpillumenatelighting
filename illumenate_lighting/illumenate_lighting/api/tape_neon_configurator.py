@@ -53,6 +53,38 @@ INCHES_PER_FOOT = 12
 MAX_WATTS_PER_RUN = 85.0  # Power supply max watts per single tape run
 MM_PER_METER = 1000.0
 
+CONFIGURED_TAPE_NEON_DOCTYPE = "ilL-Configured-Tape-Neon"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CONFIGURED RECORD PROVENANCE
+# ═══════════════════════════════════════════════════════════════════════
+
+def _register_tape_neon_handoff(configured_name):
+    """Tie a configured record produced by validation to the current session
+    so the later save-to-schedule call can prove provenance."""
+    if not configured_name:
+        return
+    from illumenate_lighting.illumenate_lighting.portal.access import (
+        register_configured_record_handoff,
+    )
+    register_configured_record_handoff(CONFIGURED_TAPE_NEON_DOCTYPE, configured_name)
+
+
+def _configured_tape_neon_attach_error(configured_name):
+    """Return an error dict when the client-supplied configured record may not
+    be attached by this user, or ``None`` when it may."""
+    if not configured_name:
+        return None
+    from illumenate_lighting.illumenate_lighting.portal.access import (
+        can_attach_configured_record,
+    )
+    if not frappe.db.exists(CONFIGURED_TAPE_NEON_DOCTYPE, configured_name):
+        return {"success": False, "error": "Configured record not found"}
+    if not can_attach_configured_record(CONFIGURED_TAPE_NEON_DOCTYPE, configured_name):
+        return {"success": False, "error": "Configured record not found"}
+    return None
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # PRICING HELPERS
@@ -833,6 +865,7 @@ def validate_tape_configuration(
                 variant_origin=variant_origin,
             )
             return_result["configured_tape_neon"] = configured_name
+            _register_tape_neon_handoff(configured_name)
         except Exception as e:
             # Validation continues even if record creation fails
             return_result["configured_tape_neon"] = None
@@ -1359,6 +1392,7 @@ def validate_neon_configuration(
                 variant_origin=variant_origin,
             )
             return_result["configured_tape_neon"] = configured_name
+            _register_tape_neon_handoff(configured_name)
         except Exception as e:
             # Validation continues even if record creation fails
             return_result["configured_tape_neon"] = None
@@ -1434,6 +1468,10 @@ def save_tape_to_schedule(
 
     if not result.get("is_valid"):
         return {"success": False, "error": "Configuration is not valid"}
+
+    attach_error = _configured_tape_neon_attach_error(result.get("configured_tape_neon"))
+    if attach_error:
+        return attach_error
 
     product_category = result.get("product_category", "LED Tape")
     part_number = result.get("part_number", "")
@@ -2227,6 +2265,7 @@ def validate_tape_neon_template_config(
         finally:
             frappe.flags.mute_messages = False
         result["configured_tape_neon"] = configured_name
+        _register_tape_neon_handoff(configured_name)
     except Exception as e:
         # Don't fail validation just because record creation failed
         result["configured_tape_neon"] = None
@@ -2297,6 +2336,10 @@ def save_tape_neon_template_to_schedule(
     computed = result.get("computed", {})
     resolved = result.get("resolved_items", {})
     configured_name = result.get("configured_tape_neon")
+
+    attach_error = _configured_tape_neon_attach_error(configured_name)
+    if attach_error:
+        return attach_error
 
     # Resolve template name from template_code
     template_name = None

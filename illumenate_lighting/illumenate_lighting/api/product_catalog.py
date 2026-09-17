@@ -4,8 +4,9 @@
 """
 Product Catalog API
 
-Internal-only endpoints for the System Manager product catalog pages.
-All endpoints are guarded by ``frappe.only_for("System Manager")``.
+Endpoints for the dealer-facing product catalog pages. All endpoints are
+guarded by ``portal.access.require_catalog_access`` (Dealers and internal
+users).
 """
 
 import json
@@ -14,6 +15,8 @@ from typing import Optional, Union
 import frappe
 from frappe import _
 from frappe.utils import cint
+
+from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -55,7 +58,7 @@ def get_catalog_products(
     Returns:
         dict with ``success``, ``products``, ``total``, ``page``, ``page_size``
     """
-    frappe.only_for("System Manager")
+    require_catalog_access()
 
     # ── sanitise inputs ──────────────────────────────────────────────
     filters = _parse_json_param(filters) or {}
@@ -199,7 +202,7 @@ def get_catalog_product_detail(product_slug: str) -> dict:
     Returns:
         dict with ``success`` and ``product`` (all fields + child tables).
     """
-    frappe.only_for("System Manager")
+    require_catalog_access()
 
     if not product_slug:
         return {"success": False, "error": _("product_slug is required")}
@@ -339,7 +342,7 @@ def get_catalog_filter_options() -> dict:
         dict with ``success``, ``filters`` (list of facet groups),
         ``product_types`` (list of {value, count}).
     """
-    frappe.only_for("System Manager")
+    require_catalog_access()
 
     # ── product type facets ──────────────────────────────────────────
     type_rows = frappe.db.sql(

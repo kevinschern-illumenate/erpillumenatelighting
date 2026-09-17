@@ -31,10 +31,13 @@ def get_context(context):
 	if not has_permission(project, "read", frappe.session.user):
 		frappe.throw("You don't have permission to view this project", frappe.PermissionError)
 
-	# Check if user can manage collaborators (only owner or System Manager)
+	# Same rule as the collaborator APIs: owner, internal, or company Dealer
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		can_manage_project_collaborators,
+	)
+
 	is_owner = project.owner == frappe.session.user
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
-	can_manage = is_owner or is_system_manager
+	can_manage = can_manage_project_collaborators(project, frappe.session.user)
 
 	# Get current collaborators with user details
 	collaborators = []

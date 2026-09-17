@@ -210,16 +210,6 @@ Help center, FAQ, and support ticket submission
 			</a>
 		</div>
 		<div class="contact-card">
-			<div class="contact-card-icon chat">
-				<i class="fa fa-comments"></i>
-			</div>
-			<h5>{{ _("Live Chat") }}</h5>
-			<p>{{ _("Chat with a specialist now") }}</p>
-			<button class="btn btn-outline-warning btn-sm" onclick="openChat()">
-				{{ _("Start Chat") }}
-			</button>
-		</div>
-		<div class="contact-card">
 			<div class="contact-card-icon ticket">
 				<i class="fa fa-ticket"></i>
 			</div>
@@ -472,14 +462,5 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 	});
 });
-
-function openChat() {
-	// Placeholder for chat integration (Intercom, Zendesk, etc.)
-	frappe.msgprint({
-		title: '{{ _("Live Chat") }}',
-		indicator: 'blue',
-		message: '{{ _("Live chat is coming soon! Please use email or phone support for now.") }}'
-	});
-}
 </script>
 {% endblock %}

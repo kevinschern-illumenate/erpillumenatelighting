@@ -128,6 +128,20 @@ def _add_schedule_to_transaction(
 	schedule = frappe.get_doc(SCHEDULE_DOCTYPE, fixture_schedule)
 	schedule.check_permission("read")
 
+	# Header-level traceability: one transaction carries one schedule.
+	header_changed = False
+	if target_doc.meta.has_field("ill_fixture_schedule"):
+		existing_link = target_doc.get("ill_fixture_schedule")
+		if existing_link and existing_link != schedule.name:
+			frappe.throw(
+				_("{0} {1} is already linked to Fixture Schedule {2}. Create a separate {0} for another schedule.").format(
+					parent_doctype, target_doc.name, existing_link
+				)
+			)
+		if existing_link != schedule.name:
+			target_doc.ill_fixture_schedule = schedule.name
+			header_changed = True
+
 	counts = schedule.append_quote_lines(
 		target_doc,
 		include_accessories=bool(cint(include_accessories)),
@@ -135,7 +149,7 @@ def _add_schedule_to_transaction(
 		tape_neon_mode=tape_neon_mode,
 	)
 
-	if counts.get("rows_added"):
+	if counts.get("rows_added") or header_changed:
 		target_doc.save()
 
 	counts["parent_doctype"] = parent_doctype

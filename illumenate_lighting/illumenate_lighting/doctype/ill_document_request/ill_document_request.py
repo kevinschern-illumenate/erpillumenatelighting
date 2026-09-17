@@ -178,18 +178,20 @@ class ilLDocumentRequest(Document):
 		self._notify_completion()
 
 	def _notify_completion(self):
-		"""Send notification to requester on completion."""
+		"""Send notification to requester on completion (gated by their preference)."""
 		if not self.requester_user:
 			return
+
+		from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
 		# Get published deliverables
 		deliverables = [d for d in self.deliverables or [] if d.is_published_to_portal]
 
-		try:
-			frappe.sendmail(
-				recipients=[self.requester_user],
-				subject=_("Your Request {0} is Complete").format(self.name),
-				message=_("""
+		notify_user(
+			self.requester_user,
+			"notify_drawings",
+			_("Your Request {0} is Complete").format(self.name),
+			_("""
 <p>Your document request has been completed.</p>
 
 <p><strong>Request:</strong> {name}<br>
@@ -199,15 +201,14 @@ class ilLDocumentRequest(Document):
 
 <p><a href="{url}">View Request and Download Files</a></p>
 """).format(
-					name=self.name,
-					request_type=self.request_type,
-					deliverables_text=_("<p><strong>Deliverables:</strong> {0} file(s) available for download</p>").format(len(deliverables)) if deliverables else "",
-					url=frappe.utils.get_url(f"/portal/requests/{self.name}"),
-				),
-				delayed=False,
-			)
-		except Exception as e:
-			frappe.log_error(f"Failed to send completion notification: {str(e)}")
+				name=self.name,
+				request_type=self.request_type,
+				deliverables_text=_("<p><strong>Deliverables:</strong> {0} file(s) available for download</p>").format(len(deliverables)) if deliverables else "",
+				url=frappe.utils.get_url(f"/portal/drawings/{self.name}"),
+			),
+			reference_doctype=self.doctype,
+			reference_name=self.name,
+		)
 
 	@frappe.whitelist()
 	def submit_request(self):
@@ -238,15 +239,17 @@ class ilLDocumentRequest(Document):
 		return {"success": True}
 
 	def _notify_deliverable_published(self, deliverable):
-		"""Notify requester when a deliverable is published."""
+		"""Notify requester when a deliverable is published (gated by their preference)."""
 		if not self.requester_user:
 			return
 
-		try:
-			frappe.sendmail(
-				recipients=[self.requester_user],
-				subject=_("New File Available: {0}").format(self.name),
-				message=_("""
+		from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
+
+		notify_user(
+			self.requester_user,
+			"notify_drawings",
+			_("New File Available: {0}").format(self.name),
+			_("""
 <p>A new file has been added to your request.</p>
 
 <p><strong>Request:</strong> {name}<br>
@@ -254,14 +257,13 @@ class ilLDocumentRequest(Document):
 
 <p><a href="{url}">View and Download</a></p>
 """).format(
-					name=self.name,
-					file=deliverable.file.split("/")[-1] if deliverable.file else "File",
-					url=frappe.utils.get_url(f"/portal/requests/{self.name}"),
-				),
-				delayed=False,
-			)
-		except Exception as e:
-			frappe.log_error(f"Failed to send deliverable notification: {str(e)}")
+				name=self.name,
+				file=frappe.utils.escape_html(deliverable.file.split("/")[-1]) if deliverable.file else "File",
+				url=frappe.utils.get_url(f"/portal/drawings/{self.name}"),
+			),
+			reference_doctype=self.doctype,
+			reference_name=self.name,
+		)
 
 
 def _get_user_customer(user):

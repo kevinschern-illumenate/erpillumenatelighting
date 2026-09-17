@@ -4,11 +4,13 @@
 """
 Product Detail Page Handler
 
-Renders the /portal/products/<slug> page (System Manager only).
+Renders the /portal/products/<slug> page for Dealers and internal users.
 """
 
 import frappe
 from frappe import _
+
+from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
 no_cache = 1
 
@@ -18,7 +20,7 @@ def get_context(context):
     if frappe.session.user == "Guest":
         frappe.throw(_("Please log in to access the product catalog"), frappe.PermissionError)
 
-    frappe.only_for("System Manager")
+    require_catalog_access()
 
     product_slug = frappe.form_dict.get("slug", "")
 

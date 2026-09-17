@@ -214,9 +214,6 @@ User profile, notifications, and account preferences
 				<a href="#security" class="settings-nav-item" data-section="security">
 					<i class="fa fa-lock"></i> {{ _("Security") }}
 				</a>
-				<a href="#preferences" class="settings-nav-item" data-section="preferences">
-					<i class="fa fa-cog"></i> {{ _("Preferences") }}
-				</a>
 			</div>
 		</div>
 
@@ -237,9 +234,6 @@ User profile, notifications, and account preferences
 								<i class="fa fa-user"></i>
 								{% endif %}
 							</div>
-							<button class="btn btn-sm btn-outline-primary" onclick="changeAvatar()">
-								{{ _("Change Photo") }}
-							</button>
 						</div>
 						<div class="col-md-9">
 							<form id="profileForm">
@@ -398,24 +392,6 @@ User profile, notifications, and account preferences
 							{{ _("Change Password") }}
 						</button>
 					</div>
-					<div class="security-item">
-						<div>
-							<h6>{{ _("Two-Factor Authentication") }}</h6>
-							<p>{{ _("Add an extra layer of security to your account") }}</p>
-						</div>
-						<button class="btn btn-outline-primary btn-sm" onclick="setup2FA()">
-							{{ _("Enable") }}
-						</button>
-					</div>
-					<div class="security-item">
-						<div>
-							<h6>{{ _("Active Sessions") }}</h6>
-							<p>{{ _("Manage devices where you're logged in") }}</p>
-						</div>
-						<button class="btn btn-outline-primary btn-sm" onclick="viewSessions()">
-							{{ _("View") }}
-						</button>
-					</div>
 
 					<hr>
 
@@ -428,54 +404,8 @@ User profile, notifications, and account preferences
 					</div>
 				</div>
 			</div>
-
-			<!-- Preferences Section -->
-			<div class="settings-card mb-4" id="preferences">
-				<div class="settings-card-header">
-					<h5><i class="fa fa-cog"></i> {{ _("Preferences") }}</h5>
-				</div>
-				<div class="settings-card-body">
-					<div class="form-group">
-						<label>{{ _("Language") }}</label>
-						<select class="form-control" name="language" id="pref_language">
-							<option value="en" {{ 'selected' if portal_settings.language == 'en' else '' }}>English</option>
-							<option value="es" {{ 'selected' if portal_settings.language == 'es' else '' }}>Español</option>
-							<option value="fr" {{ 'selected' if portal_settings.language == 'fr' else '' }}>Français</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label>{{ _("Units") }}</label>
-						<select class="form-control" name="units" id="pref_units">
-							<option value="imperial" {{ 'selected' if portal_settings.units == 'imperial' else '' }}>{{ _("Imperial (inches, feet)") }}</option>
-							<option value="metric" {{ 'selected' if portal_settings.units == 'metric' else '' }}>{{ _("Metric (mm, meters)") }}</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label>{{ _("Date Format") }}</label>
-						<select class="form-control" name="date_format" id="pref_date_format">
-							<option value="mm/dd/yyyy" {{ 'selected' if portal_settings.date_format == 'mm/dd/yyyy' else '' }}>MM/DD/YYYY</option>
-							<option value="dd/mm/yyyy" {{ 'selected' if portal_settings.date_format == 'dd/mm/yyyy' else '' }}>DD/MM/YYYY</option>
-							<option value="yyyy-mm-dd" {{ 'selected' if portal_settings.date_format == 'yyyy-mm-dd' else '' }}>YYYY-MM-DD</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label>{{ _("Timezone") }}</label>
-						<select class="form-control" name="timezone" id="pref_timezone">
-							<option value="America/New_York" {{ 'selected' if portal_settings.timezone == 'America/New_York' else '' }}>{{ _("Eastern Time (ET)") }}</option>
-							<option value="America/Chicago" {{ 'selected' if portal_settings.timezone == 'America/Chicago' else '' }}>{{ _("Central Time (CT)") }}</option>
-							<option value="America/Denver" {{ 'selected' if portal_settings.timezone == 'America/Denver' else '' }}>{{ _("Mountain Time (MT)") }}</option>
-							<option value="America/Los_Angeles" {{ 'selected' if portal_settings.timezone == 'America/Los_Angeles' else '' }}>{{ _("Pacific Time (PT)") }}</option>
-							<option value="America/Anchorage" {{ 'selected' if portal_settings.timezone == 'America/Anchorage' else '' }}>{{ _("Alaska Time (AKT)") }}</option>
-							<option value="Pacific/Honolulu" {{ 'selected' if portal_settings.timezone == 'Pacific/Honolulu' else '' }}>{{ _("Hawaii Time (HT)") }}</option>
-							<option value="America/Phoenix" {{ 'selected' if portal_settings.timezone == 'America/Phoenix' else '' }}>{{ _("Arizona (no DST)") }}</option>
-							<option value="America/Puerto_Rico" {{ 'selected' if portal_settings.timezone == 'America/Puerto_Rico' else '' }}>{{ _("Atlantic Time (AT)") }}</option>
-						</select>
-					</div>
-					<button class="btn btn-primary" onclick="savePreferences()">
-						<i class="fa fa-save"></i> {{ _("Save Preferences") }}
-					</button>
-				</div>
-			</div>
+			{# Language / units / date / timezone preferences are intentionally not
+			   offered: nothing in the portal consumes them yet (see plan §7). #}
 		</div>
 	</div>
 </div>
@@ -559,10 +489,6 @@ document.addEventListener('DOMContentLoaded', function() {
 	});
 });
 
-function changeAvatar() {
-	frappe.msgprint('{{ _("Avatar upload coming soon!") }}');
-}
-
 function saveNotificationPrefs() {
 	const prefs = {};
 	document.querySelectorAll('#notifications input[type="checkbox"]').forEach(input => {
@@ -635,14 +561,6 @@ function changePassword() {
 	}, '{{ _("Change Password") }}', '{{ _("Update") }}');
 }
 
-function setup2FA() {
-	frappe.msgprint('{{ _("Two-factor authentication setup coming soon!") }}');
-}
-
-function viewSessions() {
-	frappe.msgprint('{{ _("Session management coming soon!") }}');
-}
-
 function deleteAccount() {
 	frappe.confirm(
 		'{{ _("Are you sure you want to delete your account? This action cannot be undone.") }}',
@@ -650,36 +568,6 @@ function deleteAccount() {
 			frappe.msgprint('{{ _("Please contact support to delete your account.") }}');
 		}
 	);
-}
-
-function savePreferences() {
-	const prefs = {
-		language: document.getElementById('pref_language').value,
-		units: document.getElementById('pref_units').value,
-		date_format: document.getElementById('pref_date_format').value,
-		timezone: document.getElementById('pref_timezone').value
-	};
-
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.save_portal_preferences',
-		args: { preferences: JSON.stringify(prefs) },
-		freeze: true,
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.msgprint({
-					title: '{{ _("Success") }}',
-					indicator: 'green',
-					message: '{{ _("Preferences saved") }}'
-				});
-			} else {
-				frappe.msgprint({
-					title: '{{ _("Error") }}',
-					indicator: 'red',
-					message: r.message?.error || '{{ _("An error occurred") }}'
-				});
-			}
-		}
-	});
 }
 
 function createCompany() {

@@ -22,8 +22,37 @@ TAPE_NEON_MODES = (TAPE_NEON_MODE_CONFIGURED, TAPE_NEON_MODE_RAW)
 # Savepoint wrapping the whole schedule → Sales Order conversion.
 SO_CONVERSION_SAVEPOINT = "ill_schedule_to_sales_order"
 
+# Schedule lifecycle. A draft Sales Order is the customer's *order request*;
+# the schedule only becomes ORDERED when our team submits that Sales Order.
+# ISSUE is the exception state after a request is deleted, rejected or the
+# order is cancelled.
+SCHEDULE_STATUSES = (
+	"DRAFT",
+	"READY",
+	"QUOTED",
+	"ORDER_REQUESTED",
+	"ORDERED",
+	"ISSUE",
+	"CLOSED",
+)
+
 # Statuses from which a schedule may still be converted to a Sales Order.
 CONVERTIBLE_STATUSES = ("READY", "QUOTED")
+
+# Statuses whose lines may still be edited from the portal.
+EDITABLE_STATUSES = ("DRAFT", "READY")
+
+# Statuses a portal user may request directly; the rest are system-driven.
+PORTAL_SETTABLE_STATUSES = ("DRAFT", "READY", "QUOTED")
+
+# Statuses that must have every ilLumenate line fully configured.
+CONFIGURED_REQUIRED_STATUSES = ("READY", "QUOTED", "ORDER_REQUESTED", "ORDERED")
+
+ISSUE_STATUS_NOTE = (
+	"We were unable to complete this order request. Please reach out to "
+	"sales@illumenate.lighting for more information if we have not already "
+	"been in contact with you."
+)
 
 
 def _validate_tape_neon_mode(mode):
@@ -78,7 +107,7 @@ class ilLProjectFixtureSchedule(Document):
 		Validate that all ILLUMENATE lines have configured fixtures
 		before allowing status to be set to READY or beyond.
 		"""
-		if self.status not in ["READY", "QUOTED", "ORDERED"]:
+		if self.status not in CONFIGURED_REQUIRED_STATUSES:
 			return
 
 		unconfigured_lines = []
@@ -290,8 +319,9 @@ class ilLProjectFixtureSchedule(Document):
 			frappe.db.rollback(save_point=SO_CONVERSION_SAVEPOINT)
 			raise
 
-		# Update schedule status to ORDERED
-		self.db_set("status", "ORDERED")
+		# The draft Sales Order is the customer's order request; ORDERED is set
+		# by the Sales Order submit hook once our team approves it.
+		self.set_lifecycle_status("ORDER_REQUESTED", sales_order=so_name)
 
 		# Build success message
 		msg_parts = [_("Sales Order {0} created successfully").format(
@@ -340,6 +370,35 @@ class ilLProjectFixtureSchedule(Document):
 			"name",
 			order_by="creation asc",
 		)
+
+	def set_lifecycle_status(self, new_status, sales_order=None, note=None):
+		"""System-driven status change (order requested / approved / issue).
+
+		Written directly because these run inside another document's
+		transaction (Sales Order submit/cancel) and must never be blocked by
+		portal editing rules such as version locks.
+		"""
+		if new_status not in SCHEDULE_STATUSES:
+			frappe.throw(_("Invalid schedule status {0}").format(new_status))
+
+		related_order = sales_order or self.get("sales_order")
+		values = {"status": new_status, "status_note": note or None}
+		if sales_order is not None:
+			values["sales_order"] = sales_order or None
+		self.db_set(values, notify=True)
+		self.add_comment(
+			"Info",
+			_("Schedule status set to {0}{1}").format(
+				new_status,
+				_(" (Sales Order {0})").format(related_order) if related_order else "",
+			),
+		)
+
+		from illumenate_lighting.illumenate_lighting.portal.notifications import (
+			notify_schedule_status,
+		)
+
+		notify_schedule_status(self, new_status, sales_order=related_order)
 
 	def _build_and_insert_sales_order(
 		self,
@@ -854,21 +913,14 @@ class ilLProjectFixtureSchedule(Document):
 	def _schedule_line_group_fields(self, line):
 		"""Return ``(section_label, additional_notes)`` for a schedule line.
 
-		``line.location`` (label "Location") drives the print-format section
-		grouping via ``ill_section_label`` ("Section / Room"). The fixture type
-		(``line.line_id``) is stamped onto ``ill_fixture_type`` and *also* kept
-		in the standard ``additional_notes`` field, which the print formats
-		render as an italic note under the item.
+		``line.location`` is the Section / Room grouping key (``ill_section_label``).
+		The fixture type lives only in the structural ``ill_fixture_type`` field,
+		which print formats render as a row above the item; ``additional_notes``
+		carries just the customer's own line notes, printed under the item.
 		"""
 		section_label = line.location or None
-
-		note_parts = []
-		if line.line_id:
-			note_parts.append(_("Fixture Type: {0}").format(line.line_id))
-		if line.notes:
-			note_parts.append(line.notes)
-
-		return section_label, "\n".join(note_parts) if note_parts else None
+		notes = (line.notes or "").strip() or None
+		return section_label, notes
 
 	def _stamp_group_fields(self, target_doc, rows_before_count, line):
 		"""Stamp grouping + traceability fields on every row a branch appended.
@@ -1222,6 +1274,13 @@ class ilLProjectFixtureSchedule(Document):
 			frappe.throw(_("Schedule must be in DRAFT or READY status to request a quote"))
 
 		self.db_set("status", "QUOTED")
+		self.add_comment("Info", _("Quote requested"))
+
+		from illumenate_lighting.illumenate_lighting.portal.notifications import (
+			notify_schedule_status,
+		)
+
+		notify_schedule_status(self, "QUOTED")
 
 		frappe.msgprint(
 			_("Quote requested for schedule {0}").format(self.name),
@@ -1353,10 +1412,10 @@ def get_permission_query_conditions(user=None):
 	"""
 	Return SQL conditions to filter ilL-Project-Fixture-Schedule list for the current user.
 
-	Schedule inherits project privacy rules:
-	- If inherits_project_privacy is True, uses linked ilL-Project's access rules
-	- Internal roles see all schedules
-	- Dealers see all schedules for their company
+	Generated from the same policy as :func:`has_permission` (see
+	``illumenate_lighting.illumenate_lighting.portal.access``) so that a
+	schedule the user may open by URL is also discoverable in lists, and
+	vice versa.
 
 	Args:
 		user: The user to check permissions for. Defaults to current user.
@@ -1364,78 +1423,21 @@ def get_permission_query_conditions(user=None):
 	Returns:
 		str: SQL WHERE clause conditions or empty string for full access
 	"""
-	if not user:
-		user = frappe.session.user
-
-	# Internal users have full access
-	if _is_internal_user(user):
-		return ""
-
-	# Import project permission helper
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		schedule_query_conditions,
 	)
 
-	user_customer = _get_user_customer(user)
-	is_dealer = _is_dealer_user(user)
-
-	if not user_customer:
-		# User has no customer link - can only see schedules they own
-		return f"""(
-			`tabilL-Project-Fixture-Schedule`.owner = {frappe.db.escape(user)}
-		)"""
-
-	if is_dealer:
-		# Dealers see all schedules for their company (via project link)
-		return f"""(
-			`tabilL-Project-Fixture-Schedule`.owner = {frappe.db.escape(user)}
-			OR `tabilL-Project-Fixture-Schedule`.customer = {frappe.db.escape(user_customer)}
-			OR `tabilL-Project-Fixture-Schedule`.ill_project IN (
-				SELECT p.name FROM `tabilL-Project` p
-				WHERE p.owner_customer = {frappe.db.escape(user_customer)}
-			)
-		)"""
-
-	# Non-dealer portal user: apply privacy rules
-	# Schedule is accessible if:
-	# 1. inherits_project_privacy = 1 AND linked project is accessible
-	# 2. inherits_project_privacy = 0 AND schedule.is_private = 0 AND schedule.customer = user_customer
-	# 3. Owner always has access
-	return f"""(
-		`tabilL-Project-Fixture-Schedule`.owner = {frappe.db.escape(user)}
-		OR (
-			`tabilL-Project-Fixture-Schedule`.customer = {frappe.db.escape(user_customer)}
-			AND (
-				`tabilL-Project-Fixture-Schedule`.inherits_project_privacy = 0
-				AND (`tabilL-Project-Fixture-Schedule`.is_private = 0 OR `tabilL-Project-Fixture-Schedule`.is_private IS NULL)
-			)
-		)
-		OR (
-			`tabilL-Project-Fixture-Schedule`.inherits_project_privacy = 1
-			AND `tabilL-Project-Fixture-Schedule`.ill_project IN (
-				SELECT p.name FROM `tabilL-Project` p
-				WHERE (
-					p.owner_customer = {frappe.db.escape(user_customer)} AND p.is_private = 0
-				) OR (
-					p.is_private = 1 AND (
-						p.owner = {frappe.db.escape(user)}
-						OR p.name IN (
-							SELECT parent FROM `tabilL-Child-Project-Collaborator`
-							WHERE user = {frappe.db.escape(user)} AND is_active = 1
-						)
-					)
-				)
-			)
-		)
-	)"""
+	return schedule_query_conditions(user)
 
 
 def has_permission(doc, ptype="read", user=None):
 	"""
 	Check if user has permission to access this specific schedule.
 
-	Schedule inherits project privacy rules when inherits_project_privacy is True.
-	Dealers have access to all schedules for their company.
+	Inherited schedules follow the linked project's decision (including its
+	read-only rule for same-company non-dealer users). Non-inherited schedules
+	apply schedule-level privacy; Dealers of the owning company always have
+	access.
 
 	Args:
 		doc: The ilL-Project-Fixture-Schedule document
@@ -1445,42 +1447,11 @@ def has_permission(doc, ptype="read", user=None):
 	Returns:
 		bool: True if user has permission, False otherwise
 	"""
-	if not user:
-		user = frappe.session.user
-
-	# Internal users have full access
-	if _is_internal_user(user):
-		return True
-
-	# Owner always has full access
-	if doc.owner == user:
-		return True
-
-	# Import project permission helpers
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-		has_permission as project_has_permission,
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		schedule_permission,
 	)
 
-	user_customer = _get_user_customer(user)
-	is_dealer = _is_dealer_user(user)
-
-	# If inherits project privacy, delegate to project permission check
-	if doc.inherits_project_privacy and doc.ill_project:
-		project = frappe.get_doc("ilL-Project", doc.ill_project)
-		return project_has_permission(project, ptype, user)
-
-	# Dealers can access all schedules for their company
-	if is_dealer and user_customer and user_customer == doc.customer:
-		return True
-
-	# Schedule-level privacy check (when not inheriting from project)
-	# Non-dealer users can only access non-private schedules
-	if not doc.is_private:
-		if user_customer and user_customer == doc.customer:
-			return True
-
-	return False
+	return schedule_permission(doc, ptype, user)
 
 
 def can_convert_schedule_to_order(doc, user=None):
@@ -1519,14 +1490,135 @@ def can_convert_schedule_to_order(doc, user=None):
 	status = doc.get("status")
 	is_privileged = _is_internal_user(user) or _is_dealer_user(user)
 
-	if is_privileged:
-		if status not in CONVERTIBLE_STATUSES:
-			return False, _(
-				"Schedule must be in READY or QUOTED status to convert to a Sales Order"
-			)
-	elif status != "QUOTED":
-		# Non-dealer portal users (including EDIT collaborators) must go through
-		# Request Quote first.
-		return False, _("This schedule must be quoted before it can be converted to a Sales Order")
+	if not is_privileged:
+		# Product decision: only Dealers and internal users place orders.
+		# EDIT collaborators and same-company users go through Request Quote.
+		return False, _(
+			"Only dealers can convert a schedule to an order. Please contact your dealer."
+		)
+
+	if status not in CONVERTIBLE_STATUSES:
+		return False, _(
+			"Schedule must be in READY or QUOTED status to convert to a Sales Order"
+		)
 
 	return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Status state machine (portal-driven transitions)
+# ---------------------------------------------------------------------------
+
+
+def allowed_portal_transitions(current_status, user=None):
+	"""Statuses ``user`` may move a schedule to from ``current_status``.
+
+	- Anyone with write access: DRAFT <-> READY, QUOTED -> DRAFT/READY
+	- Dealers/internal: READY -> QUOTED
+	- Internal only: ISSUE -> DRAFT/READY (controlled retry)
+	- ORDER_REQUESTED / ORDERED / CLOSED are system-driven and not settable.
+	"""
+	if not user:
+		user = frappe.session.user
+	is_internal = _is_internal_user(user)
+	is_privileged = is_internal or _is_dealer_user(user)
+
+	transitions = {
+		"DRAFT": ["READY"],
+		"READY": ["DRAFT", "QUOTED"] if is_privileged else ["DRAFT"],
+		"QUOTED": ["DRAFT", "READY"],
+		"ISSUE": ["DRAFT", "READY"] if is_internal else [],
+	}
+	return transitions.get(current_status, [])
+
+
+def transition_schedule_status(schedule, new_status, user=None):
+	"""Apply a portal-requested status change and return the outcome.
+
+	Single state machine used by every UI/API path. Raises
+	``frappe.ValidationError`` for anything not allowed. Leaving QUOTED
+	snapshots the quoted schedule as a locked version and continues on a new
+	version, so the returned dict may name a different schedule::
+
+		{"new_status": "READY", "new_schedule_name": "...", "auto_versioned": True}
+	"""
+	if not user:
+		user = frappe.session.user
+
+	if new_status not in PORTAL_SETTABLE_STATUSES:
+		frappe.throw(
+			_("Invalid status. Must be one of: {0}").format(", ".join(PORTAL_SETTABLE_STATUSES))
+		)
+
+	if schedule.get("is_locked"):
+		frappe.throw(
+			_("This schedule version is locked. Create a new version to make changes.")
+		)
+
+	current_status = schedule.status
+	if new_status == current_status:
+		return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
+
+	if new_status not in allowed_portal_transitions(current_status, user):
+		frappe.throw(
+			_("Cannot change status from {0} to {1}").format(current_status, new_status)
+		)
+
+	if current_status == "QUOTED":
+		# Preserve the quoted state as a locked snapshot and continue on a
+		# fresh version carrying the requested status.
+		new_name = schedule.create_new_version(
+			version_notes=_("Auto-versioned: leaving QUOTED to continue editing")
+		)
+		if new_status != "DRAFT":
+			frappe.get_doc(schedule.doctype, new_name).db_set("status", new_status)
+		return {"new_status": new_status, "new_schedule_name": new_name, "auto_versioned": True}
+
+	# Save through the document so controller validation (e.g. all lines
+	# configured before READY) runs instead of being bypassed with db_set.
+	schedule.status = new_status
+	schedule.save(ignore_permissions=True)
+	if new_status == "QUOTED":
+		from illumenate_lighting.illumenate_lighting.portal.notifications import (
+			notify_schedule_status,
+		)
+
+		notify_schedule_status(schedule, "QUOTED")
+	return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
+
+
+# ---------------------------------------------------------------------------
+# Sales Order lifecycle hooks (system-driven transitions)
+# ---------------------------------------------------------------------------
+
+
+def _linked_schedule(sales_order):
+	name = sales_order.get("ill_fixture_schedule")
+	if not name or not frappe.db.exists("ilL-Project-Fixture-Schedule", name):
+		return None
+	return frappe.get_doc("ilL-Project-Fixture-Schedule", name)
+
+
+def on_sales_order_submit(doc, method=None):
+	"""Submitting the Sales Order is how our team approves an order request."""
+	schedule = _linked_schedule(doc)
+	if schedule and schedule.status in ("ORDER_REQUESTED", "READY", "QUOTED", "ISSUE"):
+		schedule.set_lifecycle_status("ORDERED", sales_order=doc.name)
+
+
+def on_sales_order_cancel(doc, method=None):
+	"""A cancelled order leaves the schedule in an explicit exception state."""
+	schedule = _linked_schedule(doc)
+	if schedule and schedule.status in ("ORDER_REQUESTED", "ORDERED"):
+		schedule.set_lifecycle_status("ISSUE", sales_order="", note=ISSUE_STATUS_NOTE)
+
+
+def on_sales_order_trash(doc, method=None):
+	"""Deleting a draft order request without submitting it is an exception."""
+	schedule = _linked_schedule(doc)
+	if not schedule:
+		return
+	if doc.docstatus == 0 and schedule.status == "ORDER_REQUESTED":
+		schedule.set_lifecycle_status("ISSUE", sales_order="", note=ISSUE_STATUS_NOTE)
+	elif schedule.get("sales_order") == doc.name:
+		schedule.db_set("sales_order", None)

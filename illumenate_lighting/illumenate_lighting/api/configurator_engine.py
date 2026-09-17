@@ -2758,6 +2758,7 @@ def _create_or_update_multisegment_fixture(
 			doc.variant_origin = variant_origin
 		doc.insert()
 
+	_register_fixture_handoff(doc.name)
 	return doc.name
 
 
@@ -4555,7 +4556,19 @@ def _create_or_update_configured_fixture(
 			doc.variant_origin = variant_origin
 		doc.insert(ignore_permissions=True)
 
+	_register_fixture_handoff(doc.name)
 	return doc.name
+
+
+def _register_fixture_handoff(configured_name):
+	"""Configured fixtures are content-addressed and shared between users, so
+	record that this session produced ``configured_name`` to allow the later
+	save-to-schedule call to prove provenance."""
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		register_configured_record_handoff,
+	)
+
+	register_configured_record_handoff("ilL-Configured-Fixture", configured_name)
 
 
 # =============================================================================

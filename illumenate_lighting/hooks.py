@@ -274,7 +274,15 @@ has_website_permission = {
 
 doc_events = {
 	"Sales Order": {
-		"on_submit": "illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
+		"on_submit": [
+			"illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
+			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_submit",
+		],
+		"on_cancel": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_cancel",
+		"on_trash": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_trash",
+	},
+	"Delivery Note": {
+		"on_submit": "illumenate_lighting.illumenate_lighting.portal.notifications.on_delivery_note_submit",
 	},
 	"Purchase Order": {
 		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",

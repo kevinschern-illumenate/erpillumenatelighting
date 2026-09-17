@@ -1,42 +1,24 @@
 {
-  "last_sync_commit": "4685f69cdb56b1e5598558812bd6eb2e7c57bce7",
-  "total_pages": 502,
+  "last_sync_commit": "786927c6bd6de68f637b83c2a99521dda701f153",
+  "total_pages": 512,
   "provider": "openai",
   "model": "gpt-5.4-nano",
-  "docs_mode": "llm",
-  "docs_enabled": true,
+  "docs_mode": "deterministic",
+  "docs_enabled": false,
   "run_mode": "standard",
   "git_tier": "full",
   "include_submodules": false,
   "total_tokens": 72632,
   "phase_timings": {
-    "traverse": 2.84,
-    "co_change": 0.3,
-    "parse": 11.62,
-    "tsconfig": 0.09,
-    "graph.ts_index": 0.07,
-    "graph.imports": 0.02,
-    "graph.type_refs": 0.01,
-    "graph.heritage": 0.0,
-    "graph.calls": 0.03,
-    "dynamic_hints": 0.17,
-    "graph.metrics": 7.32,
-    "graph.communities": 0.27,
-    "git": 39.91,
-    "external_systems": 0.04,
-    "dead_code": 0.95,
-    "health": 15.65,
-    "decisions": 22.21,
-    "knowledge_graph.skeleton": 0.02,
-    "graph.flows": 0.0
+    "run": 0.54
   },
   "knowledge_graph": {
     "version": "1.0.0",
-    "node_count": 3013,
+    "node_count": 3097,
     "layer_count": 9,
     "tour_steps": 12,
     "has_summaries": true,
-    "fingerprint": "3a3962055cdcf4a9"
+    "fingerprint": "28bb16fe99af275a"
   },
   "onboarding_slots_offered": [
     "active_landscape",
@@ -46,8 +28,17 @@
     "key_concepts"
   ],
   "store_format_version": 2,
-  "written_by_version": "0.42.0",
-  "config_fingerprint": "1ff65bd0a31d8e6df54e98e980b82c134cb610440cc0b7baa0a0ed3414e828da",
+  "written_by_version": "0.51.0",
+  "config_fingerprint": "58e2e1ea2242009cd34725db60fbadbde26ea77cf0976e2f03105da481b9f4f0",
   "health_analyzer_version": 1,
-  "last_full_rescore_at": 1785524403.0
+  "last_full_rescore_at": 1789602593.0,
+  "config_dependency_fingerprints": {
+    "traversal": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "git_history": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "health": "594e0c42a3a22127976d1564801ee46ca91f3d761eb56819f9da91ba062024ad",
+    "generation": "2925c712e99c95b4f18903f1c4cfe7a821e66b5494bf1ddf75c8fcf4543a8a09",
+    "state_only": "d280dea6968a2f9753a002703480e56f6fa4092eadbd3ca309620b066d6a4a3a",
+    "other": "f8fe433544896b46a268ecf228856ebf72281fe1d3d4001361c9e469e02c30f4"
+  },
+  "renderer_fingerprint": "7262852f6eb7249d435edbdc1d9c9b77adc8ce2d0550583300f1258a4e2346b1:cb855f5a9f489cda155978f8e40d4aa190ada5a660ae8e29f41bc17b25f97c30"
 }
