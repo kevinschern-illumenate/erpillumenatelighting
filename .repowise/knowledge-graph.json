@@ -2744,7 +2744,7 @@
       "filePath": ".claude/CLAUDE.md",
       "language": "markdown",
       "symbolCount": 0,
-      "lineCount": 219,
+      "lineCount": 218,
       "complexity": "moderate",
       "pagerank": 0.000833,
       "communityId": 8,
@@ -2922,7 +2922,7 @@
       "filePath": "AGENTS.md",
       "language": "markdown",
       "symbolCount": 0,
-      "lineCount": 217,
+      "lineCount": 216,
       "complexity": "moderate",
       "pagerank": 0.000833,
       "communityId": 20,
@@ -3176,8 +3176,7 @@
       "pagerank": 0.000833,
       "communityId": 47,
       "tags": [],
-      "summary": "Application module hooks (24 symbols).",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module hooks (24 symbols)."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/__init__.py",
@@ -3255,8 +3254,7 @@
       "pagerank": 0.001642,
       "communityId": 2,
       "tags": [],
-      "summary": "API module configurator_engine defining _normalize_user_segments_for_hash, _build_singlesegment_config_data, _populate_temp_fixture_for_part_number.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "API module configurator_engine defining _normalize_user_segments_for_hash, _build_singlesegment_config_data, _populate_temp_fixture_for_part_number."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/configurator_session.py",
@@ -3293,10 +3291,9 @@
       "lineCount": 566,
       "complexity": "complex",
       "pagerank": 0.001514,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "API module document_requests defining get_request_types, get_request_type_fields, create_request.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "API module document_requests defining get_request_types, get_request_type_fields, create_request."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/driver_controller_configurator.py",
@@ -3413,8 +3410,7 @@
       "pagerank": 0.002136,
       "communityId": 2,
       "tags": [],
-      "summary": "API module portal defining _safe_error, _can_access_configured_record, get_allowed_customers_for_project.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "API module portal defining _safe_error, _can_access_configured_record, get_allowed_customers_for_project."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/pricing_utils.py",
@@ -3427,8 +3423,7 @@
       "pagerank": 0.002187,
       "communityId": 2,
       "tags": [],
-      "summary": "API module pricing_utils defining get_customer_for_session_user, get_tier_price_for_customer, _is_privileged_user.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "API module pricing_utils defining get_customer_for_session_user, get_tier_price_for_customer, _is_privileged_user."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/product_catalog.py",
@@ -3441,8 +3436,7 @@
       "pagerank": 0.000833,
       "communityId": 2,
       "tags": [],
-      "summary": "API module product_catalog defining _parse_json_param, get_catalog_products, get_catalog_product_detail.",
-      "primaryOwner": "copilot-swe-agent[bot]"
+      "summary": "API module product_catalog defining _parse_json_param, get_catalog_products, get_catalog_product_detail."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/purchase_order.py",
@@ -3468,8 +3462,7 @@
       "pagerank": 0.000922,
       "communityId": 0,
       "tags": [],
-      "summary": "API module quote_from_schedule defining get_schedule_summary, add_schedule_to_quotation, add_schedule_to_transaction.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "API module quote_from_schedule defining get_schedule_summary, add_schedule_to_quotation, add_schedule_to_transaction."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/quote_order_configurator.py",
@@ -3506,7 +3499,7 @@
       "lineCount": 1778,
       "complexity": "complex",
       "pagerank": 0.000912,
-      "communityId": 3,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -3566,8 +3559,7 @@
       "pagerank": 0.001446,
       "communityId": 2,
       "tags": [],
-      "summary": "API module tape_neon_configurator defining _compute_tape_neon_pricing, _compute_template_tape_neon_pricing, get_tape_configurator_init.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "API module tape_neon_configurator defining _compute_tape_neon_pricing, _compute_template_tape_neon_pricing, get_tape_configurator_init."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/test_bundle_stock.py",
@@ -3612,8 +3604,7 @@
       "tags": [
         "test"
       ],
-      "summary": "Tests for dealer_order_conversion.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Tests for dealer_order_conversion."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/test_driver_controller_configurator.py",
@@ -3699,12 +3690,11 @@
       "lineCount": 521,
       "complexity": "complex",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [
         "test"
       ],
-      "summary": "Tests for portal_access_matrix.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Tests for portal_access_matrix."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/test_portal_status_and_stock.py",
@@ -3719,8 +3709,7 @@
       "tags": [
         "test"
       ],
-      "summary": "Tests for portal_status_and_stock.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Tests for portal_status_and_stock."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/api/test_portal_status_transitions.py",
@@ -3821,7 +3810,7 @@
       "lineCount": 74,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [
         "test"
       ],
@@ -3896,7 +3885,7 @@
       "lineCount": 348,
       "complexity": "moderate",
       "pagerank": 0.001534,
-      "communityId": 3,
+      "communityId": 2,
       "tags": [],
       "summary": "API module unit_conversion defining mm_to_inches, inches_to_mm, mm_to_feet."
     },
@@ -3922,7 +3911,7 @@
       "lineCount": 66,
       "complexity": "simple",
       "pagerank": 0.00101,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "API module webflow_auth defining get_user_context."
     },
@@ -4035,13 +4024,14 @@
       "type": "file",
       "filePath": "illumenate_lighting/illumenate_lighting/dealer_permissions.py",
       "language": "python",
-      "symbolCount": 8,
-      "lineCount": 136,
+      "symbolCount": 10,
+      "lineCount": 152,
       "complexity": "moderate",
       "pagerank": 0.00162,
       "communityId": 0,
       "tags": [],
-      "summary": "Application module dealer_permissions defining apply_dealer_permissions, _current_permission_value, _dealer_customer."
+      "summary": "Application module dealer_permissions defining apply_dealer_permissions, _current_permission_value, _dealer_customer.",
+      "primaryOwner": "kevinscherncascade"
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/desktop.py",
@@ -8049,7 +8039,7 @@
       "lineCount": 36,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 0,
+      "communityId": 1,
       "tags": [],
       "summary": "Application module ill_controller_submittal_mapping defining ilLControllerSubmittalMapping, get_doctype_fields."
     },
@@ -8131,10 +8121,9 @@
       "lineCount": 258,
       "complexity": "complex",
       "pagerank": 0.001017,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "Application module ill_document_request defining ilLDocumentRequest, before_insert, validate.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module ill_document_request defining ilLDocumentRequest, before_insert, validate."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_driver_submittal_mapping/__init__.py",
@@ -8706,7 +8695,7 @@
       "lineCount": 2,
       "complexity": "simple",
       "pagerank": 0.002135,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "Application module __init__."
     },
@@ -8747,10 +8736,9 @@
       "lineCount": 139,
       "complexity": "moderate",
       "pagerank": 0.005955,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "Application module ill_project defining _is_internal_user, _is_dealer_user, ilLProject.",
-      "primaryOwner": "copilot-swe-agent[bot]"
+      "summary": "Application module ill_project defining _is_internal_user, _is_dealer_user, ilLProject."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_project/test_ill_project.py",
@@ -8761,7 +8749,7 @@
       "lineCount": 180,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [
         "test"
       ],
@@ -8819,8 +8807,7 @@
       "pagerank": 0.002739,
       "communityId": 2,
       "tags": [],
-      "summary": "Application module ill_project_fixture_schedule defining _validate_tape_neon_mode, _is_internal_user, _is_dealer_user.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module ill_project_fixture_schedule defining _validate_tape_neon_mode, _is_internal_user, _is_dealer_user."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_project_fixture_schedule/test_ill_project_fixture_schedule.py",
@@ -8835,8 +8822,7 @@
       "tags": [
         "test"
       ],
-      "summary": "Tests for ill_project_fixture_schedule.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Tests for ill_project_fixture_schedule."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_rel_driver_eligibility/__init__.py",
@@ -10728,8 +10714,7 @@
       "pagerank": 0.000991,
       "communityId": 361,
       "tags": [],
-      "summary": "Application module __init__.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module __init__."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/portal/access.py",
@@ -10740,10 +10725,9 @@
       "lineCount": 309,
       "complexity": "complex",
       "pagerank": 0.004593,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "Application module access defining Actor, __init__, is_company_dealer_for.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module access defining Actor, __init__, is_company_dealer_for."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/portal/notifications.py",
@@ -10754,10 +10738,9 @@
       "lineCount": 125,
       "complexity": "moderate",
       "pagerank": 0.001243,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "Application module notifications defining wants_notification, notify_user, _portal_link.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module notifications defining wants_notification, notify_user, _portal_link."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/portal/orders.py",
@@ -10768,10 +10751,9 @@
       "lineCount": 366,
       "complexity": "complex",
       "pagerank": 0.001671,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "Application module orders defining load_accessible_sales_order, _customer_document_accessible, _work_orders_for.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module orders defining load_accessible_sales_order, _customer_document_accessible, _work_orders_for."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/portal/status.py",
@@ -10782,10 +10764,9 @@
       "lineCount": 120,
       "complexity": "moderate",
       "pagerank": 0.001853,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "Application module status defining schedule_status_label, schedule_status_class, schedule_status_description.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module status defining schedule_status_label, schedule_status_class, schedule_status_description."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/print_format/__init__.py",
@@ -11176,7 +11157,7 @@
       "lineCount": 42,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "Application module add_brand_to_configured_items defining execute."
     },
@@ -11735,7 +11716,7 @@
       "lineCount": 80,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module account defining get_context, _get_user_customer, _get_contact_job_title."
     },
@@ -11761,10 +11742,9 @@
       "lineCount": 107,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module collaborators defining get_context, _get_available_users.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "UI module collaborators defining get_context, _get_available_users."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/configure.html",
@@ -11866,7 +11846,7 @@
       "lineCount": 60,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module configure_tape defining get_context."
     },
@@ -11892,7 +11872,7 @@
       "lineCount": 67,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module drawing_detail defining get_context, _get_status_class, _drawing_type_icon."
     },
@@ -11918,7 +11898,7 @@
       "lineCount": 144,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module drawings defining _get_user_customer, get_context, _get_project_names."
     },
@@ -11996,7 +11976,7 @@
       "lineCount": 37,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module ill_support defining get_context, _get_user_customer."
     },
@@ -12022,10 +12002,9 @@
       "lineCount": 42,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module order_detail defining get_context, _calculate_progress, _check_production_started.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "UI module order_detail defining get_context, _calculate_progress, _check_production_started."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/orders.html",
@@ -12049,10 +12028,9 @@
       "lineCount": 24,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module orders defining get_context, _get_user_customer, _get_sales_orders_in_production.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "UI module orders defining get_context, _get_user_customer, _get_sales_orders_in_production."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/portal.html",
@@ -12076,10 +12054,9 @@
       "lineCount": 95,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module portal defining get_context, _get_user_customer, _get_user_customer_name.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "UI module portal defining get_context, _get_user_customer, _get_user_customer_name."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/product_detail.html",
@@ -12103,10 +12080,9 @@
       "lineCount": 33,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module product_detail defining get_context.",
-      "primaryOwner": "copilot-swe-agent[bot]"
+      "summary": "UI module product_detail defining get_context."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/products_catalog.html",
@@ -12130,10 +12106,9 @@
       "lineCount": 17,
       "complexity": "simple",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module products_catalog defining get_context.",
-      "primaryOwner": "copilot-swe-agent[bot]"
+      "summary": "UI module products_catalog defining get_context."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/project.html",
@@ -12157,10 +12132,9 @@
       "lineCount": 128,
       "complexity": "moderate",
       "pagerank": 0.000833,
-      "communityId": 2,
+      "communityId": 0,
       "tags": [],
-      "summary": "UI module project defining get_context, schedule_status_class, _get_new_project_context.",
-      "primaryOwner": "copilot-swe-agent[bot]"
+      "summary": "UI module project defining get_context, schedule_status_class, _get_new_project_context."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/request_dealer_access.html",
@@ -12238,8 +12212,7 @@
       "pagerank": 0.001064,
       "communityId": 2,
       "tags": [],
-      "summary": "UI module schedule defining get_context, _get_new_schedule_context, schedule_status_class.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "UI module schedule defining get_context, _get_new_schedule_context, schedule_status_class."
     },
     {
       "id": "file:illumenate_lighting/templates/pages/spec_submittal_cover.html",
@@ -23725,6 +23698,24 @@
       "type": "function",
       "filePath": "illumenate_lighting/illumenate_lighting/dealer_permissions.py",
       "name": "_dealer_customer",
+      "language": "python",
+      "tags": [],
+      "summary": ""
+    },
+    {
+      "id": "function:illumenate_lighting/illumenate_lighting/dealer_permissions.py:_permission_table",
+      "type": "function",
+      "filePath": "illumenate_lighting/illumenate_lighting/dealer_permissions.py",
+      "name": "_permission_table",
+      "language": "python",
+      "tags": [],
+      "summary": ""
+    },
+    {
+      "id": "function:illumenate_lighting/illumenate_lighting/dealer_permissions.py:_supported_ptypes",
+      "type": "function",
+      "filePath": "illumenate_lighting/illumenate_lighting/dealer_permissions.py",
+      "name": "_supported_ptypes",
       "language": "python",
       "tags": [],
       "summary": ""
@@ -47607,6 +47598,20 @@
     {
       "source": "file:illumenate_lighting/illumenate_lighting/dealer_permissions.py",
       "target": "function:illumenate_lighting/illumenate_lighting/dealer_permissions.py:_dealer_customer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/dealer_permissions.py",
+      "target": "function:illumenate_lighting/illumenate_lighting/dealer_permissions.py:_permission_table",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/dealer_permissions.py",
+      "target": "function:illumenate_lighting/illumenate_lighting/dealer_permissions.py:_supported_ptypes",
       "type": "contains",
       "direction": "forward",
       "weight": 1.0
