@@ -1,0 +1,6 @@
+// Desk (app_include_css) bundle. Extensionless imports pull the plain .css
+// files in as Sass so the output is a single content-hashed stylesheet.
+@import "./configurator/shared_configurator";
+@import "./configurator/fixture_steps";
+@import "./configurator/tape_neon_steps";
+@import "./configurator/desk_configurator";

@@ -25,36 +25,21 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = [
-	"/assets/illumenate_lighting/css/configurator/shared_configurator.css",
-	"/assets/illumenate_lighting/css/configurator/fixture_steps.css",
-	"/assets/illumenate_lighting/css/configurator/tape_neon_steps.css",
-	# Desk-only overrides for the embedded quote/order configurator dialog.
-	"/assets/illumenate_lighting/css/configurator/desk_configurator.css",
-]
-app_include_js = [
-	"/assets/illumenate_lighting/js/configurator/shared_configurator.js",
-	"/assets/illumenate_lighting/js/configurator/fixture_steps.js",
-	"/assets/illumenate_lighting/js/configurator/tape_neon_steps.js",
-	# Desk "Configure & Add Fixture" dialog — embeds the scoped portal
-	# configurator classes inside a Quotation / Sales Order modal.
-	"/assets/illumenate_lighting/js/desk/desk_dialog.js",
-]
+# Bundles (public/js/*.bundle.js, public/css/*.bundle.scss) are built by
+# `bench build` into content-hashed files so browsers never serve a stale copy
+# (plain /assets paths are cached for a year with `immutable`).
+app_include_css = ["illumenate_desk.bundle.css"]
+# shared_configurator + fixture_steps + tape_neon_steps + desk/desk_dialog
+# ("Configure & Add Fixture" dialog for Quotation / Sales Order).
+app_include_js = ["illumenate_desk.bundle.js"]
 
 # include js, css files in header of web template
 web_include_css = [
 	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
-	"/assets/illumenate_lighting/css/portal.css",
-	"/assets/illumenate_lighting/css/configurator/shared_configurator.css",
-	"/assets/illumenate_lighting/css/configurator/fixture_steps.css",
-	"/assets/illumenate_lighting/css/configurator/tape_neon_steps.css",
+	"illumenate_web.bundle.css",
 ]
-web_include_js = [
-	"/assets/illumenate_lighting/js/portal.js",
-	"/assets/illumenate_lighting/js/configurator/shared_configurator.js",
-	"/assets/illumenate_lighting/js/configurator/fixture_steps.js",
-	"/assets/illumenate_lighting/js/configurator/tape_neon_steps.js",
-]
+# portal + shared_configurator + fixture_steps + tape_neon_steps
+web_include_js = ["illumenate_web.bundle.js"]
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "illumenate_lighting/public/scss/website"
