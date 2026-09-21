@@ -42,10 +42,12 @@
 	{% if has_templates %}
 	<div class="form-group" id="templateSelectorGroup">
 		<label>{% if is_tape_neon %}{{ _("Product Family") }}{% else %}{{ _("Fixture Template") }}{% endif %} <span class="text-danger">*</span></label>
+		<!-- Visual card picker (IllConfigurator.renderTemplateCards) drives the select below -->
+		<div id="templatePicker"></div>
 		<select class="form-control" name="fixture_template_code" required>
 			<option value="">{{ _("Select Template...") }}</option>
 			{% for template in templates %}
-			<option value="{{ template.template_code }}" data-image="{{ template.image or '' }}" data-gallery='{{ template.gallery_json }}' {% if template.template_code == selected_template %}selected{% endif %}>
+			<option value="{{ template.template_code }}" data-name="{{ template.template_name }}" data-image="{{ template.image or '' }}" data-gallery='{{ template.gallery_json }}' data-description="{{ template.description or '' }}" {% if template.template_code == selected_template %}selected{% endif %}>
 				{{ template.template_name }} ({{ template.template_code }})
 			</option>
 			{% endfor %}

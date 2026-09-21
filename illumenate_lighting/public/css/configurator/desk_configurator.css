@@ -68,6 +68,18 @@
 	top: auto !important;
 }
 
+/* Template card grid: tighter cards and a shorter scroll region inside the modal. */
+.ill-desk-configurator .ill-template-grid {
+	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+	max-height: 300px;
+}
+/* Desk uses the portal palette for the accent pills / toggles so both surfaces match. */
+.ill-desk-configurator .end-type-toggle .btn.active {
+	background-color: var(--ill-accent, #00588c);
+	border-color: var(--ill-accent, #00588c);
+	color: #fff;
+}
+
 /* ------------------------------------------------------------------------
  * Dialog chrome (steps 1–2 + done screen). Scoped to the dialog wrapper the
  * controller adds (`.ill-desk-configurator-dialog`) so nothing leaks.

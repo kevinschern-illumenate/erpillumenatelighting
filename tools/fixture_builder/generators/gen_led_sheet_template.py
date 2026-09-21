@@ -13,6 +13,7 @@ SPEC_HEADERS = [
 
 TEMPLATE_HEADERS = [
     "Template Code", "Template Name", "Series", "SKU Series Code", "Webflow Product",
+    "Description", "Image",
     "Price per Sheet MSRP", "Pricing Class", "Lead Time Class", "Jumper Cable Item",
     "Leader Cable Item", "Spec Submittal Template", "Spec Sheet", "Warranty", "Is Active",
     "Spec (Allowed Specs)", "Is Active (Allowed Specs)",
@@ -79,6 +80,8 @@ def generate_templates(config: FixtureBuilderConfig, output_dir: str) -> str:
             tmpl.series or config.series_name,
             tmpl.sku_series_code or config.series_code,
             tmpl.webflow_product,
+            tmpl.description,
+            tmpl.image,
             tmpl.price_per_sheet_msrp,
             tmpl.pricing_class,
             tmpl.lead_time_class,
@@ -93,7 +96,7 @@ def generate_templates(config: FixtureBuilderConfig, output_dir: str) -> str:
             rows.append(primary + [""] * 9)
             continue
         for idx, (kind, data) in enumerate(child_rows):
-            row = (primary if idx == 0 else [""] * 14)
+            row = (primary if idx == 0 else [""] * len(primary))
             if kind == "spec":
                 row += data + [""] * 7
             else:

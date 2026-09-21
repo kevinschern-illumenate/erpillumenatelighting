@@ -12,6 +12,10 @@
   "series",
   "sku_series_code",
   "webflow_product",
+  "description_section",
+  "description",
+  "column_break_description",
+  "image",
   "pricing_section",
   "price_per_sheet_msrp",
   "pricing_class",
@@ -68,6 +72,27 @@
    "label": "Webflow Product",
    "options": "ilL-Webflow-Product",
    "read_only": 1
+  },
+  {
+   "fieldname": "description_section",
+   "fieldtype": "Section Break",
+   "label": "Description & Media"
+  },
+  {
+   "description": "Short description shown on the configurator template card",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_description",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Card image for the configurator. Falls back to the linked Webflow product gallery when empty.",
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "label": "Image"
   },
   {
    "fieldname": "pricing_section",

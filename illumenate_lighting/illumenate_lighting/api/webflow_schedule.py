@@ -92,8 +92,8 @@ def add_to_schedule(
     length_mm = int(length_inches * 25.4)
     
     # Map feed directions to power feed type
-    start_feed_dir = config.get("start_feed_direction", "End")
-    power_feed_type = _map_feed_direction_to_power_feed(start_feed_dir)
+    start_feed_dir = config.get("start_power_feed_type") or config.get("start_feed_direction", "End")
+    power_feed_type = _map_feed_direction_to_power_feed(start_feed_dir, template)
     
     # Get default endcap style and color
     default_endcap_style = _get_default_endcap_style(template)
@@ -369,31 +369,91 @@ def create_quick_project_and_schedule(
 # HELPER FUNCTIONS
 # =============================================================================
 
-def _map_feed_direction_to_power_feed(direction: str) -> str:
+def _map_feed_direction_to_power_feed(direction: str, template=None) -> str:
     """
-    Map feed direction from configurator to power feed type code.
-    
-    Args:
-        direction: Feed direction ("End", "Back", "Left", or "Right")
-    
-    Returns:
-        str: Power feed type code
+    Map a feed direction (or an already-valid power feed type) to an
+    ``ilL-Attribute-Power Feed Type`` record name.
+
+    Resolution order:
+      1. ``direction`` already names a Power Feed Type record.
+      2. A Power Feed Type whose ``type`` link (ilL-Attribute-Feed-Direction)
+         or ``code`` matches the direction (by name or direction code).
+      3. Legacy label variants ("End Feed", "End", "E", ...).
+    When ``template`` is given, candidates allowed on the template win.
+    Falls back to the input unchanged so the engine reports a clear error.
     """
-    # Try to find matching power feed type
-    if frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
-        # Map based on direction
-        mapping = {
-            "End": ["End Feed", "End", "E"],
-            "Back": ["Back Feed", "Back", "B", "Center"],
-            "Left": ["Left Feed", "Left", "L"],
-            "Right": ["Right Feed", "Right", "R"]
-        }
-        
-        for code in mapping.get(direction, [direction]):
-            if frappe.db.exists("ilL-Attribute-Power Feed Type", code):
-                return code
-    
-    # Fallback - return the direction as-is
+    if not direction:
+        return direction
+    if not frappe.db.exists("DocType", "ilL-Attribute-Power Feed Type"):
+        return direction
+
+    allowed = None
+    if template is not None:
+        allowed = {
+            getattr(opt, "power_feed_type", None)
+            for opt in getattr(template, "allowed_options", []) or []
+            if getattr(opt, "option_type", None) == "Power Feed Type"
+            and getattr(opt, "is_active", True)
+            and getattr(opt, "power_feed_type", None)
+        } or None
+
+    def _pick(candidates):
+        candidates = [c for c in candidates if c]
+        if not candidates:
+            return None
+        if allowed:
+            for c in candidates:
+                if c in allowed:
+                    return c
+        return candidates[0]
+
+    if frappe.db.exists("ilL-Attribute-Power Feed Type", direction):
+        return direction
+
+    # Direction names/codes that may be linked from Power Feed Type.type
+    direction_keys = {direction}
+    if frappe.db.exists("DocType", "ilL-Attribute-Feed-Direction"):
+        for row in frappe.get_all(
+            "ilL-Attribute-Feed-Direction",
+            or_filters=[["name", "=", direction], ["direction_name", "=", direction], ["code", "=", direction]],
+            fields=["name", "code"],
+            ignore_permissions=True,
+        ):
+            direction_keys.add(row.name)
+            if row.code:
+                direction_keys.add(row.code)
+
+    pft_filters = {}
+    if frappe.db.has_column("ilL-Attribute-Power Feed Type", "is_active"):
+        pft_filters["is_active"] = 1
+    or_filters = [["type", "in", list(direction_keys)], ["code", "in", list(direction_keys)]]
+    matches = frappe.get_all(
+        "ilL-Attribute-Power Feed Type",
+        filters=pft_filters,
+        or_filters=or_filters,
+        fields=["name"],
+        order_by="name",
+        ignore_permissions=True,
+    )
+    picked = _pick([m.name for m in matches])
+    if picked:
+        return picked
+
+    mapping = {
+        "End": ["End Feed", "End", "E"],
+        "Back": ["Back Feed", "Back", "B", "Center"],
+        "Left": ["Left Feed", "Left", "L"],
+        "Right": ["Right Feed", "Right", "R"],
+    }
+    legacy = [c for c in mapping.get(direction, [direction]) if frappe.db.exists("ilL-Attribute-Power Feed Type", c)]
+    picked = _pick(legacy)
+    if picked:
+        return picked
+
+    # Last resort: the template's only allowed power feed type.
+    if allowed and len(allowed) == 1:
+        return next(iter(allowed))
+
     return direction
 
 

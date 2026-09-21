@@ -329,6 +329,8 @@ class LedSheetTemplateDef:
     series: str = ""
     sku_series_code: str = ""
     webflow_product: str = ""
+    description: str = ""
+    image: str = ""
     price_per_sheet_msrp: float = 0.0
     pricing_class: str = ""
     lead_time_class: str = ""

@@ -264,14 +264,15 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 	"""Render the reusable scoped-class configurator partial for embedding
 	outside the portal page (e.g. the desk Quotation / Sales Order dialog).
 
-	The markup is wired to the IllConfigurator.Fixture / IllConfigurator.TapeNeon
-	classes:
+	The markup is wired to the IllConfigurator.Fixture / TapeNeon / LedSheet classes:
 	  - Linear Fixture -> templates/includes/configurator_fixture_form.html
 	  - LED Tape / LED Neon -> templates/includes/configurator_tape_neon_form.html
+	  - LED Sheet -> templates/includes/configurator_led_sheet_form.html
 
 	The caller mounts the returned HTML inside a host element carrying
-	`.ill-configurator.ill-configurator-fixture` (fixtures) or
-	`.ill-configurator.ill-configurator-tape-neon` (tape/neon) and instantiates
+	`.ill-configurator.ill-configurator-fixture` (fixtures),
+	`.ill-configurator.ill-configurator-tape-neon` (tape/neon) or
+	`.ill-configurator.ill-configurator-sheet` (LED sheet) and instantiates
 	the matching class against that root element.
 	"""
 	if frappe.session.user == "Guest":
@@ -279,7 +280,17 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 
 	product_category = _normalize_product_category(product_category)
 	if product_category == "LED Sheet":
-		frappe.throw("LED Sheets are only available from the portal configurator page.")
+		from illumenate_lighting.illumenate_lighting.api.portal import get_led_sheet_templates
+
+		context = {
+			"templates": get_led_sheet_templates().get("templates", []),
+			"selected_template": selected_template,
+			"can_save": True,
+			"show_pricing": True,
+		}
+		return frappe.render_template(
+			"illumenate_lighting/templates/includes/configurator_led_sheet_form.html", context
+		)
 
 	if product_category == "Linear Fixture":
 		templates = _get_linear_fixture_templates()

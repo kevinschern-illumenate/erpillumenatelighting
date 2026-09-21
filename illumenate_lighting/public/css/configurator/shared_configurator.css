@@ -8,6 +8,39 @@
  * Submodule-specific styles live in fixture_steps.css and tape_neon_steps.css.
  */
 
+/* Design tokens. portal.css defines these on :root for the website, but the
+ * Desk (Quotation / Sales Order dialog) does not load portal.css, so the
+ * configurator carries its own copy. Same values as portal.css. */
+.ill-configurator,
+.ill-desk-configurator-dialog {
+	--ill-bg:          #e8f0f6;
+	--ill-paper:       #ffffff;
+	--ill-ink:         #172e48;
+	--ill-muted:       #7f8080;
+	--ill-subtle:      #b3b4b3;
+	--ill-border:      #dce2e8;
+	--ill-border-str:  #8b97a4;
+	--ill-accent:      #00588c;
+	--ill-accent-soft: #b3d1e5;
+	--ill-accent-bg:   #e6f0f7;
+	--ill-gold:        #fdc757;
+	--ill-gold-bg:     #fff6e0;
+	--ill-danger:      #d63b2f;
+	--ill-danger-bg:   #fae5e3;
+	--ill-success:     #006833;
+	--ill-success-bg:  #cce1d6;
+	--ill-font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+	--ill-font-body:    'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+	--ill-font-mono:    'JetBrains Mono', 'Menlo', monospace;
+	--ill-radius:      8px;
+	--ill-radius-lg:   12px;
+	--ill-radius-xl:   16px;
+	--ill-radius-pill: 9999px;
+	--ill-shadow:      0 1px 3px rgba(23, 46, 72, 0.08), 0 1px 2px rgba(23, 46, 72, 0.05);
+	--ill-shadow-lg:   0 4px 12px rgba(23, 46, 72, 0.10), 0 2px 4px rgba(23, 46, 72, 0.06);
+	--ill-transition: 150ms ease;
+}
+
 /* Pill button selectors (shared between fixture and tape/neon) */
 .ill-configurator .pill-selector {
 	display: flex;
@@ -118,12 +151,178 @@
 .ill-option-pill[aria-pressed="true"],
 .ill-configurator .pill-selector .pill.active,
 .ill-configurator .pill-selector .pill-option.active {
-	border-color: var(--ill-accent);
-	background: var(--ill-accent);
+	border-color: var(--ill-accent, #00588c);
+	background: var(--ill-accent, #00588c);
+	color: #fff;
+}
+.ill-configurator .pill-selector .pill.active:hover,
+.ill-configurator .pill-selector .pill-option.active:hover {
+	background: var(--ill-accent, #00588c);
+	border-color: var(--ill-accent, #00588c);
 	color: #fff;
 }
 .ill-option-pill:disabled,
 .ill-configurator .pill-selector .pill.disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Template / product-family card picker ──
+ * Shared by the Guided Wizard, the Multi-Segment Coordinator and the desk
+ * dialog. A hidden <select name="fixture_template_code"> stays the source of
+ * truth; cards only drive it. */
+.ill-configurator .ill-template-picker { margin-bottom: 12px; }
+.ill-configurator .ill-template-picker-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+.ill-configurator .ill-template-picker-toolbar input[type="search"] {
+	flex: 1;
+	min-width: 0;
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius, 8px);
+	padding: 7px 12px;
+	font-size: 13px;
+	color: var(--ill-ink, #172e48);
+	background: var(--ill-paper, #fff);
+}
+.ill-configurator .ill-template-picker-toolbar input[type="search"]:focus {
+	outline: none;
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
+.ill-configurator .ill-template-picker-count { font-size: 12px; color: var(--ill-muted, #7f8080); white-space: nowrap; }
+.ill-configurator .ill-template-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 12px;
+	max-height: 420px;
+	overflow-y: auto;
+	padding: 4px;
+	margin: -4px;
+}
+.ill-configurator .ill-template-grid.is-collapsed { max-height: none; overflow: visible; }
+.ill-configurator .ill-template-card {
+	display: flex;
+	flex-direction: column;
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+	overflow: hidden;
+	cursor: pointer;
+	background: var(--ill-paper, #fff);
+	text-align: left;
+	padding: 0;
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease), transform var(--ill-transition, 150ms ease);
+}
+.ill-configurator .ill-template-card:hover { box-shadow: var(--ill-shadow-lg, 0 4px 12px rgba(23,46,72,.1)); transform: translateY(-1px); }
+.ill-configurator .ill-template-card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5); }
+.ill-configurator .ill-template-card.selected {
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
+.ill-configurator .ill-template-card-media {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	background: var(--ill-bg, #e8f0f6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+.ill-configurator .ill-template-card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ill-configurator .ill-template-card-media .ill-template-card-placeholder { font-size: 28px; color: var(--ill-subtle, #b3b4b3); }
+.ill-configurator .ill-template-card-check {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: var(--ill-accent, #00588c);
+	color: #fff;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+}
+.ill-configurator .ill-template-card.selected .ill-template-card-check { display: inline-flex; }
+.ill-configurator .ill-template-card-body { padding: 10px 12px 12px; }
+.ill-configurator .ill-template-card-name {
+	font-family: var(--ill-font-display, sans-serif);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ill-ink, #172e48);
+	line-height: 1.3;
+}
+.ill-configurator .ill-template-card-code {
+	font-family: var(--ill-font-mono, monospace);
+	font-size: 11px;
+	color: var(--ill-muted, #7f8080);
+	margin-top: 2px;
+}
+.ill-configurator .ill-template-card-desc {
+	font-size: 11.5px;
+	color: var(--ill-muted, #7f8080);
+	margin-top: 6px;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.ill-configurator .ill-template-picker-empty { padding: 18px; text-align: center; color: var(--ill-muted, #7f8080); font-size: 13px; }
+.ill-configurator select.ill-template-select-driven,
+select.ill-template-select-driven { display: none !important; }
+@media (max-width: 575.98px) {
+	.ill-configurator .ill-template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Selected-template summary strip shown once a card is picked. */
+.ill-configurator .ill-template-selected {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border: 1.5px solid var(--ill-accent-soft, #b3d1e5);
+	background: var(--ill-accent-bg, #e6f0f7);
+	border-radius: var(--ill-radius, 8px);
+}
+.ill-configurator .ill-template-selected img {
+	width: 56px;
+	height: 42px;
+	object-fit: cover;
+	border-radius: 6px;
+	background: var(--ill-paper, #fff);
+}
+.ill-configurator .ill-template-selected .ill-template-selected-name { font-weight: 600; color: var(--ill-ink, #172e48); font-size: 14px; }
+.ill-configurator .ill-template-selected .ill-template-selected-code { font-family: var(--ill-font-mono, monospace); font-size: 12px; color: var(--ill-muted, #7f8080); }
+.ill-configurator .ill-template-selected .ill-template-change {
+	margin-left: auto;
+	border: 1px solid var(--ill-border-str, #8b97a4);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+	border-radius: var(--ill-radius-pill, 9999px);
+	padding: 4px 12px;
+	font-size: 12px;
+	cursor: pointer;
+}
+.ill-configurator .ill-template-selected .ill-template-change:hover { border-color: var(--ill-accent, #00588c); }
+
+/* ── LED Sheet configurator (IllConfigurator.LedSheet) ──
+ * Mirrors the Guided Wizard section chrome so all categories look the same. */
+.ill-configurator-sheet .config-section h4 {
+	font-size: 1rem;
+	font-weight: 600;
+	margin-bottom: 0.75rem;
+	color: var(--ill-ink, #172e48);
+}
+.ill-configurator-sheet .config-section h4 .ill-config-step-num { margin-right: 10px; vertical-align: middle; }
+.ill-configurator-sheet .length-input-group { display: flex; gap: 0.5rem; }
+.ill-configurator-sheet .length-input-group input { flex: 2; }
+.ill-configurator-sheet .length-input-group select { flex: 1; }
+.ill-configurator-sheet .ill-fixture-actions { gap: 0.5rem; }
+.ill-configurator-sheet #sheetSummaryList .list-group-item { border-color: var(--ill-border, #dce2e8); }
+.ill-configurator-sheet #sheetSummary h6 { margin-top: 0.75rem; }
+.ill-configurator-sheet #sheetSummary h6:first-child { margin-top: 0; }
 
 .ill-option-card {
 	display: flex;

@@ -70,10 +70,15 @@
 			$tpl.on('change', function () {
 				self._onTemplateSelected($(this).val());
 			});
+			if (root.IllConfigurator.renderTemplateCards && this.$('#tapeNeonTemplatePicker').length) {
+				root.IllConfigurator.renderTemplateCards({
+					$container: this.$('#tapeNeonTemplatePicker'),
+					$select: $tpl
+				});
+			}
 			// Options load only after a template is chosen.
 			if (this.TEMPLATE_CODE) {
-				$tpl.val(this.TEMPLATE_CODE);
-				this._onTemplateSelected(this.TEMPLATE_CODE);
+				$tpl.val(this.TEMPLATE_CODE).trigger('change');
 			}
 		} else {
 			this._loadInitData();

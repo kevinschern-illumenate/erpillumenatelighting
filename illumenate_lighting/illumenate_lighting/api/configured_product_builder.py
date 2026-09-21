@@ -537,10 +537,18 @@ def _fixture_payload_from_portal_selections(
 ) -> dict[str, Any]:
     """Map portal fixture selections → ``configurator_engine`` payload kwargs.
 
-    Mirrors the mapping in ``webflow_schedule.add_to_schedule`` so a fixture
-    configured through the desk dialog is identical to one configured through
-    the portal.
+    Two payload shapes are accepted:
+
+    * **Engine-shaped** (Guided Wizard / coordinator): ``fixture_template_code``
+      + ``*_code`` option keys + ``segments`` (list). Passed through to
+      ``validate_and_quote_multisegment`` so a fixture configured in the desk
+      dialog is byte-identical to one configured on the portal.
+    * **Legacy webflow-shaped**: ``environment_rating`` / ``cct`` /
+      ``start_feed_direction`` …, mirrored from ``webflow_schedule.add_to_schedule``.
     """
+    if selections.get("segments") or selections.get("segments_json"):
+        return _fixture_payload_from_engine_selections(product_slug, selections, qty)
+
     from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
         _resolve_tape_offering,
     )
@@ -560,7 +568,8 @@ def _fixture_payload_from_portal_selections(
     default_endcap_style = _get_default_endcap_style(template)
     default_endcap_color = _get_default_endcap_color(template, finish_code=finish_code)
     power_feed_type = _map_feed_direction_to_power_feed(
-        selections.get("start_feed_direction", "End")
+        selections.get("start_power_feed_type") or selections.get("start_feed_direction", "End"),
+        template,
     )
 
     include_power_supply = selections.get("include_power_supply", True)
@@ -612,6 +621,79 @@ def _fixture_payload_from_portal_selections(
     ):
         if selections.get(key) not in (None, ""):
             payload[key] = selections[key]
+
+    return payload
+
+
+def _fixture_payload_from_engine_selections(
+    product_slug: str | None,
+    selections: dict[str, Any],
+    qty: float,
+) -> dict[str, Any]:
+    """Engine-shaped wizard payload → ``validate_and_quote_multisegment`` kwargs.
+
+    The tape offering is auto-selected from the delivered output when the
+    client did not already resolve it (same helper the coordinator uses).
+    """
+    template_code = selections.get("fixture_template_code") or product_slug
+    if template_code and not frappe.db.exists("ilL-Fixture-Template", template_code):
+        template_code = _resolve_template_from_slug(template_code).name
+    if not template_code:
+        frappe.throw(_("Missing fixture template for the fixture configuration."))
+
+    segments = selections.get("segments") or selections.get("segments_json")
+    if isinstance(segments, str):
+        try:
+            segments = json.loads(segments)
+        except json.JSONDecodeError:
+            frappe.throw(_("Invalid segments payload"))
+    if not segments:
+        frappe.throw(_("At least one fixture segment is required."))
+
+    tape_offering_id = selections.get("tape_offering_id")
+    if not tape_offering_id and selections.get("delivered_output_value") not in (None, ""):
+        tape_result = configurator_engine.auto_select_tape_for_configuration(
+            fixture_template_code=template_code,
+            led_package_code=selections.get("led_package_code"),
+            environment_rating_code=selections.get("environment_rating_code"),
+            cct_code=selections.get("cct_code") or None,
+            lens_appearance_code=selections.get("lens_appearance_code"),
+            delivered_output_value=int(float(selections["delivered_output_value"])),
+        )
+        tape_offering_id = tape_result.get("tape_offering_id") if tape_result.get("success") else None
+        if not tape_offering_id:
+            frappe.throw(tape_result.get("error") or _("Could not determine tape for the selected output."))
+    if not tape_offering_id:
+        frappe.throw(_("Could not resolve tape offering for this configuration."))
+
+    include_power_supply = selections.get("include_power_supply", True)
+    if isinstance(include_power_supply, str):
+        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+
+    payload: dict[str, Any] = {
+        "fixture_template_code": template_code,
+        "finish_code": selections.get("finish_code"),
+        "lens_appearance_code": selections.get("lens_appearance_code"),
+        "mounting_method_code": selections.get("mounting_method_code"),
+        "environment_rating_code": selections.get("environment_rating_code"),
+        "endcap_color_code": selections.get("endcap_color_code") or None,
+        "tape_offering_id": tape_offering_id,
+        "segments_json": segments,
+        "qty": qty,
+        "include_power_supply": include_power_supply,
+    }
+
+    override_max_run_ft = selections.get("override_max_run_ft")
+    if override_max_run_ft not in (None, ""):
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+        except (TypeError, ValueError):
+            override_max_run_ft = None
+        if override_max_run_ft and override_max_run_ft > 0:
+            payload["override_max_run_ft"] = override_max_run_ft
+
+    if selections.get("dimming_protocol_code"):
+        payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
 
     return payload
 
@@ -975,6 +1057,7 @@ _FIXTURE_MULTI_KEYS = (
     "dimming_protocol_code",
     "qty",
     "include_power_supply",
+    "override_max_run_ft",
 )
 
 

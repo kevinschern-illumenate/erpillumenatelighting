@@ -179,6 +179,22 @@ True
 - [ ] Error message mentions "Missing map"
 - [ ] Message identifies which map is missing
 
+### Test 3.5: Guided Wizard ≡ Multi-Segment Coordinator
+
+**Steps:**
+1. Open `/portal/configure?category=Linear%20Fixture` (Coordinator) and pick a template from the **card grid** (image, name, code; search box filters).
+2. Configure: LED Package → Dry/Wet → CCT → Lens → Output → Mounting → Finish; one segment with a **Back** power feed type, 48", Endcap. Calculate & Validate. Note the part number.
+3. Switch to **Guided Wizard** (toggle top-right). Pick the same template card; make the identical selections and segment. Calculate & Validate.
+
+**Expected:**
+- [ ] Both modes show the same template card picker; selected card is outlined in accent blue with a check badge
+- [ ] Selected option pills in **both** modes render white text on the accent-blue (`#00588c`) background — never white-on-white
+- [ ] Wizard Power Feed Type pills list the real `ilL-Attribute-Power Feed Type` records (e.g. Back / End) and **Back validates** (no "does not exist")
+- [ ] Wizard part number, manufacturable length, runs, driver plan and MSRP **match the Coordinator exactly**
+- [ ] Wizard supports Jumper → additional segment, inherited start on segment 2, remove segment, ft+in unit, Include Power Supplies, Override Max Run
+- [ ] Wizard shows the Schedule Target card (Project / Schedule / Fixture Type); Add to Schedule enabled only when valid + line chosen; saving redirects to the schedule
+- [ ] Desk Quotation dialog (Section 10) shows the same card picker and the same pill colours as the portal
+
 ---
 
 ## Section 4: Schedule and Sales Order Flow
@@ -483,6 +499,21 @@ Prereqs: log in as an internal user (System Manager). At least one active Linear
 **Expected:**
 - [ ] LED Tape and LED Neon lines write `variant_selections`; setting the schedule to READY does not raise
 - [ ] User notes override the build description in `line.notes`
+
+### Test 10.6b: LED Sheet lines
+
+**Steps:**
+1. Step 2: pick **LED Sheet** · Fixture Type `S1` · Qty 3 → Continue
+2. Step 3: pick a template **card** (image + name + code), a panel spec, options; enter 4 ft × 8 ft; Calculate & Validate → Add to Schedule
+
+**Expected:**
+- [ ] Template cards show the template `image` (or the linked Webflow gallery / featured image); search filters; selected card has the accent outline
+- [ ] Panel estimate under the coverage inputs updates live and matches the server result after Calculate
+- [ ] Results show part number, layout (panels wide/tall), groups table, power supplies, MSRP breakdown
+- [ ] Schedule: one `LED Sheet` panel line (`configured_led_sheet`, `led_sheet_template`, `qty = 3` bundles) **plus** ACCESSORY lines for jumpers / leaders / drivers scaled × 3 (marker `for LED Sheet <name>` in notes)
+- [ ] Quotation: panel row `rate` = configured sheet MSRP (bundle price, not total incl. accessories) with `ill_configured_led_sheet` set; jumper / leader / driver rows added too, drivers flagged `ill_is_power_supply_line`; all rows carry `ill_section_label` / `ill_fixture_type`
+- [ ] Unticking *Include Power Supplies* removes driver rows/lines but keeps cables
+- [ ] `/portal/configure?category=LED%20Sheet` uses the same card picker and results panel; Add to Schedule on a new line creates the pending line then configures it; existing configured line pre-fills
 
 ### Test 10.7: Lifecycle + robustness
 

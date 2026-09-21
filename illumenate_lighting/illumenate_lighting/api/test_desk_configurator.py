@@ -261,6 +261,85 @@ class TestDeskConfigurator(FrappeTestCase):
 		# MSRP Item Price was published so get_item_details finds a rate.
 		self.assertEqual(flt(qoc._get_selling_rate(self.item_code)), 199.0)
 
+	def test_build_configured_line_led_sheet_writes_panel_and_accessory_lines(self):
+		sheet_item = self._ensure_item("_Test Desk Cfg Sheet Item")
+		jumper_item = self._ensure_item("_Test Desk Cfg Sheet Jumper")
+		driver_item = self._ensure_item("_Test Desk Cfg Sheet Driver")
+		template_name = "_Test Desk Cfg Sheet Template"
+		if not frappe.db.exists("ilL-LED-Sheet-Template", template_name):
+			tmpl = frappe.new_doc("ilL-LED-Sheet-Template")
+			tmpl.template_code = template_name
+			tmpl.template_name = "Desk Cfg Sheet"
+			tmpl.is_active = 1
+			tmpl.jumper_cable_item = jumper_item
+			tmpl.insert(ignore_permissions=True)
+			template_name = tmpl.name
+
+		sheet = frappe.new_doc("ilL-Configured-LED-Sheet")
+		sheet.sheet_template = template_name
+		sheet.config_hash = "_test_desk_cfg_sheet_hash_1"
+		sheet.part_number = sheet_item
+		sheet.configured_item = sheet_item
+		sheet.sheets_needed = 4
+		sheet.total_groups = 1
+		sheet.total_system_watts = 120
+		sheet.include_power_supply = 1
+		sheet.msrp = 480.0
+		sheet.append("groups", {"group_number": 1, "sheet_count": 4, "group_watts": 120,
+			"compatible_driver": driver_item, "driver_max_wattage": 150})
+		sheet.insert(ignore_permissions=True)
+		self.addCleanup(lambda: frappe.delete_doc("ilL-Configured-LED-Sheet", sheet.name, force=True, ignore_permissions=True))
+
+		validation = {"is_valid": True, "configured_led_sheet": sheet.name, "part_number": sheet_item,
+			"panels_wide": 2, "panels_tall": 2, "total_groups": 1, "messages": []}
+		artifact = {
+			"product_type": qoc.PRODUCT_TYPE_SHEET, "source_doctype": "ilL-Configured-LED-Sheet",
+			"source_name": sheet.name, "configured_fixture": None, "configured_tape_neon": None,
+			"configured_led_sheet": sheet.name, "item_code": sheet_item, "bom": None,
+			"description": "Test sheet", "template_code": template_name, "requested_length_mm": None,
+			"mfg_length_mm": None, "runs_count": 1, "total_watts": 120, "finish": None, "lens": None,
+			"msrp_unit": 480.0, "total_msrp": 480.0,
+			"configuration_snapshot": {"product_type": qoc.PRODUCT_TYPE_SHEET}, "messages": [],
+		}
+		schedule = self._create_schedule(name="_Test Desk Cfg Sheet Schedule")
+		with patch(f"{MODULE}._save_led_sheet", return_value=validation), \
+			patch(f"{MODULE}._ensure_configured_artifacts", return_value=artifact):
+			result = dc.build_configured_line(
+				parent_doctype="Quotation",
+				product_type="LED Sheet",
+				selections_json=json.dumps({"template": template_name, "spec": "x"}),
+				header_json=json.dumps({"quotation_to": "Customer", "party_name": self.customer_name,
+					"selling_price_list": DEFAULT_SELLING_PRICE_LIST}),
+				qty=3,
+				fixture_type="S1",
+				location="Ceiling",
+				schedule=schedule.name,
+			)
+		self.assertTrue(result["success"], result)
+
+		schedule.reload()
+		panel = schedule.lines[0]
+		self.assertEqual(panel.product_type, "LED Sheet")
+		self.assertEqual(panel.configured_led_sheet, sheet.name)
+		self.assertEqual(panel.led_sheet_template, template_name)
+		self.assertEqual(panel.qty, 3)  # bundle count, never panel count
+		accessories = [l for l in schedule.lines if l.manufacturer_type == "ACCESSORY"]
+		self.assertTrue(accessories, "accessory lines should be generated for the sheet")
+		by_item = {l.accessory_item: l.qty for l in accessories}
+		# 4 panels → 8 jumpers per bundle × 3 bundles; 1 driver per bundle × 3.
+		self.assertEqual(by_item.get(jumper_item), 24)
+		self.assertEqual(by_item.get(driver_item), 3)
+
+		self.assertEqual(result["row_values"]["ill_configured_led_sheet"], sheet.name)
+		self.assertEqual(flt(result["row_values"]["rate"]), 480.0)
+		acc_rows = result["accessory_rows"]
+		self.assertEqual({r["item_code"]: flt(r["qty"]) for r in acc_rows}, {jumper_item: 24.0, driver_item: 3.0})
+		ps_rows = [r for r in acc_rows if r.get("ill_is_power_supply_line")]
+		self.assertEqual([r["item_code"] for r in ps_rows], [driver_item])
+		for r in acc_rows:
+			self.assertEqual(r["ill_fixture_type"], "S1")
+			self.assertEqual(r["ill_section_label"], "Ceiling")
+
 	def test_build_configured_line_tape_sets_variant_selections(self):
 		schedule = self._create_schedule(name="_Test Desk Cfg Tape Schedule")
 		ctn_item = self._ensure_item("_Test Desk Cfg Tape Item")

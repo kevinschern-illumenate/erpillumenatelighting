@@ -35,7 +35,8 @@
 	var PRODUCT_TYPES = [
 		{ value: 'Linear Fixture', label: __('Linear Fixture') },
 		{ value: 'LED Tape',       label: __('LED Tape') },
-		{ value: 'LED Neon',       label: __('LED Neon') }
+		{ value: 'LED Neon',       label: __('LED Neon') },
+		{ value: 'LED Sheet',      label: __('LED Sheet') }
 	];
 
 	var STEPS = [
@@ -128,6 +129,10 @@
 
 	function isFixture(productType) {
 		return productType === 'Linear Fixture';
+	}
+
+	function isSheet(productType) {
+		return productType === 'LED Sheet';
 	}
 
 	function pickHeader(doc) {
@@ -779,7 +784,7 @@
 		var c = this.controls;
 		if (!this.productType) {
 			frappe.msgprint({ title: __('Select a product type'), indicator: 'orange',
-				message: __('Please choose Linear Fixture, LED Tape or LED Neon.') });
+				message: __('Please choose Linear Fixture, LED Tape, LED Neon or LED Sheet.') });
 			return;
 		}
 		var fixtureType = (c.fixture_type.get_value() || '').trim();
@@ -877,7 +882,8 @@
 
 	DialogController.prototype.mountConfigurator = function (markup) {
 		var fixture = isFixture(this.productType);
-		var scopeClass = fixture ? 'ill-configurator-fixture' : 'ill-configurator-tape-neon';
+		var sheet = isSheet(this.productType);
+		var scopeClass = fixture ? 'ill-configurator-fixture' : (sheet ? 'ill-configurator-sheet' : 'ill-configurator-tape-neon');
 		var self = this;
 
 		var $host = $('<div></div>')
@@ -902,6 +908,8 @@
 		try {
 			if (fixture) {
 				this.configurator = new root.IllConfigurator.Fixture($host[0], context);
+			} else if (sheet) {
+				this.configurator = new root.IllConfigurator.LedSheet($host[0], context);
 			} else {
 				this.configurator = new root.IllConfigurator.TapeNeon($host[0], context);
 			}
@@ -947,6 +955,8 @@
 		};
 		if (isFixture(productType)) {
 			args.product_slug = payload.product_slug || '';
+		} else if (isSheet(productType)) {
+			// selections_json already carries template / spec / options / coverage.
 		} else {
 			if (payload.segments) args.segments_json = JSON.stringify(payload.segments);
 			if (payload.tape_neon_template) args.tape_neon_template = payload.tape_neon_template;
@@ -997,6 +1007,13 @@
 		Object.keys(values).forEach(function (k) { row[k] = values[k]; });
 		row.__unsaved = 1;
 
+		// LED Sheet: jumpers / leaders / power supplies ride along as their own rows.
+		(msg.accessory_rows || []).forEach(function (acc) {
+			var accRow = frm.add_child('items', {});
+			Object.keys(acc).forEach(function (k) { accRow[k] = acc[k]; });
+			accRow.__unsaved = 1;
+		});
+
 		if (msg.header_values && msg.header_values.ill_fixture_schedule
 			&& !frm.doc.ill_fixture_schedule && frm.fields_dict.ill_fixture_schedule) {
 			frm.set_value('ill_fixture_schedule', msg.header_values.ill_fixture_schedule);
@@ -1008,13 +1025,16 @@
 			try { frm.cscript.calculate_taxes_and_totals(); } catch (e) { /* totals refresh on save */ }
 		}
 		frm.dirty();
-		this.addedCount += 1;
+		this.addedCount += 1 + ((msg.accessory_rows || []).length);
 		this.rowName = null;
 
+		var accNote = (msg.accessory_rows || []).length
+			? ' ' + __('+ {0} accessory row(s)', [(msg.accessory_rows || []).length])
+			: '';
 		frappe.show_alert({
-			message: msg.schedule
+			message: (msg.schedule
 				? __('Added {0} · {1} (saved to schedule {2})', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code), escapeHtml(msg.schedule)])
-				: __('Added {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)]),
+				: __('Added {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)])) + accNote,
 			indicator: 'green'
 		}, 6);
 	};

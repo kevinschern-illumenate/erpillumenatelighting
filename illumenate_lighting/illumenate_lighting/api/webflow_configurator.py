@@ -2025,8 +2025,8 @@ def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id:
 
     length_mm = int(length_inches * 25.4)
 
-    start_feed_dir = selections_dict.get("start_feed_direction", "End")
-    power_feed_type = _map_feed_direction_to_power_feed(start_feed_dir)
+    start_feed_dir = selections_dict.get("start_power_feed_type") or selections_dict.get("start_feed_direction", "End")
+    power_feed_type = _map_feed_direction_to_power_feed(start_feed_dir, template)
     default_endcap_style = _get_default_endcap_style(template)
     default_endcap_color = _get_default_endcap_color(template, finish_code=selections_dict.get("finish"))
 

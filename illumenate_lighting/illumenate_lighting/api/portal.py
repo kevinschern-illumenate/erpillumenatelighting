@@ -4332,14 +4332,35 @@ def create_website_user(email: str, first_name: str, last_name: str = "", send_i
 
 @frappe.whitelist()
 def get_led_sheet_templates() -> dict:
-	"""Return active LED Sheet templates with specs and allowed options."""
+	"""Return active LED Sheet templates with specs, allowed options and card media.
+
+	``image`` / ``gallery_json`` follow the Linear Fixture and Tape/Neon template
+	loaders in templates/pages/configure.py: the template's own ``image`` wins,
+	otherwise the linked Webflow product gallery (then its featured image).
+	"""
+	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+
 	templates = frappe.get_all(
 		"ilL-LED-Sheet-Template",
 		filters={"is_active": 1},
-		fields=["name", "template_code", "template_name", "sku_series_code", "price_per_sheet_msrp", "jumper_cable_item", "leader_cable_item"],
+		fields=[
+			"name", "template_code", "template_name", "sku_series_code", "price_per_sheet_msrp",
+			"jumper_cable_item", "leader_cable_item", "webflow_product", "image", "description",
+		],
 		order_by="template_name asc, name asc",
+		ignore_permissions=True,
 	)
+	gallery_by_product = _fetch_webflow_gallery([t.webflow_product for t in templates if t.webflow_product])
 	for template in templates:
+		gallery = gallery_by_product.get(template.webflow_product, []) if template.webflow_product else []
+		if template.image:
+			gallery = [{"image": template.image, "alt_text": template.template_name or ""}] + [
+				g for g in gallery if g.get("image") != template.image
+			]
+		template["image"] = gallery[0]["image"] if gallery else None
+		template["gallery_json"] = json.dumps(gallery) if gallery else "[]"
+		template["gallery"] = gallery
+
 		doc = frappe.get_doc("ilL-LED-Sheet-Template", template.name)
 		template["allowed_specs"] = []
 		for row in doc.allowed_specs or []:

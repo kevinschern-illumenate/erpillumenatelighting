@@ -22,7 +22,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
-from illumenate_lighting.illumenate_lighting.api import tape_neon_configurator
+from illumenate_lighting.illumenate_lighting.api import led_sheet_configurator, tape_neon_configurator
 from illumenate_lighting.illumenate_lighting.api.configured_product_builder import (
 	_coerce_dict,
 	_dispatch_save,
@@ -38,8 +38,10 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
 	PRODUCT_TYPE_FIXTURE,
 	PRODUCT_TYPE_NEON,
+	PRODUCT_TYPE_SHEET,
 	PRODUCT_TYPE_TAPE,
 	_apply_artifact_to_row,
+	_ensure_configured_artifacts,
 	_normalize_product_type,
 	_serialize_json,
 	_set_child_value,
@@ -64,7 +66,7 @@ PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
 PROJECT_DOCTYPE = "ilL-Project"
 EDITABLE_SCHEDULE_STATUSES = tuple(EDITABLE_STATUSES)
-DESK_PRODUCT_TYPES = (PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON)
+DESK_PRODUCT_TYPES = (PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON, PRODUCT_TYPE_SHEET)
 DEFAULT_SCHEDULE_NAME = "Main Schedule"
 SCHEDULE_LINE_SAVEPOINT = "ill_desk_cfg_line"
 
@@ -509,18 +511,21 @@ def build_configured_line(
 
 	# ── 2. Engine: persist the configured record ────────────────────
 	try:
-		if product_type == PRODUCT_TYPE_FIXTURE:
-			payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
+		if product_type == PRODUCT_TYPE_SHEET:
+			validation = _save_led_sheet(selections)
 		else:
-			payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments_json)
-		validation = _dispatch_save(
-			product_type,
-			payload,
-			parent_configured_fixture=None,
-			parent_configured_tape_neon=None,
-			tape_neon_template=tape_neon_template if product_type != PRODUCT_TYPE_FIXTURE else None,
-			variant_origin=variant_origin,
-		)
+			if product_type == PRODUCT_TYPE_FIXTURE:
+				payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
+			else:
+				payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments_json)
+			validation = _dispatch_save(
+				product_type,
+				payload,
+				parent_configured_fixture=None,
+				parent_configured_tape_neon=None,
+				tape_neon_template=tape_neon_template if product_type != PRODUCT_TYPE_FIXTURE else None,
+				variant_origin=variant_origin,
+			)
 	except frappe.ValidationError as exc:
 		return _error(str(exc))
 
@@ -539,6 +544,13 @@ def build_configured_line(
 			return _error(_("The engine did not return a configured fixture id."))
 		artifact = _ensure_fixture_artifacts(configured_name)
 		configured_doc = frappe.get_doc("ilL-Configured-Fixture", configured_name)
+	elif product_type == PRODUCT_TYPE_SHEET:
+		configured_name = validation.get("configured_led_sheet")
+		if not configured_name:
+			return _error(_("The engine did not return a configured LED sheet id."))
+		# Shared with the schedule → quote conversion: Item, BOM and MSRP Item Price.
+		artifact = _ensure_configured_artifacts(PRODUCT_TYPE_SHEET, None, None, configured_name)
+		configured_doc = frappe.get_doc("ilL-Configured-LED-Sheet", configured_name)
 	else:
 		configured_name = validation.get("configured_tape_neon")
 		if not configured_name:
@@ -546,7 +558,9 @@ def build_configured_line(
 		artifact = _ensure_tape_neon_artifacts(configured_name, product_type)
 		configured_doc = frappe.get_doc("ilL-Configured-Tape-Neon", configured_name)
 
-	msrp_unit = _resolve_msrp_unit(configured_doc, validation)
+	# LED Sheet: the panel bundle MSRP lives on the configured record; cables and
+	# drivers are separate accessory lines, so never use the engine's total_msrp.
+	msrp_unit = flt(configured_doc.msrp) if product_type == PRODUCT_TYPE_SHEET else _resolve_msrp_unit(configured_doc, validation)
 	ensure_configured_item_price(artifact["item_code"], configured_doc, msrp=msrp_unit)
 	if msrp_unit is not None:
 		artifact["msrp_unit"] = msrp_unit
@@ -602,9 +616,16 @@ def build_configured_line(
 	)
 
 	used_ids = [fixture_type]
+	accessory_rows = []
+	if product_type == PRODUCT_TYPE_SHEET:
+		accessory_rows = _led_sheet_accessory_rows(
+			parent_doctype, parent_name, header, configured_doc, qty,
+			section_label=location, fixture_type=fixture_type, schedule_line_id=line_name,
+		)
 	return {
 		"success": True,
 		"row_values": row_values,
+		"accessory_rows": accessory_rows,
 		"header_values": {"ill_fixture_schedule": schedule_doc.name if schedule_doc is not None else None},
 		"schedule": schedule_doc.name if schedule_doc is not None else None,
 		"schedule_line_name": line_name,
@@ -614,11 +635,94 @@ def build_configured_line(
 		"product_type": product_type,
 		"configured_fixture": artifact.get("configured_fixture"),
 		"configured_tape_neon": artifact.get("configured_tape_neon"),
+		"configured_led_sheet": artifact.get("configured_led_sheet"),
 		"item_code": artifact["item_code"],
 		"bom": artifact.get("bom"),
 		"next_fixture_type": _next_fixture_type(schedule_doc, used_ids),
 		"messages": (validation.get("messages") or []) + (artifact.get("messages") or []),
 	}
+
+
+def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:
+	"""Persist an ilL-Configured-LED-Sheet from the wizard payload (no schedule write here).
+
+	Returns an engine-shaped dict (``is_valid`` / ``configured_led_sheet`` / the
+	validation result) so ``build_configured_line`` treats it like the other types.
+	"""
+	required = ("template", "spec")
+	missing = [k for k in required if not selections.get(k)]
+	if missing:
+		return {"is_valid": False, "error": _("Missing LED Sheet selection: {0}").format(", ".join(missing))}
+	kwargs = {
+		"template": selections["template"],
+		"spec": selections["spec"],
+		"options": selections.get("options") or {},
+		"coverage_width_ft": selections.get("coverage_width_ft") or 0,
+		"coverage_height_ft": selections.get("coverage_height_ft") or 0,
+		"coverage_width_value": selections.get("coverage_width_value"),
+		"coverage_width_unit": selections.get("coverage_width_unit") or "ft",
+		"coverage_height_value": selections.get("coverage_height_value"),
+		"coverage_height_unit": selections.get("coverage_height_unit") or "ft",
+		"include_power_supply": selections.get("include_power_supply", 1),
+	}
+	result = led_sheet_configurator.validate_sheet_configuration(**kwargs)
+	saved = led_sheet_configurator.save_sheet_configuration(**kwargs)
+	result.update({"is_valid": True, "configured_led_sheet": saved["configured_led_sheet"], "messages": []})
+	return result
+
+
+def _led_sheet_accessory_rows(
+	parent_doctype: str,
+	parent_name: str | None,
+	header: dict[str, Any],
+	sheet_doc,
+	qty: float,
+	*,
+	section_label: str | None,
+	fixture_type: str | None,
+	schedule_line_id: str | None,
+) -> list[dict[str, Any]]:
+	"""Jumper / leader / power-supply rows for a configured LED Sheet bundle.
+
+	Same quantities the portal writes as ACCESSORY schedule lines
+	(``build_accessory_lines`` scaled by the bundle qty), returned as ready-to-
+	insert child rows so the quote carries the full system, not just the panels.
+	"""
+	rows = []
+	for spec in led_sheet_configurator._configured_sheet_accessory_specs(sheet_doc, cint(qty) or 1):
+		is_power_supply = str(spec.get("notes", "")).startswith("Power supplies")
+		artifact = {
+			"product_type": PRODUCT_TYPE_SHEET,
+			"item_code": spec["item_code"],
+			"configured_led_sheet": sheet_doc.name,
+			"source_doctype": "ilL-Configured-LED-Sheet",
+			"source_name": sheet_doc.name,
+			"template_code": sheet_doc.sheet_template,
+			"configuration_snapshot": {
+				"product_type": PRODUCT_TYPE_SHEET,
+				"configured_led_sheet": sheet_doc.name,
+				"accessory_for": sheet_doc.name,
+				"notes": spec.get("notes"),
+			},
+			"power_supply": {
+				"is_power_supply_line": is_power_supply,
+				"power_supply_for": sheet_doc.name if is_power_supply else None,
+			},
+		}
+		rows.append(
+			_build_row_values(
+				parent_doctype,
+				parent_name,
+				header,
+				artifact,
+				spec["qty"],
+				section_label=section_label,
+				fixture_type=fixture_type,
+				schedule_line_id=schedule_line_id,
+				additional_notes=spec.get("notes"),
+			)
+		)
+	return rows
 
 
 def _resolve_msrp_unit(configured_doc, validation: dict[str, Any]) -> float | None:
@@ -664,6 +768,24 @@ def _write_schedule_line(
 		line.ill_item_code = artifact["item_code"]
 		line.manufacturable_length_mm = artifact.get("mfg_length_mm")
 		line.notes = notes or ""
+	elif product_type == PRODUCT_TYPE_SHEET:
+		line.manufacturer_type = "ILLUMENATE"
+		line.product_type = PRODUCT_TYPE_SHEET
+		line.led_sheet_template = artifact.get("template_code")
+		line.configured_led_sheet = artifact["configured_led_sheet"]
+		line.configured_fixture = None
+		line.fixture_template = None
+		line.configured_tape_neon = None
+		line.tape_neon_template = None
+		line.variant_selections = None
+		line.configuration_status = "Configured"
+		line.ill_item_code = artifact["item_code"]
+		line.manufacturable_length_mm = None
+		line.notes = notes or (
+			f"Configured LED Sheet {artifact['configured_led_sheet']} | {validation.get('part_number', '')} | "
+			f"{validation.get('panels_wide')}x{validation.get('panels_tall')} panels, "
+			f"{validation.get('total_groups')} group(s)"
+		)
 	else:
 		result = dict(validation)
 		computed = dict(result.get("computed") or {})
@@ -694,6 +816,10 @@ def _write_schedule_line(
 	for field in ("manufacturer_name", "fixture_model_number", "accessory_item", "accessory_product_type"):
 		if line.meta.has_field(field):
 			line.set(field, None)
+	if product_type == PRODUCT_TYPE_SHEET:
+		# Jumper / leader / power-supply ACCESSORY rows scaled by the bundle qty,
+		# exactly as the portal LED Sheet configurator writes them.
+		led_sheet_configurator.resync_led_sheet_line_accessories(schedule_doc, line, cint(qty) or 1)
 	return line
 
 

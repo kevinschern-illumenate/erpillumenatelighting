@@ -233,13 +233,245 @@
 	}
 
 	// ───────────────────────────────────────────────────────────────────
+	// Template / product-family card picker
+	// ───────────────────────────────────────────────────────────────────
+	function escapeHtml(value) {
+		return String(value == null ? '' : value)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+	}
+
+	/**
+	 * Render the visual template picker (image cards + search) that drives a
+	 * hidden `<select name="fixture_template_code">`.
+	 *
+	 * The <select> stays the single source of truth: cards call
+	 * `$select.val(code).trigger('change')`, and any external change to the
+	 * select (mobile fallback, quiz hand-off, reset) re-syncs the cards.
+	 *
+	 * opts:
+	 *   $container  – element that receives the picker markup
+	 *   $select     – the hidden <select>; options carry data-name,
+	 *                 data-image, data-gallery, data-description
+	 *   templates   – optional explicit list; defaults to the select's options
+	 *   labels      – optional i18n overrides
+	 */
+	function renderTemplateCards(opts) {
+		var $container = opts.$container;
+		var $select = opts.$select;
+		if (!$container || !$container.length || !$select || !$select.length) return null;
+
+		var labels = $.extend({
+			search: __('Search templates…'),
+			change: __('Change'),
+			empty: __('No templates match your search.'),
+			count: function (n, total) { return n === total ? __('{0} templates', [total]) : __('{0} of {1} templates', [n, total]); }
+		}, opts.labels || {});
+
+		var templates = opts.templates || $select.find('option').toArray()
+			.filter(function (o) { return o.value; })
+			.map(function (o) {
+				var $o = $(o);
+				var gallery = [];
+				try { gallery = JSON.parse($o.attr('data-gallery') || '[]'); } catch (_) { gallery = []; }
+				return {
+					template_code: o.value,
+					template_name: $o.attr('data-name') || $o.text().replace(/\s*\([^)]*\)\s*$/, '').trim(),
+					image: $o.attr('data-image') || (gallery[0] && gallery[0].image) || '',
+					gallery: gallery,
+					description: $o.attr('data-description') || ''
+				};
+			});
+
+		var html = '<div class="ill-template-picker-toolbar">'
+			+ '<input type="search" class="ill-template-search" placeholder="' + escapeHtml(labels.search) + '" aria-label="' + escapeHtml(labels.search) + '">'
+			+ '<span class="ill-template-picker-count"></span>'
+			+ '</div>'
+			+ '<div class="ill-template-selected" style="display:none;"></div>'
+			+ '<div class="ill-template-grid" role="listbox"></div>';
+		$container.addClass('ill-template-picker').html(html);
+		$select.addClass('ill-template-select-driven');
+
+		var $grid = $container.find('.ill-template-grid');
+		var $search = $container.find('.ill-template-search');
+		var $count = $container.find('.ill-template-picker-count');
+		var $selected = $container.find('.ill-template-selected');
+
+		function cardHtml(t, isSelected) {
+			var media = t.image
+				? '<img src="' + escapeHtml(t.image) + '" alt="' + escapeHtml(t.template_name) + '" loading="lazy">'
+				: '<span class="ill-template-card-placeholder"><i class="fa fa-lightbulb-o"></i></span>';
+			return '<button type="button" class="ill-template-card' + (isSelected ? ' selected' : '')
+				+ '" role="option" aria-selected="' + (isSelected ? 'true' : 'false')
+				+ '" data-value="' + escapeHtml(t.template_code) + '">'
+				+ '<div class="ill-template-card-media">' + media
+				+ '<span class="ill-template-card-check"><i class="fa fa-check"></i></span></div>'
+				+ '<div class="ill-template-card-body">'
+				+ '<div class="ill-template-card-name">' + escapeHtml(t.template_name) + '</div>'
+				+ '<div class="ill-template-card-code">' + escapeHtml(t.template_code) + '</div>'
+				+ (t.description ? '<div class="ill-template-card-desc">' + escapeHtml(t.description) + '</div>' : '')
+				+ '</div></button>';
+		}
+
+		function renderGrid() {
+			var q = ($search.val() || '').toLowerCase().trim();
+			var current = $select.val();
+			var shown = templates.filter(function (t) {
+				if (!q) return true;
+				return (t.template_name + ' ' + t.template_code + ' ' + (t.description || '')).toLowerCase().indexOf(q) !== -1;
+			});
+			$count.text(labels.count(shown.length, templates.length));
+			if (!shown.length) {
+				$grid.html('<div class="ill-template-picker-empty">' + escapeHtml(labels.empty) + '</div>');
+				return;
+			}
+			$grid.html(shown.map(function (t) { return cardHtml(t, t.template_code === current); }).join(''));
+		}
+
+		function renderSelected() {
+			var code = $select.val();
+			var t = templates.find(function (x) { return x.template_code === code; });
+			if (!t) {
+				$selected.hide().empty();
+				$grid.show();
+				$container.find('.ill-template-picker-toolbar').show();
+				return;
+			}
+			$selected.html(
+				(t.image ? '<img src="' + escapeHtml(t.image) + '" alt="">' : '')
+				+ '<div><div class="ill-template-selected-name">' + escapeHtml(t.template_name) + '</div>'
+				+ '<div class="ill-template-selected-code">' + escapeHtml(t.template_code) + '</div></div>'
+				+ '<button type="button" class="ill-template-change">' + escapeHtml(labels.change) + '</button>'
+			).show();
+			$grid.hide();
+			$container.find('.ill-template-picker-toolbar').hide();
+		}
+
+		function sync() { renderGrid(); renderSelected(); }
+
+		$grid.on('click', '.ill-template-card', function () {
+			var code = $(this).attr('data-value');
+			if ($select.val() !== code) {
+				$select.val(code).trigger('change');
+			} else {
+				sync();
+			}
+		});
+		$selected.on('click', '.ill-template-change', function () {
+			$selected.hide();
+			$grid.show();
+			$container.find('.ill-template-picker-toolbar').show();
+			$search.trigger('focus');
+		});
+		$search.on('input', renderGrid);
+		$select.on('change.illTemplateCards', sync);
+
+		sync();
+		return { refresh: sync, templates: templates };
+	}
+
+	// ───────────────────────────────────────────────────────────────────
+	// Schedule target picker (portal page: #projectSelect / #scheduleSelect /
+	// #lineSelect). Shared by the Fixture and LedSheet classes; the desk dialog
+	// owns persistence through context.saveHandler and never calls this.
+	// ───────────────────────────────────────────────────────────────────
+	/**
+	 * opts: { instance, context: {project_name, schedule_name, line_idx},
+	 *         onChange(): called after any picker change }
+	 * Returns { lines, canSave, hasTarget(), scheduleName(), lineValue() }
+	 * or null when the pickers are not in the DOM.
+	 */
+	function bindScheduleContext(opts) {
+		var inst = opts.instance;
+		var context = opts.context || {};
+		var onChange = opts.onChange || function () {};
+		var $project = inst.$('#projectSelect');
+		var $schedule = inst.$('#scheduleSelect');
+		var $line = inst.$('#lineSelect');
+		if (!$project.length || !$schedule.length || !$line.length) return null;
+
+		var state = {
+			lines: [],
+			canSave: !!context.can_save,
+			hasTarget: function () { return !!$schedule.val() && !!$line.val(); },
+			scheduleName: function () { return $schedule.val() || null; },
+			lineValue: function () { return $line.val() || null; },
+			lineAt: function (idx) { return state.lines.find(function (l) { return l.idx === idx; }) || null; }
+		};
+
+		function resetLines() {
+			state.lines = [];
+			$line.prop('disabled', true).find('option:not(:first):not([value="__new__"])').remove();
+			inst.$('#linePreview').hide();
+		}
+
+		$project.on('change', function () {
+			$schedule.prop('disabled', true).find('option:not(:first)').remove();
+			resetLines();
+			onChange();
+			if (!$(this).val()) return;
+			var pre = context.schedule_name || null;
+			context.schedule_name = null;
+			loadSchedulesForProject($(this).val(), $schedule, pre);
+		});
+		$schedule.on('change', function () {
+			var name = $(this).val() || null;
+			resetLines();
+			onChange();
+			if (!name) return;
+			frappe.call({
+				method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator',
+				args: { schedule_name: name },
+				callback: function (r) {
+					var msg = r.message || {};
+					if (!msg.success) return;
+					state.lines = msg.lines || [];
+					state.canSave = !!msg.can_save;
+					$line.find('option:not(:first)').remove();
+					state.lines.forEach(function (l) {
+						var tag = l.manufacturer_type === 'OTHER' ? __('Other Mfg')
+							: (l.manufacturer_type === 'ACCESSORY' ? __('Accessory')
+								: (l.configuration_status === 'Configured' ? __('Configured') : __('Pending')));
+						$line.append($('<option></option>').val(l.idx).text(l.line_id + ' [' + tag + ']'));
+					});
+					$line.append('<option value="__new__">' + __('+ New Line') + '</option>').prop('disabled', false);
+					var pre = context.line_idx;
+					context.line_idx = null;
+					if (pre !== null && pre !== undefined && pre !== '') $line.val(String(pre)).trigger('change');
+					onChange();
+				}
+			});
+		});
+		$line.on('change', function () {
+			var val = $(this).val();
+			var $preview = inst.$('#linePreview');
+			$preview.hide();
+			if (val && val !== '__new__') {
+				var line = state.lineAt(parseInt(val, 10));
+				if (line && (line.configured_fixture || line.configured_tape_neon || line.configured_led_sheet
+					|| line.manufacturer_name || line.fixture_model_number)) {
+					inst.$('#linePreviewText').text(line.summary || '');
+					$preview.show();
+				}
+			}
+			onChange();
+		});
+
+		loadUserProjects($project, context.project_name || null);
+		return state;
+	}
+
+	// ───────────────────────────────────────────────────────────────────
 	// Public API
 	// ───────────────────────────────────────────────────────────────────
 	root.IllConfigurator = {
 		Base: Base,
 		_registry: registry,
 		debounce: debounce,
+		escapeHtml: escapeHtml,
 		renderPillSelector: renderPillSelector,
+		renderTemplateCards: renderTemplateCards,
+		bindScheduleContext: bindScheduleContext,
 		loadUserProjects: loadUserProjects,
 		loadSchedulesForProject: loadSchedulesForProject,
 		loadSchedulesForUser: loadSchedulesForUser,

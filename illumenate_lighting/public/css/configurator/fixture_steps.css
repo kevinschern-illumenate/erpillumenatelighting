@@ -150,6 +150,40 @@
 	display: none !important;
 }
 
+/* ── Guided Wizard: step headers, segments, feeds ── */
+.ill-configurator-fixture .config-section h4 .ill-config-step-num { margin-right: 10px; vertical-align: middle; }
+.ill-configurator-fixture .progress-step.completed .step-label { color: #198754; }
+.ill-configurator-fixture .pill-selector .pill.pill-sm { padding: 5px 12px; font-size: 12px; }
+.ill-configurator-fixture .pill-selector-sm { gap: 6px; }
+
+.ill-configurator-fixture .segment-card .segment-inherited {
+	background-color: var(--ill-accent-bg, #e6f0f7);
+	color: var(--ill-accent, #00588c);
+	padding: 0.35rem 0.6rem;
+	border-radius: var(--ill-radius, 8px);
+	font-size: 0.85rem;
+}
+.ill-configurator-fixture .segment-card .segment-inherited i { margin-right: 0.35rem; }
+.ill-configurator-fixture .end-type-toggle { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.ill-configurator-fixture .end-type-toggle .btn { flex: 1; min-width: 160px; }
+.ill-configurator-fixture .end-type-toggle .btn.active,
+.ill-configurator-fixture .end-type-toggle .btn.active:hover {
+	background-color: var(--ill-accent, #00588c);
+	border-color: var(--ill-accent, #00588c);
+	color: #fff;
+}
+.ill-configurator-fixture .jumper-fields,
+.ill-configurator-fixture .endcap-fields {
+	padding: 0.6rem 0.75rem;
+	background: var(--ill-bg, #e8f0f6);
+	border-radius: var(--ill-radius, 8px);
+	margin-top: 0.5rem;
+}
+.ill-configurator-fixture .ill-fixture-actions { gap: 0.5rem; }
+.ill-configurator-fixture .ill-fixture-actions .btn { margin-bottom: 0.25rem; }
+.ill-configurator-fixture #summaryList .list-group-item { border-color: var(--ill-border, #dce2e8); }
+.ill-configurator-fixture .stock-breakdown summary { cursor: pointer; font-size: 0.9rem; }
+
 
 /* ── ilLumenate tokenized segment/length controls ── */
 .ill-configurator-fixture .segment-card,
