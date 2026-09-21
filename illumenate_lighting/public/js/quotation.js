@@ -67,6 +67,8 @@ frappe.ui.form.on('Quotation', {
 			}, __('Tools'));
 		}
 
+		// "Configure & Add Fixture" (toolbar + Items grid); the shim decides
+		// visibility (draft, editable, internal user) so it also works on new docs.
 		with_quote_order_configurator(function(configurator) {
 			configurator.add_buttons(frm);
 		});
@@ -78,8 +80,27 @@ frappe.ui.form.on('Quotation', {
 				ill_open_fixture_schedule_picker(frm);
 			}, __('Get Items From'));
 		}
+	},
+
+	// Removing a configured row never deletes its schedule line (the customer
+	// may still rely on it); just make the disconnect visible.
+	before_items_remove: function(frm, cdt, cdn) {
+		ill_warn_schedule_line_kept(frm, locals[cdt] && locals[cdt][cdn]);
 	}
 });
+
+function ill_warn_schedule_line_kept(frm, row) {
+	if (!row || !row.ill_schedule_line_id) {
+		return;
+	}
+	frappe.show_alert({
+		message: __('Row removed. Schedule line {0} still exists on Fixture Schedule {1}.', [
+			frappe.utils.escape_html(row.ill_fixture_type || row.ill_schedule_line_id),
+			frappe.utils.escape_html(frm.doc.ill_fixture_schedule || '')
+		]),
+		indicator: 'orange'
+	}, 7);
+}
 
 function ill_open_fixture_schedule_picker(frm) {
 	const customer = (frm.doc.quotation_to === 'Customer') ? frm.doc.party_name : null;

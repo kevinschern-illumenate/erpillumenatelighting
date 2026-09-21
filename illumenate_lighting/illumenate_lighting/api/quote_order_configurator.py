@@ -182,6 +182,10 @@ def apply_existing_configured_product(
 	qty: float = 1,
 	configuration_json: str | dict[str, Any] | None = None,
 	bom_override_json: str | dict[str, Any] | None = None,
+	fixture_type: str | None = None,
+	location: str | None = None,
+	notes: str | None = None,
+	schedule_line_id: str | None = None,
 ) -> dict[str, Any]:
 	"""Apply an *already-saved* ilL-Configured-* record to a quote/order row.
 
@@ -198,7 +202,17 @@ def apply_existing_configured_product(
 
 	artifact = _ensure_configured_artifacts(product_type, configured_fixture, configured_tape_neon, locals().get("configured_led_sheet"))
 	row = _get_or_add_item_row(parent_doc, row_name)
-	_apply_artifact_to_row(parent_doc, row, artifact, qty, configuration_json)
+	_apply_artifact_to_row(
+		parent_doc,
+		row,
+		artifact,
+		qty,
+		configuration_json,
+		section_label=location,
+		fixture_type=fixture_type,
+		schedule_line_id=schedule_line_id,
+		additional_notes=notes,
+	)
 
 	parent_doc.save(ignore_permissions=False)
 
@@ -406,7 +420,17 @@ def _get_or_add_item_row(parent_doc, row_name: str | None):
 	return parent_doc.append("items", {})
 
 
-def _apply_artifact_to_row(parent_doc, row, artifact: dict[str, Any], qty: float, configuration_json):
+def _apply_artifact_to_row(
+	parent_doc,
+	row,
+	artifact: dict[str, Any],
+	qty: float,
+	configuration_json,
+	section_label: str | None = None,
+	fixture_type: str | None = None,
+	schedule_line_id: str | None = None,
+	additional_notes: str | None = None,
+):
 	item_code = artifact["item_code"]
 	item_details = frappe.db.get_value(
 		"Item",
@@ -465,6 +489,18 @@ def _apply_artifact_to_row(parent_doc, row, artifact: dict[str, Any], qty: float
 
 	if parent_doc.doctype == "Sales Order" and artifact.get("bom"):
 		_set_child_value(row, "bom_no", artifact.get("bom"))
+
+	# Grouping / traceability — same mapping as
+	# ilLProjectFixtureSchedule._stamp_group_fields so print formats group the
+	# row under its Section / Room and show the Fixture Type row.
+	if section_label is not None:
+		_set_child_value(row, "ill_section_label", section_label or None)
+	if fixture_type is not None:
+		_set_child_value(row, "ill_fixture_type", fixture_type or None)
+	if schedule_line_id is not None:
+		_set_child_value(row, "ill_schedule_line_id", schedule_line_id or None)
+	if additional_notes is not None:
+		_set_child_value(row, "additional_notes", (additional_notes or "").strip() or None)
 
 
 def _set_child_value(row, fieldname: str, value):

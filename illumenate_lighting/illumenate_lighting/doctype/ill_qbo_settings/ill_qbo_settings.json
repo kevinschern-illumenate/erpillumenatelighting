@@ -1,0 +1,109 @@
+{
+    "actions": [],
+    "allow_rename": 0,
+    "creation": "2026-09-17 10:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "general_sb",
+        "sync_enabled",
+        "column_break_general",
+        "webhook_secret",
+        "posting_sb",
+        "paid_to_account",
+        "column_break_posting",
+        "mode_of_payment",
+        "help_sb",
+        "endpoint_help"
+    ],
+    "fields": [
+        {
+            "fieldname": "general_sb",
+            "fieldtype": "Section Break",
+            "label": "Inbound Payment Sync (QuickBooks Online → ERPNext)"
+        },
+        {
+            "default": "1",
+            "fieldname": "sync_enabled",
+            "fieldtype": "Check",
+            "label": "Sync Enabled",
+            "description": "When unchecked, inbound QBO payment events are logged as Skipped-NoOp and no Payment Entries are created or cancelled."
+        },
+        {
+            "fieldname": "column_break_general",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "webhook_secret",
+            "fieldtype": "Password",
+            "label": "Webhook Shared Secret (HMAC)",
+            "description": "Shared secret used by n8n to sign requests to receive_payment_event (X-QBO-Signature = HMAC-SHA256 hex over the raw body). Generate a random 64-char value and store the same value in n8n. If site_config.json defines qbo_webhook_secret, that value takes precedence."
+        },
+        {
+            "fieldname": "posting_sb",
+            "fieldtype": "Section Break",
+            "label": "Payment Entry Defaults"
+        },
+        {
+            "default": "1010 - ilLumenate Lighting WA Trust - ilL",
+            "fieldname": "paid_to_account",
+            "fieldtype": "Link",
+            "label": "Paid To Account",
+            "options": "Account",
+            "description": "Bank/Cash account that QBO-originated payments post to."
+        },
+        {
+            "fieldname": "column_break_posting",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "QuickBooks Online",
+            "fieldname": "mode_of_payment",
+            "fieldtype": "Link",
+            "label": "Mode of Payment",
+            "options": "Mode of Payment"
+        },
+        {
+            "fieldname": "help_sb",
+            "fieldtype": "Section Break",
+            "label": "Endpoint"
+        },
+        {
+            "fieldname": "endpoint_help",
+            "fieldtype": "HTML",
+            "label": "Endpoint Help",
+            "options": "<p>n8n posts normalized QBO Payment events to:<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code></p><p>Every inbound event is recorded in <b>ilL-QBO-Sync-Log</b>. Starter n8n workflow: <code>n8n_workflows/quickbooks_payment_sync.json</code>.</p>"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "issingle": 1,
+    "links": [],
+    "modified": "2026-09-17 10:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-QBO-Settings",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "read": 1,
+            "write": 1,
+            "role": "Accounts Manager"
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+}

@@ -308,7 +308,8 @@ def get_user_schedules() -> dict:
 @frappe.whitelist(allow_guest=False)
 def create_quick_project_and_schedule(
     project_name: str,
-    schedule_name: str = None
+    schedule_name: str = None,
+    customer: str | None = None,
 ) -> dict:
     """
     Create a new project and schedule for quick add from Webflow.
@@ -316,14 +317,27 @@ def create_quick_project_and_schedule(
     Args:
         project_name: Name for the new project
         schedule_name: Optional name for the schedule (defaults to "Main Schedule")
+        customer: Customer for the project. Defaults to the session user's
+            linked Customer; ``ilL-Project.customer`` is mandatory.
     
     Returns:
         dict: Created project and schedule IDs
     """
+    from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+        _get_user_customer,
+    )
+
+    customer = customer or _get_user_customer(frappe.session.user)
+    if not customer:
+        return {"success": False, "error": "Customer is required to create a project"}
+    if not frappe.db.exists("Customer", customer):
+        return {"success": False, "error": f"Customer not found: {customer}"}
+
     try:
         # Create project
         project = frappe.new_doc("ilL-Project")
         project.project_name = project_name
+        project.customer = customer
         project.owner = frappe.session.user
         project.status = "ACTIVE"
         project.insert()

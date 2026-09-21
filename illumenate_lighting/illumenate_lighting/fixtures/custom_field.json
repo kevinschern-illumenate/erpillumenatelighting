@@ -414,6 +414,43 @@
 	},
 	{
 		"doctype": "Custom Field",
+		"dt": "Payment Entry",
+		"fieldname": "custom_qbo_event_type",
+		"fieldtype": "Select",
+		"options": "\nCreate\nUpdate\nDelete\nMerge",
+		"insert_after": "custom_synced_from",
+		"label": "QBO Event Type",
+		"read_only": 1,
+		"no_copy": 1,
+		"allow_on_submit": 1,
+		"depends_on": "custom_qbo_id"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Payment Entry",
+		"fieldname": "custom_qbo_last_synced",
+		"fieldtype": "Datetime",
+		"insert_after": "custom_qbo_event_type",
+		"label": "QBO Last Synced",
+		"read_only": 1,
+		"no_copy": 1,
+		"allow_on_submit": 1,
+		"depends_on": "custom_qbo_id"
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Payment Entry",
+		"fieldname": "custom_qbo_sync_note",
+		"fieldtype": "Small Text",
+		"insert_after": "custom_qbo_last_synced",
+		"label": "QBO Sync Note",
+		"read_only": 1,
+		"no_copy": 1,
+		"allow_on_submit": 1,
+		"depends_on": "custom_qbo_id"
+	},
+	{
+		"doctype": "Custom Field",
 		"dt": "Quotation Item",
 		"fieldname": "ill_section_label",
 		"fieldtype": "Data",

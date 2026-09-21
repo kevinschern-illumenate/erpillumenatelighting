@@ -383,6 +383,54 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 		)
 
 
+def _configured_doc_msrp(configured_doc) -> float | None:
+	"""Latest ``msrp_unit`` from a configured record's pricing snapshot."""
+	snapshot = getattr(configured_doc, "pricing_snapshot", None) or []
+	if not snapshot:
+		return None
+	msrp = getattr(snapshot[-1], "msrp_unit", None)
+	return flt(msrp) if msrp is not None else None
+
+
+def ensure_configured_item_price(item_code: str, configured_doc, msrp: float | None = None) -> bool:
+	"""Make sure a configured Item carries the ilLumenate brand and an MSRP Item Price.
+
+	Shared by the schedule → Quotation/Sales Order conversion and the desk
+	configurator so ``erpnext.stock.get_item_details`` always finds a
+	``price_list_rate`` for configured rows. ``configured_doc`` is an
+	ilL-Configured-Fixture / ilL-Configured-Tape-Neon; ``msrp`` overrides the
+	value read from its pricing snapshot.
+
+	Returns:
+		bool: True when the Item brand or Item Price was created/changed.
+	"""
+	if not item_code:
+		return False
+
+	updated = False
+	_ensure_brand_exists(ILLUMENATE_BRAND)
+	if frappe.db.get_value("Item", item_code, "brand") != ILLUMENATE_BRAND:
+		frappe.db.set_value("Item", item_code, "brand", ILLUMENATE_BRAND)
+		updated = True
+
+	if msrp is None:
+		msrp = _configured_doc_msrp(configured_doc)
+	if msrp is None:
+		return updated
+
+	current_price = frappe.db.get_value(
+		"Item Price",
+		{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
+		"price_list_rate",
+	)
+	if current_price is not None and abs(flt(current_price) - flt(msrp)) <= 0.01:
+		return updated
+
+	messages: list = []
+	_create_item_price_at_msrp(item_code, flt(msrp), messages)
+	return updated or not any(m.get("severity") == "error" for m in messages)
+
+
 def _ensure_brand_exists(brand_name: str) -> None:
 	"""Create the Brand master if it does not exist.
 

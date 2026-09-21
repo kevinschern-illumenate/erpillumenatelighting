@@ -67,3 +67,117 @@
 	position: static !important;
 	top: auto !important;
 }
+
+/* ------------------------------------------------------------------------
+ * Dialog chrome (steps 1–2 + done screen). Scoped to the dialog wrapper the
+ * controller adds (`.ill-desk-configurator-dialog`) so nothing leaks.
+ * ---------------------------------------------------------------------- */
+.ill-desk-configurator-dialog .ill-desk-stepper {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin-bottom: 0.75rem;
+	font-size: var(--text-sm, 12px);
+}
+.ill-desk-configurator-dialog .ill-desk-step {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.2rem 0.6rem 0.2rem 0.3rem;
+	border-radius: 999px;
+	color: var(--text-muted, #74808b);
+	background: var(--bg-light-gray, #f3f3f3);
+}
+.ill-desk-configurator-dialog .ill-desk-step-num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.35rem;
+	height: 1.35rem;
+	border-radius: 50%;
+	font-weight: 600;
+	background: var(--gray-300, #dee2e6);
+	color: var(--text-color, #1f272e);
+}
+.ill-desk-configurator-dialog .ill-desk-step.active {
+	color: #fff;
+	background: var(--primary, #2490ef);
+}
+.ill-desk-configurator-dialog .ill-desk-step.active .ill-desk-step-num {
+	background: rgba(255, 255, 255, 0.9);
+	color: var(--primary, #2490ef);
+}
+.ill-desk-configurator-dialog .ill-desk-step.done {
+	color: var(--green-600, #198754);
+	background: var(--green-100, #e4f5e9);
+}
+.ill-desk-configurator-dialog .ill-desk-step.done .ill-desk-step-num {
+	background: var(--green-600, #198754);
+	color: #fff;
+}
+.ill-desk-configurator-dialog .ill-desk-step-sep {
+	color: var(--gray-400, #c0c6cc);
+	padding: 0 0.15rem;
+}
+
+/* Product-type pills (step 2). */
+.ill-desk-configurator-dialog .ill-desk-type-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.ill-desk-configurator-dialog .ill-desk-type-pill {
+	border-radius: 999px;
+	padding: 0.3rem 1rem;
+}
+.ill-desk-configurator-dialog .ill-desk-type-pill.active {
+	background: var(--primary, #2490ef);
+	border-color: var(--primary, #2490ef);
+	color: #fff;
+}
+
+/* Line-details grid and inline controls mounted via make_control. */
+.ill-desk-configurator-dialog .ill-desk-ctl .frappe-control {
+	margin-bottom: 0.5rem;
+}
+.ill-desk-configurator-dialog .ill-desk-ctl .form-group {
+	margin-bottom: 0.25rem;
+}
+.ill-desk-configurator-dialog .ill-desk-line-grid .ill-desk-ctl textarea {
+	min-height: 3.5rem;
+}
+.ill-desk-configurator-dialog .ill-desk-context,
+.ill-desk-configurator-dialog .ill-desk-line-summary {
+	padding: 0.4rem 0.6rem;
+	border-radius: var(--border-radius, 6px);
+	background: var(--bg-light-gray, #f3f3f3);
+}
+.ill-desk-configurator-dialog .ill-desk-line-summary {
+	margin-bottom: 0.5rem;
+	font-size: var(--text-sm, 12px);
+}
+.ill-desk-configurator-dialog .ill-desk-status {
+	margin-left: 0.25rem;
+	vertical-align: middle;
+}
+.ill-desk-configurator-dialog .ill-desk-pickers.ill-desk-disabled {
+	opacity: 0.5;
+	pointer-events: none;
+}
+.ill-desk-configurator-dialog .ill-desk-linked.card {
+	border: 1px solid var(--border-color, #e2e2e2);
+	margin-bottom: 0.5rem;
+}
+
+/* Done screen + "Add another / Done" footer. */
+.ill-desk-configurator-dialog .ill-desk-done h5 {
+	font-weight: 600;
+}
+.ill-desk-configurator-dialog .ill-desk-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.25rem;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--border-color, #e2e2e2);
+}

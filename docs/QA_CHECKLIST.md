@@ -369,6 +369,132 @@ True
 
 ---
 
+## Section 9: QuickBooks Online → ERPNext Payment Sync
+
+Prereqs: `ilL-QBO-Settings` has a webhook secret, Paid To Account and Mode of Payment; n8n workflow `quickbooks_payment_sync.json` is active with `QBO_WEBHOOK_SECRET` / `INTUIT_VERIFIER_TOKEN` set; Intuit sandbox webhook points at the n8n production URL. Use a submitted Sales Invoice whose `custom_qbo_id` matches a sandbox QBO invoice.
+
+### Test 9.1: Payment Create
+
+**Steps:**
+1. In QBO sandbox, receive a full payment against the synced invoice
+
+**Expected:**
+- [ ] `ilL-QBO-Sync-Log` row with status `Created`, linked Sales Invoice + Payment Entry
+- [ ] Payment Entry is submitted, `paid_to` = configured trust account, `paid_amount` = QBO amount, `custom_qbo_id` = QBO Payment Id, `custom_synced_from` = QuickBooks Online
+- [ ] Sales Invoice outstanding drops to 0 / status Paid
+
+### Test 9.2: Duplicate Delivery
+
+**Steps:**
+1. In n8n, re-run the last successful execution (or resend the same webhook)
+
+**Expected:**
+- [ ] New log row with status `Skipped-Duplicate`; still exactly one submitted Payment Entry for that QBO id
+
+### Test 9.3: Payment Edit (amount or date)
+
+**Steps:**
+1. Edit the payment amount in QBO sandbox
+
+**Expected:**
+- [ ] Old Payment Entry cancelled with `custom_qbo_sync_note` "superseded by PE-…"
+- [ ] New submitted Payment Entry with the new amount; log status `Superseded` with both links
+
+### Test 9.4: Payment Void / Delete
+
+**Steps:**
+1. Void or delete the payment in QBO sandbox
+
+**Expected:**
+- [ ] Payment Entry cancelled (docstatus 2), not deleted; log status `Cancelled`
+- [ ] Sales Invoice outstanding restored
+
+### Test 9.5: Unmatched Invoice
+
+**Steps:**
+1. Receive a payment in QBO against an invoice that was never synced from ERPNext
+
+**Expected:**
+- [ ] Log status `Failed`, error `No Sales Invoice with custom_qbo_id=…`; no Payment Entry created
+- [ ] n8n alert branch fires
+
+### Test 9.6: Bad Signature
+
+**Steps:**
+1. POST to `/api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event` with a wrong `X-QBO-Signature`
+
+**Expected:**
+- [ ] HTTP 401, `{"error": "unauthorized"}`; no `ilL-QBO-Sync-Log` row; one Error Log entry containing only IP + body hash
+
+---
+
+## Section 10: Desk Configurator (Quotation / Sales Order → Fixture Schedule)
+
+Prereqs: log in as an internal user (System Manager). At least one active Linear Fixture template, one LED Tape template and one LED Neon template with priced components. Customer exists. Run `bench --site <site> run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_desk_configurator` first.
+
+### Test 10.1: New unsaved Quotation, full flow
+
+**Steps:**
+1. New Quotation → set Customer (do NOT save)
+2. Click **Configure & Add Fixture** (toolbar or under the Items grid)
+3. Step 1: tick *Create a new project* (name defaults to title/customer) → Continue
+4. Step 2: Linear Fixture · Fixture Type `A1` · Section / Room `Lobby` · Qty 2 → Continue
+5. Step 3: configure and click the configurator's Add button
+
+**Expected:**
+- [ ] Button visible on the unsaved document; hidden for submitted / read-only documents and for Dealer users
+- [ ] Project + schedule created with `customer` = Quotation customer; schedule `DRAFT`
+- [ ] Row appears with `item_code`, `rate` > 0, `ill_section_label = Lobby`, `ill_fixture_type = A1`, `ill_schedule_line_id`, `ill_configured_fixture`, `ill_bom`, `additional_notes`
+- [ ] Header `ill_fixture_schedule` set; totals updated; Save succeeds
+- [ ] Toast "Added A1 · <part number> (saved to schedule …)"; "Remember to save" hint on close
+
+### Test 10.2: Existing draft Sales Order
+
+**Expected:**
+- [ ] Same flow works; row `bom_no` set, `delivery_date` populated from header
+- [ ] Quotation → Sales Order (`make_sales_order`) carries `ill_fixture_schedule`, `ill_section_label`, `ill_fixture_type`, `ill_schedule_line_id`
+
+### Test 10.3: Portal visibility
+
+**Expected:**
+- [ ] `/portal/schedules/<name>` shows the line with Fixture Type, Location, qty, configured part number, stock badge
+- [ ] Print format groups the row under the Section / Room and shows the Fixture Type row
+
+### Test 10.4: Add another / existing pending line
+
+**Steps:**
+1. After a successful add click **Add another**
+2. In the portal, add a pending (unconfigured) line `B1` to the same schedule; reopen the dialog and pick it in *Schedule line*
+
+**Expected:**
+- [ ] Fixture Type increments (`A1 → A2`), project/schedule kept, configurator reset
+- [ ] Picking the pending line prefills Fixture Type / Location / Qty / Notes and configures it in place (no duplicate line)
+- [ ] Duplicate Fixture Type on the form prompts a confirmation
+
+### Test 10.5: Schedule lock rules
+
+**Expected:**
+- [ ] With `ill_fixture_schedule` set, Step 1 shows the linked schedule read-only; another schedule cannot be picked
+- [ ] QUOTED or locked schedule → clear message + **Create new version** works and the dialog continues on the new version (header link follows)
+- [ ] Skip schedule shows the warning; row is added with no `ill_schedule_line_id` and the header link stays empty
+
+### Test 10.6: Tape / Neon lines
+
+**Expected:**
+- [ ] LED Tape and LED Neon lines write `variant_selections`; setting the schedule to READY does not raise
+- [ ] User notes override the build description in `line.notes`
+
+### Test 10.7: Lifecycle + robustness
+
+**Expected:**
+- [ ] Submitting the Quotation moves a DRAFT / READY schedule to QUOTED (comment added); cancelling only logs a comment
+- [ ] Removing a configured row warns that the schedule line still exists (no auto-delete)
+- [ ] `Get Items From ▸ Fixture Schedule` on the same document: verify rows already stamped with the same `ill_schedule_line_id` are not duplicated
+- [ ] User without schedule write permission gets a readable error and no partial schedule write; Dealer user gets a permission error on every `desk_configurator.*` endpoint
+- [ ] No console errors; closing the dialog removes configurator instances (`IllConfigurator` registry)
+
+---
+
 ## Sign-off
 
 | Section | Tester | Date | Pass/Fail | Notes |
@@ -381,6 +507,7 @@ True
 | 6. Edge Cases | | | | |
 | 7. Security | | | | |
 | 8. Performance | | | | |
+| 10. Desk Configurator | | | | |
 
 ---
 

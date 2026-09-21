@@ -1427,6 +1427,61 @@ def validate_neon_configuration(
 # SAVE TO SCHEDULE  /  SALES ORDER HELPERS
 # ═══════════════════════════════════════════════════════════════════════
 
+def _tape_neon_mfg_length_mm(result: dict) -> float:
+    """Manufacturable length for a validated tape/neon result (neon sums segments)."""
+    computed = result.get("computed") or {}
+    if result.get("product_category") == "LED Neon":
+        return computed.get("total_manufacturable_length_mm", 0) or 0
+    return computed.get("manufacturable_length_mm", 0) or 0
+
+
+def _write_tape_neon_line(line, result: dict, template_name: str = None, variant_extra: dict = None) -> None:
+    """Write a validated LED Tape / LED Neon result onto a schedule line.
+
+    Shared by ``save_tape_to_schedule``, ``save_tape_neon_template_to_schedule``
+    and the desk configurator. Sets the product/configured links, part number,
+    manufacturable length, build description and the ``variant_selections``
+    JSON that ``_validate_configuration_status`` requires before a schedule
+    may move to READY. ``variant_extra`` is merged into that JSON. Does not
+    save the parent schedule.
+    """
+    product_category = result.get("product_category", "LED Tape")
+    part_number = result.get("part_number", "")
+    build_desc = result.get("build_description", "")
+    computed = result.get("computed") or {}
+    resolved = result.get("resolved_items") or {}
+    configured_name = result.get("configured_tape_neon")
+
+    line.manufacturer_type = "ILLUMENATE"
+    line.product_type = product_category
+    line.configuration_status = "Configured"
+    line.ill_item_code = part_number
+    line.manufacturable_length_mm = round(_tape_neon_mfg_length_mm(result))
+    line.notes = build_desc
+
+    if configured_name:
+        line.configured_tape_neon = configured_name
+
+    if template_name:
+        line.tape_neon_template = template_name
+    elif not getattr(line, "tape_neon_template", None):
+        tn_template = result.get("tape_neon_template") or (result.get("selections") or {}).get("tape_neon_template")
+        if tn_template:
+            line.tape_neon_template = tn_template
+
+    variant = {
+        "product_category": product_category,
+        "part_number": part_number,
+        "build_description": build_desc,
+        "computed": computed,
+        "resolved_items": resolved,
+        "selections": result.get("selections", {}),
+    }
+    if variant_extra:
+        variant.update(variant_extra)
+    line.variant_selections = json.dumps(variant)
+
+
 @frappe.whitelist()
 def save_tape_to_schedule(
     schedule_name: str,
@@ -1474,16 +1529,10 @@ def save_tape_to_schedule(
         return attach_error
 
     product_category = result.get("product_category", "LED Tape")
-    part_number = result.get("part_number", "")
-    build_desc = result.get("build_description", "")
     computed = result.get("computed", {})
     resolved = result.get("resolved_items", {})
 
-    # Determine manufacturable length
-    if product_category == "LED Neon":
-        mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
-    else:
-        mfg_length_mm = computed.get("manufacturable_length_mm", 0)
+    mfg_length_mm = _tape_neon_mfg_length_mm(result)
 
     # Compute pricing from Standard Selling Item Prices
     tape_item = resolved.get("tape_item")
@@ -1491,6 +1540,7 @@ def save_tape_to_schedule(
     lead_length_inches = computed.get("lead_length_inches", 0)
     pricing = _compute_tape_neon_pricing(tape_item, leader_cable_item, mfg_length_mm, lead_length_inches)
     computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
+    result["computed"] = computed
 
     try:
         if line_idx is not None:
@@ -1502,32 +1552,7 @@ def save_tape_to_schedule(
         else:
             line = schedule.append("lines", {})
 
-        line.manufacturer_type = "ILLUMENATE"
-        line.product_type = product_category
-        line.configuration_status = "Configured"
-        line.ill_item_code = part_number
-        line.manufacturable_length_mm = round(mfg_length_mm)
-        line.notes = build_desc
-
-        # Persist configured tape/neon link if the validation created a record
-        if result.get("configured_tape_neon"):
-            line.configured_tape_neon = result.get("configured_tape_neon")
-
-        # Persist tape_neon_template link from selections or resolved data
-        if not getattr(line, "tape_neon_template", None):
-            tn_template = result.get("tape_neon_template") or result.get("selections", {}).get("tape_neon_template")
-            if tn_template:
-                line.tape_neon_template = tn_template
-
-        # Store full configuration as JSON for later SO conversion
-        line.variant_selections = json.dumps({
-            "product_category": product_category,
-            "part_number": part_number,
-            "build_description": build_desc,
-            "computed": computed,
-            "resolved_items": resolved,
-            "selections": result.get("selections", {}),
-        })
+        _write_tape_neon_line(line, result)
 
         schedule.save()
 
@@ -2331,8 +2356,6 @@ def save_tape_neon_template_to_schedule(
         return {"success": False, "error": "Configuration is not valid"}
 
     product_category = result.get("product_category", "LED Tape")
-    part_number = result.get("part_number", "")
-    build_desc = result.get("build_description", "")
     computed = result.get("computed", {})
     resolved = result.get("resolved_items", {})
     configured_name = result.get("configured_tape_neon")
@@ -2350,11 +2373,7 @@ def save_tape_neon_template_to_schedule(
             "name",
         )
 
-    # Determine manufacturable length
-    if product_category == "LED Neon":
-        mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
-    else:
-        mfg_length_mm = computed.get("manufacturable_length_mm", 0)
+    mfg_length_mm = _tape_neon_mfg_length_mm(result)
 
     # Compute template-based pricing (mirrors save_tape_to_schedule pattern)
     is_neon = product_category == "LED Neon"
@@ -2366,6 +2385,7 @@ def save_tape_neon_template_to_schedule(
             template_name, pricing_sel, mfg_length_mm, lead_length_inches, is_neon
         )
         computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
+    result["computed"] = computed
 
     try:
         if line_idx is not None:
@@ -2377,30 +2397,15 @@ def save_tape_neon_template_to_schedule(
         else:
             line = schedule.append("lines", {})
 
-        line.manufacturer_type = "ILLUMENATE"
-        line.product_type = product_category
-        line.configuration_status = "Configured"
-        line.ill_item_code = part_number
-        line.manufacturable_length_mm = round(mfg_length_mm)
-        line.notes = build_desc
-
-        # Template and configured record references
-        if template_name:
-            line.tape_neon_template = template_name
-        if configured_name:
-            line.configured_tape_neon = configured_name
-
-        # Store full configuration for SO conversion
-        line.variant_selections = json.dumps({
-            "product_category": product_category,
-            "template_code": template_code,
-            "part_number": part_number,
-            "build_description": build_desc,
-            "computed": computed,
-            "resolved_items": resolved,
-            "selections": result.get("selections", {}),
-            "pricing": {"total_price_msrp": computed.get("total_price_msrp", 0)},
-        })
+        _write_tape_neon_line(
+            line,
+            result,
+            template_name=template_name,
+            variant_extra={
+                "template_code": template_code,
+                "pricing": {"total_price_msrp": computed.get("total_price_msrp", 0)},
+            },
+        )
 
         schedule.save()
 

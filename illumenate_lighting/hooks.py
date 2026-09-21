@@ -273,6 +273,12 @@ has_website_permission = {
 # Hook on document methods and events
 
 doc_events = {
+	"Quotation": {
+		# Submitting a Quotation built with the desk configurator marks its
+		# DRAFT / READY fixture schedule as QUOTED; cancel only logs a comment.
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_submit",
+		"on_cancel": "illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_cancel",
+	},
 	"Sales Order": {
 		"on_submit": [
 			"illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",

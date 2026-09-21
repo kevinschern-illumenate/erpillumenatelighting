@@ -338,6 +338,10 @@ def save_and_apply(
     qty: float = 1,
     variant_origin: str | None = "Quotation Tool",
     bom_overrides_json: str | list | None = None,
+    fixture_type: str | None = None,
+    location: str | None = None,
+    notes: str | None = None,
+    schedule_line_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist the configured record (or variant) and write it to a row.
 
@@ -396,6 +400,10 @@ def save_and_apply(
         qty,
         payload.get("configuration_json")
         or _serialize_json(artifact.get("configuration_snapshot")),
+        section_label=location,
+        fixture_type=fixture_type,
+        schedule_line_id=schedule_line_id,
+        additional_notes=notes,
     )
 
     parent_doc.save(ignore_permissions=False)
@@ -426,6 +434,10 @@ def save_and_apply_from_portal(
     row_name: str | None = None,
     qty: float = 1,
     variant_origin: str | None = "Quotation Tool",
+    fixture_type: str | None = None,
+    location: str | None = None,
+    notes: str | None = None,
+    schedule_line_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist + apply a configured product from *portal* selection shapes.
 
@@ -443,6 +455,13 @@ def save_and_apply_from_portal(
     selections = _coerce_dict(selections_json) or {}
     qty = flt(qty) or 1
 
+    grouping = {
+        "fixture_type": fixture_type,
+        "location": location,
+        "notes": notes,
+        "schedule_line_id": schedule_line_id,
+    }
+
     if product_type == PRODUCT_TYPE_FIXTURE:
         payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
         return save_and_apply(
@@ -453,16 +472,10 @@ def save_and_apply_from_portal(
             row_name=row_name,
             qty=qty,
             variant_origin=variant_origin,
+            **grouping,
         )
 
-    # ── LED Tape / LED Neon ──────────────────────────────────────────
-    payload: dict[str, Any] = {
-        "selections": selections,
-        "include_power_supply": selections.get("include_power_supply", True),
-        "dimming_protocol_code": selections.get("dimming_protocol_code"),
-    }
-    if product_type == PRODUCT_TYPE_NEON:
-        payload["segments_json"] = segments_json or selections.get("segments")
+    payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments_json)
 
     return save_and_apply(
         parent_doctype,
@@ -473,7 +486,24 @@ def save_and_apply_from_portal(
         row_name=row_name,
         qty=qty,
         variant_origin=variant_origin,
+        **grouping,
     )
+
+
+def _tape_neon_payload_from_portal_selections(
+    product_type: str,
+    selections: dict[str, Any],
+    segments_json: str | list | None = None,
+) -> dict[str, Any]:
+    """Map portal tape/neon selections → ``_dispatch_save`` payload."""
+    payload: dict[str, Any] = {
+        "selections": selections,
+        "include_power_supply": selections.get("include_power_supply", True),
+        "dimming_protocol_code": selections.get("dimming_protocol_code"),
+    }
+    if product_type == PRODUCT_TYPE_NEON:
+        payload["segments_json"] = segments_json or selections.get("segments")
+    return payload
 
 
 def _resolve_template_from_slug(product_slug: str | None):
@@ -560,6 +590,28 @@ def _fixture_payload_from_portal_selections(
             length_mm = 0
         if length_mm > 0:
             payload["requested_overall_length_mm"] = length_mm
+
+    # Optional engine knobs the wizard may emit (mirrors webflow_schedule.add_to_schedule).
+    override_max_run_ft = selections.get("override_max_run_ft")
+    if override_max_run_ft not in (None, ""):
+        try:
+            override_max_run_ft = float(override_max_run_ft)
+        except (TypeError, ValueError):
+            override_max_run_ft = None
+        if override_max_run_ft and override_max_run_ft > 0:
+            payload["override_max_run_ft"] = override_max_run_ft
+
+    if selections.get("dimming_protocol_code"):
+        payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
+
+    for key in (
+        "start_feed_direction_code",
+        "end_feed_direction_code",
+        "start_leader_len_mm",
+        "end_leader_len_mm",
+    ):
+        if selections.get(key) not in (None, ""):
+            payload[key] = selections[key]
 
     return payload
 
@@ -907,6 +959,7 @@ _FIXTURE_SINGLE_KEYS = (
     "start_leader_len_mm",
     "end_leader_len_mm",
     "include_power_supply",
+    "override_max_run_ft",
 )
 
 

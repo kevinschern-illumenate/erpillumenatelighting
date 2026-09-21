@@ -1,13 +1,13 @@
 ﻿/**
  * Shim for window.illumenate_lighting.quote_order_configurator.
  *
- * The old simple "Configure Product" Tools dialog (existing-record picker
- * only) has been replaced by the embedded "Configure & Add Fixture" dialog
- * in public/js/desk/desk_dialog.js, which mounts the scoped portal
- * configurator classes inside a Quotation / Sales Order modal.
+ * The "Configure & Add Fixture" dialog in public/js/desk/desk_dialog.js
+ * mounts the scoped portal configurator classes inside a Quotation / Sales
+ * Order modal, links the work to an ilL-Project + fixture schedule and
+ * inserts the priced row client-side (api/desk_configurator.py).
  *
  * That module is loaded globally via hooks.py (app_include_js). This shim
- * preserves the old API surface so quotation.js / sales_order.js can keep
+ * preserves the API surface so quotation.js / sales_order.js can keep
  * calling configurator.add_buttons(frm) / configurator.show_dialog(frm)
  * without changes.
  */

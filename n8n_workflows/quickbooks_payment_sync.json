@@ -1,0 +1,286 @@
+{
+  "name": "QuickBooks Payment → ERPNext Payment Entry",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quickbooks-payment-events",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "intuit-webhook",
+      "name": "Intuit Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "quickbooks-payment-events",
+      "notes": "Register this node's PRODUCTION URL in the Intuit Developer Dashboard → Webhooks, subscribed to the Payment entity only. Intuit requires a 2xx within ~3s, so we respond immediately and process afterwards."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Intuit signs the raw body with HMAC-SHA256 using the app's Webhooks Verifier Token\n// (Intuit Developer Dashboard → Webhooks). Header: intuit-signature, base64 digest.\nconst crypto = require('crypto');\n\nconst item = $input.first();\nconst verifier = $vars.INTUIT_VERIFIER_TOKEN; // n8n Variables, or replace with a literal\nif (!verifier) throw new Error('INTUIT_VERIFIER_TOKEN is not configured');\n\nconst rawBody = item.binary && item.binary.data\n  ? Buffer.from(item.binary.data.data, 'base64')\n  : Buffer.from(JSON.stringify(item.json.body || {}), 'utf8');\n\nconst headers = item.json.headers || {};\nconst provided = headers['intuit-signature'] || headers['Intuit-Signature'] || '';\nconst expected = crypto.createHmac('sha256', verifier).update(rawBody).digest('base64');\n\nconst a = Buffer.from(String(provided));\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error('Invalid intuit-signature — dropping event');\n}\n\nreturn [{ json: JSON.parse(rawBody.toString('utf8')) }];"
+      },
+      "id": "verify-intuit-signature",
+      "name": "Verify Intuit Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten eventNotifications[].dataChangeEvent.entities[] and keep Payment entities only.\nconst out = [];\nfor (const item of $input.all()) {\n  const notifications = item.json.eventNotifications || [];\n  for (const n of notifications) {\n    const entities = (n.dataChangeEvent && n.dataChangeEvent.entities) || [];\n    for (const e of entities) {\n      if (e.name !== 'Payment') continue;\n      out.push({\n        json: {\n          realmId: n.realmId,\n          id: String(e.id),\n          operation: e.operation, // Create | Update | Delete | Merge | Void\n          lastUpdated: e.lastUpdated,\n          deletedId: e.deletedId ? String(e.deletedId) : null, // Merge only: the id folded into `id`\n        },\n      });\n    }\n  }\n}\nreturn out;"
+      },
+      "id": "split-payment-entities",
+      "name": "Split Payment Entities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-delete",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "Delete",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "is-void",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "Void",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "is-delete",
+      "name": "Is Delete / Void?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deleted entities can't be fetched from QBO; forward the id only.\nreturn $input.all().map(item => ({\n  json: {\n    qbo_payment_id: item.json.id,\n    event_type: 'Delete',\n    deleted: true,\n    realm_id: item.json.realmId,\n    last_updated: item.json.lastUpdated,\n  },\n}));"
+      },
+      "id": "build-delete-payload",
+      "name": "Build Delete Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, -150]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $json.realmId }}/payment/{{ $json.id }}?minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "fetch-qbo-payment",
+      "name": "Fetch QBO Payment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 150],
+      "notes": "Uses the existing QuickBooks OAuth2 credential. For an Intuit SANDBOX company use https://sandbox-quickbooks.api.intuit.com instead."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Normalize the QBO Payment object into the ERPNext payload (runs once per item;\n// paired-item lookup gives us the originating webhook entity).\nconst payment = $input.item.json.Payment || $input.item.json;\nconst source = $('Split Payment Entities').item.json;\n\nconst invoiceIds = [];\nfor (const line of payment.Line || []) {\n  for (const lt of line.LinkedTxn || []) {\n    if (lt.TxnType === 'Invoice' && lt.TxnId) invoiceIds.push(String(lt.TxnId));\n  }\n}\n\nlet eventType = source.operation || 'Update';\nif (eventType === 'Void') eventType = 'Delete';\n\nreturn {\n  json: {\n    qbo_payment_id: String(payment.Id),\n    event_type: eventType,\n    amount: Number(payment.TotalAmt || 0),\n    txn_date: payment.TxnDate || null,\n    qbo_invoice_id: invoiceIds[0] || null,\n    qbo_invoice_ids: invoiceIds,\n    customer_qbo_id: payment.CustomerRef ? String(payment.CustomerRef.value) : null,\n    merged_from_id: source.deletedId || null,\n    deleted: false,\n    realm_id: source.realmId || null,\n    last_updated: source.lastUpdated || (payment.MetaData && payment.MetaData.LastUpdatedTime) || null,\n  },\n};"
+      },
+      "id": "build-payment-payload",
+      "name": "Build Payment Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sign the exact JSON string that will be sent. ERPNext recomputes\n// HMAC-SHA256(raw_body, qbo_webhook_secret) and compares hex digests.\nconst crypto = require('crypto');\nconst secret = $vars.QBO_WEBHOOK_SECRET; // same value as ilL-QBO-Settings.webhook_secret\nif (!secret) throw new Error('QBO_WEBHOOK_SECRET is not configured');\n\nreturn $input.all().map(item => {\n  const body = JSON.stringify(item.json);\n  const signature = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex');\n  return { json: { body, signature, qbo_payment_id: item.json.qbo_payment_id, event_type: item.json.event_type } };\n});"
+      },
+      "id": "sign-request",
+      "name": "Sign Request (HMAC)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-QBO-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ $json.body }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "post-to-erpnext",
+      "name": "POST to ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1750, 0],
+      "notes": "Guest + HMAC endpoint — no ERPNext API key needed. Body must be sent as the exact signed string (specifyBody=string), not re-serialized JSON."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "sync-ok",
+              "leftValue": "={{ $json.message?.success }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sync-ok",
+      "name": "Sync OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2000, 0]
+    },
+    {
+      "parameters": {},
+      "id": "sync-succeeded",
+      "name": "Sync Succeeded",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2250, -150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape an alert message. Replace the downstream NoOp with a Slack / Email node.\nreturn $input.all().map(item => {\n  const r = item.json.message || item.json;\n  return {\n    json: {\n      subject: `QBO → ERPNext payment sync failed: ${r.error || 'unknown'}`,\n      text: [\n        `Error: ${r.error || 'unknown'}`,\n        `Detail: ${r.message || ''}`,\n        `Sync log: ${r.log || 'n/a'} (open ilL-QBO-Sync-Log in ERPNext)`,\n        `Payload: ${$('Sign Request (HMAC)').item.json.body}`,\n      ].join('\\n'),\n      raw: item.json,\n    },\n  };\n});"
+      },
+      "id": "build-alert",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 150]
+    },
+    {
+      "parameters": {},
+      "id": "send-alert",
+      "name": "Send Alert (replace with Slack/Email)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2500, 150],
+      "notes": "Swap this for a Slack or Send Email node using {{ $json.subject }} / {{ $json.text }}. Also attach an Error Workflow to this workflow for transient QBO/ERPNext outages."
+    }
+  ],
+  "connections": {
+    "Intuit Webhook": {
+      "main": [[{ "node": "Verify Intuit Signature", "type": "main", "index": 0 }]]
+    },
+    "Verify Intuit Signature": {
+      "main": [[{ "node": "Split Payment Entities", "type": "main", "index": 0 }]]
+    },
+    "Split Payment Entities": {
+      "main": [[{ "node": "Is Delete / Void?", "type": "main", "index": 0 }]]
+    },
+    "Is Delete / Void?": {
+      "main": [
+        [{ "node": "Build Delete Payload", "type": "main", "index": 0 }],
+        [{ "node": "Fetch QBO Payment", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Delete Payload": {
+      "main": [[{ "node": "Sign Request (HMAC)", "type": "main", "index": 0 }]]
+    },
+    "Fetch QBO Payment": {
+      "main": [[{ "node": "Build Payment Payload", "type": "main", "index": 0 }]]
+    },
+    "Build Payment Payload": {
+      "main": [[{ "node": "Sign Request (HMAC)", "type": "main", "index": 0 }]]
+    },
+    "Sign Request (HMAC)": {
+      "main": [[{ "node": "POST to ERPNext", "type": "main", "index": 0 }]]
+    },
+    "POST to ERPNext": {
+      "main": [[{ "node": "Sync OK?", "type": "main", "index": 0 }]]
+    },
+    "Sync OK?": {
+      "main": [
+        [{ "node": "Sync Succeeded", "type": "main", "index": 0 }],
+        [{ "node": "Build Alert", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Alert": {
+      "main": [[{ "node": "Send Alert (replace with Slack/Email)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    { "name": "quickbooks" },
+    { "name": "erpnext" }
+  ]
+}
