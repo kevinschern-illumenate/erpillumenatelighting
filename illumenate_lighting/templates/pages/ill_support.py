@@ -19,8 +19,11 @@ def get_context(context):
 		frappe.local.flags.redirect_location = "/login"
 		raise frappe.Redirect
 
-	# Get user's customer for order lookup
-	customer = _get_user_customer(frappe.session.user)
+	from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+	from illumenate_lighting.illumenate_lighting.portal.support import list_tickets
+
+	actor = get_actor()
+	customer = actor.customer if actor.is_dealer else None
 
 	# Get recent orders for the support form
 	if customer:
@@ -34,16 +37,8 @@ def get_context(context):
 	else:
 		context.recent_orders = []
 
-	# Get existing support tickets if Issue doctype exists
-	context.tickets = []
-	if frappe.db.table_exists("Issue"):
-		context.tickets = frappe.get_all(
-			"Issue",
-			filters={"raised_by": frappe.session.user},
-			fields=["name", "subject", "status", "creation"],
-			order_by="creation desc",
-			limit=5,
-		)
+	context.ticket_page = list_tickets(page=frappe.form_dict.get("page", 1), status=frappe.form_dict.get("status"))
+	context.tickets = context.ticket_page["tickets"]
 
 	context.title = _("Support")
 	context.no_cache = 1

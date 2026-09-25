@@ -17,6 +17,7 @@
                         "input_voltage_type",
                         "voltage_output",
                         "outputs_count",
+                        "independent_outputs_count",
                         "output_type",
                         "output_protocol",
                         "column_break_gfyi",
@@ -210,6 +211,12 @@
                        "fieldtype":  "Table",
                        "label":  "Certifications",
                        "options":  "ilL-Child-Spec-Certification"
+                   },
+                   {
+                       "fieldname": "independent_outputs_count",
+                       "fieldtype": "Int",
+                       "label": "Independent Power Outputs",
+                       "description": "Number of separately loadable feed outputs. Required when Outputs exceeds one; exclude color/control channels. Must not exceed physical Outputs."
                    }
                ],
     "grid_page_length":  50,

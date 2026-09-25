@@ -286,8 +286,9 @@
                             "report":  1,
                             "role":  "All",
                             "share":  1
-                        }
-                    ],
+                        },
+        {"role": "ilL Catalog Publisher", "read": 1, "write": 1, "create": 1, "report": 1, "export": 1}
+    ],
     "row_format":  "Dynamic",
     "rows_threshold_for_grid_search":  20,
     "search_fields":  "template_code, template_name",

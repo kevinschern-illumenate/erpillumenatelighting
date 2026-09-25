@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"ill_dashboard_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Dashboard</b></span>\", \"col\": 12}}, {\"id\": \"ill_nc_open_quotations\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Quotations\", \"col\": 4}}, {\"id\": \"ill_nc_open_sales_orders\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Sales Orders\", \"col\": 4}}, {\"id\": \"ill_nc_sales_invoiced_mtd\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Sales Invoiced MTD\", \"col\": 4}}, {\"id\": \"ill_nc_ar_outstanding\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"AR Outstanding\", \"col\": 4}}, {\"id\": \"ill_nc_open_purchase_orders\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Purchase Orders\", \"col\": 4}}, {\"id\": \"ill_nc_ap_outstanding\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"AP Outstanding\", \"col\": 4}}, {\"id\": \"ill_spacer_dashboard\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ill_reports_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>ilLumenate Reports</b></span>\", \"col\": 12}}, {\"id\": \"ill_card_ill_reports\", \"type\": \"card\", \"data\": {\"card_name\": \"ilLumenate Reports\", \"col\": 4}}, {\"id\": \"ill_spacer_reports\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ill_shortcuts_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"ill_sc_fixture_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Fixture Template\", \"col\": 3}}, {\"id\": \"ill_sc_configured_fixture\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Configured Fixture\", \"col\": 3}}, {\"id\": \"ill_sc_tape_neon_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tape Neon Template\", \"col\": 3}}, {\"id\": \"ill_sc_configured_tape_neon\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Configured Tape Neon\", \"col\": 3}}, {\"id\": \"ill_sc_extrusion_kit_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Extrusion Kit Template\", \"col\": 3}}, {\"id\": \"ill_sc_project\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Project\", \"col\": 3}}, {\"id\": \"ill_sc_document_request\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Document Request\", \"col\": 3}}, {\"id\": \"ill_sc_export_job\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Export Job\", \"col\": 3}}, {\"id\": \"ill_workflow_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>New Product Setup Guide</b></span>\", \"col\": 12}}, {\"id\": \"ill_card_workflow_fixture\", \"type\": \"card\", \"data\": {\"card_name\": \"Linear Fixture Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_tape_neon\", \"type\": \"card\", \"data\": {\"card_name\": \"LED Tape / Neon Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_led_sheet\", \"type\": \"card\", \"data\": {\"card_name\": \"LED Sheet Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_kit\", \"type\": \"card\", \"data\": {\"card_name\": \"Extrusion Kit Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_controller\", \"type\": \"card\", \"data\": {\"card_name\": \"Controller Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_accessory\", \"type\": \"card\", \"data\": {\"card_name\": \"Accessory Setup\", \"col\": 4}}, {\"id\": \"ill_spacer_1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ill_masters_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\", \"col\": 12}}, {\"id\": \"ill_card_attributes\", \"type\": \"card\", \"data\": {\"card_name\": \"Attributes\", \"col\": 4}}, {\"id\": \"ill_card_specs\", \"type\": \"card\", \"data\": {\"card_name\": \"Specifications\", \"col\": 4}}, {\"id\": \"ill_card_projects\", \"type\": \"card\", \"data\": {\"card_name\": \"Projects & Scheduling\", \"col\": 4}}, {\"id\": \"ill_card_doc_requests\", \"type\": \"card\", \"data\": {\"card_name\": \"Document Requests\", \"col\": 4}}, {\"id\": \"ill_card_relationships\", \"type\": \"card\", \"data\": {\"card_name\": \"Relationships & Mappings\", \"col\": 4}}, {\"id\": \"ill_card_webflow\", \"type\": \"card\", \"data\": {\"card_name\": \"Webflow Integration\", \"col\": 4}}, {\"id\": \"ill_card_settings\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings & Utilities\", \"col\": 4}}]",
+ "content": "[{\"id\": \"ill_dashboard_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Dashboard</b></span>\", \"col\": 12}}, {\"id\": \"ill_b2b_ill_publish_job\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Publication Jobs\", \"col\": 3}}, {\"id\": \"ill_b2b_ill_product_publication\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Product Publication\", \"col\": 3}}, {\"id\": \"ill_b2b_ill_controller_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Controller Template\", \"col\": 3}}, {\"id\": \"ill_b2b_ill_driver_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Driver Template\", \"col\": 3}}, {\"id\": \"ill_b2b_ill_configured_led_sheet\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Configured LED Sheet\", \"col\": 3}}, {\"id\": \"ill_b2b_ill_led_sheet_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"LED Sheet Template\", \"col\": 3}}, {\"id\": \"ill_b2b_ill_portal_operations\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Portal Operations\", \"col\": 3}}, {\"id\": \"ill_nc_open_quotations\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Quotations\", \"col\": 4}}, {\"id\": \"ill_nc_open_sales_orders\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Sales Orders\", \"col\": 4}}, {\"id\": \"ill_nc_sales_invoiced_mtd\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Sales Invoiced MTD\", \"col\": 4}}, {\"id\": \"ill_nc_ar_outstanding\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"AR Outstanding\", \"col\": 4}}, {\"id\": \"ill_nc_open_purchase_orders\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open Purchase Orders\", \"col\": 4}}, {\"id\": \"ill_nc_ap_outstanding\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"AP Outstanding\", \"col\": 4}}, {\"id\": \"ill_spacer_dashboard\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ill_reports_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>ilLumenate Reports</b></span>\", \"col\": 12}}, {\"id\": \"ill_card_ill_reports\", \"type\": \"card\", \"data\": {\"card_name\": \"ilLumenate Reports\", \"col\": 4}}, {\"id\": \"ill_spacer_reports\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ill_shortcuts_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"ill_sc_fixture_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Fixture Template\", \"col\": 3}}, {\"id\": \"ill_sc_configured_fixture\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Configured Fixture\", \"col\": 3}}, {\"id\": \"ill_sc_tape_neon_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tape Neon Template\", \"col\": 3}}, {\"id\": \"ill_sc_configured_tape_neon\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Configured Tape Neon\", \"col\": 3}}, {\"id\": \"ill_sc_extrusion_kit_template\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Extrusion Kit Template\", \"col\": 3}}, {\"id\": \"ill_sc_project\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Project\", \"col\": 3}}, {\"id\": \"ill_sc_document_request\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Document Request\", \"col\": 3}}, {\"id\": \"ill_sc_export_job\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Export Job\", \"col\": 3}}, {\"id\": \"ill_workflow_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>New Product Setup Guide</b></span>\", \"col\": 12}}, {\"id\": \"ill_card_workflow_fixture\", \"type\": \"card\", \"data\": {\"card_name\": \"Linear Fixture Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_tape_neon\", \"type\": \"card\", \"data\": {\"card_name\": \"LED Tape / Neon Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_led_sheet\", \"type\": \"card\", \"data\": {\"card_name\": \"LED Sheet Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_kit\", \"type\": \"card\", \"data\": {\"card_name\": \"Extrusion Kit Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_controller\", \"type\": \"card\", \"data\": {\"card_name\": \"Controller Setup\", \"col\": 4}}, {\"id\": \"ill_card_workflow_accessory\", \"type\": \"card\", \"data\": {\"card_name\": \"Accessory Setup\", \"col\": 4}}, {\"id\": \"ill_spacer_1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ill_masters_header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\", \"col\": 12}}, {\"id\": \"ill_card_attributes\", \"type\": \"card\", \"data\": {\"card_name\": \"Attributes\", \"col\": 4}}, {\"id\": \"ill_card_specs\", \"type\": \"card\", \"data\": {\"card_name\": \"Specifications\", \"col\": 4}}, {\"id\": \"ill_card_projects\", \"type\": \"card\", \"data\": {\"card_name\": \"Projects & Scheduling\", \"col\": 4}}, {\"id\": \"ill_card_doc_requests\", \"type\": \"card\", \"data\": {\"card_name\": \"Document Requests\", \"col\": 4}}, {\"id\": \"ill_card_relationships\", \"type\": \"card\", \"data\": {\"card_name\": \"Relationships & Mappings\", \"col\": 4}}, {\"id\": \"ill_card_webflow\", \"type\": \"card\", \"data\": {\"card_name\": \"Webflow Integration\", \"col\": 4}}, {\"id\": \"ill_card_settings\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings & Utilities\", \"col\": 4}}, {\"id\": \"ill_b2b_item_literature\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Item Literature\", \"col\": 3}}]",
  "creation": "2026-02-23 03:46:12.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -1913,6 +1913,48 @@
    "label": "Accessory",
    "link_to": "ilL-Spec-Accessory",
    "type": "DocType"
+  },
+  {
+   "label": "Portal Operations",
+   "link_to": "ill-portal-operations",
+   "type": "Page"
+  },
+  {
+   "label": "LED Sheet Template",
+   "link_to": "ilL-LED-Sheet-Template",
+   "type": "DocType"
+  },
+  {
+   "label": "Configured LED Sheet",
+   "link_to": "ilL-Configured-LED-Sheet",
+   "type": "DocType"
+  },
+  {
+   "label": "Driver Template",
+   "link_to": "ilL-Driver-Template",
+   "type": "DocType"
+  },
+  {
+   "label": "Controller Template",
+   "link_to": "ilL-Controller-Template",
+   "type": "DocType"
+  },
+  {
+   "label": "Product Publication",
+   "link_to": "ilL-Product-Publication",
+   "type": "DocType"
+  },
+  {
+   "label": "Publication Jobs",
+   "link_to": "ilL-Publish-Job",
+   "type": "DocType"
+  },
+  {
+   "type": "DocType",
+   "link_to": "ilL-Item-Literature",
+   "label": "Item Literature",
+   "color": "Blue",
+   "doc_view": "List"
   }
  ],
  "title": "ilLumenate Lighting"

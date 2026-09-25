@@ -1,145 +1,225 @@
 {
-    "actions":  [
-
-                ],
-    "allow_rename":  1,
-    "autoname":  "naming_series:",
-    "creation":  "2026-01-07 21:00:00.000000",
-    "doctype":  "DocType",
-    "engine":  "InnoDB",
-    "field_order":  [
-                        "naming_series",
-                        "schedule",
-                        "export_type",
-                        "column_break_export",
-                        "status",
-                        "requested_by",
-                        "created_on",
-                        "output_section",
-                        "output_file",
-                        "column_break_output",
-                        "error_log"
-                    ],
-    "fields":  [
-                   {
-                       "fieldname":  "naming_series",
-                       "fieldtype":  "Select",
-                       "label":  "Series",
-                       "options":  "ILL-EXPORT-.YYYY.-.#####"
-                   },
-                   {
-                       "fieldname":  "schedule",
-                       "fieldtype":  "Link",
-                       "in_list_view":  1,
-                       "label":  "Schedule",
-                       "options":  "ilL-Project-Fixture-Schedule",
-                       "reqd":  1
-                   },
-                   {
-                       "fieldname":  "export_type",
-                       "fieldtype":  "Select",
-                       "in_list_view":  1,
-                       "label":  "Export Type",
-                       "options":  "PDF_PRICED\nPDF_NO_PRICE\nCSV_PRICED\nCSV_NO_PRICE\nSPEC_SUBMITTAL\nSPEC_SUBMITTAL_FULL",
-                       "reqd":  1
-                   },
-                   {
-                       "fieldname":  "column_break_export",
-                       "fieldtype":  "Column Break"
-                   },
-                   {
-                       "default":  "QUEUED",
-                       "fieldname":  "status",
-                       "fieldtype":  "Select",
-                       "in_list_view":  1,
-                       "label":  "Status",
-                       "options":  "QUEUED\nRUNNING\nCOMPLETE\nFAILED"
-                   },
-                   {
-                       "fieldname":  "requested_by",
-                       "fieldtype":  "Link",
-                       "in_list_view":  1,
-                       "label":  "Requested By",
-                       "options":  "User"
-                   },
-                   {
-                       "default":  "Now",
-                       "fieldname":  "created_on",
-                       "fieldtype":  "Datetime",
-                       "in_list_view":  1,
-                       "label":  "Created On"
-                   },
-                   {
-                       "fieldname":  "output_section",
-                       "fieldtype":  "Section Break",
-                       "label":  "Output"
-                   },
-                   {
-                       "fieldname":  "output_file",
-                       "fieldtype":  "Attach",
-                       "label":  "Output File"
-                   },
-                   {
-                       "fieldname":  "column_break_output",
-                       "fieldtype":  "Column Break"
-                   },
-                   {
-                       "fieldname":  "error_log",
-                       "fieldtype":  "Small Text",
-                       "label":  "Error Log"
-                   }
-               ],
-    "grid_page_length":  50,
-    "index_web_pages_for_search":  1,
-    "links":  [
-
-              ],
-    "modified":  "2026-01-07 21:00:00.000000",
-    "modified_by":  "Administrator",
-    "module":  "ilLumenate Lighting",
-    "name":  "ilL-Export-Job",
-    "naming_rule":  "By \"Naming Series\" field",
-    "owner":  "Administrator",
-    "permissions":  [
-                        {
-                            "create":  1,
-                            "delete":  1,
-                            "email":  1,
-                            "export":  1,
-                            "print":  1,
-                            "read":  1,
-                            "report":  1,
-                            "role":  "System Manager",
-                            "share":  1,
-                            "write":  1
-                        },
-                        {
-                            "email":  1,
-                            "export":  1,
-                            "print":  1,
-                            "read":  1,
-                            "report":  1,
-                            "role":  "All",
-                            "share":  1
-                        },
-                        {
-                            "create":  1,
-                            "email":  1,
-                            "export":  1,
-                            "print":  1,
-                            "read":  1,
-                            "report":  1,
-                            "role":  "Dealer",
-                            "share":  1
-                        }
-                    ],
-    "row_format":  "Dynamic",
-    "rows_threshold_for_grid_search":  20,
-    "search_fields":  "schedule, export_type, status",
-    "sort_field":  "modified",
-    "sort_order":  "DESC",
-    "states":  [
-
-               ],
-    "allow_import":  1
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "naming_series:",
+  "creation": "2026-01-07 21:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "naming_series",
+    "schedule",
+    "export_type",
+    "column_break_export",
+    "status",
+    "requested_by",
+    "created_on",
+    "output_section",
+    "output_file",
+    "column_break_output",
+    "error_log",
+    "manifest_json",
+    "snapshot_json",
+    "source_revision",
+    "manifest_schema_version",
+    "output_sha256",
+    "packet_options",
+    "started_on",
+    "progress",
+    "progress_message",
+    "retry_of",
+    "issued_on",
+    "issued_by"
+  ],
+  "fields": [
+    {
+      "fieldname": "manifest_json",
+      "fieldtype": "Code",
+      "label": "Manifest Json",
+      "read_only": 1
+    },
+    {
+      "fieldname": "snapshot_json",
+      "fieldtype": "Code",
+      "label": "Snapshot Json",
+      "read_only": 1
+    },
+    {
+      "fieldname": "source_revision",
+      "fieldtype": "Data",
+      "label": "Source Revision",
+      "read_only": 1
+    },
+    {
+      "fieldname": "manifest_schema_version",
+      "fieldtype": "Int",
+      "label": "Manifest Schema Version",
+      "read_only": 1
+    },
+    {
+      "fieldname": "output_sha256",
+      "fieldtype": "Data",
+      "label": "Output Sha256",
+      "read_only": 1
+    },
+    {
+      "fieldname": "naming_series",
+      "fieldtype": "Select",
+      "label": "Series",
+      "options": "ILL-EXPORT-.YYYY.-.#####"
+    },
+    {
+      "fieldname": "schedule",
+      "fieldtype": "Link",
+      "in_list_view": 1,
+      "label": "Schedule",
+      "options": "ilL-Project-Fixture-Schedule",
+      "reqd": 1
+    },
+    {
+      "fieldname": "export_type",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Export Type",
+      "options": "PDF_PRICED\nPDF_NO_PRICE\nCSV_PRICED\nCSV_NO_PRICE\nSPEC_SUBMITTAL\nSPEC_SUBMITTAL_FULL",
+      "reqd": 1
+    },
+    {
+      "fieldname": "column_break_export",
+      "fieldtype": "Column Break"
+    },
+    {
+      "default": "QUEUED",
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Status",
+      "options": "QUEUED\nRUNNING\nCOMPLETE\nFAILED\nINCOMPLETE"
+    },
+    {
+      "fieldname": "requested_by",
+      "fieldtype": "Link",
+      "in_list_view": 1,
+      "label": "Requested By",
+      "options": "User"
+    },
+    {
+      "default": "Now",
+      "fieldname": "created_on",
+      "fieldtype": "Datetime",
+      "in_list_view": 1,
+      "label": "Created On"
+    },
+    {
+      "fieldname": "output_section",
+      "fieldtype": "Section Break",
+      "label": "Output"
+    },
+    {
+      "fieldname": "output_file",
+      "fieldtype": "Attach",
+      "label": "Output File"
+    },
+    {
+      "fieldname": "column_break_output",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "error_log",
+      "fieldtype": "Small Text",
+      "label": "Error Log"
+    },
+    {
+      "fieldname": "packet_options",
+      "fieldtype": "Code",
+      "label": "Packet Options",
+      "read_only": 1
+    },
+    {
+      "fieldname": "started_on",
+      "fieldtype": "Datetime",
+      "label": "Started On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "progress",
+      "fieldtype": "Int",
+      "label": "Progress",
+      "read_only": 1
+    },
+    {
+      "fieldname": "progress_message",
+      "fieldtype": "Data",
+      "label": "Progress Message",
+      "read_only": 1
+    },
+    {
+      "fieldname": "retry_of",
+      "fieldtype": "Link",
+      "label": "Retry Of",
+      "read_only": 1,
+      "options": "ilL-Export-Job"
+    },
+    {
+      "fieldname": "issued_on",
+      "fieldtype": "Datetime",
+      "label": "Issued On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "issued_by",
+      "fieldtype": "Link",
+      "label": "Issued By",
+      "read_only": 1,
+      "options": "User"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-01-07 21:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "ilLumenate Lighting",
+  "name": "ilL-Export-Job",
+  "naming_rule": "By \"Naming Series\" field",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "All",
+      "share": 1
+    },
+    {
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Dealer",
+      "share": 1
+    }
+  ],
+  "row_format": "Dynamic",
+  "rows_threshold_for_grid_search": 20,
+  "search_fields": "schedule, export_type, status",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "allow_import": 1
 }

@@ -4,5 +4,26 @@ args = ["mcp"]
 cwd = "C:\\Users\\Kevin\\Documents\\GitHub\\erpillumenatelighting"
 startup_timeout_sec = 20
 
+[mcp_servers.repowise.tools.get_overview]
+approval_mode = "approve"
+
+[mcp_servers.repowise.tools.get_answer]
+approval_mode = "approve"
+
+[mcp_servers.repowise.tools.get_why]
+approval_mode = "approve"
+
+[mcp_servers.repowise.tools.get_risk]
+approval_mode = "approve"
+
+[mcp_servers.repowise.tools.get_health]
+approval_mode = "approve"
+
+[mcp_servers.repowise.tools.get_symbol]
+approval_mode = "approve"
+
+[mcp_servers.repowise.tools.get_context]
+approval_mode = "approve"
+
 [features]
 hooks = true

@@ -148,6 +148,7 @@ Request and track custom drawings and technical documentation
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
@@ -225,7 +226,7 @@ Request and track custom drawings and technical documentation
 							<select class="form-control" name="priority">
 								<option value="normal">{{ _("Normal") }}</option>
 								<option value="high">{{ _("High - Needed within 2 business days") }}</option>
-								<option value="rush">{{ _("Rush - Needed within 24 hours") }}</option>
+								<option value="rush">{{ _("Rush - Timing subject to review") }}</option>
 							</select>
 						</div>
 
@@ -414,41 +415,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Form submission
 	const form = document.getElementById('drawingRequestForm');
-	form.addEventListener('submit', function(e) {
-		e.preventDefault();
-
-		const formData = new FormData(form);
-		const data = Object.fromEntries(formData.entries());
-
-		// Handle custom project reference
-		if (data.project === '_custom') {
-			data.project = null;
-		}
-
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.create_drawing_request',
-			args: { request_data: JSON.stringify(data) },
-			freeze: true,
-			freeze_message: '{{ _("Submitting request...") }}',
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					frappe.msgprint({
-						title: '{{ _("Request Submitted") }}',
-						indicator: 'green',
-						message: '{{ _("Your drawing request has been submitted. We will notify you when it is ready.") }}'
-					});
-					form.reset();
-					setTimeout(() => location.reload(), 2000);
-				} else {
-					frappe.msgprint({
-						title: '{{ _("Error") }}',
-						indicator: 'red',
-						message: r.message?.error || '{{ _("An error occurred") }}'
-					});
-				}
-			}
-		});
-	});
+	form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (form.dataset.submitting) return;
+        form.dataset.submitting = '1';
+        const button = form.querySelector('[type="submit"]');
+        if (button) button.disabled = true;
+        try {
+            const data = Object.fromEntries(new FormData(form).entries());
+            delete data.attachments;
+            if (data.project === '_custom') data.project = null;
+            data.save_as_draft = true;
+            if (!form.dataset.requestName) {
+                const draft = await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.portal.create_drawing_request', {request_data: JSON.stringify(data)});
+                form.dataset.requestName = draft.request_name;
+            }
+            const fileIds = await PortalUploads.uploadAll(form.querySelector('[name="attachments"]'), 'ilL-Document-Request', form.dataset.requestName);
+            await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.document_requests.submit_request', {request_name: form.dataset.requestName, file_ids: JSON.stringify(fileIds)});
+            frappe.msgprint(__('Request received: {0}', [form.dataset.requestName]));
+            window.location.assign('/portal/drawings/' + encodeURIComponent(form.dataset.requestName));
+        } catch (error) {
+            frappe.msgprint({title: __('Request saved as draft'), indicator: 'red', message: frappe.utils.escape_html(error.message) + (form.dataset.requestName ? '<p>' + __('Draft: {0}', [frappe.utils.escape_html(form.dataset.requestName)]) + '</p>' : '')});
+        } finally {
+            delete form.dataset.submitting;
+            if (button) button.disabled = false;
+        }
+    });
 });
 </script>
 {% endblock %}

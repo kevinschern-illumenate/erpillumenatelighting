@@ -8,7 +8,6 @@ from typing import Optional
 
 import yaml
 
-
 # ── Finish → Endcap Color mapping (global convention) ──────────────────
 FINISH_TO_ENDCAP_COLOR = {
     "WH": "WH",
@@ -296,6 +295,10 @@ class LedSheetSpecDef:
     watts_per_sqft: float = 0.0
     lumens_per_sqft: float = 0.0
     input_voltage: str = "24V"
+    input_protocol: str = ""
+    cct: str = ""
+    total_sheet_watts: float = 0.0
+    max_panels_per_feed: int = 0
     cri: str = ""
     ip_rating: str = ""
     sku_series_code: str = ""

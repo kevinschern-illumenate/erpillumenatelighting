@@ -1,0 +1,57 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Child-Group-Allocation",
+ "module": "ilLumenate Lighting",
+ "engine": "InnoDB",
+ "field_order": [
+  "member_key",
+  "run_key",
+  "supply_number",
+  "output_number",
+  "item_code",
+  "watts"
+ ],
+ "fields": [
+  {
+   "fieldname": "member_key",
+   "fieldtype": "Data",
+   "label": "Member Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "run_key",
+   "fieldtype": "Data",
+   "label": "Run Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supply_number",
+   "fieldtype": "Int",
+   "label": "Supply Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "output_number",
+   "fieldtype": "Int",
+   "label": "Output Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item Code",
+   "read_only": 1,
+   "options": "Item"
+  },
+  {
+   "fieldname": "watts",
+   "fieldtype": "Float",
+   "label": "Watts",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "istable": 1
+}

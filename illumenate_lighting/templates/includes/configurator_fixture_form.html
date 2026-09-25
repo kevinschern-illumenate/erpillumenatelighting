@@ -140,6 +140,8 @@ Context:
 
 							<!-- Power supply & run override -->
 							<div class="config-section" id="powerSupplySection">
+								<label for="dimmingProtocol">{{ _("Power supply control protocol") }}</label>
+								<select class="form-control mb-3" id="dimmingProtocol" name="dimming_protocol_code"><option value="">{{ _("Any compatible protocol") }}</option></select>
 								<div class="custom-control custom-checkbox">
 									<input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>
 									<label class="custom-control-label" for="includePowerSupply">

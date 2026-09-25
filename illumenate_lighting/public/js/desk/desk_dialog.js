@@ -30,7 +30,7 @@
 	var DESK_API = 'illumenate_lighting.illumenate_lighting.api.desk_configurator.';
 	var MARKUP_METHOD = 'illumenate_lighting.templates.pages.configure.get_configurator_markup';
 	var BUTTON_LABEL = __('Configure & Add Fixture');
-	var INTERNAL_ROLES = ['System Manager', 'Administrator'];
+	var INTERNAL_ROLES = ['System Manager', 'Administrator', 'ilL Sales Review', 'ilL Order Approver'];
 
 	var PRODUCT_TYPES = [
 		{ value: 'Linear Fixture', label: __('Linear Fixture') },
@@ -217,6 +217,15 @@
 		this.qty = 1;
 		this.notes = '';
 		this.rowName = opts.rowName || null;
+		this.editingRow = this.rowName && (frm.doc.items || []).find(function (row) { return row.name === opts.rowName; });
+		if (this.editingRow) {
+			var row = this.editingRow;
+			this.productType = row.ill_product_type || this.productType;
+			this.fixtureType = row.ill_fixture_type; this.location = row.ill_section_label;
+			this.qty = row.qty; this.notes = row.additional_notes || '';
+			this.scheduleLineName = row.ill_schedule_line_id;
+			try { this.initialRequest = row.ill_configurator_request ? JSON.parse(row.ill_configurator_request) : null; } catch (_) { this.initialRequest = null; }
+		}
 		this.addedCount = 0;
 	}
 
@@ -236,13 +245,19 @@
 		this.dialog.$wrapper.addClass('ill-desk-configurator-dialog');
 		this.dialog.onhide = function () { self.onHide(); };
 		this.dialog.show();
-		this.renderProjectStep();
+		if (this.editingRow && !this.initialRequest && !this.frm.is_new()) {
+			this.call('reopen_row', {parent_doctype: this.frm.doctype, parent_name: this.frm.doc.name, row_name: this.rowName}).then(function (result) {
+				if (self.closed) return;
+				self.initialRequest = result.request; self.renderProjectStep();
+			}).catch(function () { self.body$().html('<div role="alert">' + __('This configuration could not be reopened. Close the dialog and review the document.') + '</div>'); });
+		} else this.renderProjectStep();
 	};
 
 	DialogController.prototype.body$ = function () { return this.dialog.fields_dict.body.$wrapper; };
 	DialogController.prototype.footer$ = function () { return this.dialog.fields_dict.footer.$wrapper; };
 
 	DialogController.prototype.onHide = function () {
+		this.closed = true;
 		this.teardownConfigurator();
 		if (this.addedCount && typeof this.frm.is_dirty === 'function' && this.frm.is_dirty()) {
 			frappe.show_alert({
@@ -620,6 +635,7 @@
 	// ── Step 2: Line details ─────────────────────────────────────────
 	DialogController.prototype.renderLineStep = function () {
 		var self = this;
+		if (this.configurator && this.configurator.exportRequest) this.initialRequest = this.configurator.exportRequest();
 		this.state = 'line';
 		this.teardownConfigurator();
 		this.renderStepIndicator();
@@ -662,6 +678,11 @@
 					return;
 				}
 			}
+			if (self.scheduleLineName) {
+				var selected = (data.lines || []).find(function (line) { return line.name === self.scheduleLineName; });
+				if (selected) self.lineIdx = selected.idx;
+				self.scheduleLineName = null;
+			}
 			self.renderLineForm(data);
 		}).catch(function () {
 			$body.html('<div class="alert alert-danger">' + __('Could not load the schedule.') + '</div>');
@@ -671,7 +692,7 @@
 	DialogController.prototype.renderLineForm = function (data) {
 		var self = this;
 		var $body = this.body$();
-		var pendingLines = (data.lines || []).filter(function (l) { return l.is_pending; });
+		var pendingLines = (data.lines || []).filter(function (l) { return l.is_pending || !!l.initial_request; });
 		var showLineSelect = !!(this.schedule && pendingLines.length);
 
 		var header = this.schedule
@@ -704,7 +725,9 @@
 		$body.find('.ill-desk-type-pill').on('click', function () {
 			$body.find('.ill-desk-type-pill').removeClass('active');
 			$(this).addClass('active');
-			self.productType = $(this).data('value');
+			var family = $(this).data('value');
+			if (self.productType !== family) self.initialRequest = null;
+			self.productType = family;
 		});
 
 		var slot = function (name) { return $body.find('.ill-desk-ctl[data-ctl="' + name + '"]'); };
@@ -733,34 +756,42 @@
 					return {
 						value: String(l.idx),
 						label: l.line_id + ' — ' + (l.location || __('no location'))
-							+ ' (' + (l.manufacturer_type === 'OTHER' ? __('Other manufacturer') : __('Pending')) + ')'
+							+ ' (' + (l.manufacturer_type === 'OTHER' ? __('Other manufacturer') : __(l.configuration_status || 'Pending')) + ')'
 					};
 				}));
 			c.line_select = makeControl({
 				fieldtype: 'Select', fieldname: 'line_select', label: __('Schedule line'),
 				options: options,
-				description: __('Pick a pending portal line to configure it in place, or add a new line.'),
+				description: __('Edit an existing schedule configuration or add a new line.'),
 				onchange: function () {
+					if (self.restoringLineSelection) return;
 					var val = c.line_select.get_value();
 					var line = byIdx[val];
 					if (line) {
+						if (self.lineIdx !== line.idx || !self.initialRequest) self.initialRequest = line.initial_request || null;
 						self.lineIdx = line.idx;
+						if (line.product_type) self.productType = line.product_type;
+						$body.find('.ill-desk-type-pill').each(function () { $(this).toggleClass('active', $(this).data('value') === self.productType); });
 						c.fixture_type.set_value(line.line_id);
 						c.location.set_value(line.location || '');
 						c.qty.set_value(line.qty || 1);
 						c.notes.set_value(line.notes || '');
+						self.fixtureType = line.line_id; self.location = line.location || ''; self.qty = line.qty || 1; self.notes = line.notes || '';
 					} else {
+						if (self.lineIdx != null) self.initialRequest = null;
 						self.lineIdx = null;
 						c.fixture_type.set_value(data.next_fixture_type || '');
 					}
 				}
 			}, slot('line_select'));
+			self.restoringLineSelection = true;
 			c.line_select.set_value(this.lineIdx != null ? String(this.lineIdx) : '__new__');
+			self.restoringLineSelection = false;
 		} else {
 			this.lineIdx = null;
 		}
 
-		if (this.lineIdx == null) {
+		{
 			c.fixture_type.set_value(this.fixtureType || data.next_fixture_type || '');
 			c.location.set_value(this.location || '');
 			c.qty.set_value(this.qty || 1);
@@ -832,6 +863,7 @@
 	DialogController.prototype.renderConfigureStep = function () {
 		var self = this;
 		this.state = 'configure';
+		var loadToken = this.markupToken = {};
 		this.renderStepIndicator();
 		this.footer$().empty();
 
@@ -848,9 +880,9 @@
 
 		frappe.call({
 			method: MARKUP_METHOD,
-			args: { product_category: this.productType },
+			args: { product_category: this.productType, selected_template: (this.initialRequest || {}).template },
 			callback: function (r) {
-				if (self.state !== 'configure') return;
+				if (self.closed || self.state !== 'configure' || self.markupToken !== loadToken) return;
 				var markup = r && r.message;
 				if (!markup) {
 					$body.find('.ill-desk-loading').replaceWith('<div class="alert alert-danger">'
@@ -860,6 +892,7 @@
 				self.mountConfigurator(markup);
 			},
 			error: function () {
+				if (self.closed || self.state !== 'configure' || self.markupToken !== loadToken) return;
 				$body.find('.ill-desk-loading').replaceWith('<div class="alert alert-danger">'
 					+ __('Could not load the configurator markup.') + '</div>');
 			}
@@ -894,7 +927,13 @@
 
 		var context = {
 			product_category: this.productType,
+			initial_request: this.initialRequest ? JSON.parse(JSON.stringify(this.initialRequest)) : null,
+			selected_template: (this.initialRequest || {}).template,
+			groups_enabled: !!(this.context && this.context.groups_enabled),
 			is_neon: this.productType === 'LED Neon',
+			is_tape: this.productType === 'LED Tape',
+			is_tape_neon: !fixture && !sheet,
+			has_templates: !!$host.find('[name=fixture_template_code] option[value!=""]').length,
 			schedule_name: '',
 			project_name: '',
 			line_idx: null,
@@ -911,7 +950,7 @@
 			} else if (sheet) {
 				this.configurator = new root.IllConfigurator.LedSheet($host[0], context);
 			} else {
-				this.configurator = new root.IllConfigurator.TapeNeon($host[0], context);
+				this.configurator = new root.IllConfigurator.Coordinator($host[0], context);
 			}
 			this.configurator.init();
 		} catch (e) {
@@ -951,6 +990,8 @@
 			notes: this.notes || null,
 			schedule: this.schedule || null,
 			line_idx: this.lineIdx != null ? this.lineIdx : null,
+			line_key: ((this.pickerData || {}).lines || []).find(function (row) { return row.idx === self.lineIdx; })?.line_key || null,
+			expected_modified: (this.pickerData || {}).modified || null,
 			variant_origin: variantOriginFor(this.frm)
 		};
 		if (isFixture(productType)) {
@@ -962,6 +1003,9 @@
 			if (payload.tape_neon_template) args.tape_neon_template = payload.tape_neon_template;
 		}
 
+		var signature = JSON.stringify(args);
+		if (!this.saveAttempt || this.saveAttempt.signature !== signature) this.saveAttempt = {signature: signature, key: root.crypto.randomUUID()};
+		args.idempotency_key = this.saveAttempt.key;
 		this.saving = true;
 		this.toggleConfiguratorButtons(true);
 		frappe.call({
@@ -994,6 +1038,7 @@
 	DialogController.prototype.applyRowToForm = function (msg) {
 		var frm = this.frm;
 		var values = msg.row_values || {};
+		if (msg.save_receipt && (frm.doc.items || []).some(function (row) { return row.ill_configuration_save_key === msg.save_receipt; })) return;
 		var childDoctype = frm.doctype + ' Item';
 		var row = null;
 
@@ -1066,6 +1111,8 @@
 		this.footer$().find('.ill-desk-add-another').on('click', function () {
 			self.fixtureType = msg.next_fixture_type || '';
 			self.lineIdx = null;
+			self.initialRequest = null;
+			self.editingRow = null;
 			self.notes = '';
 			self.renderLineStep();
 		});

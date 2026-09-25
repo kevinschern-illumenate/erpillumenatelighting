@@ -37,6 +37,8 @@ def get_context(context):
 		return context
 
 	context.request = frappe._dict(result.get("request", {}))
+	context.thread_type = "ilL-Document-Request"
+	context.thread_name = context.request.name
 
 	# Get request type info for icons and display
 	context.request_type_info = context.request.get("request_type_info") or {}
@@ -46,6 +48,10 @@ def get_context(context):
 
 	# Get custom fields
 	context.custom_fields = context.request.get("custom_fields", [])
+
+	from illumenate_lighting.illumenate_lighting.portal.drawing_review import detail
+
+	context.drawing_review = detail(frappe.get_doc("ilL-Document-Request", context.request["name"]))
 
 	# Get deliverables
 	context.deliverables = context.request.get("deliverables", [])

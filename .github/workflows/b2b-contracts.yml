@@ -1,0 +1,55 @@
+name: B2B local contracts
+on:
+  pull_request:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install local test dependencies
+        run: |
+          python -m pip install ruff PyYAML Jinja2 Pillow pypdf reportlab pypdfium2
+          npm ci --prefix tests/portal_ui
+          npm ci --prefix tests/portal_e2e
+      - name: Python service and generator contracts
+        run: |
+          python -B -m unittest discover -s tests/portal_unit
+          python -B -m unittest discover -s tools/fixture_builder/tests
+      - name: Render templates and test browser DOM contracts
+        run: |
+          python -B tools/check_portal_templates.py
+          node --test tests/portal_ui/*.test.cjs
+          node tests/portal_unit/publication_workflow.test.cjs
+          node --test tests/portal_unit/reconciliation.test.cjs
+          npm run list --prefix tests/portal_e2e
+      - name: PDF filler and merger contract
+        run: python -B tools/check_pdf_fidelity.py
+      - name: Changed-file lint and schemas
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          export B2B_BASE_REF="${PR_BASE:-HEAD^}"
+          python -B tools/check_b2b_changes.py
+      - name: Retain synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b2b-local-contract-evidence
+          retention-days: 14
+          include-hidden-files: true
+          path: |
+            .tools/b2b-validation.json
+            .tools/portal-pdf-qa/

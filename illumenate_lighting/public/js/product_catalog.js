@@ -15,7 +15,9 @@ var CatalogState = {
 	attrFilters: {},    // { attribute_type: [value, …] }
 	products: [],
 	total: 0,
-	filterMeta: null
+	filterMeta: null,
+	requestVersion: 0,
+	loading: false
 };
 
 // ── Initialisation ──────────────────────────────────────────────────
@@ -97,14 +99,14 @@ function renderFilterSidebar(data) {
 	(data.product_types || []).forEach(function(pt) {
 		var active = CatalogState.productType.indexOf(pt.value) !== -1 ? ' active' : '';
 		$tabs.append(
-			'<span class="product-type-tab' + active + '" data-type="' +
+			'<button type="button" aria-pressed="' + (active ? 'true' : 'false') + '" class="product-type-tab' + active + '" data-type="' +
 			escapeHtml(pt.value) + '">' + escapeHtml(pt.value) +
-			' <small class="text-muted">(' + pt.count + ')</small></span>'
+			' <small class="text-muted">(' + pt.count + ')</small></button>'
 		);
 	});
 	$tabs.off('click', '.product-type-tab').on('click', '.product-type-tab', function() {
 		var type = $(this).data('type');
-		$(this).toggleClass('active');
+		$(this).toggleClass('active').attr('aria-pressed', $(this).hasClass('active') ? 'true' : 'false');
 		// Rebuild array from active tabs
 		CatalogState.productType = [];
 		$tabs.find('.active').each(function() {
@@ -119,9 +121,9 @@ function renderFilterSidebar(data) {
 	(data.filters || []).forEach(function(group) {
 		var $g = $('<div class="filter-group">');
 		$g.append(
-			'<div class="filter-group-title" onclick="$(this).parent().toggleClass(\'collapsed\')">' +
-			escapeHtml(group.attribute_type) +
-			' <i class="fa fa-chevron-down"></i></div>'
+			'<button type="button" class="filter-group-title btn btn-link p-0" aria-expanded="true">' +
+			escapeHtml(group.label || group.attribute_type) +
+			' <i class="fa fa-chevron-down"></i></button>'
 		);
 		var $opts = $('<div class="filter-options">');
 		(group.options || []).forEach(function(opt) {
@@ -154,6 +156,7 @@ function renderFilterSidebar(data) {
 		fetchProducts(true);
 	});
 
+	$groups.find('.filter-group-title').on('click', function () { const collapsed = $(this).parent().toggleClass('collapsed').hasClass('collapsed'); $(this).attr('aria-expanded', !collapsed); });
 	updateClearBtn();
 }
 
@@ -181,7 +184,12 @@ function toggleMobileFilters() {
 
 // ── Fetch & Render Products ─────────────────────────────────────────
 
-function fetchProducts(replace) {
+function fetchProducts(replace, requestedPage) {
+	var version = ++CatalogState.requestVersion;
+	CatalogState.loading = true;
+	$('#productGrid').attr('aria-busy', 'true');
+	$('#catalogFeedback').text('Loading products...').removeClass('text-danger');
+	$('#loadMoreBtn').prop('disabled', true);
 	var filters = {};
 	if (CatalogState.productType.length) {
 		filters.product_type = CatalogState.productType;
@@ -195,12 +203,15 @@ function fetchProducts(replace) {
 		args: {
 			filters: JSON.stringify(filters),
 			search: CatalogState.search,
-			page: CatalogState.page,
+			page: requestedPage || CatalogState.page,
 			page_size: CatalogState.pageSize
 		},
 		callback: function(r) {
-			if (!r.message || !r.message.success) return;
+			if (version !== CatalogState.requestVersion) return;
+			if (!r.message || !r.message.success) { $('#catalogFeedback').text((r.message && r.message.error) || 'Products unavailable. Retry.').addClass('text-danger'); return; }
 			var data = r.message;
+			CatalogState.page = data.page;
+			$('#catalogFeedback').text('');
 			CatalogState.total = data.total;
 			if (replace) {
 				CatalogState.products = data.products;
@@ -210,7 +221,9 @@ function fetchProducts(replace) {
 			renderGrid();
 			pushUrlState();
 			updateClearBtn();
-		}
+		},
+        error: function () { if (version === CatalogState.requestVersion) $('#catalogFeedback').text('Products unavailable. Check your connection or access, then retry.').addClass('text-danger'); },
+        always: function () { if (version === CatalogState.requestVersion) { CatalogState.loading = false; $('#productGrid').attr('aria-busy', 'false'); $('#loadMoreBtn').prop('disabled', false); } }
 	});
 }
 
@@ -237,11 +250,11 @@ function renderGrid() {
 		}
 
 		var priceHtml = '';
-		if (p.base_price_msrp) {
-			priceHtml = '<span class="product-card-price">From $' + Number(p.base_price_msrp).toLocaleString() + '</span>';
+		if (p.base_price_msrp != null) {
+			priceHtml = '<span class="product-card-price">Base MSRP $' + Number(p.base_price_msrp).toLocaleString() + '<small class="d-block">Before length and options</small></span>';
 		}
 
-		var ctaLabel = p.is_configurable ? 'Configure' : 'View Details';
+		var ctaLabel = 'View Details';
 		var ctaClass = p.is_configurable ? 'btn-primary' : 'btn-outline-primary';
 
 		var seriesBadge = p.series ? '<span class="badge badge-series">' + escapeHtml(p.series) + '</span>' : '';
@@ -264,6 +277,8 @@ function renderGrid() {
 		);
 	});
 
+	$grid.find('img').on('error', function () { $(this).replaceWith('<div class="product-card-img placeholder" role="img" aria-label="Image unavailable"><i class="fa fa-cube"></i></div>'); });
+
 	// Navigate on card click (except the CTA link)
 	$grid.off('click', '.product-card').on('click', '.product-card', function(e) {
 		if ($(e.target).closest('a').length) return; // let links work normally
@@ -281,8 +296,8 @@ function renderGrid() {
 }
 
 function loadMore() {
-	CatalogState.page++;
-	fetchProducts(false);
+	if (CatalogState.loading) return;
+	fetchProducts(false, CatalogState.page + 1);
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -291,5 +306,5 @@ function escapeHtml(str) {
 	if (!str) return '';
 	var div = document.createElement('div');
 	div.textContent = str;
-	return div.innerHTML;
+	return div.innerHTML.replaceAll('"', '&quot;').replaceAll("'", "&#39;");
 }

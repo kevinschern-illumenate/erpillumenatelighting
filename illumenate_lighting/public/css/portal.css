@@ -590,3 +590,20 @@
 	line-height: 1.6;
 	margin: 0;
 }
+
+/* Shared portal navigation and keyboard/mobile interaction rules. */
+.ill-portal-navigation { display:flex; flex-wrap:wrap; gap:.4rem 1rem; max-width:1140px; margin:1rem auto; padding:.5rem 1rem; border-bottom:1px solid var(--ill-gray-300); }
+.ill-portal-navigation a { padding:.45rem .2rem; color:var(--ill-ink); }
+.ill-portal-navigation a[aria-current="page"] { font-weight:700; border-bottom:2px solid var(--ill-primary); }
+.portal-page :focus-visible, .ill-portal-navigation :focus-visible, .modal :focus-visible { outline:3px solid var(--ill-primary); outline-offset:3px; }
+.portal-page .btn { white-space:normal; }
+.portal-page [role="alert"], .portal-page [role="status"] { overflow-wrap:anywhere; }
+.toggle-switch input:focus-visible + .toggle-slider { outline:3px solid var(--ill-primary); outline-offset:3px; }
+@media(max-width:767.98px) {
+ .portal-page .page-header, .portal-page .page-actions { flex-wrap:wrap; gap:.5rem; }
+ .portal-page .btn-group { flex-wrap:wrap; }
+ .modal-dialog { max-width:calc(100vw - 1rem); margin:.5rem; }
+ .modal-body { overflow-x:auto; max-height:75vh; }
+ .portal-page .settings-card-body { padding:1rem; }
+ .portal-page .notification-item { gap:1rem; }
+}

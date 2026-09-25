@@ -19,6 +19,17 @@ class ilLExportJob(Document):
 
 	def validate(self):
 		"""Validate export job data."""
+		old = self.get_doc_before_save()
+		if any(self.get(field) != (old.get(field) if old else None) for field in ("issued_on", "issued_by")):
+			frappe.throw(_("Use the verified packet issue action; issuance metadata is immutable."))
+		if old and old.get("manifest_json"):
+			for field in ("manifest_json", "snapshot_json", "source_revision", "manifest_schema_version", "schedule", "requested_by", "export_type"):
+				if self.get(field) != old.get(field):
+					frappe.throw(_("Packet source snapshots are immutable. Generate a new packet."))
+		if old and old.status in ("COMPLETE", "INCOMPLETE"):
+			for field in ("status", "output_file", "output_sha256"):
+				if self.get(field) != old.get(field):
+					frappe.throw(_("Completed packet output is immutable."))
 		self._validate_schedule_access()
 		self._validate_pricing_permission()
 
@@ -64,92 +75,42 @@ class ilLExportJob(Document):
 
 
 def get_permission_query_conditions(user=None):
-	"""
-	Return SQL conditions to filter ilL-Export-Job list for the current user.
+	"""An export always follows current schedule and pricing access, including its owner."""
+	from illumenate_lighting.illumenate_lighting.api.exports import _check_pricing_permission
+	from illumenate_lighting.illumenate_lighting.portal.access import schedule_query_conditions
 
-	Epic 3 Task 3.1: Verify permission hooks for key DocTypes.
+	user = user or frappe.session.user
+	if user == "Guest":
+		return "1=0"
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
-	Export jobs are filtered based on:
-	- System Manager sees all
-	- Users see only their own exports OR exports they have schedule access to
-	- Priced exports are hidden from users without pricing permission
-
-	Args:
-		user: The user to check permissions for. Defaults to current user.
-
-	Returns:
-		str: SQL WHERE clause conditions or empty string for full access
-	"""
-	if not user:
-		user = frappe.session.user
-
-	# System Manager and Administrator have full access
-	if "System Manager" in frappe.get_roles(user) or user == "Administrator":
-		return ""
-
-	# Check if user has pricing permission
-	from illumenate_lighting.illumenate_lighting.api.exports import (
-		_check_pricing_permission,
-	)
-
-	has_pricing = _check_pricing_permission(user)
-
-	# Build conditions
-	conditions = []
-
-	# Users can always see their own exports
-	conditions.append(f"`tabilL-Export-Job`.requested_by = {frappe.db.escape(user)}")
-
-	# If no pricing permission, exclude priced exports from others
-	if not has_pricing:
-		conditions.append(
-			f"(`tabilL-Export-Job`.export_type NOT IN ('PDF_PRICED', 'CSV_PRICED'))"
-		)
-
-	return f"({' OR '.join(conditions)})"
+	if allowed("engineering", user):
+		return "`tabilL-Export-Job`.export_type NOT IN ('PDF_PRICED', 'CSV_PRICED')"
+	predicate = schedule_query_conditions(user) or "1=1"
+	conditions = [f"`tabilL-Export-Job`.schedule IN (SELECT name FROM `tabilL-Project-Fixture-Schedule` WHERE {predicate})"]
+	if not _check_pricing_permission(user):
+		conditions.append("`tabilL-Export-Job`.export_type NOT IN ('PDF_PRICED', 'CSV_PRICED')")
+	return " AND ".join(f"({condition})" for condition in conditions)
 
 
 def has_permission(doc, ptype="read", user=None):
-	"""
-	Check if user has permission to access this specific export job.
+	from illumenate_lighting.illumenate_lighting.api.exports import _check_pricing_permission
+	from illumenate_lighting.illumenate_lighting.portal.access import can_read_schedule
 
-	Epic 3 Task 3.1: Verify permission hooks for key DocTypes.
-
-	Args:
-		doc: The ilL-Export-Job document
-		ptype: Permission type (read, write, delete, etc.)
-		user: The user to check permissions for. Defaults to current user.
-
-	Returns:
-		bool: True if user has permission, False otherwise
-	"""
-	if not user:
-		user = frappe.session.user
-
-	# System Manager and Administrator have full access
-	if "System Manager" in frappe.get_roles(user) or user == "Administrator":
+	user = user or frappe.session.user
+	if user == "Guest":
+		return False
+	if user == "Administrator" or "System Manager" in frappe.get_roles(user):
 		return True
+	if ptype not in ("read", "select", "print", "export"):
+		return False
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
-	# Owner always has access
-	if doc.owner == user or doc.requested_by == user:
+	if allowed("engineering", user) and doc.export_type not in ("PDF_PRICED", "CSV_PRICED"):
 		return True
-
-	# Check if priced export and user lacks pricing permission
-	if doc.export_type in ["PDF_PRICED", "CSV_PRICED"]:
-		from illumenate_lighting.illumenate_lighting.api.exports import (
-			_check_pricing_permission,
-		)
-
-		if not _check_pricing_permission(user):
-			return False
-
-	# Check schedule access
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
-		has_permission as schedule_has_permission,
-	)
-
+	if doc.export_type in ("PDF_PRICED", "CSV_PRICED") and not _check_pricing_permission(user):
+		return False
 	try:
-		schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", doc.schedule)
-		return schedule_has_permission(schedule, "read", user)
-	except Exception:
+		return can_read_schedule(frappe.get_doc("ilL-Project-Fixture-Schedule", doc.schedule), user)
+	except frappe.DoesNotExistError:
 		return False

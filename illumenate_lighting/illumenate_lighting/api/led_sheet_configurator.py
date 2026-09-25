@@ -3,7 +3,6 @@
 
 """Portal/desk APIs for configuring LED Sheet products."""
 
-import hashlib
 import json
 from typing import Any
 
@@ -11,6 +10,12 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from illumenate_lighting.illumenate_lighting.api import led_sheet_bundle
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+    fingerprint,
+    finite_number,
+    parse_bool,
+)
 from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
     aggregate_power_supplies,
     build_accessory_lines,
@@ -41,17 +46,14 @@ SKU_FIELD_BY_TYPE = {
 
 def _coerce_options(options: str | dict | None) -> dict[str, Any]:
     if isinstance(options, str):
-        try:
-            options = json.loads(options)
-        except Exception:
-            options = {}
+        options = json.loads(options)
+    if options is not None and not isinstance(options, dict):
+        frappe.throw(_("LED Sheet options must be an object"))
     return options or {}
 
 
 def _coerce_bool(value: Any) -> bool:
-    if isinstance(value, str):
-        return value.strip().lower() in ("1", "true", "yes", "on")
-    return bool(value)
+    return parse_bool(value)
 
 
 def _norm_option_key(key: str) -> str:
@@ -129,8 +131,9 @@ def _build_groups(panels_needed: int, watts_per_panel: float, drivers: list[dict
 def _item_price(item_code: str | None) -> float:
     if not item_code:
         return 0.0
-    price = frappe.db.get_value("Item Price", {"item_code": item_code, "selling": 1}, "price_list_rate", order_by="valid_from desc, modified desc")
-    return flt(price)
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import selling_amount
+    return selling_amount(item_code, 1)
+
 
 
 def _item_name(item_code: str | None) -> str | None:
@@ -140,7 +143,7 @@ def _item_name(item_code: str | None) -> str | None:
 
 
 def _hash_payload(payload: dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+    return fingerprint(payload)
 
 
 def _config_hash_payload(template, spec, options: dict[str, Any], coverage_width_ft, coverage_height_ft, include_power_supply: bool) -> dict[str, Any]:
@@ -155,7 +158,7 @@ def _config_hash_payload(template, spec, options: dict[str, Any], coverage_width
         "selected_finish": options.get("Finish"),
         "coverage_width_ft": coverage_width_ft,
         "coverage_height_ft": coverage_height_ft,
-        "include_power_supply": bool(include_power_supply),
+        "include_power_supply": parse_bool(include_power_supply),
     }
 
 
@@ -174,13 +177,25 @@ def _resolve_dimensions(
         width_ft = normalize_dimension(coverage_width_value, coverage_width_unit or "ft")
         height_ft = normalize_dimension(coverage_height_value, coverage_height_unit or "ft")
     else:
-        width_ft = flt(coverage_width_ft)
-        height_ft = flt(coverage_height_ft)
+        width_ft = finite_number(coverage_width_ft, minimum=0, field="coverage width")
+        height_ft = finite_number(coverage_height_ft, minimum=0, field="coverage height")
     return width_ft, height_ft
 
 
 @frappe.whitelist()
-def validate_sheet_configuration(
+def validate_sheet_configuration(template, spec, options=None, coverage_width_ft=0,
+    coverage_height_ft=0, schedule_name=None, line_idx=None, coverage_width_value=None,
+    coverage_width_unit="ft", coverage_height_value=None, coverage_height_unit="ft",
+    include_power_supply=1, dimming_protocol_code=None):
+    from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
+
+    require_configuration("LED Sheet")
+    return _calculate_sheet(template, spec, options, coverage_width_ft, coverage_height_ft,
+        schedule_name, line_idx, coverage_width_value, coverage_width_unit,
+        coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code)
+
+
+def _calculate_sheet(
     template,
     spec,
     options=None,
@@ -193,14 +208,20 @@ def validate_sheet_configuration(
     coverage_height_value=None,
     coverage_height_unit="ft",
     include_power_supply=1,
+    dimming_protocol_code=None,
+    *, commercial=True,
 ):
     template_doc = frappe.get_doc("ilL-LED-Sheet-Template", template)
     spec_doc = frappe.get_doc("ilL-Spec-LED-Sheet", spec)
-    if template_doc.allowed_specs and spec not in {r.spec for r in template_doc.allowed_specs if r.is_active}:
+    if not template_doc.is_active or not spec_doc.is_active:
+        frappe.throw(_("Choose an active LED Sheet template and specification"))
+    if spec not in {r.spec for r in template_doc.allowed_specs if r.is_active}:
         frappe.throw(_("LED Sheet spec {0} is not allowed for template {1}").format(spec, template))
 
     include_ps = _coerce_bool(include_power_supply)
     resolved = _resolve_options(template_doc, _coerce_options(options))
+    if spec_doc.cct and resolved["CCT"]["value"] != spec_doc.cct:
+        frappe.throw(_("Selected CCT does not match the physical Sheet specification"))
     width, height = _resolve_dimensions(
         coverage_width_ft,
         coverage_height_ft,
@@ -229,11 +250,15 @@ def validate_sheet_configuration(
     total_coverage_sqft = width * height
     watts_per_panel = flt(spec_doc.total_sheet_watts) or flt(spec_doc.watts_per_sqft) * sheet_area
     total_system_watts = panels_needed * watts_per_panel
-    groups = _build_groups(panels_needed, watts_per_panel, _get_eligible_drivers(template))
+    physical = led_sheet_bundle.resolve({
+        "panels_needed": panels_needed, "watts_per_panel": watts_per_panel,
+        "include_power_supply": include_ps, "dimming_protocol_code": dimming_protocol_code,
+    }, template_doc, spec_doc)
+    groups = physical["groups"]
 
     leader_qty = leader_cable_qty(len(groups))
     jumper_qty = jumper_cable_qty(panels_needed)
-    power_supplies = aggregate_power_supplies(groups)
+    power_supplies = [dict(row) for row in physical["power_supplies"]]
     for ps in power_supplies:
         ps["item_name"] = _item_name(ps.get("driver_item"))
 
@@ -250,28 +275,28 @@ def validate_sheet_configuration(
         ] if part
     ])
 
-    # Pricing: the panel line carries panel + option MSRP.  Cables and power
-    # supplies become their own accessory schedule lines priced from Item Price.
-    panels_base_msrp = panels_needed * flt(template_doc.price_per_sheet_msrp)
-    option_msrp = panels_needed * sum(flt(v.get("msrp_adder")) for v in resolved.values())
-    panels_msrp = panels_base_msrp + option_msrp
-    jumper_item_price = _item_price(template_doc.jumper_cable_item)
-    leader_item_price = _item_price(template_doc.leader_cable_item)
-    jumpers_msrp = jumper_qty * jumper_item_price
-    leaders_msrp = leader_qty * leader_item_price
-    power_supplies_msrp = 0.0
-    if include_ps:
-        for ps in power_supplies:
-            price = _item_price(ps.get("driver_item"))
-            ps["unit_price"] = price
-            ps["line_total"] = price * int(ps.get("qty") or 0)
-            power_supplies_msrp += ps["line_total"]
-    total_msrp = panels_msrp + jumpers_msrp + leaders_msrp + power_supplies_msrp
+    panels_base_msrp = option_msrp = panels_msrp = jumpers_msrp = leaders_msrp = power_supplies_msrp = total_msrp = 0
+    if commercial:
+        # One commercial bundle includes each physical component exactly once.
+        panels_base_msrp = panels_needed * finite_number(template_doc.price_per_sheet_msrp, minimum=0, field="panel MSRP")
+        option_msrp = panels_needed * sum(finite_number(v.get("msrp_adder"), minimum=0, field="option MSRP") for v in resolved.values())
+        panels_msrp = panels_base_msrp + option_msrp
+        jumper_item_price = _item_price(template_doc.jumper_cable_item)
+        leader_item_price = _item_price(template_doc.leader_cable_item)
+        jumpers_msrp = jumper_qty * jumper_item_price
+        leaders_msrp = leader_qty * leader_item_price
+        power_supplies_msrp = 0.0
+        if include_ps:
+            for ps in power_supplies:
+                price = _item_price(ps.get("driver_item"))
+                ps["unit_price"] = price
+                ps["line_total"] = price * int(ps.get("qty") or 0)
+                power_supplies_msrp += ps["line_total"]
+        total_msrp = panels_msrp + jumpers_msrp + leaders_msrp + power_supplies_msrp
 
     options_payload = {k: v["value"] for k, v in resolved.items()}
-    payload = _config_hash_payload(template, spec, options_payload, width, height, include_ps)
-
-    return {
+    result = {
+        **physical,
         "success": True,
         "template": template,
         "spec": spec,
@@ -310,13 +335,16 @@ def validate_sheet_configuration(
             "leaders_msrp": leaders_msrp,
             "power_supplies_msrp": power_supplies_msrp,
             "total_msrp": total_msrp,
-            "msrp": panels_msrp,
+            "msrp": total_msrp,
         },
-        # Stored on the panel line / configured doc.
-        "msrp": panels_msrp,
+        # Stored per complete bundle; the schedule quantity multiplies it.
+        "msrp": total_msrp,
         "total_msrp": total_msrp,
-        "config_hash": _hash_payload(payload),
     }
+    if not commercial:
+        for key in ("pricing", "msrp", "total_msrp"):
+            result.pop(key, None)
+    return led_sheet_bundle.seal(result, spec_doc)
 
 
 def _generated_accessory_marker(configured_name: str) -> str:
@@ -350,6 +378,8 @@ def _configured_sheet_accessory_specs(doc, bundle_qty: int) -> list[dict[str, An
     """Recompute the generated accessory line specs for an already-configured LED
     Sheet ``doc`` scaled to ``bundle_qty``, using the panel/group data stored on
     the configured record."""
+    if doc.get("bundle_mode") == "Bundle":
+        return []
     template_doc = frappe.get_doc("ilL-LED-Sheet-Template", doc.sheet_template)
     panels_needed = cint(doc.sheets_needed)
     groups = [
@@ -379,72 +409,53 @@ def resync_led_sheet_line_accessories(schedule, panel_line, bundle_qty: int):
     if not configured_name:
         return
     doc = frappe.get_doc("ilL-Configured-LED-Sheet", configured_name)
-    marker = generated_accessory_marker(configured_name)
+    if doc.get("bundle_mode") == "Bundle":
+        return
+    marker = _legacy_line_marker(schedule, panel_line)
     _remove_generated_accessory_lines(schedule, [marker], keep_line=panel_line)
     for spec in _configured_sheet_accessory_specs(doc, bundle_qty):
-        _append_accessory_line(schedule, spec["item_code"], spec["qty"], spec["notes"])
+        _append_accessory_line(schedule, spec["item_code"], spec["qty"], spec["notes"].replace(generated_accessory_marker(configured_name), marker))
+
+
+def _legacy_line_marker(schedule, line):
+    owned = "for LED Sheet line " + line.name
+    if any(owned in (row.notes or "") for row in schedule.lines):
+        return owned
+    configured = line.configured_led_sheet
+    marker = generated_accessory_marker(configured)
+    siblings = [row for row in schedule.lines if row.get("configured_led_sheet") == configured]
+    if len(siblings) > 1 and any(is_generated_accessory_line(row.manufacturer_type, row.notes, [marker]) for row in schedule.lines):
+        frappe.throw(_("Legacy Sheet accessories have ambiguous line ownership. Staff must reconcile them before editing this line."))
+    for row in schedule.lines:
+        if is_generated_accessory_line(row.manufacturer_type, row.notes, [marker]):
+            row.notes = row.notes.replace(marker, owned)
+    return owned
+
+
+def remove_sheet_accessories_for_line(schedule, line):
+    if line.get("configured_led_sheet"):
+        marker = _legacy_line_marker(schedule, line)
+        _remove_generated_accessory_lines(schedule, [marker], keep_line=line)
 
 
 def _apply_multi_line_schedule(schedule, panel_line_idx: int, template, doc, result: dict[str, Any]):
-    """Update the pending LED Sheet line as the panel line and (re)generate the
-    jumper / leader / power supply accessory lines.
-
-    The schedule line ``qty`` is preserved as the user-entered fixture/bundle
-    count; the per-bundle panel count lives on the configured LED Sheet record.
-    Generated accessory rows are scaled by the bundle quantity so totals cover
-    every identical bundle.
-    """
+    """Compatibility name: v2 writes a single bundle and preserves buyer notes."""
     if panel_line_idx < 0 or panel_line_idx >= len(schedule.lines):
-        frappe.throw(_("Line index {0} was not found on schedule {1}").format(panel_line_idx, schedule.name))
-
-    configured_name = doc.name
-    marker = generated_accessory_marker(configured_name)
-
-    panel_line = schedule.lines[panel_line_idx]
-
-    # Preserve the user-entered bundle quantity - how many identical configured
-    # LED Sheet bundles the user wants.  This must NOT be overwritten with the
-    # per-bundle panel count.
-    bundle_qty = cint(panel_line.qty) or 1
-
-    # Clean up stale generated accessory rows for both the previously configured
-    # sheet on this line (dimensions/options may have changed to a different
-    # configured sheet) and the new configured sheet, so re-saving never leaves
-    # orphaned or duplicate rows behind.
-    markers_to_remove = [marker]
-    previous_configured = getattr(panel_line, "configured_led_sheet", None)
-    if previous_configured and previous_configured != configured_name:
-        markers_to_remove.append(generated_accessory_marker(previous_configured))
-    _remove_generated_accessory_lines(schedule, markers_to_remove, keep_line=panel_line)
-
-    panel_line.manufacturer_type = "ILLUMENATE"
-    panel_line.product_type = "LED Sheet"
-    panel_line.led_sheet_template = template
-    panel_line.configured_led_sheet = configured_name
-    panel_line.configuration_status = "Configured"
-    panel_line.qty = bundle_qty
-    panel_line.notes = (
-        f"Configured LED Sheet {configured_name} | {result.get('part_number', '')} | "
-        f"{result['panels_wide']}x{result['panels_tall']} panels, "
-        f"{result['total_groups']} group(s)"
-    )
-
-    for spec in build_accessory_lines(
-        configured_name=configured_name,
-        bundle_qty=bundle_qty,
-        jumper_item=result.get("jumper_cable_item"),
-        jumper_qty_per_bundle=result.get("jumper_cable_qty"),
-        leader_item=result.get("leader_cable_item"),
-        leader_qty_per_bundle=result.get("leader_cable_qty"),
-        power_supplies=result.get("power_supplies"),
-        include_power_supply=bool(result.get("include_power_supply")),
-    ):
-        _append_accessory_line(schedule, spec["item_code"], spec["qty"], spec["notes"])
-
+        frappe.throw(_("Schedule line was not found"))
+    line = schedule.lines[panel_line_idx]
+    remove_sheet_accessories_for_line(schedule, line)
+    line.manufacturer_type = "ILLUMENATE"
+    line.product_type = "LED Sheet"
+    line.led_sheet_template = template
+    line.configured_led_sheet = doc.name
+    line.configuration_status = "Configured"
+    line.ill_item_code = doc.configured_item
+    for field in ("configured_fixture", "configured_tape_neon", "fixture_template", "tape_neon_template", "variant_selections", "accessory_item", "manufacturer_name", "fixture_model_number"):
+        line.set(field, None)
     schedule.save(ignore_permissions=True)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_sheet_configuration(
     template,
     spec,
@@ -458,70 +469,55 @@ def save_sheet_configuration(
     coverage_height_value=None,
     coverage_height_unit="ft",
     include_power_supply=1,
+    dimming_protocol_code=None,
 ):
+    from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule
+    if frappe.session.user == "Guest":
+        frappe.throw(_("Please sign in to save a configuration"), frappe.PermissionError)
     schedule = None
     if schedule_name:
         schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
-        from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
-            has_permission,
+        if not can_edit_schedule(schedule):
+            frappe.throw(_("No write permission on this schedule"), frappe.PermissionError)
+        frappe.db.sql("select name from `tabilL-Project-Fixture-Schedule` where name=%s for update", schedule_name)
+        schedule.reload()
+        if not can_edit_schedule(schedule):
+            frappe.throw(_("No write permission on this schedule"), frappe.PermissionError)
+        if schedule.get("is_locked") or schedule.status not in ("DRAFT", "READY"):
+            frappe.throw(_("Create an editable schedule version before changing this build"))
+        if line_idx in (None, "") or str(line_idx).strip() != str(cint(line_idx)) or not 0 <= cint(line_idx) < len(schedule.lines):
+            frappe.throw(_("Select an existing schedule line"))
+    frappe.db.savepoint("sheet_save")
+    try:
+        # Same template lock order serializes hash-based creation across all entry points.
+        frappe.db.sql("select name from `tabilL-LED-Sheet-Template` where name=%s for update", template)
+        result = validate_sheet_configuration(
+            template, spec, options, coverage_width_ft, coverage_height_ft, schedule_name, line_idx,
+            coverage_width_value, coverage_width_unit, coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code,
         )
-        if not has_permission(schedule, "write", frappe.session.user):
-            frappe.throw(_("No write permission on this schedule"))
-
-    result = validate_sheet_configuration(
-        template,
-        spec,
-        options,
-        coverage_width_ft,
-        coverage_height_ft,
-        schedule_name,
-        line_idx,
-        coverage_width_value,
-        coverage_width_unit,
-        coverage_height_value,
-        coverage_height_unit,
-        include_power_supply,
-    )
-    include_ps = bool(result["include_power_supply"])
-    existing = frappe.db.get_value("ilL-Configured-LED-Sheet", {"config_hash": result["config_hash"]}, "name")
-    if existing:
-        doc = frappe.get_doc("ilL-Configured-LED-Sheet", existing)
-        if flt(doc.msrp) != flt(result["msrp"]):
-            doc.msrp = result["msrp"]
-            doc.save(ignore_permissions=True)
-    else:
-        opts = result["options"]
-        doc = frappe.get_doc({
-            "doctype": "ilL-Configured-LED-Sheet",
-            "sheet_template": template,
-            "sheet_spec": spec,
-            "selected_cct": opts.get("CCT"),
-            "selected_output_level": opts.get("Output Level"),
-            "selected_environment_rating": opts.get("Environment Rating"),
-            "selected_mounting": opts.get("Mounting"),
-            "selected_finish": opts.get("Finish"),
-            "include_power_supply": 1 if include_ps else 0,
-            "coverage_width_ft": result["coverage_width_ft"],
-            "coverage_height_ft": result["coverage_height_ft"],
-            "total_coverage_sqft": result["total_coverage_sqft"],
-            "sheets_needed": result["panels_needed"],
-            "total_system_watts": result["total_system_watts"],
-            "total_groups": result["total_groups"],
-            "msrp": result["msrp"],
-            "status": "Configured",
-            "groups": result["groups"],
-        })
-        doc.insert(ignore_permissions=True)
-
-    if schedule_name and line_idx not in (None, ""):
-        idx = cint(line_idx)
-        _apply_multi_line_schedule(schedule, idx, template, doc, result)
-
-    return {
-        "success": True,
-        "configured_led_sheet": doc.name,
-        "name": doc.name,
-        "config_hash": doc.config_hash,
-        "reused": bool(existing),
-        "total_msrp": result.get("total_msrp"),
-    }
+        existing = frappe.db.get_value("ilL-Configured-LED-Sheet", {"config_hash": result["config_hash"]}, "name")
+        if existing:
+            doc = frappe.get_doc("ilL-Configured-LED-Sheet", existing)
+            led_sheet_bundle.snapshot(doc)
+        else:
+            opts = result["options"]
+            fields = {field: result.get(field) for field in (
+                "config_hash", "part_number", "include_power_supply", "coverage_width_ft", "coverage_height_ft",
+                "total_coverage_sqft", "total_system_watts", "total_groups", "msrp", "groups", "engine_version",
+                "bundle_mode", "build_snapshot_json", "jumper_cable_item", "leader_cable_item", "leader_cable_qty",
+                "jumper_cables_included", *SKU_FIELD_BY_TYPE.values(), "sku_series_code",
+            )}
+            fields.update({field: opts.get(key) for key, field in OPTION_FIELD_BY_TYPE.items()})
+            doc = frappe.get_doc({"doctype": "ilL-Configured-LED-Sheet", "sheet_template": template, "sheet_spec": spec,
+                                  "sheets_needed": result["panels_needed"], "status": "Configured", **fields})
+            doc.flags.sheet_engine_write = True
+            doc.insert(ignore_permissions=True)
+        artifacts = led_sheet_bundle.ensure_artifacts(doc)
+        if schedule:
+            _apply_multi_line_schedule(schedule, cint(line_idx), template, doc, result)
+        return {"success": True, "configured_led_sheet": doc.name, "name": doc.name,
+                "config_hash": doc.config_hash, "reused": bool(existing), "total_msrp": result["total_msrp"],
+                "item_code": artifacts["item_code"], "bom": artifacts["bom_name"]}
+    except Exception:
+        frappe.db.rollback(save_point="sheet_save")
+        raise

@@ -1,0 +1,48 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Order-Decision",
+ "module": "ilLumenate Lighting",
+ "engine": "InnoDB",
+ "field_order": [
+  "action",
+  "actor",
+  "recorded_on",
+  "revision_hash",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "action",
+   "fieldtype": "Data",
+   "label": "Action",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Actor",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "recorded_on",
+   "fieldtype": "Datetime",
+   "label": "Recorded On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revision_hash",
+   "fieldtype": "Data",
+   "label": "Revision Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

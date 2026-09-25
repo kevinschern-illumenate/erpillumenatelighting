@@ -36,32 +36,54 @@ def wants_notification(user, preference):
 	return bool(int(value))
 
 
-def notify_user(user, preference, subject, message, reference_doctype=None, reference_name=None):
-	"""Send one preference-gated email. Never raises: notification failures
-	must not roll back the business transaction that triggered them."""
-	if not wants_notification(user, preference):
-		return False
-	try:
-		frappe.sendmail(
-			recipients=[user],
-			subject=subject,
-			message=message,
-			reference_doctype=reference_doctype,
-			reference_name=reference_name,
-			delayed=True,
-		)
-		return True
-	except Exception:
-		frappe.log_error(
-			title=f"Portal notification failed ({preference}) for {user}",
-			message=frappe.get_traceback(),
-		)
-		return False
+def notify_user(user, preference, subject, message, reference_doctype=None, reference_name=None, event_key=None):
+	"""Record a preference-gated intent; email configuration and SMTP run later."""
+	from illumenate_lighting.illumenate_lighting.portal.outbox import record
+
+	return record(user, preference, subject, message, reference_doctype, reference_name, event_key)
 
 
 def _portal_link(path, label):
 	url = frappe.utils.get_url(path)
 	return f'<p><a href="{url}">{frappe.utils.escape_html(label)}</a></p>'
+
+
+def order_recipients(order):
+	"""Use recorded buyers/purchasing contact; never assume the staff owner buys."""
+	from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+	from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
+
+	candidates = {order.owner}
+	intake = frappe.db.get_value("ilL-Order-Intake", {"sales_order": order.name},
+		["requested_by", "acknowledged_by"], as_dict=True)
+	if intake:
+		candidates.update([intake.requested_by, intake.acknowledged_by])
+	if order.get("contact_person"):
+		from illumenate_lighting.illumenate_lighting.portal.accounts import require_owned
+
+		contact = frappe.get_doc("Contact", order.contact_person)
+		try:
+			require_owned(contact, order.customer)
+		except (frappe.PermissionError, frappe.ValidationError):
+			pass
+		else:
+			candidates.add(contact.get("user"))
+	return {user for user in candidates if user and get_actor(user).is_company_dealer_for(order.customer)
+		and load_accessible_sales_order(order.name, user)}
+
+
+def notify_order_review(order, request):
+	labels = {"APPROVED": "Order approved", "INFORMATION_NEEDED": "Order information requested",
+		"CHANGES_PROPOSED": "Order revision ready for review", "REJECTED": "Order request needs correction",
+		"WITHDRAWN": "Order request withdrawn", "SUBMITTED": "Order request received"}
+	label = labels.get(request.state)
+	if not label:
+		return
+	for user in order_recipients(order):
+		notify_user(user, "notify_orders", f"{label}: {order.name}",
+			f"<p>{label}.</p>" + _portal_link(f"/portal/orders/{order.name}", _("Review order")),
+			reference_doctype="Sales Order", reference_name=order.name,
+			event_key=f"{request.name}:{request.state}:{request.modified}")
 
 
 # ---------------------------------------------------------------------------
@@ -73,9 +95,11 @@ def notify_schedule_status(schedule, new_status, sales_order=None):
 	"""Order / quote lifecycle emails for a fixture schedule."""
 	recipients = {schedule.owner}
 	if sales_order:
-		so_owner = frappe.db.get_value("Sales Order", sales_order, "owner")
-		if so_owner:
-			recipients.add(so_owner)
+		recipients = order_recipients(frappe.get_doc("Sales Order", sales_order))
+	if new_status == "ORDERED":
+		# The immutable approval event owns this notification, avoiding a second
+		# send from schedule bookkeeping with a different reference/idempotency key.
+		return
 	recipients.discard(frappe.session.user)
 
 	name = frappe.utils.escape_html(schedule.schedule_name or schedule.name)
@@ -129,19 +153,15 @@ def notify_shipment(delivery_note):
 		detail += _("<p><strong>Tracking number:</strong> {0}</p>").format(frappe.utils.escape_html(tracking))
 
 	for order_name in order_names:
-		owner = frappe.db.get_value("Sales Order", order_name, "owner")
-		if not owner:
-			continue
-		notify_user(
-			owner,
-			"notify_shipping",
-			_("Shipment on its way for order {0}").format(order_name),
-			_("<p>Items from your order <strong>{0}</strong> have shipped.</p>").format(order_name)
-			+ detail
-			+ _portal_link(f"/portal/orders/{order_name}", _("Track your order")),
-			reference_doctype="Delivery Note",
-			reference_name=delivery_note.name,
-		)
+		order = frappe.get_doc("Sales Order", order_name)
+		returned = bool(delivery_note.get("is_return"))
+		for recipient in order_recipients(order):
+			notify_user(recipient, "notify_shipping",
+				_("Return recorded for order {0}" if returned else "Shipment recorded for order {0}").format(order_name),
+				_("<p>A return was recorded.</p>" if returned else "<p>A shipment was recorded.</p>")
+				+ detail + _portal_link(f"/portal/orders/{order_name}", _("View fulfillment")),
+				reference_doctype="Delivery Note", reference_name=delivery_note.name,
+				event_key=f"{delivery_note.name}:{order_name}")
 
 
 def on_delivery_note_submit(doc, method=None):

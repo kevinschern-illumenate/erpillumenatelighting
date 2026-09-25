@@ -67,7 +67,7 @@
 		this._hasTemplateSelect = $tpl.length > 0;
 
 		if (this._hasTemplateSelect) {
-			$tpl.on('change', function () {
+			$tpl.on('change' + '.' + self.instanceId, function () {
 				self._onTemplateSelected($(this).val());
 			});
 			if (root.IllConfigurator.renderTemplateCards && this.$('#tapeNeonTemplatePicker').length) {
@@ -98,7 +98,8 @@
 		this.TEMPLATE_CODE = templateCode || null;
 		this._resetForTemplateChange();
 		if (!templateCode) return;
-		frappe.call({
+		this.loadPowerOptions('ilL-Tape-Neon-Template', templateCode);
+		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_neon_template_init',
 			args: { template_code: templateCode },
 			freeze: true,
@@ -118,11 +119,14 @@
 	};
 
 	TapeNeon.prototype._resetForTemplateChange = function () {
+		this.invalidateValidation();
+		this._requests = Object.create(null);
 		this.selections.environment_rating = null;
 		this.selections.cct = null;
 		this.selections.output_level = null;
 		this.selections.finish = null;
 		this.lastResult = null;
+		this.selectedMountingAccessory = null;
 		this.neonSegmentCount = 0;
 		this.$('#neonSegmentContainer').empty();
 		this.$('#resultsCard').hide();
@@ -135,7 +139,7 @@
 		var method = this.IS_NEON
 			? 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_neon_configurator_init'
 			: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_tape_configurator_init';
-		frappe.call({
+		self.request({
 			method: method,
 			freeze: true,
 			freeze_message: 'Loading options...',
@@ -194,10 +198,11 @@
 		items.forEach(function (item) {
 			var val = item[valueKey];
 			var label = item[labelKey] || val;
-			var $opt = $('<span class="pill-option"></span>')
+			var $opt = $('<button type="button" class="pill-option"></button>')
 				.text(label)
 				.attr('data-value', val)
-				.on('click', function () {
+				.on('click' + '.' + self.instanceId, function () {
+					self.invalidateValidation();
 					$pill.find('.pill-option').removeClass('active');
 					$(this).addClass('active');
 					$sel.val(val);
@@ -207,7 +212,7 @@
 			$sel.append($('<option></option>').val(val).text(label));
 		});
 
-		$sel.off('change.illTapeNeon').on('change.illTapeNeon', function () {
+		$sel.off('change.illTapeNeon').on('change.illTapeNeon' + '.' + self.instanceId, function () {
 			var v = $(this).val();
 			$pill.find('.pill-option').removeClass('active');
 			$pill.find('[data-value="' + v + '"]').addClass('active');
@@ -263,7 +268,7 @@
 				cct: this.selections.cct || ''
 			};
 		}
-		frappe.call({
+		self.request({
 			method: method,
 			args: args,
 			callback: function (r) {
@@ -279,6 +284,7 @@
 	// Neon segment builder
 	// ────────────────────────────────────────────────────────────────
 	TapeNeon.prototype._addNeonSegment = function () {
+		this.invalidateValidation();
 		var self = this;
 		this.neonSegmentCount++;
 		var idx = this.neonSegmentCount;
@@ -346,7 +352,7 @@
 
 		this.$('#neonSegmentContainer').append(html);
 
-		this.$('#neonSeg' + idx + ' .seg-fixture-unit').on('change', function () {
+		this.$('#neonSeg' + idx + ' .seg-fixture-unit').on('change' + '.' + self.instanceId, function () {
 			var unit = $(this).val();
 			var segIdx = $(this).data('seg');
 			if (unit === 'ft_in') {
@@ -358,7 +364,7 @@
 			}
 		});
 
-		this.$('#neonSeg' + idx + ' .btn-remove-seg').on('click', function () {
+		this.$('#neonSeg' + idx + ' .btn-remove-seg').on('click' + '.' + self.instanceId, function () {
 			self._removeNeonSegment($(this).data('seg'));
 		});
 
@@ -366,6 +372,7 @@
 	};
 
 	TapeNeon.prototype._removeNeonSegment = function (segIdx) {
+		this.invalidateValidation();
 		this.$('#neonSeg' + segIdx).remove();
 		this._renumberNeonSegments();
 		this._updateCalculateButton();
@@ -431,8 +438,14 @@
 	};
 
 	TapeNeon.prototype.doCalculate = function () {
+		this.invalidateValidation();
 		this.$('#resultsCard').hide();
 		this.$('#errorsCard').hide();
+		if (this.$('#overrideMaxRunCheck').is(':checked') && this._getOverrideMaxRunFt() === '') {
+			this._showError(__('Enter a finite maximum run length greater than zero.'));
+			this.$('#overrideMaxRunInput').trigger('focus');
+			return;
+		}
 		if (this.IS_NEON) this._calculateNeon();
 		else this._calculateTape();
 	};
@@ -456,14 +469,16 @@
 		};
 		this.lastCalcSelections = calcSelections;
 		this.lastCalcSegments = null;
-		var args = { selections: JSON.stringify(calcSelections) };
+		var args = { selections: JSON.stringify(calcSelections), _skip_record_creation: true };
+		this._addPowerSelections(args);
 		// Scopes tape spec resolution to the template's allowed specs.
 		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
-		frappe.call({
+		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
+			isCurrent: this.validationGuard(),
 			callback: function (r) { self._handleResult(r.message); }
 		});
 	};
@@ -471,10 +486,23 @@
 	// Read the optional "Override Max Run Length" value. Returns the parsed
 	// float when the checkbox is ticked and a positive value is entered,
 	// otherwise an empty string (treated as "no override" by the backend).
+	TapeNeon.prototype._addPowerSelections = function (args) {
+		args.include_power_supply = this.$('#includePowerSupply').length ? this.$('#includePowerSupply').is(':checked') : true;
+		args.dimming_protocol_code = this.$name('dimming_protocol_code').val() || null;
+		this.lastCalcSelections.include_power_supply = args.include_power_supply;
+		this.lastCalcSelections.dimming_protocol_code = args.dimming_protocol_code;
+		this.lastCalcSelections.override_max_run_ft = this._getOverrideMaxRunFt();
+		if (this.selectedMountingAccessory) {
+			this.lastCalcSelections.mounting_accessory_item = this.selectedMountingAccessory.accessory_item;
+			this.lastCalcSelections.mounting_accessory_qty = this.selectedMountingAccessory.qty;
+		}
+		args.selections = JSON.stringify(this.lastCalcSelections);
+	};
+
 	TapeNeon.prototype._getOverrideMaxRunFt = function () {
 		if (!this.$('#overrideMaxRunCheck').is(':checked')) return '';
-		var val = parseFloat(this.$('#overrideMaxRunInput').val());
-		return (!isNaN(val) && val > 0) ? val : '';
+		var val = Number(this.$('#overrideMaxRunInput').val());
+		return (Number.isFinite(val) && val > 0) ? val : '';
 	};
 
 	TapeNeon.prototype._calculateNeon = function () {
@@ -488,16 +516,19 @@
 		this.lastCalcSelections = calcSelections;
 		this.lastCalcSegments = segments;
 		var args = {
+			_skip_record_creation: true,
 			selections: JSON.stringify(calcSelections),
 			segments_json: JSON.stringify(segments)
 		};
+		this._addPowerSelections(args);
 		// Scopes tape spec resolution to the template's allowed specs.
 		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
-		frappe.call({
+		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
+			isCurrent: this.validationGuard(),
 			callback: function (r) { self._handleResult(r.message); }
 		});
 	};
@@ -632,9 +663,8 @@
 	TapeNeon.prototype._loadMountingAccessories = function (result) {
 		var self = this;
 		this.$('#mountingAccessorySection').hide();
-		this.selectedMountingAccessory = null;
 
-		var templateCode = result.template_code;
+		var templateCode = result.template_code || this.TEMPLATE_CODE;
 		if (!templateCode) return;
 
 		var computed = result.computed || {};
@@ -643,8 +673,9 @@
 			: (computed.manufacturable_length_mm || 0);
 		var segmentCount = computed.segment_count || 1;
 
-		frappe.call({
+		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.get_mounting_accessories',
+			isCurrent: function () { return self.lastResult === result; },
 			args: {
 				template_code: templateCode,
 				product_category: this.PRODUCT_CATEGORY,
@@ -684,7 +715,7 @@
 			$container.append(html);
 		});
 
-		$container.find('.mounting-card').on('click', function () {
+		$container.find('.mounting-card').on('click' + '.' + self.instanceId, function () {
 			$container.find('.mounting-card').css('border', '1px solid #dee2e6').removeClass('active');
 			$(this).css('border', '2px solid #007bff').addClass('active');
 
@@ -704,7 +735,15 @@
 				self.selectedMountingAccessory = null;
 				self.$('#mountingAccessoryQtyRow').hide();
 			}
+			self.doCalculate();
 		});
+		if (this.selectedMountingAccessory) {
+			$container.find('.mounting-card').removeClass('active').css('border', '1px solid #dee2e6').filter(function () {
+				return $(this).data('item') === self.selectedMountingAccessory.accessory_item;
+			}).addClass('active').css('border', '2px solid #007bff');
+			this.$('#mountingAccessoryQty').val(this.selectedMountingAccessory.qty);
+			this.$('#mountingAccessoryQtyRow').show();
+		}
 
 		this.$('#mountingAccessorySection').show();
 	};
@@ -724,7 +763,7 @@
 	// Save
 	// ────────────────────────────────────────────────────────────────
 	TapeNeon.prototype.saveToSchedule = function () {
-		if (!this.lastResult || !this.lastResult.is_valid) {
+		if (this.destroyed || !this.lastResult || !this.lastResult.is_valid) {
 			frappe.msgprint({ title: 'Error', message: 'Please calculate a valid configuration first', indicator: 'red' });
 			return;
 		}
@@ -771,28 +810,11 @@
 		var lineIdx = this.$('#lineSelect').val();
 		var lineIdxVal = (lineIdx && lineIdx !== '__new__') ? parseInt(lineIdx) : null;
 
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.save_tape_to_schedule',
-			args: {
-				schedule_name: scheduleName,
-				line_idx: lineIdxVal,
-				configuration_result: JSON.stringify(resultToSave)
-			},
-			freeze: true, freeze_message: 'Saving...',
-			callback: function (r) {
-				if (r.message && r.message.success) {
-					frappe.msgprint({
-						title: 'Saved', indicator: 'green',
-						message: r.message.message || 'Configuration saved to schedule'
-					});
-				} else {
-					frappe.msgprint({
-						title: 'Error', indicator: 'red',
-						message: (r.message && r.message.error) || 'Failed to save'
-					});
-				}
-			}
-		});
+        return this.saveScheduleConfiguration({
+            family: this.PRODUCT_CATEGORY, schedule_name: scheduleName, line_idx: lineIdxVal,
+            selections: this.lastCalcSelections || resultToSave.selections,
+            segments: this.lastCalcSegments, template: this.TEMPLATE_CODE || null
+        });
 	};
 
 	// ────────────────────────────────────────────────────────────────
@@ -809,16 +831,17 @@
 	TapeNeon.prototype._bindEvents = function () {
 		var self = this;
 
-		this.$('#btnCalculate').on('click', function () { self.doCalculate(); });
-		this.$('#btnSaveToSchedule').on('click', function () { self.saveToSchedule(); });
+		this.$('#btnCalculate').on('click' + '.' + self.instanceId, function () { self.doCalculate(); });
+		this.$('#btnSaveToSchedule').on('click' + '.' + self.instanceId, function () { self.saveToSchedule(); });
 
 		if (this.IS_NEON) {
-			this.$('#btnAddNeonSegment').on('click', function () { self._addNeonSegment(); });
+			this.$('#btnAddNeonSegment').on('click' + '.' + self.instanceId, function () { self._addNeonSegment(); });
 		}
 
 		// Tape length unit tabs
-		this.$('#tapeLengthUnitTabs .nav-link').on('click', function (e) {
+		this.$('#tapeLengthUnitTabs .nav-link').on('click' + '.' + self.instanceId, function (e) {
 			e.preventDefault();
+			self.invalidateValidation();
 			self.$('#tapeLengthUnitTabs .nav-link').removeClass('active');
 			$(this).addClass('active');
 			var unit = $(this).data('unit');
@@ -836,18 +859,19 @@
 
 		// Re-evaluate Calculate when input fields change
 		this.$('#leadLengthInches, #tapeLengthValue, #tapeLengthFeet, #tapeLengthInches')
-			.on('input change', function () { self._updateCalculateButton(); });
+			.on('input' + '.' + self.instanceId + ' ' + 'change' + '.' + self.instanceId, function () { self._updateCalculateButton(); });
 
 		// Mounting accessory qty
-		this.$root.on('change', '#mountingAccessoryQty', function () {
+		this.$root.on('change' + '.' + self.instanceId, this.selector('#mountingAccessoryQty'), function () {
 			self._updateMountingAccessoryPrice();
+			self.doCalculate();
 		});
 
 		// Project select → load schedules
-		this.$('#projectSelect').on('change', function () {
+		this.$('#projectSelect').on('change' + '.' + self.instanceId, function () {
 			var proj = $(this).val();
-			var $sch = self.$('#scheduleSelect');
-			var $ln = self.$('#lineSelect');
+			var $sch = self.$('#scheduleSelect').removeData('illLoadToken');
+			var $ln = self.$('#lineSelect').removeData('illLoadToken');
 			if (!proj) {
 				$sch.prop('disabled', true).val('');
 				$ln.prop('disabled', true).val('');
@@ -857,9 +881,9 @@
 		});
 
 		// Schedule select → load lines
-		this.$('#scheduleSelect').on('change', function () {
+		this.$('#scheduleSelect').on('change' + '.' + self.instanceId, function () {
 			var sch = $(this).val();
-			var $ln = self.$('#lineSelect');
+			var $ln = self.$('#lineSelect').removeData('illLoadToken');
 			if (!sch) { $ln.prop('disabled', true).val(''); return; }
 			root.IllConfigurator.loadLinesForSchedule(sch, $ln, self.LINE_IDX);
 		});

@@ -6,10 +6,14 @@
 from typing import Any
 
 import frappe
+
 from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import DEFAULT_UOM
 
 
 def build_led_sheet_bom_items(configured) -> list[dict[str, Any]]:
+    if configured.get("engine_version") == "led-sheet-2":
+        from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import bom_items
+        return bom_items(configured)
     items = []
     spec = frappe.get_doc("ilL-Spec-LED-Sheet", configured.sheet_spec) if configured.sheet_spec else None
     panels_needed = int(configured.sheets_needed or 0)
@@ -44,6 +48,9 @@ def build_led_sheet_bom_items(configured) -> list[dict[str, Any]]:
 
 
 def create_or_get_led_sheet_bom(configured, item_code: str, skip_if_exists: bool = True) -> dict[str, Any]:
+    if configured.get("engine_version") == "led-sheet-2":
+        from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import ensure_artifacts
+        return ensure_artifacts(configured)
     result = {"success": True, "bom_name": None, "created": False, "skipped": False, "messages": []}
     if getattr(configured, "bom", None) and skip_if_exists and frappe.db.exists("BOM", configured.bom):
         result.update({"bom_name": configured.bom, "skipped": True})

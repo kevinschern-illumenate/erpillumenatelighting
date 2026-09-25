@@ -279,11 +279,12 @@ Browse ilL-Webflow-Product records with attribute filtering
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page" style="padding:2rem 0">
 	<!-- Header -->
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<div>
-			<h4 class="mb-1">{{ _("Product Catalog") }}</h4>
+			<h1 class="h4 mb-1">{{ _("Product Catalog") }}</h1>
 			<p class="text-muted mb-0" id="catalogResultCount"></p>
 		</div>
 		<a href="/portal" class="btn btn-outline-secondary btn-sm">
@@ -306,9 +307,9 @@ Browse ilL-Webflow-Product records with attribute filtering
 			<div id="filterGroups" class="filter-groups">
 				<!-- Populated dynamically -->
 			</div>
-			<a class="filter-clear" id="clearFilters" onclick="clearAllFilters()">
+			<button type="button" class="btn btn-link filter-clear" id="clearFilters" onclick="clearAllFilters()">
 				{{ _("Clear all filters") }}
-			</a>
+			</button>
 		</aside>
 
 		<!-- Main Content -->
@@ -321,9 +322,12 @@ Browse ilL-Webflow-Product records with attribute filtering
 			<!-- Search -->
 			<div class="catalog-search">
 				<i class="fa fa-search"></i>
-				<input type="text" id="catalogSearch" placeholder="{{ _('Search products…') }}">
+				<label for="catalogSearch" class="sr-only">{{ _("Search name, model or series") }}</label>
+				<input type="search" id="catalogSearch" placeholder="{{ _('Search products…') }}">
 			</div>
 
+            <p id="catalogFeedback" role="status" aria-live="polite"></p>
+            <button type="button" class="btn btn-link btn-sm" onclick="fetchProducts(true)">{{ _("Refresh products") }}</button>
 			<!-- Grid -->
 			<div class="product-grid" id="productGrid"></div>
 

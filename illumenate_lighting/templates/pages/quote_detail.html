@@ -1,0 +1,74 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
+<main class="container py-4" id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}">
+  <a href="/portal/quotes">{{ _("Back to quotes") }}</a>
+  <h1 class="mt-3">{{ offer.name | e }}</h1>
+  <p>{{ offer.quotation | e }} · {{ offer.state | e }} · {{ _("Valid until") }}: {{ offer.valid_until or _("As stated in quotation terms") }}</p>
+  {% if offer.pdf_url %}<a class="btn btn-outline-primary mb-3" href="{{ offer.pdf_url | e }}">{{ _("Download issued quotation") }}</a>{% endif %}
+  <div class="table-responsive"><table class="table">
+    <thead><tr><th>{{ _("Item") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Rate") }}</th><th>{{ _("Amount") }}</th></tr></thead>
+    <tbody>{% for line in offer.snapshot["items"] %}<tr>
+      <td>{% if line.ill_fixture_type %}<strong>{{ line.ill_fixture_type | e }}</strong><br>{% endif %}{{ line.item_name | e }}<br><small>{{ line.item_code | e }}{% if line.additional_notes %} · {{ line.additional_notes | e }}{% endif %}</small></td>
+      <td>{{ line.qty }} {{ line.uom | e }}</td><td>{{ frappe.format_value(line.rate, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</td>
+      <td>{{ frappe.format_value(line.amount, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% for tax in offer.snapshot.taxes %}<p>{{ tax.description | e }}: {{ frappe.format_value(tax.tax_amount, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</p>{% endfor %}
+  <p class="h4">{{ _("Total") }}: {{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</p>
+  {% if offer.snapshot.exclusions %}<h2 class="h5 mt-3">{{ _("Excluded from this offer") }}</h2><ul>{% for line in offer.snapshot.exclusions %}<li>{{ line.designation | e }}: {{ line.reason | e }}</li>{% endfor %}</ul>{% endif %}
+  {% if offer.snapshot.terms %}<details class="my-3"><summary>{{ _("Terms") }}</summary><div>{{ frappe.utils.sanitize_html(offer.snapshot.terms) | safe }}</div></details>{% endif %}
+  {% if offer.unavailable_reason %}<p class="alert alert-warning">{{ offer.unavailable_reason | e }}</p>{% endif %}
+  {% if offer.sales_order %}<a class="btn btn-primary" href="/portal/orders/{{ offer.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
+  {% if offer.response_note %}<p>{{ _("Your response") }}: {{ offer.response_note | e }}</p>{% endif %}
+  {% if offer.can_respond %}
+  <form id="offer-response" class="card mt-4"><div class="card-body">
+    <h2 class="h5">{{ _("Respond to this offer") }}</h2>
+    <p>{{ _("Acceptance creates an order request for staff review. Manufacturing starts only after the required approvals.") }}</p>
+    <label for="offer-po">{{ _("PO number (optional)") }}</label><input id="offer-po" class="form-control mb-3" maxlength="140">
+    <label for="offer-date">{{ _("Requested delivery date") }}</label><input id="offer-date" type="date" class="form-control mb-3">
+    <label for="offer-note">{{ _("Note for Sales") }}</label><textarea id="offer-note" class="form-control mb-3" maxlength="4000"></textarea>
+    <label class="d-block mb-3"><input type="checkbox" id="offer-ack"> {{ _("I have reviewed this quotation, its exclusions, and its terms.") }}</label>
+    <div id="offer-response-status" role="status" aria-live="polite"></div>
+    <button type="button" class="btn btn-primary" data-response="ACCEPT">{{ _("Accept and request order") }}</button>
+    <button type="button" class="btn btn-outline-secondary" data-response="REQUEST_REVISION">{{ _("Request revision") }}</button>
+    <button type="button" class="btn btn-outline-secondary" data-response="DECLINE">{{ _("Decline") }}</button>
+  </div></form>
+  {% endif %}
+</main>
+{% endblock %}
+{% block script %}
+<script>
+frappe.ready(() => {
+  const root = document.getElementById('offer-detail');
+  const form = document.getElementById('offer-response');
+  if (!form) return;
+  let pending = false;
+  const status = document.getElementById('offer-response-status');
+  form.addEventListener('click', async event => {
+    const button = event.target.closest('[data-response]');
+    if (!button || pending) return;
+    const action = button.dataset.response;
+    const note = document.getElementById('offer-note').value.trim();
+    const date = document.getElementById('offer-date').value;
+    if (action === 'ACCEPT' && (!document.getElementById('offer-ack').checked || !date)) {
+      status.textContent = __('Review the terms, check the acknowledgment, and choose a requested delivery date.'); return;
+    }
+    if (action !== 'ACCEPT' && !note) { status.textContent = __('Add a note for Sales.'); return; }
+    pending = true;
+    form.querySelectorAll('button').forEach(element => { element.disabled = true; });
+    status.textContent = __('Submitting response…');
+    try {
+      const response = await frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.offers.respond', type: 'POST',
+        args: {offer_name: root.dataset.offer, expected_hash: root.dataset.hash, action, note,
+          po_no: document.getElementById('offer-po').value.trim(), requested_date: date || null}});
+      if (response.message.sales_order) window.location.href = '/portal/orders/' + encodeURIComponent(response.message.sales_order);
+      else window.location.reload();
+    } catch (error) {
+      status.textContent = __('Response was not confirmed. Your entries are preserved; review the error and retry.');
+      pending = false; form.querySelectorAll('button').forEach(element => { element.disabled = false; });
+    }
+  });
+});
+</script>
+{% endblock %}

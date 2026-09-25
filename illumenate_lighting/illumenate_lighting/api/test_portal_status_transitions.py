@@ -8,9 +8,10 @@ Verifies that QUOTED allows transitions to both DRAFT and READY
 for all users (privileged and non-privileged).
 """
 
+from unittest.mock import MagicMock, patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from unittest.mock import patch, MagicMock
 
 
 def _make_mock_schedule(status="QUOTED", is_locked=False):
@@ -101,10 +102,14 @@ class TestUpdateScheduleStatusQuotedTransitions(FrappeTestCase):
 		result = self._call_update("READY", "DRAFT")
 		self.assertTrue(result["success"])
 
-	def test_ready_to_quoted_privileged_allowed(self):
-		"""Privileged user can move READY -> QUOTED."""
+	def test_ready_to_quoted_dealer_requires_issued_offer(self):
+		"""A dealer cannot claim that a commercial offer was issued."""
 		result = self._call_update("READY", "QUOTED", is_dealer=True)
-		self.assertTrue(result["success"])
+		self.assertFalse(result["success"])
+
+	def test_ready_to_quoted_internal_requires_issued_offer(self):
+		result = self._call_update("READY", "QUOTED", is_internal=True)
+		self.assertFalse(result["success"])
 
 	def test_ready_to_quoted_non_privileged_blocked(self):
 		"""Non-privileged user cannot move READY -> QUOTED."""

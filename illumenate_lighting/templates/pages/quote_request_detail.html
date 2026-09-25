@@ -1,0 +1,20 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
+<main class="container py-4">
+  <a href="/portal/quotes">{{ _("Quotes and requests") }}</a>
+  <h1>{{ request.name | e }}</h1>
+  <p>{{ request.state | e }} · {{ _("Requested by") }} {{ request.requested_by | e }}</p>
+  <p>{{ _("Requested timing") }}: {{ request.snapshot.requested_date or _("Not specified") }}. {{ _("Staff review due") }}: {{ request.due_date or _("Not assigned") }}</p>
+  <p>{{ request.snapshot.contact | default('', true) | e }}</p>
+  <p style="white-space:pre-wrap">{{ request.snapshot.notes | e }}</p>
+  <p>{{ _("This is the submitted scope. Sales issues a separate quotation with commercial terms. OTHER manufacturer lines remain specification-only.") }}</p>
+  <div class="table-responsive"><table class="table"><thead><tr><th>{{ _("Designation") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Manufacturer") }}</th><th>{{ _("Location / notes") }}</th></tr></thead><tbody>
+  {% for line in request.snapshot.lines %}<tr><td>{{ line.line_id | e }}</td><td>{{ line.qty }}</td><td>{{ line.manufacturer_name or line.manufacturer_type }}</td><td>{{ line.location | default('', true) | e }}<br>{{ line.notes | default('', true) | e }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% for file in request.files %}<a class="d-block" href="{{ file.file_url | e }}">{{ file.file_name | e }}</a>{% endfor %}
+  <a class="btn btn-outline-secondary my-3" href="/portal/schedules/{{ request.schedule | urlencode }}">{{ _("Current schedule") }}</a>
+  <h2>{{ _("Clarifications") }}</h2>
+  <div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ request.name | e }}"></div>
+</main>
+{% endblock %}

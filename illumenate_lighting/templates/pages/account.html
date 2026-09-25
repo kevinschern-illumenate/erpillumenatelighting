@@ -183,6 +183,7 @@ User profile, notifications, and account preferences
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
@@ -219,6 +220,10 @@ User profile, notifications, and account preferences
 
 		<!-- Settings Content -->
 		<div class="col-lg-9">
+<section class="settings-card mb-4" id="companyManagement">
+                <div class="settings-card-header"><h2 class="h5">{{ _("Company records and requests") }}</h2></div>
+                <div class="settings-card-body" id="portalAccountRecords" aria-live="polite">{{ _("Loading account details...") }}</div>
+            </section>
 			<!-- Profile Section -->
 			<div class="settings-card mb-4" id="profile">
 				<div class="settings-card-header">
@@ -240,29 +245,29 @@ User profile, notifications, and account preferences
 								<div class="row">
 									<div class="col-md-6">
 										<div class="form-group">
-											<label>{{ _("First Name") }}</label>
-											<input type="text" class="form-control" name="first_name" value="{{ user_profile.first_name or '' }}">
+											<label for="account_first_name">{{ _("First Name") }}</label>
+											<input type="text" class="form-control" id="account_first_name" name="first_name" value="{{ user_profile.first_name or '' }}">
 										</div>
 									</div>
 									<div class="col-md-6">
 										<div class="form-group">
-											<label>{{ _("Last Name") }}</label>
-											<input type="text" class="form-control" name="last_name" value="{{ user_profile.last_name or '' }}">
+											<label for="account_last_name">{{ _("Last Name") }}</label>
+											<input type="text" class="form-control" id="account_last_name" name="last_name" value="{{ user_profile.last_name or '' }}">
 										</div>
 									</div>
 								</div>
 								<div class="form-group">
-									<label>{{ _("Email") }}</label>
-									<input type="email" class="form-control" value="{{ user_profile.email or '' }}" readonly>
+									<label for="account_email">{{ _("Email") }}</label>
+									<input id="account_email" type="email" class="form-control" value="{{ user_profile.email or '' }}" readonly>
 									<small class="form-text text-muted">{{ _("Contact support to change your email address") }}</small>
 								</div>
 								<div class="form-group">
-									<label>{{ _("Phone") }}</label>
-									<input type="tel" class="form-control" name="phone" value="{{ user_profile.phone or '' }}">
+									<label for="account_phone">{{ _("Phone") }}</label>
+									<input type="tel" class="form-control" id="account_phone" name="phone" value="{{ user_profile.phone or '' }}">
 								</div>
 								<div class="form-group">
-									<label>{{ _("Job Title") }}</label>
-									<input type="text" class="form-control" name="job_title" value="{{ user_profile.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
+									<label for="account_job_title">{{ _("Job Title") }}</label>
+									<input type="text" class="form-control" id="account_job_title" name="job_title" value="{{ user_profile.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
 								</div>
 								<button type="submit" class="btn btn-primary">
 									<i class="fa fa-save"></i> {{ _("Save Changes") }}
@@ -307,7 +312,7 @@ User profile, notifications, and account preferences
 						<h5>{{ _("No company linked") }}</h5>
 						<p class="text-muted">{{ _("Your account is not linked to a company yet.") }}</p>
 						<button class="btn btn-primary" data-toggle="modal" data-target="#createCompanyModal">
-							<i class="fa fa-plus"></i> {{ _("Create Company Profile") }}
+							<i class="fa fa-plus"></i> {{ _("Request Company Access") }}
 						</button>
 					</div>
 					{% endif %}
@@ -326,7 +331,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when your order status changes") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_orders" {{ 'checked' if portal_settings.notify_orders else '' }}>
+							<input type="checkbox" aria-label="Orders notifications" name="notify_orders" {{ 'checked' if portal_settings.notify_orders else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -336,7 +341,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive notifications when quotes are ready") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_quotes" {{ 'checked' if portal_settings.notify_quotes else '' }}>
+							<input type="checkbox" aria-label="Quotes notifications" name="notify_quotes" {{ 'checked' if portal_settings.notify_quotes else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -346,7 +351,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when drawings are completed") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_drawings" {{ 'checked' if portal_settings.notify_drawings else '' }}>
+							<input type="checkbox" aria-label="Drawings notifications" name="notify_drawings" {{ 'checked' if portal_settings.notify_drawings else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -356,7 +361,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive shipping updates and tracking info") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_shipping" {{ 'checked' if portal_settings.notify_shipping else '' }}>
+							<input type="checkbox" aria-label="Shipping notifications" name="notify_shipping" {{ 'checked' if portal_settings.notify_shipping else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -366,7 +371,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Product updates, promotions, and industry news") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" name="notify_marketing" {{ 'checked' if portal_settings.notify_marketing else '' }}>
+							<input type="checkbox" aria-label="Marketing notifications" name="notify_marketing" {{ 'checked' if portal_settings.notify_marketing else '' }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -396,10 +401,10 @@ User profile, notifications, and account preferences
 					<hr>
 
 					<div class="danger-zone">
-						<h6><i class="fa fa-exclamation-triangle"></i> {{ _("Danger Zone") }}</h6>
-						<p class="mb-3">{{ _("Permanently delete your account and all associated data.") }}</p>
+						<h6>{{ _("Account Closure") }}</h6>
+						<p class="mb-3">{{ _("Request support-assisted closure. Commercial records and approval history are retained.") }}</p>
 						<button class="btn btn-outline-danger btn-sm" onclick="deleteAccount()">
-							{{ _("Delete Account") }}
+							{{ _("Request Account Closure") }}
 						</button>
 					</div>
 				</div>
@@ -415,7 +420,7 @@ User profile, notifications, and account preferences
 	<div class="modal-dialog">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Create Company Profile") }}</h5>
+				<h5 class="modal-title">{{ _("Request Company Access") }}</h5>
 				<button type="button" class="close" data-dismiss="modal">
 					<span>&times;</span>
 				</button>
@@ -437,7 +442,7 @@ User profile, notifications, and account preferences
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
-				<button type="button" class="btn btn-primary" onclick="createCompany()">{{ _("Create") }}</button>
+				<button type="button" class="btn btn-primary" onclick="createCompany()">{{ _("Send Request") }}</button>
 			</div>
 		</div>
 	</div>
@@ -518,54 +523,55 @@ function saveNotificationPrefs() {
 }
 
 function changePassword() {
-	frappe.prompt([
-		{
-			fieldname: 'old_password',
-			fieldtype: 'Password',
-			label: '{{ _("Current Password") }}',
-			reqd: 1
-		},
-		{
-			fieldname: 'new_password',
-			fieldtype: 'Password',
-			label: '{{ _("New Password") }}',
-			reqd: 1
-		},
-		{
-			fieldname: 'confirm_password',
-			fieldtype: 'Password',
-			label: '{{ _("Confirm New Password") }}',
-			reqd: 1
-		}
-	], function(values) {
-		if (values.new_password !== values.confirm_password) {
-			frappe.msgprint('{{ _("Passwords do not match") }}');
-			return;
-		}
-		frappe.call({
-			method: 'frappe.core.doctype.user.user.update_password',
-			args: {
-				old_password: values.old_password,
-				new_password: values.new_password
-			},
-			callback: function(r) {
-				if (!r.exc) {
-					frappe.msgprint({
-						title: '{{ _("Success") }}',
-						indicator: 'green',
-						message: '{{ _("Password changed successfully") }}'
-					});
-				}
+	if (!document.getElementById('portalPasswordModal')) {
+		const modal = $('<div class="modal fade" id="portalPasswordModal" tabindex="-1" role="dialog" aria-labelledby="portalPasswordTitle"><div class="modal-dialog"><form class="modal-content"><div class="modal-header"><h5 id="portalPasswordTitle"></h5><button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div><div class="modal-body"><div class="alert alert-danger" role="alert" hidden></div></div><div class="modal-footer"><button type="submit" class="btn btn-primary"></button></div></form></div></div>');
+		modal.find('h5').text(__('Change Password'));
+		modal.find('[type="submit"]').text(__('Update Password'));
+		[['old_password', __('Current Password'), 'current-password'], ['new_password', __('New Password'), 'new-password'], ['confirm_password', __('Confirm New Password'), 'new-password']].forEach(([name, label, autocomplete]) => {
+			const group = $('<div class="form-group">');
+			group.append($('<label>').attr('for', 'portal_' + name).text(label));
+			group.append($('<input type="password" class="form-control" required>').attr({id: 'portal_' + name, name, autocomplete}));
+			modal.find('.modal-body').append(group);
+		});
+		modal.appendTo(document.body);
+		modal.on('hidden.bs.modal', () => { modal.find('form')[0].reset(); modal.find('[role="alert"]').prop('hidden', true); });
+		modal.on('shown.bs.modal', () => modal.find('input').first().trigger('focus'));
+		modal.find('form').on('submit', async function(event) {
+			event.preventDefault();
+			const button = modal.find('[type="submit"]');
+			if (button.prop('disabled')) return;
+			const values = Object.fromEntries(new FormData(this));
+			const error = modal.find('[role="alert"]');
+			if (values.new_password !== values.confirm_password) {
+				error.text(__('Passwords do not match.')).prop('hidden', false);
+				return;
+			}
+			button.prop('disabled', true);
+			error.prop('hidden', true);
+			try {
+				await frappe.call({method: 'frappe.core.doctype.user.user.update_password', type: 'POST', args: {old_password: values.old_password, new_password: values.new_password}});
+				modal.modal('hide');
+				frappe.msgprint(__('Password changed successfully.'));
+			} catch (failure) {
+				error.text([401, 403, 410].includes(failure.status) ? __('Your session may have expired. Sign in again or use password recovery.') : __('Password was not changed. Check your current password and the password-policy message, then retry.')).prop('hidden', false);
+			} finally {
+				button.prop('disabled', false);
 			}
 		});
-	}, '{{ _("Change Password") }}', '{{ _("Update") }}');
+	}
+	$('#portalPasswordModal').modal('show');
 }
+
+frappe.ready(function () { PortalAccounts.mount(document.getElementById('portalAccountRecords')); });
 
 function deleteAccount() {
 	frappe.confirm(
-		'{{ _("Are you sure you want to delete your account? This action cannot be undone.") }}',
-		function() {
-			frappe.msgprint('{{ _("Please contact support to delete your account.") }}');
+		'{{ _("Send an account-closure request to support?") }}',
+		async function() {
+			try {
+				const receipt = await PortalUploads.call('illumenate_lighting.illumenate_lighting.portal.accounts.request_change', {request_type: 'Account closure', note: 'Please review closure of my portal account. Preserve commercial and audit records.'});
+				frappe.msgprint(__('Closure request received: {0}', [receipt.request]));
+			} catch (error) { frappe.msgprint(frappe.utils.escape_html(error.message)); }
 		}
 	);
 }
@@ -576,15 +582,15 @@ function createCompany() {
 	const data = Object.fromEntries(formData.entries());
 
 	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_customer',
-		args: { customer_data: JSON.stringify(data) },
+		method: 'illumenate_lighting.illumenate_lighting.portal.accounts.request_change',
+		args: {request_type: 'Company linkage', note: 'Please verify my company membership: ' + data.customer_name},
 		freeze: true,
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				frappe.msgprint({
 					title: '{{ _("Success") }}',
 					indicator: 'green',
-					message: '{{ _("Company created successfully") }}'
+					message: __('Company access request received: {0}', [r.message.request])
 				});
 				$('#createCompanyModal').modal('hide');
 				setTimeout(() => location.reload(), 1500);

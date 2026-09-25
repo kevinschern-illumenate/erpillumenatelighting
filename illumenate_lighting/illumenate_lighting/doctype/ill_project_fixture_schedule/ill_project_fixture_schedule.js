@@ -580,11 +580,11 @@ function _show_create_user_dialog(frm) {
 			{
 				fieldname: "send_invite",
 				fieldtype: "Check",
-				label: __("Send Welcome Email"),
+				label: __("Share invitation link after creation"),
 				default: 1,
 			},
 		],
-		primary_action_label: __("Create User"),
+		primary_action_label: __("Create invitation"),
 		primary_action: function () {
 			const values = d.get_values();
 			if (!values) return;
@@ -598,14 +598,11 @@ function _show_create_user_dialog(frm) {
 					send_invite: values.send_invite ? 1 : 0,
 				},
 				freeze: true,
-				freeze_message: __("Creating user..."),
+				freeze_message: __("Creating invitation..."),
 				callback: function (r) {
 					if (r.message && r.message.success) {
 						d.hide();
-						frappe.show_alert({
-							message: __("User {0} created successfully", [r.message.user]),
-							indicator: "green",
-						});
+						frappe.msgprint({title: __("Invitation ready to share"), message: '<p>' + __('The recipient must sign in and accept this one-use link:') + '</p><input class="form-control" readonly value="' + frappe.utils.escape_html(window.location.origin + r.message.invite_url) + '">'});
 					} else {
 						frappe.msgprint({
 							title: __("Error"),

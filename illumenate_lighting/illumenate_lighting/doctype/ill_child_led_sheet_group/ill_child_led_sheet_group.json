@@ -10,7 +10,10 @@
   "group_watts",
   "compatible_driver",
   "driver_max_wattage",
-  "leader_cable_qty"
+  "leader_cable_qty",
+  "driver_spec",
+  "supply_number",
+  "output_number"
  ],
  "fields": [
   {
@@ -44,6 +47,25 @@
    "fieldtype": "Int",
    "label": "Leader Cable Qty",
    "default": "1"
+  },
+  {
+   "fieldname": "driver_spec",
+   "fieldtype": "Link",
+   "options": "ilL-Spec-Driver",
+   "label": "Driver Specification",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supply_number",
+   "fieldtype": "Int",
+   "label": "Supply Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "output_number",
+   "fieldtype": "Int",
+   "label": "Output Number",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

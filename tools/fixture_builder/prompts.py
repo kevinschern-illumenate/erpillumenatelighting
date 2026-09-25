@@ -7,29 +7,29 @@ from the user interactively via stdin.
 from __future__ import annotations
 
 from .config_schema import (
-    FixtureBuilderConfig,
-    ProfileDef,
-    LensDef,
     AccessoryDef,
-    EndcapDef,
-    ProfileLensMapping,
-    FixtureTemplateDef,
-    TemplateAllowedOptions,
     DriverDef,
+    EndcapDef,
+    FixtureBuilderConfig,
+    FixtureTemplateDef,
+    LedSheetAllowedOptionDef,
+    LedSheetAllowedSpecDef,
+    LedSheetSpecDef,
+    LedSheetTemplateDef,
+    LensDef,
+    NeonSubmittalMappingDef,
+    ProfileDef,
+    ProfileLensMapping,
+    SheetDimensionsDef,
     SubmittalMappingDef,
-    WebflowDef,
-    TapeSpecDef,
-    TapeOfferingDef,
     TapeNeonAllowedOptionDef,
     TapeNeonAllowedSpecDef,
     TapeNeonTemplateDef,
-    NeonSubmittalMappingDef,
     TapeNeonWebflowDef,
-    SheetDimensionsDef,
-    LedSheetSpecDef,
-    LedSheetAllowedSpecDef,
-    LedSheetAllowedOptionDef,
-    LedSheetTemplateDef,
+    TapeOfferingDef,
+    TapeSpecDef,
+    TemplateAllowedOptions,
+    WebflowDef,
 )
 
 
@@ -369,6 +369,9 @@ def prompt_all_led_sheet(config: FixtureBuilderConfig) -> None:
             lumens_per_sqft=config.lumens_per_sqft,
             sku_series_code=f"LED-{config.series_code}",
             sku_led_package_code=config.series_code,
+            cct=_input("Physical sheet CCT (linked attribute)", config.cct_options[0] if len(config.cct_options) == 1 else ""),
+            input_protocol=_input("Required electrical input protocol (linked attribute)", ""),
+            total_sheet_watts=_input_float("Full panel wattage (all TW channels; 0 uses watts per sqft)", 0),
         ))
 
     if not config.led_sheet_templates:

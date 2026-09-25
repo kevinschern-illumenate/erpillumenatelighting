@@ -81,6 +81,16 @@
 		}
 
 		var existing = this.context.existing || null;
+		var request = this.context.initial_request;
+		if (request) {
+			var s = request.selections || {}, options = s.options || {};
+			if (typeof options === 'string') options = JSON.parse(options);
+			existing = Object.assign({}, existing || {}, { sheet_template: s.template || request.template, sheet_spec: s.spec, include_power_supply: s.include_power_supply });
+			['CCT', 'Output Level', 'Environment Rating', 'Mounting', 'Finish'].forEach(function (type) {
+				var field = {'CCT': 'selected_cct', 'Output Level': 'selected_output_level', 'Environment Rating': 'selected_environment_rating', 'Mounting': 'selected_mounting', 'Finish': 'selected_finish'}[type];
+				existing[field] = options[type];
+			});
+		}
 		if (existing && existing.sheet_template) {
 			$select.val(existing.sheet_template);
 			this._onTemplateSelected(existing.sheet_template, existing);
@@ -88,6 +98,20 @@
 		} else if ($select.val()) {
 			setTimeout(function () { $select.trigger('change'); }, 0);
 		}
+	};
+
+	LedSheet.prototype.exportRequest = function () {
+		var selections = this._gatherAllSelections();
+		return {family: 'LED Sheet', template: selections.template, selections: selections};
+	};
+	LedSheet.prototype.restoreGeometry = function (geometry) {
+		var self = this;
+		['width', 'height'].forEach(function (axis) {
+			var key = 'coverage_' + axis, prefix = axis === 'width' ? '#coverageWidth' : '#coverageHeight';
+			self.$(prefix + 'Value').val(geometry[key + '_value'] == null ? geometry[key + '_ft'] : geometry[key + '_value']);
+			self.$(prefix + 'Unit').val(geometry[key + '_unit'] || 'ft');
+		});
+		this._afterChange();
 	};
 
 	LedSheet.prototype._usesSaveHandler = function () {
@@ -105,11 +129,11 @@
 	LedSheet.prototype._bindEvents = function () {
 		var self = this;
 
-		this.$('#sheetTemplate').on('change', function () {
+		this.$('#sheetTemplate').on('change' + '.' + self.instanceId, function () {
 			self._onTemplateSelected($(this).val());
 		});
 
-		this.$root.on('click', '.pill-selector .pill', function (e) {
+		this.$root.on('click' + '.' + self.instanceId, '.pill-selector .pill', function (e) {
 			e.preventDefault();
 			var $pill = $(this);
 			var $selector = $pill.closest('.pill-selector');
@@ -118,27 +142,27 @@
 			$pill.addClass('active');
 			if ($select.length) $select.val(String($pill.attr('data-value'))).trigger('change');
 		});
-		this.$root.on('change', 'select.select-fallback', function () {
+		this.$root.on('change' + '.' + self.instanceId, 'select.select-fallback', function () {
 			var $select = $(this);
 			var $selector = $select.closest('.config-section').find('.pill-selector[data-field="' + $select.attr('name') + '"]').first();
 			$selector.find('.pill').removeClass('active');
 			$selector.find('.pill[data-value="' + $select.val() + '"]').addClass('active');
 		});
 
-		this.$('#sheetSpec').on('change', function () {
+		this.$('#sheetSpec').on('change' + '.' + self.instanceId, function () {
 			self.spec = self._specByName($(this).val());
 			self._updateSpecHint();
 			self._afterChange();
 		});
 		OPTION_FIELDS.forEach(function (f) {
-			self.$(f.select).on('change', function () { self._afterChange(); });
+			self.$(f.select).on('change' + '.' + self.instanceId, function () { self._afterChange(); });
 		});
-		this.$('#coverageWidthValue, #coverageHeightValue').on('input change', root.IllConfigurator.debounce(function () { self._afterChange(); }, 200));
-		this.$('#coverageWidthUnit, #coverageHeightUnit, #sheetIncludePowerSupply').on('change', function () { self._afterChange(); });
+		this.$('#coverageWidthValue, #coverageHeightValue').on('input' + '.' + self.instanceId + ' ' + 'change' + '.' + self.instanceId, this.debounce(function () { self._afterChange(); }, 200));
+		this.$('#coverageWidthUnit, #coverageHeightUnit, #sheetIncludePowerSupply').on('change' + '.' + self.instanceId, function () { self._afterChange(); });
 
-		this.$('[data-action="reset"]').on('click', function () { self.resetConfiguration(); });
-		this.$('[data-action="validate"]').on('click', function () { self.validateConfiguration(); });
-		this.$('[data-action="add-to-schedule"]').on('click', function () { self.addToSchedule(); });
+		this.$('[data-action="reset"]').on('click' + '.' + self.instanceId, function () { self.resetConfiguration(); });
+		this.$('[data-action="validate"]').on('click' + '.' + self.instanceId, function () { self.validateConfiguration(); });
+		this.$('[data-action="add-to-schedule"]').on('click' + '.' + self.instanceId, function () { self.addToSchedule(); });
 	};
 
 	LedSheet.prototype._afterChange = function () {
@@ -209,9 +233,15 @@
 			this.$('#coverageWidthUnit').val('ft');
 			this.$('#coverageHeightValue').val(existing.coverage_height_ft || '');
 			this.$('#coverageHeightUnit').val('ft');
-			this.$('#sheetIncludePowerSupply').prop('checked', existing.include_power_supply == null ? true : !!existing.include_power_supply);
+			this.$('#sheetIncludePowerSupply').prop('checked', existing.include_power_supply == null ? true : [true, 1, '1', 'true'].indexOf(existing.include_power_supply) >= 0);
+			var saved = (this.context.initial_request || {}).selections;
+			if (saved) {
+				this.restoreGeometry(saved);
+				this.queueRestoreFields({'[name="dimming_protocol_code"]': saved.dimming_protocol_code || ''});
+			}
 		}
 
+		this.loadPowerOptions('ilL-LED-Sheet-Template', name);
 		this.$('#sheetOptions, #sheetActionButtons').show();
 		this._afterChange();
 	};
@@ -361,7 +391,7 @@
 	};
 
 	LedSheet.prototype._invalidateResult = function () {
-		if (!this.lastResult) return;
+		this.invalidateValidation();
 		this.lastResult = null;
 		this.$('#sheetResults').hide();
 		this.$('#sheetValidationMessages').hide();
@@ -383,17 +413,22 @@
 			coverage_width_unit: this.$('#coverageWidthUnit').val(),
 			coverage_height_value: this.$('#coverageHeightValue').val(),
 			coverage_height_unit: this.$('#coverageHeightUnit').val(),
-			include_power_supply: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0
+			include_power_supply: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
+			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null
 		};
 	};
 
 	LedSheet.prototype.validateConfiguration = function () {
+		if (!this.canCalculateRestored()) return;
+		this.invalidateValidation();
 		var self = this;
 		var $btn = this.$('#calculateSheet');
 		var original = $btn.html();
+		$btn.data('illCalculationLabel', original);
 		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Calculating…'));
-		frappe.call({
+		self.request({
 			method: SHEET_API + 'validate_sheet_configuration',
+			isCurrent: this.validationGuard(),
 			args: this._gatherAllSelections(),
 			callback: function (r) {
 				$btn.html(original);
@@ -475,7 +510,7 @@
 				+ (includePs ? '<tr><td>' + __('Power supplies') + '</td><td class="text-right">' + money(p.power_supplies_msrp) + '</td></tr>' : '')
 				+ '<tr class="font-weight-bold"><td>' + __('Total MSRP') + '</td><td class="text-right">' + money(p.total_msrp != null ? p.total_msrp : r.total_msrp) + '</td></tr>'
 				+ '</tbody></table>'
-				+ '<small class="text-muted d-block mt-1">' + __('The panel bundle is one schedule line; cables and power supplies are added as accessory lines.') + '</small>';
+				+ '<small class="text-muted d-block mt-1">' + __('One schedule line includes all panels, cables, and selected power supplies. Quantity counts complete bundles.') + '</small>';
 		}
 
 		this.$('#sheetSummary').html(html);
@@ -510,60 +545,10 @@
 		if (!scheduleName) { frappe.msgprint(__('Please select a schedule to save to')); return; }
 		if (!lineVal) { frappe.msgprint(__('Please select a line or choose "New Line"')); return; }
 
-		var $btn = this.$('#saveSheet');
-		var original = $btn.html();
-		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Saving…'));
-		var fail = function (text) {
-			$btn.html(original);
-			self._updateButtons();
-			frappe.msgprint({ title: __('Save Error'), indicator: 'red', message: text || __('Error saving configuration') });
-		};
-		var finish = function (lineIdx) {
-			var args = $.extend({}, selections, { schedule_name: scheduleName, line_idx: lineIdx });
-			frappe.call({
-				method: SHEET_API + 'save_sheet_configuration',
-				args: args,
-				callback: function (r) {
-					var msg = r.message || {};
-					if (!msg.success) { fail(msg.error); return; }
-					frappe.show_alert({ message: __('LED Sheet saved to schedule'), indicator: 'green' });
-					window.location.href = '/portal/schedules/' + encodeURIComponent(scheduleName);
-				},
-				error: function () { fail(); }
-			});
-		};
-
-		if (lineVal === '__new__') {
-			frappe.call({
-				method: PORTAL + 'add_schedule_line',
-				args: {
-					schedule_name: scheduleName,
-					line_data: { manufacturer_type: 'ILLUMENATE', product_type: 'LED Sheet', led_sheet_template: selections.template, configuration_status: 'Pending', qty: 1 }
-				},
-				callback: function (r) {
-					var msg = r.message || {};
-					if (msg.success && msg.line_idx !== undefined) finish(msg.line_idx);
-					else fail(msg.error);
-				},
-				error: function () { fail(); }
-			});
-			return;
-		}
-
-		var lineIdx = parseInt(lineVal, 10);
-		var existing = target ? target.lineAt(lineIdx) : null;
-		if (existing && (existing.configured_led_sheet || existing.configured_fixture || existing.configured_tape_neon || existing.manufacturer_name)) {
-			$btn.html(original);
-			frappe.confirm(
-				'<strong>' + __('Warning:') + '</strong> ' + __('This will override the existing data for line "{0}".', [escapeHtml(existing.line_id)])
-				+ '<div class="bg-light p-2 rounded mt-2 mb-2 small">' + escapeHtml(existing.summary || '').replace(/\|/g, '<br>') + '</div>'
-				+ __('Are you sure you want to replace this with the new configuration?'),
-				function () { $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Saving…')); finish(lineIdx); },
-				function () { self._updateButtons(); }
-			);
-			return;
-		}
-		finish(lineIdx);
+        return this.saveScheduleConfiguration({
+            family: 'LED Sheet', schedule_name: scheduleName,
+            line_idx: lineVal === '__new__' ? null : Number(lineVal), selections: selections
+        });
 	};
 
 	// ────────────────────────────────────────────────────────────────
@@ -590,7 +575,11 @@
 
 	// Portal LED Sheet page entry point (mirrors initWebflowConfigurator).
 	root.initLedSheetConfigurator = function (context) {
-		var inst = new LedSheet(document, context || {});
+		var host = document.getElementById('portal-configurator') || document;
+		var previous = $(host).data('illLedSheet');
+		if (previous) previous.destroy();
+		var inst = new LedSheet(host, context || {});
+		$(host).data('illLedSheet', inst);
 		inst.init();
 		return inst;
 	};

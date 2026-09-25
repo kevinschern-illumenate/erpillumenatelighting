@@ -58,10 +58,10 @@ def generate_from_webflow_selections(
         dict: {success, file_url, filename, part_number} or {success, error}
     """
     from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
+        _generate_full_part_number,
         _get_configurable_product,
         _get_series_info,
         _resolve_tape_offering,
-        _generate_full_part_number,
     )
 
     # ── Step 1: Resolve product and template ──────────────────────────
@@ -581,81 +581,11 @@ def _resolve_power_feed_type(selections: dict, template=None) -> str:
 
 
 def _ensure_public_file(file_url: str) -> str:
-    """
-    Ensure the generated file is publicly accessible (not private).
-
-    Spec sheet downloads from Webflow need to be guest-accessible.
-    If the file is in /private/files/, move it to /files/ via the File doc.
-    """
-    import traceback as tb_mod
-
-    if not file_url or not file_url.startswith("/private/files/"):
-        return file_url
-
-    try:
-        # Use get_all to handle duplicate File records from re-uploads gracefully.
-        matches = frappe.get_all(
-            "File",
-            filters={"file_url": file_url},
-            fields=["name"],
-            order_by="creation desc",
-            limit_page_length=1,
-            ignore_permissions=True,
-        )
-        if not matches:
-            frappe.log_error(
-                title="Spec Sheet: No File doc found",
-                message=f"No File record found for URL: {file_url}",
-            )
-            return file_url
-
-        file_doc = frappe.get_doc("File", matches[0].name)
-        if file_doc.is_private:
-            file_doc.is_private = 0
-            file_doc.save(ignore_permissions=True)
-            frappe.db.commit()
-            return file_doc.file_url
-    except Exception as e:
-        frappe.log_error(
-            title="Spec Sheet: Failed to make file public",
-            message=(
-                f"Could not make file public: {file_url}.\n"
-                f"Error type: {type(e).__name__}\n"
-                f"Error: {e}\n"
-                f"Traceback:\n{tb_mod.format_exc()}"
-            ),
-        )
-        # Fallback: try setting is_private directly via DB and moving the
-        # physical file, bypassing the File doc's save hooks that may
-        # fail under Guest context.
-        try:
-            import os
-            import shutil
-            site_path = frappe.get_site_path()
-            private_path = os.path.join(site_path, file_url.lstrip("/"))
-            public_filename = file_url.replace("/private/files/", "/files/")
-            public_path = os.path.join(site_path, "public", "files", os.path.basename(file_url))
-            if os.path.exists(private_path):
-                shutil.copy2(private_path, public_path)
-                frappe.db.set_value(
-                    "File", matches[0].name,
-                    {"is_private": 0, "file_url": public_filename},
-                    update_modified=False,
-                )
-                frappe.db.commit()
-                return public_filename
-        except Exception as e2:
-            frappe.log_error(
-                title="Spec Sheet: Fallback public file also failed",
-                message=f"Fallback failed for {file_url}: {e2}\n{tb_mod.format_exc()}",
-            )
-
+    """Generation chooses classification before writing; never promote a File."""
+    if file_url and file_url.startswith("/private/files/") and frappe.flags.get("ill_product_download") != "private":
+        frappe.throw(_("Private source cannot be published as product literature"))
     return file_url
 
-
-# ──────────────────────────────────────────────────────────────────────────
-# LED Neon / LED Tape — Webflow spec sheet generation
-# ──────────────────────────────────────────────────────────────────────────
 
 def generate_from_webflow_selections_neon(
     product_slug: str,

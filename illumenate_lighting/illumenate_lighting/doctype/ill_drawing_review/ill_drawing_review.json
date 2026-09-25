@@ -1,0 +1,86 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Drawing-Review",
+ "module": "ilLumenate Lighting",
+ "autoname": "format:DR-{#####}",
+ "engine": "InnoDB",
+ "fields": [
+  {
+   "fieldname": "request",
+   "fieldtype": "Link",
+   "label": "Request",
+   "read_only": 1,
+   "options": "ilL-Document-Request"
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Data",
+   "label": "Revision",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revision_token",
+   "fieldtype": "Data",
+   "label": "Revision Token",
+   "read_only": 1,
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "file_sha256",
+   "fieldtype": "Data",
+   "label": "File Sha256",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_hash",
+   "fieldtype": "Data",
+   "label": "Build Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "decision",
+   "fieldtype": "Select",
+   "label": "Decision",
+   "read_only": 1,
+   "options": "APPROVED\nCHANGES_REQUESTED"
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "Reviewed By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_on",
+   "fieldtype": "Datetime",
+   "label": "Reviewed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note",
+   "read_only": 1
+  }
+ ],
+ "field_order": [
+  "request",
+  "revision",
+  "revision_token",
+  "file_sha256",
+  "build_hash",
+  "decision",
+  "reviewed_by",
+  "reviewed_on",
+  "note"
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  }
+ ]
+}

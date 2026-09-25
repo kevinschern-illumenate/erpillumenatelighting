@@ -11,15 +11,16 @@ that shape for tape & neon configured records so the Quotation/Sales-Order
 needing the linear-fixture pipeline.
 """
 
+import json
 from typing import Any
 
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import cable_stock_quantity
 from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
     DEFAULT_UOM,
 )
-
 
 MM_PER_FOOT = 304.8
 MM_PER_INCH = 25.4
@@ -33,10 +34,8 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
         2. Leader cable — total leader/jumper length in inches
         3. Mounting accessory (when ``include_mounting_accessory``)
 
-    Drivers are NOT added here: the tape/neon configured record does not yet
-    persist a driver plan child table.  Power-supply attachment for tape/neon
-    is handled at the Quotation/Sales-Order row level via
-    ``_apply_artifact_to_row``.
+    Version 2 builds include the immutable selected supply plan exactly once.
+    Physical cable quantities are converted to their actual stock UOM.
 
     Args:
         configured: ``ilL-Configured-Tape-Neon`` document (loaded)
@@ -44,12 +43,15 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
     Returns:
         List of dicts with keys ``item_code``, ``qty``, ``uom``, ``stock_uom``.
     """
+    if configured.get("build_schema_version") == 2:
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot
+        return [{key: row[key] for key in ("item_code", "qty", "uom", "stock_uom")}
+                for row in snapshot(configured)["components"]]
     bom_items: list[dict[str, Any]] = []
-    is_neon = (configured.product_category or "").strip() == "LED Neon"
 
     # ── Role 1: Tape item ─────────────────────────────────────────────
     if configured.tape_item:
-        if is_neon and getattr(configured, "segments", None):
+        if getattr(configured, "segments", None):
             total_mm = sum(
                 float(seg.manufacturable_length_mm or 0) for seg in configured.segments
             )
@@ -60,16 +62,7 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
                 frappe.db.get_value("Item", configured.tape_item, "stock_uom")
                 or "Foot"
             )
-            uom_lower = tape_uom.lower()
-            if uom_lower in ("foot", "ft"):
-                qty = round(total_mm / MM_PER_FOOT, 2)
-            elif uom_lower in ("meter", "metre", "m"):
-                qty = round(total_mm / 1000.0, 3)
-            elif uom_lower in ("inch", "in"):
-                qty = round(total_mm / MM_PER_INCH, 2)
-            else:
-                qty = round(total_mm / MM_PER_FOOT, 2)
-                tape_uom = "Foot"
+            qty = cable_stock_quantity(total_mm, "mm", tape_uom)
             bom_items.append({
                 "item_code": configured.tape_item,
                 "qty": qty,
@@ -80,7 +73,7 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
     # ── Role 2: Leader cable ──────────────────────────────────────────
     leader_item = configured.leader_cable_item
     if leader_item:
-        if is_neon and getattr(configured, "segments", None):
+        if getattr(configured, "segments", None):
             total_lead_in = 0.0
             for seg in configured.segments:
                 total_lead_in += float(getattr(seg, "start_lead_length_inches", 0) or 0)
@@ -93,7 +86,7 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
             )
             bom_items.append({
                 "item_code": leader_item,
-                "qty": round(total_lead_in, 2),
+                "qty": cable_stock_quantity(total_lead_in, "in", leader_uom),
                 "uom": leader_uom,
                 "stock_uom": leader_uom,
             })
@@ -112,6 +105,13 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
                 "stock_uom": DEFAULT_UOM,
             })
 
+    if configured.get("build_schema_version") == 2 and configured.get("include_power_supply"):
+        plan = json.loads(configured.get("power_plan_json") or "{}")
+        if plan.get("status") != "selected" or not plan.get("drivers"):
+            frappe.throw(_("Included power requires a pinned, feasible supply allocation."))
+        for driver in plan["drivers"]:
+            uom = frappe.db.get_value("Item", driver["driver_item"], "stock_uom")
+            bom_items.append({"item_code": driver["driver_item"], "qty": driver["qty"], "uom": uom, "stock_uom": uom})
     return bom_items
 
 
@@ -133,6 +133,11 @@ def create_or_get_tape_neon_bom(
     Returns:
         ``{"success", "bom_name", "created", "skipped", "messages"}``
     """
+    if configured.get("build_schema_version") == 2:
+        from illumenate_lighting.illumenate_lighting.api.build_artifacts import ensure_bom
+        if item_code != "ILL-TN-" + configured.config_hash:
+            raise ValueError("Configured Item does not match the tape/neon build identity")
+        return ensure_bom(configured, item_code, build_tape_neon_bom_items(configured))
     result: dict[str, Any] = {
         "success": True,
         "bom_name": None,

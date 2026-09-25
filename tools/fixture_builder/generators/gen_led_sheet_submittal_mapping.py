@@ -6,12 +6,13 @@ import csv
 import os
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv
+from .common import mapping_row, write_csv
 
 HEADERS = [
     "LED Sheet Template", "PDF Field Name", "Source DocType", "Source Field",
     "Prefix", "Suffix", "Transformation", "Logic", "Webflow Field",
     "Webflow Skip Transformation", "Webflow Prefix/Suffix", "Webflow Prefix", "Webflow Suffix",
+    "Required Value",
 ]
 
 DEFAULT_SHEET_MAPPINGS = [
@@ -27,7 +28,7 @@ DEFAULT_SHEET_MAPPINGS = [
     ("total_system_watts", "ilL-Configured-LED-Sheet", "total_system_watts", "", "", "ROUND_2_DECIMALS", "", "", 0, "", "", ""),
     ("total_groups", "ilL-Configured-LED-Sheet", "total_groups", "", "", "", "", "", 0, "", "", ""),
     ("leader_cable_qty", "ilL-Configured-LED-Sheet", "leader_cable_qty", "", "", "", "", "", 0, "", "", ""),
-    ("jumper_cables_extra", "ilL-Configured-LED-Sheet", "jumper_cables_extra", "", "", "", "", "", 0, "", "", ""),
+    ("jumper_cables_extra", "ilL-Configured-LED-Sheet", "jumper_cables_included", "", "", "", "", "", 0, "", "", ""),
     ("watts_per_sqft", "ilL-Spec-LED-Sheet", "watts_per_sqft", "", "", "ROUND_2_DECIMALS", "", "", 0, "", "", ""),
     ("lumens_per_sqft", "ilL-Spec-LED-Sheet", "lumens_per_sqft", "", "", "ROUND_2_DECIMALS", "", "", 0, "", "", ""),
     ("sheet_width_ft", "ilL-Spec-LED-Sheet", "sheet_width_ft", "", "", "ROUND_2_DECIMALS", "", "", 0, "", "", ""),
@@ -58,7 +59,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str, source_csv_path: str
     rows = []
     for tmpl in config.led_sheet_templates:
         for mapping in mappings:
-            rows.append([tmpl.template_code] + list(mapping))
+            rows.append(mapping_row([tmpl.template_code] + list(mapping), HEADERS))
     filepath = f"{output_dir}/ilL-LED-Sheet-Submittal-Mapping.csv"
     write_csv(filepath, HEADERS, rows)
     return filepath

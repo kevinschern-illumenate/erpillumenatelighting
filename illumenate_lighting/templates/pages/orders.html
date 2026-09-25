@@ -179,6 +179,7 @@ View and track sales orders with production and shipment status
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
@@ -199,17 +200,15 @@ View and track sales orders with production and shipment status
 		</a>
 	</div>
 
-	<!-- Filter Bar -->
-	<div class="filter-bar">
-		<div class="filter-tabs">
-			<button class="filter-tab active" data-filter="all">{{ _("All Orders") }}</button>
-			<button class="filter-tab" data-filter="requests">{{ _("Order Requests") }}</button>
-			<button class="filter-tab" data-filter="active">{{ _("In Production") }}</button>
-			<button class="filter-tab" data-filter="shipping">{{ _("Shipping") }}</button>
-			<button class="filter-tab" data-filter="completed">{{ _("Completed") }}</button>
-		</div>
-	</div>
-
+	<form method="get" class="filter-bar">
+        <label for="order-search">{{ _("Order, PO or customer") }}</label>
+        <input id="order-search" class="form-control" type="search" name="search" value="{{ search | default('', true) | e }}" maxlength="140">
+        <label for="order-status">{{ _("Status") }}</label>
+        <select id="order-status" name="status" class="form-control">
+        {% for key, label in [('all','All orders'),('requests','Order requests'),('active','Approved / in progress'),('shipping','Partially shipped'),('fulfilled','Fulfilled'),('cancelled','Cancelled')] %}
+        <option value="{{ key }}" {% if filter == key %}selected{% endif %}>{{ _(label) }}</option>
+        {% endfor %}</select><button class="btn btn-primary mt-2" type="submit">{{ _("Find orders") }}</button>
+    </form>
 	<!-- Orders List -->
 	<div id="ordersList">
 		{% if orders %}
@@ -230,8 +229,8 @@ View and track sales orders with production and shipment status
 						<span class="detail-value">{{ frappe.utils.format_date(order.transaction_date) }}</span>
 					</div>
 					<div class="detail-item">
-						<span class="detail-label">{{ _("Delivery Date") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(order.delivery_date) if order.delivery_date else "-" }}</span>
+						<span class="detail-label">{{ _("Confirmed delivery") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(order.ill_confirmed_delivery_date) if order.ill_confirmed_delivery_date else _("Not confirmed") }}</span>
 					</div>
 					<div class="detail-item">
 						<span class="detail-label">{{ _("Items") }}</span>
@@ -252,10 +251,10 @@ View and track sales orders with production and shipment status
 			<div class="order-progress">
 				<div class="progress-steps">
 					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.docstatus >= 1 else '' }}">
+						<div class="step-icon {{ 'completed' if order.docstatus == 1 else '' }}">
 							<i class="fa fa-check"></i>
 						</div>
-						<span class="step-label">{{ _("Approved") if order.docstatus >= 1 else _("Requested") }}</span>
+						<span class="step-label">{{ _("Approved") if order.docstatus == 1 else _("Requested") }}</span>
 					</div>
 					<div class="progress-step">
 						<div class="step-icon {{ 'completed' if order.production_complete else '' }} {{ 'active' if order.production_started and not order.production_complete else '' }}">
@@ -290,45 +289,10 @@ View and track sales orders with production and shipment status
 		</div>
 		{% endif %}
 	</div>
+    <nav aria-label="{{ _('Order pages') }}" class="d-flex justify-content-between">
+    {% if page > 1 %}<a href="?page={{ page - 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Newer orders") }}</a>{% endif %}
+    <span>{{ _("Page") }} {{ page }}</span>
+    {% if has_more %}<a href="?page={{ page + 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Older orders") }}</a>{% endif %}
+    </nav>
 </div>
-{% endblock %}
-
-{% block script %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-	// Filter functionality
-	const filterTabs = document.querySelectorAll('.filter-tab');
-	const orderCards = document.querySelectorAll('.order-card');
-
-	filterTabs.forEach(tab => {
-		tab.addEventListener('click', function() {
-			// Update active tab
-			filterTabs.forEach(t => t.classList.remove('active'));
-			this.classList.add('active');
-
-			const filter = this.dataset.filter;
-
-			// Filter orders
-			orderCards.forEach(card => {
-				const status = card.dataset.status;
-				let show = false;
-
-				if (filter === 'all') {
-					show = true;
-				} else if (filter === 'requests') {
-					show = ['order_request', 'issue'].includes(status);
-				} else if (filter === 'active') {
-					show = ['approved', 'in_production', 'production_complete', 'on_hold'].includes(status);
-				} else if (filter === 'shipping') {
-					show = ['partially_shipped', 'shipped'].includes(status);
-				} else if (filter === 'completed') {
-					show = ['completed', 'cancelled'].includes(status);
-				}
-
-				card.style.display = show ? 'block' : 'none';
-			});
-		});
-	});
-});
-</script>
 {% endblock %}

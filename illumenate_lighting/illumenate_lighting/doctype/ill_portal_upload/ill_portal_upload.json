@@ -1,0 +1,15 @@
+{
+ "doctype":"DocType","name":"ilL-Portal-Upload","module":"ilLumenate Lighting","autoname":"hash","engine":"InnoDB",
+ "field_order":["requested_by","parent_type","parent_name","state","file","sha256","file_size","mime_type"],
+ "fields":[
+  {"fieldname":"requested_by","fieldtype":"Link","options":"User","label":"Uploaded By","reqd":1},
+  {"fieldname":"parent_type","fieldtype":"Link","options":"DocType","label":"Artifact Type"},
+  {"fieldname":"parent_name","fieldtype":"Dynamic Link","options":"parent_type","label":"Artifact"},
+  {"fieldname":"state","fieldtype":"Select","options":"STAGING\nFINALIZED\nFAILED\nGENERATED_PUBLIC\nGENERATED_PRIVATE","label":"State","default":"STAGING","reqd":1},
+  {"fieldname":"file","fieldtype":"Link","options":"File","label":"File"},
+  {"fieldname":"sha256","fieldtype":"Data","label":"SHA256","reqd":1},
+  {"fieldname":"file_size","fieldtype":"Int","label":"Bytes","reqd":1},
+  {"fieldname":"mime_type","fieldtype":"Data","label":"Content Type","reqd":1}
+ ],
+ "permissions":[{"role":"System Manager","read":1,"report":1}],"sort_field":"creation","sort_order":"DESC"
+}

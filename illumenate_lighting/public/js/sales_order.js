@@ -2,6 +2,38 @@
 // Adds button to generate manufacturing artifacts from configured fixtures
 // Adds "Section / Room" grouping support (parity with Quotation)
 
+frappe.ui.form.on('Sales Order', {
+	refresh(frm) {
+		if (frm.is_new() || frm.doc.docstatus !== 0 || !frm.doc.ill_fixture_schedule) return;
+		if (!['System Manager', 'ilL Sales Review', 'ilL Order Approver'].some(role => frappe.user_roles.includes(role))) return;
+		frm.add_custom_button(__('Intake, files and conversation'), async () => {
+			const response = await frappe.db.get_value('ilL-Order-Intake', {sales_order: frm.doc.name}, 'name');
+			if (response.message?.name) frappe.set_route('Form', 'ilL-Order-Intake', response.message.name);
+			else frappe.msgprint(__('Start order review to reconcile a missing intake, then ask the buyer to complete the request.'));
+		}, __('Portal request'));
+		frm.add_custom_button(__('Confirm delivery date'), () => {
+			frappe.prompt({fieldname: 'date', fieldtype: 'Date', label: __('Confirmed delivery date'), reqd: 1}, async values => {
+				await frm.set_value('ill_confirmed_delivery_date', values.date);
+				await frm.save();
+				frappe.msgprint(__('The delivery promise is saved. Ask the buyer to review and acknowledge the current order revision before approval.'));
+			}, __('Confirm delivery'), __('Save'));
+		}, __('Portal request'));
+		frm.add_custom_button(__('Review order request'), () => {
+			const actions = {'Start review': 'REVIEW', 'Request information': 'REQUEST_INFORMATION', 'Propose changes': 'PROPOSE_CHANGES', 'Reject request': 'REJECT'};
+			frappe.prompt([
+				{fieldname: 'action', fieldtype: 'Select', label: __('Action'), options: Object.keys(actions).join('\n'), reqd: 1},
+				{fieldname: 'note', fieldtype: 'Small Text', label: __('Message to buyer')}
+			], async values => {
+				if (frm.is_dirty()) await frm.save();
+				await frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.order_review.review',
+					args: {order_name: frm.doc.name, action: actions[values.action], note: values.note, expected_modified: frm.doc.modified}, type: 'POST', freeze: true});
+				frappe.show_alert({message: __('Order review updated'), indicator: 'green'});
+				frm.reload_doc();
+			}, __('Review order request'), __('Save review'));
+		});
+	}
+});
+
 function with_quote_order_configurator(callback) {
 	const configurator = window.illumenate_lighting && window.illumenate_lighting.quote_order_configurator;
 	if (configurator) {

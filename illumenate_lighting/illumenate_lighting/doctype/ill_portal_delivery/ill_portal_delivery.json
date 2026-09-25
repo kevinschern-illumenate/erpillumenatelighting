@@ -1,0 +1,86 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Portal-Delivery",
+ "module": "ilLumenate Lighting",
+ "autoname": "field:delivery_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "delivery_key",
+  "event",
+  "recipient",
+  "state",
+  "email_queue",
+  "attempts",
+  "detail",
+  "sent_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "delivery_key",
+   "fieldtype": "Data",
+   "label": "Delivery Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "event",
+   "fieldtype": "Link",
+   "label": "Event",
+   "read_only": 1,
+   "options": "ilL-Portal-Event",
+   "reqd": 1
+  },
+  {
+   "fieldname": "recipient",
+   "fieldtype": "Link",
+   "label": "Recipient",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "label": "State",
+   "read_only": 1,
+   "options": "PENDING\nSUPPRESSED\nSKIPPED\nQUEUED\nFAILED\nDELIVERED",
+   "default": "PENDING",
+   "reqd": 1
+  },
+  {
+   "fieldname": "email_queue",
+   "fieldtype": "Data",
+   "label": "Email Queue ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attempts",
+   "fieldtype": "Int",
+   "label": "Queue Attempts",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "detail",
+   "fieldtype": "Small Text",
+   "label": "Delivery Detail",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_on",
+   "fieldtype": "Datetime",
+   "label": "SMTP Accepted On",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

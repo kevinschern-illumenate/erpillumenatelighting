@@ -1,0 +1,205 @@
+{
+  "doctype": "DocType",
+  "name": "ilL-Order-Intake",
+  "module": "ilLumenate Lighting",
+  "engine": "InnoDB",
+  "field_order": [
+    "sales_order",
+    "schedule",
+    "customer",
+    "requested_by",
+    "state",
+    "customer_message",
+    "request_snapshot",
+    "request_hash",
+    "acknowledged_hash",
+    "acknowledged_by",
+    "acknowledged_on",
+    "approved_by",
+    "approved_on",
+    "approved_snapshot",
+    "decisions",
+    "intake_key",
+    "intake_hash",
+    "intake_json",
+    "files_json",
+    "acknowledgment_file",
+    "acknowledgment_sha256",
+    "assigned_to",
+    "due_date",
+    "ill_next_action_by"
+  ],
+  "fields": [
+    {
+      "fieldname": "sales_order",
+      "fieldtype": "Link",
+      "label": "Sales Order",
+      "read_only": 1,
+      "options": "Sales Order",
+      "unique": 1,
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "schedule",
+      "fieldtype": "Link",
+      "label": "Schedule",
+      "read_only": 1,
+      "options": "ilL-Project-Fixture-Schedule"
+    },
+    {
+      "fieldname": "customer",
+      "fieldtype": "Link",
+      "label": "Customer",
+      "read_only": 1,
+      "options": "Customer"
+    },
+    {
+      "fieldname": "requested_by",
+      "fieldtype": "Link",
+      "label": "Requested By",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "state",
+      "fieldtype": "Select",
+      "label": "State",
+      "read_only": 1,
+      "options": "SUBMITTED\nUNDER_REVIEW\nINFORMATION_NEEDED\nCHANGES_PROPOSED\nAPPROVED\nREJECTED\nWITHDRAWN",
+      "default": "SUBMITTED",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "customer_message",
+      "fieldtype": "Small Text",
+      "label": "Customer Message",
+      "read_only": 1
+    },
+    {
+      "fieldname": "request_snapshot",
+      "fieldtype": "Long Text",
+      "label": "Request Snapshot",
+      "read_only": 1
+    },
+    {
+      "fieldname": "request_hash",
+      "fieldtype": "Data",
+      "label": "Request Hash",
+      "read_only": 1
+    },
+    {
+      "fieldname": "acknowledged_hash",
+      "fieldtype": "Data",
+      "label": "Acknowledged Hash",
+      "read_only": 1
+    },
+    {
+      "fieldname": "acknowledged_by",
+      "fieldtype": "Link",
+      "label": "Acknowledged By",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "acknowledged_on",
+      "fieldtype": "Datetime",
+      "label": "Acknowledged On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "approved_by",
+      "fieldtype": "Link",
+      "label": "Approved By",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "approved_on",
+      "fieldtype": "Datetime",
+      "label": "Approved On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "approved_snapshot",
+      "fieldtype": "Long Text",
+      "label": "Approved Snapshot",
+      "read_only": 1
+    },
+    {
+      "fieldname": "decisions",
+      "fieldtype": "Table",
+      "label": "Decisions",
+      "read_only": 1,
+      "options": "ilL-Order-Decision"
+    },
+    {
+      "fieldname": "intake_key",
+      "fieldtype": "Data",
+      "label": "Intake Key",
+      "read_only": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "intake_hash",
+      "fieldtype": "Data",
+      "label": "Intake Hash",
+      "read_only": 1
+    },
+    {
+      "fieldname": "intake_json",
+      "fieldtype": "Code",
+      "label": "Intake Json",
+      "read_only": 1
+    },
+    {
+      "fieldname": "files_json",
+      "fieldtype": "Code",
+      "label": "Files Json",
+      "read_only": 1
+    },
+    {
+      "fieldname": "acknowledgment_file",
+      "fieldtype": "Link",
+      "label": "Acknowledgment File",
+      "read_only": 1,
+      "options": "File"
+    },
+    {
+      "fieldname": "acknowledgment_sha256",
+      "fieldtype": "Data",
+      "label": "Acknowledgment Sha256",
+      "read_only": 1
+    },
+    {
+      "fieldname": "assigned_to",
+      "fieldtype": "Link",
+      "label": "Assigned To",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "due_date",
+      "fieldtype": "Date",
+      "label": "Due Date",
+      "read_only": 1
+    },
+    {
+      "fieldname": "ill_next_action_by",
+      "fieldtype": "Select",
+      "label": "Ill Next Action By",
+      "read_only": 1,
+      "options": "Staff\nCustomer\nNone",
+      "default": "Staff"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "report": 1
+    }
+  ],
+  "autoname": "format:OI-{#####}",
+  "track_changes": 1
+}

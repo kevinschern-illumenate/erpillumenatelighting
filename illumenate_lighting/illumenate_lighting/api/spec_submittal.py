@@ -18,6 +18,7 @@ Export Types:
 - SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals
 """
 
+import hashlib
 import inspect
 import io
 import json
@@ -28,6 +29,8 @@ from typing import Any
 import frappe
 from frappe import _
 from frappe.utils import now, nowdate
+
+from illumenate_lighting.illumenate_lighting.portal.pdf_mapping import set_value as _set_mapped_value
 
 # Conversion constants
 MM_PER_INCH = 25.4
@@ -227,6 +230,29 @@ def _get_linked_webflow_product(link_field: str, template_name: str, warnings: l
 		return None
 
 
+def _explicit_schedule_context(field, configured_name, line_name):
+	if not line_name or frappe.flags.get("ill_product_download"):
+		return None, None, None
+	from illumenate_lighting.illumenate_lighting.portal.access import can_read_schedule
+
+	line = frappe.get_doc("ilL-Child-Fixture-Schedule-Line", line_name)
+	if line.get(field) != configured_name or line.parenttype != "ilL-Project-Fixture-Schedule":
+		frappe.throw("This line does not reference the requested build", frappe.PermissionError)
+	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", line.parent)
+	if not can_read_schedule(schedule, frappe.session.user):
+		frappe.throw("Schedule access denied", frappe.PermissionError)
+	project = frappe.get_doc("ilL-Project", schedule.ill_project) if schedule.ill_project else None
+	return schedule, project, line
+
+
+def _commercial_source_blocked(doctype, field):
+	if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+		return False
+	# These documents are an unpriced engineering projection.
+	terms = ("price", "cost", "rate", "margin", "discount", "msrp", "valuation", "amount", "customer", "dealer", "pricing")
+	return any(term in (field or "").lower().split("_") for term in terms) or doctype in ("Item Price", "Customer", "Quotation", "Sales Order")
+
+
 def _get_source_value(
 	source_doctype: str,
 	source_field: str,
@@ -255,6 +281,12 @@ def _get_source_value(
 	Returns:
 		The value from the source field, or None if not found
 	"""
+	if _commercial_source_blocked(source_doctype, source_field):
+		return None
+	from illumenate_lighting.illumenate_lighting.api.engineering_sources import resolve
+	handled, value = resolve(configured_fixture, source_doctype, source_field)
+	if handled:
+		return value
 	try:
 		if source_doctype == "ilL-Webflow-Product" and webflow_product:
 			val = getattr(webflow_product, source_field, None)
@@ -484,7 +516,7 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
+	base_fields = ["required_value", "pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
 	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
@@ -653,6 +685,7 @@ def _fill_pdf_form_fields(
 	pdf_template_path: str,
 	field_values: dict[str, str],
 	warnings: list | None = None,
+	*, provenance: dict | None = None,
 ) -> bytes | None:
 	"""
 	Fill form fields in a PDF template with the provided values and flatten the result.
@@ -703,6 +736,9 @@ def _fill_pdf_form_fields(
 			return None
 
 		pdf_content = file_doc.get_content()
+		if provenance is not None:
+			provenance.update(master_file=file_doc.name, master_url=pdf_template_path,
+				master_sha256=hashlib.sha256(pdf_content).hexdigest())
 		_debug(f"_fill_pdf_form_fields: got PDF content ({len(pdf_content)} bytes)", warnings)
 
 		# Read the PDF
@@ -716,6 +752,9 @@ def _fill_pdf_form_fields(
 
 		# Detect ALL form fields (not just text – also checkboxes, dropdowns, etc.)
 		all_fields = reader.get_fields()
+		if not all_fields or not field_values or set(field_values) - set(all_fields):
+			_warn("PDF filling blocked: the template must contain every mapped form field.", warnings)
+			return None
 		text_fields = reader.get_form_text_fields()
 		_debug(
 			f"_fill_pdf_form_fields: PDF has {len(reader.pages)} pages, "
@@ -990,483 +1029,20 @@ def _generate_cover_page(
 		return None
 
 
-def _gather_line_documents(
-	schedule_name: str, include_all_specs: bool = False, warnings: list | None = None,
-) -> list[dict]:
-	"""
-	Gather spec documents from all lines in a schedule.
+def _gather_line_documents(schedule_name: str, include_all_specs: bool = False, warnings: list | None = None) -> list[dict]:
+	from illumenate_lighting.illumenate_lighting.portal.packets import gather
 
-	Args:
-		schedule_name: Name of the schedule to gather documents from
-		include_all_specs: If True, include static spec sheets; if False, only filled submittals
-		warnings: Optional list that debug messages are appended to
-
-	Returns:
-		list: List of document info dicts with keys:
-			- line_id: The line identifier
-			- qty: Quantity
-			- location: Location description
-			- manufacturer_type: ILLUMENATE, ACCESSORY, or OTHER
-			- spec_document_url: URL of the spec document (if any)
-			- has_submittal: Whether a filled submittal is available
-			- configured_fixture: Name of configured fixture (if any)
-	"""
-	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
-	documents = []
-
-	_debug(f"_gather_line_documents: schedule={schedule_name}, lines count={len(schedule.lines)}, include_all_specs={include_all_specs}", warnings)
-
-	for line in schedule.lines:
-		doc_info = {
-			"line_id": line.line_id,
-			"qty": line.qty,
-			"location": line.location,
-			"manufacturer_type": line.manufacturer_type,
-			"notes": line.notes,
-			"spec_document_url": None,
-			"has_submittal": False,
-			"configured_fixture": None,
-			"fixture_template": None,
-		}
-
-		_debug(
-			f"Line {line.line_id}: mfr_type={line.manufacturer_type}, "
-			f"configured_fixture={line.configured_fixture}, "
-			f"fixture_template={line.fixture_template}, "
-			f"fixture_template_override={getattr(line, 'fixture_template_override', None)}",
-			warnings,
-		)
-
-		if line.manufacturer_type == "ILLUMENATE":
-			if line.configured_fixture:
-				doc_info["configured_fixture"] = line.configured_fixture
-
-				# Get configured fixture details
-				cf = frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
-				doc_info["fixture_template"] = cf.fixture_template
-
-				_debug(
-					f"Line {line.line_id}: CF={line.configured_fixture}, "
-					f"cf.fixture_template={cf.fixture_template}, "
-					f"cf.spec_submittal={cf.spec_submittal!r}, "
-					f"cf.spec_sheet_link={cf.spec_sheet_link!r}",
-					warnings,
-				)
-
-				if include_all_specs:
-					# SPEC_SUBMITTAL_FULL mode: use the static spec sheet (full documentation)
-					# instead of the filled submittal (which focuses on one configured fixture)
-					_debug(
-						f"Line {line.line_id}: FULL mode – looking for spec sheet instead of submittal",
-						warnings,
-					)
-
-					# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
-					spec_url = cf.spec_sheet_link
-					_debug(f"Line {line.line_id}: Check 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
-
-					# 2) Direct lookup on the Fixture Template (always authoritative)
-					if not spec_url and cf.fixture_template:
-						template_data = frappe.db.get_value(
-							"ilL-Fixture-Template",
-							cf.fixture_template,
-							["spec_sheet", "spec_submittal_template"],
-							as_dict=True,
-						)
-						_debug(
-							f"Line {line.line_id}: Check 2 – template {cf.fixture_template} → "
-							f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
-							f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
-							warnings,
-						)
-						if template_data:
-							# Prefer spec_sheet over spec_submittal_template for FULL mode
-							spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-
-					# 3) Look for ANY PDF file attached to the Fixture Template
-					if not spec_url and cf.fixture_template:
-						attached = frappe.get_all(
-							"File",
-							filters={
-								"attached_to_doctype": "ilL-Fixture-Template",
-								"attached_to_name": cf.fixture_template,
-								"file_url": ["like", "%.pdf"],
-							},
-							fields=["file_url", "file_name"],
-							order_by="creation desc",
-						)
-						_debug(
-							f"Line {line.line_id}: Check 3 – attached PDFs on template: {attached}",
-							warnings,
-						)
-						if attached:
-							spec_url = attached[0].file_url
-
-					if spec_url:
-						doc_info["spec_document_url"] = spec_url
-						_debug(f"Line {line.line_id}: ✓ Spec sheet resolved to {spec_url}", warnings)
-					else:
-						_debug(f"Line {line.line_id}: ✗ ALL spec sheet lookups exhausted – no document found", warnings)
-
-				else:
-					# SPEC_SUBMITTAL mode: always (re)generate the filled submittal
-					# so that the latest field mappings and data values are used.
-					_debug(f"Line {line.line_id}: Generating filled submittal (regenerate)...", warnings)
-					result = generate_filled_submittal(line.configured_fixture, warnings=warnings)
-					_debug(
-						f"Line {line.line_id}: generate_filled_submittal result: "
-						f"success={result.get('success')}, file_url={result.get('file_url')!r}, "
-						f"message={result.get('message')!r}",
-						warnings,
-					)
-
-					if result.get("success") and result.get("file_url"):
-						doc_info["spec_document_url"] = result["file_url"]
-						doc_info["has_submittal"] = True
-					else:
-						# Filled submittal generation failed – fall back to spec sheet
-						_debug(
-							f"Line {line.line_id}: Filled submittal failed, trying spec sheet fallbacks...",
-							warnings,
-						)
-
-						# 1) cf.spec_sheet_link (fetch_from field – may be stale/empty)
-						spec_url = cf.spec_sheet_link
-						_debug(f"Line {line.line_id}: Fallback 1 – cf.spec_sheet_link = {spec_url!r}", warnings)
-
-						# 2) Direct lookup on the Fixture Template (always authoritative)
-						if not spec_url and cf.fixture_template:
-							template_data = frappe.db.get_value(
-								"ilL-Fixture-Template",
-								cf.fixture_template,
-								["spec_sheet", "spec_submittal_template"],
-								as_dict=True,
-							)
-							_debug(
-								f"Line {line.line_id}: Fallback 2 – template {cf.fixture_template} → "
-								f"spec_sheet={template_data.spec_sheet if template_data else None!r}, "
-								f"spec_submittal_template={template_data.spec_submittal_template if template_data else None!r}",
-								warnings,
-							)
-							if template_data:
-								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-
-						# 3) Look for ANY PDF file attached to the Fixture Template
-						if not spec_url and cf.fixture_template:
-							attached = frappe.get_all(
-								"File",
-								filters={
-									"attached_to_doctype": "ilL-Fixture-Template",
-									"attached_to_name": cf.fixture_template,
-									"file_url": ["like", "%.pdf"],
-								},
-								fields=["file_url", "file_name"],
-								order_by="creation desc",
-							)
-							_debug(
-								f"Line {line.line_id}: Fallback 3 – attached PDFs on template: {attached}",
-								warnings,
-							)
-							if attached:
-								spec_url = attached[0].file_url
-
-						if spec_url:
-							doc_info["spec_document_url"] = spec_url
-							_debug(f"Line {line.line_id}: ✓ Spec sheet fallback resolved to {spec_url}", warnings)
-						else:
-							_debug(f"Line {line.line_id}: ✗ ALL spec fallbacks exhausted – no document found", warnings)
-
-			elif getattr(line, "configured_tape_neon", None):
-				# ── Tape/Neon submittal logic ──────────────────────────────
-				ctn = frappe.get_doc("ilL-Configured-Tape-Neon", line.configured_tape_neon)
-				doc_info["configured_tape_neon"] = line.configured_tape_neon
-				doc_info["tape_neon_template"] = ctn.tape_neon_template
-
-				if include_all_specs:
-					# FULL mode: use static spec sheet from template
-					spec_url = None
-					if ctn.tape_neon_template:
-						template_data = frappe.db.get_value(
-							"ilL-Tape-Neon-Template", ctn.tape_neon_template,
-							["spec_sheet", "spec_submittal_template"], as_dict=True,
-						)
-						if template_data:
-							spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-					if spec_url:
-						doc_info["spec_document_url"] = spec_url
-						_debug(f"Line {line.line_id}: ✓ Neon spec sheet resolved to {spec_url}", warnings)
-					else:
-						_debug(f"Line {line.line_id}: ✗ No neon spec sheet found", warnings)
-				else:
-					# SUBMITTAL mode: always (re)generate the filled neon submittal
-					# so that the latest field mappings and data values are used.
-					_debug(f"Line {line.line_id}: Generating filled neon submittal (regenerate)...", warnings)
-					result = generate_filled_neon_submittal(line.configured_tape_neon, warnings=warnings)
-					if result.get("success") and result.get("file_url"):
-						doc_info["spec_document_url"] = result["file_url"]
-						doc_info["has_submittal"] = True
-					else:
-						# Fall back to static spec sheet
-						spec_url = None
-						if ctn.tape_neon_template:
-							template_data = frappe.db.get_value(
-								"ilL-Tape-Neon-Template", ctn.tape_neon_template,
-								["spec_sheet", "spec_submittal_template"], as_dict=True,
-							)
-							if template_data:
-								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-						if spec_url:
-							doc_info["spec_document_url"] = spec_url
-							_debug(f"Line {line.line_id}: ✓ Neon spec sheet fallback resolved to {spec_url}", warnings)
-						else:
-							_debug(f"Line {line.line_id}: ✗ ALL neon spec fallbacks exhausted", warnings)
-
-			elif getattr(line, "configured_led_sheet", None):
-				configured_sheet = frappe.get_doc("ilL-Configured-LED-Sheet", line.configured_led_sheet)
-				doc_info["configured_led_sheet"] = line.configured_led_sheet
-				doc_info["led_sheet_template"] = configured_sheet.sheet_template
-				if include_all_specs:
-					spec_url = None
-					if configured_sheet.sheet_template:
-						template_data = frappe.db.get_value("ilL-LED-Sheet-Template", configured_sheet.sheet_template, ["spec_sheet", "spec_submittal_template"], as_dict=True)
-						if template_data:
-							spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-					if spec_url:
-						doc_info["spec_document_url"] = spec_url
-						_debug(f"Line {line.line_id}: ✓ LED Sheet spec sheet resolved to {spec_url}", warnings)
-					else:
-						_debug(f"Line {line.line_id}: ✗ No LED Sheet spec sheet found", warnings)
-				else:
-					_debug(f"Line {line.line_id}: Generating filled LED Sheet submittal (regenerate)...", warnings)
-					result = generate_filled_sheet_submittal(line.configured_led_sheet, warnings=warnings, schedule_line=line.name)
-					if result.get("success") and result.get("file_url"):
-						doc_info["spec_document_url"] = result["file_url"]
-						doc_info["has_submittal"] = True
-					else:
-						spec_url = None
-						if configured_sheet.sheet_template:
-							template_data = frappe.db.get_value("ilL-LED-Sheet-Template", configured_sheet.sheet_template, ["spec_sheet", "spec_submittal_template"], as_dict=True)
-							if template_data:
-								spec_url = template_data.spec_sheet or template_data.spec_submittal_template
-						if spec_url:
-							doc_info["spec_document_url"] = spec_url
-						else:
-							_debug(f"Line {line.line_id}: ✗ ALL LED Sheet spec fallbacks exhausted", warnings)
-
-			elif include_all_specs:
-				# Unconfigured line - use template override or fixture template
-				template_name = line.fixture_template_override or line.fixture_template
-				_debug(f"Line {line.line_id}: Unconfigured ILLUMENATE, template_name={template_name}", warnings)
-				if template_name:
-					doc_info["fixture_template"] = template_name
-					template_spec = frappe.db.get_value(
-						"ilL-Fixture-Template", template_name, "spec_sheet"
-					)
-					_debug(f"Line {line.line_id}: Template spec_sheet = {template_spec!r}", warnings)
-					if template_spec:
-						doc_info["spec_document_url"] = template_spec
-				elif getattr(line, "led_sheet_template", None):
-					doc_info["led_sheet_template"] = line.led_sheet_template
-					template_spec = frappe.db.get_value(
-						"ilL-LED-Sheet-Template", line.led_sheet_template, "spec_sheet"
-					)
-					_debug(f"Line {line.line_id}: LED Sheet template spec_sheet = {template_spec!r}", warnings)
-					if template_spec:
-						doc_info["spec_document_url"] = template_spec
-
-		elif line.manufacturer_type == "OTHER":
-			# Other manufacturer - use attached spec sheet
-			_debug(f"Line {line.line_id}: OTHER mfr, spec_sheet={line.spec_sheet!r}", warnings)
-			if line.spec_sheet:
-				doc_info["spec_document_url"] = line.spec_sheet
-
-		elif line.manufacturer_type == "ACCESSORY" and line.accessory_item:
-			# Accessory / non-linear item - look for spec sheet on the Item
-			item_code = line.accessory_item
-			# Try to find a spec submittal or spec sheet attached to the item
-			# First check if the item has a spec_submittal_template or spec_sheet field
-			item_data = frappe.db.get_value(
-				"Item",
-				item_code,
-				["item_name"],
-				as_dict=True,
-			)
-			if item_data:
-				# Look for attached PDF files on this Item
-				attached_files = frappe.get_all(
-					"File",
-					filters={
-						"attached_to_doctype": "Item",
-						"attached_to_name": item_code,
-						"file_url": ["like", "%.pdf"],
-					},
-					fields=["file_url", "file_name"],
-					order_by="creation desc",
-				)
-				if attached_files:
-					# Use the first attached PDF as the spec document
-					doc_info["spec_document_url"] = attached_files[0].file_url
-
-		documents.append(doc_info)
-
-	return documents
+	return gather(frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name), warnings if warnings is not None else [])
 
 
-@frappe.whitelist()
-def generate_spec_submittal_packet(
-	schedule_name: str,
-	export_type: str = "SPEC_SUBMITTAL",
-	include_cover: bool = True,
-) -> dict:
-	"""
-	Generate a spec submittal packet for a fixture schedule.
+@frappe.whitelist(methods=["POST"])
+def generate_spec_submittal_packet(schedule_name: str, export_type: str = "SPEC_SUBMITTAL", include_cover: bool = True, allow_partial: bool = False) -> dict:
+	from illumenate_lighting.illumenate_lighting.portal.packet_jobs import request
 
-	This aggregates spec sheets and filled spec submittals from all lines
-	in the schedule into a single PDF packet.
-
-	Args:
-		schedule_name: Name of the ilL-Project-Fixture-Schedule
-		export_type: SPEC_SUBMITTAL (submittals only) or SPEC_SUBMITTAL_FULL (all specs)
-		include_cover: Whether to include a cover page with TOC
-
-	Returns:
-		dict: Result with keys:
-			- success: bool
-			- file_url: URL of the generated packet (if successful)
-			- message: Status message
-			- warnings: List of warning messages
-	"""
-	# Handle include_cover arriving as string from the frontend
-	if isinstance(include_cover, str):
-		include_cover = include_cover.lower() not in ("0", "false", "no", "")
-
-	warnings = []
-	pdf_parts = []
-	job_name = None
-
-	try:
-		# Validate schedule access
-		from illumenate_lighting.illumenate_lighting.api.exports import (
-			_check_schedule_access,
-			_create_export_job,
-			_save_file_ignore_permissions,
-			_update_export_job_status,
-		)
-
-		has_access, error = _check_schedule_access(schedule_name)
-		if not has_access:
-			return {
-				"success": False,
-				"message": error or _("Access denied"),
-				"warnings": [],
-			}
-
-		# Determine if we should include all spec sheets
-		include_all_specs = export_type == "SPEC_SUBMITTAL_FULL"
-
-		# Create export job record for tracking
-		job_name = _create_export_job(schedule_name, export_type)
-
-		_update_export_job_status(job_name, "RUNNING")
-
-		# Gather documents from all lines
-		line_documents = _gather_line_documents(schedule_name, include_all_specs, warnings)
-
-		# Get schedule for project info
-		schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
-
-		# Generate cover page if requested
-		if include_cover:
-			cover_pdf = _generate_cover_page(
-				schedule_name,
-				schedule.ill_project,
-				line_documents,
-			)
-			if cover_pdf:
-				pdf_parts.append(cover_pdf)
-			else:
-				warnings.append(_("Failed to generate cover page"))
-
-		# Collect PDFs from each line
-		for doc_info in line_documents:
-			if doc_info["spec_document_url"]:
-				_debug(
-					f"Retrieving PDF for line {doc_info['line_id']}: {doc_info['spec_document_url']}",
-					warnings,
-				)
-				pdf_bytes = _get_pdf_bytes_from_url(doc_info["spec_document_url"])
-				if pdf_bytes:
-					_debug(f"Line {doc_info['line_id']}: ✓ Got PDF ({len(pdf_bytes)} bytes)", warnings)
-					pdf_parts.append(pdf_bytes)
-				else:
-					_debug(f"Line {doc_info['line_id']}: ✗ _get_pdf_bytes_from_url returned None", warnings)
-					warnings.append(
-						_("Could not retrieve spec document for line {0}").format(
-							doc_info["line_id"]
-						)
-					)
-			elif doc_info["manufacturer_type"] != "ACCESSORY":
-				# Missing spec document (not an accessory)
-				warnings.append(
-					_("No spec document available for line {0}").format(doc_info["line_id"])
-				)
-
-		if not pdf_parts:
-			_debug("generate_spec_submittal_packet: FAIL – no pdf_parts at all (only cover page possible)", warnings)
-			_update_export_job_status(job_name, "FAILED", error_log="No spec documents found")
-			return {
-				"success": False,
-				"message": _("No spec documents found to include in packet"),
-				"warnings": warnings,
-			}
-
-		_debug(f"generate_spec_submittal_packet: merging {len(pdf_parts)} PDF parts", warnings)
-
-		# Merge all PDFs
-		merged_pdf = _merge_pdfs(pdf_parts)
-		if not merged_pdf:
-			_update_export_job_status(job_name, "FAILED", error_log="Failed to merge PDF documents")
-			return {
-				"success": False,
-				"message": _("Failed to merge PDF documents"),
-				"warnings": warnings,
-			}
-
-		# Save the merged PDF – use ignore_permissions to avoid switching
-		# the session user (which corrupts the Frappe session for portal users).
-		filename = f"Spec_Submittal_Packet_{schedule_name}_{nowdate()}.pdf"
-		file_doc = _save_file_ignore_permissions(
-			filename, merged_pdf, "ilL-Export-Job", job_name, is_private=1,
-		)
-
-		_update_export_job_status(job_name, "COMPLETE", output_file=file_doc.file_url)
-
-		return {
-			"success": True,
-			"file_url": file_doc.file_url,
-			"export_job": job_name,
-			"message": _("Spec submittal packet generated successfully"),
-			"warnings": warnings,
-		}
-
-	except Exception as e:
-		frappe.log_error(
-			f"Error generating spec submittal packet: {str(e)}",
-			"Spec Submittal Generation Error",
-		)
-		if job_name:
-			try:
-				_update_export_job_status(job_name, "FAILED", error_log=str(e))
-			except Exception:
-				frappe.log_error("Failed to update export job status during spec submittal error handling")
-		return {
-			"success": False,
-			"message": _("Error generating spec submittal packet: {0}").format(str(e)),
-			"warnings": warnings,
-		}
+	return request(schedule_name, export_type, include_cover, allow_partial=allow_partial)
 
 
-def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1) -> dict:
+def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1, schedule_line: str | None = None, *, _configured_doc=None, _schedule_context=None) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured fixture.
 
@@ -1526,7 +1102,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		_debug(f"generate_filled_submittal: START for CF={configured_fixture_name}", warnings)
 
 		# Get the configured fixture
-		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_name)
+		cf = _configured_doc if _configured_doc is not None else frappe.get_doc("ilL-Configured-Fixture", configured_fixture_name)
 
 		if not cf.fixture_template:
 			msg = "Configured fixture has no fixture template"
@@ -1565,30 +1141,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			_debug(f"generate_filled_submittal: FAIL – {msg}", warnings)
 			return {"success": False, "message": _(msg), "warnings": warnings}
 
-		# Get project and schedule context (if available)
-		schedule = None
-		project = None
-		schedule_line = None
-
-		# Try to find the schedule line that references this configured fixture
-		schedule_line_data = frappe.db.get_value(
-			"ilL-Child-Fixture-Schedule-Line",
-			{"configured_fixture": configured_fixture_name},
-			["name", "parent"],
-			as_dict=True,
-		)
-		if schedule_line_data:
-			schedule_line = frappe.get_doc(
-				"ilL-Child-Fixture-Schedule-Line", schedule_line_data.name
-			)
-			# Get the parent schedule
-			if schedule_line_data.parent:
-				schedule = frappe.get_doc(
-					"ilL-Project-Fixture-Schedule", schedule_line_data.parent
-				)
-				# Get the project from the schedule
-				if schedule and schedule.ill_project:
-					project = frappe.get_doc("ilL-Project", schedule.ill_project)
+		schedule, project, schedule_line = _schedule_context or _explicit_schedule_context("configured_fixture", configured_fixture_name, schedule_line)
 
 		# Get the Webflow product linked to this fixture template (if any)
 		webflow_product = _get_linked_webflow_product(
@@ -1665,7 +1218,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, prefix, suffix
 			)
-			field_values[pdf_field] = transformed_value
+			_set_mapped_value(field_values, mapping, value, transformed_value)
 			_debug(
 				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
 				f"raw={value!r} → final={transformed_value!r}"
@@ -1683,7 +1236,12 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		)
 
 		# Fill the PDF using the template we found earlier
-		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
+		mapping_snapshot = json.loads(frappe.as_json(mappings))
+		provenance = {"mapping_snapshot": mapping_snapshot, "mapping_hash": fingerprint(mapping_snapshot),
+			"values_hash": fingerprint(field_values), "template": {"doctype": template.doctype, "name": template.name}}
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings, provenance=provenance)
 
 		if not filled_pdf:
 			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
@@ -1701,14 +1259,16 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		)
 
 		# Update the configured fixture with the submittal link
-		cf.spec_submittal = file_doc.file_url
-		cf.save(ignore_permissions=True)
+		if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+			cf.spec_submittal = file_doc.file_url
+			cf.save(ignore_permissions=True)
 
 		_debug(f"generate_filled_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
+			"provenance": provenance,
 			"message": _("Spec submittal generated successfully"),
 			"warnings": warnings,
 		}
@@ -1736,7 +1296,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 
 
 def _gather_sheet_field_mappings(led_sheet_template_name: str) -> list[dict]:
-	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
+	base_fields = ["required_value", "pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
 	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all("ilL-LED-Sheet-Submittal-Mapping", filters={"led_sheet_template": led_sheet_template_name}, fields=base_fields + webflow_fields)
@@ -1745,6 +1305,16 @@ def _gather_sheet_field_mappings(led_sheet_template_name: str) -> list[dict]:
 
 
 def _get_sheet_source_value(source_doctype, source_field, configured_sheet_doc=None, template_doc=None, spec_doc=None, schedule_doc=None, project_doc=None, line_doc=None, warnings=None):
+	if _commercial_source_blocked(source_doctype, source_field):
+		return None
+	if source_doctype == "ilL-Spec-LED-Sheet" and configured_sheet_doc and configured_sheet_doc.get("engine_version") == "led-sheet-2":
+		# A new PDF may use today's form/marketing copy, but its electrical and
+		# dimensional values must still describe the pinned physical build.
+		build = json.loads(configured_sheet_doc.get("build_snapshot_json") or "{}") or configured_sheet_doc
+		engineering = build.get("sheet_engineering") or {}
+		if source_field == "total_sheet_watts":
+			return build.get("watts_per_panel")
+		return engineering.get(source_field, build.get(source_field))
 	lookup = {
 		"ilL-Configured-LED-Sheet": configured_sheet_doc,
 		"ilL-LED-Sheet-Template": template_doc,
@@ -1766,7 +1336,7 @@ def _get_sheet_source_value(source_doctype, source_field, configured_sheet_doc=N
 	return None
 
 
-def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1, schedule_line: str | None = None) -> dict:
+def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1, schedule_line: str | None = None, *, _configured_doc=None, _schedule_context=None) -> dict:
 	if isinstance(warnings, str):
 		try:
 			warnings = json.loads(warnings)
@@ -1781,7 +1351,7 @@ def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list |
 			webflow_overrides = None
 	try:
 		from illumenate_lighting.illumenate_lighting.api.exports import _save_file_ignore_permissions
-		configured = frappe.get_doc("ilL-Configured-LED-Sheet", configured_sheet_name)
+		configured = _configured_doc if _configured_doc is not None else frappe.get_doc("ilL-Configured-LED-Sheet", configured_sheet_name)
 		if not configured.sheet_template:
 			return {"success": False, "message": _("Configured LED Sheet has no sheet_template"), "warnings": warnings}
 		template = frappe.get_doc("ilL-LED-Sheet-Template", configured.sheet_template)
@@ -1792,22 +1362,7 @@ def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list |
 		mappings = _gather_sheet_field_mappings(configured.sheet_template)
 		if not mappings:
 			return {"success": False, "message": _("No LED Sheet field mappings defined"), "warnings": warnings}
-		schedule = project = line = None
-		# Prefer the caller-supplied schedule line so the correct
-		# schedule/project/line context is used when the same configured sheet is
-		# reused across multiple schedules/lines. Fall back to a global lookup
-		# (first matching line) only when no explicit line context was provided.
-		line_data = None
-		if schedule_line and frappe.db.exists("ilL-Child-Fixture-Schedule-Line", schedule_line):
-			line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", schedule_line, ["name", "parent"], as_dict=True)
-		if not line_data:
-			line_data = frappe.db.get_value("ilL-Child-Fixture-Schedule-Line", {"configured_led_sheet": configured_sheet_name}, ["name", "parent"], as_dict=True)
-		if line_data:
-			line = frappe.get_doc("ilL-Child-Fixture-Schedule-Line", line_data.name)
-			if line_data.parent:
-				schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", line_data.parent)
-				if schedule and schedule.ill_project:
-					project = frappe.get_doc("ilL-Project", schedule.ill_project)
+		schedule, project, line = _schedule_context or _explicit_schedule_context("configured_led_sheet", configured_sheet_name, schedule_line)
 		field_values = {}
 		for mapping in mappings:
 			webflow_key = mapping.get("webflow_field")
@@ -1822,15 +1377,21 @@ def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list |
 					prefix, suffix = mapping.get("webflow_prefix"), mapping.get("webflow_suffix")
 				elif mode == "None":
 					prefix = suffix = None
-			field_values[mapping.get("pdf_field_name")] = _apply_prefix_suffix(transformed, prefix, suffix)
-		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+			_set_mapped_value(field_values, mapping, value, _apply_prefix_suffix(transformed, prefix, suffix))
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
+		mapping_snapshot = json.loads(frappe.as_json(mappings))
+		provenance = {"mapping_snapshot": mapping_snapshot, "mapping_hash": fingerprint(mapping_snapshot),
+			"values_hash": fingerprint(field_values), "template": {"doctype": template.doctype, "name": template.name}}
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings, provenance=provenance)
 		if not filled_pdf:
 			return {"success": False, "message": _("Failed to fill LED Sheet PDF form fields"), "warnings": warnings}
 		filename = f"Spec_Submittal_{configured_sheet_name}_{nowdate()}.pdf"
 		file_doc = _save_file_ignore_permissions(filename, filled_pdf, "ilL-Configured-LED-Sheet", configured_sheet_name, is_private=is_private)
-		configured.spec_submittal = file_doc.file_url
-		configured.save(ignore_permissions=True)
-		return {"success": True, "file_url": file_doc.file_url, "message": _("Spec submittal generated successfully"), "warnings": warnings}
+		if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+			configured.spec_submittal = file_doc.file_url
+			configured.save(ignore_permissions=True)
+		return {"success": True, "file_url": file_doc.file_url, "provenance": provenance, "message": _("Spec submittal generated successfully"), "warnings": warnings}
 	except Exception as exc:
 		_debug(f"generate_filled_sheet_submittal: EXCEPTION – {type(exc).__name__}: {exc}", warnings)
 		return {"success": False, "message": str(exc), "warnings": warnings}
@@ -1871,6 +1432,8 @@ def _get_neon_source_value(
 	Returns:
 		The value from the source field, or None if not found
 	"""
+	if _commercial_source_blocked(source_doctype, source_field):
+		return None
 	try:
 		if source_doctype == "ilL-Webflow-Product" and webflow_product:
 			val = getattr(webflow_product, source_field, None)
@@ -1931,6 +1494,10 @@ def _get_neon_source_value(
 			return val
 
 		if source_doctype == "ilL-Spec-LED Tape" and configured_tape_neon:
+			from illumenate_lighting.illumenate_lighting.api.engineering_sources import resolve
+			handled, value = resolve(configured_tape_neon, source_doctype, source_field)
+			if handled:
+				return value
 			tape_spec = getattr(configured_tape_neon, "tape_spec", None)
 			_debug(
 				f"_get_neon_source_value: {source_doctype}.{source_field} – "
@@ -1943,6 +1510,10 @@ def _get_neon_source_value(
 				return val
 
 		if source_doctype == "ilL-Rel-Tape Offering" and configured_tape_neon:
+			from illumenate_lighting.illumenate_lighting.api.engineering_sources import resolve
+			handled, value = resolve(configured_tape_neon, source_doctype, source_field)
+			if handled:
+				return value
 			tape_offering = getattr(configured_tape_neon, "tape_offering", None)
 			_debug(
 				f"_get_neon_source_value: {source_doctype}.{source_field} – "
@@ -2015,7 +1586,7 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 		list: List of mapping dictionaries with pdf_field_name, source_doctype,
 			  source_field, transformation, prefix, suffix, and webflow_field
 	"""
-	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
+	base_fields = ["required_value", "pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
 	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	try:
 		return frappe.get_all(
@@ -2037,7 +1608,7 @@ def _gather_neon_field_mappings(tape_neon_template_name: str) -> list[dict]:
 		)
 
 
-def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None, webflow_overrides: dict | None = None) -> dict:
+def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, schedule_line: str | None = None, *, _configured_doc=None, _schedule_context=None) -> dict:
 	"""
 	Generate a filled spec submittal PDF for a configured tape/neon product.
 
@@ -2087,7 +1658,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		_debug(f"generate_filled_neon_submittal: START for CTN={configured_tape_neon_name}", warnings)
 
 		# Get the configured tape/neon
-		ctn = frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon_name)
+		ctn = _configured_doc if _configured_doc is not None else frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon_name)
 
 		if not ctn.tape_neon_template:
 			msg = "Configured tape/neon has no tape_neon_template"
@@ -2126,30 +1697,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			_debug(f"generate_filled_neon_submittal: FAIL – {msg}", warnings)
 			return {"success": False, "message": _(msg), "warnings": warnings}
 
-		# Get project and schedule context (if available)
-		schedule = None
-		project = None
-		schedule_line = None
-
-		# Try to find the schedule line that references this configured tape/neon
-		schedule_line_data = frappe.db.get_value(
-			"ilL-Child-Fixture-Schedule-Line",
-			{"configured_tape_neon": configured_tape_neon_name},
-			["name", "parent"],
-			as_dict=True,
-		)
-		if schedule_line_data:
-			schedule_line = frappe.get_doc(
-				"ilL-Child-Fixture-Schedule-Line", schedule_line_data.name
-			)
-			# Get the parent schedule
-			if schedule_line_data.parent:
-				schedule = frappe.get_doc(
-					"ilL-Project-Fixture-Schedule", schedule_line_data.parent
-				)
-				# Get the project from the schedule
-				if schedule and schedule.ill_project:
-					project = frappe.get_doc("ilL-Project", schedule.ill_project)
+		schedule, project, schedule_line = _schedule_context or _explicit_schedule_context("configured_tape_neon", configured_tape_neon_name, schedule_line)
 
 		# Get the Webflow product linked to this tape/neon template (if any)
 		webflow_product = _get_linked_webflow_product(
@@ -2226,7 +1774,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, prefix, suffix
 			)
-			field_values[pdf_field] = transformed_value
+			_set_mapped_value(field_values, mapping, value, transformed_value)
 			_debug(
 				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
 				f"raw={value!r} → final={transformed_value!r}"
@@ -2244,7 +1792,12 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		)
 
 		# Fill the PDF using the template we found earlier
-		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
+		mapping_snapshot = json.loads(frappe.as_json(mappings))
+		provenance = {"mapping_snapshot": mapping_snapshot, "mapping_hash": fingerprint(mapping_snapshot),
+			"values_hash": fingerprint(field_values), "template": {"doctype": template.doctype, "name": template.name}}
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings, provenance=provenance)
 
 		if not filled_pdf:
 			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
@@ -2262,14 +1815,16 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		)
 
 		# Update the configured tape/neon with the submittal link
-		ctn.spec_submittal = file_doc.file_url
-		ctn.save(ignore_permissions=True)
+		if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+			ctn.spec_submittal = file_doc.file_url
+			ctn.save(ignore_permissions=True)
 
 		_debug(f"generate_filled_neon_submittal: SUCCESS – file_url={file_doc.file_url}", warnings)
 
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
+			"provenance": provenance,
 			"message": _("Spec submittal generated successfully"),
 			"warnings": warnings,
 		}
@@ -2325,7 +1880,7 @@ _VARIANT_SUBMITTAL_KINDS = {
 def _gather_variant_field_mappings(kind: str, template_name: str) -> list[dict]:
 	"""Get all submittal field mappings for a driver/controller template."""
 	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
-	base_fields = ["pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
+	base_fields = ["required_value", "pdf_field_name", "source_doctype", "source_field", "transformation", "logic", "prefix", "suffix"]
 	webflow_fields = ["webflow_field", "webflow_skip_transformation", "webflow_prefix_suffix", "webflow_prefix", "webflow_suffix"]
 	filters = {cfg["mapping_filter_field"]: template_name}
 	try:
@@ -2350,6 +1905,8 @@ def _get_variant_source_value(
 	warnings: list | None = None,
 ) -> Any:
 	"""Resolve one mapping row against the driver/controller doctype chain."""
+	if _commercial_source_blocked(source_doctype, source_field):
+		return None
 	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
 	lookup = {
 		cfg["template_doctype"]: template,
@@ -2491,7 +2048,6 @@ def _generate_filled_variant_submittal(
 
 		field_values = {}
 		for mapping in mappings:
-			pdf_field = mapping["pdf_field_name"]
 			webflow_key = mapping.get("webflow_field")
 			webflow_active = bool(webflow_key and webflow_overrides and webflow_key in webflow_overrides)
 
@@ -2523,9 +2079,14 @@ def _generate_filled_variant_submittal(
 				elif ps_mode == "None":
 					prefix = suffix = None
 
-			field_values[pdf_field] = _apply_prefix_suffix(transformed, prefix, suffix)
+			_set_mapped_value(field_values, mapping, value, _apply_prefix_suffix(transformed, prefix, suffix))
 
-		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings)
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
+		mapping_snapshot = json.loads(frappe.as_json(mappings))
+		provenance = {"mapping_snapshot": mapping_snapshot, "mapping_hash": fingerprint(mapping_snapshot),
+			"values_hash": fingerprint(field_values), "template": {"doctype": template.doctype, "name": template.name}}
+		filled_pdf = _fill_pdf_form_fields(pdf_template, field_values, warnings=warnings, provenance=provenance)
 		if not filled_pdf:
 			msg = f"_fill_pdf_form_fields returned None/empty for template={pdf_template!r}"
 			_debug(f"_generate_filled_variant_submittal[{kind}]: FAIL – {msg}", warnings)
@@ -2544,6 +2105,7 @@ def _generate_filled_variant_submittal(
 		return {
 			"success": True,
 			"file_url": file_doc.file_url,
+			"provenance": provenance,
 			"message": _("Spec submittal generated successfully"),
 			"warnings": warnings,
 		}

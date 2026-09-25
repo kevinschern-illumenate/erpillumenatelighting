@@ -8,30 +8,30 @@ import shutil
 import tempfile
 import unittest
 
+from tools.fixture_builder.__main__ import (
+    generate_all,
+    generate_all_tape_neon,
+    validate_config,
+)
 from tools.fixture_builder.config_schema import (
     FixtureBuilderConfig,
-    TapeSpecDef,
-    TapeOfferingDef,
+    NeonSubmittalMappingDef,
     TapeNeonAllowedOptionDef,
     TapeNeonAllowedSpecDef,
     TapeNeonTemplateDef,
-    NeonSubmittalMappingDef,
     TapeNeonWebflowDef,
+    TapeOfferingDef,
+    TapeSpecDef,
     load_config,
     save_config,
 )
 from tools.fixture_builder.generators import (
-    gen_tape_item_csv,
-    gen_spec_led_tape,
-    gen_rel_tape_offering,
-    gen_tape_neon_template,
     gen_neon_submittal_mapping,
+    gen_rel_tape_offering,
+    gen_spec_led_tape,
+    gen_tape_item_csv,
+    gen_tape_neon_template,
     gen_tape_neon_webflow,
-)
-from tools.fixture_builder.__main__ import (
-    validate_config,
-    generate_all,
-    generate_all_tape_neon,
 )
 
 
@@ -329,21 +329,21 @@ class TestSpecLedTape(unittest.TestCase):
     def test_continuation_row_format(self):
         """Continuation rows should have blank item code and only protocol populated."""
         path = gen_spec_led_tape.generate(self.config, self.tmpdir)
-        _, rows = _read_csv(path)
+        headers, rows = _read_csv(path)
         # Row 1 is continuation of first spec (0-10V)
         self.assertEqual(rows[1][0], "")   # Blank item code
-        self.assertEqual(rows[1][13], "0-10V")  # Protocol
+        self.assertEqual(rows[1][headers.index("Protocol (Supported Dimming Protocols)")], "0-10V")
 
     def test_spec_fields(self):
         path = gen_spec_led_tape.generate(self.config, self.tmpdir)
-        _, rows = _read_csv(path)
+        headers, rows = _read_csv(path)
         first = rows[0]
         self.assertEqual(first[0], "TAPE-FS-24V-4.4W")
         self.assertEqual(first[1], "FS")        # LED Package
         self.assertEqual(first[2], "LED Tape")   # Product Category
         self.assertEqual(first[4], "4.4")        # Watts per Foot
-        self.assertEqual(first[6], "97")         # CRI
-        self.assertEqual(first[13], "TRIAC")     # First dimming protocol
+        self.assertEqual(first[headers.index("CRI Typical")], "97")
+        self.assertEqual(first[headers.index("Protocol (Supported Dimming Protocols)")], "TRIAC")
 
 
 # ── Rel Tape Offering Tests ──────────────────────────────────────────
@@ -528,7 +528,7 @@ class TestTapeFullGeneration(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def test_new_family_generates_all_6(self):
+    def test_new_family_generates_all_7(self):
         results = generate_all(self.config, self.tmpdir)
         self.assertIn("Item CSV.csv", results)
         self.assertIn("ilL-Spec-LED Tape.csv", results)
@@ -536,9 +536,10 @@ class TestTapeFullGeneration(unittest.TestCase):
         self.assertIn("ilL-Tape-Neon-Template.csv", results)
         self.assertIn("ilL-Neon-Submittal-Mapping.csv", results)
         self.assertIn("ilL-Webflow-Product.csv", results)
-        self.assertEqual(len(results), 6)
+        self.assertIn("ilL-Rel-Driver-Eligibility.csv", results)
+        self.assertEqual(len(results), 7)
 
-    def test_new_variant_generates_3(self):
+    def test_new_variant_generates_4(self):
         self.config.mode = "new-variant"
         results = generate_all(self.config, self.tmpdir)
         self.assertNotIn("Item CSV.csv", results)
@@ -547,13 +548,19 @@ class TestTapeFullGeneration(unittest.TestCase):
         self.assertIn("ilL-Tape-Neon-Template.csv", results)
         self.assertIn("ilL-Neon-Submittal-Mapping.csv", results)
         self.assertIn("ilL-Webflow-Product.csv", results)
-        self.assertEqual(len(results), 3)
+        self.assertIn("ilL-Rel-Driver-Eligibility.csv", results)
+        self.assertEqual(len(results), 4)
 
     def test_fixture_mode_does_not_generate_tape_csvs(self):
         """Fixture product type should not produce tape CSVs."""
         from tools.fixture_builder.config_schema import (
-            ProfileDef, LensDef, ProfileLensMapping, EndcapDef,
-            FixtureTemplateDef, DriverDef, SubmittalMappingDef,
+            DriverDef,
+            EndcapDef,
+            FixtureTemplateDef,
+            LensDef,
+            ProfileDef,
+            ProfileLensMapping,
+            SubmittalMappingDef,
         )
         config = FixtureBuilderConfig(
             product_type="fixture",

@@ -80,9 +80,14 @@
 		this.scheduleTarget = null;
 		this.templatePicker = null;
 		this.isInitialized = false;
+		this.restoreApplied = false;
 	}
 	Fixture.prototype = Object.create(Base.prototype);
 	Fixture.prototype.constructor = Fixture;
+	Fixture.prototype.exportRequest = function () {
+		var selections = this._gatherAllSelections();
+		return {family: 'Linear Fixture', template: selections.fixture_template_code, selections: selections};
+	};
 
 	// ────────────────────────────────────────────────────────────────
 	// Lifecycle
@@ -95,6 +100,11 @@
 
 		var $select = this.$('#fixtureTemplateSelect');
 		var preselected = $select.val();
+		var initial = this.context.initial_request;
+		if (initial) {
+			preselected = initial.template || (initial.selections || {}).fixture_template_code || preselected;
+			$select.val(preselected);
+		}
 		if (!preselected && this.productSlug) {
 			// Product slugs from Webflow may equal the template code.
 			if ($select.find('option[value="' + this.productSlug + '"]').length) {
@@ -116,12 +126,12 @@
 		var self = this;
 
 		// Template selection (driven by the card picker or the fallback select)
-		this.$('#fixtureTemplateSelect').on('change', function () {
+		this.$('#fixtureTemplateSelect').on('change' + '.' + self.instanceId, function () {
 			self._onTemplateSelected($(this).val());
 		});
 
 		// Option pills — delegated so re-rendered pills keep working.
-		this.$root.on('click', '.pill-selector .pill', function (e) {
+		this.$root.on('click' + '.' + self.instanceId, '.pill-selector .pill', function (e) {
 			e.preventDefault();
 			var $pill = $(this);
 			var $selector = $pill.closest('.pill-selector');
@@ -134,7 +144,7 @@
 		});
 
 		// Mobile fallback selects → mirror to pills.
-		this.$root.on('change', 'select.select-fallback', function () {
+		this.$root.on('change' + '.' + self.instanceId, 'select.select-fallback', function () {
 			var $select = $(this);
 			var fieldName = $select.attr('name');
 			var $selector = $select.siblings('.pill-selector[data-field="' + fieldName + '"]').first();
@@ -144,82 +154,82 @@
 		});
 
 		// Cascading option handlers (same dependency graph as the coordinator).
-		this.$name('led_package_code').on('change', function () {
+		this.$name('led_package_code').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._detectMultiCCT($(this).val());
 			self._updateCCTOptions();
 			self._updateDeliveredOutputs();
 			self._afterChange();
 		});
-		this.$name('environment_rating_code').on('change', function () {
+		this.$name('environment_rating_code').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._updateCCTOptions();
 			self._updateDeliveredOutputs();
 			self._afterChange();
 		});
-		this.$name('cct_code').on('change', function () {
+		this.$name('cct_code').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._updateDeliveredOutputs();
 			self._afterChange();
 		});
-		this.$name('lens_appearance_code').on('change', function () {
+		this.$name('lens_appearance_code').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._updateDeliveredOutputs();
 			self._afterChange();
 		});
-		this.$name('delivered_output_value').on('change', function () {
+		this.$name('delivered_output_value').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._autoSelectTape();
 			self._afterChange();
 		});
-		this.$name('mounting_method_code').on('change', function () {
+		this.$name('mounting_method_code').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._afterChange();
 		});
-		this.$name('finish_code').on('change', function () {
+		this.$name('finish_code').on('change' + '.' + self.instanceId, function () {
 			if (self.isPopulating) return;
 			self._autoResolveEndcapColor();
 			self._afterChange();
 		});
 
 		// Segment cards (delegated).
-		this.$root.on('click', '.segment-card .end-type-btn', function () {
+		this.$root.on('click' + '.' + self.instanceId, '.segment-card .end-type-btn', function () {
 			self._setEndType($(this).closest('.segment-card'), $(this).attr('data-end-type'));
 		});
-		this.$root.on('click', '.segment-card [data-action="remove-segment"]', function () {
+		this.$root.on('click' + '.' + self.instanceId, '.segment-card [data-action="remove-segment"]', function () {
 			self._removeSegment($(this).closest('.segment-card'));
 		});
-		this.$root.on('change', '.segment-card select[name="length_unit"]', function () {
+		this.$root.on('change' + '.' + self.instanceId, '.segment-card select[name="length_unit"]', function () {
 			var $card = $(this).closest('.segment-card');
 			self._convertSegmentLength($card, $(this).val(), $card.data('prevUnit') || 'in');
 			$card.data('prevUnit', $(this).val());
 			self._afterChange();
 		});
-		this.$root.on('input change', '.segment-card input, .segment-card select', root.IllConfigurator.debounce(function () {
+		this.$root.on('input' + '.' + self.instanceId + ' ' + 'change' + '.' + self.instanceId, '.segment-card input, .segment-card select', this.debounce(function () {
 			self._afterChange();
 		}, 250));
-		this.$root.on('change', '.segment-card select[name="start_power_feed_type"], .segment-card select[name="start_feed_direction"], .segment-card input[name="start_leader_cable_length_in"], .segment-card select[name="end_power_feed_type"], .segment-card select[name="end_feed_direction"], .segment-card input[name="end_jumper_cable_length_in"]', function () {
+		this.$root.on('change' + '.' + self.instanceId, '.segment-card select[name="start_power_feed_type"], .segment-card select[name="start_feed_direction"], .segment-card input[name="start_leader_cable_length_in"], .segment-card select[name="end_power_feed_type"], .segment-card select[name="end_feed_direction"], .segment-card input[name="end_jumper_cable_length_in"]', function () {
 			self._propagateInheritedStarts();
 		});
 
 		// Power supply / override.
-		this.$('#includePowerSupply').on('change', function () { self._afterChange(); });
-		this.$('#overrideMaxRunCheck').on('change', function () {
+		this.$('#includePowerSupply').on('change' + '.' + self.instanceId, function () { self._afterChange(); });
+		this.$('#overrideMaxRunCheck').on('change' + '.' + self.instanceId, function () {
 			var on = $(this).is(':checked');
 			self.$('#overrideMaxRunGroup').toggle(on);
 			self.$('#overrideMaxRunWarning').toggle(on);
 			self._afterChange();
 		});
-		this.$('#overrideMaxRunInput').on('input change', root.IllConfigurator.debounce(function () { self._afterChange(); }, 250));
+		this.$('#overrideMaxRunInput').on('input' + '.' + self.instanceId + ' ' + 'change' + '.' + self.instanceId, this.debounce(function () { self._afterChange(); }, 250));
 
 		// Action buttons.
-		this.$('[data-action="reset"]').on('click', function () { self.resetConfiguration(); });
-		this.$('[data-action="validate"]').on('click', function () { self.validateConfiguration(); });
-		this.$('[data-action="add-to-schedule"]').on('click', function () { self.addToSchedule(); });
-		this.$('[data-action="build-item"]').on('click', function () { self.buildFixtureAndItem(); });
-		this.$('[data-action="copy-part-number"]').on('click', function () { self._copy(self.$('#partNumberValue').text()); });
-		this.$('[data-action="copy-description"]').on('click', function () { self._copy(self.$('#partDescriptionValue').text()); });
-		this.$('[data-action="copy-both"]').on('click', function () {
+		this.$('[data-action="reset"]').on('click' + '.' + self.instanceId, function () { self.resetConfiguration(); });
+		this.$('[data-action="validate"]').on('click' + '.' + self.instanceId, function () { self.validateConfiguration(); });
+		this.$('[data-action="add-to-schedule"]').on('click' + '.' + self.instanceId, function () { self.addToSchedule(); });
+		this.$('[data-action="build-item"]').on('click' + '.' + self.instanceId, function () { self.buildFixtureAndItem(); });
+		this.$('[data-action="copy-part-number"]').on('click' + '.' + self.instanceId, function () { self._copy(self.$('#partNumberValue').text()); });
+		this.$('[data-action="copy-description"]').on('click' + '.' + self.instanceId, function () { self._copy(self.$('#partDescriptionValue').text()); });
+		this.$('[data-action="copy-both"]').on('click' + '.' + self.instanceId, function () {
 			self._copy(self.$('#partNumberValue').text() + '\n' + self.$('#partDescriptionValue').text());
 		});
 	};
@@ -247,6 +257,7 @@
 	Fixture.prototype._onTemplateSelected = function (templateCode) {
 		var self = this;
 		this._invalidateResult();
+		this._requests = Object.create(null);
 		if (!templateCode) {
 			this.templateOptions = null;
 			this.isInitialized = false;
@@ -259,12 +270,13 @@
 			return;
 		}
 
+		this.loadPowerOptions('ilL-Fixture-Template', templateCode);
 		this.$('#templateOptions').show();
 		this.$('#templateOptions .pill-selector').html(
 			'<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> ' + __('Loading options…') + '</span>'
 		);
 
-		frappe.call({
+		self.request({
 			method: ENGINE + 'get_cascading_options_for_template',
 			args: { fixture_template_code: templateCode },
 			callback: function (r) {
@@ -281,6 +293,7 @@
 				if (!self.segmentCount) self._addSegment(true);
 				self.$('.segment-card').each(function () { self._populateSegmentFeedOptions($(this)); });
 				self.$('#actionButtons').show();
+				self._restoreRequest();
 				self._afterChange();
 			},
 			error: function () {
@@ -289,6 +302,33 @@
 				self.$('#templateOptions').hide();
 			}
 		});
+	};
+
+	Fixture.prototype.restoreGeometry = function (geometry) {
+		var self = this;
+		this._clearSegments();
+		(geometry.segments || []).forEach(function (segment, index) { self.restoreSegment(self._addSegment(index === 0), segment, 'linear'); });
+		this._propagateInheritedStarts();
+		this._afterChange();
+	};
+
+	Fixture.prototype._restoreRequest = function () {
+		var request = this.context.initial_request;
+		if (!request || this.restoreApplied) return;
+		this.restoreApplied = true;
+		var values = request.selections || {}, fields = {}, self = this;
+		['led_package_code', 'environment_rating_code', 'cct_code', 'lens_appearance_code', 'finish_code', 'mounting_method_code', 'delivered_output_value', 'tape_offering_id'].forEach(function (key) {
+			if (values[key] != null) fields['[name="' + key + '"]'] = values[key];
+		});
+		this.queueRestoreFields(fields);
+		this.restorePower(values);
+		var segments = request.segments || values.segments || values.segments_json || [];
+		if (typeof segments === 'string') segments = JSON.parse(segments);
+		if (segments.length) {
+			this._clearSegments();
+			segments.forEach(function (segment, index) { self.restoreSegment(self._addSegment(index === 0), segment, 'linear'); });
+			this._propagateInheritedStarts();
+		}
 	};
 
 	// ────────────────────────────────────────────────────────────────
@@ -382,9 +422,10 @@
 
 	Fixture.prototype._updateCCTOptions = function () {
 		var self = this;
+		delete this._requests[ENGINE + 'get_ccts_for_template'];
 		var templateCode = this.$('#fixtureTemplateSelect').val();
 		if (!templateCode) return;
-		frappe.call({
+		self.request({
 			method: ENGINE + 'get_ccts_for_template',
 			args: {
 				fixture_template_code: templateCode,
@@ -407,6 +448,7 @@
 
 	Fixture.prototype._updateDeliveredOutputs = function () {
 		var self = this;
+		delete this._requests[ENGINE + 'get_delivered_outputs_for_template'];
 		var templateCode = this.$('#fixtureTemplateSelect').val();
 		var ledPackage = this.$name('led_package_code').val();
 		var environment = this.$name('environment_rating_code').val();
@@ -422,7 +464,7 @@
 			return;
 		}
 
-		frappe.call({
+		self.request({
 			method: ENGINE + 'get_delivered_outputs_for_template',
 			args: {
 				fixture_template_code: templateCode,
@@ -451,6 +493,7 @@
 
 	Fixture.prototype._autoSelectTape = function () {
 		var self = this;
+		delete this._requests[ENGINE + 'auto_select_tape_for_configuration'];
 		var templateCode = this.$('#fixtureTemplateSelect').val();
 		var ledPackage = this.$name('led_package_code').val();
 		var environment = this.$name('environment_rating_code').val();
@@ -462,7 +505,7 @@
 			this.$name('tape_offering_id').val('');
 			return;
 		}
-		frappe.call({
+		self.request({
 			method: ENGINE + 'auto_select_tape_for_configuration',
 			args: {
 				fixture_template_code: templateCode,
@@ -695,12 +738,12 @@
 			if (index === 0) {
 				segment.start_feed_direction = $card.find('[name="start_feed_direction"]').val() || '';
 				segment.start_power_feed_type = $card.find('[name="start_power_feed_type"]').val() || '';
-				var leaderIn = parseFloat($card.find('[name="start_leader_cable_length_in"]').val()) || 12;
+				var leaderIn = Number($card.find('[name="start_leader_cable_length_in"]').val());
 				segment.start_leader_cable_length_mm = Math.round(leaderIn * MM_PER_INCH);
 			} else {
 				segment.start_feed_direction = this.dataset.inheritedFeedDirection || '';
 				segment.start_power_feed_type = this.dataset.inheritedPowerFeedType || '';
-				segment.start_leader_cable_length_mm = parseInt(this.dataset.inheritedCableLength, 10) || 300;
+				segment.start_leader_cable_length_mm = Number(this.dataset.inheritedCableLength || 0);
 			}
 			if (segment.end_type === 'Jumper') {
 				segment.end_feed_direction = $card.find('[name="end_feed_direction"]').val() || '';
@@ -851,7 +894,7 @@
 	};
 
 	Fixture.prototype._invalidateResult = function () {
-		if (!this.currentResult) return;
+		this.invalidateValidation();
 		this.currentResult = null;
 		this.lastValidation = null;
 		this.$('#resultsPanel').hide();
@@ -898,6 +941,7 @@
 			endcap_color_code: this.$name('endcap_color_code').val() || null,
 			segments: this._collectSegments(),
 			include_power_supply: this.$('#includePowerSupply').is(':checked'),
+			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null,
 			override_max_run_ft: this._getOverrideMaxRunFt(),
 			product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val()
 		};
@@ -907,6 +951,8 @@
 	// Calculate & Validate
 	// ────────────────────────────────────────────────────────────────
 	Fixture.prototype.validateConfiguration = function () {
+		if (!this.canCalculateRestored()) return;
+		this.invalidateValidation();
 		var self = this;
 		var sel = this._gatherAllSelections();
 		var segments = sel.segments;
@@ -930,11 +976,12 @@
 			mounting_method_code: sel.mounting_method_code,
 			endcap_color_code: sel.endcap_color_code,
 			segments_json: JSON.stringify(segments),
-			include_power_supply: sel.include_power_supply
+			include_power_supply: sel.include_power_supply,
+			dimming_protocol_code: sel.dimming_protocol_code
 		};
 		if (sel.override_max_run_ft !== '') data.override_max_run_ft = sel.override_max_run_ft;
-		// Desk: preview only — build_configured_line persists with the right variant_origin.
-		if (this._usesSaveHandler()) data._skip_record_creation = true;
+		// Portal and Desk both persist only when Save is requested.
+		data._skip_record_creation = true;
 
 		var method;
 		if (sel.delivered_output_value) {
@@ -951,10 +998,12 @@
 
 		var $btn = this.$('#validateBtn');
 		var original = $btn.html();
+		$btn.data('illCalculationLabel', original);
 		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Calculating…'));
 
-		frappe.call({
+		self.request({
 			method: method,
+			isCurrent: this.validationGuard(),
 			args: data,
 			callback: function (r) {
 				$btn.html(original);
@@ -1193,40 +1242,14 @@
 	};
 
 	Fixture.prototype._doSaveToSchedule = function (scheduleName, lineIdx) {
-		var self = this;
-		var $btn = this.$('#addToScheduleBtn');
-		var original = $btn.html();
-		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Saving…'));
-		frappe.call({
-			method: PORTAL + 'save_configured_fixture_to_schedule',
-			args: {
-				schedule_name: scheduleName,
-				line_idx: lineIdx,
-				configured_fixture_id: this.currentResult.configured_fixture_id,
-				manufacturable_length_mm: this.currentResult.computed.manufacturable_overall_length_mm
-			},
-			callback: function (r) {
-				$btn.html(original);
-				var msg = r.message || {};
-				if (msg.success) {
-					frappe.show_alert({ message: __('Configuration saved to schedule'), indicator: 'green' });
-					window.location.href = '/portal/schedules/' + scheduleName;
-				} else {
-					self._updateButtons();
-					frappe.msgprint({ title: __('Save Error'), indicator: 'red', message: msg.error || __('Error saving configuration') });
-				}
-			},
-			error: function (e) {
-				$btn.html(original);
-				self._updateButtons();
-				frappe.msgprint({ title: __('Save Error'), indicator: 'red',
-					message: __('An error occurred while saving to schedule. Please try again.') });
-				console.error('save_configured_fixture_to_schedule error:', e);
-			}
-		});
-	};
+        return this.saveScheduleConfiguration({
+            family: 'Linear Fixture', schedule_name: scheduleName, line_idx: lineIdx,
+            selections: this._gatherAllSelections(), product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val()
+        });
+    };
 
 	Fixture.prototype.buildFixtureAndItem = function () {
+		var self = this;
 		if (!this.currentResult || !this.currentResult.is_valid || !this.currentResult.configured_fixture_id) {
 			frappe.msgprint(__('Cannot build: configuration is not valid or missing fixture ID'));
 			return;
@@ -1234,7 +1257,7 @@
 		var $btn = this.$('#buildItemBtn');
 		var original = $btn.html();
 		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Building…'));
-		frappe.call({
+		self.request({
 			method: PORTAL + 'build_configured_fixture_and_item',
 			args: { configured_fixture_id: this.currentResult.configured_fixture_id },
 			callback: function (r) {
@@ -1303,116 +1326,4 @@
 
 	root.IllConfigurator.Fixture = Fixture;
 
-}(window));
-
-// ─── Quiz Handoff ────────────────────────────────────────────────────────────
-(function (root) {
-	'use strict';
-
-	function getHandoff() {
-		var h = (root.ILL_QUIZ_HANDOFF && Object.keys(root.ILL_QUIZ_HANDOFF).length)
-			? Object.assign({}, root.ILL_QUIZ_HANDOFF)
-			: {};
-
-		if (!h.template) {
-			try {
-				var raw = root.localStorage && root.localStorage.getItem('ilLumenate_quiz_session');
-				if (raw) {
-					var stored = JSON.parse(raw);
-					var age = Date.now() - (stored.savedAt || 0);
-					if (age < 3600000) {
-						var a = stored.answers || {};
-						Object.assign(h, {
-							template: stored.fixtureTemplateCode,
-							moisture: a.moisture,
-							ip_rating: a.ip_rating,
-							light_type: a.light_type,
-							cct: a.target_cct,
-							cct_low: a.cct_range && a.cct_range.low,
-							cct_high: a.cct_range && a.cct_range.high,
-							cri: a.cri,
-							dimming: a.dimming_protocol,
-							mounting: a.installation_method,
-							lens: a.diffuser,
-							finish: a.finish,
-							lumen_class: a.fixture_purpose
-						});
-					}
-					root.localStorage.removeItem('ilLumenate_quiz_session');
-				}
-			} catch (_) {}
-		}
-
-		return h;
-	}
-
-	function cssEscape(value) {
-		return root.CSS && root.CSS.escape ? root.CSS.escape(value) : String(value).replace(/"/g, '\\"');
-	}
-
-	function autoSelect(fieldName, value) {
-		if (!value) return;
-		var escaped = cssEscape(value);
-		var pill = document.querySelector('[data-field="' + fieldName + '"][data-value="' + escaped + '"], .pill-selector[data-field="' + fieldName + '"] [data-value="' + escaped + '"], .pill-selector[data-field="' + fieldName + '"] input[value="' + escaped + '"]');
-		if (pill) { pill.click(); return; }
-
-		var sel = document.querySelector('select[name="' + fieldName + '"], select#' + fieldName);
-		if (sel) {
-			sel.value = value;
-			sel.dispatchEvent(new Event('change', { bubbles: true }));
-			return;
-		}
-
-		var radio = document.querySelector('input[type="radio"][name="' + fieldName + '"][value="' + escaped + '"]');
-		if (radio) radio.click();
-	}
-
-	function waitThenApply(fn, maxWaitMs, pollMs) {
-		maxWaitMs = maxWaitMs || 6000;
-		pollMs = pollMs || 200;
-		var start = Date.now();
-		var id = setInterval(function () {
-			var ready = document.querySelectorAll('.pill-selector .pill, .pill-selector input, [data-field] .pill').length > 0;
-			if (ready || Date.now() - start > maxWaitMs) {
-				clearInterval(id);
-				fn();
-			}
-		}, pollMs);
-	}
-
-	function applyHandoff(h) {
-		if (!h || !Object.keys(h).length) return;
-		if (root.isTapeNeon === true) return;
-
-		var templateSel = document.querySelector('select[name="fixture_template"], select[name="fixture_template_code"], select#fixture-template-select, select.template-select');
-		if (templateSel && h.template && templateSel.value !== h.template) {
-			templateSel.value = h.template;
-			templateSel.dispatchEvent(new Event('change', { bubbles: true }));
-		}
-
-		waitThenApply(function () {
-			autoSelect('environment_rating', h.moisture);
-			autoSelect('environment_rating_code', h.moisture);
-			autoSelect('ip_rating', h.ip_rating);
-			autoSelect('cct', h.cct);
-			autoSelect('cct_code', h.cct);
-			autoSelect('cri', h.cri);
-			autoSelect('dimming_protocol', h.dimming);
-			autoSelect('mounting_method', h.mounting);
-			autoSelect('mounting_method_code', h.mounting);
-			autoSelect('lens_appearance', h.lens);
-			autoSelect('lens_appearance_code', h.lens);
-			autoSelect('finish', h.finish);
-			autoSelect('finish_code', h.finish);
-		});
-	}
-
-	function initFromHandoff() {
-		var h = getHandoff();
-		if (h.template || h.moisture || h.cct) applyHandoff(h);
-	}
-
-	root.IllConfigurator = root.IllConfigurator || {};
-	root.IllConfigurator.initFixtureHandoff = initFromHandoff;
-	document.addEventListener('DOMContentLoaded', initFromHandoff);
 }(window));

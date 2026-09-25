@@ -1,0 +1,15 @@
+# LED Sheet v2 build behavior
+
+New saves use one commercial bundle: panels, two jumpers per panel, one leader per electrical feed, and included power supplies. Schedule quantity copies this entire bundle; it does not resize a supply across copies. The portal and Desk no longer generate accessory sibling rows for v2 builds.
+
+The owner confirmed that associated driver capacity normally limits panels per feed, and Tunable White must use full sheet wattage. The engine uses usable total and per-output limits and allocates actual feed loads. An optional specification-level maximum panels per feed can impose an additional engineering limit. Driver eligibility must explicitly approve the Sheet template, voltage and constant-voltage operation. If the Sheet declares an input protocol, the driver output protocol must match it.
+
+The `led-sheet-2` build snapshot includes selections, coverage, tiling, panel wattage, component quantities/UOMs, feed groups, selected power allocations and relevant engineering values. Its SHA-256 determines `ILL-SHEET-<hash>` Item identity. Prices are excluded from this identity. Saved builds do not recalculate geometry from edited masters; new transaction estimates can reprice their pinned components. ERP customer pricing rules still apply to the resulting configured Item.
+
+Count-based panel/cable assemblies are supported. Bulk cable without a length mapping fails explicitly. The bounded power planner currently supports at most 12 independent feed circuits. Driver color/control channels must be distinguished from independent outputs in engineering reconciliation before release; this adapter does not infer supported parallel branches or distribution hardware.
+
+New artifacts require an active submitted BOM that matches the pinned Item and all material quantities in stock UOM. Creation failure rolls back the local artifact savepoint; portal save failure rolls back the complete new build and schedule change. Actual database contention and migration behavior remain Frappe Cloud acceptance checks.
+
+Historical Sheet records retain their existing representation. They must be explicitly reconfigured before generating new v2 commercial/manufacturing artifacts. Legacy accessory resync adopts stable schedule-line markers when ownership is unambiguous. If two legacy panel lines share a configured record and their generated accessories have no line ownership, resync/edit stops for staff reconciliation instead of deleting another line's accessories. Existing submitted transactions are not rewritten.
+
+Local evidence: service tests exercise full-wattage sizing, bundle price/component reconciliation, price-independent identity, changed geometry/power, incorrect BOM quantities, rollback and ambiguous legacy ownership. These are explicit Frappe doubles, not database tests. The named Snowfield reference has not been run against actual site master data. Engineering must confirm its approved driver eligibility, UOMs, full panel wattage, channels versus independent outputs, and numerical expected results on Cloud.

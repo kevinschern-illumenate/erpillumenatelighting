@@ -8,7 +8,6 @@ import math
 import frappe
 from frappe.model.document import Document
 
-
 OPTION_FIELD_BY_TYPE = {
 	"CCT": "selected_cct",
 	"Output Level": "selected_output_level",
@@ -27,10 +26,28 @@ SKU_FIELD_BY_TYPE = {
 
 class ilLConfiguredLEDSheet(Document):
 	def validate(self):
+		old = self.get_doc_before_save()
+		if self.get("engine_version") == "led-sheet-2" or (old and old.get("engine_version") == "led-sheet-2"):
+			from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import item_code, snapshot
+			snapshot(self)
+			if self.is_new() and not self.flags.sheet_engine_write:
+				frappe.throw("Save Sheet builds through the configurator so engineering inputs are validated")
+			if old:
+				mutable = {"modified", "modified_by", "status", "configured_item", "bom", "spec_submittal"}
+				for field in self.meta.fields:
+					if field.fieldtype in ("Section Break", "Column Break", "Tab Break") or field.fieldname in mutable:
+						continue
+					if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
+						frappe.throw("This Sheet build is immutable. Save a new configuration to change it.")
+			if self.configured_item and self.configured_item != item_code(self):
+				frappe.throw("Configured Item does not match this Sheet build")
+			return
 		self._validate_template_spec()
 		self._validate_allowed_options()
 
 	def before_save(self):
+		if self.get("engine_version") == "led-sheet-2":
+			return
 		self._compute_from_links()
 		self._compute_quantities()
 		self._compute_msrp()

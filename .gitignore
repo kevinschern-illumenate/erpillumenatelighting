@@ -5,6 +5,9 @@
 tags
 node_modules
 __pycache__
+.tools/
+test-results/
+playwright-report/
 frappe-semgrep-rules/
 
 output/neon_test/ilL-Neon-Submittal-Mapping.csv
@@ -53,3 +56,8 @@ tools/fixture_builder/templates/scm_config.yaml
 
 # repowise API keys (local)
 .repowise/.env
+tests/portal_ui/rendered/
+tests/portal_e2e/artifacts/
+tests/portal_e2e/playwright-report/
+tests/portal_e2e/.auth/
+tests/portal_e2e/*fixtures.local.json

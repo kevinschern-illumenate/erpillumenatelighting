@@ -31,7 +31,9 @@
   "operating_temp_max_c",
   "sku_section",
   "sku_series_code",
-  "sku_led_package_code"
+  "sku_led_package_code",
+  "max_panels_per_feed",
+  "input_protocol"
  ],
  "fields": [
   {
@@ -181,6 +183,19 @@
    "fieldname": "sku_led_package_code",
    "fieldtype": "Data",
    "label": "SKU LED Package Code"
+  },
+  {
+   "fieldname": "max_panels_per_feed",
+   "fieldtype": "Int",
+   "label": "Optional Maximum Panels per Feed",
+   "description": "Additional engineering limit. Leave zero to use eligible drivers: full panel watts, usable total and per-output capacity."
+  },
+  {
+   "fieldname": "input_protocol",
+   "fieldtype": "Link",
+   "options": "ilL-Attribute-Dimming Protocol",
+   "label": "Required Input Protocol",
+   "description": "When specified, eligible drivers must match this output protocol. Eligibility must explicitly approve compatibility for this sheet template."
   }
  ],
  "index_web_pages_for_search": 1,

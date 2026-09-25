@@ -12,6 +12,8 @@ the ``ValueError``s raised here into user-facing ``frappe.throw`` messages.
 import math
 from typing import Any
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
+
 # Units accepted for coverage width / height inputs.
 INCH_UNITS = {"in", "inch", "inches", '"', "in.", "inches."}
 FOOT_UNITS = {"ft", "foot", "feet", "'", "ft."}
@@ -23,11 +25,13 @@ def normalize_dimension(value: float, unit: str) -> float:
     ``unit`` of ``"in"`` (or any alias in :data:`INCH_UNITS`) divides by 12.
     Feet (the default) are returned unchanged.
     """
-    value = float(value or 0)
+    value = finite_number(0 if value in (None, "") else value, minimum=0, field="coverage dimension")
     unit_key = (unit or "ft").strip().lower()
     if unit_key in INCH_UNITS:
         return value / 12.0
-    return value
+    if unit_key in FOOT_UNITS:
+        return value
+    raise ValueError("Coverage dimensions must use feet or inches")
 
 
 def compute_panel_layout(
@@ -39,6 +43,10 @@ def compute_panel_layout(
     whose ``width``/``height`` do not evenly divide the sheet dimensions rounds
     up on each axis independently.
     """
+    width_ft, height_ft, sheet_width_ft, sheet_height_ft = (
+        finite_number(value, minimum=0, field="panel layout dimension")
+        for value in (width_ft, height_ft, sheet_width_ft, sheet_height_ft)
+    )
     if sheet_width_ft <= 0 or sheet_height_ft <= 0:
         raise ValueError("LED Sheet spec must have positive sheet width and height.")
     if width_ft <= 0 or height_ft <= 0:
@@ -76,7 +84,7 @@ def is_generated_accessory_line(manufacturer_type: str, notes: str, markers) -> 
     if manufacturer_type != "ACCESSORY":
         return False
     text = notes or ""
-    return any(marker and marker in text for marker in markers)
+    return any(marker and (text.endswith(marker) or marker + " |" in text) for marker in markers)
 
 
 def build_accessory_lines(

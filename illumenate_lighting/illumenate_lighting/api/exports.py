@@ -18,7 +18,6 @@ Export Types:
 import csv
 import io
 import os
-import shutil
 from datetime import datetime
 
 import frappe
@@ -30,56 +29,24 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_
 
 
 def _save_file_ignore_permissions(fname, content, dt, dn, is_private=1):
-	"""Wrap ``save_file()`` with ``ignore_permissions`` to avoid switching
-	the session user to Administrator (which corrupts the Frappe session
-	and causes 403 / forced sign-out for portal users).
+	"""Generated project files remain private and retain their durable parent scope."""
+	if frappe.flags.get("ill_product_download"):
+		from illumenate_lighting.illumenate_lighting.portal.product_downloads import save_generated
 
-	Always saves as private first to sidestep Frappe's
-	``enforce_public_file_restrictions`` (a hard ``frappe.only_for("System Manager")``
-	check that ``frappe.flags.ignore_permissions`` cannot bypass).
-	If the caller requested ``is_private=0``, the file is moved to the
-	public directory post-save via a direct DB update + filesystem move.
-	"""
-	requested_public = int(is_private) == 0
-
-	_prev = frappe.flags.ignore_permissions
+		return save_generated(fname, content)
+	if frappe.flags.get("ill_packet_job"):
+		dt, dn, is_private = "ilL-Export-Job", frappe.flags.ill_packet_job, 1
+	if int(is_private) != 1:
+		frappe.throw("Public generation requires the isolated product download service")
+	previous = frappe.flags.ignore_permissions
 	try:
 		frappe.flags.ignore_permissions = True
 		file_doc = save_file(fname, content, dt, dn, is_private=1)
+		if dt == "ilL-Export-Job":
+			frappe.db.set_value("File", file_doc.name, "owner", "Administrator", update_modified=False)
+		return file_doc
 	finally:
-		frappe.flags.ignore_permissions = _prev
-
-	if requested_public:
-		private_url = file_doc.file_url  # e.g. /private/files/xyz.pdf
-		public_url = private_url.replace("/private/files/", "/files/", 1)
-
-		site_path = frappe.get_site_path()
-		private_path = os.path.join(site_path, private_url.lstrip("/"))
-		public_path = os.path.join(site_path, "public", "files", os.path.basename(private_url))
-
-		# copy first so a DB-update failure still leaves the private file intact
-		shutil.copy2(private_path, public_path)
-		try:
-			frappe.db.set_value(
-				"File", file_doc.name,
-				{"is_private": 0, "file_url": public_url},
-				update_modified=False,
-			)
-		except Exception:
-			# DB update failed – remove the orphaned public copy and re-raise
-			if os.path.exists(public_path):
-				os.remove(public_path)
-			raise
-
-		# Private copy is no longer needed; failure here is benign (orphan)
-		try:
-			os.remove(private_path)
-		except OSError:
-			pass
-
-		file_doc.reload()
-
-	return file_doc
+		frappe.flags.ignore_permissions = previous
 
 
 # Conversion constant: millimeters per foot
@@ -449,7 +416,19 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			"notes": line.notes or "",
 		}
 
-		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+		if line.manufacturer_type == "ILLUMENATE" and line.get("configured_group"):
+			from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import current_estimate
+			from illumenate_lighting.illumenate_lighting.portal.group_display import details
+			group = details(line.configured_group)
+			line_data.update({"is_group": True, "group_details": group, "template_code": group["template"],
+				"config_summary": group["description"], "build_description": group["description"],
+				"total_watts": group["total_watts"], "runs_count": len(group["power_plan"]["requirements"]),
+				"power_supply": "Included" if group["include_power_supply"] else "External power required"})
+			if include_pricing:
+				unit = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
+				line_data.update(unit_price=unit, line_total=unit * (line.qty or 1))
+				schedule_total += line_data["line_total"]
+		elif line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			# Get configured fixture details from pre-fetched map
 			fixture = fixtures_map.get(line.configured_fixture)
 			if fixture:
@@ -1414,7 +1393,7 @@ def get_export_history(schedule_id: str) -> dict:
 	exports = frappe.get_all(
 		"ilL-Export-Job",
 		filters=filters,
-		fields=["name", "export_type", "status", "requested_by", "created_on", "output_file"],
+		fields=["name", "export_type", "status", "requested_by", "created_on", "output_file", "issued_on", "issued_by", "progress", "progress_message", "error_log"],
 		order_by="created_on desc",
 		limit=50,
 		ignore_permissions=True,
@@ -1597,7 +1576,7 @@ def download_export_file(export_job_id: str) -> dict:
 			return {"success": False, "error": _("You don't have permission to download priced exports")}
 
 	# Check if export is complete
-	if export_job.status != "COMPLETE":
+	if export_job.status not in ("COMPLETE", "INCOMPLETE"):
 		return {"success": False, "error": _("Export is not ready for download")}
 
 	if not export_job.output_file:
@@ -1699,7 +1678,7 @@ def serve_export_file(export_job_id: str):
 		if not _check_pricing_permission():
 			frappe.throw(_("You don't have permission to download priced exports"), frappe.PermissionError)
 
-	if export_job.status != "COMPLETE" or not export_job.output_file:
+	if export_job.status not in ("COMPLETE", "INCOMPLETE") or not export_job.output_file:
 		frappe.throw(_("Export is not ready for download"))
 
 	# Look up the File record and read content.  Use ignore_permissions
@@ -1709,7 +1688,7 @@ def serve_export_file(export_job_id: str):
 	# frappe.set_user() here because it can corrupt the session.
 	file_records = frappe.get_all(
 		"File",
-		filters={"file_url": export_job.output_file},
+		filters={"file_url": export_job.output_file, "is_private": 1, "attached_to_doctype": "ilL-Export-Job", "attached_to_name": export_job.name},
 		fields=["name", "file_name"],
 		order_by="creation desc",
 		limit=1,
@@ -1718,21 +1697,17 @@ def serve_export_file(export_job_id: str):
 	if not file_records:
 		frappe.throw(_("Output file record not found"))
 
-	# Read the file content from disk using the file_url.  This avoids
-	# frappe.get_doc("File", …) permission checks that may block portal
-	# users from accessing private files.
-	file_path = os.path.realpath(frappe.get_site_path(export_job.output_file.lstrip("/")))
-	site_path = os.path.realpath(frappe.get_site_path())
-	if not file_path.startswith(site_path + os.sep):
-		frappe.throw(_("Invalid file path"), frappe.PermissionError)
-	if not os.path.isfile(file_path):
-		frappe.throw(_("Output file not found on disk"))
-
-	with open(file_path, "rb") as f:
-		content = f.read()
-
+	file_doc = frappe.get_doc("File", file_records[0].name)
+	if not file_doc.is_private or file_doc.attached_to_doctype != "ilL-Export-Job" or file_doc.attached_to_name != export_job.name:
+		frappe.throw(_("Output does not belong to this export"), frappe.PermissionError)
+	content = file_doc.get_content()
 	if not content:
 		frappe.throw(_("Output file is empty"))
+	if export_job.get("output_sha256"):
+		import hashlib
+
+		if hashlib.sha256(content).hexdigest() != export_job.output_sha256:
+			frappe.throw(_("Export bytes no longer match the issued packet"))
 
 	filename = file_records[0].file_name or f"export_{export_job_id}.pdf"
 

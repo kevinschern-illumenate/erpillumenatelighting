@@ -1,0 +1,184 @@
+{
+  "doctype": "DocType",
+  "name": "ilL-Order-Change",
+  "module": "ilLumenate Lighting",
+  "engine": "InnoDB",
+  "autoname": "format:OC-{#####}",
+  "track_changes": 1,
+  "fields": [
+    {
+      "fieldname": "sales_order",
+      "label": "Sales Order",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "reqd": 1,
+      "options": "Sales Order"
+    },
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "reqd": 1,
+      "options": "Customer"
+    },
+    {
+      "fieldname": "requested_by",
+      "label": "Requested By",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "reqd": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "request_type",
+      "label": "Request Type",
+      "fieldtype": "Select",
+      "read_only": 1,
+      "reqd": 1,
+      "in_list_view": 1,
+      "options": "Change\nCancellation\nReorder\nReplacement"
+    },
+    {
+      "fieldname": "state",
+      "label": "State",
+      "fieldtype": "Select",
+      "read_only": 1,
+      "default": "SUBMITTED",
+      "in_list_view": 1,
+      "options": "SUBMITTED\nUNDER_REVIEW\nINFORMATION_NEEDED\nCOMPLETED\nREJECTED"
+    },
+    {
+      "fieldname": "note",
+      "label": "Note",
+      "fieldtype": "Small Text",
+      "read_only": 1
+    },
+    {
+      "fieldname": "request_key",
+      "label": "Request Key",
+      "fieldtype": "Data",
+      "read_only": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "request_hash",
+      "label": "Request Hash",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "original_hash",
+      "label": "Original Hash",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "original_snapshot",
+      "label": "Original Snapshot",
+      "fieldtype": "Code",
+      "read_only": 1
+    },
+    {
+      "fieldname": "assigned_to",
+      "label": "Assigned To",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "due_date",
+      "label": "Due Date",
+      "fieldtype": "Date",
+      "read_only": 1
+    },
+    {
+      "fieldname": "ill_next_action_by",
+      "label": "Ill Next Action By",
+      "fieldtype": "Select",
+      "read_only": 1,
+      "default": "Staff",
+      "options": "Staff\nCustomer\nNone"
+    },
+    {
+      "fieldname": "staff_note",
+      "label": "Staff Note",
+      "fieldtype": "Small Text",
+      "read_only": 1
+    },
+    {
+      "fieldname": "result_snapshot",
+      "label": "Result Snapshot",
+      "fieldtype": "Code",
+      "read_only": 1
+    },
+    {
+      "fieldname": "new_schedule",
+      "label": "New Schedule",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "ilL-Project-Fixture-Schedule"
+    },
+    {
+      "fieldname": "result_sales_order",
+      "label": "Result Sales Order",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "Sales Order"
+    },
+    {
+      "fieldname": "decided_by",
+      "label": "Decided By",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "decided_on",
+      "label": "Decided On",
+      "fieldtype": "Datetime",
+      "read_only": 1
+    }
+  ],
+  "field_order": [
+    "sales_order",
+    "customer",
+    "requested_by",
+    "request_type",
+    "state",
+    "note",
+    "request_key",
+    "request_hash",
+    "original_hash",
+    "original_snapshot",
+    "assigned_to",
+    "due_date",
+    "ill_next_action_by",
+    "staff_note",
+    "result_snapshot",
+    "new_schedule",
+    "result_sales_order",
+    "decided_by",
+    "decided_on"
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "select": 1,
+      "report": 1
+    },
+    {
+      "role": "ilL Sales Review",
+      "read": 1,
+      "select": 1,
+      "report": 1
+    },
+    {
+      "role": "ilL Order Approver",
+      "read": 1,
+      "select": 1,
+      "report": 1
+    }
+  ]
+}

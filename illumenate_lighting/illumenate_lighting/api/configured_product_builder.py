@@ -40,21 +40,30 @@ from illumenate_lighting.illumenate_lighting.api import (
     tape_neon_bom,
     tape_neon_configurator,
 )
+from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+    finite_number,
+    optional_positive,
+    parse_bool,
+)
 from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+    CONFIGURED_ITEM_GROUP,
+    CONFIGURED_NEON_ITEM_GROUP,
+    CONFIGURED_TAPE_ITEM_GROUP,
     _create_or_get_bom,
     _create_or_get_configured_item,
     _create_or_get_configured_tape_neon_item,
     _ensure_item_group_exists,
-    CONFIGURED_ITEM_GROUP,
-    CONFIGURED_NEON_ITEM_GROUP,
-    CONFIGURED_TAPE_ITEM_GROUP,
+    ensure_configured_item_price,
 )
 from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
-    PRODUCT_TYPES,
     PRODUCT_TYPE_FIXTURE,
     PRODUCT_TYPE_NEON,
+    PRODUCT_TYPE_SHEET,
     PRODUCT_TYPE_TAPE,
+    PRODUCT_TYPES,
     _apply_artifact_to_row,
+    _ensure_configured_artifacts,
     _get_editable_parent,
     _get_or_add_item_row,
     _get_required_doc,
@@ -62,7 +71,7 @@ from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import
     _normalize_product_type,
     _serialize_json,
 )
-
+from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
 
 # ═══════════════════════════════════════════════════════════════════════
 # PUBLIC API
@@ -129,7 +138,12 @@ def calculate_and_lookup(
             "messages": list,
         }``
     """
+    from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+    require_catalog_access()
+    _check_parent_builds(parent_configured_fixture, parent_configured_tape_neon)
     product_type = _normalize_product_type(product_type)
+    from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
+    require_family(product_type)
     payload = _coerce_dict(payload_json) or {}
 
     validation = _dispatch_calculate(
@@ -162,6 +176,10 @@ def calculate_and_lookup(
             existing_record = frappe.db.get_value(
                 "ilL-Configured-Fixture", {"config_hash": candidate_hash}, "name"
             )
+        elif product_type == PRODUCT_TYPE_SHEET:
+            existing_record = frappe.db.get_value(
+                "ilL-Configured-LED-Sheet", {"config_hash": candidate_hash}, "name"
+            )
         else:
             existing_record = frappe.db.get_value(
                 "ilL-Configured-Tape-Neon", {"config_hash": candidate_hash}, "name"
@@ -184,6 +202,7 @@ def preview_bom(
     product_type: str,
     configured_fixture: str | None = None,
     configured_tape_neon: str | None = None,
+    configured_led_sheet: str | None = None,
 ) -> dict[str, Any]:
     """Return BOM rows for an *existing* configured record.
 
@@ -191,7 +210,15 @@ def preview_bom(
     caller should first call :func:`save_and_apply` with a target row, or
     call this after persisting the record via the engine.
     """
+    from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+    require_catalog_access()
     product_type = _normalize_product_type(product_type)
+
+    if product_type == PRODUCT_TYPE_SHEET:
+        from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import bom_items
+        sheet = _get_required_doc("ilL-Configured-LED-Sheet", configured_led_sheet, "configured_led_sheet")
+        return {"success": True, "product_type": product_type, "configured_led_sheet": sheet.name,
+                "items": _format_bom_rows(bom_items(sheet)), "messages": []}
 
     if product_type == PRODUCT_TYPE_FIXTURE:
         from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
@@ -230,46 +257,22 @@ def preview_prospective_bom(
     product_type: str,
     payload_json: str | dict[str, Any] | None = None,
     parent_configured_fixture: str | None = None,
+    tape_neon_template: str | None = None,
 ) -> dict[str, Any]:
-    """Build a default BOM preview for a not-yet-saved fixture configuration.
-
-    This runs the engine in dry-run mode (``_skip_record_creation=True``),
-    then synthesizes an in-memory ``ilL-Configured-Fixture`` doc and returns
-    the rows ``build_fixture_bom_items`` would emit for it.  No DB writes.
-    Tape/Neon previews still rely on the existing ``preview_bom`` flow.
-    """
+    """Preview the same physical materials that each family seals on save."""
+    from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+    require_catalog_access()
+    _check_parent_builds(parent_configured_fixture, None)
     product_type = _normalize_product_type(product_type)
-    if product_type != PRODUCT_TYPE_FIXTURE:
-        return {
-            "success": False,
-            "supported": False,
-            "items": [],
-            "messages": [{
-                "severity": "info",
-                "text": "Prospective BOM preview is currently fixture-only.",
-            }],
-        }
 
     payload = _coerce_dict(payload_json) or {}
-    is_multi = bool(payload.get("segments_json") or payload.get("multi_segment"))
-    if is_multi:
-        return {
-            "success": False,
-            "supported": False,
-            "items": [],
-            "messages": [{
-                "severity": "info",
-                "text": "Multi-segment prospective BOM preview is not yet supported.",
-            }],
-        }
-
     # Step 1 — run engine dry-run for full validation + computed/resolved data.
     validation = _dispatch_calculate(
         product_type,
         payload,
         parent_configured_fixture=parent_configured_fixture,
         parent_configured_tape_neon=None,
-        tape_neon_template=None,
+        tape_neon_template=tape_neon_template,
     )
     if not validation.get("is_valid"):
         return {
@@ -281,39 +284,10 @@ def preview_prospective_bom(
             "error": validation.get("error"),
         }
 
-    # Step 2 — synthesize an unsaved fixture doc using the engine internals.
-    from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-        build_fixture_bom_items,
-    )
-
-    kwargs = _fixture_singlesegment_kwargs(payload)
-    # Strip args not accepted by the populator
-    kwargs.pop("qty", None)
-    fixture_doc = configurator_engine._create_or_update_configured_fixture(
-        computed=validation.get("computed") or {},
-        resolved_items=validation.get("resolved_items") or {},
-        pricing=validation.get("pricing") or {
-            "msrp_unit": 0, "tier_unit": 0, "discount_amount": 0,
-            "discount_percentage": 0, "adder_breakdown": [],
-        },
-        parent_configured_fixture=parent_configured_fixture,
-        in_memory=True,
-        **kwargs,
-    )
-
-    # Step 3 — build the prospective BOM rows.
-    try:
-        items = build_fixture_bom_items(fixture_doc)
-    except Exception as e:  # noqa: BLE001
-        return {
-            "success": False,
-            "supported": True,
-            "items": [],
-            "messages": [{
-                "severity": "error",
-                "text": f"Could not build prospective BOM: {e}",
-            }],
-        }
+    # The engine preview seals the same physical manifest used by save and BOM creation.
+    items = validation.get("component_manifest") or validation.get("components") or []
+    if not items:
+        return {"success": False, "supported": True, "items": [], "error": "No validated material manifest was returned"}
 
     return {
         "success": True,
@@ -325,7 +299,9 @@ def preview_prospective_bom(
     }
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+@idempotent
 def save_and_apply(
     parent_doctype: str,
     parent_name: str,
@@ -342,6 +318,8 @@ def save_and_apply(
     location: str | None = None,
     notes: str | None = None,
     schedule_line_id: str | None = None,
+    expected_parent_modified: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """Persist the configured record (or variant) and write it to a row.
 
@@ -358,7 +336,8 @@ def save_and_apply(
     """
     product_type = _normalize_product_type(product_type)
     parent_doc = _get_editable_parent(parent_doctype, parent_name)
-    qty = flt(qty) or 1
+    _check_parent_builds(parent_configured_fixture, parent_configured_tape_neon)
+    qty = finite_number(qty, minimum=1, field="Quantity")
     payload = _coerce_dict(payload_json) or {}
 
     # ── Step 1: persist the configured record via the engine ─────────
@@ -385,6 +364,11 @@ def save_and_apply(
             frappe.throw(_("Engine did not return a configured fixture id."))
         bom_overrides = _coerce_bom_overrides(bom_overrides_json)
         artifact = _ensure_fixture_artifacts(configured_name, bom_overrides=bom_overrides)
+    elif product_type == PRODUCT_TYPE_SHEET:
+        configured_name = validation.get("configured_led_sheet")
+        if not configured_name:
+            frappe.throw(_("Engine did not return a configured LED Sheet id."))
+        artifact = _ensure_configured_artifacts(PRODUCT_TYPE_SHEET, None, None, configured_name)
     else:
         configured_name = validation.get("configured_tape_neon")
         if not configured_name:
@@ -416,13 +400,14 @@ def save_and_apply(
         "product_type": product_type,
         "configured_fixture": artifact.get("configured_fixture"),
         "configured_tape_neon": artifact.get("configured_tape_neon"),
+        "configured_led_sheet": artifact.get("configured_led_sheet"),
         "item_code": artifact["item_code"],
         "bom": artifact.get("bom"),
         "messages": (validation.get("messages") or []) + (artifact.get("messages") or []),
     }
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_and_apply_from_portal(
     parent_doctype: str,
     parent_name: str,
@@ -438,6 +423,8 @@ def save_and_apply_from_portal(
     location: str | None = None,
     notes: str | None = None,
     schedule_line_id: str | None = None,
+    expected_parent_modified: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """Persist + apply a configured product from *portal* selection shapes.
 
@@ -453,9 +440,11 @@ def save_and_apply_from_portal(
     """
     product_type = _normalize_product_type(product_type)
     selections = _coerce_dict(selections_json) or {}
-    qty = flt(qty) or 1
+    qty = finite_number(qty, minimum=1, field="Quantity")
 
     grouping = {
+        "expected_parent_modified": expected_parent_modified,
+        "idempotency_key": idempotency_key,
         "fixture_type": fixture_type,
         "location": location,
         "notes": notes,
@@ -475,7 +464,7 @@ def save_and_apply_from_portal(
             **grouping,
         )
 
-    payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments_json)
+    payload = selections if product_type == PRODUCT_TYPE_SHEET else _tape_neon_payload_from_portal_selections(product_type, selections, segments_json)
 
     return save_and_apply(
         parent_doctype,
@@ -500,9 +489,9 @@ def _tape_neon_payload_from_portal_selections(
         "selections": selections,
         "include_power_supply": selections.get("include_power_supply", True),
         "dimming_protocol_code": selections.get("dimming_protocol_code"),
+        "override_max_run_ft": selections.get("override_max_run_ft"),
     }
-    if product_type == PRODUCT_TYPE_NEON:
-        payload["segments_json"] = segments_json or selections.get("segments")
+    payload["segments_json"] = segments_json or selections.get("segments_json") or selections.get("segments")
     return payload
 
 
@@ -573,8 +562,7 @@ def _fixture_payload_from_portal_selections(
     )
 
     include_power_supply = selections.get("include_power_supply", True)
-    if isinstance(include_power_supply, str):
-        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+    include_power_supply = parse_bool(include_power_supply, default=True)
 
     payload: dict[str, Any] = {
         "fixture_template_code": template.name,
@@ -601,14 +589,9 @@ def _fixture_payload_from_portal_selections(
             payload["requested_overall_length_mm"] = length_mm
 
     # Optional engine knobs the wizard may emit (mirrors webflow_schedule.add_to_schedule).
-    override_max_run_ft = selections.get("override_max_run_ft")
-    if override_max_run_ft not in (None, ""):
-        try:
-            override_max_run_ft = float(override_max_run_ft)
-        except (TypeError, ValueError):
-            override_max_run_ft = None
-        if override_max_run_ft and override_max_run_ft > 0:
-            payload["override_max_run_ft"] = override_max_run_ft
+    override_max_run_ft = optional_positive(selections.get("override_max_run_ft"), field="maximum run length")
+    if override_max_run_ft is not None:
+        payload["override_max_run_ft"] = override_max_run_ft
 
     if selections.get("dimming_protocol_code"):
         payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
@@ -667,8 +650,7 @@ def _fixture_payload_from_engine_selections(
         frappe.throw(_("Could not resolve tape offering for this configuration."))
 
     include_power_supply = selections.get("include_power_supply", True)
-    if isinstance(include_power_supply, str):
-        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+    include_power_supply = parse_bool(include_power_supply, default=True)
 
     payload: dict[str, Any] = {
         "fixture_template_code": template_code,
@@ -683,14 +665,9 @@ def _fixture_payload_from_engine_selections(
         "include_power_supply": include_power_supply,
     }
 
-    override_max_run_ft = selections.get("override_max_run_ft")
-    if override_max_run_ft not in (None, ""):
-        try:
-            override_max_run_ft = float(override_max_run_ft)
-        except (TypeError, ValueError):
-            override_max_run_ft = None
-        if override_max_run_ft and override_max_run_ft > 0:
-            payload["override_max_run_ft"] = override_max_run_ft
+    override_max_run_ft = optional_positive(selections.get("override_max_run_ft"), field="maximum run length")
+    if override_max_run_ft is not None:
+        payload["override_max_run_ft"] = override_max_run_ft
 
     if selections.get("dimming_protocol_code"):
         payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
@@ -781,21 +758,23 @@ def resolve_root_configured(name: str, doctype: str) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _assert_builder_supported(product_type: str) -> None:
-    """Guard: the generic builder handles fixture/tape/neon only.
+def _check_parent_builds(fixture, tape_neon):
+    for doctype, name in (("ilL-Configured-Fixture", fixture), ("ilL-Configured-Tape-Neon", tape_neon)):
+        if name:
+            _get_required_doc(doctype, name, "parent configuration")
 
-    LED Sheet (and any other product type) has its own configurator + apply
-    flow. Without this guard an unsupported type would silently fall through
-    into the LED Neon branch and fail later with a confusing tape/neon error
-    (e.g. "Engine did not return a configured tape/neon id.").
-    """
-    if product_type not in (PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON):
-        frappe.throw(
-            _(
-                "The configured-product builder supports Linear Fixture, LED Tape, "
-                "and LED Neon only. Use the LED Sheet configurator for '{0}'."
-            ).format(product_type)
-        )
+
+def _assert_builder_supported(product_type: str) -> None:
+    """Every supported family has an explicit adapter; never fall through to neon."""
+    if product_type not in PRODUCT_TYPES:
+        frappe.throw(_("Unsupported configured product family"))
+
+
+def _sheet_kwargs(payload):
+    allowed = ("template", "spec", "options", "coverage_width_ft", "coverage_height_ft",
+               "coverage_width_value", "coverage_width_unit", "coverage_height_value",
+               "coverage_height_unit", "include_power_supply", "dimming_protocol_code")
+    return {key: payload[key] for key in allowed if key in payload}
 
 
 def _dispatch_calculate(
@@ -808,6 +787,13 @@ def _dispatch_calculate(
 ) -> dict[str, Any]:
     """Run the appropriate engine entry point with ``_skip_record_creation=True``."""
     _assert_builder_supported(product_type)
+    if product_type == PRODUCT_TYPE_SHEET:
+        from illumenate_lighting.illumenate_lighting.api.led_sheet_configurator import (
+            validate_sheet_configuration,
+        )
+        result = validate_sheet_configuration(**_sheet_kwargs(payload))
+        return {**result, "is_valid": True, "candidate_config_hash": result["config_hash"],
+                "candidate_part_number": result.get("part_number"), "messages": []}
     if product_type == PRODUCT_TYPE_FIXTURE:
         if payload.get("segments_json") or payload.get("multi_segment"):
             return configurator_engine.validate_and_quote_multisegment(
@@ -828,11 +814,13 @@ def _dispatch_calculate(
     if product_type == PRODUCT_TYPE_TAPE:
         return tape_neon_configurator.validate_tape_configuration(
             selections,
+            segments_json=_serialize_json(payload.get("segments_json") or payload.get("segments")),
             _skip_record_creation=True,
             parent_configured_tape_neon=parent_configured_tape_neon,
-            include_power_supply=bool(payload.get("include_power_supply", True)),
+            include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
             dimming_protocol_code=payload.get("dimming_protocol_code"),
             tape_neon_template=tape_neon_template,
+            override_max_run_ft=payload.get("override_max_run_ft"),
         )
 
     # LED Neon
@@ -844,9 +832,10 @@ def _dispatch_calculate(
         segments,
         _skip_record_creation=True,
         parent_configured_tape_neon=parent_configured_tape_neon,
-        include_power_supply=bool(payload.get("include_power_supply", True)),
+        include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
         dimming_protocol_code=payload.get("dimming_protocol_code"),
         tape_neon_template=tape_neon_template,
+        override_max_run_ft=payload.get("override_max_run_ft"),
     )
 
 
@@ -861,6 +850,12 @@ def _dispatch_save(
 ) -> dict[str, Any]:
     """Run the engine with persistence enabled."""
     _assert_builder_supported(product_type)
+    if product_type == PRODUCT_TYPE_SHEET:
+        from illumenate_lighting.illumenate_lighting.api.led_sheet_configurator import (
+            save_sheet_configuration,
+        )
+        result = save_sheet_configuration(**_sheet_kwargs(payload))
+        return {**result, "is_valid": result.get("success", False), "messages": []}
     if product_type == PRODUCT_TYPE_FIXTURE:
         if payload.get("segments_json") or payload.get("multi_segment"):
             return configurator_engine.validate_and_quote_multisegment(
@@ -883,12 +878,14 @@ def _dispatch_save(
     if product_type == PRODUCT_TYPE_TAPE:
         return tape_neon_configurator.validate_tape_configuration(
             selections,
+            segments_json=_serialize_json(payload.get("segments_json") or payload.get("segments")),
             _skip_record_creation=False,
             parent_configured_tape_neon=parent_configured_tape_neon,
-            include_power_supply=bool(payload.get("include_power_supply", True)),
+            include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
             dimming_protocol_code=payload.get("dimming_protocol_code"),
             variant_origin=variant_origin,
             tape_neon_template=tape_neon_template,
+            override_max_run_ft=payload.get("override_max_run_ft"),
         )
 
     segments = payload.get("segments_json") or payload.get("segments")
@@ -899,10 +896,11 @@ def _dispatch_save(
         segments,
         _skip_record_creation=False,
         parent_configured_tape_neon=parent_configured_tape_neon,
-        include_power_supply=bool(payload.get("include_power_supply", True)),
+        include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
         dimming_protocol_code=payload.get("dimming_protocol_code"),
         variant_origin=variant_origin,
         tape_neon_template=tape_neon_template,
+        override_max_run_ft=payload.get("override_max_run_ft"),
     )
 
 
@@ -911,17 +909,22 @@ def _dispatch_save(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@atomic_build
 def _ensure_fixture_artifacts(
     configured_fixture: str,
     bom_overrides: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build/reuse Item + BOM for a saved fixture and return the artifact dict.
 
-    When ``bom_overrides`` is provided, the BOM is built directly from the
-    user-supplied rows (no auto-build) and any pre-existing default BOM on
-    the item is superseded by a freshly created one.
+    Engineering additions create a separate immutable variant with its own
+    Item and BOM. Existing builds and their BOMs remain unchanged.
     """
     fixture = frappe.get_doc("ilL-Configured-Fixture", configured_fixture)
+
+    if bom_overrides:
+        from illumenate_lighting.illumenate_lighting.api.linear_build import material_variant
+        fixture = material_variant(fixture, bom_overrides)
+        bom_overrides = None
 
     # Idempotently ensure the Configured Fixtures Item Group exists before
     # the Item is written.  ``_create_or_get_configured_item`` already does
@@ -943,6 +946,7 @@ def _ensure_fixture_artifacts(
     fixture.configured_item = item_result["item_code"]
     fixture.bom = bom_result["bom_name"]
     fixture.save(ignore_permissions=True)
+    ensure_configured_item_price(item_result["item_code"], fixture)
 
     return {
         "product_type": PRODUCT_TYPE_FIXTURE,
@@ -967,6 +971,7 @@ def _ensure_fixture_artifacts(
     }
 
 
+@atomic_build
 def _ensure_tape_neon_artifacts(configured_tape_neon: str, product_type: str) -> dict[str, Any]:
     """Build/reuse Item + BOM for a saved tape/neon record."""
     configured = frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon)
@@ -992,7 +997,12 @@ def _ensure_tape_neon_artifacts(configured_tape_neon: str, product_type: str) ->
         configured, item_result["item_code"], skip_if_exists=True
     )
     bom_messages = bom_result.get("messages") or []
+    if not bom_result.get("success"):
+        frappe.throw(_messages_to_html(bom_messages))
     bom_name = bom_result.get("bom_name")
+    configured.bom = bom_name
+    configured.save(ignore_permissions=True)
+    ensure_configured_item_price(item_result["item_code"], configured)
 
     return {
         "product_type": product_type,
@@ -1247,6 +1257,10 @@ def _create_bom_from_overrides(
 
 
 def _fixture_configuration_snapshot(fixture) -> dict[str, Any]:
+    if fixture.get("build_schema_version") == 2:
+        from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+        return {"product_type": PRODUCT_TYPE_FIXTURE, "configured_fixture": fixture.name,
+                "config_hash": fixture.config_hash, "bom": fixture.bom, "build": snapshot(fixture)}
     return {
         "product_type": PRODUCT_TYPE_FIXTURE,
         "configured_fixture": fixture.name,

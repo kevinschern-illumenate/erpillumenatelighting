@@ -12,7 +12,7 @@ import csv
 import os
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv
+from .common import mapping_row, write_csv
 
 HEADERS = [
     "Tape Neon Template",
@@ -26,6 +26,7 @@ HEADERS = [
     "Webflow Prefix/Suffix",
     "Webflow Prefix",
     "Webflow Suffix",
+    "Required Value",
 ]
 
 # Default mapping rows for tape/neon submittal PDFs
@@ -106,7 +107,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str,
 
     for tmpl in config.tape_neon_templates:
         for mapping in source_mappings:
-            rows.append([tmpl.template_code] + list(mapping))
+            rows.append(mapping_row([tmpl.template_code] + list(mapping), HEADERS))
 
     filepath = f"{output_dir}/ilL-Neon-Submittal-Mapping.csv"
     write_csv(filepath, HEADERS, rows)

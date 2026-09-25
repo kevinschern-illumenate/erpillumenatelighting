@@ -85,7 +85,11 @@
         "column_break_mounting_accessory",
         "mounting_accessory_qty",
         "mounting_accessory_unit_msrp",
-        "mounting_accessory_total_msrp"
+        "mounting_accessory_total_msrp",
+        "build_schema_version",
+        "build_snapshot_json",
+        "include_power_supply",
+        "power_plan_json"
     ],
     "fields": [
         {
@@ -429,7 +433,7 @@
             "fieldname": "assembly_mode",
             "fieldtype": "Select",
             "label": "Assembly Mode",
-            "options": "ASSEMBLED\nSHIP_PIECES"
+            "options": "ASSEMBLED\nSHIP_PIECES\nBULK_REEL"
         },
         {
             "default": "0",
@@ -590,6 +594,30 @@
             "fieldname": "mounting_accessory_total_msrp",
             "fieldtype": "Currency",
             "label": "Total MSRP",
+            "read_only": 1
+        },
+        {
+            "fieldname": "build_schema_version",
+            "fieldtype": "Int",
+            "label": "Build Schema",
+            "read_only": 1
+        },
+        {
+            "fieldname": "build_snapshot_json",
+            "fieldtype": "Long Text",
+            "label": "Resolved Build Snapshot",
+            "read_only": 1
+        },
+        {
+            "fieldname": "include_power_supply",
+            "fieldtype": "Check",
+            "label": "Power Included",
+            "read_only": 1
+        },
+        {
+            "fieldname": "power_plan_json",
+            "fieldtype": "Long Text",
+            "label": "Power Allocation",
             "read_only": 1
         }
     ],

@@ -45,7 +45,10 @@
   "pricing_section",
   "msrp",
   "spec_submittal",
-  "groups"
+  "groups",
+  "engine_version",
+  "bundle_mode",
+  "build_snapshot_json"
  ],
  "fields": [
   {
@@ -136,7 +139,7 @@
    "fieldtype": "Check",
    "label": "Include Power Supply",
    "default": "1",
-   "description": "When checked, compatible drivers/power supplies are priced and added as their own schedule lines."
+   "description": "New configurations include compatible power supplies in the complete bundle price and BOM when checked."
   },
   {
    "fieldname": "coverage_width_ft",
@@ -277,6 +280,26 @@
    "fieldtype": "Link",
    "label": "BOM",
    "options": "BOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "engine_version",
+   "fieldtype": "Data",
+   "label": "Engine Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bundle_mode",
+   "fieldtype": "Select",
+   "options": "Legacy\nBundle",
+   "label": "Commercial Representation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_snapshot_json",
+   "fieldtype": "Code",
+   "options": "JSON",
+   "label": "Immutable Build Snapshot",
    "read_only": 1
   }
  ],

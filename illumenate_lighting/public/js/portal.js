@@ -17,6 +17,15 @@
 		this.initTooltips();
 		this.initLoadingStates();
 		this.initFormValidation();
+        document.querySelectorAll('.ill-portal-navigation a').forEach(function (link) {
+            if (link.pathname === location.pathname) link.setAttribute('aria-current', 'page');
+        });
+        if (typeof $ !== 'undefined') {
+            const returnFocus = new WeakMap();
+            $(document).off('.illPortalFocus').on('show.bs.modal.illPortalFocus', '.modal', function () { returnFocus.set(this, document.activeElement); })
+                .on('shown.bs.modal.illPortalFocus', '.modal', function () { const input = this.querySelector('input:not([type="hidden"]), select, textarea, button'); if (input) input.focus(); })
+                .on('hidden.bs.modal.illPortalFocus', '.modal', function () { const previous = returnFocus.get(this); if (previous && previous.isConnected) previous.focus(); });
+        }
 	};
 
 	/**
@@ -49,19 +58,15 @@
 			return;
 		}
 
-		container.innerHTML = notifications.map(function(n) {
-			return `
-				<a href="${n.link}" class="notification-item">
-					<div class="notification-icon bg-${n.color || 'primary'}">
-						<i class="fa ${n.icon || 'fa-bell'}"></i>
-					</div>
-					<div class="notification-content">
-						<div class="notification-title">${n.title}</div>
-						<div class="notification-text">${n.message}</div>
-					</div>
-				</a>
-			`;
-		}).join('');
+		container.replaceChildren();
+        notifications.forEach(function (n) {
+            const link = document.createElement('a'); link.className = 'notification-item';
+            link.href = typeof n.link === 'string' && n.link.startsWith('/portal') && !n.link.includes('\\') ? n.link : '/portal';
+            const content = document.createElement('div'); content.className = 'notification-content';
+            const title = document.createElement('div'); title.className = 'notification-title'; title.textContent = n.title || '';
+            const message = document.createElement('div'); message.className = 'notification-text'; message.textContent = n.message || '';
+            content.append(title, message); link.append(content); container.append(link);
+        });
 
 		// Update badge count
 		const badge = document.getElementById('notificationBadge');

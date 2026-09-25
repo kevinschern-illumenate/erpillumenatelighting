@@ -133,15 +133,18 @@ def get_context(context):
 	# Stock availability from the FULL schedule demand: component needs are
 	# scaled by line qty and shared components compete for the same stock.
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+		_get_product_bundle_items,
 		batch_stock_for_schedule_lines,
 		fixture_components,
-		_get_product_bundle_items,
 	)
 
 	fixture_component_cache = {}
 	line_stock_specs = []
 	for line in lines:
-		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+		if line.manufacturer_type == "ILLUMENATE" and any(line.get(k) for k in ("configured_group", "configured_tape_neon", "configured_led_sheet")):
+			from illumenate_lighting.illumenate_lighting.portal.group_display import stock_components
+			line_stock_specs.append({"key": line.idx, "qty": line.qty or 1, "components": stock_components(line)})
+		elif line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			if line.configured_fixture not in fixture_component_cache:
 				if frappe.db.exists("ilL-Configured-Fixture", line.configured_fixture):
 					fixture_component_cache[line.configured_fixture] = fixture_components(
@@ -183,6 +186,7 @@ def get_context(context):
 			"location": line.location,
 			"manufacturer_type": line.manufacturer_type,
 			"notes": line.notes,
+			"configured_group": line.get("configured_group"),
 			"configured_fixture": line.configured_fixture,
 			"ill_item_code": line.ill_item_code,
 			"manufacturable_length_mm": line.manufacturable_length_mm,
@@ -221,6 +225,10 @@ def get_context(context):
 			"spec_sheet": line.spec_sheet,
 			"cf_details": {},
 		}
+
+		if line.get("configured_group"):
+			from illumenate_lighting.illumenate_lighting.portal.group_display import details
+			line_dict["group_details"] = details(line.configured_group)
 
 		# For ilLumenate fixtures, fetch enriched details from configured fixture
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
@@ -333,7 +341,7 @@ def get_context(context):
 				schedule_total += line_dict["driver_line_total"]
 
 		# Attach stock availability (schedule-level allocation, keyed by line idx)
-		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
+		if line.manufacturer_type == "ILLUMENATE" and line.idx in line_stock_map:
 			line_dict["stock_availability"] = line_stock_map.get(line.idx, {})
 		elif getattr(line, "product_type", None) == "Extrusion Kit":
 			kit_stock = _compute_kit_stock_for_line(line, is_dealer or is_internal)
@@ -363,6 +371,9 @@ def get_context(context):
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	context.can_issue_packet = can_edit or allowed("engineering")
 	context.can_view_pricing = can_view_pricing
 	context.is_dealer = is_dealer
 	context.is_internal = is_internal
@@ -449,7 +460,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 			)
 
 		details = {
-			"part_number": cf.configured_item or cf.config_hash,
+			"part_number": cf.get("display_part_number") or cf.configured_item or cf.config_hash,
 			"fixture_template_code": fixture_template_code,
 			"fixture_template_name": fixture_template_name,
 			"environment_rating": cf.environment_rating if hasattr(cf, "environment_rating") else None,
@@ -619,7 +630,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				# Remove duplicates and join
 				unique_voltages = list(dict.fromkeys(driver_input_voltages))
 				details["driver_input_voltage"] = ", ".join(unique_voltages)
-			if driver_msrp_total > 0:
+			if driver_msrp_total > 0 and cf.get("build_schema_version") != 2:
 				details["driver_msrp_unit"] = round(driver_msrp_total, 2)
 
 		return details
@@ -681,10 +692,23 @@ def compute_line_msrp(
 	unit_price = None
 	mt = line.manufacturer_type
 
-	if mt == "ILLUMENATE" and line.configured_fixture:
-		unit_price = fixture_snapshot_price
+	if mt == "ILLUMENATE" and line.get("configured_group"):
+		from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import current_estimate
+		unit_price = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
+	elif mt == "ILLUMENATE" and line.configured_fixture:
+		fixture = frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
+		if fixture.get("build_schema_version") == 2:
+			from illumenate_lighting.illumenate_lighting.api.linear_build import current_estimate
+			unit_price = current_estimate(fixture)
+		else:
+			unit_price = fixture_snapshot_price
 	elif mt == "ILLUMENATE" and line.configured_tape_neon:
-		unit_price = ctn_snapshot_price
+		configured = frappe.get_doc("ilL-Configured-Tape-Neon", line.configured_tape_neon)
+		if configured.get("build_schema_version") == 2:
+			from illumenate_lighting.illumenate_lighting.api.tape_neon_build import current_estimate
+			unit_price = current_estimate(configured)
+		else:
+			unit_price = ctn_snapshot_price
 		# Fallback: read from variant_selections when snapshot pricing is missing
 		if not unit_price:
 			unit_price = _get_msrp_from_variant_selections(line)

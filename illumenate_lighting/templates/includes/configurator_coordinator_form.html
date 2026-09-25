@@ -1,0 +1,727 @@
+	<div class="row">
+		<!-- Configurator Form -->
+		<div class="col-lg-7">
+			<div class="card mb-3">
+				<div class="card-header">
+					<h5 class="mb-0">{{ title }}</h5>
+				</div>
+				<div class="card-body">
+					{% include "illumenate_lighting/templates/includes/configurator_form.html" %}
+				</div>
+			</div>
+
+			{% if not is_tape_neon %}
+			<!-- Segments Card (Linear Fixture) -->
+			<div class="card mb-3" id="segmentsCard" style="display: none;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Fixture Segments") }}</h5>
+					<span class="badge badge-info" id="segmentCountBadge">0 {{ _("segments") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">
+						{{ _("Define each segment of your fixture. The first segment starts with a leader cable. Connect segments with jumper cables, or cap the fixture with an endcap.") }}
+					</p>
+					<div id="segmentsList"></div>
+					
+					<div id="addSegmentHint" class="text-center py-3 text-muted" style="display: none;">
+						<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
+					</div>
+				</div>
+			</div>
+			{% endif %}
+
+			<!-- Power Supply Option -->
+			<div class="card mb-3" id="powerSupplySection">
+				<div class="card-body py-2">
+					<div class="custom-control custom-checkbox">
+						<input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>
+						<label class="custom-control-label" for="includePowerSupply">
+							<strong>{{ _("Include Power Supplies?") }}</strong>
+							<small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies from this fixture and source them separately.") }}</small>
+						</label>
+					</div>
+
+					<div class="form-group mt-2">
+						<label for="coordinatorProtocol">{{ _("Control protocol") }}</label>
+						<select id="coordinatorProtocol" name="dimming_protocol_code" class="form-control"><option value="">{{ _("Any compatible protocol") }}</option></select>
+					</div>
+					<!-- Override Max Run Length -->
+					<div class="custom-control custom-checkbox mt-3">
+						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck">
+						<label class="custom-control-label" for="overrideMaxRunCheck">
+							<strong>{{ _("Override Max Run Length") }}</strong>
+						</label>
+					</div>
+					<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
+						<input type="number" name="override_max_run_ft" id="overrideMaxRunInput"
+							   class="form-control" min="0.5" step="0.5"
+							   placeholder="{{ _('Custom max run (ft)') }}">
+						<span class="input-group-text">ft</span>
+					</div>
+					<div class="alert alert-warning mt-2 py-2" id="overrideMaxRunWarning" style="display: none;">
+						<button type="button" class="close" aria-label="Close"
+								data-coordinator-action="dismiss-warning">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+					</div>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			{% if not is_tape_neon %}
+			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
+				<button type="button" class="btn btn-primary" id="calculateBtn" data-coordinator-action="validateAndQuote-1" disabled>
+					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+				</button>
+				{% if is_system_manager %}
+				<button type="button" class="btn btn-warning" id="buildItemBtn" data-coordinator-action="buildConfiguredFixtureAndItem-2" style="display: none;" disabled>
+					<i class="fa fa-wrench"></i> {{ _("Build Configured Fixture & Item") }}
+				</button>
+				{% endif %}
+				<button type="button" class="btn btn-success" id="saveBtn" data-coordinator-action="saveToSchedule-3" style="display: none;" disabled>
+					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+				</button>
+			</div>
+
+			{% else %}
+			<!-- ═══ LED TAPE / LED NEON LENGTH & SEGMENTS ═══ -->
+
+			{% if is_tape %}
+			<!-- LED Tape Order Mode Toggle: Custom Length vs Bulk Reels (shown when template selected) -->
+			<div class="d-flex align-items-center mb-3 px-2 py-2" id="tapeModeToggleCard" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+				<span class="mr-3 small font-weight-bold text-secondary">{{ _("Order Mode:") }}</span>
+				<div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Tape order mode') }}">
+					<button type="button" class="btn btn-primary active" id="tapeModeCustomBtn" data-coordinator-action="setTapeMode-4">
+						<i class="fa fa-ruler"></i> {{ _("Custom Length") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary" id="tapeModeReelBtn" data-coordinator-action="setTapeMode-5">
+						<i class="fa fa-circle-o"></i> {{ _("Bulk Reels") }}
+					</button>
+				</div>
+				<small class="text-muted ml-3" id="tapeModeReelHint" style="display: none;">{{ _("16.4 ft, 50 ft, or 100 ft standard reels — no pigtail") }}</small>
+			</div>
+
+			<!-- LED Tape: Feed & Length Card (Custom Length Mode) -->
+			<div class="card mb-3" id="tapeLengthCard" style="{% if not has_templates %}display: block;{% else %}display: none;{% endif %}">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Feed & Tape Length") }}</h5>
+					<span class="badge badge-info" id="tapeSegmentCountBadge">0 {{ _("runs") }}</span>
+				</div>
+				<div class="card-body tape-length-section">
+					<p class="text-muted small mb-3">
+						{{ _("Define each run of tape. End a run with an endcap to finish, or with a jumper cable to continue into another run.") }}
+					</p>
+					<div id="tapeSegmentsList"></div>
+				</div>
+			</div>
+
+			<!-- LED Tape: Bulk Reel Card (shown when Bulk Reels mode is active) -->
+			<div class="card mb-3" id="bulkReelCard" style="display: none;">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0"><i class="fa fa-circle-o mr-2"></i>{{ _("Bulk Reel Configuration") }}</h5>
+					<span class="badge badge-info">{{ _("Standard Reel Lengths") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">{{ _("Order standard LED tape reels. Your CCT, Output Level, and Environment Rating selections above are applied automatically — just pick a reel length and choose whether to include a power supply.") }}</p>
+
+					<!-- Reel Length -->
+					<div class="option-group">
+						<label class="option-label">{{ _("Reel Length") }} <span class="text-danger">*</span></label>
+						<div class="pill-selector" id="brReelLengthPills">
+							<label class="pill-option bulk-reel-pill" id="brReel164" data-coordinator-action="selectBulkReelLength-6">
+								<span class="d-block font-weight-bold">16.4 ft</span>
+								<span class="d-block small text-muted">5 m</span>
+							</label>
+							<label class="pill-option bulk-reel-pill" id="brReel50" data-coordinator-action="selectBulkReelLength-7">
+								<span class="d-block font-weight-bold">50 ft</span>
+							</label>
+							<label class="pill-option bulk-reel-pill" id="brReel100" data-coordinator-action="selectBulkReelLength-8">
+								<span class="d-block font-weight-bold">100 ft</span>
+							</label>
+						</div>
+						<input type="hidden" id="brReelLength" value="">
+					</div>
+
+					<hr>
+
+					<!-- Include Power Supply -->
+					<div class="custom-control custom-checkbox mb-3">
+						<input type="checkbox" class="custom-control-input" id="brIncludePowerSupply">
+						<label class="custom-control-label" for="brIncludePowerSupply">
+							<strong>{{ _("Include Power Supply?") }}</strong>
+							<small class="text-muted d-block">{{ _("Add a recommended power supply for this reel, or add one separately from the main schedules page.") }}</small>
+						</label>
+					</div>
+
+					<div class="form-group">
+						<label for="brProtocol">{{ _("Power supply input / dimming protocol") }}</label>
+						<select class="form-control" id="brProtocol" name="br_dimming_protocol_code"><option value="">{{ _("Any compatible protocol") }}</option></select>
+					</div>
+					<!-- Bulk Reel Action Buttons -->
+					<div class="d-flex flex-wrap" style="gap: 0.5rem;">
+						<button type="button" class="btn btn-primary" id="brCalculateBtn" data-coordinator-action="bulkReelCalculate-9" disabled>
+							<i class="fa fa-calculator"></i> {{ _("Calculate &amp; Validate") }}
+						</button>
+						<button type="button" class="btn btn-success" id="brSaveBtn" data-coordinator-action="bulkReelSave-10" style="display: none;" disabled>
+							<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+						</button>
+					</div>
+				</div>
+			</div>
+			{% endif %}
+
+			{% if is_neon %}
+			<!-- LED Neon: Segments Card -->
+			<div class="card mb-3" id="neonSegmentsCard" style="{% if not has_templates %}display: block;{% else %}display: none;{% endif %}">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Neon Segments") }}</h5>
+					<span class="badge badge-info" id="neonSegmentCountBadge">0 {{ _("segments") }}</span>
+				</div>
+				<div class="card-body">
+					<p class="text-muted small mb-3">
+						{{ _("Define each segment of your LED Neon fixture. Select IP rating per segment. Connect segments with jumper cables.") }}
+					</p>
+					<div id="neonSegmentsList"></div>
+				</div>
+			</div>
+			{% endif %}
+
+			<!-- Tape/Neon Action Buttons -->
+			<div class="d-flex justify-content-between" id="tnActionButtons" style="{% if is_tape_neon and not has_templates %}display: flex;{% else %}display: none;{% endif %}">
+				<button type="button" class="btn btn-primary" id="tnCalculateBtn" data-coordinator-action="tnValidateAndQuote-11" disabled>
+					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+				</button>
+				{% if is_system_manager %}
+				<button type="button" class="btn btn-warning" id="tnBuildItemBtn" data-coordinator-action="tnBuildConfiguredItem-12" style="display: none;" disabled>
+					<i class="fa fa-wrench"></i> {{ _("Build Configured Item") }}
+				</button>
+				{% endif %}
+				<button type="button" class="btn btn-success" id="tnSaveBtn" data-coordinator-action="tnSaveToSchedule-13" style="display: none;" disabled>
+					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+				</button>
+			</div>
+			{% endif %}
+		</div>
+
+		<!-- Results Panel -->
+		<div class="col-lg-5">
+			<div class="card">
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<h5 class="mb-0">{{ _("Results") }}</h5>
+					<span id="validationStatus" class="badge badge-secondary">{{ _("Not Calculated") }}</span>
+				</div>
+				<div class="card-body">
+					<!-- Messages -->
+					<div id="messagesPanel" style="display: none;">
+						<h6>{{ _("Messages") }}</h6>
+						<div id="messagesList"></div>
+						<hr>
+					</div>
+
+					<!-- Part Number & Description -->
+					<div id="partNumberPanel" style="display: none;">
+						<h6>{{ _("Part Number & Description") }}</h6>
+						<table class="table table-sm mb-2">
+							<tr>
+								<td class="font-weight-bold" style="width: 110px;">{{ _("Part Number") }}</td>
+								<td>
+									<div class="d-flex align-items-center">
+										<code id="partNumberValue" class="mr-2" style="font-size: 0.95rem;">-</code>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" data-coordinator-action="copyToClipboard-14" title="Copy part number">
+											<i class="fa fa-copy"></i>
+										</button>
+									</div>
+								</td>
+							</tr>
+							<tr>
+								<td class="font-weight-bold">{{ _("Description") }}</td>
+								<td>
+									<div class="d-flex align-items-start">
+										<span id="partDescriptionValue" class="mr-2 small" style="white-space: pre-wrap;">-</span>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" data-coordinator-action="copyToClipboard-15" title="Copy description">
+											<i class="fa fa-copy"></i>
+										</button>
+									</div>
+								</td>
+							</tr>
+						</table>
+						<button type="button" class="btn btn-outline-primary btn-sm btn-block mb-2" data-coordinator-action="copyBothToClipboard-16">
+							<i class="fa fa-clipboard"></i> {{ _("Copy Part Number + Description") }}
+						</button>
+						<hr>
+					</div>
+
+					<!-- Length Results -->
+					<div id="lengthResults" style="display: none;">
+						<h6>{{ _("Length Summary") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("Total Requested Length") }}</td>
+								<td class="text-right"><span id="requestedLength">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Total Manufacturable Length") }}</td>
+								<td class="text-right"><strong><span id="mfgLength">-</span></strong></td>
+							</tr>
+							<tr>
+								<td>{{ _("Segment Count") }}</td>
+								<td class="text-right"><span id="segmentCountResult">-</span></td>
+							</tr>
+						</table>
+						<hr>
+					</div>
+
+					<!-- Manufacturing Summary -->
+					<div id="manufacturingResults" style="display: none;">
+						<h6>{{ _("Manufacturing Summary") }}</h6>
+						<table class="table table-sm">
+							<tr>
+								<td>{{ _("Profile/Lens Segments") }}</td>
+								<td class="text-right"><span id="profileSegmentsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("LED Tape Runs") }}</td>
+								<td class="text-right"><span id="runsCount">-</span></td>
+							</tr>
+							<tr id="maxRunLengthRow" style="display: none;">
+								<td>{{ _("Max Run Length") }}</td>
+								<td class="text-right"><span id="maxRunLength">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Endcaps") }}</td>
+								<td class="text-right"><span id="endcapsCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Mounting Accessories") }}</td>
+								<td class="text-right"><span id="mountingCount">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Total Watts") }}</td>
+								<td class="text-right"><span id="totalWatts">-</span></td>
+							</tr>
+							<tr>
+								<td>{{ _("Assembly Mode") }}</td>
+								<td class="text-right"><span id="assemblyMode">-</span></td>
+							</tr>
+						</table>
+						<hr>
+					</div>
+
+					<!-- Build Description -->
+					<div id="buildDescriptionPanel" style="display: none;">
+						<h6>{{ _("Build Description") }}</h6>
+						<div id="buildDescription" class="small bg-light p-2 rounded" style="white-space: pre-wrap;"></div>
+						<hr>
+					</div>
+
+					<!-- LED Run Details -->
+					<div id="ledRunDetailsPanel" style="display: none;">
+						<h6>{{ _("LED Run Details") }}</h6>
+						<div id="ledRunDetails" class="small"></div>
+						<hr>
+					</div>
+
+					<!-- Driver Plan -->
+					<div id="driverResults" style="display: none;">
+						<h6>{{ _("Driver Plan") }}</h6>
+						<div id="driverPlan"></div>
+						<hr>
+					</div>
+
+					<!-- Pricing -->
+					{% if show_pricing %}
+					<div id="pricingResults" style="display: none;">
+						<h6>{{ _("Fixture Price Breakdown") }}</h6>
+						<table class="table table-sm" id="fixturePriceBreakdown">
+							<thead>
+								<tr>
+									<th>{{ _("Item") }}</th>
+									<th class="text-right">{{ _("MSRP") }}</th>
+									<th class="text-right">{{ _("Tier") }}</th>
+								</tr>
+							</thead>
+							<tbody id="priceBreakdownBody">
+								<!-- Rows populated by JS after Calculate & Validate -->
+							</tbody>
+						</table>
+						<div id="adderBreakdown"></div>
+					</div>
+					{% endif %}
+
+					<div id="noResults" class="text-center py-4">
+						<i class="fa fa-calculator fa-3x text-muted mb-3"></i>
+						<p class="text-muted">{{ _("Configure segments and click 'Calculate & Validate' to see results") }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+<!-- Segment Template -->
+<template id="segmentTemplate">
+	<div class="segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Segment") }} <span class="segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" data-coordinator-action="removeSegment-17" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- Start Section (for first segment or inherited from prior) -->
+			<div class="segment-start mb-3">
+				<div class="row">
+					<div class="col-12">
+						<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
+					</div>
+				</div>
+				<!-- First segment: user selects feed direction, power feed type and leader cable length -->
+				<div class="first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Leader Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- Subsequent segments: inherited from prior segment -->
+				<div class="inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
+				</div>
+			</div>
+
+			<!-- Segment Length -->
+			<div class="segment-length mb-3">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Requested Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="length_unit">
+								<option value="in" selected>inches</option>
+								<option value="ft_in">feet + inches</option>
+								<option value="mm">mm</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<!-- Feet + Inches input (shown when unit is ft_in) -->
+				<div class="row feet-inches-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="segment-end">
+				<div class="row">
+					<div class="col-12">
+						<label class="small font-weight-bold">{{ _("Segment End") }}</label>
+					</div>
+				</div>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Endcap" data-coordinator-action="setEndType-18">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap (Cap Fixture)") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Jumper" data-coordinator-action="setEndType-19">
+						<i class="fa fa-link"></i> {{ _("Jumper (Continue to Next)") }}
+					</button>
+				</div>
+				<input type="hidden" name="end_type" value="Endcap">
+
+				<!-- Endcap Fields (shown when end type is Endcap) -->
+				<div class="endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with a solid endcap") }}
+					</div>
+				</div>
+
+				<!-- Jumper Fields (shown when end type is Jumper) -->
+				<div class="jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+
+{% if is_tape %}
+<!-- Tape Segment (Run) Template -->
+<template id="tapeSegmentTemplate">
+	<div class="tape-segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Run") }} <span class="tape-segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-tape-segment-btn" data-coordinator-action="removeTapeSegment-20" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- Start Section -->
+			<div class="tape-segment-start mb-3">
+				<label class="small font-weight-bold">{{ _("Run Start") }}</label>
+				<div class="tape-first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Start Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="tape_start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Lead Length (in)") }} <span class="text-danger">*</span></label>
+								<input type="number" class="form-control form-control-sm" name="tape_start_lead_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="tape-inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="tape-inherited-text">{{ _("Inherited from prior run") }}</span>
+				</div>
+			</div>
+
+			<!-- Run Length -->
+			<div class="tape-segment-length mb-3">
+				<div class="row">
+					<div class="col-md-5">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="tape_length_value" min="0.1" step="0.1" required placeholder="e.g., 48">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="tape_length_unit">
+								<option value="in" selected>inches</option>
+								<option value="ft">feet</option>
+								<option value="ft_in">feet + inches</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row tape-ft-in-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="tape_length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="tape_length_inches" min="0" max="11.99" step="0.1" value="0">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="tape-segment-end">
+				<label class="small font-weight-bold">{{ _("Run End") }}</label>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Endcap" data-coordinator-action="setTapeEndType-21">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Jumper" data-coordinator-action="setTapeEndType-22">
+						<i class="fa fa-link"></i> {{ _("Exit Feed / Jumper") }}
+					</button>
+				</div>
+				<input type="hidden" name="tape_end_type" value="Endcap">
+
+				<div class="tape-endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Run will be capped with an endcap") }}
+					</div>
+				</div>
+
+				<div class="tape-jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Exit Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="tape_end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="tape_end_feed_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+{% endif %}
+
+{% if is_neon %}
+<!-- Neon Segment Template -->
+<template id="neonSegmentTemplate">
+	<div class="neon-segment-card" data-segment-index="">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<strong>{{ _("Segment") }} <span class="neon-segment-number"></span></strong>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-neon-segment-btn" data-coordinator-action="removeNeonSegment-23" style="display: none;">
+				<i class="fa fa-trash"></i>
+			</button>
+		</div>
+		<div class="card-body">
+			<!-- IP Rating -->
+			<div class="row mb-2">
+				<div class="col-md-4">
+					<div class="form-group mb-2">
+						<label class="small font-weight-bold">{{ _("IP Rating") }} <span class="text-danger">*</span></label>
+						<select class="form-control form-control-sm" name="neon_ip_rating"></select>
+					</div>
+				</div>
+			</div>
+
+			<!-- Start Section -->
+			<div class="neon-segment-start mb-3">
+				<label class="small font-weight-bold">{{ _("Segment Start") }}</label>
+				<div class="neon-first-segment-start" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
+								<select class="form-control form-control-sm" name="neon_start_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Lead Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="neon_start_lead_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="neon-inherited-start segment-inherited" style="display: none;">
+					<i class="fa fa-link"></i> <span class="neon-inherited-text">{{ _("Inherited from prior segment") }}</span>
+				</div>
+			</div>
+
+			<!-- Segment Length -->
+			<div class="neon-segment-length mb-3">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group mb-2">
+							<label class="small font-weight-bold">{{ _("Fixture Length") }} <span class="text-danger">*</span></label>
+							<input type="number" class="form-control" name="neon_fixture_length_value" min="1" step="0.1" required placeholder="e.g., 48">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Unit") }}</label>
+							<select class="form-control" name="neon_fixture_length_unit">
+								<option value="in" selected>inches</option>
+								<option value="ft">feet</option>
+								<option value="ft_in">feet + inches</option>
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row neon-ft-in-row" style="display: none;">
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Feet") }}</label>
+							<input type="number" class="form-control form-control-sm" name="neon_fixture_length_feet" min="0" value="0">
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="form-group mb-2">
+							<label class="small">{{ _("Inches") }}</label>
+							<input type="number" class="form-control form-control-sm" name="neon_fixture_length_inches" min="0" max="11.99" step="0.1" value="0">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- End Section -->
+			<div class="neon-segment-end">
+				<label class="small font-weight-bold">{{ _("Segment End") }}</label>
+				<div class="end-type-toggle mb-2">
+					<button type="button" class="btn btn-outline-secondary btn-sm neon-end-type-btn" data-type="Endcap" data-coordinator-action="setNeonEndType-24">
+						<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+					</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm neon-end-type-btn" data-type="Jumper" data-coordinator-action="setNeonEndType-25">
+						<i class="fa fa-link"></i> {{ _("Jumper (Continue)") }}
+					</button>
+				</div>
+				<input type="hidden" name="neon_end_type" value="Endcap">
+
+				<div class="endcap-fields" style="display: none;">
+					<div class="small text-muted">
+						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with an endcap") }}
+					</div>
+				</div>
+
+				<div class="jumper-fields" style="display: none;">
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Feed Direction") }}</label>
+								<select class="form-control form-control-sm" name="neon_end_feed_direction"></select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group mb-2">
+								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
+								<input type="number" class="form-control form-control-sm" name="neon_end_feed_length_inches" value="12" min="0" step="0.5">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+{% endif %}

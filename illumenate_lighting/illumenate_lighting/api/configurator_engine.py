@@ -656,20 +656,17 @@ def validate_and_quote(
 		dict: Response containing validation status, computed values, resolved items,
 		      pricing, and configured fixture ID
 	"""
-	# Normalise include_power_supply (Frappe passes HTTP params as strings)
-	if isinstance(include_power_supply, str):
-		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
-	if isinstance(_skip_record_creation, str):
-		_skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
-	# Normalise override_max_run_ft (Frappe passes HTTP params as strings)
-	if override_max_run_ft is not None:
-		try:
-			override_max_run_ft = float(override_max_run_ft)
-		except (ValueError, TypeError):
-			override_max_run_ft = None
-		else:
-			if override_max_run_ft <= 0:
-				override_max_run_ft = None
+	from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
+	require_configuration("Linear Fixture")
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, parse_bool
+	include_power_supply = parse_bool(include_power_supply, default=True)
+	_skip_record_creation = parse_bool(_skip_record_creation)
+	if override_max_run_ft not in (None, ""):
+		override_max_run_ft = finite_number(override_max_run_ft, minimum=0, field="maximum run override")
+		if override_max_run_ft <= 0:
+			frappe.throw("Maximum run override must be positive when supplied")
+	else:
+		override_max_run_ft = None
 	# Auto-resolve endcap color from finish if not explicitly provided
 	if not endcap_color_code and finish_code:
 		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
@@ -845,10 +842,15 @@ def validate_and_quote(
 			total_watts=computed_result["total_watts"],
 			tape_offering_doc=validation_result.get("tape_offering_doc"),
 			dimming_protocol_code=dimming_protocol_code,
+			runs=computed_result["runs"],
 		)
 		response["messages"].extend(driver_messages)
+		if driver_plan_result.get("status") != "selected":
+			response["is_valid"] = False
+			return response
 	else:
-		driver_plan_result = {"status": "not_required", "drivers": []}
+		from illumenate_lighting.illumenate_lighting.api.linear_power import excluded
+		driver_plan_result = excluded(computed_result["runs"], dimming_protocol_code)
 	response["resolved_items"]["driver_plan"] = driver_plan_result
 
 	# Step 4: Calculate pricing
@@ -871,56 +873,43 @@ def validate_and_quote(
 
 	response["pricing"].update(pricing_result)
 
-	# Step 5: Create or update configured fixture (or compute candidate values
-	# only when the caller is doing a dry-run lookup).
+	# Preview and persistence share one complete immutable build calculation.
+	fixture = _create_or_update_configured_fixture(
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_style_start_code,
+		endcap_style_end_code,
+		endcap_color_code,
+		power_feed_type_code,
+		environment_rating_code,
+		tape_offering_id,
+		requested_overall_length_mm,
+		response["computed"],
+		response["resolved_items"],
+		response["pricing"],
+		start_feed_direction_code=start_feed_direction_code,
+		end_feed_direction_code=end_feed_direction_code,
+		start_leader_len_mm=start_leader_len_mm,
+		end_leader_len_mm=end_leader_len_mm,
+		include_power_supply=include_power_supply,
+		parent_configured_fixture=parent_configured_fixture,
+		variant_origin=variant_origin,
+		override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
+		in_memory=_skip_record_creation,
+	)
 	if _skip_record_creation:
-		candidate_hash, candidate_part_number = _compute_candidate_singlesegment(
-			fixture_template_code,
-			finish_code,
-			lens_appearance_code,
-			mounting_method_code,
-			endcap_style_start_code,
-			endcap_style_end_code,
-			endcap_color_code,
-			power_feed_type_code,
-			environment_rating_code,
-			tape_offering_id,
-			requested_overall_length_mm,
-			start_feed_direction_code=start_feed_direction_code,
-			end_feed_direction_code=end_feed_direction_code,
-			start_leader_len_mm=start_leader_len_mm,
-			end_leader_len_mm=end_leader_len_mm,
-		)
 		response["configured_fixture_id"] = None
-		response["candidate_config_hash"] = candidate_hash
-		response["candidate_part_number"] = candidate_part_number
+		response["candidate_config_hash"] = fixture.config_hash
+		response["candidate_part_number"] = fixture.display_part_number
+		response["component_manifest"] = json.loads(fixture.component_manifest_json)
+		response["cable_manifest"] = json.loads(fixture.cable_manifest_json)
+		response["build_snapshot"] = json.loads(fixture.build_snapshot_json)
+		response["pricing_inputs"] = {key: fixture.get(key) for key in ("fixture_template", "finish", "lens_appearance", "mounting_method", "endcap_style_start", "endcap_style_end", "power_feed_type", "environment_rating", "tape_offering")}
 	else:
-		fixture_id = _create_or_update_configured_fixture(
-			fixture_template_code,
-			finish_code,
-			lens_appearance_code,
-			mounting_method_code,
-			endcap_style_start_code,
-			endcap_style_end_code,
-			endcap_color_code,
-			power_feed_type_code,
-			environment_rating_code,
-			tape_offering_id,
-			requested_overall_length_mm,
-			response["computed"],
-			response["resolved_items"],
-			response["pricing"],
-			start_feed_direction_code=start_feed_direction_code,
-			end_feed_direction_code=end_feed_direction_code,
-			start_leader_len_mm=start_leader_len_mm,
-			end_leader_len_mm=end_leader_len_mm,
-			include_power_supply=include_power_supply,
-			parent_configured_fixture=parent_configured_fixture,
-			variant_origin=variant_origin,
-			override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
-		)
-		response["configured_fixture_id"] = fixture_id
-		_set_fixture_part_number_in_pricing(response, fixture_id)
+		response["configured_fixture_id"] = fixture
+		_set_fixture_part_number_in_pricing(response, fixture)
 
 	# Add inch values to computed results for US market display
 	response["computed"] = add_inch_values_to_computed(response["computed"])
@@ -1398,20 +1387,17 @@ def validate_and_quote_multisegment(
 	if not endcap_color_code and finish_code:
 		endcap_color_code = resolve_endcap_color_from_finish(finish_code)
 
-	# Normalise include_power_supply (Frappe passes HTTP params as strings)
-	if isinstance(include_power_supply, str):
-		include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
-	if isinstance(_skip_record_creation, str):
-		_skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
-	# Normalise override_max_run_ft (Frappe passes HTTP params as strings)
-	if override_max_run_ft is not None:
-		try:
-			override_max_run_ft = float(override_max_run_ft)
-		except (ValueError, TypeError):
-			override_max_run_ft = None
-		else:
-			if override_max_run_ft <= 0:
-				override_max_run_ft = None
+	from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
+	require_configuration("Linear Fixture")
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, parse_bool
+	include_power_supply = parse_bool(include_power_supply, default=True)
+	_skip_record_creation = parse_bool(_skip_record_creation)
+	if override_max_run_ft not in (None, ""):
+		override_max_run_ft = finite_number(override_max_run_ft, minimum=0, field="maximum run override")
+		if override_max_run_ft <= 0:
+			frappe.throw("Maximum run override must be positive when supplied")
+	else:
+		override_max_run_ft = None
 
 	# Parse segments
 	try:
@@ -1611,10 +1597,15 @@ def validate_and_quote_multisegment(
 			total_watts=computed_result["total_watts"],
 			tape_offering_doc=tape_offering_doc,
 			dimming_protocol_code=dimming_protocol_code,
+			runs=computed_result["runs"],
 		)
 		response["messages"].extend(driver_messages)
+		if driver_plan_result.get("status") != "selected":
+			response["is_valid"] = False
+			return response
 	else:
-		driver_plan_result = {"status": "not_required", "drivers": []}
+		from illumenate_lighting.illumenate_lighting.api.linear_power import excluded
+		driver_plan_result = excluded(computed_result["runs"], dimming_protocol_code)
 	response["resolved_items"]["driver_plan"] = driver_plan_result
 
 	# Step 4: Calculate pricing
@@ -1644,46 +1635,36 @@ def validate_and_quote_multisegment(
 
 	response["pricing"].update(pricing_result)
 
-	# Step 5: Create configured fixture document (or compute candidate values
-	# for a dry-run lookup).
+	# Preview and persistence share one complete immutable build calculation.
+	fixture = _create_or_update_multisegment_fixture(
+		fixture_template_code,
+		finish_code,
+		lens_appearance_code,
+		mounting_method_code,
+		endcap_color_code,
+		environment_rating_code,
+		tape_offering_id,
+		segments,
+		response["computed"],
+		response["resolved_items"],
+		response["pricing"],
+		include_power_supply=include_power_supply,
+		parent_configured_fixture=parent_configured_fixture,
+		variant_origin=variant_origin,
+		override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
+		in_memory=_skip_record_creation,
+	)
 	if _skip_record_creation:
-		has_jumper = any(seg.get("end_type") == "Jumper" for seg in segments)
-		is_multi_segment = len(segments) > 1 or has_jumper
-		candidate_hash, candidate_part_number = _compute_candidate_multisegment(
-			fixture_template_code,
-			finish_code,
-			lens_appearance_code,
-			mounting_method_code,
-			endcap_color_code,
-			environment_rating_code,
-			tape_offering_id,
-			segments,
-			is_multi_segment,
-			response["computed"].get("total_requested_length_mm", 0),
-		)
 		response["configured_fixture_id"] = None
-		response["candidate_config_hash"] = candidate_hash
-		response["candidate_part_number"] = candidate_part_number
+		response["candidate_config_hash"] = fixture.config_hash
+		response["candidate_part_number"] = fixture.display_part_number
+		response["component_manifest"] = json.loads(fixture.component_manifest_json)
+		response["cable_manifest"] = json.loads(fixture.cable_manifest_json)
+		response["build_snapshot"] = json.loads(fixture.build_snapshot_json)
+		response["pricing_inputs"] = {key: fixture.get(key) for key in ("fixture_template", "finish", "lens_appearance", "mounting_method", "endcap_style_start", "endcap_style_end", "power_feed_type", "environment_rating", "tape_offering")}
 	else:
-		fixture_id = _create_or_update_multisegment_fixture(
-			fixture_template_code,
-			finish_code,
-			lens_appearance_code,
-			mounting_method_code,
-			endcap_color_code,
-			environment_rating_code,
-			tape_offering_id,
-			segments,
-			response["computed"],
-			response["resolved_items"],
-			response["pricing"],
-			include_power_supply=include_power_supply,
-			parent_configured_fixture=parent_configured_fixture,
-			variant_origin=variant_origin,
-			override_max_run_ft=override_max_run_ft if computed_result.get("override_max_run_ft_active") else None,
-		)
-		response["configured_fixture_id"] = fixture_id
-		_set_fixture_part_number_in_pricing(response, fixture_id)
+		response["configured_fixture_id"] = fixture
+		_set_fixture_part_number_in_pricing(response, fixture)
 
 	if response["is_valid"]:
 		response["messages"].append({
@@ -2497,6 +2478,7 @@ def _create_or_update_multisegment_fixture(
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
 	override_max_run_ft: float | None = None,
+	in_memory: bool = False,
 ) -> str:
 	"""
 	Create or update a multi-segment configured fixture document.
@@ -2526,85 +2508,13 @@ def _create_or_update_multisegment_fixture(
 	config_json = json.dumps(config_data, sort_keys=True)
 	config_hash = hashlib.sha256(config_json.encode()).hexdigest()[:32]
 
-	# Variant branch: skip hash/name reuse, always create a new record with a
-	# -V(XXXX) suffix and a parent link to the root ancestor.
+	doc = frappe.new_doc("ilL-Configured-Fixture")
+	doc.config_hash = config_hash
 	if parent_configured_fixture:
-		root_parent = _resolve_root_configured_fixture(parent_configured_fixture)
-		variant_suffix = _compute_variant_suffix(config_data)
-		doc = frappe.new_doc("ilL-Configured-Fixture")
-		doc.config_hash = config_hash
-		doc.parent_configured_fixture = root_parent
-		doc.variant_suffix = variant_suffix
-		if variant_origin:
-			doc.variant_origin = variant_origin
-		existing = None
-	else:
-		# Check for existing fixture with same hash
-		existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
-		collision_name = None
-
-		# If not found by hash, also check by generated part number (to handle duplicates)
-		# Create a temporary doc to generate the part number
-		if not existing:
-			temp_doc = frappe.new_doc("ilL-Configured-Fixture")
-			temp_doc.fixture_template = fixture_template_code
-			temp_doc.finish = finish_code
-			temp_doc.lens_appearance = lens_appearance_code
-			temp_doc.mounting_method = mounting_method_code
-			temp_doc.endcap_color = endcap_color_code
-			temp_doc.environment_rating = environment_rating_code
-			temp_doc.tape_offering = tape_offering_id
-			temp_doc.is_multi_segment = 1 if is_multi_segment else 0
-			temp_doc.requested_overall_length_mm = computed.get("total_requested_length_mm", 0)
-			# Set power feed type and user segments for part number generation
-			first_segment = user_segments[0] if user_segments else {}
-			temp_doc.power_feed_type = first_segment.get("start_power_feed_type", "")
-			for user_seg in user_segments:
-				temp_doc.append("user_segments", {
-					"segment_index": user_seg.get("segment_index", 0),
-					"requested_length_mm": user_seg.get("requested_length_mm", 0),
-					"start_feed_direction": user_seg.get("start_feed_direction", ""),
-					"start_power_feed_type": user_seg.get("start_power_feed_type", ""),
-					"start_leader_cable_length_mm": user_seg.get("start_leader_cable_length_mm", 300),
-					"end_type": user_seg.get("end_type", "Endcap"),
-					"end_feed_direction": user_seg.get("end_feed_direction", ""),
-					"end_power_feed_type": user_seg.get("end_power_feed_type", ""),
-					"end_jumper_cable_length_mm": user_seg.get("end_jumper_cable_length_mm", 0),
-				})
-			# Generate the part number that would be used
-			generated_part_number = temp_doc._generate_part_number()
-			# Check if this part number already exists. Because the exact
-			# config_hash lookup above failed, any record sharing this part
-			# number is a different configuration (a collision), not a reuse.
-			if frappe.db.exists("ilL-Configured-Fixture", generated_part_number):
-				collision_name = generated_part_number
-
-		if existing:
-			# Exact configuration match — safe to reuse/update this record.
-			doc = frappe.get_doc("ilL-Configured-Fixture", existing)
-			# Update config_hash if configuration changed
-			doc.config_hash = config_hash
-		elif collision_name:
-			# Part-number collision with a different configuration.
-			# E14: never mutate the colliding record (it may back historical
-			# orders/quotes/BOMs). Compare the full configuration and, on
-			# mismatch, create a variant so the original stays untouched.
-			collision_doc = frappe.get_doc("ilL-Configured-Fixture", collision_name)
-			if (collision_doc.config_hash or "") == config_hash:
-				doc = collision_doc
-				doc.config_hash = config_hash
-				existing = collision_name
-			else:
-				root_parent = _resolve_root_configured_fixture(collision_name)
-				doc = frappe.new_doc("ilL-Configured-Fixture")
-				doc.config_hash = config_hash
-				doc.parent_configured_fixture = root_parent
-				doc.variant_suffix = _compute_variant_suffix(config_data)
-				if variant_origin:
-					doc.variant_origin = variant_origin
-		else:
-			doc = frappe.new_doc("ilL-Configured-Fixture")
-			doc.config_hash = config_hash
+		doc.parent_configured_fixture = _resolve_root_configured_fixture(parent_configured_fixture)
+		doc.variant_suffix = _compute_variant_suffix(config_data)
+	if variant_origin:
+		doc.variant_origin = variant_origin
 
 	# Set values
 	doc.engine_version = ENGINE_VERSION
@@ -2617,6 +2527,8 @@ def _create_or_update_multisegment_fixture(
 	doc.environment_rating = environment_rating_code
 	doc.tape_offering = tape_offering_id
 	doc.include_power_supply = 1 if include_power_supply else 0
+	doc.endcap_style_start = resolved_items.get("endcap_style_start")
+	doc.endcap_style_end = resolved_items.get("endcap_style_end")
 
 	# Use first segment's start power feed type
 	first_segment = user_segments[0] if user_segments else {}
@@ -2750,16 +2662,12 @@ def _create_or_update_multisegment_fixture(
 		"timestamp": now(),
 	})
 
-	# Save document
-	if existing:
-		doc.save()
-	else:
-		if variant_origin and not getattr(doc, "variant_origin", None):
-			doc.variant_origin = variant_origin
-		doc.insert()
+	from illumenate_lighting.illumenate_lighting.api.linear_build import finish
+	result = finish(doc, config_data, computed, resolved_items, include_power_supply, override_max_run_ft, in_memory=in_memory)
+	if not in_memory:
+		_register_fixture_handoff(result)
+	return result
 
-	_register_fixture_handoff(doc.name)
-	return doc.name
 
 
 def _validate_configuration(
@@ -3710,255 +3618,14 @@ def _resolve_items(
 
 
 def _select_driver_plan(
-	fixture_template_code: str,
-	runs_count: int,
-	total_watts: float,
-	tape_offering_doc=None,
-	dimming_protocol_code: str = None,
+    fixture_template_code: str, runs_count: int, total_watts: float, tape_offering_doc=None,
+    dimming_protocol_code: str = None, runs=None,
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
-	"""
-	Select driver model and calculate quantity to satisfy fixture requirements.
-
-	Implements Epic 5 Task 5.1: Driver auto-selection algorithm.
-
-	Rules (locked):
-	- W_usable = 0.8 * W_rated (or driver.usable_load_factor * max_wattage)
-	- Must satisfy: sum(outputs) >= runs_count AND sum(W_usable) >= total_watts
-	- Selection policy: "lowest cost if cost exists else smallest rated wattage that works"
-	- If one driver can't satisfy, add multiples of the same model until constraints met
-
-	Args:
-		fixture_template_code: Code of the fixture template
-		runs_count: Number of runs requiring driver outputs
-		total_watts: Total wattage load to be driven
-		tape_offering_doc: Tape offering document (for voltage and input protocol)
-		dimming_protocol_code: User's desired dimming protocol (filters drivers by input_protocol)
-
-	Returns:
-		tuple: (driver_plan dict, messages list)
-	"""
-	messages: list[dict[str, str]] = []
-	driver_plan: dict[str, Any] = {
-		"status": "none",
-		"drivers": [],
-	}
-
-	# Handle edge case: no runs or no wattage
-	if runs_count <= 0 or total_watts <= 0:
-		driver_plan["status"] = "not_required"
-		messages.append({
-			"severity": "info",
-			"text": "No driver required (zero runs or zero wattage)",
-			"field": None,
-		})
-		return driver_plan, messages
-
-	# Get tape voltage and input protocol from tape spec
-	# tape_input_protocol is the signal the tape expects from the driver (e.g., PWM)
-	tape_voltage = None
-	tape_input_protocol = None
-	if tape_offering_doc:
-		if not frappe.db.exists("ilL-Spec-LED Tape", tape_offering_doc.tape_spec):
-			messages.append({
-				"severity": "warning",
-				"text": f"Tape spec '{tape_offering_doc.tape_spec}' not found for driver selection",
-				"field": None,
-			})
-		else:
-			tape_spec_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_offering_doc.tape_spec)
-			tape_voltage = tape_spec_doc.input_voltage  # This is the output voltage the driver needs to provide
-			tape_input_protocol = tape_spec_doc.input_protocol  # The dimming signal the tape needs from the driver
-
-	# Query eligible drivers from ilL-Rel-Driver-Eligibility for this template
-	eligibility_rows = frappe.get_all(
-		"ilL-Rel-Driver-Eligibility",
-		filters={
-			"fixture_template": fixture_template_code,
-			"is_allowed": 1,
-			"is_active": 1,
-		},
-		fields=["driver_spec", "priority"],
-		order_by="priority asc",
-	)
-
-	if not eligibility_rows:
-		driver_plan["status"] = "no_eligible_drivers"
-		messages.append({
-			"severity": "warning",
-			"text": f"No eligible drivers configured for template '{fixture_template_code}'",
-			"field": None,
-		})
-		return driver_plan, messages
-
-	# Get driver specs and filter by voltage and dimming protocol
-	candidate_drivers = []
-	for elig_row in eligibility_rows:
-		driver_spec_name = elig_row.driver_spec
-		if not frappe.db.exists("ilL-Spec-Driver", driver_spec_name):
-			continue
-
-		try:
-			driver_spec = frappe.get_doc("ilL-Spec-Driver", driver_spec_name)
-		except frappe.DoesNotExistError:
-			continue  # Skip if driver spec doesn't exist
-
-		# Filter by voltage: driver's voltage_output must match tape's input_voltage.
-		# S3: a driver with no voltage_output is treated as non-matching (not a
-		# wildcard) when the tape requires a specific voltage — an unspecified
-		# output voltage cannot be guaranteed to drive the tape safely.
-		if tape_voltage and driver_spec.voltage_output != tape_voltage:
-			continue
-
-		# Filter by protocol: driver's output_protocol must match tape's input_protocol
-		# This ensures the driver can output the signal the tape expects (e.g., PWM)
-		if tape_input_protocol and driver_spec.output_protocol and driver_spec.output_protocol != tape_input_protocol:
-			continue
-
-		# Filter by user's dimming protocol: driver's input_protocols must include user's selection
-		# This ensures the driver accepts the dimming signal the user wants to use (e.g., 0-10V, DALI)
-		if dimming_protocol_code:
-			# Get the list of supported input protocols from the child table
-			supported_input_protocols = {row.protocol for row in (driver_spec.input_protocols or [])}
-			if supported_input_protocols and dimming_protocol_code not in supported_input_protocols:
-				continue
-
-		# Calculate usable wattage
-		usable_load_factor = float(driver_spec.usable_load_factor or 0.8)
-		max_wattage = float(driver_spec.max_wattage or 0)
-		outputs_count = int(driver_spec.outputs_count or 1)
-		cost = float(driver_spec.cost or 0) if driver_spec.cost else None
-
-		w_usable = usable_load_factor * max_wattage
-
-		candidate_drivers.append({
-			"driver_spec_name": driver_spec_name,
-			"item": driver_spec.item,
-			"max_wattage": max_wattage,
-			"w_usable": w_usable,
-			"outputs_count": outputs_count,
-			"cost": cost,
-			"priority": elig_row.priority,
-		})
-
-	if not candidate_drivers:
-		driver_plan["status"] = "no_matching_drivers"
-		filter_criteria = []
-		if tape_voltage:
-			filter_criteria.append(f"voltage '{tape_voltage}'")
-		if tape_input_protocol:
-			filter_criteria.append(f"output protocol '{tape_input_protocol}'")
-		if dimming_protocol_code:
-			filter_criteria.append(f"input protocol '{dimming_protocol_code}'")
-		messages.append({
-			"severity": "warning",
-			"text": (
-				f"No drivers match {' and '.join(filter_criteria) or 'requirements'} "
-				f"for template '{fixture_template_code}'"
-			),
-			"field": None,
-		})
-		return driver_plan, messages
-
-	# Selection policy: "lowest cost if cost exists else smallest rated wattage that works"
-	# First, sort candidates by selection policy
-	# Priority 1: Drivers with cost (sorted by cost ascending)
-	# Priority 2: Drivers without cost (sorted by max_wattage ascending)
-	drivers_with_cost = [d for d in candidate_drivers if d["cost"] is not None]
-	drivers_without_cost = [d for d in candidate_drivers if d["cost"] is None]
-
-	# Sort drivers with cost by cost (lowest first)
-	drivers_with_cost.sort(key=lambda d: (d["cost"], d["max_wattage"]))
-
-	# Sort drivers without cost by max_wattage (smallest first)
-	drivers_without_cost.sort(key=lambda d: d["max_wattage"])
-
-	# Combine: prefer drivers with cost (sorted by lowest cost)
-	sorted_candidates = drivers_with_cost + drivers_without_cost
-
-	# Find the best driver that can satisfy constraints (possibly with multiples)
-	selected_driver = None
-	selected_qty = 0
-
-	for candidate in sorted_candidates:
-		# Calculate how many of this driver we need
-		# Constraint 1: sum(outputs) >= runs_count
-		# Constraint 2: sum(W_usable) >= total_watts
-
-		outputs_per_driver = candidate["outputs_count"]
-		w_usable_per_driver = candidate["w_usable"]
-
-		# Use a minimum threshold to prevent division issues with extremely small values
-		MIN_THRESHOLD = 0.001
-		if outputs_per_driver < MIN_THRESHOLD or w_usable_per_driver < MIN_THRESHOLD:
-			continue  # Skip invalid drivers
-
-		# Calculate quantity needed for outputs constraint
-		qty_for_outputs = math.ceil(runs_count / outputs_per_driver)
-
-		# Calculate quantity needed for wattage constraint
-		qty_for_watts = math.ceil(total_watts / w_usable_per_driver)
-
-		# Take the maximum to satisfy both constraints
-		qty_needed = max(qty_for_outputs, qty_for_watts)
-
-		# Select this driver
-		selected_driver = candidate
-		selected_qty = qty_needed
-		break  # First valid candidate wins (already sorted by policy)
-
-	if not selected_driver:
-		driver_plan["status"] = "no_suitable_driver"
-		messages.append({
-			"severity": "warning",
-			"text": "No driver can satisfy the output/wattage requirements",
-			"field": None,
-		})
-		return driver_plan, messages
-
-	# Calculate outputs used and generate mapping notes
-	total_outputs_available = selected_driver["outputs_count"] * selected_qty
-	outputs_used = min(runs_count, total_outputs_available)
-
-	# Generate sequential run→output mapping notes
-	mapping_notes_parts = []
-	run_idx = 1
-	for driver_idx in range(1, selected_qty + 1):
-		for output_idx in range(1, selected_driver["outputs_count"] + 1):
-			if run_idx > runs_count:
-				break
-			mapping_notes_parts.append(f"Run {run_idx} → Driver {driver_idx} Output {output_idx}")
-			run_idx += 1
-		if run_idx > runs_count:
-			break
-	mapping_notes = "; ".join(mapping_notes_parts)
-
-	# Build driver plan result
-	driver_plan = {
-		"status": "selected",
-		"drivers": [
-			{
-				"driver_spec": selected_driver["driver_spec_name"],
-				"item_code": selected_driver["item"],
-				"qty": selected_qty,
-				"outputs_per_driver": selected_driver["outputs_count"],
-				"outputs_used": outputs_used,
-				"w_usable_per_driver": round(selected_driver["w_usable"], 2),
-				"total_w_usable": round(selected_driver["w_usable"] * selected_qty, 2),
-				"mapping_notes": mapping_notes,
-			}
-		],
-	}
-
-	messages.append({
-		"severity": "info",
-		"text": (
-			f"Driver selected: {selected_driver['item']} × {selected_qty} "
-			f"({outputs_used} outputs used, {round(selected_driver['w_usable'] * selected_qty, 2)}W usable capacity)"
-		),
-		"field": None,
-	})
-
-	return driver_plan, messages
+    from illumenate_lighting.illumenate_lighting.api.linear_power import select
+    try:
+        return select(fixture_template_code, runs_count, total_watts, tape_offering_doc, dimming_protocol_code, runs)
+    except (ValueError, frappe.ValidationError) as exc:
+        return {"status": "invalid", "drivers": []}, [{"severity": "error", "text": str(exc), "field": "include_power_supply"}]
 
 
 def _calculate_pricing(
@@ -4025,7 +3692,7 @@ def _calculate_pricing(
 		length_mm = float(computed.get("manufacturable_overall_length_mm", 0))
 		length_basis_description = "L_mfg"
 	else:
-		length_mm = float(computed.get("tape_cut_length_mm", 0))
+		length_mm = float(computed.get("tape_cut_length_mm", computed.get("total_tape_length_mm", 0)))
 		length_basis_description = "L_tape_cut"
 
 	# Convert mm to feet for $/ft calculation
@@ -4170,25 +3837,8 @@ def _calculate_pricing(
 			if not driver_item_code:
 				continue
 
-			# Look up MSRP from Item Price (Selling, Standard Selling price list)
-			driver_msrp = 0.0
-			try:
-				# E12: filter on the Standard Selling price list so the lookup
-				# returns the MSRP rate rather than an arbitrary selling price
-				# row that happens to exist for this item.
-				driver_price = frappe.db.get_value(
-					"Item Price",
-					{
-						"item_code": driver_item_code,
-						"price_list": "Standard Selling",
-						"selling": 1,
-					},
-					"price_list_rate",
-				)
-				if driver_price:
-					driver_msrp = float(driver_price)
-			except Exception:
-				pass
+			from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import selling_amount
+			driver_msrp = selling_amount(driver_item_code, 1)
 
 			# Apply same tier discount percentage to driver
 			if discount_percentage and driver_msrp > 0:
@@ -4197,14 +3847,19 @@ def _calculate_pricing(
 				driver_tier = round(driver_msrp, 2)
 
 			driver_qty = drv.get("qty", 1)
+			msrp_unit += driver_msrp * driver_qty
+			tier_unit += driver_tier * driver_qty
 			item_pricing.append({
 				"item_type": "power_supply",
+				"qty": driver_qty,
 				"item_code": driver_item_code,
 				"description": f"Power Supply (×{driver_qty})",
 				"msrp_unit": round(driver_msrp, 2),
 				"tier_unit": driver_tier,
 				"discount_amount": round(driver_msrp - driver_tier, 2),
 			})
+
+	discount_amount = msrp_unit - tier_unit
 
 	return {
 		"msrp_unit": round(msrp_unit, 2),
@@ -4294,81 +3949,13 @@ def _create_or_update_configured_fixture(
 	# Generate hash: first 32 hex characters (128 bits of entropy) from SHA-256 for collision resistance
 	config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()[:32]
 
-	# Variant branch: caller is creating a modified-of-existing record.  Do
-	# NOT reuse any existing record — a new doc with a -V(XXXX) suffix is
-	# always created so historical orders/quotes pinned to the parent stay
-	# untouched.
+	doc = frappe.new_doc("ilL-Configured-Fixture")
+	doc.config_hash = config_hash
 	if parent_configured_fixture:
-		root_parent = _resolve_root_configured_fixture(parent_configured_fixture)
-		variant_suffix = _compute_variant_suffix(config_data)
-		doc = frappe.new_doc("ilL-Configured-Fixture")
-		doc.config_hash = config_hash
-		doc.parent_configured_fixture = root_parent
-		doc.variant_suffix = variant_suffix
-		if variant_origin:
-			doc.variant_origin = variant_origin
-		existing = None
-	else:
-		# Check if this configuration already exists by config_hash field
-		existing = frappe.db.exists("ilL-Configured-Fixture", {"config_hash": config_hash})
-
-		if existing:
-			doc = frappe.get_doc("ilL-Configured-Fixture", existing)
-		else:
-			# No exact hash match - create a temporary doc to generate the part number
-			# then check if that part number already exists (collision handling)
-			doc = frappe.new_doc("ilL-Configured-Fixture")
-			doc.config_hash = config_hash
-
-			# Populate key fields needed for part number generation
-			doc.fixture_template = fixture_template_code
-			doc.finish = finish_code
-			doc.lens_appearance = lens_appearance_code
-			doc.mounting_method = mounting_method_code
-			doc.endcap_style_start = endcap_style_start_code
-			doc.endcap_style_end = endcap_style_end_code
-			doc.endcap_color = endcap_color_code
-			doc.power_feed_type = power_feed_type_code
-			doc.environment_rating = environment_rating_code
-			doc.tape_offering = tape_offering_id
-			doc.requested_overall_length_mm = requested_overall_length_mm
-			doc.is_multi_segment = 0
-
-			# Generate the part number that would be used
-			potential_part_number = doc._generate_part_number()
-
-			# Check if this part number already exists
-			existing_by_name = frappe.db.exists("ilL-Configured-Fixture", potential_part_number)
-
-			if existing_by_name:
-				# Part-number collision. The exact-config_hash lookup above
-				# already failed, so an existing record sharing this part
-				# number represents a *different* configuration.
-				#
-				# E14: never mutate that existing record — doing so silently
-				# rewrites the attributes/pricing of a fixture that historical
-				# orders, quotes and BOMs may be pinned to. Instead, compare
-				# the full configuration and, on mismatch, spin off a variant
-				# (a brand-new record with a ``-V(XXXX)`` suffix) so the
-				# original stays untouched.
-				existing_doc = frappe.get_doc("ilL-Configured-Fixture", existing_by_name)
-				if (existing_doc.config_hash or "") == config_hash:
-					# Identical configuration after all — safe to reuse/update.
-					doc = existing_doc
-					doc.config_hash = config_hash
-					existing = existing_by_name
-				else:
-					# Configuration mismatch → create a variant of the
-					# existing record's root ancestor.
-					root_parent = _resolve_root_configured_fixture(existing_by_name)
-					variant_doc = frappe.new_doc("ilL-Configured-Fixture")
-					variant_doc.config_hash = config_hash
-					variant_doc.parent_configured_fixture = root_parent
-					variant_doc.variant_suffix = _compute_variant_suffix(config_data)
-					if variant_origin:
-						variant_doc.variant_origin = variant_origin
-					doc = variant_doc
-					existing = None
+		doc.parent_configured_fixture = _resolve_root_configured_fixture(parent_configured_fixture)
+		doc.variant_suffix = _compute_variant_suffix(config_data)
+	if variant_origin:
+		doc.variant_origin = variant_origin
 
 	# Set identity fields
 	doc.engine_version = ENGINE_VERSION
@@ -4535,29 +4122,12 @@ def _create_or_update_configured_fixture(
 		},
 	)
 
-	# Save the document
-	if in_memory:
-		# Caller wants an unsaved, fully-populated doc (e.g. for prospective
-		# BOM preview).  Do not insert or save; just return the doc.
-		if not doc.name:
-			try:
-				doc.name = doc._generate_part_number()
-			except Exception:
-				doc.name = "PREVIEW"
-		return doc
+	from illumenate_lighting.illumenate_lighting.api.linear_build import finish
+	result = finish(doc, config_data, computed, resolved_items, include_power_supply, override_max_run_ft, in_memory=in_memory)
+	if not in_memory:
+		_register_fixture_handoff(result)
+	return result
 
-	if existing:
-		doc.save(ignore_permissions=True)
-	else:
-		# For new documents, pre-set the name to avoid autoname regeneration issues
-		if not doc.name:
-			doc.name = doc._generate_part_number()
-		if variant_origin and not getattr(doc, "variant_origin", None):
-			doc.variant_origin = variant_origin
-		doc.insert(ignore_permissions=True)
-
-	_register_fixture_handoff(doc.name)
-	return doc.name
 
 
 def _register_fixture_handoff(configured_name):

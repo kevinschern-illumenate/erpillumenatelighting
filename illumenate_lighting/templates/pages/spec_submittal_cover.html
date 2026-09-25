@@ -174,7 +174,7 @@
 				</td>
 				<td>
 					{% if line.manufacturer_type == 'ILLUMENATE' %}
-						{% if line.configured_fixture %}
+						{% if line.get('build') %}
 							<span class="status-configured">Configured</span>
 						{% else %}
 							<span class="status-pending">Pending</span>
@@ -188,8 +188,8 @@
 				<td>
 					{% if line.spec_document_url %}
 						<span class="has-spec">✓ Included</span>
-					{% elif line.manufacturer_type == 'ACCESSORY' %}
-						<span class="status-other">N/A</span>
+					{% elif not line.get('required', True) %}
+						<span class="status-other">{{ line.get('exclusion_reason') }}</span>
 					{% else %}
 						<span class="no-spec">✗ Missing</span>
 					{% endif %}

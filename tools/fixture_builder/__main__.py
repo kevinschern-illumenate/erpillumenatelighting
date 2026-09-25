@@ -15,29 +15,29 @@ import os
 import sys
 
 from .config_schema import FixtureBuilderConfig, load_config
-from .prompts import prompt_all
 from .generators import (
-    gen_item_csv,
-    gen_spec_profile,
-    gen_spec_lens,
-    gen_spec_accessory,
-    gen_rel_profile_lens,
     gen_fixture_template,
-    gen_rel_mounting_map,
-    gen_rel_endcap_map,
-    gen_rel_driver_eligibility,
-    gen_spec_submittal_mapping,
-    gen_webflow_product,
-    gen_tape_item_csv,
-    gen_spec_led_tape,
-    gen_rel_tape_offering,
-    gen_tape_neon_template,
-    gen_neon_submittal_mapping,
-    gen_tape_neon_webflow,
-    gen_led_sheet_template,
+    gen_item_csv,
     gen_led_sheet_submittal_mapping,
+    gen_led_sheet_template,
     gen_led_sheet_webflow,
+    gen_neon_submittal_mapping,
+    gen_rel_driver_eligibility,
+    gen_rel_endcap_map,
+    gen_rel_mounting_map,
+    gen_rel_profile_lens,
+    gen_rel_tape_offering,
+    gen_spec_accessory,
+    gen_spec_led_tape,
+    gen_spec_lens,
+    gen_spec_profile,
+    gen_spec_submittal_mapping,
+    gen_tape_item_csv,
+    gen_tape_neon_template,
+    gen_tape_neon_webflow,
+    gen_webflow_product,
 )
+from .prompts import prompt_all
 
 
 def validate_config(config: FixtureBuilderConfig) -> list[str]:
@@ -121,12 +121,21 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
         if not (config.leader_cable_item or any(t.leader_cable_item for t in config.led_sheet_templates)):
             errors.append("leader_cable_item is required for led-sheet")
         for spec in config.led_sheet_specs:
+            from illumenate_lighting.illumenate_lighting.api.authoring_contract import record_issues
+            issues = record_issues("ilL-Spec-LED-Sheet", {
+                "name": spec.item_code, "item": spec.item_code, "led_package": spec.led_package,
+                "sheet_width_ft": spec.sheet_dimensions.width_ft, "sheet_height_ft": spec.sheet_dimensions.height_ft,
+                "total_sheet_watts": spec.total_sheet_watts, "watts_per_sqft": spec.watts_per_sqft,
+                "input_voltage": spec.input_voltage, "input_protocol": spec.input_protocol,
+                "cct": spec.cct, "max_panels_per_feed": spec.max_panels_per_feed,
+            })
+            errors.extend(f"{row['record']}: {row['field']}: {row['message']}" for row in issues)
             if not spec.led_package:
                 errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: led_package is required")
             if spec.sheet_dimensions.width_ft <= 0 or spec.sheet_dimensions.height_ft <= 0:
                 errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: sheet_dimensions must be greater than zero")
-            if spec.watts_per_sqft <= 0:
-                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: watts_per_sqft must be greater than zero")
+            if spec.watts_per_sqft <= 0 and spec.total_sheet_watts <= 0:
+                errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: full panel watts or watts_per_sqft is required")
             if spec.lumens_per_sqft <= 0:
                 errors.append(f"LED Sheet spec {spec.item_code or '(unnamed)'}: lumens_per_sqft must be greater than zero")
 
@@ -188,6 +197,7 @@ def generate_all_tape_neon(config: FixtureBuilderConfig, output_dir: str,
 
     # Phase 2: Both modes (templates, submittal, webflow)
     results["ilL-Tape-Neon-Template.csv"] = gen_tape_neon_template.generate(config, output_dir)
+    results["ilL-Rel-Driver-Eligibility.csv"] = gen_rel_driver_eligibility.generate(config, output_dir)
     results["ilL-Neon-Submittal-Mapping.csv"] = gen_neon_submittal_mapping.generate(
         config, output_dir, source_csv_path=source_submittal_csv
     )
@@ -202,6 +212,7 @@ def generate_all_led_sheet(config: FixtureBuilderConfig, output_dir: str,
     os.makedirs(output_dir, exist_ok=True)
     results = {}
     results.update(gen_led_sheet_template.generate(config, output_dir))
+    results["ilL-Rel-Driver-Eligibility.csv"] = gen_rel_driver_eligibility.generate(config, output_dir)
     results["ilL-LED-Sheet-Submittal-Mapping.csv"] = gen_led_sheet_submittal_mapping.generate(
         config, output_dir, source_csv_path=source_submittal_csv
     )

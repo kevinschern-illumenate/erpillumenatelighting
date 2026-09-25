@@ -1,0 +1,154 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Product-Publication",
+ "module": "ilLumenate Lighting",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "field_order": [
+  "product",
+  "brand",
+  "scope_key",
+  "current_hash",
+  "approved_hash",
+  "approved_by",
+  "approved_on",
+  "staged_hash",
+  "live_hash",
+  "remote_item_id",
+  "state",
+  "readiness_json",
+  "dependencies_json",
+  "last_error",
+  "staged_on",
+  "published_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "read_only": 1,
+   "in_list_view": 1,
+   "reqd": 1,
+   "options": "ilL-Webflow-Product"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "read_only": 1,
+   "in_list_view": 1,
+   "reqd": 1,
+   "options": "ilL-Webflow-Brand"
+  },
+  {
+   "fieldname": "scope_key",
+   "fieldtype": "Data",
+   "label": "Scope Key",
+   "read_only": 1,
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "current_hash",
+   "fieldtype": "Data",
+   "label": "Current Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_hash",
+   "fieldtype": "Data",
+   "label": "Approved Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "staged_hash",
+   "fieldtype": "Data",
+   "label": "Staged Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "live_hash",
+   "fieldtype": "Data",
+   "label": "Live Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remote_item_id",
+   "fieldtype": "Data",
+   "label": "Remote Item Id",
+   "read_only": 1
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "label": "State",
+   "read_only": 1,
+   "in_list_view": 1,
+   "options": "NEEDS_REVIEW\nREADY\nQUEUED\nSTAGED\nLIVE\nFAILED\nRETIRED"
+  },
+  {
+   "fieldname": "readiness_json",
+   "fieldtype": "Long Text",
+   "label": "Readiness Json",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dependencies_json",
+   "fieldtype": "Long Text",
+   "label": "Dependencies Json",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "staged_on",
+   "fieldtype": "Datetime",
+   "label": "Staged On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "published_on",
+   "fieldtype": "Datetime",
+   "label": "Published On",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  },
+  {
+   "role": "ilL Catalog Publisher",
+   "read": 1,
+   "report": 1
+  },
+  {
+   "role": "ilL Integration",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

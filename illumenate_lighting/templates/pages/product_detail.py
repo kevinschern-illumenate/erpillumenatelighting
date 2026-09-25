@@ -26,7 +26,7 @@ def get_context(context):
 
     # Validate product exists
     if not product_slug or not frappe.db.exists(
-        "ilL-Webflow-Product", {"product_slug": product_slug}
+        "ilL-Webflow-Product", {"product_slug": product_slug, "is_active": 1}
     ):
         frappe.throw(_("Product not found"), frappe.DoesNotExistError)
 

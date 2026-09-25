@@ -185,11 +185,16 @@ def _eligible_warehouses() -> list[str]:
     cached = getattr(frappe.local, "_ill_portal_warehouses", None)
     if cached is not None:
         return cached
+    company = frappe.conf.get("ill_portal_stock_company") or frappe.db.get_single_value("Global Defaults", "default_company")
+    if not company:
+        frappe.throw(_("Stock availability is unavailable: configure the portal stock company."))
     names = frappe.get_all(
         "Warehouse",
-        filters={"warehouse_name": PORTAL_STOCK_WAREHOUSE_NAME, "is_group": 0, "disabled": 0},
+        filters={"warehouse_name": PORTAL_STOCK_WAREHOUSE_NAME, "company": company, "is_group": 0, "disabled": 0},
         pluck="name",
     )
+    if not names:
+        frappe.throw(_("Stock availability is unavailable: configure ilL-Stores for the portal stock company."))
     frappe.local._ill_portal_warehouses = names
     return names
 
@@ -200,8 +205,8 @@ def stock_scope_info() -> dict[str, Any]:
     return {
         "basis": "available_now",
         "label": _("Available now (on hand minus reserved)"),
-        "warehouse_scope": warehouses or ["all"],
-        "warehouse_scoped": bool(warehouses),
+        "warehouse_scope": warehouses,
+        "warehouse_scoped": True,
         "as_of": now_datetime(),
     }
 
@@ -209,9 +214,10 @@ def stock_scope_info() -> dict[str, Any]:
 def _available_qty_sql(item_placeholders: str) -> tuple[str, list[str]]:
     """SQL summing available (actual - reserved) qty over eligible warehouses."""
     warehouses = _eligible_warehouses()
+    if not warehouses:
+        frappe.throw(_("Stock availability is unavailable: no eligible warehouse."))
     where = f"item_code IN ({item_placeholders})"
-    if warehouses:
-        where += " AND warehouse IN (" + ", ".join(["%s"] * len(warehouses)) + ")"
+    where += " AND warehouse IN (" + ", ".join(["%s"] * len(warehouses)) + ")"
     sql = f"""SELECT item_code,
                     IFNULL(SUM(actual_qty - IFNULL(reserved_qty, 0)), 0) AS available_qty
                FROM `tabBin`
@@ -378,13 +384,19 @@ def fixture_components(cf) -> list[tuple[str, str, float, str]]:
     ``[(component_type, item_code, qty_per_unit, uom), ...]`` with Product
     Bundles already expanded.
     """
+    if cf.get("build_schema_version") == 2:
+        from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+        return _expand_product_bundles([
+            ("Build component", row["item_code"], row["qty"], row["stock_uom"])
+            for row in snapshot(cf)["components"]
+        ])
     from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-        _calculate_profile_quantity,
-        _calculate_lens_quantity,
         _calculate_endcap_quantities,
+        _calculate_lens_quantity,
         _calculate_mounting_quantity,
-        _get_tape_item,
+        _calculate_profile_quantity,
         _calculate_total_tape_length,
+        _get_tape_item,
     )
 
     components: list[tuple[str, str, float, str]] = []

@@ -10,13 +10,16 @@ Series → Dry/Wet → CCT → Lens → Output → Mounting → Finish → Lengt
 Series (including LED Package) is pre-selected based on the fixture product page.
 """
 
-import frappe
 import hashlib
 import json
-from frappe import _
-from typing import Optional, List, Dict, Any
-from frappe.utils import now_datetime, add_to_date
+from typing import Any, Dict, List, Optional
 
+import frappe
+from frappe import _
+from frappe.rate_limiter import rate_limit
+from frappe.utils import add_to_date, now_datetime
+
+from illumenate_lighting.illumenate_lighting.portal.product_downloads import isolated_download
 
 # =============================================================================
 # CONFIGURATION CONSTANTS
@@ -524,6 +527,8 @@ def create_complex_fixture_session(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=10, seconds=60)
+@isolated_download
 def download_spec_sheet(
     product_slug: str,
     selections: str,
@@ -562,6 +567,11 @@ def download_spec_sheet(
     product_type = frappe.db.get_value(
         "ilL-Webflow-Product", {"product_slug": product_slug}, "product_type"
     )
+
+    if product_type == "LED Sheet":
+        from illumenate_lighting.illumenate_lighting.api.public_sheet import generate
+
+        return generate(product_slug, selections_dict, project_name, project_location, fixture_type)
 
     if product_type in ("Driver", "Controller"):
         from illumenate_lighting.illumenate_lighting.api.spec_sheet_generator import (
@@ -1844,6 +1854,9 @@ def _get_configurable_product(product_slug: str):
     # First, try to find a Webflow product
     if frappe.db.exists("ilL-Webflow-Product", {"product_slug": product_slug}):
         product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
+
+        if not product.is_active:
+            return None
         
         is_configurable = getattr(product, 'is_configurable', False)
         fixture_template = getattr(product, 'fixture_template', None)
@@ -2011,13 +2024,13 @@ def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id:
 
     Returns None on any engine error (caller treats as non-critical).
     """
-    from illumenate_lighting.illumenate_lighting.api.webflow_schedule import (
-        _map_feed_direction_to_power_feed,
-        _get_default_endcap_style,
-        _get_default_endcap_color,
-    )
     from illumenate_lighting.illumenate_lighting.api.configurator_engine import validate_and_quote
     from illumenate_lighting.illumenate_lighting.api.pricing_utils import get_bom_stock_availability
+    from illumenate_lighting.illumenate_lighting.api.webflow_schedule import (
+        _get_default_endcap_color,
+        _get_default_endcap_style,
+        _map_feed_direction_to_power_feed,
+    )
 
     length_inches = float(selections_dict.get("length_inches", 0))
     if length_inches <= 0:
@@ -2122,64 +2135,6 @@ def get_tape_neon_mounting_options(
 
 @frappe.whitelist(allow_guest=True)
 def get_sheet_configurator_data(webflow_product_slug: str) -> dict:
-    """Initialize Webflow-side configurator data for an LED Sheet product page."""
-    if not webflow_product_slug:
-        return {"success": False, "error": "webflow_product_slug is required"}
+    from illumenate_lighting.illumenate_lighting.api.public_sheet import data
 
-    product = frappe.get_all(
-        "ilL-Webflow-Product",
-        filters={"product_slug": webflow_product_slug, "product_type": "LED Sheet", "is_active": 1},
-        fields=["name", "product_name", "product_slug", "led_sheet_template"],
-        limit=1,
-    )
-    if not product or not product[0].get("led_sheet_template"):
-        return {"success": False, "error": "LED Sheet product not found or not linked to a template"}
-
-    template = frappe.get_doc("ilL-LED-Sheet-Template", product[0]["led_sheet_template"])
-    specs = []
-    for row in template.allowed_specs or []:
-        if not getattr(row, "is_active", 1) or not getattr(row, "spec", None):
-            continue
-        spec = frappe.get_doc("ilL-Spec-LED-Sheet", row.spec)
-        specs.append({
-            "name": spec.name,
-            "item": getattr(spec, "item", None),
-            "led_package": getattr(spec, "led_package", None),
-            "sheet_width_ft": getattr(spec, "sheet_width_ft", None),
-            "sheet_height_ft": getattr(spec, "sheet_height_ft", None),
-            "sheet_area_sqft": getattr(spec, "sheet_area_sqft", None),
-            "watts_per_sqft": getattr(spec, "watts_per_sqft", None),
-            "total_sheet_watts": getattr(spec, "total_sheet_watts", None),
-            "lumens_per_sqft": getattr(spec, "lumens_per_sqft", None),
-            "total_sheet_lumens": getattr(spec, "total_sheet_lumens", None),
-            "input_voltage": getattr(spec, "input_voltage", None),
-            "ip_rating": getattr(spec, "ip_rating", None),
-        })
-
-    options = {}
-    for row in template.allowed_options or []:
-        if not getattr(row, "is_active", 1):
-            continue
-        options.setdefault(row.option_type, []).append({
-            "attribute": getattr(row, "attribute_link", None),
-            "code": getattr(row, "option_code", None),
-            "is_default": getattr(row, "is_default", 0),
-            "msrp_adder": getattr(row, "msrp_adder", 0),
-        })
-
-    return {
-        "success": True,
-        "product": product[0],
-        "template": {
-            "name": template.name,
-            "template_code": getattr(template, "template_code", None),
-            "template_name": getattr(template, "template_name", None),
-            "sku_series_code": getattr(template, "sku_series_code", None),
-            "price_per_sheet_msrp": getattr(template, "price_per_sheet_msrp", 0),
-            "jumper_cable_item": getattr(template, "jumper_cable_item", None),
-            "leader_cable_item": getattr(template, "leader_cable_item", None),
-        },
-        "specs": specs,
-        "options": options,
-        "pricing_preview": {"price_per_sheet_msrp": getattr(template, "price_per_sheet_msrp", 0)},
-    }
+    return data(webflow_product_slug)

@@ -1,0 +1,166 @@
+{
+  "doctype": "DocType",
+  "name": "ilL-Quote-Request",
+  "module": "ilLumenate Lighting",
+  "autoname": "format:QR-{#####}",
+  "engine": "InnoDB",
+  "track_changes": 1,
+  "field_order": [
+    "schedule",
+    "project",
+    "customer",
+    "requested_by",
+    "state",
+    "assigned_to",
+    "due_date",
+    "notes",
+    "request_snapshot",
+    "request_hash",
+    "idempotency_key",
+    "latest_offer",
+    "latest_issued_offer",
+    "ill_next_action_by"
+  ],
+  "fields": [
+    {
+      "fieldname": "schedule",
+      "fieldtype": "Link",
+      "options": "ilL-Project-Fixture-Schedule",
+      "label": "Schedule",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "project",
+      "fieldtype": "Link",
+      "options": "ilL-Project",
+      "label": "Project"
+    },
+    {
+      "fieldname": "customer",
+      "fieldtype": "Link",
+      "options": "Customer",
+      "label": "Customer",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "requested_by",
+      "fieldtype": "Link",
+      "options": "User",
+      "label": "Requested By",
+      "reqd": 1
+    },
+    {
+      "fieldname": "state",
+      "fieldtype": "Select",
+      "options": "DRAFT\nREQUESTED\nUNDER_REVIEW\nINFORMATION_NEEDED\nISSUED\nCLOSED",
+      "default": "REQUESTED",
+      "label": "State",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "assigned_to",
+      "fieldtype": "Link",
+      "options": "User",
+      "label": "Assigned To"
+    },
+    {
+      "fieldname": "due_date",
+      "fieldtype": "Date",
+      "label": "Due Date"
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Customer Notes"
+    },
+    {
+      "fieldname": "request_snapshot",
+      "fieldtype": "Long Text",
+      "label": "Frozen Request",
+      "read_only": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "request_hash",
+      "fieldtype": "Data",
+      "label": "Request Hash",
+      "read_only": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "idempotency_key",
+      "fieldtype": "Data",
+      "label": "Idempotency Key",
+      "unique": 1,
+      "read_only": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "latest_offer",
+      "fieldtype": "Link",
+      "options": "Quotation",
+      "label": "Latest Offer",
+      "permlevel": 1
+    },
+    {
+      "fieldname": "latest_issued_offer",
+      "fieldtype": "Link",
+      "label": "Latest Issued Offer",
+      "read_only": 1,
+      "permlevel": 1,
+      "options": "ilL-Quote-Offer"
+    },
+    {
+      "fieldname": "ill_next_action_by",
+      "fieldtype": "Select",
+      "label": "Ill Next Action By",
+      "read_only": 1,
+      "options": "Staff\nCustomer\nNone",
+      "default": "Staff"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "report": 1,
+      "export": 1
+    },
+    {
+      "role": "System Manager",
+      "permlevel": 1,
+      "read": 1,
+      "write": 1
+    },
+    {
+      "role": "ilL Sales Review",
+      "read": 1,
+      "write": 1,
+      "report": 1
+    },
+    {
+      "role": "ilL Sales Review",
+      "permlevel": 1,
+      "read": 1,
+      "write": 1
+    },
+    {
+      "role": "ilL Order Approver",
+      "read": 1,
+      "write": 1,
+      "report": 1
+    },
+    {
+      "role": "ilL Order Approver",
+      "permlevel": 1,
+      "read": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "creation",
+  "sort_order": "DESC"
+}

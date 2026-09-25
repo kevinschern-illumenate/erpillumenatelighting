@@ -169,6 +169,7 @@ Help center, FAQ, and support ticket submission
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
@@ -194,7 +195,7 @@ Help center, FAQ, and support ticket submission
 				<i class="fa fa-envelope"></i>
 			</div>
 			<h5>{{ _("Email Support") }}</h5>
-			<p>{{ _("Get help via email within 24 hours") }}</p>
+			<p>{{ _("Contact our support team by email") }}</p>
 			<a href="mailto:support@illumenate.lighting" class="btn btn-outline-primary btn-sm">
 				support@illumenate.lighting
 			</a>
@@ -378,11 +379,11 @@ Help center, FAQ, and support ticket submission
 			<!-- Recent Tickets -->
 			{% if tickets %}
 			<div class="ticket-list">
-				<h5>{{ _("Your Recent Tickets") }}</h5>
+				<h5>{{ _("Your Support Requests") }} ({{ ticket_page.total }})</h5>
 				{% for ticket in tickets %}
 				<div class="ticket-item">
 					<div class="ticket-info">
-						<h6>{{ ticket.subject }}</h6>
+						<h6><a href="/portal/support/{{ ticket.name | urlencode }}">{{ ticket.subject | e }}</a></h6>
 						<div class="ticket-meta">
 							#{{ ticket.name }} • {{ frappe.utils.format_date(ticket.creation) }}
 						</div>
@@ -392,6 +393,10 @@ Help center, FAQ, and support ticket submission
 					</span>
 				</div>
 				{% endfor %}
+				<nav aria-label="{{ _('Support pages') }}">
+					{% if ticket_page.page > 1 %}<a class="btn btn-outline-secondary" href="?page={{ ticket_page.page - 1 }}">{{ _("Previous") }}</a>{% endif %}
+					{% if ticket_page.page * ticket_page.page_size < ticket_page.total %}<a class="btn btn-outline-secondary" href="?page={{ ticket_page.page + 1 }}">{{ _("Next") }}</a>{% endif %}
+				</nav>
 			</div>
 			{% endif %}
 		</div>
@@ -431,36 +436,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	// Support ticket form
 	const form = document.getElementById('supportTicketForm');
-	form.addEventListener('submit', function(e) {
-		e.preventDefault();
-
-		const formData = new FormData(form);
-		const data = Object.fromEntries(formData.entries());
-
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.create_support_ticket',
-			args: { ticket_data: JSON.stringify(data) },
-			freeze: true,
-			freeze_message: '{{ _("Submitting request...") }}',
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					frappe.msgprint({
-						title: '{{ _("Ticket Submitted") }}',
-						indicator: 'green',
-						message: '{{ _("Your support request has been submitted. We will respond within 24 hours.") }}'
-					});
-					form.reset();
-					setTimeout(() => location.reload(), 2000);
-				} else {
-					frappe.msgprint({
-						title: '{{ _("Error") }}',
-						indicator: 'red',
-						message: r.message?.error || '{{ _("An error occurred") }}'
-					});
-				}
-			}
-		});
-	});
+	form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (form.dataset.submitting) return;
+        form.dataset.submitting = '1';
+        const button = form.querySelector('[type="submit"]');
+        if (button) button.disabled = true;
+        try {
+            const data = Object.fromEntries(new FormData(form).entries());
+            delete data.attachments;
+            data.file_ids = await PortalUploads.uploadAll(form.querySelector('[name="attachments"]'));
+            const receipt = await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.portal.create_support_ticket', {ticket_data: JSON.stringify(data)});
+            frappe.msgprint(__('Support request received: {0}', [receipt.ticket_name]));
+            form.reset();
+            location.href = '/portal/support/' + encodeURIComponent(receipt.ticket_name);
+        } catch (error) {
+            frappe.msgprint({title: __('Request not submitted'), indicator: 'red', message: frappe.utils.escape_html(error.message)});
+        } finally {
+            delete form.dataset.submitting;
+            if (button) button.disabled = false;
+        }
+    });
 });
 </script>
 {% endblock %}

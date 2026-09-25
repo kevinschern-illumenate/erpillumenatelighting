@@ -18,7 +18,6 @@ from frappe.utils import cint
 
 from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
-
 # ── helpers ──────────────────────────────────────────────────────────
 
 def _parse_json_param(value):
@@ -62,6 +61,11 @@ def get_catalog_products(
 
     # ── sanitise inputs ──────────────────────────────────────────────
     filters = _parse_json_param(filters) or {}
+    if not isinstance(filters, dict):
+        return {"success": False, "error": _("Filters must be an object")}
+    filters = dict(filters)
+    if len(filters) > 20 or any(not isinstance(value, (str, list)) or (isinstance(value, list) and (len(value) > 50 or any(not isinstance(part, str) for part in value))) for value in filters.values()):
+        return {"success": False, "error": _("Choose up to 20 filters with at most 50 values each")}
     page = max(1, cint(page))
     page_size = min(50, max(1, cint(page_size)))
 
@@ -91,12 +95,27 @@ def get_catalog_products(
             conditions.append("`tabilL-Webflow-Product`.product_type = %(product_type)s")
             params["product_type"] = pt
 
-    # text search
-    search = (search or "").strip()
+    for field in ("series", "product_category"):
+        values = filters.pop(field, None)
+        if values:
+            values = [values] if isinstance(values, str) else values
+            placeholders = ", ".join(f"%({field}_{i})s" for i in range(len(values)))
+            conditions.append(f"`tabilL-Webflow-Product`.{field} IN ({placeholders})")
+            params.update({f"{field}_{i}": value for i, value in enumerate(values)})
+
+    # Search marketing names and ERP model/template identifiers as well as series.
+    search = str(search or "").strip()[:200]
     if search:
         conditions.append(
             "(`tabilL-Webflow-Product`.product_name LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.short_description LIKE %(search)s)"
+            "OR `tabilL-Webflow-Product`.short_description LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.series LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.fixture_template LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.tape_neon_template LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.led_sheet_template LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.driver_spec LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.controller_spec LIKE %(search)s "
+            "OR `tabilL-Webflow-Product`.accessory_spec LIKE %(search)s)"
         )
         params["search"] = f"%{search}%"
 
@@ -146,10 +165,13 @@ def get_catalog_products(
         f"  `tabilL-Webflow-Product`.short_description, "
         f"  `tabilL-Webflow-Product`.featured_image, "
         f"  `tabilL-Webflow-Product`.is_configurable, "
-        f"  `tabilL-Webflow-Product`.fixture_template "
+        f"  `tabilL-Webflow-Product`.fixture_template, "
+        f"  `tabilL-Webflow-Product`.tape_neon_template, "
+        f"  `tabilL-Webflow-Product`.led_sheet_template, "
+        f"  `tabilL-Webflow-Product`.is_active "
         f"FROM `tabilL-Webflow-Product` {attr_join} "
         f"WHERE {where} "
-        f"ORDER BY `tabilL-Webflow-Product`.{sort} "
+        f"ORDER BY `tabilL-Webflow-Product`.{sort}, `tabilL-Webflow-Product`.name asc "
         f"LIMIT %(limit)s OFFSET %(offset)s"
     )
     params["limit"] = page_size
@@ -169,19 +191,9 @@ def get_catalog_products(
         )
         pricing_map = {p.name: p.base_price_msrp for p in prices}
 
-    result = []
-    for p in products:
-        result.append({
-            "name": p.name,
-            "product_name": p.product_name,
-            "product_slug": p.product_slug,
-            "product_type": p.product_type,
-            "series": p.series,
-            "short_description": p.short_description,
-            "featured_image": p.featured_image,
-            "is_configurable": bool(p.is_configurable),
-            "base_price_msrp": pricing_map.get(p.fixture_template),
-        })
+    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
+    from illumenate_lighting.illumenate_lighting.portal.rollout import available
+    result = [project_product(product, price=pricing_map.get(product.fixture_template), commercial=True, configure_available=available(product.product_type)) for product in products]
 
     return {
         "success": True,
@@ -214,121 +226,31 @@ def get_catalog_product_detail(product_slug: str) -> dict:
         "ilL-Webflow-Product", {"product_slug": product_slug}
     )
 
-    # Gallery images
-    gallery = []
-    for img in product.gallery_images or []:
-        gallery.append({
-            "image": img.image,
-            "alt_text": img.alt_text or "",
-            "display_order": img.display_order if hasattr(img, "display_order") else img.idx,
-        })
-    if not gallery and product.featured_image:
-        gallery = [{"image": product.featured_image, "alt_text": product.product_name or ""}]
+    if not product.is_active:
+        return {"success": False, "error": _("Product not found")}
 
-    # Specifications
-    specs = []
-    for s in product.specifications or []:
-        specs.append({
-            "spec_label": s.spec_label if hasattr(s, "spec_label") else getattr(s, "label", ""),
-            "spec_value": s.spec_value if hasattr(s, "spec_value") else getattr(s, "value", ""),
-        })
+    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
 
-    # Certifications
-    certs = []
-    for c in product.certifications or []:
-        certs.append({
-            "certification_name": getattr(c, "certification_name", ""),
-            "certification_body": getattr(c, "certification_body", ""),
-            "file_url": getattr(c, "file_url", ""),
-        })
-
-    # Documents
-    docs = []
-    for d in product.documents or []:
-        docs.append({
-            "document_name": getattr(d, "document_name", ""),
-            "document_type": getattr(d, "document_type", ""),
-            "file_url": getattr(d, "file_url", ""),
-        })
-
-    # Attribute links
-    attributes = []
-    for a in product.attribute_links or []:
-        attributes.append({
-            "attribute_type": a.attribute_type,
-            "attribute_name": a.attribute_name,
-            "display_label": a.display_label or "",
-        })
-
-    # Configurator options
-    config_options = []
-    for o in product.configurator_options or []:
-        config_options.append({
-            "option_type": getattr(o, "option_type", ""),
-            "option_value": getattr(o, "option_value", ""),
-            "display_label": getattr(o, "display_label", ""),
-        })
-
-    # Feed lengths offered on the Webflow part-number configurator
-    feed_lengths = []
-    for fl in sorted(
-        getattr(product, "feed_lengths", []) or [],
-        key=lambda r: (getattr(r, "step", 0) or 0, getattr(r, "display_order", 0) or 0, getattr(r, "idx", 0) or 0),
-    ):
-        label = (getattr(fl, "label", "") or "").strip()
-        code = (getattr(fl, "code", "") or "").strip()
-        if not (label or code):
+    certifications = []
+    for row in sorted(product.certifications or [], key=lambda r: r.display_order or 0):
+        master = frappe.get_doc("ilL-Attribute-Certification", row.certification)
+        applicable = {r.product_type for r in master.applies_to_types or []}
+        if not master.is_active or (applicable and product.product_type not in applicable):
             continue
-        feed_lengths.append({
-            "step": getattr(fl, "step", 0) or 0,
-            "label": label,
-            "code": code,
-        })
-
-    # Compatible products
-    compatible = []
-    for cp in product.compatible_products or []:
-        compatible.append({
-            "linked_product": getattr(cp, "linked_product", ""),
-            "relationship_type": getattr(cp, "relationship_type", ""),
-        })
-
-    # Pricing from fixture template
-    base_price_msrp = None
-    if product.fixture_template:
-        base_price_msrp = frappe.db.get_value(
-            "ilL-Fixture-Template", product.fixture_template, "base_price_msrp"
-        )
-
-    return {
-        "success": True,
-        "product": {
-            "name": product.name,
-            "product_name": product.product_name,
-            "product_slug": product.product_slug,
-            "product_type": product.product_type,
-            "product_category": product.product_category,
-            "series": product.series,
-            "is_active": product.is_active,
-            "is_configurable": bool(product.is_configurable),
-            "fixture_template": product.fixture_template,
-            "short_description": product.short_description,
-            "featured_image": product.featured_image,
-            "configurator_intro_text": product.configurator_intro_text,
-            "min_length_mm": product.min_length_mm,
-            "max_length_mm": product.max_length_mm,
-            "length_increment_mm": product.length_increment_mm,
-            "base_price_msrp": base_price_msrp,
-            "gallery": gallery,
-            "specifications": specs,
-            "certifications": certs,
-            "documents": docs,
-            "attribute_links": attributes,
-            "configurator_options": config_options,
-            "feed_lengths": feed_lengths,
-            "compatible_products": compatible,
-        },
-    }
+        certifications.append({key: master.get(key) for key in (
+            "certification_name", "certification_body", "certification_code", "badge_image"
+        )})
+    price = None
+    if product.product_type == "Fixture Template" and product.fixture_template:
+        price = frappe.db.get_value("ilL-Fixture-Template", product.fixture_template, "base_price_msrp")
+    from illumenate_lighting.illumenate_lighting.portal.rollout import available
+    from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
+    projection = project_product(product, certifications=certifications, price=price, commercial=True, configure_available=available(product.product_type))
+    if not projection["configure_url"]:
+        projection["standard_choices"] = choices(product)
+        if projection["standard_choices"]:
+            projection["capability"] = "quantity"
+    return {"success": True, "product": projection}
 
 
 @frappe.whitelist()
@@ -388,6 +310,11 @@ def get_catalog_filter_options() -> dict:
         {"attribute_type": atype, "options": opts}
         for atype, opts in facets.items()
     ]
+
+    for field in ("series", "product_category"):
+        rows = frappe.db.sql(f"SELECT `{field}` AS value, COUNT(*) AS cnt FROM `tabilL-Webflow-Product` WHERE is_active=1 AND `{field}` IS NOT NULL AND `{field}` != '' GROUP BY `{field}` ORDER BY `{field}`", as_dict=True)
+        if rows:
+            filters.insert(0, {"attribute_type": field, "label": "Series" if field == "series" else "Application", "options": [{"value": row.value, "count": row.cnt} for row in rows]})
 
     return {
         "success": True,

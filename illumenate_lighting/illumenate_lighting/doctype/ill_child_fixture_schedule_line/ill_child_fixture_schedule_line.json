@@ -20,6 +20,7 @@
   "tape_neon_template",
   "led_sheet_template",
   "column_break_illumenate",
+  "configured_group",
   "configured_fixture",
   "configured_tape_neon",
   "configured_led_sheet",
@@ -45,7 +46,10 @@
   "spec_documents_section",
   "fixture_template_override",
   "column_break_spec_line",
-  "linked_spec_document"
+  "linked_spec_document",
+  "line_key",
+  "ill_bom",
+  "ill_configurator_request"
  ],
  "fields": [
   {
@@ -322,6 +326,35 @@
    "fieldtype": "Data",
    "label": "Linked Spec Document",
    "read_only": 1
+  },
+  {
+   "fieldname": "line_key",
+   "fieldtype": "Data",
+   "label": "Stable Line Key",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "ill_bom",
+   "fieldtype": "Link",
+   "options": "BOM",
+   "label": "Configured BOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ill_configurator_request",
+   "fieldtype": "Long Text",
+   "label": "Configurator Request",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "configured_group",
+   "fieldtype": "Link",
+   "label": "Configured Group",
+   "read_only": 1,
+   "options": "ilL-Configured-Group"
   }
  ],
  "grid_page_length": 50,

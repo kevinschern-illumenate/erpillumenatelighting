@@ -26,10 +26,12 @@ def get_context(context):
 		frappe.local.flags.redirect_location = f"/login?redirect-to={quote(current_url, safe='')}"
 		raise frappe.Redirect
 
-	allowed_roles = {"Dealer", "System Manager", "Administrator"}
-	if not (set(frappe.get_roles(frappe.session.user)) & allowed_roles):
+	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
+	if not can_view_catalog():
 		frappe.local.flags.redirect_location = "/portal/request-dealer-access"
 		raise frappe.Redirect
+
+	context.groups_enabled = bool(frappe.conf.get("ill_portal_fixture_groups"))
 
 	quiz_handoff = {
 		"template": frappe.form_dict.get("template"),
@@ -52,6 +54,8 @@ def get_context(context):
 	# labels/slugs so external links like ?category=LED%20Sheets route to the
 	# singular internal LED Sheet configurator instead of falling back to Linear.
 	product_category = _normalize_product_category(frappe.form_dict.get("category"))
+	from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
+	require_family(product_category)
 
 	# Configurator UI mode: "coordinator" (default, multi-segment/tape-neon
 	# builder) or "wizard" (guided step-by-step flow, Linear Fixture only,
@@ -65,6 +69,7 @@ def get_context(context):
 	# Get optional schedule context (pre-fill from fixture schedule line UI)
 	schedule_name = frappe.form_dict.get("schedule")
 	line_idx = frappe.form_dict.get("line_idx")
+	line_key = frappe.form_dict.get("line_key")
 	template_code = frappe.form_dict.get("template")
 
 	schedule = None
@@ -72,7 +77,9 @@ def get_context(context):
 	project_name = None
 
 	if schedule_name:
-		if frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+		if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
+			frappe.throw("Schedule is unavailable", frappe.PermissionError)
+		else:
 			schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
 
 			# Check permission
@@ -80,11 +87,54 @@ def get_context(context):
 				has_permission,
 			)
 
+			if not has_permission(schedule, "read", frappe.session.user):
+				frappe.throw("Schedule is unavailable", frappe.PermissionError)
+
 			if has_permission(schedule, "write", frappe.session.user):
 				can_save = True
 
 			# Get the project name for pre-filling the selector
 			project_name = schedule.ill_project
+
+	if line_key:
+		from illumenate_lighting.illumenate_lighting.portal.configuration import resolve_line
+
+		if not schedule:
+			frappe.throw("Choose a schedule for this line")
+		line_idx = schedule.lines.index(resolve_line(schedule, line_key))
+	if line_idx is not None:
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
+
+		try:
+			index = finite_number(line_idx, minimum=0, field="line index")
+			if not index.is_integer():
+				raise ValueError("Line index must be an integer")
+			line_idx = int(index)
+			if not schedule or line_idx >= len(schedule.lines):
+				raise ValueError("The selected schedule line is unavailable")
+		except ValueError as exc:
+			frappe.throw(str(exc))
+
+	initial_request = None
+	if frappe.form_dict.get("sheet_selections") and not schedule_name:
+		from illumenate_lighting.illumenate_lighting.api.public_sheet import request as sheet_request
+		raw = frappe.form_dict.sheet_selections
+		if len(raw) > 10000:
+			frappe.throw("Sheet selections are too large. Start a new configuration.")
+		initial_request = sheet_request(frappe.form_dict.get("product_slug"), raw)
+		product_category, template_code = "LED Sheet", initial_request["template"]
+		configurator_mode = "coordinator"
+	if schedule and line_idx is not None:
+		from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
+		selected_line = schedule.lines[line_idx]
+		line_key = selected_line.get("line_key") or selected_line.name
+		initial_request = for_line(selected_line)
+		if initial_request:
+			product_category = initial_request["family"]
+			template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
+			if product_category != "Linear Fixture":
+				configurator_mode = "coordinator"
 
 	# Fetch templates based on product category
 	templates = []
@@ -137,6 +187,9 @@ def get_context(context):
 	context.project_name = project_name or ""
 	context.line_idx = int(line_idx) if line_idx is not None else None
 	context.can_save = can_save
+	context.line_key = line_key
+	context.expected_modified = str(schedule.modified) if schedule else None
+	context.initial_request = initial_request
 	context.is_system_manager = is_system_manager
 	context.templates = templates
 	context.selected_template = template_code
@@ -278,6 +331,9 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 	if frappe.session.user == "Guest":
 		frappe.throw("Please login to configure fixtures", frappe.PermissionError)
 
+	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+
+	require_catalog_access()
 	product_category = _normalize_product_category(product_category)
 	if product_category == "LED Sheet":
 		from illumenate_lighting.illumenate_lighting.api.portal import get_led_sheet_templates
@@ -305,15 +361,13 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 			"illumenate_lighting/templates/includes/configurator_fixture_form.html", context
 		)
 
-	title_map = {
-		"LED Tape": "Configure LED Tape",
-		"LED Neon": "Configure LED Neon",
-	}
+	templates = _get_tape_neon_templates(product_category)
 	context = {
-		"is_neon": product_category == "LED Neon",
-		"title": title_map.get(product_category, "Configure"),
-		"templates": _get_tape_neon_templates(product_category),
+		"is_tape_neon": True, "is_tape": product_category == "LED Tape", "is_neon": product_category == "LED Neon",
+		"is_led_sheet": False, "product_category": product_category,
+		"title": "Configure " + product_category, "templates": templates, "has_templates": bool(templates),
+		"selected_template": selected_template, "show_pricing": True, "is_system_manager": False,
+		"can_save": True, "schedule_name": "", "line_idx": None, "has_quiz_handoff": False,
+		"embedded": True,
 	}
-	return frappe.render_template(
-		"illumenate_lighting/templates/includes/configurator_tape_neon_form.html", context
-	)
+	return frappe.render_template("illumenate_lighting/templates/includes/configurator_coordinator_form.html", context)

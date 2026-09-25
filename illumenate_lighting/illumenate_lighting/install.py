@@ -20,6 +20,27 @@ def after_install():
 	"""
 	create_dealer_role()
 	setup_dealer_permissions()
+	from illumenate_lighting.patches.b2b_portal_foundations import execute
+
+	execute()
+	from illumenate_lighting.patches.b2b_conversations import execute as conversations
+
+	conversations()
+	from illumenate_lighting.patches.b2b_configurator_receipts import execute as configurator_receipts
+
+	configurator_receipts()
+	from illumenate_lighting.patches.b2b_fixture_groups import execute as fixture_groups
+
+	fixture_groups()
+	from illumenate_lighting.patches.b2b_accounts import execute as accounts
+
+	accounts()
+	from illumenate_lighting.patches.b2b_order_service import execute as order_service
+
+	order_service()
+	from illumenate_lighting.patches.b2b_commercial_lineage import execute as commercial_lineage
+
+	commercial_lineage()
 	frappe.db.commit()
 
 
@@ -41,7 +62,7 @@ def create_dealer_role():
 
 	role = frappe.new_doc("Role")
 	role.role_name = "Dealer"
-	role.desk_access = 1  # Allow desk access for full ERP features
+	role.desk_access = 0  # Dealers use the portal; staff roles grant Desk access.
 	role.is_custom = 0  # Not a custom role (part of app)
 	role.home_page = "/portal"  # Redirect to portal by default
 	role.disabled = 0

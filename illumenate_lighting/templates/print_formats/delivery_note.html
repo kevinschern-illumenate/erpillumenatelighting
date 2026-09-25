@@ -1,0 +1,35 @@
+<style>
+  .ill-delivery { font-family: Arial, sans-serif; font-size: 11px; }
+  .ill-delivery table { width: 100%; border-collapse: collapse; }
+  .ill-delivery th, .ill-delivery td { padding: 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .ill-delivery thead { display: table-header-group; }
+  .ill-delivery tr { page-break-inside: avoid; }
+  .ill-delivery .room { background: #f3f4f6; font-weight: bold; }
+  .ill-delivery .notes { white-space: pre-wrap; margin-top: 5px; }
+</style>
+<div class="ill-delivery">
+  <h1>{{ _('Return delivery note') if doc.is_return else _('Delivery note') }}</h1>
+  <p>{{ doc.name | e }} · {{ doc.posting_date | e }}{% if doc.docstatus == 0 %} · {{ _('Draft') }}{% elif doc.docstatus == 2 %} · {{ _('Cancelled') }}{% endif %}</p>
+  <p><strong>{{ doc.customer_name | e }}</strong></p>
+  {% if doc.shipping_address %}<div>{{ frappe.utils.sanitize_html(doc.shipping_address) | safe }}</div>{% endif %}
+  <table>
+    <thead><tr><th>{{ _('Item / designation') }}</th><th>{{ _('Delivered quantity') }}</th><th>{{ _('Unit') }}</th><th>{{ _('Sales order') }}</th></tr></thead>
+    <tbody>
+      {% set section = namespace(value=none) %}
+      {% for row in doc.items %}
+        {% if (row.ill_section_label or '') != section.value %}
+          {% set section.value = row.ill_section_label or '' %}
+          {% if section.value %}<tr class="room"><td colspan="4">{{ section.value | e }}</td></tr>{% endif %}
+        {% endif %}
+        <tr>
+          <td>{% if row.ill_fixture_type %}<strong>{{ row.ill_fixture_type | e }}</strong><br>{% endif %}
+            {{ row.item_name | e }}<br><small>{{ row.item_code | e }}</small>
+            {% if row.description %}<div>{{ frappe.utils.sanitize_html(row.description) | safe }}</div>{% endif %}
+            {% if row.additional_notes %}<div class="notes">{{ row.additional_notes | e }}</div>{% endif %}
+          </td>
+          <td>{{ row.qty }}</td><td>{{ row.uom | e }}</td><td>{{ (row.against_sales_order or '') | e }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

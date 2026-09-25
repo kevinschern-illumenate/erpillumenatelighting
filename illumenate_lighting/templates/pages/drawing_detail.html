@@ -208,6 +208,7 @@ Detailed view of a single document request
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
@@ -316,6 +317,24 @@ Detailed view of a single document request
 			{% endif %}
 
 			<!-- Deliverables -->
+			{% if drawing_review and drawing_review.available %}
+			<section class="card p-3 mb-4" aria-labelledby="drawing-review-heading">
+				<h2 class="h5" id="drawing-review-heading">{{ _("Technical review") }} · {{ drawing_review.version | e }}</h2>
+				{% if drawing_review.decision %}
+				<p>{{ drawing_review.decision.decision.replace('_', ' ').title() | e }} · {{ frappe.utils.format_datetime(drawing_review.decision.reviewed_on) }}</p>
+				<p style="white-space: pre-wrap">{{ (drawing_review.decision.note or '') | e }}</p>
+				{% elif drawing_review.can_review %}
+				<p>{{ _("Review the published drawing below. Your decision applies to this drawing revision and its associated build.") }}</p>
+				<label for="drawing-review-note">{{ _("Review notes") }}</label>
+				<textarea id="drawing-review-note" class="form-control mb-3" rows="3"></textarea>
+				<div id="drawing-review-actions" data-request="{{ request.name | e }}" data-revision="{{ drawing_review.revision_token | e }}">
+					<button class="btn btn-primary" type="button" data-decision="APPROVED">{{ _("Approve drawing") }}</button>
+					<button class="btn btn-outline-primary" type="button" data-decision="CHANGES_REQUESTED">{{ _("Request changes") }}</button>
+				</div>
+				<p id="drawing-review-result" class="mt-2 mb-0" role="status"></p>
+				{% else %}<p>{{ _("Awaiting a decision from the named technical reviewer.") }}</p>{% endif %}
+			</section>
+			{% endif %}
 			{% if deliverables %}
 			<div class="content-card">
 				<div class="content-header">
@@ -461,6 +480,7 @@ Detailed view of a single document request
 			</div>
 		</div>
 	</div>
+	{% include "templates/includes/portal_conversation.html" %}
 	{% endif %}
 </div>
 {% endblock %}
@@ -468,7 +488,28 @@ Detailed view of a single document request
 {% block script %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-	// Add any interactive functionality here if needed
+	const actions = document.getElementById('drawing-review-actions');
+	if (!actions) return;
+	actions.querySelectorAll('button').forEach(button => button.addEventListener('click', async () => {
+		const note = document.getElementById('drawing-review-note').value.trim();
+		const result = document.getElementById('drawing-review-result');
+		if (button.dataset.decision === 'CHANGES_REQUESTED' && !note) {
+			result.textContent = 'Describe the changes you need.';
+			document.getElementById('drawing-review-note').focus();
+			return;
+		}
+		actions.querySelectorAll('button').forEach(item => { item.disabled = true; });
+		try {
+			await window.PortalUploads.call('illumenate_lighting.illumenate_lighting.portal.drawing_review.decide', {
+				request_name: actions.dataset.request, revision_token: actions.dataset.revision,
+				decision: button.dataset.decision, note
+			});
+			window.location.reload();
+		} catch (error) {
+			result.textContent = error.message || 'Could not record your decision. Reload the latest revision.';
+			actions.querySelectorAll('button').forEach(item => { item.disabled = false; });
+		}
+	}));
 });
 </script>
 {% endblock %}

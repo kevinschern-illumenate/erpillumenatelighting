@@ -1,6 +1,8 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
+import uuid
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -100,6 +102,24 @@ class ilLProjectFixtureSchedule(Document):
 				self.customer = project.customer
 
 		# Validate that all ILLUMENATE lines are configured before READY status
+		seen_keys = set()
+		for line in self.lines:
+			if not line.get("line_key") or line.line_key in seen_keys:
+				line.line_key = uuid.uuid4().hex
+			seen_keys.add(line.line_key)
+			if line.get("configured_group"):
+				from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
+				from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import snapshot
+				from illumenate_lighting.illumenate_lighting.portal.access import can_attach_configured_record
+
+				if not can_attach_configured_record("ilL-Configured-Group", line.configured_group):
+					frappe.throw(_("Group build access denied"), frappe.PermissionError)
+				group = frappe.get_doc("ilL-Configured-Group", line.configured_group)
+				snapshot(group)
+				if line.product_type != group.family or not group.configured_item or not group.bom:
+					frappe.throw(_("Group family and pinned Item/BOM must be complete"))
+				if not finite_number(line.qty, minimum=1, field="group quantity").is_integer():
+					frappe.throw(_("Group quantity must be a positive whole number"))
 		self._validate_configuration_status()
 
 	def _validate_configuration_status(self):
@@ -113,9 +133,11 @@ class ilLProjectFixtureSchedule(Document):
 		unconfigured_lines = []
 		for line in self.lines:
 			if line.manufacturer_type == "ILLUMENATE":
+				if line.get("configured_group"):
+					continue
 				# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
 				if line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit"):
-					if not line.variant_selections:
+					if not line.variant_selections and not line.get("configured_tape_neon"):
 						line_id = line.line_id or f"Row {line.idx}"
 						unconfigured_lines.append(line_id)
 				# LED Sheet lines are configured when a configured LED Sheet record exists
@@ -196,6 +218,10 @@ class ilLProjectFixtureSchedule(Document):
 					new_collab.set(field, collab.get(field))
 
 		new_schedule.insert(ignore_permissions=True)
+		from illumenate_lighting.illumenate_lighting.portal.line_documents import clone
+
+		for source, target in zip(self.lines, new_schedule.lines, strict=True):
+			clone(self.name, source, new_schedule.name, target)
 		# No commit here: callers compose this with other writes (e.g. the
 		# QUOTED → READY auto-version) and must stay able to roll the lot back.
 
@@ -274,7 +300,7 @@ class ilLProjectFixtureSchedule(Document):
 		"""
 		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
 
-		allowed, reason = can_convert_schedule_to_order(self, frappe.session.user)
+		allowed, reason = can_request_schedule_order(self, frappe.session.user)
 		if not allowed:
 			frappe.throw(reason, frappe.PermissionError)
 
@@ -285,9 +311,17 @@ class ilLProjectFixtureSchedule(Document):
 			"select name from `tabilL-Project-Fixture-Schedule` where name = %s for update",
 			(self.name,),
 		)
+		self.reload()
+		allowed, reason = can_request_schedule_order(self, frappe.session.user)
+		if not allowed:
+			frappe.throw(reason, frappe.PermissionError)
 
 		existing = self.get_linked_sales_order()
 		if existing:
+			from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
+
+			if not load_accessible_sales_order(existing):
+				frappe.throw(_("You cannot access the linked order request"), frappe.PermissionError)
 			return {
 				"sales_order": existing,
 				"warnings": [],
@@ -297,13 +331,9 @@ class ilLProjectFixtureSchedule(Document):
 
 		# Re-read under the lock: the status may have changed since this document
 		# was loaded (including by a conversion that just finished).
-		current_status = frappe.db.get_value(
-			"ilL-Project-Fixture-Schedule", self.name, "status"
-		)
-		if current_status not in CONVERTIBLE_STATUSES:
-			frappe.throw(
-				_("Schedule must be in READY or QUOTED status to convert to a Sales Order")
-			)
+		allowed, reason = can_convert_schedule_to_order(self, frappe.session.user)
+		if not allowed:
+			frappe.throw(reason)
 
 		frappe.db.savepoint(SO_CONVERSION_SAVEPOINT)
 		try:
@@ -312,6 +342,7 @@ class ilLProjectFixtureSchedule(Document):
 				include_accessories=bool(cint(include_accessories)),
 				include_other=bool(cint(include_other)),
 			)
+			self.set_lifecycle_status("ORDER_REQUESTED", sales_order=so_name)
 		except Exception:
 			# Items, Item Prices, BOMs and configured-record links are written
 			# before the Sales Order insert. Without this rollback a failed
@@ -321,7 +352,6 @@ class ilLProjectFixtureSchedule(Document):
 
 		# The draft Sales Order is the customer's order request; ORDERED is set
 		# by the Sales Order submit hook once our team approves it.
-		self.set_lifecycle_status("ORDER_REQUESTED", sales_order=so_name)
 
 		# Build success message
 		msg_parts = [_("Sales Order {0} created successfully").format(
@@ -427,6 +457,11 @@ class ilLProjectFixtureSchedule(Document):
 		so.customer = so_customer
 		so.project = self.project
 		so.delivery_date = frappe.utils.add_days(frappe.utils.nowdate(), 30)
+		intake_context = frappe.flags.get("ill_order_intake_context") or {}
+		if intake_context.get("data"):
+			from illumenate_lighting.illumenate_lighting.portal.order_intake import apply_header
+
+			apply_header(so, intake_context["data"])
 		self._set_optional_doc_value(so, "ill_fixture_schedule", self.name)
 
 		# Store the end-client reference in remarks if different from SO customer
@@ -453,6 +488,9 @@ class ilLProjectFixtureSchedule(Document):
 			)
 
 		so.insert()
+		from illumenate_lighting.illumenate_lighting.portal.order_review import capture
+
+		capture(so)
 
 		return so.name, counts
 
@@ -477,8 +515,10 @@ class ilLProjectFixtureSchedule(Document):
 			mt = line.manufacturer_type
 			if mt == "ILLUMENATE":
 				pt = line.product_type
-				if pt in ("LED Tape", "LED Neon"):
-					if line.variant_selections:
+				if line.get("configured_group"):
+					summary["groups"] = summary.get("groups", 0) + 1
+				elif pt in ("LED Tape", "LED Neon"):
+					if line.variant_selections or line.get("configured_tape_neon"):
 						summary["tape_neon"] += 1
 					else:
 						summary["unconfigured"] += 1
@@ -578,6 +618,23 @@ class ilLProjectFixtureSchedule(Document):
 		for line in self.lines:
 			line_label = line.line_id or f"Row {line.idx}"
 			mt = line.manufacturer_type
+
+			if mt == "ILLUMENATE" and line.get("configured_group"):
+				from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import ensure_artifacts
+				from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
+					_apply_artifact_to_row,
+				)
+				group = frappe.get_doc("ilL-Configured-Group", line.configured_group)
+				artifact = ensure_artifacts(group)
+				line_rows_before = len(target_doc.items)
+				_apply_artifact_to_row(target_doc, target_doc.append("items", {}), artifact, line.qty or 1, None)
+				self._stamp_group_fields(target_doc, line_rows_before, line)
+				counts["groups"] = counts.get("groups", 0) + 1
+				continue
+			if mt == "ILLUMENATE" and line.get("configured_tape_neon") and not line.variant_selections:
+				self._append_configured_tape_neon_row(target_doc, line, line_label, line.configured_tape_neon, counts, require_bom=True)
+				counts["tape_neon"] += 1
+				continue
 
 			# ── ilLumenate: LED Tape / LED Neon ───────────────────────
 			if mt == "ILLUMENATE" and line.product_type in ("LED Tape", "LED Neon"):
@@ -853,6 +910,13 @@ class ilLProjectFixtureSchedule(Document):
 				row = target_doc.append("items", {})
 				row.item_code = line.accessory_item
 				row.qty = line.qty or 1
+				item = frappe.get_doc("Item", line.accessory_item)
+				if item.disabled or item.has_variants or not item.is_sales_item:
+					frappe.throw(_("Line {0}: select an active sales Item").format(line_label))
+				# Schedule quantities are expressed in stock UOM, never the Item's
+				# possibly different default selling UOM (for example a case of 12).
+				row.uom = row.stock_uom = item.stock_uom
+				row.conversion_factor = 1
 				if line.accessory_item_name:
 					row.description = line.accessory_item_name
 				self._stamp_group_fields(target_doc, len(target_doc.items) - 1, line)
@@ -1165,33 +1229,10 @@ class ilLProjectFixtureSchedule(Document):
 
 	@frappe.whitelist()
 	def request_quote(self):
-		"""
-		Request a quote for this schedule (for non-dealer customers).
+		"""Freeze an unpriced intake; only an issued Quotation means QUOTED."""
+		from illumenate_lighting.illumenate_lighting.portal.quotes import request_quote
 
-		Changes status to QUOTED and can trigger notification to sales team.
-
-		Returns:
-			str: Status update message
-		"""
-		if self.status not in ["DRAFT", "READY"]:
-			frappe.throw(_("Schedule must be in DRAFT or READY status to request a quote"))
-
-		self.db_set("status", "QUOTED")
-		self.add_comment("Info", _("Quote requested"))
-
-		from illumenate_lighting.illumenate_lighting.portal.notifications import (
-			notify_schedule_status,
-		)
-
-		notify_schedule_status(self, "QUOTED")
-
-		frappe.msgprint(
-			_("Quote requested for schedule {0}").format(self.name),
-			indicator="blue",
-			alert=True,
-		)
-
-		return "Quote requested"
+		return request_quote(self.name)
 
 	@frappe.whitelist()
 	def duplicate_line(self, line_idx):
@@ -1221,6 +1262,9 @@ class ilLProjectFixtureSchedule(Document):
 			new_line.line_id = f"{source_line.line_id} (copy)"
 
 		self.save()
+		from illumenate_lighting.illumenate_lighting.portal.line_documents import clone
+
+		clone(self.name, source_line, self.name, new_line)
 
 		return len(self.lines) - 1
 
@@ -1357,7 +1401,7 @@ def has_permission(doc, ptype="read", user=None):
 	return schedule_permission(doc, ptype, user)
 
 
-def can_convert_schedule_to_order(doc, user=None):
+def can_request_schedule_order(doc, user=None):
 	"""Single policy for "may this user convert this schedule to a Sales Order?".
 
 	Used by the portal page context, the portal endpoint and the conversion
@@ -1387,10 +1431,6 @@ def can_convert_schedule_to_order(doc, user=None):
 	if not has_permission(doc, "write", user):
 		return False, _("You don't have permission to create a Sales Order for this schedule")
 
-	if doc.get("is_locked"):
-		return False, _("This schedule version is locked and cannot be converted")
-
-	status = doc.get("status")
 	is_privileged = _is_internal_user(user) or _is_dealer_user(user)
 
 	if not is_privileged:
@@ -1400,7 +1440,21 @@ def can_convert_schedule_to_order(doc, user=None):
 			"Only dealers can convert a schedule to an order. Please contact your dealer."
 		)
 
-	if status not in CONVERTIBLE_STATUSES:
+	return True, ""
+
+
+def can_convert_schedule_to_order(doc, user=None):
+	"""Create eligibility, evaluated only after authorized retry lookup."""
+	if isinstance(doc, str):
+		if not frappe.db.exists("ilL-Project-Fixture-Schedule", doc):
+			return False, _("Schedule not found")
+		doc = frappe.get_doc("ilL-Project-Fixture-Schedule", doc)
+	allowed, reason = can_request_schedule_order(doc, user)
+	if not allowed:
+		return allowed, reason
+	if doc.get("is_locked"):
+		return False, _("This schedule version is locked and cannot be converted")
+	if doc.get("status") not in CONVERTIBLE_STATUSES:
 		return False, _(
 			"Schedule must be in READY or QUOTED status to convert to a Sales Order"
 		)
@@ -1417,18 +1471,17 @@ def allowed_portal_transitions(current_status, user=None):
 	"""Statuses ``user`` may move a schedule to from ``current_status``.
 
 	- Anyone with write access: DRAFT <-> READY, QUOTED -> DRAFT/READY
-	- Dealers/internal: READY -> QUOTED
+	- QUOTED is set only when an eligible Quotation is issued.
 	- Internal only: ISSUE -> DRAFT/READY (controlled retry)
 	- ORDER_REQUESTED / ORDERED / CLOSED are system-driven and not settable.
 	"""
 	if not user:
 		user = frappe.session.user
 	is_internal = _is_internal_user(user)
-	is_privileged = is_internal or _is_dealer_user(user)
 
 	transitions = {
 		"DRAFT": ["READY"],
-		"READY": ["DRAFT", "QUOTED"] if is_privileged else ["DRAFT"],
+		"READY": ["DRAFT"],
 		"QUOTED": ["DRAFT", "READY"],
 		"ISSUE": ["DRAFT", "READY"] if is_internal else [],
 	}

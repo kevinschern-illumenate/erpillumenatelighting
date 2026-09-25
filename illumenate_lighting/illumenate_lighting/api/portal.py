@@ -14,9 +14,10 @@ from typing import Union
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 from illumenate_lighting.illumenate_lighting.utils import (
-	parse_positive_int,
 	VALID_ACCESS_LEVELS,
+	parse_positive_int,
 )
 
 
@@ -387,6 +388,7 @@ def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
 	for idx, line in enumerate(schedule.lines or []):
 		line_data = {
 			"idx": idx,
+			"line_key": line.get("line_key") or line.name,
 			"line_id": line.line_id or f"Line {idx + 1}",
 			"manufacturer_type": line.manufacturer_type or "ILLUMENATE",
 			"qty": line.qty or 1,
@@ -458,6 +460,7 @@ def get_schedule_lines_for_configurator(schedule_name: str) -> dict:
 		"success": True,
 		"lines": lines,
 		"can_save": can_save,
+		"modified": str(schedule.modified),
 	}
 
 
@@ -1485,11 +1488,17 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.dimming_protocol = line_data.get("dimming_protocol")
 			line.input_voltage = line_data.get("input_voltage")
 			line.other_finish = line_data.get("other_finish")
-			line.spec_sheet = line_data.get("spec_sheet")
+			from illumenate_lighting.illumenate_lighting.portal.files import finalize_spec
+
+			if line_data.get("spec_sheet"):
+				frappe.throw(_("Upload the specification and provide its File ID."))
+			if line_data.get("spec_sheet_file_id"):
+				line.spec_sheet = finalize_spec(line_data["spec_sheet_file_id"], schedule.name)
 
 		schedule.save()
 		return {"success": True, "line_idx": len(schedule.lines) - 1}
 	except Exception as e:
+		frappe.db.rollback()
 		return _safe_error(e, f"Portal: error adding line to schedule {schedule_name}")
 
 
@@ -1740,12 +1749,17 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 				line.input_voltage = line_data.get("input_voltage")
 			if "other_finish" in line_data:
 				line.other_finish = line_data.get("other_finish")
-			if "spec_sheet" in line_data:
-				line.spec_sheet = line_data.get("spec_sheet")
+			from illumenate_lighting.illumenate_lighting.portal.files import finalize_spec
+
+			if "spec_sheet" in line_data and line_data["spec_sheet"] != line.spec_sheet:
+				frappe.throw(_("Upload the replacement specification and provide its File ID."))
+			if line_data.get("spec_sheet_file_id"):
+				line.spec_sheet = finalize_spec(line_data["spec_sheet_file_id"], schedule.name)
 
 		schedule.save()
 		return {"success": True}
 	except Exception as e:
+		frappe.db.rollback()
 		return _safe_error(e, f"Portal: error updating line on schedule {schedule_name}")
 
 
@@ -2516,7 +2530,7 @@ def toggle_project_privacy(project_name: str, is_private: int) -> dict:
 		return _safe_error(e, f"Portal: error toggling privacy on project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def request_schedule_quote(schedule_name: str) -> dict:
 	"""
 	Request a quote for a fixture schedule.
@@ -2541,8 +2555,7 @@ def request_schedule_quote(schedule_name: str) -> dict:
 		return {"success": False, "error": "You don't have permission to request a quote for this schedule"}
 
 	try:
-		schedule.request_quote()
-		return {"success": True}
+		return schedule.request_quote()
 	except Exception as e:
 		return _safe_error(e, f"Portal: error requesting quote for schedule {schedule_name}")
 
@@ -2556,7 +2569,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	(``allowed_portal_transitions`` / ``transition_schedule_status``):
 	- DRAFT -> READY (anyone with write permission)
 	- READY -> DRAFT (anyone with write permission)
-	- READY -> QUOTED (internal/dealer users only)
+	- QUOTED is set by issuance of an eligible Quotation
 	- QUOTED -> DRAFT / READY (auto-versions: the quoted state is kept as a
 	  locked snapshot and editing continues on a new version)
 	- ORDER_REQUESTED, ORDERED, ISSUE and CLOSED are system-driven
@@ -2590,7 +2603,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 		return _safe_error(e, f"Portal: error updating status for schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_schedule_sales_order(schedule_name: str) -> dict:
 	"""
 	Create a Sales Order from a fixture schedule.
@@ -2610,10 +2623,10 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 	# Single server-side policy — the page template applies the same rule, but
 	# the endpoint must not rely on the UI for enforcement.
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
-		can_convert_schedule_to_order,
+		can_request_schedule_order,
 	)
 
-	allowed, reason = can_convert_schedule_to_order(schedule, frappe.session.user)
+	allowed, reason = can_request_schedule_order(schedule, frappe.session.user)
 	if not allowed:
 		return {"success": False, "error": reason}
 
@@ -2706,7 +2719,7 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 		return _safe_error(e, "Portal: error creating customer")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_drawing_request(request_data: Union[str, dict]) -> dict:
 	"""
 	Create a new drawing request from the portal.
@@ -2754,7 +2767,7 @@ def create_drawing_request(request_data: Union[str, dict]) -> dict:
 			fixture_or_product_text=request_data.get("fixture_reference")
 			or request_data.get("custom_reference"),
 			priority=priority,
-			submit=True,
+			submit=not parse_bool(request_data.get("save_as_draft")),
 		)
 		return {"success": True, "request_name": doc.name}
 	except Exception as e:
@@ -2782,7 +2795,7 @@ def _request_type_for_drawing_type(drawing_type: str):
 	return resolve_active_request_type(type_name)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 	"""
 	Create a support ticket from the portal.
@@ -2793,6 +2806,8 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 	Returns:
 		dict: {"success": True/False, "ticket_name": name, "error": "message if error"}
 	"""
+	if frappe.session.user == "Guest":
+		return {"success": False, "error": _("Please sign in to submit a support request")}
 	# Parse ticket_data if it's a string
 	if isinstance(ticket_data, str):
 		try:
@@ -2807,7 +2822,25 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": "Description is required"}
 
 	try:
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
+		request_body = {key: ticket_data.get(key) for key in ("subject", "description", "category", "order", "file_ids")}
+		request_hash = fingerprint(request_body)
+		request_key = fingerprint({"actor": frappe.session.user, "key": ticket_data.get("idempotency_key") or request_hash})
+		existing = frappe.db.get_value("Issue", {"ill_portal_request_key": request_key, "raised_by": frappe.session.user}, ["name", "ill_portal_request_hash"], as_dict=True)
+		if existing:
+			if existing.ill_portal_request_hash != request_hash:
+				frappe.throw(_("This request key was used with different content. Review before submitting again."))
+			return {"success": True, "ticket_name": existing.name, "already_existed": True}
+		if ticket_data.get("order"):
+			from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
+
+			if not load_accessible_sales_order(ticket_data["order"]):
+				frappe.throw(_("Order unavailable"), frappe.PermissionError)
 		doc = frappe.new_doc("Issue")
+		doc.ill_portal_request_key = request_key
+		doc.ill_portal_request_hash = request_hash
+		doc.ill_portal_order = ticket_data.get("order")
 		doc.subject = ticket_data.get("subject")
 		doc.description = f"""
 **Category:** {ticket_data.get('category', 'Other').title()}
@@ -2829,8 +2862,12 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		doc.priority = category_priority_map.get(ticket_data.get("category"), "Medium")
 
 		doc.insert(ignore_permissions=True)
+		from illumenate_lighting.illumenate_lighting.portal.files import finalize_files
+
+		finalize_files(ticket_data.get("file_ids") or [], "Issue", doc.name, allow_unbound=True)
 		return {"success": True, "ticket_name": doc.name}
 	except Exception as e:
+		frappe.db.rollback()
 		return _safe_error(e, "Portal: error creating support ticket")
 
 
@@ -3044,7 +3081,7 @@ def get_order_details(order_name: str) -> dict:
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def set_order_request_po_number(order_name: str, po_no: str = "") -> dict:
 	"""Record the Dealer's PO number on a pending order request (draft Sales Order)."""
 	from illumenate_lighting.illumenate_lighting.portal.orders import (
@@ -3055,6 +3092,7 @@ def set_order_request_po_number(order_name: str, po_no: str = "") -> dict:
 		order = _set_po(order_name, po_no, frappe.session.user)
 		return {"success": True, "po_no": order.po_no}
 	except Exception as e:
+		frappe.db.rollback()
 		return _safe_error(e, f"Portal: error setting PO number on {order_name}")
 
 
@@ -3158,114 +3196,16 @@ def get_user_role_info() -> dict:
 	}
 
 
-@frappe.whitelist()
-def invite_project_collaborator(
-	project_name: str,
-	email: str,
-	first_name: str = None,
-	last_name: str = None,
-	access_level: str = "VIEW",
-	send_invite: int = 1,
-) -> dict:
-	"""
-	Invite an external collaborator to a specific project.
-
-	Dealers can invite external collaborators. These collaborators:
-	- Only have access to the specific project(s) they are invited to
-	- Do not have the Dealer role
-	- Cannot see other projects or company data
-
-	Args:
-		project_name: The project to invite the collaborator to
-		email: Email address of the collaborator
-		first_name: First name (used if creating new user)
-		last_name: Last name (used if creating new user)
-		access_level: VIEW or EDIT
-		send_invite: 1 to send invitation email, 0 to skip
-
-	Returns:
-		dict: {"success": True/False, "user": email, "is_new_user": bool, "error": str}
-	"""
-	from illumenate_lighting.illumenate_lighting.portal.access import (
-		can_manage_project_collaborators,
-	)
-
-	# Validate access_level
-	if access_level not in VALID_ACCESS_LEVELS:
-		return {"success": False, "error": f"Invalid access_level. Must be one of: {', '.join(VALID_ACCESS_LEVELS)}"}
-
-	# Validate project exists
-	if not frappe.db.exists("ilL-Project", project_name):
-		return {"success": False, "error": "Project not found"}
-
-	project = frappe.get_doc("ilL-Project", project_name)
-
-	# Single collaborator-management rule shared with the collaborators page
-	if not can_manage_project_collaborators(project, frappe.session.user):
-		return {"success": False, "error": "You don't have permission to manage collaborators on this project"}
-
-	# Validate email
-	email = (email or "").strip().lower()
-	if not frappe.utils.validate_email_address(email):
-		return {"success": False, "error": "Invalid email address"}
-
-	# Check if user already exists
-	is_new_user = False
-	if frappe.db.exists("User", email):
-		user = frappe.get_doc("User", email)
-	else:
-		# Create new user
-		is_new_user = True
-		try:
-			user = frappe.new_doc("User")
-			user.email = email
-			user.first_name = first_name or email.split("@")[0]
-			user.last_name = last_name or ""
-			user.send_welcome_email = int(send_invite)
-			user.enabled = 1
-			# New collaborators get Website User role only (no Dealer role)
-			user.append("roles", {"role": "Website User"})
-			user.insert(ignore_permissions=True)
-		except Exception as e:
-			return _safe_error(e, f"Portal: error creating user {email} for collaborator invite")
-
-	# Check if already a collaborator on this project
-	existing_collab = None
-	for c in project.collaborators or []:
-		if c.user == email:
-			existing_collab = c
-			break
-
-	if existing_collab:
-		# Update existing collaborator
-		existing_collab.access_level = access_level
-		existing_collab.is_active = 1
-	else:
-		# Add new collaborator
-		project.append("collaborators", {
-			"user": email,
-			"access_level": access_level,
-			"is_active": 1,
-		})
+@frappe.whitelist(methods=["POST"])
+def invite_project_collaborator(project_name: str, email: str, first_name: str = None,
+	last_name: str = None, access_level: str = "VIEW", send_invite: int = 1) -> dict:
+	"""Create an expiring project-only invitation without granting access prematurely."""
+	from illumenate_lighting.illumenate_lighting.portal.accounts import invite
 
 	try:
-		project.save(ignore_permissions=True)
-		project.add_comment(
-			"Info", _("Collaborator {0} invited with {1} access").format(email, access_level)
-		)
-	except Exception as e:
-		return _safe_error(e, f"Portal: error adding collaborator to project {project.name}")
-
-	# Send invitation email if requested and user already existed (new users get welcome email)
-	if send_invite and not is_new_user:
-		_send_collaborator_invite_email(project, user.name, access_level)
-
-	return {
-		"success": True,
-		"user": email,
-		"is_new_user": is_new_user,
-		"access_level": access_level,
-	}
+		return invite(email, first_name or (email or "").split("@")[0], last_name or "", project_name, access_level)
+	except frappe.PermissionError:
+		return {"success": False, "error": "You cannot invite a collaborator to this project"}
 
 
 def _send_collaborator_invite_email(project, user_email: str, access_level: str):
@@ -3436,6 +3376,18 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 			contact_data = json.loads(contact_data)
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid contact_data format"}
+
+	if not is_internal:
+		from illumenate_lighting.illumenate_lighting.portal.accounts import (
+			CONTACT_FIELDS,
+			company,
+			save_record,
+		)
+
+		if contact_data.get("customer") and contact_data["customer"] != company():
+			frappe.throw("Contact must belong to your company", frappe.PermissionError)
+		receipt = save_record("Contact", {key: value for key, value in contact_data.items() if key in CONTACT_FIELDS})
+		return {"success": True, "contact_name": receipt["name"]}
 
 	if not contact_data.get("first_name"):
 		return {"success": False, "error": "First name is required"}
@@ -4253,81 +4205,12 @@ def get_company_website_users() -> dict:
 	return {"success": True, "users": users}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_website_user(email: str, first_name: str, last_name: str = "", send_invite: int = 1) -> dict:
-	"""
-	Create a new website user linked to the dealer's company.
+	"""Compatibility entry point: company membership now requires recipient acceptance."""
+	from illumenate_lighting.illumenate_lighting.portal.accounts import invite
 
-	Dealers can create website users who:
-	- Have the Website User role only
-	- Are linked to the dealer's Customer via a Contact
-	- Can access fixture schedules but nothing else
-
-	Args:
-		email: Email address for the new user
-		first_name: First name
-		last_name: Last name (optional)
-		send_invite: 1 to send welcome email, 0 to skip
-
-	Returns:
-		dict: {"success": True/False, "user": email, "error": str}
-	"""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-		_is_dealer_user,
-		_is_internal_user,
-	)
-
-	is_internal = _is_internal_user(frappe.session.user)
-	is_dealer = _is_dealer_user(frappe.session.user)
-
-	if not is_dealer and not is_internal:
-		return {"success": False, "error": "You don't have permission to create users"}
-
-	if not email or not first_name:
-		return {"success": False, "error": "Email and first name are required"}
-
-	email = email.strip().lower()
-	if not frappe.utils.validate_email_address(email):
-		return {"success": False, "error": "Invalid email address"}
-
-	if frappe.db.exists("User", email):
-		return {"success": False, "error": "A user with this email already exists"}
-
-	user_customer = _get_user_customer(frappe.session.user)
-
-	try:
-		# Create the user
-		user = frappe.new_doc("User")
-		user.email = email
-		user.first_name = first_name
-		user.last_name = last_name or ""
-		user.send_welcome_email = int(send_invite)
-		user.enabled = 1
-		user.user_type = "Website User"
-		user.append("roles", {"role": "Website User"})
-		user.insert(ignore_permissions=True)
-
-		# Create a Contact linked to the dealer's Customer
-		if user_customer:
-			contact = frappe.new_doc("Contact")
-			contact.first_name = first_name
-			contact.last_name = last_name or ""
-			contact.email_id = email
-			contact.user = email
-			contact.append("links", {
-				"link_doctype": "Customer",
-				"link_name": user_customer,
-			})
-			contact.insert(ignore_permissions=True)
-
-		return {
-			"success": True,
-			"user": email,
-			"full_name": user.full_name,
-		}
-	except Exception as e:
-		return _safe_error(e, f"Portal: error creating website user {email}")
+	return invite(email, first_name, last_name)
 
 
 @frappe.whitelist()
@@ -4338,6 +4221,9 @@ def get_led_sheet_templates() -> dict:
 	loaders in templates/pages/configure.py: the template's own ``image`` wins,
 	otherwise the linked Webflow product gallery (then its featured image).
 	"""
+	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+
+	require_catalog_access()
 	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
 
 	templates = frappe.get_all(

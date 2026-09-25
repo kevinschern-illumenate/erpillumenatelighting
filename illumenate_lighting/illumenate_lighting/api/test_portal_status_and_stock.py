@@ -83,8 +83,8 @@ class TestScheduleTransitions(FrappeTestCase):
 		self.assertEqual(self._transitions("QUOTED"), ["DRAFT", "READY"])
 		self.assertEqual(self._transitions("ISSUE"), [])
 
-	def test_dealer_can_quote_but_not_recover_issue(self):
-		self.assertEqual(self._transitions("READY", dealer=True), ["DRAFT", "QUOTED"])
+	def test_dealer_cannot_issue_offer_or_recover_issue(self):
+		self.assertEqual(self._transitions("READY", dealer=True), ["DRAFT"])
 		self.assertEqual(self._transitions("ISSUE", dealer=True), [])
 
 	def test_internal_can_recover_issue(self):

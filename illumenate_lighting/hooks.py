@@ -52,8 +52,13 @@ web_include_js = ["illumenate_web.bundle.js"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"Sales Order": "public/js/sales_order.js", "Quotation": "public/js/quotation.js"}
+doctype_js = {"ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": "public/js/quote_request.js", "Sales Order": "public/js/sales_order.js", "Quotation": "public/js/quotation.js",
+    "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
+doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
+    "ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
+    "ilL-Driver-Template", "ilL-Controller-Template",
+)})
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -110,6 +115,11 @@ website_route_rules = [
 	{"from_route": "/portal/products", "to_route": "products_catalog"},
 	{"from_route": "/portal/products/<slug>", "to_route": "product_detail"},
 
+	# Issued commercial offers
+	{"from_route": "/portal/quotes", "to_route": "quotes"},
+	{"from_route": "/portal/quotes/<offer>", "to_route": "quote_detail"},
+	{"from_route": "/portal/quote-requests/<request>", "to_route": "quote_request_detail"},
+
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
 	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
@@ -124,9 +134,11 @@ website_route_rules = [
 	# Support
 	{"from_route": "/portal/support", "to_route": "ill_support"},
 	{"from_route": "/portal/support/faq", "to_route": "ill_support"},
+	{"from_route": "/portal/support/<ticket_name>", "to_route": "support_detail"},
 
 	# Account
 	{"from_route": "/portal/account", "to_route": "account"},
+	{"from_route": "/portal/accept-invitation", "to_route": "accept_invitation"},
 	{"from_route": "/portal/account/notifications", "to_route": "account"},
 ]
 
@@ -160,6 +172,8 @@ website_redirects = [
 
 # before_install = "illumenate_lighting.install.before_install"
 after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
+before_migrate = "illumenate_lighting.portal_workspace.before_migrate"
+after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
 
 # Fixtures
 # --------
@@ -225,6 +239,14 @@ fixtures = [
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
+	"ilL-Order-Change": "illumenate_lighting.illumenate_lighting.portal.order_changes.get_permission_query_conditions",
+	"ilL-Account-Request": "illumenate_lighting.illumenate_lighting.portal.accounts.query_conditions",
+	"ilL-Line-Document": "illumenate_lighting.illumenate_lighting.portal.line_documents.query_conditions",
+	"ilL-Configured-Group": "illumenate_lighting.illumenate_lighting.doctype.ill_configured_group.ill_configured_group.get_permission_query_conditions",
+	"ilL-Portal-Message": "illumenate_lighting.illumenate_lighting.portal.conversations.get_permission_query_conditions",
+	"ilL-Quote-Offer": "illumenate_lighting.illumenate_lighting.portal.offers.get_permission_query_conditions",
+	"ilL-Quote-Request": "illumenate_lighting.illumenate_lighting.portal.quotes.get_permission_query_conditions",
+	"ilL-Export-Job": "illumenate_lighting.illumenate_lighting.doctype.ill_export_job.ill_export_job.get_permission_query_conditions",
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
@@ -233,6 +255,16 @@ permission_query_conditions = {
 }
 
 has_permission = {
+	"ilL-Order-Change": "illumenate_lighting.illumenate_lighting.portal.order_changes.has_permission",
+	"ilL-Account-Request": "illumenate_lighting.illumenate_lighting.portal.accounts.has_permission",
+	"ilL-Line-Document": "illumenate_lighting.illumenate_lighting.portal.line_documents.has_permission",
+	"ilL-Configured-Group": "illumenate_lighting.illumenate_lighting.doctype.ill_configured_group.ill_configured_group.has_permission",
+	"ilL-Portal-Message": "illumenate_lighting.illumenate_lighting.portal.conversations.has_permission",
+	"ilL-Quote-Offer": "illumenate_lighting.illumenate_lighting.portal.offers.has_permission",
+	"ilL-Export-Job": "illumenate_lighting.illumenate_lighting.doctype.ill_export_job.ill_export_job.has_permission",
+	"File": "illumenate_lighting.illumenate_lighting.portal.private_file.portal_file_permission",
+	"ilL-Portal-Upload": "illumenate_lighting.illumenate_lighting.portal.files.has_permission",
+	"ilL-Quote-Request": "illumenate_lighting.illumenate_lighting.portal.quotes.has_permission",
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
@@ -249,23 +281,34 @@ has_website_permission = {
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	"File": "illumenate_lighting.illumenate_lighting.portal.private_file.PortalFile",
+	"Email Queue": "illumenate_lighting.illumenate_lighting.portal.email_queue.PortalEmailQueue",
+}
 
 # Document Events
 # ---------------
 # Hook on document methods and events
 
 doc_events = {
+	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
+	"ilL-Project-Fixture-Schedule": {"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update"},
+	"Work Order": {"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit"},
 	"Quotation": {
-		# Submitting a Quotation built with the desk configurator marks its
-		# DRAFT / READY fixture schedule as QUOTED; cancel only logs a comment.
-		"on_submit": "illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_submit",
-		"on_cancel": "illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_cancel",
+		# Only a submitted Quotation linked to an intake creates a portal offer.
+		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
+		"on_submit": "illumenate_lighting.illumenate_lighting.portal.offers.on_submit",
+		"on_cancel": ["illumenate_lighting.illumenate_lighting.portal.offers.on_cancel",
+			"illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_cancel"],
 	},
 	"Sales Order": {
+		"validate": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
+		"on_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
+		"before_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.before_submit",
 		"on_submit": [
+			"illumenate_lighting.illumenate_lighting.portal.order_review.on_submit",
 			"illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
 			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_submit",
 		],
@@ -273,7 +316,11 @@ doc_events = {
 		"on_trash": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_trash",
 	},
 	"Delivery Note": {
+		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
 		"on_submit": "illumenate_lighting.illumenate_lighting.portal.notifications.on_delivery_note_submit",
+	},
+	"Sales Invoice": {
+		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
 	},
 	"Purchase Order": {
 		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",
@@ -392,7 +439,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {}
+scheduler_events = {"cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
 
 # Testing
 # -------

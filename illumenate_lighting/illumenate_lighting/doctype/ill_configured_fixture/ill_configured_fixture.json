@@ -101,7 +101,13 @@
   "spec_documents_section",
   "spec_sheet_link",
   "column_break_spec_docs",
-  "spec_submittal"
+  "spec_submittal",
+  "display_part_number",
+  "build_schema_version",
+  "build_snapshot_json",
+  "component_manifest_json",
+  "power_plan_json",
+  "cable_manifest_json"
  ],
  "fields": [
   {
@@ -300,7 +306,7 @@
    "read_only": 1
   },
   {
-   "description": "Fixture output level code (tape output \u00c3\u2014 lens transmission)",
+   "description": "Fixture output level code (tape output Ã— lens transmission)",
    "fieldname": "sku_fixture_output_code",
    "fieldtype": "Data",
    "label": "Fixture Output Code",
@@ -466,7 +472,7 @@
    "label": "Total Watts"
   },
   {
-   "description": "Estimated delivered lumens per foot (tape output \u00c3\u2014 lens transmission %)",
+   "description": "Estimated delivered lumens per foot (tape output Ã— lens transmission %)",
    "fieldname": "estimated_delivered_output",
    "fieldtype": "Float",
    "label": "Est. Delivered Output (lm/ft)",
@@ -704,6 +710,46 @@
    "fieldname": "spec_submittal",
    "fieldtype": "Attach",
    "label": "Spec Submittal"
+  },
+  {
+   "fieldname": "display_part_number",
+   "label": "Display Part Number",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_schema_version",
+   "label": "Build Schema Version",
+   "fieldtype": "Int",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_snapshot_json",
+   "label": "Immutable Build Snapshot",
+   "fieldtype": "Code",
+   "read_only": 1,
+   "options": "JSON"
+  },
+  {
+   "fieldname": "component_manifest_json",
+   "label": "Pinned Materials",
+   "fieldtype": "Code",
+   "read_only": 1,
+   "options": "JSON"
+  },
+  {
+   "fieldname": "power_plan_json",
+   "label": "Pinned Power Plan",
+   "fieldtype": "Code",
+   "read_only": 1,
+   "options": "JSON"
+  },
+  {
+   "fieldname": "cable_manifest_json",
+   "label": "Physical Cable Cuts",
+   "fieldtype": "Code",
+   "read_only": 1,
+   "options": "JSON"
   }
  ],
  "grid_page_length": 50,

@@ -31,6 +31,14 @@ def get_context(context):
 		context.title = _("Order Not Found")
 		return context
 
+	from illumenate_lighting.illumenate_lighting.portal.order_review import detail
+
+	context.intake = detail(order_name)
+	from illumenate_lighting.illumenate_lighting.portal.files import list_files
+	from illumenate_lighting.illumenate_lighting.portal.order_changes import list_for_order
+
+	context.change_requests = list_for_order(order_name)
+	context.intake_files = list_files("ilL-Order-Intake", context.intake["name"]) if context.intake else []
 	context.order = model["order"]
 	context.items = model["lines"]
 	context.deliveries = model["shipments"]

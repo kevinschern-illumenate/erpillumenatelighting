@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv, led_sheet_attribute_doctype
+from .common import led_sheet_attribute_doctype, write_csv
 
 SPEC_HEADERS = [
     "Item", "LED Package", "Sheet Width (ft)", "Sheet Height (ft)",
     "Watts per sqft", "Lumens per sqft", "Input Voltage", "CRI", "IP Rating",
     "SKU Series Code", "SKU LED Package Code", "Is Active",
+    "Required Input Protocol", "CCT", "Total Sheet Watts", "Optional Maximum Panels per Feed",
 ]
 
 TEMPLATE_HEADERS = [
@@ -40,6 +41,7 @@ def _spec_rows(config: FixtureBuilderConfig) -> list[list]:
             spec.sku_series_code or config.series_code,
             spec.sku_led_package_code or spec.led_package or config.led_package,
             1,
+            spec.input_protocol, spec.cct, spec.total_sheet_watts, spec.max_panels_per_feed,
         ])
     return rows
 

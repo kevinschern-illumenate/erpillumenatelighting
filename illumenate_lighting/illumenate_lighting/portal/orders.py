@@ -54,7 +54,9 @@ def load_accessible_sales_order(order_name, user=None):
 	if actor.is_guest:
 		return None
 	order = frappe.get_doc("Sales Order", order_name)
-	if actor.is_internal:
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if actor.is_internal or (allowed("sales", actor.user) and frappe.has_permission("Sales Order", "read", doc=order, user=actor.user)):
 		return order
 	if actor.is_dealer and actor.customer and order.customer == actor.customer:
 		return order
@@ -82,6 +84,7 @@ def _work_orders_for(order_names):
 			"name",
 			"sales_order",
 			"sales_order_item",
+			"production_item",
 			"status",
 			"qty",
 			"produced_qty",
@@ -113,13 +116,16 @@ def _shipments_for(order_name):
 				"name": dn.name,
 				"posting_date": dn.posting_date,
 				"status": dn.status,
+				"is_return": bool(dn.get("is_return")),
+				"return_against": dn.get("return_against"),
 				"carrier": dn.get(DELIVERY_CARRIER_FIELD),
 				"tracking_number": dn.get(DELIVERY_TRACKING_FIELD),
 				# Legacy keys kept for existing templates.
 				"transporter": dn.get(DELIVERY_CARRIER_FIELD),
 				"tracking_no": dn.get(DELIVERY_TRACKING_FIELD),
 				"items": [
-					{"item_code": i.item_code, "item_name": i.item_name, "qty": i.qty}
+					{"line": i.get("so_detail"), "item_code": i.item_code, "item_name": i.item_name, "qty": i.qty, "uom": i.uom,
+					 "stock_qty": i.get("stock_qty") or flt(i.qty) * flt(i.get("conversion_factor") or 1)}
 					for i in dn.items
 					if i.against_sales_order == order_name
 				],
@@ -148,16 +154,21 @@ def _invoices_for(order_name):
 			"status",
 			"grand_total",
 			"outstanding_amount",
+			"is_return",
+			"return_against",
 			"currency",
 		],
 		order_by="posting_date asc, name asc",
 	)
 
 
-def _production_summary(work_orders):
+def _production_summary(work_orders, order_lines=()):
+	from illumenate_lighting.illumenate_lighting.portal.production import production_coverage
+
+	coverage = production_coverage(order_lines, work_orders)
 	total = sum(flt(w.get("qty")) for w in work_orders)
 	produced = sum(flt(w.get("produced_qty")) for w in work_orders)
-	started = [w.get("actual_start_date") or w.get("planned_start_date") for w in work_orders]
+	started = [w.get("actual_start_date") for w in work_orders]
 	started = [d for d in started if d]
 	return {
 		"work_order_count": len(work_orders),
@@ -165,8 +176,8 @@ def _production_summary(work_orders):
 		"produced_qty": produced,
 		"percent": round(produced / total * 100, 1) if total else 0,
 		"started_on": min(started) if started else None,
-		"completed": bool(work_orders)
-		and all(w.get("status") == "Completed" for w in work_orders),
+		"completed": coverage["complete"],
+		"coverage": coverage,
 	}
 
 
@@ -175,13 +186,15 @@ def _production_summary(work_orders):
 # ---------------------------------------------------------------------------
 
 
-def _decorate(order_row, work_orders):
+def _decorate(order_row, work_orders, order_lines=()):
+	production = _production_summary(work_orders, order_lines)
 	key = derive_order_portal_status(
 		docstatus=cint(order_row.get("docstatus")),
 		erp_status=order_row.get("status"),
 		per_delivered=order_row.get("per_delivered"),
 		per_billed=order_row.get("per_billed"),
 		work_orders=work_orders,
+		production_complete=production["completed"],
 	)
 	order_row["erp_status"] = order_row.get("status")
 	order_row["portal_status"] = key
@@ -190,7 +203,7 @@ def _decorate(order_row, work_orders):
 	order_row["progress_percent"] = order_status_progress(key)
 	order_row["is_request"] = cint(order_row.get("docstatus")) == 0
 	order_row["is_cancelled"] = cint(order_row.get("docstatus")) == 2
-	order_row["production"] = _production_summary(work_orders)
+	order_row["production"] = production
 	order_row["production_started"] = bool(work_orders) and (
 		order_row["production"]["produced_qty"] > 0
 		or any(w.get("status") in ("In Process", "Completed") for w in work_orders)
@@ -199,27 +212,52 @@ def _decorate(order_row, work_orders):
 	return order_row
 
 
-def list_orders(user=None):
+def list_orders(user=None, *, page=None, page_size=20, search=None, status=None):
 	"""Orders the portal user may see, newest first, with portal status."""
 	actor = get_actor(user)
 	if actor.is_guest:
 		return []
 
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	staff_reader = allowed("sales", actor.user) and frappe.has_permission("Sales Order", "read", user=actor.user)
 	filters = {}
-	if not actor.is_internal:
+	if not actor.is_internal and not staff_reader:
 		if not (actor.is_dealer and actor.customer):
 			return []
 		filters["customer"] = actor.customer
 
-	orders = frappe.get_all(
+	states = {
+		"all": {}, "requests": {"docstatus": 0},
+		"active": {"docstatus": 1, "per_delivered": ["<", 100]},
+		"shipping": {"docstatus": 1, "per_delivered": ["between", [0.000001, 99.999999]]},
+		"fulfilled": {"docstatus": 1, "per_delivered": [">=", 100]},
+		"cancelled": {"docstatus": 2},
+	}
+	if (status or "all") not in states:
+		frappe.throw("Choose a supported order filter")
+	filters.update(states[status or "all"])
+	query = str(search or "").strip()[:140]
+	options = {"filters": filters, "user": actor.user, "limit_page_length": 0}
+	if query:
+		options["or_filters"] = {key: ["like", "%" + query + "%"] for key in ("name", "po_no", "customer_name")}
+	if page is not None:
+		from illumenate_lighting.illumenate_lighting.portal.conversations import _pagination
+
+		page, page_size = _pagination(page, page_size)
+		options.update(limit_start=(page - 1) * page_size, limit_page_length=page_size + 1)
+	# Native query permissions apply as well as the explicit company boundary.
+	orders = frappe.get_list(
 		"Sales Order",
-		filters=filters,
+		**options,
 		fields=[
 			"name",
 			"customer",
 			"customer_name",
 			"transaction_date",
 			"delivery_date",
+			"ill_requested_delivery_date",
+			"ill_confirmed_delivery_date",
 			"status",
 			"grand_total",
 			"currency",
@@ -230,10 +268,39 @@ def list_orders(user=None):
 			"docstatus",
 			"ill_fixture_schedule",
 		],
-		order_by="creation desc",
+		order_by="creation desc, name desc",
 	)
 	work_orders = _work_orders_for([o.name for o in orders])
-	return [_decorate(o, work_orders.get(o.name, [])) for o in orders]
+	lines = frappe.get_all("Sales Order Item", filters={"parent": ["in", [o.name for o in orders]]},
+		fields=["name", "parent", "item_code", "qty", "conversion_factor", "ill_configured_fixture",
+			"ill_configured_tape_neon", "ill_configured_led_sheet", "ill_configured_group", "ill_bom"]) if orders else []
+	by_order = {}
+	for line in lines:
+		by_order.setdefault(line.parent, []).append(line)
+	intakes = frappe.get_all("ilL-Order-Intake", filters={"sales_order": ["in", [o.name for o in orders]]}, fields=["sales_order", "state"]) if orders else []
+	intake_states = {row.sales_order: row.state for row in intakes}
+	for order in orders:
+		_decorate(order, work_orders.get(order.name, []), by_order.get(order.name, []))
+		_apply_intake_state(order, intake_states.get(order.name))
+	return orders
+
+
+
+def _apply_intake_state(head, state):
+	head["intake_state"] = state
+	if head.get("docstatus") == 0 and state in ("REJECTED", "WITHDRAWN"):
+		head["is_request"] = False
+		head.update(portal_status="issue", portal_status_label="Request " + state.lower(), portal_status_class="danger", progress_percent=0)
+
+
+@frappe.whitelist()
+def search_orders(search=None, status="all", page=1, page_size=20):
+	from illumenate_lighting.illumenate_lighting.portal.conversations import _pagination
+
+	page, page_size = _pagination(page, page_size)
+	rows = list_orders(page=page, page_size=page_size, search=search, status=status)
+	return {"orders": rows[:page_size], "has_more": len(rows) > page_size, "page": page,
+		"page_size": page_size, "search": str(search or "")[:140], "filter": status}
 
 
 def get_order_read_model(order_name, user=None):
@@ -244,12 +311,11 @@ def get_order_read_model(order_name, user=None):
 
 	actor = get_actor(user)
 	work_orders = _work_orders_for([order.name]).get(order.name, [])
-	produced_by_item = {}
-	for w in work_orders:
-		if w.get("sales_order_item"):
-			produced_by_item[w.sales_order_item] = produced_by_item.get(
-				w.sales_order_item, 0
-			) + flt(w.produced_qty)
+	from illumenate_lighting.illumenate_lighting.portal.production import production_coverage
+
+	coverage = production_coverage([row.as_dict() for row in order.items], work_orders)
+	produced_by_item = {row["line"]: row["produced_qty"] for row in coverage["lines"]}
+	coverage_by_line = {row["line"]: row for row in coverage["lines"]}
 
 	lines = []
 	for item in order.items:
@@ -266,6 +332,8 @@ def get_order_read_model(order_name, user=None):
 				"delivery_date": item.delivery_date,
 				"delivered_qty": flt(item.get("delivered_qty")),
 				"produced_qty": produced_by_item.get(item.name, 0),
+				"planning_path": coverage_by_line[item.name]["path"],
+				"open_qty": max(0, flt(item.qty) - flt(item.get("delivered_qty"))),
 				"billed_amount": flt(item.get("billed_amt")),
 				"section_room": item.get("ill_section_label"),
 				"fixture_type": item.get("ill_fixture_type"),
@@ -282,6 +350,8 @@ def get_order_read_model(order_name, user=None):
 			"name": order.name,
 			"transaction_date": order.transaction_date,
 			"delivery_date": order.delivery_date,
+			"requested_date": order.get("ill_requested_delivery_date"),
+			"confirmed_date": order.get("ill_confirmed_delivery_date"),
 			"status": order.status,
 			"docstatus": order.docstatus,
 			"grand_total": order.grand_total,
@@ -298,7 +368,13 @@ def get_order_read_model(order_name, user=None):
 			"remarks": order.remarks,
 		}
 	)
-	_decorate(head, work_orders)
+	_decorate(head, work_orders, [row.as_dict() for row in order.items])
+	head["approved_on"] = frappe.db.get_value("ilL-Order-Intake", {"sales_order": order.name, "state": "APPROVED"}, "approved_on")
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+	from illumenate_lighting.illumenate_lighting.portal.order_review import snapshot
+
+	head["revision_hash"] = fingerprint(snapshot(order))
+	_apply_intake_state(head, frappe.db.get_value("ilL-Order-Intake", {"sales_order": order.name}, "state"))
 	# Customer-facing label; ERP status stays available as erp_status.
 	head["status"] = head["portal_status_label"]
 
@@ -319,7 +395,9 @@ def get_order_read_model(order_name, user=None):
 
 	can_manage = actor.is_internal or actor.is_dealer
 	actions = {
-		"can_set_po_number": order.docstatus == 0 and can_manage,
+		"can_set_po_number": order.docstatus == 0 and can_manage and head.get("intake_state") not in ("REJECTED", "WITHDRAWN"),
+		"can_request_change": order.docstatus == 1 and actor.is_company_dealer_for(order.customer),
+		"can_reorder": actor.is_company_dealer_for(order.customer),
 		"downloads": [],
 	}
 	if order.docstatus < 2:
@@ -362,7 +440,7 @@ def _timeline(head, work_orders, shipments, invoices):
 		{
 			"key": "approved",
 			"label": _("Approved"),
-			"date": head.transaction_date if head.docstatus == 1 else None,
+			"date": head.get("approved_on") if head.docstatus == 1 else None,
 			"done": head.docstatus == 1,
 		}
 	)
@@ -380,7 +458,7 @@ def _timeline(head, work_orders, shipments, invoices):
 		{
 			"key": "shipped",
 			"label": _("Shipped"),
-			"date": shipments[-1]["posting_date"] if shipments else None,
+			"date": next((row["posting_date"] for row in reversed(shipments) if not row.get("is_return")), None),
 			"done": flt(head.per_delivered) >= 100,
 			"active": 0 < flt(head.per_delivered) < 100,
 		}
@@ -411,6 +489,10 @@ def set_order_request_po_number(order_name, po_no, user=None):
 		frappe.throw(_("Order not found"), frappe.PermissionError)
 	if not (actor.is_internal or actor.is_dealer):
 		frappe.throw(_("Only dealers can set a PO number on an order request"), frappe.PermissionError)
+	frappe.db.sql("select name from `tabSales Order` where name=%s for update", order_name)
+	order = load_accessible_sales_order(order_name, actor.user)
+	if order is None:
+		frappe.throw(_("Order not found"), frappe.PermissionError)
 	if order.docstatus != 0:
 		frappe.throw(_("The PO number can only be changed while the order request is awaiting approval"))
 
@@ -418,7 +500,12 @@ def set_order_request_po_number(order_name, po_no, user=None):
 	if po_no == (order.po_no or ""):
 		return order
 
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+	from illumenate_lighting.illumenate_lighting.portal.order_review import record_buyer_po_edit, snapshot
+
+	previous_hash = fingerprint(snapshot(order))
 	order.db_set("po_no", po_no or None)
+	record_buyer_po_edit(order, previous_hash, actor.user)
 	order.add_comment("Info", _("PO number set to {0} from the portal").format(po_no or _("(blank)")))
 	return order
 

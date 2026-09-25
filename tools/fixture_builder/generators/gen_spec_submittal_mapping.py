@@ -10,7 +10,7 @@ import csv
 import os
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv
+from .common import mapping_row, write_csv
 
 HEADERS = [
     "Fixture Template",
@@ -24,6 +24,7 @@ HEADERS = [
     "Webflow Prefix/Suffix",
     "Webflow Prefix",
     "Webflow Suffix",
+    "Required Value",
 ]
 
 # Default mapping rows derived from the ILL-AX01-FS template pattern
@@ -109,7 +110,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str,
             template_code = f"ILL-{profile.family}-{led_pkg}"
 
             for mapping in source_mappings:
-                rows.append([template_code] + list(mapping))
+                rows.append(mapping_row([template_code] + list(mapping), HEADERS))
 
     filepath = f"{output_dir}/ilL-Spec-Submittal-Mapping.csv"
     write_csv(filepath, HEADERS, rows)

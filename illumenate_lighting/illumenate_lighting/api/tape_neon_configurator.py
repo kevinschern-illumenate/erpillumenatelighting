@@ -38,11 +38,17 @@ import frappe
 from frappe import _
 from frappe.utils import flt, now
 
+from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+    canonical_json,
+    fingerprint,
+    optional_positive,
+    parse_bool,
+)
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     inches_to_mm,
     mm_to_inches,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -110,42 +116,12 @@ def _compute_tape_neon_pricing(tape_item, leader_cable_item, length_mm, lead_len
 		dict with ``total_price_msrp`` (float). Components with no Item Price
 		in the Standard Selling price list are silently treated as zero-cost.
 	"""
-	total_msrp = 0.0
+	from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import selling_amount, stock_quantity
 
-	if tape_item and length_mm:
-		tape_price = frappe.db.get_value(
-			"Item Price",
-			{"item_code": tape_item, "price_list": "Standard Selling", "selling": 1},
-			"price_list_rate",
-		)
-		if tape_price:
-			tape_rate = float(tape_price)
-			# Determine the item's stock UOM to convert length correctly
-			stock_uom = frappe.db.get_value("Item", tape_item, "stock_uom") or "Foot"
-			uom_lower = stock_uom.lower()
-
-			if uom_lower in ("foot", "ft"):
-				qty = float(length_mm) / MM_PER_FOOT
-			elif uom_lower in ("meter", "metre", "m"):
-				qty = float(length_mm) / MM_PER_METER
-			elif uom_lower in ("inch", "in"):
-				qty = float(length_mm) / MM_PER_INCH
-			else:
-				# Default to Foot for unknown UOM
-				qty = float(length_mm) / MM_PER_FOOT
-
-			total_msrp += tape_rate * qty
-
-	if leader_cable_item and lead_length_inches:
-		leader_price = frappe.db.get_value(
-			"Item Price",
-			{"item_code": leader_cable_item, "price_list": "Standard Selling", "selling": 1},
-			"price_list_rate",
-		)
-		if leader_price:
-			total_msrp += float(leader_price) * float(lead_length_inches)
-
-	return {"total_price_msrp": round(total_msrp, 2)}
+	total = selling_amount(tape_item, stock_quantity(tape_item, length_mm, "mm")) if length_mm else 0
+	if lead_length_inches:
+		total += selling_amount(leader_cable_item, stock_quantity(leader_cable_item, lead_length_inches))
+	return {"total_price_msrp": round(total, 2)}
 
 
 def _compute_template_tape_neon_pricing(
@@ -177,10 +153,12 @@ def _compute_template_tape_neon_pricing(
 		as_dict=True,
 	)
 	if not template_pricing:
-		return {"total_price_msrp": 0, "adder_breakdown": []}
+		raise ValueError("Template selling prices are required")
 
-	base_price = float(template_pricing.get("base_price_msrp") or 0)
-	price_per_ft = float(template_pricing.get("price_per_ft_msrp") or 0)
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
+
+	base_price = finite_number(template_pricing.get("base_price_msrp"), minimum=0, field="base price")
+	price_per_ft = finite_number(template_pricing.get("price_per_ft_msrp"), minimum=0, field="price per foot")
 
 	# --- Length-based pricing ---
 	length_ft = float(length_mm) / MM_PER_FOOT if length_mm else 0.0
@@ -230,7 +208,7 @@ def _compute_template_tape_neon_pricing(
 			ignore_permissions=True,
 		)
 
-		option_adder = float(rows[0].msrp_adder or 0) if rows else 0.0
+		option_adder = finite_number(rows[0].msrp_adder or 0, field="option adder") if rows else 0.0
 		total_option_adders += option_adder
 		if option_adder != 0:
 			adder_breakdown.append({
@@ -245,18 +223,16 @@ def _compute_template_tape_neon_pricing(
 		# Look up leader cable item from resolved items or template
 		leader_cable_item = selections.get("_leader_cable_item")
 		if leader_cable_item:
-			leader_price = frappe.db.get_value(
-				"Item Price",
-				{"item_code": leader_cable_item, "price_list": "Standard Selling", "selling": 1},
-				"price_list_rate",
+			from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import (
+			    selling_amount,
+			    stock_quantity,
 			)
-			if leader_price:
-				leader_cable_msrp = float(leader_price) * float(lead_length_inches)
-				adder_breakdown.append({
-					"component": "leader_cable",
-					"description": f"Leader cable ({lead_length_inches}in × ${float(leader_price):.2f}/in)",
-					"amount": round(leader_cable_msrp, 2),
-				})
+
+			leader_cable_msrp = selling_amount(leader_cable_item, stock_quantity(leader_cable_item, lead_length_inches))
+			adder_breakdown.append({"component": "leader_cable", "description": "Leader cable",
+				"amount": round(leader_cable_msrp, 2)})
+		else:
+			raise ValueError("A leader cable item is required for the selected cable length")
 
 	total_msrp = base_price + length_adder + total_option_adders + leader_cable_msrp
 
@@ -420,7 +396,8 @@ def get_tape_cascading_options(
     }
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
 def validate_tape_configuration(
     selections: str,
     segments_json: str | None = None,
@@ -472,6 +449,8 @@ def validate_tape_configuration(
       - manufacturable_length_mm
       - resolved tape spec + tape offering + leader cable item
     """
+    from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
+    require_configuration("LED Tape")
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
     try:
         sel = json.loads(selections) if isinstance(selections, str) else selections
@@ -484,24 +463,21 @@ def validate_tape_configuration(
         return {"success": False, "is_valid": False, "error": "Invalid segments JSON"}
 
     # Normalise stringy booleans (Frappe sends HTTP query params as strings)
-    if isinstance(_skip_record_creation, str):
-        _skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
-    if isinstance(include_power_supply, str):
-        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+    include_power_supply = parse_bool(include_power_supply, default=True)
+    _skip_record_creation = parse_bool(_skip_record_creation)
+
+    ordering_mode = sel.get("ordering_mode") or "ASSEMBLED"
+    if ordering_mode not in ("ASSEMBLED", "BULK_REEL"):
+        frappe.throw("Choose assembled tape or a bulk reel")
+    if ordering_mode == "BULK_REEL":
+        from illumenate_lighting.illumenate_lighting.api.tape_reels import validate_request
+        validate_request(sel, segments, tape_neon_template)
 
     # Normalise the optional max run length override (Frappe sends strings).
     # Fall back to a value embedded in the selections payload when present.
     if override_max_run_ft in (None, ""):
         override_max_run_ft = sel.get("override_max_run_ft")
-    if override_max_run_ft in (None, ""):
-        override_max_run_ft = None
-    else:
-        try:
-            override_max_run_ft = float(override_max_run_ft)
-            if override_max_run_ft <= 0:
-                override_max_run_ft = None
-        except (ValueError, TypeError):
-            override_max_run_ft = None
+    override_max_run_ft = optional_positive(override_max_run_ft, field="maximum run length")
 
     logger.info(f"validate_tape_configuration called with selections: {sel}")
 
@@ -851,6 +827,22 @@ def validate_tape_configuration(
         "selections": sel,
     }
 
+    if ordering_mode == "BULK_REEL":
+        from illumenate_lighting.illumenate_lighting.api.tape_reels import describe
+        describe(return_result)
+
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_power import resolve_before_save
+    resolve_before_save(return_result, tape_neon_template, tape_offering, include_power_supply, dimming_protocol_code)
+    if not return_result.get("is_valid"):
+        return return_result
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_build import prepare
+    try:
+        prepare(return_result, tape_neon_template)
+        _stamp_build_preview(return_result, tape_neon_template, False)
+    except (ValueError, frappe.ValidationError) as exc:
+        return_result.update(success=False, is_valid=False, error=str(exc))
+        return return_result
+
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
     if not _skip_record_creation:
         try:
@@ -867,30 +859,11 @@ def validate_tape_configuration(
             return_result["configured_tape_neon"] = configured_name
             _register_tape_neon_handoff(configured_name)
         except Exception as e:
-            # Validation continues even if record creation fails
+            return_result.update({"success": False, "is_valid": False, "error": str(e)})
             return_result["configured_tape_neon"] = None
             return_result.setdefault("messages", []).append({
-                "severity": "warning",
+                "severity": "error",
                 "text": f"Could not create configured record: {str(e)}",
-            })
-
-    # ── Surface driver plan when an enabling template is supplied ─────
-    if tape_neon_template and include_power_supply:
-        try:
-            driver_plan, dp_messages = select_driver_plan_for_tape_neon(
-                tape_neon_template,
-                runs_count=return_result["computed"].get("runs_count", 1),
-                total_watts=return_result["computed"].get("total_watts", 0),
-                tape_offering_doc=tape_offering,
-                dimming_protocol_code=dimming_protocol_code,
-            )
-            return_result["resolved_items"]["driver_plan"] = driver_plan
-            if dp_messages:
-                return_result.setdefault("messages", []).extend(dp_messages)
-        except Exception as e:
-            return_result.setdefault("messages", []).append({
-                "severity": "warning",
-                "text": f"Driver plan selection failed: {str(e)}",
             })
 
     return return_result
@@ -983,7 +956,8 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
     }
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
 def validate_neon_configuration(
     selections: str,
     segments_json: str,
@@ -1015,6 +989,8 @@ def validate_neon_configuration(
       - end_feed_direction   (str)
       - end_feed_length_inches (float) – jumper/exit cable length
     """
+    from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
+    require_configuration("LED Neon")
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
     try:
         sel = json.loads(selections) if isinstance(selections, str) else selections
@@ -1023,24 +999,14 @@ def validate_neon_configuration(
         return {"success": False, "is_valid": False, "error": "Invalid JSON input"}
 
     # Normalise stringy booleans
-    if isinstance(_skip_record_creation, str):
-        _skip_record_creation = _skip_record_creation.lower() not in ("0", "false", "no", "")
-    if isinstance(include_power_supply, str):
-        include_power_supply = include_power_supply.lower() not in ("0", "false", "no", "")
+    include_power_supply = parse_bool(include_power_supply, default=True)
+    _skip_record_creation = parse_bool(_skip_record_creation)
 
     # Normalise the optional max run length override (Frappe sends strings).
     # Fall back to a value embedded in the selections payload when present.
     if override_max_run_ft in (None, ""):
         override_max_run_ft = sel.get("override_max_run_ft")
-    if override_max_run_ft in (None, ""):
-        override_max_run_ft = None
-    else:
-        try:
-            override_max_run_ft = float(override_max_run_ft)
-            if override_max_run_ft <= 0:
-                override_max_run_ft = None
-        except (ValueError, TypeError):
-            override_max_run_ft = None
+    override_max_run_ft = optional_positive(override_max_run_ft, field="maximum run length")
 
     logger.info(f"validate_neon_configuration called with selections: {sel}, segments: {segments}")
 
@@ -1375,6 +1341,18 @@ def validate_neon_configuration(
         "selections": sel,
     }
 
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_power import resolve_before_save
+    resolve_before_save(return_result, tape_neon_template, tape_offering, include_power_supply, dimming_protocol_code)
+    if not return_result.get("is_valid"):
+        return return_result
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_build import prepare
+    try:
+        prepare(return_result, tape_neon_template)
+        _stamp_build_preview(return_result, tape_neon_template, True)
+    except (ValueError, frappe.ValidationError) as exc:
+        return_result.update(success=False, is_valid=False, error=str(exc))
+        return return_result
+
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
     if not _skip_record_creation:
         try:
@@ -1394,30 +1372,11 @@ def validate_neon_configuration(
             return_result["configured_tape_neon"] = configured_name
             _register_tape_neon_handoff(configured_name)
         except Exception as e:
-            # Validation continues even if record creation fails
+            return_result.update({"success": False, "is_valid": False, "error": str(e)})
             return_result["configured_tape_neon"] = None
             return_result.setdefault("messages", []).append({
-                "severity": "warning",
+                "severity": "error",
                 "text": f"Could not create configured record: {str(e)}",
-            })
-
-    # ── Surface driver plan when an enabling template is supplied ─────
-    if tape_neon_template and include_power_supply:
-        try:
-            driver_plan, dp_messages = select_driver_plan_for_tape_neon(
-                tape_neon_template,
-                runs_count=return_result["computed"].get("total_runs", len(segments)),
-                total_watts=return_result["computed"].get("total_watts", 0),
-                tape_offering_doc=tape_offering,
-                dimming_protocol_code=dimming_protocol_code,
-            )
-            return_result["resolved_items"]["driver_plan"] = driver_plan
-            if dp_messages:
-                return_result.setdefault("messages", []).extend(dp_messages)
-        except Exception as e:
-            return_result.setdefault("messages", []).append({
-                "severity": "warning",
-                "text": f"Driver plan selection failed: {str(e)}",
             })
 
     return return_result
@@ -1435,6 +1394,25 @@ def _tape_neon_mfg_length_mm(result: dict) -> float:
     return computed.get("manufacturable_length_mm", 0) or 0
 
 
+def _trusted_tape_neon_result(configured_name):
+    error = _configured_tape_neon_attach_error(configured_name)
+    if error:
+        frappe.throw(error["error"], frappe.PermissionError)
+    configured = frappe.get_doc(CONFIGURED_TAPE_NEON_DOCTYPE, configured_name)
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot as verified_snapshot
+    snapshot = verified_snapshot(configured)
+    result = {
+        "success": True, "is_valid": True, "configured_tape_neon": configured.name,
+        "product_category": configured.product_category, "part_number": configured.part_number,
+        "build_description": configured.build_description, "tape_neon_template": configured.tape_neon_template,
+        "selections": snapshot.get("selections", {}), "computed": snapshot["computed"],
+        "components": snapshot["components"], "cables": snapshot["cables"],
+        "resolved_items": snapshot["resolved_items"], "include_power_supply": bool(configured.include_power_supply),
+    }
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import price_result
+    return price_result(result, configured.tape_neon_template)
+
+
 def _write_tape_neon_line(line, result: dict, template_name: str = None, variant_extra: dict = None) -> None:
     """Write a validated LED Tape / LED Neon result onto a schedule line.
 
@@ -1445,6 +1423,8 @@ def _write_tape_neon_line(line, result: dict, template_name: str = None, variant
     may move to READY. ``variant_extra`` is merged into that JSON. Does not
     save the parent schedule.
     """
+    result = _trusted_tape_neon_result(result.get("configured_tape_neon"))
+    template_name = result["tape_neon_template"]
     product_category = result.get("product_category", "LED Tape")
     part_number = result.get("part_number", "")
     build_desc = result.get("build_description", "")
@@ -1457,7 +1437,8 @@ def _write_tape_neon_line(line, result: dict, template_name: str = None, variant
     line.configuration_status = "Configured"
     line.ill_item_code = part_number
     line.manufacturable_length_mm = round(_tape_neon_mfg_length_mm(result))
-    line.notes = build_desc
+    if not line.notes:
+        line.notes = build_desc
 
     if configured_name:
         line.configured_tape_neon = configured_name
@@ -1478,11 +1459,13 @@ def _write_tape_neon_line(line, result: dict, template_name: str = None, variant
         "selections": result.get("selections", {}),
     }
     if variant_extra:
-        variant.update(variant_extra)
+        variant.update({k: v for k, v in variant_extra.items() if k == "template_code"})
+    variant["pricing"] = {"total_price_msrp": computed["total_price_msrp"]}
     line.variant_selections = json.dumps(variant)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
 def save_tape_to_schedule(
     schedule_name: str,
     line_idx: int = None,
@@ -1529,18 +1512,7 @@ def save_tape_to_schedule(
         return attach_error
 
     product_category = result.get("product_category", "LED Tape")
-    computed = result.get("computed", {})
-    resolved = result.get("resolved_items", {})
 
-    mfg_length_mm = _tape_neon_mfg_length_mm(result)
-
-    # Compute pricing from Standard Selling Item Prices
-    tape_item = resolved.get("tape_item")
-    leader_cable_item = resolved.get("leader_cable_item")
-    lead_length_inches = computed.get("lead_length_inches", 0)
-    pricing = _compute_tape_neon_pricing(tape_item, leader_cable_item, mfg_length_mm, lead_length_inches)
-    computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
-    result["computed"] = computed
 
     try:
         if line_idx is not None:
@@ -1597,6 +1569,8 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
     part_number = config_data.get("part_number", "")
     build_desc = config_data.get("build_description", "")
 
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import stock_quantity
+
     qty_multiplier = flt(qty_multiplier) or 1
 
     items_added = 0
@@ -1610,7 +1584,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
         if leader_cable_item and lead_length_in > 0:
             so_item = so.append("items", {})
             so_item.item_code = leader_cable_item
-            so_item.qty = flt(lead_length_in) * qty_multiplier
+            so_item.qty = stock_quantity(leader_cable_item, lead_length_in) * qty_multiplier
             so_item.description = f"Leader Cable for {part_number} – {lead_length_in}\" lead"
             items_added += 1
         elif not leader_cable_item:
@@ -1620,7 +1594,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
         if tape_item and mfg_length_in > 0:
             so_item = so.append("items", {})
             so_item.item_code = tape_item
-            so_item.qty = flt(mfg_length_in) * qty_multiplier
+            so_item.qty = stock_quantity(tape_item, mfg_length_in) * qty_multiplier
             so_item.description = (
                 f"{part_number}\n{build_desc}"
             )
@@ -1640,7 +1614,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
             if leader_cable_item and lead_in > 0:
                 so_item = so.append("items", {})
                 so_item.item_code = leader_cable_item
-                so_item.qty = flt(lead_in) * qty_multiplier
+                so_item.qty = stock_quantity(leader_cable_item, lead_in) * qty_multiplier
                 so_item.description = (
                     f"Leader Cable for {part_number} Seg {seg_idx} – "
                     f"{lead_in}\" lead"
@@ -1651,7 +1625,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
             if tape_item and mfg_in > 0:
                 so_item = so.append("items", {})
                 so_item.item_code = tape_item
-                so_item.qty = flt(mfg_in) * qty_multiplier
+                so_item.qty = stock_quantity(tape_item, mfg_in) * qty_multiplier
                 so_item.description = (
                     f"{part_number} Seg {seg_idx} – "
                     f"{mfg_in}\" manufacturable length"
@@ -1663,7 +1637,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
             if leader_cable_item and end_feed_in > 0:
                 so_item = so.append("items", {})
                 so_item.item_code = leader_cable_item
-                so_item.qty = flt(end_feed_in) * qty_multiplier
+                so_item.qty = stock_quantity(leader_cable_item, end_feed_in) * qty_multiplier
                 so_item.description = (
                     f"Jumper Cable for {part_number} Seg {seg_idx} → "
                     f"Seg {seg_idx + 1} – {end_feed_in}\" jumper"
@@ -2178,11 +2152,13 @@ def get_tape_neon_template_cascading(
     }
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
 def validate_tape_neon_template_config(
     template_code: str,
     selections: str,
     segments_json: str = None,
+    _skip_record_creation: bool = False,
 ) -> dict:
     """
     Validate a complete tape/neon template configuration and return computed results.
@@ -2236,14 +2212,15 @@ def validate_tape_neon_template_config(
         # template's allowed specs and carries the free-cutting flag.
         _neon_sel = json.loads(selections) if isinstance(selections, str) else dict(selections or {})
         _neon_include_ps = _neon_sel.pop("include_power_supply", True)
-        if isinstance(_neon_include_ps, str):
-            _neon_include_ps = _neon_include_ps.lower() not in ("0", "false", "no", "")
+        _neon_include_ps = parse_bool(_neon_include_ps, default=True)
         result = validate_neon_configuration(
             json.dumps(_neon_sel),
             segments_json,
             _skip_record_creation=True,
             tape_neon_template=template.name,
             include_power_supply=bool(_neon_include_ps),
+            dimming_protocol_code=_neon_sel.get("dimming_protocol_code"),
+            override_max_run_ft=_neon_sel.get("override_max_run_ft") or None,
         )
     else:
         logger.info("validate_tape_neon_template_config: Delegating to validate_tape_configuration")
@@ -2252,8 +2229,7 @@ def validate_tape_neon_template_config(
         # it as a keyword argument, not a selections key).
         sel_dict = json.loads(selections) if isinstance(selections, str) else dict(selections or {})
         _include_ps = sel_dict.pop("include_power_supply", True)
-        if isinstance(_include_ps, str):
-            _include_ps = _include_ps.lower() not in ("0", "false", "no", "")
+        _include_ps = parse_bool(_include_ps, default=True)
         # validate_tape_configuration is whitelisted with a `selections: str`
         # annotation enforced by Frappe's typing validation, so re-serialize
         # the dict back to JSON rather than passing the dict directly.
@@ -2265,6 +2241,8 @@ def validate_tape_neon_template_config(
             _skip_record_creation=True,
             tape_neon_template=template.name,
             include_power_supply=bool(_include_ps),
+            dimming_protocol_code=sel_dict.get("dimming_protocol_code"),
+            override_max_run_ft=sel_dict.get("override_max_run_ft") or None,
         )
 
     if not result.get("is_valid"):
@@ -2274,6 +2252,9 @@ def validate_tape_neon_template_config(
     # ── Augment result with template info ─────────────────────────────
     result["template_code"] = template.template_code
     result["template_name"] = template.template_name
+
+    if parse_bool(_skip_record_creation):
+        return result
 
     # ── Create or reuse ilL-Configured-Tape-Neon record ───────────────
     # Capture message_log length so we can roll back any messages added
@@ -2292,7 +2273,7 @@ def validate_tape_neon_template_config(
         result["configured_tape_neon"] = configured_name
         _register_tape_neon_handoff(configured_name)
     except Exception as e:
-        # Don't fail validation just because record creation failed
+        result.update({"success": False, "is_valid": False, "error": str(e)})
         result["configured_tape_neon"] = None
         # Truncate message_log back to pre-call length to remove any
         # entries added by frappe.throw() before the mute flag took effect.
@@ -2305,14 +2286,15 @@ def validate_tape_neon_template_config(
             f"Traceback:\n{traceback.format_exc()}"
         )
         result.setdefault("messages", []).append({
-            "severity": "warning",
+            "severity": "error",
             "text": f"Could not create configured record: {str(e)}",
         })
 
     return result
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
 def save_tape_neon_template_to_schedule(
     schedule_name: str,
     line_idx: int = None,
@@ -2357,7 +2339,6 @@ def save_tape_neon_template_to_schedule(
 
     product_category = result.get("product_category", "LED Tape")
     computed = result.get("computed", {})
-    resolved = result.get("resolved_items", {})
     configured_name = result.get("configured_tape_neon")
 
     attach_error = _configured_tape_neon_attach_error(configured_name)
@@ -2373,19 +2354,6 @@ def save_tape_neon_template_to_schedule(
             "name",
         )
 
-    mfg_length_mm = _tape_neon_mfg_length_mm(result)
-
-    # Compute template-based pricing (mirrors save_tape_to_schedule pattern)
-    is_neon = product_category == "LED Neon"
-    if template_name and not computed.get("total_price_msrp"):
-        lead_length_inches = computed.get("lead_length_inches", 0)
-        pricing_sel = dict(result.get("selections", {}))
-        pricing_sel["_leader_cable_item"] = resolved.get("leader_cable_item")
-        pricing = _compute_template_tape_neon_pricing(
-            template_name, pricing_sel, mfg_length_mm, lead_length_inches, is_neon
-        )
-        computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
-    result["computed"] = computed
 
     try:
         if line_idx is not None:
@@ -2702,148 +2670,14 @@ def _resolve_root_configured_tape_neon(name: str | None) -> str | None:
 
 
 @frappe.whitelist()
-def select_driver_plan_for_tape_neon(
-    tape_neon_template: str,
-    runs_count: int,
-    total_watts: float,
-    tape_offering_doc=None,
-    dimming_protocol_code: str | None = None,
-) -> tuple:
-    """Select a driver plan for a configured tape/neon record.
-
-    Mirrors the linear-fixture engine's ``_select_driver_plan`` shape so
-    callers (Quotation tool, Sales Order tool, Builder CLI) can render a
-    consistent driver-line selection UI.
-
-    Driver Eligibility filters:
-        - ``template_type = 'ilL-Tape-Neon-Template'``
-        - ``fixture_template = tape_neon_template``
-        - ``is_allowed = 1`` and ``is_active = 1``
-        - drivers whose ``output_protocol`` is compatible with the tape's
-          ``input_protocol`` and whose voltage matches the tape voltage.
-        - if ``dimming_protocol_code`` is given, drivers must support it.
-
-    Selection policy:
-        - Lowest ``cost_msrp`` first; ties broken by smallest ``max_wattage``
-          that still meets ``total_watts / runs_count``.
-
-    Returns ``(driver_plan_dict, messages_list)`` where the dict has keys
-    ``status`` (one of ``selected``/``not_required``/``no_eligible_drivers``/
-    ``no_matching_drivers``/``no_suitable_driver``/``none``), ``drivers``
-    (list of ``{driver_item, qty, max_wattage, cost_msrp}``), and
-    ``per_run_watts``.
-    """
-    messages: list[dict] = []
-
-    if not tape_neon_template:
-        return {"status": "none", "drivers": [], "per_run_watts": 0.0}, messages
-
-    if not total_watts or total_watts <= 0 or not runs_count or runs_count <= 0:
-        return {"status": "not_required", "drivers": [], "per_run_watts": 0.0}, messages
-
-    eligibility_rows = frappe.get_all(
-        "ilL-Rel-Driver-Eligibility",
-        filters={
-            "template_type": "ilL-Tape-Neon-Template",
-            "fixture_template": tape_neon_template,
-            "is_allowed": 1,
-            "is_active": 1,
-        },
-        fields=["driver"],
-    )
-    if not eligibility_rows:
-        messages.append({
-            "severity": "warning",
-            "text": f"No eligible drivers configured for template {tape_neon_template}.",
-        })
-        return {"status": "no_eligible_drivers", "drivers": [], "per_run_watts": 0.0}, messages
-
-    eligible_driver_codes = [row.driver for row in eligibility_rows if row.driver]
-
-    # Resolve the tape's input protocol & voltage from the tape offering doc
-    tape_voltage = None
-    tape_input_protocol = None
-    if tape_offering_doc is not None:
-        tape_voltage = getattr(tape_offering_doc, "voltage", None)
-        tape_input_protocol = getattr(tape_offering_doc, "input_protocol", None)
-
-    driver_filters = {"name": ["in", eligible_driver_codes]}
-    drivers = frappe.get_all(
-        "ilL-Spec-Driver",
-        filters=driver_filters,
-        fields=[
-            "name",
-            "output_protocol",
-            "voltage",
-            "max_wattage",
-            "cost_msrp",
-            "supported_dimming_protocols",
-            "item",
-        ],
-    )
-
-    if tape_voltage:
-        drivers = [d for d in drivers if not d.get("voltage") or str(d.get("voltage")) == str(tape_voltage)]
-    if tape_input_protocol:
-        drivers = [d for d in drivers if not d.get("output_protocol") or d.get("output_protocol") == tape_input_protocol]
-    if dimming_protocol_code:
-        drivers = [
-            d for d in drivers
-            if not d.get("supported_dimming_protocols")
-            or dimming_protocol_code in (d.get("supported_dimming_protocols") or "")
-        ]
-
-    if not drivers:
-        return {"status": "no_matching_drivers", "drivers": [], "per_run_watts": 0.0}, messages
-
-    per_run_watts = float(total_watts) / float(runs_count)
-    suitable = [d for d in drivers if (d.get("max_wattage") or 0) >= per_run_watts]
-    if not suitable:
-        return {
-            "status": "no_suitable_driver",
-            "drivers": [],
-            "per_run_watts": per_run_watts,
-        }, messages
-
-    suitable.sort(key=lambda d: (float(d.get("cost_msrp") or 0), float(d.get("max_wattage") or 0)))
-    chosen = suitable[0]
-
-    return {
-        "status": "selected",
-        "drivers": [{
-            "driver_code": chosen.get("name"),
-            "driver_item": chosen.get("item"),
-            "qty": int(runs_count),
-            "max_wattage": float(chosen.get("max_wattage") or 0),
-            "cost_msrp": float(chosen.get("cost_msrp") or 0),
-            "output_protocol": chosen.get("output_protocol"),
-            "voltage": chosen.get("voltage"),
-        }],
-        "per_run_watts": per_run_watts,
-    }, messages
+def select_driver_plan_for_tape_neon(tape_neon_template: str, runs_count: int, total_watts: float,
+    tape_offering_doc=None, dimming_protocol_code: str | None = None, run_loads=None) -> tuple:
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_power import select_plan
+    return select_plan(tape_neon_template, runs_count, total_watts, tape_offering_doc, dimming_protocol_code, run_loads)
 
 
-def _create_or_reuse_configured_tape_neon(
-    template,
-    validation_result,
-    is_neon: bool,
-    parent_configured_tape_neon: str | None = None,
-    variant_origin: str | None = None,
-) -> str:
-    """
-    Create an ilL-Configured-Tape-Neon record (or reuse an existing one
-    with the same config_hash).
-
-    Args:
-        template: Template dict (from frappe.get_all), or None for non-template path
-        validation_result: The validated configuration result dict
-        is_neon: True if LED Neon, False if LED Tape
-
-    Returns:
-        The name of the ilL-Configured-Tape-Neon record
-    """
-    import hashlib
-
+def _tape_neon_snapshot(template, validation_result, is_neon):
+    """One snapshot for previews and saves; no writes or client-supplied build data."""
     sel = validation_result.get("selections", {})
     computed = validation_result.get("computed", {})
     resolved = validation_result.get("resolved_items", {})
@@ -2902,7 +2736,69 @@ def _create_or_reuse_configured_tape_neon(
                     str(seg.get("end_feed_length_inches", "")),
                 ])
 
-    config_hash = hashlib.sha256("|".join(hash_parts).encode()).hexdigest()[:32]
+    build_snapshot = {
+        "schema_version": 2, "engine_version": "tape-neon-2", "engineering_inputs": hash_parts,
+        "selections": {k: v for k, v in sel.items() if not any(t in k for t in ("price", "msrp", "cost"))},
+        "computed": {k: v for k, v in computed.items() if not any(t in k for t in ("price", "msrp", "cost"))},
+        "include_power_supply": parse_bool(validation_result.get("include_power_supply"), default=True),
+        "dimming_protocol_code": validation_result.get("dimming_protocol_code"),
+        "segments": computed.get("segments") or [], "runs": computed.get("runs") or [],
+        "resolved_items": resolved,
+        "components": validation_result["components"], "cables": validation_result["cables"],
+        "engineering_sources": validation_result["engineering_sources"],
+        "dependencies": {
+            "template": template.name if template else None,
+            "tape_engineering": frappe.db.get_value("ilL-Spec-LED Tape", resolved.get("tape_spec"),
+                ["input_voltage", "input_protocol", "watts_per_foot", "cut_increment_mm",
+                 "voltage_drop_max_run_length_ft", "is_free_cutting"], as_dict=True),
+        },
+    }
+    return build_snapshot
+
+
+def _stamp_build_preview(result, template_name, is_neon):
+    template = frappe.get_doc("ilL-Tape-Neon-Template", template_name) if template_name else None
+    build = _tape_neon_snapshot(template, result, is_neon)
+    result.update(build_snapshot=build, candidate_config_hash=fingerprint(build), candidate_part_number=result.get("part_number"))
+
+
+def _create_or_reuse_configured_tape_neon(
+    template,
+    validation_result,
+    is_neon: bool,
+    parent_configured_tape_neon: str | None = None,
+    variant_origin: str | None = None,
+) -> str:
+    """
+    Create an ilL-Configured-Tape-Neon record (or reuse an existing one
+    with the same config_hash).
+
+    Args:
+        template: Template dict (from frappe.get_all), or None for non-template path
+        validation_result: The validated configuration result dict
+        is_neon: True if LED Neon, False if LED Tape
+
+    Returns:
+        The name of the ilL-Configured-Tape-Neon record
+    """
+    import hashlib
+
+    sel = validation_result.get("selections", {})
+    computed = validation_result.get("computed", {})
+    resolved = validation_result.get("resolved_items", {})
+    product_category = validation_result.get("product_category", "LED Neon" if is_neon else "LED Tape")
+    build_snapshot = _tape_neon_snapshot(template, validation_result, is_neon)
+    hash_parts = build_snapshot["engineering_inputs"]
+    config_hash = fingerprint(build_snapshot)
+    if template:
+        frappe.db.sql("select name from `tabilL-Tape-Neon-Template` where name=%s for update", template.name)
+    else:
+        frappe.db.sql("select name from `tabilL-Spec-LED Tape` where name=%s for update", resolved["tape_spec"])
+    existing = frappe.db.get_value("ilL-Configured-Tape-Neon", {"config_hash": config_hash}, "name")
+    if existing:
+        from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot
+        snapshot(frappe.get_doc("ilL-Configured-Tape-Neon", existing))
+        return existing
 
     # Variant branch: caller is creating a modified-of-existing record.  Skip
     # the existing-by-hash reuse so historical orders pinned to the parent
@@ -2935,7 +2831,11 @@ def _create_or_reuse_configured_tape_neon(
         "part_number": final_part_number,
         "product_category": product_category,
         "tape_neon_template": template.name if template else None,
-        "engine_version": "2.0",
+        "engine_version": "tape-neon-2",
+        "build_schema_version": 2,
+        "build_snapshot_json": canonical_json(build_snapshot),
+        "include_power_supply": int(build_snapshot["include_power_supply"]),
+        "power_plan_json": canonical_json(resolved.get("driver_plan") or {}),
         "tape_spec": resolved.get("tape_spec"),
         "tape_offering": resolved.get("tape_offering"),
         "cct": sel.get("cct"),
@@ -2982,7 +2882,7 @@ def _create_or_reuse_configured_tape_neon(
         doc_data["manufacturable_length_mm"] = computed.get("manufacturable_length_mm", 0)
         doc_data["difference_mm"] = computed.get("difference_mm", 0)
         doc_data["total_watts"] = computed.get("total_watts", 0)
-        doc_data["assembly_mode"] = "ASSEMBLED"
+        doc_data["assembly_mode"] = sel.get("ordering_mode") or "ASSEMBLED"
 
         # Persist jumper-chained tape segments.  Single-segment tape keeps the
         # historical shape (no child rows) so existing records are unaffected.
@@ -3020,22 +2920,10 @@ def _create_or_reuse_configured_tape_neon(
     doc_data["tape_item"] = resolved.get("tape_item")
     doc_data["leader_cable_item"] = resolved.get("leader_cable_item")
 
-    # Compute pricing using template-based pricing
-    if not computed.get("total_price_msrp") and template:
-        if is_neon:
-            mfg_length_mm = computed.get("total_manufacturable_length_mm", 0)
-        else:
-            mfg_length_mm = computed.get("manufacturable_length_mm", 0)
-        lead_length_inches = computed.get("lead_length_inches", 0)
-        # Pass leader cable item through selections for the pricing function
-        pricing_sel = dict(sel)
-        pricing_sel["_leader_cable_item"] = resolved.get("leader_cable_item")
-        pricing = _compute_template_tape_neon_pricing(
-            template.name, pricing_sel, mfg_length_mm, lead_length_inches, is_neon
-        )
-        computed["total_price_msrp"] = pricing.get("total_price_msrp", 0)
-    else:
-        pricing = {"adder_breakdown": []}
+    from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import price_result
+    if not frappe.flags.get("ill_product_download"):
+        price_result(validation_result, template.name if template else None)
+    pricing = {"adder_breakdown": []}
 
     # Store pricing snapshot as child table rows
     import datetime
@@ -3063,8 +2951,8 @@ def _create_or_reuse_configured_tape_neon(
     )
 
     doc = frappe.get_doc(doc_data)
+    doc.flags.tape_engine_write = True
     doc.insert(ignore_permissions=True)
-    frappe.db.commit()
 
     return doc.name
 

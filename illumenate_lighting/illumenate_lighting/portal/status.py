@@ -76,6 +76,7 @@ def derive_order_portal_status(
 	per_delivered=0,
 	per_billed=0,
 	work_orders=None,
+	production_complete=None,
 ):
 	"""Map authoritative ERP facts to one customer-facing status key.
 
@@ -111,7 +112,7 @@ def derive_order_portal_status(
 		total = sum(float(w.get("qty") or 0) for w in work_orders)
 		produced = sum(float(w.get("produced_qty") or 0) for w in work_orders)
 		all_done = all(w.get("status") == "Completed" for w in work_orders)
-		if total and (all_done or produced >= total):
+		if production_complete is True or (production_complete is None and total and (all_done or produced >= total)):
 			return "production_complete"
 		if produced > 0 or any(w.get("status") == "In Process" for w in work_orders):
 			return "in_production"

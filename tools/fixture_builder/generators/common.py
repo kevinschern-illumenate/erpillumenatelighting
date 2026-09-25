@@ -127,6 +127,21 @@ def write_csv(filepath: str, headers: list[str], rows: list[list[Any]]) -> int:
     return len(rows)
 
 
+def mapping_row(values: list, headers: list[str]) -> list:
+    """Preserve explicit cloned requirements; require core engineering values by default."""
+    required = {"part_number", "requested_overall_length_mm", "requested_length_mm", "manufacturable_length_mm",
+                "sheets_needed", "total_system_watts", "total_groups", "leader_cable_qty", "jumper_cables_included",
+                "input_voltage", "sheet_width_ft", "sheet_height_ft"}
+    row = list(values)
+    if len(row) == len(headers) - 1:
+        row.append("")
+    if len(row) != len(headers):
+        raise ValueError("PDF mapping row does not match the import header contract")
+    if row[-1] == "":
+        row[-1] = int(row[headers.index("Source Field")] in required)
+    return row
+
+
 def blank_row(ncols: int) -> list[str]:
     """Return a list of ncols empty strings (for continuation rows)."""
     return [""] * ncols

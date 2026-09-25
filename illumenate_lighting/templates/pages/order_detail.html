@@ -231,6 +231,7 @@ Detailed view of a single sales order with tracking and items
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
@@ -248,6 +249,33 @@ Detailed view of a single sales order with tracking and items
 		<a href="/portal/orders" class="btn btn-primary mt-3">{{ _("Back to Orders") }}</a>
 	</div>
 	{% else %}
+	{% if intake %}
+	<section class="card p-3 mb-4" aria-labelledby="intake-heading">
+		<h2 id="intake-heading" class="h5">{{ _("Order review") }}: {{ intake.state.replace('_', ' ').title() | e }}</h2>
+		{% if intake.message %}<p style="white-space: pre-wrap">{{ intake.message | e }}</p>{% endif %}
+		{% if intake.needs_intake %}
+        <p>{{ _("Complete the order's address, contact and PO intake before review can finish.") }}</p>
+        <button type="button" class="btn btn-primary" id="complete-intake" data-order="{{ order.name | e }}">{{ _("Complete intake") }}</button>
+        {% endif %}
+        <p>{{ _("Requested delivery") }}: {{ intake.requested_date or _('Not provided') }}<br>{{ _("Staff-confirmed delivery") }}: {{ intake.confirmed_date or _('Awaiting staff confirmation') }}</p>
+        {% if intake.acknowledgment_available %}<a class="btn btn-outline-primary" href="/api/method/illumenate_lighting.illumenate_lighting.portal.order_acknowledgment.download?order_name={{ order.name | urlencode }}">{{ _("Download issued acknowledgment") }}</a>{% endif %}
+        {% if intake.can_acknowledge %}
+		<p>{{ _("Compare your original request with the current items, prices, addresses, instructions, terms and confirmed delivery date before acknowledging this revision.") }}</p>
+		<details class="mb-3"><summary>{{ _("Original request") }}</summary>
+		<div class="table-responsive"><table class="table table-sm">
+			<thead><tr><th>{{ _("Item") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Rate") }}</th><th>{{ _("Amount") }}</th></tr></thead>
+			<tbody>{% for line in intake.original['items'] %}<tr><td>{{ line.item_code | e }}</td><td>{{ line.qty }}</td><td>{{ line.rate }}</td><td>{{ line.amount }}</td></tr>{% endfor %}</tbody>
+		</table></div>
+		<p>{{ _("Original total") }}: {{ intake.original.grand_total }} {{ intake.original.currency | e }}</p>
+		<div style="white-space: pre-wrap">{{ (intake.original.terms or '') | e }}</div></details>
+        <dl>{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ frappe.utils.sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd>{% endfor %}</dl>
+		<p>{{ _("Current total") }}: {{ intake.current.grand_total }} {{ intake.current.currency | e }}</p>
+		<div class="mb-3" style="white-space: pre-wrap">{{ (intake.current.terms or '') | e }}</div>
+		<button class="btn btn-primary" type="button" id="acknowledge-order" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Acknowledge current revision") }}</button>
+		<p class="mt-2 mb-0" id="acknowledge-result" role="status"></p>
+		{% endif %}
+	</section>
+	{% endif %}
 
 	<div class="row">
 		<div class="col-lg-8">
@@ -281,8 +309,9 @@ Detailed view of a single sales order with tracking and items
 						<span class="detail-value">{{ frappe.utils.format_date(order.transaction_date) }}</span>
 					</div>
 					<div class="detail-group">
-						<span class="detail-label">{{ _("Expected Delivery") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(order.delivery_date) if order.delivery_date else "-" }}</span>
+						<span class="detail-label">{{ _("Confirmed delivery") }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(order.confirmed_date) if order.confirmed_date else _("Not confirmed") }}</span>
+						<span class="small text-muted">{{ _("Requested") }}: {{ order.requested_date or _("Not recorded") }}</span>
 					</div>
 					<div class="detail-group">
 						<span class="detail-label">{{ _("PO Number") }}</span>
@@ -350,11 +379,11 @@ Detailed view of a single sales order with tracking and items
 								<div class="item-name">{{ item.item_name }}</div>
 								<div class="item-code">{{ item.item_code }}{% if item.section_room %} &middot; {{ item.section_room }}{% endif %}</div>
 								{% if item.customer_note %}<div class="text-muted small font-italic">{{ item.customer_note }}</div>{% endif %}
-								{% if order.docstatus == 1 and (item.produced_qty or item.delivered_qty) %}
-								<div class="text-muted small">{{ _("Built") }} {{ item.produced_qty | int }} &middot; {{ _("Shipped") }} {{ item.delivered_qty | int }} / {{ item.qty | int }}</div>
+								{% if order.docstatus == 1 %}
+								<div class="text-muted small">{% if item.planning_path == 'manufacturing' %}{{ _("Built") }} {{ item.produced_qty }} &middot; {% else %}{{ _("Standard Item fulfillment") }} &middot; {% endif %}{{ _("Net delivered") }} {{ item.delivered_qty }} / {{ item.qty }} {{ item.uom }} &middot; {{ _("Remaining") }} {{ item.open_qty }}</div>
 								{% endif %}
 							</td>
-							<td class="text-center">{{ item.qty | int }}</td>
+							<td class="text-center">{{ item.qty }}</td>
 							<td class="text-right">{{ frappe.format_value(item.rate, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
 							<td class="text-right">{{ frappe.format_value(item.amount, {"fieldtype": "Currency", "currency": order.currency}) }}</td>
 						</tr>
@@ -372,11 +401,12 @@ Detailed view of a single sales order with tracking and items
 				{% for delivery in deliveries %}
 				<div class="shipment-item">
 					<div class="shipment-info">
-						<h6>{{ delivery.name }}</h6>
+						<h6>{{ delivery.name }}{% if delivery.is_return %} ? {{ _("Return") }}{% endif %}</h6>
+                        {% for line in delivery["items"] %}<p class="small mb-0">{{ line.item_name | e }} ? {{ line.qty }} {{ line.uom }}{% if line.line %} ? {{ line.line | e }}{% endif %}</p>{% endfor %}
 						<div class="shipment-meta">
 							{{ frappe.utils.format_date(delivery.posting_date) }}
 							{% if delivery.carrier %}&bull; {{ delivery.carrier }}{% endif %}
-							{% if delivery.items %}&bull; {{ delivery.items | length }} {{ _("line(s)") }}{% endif %}
+							{% if delivery["items"] %}&bull; {{ delivery["items"] | length }} {{ _("line(s)") }}{% endif %}
 						</div>
 					</div>
 					<div class="text-right">
@@ -409,6 +439,7 @@ Detailed view of a single sales order with tracking and items
 						<div class="shipment-meta">
 							{{ frappe.utils.format_date(invoice.posting_date) }}
 							&bull; {{ invoice.status }}
+                            &bull; {% if invoice.is_return %}{{ _("Credit note") }}{% elif invoice.outstanding_amount > 0 %}{{ _("Outstanding") }} {{ frappe.format_value(invoice.outstanding_amount, {"fieldtype": "Currency", "currency": invoice.currency}) }}{% else %}{{ _("Settled") }}{% endif %}
 							{% if invoice.due_date %}&bull; {{ _("Due") }} {{ frappe.utils.format_date(invoice.due_date) }}{% endif %}
 						</div>
 					</div>
@@ -426,6 +457,27 @@ Detailed view of a single sales order with tracking and items
 
 		<!-- Sidebar -->
 		<div class="col-lg-4">
+			{% if intake %}
+			<div class="sidebar-card"><h2 class="h5">{{ _("Order review") }}</h2>
+			{% for file in intake_files %}<a class="d-block" href="{{ file.file_url | e }}">{{ file.file_name | e }}</a>{% endfor %}
+			{% if intake.can_withdraw %}<button class="btn btn-outline-danger mb-3" data-order-action="Withdraw" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Withdraw pending request") }}</button>{% endif %}
+			{% if intake.can_replace %}<button class="btn btn-outline-primary mb-3" data-order-action="Replacement" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Prepare replacement draft") }}</button>{% endif %}
+			<div data-portal-conversation data-parent-type="ilL-Order-Intake" data-parent-name="{{ intake.name | e }}"></div>
+			</div>{% endif %}
+			{% if actions.can_request_change %}
+			<div class="sidebar-card"><h2 class="h5">{{ _("Order follow-up") }}</h2>
+			{% for action, label in [('Change','Request change'), ('Cancellation','Request cancellation'), ('Reorder','Prepare reorder draft')] %}
+			<button class="btn btn-outline-primary d-block mb-2" data-order-action="{{ action }}" data-order="{{ order.name | e }}" data-revision="{{ order.revision_hash | e }}">{{ _(label) }}</button>
+			{% endfor %}</div>{% endif %}
+			{% if order.docstatus == 2 and actions.can_reorder %}<button class="btn btn-outline-primary mb-3" data-order-action="Replacement" data-order="{{ order.name | e }}" data-revision="{{ order.revision_hash | e }}">{{ _("Prepare replacement draft") }}</button>{% endif %}
+			{% for request in change_requests %}
+			<div class="sidebar-card"><h2 class="h5">{{ request.request_type | e }} · {{ request.name | e }}</h2>
+			<p>{{ request.state | e }}</p><p style="white-space:pre-wrap">{{ request.note | e }}</p>
+			{% if request.staff_note %}<p style="white-space:pre-wrap">{{ request.staff_note | e }}</p>{% endif %}
+			{% if request.new_schedule %}<a href="/portal/schedules/{{ request.new_schedule | urlencode }}">{{ _("Open new draft and review current configuration") }}</a>{% endif %}
+			{% if request.result_sales_order %}<a href="/portal/orders/{{ request.result_sales_order | urlencode }}">{{ _("Approved amended order") }}</a>{% endif %}
+			<div data-portal-conversation data-parent-type="ilL-Order-Change" data-parent-name="{{ request.name | e }}"></div>
+			</div>{% endfor %}
 			<!-- Actions -->
 			<div class="sidebar-card">
 				<h5><i class="fa fa-bolt"></i> {{ _("Quick Actions") }}</h5>
@@ -492,28 +544,52 @@ Detailed view of a single sales order with tracking and items
 
 {% block script %}
 <script>
+document.getElementById('complete-intake')?.addEventListener('click', function () {
+    PortalOrderIntake.open({order_name: this.dataset.order}).catch(function (error) { frappe.msgprint(frappe.utils.escape_html(error.message)); });
+});
+document.getElementById('acknowledge-order')?.addEventListener('click', async function () {
+	this.disabled = true;
+	const result = document.getElementById('acknowledge-result');
+	try {
+		await window.PortalUploads.call('illumenate_lighting.illumenate_lighting.portal.order_review.acknowledge', {
+			order_name: this.dataset.order, revision_hash: this.dataset.revision
+		});
+		window.location.reload();
+	} catch (error) {
+		result.textContent = error.message || 'Could not acknowledge this revision. Reload and try again.';
+		this.disabled = false;
+	}
+});
 function editPoNumber() {
-	var current = $('#poNumberValue').text().trim();
-	if (current === '-') current = '';
-	frappe.prompt(
-		[{fieldname: 'po_no', fieldtype: 'Data', label: '{{ _("PO Number") }}', default: current, reqd: 0}],
-		function(values) {
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.portal.set_order_request_po_number',
-				args: {order_name: '{{ order.name }}', po_no: values.po_no || ''},
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						$('#poNumberValue').text(r.message.po_no || '-');
-						frappe.show_alert({message: '{{ _("PO number saved") }}', indicator: 'green'});
-					} else {
-						frappe.msgprint({title: '{{ _("Error") }}', indicator: 'red', message: (r.message && r.message.error) || '{{ _("Could not save PO number") }}'});
-					}
-				}
-			});
-		},
-		'{{ _("Set PO Number") }}',
-		'{{ _("Save") }}'
-	);
+    if (document.getElementById('po-edit-dialog')) return;
+    const dialog = document.createElement('dialog');
+    dialog.id = 'po-edit-dialog';
+    dialog.setAttribute('aria-labelledby', 'po-edit-title');
+    dialog.innerHTML = '<form><h2 id="po-edit-title">PO number</h2><label for="po-edit-value">Purchase order number</label><input id="po-edit-value" name="po_no" class="form-control" maxlength="140"><p role="status"></p><button type="button" class="btn btn-secondary">Cancel</button> <button type="submit" class="btn btn-primary">Save</button></form>';
+    const input = dialog.querySelector('input');
+    const current = document.getElementById('poNumberValue').textContent.trim();
+    input.value = current === '-' ? '' : current;
+    dialog.querySelector('[type="button"]').onclick = () => dialog.close();
+    dialog.addEventListener('close', () => dialog.remove());
+    dialog.querySelector('form').onsubmit = async event => {
+        event.preventDefault();
+        const button = dialog.querySelector('[type="submit"]');
+        button.disabled = true;
+        try {
+            const receipt = await window.PortalUploads.call('illumenate_lighting.illumenate_lighting.api.portal.set_order_request_po_number', {
+                order_name: {{ (order.name if order else '') | tojson }}, po_no: input.value
+            });
+            document.getElementById('poNumberValue').textContent = receipt.po_no || '-';
+            dialog.close();
+        } catch (error) {
+            dialog.querySelector('[role="status"]').textContent = error.message || 'Could not save PO number.';
+            button.disabled = false;
+        }
+    };
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    input.focus();
 }
+
 </script>
 {% endblock %}

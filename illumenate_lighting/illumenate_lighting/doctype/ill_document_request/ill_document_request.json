@@ -8,6 +8,7 @@
     "doctype":  "DocType",
     "engine":  "InnoDB",
     "field_order":  [
+"sales_order", "fixture_schedule", "technical_reviewer", "required_for_manufacturing",
                         "naming_series",
                         "request_type",
                         "status",
@@ -47,6 +48,30 @@
                         "request_comments"
                     ],
     "fields":  [
+{
+    "fieldname": "sales_order",
+    "fieldtype": "Link",
+    "options": "Sales Order",
+    "label": "Related Sales Order"
+},
+{
+    "fieldname": "fixture_schedule",
+    "fieldtype": "Link",
+    "options": "ilL-Project-Fixture-Schedule",
+    "label": "Fixture Schedule"
+},
+{
+    "fieldname": "technical_reviewer",
+    "fieldtype": "Link",
+    "options": "User",
+    "label": "Named Technical Reviewer"
+},
+{
+    "fieldname": "required_for_manufacturing",
+    "fieldtype": "Check",
+    "label": "Drawing Approval Required for Manufacturing",
+    "default": "0"
+},
                    {
                        "fieldname":  "naming_series",
                        "fieldtype":  "Select",
@@ -292,6 +317,7 @@
     "naming_rule":  "By \"Naming Series\" field",
     "owner":  "Administrator",
     "permissions":  [
+{"role": "ilL Engineering", "read": 1, "write": 1, "report": 1},
                         {
                             "create":  1,
                             "delete":  1,

@@ -1,0 +1,99 @@
+{
+  "doctype": "DocType",
+  "name": "ilL-Line-Document",
+  "module": "ilLumenate Lighting",
+  "autoname": "hash",
+  "field_order": [
+    "schedule",
+    "line_key",
+    "file",
+    "file_name",
+    "title",
+    "sha256",
+    "is_primary",
+    "active",
+    "attached_by",
+    "copied_from"
+  ],
+  "fields": [
+    {
+      "fieldname": "schedule",
+      "fieldtype": "Link",
+      "label": "Schedule",
+      "read_only": 1,
+      "options": "ilL-Project-Fixture-Schedule"
+    },
+    {
+      "fieldname": "line_key",
+      "fieldtype": "Data",
+      "label": "Line Key",
+      "read_only": 1
+    },
+    {
+      "fieldname": "file",
+      "fieldtype": "Link",
+      "label": "File",
+      "read_only": 1,
+      "options": "File"
+    },
+    {
+      "fieldname": "file_name",
+      "fieldtype": "Data",
+      "label": "File Name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title",
+      "read_only": 1
+    },
+    {
+      "fieldname": "sha256",
+      "fieldtype": "Data",
+      "label": "Sha256",
+      "read_only": 1
+    },
+    {
+      "fieldname": "is_primary",
+      "fieldtype": "Check",
+      "label": "Is Primary",
+      "read_only": 1
+    },
+    {
+      "fieldname": "active",
+      "fieldtype": "Check",
+      "label": "Active",
+      "read_only": 1
+    },
+    {
+      "fieldname": "attached_by",
+      "fieldtype": "Link",
+      "label": "Attached By",
+      "read_only": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "copied_from",
+      "fieldtype": "Link",
+      "label": "Copied From",
+      "read_only": 1,
+      "options": "ilL-Line-Document"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1
+    },
+    {
+      "role": "Dealer",
+      "read": 1
+    },
+    {
+      "role": "All",
+      "read": 1
+    }
+  ],
+  "track_changes": 1
+}

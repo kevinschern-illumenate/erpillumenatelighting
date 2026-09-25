@@ -10,20 +10,22 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
-	DEFAULT_SELLING_PRICE_LIST,
-	DEFAULT_UOM,
 	CONFIGURED_ITEM_GROUP,
 	CONFIGURED_NEON_ITEM_GROUP,
 	CONFIGURED_TAPE_ITEM_GROUP,
+	DEFAULT_SELLING_PRICE_LIST,
+	DEFAULT_UOM,
 	_create_item_price_at_msrp,
 	_create_or_get_bom,
 	_create_or_get_configured_item,
 	_create_or_get_configured_tape_neon_item,
 	_ensure_item_group_exists,
 	build_fixture_bom_items,
+	ensure_configured_item_price,
 )
-
+from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
 
 PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 PRODUCT_TYPE_FIXTURE = "Linear Fixture"
@@ -153,6 +155,7 @@ def get_bom_preview(
 	configured = _get_required_doc("ilL-Configured-Tape-Neon", configured_tape_neon, "configured_tape_neon")
 	if configured.bom and frappe.db.exists("BOM", configured.bom):
 		return _preview_existing_bom(product_type, configured.bom, configured_tape_neon=configured.name)
+	from illumenate_lighting.illumenate_lighting.api.tape_neon_bom import build_tape_neon_bom_items
 
 	return {
 		"success": True,
@@ -161,16 +164,15 @@ def get_bom_preview(
 		"configured_tape_neon": configured.name,
 		"item_code": configured.configured_item or configured.part_number,
 		"bom": None,
-		"bom_status": "pending_builder",
-		"messages": [{
-			"severity": "warning",
-			"text": _("Tape/neon BOM preview is not available until the tape/neon BOM builder is implemented."),
-		}],
-		"items": [],
+		"bom_status": "preview",
+		"messages": [],
+		"items": _format_bom_items(build_tape_neon_bom_items(configured)),
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+@idempotent
 def apply_existing_configured_product(
 	parent_doctype: str,
 	parent_name: str,
@@ -186,6 +188,8 @@ def apply_existing_configured_product(
 	location: str | None = None,
 	notes: str | None = None,
 	schedule_line_id: str | None = None,
+	expected_parent_modified: str | None = None,
+	idempotency_key: str | None = None,
 ) -> dict[str, Any]:
 	"""Apply an *already-saved* ilL-Configured-* record to a quote/order row.
 
@@ -198,6 +202,8 @@ def apply_existing_configured_product(
 
 	product_type = _normalize_product_type(product_type)
 	parent_doc = _get_editable_parent(parent_doctype, parent_name)
+	from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
+	require_family(product_type)
 	qty = flt(qty) or 1
 
 	artifact = _ensure_configured_artifacts(product_type, configured_fixture, configured_tape_neon, locals().get("configured_led_sheet"))
@@ -231,7 +237,7 @@ def apply_existing_configured_product(
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def apply_configured_product(*args, **kwargs) -> dict[str, Any]:
 	"""Deprecated alias of :func:`apply_existing_configured_product`.
 
@@ -270,10 +276,21 @@ def _get_required_doc(doctype: str, name: str | None, arg_name: str):
 		frappe.throw(_("Missing required value: {0}").format(arg_name))
 	if not frappe.db.exists(doctype, name):
 		frappe.throw(_("{0} {1} was not found").format(doctype, name))
-	return frappe.get_doc(doctype, name)
+	doc = frappe.get_doc(doctype, name)
+	if doctype.startswith("ilL-Configured-"):
+		from illumenate_lighting.illumenate_lighting.portal.access import can_read_configured_record
+
+		if not can_read_configured_record(doctype, name):
+			frappe.throw(_("Configured build is unavailable"), frappe.PermissionError)
+	else:
+		doc.check_permission("read")
+	return doc
 
 
 def _get_editable_parent(parent_doctype: str, parent_name: str):
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+	if not (allowed("sales") or allowed("engineering")):
+		frappe.throw(_("A staff sales or engineering role is required"), frappe.PermissionError)
 	if parent_doctype not in PARENT_DOCTYPES:
 		frappe.throw(_("Configured products can only be added to Quotations and Sales Orders."))
 	if not frappe.db.exists(parent_doctype, parent_name):
@@ -286,6 +303,7 @@ def _get_editable_parent(parent_doctype: str, parent_name: str):
 	return doc
 
 
+@atomic_build
 def _ensure_configured_artifacts(
 	product_type: str,
 	configured_fixture: str | None,
@@ -309,6 +327,7 @@ def _ensure_configured_artifacts(
 		fixture.configured_item = item_result["item_code"]
 		fixture.bom = bom_result["bom_name"]
 		fixture.save(ignore_permissions=True)
+		ensure_configured_item_price(item_result["item_code"], fixture)
 
 		return {
 			"product_type": product_type,
@@ -334,30 +353,25 @@ def _ensure_configured_artifacts(
 
 	if product_type == PRODUCT_TYPE_SHEET:
 		sheet = _get_required_doc("ilL-Configured-LED-Sheet", configured_led_sheet, "configured_led_sheet")
-		_ensure_item_group_exists("Configured LED Sheets")
-		item_code = sheet.configured_item or sheet.part_number
-		if not item_code:
-			frappe.throw(_("Configured LED Sheet has no part number."))
-		if not frappe.db.exists("Item", item_code):
-			item = frappe.get_doc({"doctype": "Item", "item_code": item_code, "item_name": sheet.part_number or sheet.name, "item_group": "Configured LED Sheets", "stock_uom": DEFAULT_UOM, "is_stock_item": 1, "description": f"Configured LED Sheet: {sheet.name}"})
-			item.insert(ignore_permissions=True)
-		sheet.configured_item = item_code
-		sheet.save(ignore_permissions=True)
-		from illumenate_lighting.illumenate_lighting.api import led_sheet_bom
-		bom_result = led_sheet_bom.create_or_get_led_sheet_bom(sheet, item_code, skip_if_exists=True)
-		messages = list(bom_result.get("messages", []))
-		# Publish the configured MSRP as an Item Price so quote/order rows price
-		# correctly (mirrors the fixture/tape/neon item-creation path). Without
-		# this the row would fall back to the artifact MSRP or price to zero.
-		sheet_msrp = flt(sheet.msrp) or None
+		from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import (
+			current_estimate,
+			ensure_artifacts,
+		)
+		artifacts = ensure_artifacts(sheet)
+		item_code = artifacts["item_code"]
+		bom_result = {"bom_name": artifacts["bom_name"]}
+		messages = []
+		sheet_msrp = current_estimate(sheet)
 		_create_item_price_at_msrp(item_code, sheet_msrp, messages)
+		if any(message.get("severity") == "error" for message in messages):
+			frappe.throw(_messages_to_html(messages))
 		return {
 			"product_type": product_type, "source_doctype": "ilL-Configured-LED-Sheet", "source_name": sheet.name,
 			"configured_fixture": None, "configured_tape_neon": None, "configured_led_sheet": sheet.name,
 			"item_code": item_code, "bom": bom_result.get("bom_name"), "description": _line_description_from_item(item_code),
 			"template_code": sheet.sheet_template, "requested_length_mm": None, "mfg_length_mm": None,
 			"runs_count": sheet.total_groups, "total_watts": sheet.total_system_watts, "finish": sheet.selected_finish,
-			"lens": None, "msrp_unit": sheet_msrp, "total_msrp": sheet_msrp,
+			"lens": None, "msrp_unit": sheet_msrp, "total_msrp": sheet_msrp, "engine_version": sheet.engine_version,
 			"configuration_snapshot": _led_sheet_configuration_snapshot(sheet), "messages": messages,
 		}
 
@@ -384,6 +398,11 @@ def _ensure_configured_artifacts(
 	bom_result = tape_neon_bom.create_or_get_tape_neon_bom(
 		configured, item_result["item_code"], skip_if_exists=True
 	)
+	if not bom_result.get("success"):
+		frappe.throw(_messages_to_html(bom_result.get("messages")))
+	configured.bom = bom_result["bom_name"]
+	configured.save(ignore_permissions=True)
+	ensure_configured_item_price(item_result["item_code"], configured)
 	bom_messages = bom_result.get("messages") or []
 	bom_name = bom_result.get("bom_name")
 
@@ -454,6 +473,7 @@ def _apply_artifact_to_row(
 	_apply_pricing_to_row(parent_doc, row, item_code, qty, artifact)
 
 	_set_child_value(row, "ill_product_type", artifact["product_type"])
+	_set_child_value(row, "ill_configured_group", artifact.get("configured_group"))
 	_set_child_value(row, "ill_configured_fixture", artifact.get("configured_fixture"))
 	_set_child_value(row, "ill_configured_tape_neon", artifact.get("configured_tape_neon"))
 	_set_child_value(row, "ill_configured_led_sheet", artifact.get("configured_led_sheet"))
@@ -675,6 +695,10 @@ def _format_bom_items(items) -> list[dict[str, Any]]:
 
 
 def _fixture_configuration_snapshot(fixture) -> dict[str, Any]:
+	if fixture.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+		return {"product_type": PRODUCT_TYPE_FIXTURE, "configured_fixture": fixture.name,
+		        "config_hash": fixture.config_hash, "bom": fixture.bom, "build": snapshot(fixture)}
 	return {
 		"product_type": PRODUCT_TYPE_FIXTURE,
 		"configured_fixture": fixture.name,
@@ -713,6 +737,10 @@ def _messages_to_html(messages) -> str:
 	return "<br>".join(texts) if texts else _("Configured product artifact generation failed.")
 
 def _led_sheet_configuration_snapshot(sheet) -> dict[str, Any]:
+	if sheet.get("engine_version") == "led-sheet-2":
+		from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import snapshot
+		return {"product_type": PRODUCT_TYPE_SHEET, "configured_led_sheet": sheet.name,
+		        "config_hash": sheet.config_hash, "bom": sheet.bom, "build": snapshot(sheet)}
 	return {
 		"product_type": PRODUCT_TYPE_SHEET,
 		"configured_led_sheet": sheet.name,
@@ -729,12 +757,13 @@ def _led_sheet_configuration_snapshot(sheet) -> dict[str, Any]:
 	}
 
 
-@frappe.whitelist()
-def add_configured_sheet_to_quote_order(configured_sheet_name: str, quote_name: str) -> dict[str, Any]:
+@frappe.whitelist(methods=["POST"])
+def add_configured_sheet_to_quote_order(configured_sheet_name: str, quote_name: str, expected_parent_modified=None, idempotency_key=None) -> dict[str, Any]:
 	"""Add a configured LED Sheet to a draft Quotation."""
 	return apply_existing_configured_product(
 		parent_doctype="Quotation",
 		parent_name=quote_name,
 		product_type=PRODUCT_TYPE_SHEET,
 		configured_led_sheet=configured_sheet_name,
+		expected_parent_modified=expected_parent_modified, idempotency_key=idempotency_key,
 	)

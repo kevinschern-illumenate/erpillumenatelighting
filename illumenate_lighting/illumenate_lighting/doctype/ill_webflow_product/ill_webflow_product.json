@@ -27,6 +27,7 @@
   "tape_neon_template",
   "led_sheet_template",
   "accessory_spec",
+  "portal_item",
   "configurator_section",
   "is_configurable",
   "configurator_intro_text",
@@ -547,6 +548,13 @@
    "hidden": 1,
    "label": "Sync Error Message (legacy)",
    "read_only": 1
+  },
+  {
+   "fieldname": "portal_item",
+   "fieldtype": "Link",
+   "options": "Item",
+   "label": "Approved Standard Sales Item",
+   "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
   }
  ],
  "index_web_pages_for_search": 1,
@@ -569,6 +577,14 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "role": "ilL Catalog Publisher",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1
   }
  ],
  "sort_field": "modified",

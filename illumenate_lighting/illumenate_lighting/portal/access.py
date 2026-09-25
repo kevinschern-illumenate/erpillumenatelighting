@@ -43,6 +43,7 @@ COLLABORATOR_TABLE = "`tabilL-Child-Project-Collaborator`"
 # Configured product records the portal may attach to a schedule line, mapped
 # to the schedule-line field that references them.
 CONFIGURED_RECORD_LINE_FIELDS = {
+	"ilL-Configured-Group": "configured_group",
 	"ilL-Configured-Fixture": "configured_fixture",
 	"ilL-Configured-Tape-Neon": "configured_tape_neon",
 	"ilL-Configured-LED-Sheet": "configured_led_sheet",
@@ -65,7 +66,7 @@ class Actor:
 
 	def __init__(self, user=None):
 		self.user = user or frappe.session.user
-		self.is_guest = self.user == "Guest"
+		self.is_guest = self.user == "Guest" or not frappe.db.get_value("User", self.user, "enabled")
 		self.is_internal = False if self.is_guest else _identity._is_internal_user(self.user)
 		self.is_dealer = False if self.is_guest else _identity._is_dealer_user(self.user)
 		self.customer = None if self.is_guest else _identity._get_user_customer(self.user)
@@ -107,6 +108,10 @@ def project_permission(project, ptype="read", user=None) -> bool:
 	if actor.is_guest:
 		return False
 	if actor.is_internal:
+		return True
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if allowed("sales", actor.user) and ptype in READ_PTYPES | {"write", "create"}:
 		return True
 	if project.owner == actor.user:
 		return True
@@ -154,7 +159,9 @@ def can_manage_project_collaborators(project, user=None) -> bool:
 def can_view_catalog(user=None) -> bool:
 	"""The product catalog (with MSRP) is for Dealers and internal users."""
 	actor = get_actor(user)
-	return not actor.is_guest and (actor.is_internal or actor.is_dealer)
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	return not actor.is_guest and (actor.is_internal or actor.is_dealer or any(allowed(capability, actor.user) for capability in ("sales", "engineering", "catalog")))
 
 
 def require_catalog_access(user=None) -> None:
@@ -171,7 +178,9 @@ def _project_visibility_sql(actor: Actor, table: str = PROJECT_TABLE):
 	Returns ``None`` when the actor is unrestricted. Mirrors
 	:func:`project_permission` for ``ptype="read"``.
 	"""
-	if actor.is_internal:
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if actor.is_internal or allowed("sales", actor.user):
 		return None
 	if actor.is_guest:
 		return "1=0"
@@ -223,6 +232,10 @@ def schedule_permission(schedule, ptype="read", user=None) -> bool:
 		return False
 	if actor.is_internal:
 		return True
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if allowed("sales", actor.user) and ptype in READ_PTYPES | {"write", "create"}:
+		return True
 	if schedule.owner == actor.user:
 		return True
 
@@ -255,7 +268,9 @@ def schedule_query_conditions(user=None) -> str:
 	"""SQL predicate matching the schedules ``user`` may read. Mirrors
 	:func:`schedule_permission` for ``ptype="read"``."""
 	actor = get_actor(user)
-	if actor.is_internal:
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if actor.is_internal or allowed("sales", actor.user):
 		return ""
 	if actor.is_guest:
 		return "1=0"
@@ -340,7 +355,9 @@ def can_read_configured_record(doctype: str, name: str, user=None) -> bool:
 	actor = get_actor(user)
 	if actor.is_guest:
 		return False
-	if actor.is_internal:
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if actor.is_internal or allowed("sales", actor.user) or allowed("engineering", actor.user):
 		return True
 	if not frappe.db.exists(doctype, name):
 		return False

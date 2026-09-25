@@ -1,0 +1,23 @@
+{% set group = line.get('group_details', {}) %}
+<div class="fixture-details">
+  <strong>{{ group.get('family') }} — {{ group.get('members', []) | length }} {{ _('independent members') }}</strong>
+  <div>{{ group.get('template') }}</div>
+  <div>{{ group.get('total_watts') }} W · {{ _('Power supplies included') if group.get('include_power_supply') else _('External power required') }}</div>
+  <details class="mt-2">
+    <summary>{{ _('Member dimensions, cable cuts and feeds') }}</summary>
+    {% for member in group.get('members', []) %}
+      <div class="mt-2"><strong>{{ member.key }}</strong>
+        {% if member.geometry.get('segments') %}
+          {% for segment in member.geometry.segments %}<div>{{ _('Segment') }} {{ loop.index }}: {{ segment.requested_length_mm }} mm · {{ segment.end_type }}</div>{% endfor %}
+        {% else %}
+          <div>{{ member.geometry.coverage_width_ft }} × {{ member.geometry.coverage_height_ft }} ft · {{ member.panels }} {{ _('panels') }}</div>
+        {% endif %}
+        {% for cable in member.cables %}<div>{{ cable.get('role', 'Cable') }}: {{ cable.get('length_mm') }} mm · {{ cable.get('item_code') }}</div>{% endfor %}
+        {% for feed in member.feed_groups %}<div>{{ _('Feed') }} {{ feed.group_number }}: {{ feed.sheet_count }} {{ _('panels') }}, {{ feed.group_watts }} W</div>{% endfor %}
+      </div>
+    {% endfor %}
+    {% for allocation in group.get('power_plan', {}).get('allocations', []) %}
+      <div class="small mt-1">{{ allocation.run_key }} → {{ allocation.item_code }} · {{ _('Supply') }} {{ allocation.supply }}, {{ _('output') }} {{ allocation.output }} · {{ allocation.watts }} W</div>
+    {% endfor %}
+  </details>
+</div>

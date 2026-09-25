@@ -20,13 +20,13 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import frappe
 from frappe import _
 
-from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
-    ATTRIBUTE_DOCTYPES,
-    build_product_filter_field_data,
-    ATTRIBUTE_FILTER_FIELD_SLUGS,
-)
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
+)
+from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+    ATTRIBUTE_DOCTYPES,
+    ATTRIBUTE_FILTER_FIELD_SLUGS,
+    build_product_filter_field_data,
 )
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
     DEFAULT_ERPNEXT_BASE_URL,
@@ -59,8 +59,9 @@ def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
         url: The URL to convert (e.g., '/files/My Image.png').
         brand_code: Optional brand override; defaults to the global base URL.
     """
-    if not url:
-        return url
+    from illumenate_lighting.illumenate_lighting.api.product_projection import safe_document_url
+    if not safe_document_url(url):
+        return None
 
     # Build the absolute URL.
     if url.startswith('http://') or url.startswith('https://'):
@@ -120,6 +121,7 @@ def _get_item_attachment_image_map(item_codes: list[str], brand_code: str | None
             "attached_to_doctype": "Item",
             "attached_to_name": ["in", codes],
             "is_folder": 0,
+            "is_private": 0,
         },
         fields=["attached_to_name", "file_url", "file_name", "creation"],
         order_by="creation desc",
@@ -189,6 +191,7 @@ def get_webflow_products(
     offset: int = 0,
     include_child_tables: bool = True,
     brand: str = None,
+    product_slug: str = None,
 ) -> dict:
     """
     Get Webflow products for n8n export.
@@ -210,6 +213,12 @@ def get_webflow_products(
     Returns:
         dict: {"products": [...], "total": int, "limit": int, "offset": int, "brand": str}
     """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+    from illumenate_lighting.illumenate_lighting.portal.staff import require_catalog_reader
+
+    require_catalog_reader()
+    limit, offset = max(1, min(int(limit), 100)), max(0, int(offset))
+    include_child_tables = parse_bool(include_child_tables)
     # Resolve brand (defaulting to the configured default brand for back-compat).
     brand_code = brand or get_default_brand() or "illumenate"
     try:
@@ -291,6 +300,12 @@ def get_webflow_products(
             return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
         filters["name"] = ["in", list(match_names)]
     
+    if product_slug:
+        permitted = filters.get("name")
+        if permitted and product_slug not in permitted[1]:
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = product_slug
+
     # Get product list with basic fields
     products = frappe.get_all(
         "ilL-Webflow-Product",
@@ -581,111 +596,33 @@ def get_webflow_products(
     }
 
 
-@frappe.whitelist(allow_guest=False)
-def mark_webflow_synced(
-    product_slug: str,
-    webflow_item_id: str,
-    webflow_collection_slug: str,
-    brand: str = None,
-) -> dict:
-    """
-    Mark a product as synced after n8n pushes to Webflow.
-
-    Writes the per-brand sync row and (during the dual-write window) also
-    updates the legacy scalars when ``brand`` is the default brand.
-    """
-    if not frappe.db.exists("ilL-Webflow-Product", product_slug):
-        frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
-
-    brand_code = brand or get_default_brand() or "illumenate"
-    # Validate brand exists (allow inactive so we can still record sync results).
-    resolve_brand(brand_code, allow_inactive=True)
-
-    synced_at = frappe.utils.now()
-
-    # 1) Per-brand row (authoritative).
-    existing = _get_brand_sync_row("ilL-Webflow-Product", product_slug, brand_code)
-    if existing:
-        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
-            "webflow_item_id": webflow_item_id,
-            "webflow_collection_slug": webflow_collection_slug,
-            "last_synced_at": synced_at,
-            "sync_status": "Synced",
-            "sync_error_message": None,
-        }, update_modified=True)
-    else:
-        # Append a new child row via parent doc to ensure parent linkage is set.
-        parent = frappe.get_doc("ilL-Webflow-Product", product_slug)
-        parent.append("sync_targets", {
-            "brand": brand_code,
-            "sync_status": "Synced",
-            "webflow_item_id": webflow_item_id,
-            "webflow_collection_slug": webflow_collection_slug,
-            "last_synced_at": synced_at,
-        })
-        parent.flags._skip_webflow_sync = True
-        parent.flags.ignore_validate_update_after_submit = True
-        parent.save(ignore_permissions=True)
-
-    # 2) Legacy scalars: update only when brand is the default (back-compat).
-    if brand_code == (get_default_brand() or "illumenate"):
-        frappe.db.set_value("ilL-Webflow-Product", product_slug, {
-            "webflow_item_id": webflow_item_id,
-            "webflow_collection_slug": webflow_collection_slug,
-            "last_synced_at": synced_at,
-            "sync_status": "Synced",
-            "sync_error_message": None,
-        }, update_modified=True)
-
-    frappe.db.commit()
-
-    return {
-        "success": True,
-        "synced_at": synced_at,
-        "product_slug": product_slug,
-        "brand": brand_code,
-    }
+@frappe.whitelist(methods=["POST"])
+def mark_webflow_synced(product_slug, webflow_item_id, webflow_collection_slug=None, brand=None,
+                        job=None, token=None, revision_hash=None, payload_hash=None):
+    """Compatibility callback; unfenced legacy success is deliberately rejected."""
+    from illumenate_lighting.illumenate_lighting.api.publication import acknowledge
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
+    if not job or not token or not revision_hash or not payload_hash:
+        frappe.throw(_("Upgrade the product sync workflow to revision-aware publication jobs"))
+    target = frappe.db.get_value("ilL-Publish-Job", job, ["product", "brand"], as_dict=True)
+    if not target or target.product != product_slug or target.brand != (brand or get_default_brand()):
+        frappe.throw(_("Callback product and brand do not match the job"))
+    return acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
 
 
-@frappe.whitelist(allow_guest=False)
-def mark_webflow_error(
-    product_slug: str,
-    error_message: str,
-    brand: str = None,
-) -> dict:
-    """Mark a product as having a sync error for the given brand."""
-    if not frappe.db.exists("ilL-Webflow-Product", product_slug):
-        frappe.throw(_("Product with slug '{0}' not found").format(product_slug))
-
-    brand_code = brand or get_default_brand() or "illumenate"
-    resolve_brand(brand_code, allow_inactive=True)
-    truncated = (error_message[:500] if error_message else "Unknown error")
-
-    existing = _get_brand_sync_row("ilL-Webflow-Product", product_slug, brand_code)
-    if existing:
-        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
-            "sync_status": "Error",
-            "sync_error_message": truncated,
-        }, update_modified=True)
-    else:
-        parent = frappe.get_doc("ilL-Webflow-Product", product_slug)
-        parent.append("sync_targets", {
-            "brand": brand_code,
-            "sync_status": "Error",
-            "sync_error_message": truncated,
-        })
-        parent.flags._skip_webflow_sync = True
-        parent.flags.ignore_validate_update_after_submit = True
-        parent.save(ignore_permissions=True)
-
-    if brand_code == (get_default_brand() or "illumenate"):
-        frappe.db.set_value("ilL-Webflow-Product", product_slug, {
-            "sync_status": "Error",
-            "sync_error_message": truncated,
-        }, update_modified=True)
-
-    frappe.db.commit()
-    return {"success": True, "product_slug": product_slug, "brand": brand_code}
+@frappe.whitelist(methods=["POST"])
+def mark_webflow_error(product_slug, error_message=None, brand=None,
+                       job=None, token=None, revision_hash=None, payload_hash=None, error_code=None):
+    from illumenate_lighting.illumenate_lighting.api.publication import acknowledge
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
+    if not job or not token or not revision_hash or not payload_hash:
+        frappe.throw(_("Upgrade the product sync workflow to revision-aware publication jobs"))
+    target = frappe.db.get_value("ilL-Publish-Job", job, ["product", "brand"], as_dict=True)
+    if not target or target.product != product_slug or target.brand != (brand or get_default_brand()):
+        frappe.throw(_("Callback product and brand do not match the job"))
+    return acknowledge(job, token, revision_hash, payload_hash, outcome="error", error_code=error_code)
 
 
 @frappe.whitelist(allow_guest=False)
@@ -794,13 +731,15 @@ def get_webflow_categories(
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(methods=["POST"])
 def mark_category_synced(
     category_slug: str,
     webflow_item_id: str,
     brand: str = None,
 ) -> dict:
     """Mark a category as synced for the given brand."""
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
     if not frappe.db.exists("ilL-Webflow-Category", category_slug):
         frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
 
@@ -838,13 +777,15 @@ def mark_category_synced(
     return {"success": True, "synced_at": synced_at, "category_slug": category_slug, "brand": brand_code}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(methods=["POST"])
 def mark_category_error(
     category_slug: str,
     error_message: str,
     brand: str = None,
 ) -> dict:
     """Mark a category as errored for the given brand."""
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
     if not frappe.db.exists("ilL-Webflow-Category", category_slug):
         frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
 
@@ -879,7 +820,7 @@ def mark_category_error(
     return {"success": True, "category_slug": category_slug, "brand": brand_code}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(methods=["POST"])
 def trigger_sync(
     product_slugs: list = None,
     product_type: str = None,
@@ -893,6 +834,16 @@ def trigger_sync(
     Marks both the legacy scalar (during dual-write window) and the per-brand
     sync row matching ``brand`` (default brand if not specified).
     """
+    from illumenate_lighting.illumenate_lighting.api import publication
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("catalog")
+    product_slugs = json.loads(product_slugs) if isinstance(product_slugs, str) else product_slugs
+    category_slugs = json.loads(category_slugs) if isinstance(category_slugs, str) else category_slugs
+    sync_all_categories = parse_bool(sync_all_categories)
+    for value in (product_slugs, category_slugs):
+        if value is not None and (not isinstance(value, list) or len(value) > 200):
+            frappe.throw(_("Choose at most 200 records per request"))
     brand_code = brand or get_default_brand() or "illumenate"
     resolve_brand(brand_code, allow_inactive=True)
     is_default = brand_code == (get_default_brand() or "illumenate")
@@ -901,6 +852,10 @@ def trigger_sync(
     categories_marked = 0
 
     def _mark_pending(parent_doctype: str, parent_name: str) -> None:
+        if parent_doctype == "ilL-Webflow-Product":
+            current = publication.inspect(parent_name, brand_code)
+            publication.request(parent_name, brand_code, "STAGE", current["current_hash"])
+            return
         existing = _get_brand_sync_row(parent_doctype, parent_name, brand_code)
         if existing:
             frappe.db.set_value(
@@ -949,7 +904,6 @@ def trigger_sync(
             _mark_pending("ilL-Webflow-Category", slug)
             categories_marked += 1
 
-    frappe.db.commit()
 
     return {
         "success": True,

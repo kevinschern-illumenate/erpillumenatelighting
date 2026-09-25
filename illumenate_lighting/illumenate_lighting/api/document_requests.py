@@ -16,9 +16,9 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from illumenate_lighting.illumenate_lighting.utils import (
-	parse_positive_int,
 	DEFAULT_PAGE_SIZE,
 	MAX_PAGE_SIZE,
+	parse_positive_int,
 )
 
 REQUEST_TABLE = "`tabilL-Document-Request`"
@@ -262,7 +262,7 @@ def get_request_type_fields(request_type: str) -> dict:
 	return {"success": True, "fields": fields}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_request(request_data: Union[str, dict]) -> dict:
 	"""
 	Create a new document request from the portal.
@@ -351,8 +351,8 @@ def _store_field_value(field_value, fieldtype: str, value):
 		field_value.raw_display = str(value)[:100] if value else ""
 
 
-@frappe.whitelist()
-def submit_request(request_name: str) -> dict:
+@frappe.whitelist(methods=["POST"])
+def submit_request(request_name: str, file_ids=None) -> dict:
 	"""
 	Submit a draft request.
 
@@ -366,14 +366,20 @@ def submit_request(request_name: str) -> dict:
 	if doc is None:
 		return _not_found()
 
+	if doc.status == "Submitted":
+		return {"success": True, "request_name": doc.name, "already_existed": True}
 	if doc.status != "Draft":
 		return {"success": False, "error": "Only draft requests can be submitted"}
 
 	try:
+		from illumenate_lighting.illumenate_lighting.portal.files import finalize_files
+
+		finalize_files(file_ids or [], "ilL-Document-Request", doc.name)
 		doc.status = "Submitted"
 		doc.save(ignore_permissions=True)
 		return {"success": True}
 	except Exception as e:
+		frappe.db.rollback()
 		return _error_response(e, f"Portal: error submitting document request {request_name}")
 
 
@@ -546,7 +552,11 @@ def get_request_detail(request_name: str) -> dict:
 
 	# Build deliverables (only published ones for portal users)
 	deliverables = []
-	is_internal = "System Manager" in frappe.get_roles(frappe.session.user)
+	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
+		_is_request_staff,
+	)
+
+	is_internal = _is_request_staff(doc, frappe.session.user)
 
 	for idx, d in enumerate(doc.deliverables or []):
 		if is_internal or d.is_published_to_portal:
@@ -567,10 +577,17 @@ def get_request_detail(request_name: str) -> dict:
 		filters={
 			"attached_to_doctype": "ilL-Document-Request",
 			"attached_to_name": doc.name,
-			"is_private": 0,
+			"is_private": 1,
 		},
-		fields=["name", "file_name", "file_url", "creation"],
+		fields=["name", "file_name", "file_url", "creation", "owner"],
 	)
+	# Native request attachments may include unpublished staff deliverables.
+	published_urls = {row.file for row in doc.deliverables or [] if row.is_published_to_portal}
+	deliverable_urls = {row.file for row in doc.deliverables or []}
+	attachments = [row for row in attachments if is_internal or (row.file_url not in deliverable_urls and row.get("owner") == doc.requester_user) or row.file_url in published_urls]
+	from illumenate_lighting.illumenate_lighting.portal.files import list_files
+
+	attachments.extend(list_files("ilL-Document-Request", doc.name))
 
 	return {
 		"success": True,
@@ -600,8 +617,8 @@ def get_request_detail(request_name: str) -> dict:
 	}
 
 
-@frappe.whitelist()
-def add_request_attachment(request_name: str, file_url: str, filename: str = None) -> dict:
+@frappe.whitelist(methods=["POST"])
+def add_request_attachment(request_name: str, file_url: str | None = None, filename: str | None = None, file_id: str | None = None) -> dict:
 	"""
 	Add an attachment to a request.
 
@@ -622,21 +639,17 @@ def add_request_attachment(request_name: str, file_url: str, filename: str = Non
 		return {"success": False, "error": "Cannot add attachments to this request"}
 
 	try:
-		# Create file record
-		file_doc = frappe.new_doc("File")
-		file_doc.file_url = file_url
-		file_doc.file_name = filename or file_url.split("/")[-1]
-		file_doc.attached_to_doctype = "ilL-Document-Request"
-		file_doc.attached_to_name = request_name
-		file_doc.is_private = 0
-		file_doc.insert(ignore_permissions=True)
+		from illumenate_lighting.illumenate_lighting.portal.files import finalize_files
 
-		return {"success": True, "file_name": file_doc.name}
+		if not file_id or file_url:
+			frappe.throw(_("Upload file bytes privately and provide the verified File ID."))
+		files = finalize_files([file_id], "ilL-Document-Request", request_name)
+		return {"success": True, "file_name": file_id, "files": files}
 	except Exception as e:
 		return _error_response(e, f"Portal: error attaching file to request {request_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def add_deliverable(
 	request_name: str,
 	file_url: str,
@@ -659,14 +672,13 @@ def add_deliverable(
 	Returns:
 		dict: {"success": True/False, "error": str}
 	"""
-	# Check internal permission
-	if "System Manager" not in frappe.get_roles(frappe.session.user):
-		return {"success": False, "error": "Only internal users can add deliverables"}
+	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
+		_is_request_staff,
+	)
 
-	if not frappe.db.exists("ilL-Document-Request", request_name):
-		return {"success": False, "error": "Request not found"}
-
-	doc = frappe.get_doc("ilL-Document-Request", request_name)
+	doc = _get_accessible_request(request_name, "write")
+	if doc is None or not _is_request_staff(doc, frappe.session.user):
+		return _not_found()
 
 	try:
 		deliverable = doc.append("deliverables", {})
@@ -680,14 +692,15 @@ def add_deliverable(
 			deliverable.published_on = now_datetime()
 			deliverable.published_by = frappe.session.user
 
-		doc.save()
+		doc.save(ignore_permissions=True)
 
 		return {"success": True, "idx": len(doc.deliverables) - 1}
 	except Exception as e:
+		frappe.db.rollback()
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def publish_deliverable(request_name: str, deliverable_idx: int) -> dict:
 	"""
 	Publish a deliverable to make it visible on the portal.
@@ -699,23 +712,23 @@ def publish_deliverable(request_name: str, deliverable_idx: int) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": str}
 	"""
-	# Check internal permission
-	if "System Manager" not in frappe.get_roles(frappe.session.user):
-		return {"success": False, "error": "Only internal users can publish deliverables"}
+	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
+		_is_request_staff,
+	)
 
-	if not frappe.db.exists("ilL-Document-Request", request_name):
-		return {"success": False, "error": "Request not found"}
-
-	doc = frappe.get_doc("ilL-Document-Request", request_name)
+	doc = _get_accessible_request(request_name, "write")
+	if doc is None or not _is_request_staff(doc, frappe.session.user):
+		return _not_found()
 
 	try:
 		doc.publish_deliverable(int(deliverable_idx))
 		return {"success": True}
 	except Exception as e:
+		frappe.db.rollback()
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_request_status(request_name: str, new_status: str) -> dict:
 	"""
 	Update the status of a request (internal use only).
@@ -727,13 +740,13 @@ def update_request_status(request_name: str, new_status: str) -> dict:
 	Returns:
 		dict: {"success": True/False, "error": str}
 	"""
-	# Check internal permission
-	if "System Manager" not in frappe.get_roles(frappe.session.user):
-		return {"success": False, "error": "Only internal users can update status"}
+	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
+		_is_request_staff,
+	)
 
-	if not frappe.db.exists("ilL-Document-Request", request_name):
-		return {"success": False, "error": "Request not found"}
-
+	doc = _get_accessible_request(request_name, "write")
+	if doc is None or not _is_request_staff(doc, frappe.session.user):
+		return _not_found()
 	valid_statuses = ["Draft", "Submitted", "In Progress", "Waiting on Customer", "Completed", "Closed", "Cancelled"]
 	if new_status not in valid_statuses:
 		return {"success": False, "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}
@@ -741,9 +754,10 @@ def update_request_status(request_name: str, new_status: str) -> dict:
 	try:
 		doc = frappe.get_doc("ilL-Document-Request", request_name)
 		doc.status = new_status
-		doc.save()
+		doc.save(ignore_permissions=True)
 		return {"success": True}
 	except Exception as e:
+		frappe.db.rollback()
 		return {"success": False, "error": str(e)}
 
 

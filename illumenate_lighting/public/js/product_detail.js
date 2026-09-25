@@ -43,15 +43,15 @@ function loadProductDetail(slug) {
 				ProductDetail.product = r.message.product;
 				renderDetail(r.message.product);
 
-				if (ProductDetail.isConfigurable) {
-					initEmbeddedConfigurator(slug);
-					loadProjectDropdown();
-				}
+				renderConfigureAction(r.message.product);
 			} else {
 				$('#detailLoading').html(
-					'<p class="text-danger">' + (r.message && r.message.error || 'Product not found') + '</p>'
+					'<p class="text-danger">' + _escHtml(r.message && r.message.error || 'Product not found') + '</p>'
 				);
 			}
+		},
+		error: function() {
+			$('#detailLoading').text(__('Unable to load this product. Please reload to try again.'));
 		}
 	});
 }
@@ -75,8 +75,8 @@ function renderDetail(p) {
 	}
 
 	var priceHtml = '';
-	if (p.base_price_msrp) {
-		priceHtml = '<div class="product-hero-price">From $' + Number(p.base_price_msrp).toLocaleString() + '</div>';
+	if (p.base_price_msrp !== undefined && p.base_price_msrp !== null) {
+		priceHtml = '<div class="product-hero-price">Base MSRP $' + Number(p.base_price_msrp).toLocaleString() + ' <small>before length and options</small></div>';
 	}
 
 	$('#productInfo').html(
@@ -135,7 +135,7 @@ function renderSpecs(specs) {
 	if (!specs.length) { $('#tabSpecs').html('<p class="text-muted">No specifications available.</p>'); return; }
 	var html = '<table class="spec-table">';
 	specs.forEach(function(s) {
-		html += '<tr><td>' + _escHtml(s.spec_label) + '</td><td>' + _escHtml(s.spec_value) + '</td></tr>';
+		html += '<tr><td>' + _escHtml(s.spec_label) + '</td><td>' + _escHtml(s.spec_value) + ' ' + _escHtml(s.spec_unit || '') + '</td></tr>';
 	});
 	html += '</table>';
 	$('#tabSpecs').html(html);
@@ -145,8 +145,9 @@ function renderDocs(docs) {
 	if (!docs.length) { $('#tabDocs').html('<p class="text-muted">No documents available.</p>'); return; }
 	var html = '<div class="doc-list">';
 	docs.forEach(function(d) {
+		if (!d.file_url) return;
 		var icon = d.document_type === 'PDF' ? 'fa-file-pdf-o' : 'fa-file-o';
-		html += '<a href="' + _escHtml(d.file_url || '#') + '" target="_blank"><i class="fa ' + icon + '"></i> ' + _escHtml(d.document_name) + '</a>';
+		html += '<a href="' + _escHtml(d.file_url) + '" target="_blank" rel="noopener"><i class="fa ' + icon + '"></i> ' + _escHtml(d.document_name) + '</a>';
 	});
 	html += '</div>';
 	$('#tabDocs').html(html);
@@ -162,6 +163,65 @@ function renderCerts(certs) {
 }
 
 // ── Embedded Configurator ───────────────────────────────────────────
+
+function renderConfigureAction(product) {
+	var section = $('#configuratorSection').empty().show();
+	if (product.capability === 'quantity') {
+		section.append($('<p class="text-muted">').text(__('Select an approved SKU and quantity. Current pricing is calculated for the quotation or order request.')));
+		section.append($('<button class="btn btn-primary">').text(__('Add quantity to schedule')).on('click', () => openStandardProduct(product)));
+		return;
+	}
+	if (!product.configure_url) {
+		section.append($('<a class="btn btn-outline-primary">').attr('href', '/portal/support').text(__('Request product assistance')));
+		return;
+	}
+	var url = new URL(product.configure_url, window.location.origin);
+	var context = new URLSearchParams(window.location.search);
+	['schedule', 'line_idx'].forEach(function(key) {
+		if (context.has(key)) url.searchParams.set(key, context.get(key));
+	});
+	section.append($('<a class="btn btn-primary">').attr('href', url.pathname + url.search).text(__('Configure this product')));
+}
+
+async function openStandardProduct(product) {
+    const api = 'illumenate_lighting.illumenate_lighting.portal.standard_products.';
+    try {
+        let data = (await frappe.call({method: api + 'prepare', args: {product_slug: product.product_slug}})).message;
+        let requestVersion = 0;
+        const key = crypto.randomUUID();
+        const dialog = new frappe.ui.Dialog({title: __('Add standard product'), fields: [
+            {fieldname: 'item_code', fieldtype: 'Select', label: __('SKU and stock UOM'), options: data.choices.map(row => ({value: row.item_code, label: row.label + ' [' + row.stock_uom + ']'})), reqd: 1},
+            {fieldname: 'schedule_search', fieldtype: 'Data', label: __('Find schedule by name'), onchange: async () => {
+                const serial = ++requestVersion;
+                try {
+                const response = await frappe.call({method: api + 'prepare', args: {product_slug: product.product_slug, search: dialog.get_value('schedule_search')}});
+                if (serial !== requestVersion || !dialog.$wrapper.is(':visible')) return;
+                data = response.message;
+                dialog.set_df_property('schedule_name', 'options', data.schedules.map(row => ({value: row.name, label: row.schedule_name + ' (' + row.name + ')'})));
+                dialog.set_value('schedule_name', '');
+                } catch (error) { if (serial === requestVersion) frappe.msgprint(__('Schedules could not be loaded. Your entries are retained; try the search again.')); }
+            }},
+            {fieldname: 'schedule_name', fieldtype: 'Select', label: __('Editable schedule'), options: data.schedules.map(row => ({value: row.name, label: row.schedule_name + ' (' + row.name + ')'})), reqd: 1},
+            {fieldname: 'quantity', fieldtype: 'Int', label: __('Quantity in stock UOM'), default: 1, reqd: 1},
+            {fieldname: 'line_id', fieldtype: 'Data', label: __('Fixture designation / line ID'), reqd: 1},
+            {fieldname: 'location', fieldtype: 'Data', label: __('Room / location')},
+            {fieldname: 'notes', fieldtype: 'Small Text', label: __('Notes')}
+        ], primary_action_label: __('Add to schedule'), primary_action: async values => {
+            const schedule = data.schedules.find(row => row.name === values.schedule_name);
+            if (!schedule) { frappe.msgprint(__('Choose an editable schedule.')); return; }
+            const {schedule_search, ...input} = values;
+            try {
+                dialog.get_primary_btn().prop('disabled', true);
+                const response = await frappe.call({method: api + 'add', type: 'POST', args: {...input, product_slug: product.product_slug, expected_modified: schedule.modified, idempotency_key: key}});
+                dialog.hide(); window.location.assign('/portal/schedules/' + encodeURIComponent(response.message.schedule_name));
+            } catch (error) { frappe.msgprint(__('The Item was not confirmed. Your entries are retained; retry or reload the schedule if its revision changed.'));
+            } finally { dialog.get_primary_btn().prop('disabled', false); }
+        }});
+        dialog.show();
+        const context = new URLSearchParams(window.location.search).get('schedule');
+        if (data.schedules.some(row => row.name === context)) dialog.set_value('schedule_name', context);
+    } catch (error) { frappe.msgprint(_escHtml(error.message || __('Product choices could not be loaded.'))); }
+}
 
 function initEmbeddedConfigurator(slug) {
 	// Re-use WebflowConfigurator global object
@@ -400,5 +460,5 @@ function _escHtml(str) {
 	if (!str) return '';
 	var div = document.createElement('div');
 	div.textContent = str;
-	return div.innerHTML;
+	return div.innerHTML.replaceAll('"', '&quot;').replaceAll("'", "&#39;");
 }

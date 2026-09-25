@@ -18,6 +18,7 @@ API Endpoints:
 - generate_from_sales_order: Generate artifacts for all configured fixtures on a Sales Order
 """
 
+import json
 import math
 from typing import Any, Optional
 
@@ -170,7 +171,7 @@ def generate_manufacturing_artifacts(
 
 
 @frappe.whitelist()
-def generate_from_sales_order(sales_order: str) -> dict[str, Any]:
+def generate_from_sales_order(sales_order: str, automatic=False) -> dict[str, Any]:
 	"""
 	Generate manufacturing artifacts for all configured fixtures on a Sales Order.
 
@@ -197,10 +198,26 @@ def generate_from_sales_order(sales_order: str) -> dict[str, Any]:
 		return response
 
 	so_doc = frappe.get_doc("Sales Order", sales_order)
+	so_doc.check_permission("write")
+	frappe.db.sql("select name from `tabSales Order` where name=%s for update", sales_order)
+	so_doc.reload()
+	so_doc.check_permission("write")
+	if so_doc.docstatus != 1:
+		frappe.throw("Approve the Sales Order before preparing production")
+	from illumenate_lighting.illumenate_lighting.api.manufacturing_order import create_for_line
 
 	# Process each line item with a configured fixture
 	processed_count = 0
 	for item in so_doc.items:
+		if automatic and not item.get("ill_configured_fixture"):
+			group = item.get("ill_configured_group")
+			if not group or frappe.db.get_value("ilL-Configured-Group", group, "family") != "Linear Fixture":
+				continue  # Other families retain staff-led ERP planning from their pinned BOM.
+		pinned_result = create_for_line(so_doc, item)
+		if pinned_result is not None:
+			response["results"].append({"idx": item.idx, "item_code": item.item_code, "result": pinned_result})
+			processed_count += 1
+			continue
 		# Check if this line has a configured fixture
 		configured_fixture_id = item.get("ill_configured_fixture")
 		if not configured_fixture_id:
@@ -254,7 +271,7 @@ def on_sales_order_submit(doc, method):
 	# Check if any line items have configured fixtures
 	has_configured_fixtures = False
 	for item in doc.items:
-		if item.get("ill_configured_fixture"):
+		if any(item.get(field) for field in ("ill_configured_group", "ill_configured_fixture", "ill_configured_tape_neon", "ill_configured_led_sheet")):
 			has_configured_fixtures = True
 			break
 
@@ -262,7 +279,7 @@ def on_sales_order_submit(doc, method):
 		return
 
 	# Generate manufacturing artifacts
-	result = generate_from_sales_order(doc.name)
+	result = generate_from_sales_order(doc.name, automatic=True)
 
 	if not result["success"]:
 		# Log errors but don't block submission
@@ -384,7 +401,13 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 
 
 def _configured_doc_msrp(configured_doc) -> float | None:
-	"""Latest ``msrp_unit`` from a configured record's pricing snapshot."""
+	"""Current estimates for v2 builds; historical snapshot for legacy records."""
+	if configured_doc.doctype == "ilL-Configured-Fixture" and configured_doc.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.linear_build import current_estimate
+		return current_estimate(configured_doc)
+	if configured_doc.doctype == "ilL-Configured-Tape-Neon" and configured_doc.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.tape_neon_build import current_estimate
+		return current_estimate(configured_doc)
 	snapshot = getattr(configured_doc, "pricing_snapshot", None) or []
 	if not snapshot:
 		return None
@@ -428,6 +451,8 @@ def ensure_configured_item_price(item_code: str, configured_doc, msrp: float | N
 
 	messages: list = []
 	_create_item_price_at_msrp(item_code, flt(msrp), messages)
+	if configured_doc.get("build_schema_version") == 2 and any(m.get("severity") == "error" for m in messages):
+		frappe.throw("A current configured Item selling price could not be saved")
 	return updated or not any(m.get("severity") == "error" for m in messages)
 
 
@@ -480,6 +505,11 @@ def _create_or_get_configured_item(
 		"messages": [],
 	}
 
+	if fixture.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+		snapshot(fixture)
+		if fixture.configured_item and fixture.configured_item != fixture.name:
+			frappe.throw("Configured Item does not match this immutable linear build")
 	# Check if fixture already has a configured item
 	if fixture.configured_item and skip_if_exists:
 		if frappe.db.exists("Item", fixture.configured_item):
@@ -585,10 +615,10 @@ def _create_or_get_configured_item(
 		})
 
 		# Create Item Price at MSRP from pricing snapshot
-		msrp = None
-		if fixture.pricing_snapshot:
-			msrp = fixture.pricing_snapshot[-1].msrp_unit
+		msrp = _configured_doc_msrp(fixture)
 		_create_item_price_at_msrp(item_code, msrp, result["messages"])
+		if fixture.get("build_schema_version") == 2 and any(m.get("severity") == "error" for m in result["messages"]):
+			frappe.throw("A current configured Item selling price could not be saved")
 
 	except Exception as e:
 		result["success"] = False
@@ -626,6 +656,19 @@ def _create_or_get_configured_tape_neon_item(
 		"messages": [],
 	}
 
+	# Version 2 engineering identity includes the supply allocation and dependencies.
+	# A readable part number alone is not a safe Item/BOM reuse key.
+	versioned_item = None
+	if configured_tape_neon.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot
+		snapshot(configured_tape_neon)
+		build_hash = configured_tape_neon.config_hash or ""
+		if len(build_hash) != 64 or any(char not in "0123456789abcdef" for char in build_hash):
+			frappe.throw(_("A versioned configured product requires a complete build hash"))
+		versioned_item = f"ILL-TN-{build_hash}"
+		if configured_tape_neon.configured_item and configured_tape_neon.configured_item != versioned_item:
+			frappe.throw(_("The configured Item does not match this immutable build"))
+
 	# Check if record already has a configured item
 	if configured_tape_neon.configured_item and skip_if_exists:
 		if frappe.db.exists("Item", configured_tape_neon.configured_item):
@@ -638,7 +681,7 @@ def _create_or_get_configured_tape_neon_item(
 			return result
 
 	# Use the part_number as the item code
-	item_code = configured_tape_neon.part_number
+	item_code = versioned_item or configured_tape_neon.part_number
 	if not item_code:
 		result["success"] = False
 		result["messages"].append({
@@ -693,10 +736,10 @@ def _create_or_get_configured_tape_neon_item(
 		})
 
 		# Create Item Price at MSRP from pricing snapshot
-		msrp = None
-		if configured_tape_neon.pricing_snapshot:
-			msrp = configured_tape_neon.pricing_snapshot[-1].msrp_unit
+		msrp = _configured_doc_msrp(configured_tape_neon)
 		_create_item_price_at_msrp(item_code, msrp, result["messages"])
+		if configured_tape_neon.get("build_schema_version") == 2 and any(m.get("severity") == "error" for m in result["messages"]):
+			frappe.throw("A current configured Item selling price could not be saved")
 	except Exception as e:
 		result["success"] = False
 		result["messages"].append({
@@ -761,6 +804,9 @@ def _generate_tape_neon_item_description(configured_tape_neon) -> str:
 
 def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 	"""Build default BOM rows for a configured fixture without creating a BOM."""
+	if fixture.get("build_schema_version") == 2 and fixture.get("component_manifest_json"):
+		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+		return snapshot(fixture)["components"]
 	bom_items = []
 
 	# Determine if this is a multi-segment fixture
@@ -849,29 +895,32 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 				"stock_uom": "Foot",
 			})
 
-	# --- Role 6: Leader Cables ---
-	# TODO: re-enable leader cables when ready to include in configured fixture BOMs
-	# if fixture.leader_item:
-	# 	# Leader qty = runs_count
-	# 	leader_qty = fixture.runs_count or 1
-	# 	bom_items.append({
-	# 		"item_code": fixture.leader_item,
-	# 		"qty": leader_qty,
-	# 		"uom": "Nos",
-	# 		"stock_uom": "Nos",
-	# 	})
+	if fixture.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import cable_stock_quantity
+		for row in bom_items:
+			uom = frappe.db.get_value("Item", row["item_code"], "stock_uom")
+			if row["item_code"] == tape_item:
+				row.update(qty=cable_stock_quantity(_calculate_total_tape_length(fixture), "mm", uom), uom=uom, stock_uom=uom)
+			elif uom != row["stock_uom"]:
+				frappe.throw("A count-based linear component has an incompatible stock UOM; review its specification")
 
-	# --- Role 7: Jumper Cables (for multi-segment fixtures) ---
-	if is_multi_segment and fixture.segments:
-		jumper_items = _calculate_jumper_cable_items(fixture)
-		for jumper_item in jumper_items:
-			if jumper_item.get("item_code") and jumper_item.get("qty", 0) > 0:
-				bom_items.append({
-					"item_code": jumper_item["item_code"],
-					"qty": jumper_item["qty"],
-					"uom": "Nos",
-					"stock_uom": "Nos",
-				})
+	# New builds use the physical cable manifest, shared with stock and cut instructions.
+	if fixture.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.linear_build import cable_bom_rows
+		bom_items.extend(cable_bom_rows(json.loads(fixture.cable_manifest_json)))
+	else:
+		# --- Role 7: Jumper Cables (for multi-segment fixtures) ---
+		if is_multi_segment and fixture.segments:
+			jumper_items = _calculate_jumper_cable_items(fixture)
+			for jumper_item in jumper_items:
+				if jumper_item.get("item_code") and jumper_item.get("qty", 0) > 0:
+					bom_items.append({
+						"item_code": jumper_item["item_code"],
+						"qty": jumper_item["qty"],
+						"uom": "Nos",
+						"stock_uom": "Nos",
+					})
+
 
 	# --- Role 8: Drivers ---
 	if fixture.drivers:
@@ -947,6 +996,12 @@ def _create_or_get_bom(
 	Returns:
 		dict: {"success": bool, "bom_name": str, "created": bool, "skipped": bool, "messages": list}
 	"""
+	if fixture.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.build_artifacts import ensure_bom
+		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+		if item_code != fixture.name:
+			frappe.throw("BOM Item does not match this immutable fixture build")
+		return ensure_bom(fixture, item_code, snapshot(fixture)["components"])
 	result = {
 		"success": True,
 		"bom_name": None,
@@ -1425,13 +1480,11 @@ def _generate_traveler_notes(fixture) -> str:
 	else:
 		lines.append("  No run data available")
 
-	# TODO: re-enable leader cables section when ready to include in configured fixture BOMs
-	# lines.extend([
-	# 	"",
-	# 	f"--- LEADER CABLES ---",
-	# 	f"Leader Item: {fixture.leader_item or 'N/A'}",
-	# 	f"Leader Qty: {runs_count} (one per run)",
-	# ])
+	if fixture.get("build_schema_version") == 2:
+		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+		lines.extend(["", "--- PHYSICAL CABLE CUTS ---"])
+		for cut in snapshot(fixture)["cables"]:
+			lines.append(f"{cut['key']}: {cut['role']} | {cut['item_code']} | {cut['length_mm']} mm | {cut['qty']:g} {cut['stock_uom']}")
 
 	# Driver information
 	lines.extend([

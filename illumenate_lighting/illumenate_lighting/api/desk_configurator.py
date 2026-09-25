@@ -23,6 +23,8 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from illumenate_lighting.illumenate_lighting.api import led_sheet_configurator, tape_neon_configurator
+from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, finite_number
 from illumenate_lighting.illumenate_lighting.api.configured_product_builder import (
 	_coerce_dict,
 	_dispatch_save,
@@ -50,9 +52,6 @@ from illumenate_lighting.illumenate_lighting.api.webflow_schedule import (
 	_get_next_fixture_type_id,
 )
 from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-	_is_internal_user,
-)
-from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
 	has_permission as project_has_permission,
 )
 from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
@@ -61,6 +60,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedul
 from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
 	has_permission as schedule_has_permission,
 )
+from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
 
 PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
@@ -114,7 +114,9 @@ SAFE_HEADER_FIELDS = (
 
 def _require_internal_user() -> None:
 	"""The desk tool is for ilLumenate staff only; dealers use the portal."""
-	if frappe.session.user == "Guest" or not _is_internal_user(frappe.session.user):
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if not allowed("sales"):
 		frappe.throw(_("The desk configurator is available to internal users only."), frappe.PermissionError)
 
 
@@ -145,6 +147,7 @@ def _schedule_summary(schedule) -> dict[str, Any]:
 		"project_name": project_name or schedule.ill_project,
 		"customer": schedule.customer,
 		"version": schedule.get("version") or 1,
+		"modified": str(schedule.modified),
 	}
 
 
@@ -239,6 +242,7 @@ def get_desk_context(
 			{"value": p.name, "label": p.project_name or p.name, "customer": p.customer} for p in projects
 		],
 		"product_types": [{"value": pt, "label": _(pt)} for pt in DESK_PRODUCT_TYPES],
+		"groups_enabled": bool(frappe.conf.get("ill_portal_fixture_groups")),
 		"can_create_project": bool(frappe.has_permission(PROJECT_DOCTYPE, "create")),
 		"can_create_schedule": bool(frappe.has_permission(SCHEDULE_DOCTYPE, "create")),
 	}
@@ -252,6 +256,8 @@ def get_schedule_picker_data(schedule: str, used_json: str | list | None = None)
 	if err:
 		return err
 
+	from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
 	lines = []
 	locations: list[str] = []
 	for idx, line in enumerate(doc.lines or []):
@@ -260,6 +266,7 @@ def get_schedule_picker_data(schedule: str, used_json: str | list | None = None)
 		lines.append({
 			"idx": idx,
 			"name": line.name,
+			"line_key": line.get("line_key") or line.name,
 			"line_id": line.line_id or f"Line {idx + 1}",
 			"location": line.location or "",
 			"qty": line.qty or 1,
@@ -269,6 +276,9 @@ def get_schedule_picker_data(schedule: str, used_json: str | list | None = None)
 			"configuration_status": line.configuration_status or "Pending",
 			"configured_fixture": line.configured_fixture or None,
 			"configured_tape_neon": line.configured_tape_neon or None,
+			"configured_group": line.get("configured_group"),
+			"configured_led_sheet": line.get("configured_led_sheet"),
+			"initial_request": for_line(line),
 			"ill_item_code": line.ill_item_code or None,
 			"is_pending": _line_is_pending(line),
 			"summary": _line_summary(line),
@@ -293,7 +303,7 @@ def _line_is_pending(line) -> bool:
 	if line.manufacturer_type == "ACCESSORY":
 		return False
 	return (line.configuration_status or "Pending") != "Configured" and not (
-		line.configured_fixture or line.configured_tape_neon or line.get("configured_led_sheet")
+		line.get("configured_group") or line.configured_fixture or line.configured_tape_neon or line.get("configured_led_sheet")
 	)
 
 
@@ -303,8 +313,8 @@ def _line_summary(line) -> str:
 		return " ".join(bits) or _("Other manufacturer")
 	if line.manufacturer_type == "ACCESSORY":
 		return line.accessory_item_name or line.accessory_item or _("Accessory")
-	if line.configured_fixture or line.configured_tape_neon:
-		return line.ill_item_code or line.configured_fixture or line.configured_tape_neon
+	if any(line.get(k) for k in ("configured_group", "configured_fixture", "configured_tape_neon", "configured_led_sheet")):
+		return line.ill_item_code or line.get("configured_group") or line.configured_fixture or line.configured_tape_neon or line.get("configured_led_sheet")
 	return _("{0} (Pending)").format(line.product_type or _("ilLumenate"))
 
 
@@ -450,7 +460,9 @@ def create_schedule_version(schedule: str) -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+@idempotent
 def build_configured_line(
 	parent_doctype: str,
 	product_type: str,
@@ -467,6 +479,9 @@ def build_configured_line(
 	tape_neon_template: str | None = None,
 	parent_name: str | None = None,
 	variant_origin: str | None = None,
+	idempotency_key: str | None = None,
+	line_key: str | None = None,
+	expected_modified: str | None = None,
 ) -> dict[str, Any]:
 	"""Persist the configured product (+ schedule line) and return row values.
 
@@ -483,7 +498,9 @@ def build_configured_line(
 	if product_type not in DESK_PRODUCT_TYPES:
 		return _error(_("{0} is not supported by the desk configurator yet.").format(product_type))
 
-	qty = flt(qty) or 1
+	qty = finite_number(qty, minimum=1, field="quantity")
+	if not qty.is_integer():
+		frappe.throw("Quantity must be a positive whole number of complete builds")
 	fixture_type = (fixture_type or "").strip() or None
 	location = (location or "").strip() or None
 	notes = (notes or "").strip() or None
@@ -510,8 +527,16 @@ def build_configured_line(
 		fixture_type = _next_fixture_type(None, [])
 
 	# ── 2. Engine: persist the configured record ────────────────────
+	group_artifact = None
 	try:
-		if product_type == PRODUCT_TYPE_SHEET:
+		if selections.get("group_request"):
+			from illumenate_lighting.illumenate_lighting.portal.configuration import (
+				normalized_payload,
+				persist_artifact,
+			)
+			group_artifact = persist_artifact(product_type, normalized_payload(product_type, selections))
+			validation = {"is_valid": True, "messages": []}
+		elif product_type == PRODUCT_TYPE_SHEET:
 			validation = _save_led_sheet(selections)
 		else:
 			if product_type == PRODUCT_TYPE_FIXTURE:
@@ -538,7 +563,10 @@ def build_configured_line(
 		)
 
 	# ── 3. Item / BOM / Item Price ──────────────────────────────────
-	if product_type == PRODUCT_TYPE_FIXTURE:
+	if group_artifact:
+		artifact = group_artifact
+		configured_doc = frappe.get_doc("ilL-Configured-Group", artifact["configured_group"])
+	elif product_type == PRODUCT_TYPE_FIXTURE:
 		configured_name = validation.get("configured_fixture_id")
 		if not configured_name:
 			return _error(_("The engine did not return a configured fixture id."))
@@ -558,14 +586,18 @@ def build_configured_line(
 		artifact = _ensure_tape_neon_artifacts(configured_name, product_type)
 		configured_doc = frappe.get_doc("ilL-Configured-Tape-Neon", configured_name)
 
-	# LED Sheet: the panel bundle MSRP lives on the configured record; cables and
-	# drivers are separate accessory lines, so never use the engine's total_msrp.
-	msrp_unit = flt(configured_doc.msrp) if product_type == PRODUCT_TYPE_SHEET else _resolve_msrp_unit(configured_doc, validation)
+	# LED Sheet v2 MSRP covers the entire bundle, including cables and included power.
+	msrp_unit = artifact.get("msrp_unit") if group_artifact or product_type == PRODUCT_TYPE_SHEET else _resolve_msrp_unit(configured_doc, validation)
 	ensure_configured_item_price(artifact["item_code"], configured_doc, msrp=msrp_unit)
 	if msrp_unit is not None:
 		artifact["msrp_unit"] = msrp_unit
 
 	# ── 4. Schedule line ────────────────────────────────────────────
+	engineering_request = canonical_json({
+		"schema_version": 2, "family": product_type, "product_slug": product_slug,
+		"template": tape_neon_template or selections.get("fixture_template_code") or selections.get("template") or (selections.get("group_request") or {}).get("template"),
+		"selections": selections, "segments": json.loads(segments_json) if isinstance(segments_json, str) else segments_json,
+	})
 	line_name = None
 	line_position = None
 	if schedule_doc is not None:
@@ -584,17 +616,18 @@ def build_configured_line(
 				tape_neon_template=tape_neon_template,
 				msrp_unit=msrp_unit,
 			)
+			line.ill_configurator_request = engineering_request
 			schedule_doc.save()
 			line_name = line.name
 			line_position = line.idx
-		except Exception as exc:  # configured record/Item/BOM are idempotent and safe to keep
+		except Exception as exc:  # The outer atomic build rolls back artifacts and the line together.
 			frappe.db.rollback(save_point=SCHEDULE_LINE_SAVEPOINT)
 			frappe.log_error(
 				title=f"Desk configurator: schedule line write failed for {schedule_doc.name}",
 				message=frappe.get_traceback(),
 			)
 			return _error(
-				_("Configured {0} was saved, but the fixture schedule line could not be written: {1}").format(
+				_("Configuration {0} could not be saved to its schedule: {1}").format(
 					artifact["item_code"], str(exc)
 				),
 				configured_fixture=artifact.get("configured_fixture"),
@@ -615,9 +648,11 @@ def build_configured_line(
 		additional_notes=notes,
 	)
 
+	row_values["ill_configurator_request"] = engineering_request
+
 	used_ids = [fixture_type]
 	accessory_rows = []
-	if product_type == PRODUCT_TYPE_SHEET:
+	if not group_artifact and product_type == PRODUCT_TYPE_SHEET and configured_doc.get("bundle_mode") != "Bundle":
 		accessory_rows = _led_sheet_accessory_rows(
 			parent_doctype, parent_name, header, configured_doc, qty,
 			section_label=location, fixture_type=fixture_type, schedule_line_id=line_name,
@@ -633,6 +668,7 @@ def build_configured_line(
 		"fixture_type": fixture_type,
 		"location": location,
 		"product_type": product_type,
+		"configured_group": artifact.get("configured_group"),
 		"configured_fixture": artifact.get("configured_fixture"),
 		"configured_tape_neon": artifact.get("configured_tape_neon"),
 		"configured_led_sheet": artifact.get("configured_led_sheet"),
@@ -664,6 +700,7 @@ def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:
 		"coverage_height_value": selections.get("coverage_height_value"),
 		"coverage_height_unit": selections.get("coverage_height_unit") or "ft",
 		"include_power_supply": selections.get("include_power_supply", 1),
+		"dimming_protocol_code": selections.get("dimming_protocol_code"),
 	}
 	result = led_sheet_configurator.validate_sheet_configuration(**kwargs)
 	saved = led_sheet_configurator.save_sheet_configuration(**kwargs)
@@ -754,7 +791,13 @@ def _write_schedule_line(
 	msrp_unit: float | None,
 ):
 	"""Append or overwrite the schedule line for the configured product (no save)."""
+	if artifact.get("configured_group"):
+		from illumenate_lighting.illumenate_lighting.portal.configuration import apply_artifact
+		line = schedule_doc.lines[line_idx] if line_idx is not None else None
+		return apply_artifact(schedule_doc, line, product_type, artifact,
+			{"line_id": fixture_type, "location": location, "qty": qty, "notes": notes})
 	line = schedule_doc.lines[line_idx] if line_idx is not None else schedule_doc.append("lines", {})
+	line.configured_group = None
 
 	if product_type == PRODUCT_TYPE_FIXTURE:
 		line.manufacturer_type = "ILLUMENATE"
@@ -769,6 +812,7 @@ def _write_schedule_line(
 		line.manufacturable_length_mm = artifact.get("mfg_length_mm")
 		line.notes = notes or ""
 	elif product_type == PRODUCT_TYPE_SHEET:
+		led_sheet_configurator.remove_sheet_accessories_for_line(schedule_doc, line)
 		line.manufacturer_type = "ILLUMENATE"
 		line.product_type = PRODUCT_TYPE_SHEET
 		line.led_sheet_template = artifact.get("template_code")
@@ -917,3 +961,23 @@ def on_quotation_cancel(doc, method=None):
 	frappe.get_doc(SCHEDULE_DOCTYPE, name).add_comment(
 		"Info", _("Quotation {0} was cancelled; schedule status left unchanged.").format(doc.name)
 	)
+
+
+@frappe.whitelist()
+def reopen_row(parent_doctype, parent_name, row_name):
+	"""Read engineering input through the native ERP parent permission boundary."""
+	_require_internal_user()
+	_require_parent_doctype(parent_doctype)
+	parent = frappe.get_doc(parent_doctype, parent_name)
+	parent.check_permission("write")
+	if parent.docstatus != 0:
+		frappe.throw("Only draft transaction rows can be configured")
+	row = next((row for row in parent.items if row.name == row_name), None)
+	if not row:
+		frappe.throw("Row does not belong to this document", frappe.PermissionError)
+	from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
+	line = frappe._dict({"product_type": row.get("ill_product_type"), "ill_configurator_request": row.get("ill_configurator_request")})
+	for field in ("configured_group", "configured_fixture", "configured_tape_neon", "configured_led_sheet"):
+		line[field] = row.get("ill_" + field)
+	return {"success": True, "request": for_line(line)}

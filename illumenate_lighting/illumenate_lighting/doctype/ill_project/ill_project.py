@@ -6,7 +6,6 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import now
 
-
 # Roles that have internal/admin access
 INTERNAL_ROLES = {"System Manager", "Administrator"}
 
@@ -147,46 +146,17 @@ def has_website_permission(doc, ptype="read", user=None, verbose=False):
 
 
 def _get_user_customer(user):
-	"""
-	Get the Customer linked to this user via Contact.
-
-	Searches for a Contact linked to this user in the following order:
-	1. Contact with user field set to this user
-	2. Contact with email_id matching the user's email
-
-	Args:
-		user: The user email/name
-
-	Returns:
-		str or None: The Customer name if found, None otherwise
-	"""
-	# First check if user has a Contact with user field set
-	contact = frappe.db.get_value(
-		"Contact",
-		{"user": user},
-		["name"],
-	)
-
-	# If not found via user field, try to find by email_id
-	if not contact:
-		contact = frappe.db.get_value(
-			"Contact",
-			{"email_id": user},
-			["name"],
-		)
-
-	if contact:
-		# Get the Customer link from Dynamic Link
-		customer = frappe.db.get_value(
-			"Dynamic Link",
-			{
-				"parenttype": "Contact",
-				"parent": contact,
-				"link_doctype": "Customer",
-			},
-			"link_name",
-		)
-		if customer:
-			return customer
-
-	return None
+	"""Resolve one company; new contact-only records cannot silently grant membership."""
+	meta = frappe.get_meta("Contact")
+	filters = {"ill_portal_archived": 0} if meta.has_field("ill_portal_archived") else {}
+	fields = ["name", "user"]
+	if meta.has_field("ill_portal_contact_only"):
+		fields.append("ill_portal_contact_only")
+	contacts = frappe.get_all("Contact", filters=filters,
+		or_filters={"user": user, "email_id": user}, fields=fields)
+	names = [row.name for row in contacts if row.user == user or (not row.user and not row.get("ill_portal_contact_only"))]
+	if not names:
+		return None
+	customers = set(frappe.get_all("Dynamic Link", filters={"parenttype": "Contact",
+		"parent": ["in", names], "link_doctype": "Customer"}, pluck="link_name"))
+	return next(iter(customers)) if len(customers) == 1 else None

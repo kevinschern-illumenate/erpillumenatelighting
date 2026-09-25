@@ -413,6 +413,7 @@ body.reorder-no-select {
 {% endblock %}
 
 {% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
@@ -547,7 +548,7 @@ body.reorder-no-select {
 								<i class="fa fa-code-fork"></i> {{ _("Create New Version") }}
 							</button>
 							{% endif %}
-							{% if can_edit and not schedule.is_locked and schedule.status == 'READY' and not (is_dealer or is_internal) %}
+							{% if can_edit and not schedule.is_locked and schedule.status == 'READY' %}
 							<button class="btn btn-success" onclick="requestQuote()">
 								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
 							</button>
@@ -833,7 +834,9 @@ body.reorder-no-select {
 											</details>
 											{% endif %}
 										</div>
-										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
+										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_group') %}
+{% include 'illumenate_lighting/templates/includes/group_summary.html' %}
+{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_fixture') %}
 										{% set cf_details = line.get('cf_details', {}) %}
 										<div class="fixture-details">
 											<!-- Part Number -->
@@ -1203,39 +1206,42 @@ body.reorder-no-select {
 									<td class="text-center col-actions">
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
-												{% if line.get('configured_fixture') %}
+												{% if line.get('configured_group') %}
+<a href="/portal/configure?category={{ line.get('product_type') | urlencode }}&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info">{{ _('Edit Group') }}</a>
+{% elif line.get('configured_fixture') %}
 												<!-- Edit existing linear fixture configuration -->
-												<a href="/portal/edit_fixture?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&fixture={{ line.get('configured_fixture') }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category=Linear%20Fixture&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_tape_neon') %}
 												<!-- Configured tape/neon - edit link -->
-												<a href="/portal/configure?category={{ line.get('product_type') or 'LED Tape' }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category={{ line.get('product_type') or 'LED Tape' }}&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_led_sheet') %}
 												<!-- Configured LED Sheet - edit link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('led_sheet_template') %}
 												<!-- Unconfigured LED Sheet - configure link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% elif line.get('tape_neon_template') %}
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
-												<a href="/portal/configure?category={{ tn_category }}&schedule={{ schedule.name }}&line_idx={{ loop.index0 }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category={{ tn_category }}&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% else %}
 												<!-- Unconfigured linear fixture or no template - configure link -->
-												<a href="/portal/configure?schedule={{ schedule.name }}&line_idx={{ loop.index0 }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% endif %}
 											{% endif %}
-											<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit Line Details') }}">
+											<button type="button" class="btn btn-sm btn-outline-secondary line-documents" data-schedule="{{ schedule.name }}" data-line="{{ line.get('line_key') or line.get('name') }}">{{ _('Specifications') }}</button>
+<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit Line Details') }}">
 												<i class="fa fa-pencil"></i> {{ _('Edit') }}
 											</button>
 												<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
@@ -1335,6 +1341,7 @@ body.reorder-no-select {
 						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL')">
 							<i class="fa fa-book"></i> {{ _("Spec Submittal") }}
 						</button>
+<button class="btn btn-sm btn-outline-warning" onclick="generateSpecSubmittal('SPEC_SUBMITTAL', true)">Incomplete draft (allow omissions)</button>
 						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL_FULL')">
 							<i class="fa fa-files-o"></i> {{ _("Spec Submittal (Full)") }}
 						</button>
@@ -1425,28 +1432,32 @@ body.reorder-no-select {
 								<!-- Fixture Template dropdown (shown when Linear Fixture selected) -->
 								<div class="form-group fixture-template-group" style="display: none;">
 									<label>{{ _("Fixture Template") }}</label>
-									<select class="form-control" name="fixture_template" id="add_fixture_template">
+									<div id="add_fixture_template_cards"></div>
+								<select class="form-control" name="fixture_template" id="add_fixture_template">
 										<option value="">{{ _("Select Fixture Template...") }}</option>
 									</select>
 								</div>
 								<!-- Tape/Neon Template dropdown (shown when LED Tape or LED Neon selected) -->
 								<div class="form-group tape-neon-template-group" style="display: none;">
 									<label>{{ _("Product Series") }}</label>
-									<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
+									<div id="add_tape_neon_template_cards"></div>
+								<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
 										<option value="">{{ _("Select Product Series...") }}</option>
 									</select>
 								</div>
 								<!-- LED Sheet Template dropdown (shown when LED Sheet selected) -->
 								<div class="form-group led-sheet-template-group" style="display: none;">
 									<label>{{ _("LED Sheet Template") }}</label>
-									<select class="form-control" name="led_sheet_template" id="add_led_sheet_template">
+									<div id="add_led_sheet_template_cards"></div>
+								<select class="form-control" name="led_sheet_template" id="add_led_sheet_template">
 										<option value="">{{ _("Select LED Sheet Template...") }}</option>
 									</select>
 								</div>
 								<!-- Item dropdown (shown when non-Linear Fixture category selected) -->
 								<div class="form-group item-selection-group" style="display: none;">
 									<label>{{ _("Item") }}</label>
-									<select class="form-control" name="selected_item" id="add_selected_item">
+									<div id="add_selected_item_cards"></div>
+								<select class="form-control" name="selected_item" id="add_selected_item">
 										<option value="">{{ _("Select Item...") }}</option>
 									</select>
 								</div>
@@ -1936,7 +1947,18 @@ $('[data-toggle="popover"]').popover();
 // Reset add line modal when opened
 $('#addLineModal').on('show.bs.modal', function() {
 	// Reset the form
+	var kept = {};
+	try {
+		var draftId = sessionStorage.getItem('ill-line-draft-last:' + schedule_name);
+		var stored = JSON.parse(sessionStorage.getItem('ill-line-draft:' + draftId) || 'null');
+		if (stored && stored.schedule === schedule_name && Date.now() - stored.savedAt < 86400000) kept = stored.metadata;
+	} catch (_) {}
+	['line_id', 'location', 'qty', 'notes'].forEach(function (field) {
+		var input = $('#addLineForm [name="' + field + '"]');
+		if (!(field in kept)) kept[field] = input.val();
+	});
 	$('#addLineForm')[0].reset();
+	Object.keys(kept).forEach(function (field) { $('#addLineForm [name="' + field + '"]').val(kept[field]); });
 	// Reset to default ilLumenate view
 	$('select[name="manufacturer_type"]').val('ILLUMENATE');
 	$('.illumenate-fields').show();
@@ -2066,6 +2088,7 @@ function loadFixtureTemplates(productType) {
 				});
 			}
 			$('#add_fixture_template').html(options);
+			IllConfigurator.renderTemplateCards({ $select: $('#add_fixture_template'), $container: $('#add_fixture_template_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
 		},
 		error: function() {
 			$('#add_fixture_template').html('<option value="">{{ _("Error loading templates") }}</option>');
@@ -2099,6 +2122,7 @@ function loadTapeNeonTemplates(productType) {
 				});
 			}
 			$('#add_tape_neon_template').html(options);
+			IllConfigurator.renderTemplateCards({ $select: $('#add_tape_neon_template'), $container: $('#add_tape_neon_template_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
 		},
 		error: function() {
 			$('#add_tape_neon_template').html('<option value="">{{ _("Error loading series") }}</option>');
@@ -2121,6 +2145,7 @@ function loadLedSheetTemplates(productType) {
 				});
 			}
 			$('#add_led_sheet_template').html(options);
+			IllConfigurator.renderTemplateCards({ $select: $('#add_led_sheet_template'), $container: $('#add_led_sheet_template_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
 		},
 		error: function() {
 			$('#add_led_sheet_template').html('<option value="">{{ _("Error loading templates") }}</option>');
@@ -2347,6 +2372,7 @@ function loadItemsForProductType(productType) {
 				});
 			}
 			$('#add_selected_item').html(options);
+			IllConfigurator.renderTemplateCards({ $select: $('#add_selected_item'), $container: $('#add_selected_item_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
 		},
 		error: function() {
 			$('#add_selected_item').html('<option value="">{{ _("Error loading items") }}</option>');
@@ -2597,38 +2623,14 @@ function confirmVariantSelection() {
 }
 
 // File upload helper function
-function uploadFile(fileInput, callback) {
-	var file = fileInput.files[0];
-	if (!file) {
-		callback(null);
-		return;
-	}
-
-	var formData = new FormData();
-	formData.append('file', file);
-	formData.append('is_private', 0);
-	formData.append('folder', 'Home/Attachments');
-
-	$.ajax({
-		url: '/api/method/upload_file',
-		type: 'POST',
-		data: formData,
-		processData: false,
-		contentType: false,
-		headers: {
-			'X-Frappe-CSRF-Token': frappe.csrf_token
-		},
-		success: function(r) {
-			if (r.message && r.message.file_url) {
-				callback(r.message.file_url);
-			} else {
-				callback(null);
-			}
-		},
-		error: function() {
-			callback(null);
-		}
-	});
+async function uploadFile(fileInput, callback) {
+    try {
+        const ids = await PortalUploads.uploadAll(fileInput, 'ilL-Project-Fixture-Schedule', schedule_name);
+        callback(ids[0] || null);
+    } catch (error) {
+        frappe.msgprint({title: __('File not saved'), indicator: 'red', message: frappe.utils.escape_html(error.message)});
+        // Do not save the line or replace its previous file after failure.
+    }
 }
 
 function addLine() {
@@ -2759,7 +2761,7 @@ function addLine() {
 	if (manufacturerType === 'OTHER' && fileInput && fileInput.files.length > 0) {
 		uploadFile(fileInput, function(fileUrl) {
 			if (fileUrl) {
-				data.spec_sheet = fileUrl;
+				data.spec_sheet_file_id = fileUrl;
 			}
 			submitAddLine(data);
 		});
@@ -2786,171 +2788,36 @@ function submitAddLine(data) {
 	});
 }
 
+function startConfigurationDraft(category, template) {
+	var form = $('#addLineForm');
+	var metadata = {};
+	['line_id', 'location', 'qty', 'notes'].forEach(function (field) { metadata[field] = form.find('[name="' + field + '"]').val(); });
+	var qty = Number(metadata.qty);
+	if (!Number.isInteger(qty) || qty < 1) { frappe.msgprint(__('Enter a positive whole quantity.')); return; }
+	var id = crypto.randomUUID();
+	try {
+		sessionStorage.setItem('ill-line-draft:' + id, JSON.stringify({ schedule: schedule_name, metadata: metadata, savedAt: Date.now() }));
+		sessionStorage.setItem('ill-line-draft-last:' + schedule_name, id);
+	} catch (_) { frappe.msgprint(__('Browser storage is unavailable. Allow session storage to preserve this draft.')); return; }
+	var params = new URLSearchParams({ category: category, template: template, schedule: schedule_name, draft: id });
+	window.location.href = '/portal/configure?' + params.toString();
+}
 function configureFromAddModal() {
 	var form = $('#addLineForm');
-	var manufacturerType = form.find('[name="manufacturer_type"]').val();
-	var productType = form.find('[name="product_type"]').val();
-	var $productTypeSelected = form.find('[name="product_type"] option:selected');
-	var rawIsFixtureType = $productTypeSelected.data('is-fixture-type');
-	var isFixtureType = rawIsFixtureType === 1 || rawIsFixtureType === '1' || rawIsFixtureType === true || rawIsFixtureType === 'true';
-	var rawIsTapeNeonType = $productTypeSelected.data('is-tape-neon-type');
-	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
-	
-	// Only allow configuring for ILLUMENATE manufacturer with fixture or tape/neon types
-	if (manufacturerType !== 'ILLUMENATE' || (!isFixtureType && !isTapeNeonType)) {
-		frappe.msgprint('Configure is only available for ilLumenate configurable products');
-		return;
-	}
-
-	// Determine the template to use and the redirect URL
-	var fixtureTemplate = null;
-	var tapeNeonTemplate = null;
-	var redirectUrl = '';
-
-	if (isFixtureType) {
-		// Linear Fixture path
-		fixtureTemplate = form.find('[name="fixture_template"]').val();
-		if (!fixtureTemplate) {
-			frappe.msgprint({
-				title: 'Selection Required',
-				indicator: 'orange',
-				message: 'Please select a Fixture Template before configuring.'
-			});
-			return;
-		}
-	} else if (isTapeNeonType) {
-		// LED Tape / LED Neon path
-		tapeNeonTemplate = form.find('[name="tape_neon_template"]').val();
-		if (!tapeNeonTemplate) {
-			frappe.msgprint({
-				title: 'Selection Required',
-				indicator: 'orange',
-				message: 'Please select a Product Series before configuring.'
-			});
-			return;
-		}
-	}
-
-	// Prepare line data
-	var data = {
-		line_id: form.find('[name="line_id"]').val(),
-		qty: form.find('[name="qty"]').val(),
-		location: form.find('[name="location"]').val(),
-		manufacturer_type: manufacturerType,
-		product_type: productType,
-		configuration_status: 'Pending',
-		notes: form.find('[name="notes"]').val()
-	};
-
-	if (isFixtureType) {
-		data.fixture_template = fixtureTemplate;
-	} else if (isTapeNeonType) {
-		data.tape_neon_template = tapeNeonTemplate;
-	}
-
-	// Determine the configure button label based on product type
-	var configBtnLabel = '{{ _("Configure Fixture Now") }}';
-	if (isTapeNeonType) {
-		var catLabel = ($productTypeSelected.text() || '').trim().toLowerCase();
-		configBtnLabel = catLabel.indexOf('neon') !== -1 ? '{{ _("Configure LED Neon Now") }}' : '{{ _("Configure LED Tape Now") }}';
-	}
-
-	// Disable the configure button to prevent double clicks
-	$('#configureFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
-
-	// Add the line first, then redirect to configure
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
-		args: {
-			schedule_name: schedule_name,
-			line_data: data
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				// Get the newly added line index
-				var newLineIdx = r.message.line_idx;
-				
-				// Close the modal
-				$('#addLineModal').modal('hide');
-				
-				if (isFixtureType) {
-					// Redirect to configure page for linear fixture
-					window.location.href = '/portal/configure?schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(fixtureTemplate);
-				} else if (isTapeNeonType) {
-					// Determine category for tape/neon configure page
-					var category = 'LED Tape';
-					var label = ($productTypeSelected.text() || '').trim().toLowerCase();
-					if (label.indexOf('neon') !== -1) {
-						category = 'LED Neon';
-					}
-					// Get template code from the selected option
-					var templateCode = form.find('[name="tape_neon_template"] option:selected').data('template-code') || tapeNeonTemplate;
-					// Redirect to configure page with category and template pre-selected
-					window.location.href = '/portal/configure?category=' + encodeURIComponent(category) + '&schedule=' + schedule_name + '&line_idx=' + newLineIdx + '&template=' + encodeURIComponent(templateCode);
-				}
-			} else {
-				frappe.msgprint(r.message.error || 'Error adding line');
-				$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> ' + configBtnLabel);
-			}
-		},
-		error: function() {
-			$('#configureFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> ' + configBtnLabel);
-		}
-	});
+	var option = form.find('[name="product_type"] option:selected');
+	var fixture = [1, '1', true, 'true'].includes(option.data('is-fixture-type'));
+	var tapeNeon = [1, '1', true, 'true'].includes(option.data('is-tape-neon-type'));
+	if (form.find('[name="manufacturer_type"]').val() !== 'ILLUMENATE' || (!fixture && !tapeNeon)) return;
+	var selector = fixture ? '[name="fixture_template"]' : '[name="tape_neon_template"]';
+	var template = form.find(selector).val();
+	if (!template) { frappe.msgprint(__('Select a product before configuring.')); return; }
+	var category = fixture ? 'Linear Fixture' : (option.text().toLowerCase().includes('neon') ? 'LED Neon' : 'LED Tape');
+	startConfigurationDraft(category, form.find(selector + ' option:selected').data('template-code') || template);
 }
-
 function configureLedSheetFromAddModal() {
-	var form = $('#addLineForm');
-	var manufacturerType = form.find('[name="manufacturer_type"]').val();
-	var ledSheetTemplate = form.find('[name="led_sheet_template"]').val();
-
-	if (manufacturerType !== 'ILLUMENATE' || !ledSheetTemplate) {
-		frappe.msgprint({
-			title: '{{ _("Selection Required") }}',
-			indicator: 'orange',
-			message: '{{ _("Please select an LED Sheet Template before configuring.") }}'
-		});
-		return;
-	}
-
-	var data = {
-		line_id: form.find('[name="line_id"]').val(),
-		qty: form.find('[name="qty"]').val(),
-		location: form.find('[name="location"]').val(),
-		manufacturer_type: 'ILLUMENATE',
-		product_type: 'LED Sheet',
-		led_sheet_template: ledSheetTemplate,
-		configuration_status: 'Pending',
-		notes: form.find('[name="notes"]').val()
-	};
-
-	// Disable the configure button to prevent double clicks
-	$('#configureLedSheetFromAddBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Adding line...');
-
-	// Create the pending panel line first, then redirect to the unified configurator
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.add_schedule_line',
-		args: {
-			schedule_name: schedule_name,
-			line_data: data
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				var newLineIdx = r.message.line_idx;
-				$('#addLineModal').modal('hide');
-				window.location.href = '/portal/configure?category=' + encodeURIComponent('LED Sheet') +
-					'&schedule=' + encodeURIComponent(schedule_name) +
-					'&line_idx=' + encodeURIComponent(newLineIdx) +
-					'&template=' + encodeURIComponent(ledSheetTemplate);
-			} else {
-				frappe.msgprint((r.message && r.message.error) || 'Error adding line');
-				$('#configureLedSheetFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}');
-			}
-		},
-		error: function() {
-			$('#configureLedSheetFromAddBtn').prop('disabled', false).html('<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}');
-		}
-	});
+	var template = $('#addLineForm [name="led_sheet_template"]').val();
+	if (!template) { frappe.msgprint(__('Select an LED Sheet template.')); return; }
+	startConfigurationDraft('LED Sheet', template);
 }
 
 function duplicateLine(line_idx) {
@@ -3050,7 +2917,7 @@ function saveEditLine() {
 		if (fileInput && fileInput.files.length > 0) {
 			uploadFile(fileInput, function(fileUrl) {
 				if (fileUrl) {
-					line_data.spec_sheet = fileUrl;
+					line_data.spec_sheet_file_id = fileUrl;
 				}
 				submitEditLine(line_idx, line_data);
 			});
@@ -3136,131 +3003,42 @@ function changeStatus(new_status) {
 }
 
 function requestQuote() {
-	frappe.confirm('Request a quote for this schedule?', function() {
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.request_schedule_quote',
-			args: {
-				schedule_name: schedule_name
-			},
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					frappe.msgprint({
-						title: 'Success',
-						indicator: 'green',
-						message: 'Quote requested successfully'
-					});
-					location.reload();
-				} else {
-					frappe.msgprint(r.message.error || 'Error requesting quote');
-				}
-			}
-		});
-	});
+    PortalCommercial.quote(schedule_name, {{ (schedule.modified | string) | tojson }});
 }
 
 function createSalesOrder() {
-	frappe.confirm('Create a Sales Order from this schedule?', function() {
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_sales_order',
-			args: {
-				schedule_name: schedule_name
-			},
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					var message = 'Sales Order ' + r.message.sales_order + ' created successfully';
-					var warnings = r.message.warnings || [];
-					if (warnings.length) {
-						message += '<br><br><b>Some lines were not added:</b><ul>' +
-							warnings.map(function(w) {
-								return '<li>' + frappe.utils.escape_html(w) + '</li>';
-							}).join('') + '</ul>';
-					}
-					var dialog = frappe.msgprint({
-						title: warnings.length ? 'Sales Order Created With Warnings' : 'Sales Order Created',
-						indicator: warnings.length ? 'orange' : 'green',
-						message: message
-					});
-					// Let the user read the warnings before the page reloads.
-					if (warnings.length && dialog) {
-						dialog.onhide = function() { location.reload(); };
-					} else {
-						location.reload();
-					}
-				} else {
-					frappe.msgprint(r.message.error || 'Error creating Sales Order');
-				}
-			}
-		});
-	});
+    PortalOrderIntake.open({schedule_name: schedule_name}).catch(function (error) { frappe.msgprint(frappe.utils.escape_html(error.message)); });
 }
 
 // Export functionality
-function generateSpecSubmittal(exportType) {
-	frappe.show_alert({
-		message: 'Generating Spec Submittal packet...',
-		indicator: 'blue'
-	});
-
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.spec_submittal.generate_spec_submittal_packet',
-		args: {
-			schedule_name: schedule_name,
-			export_type: exportType,
-			include_cover: true
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.show_alert({
-					message: 'Spec Submittal generated successfully!',
-					indicator: 'green'
-				});
-				// Show warnings if any
-				if (r.message.warnings && r.message.warnings.length > 0) {
-					var warnings = r.message.warnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
-					if (warnings.length > 0) {
-						frappe.msgprint({
-							title: 'Spec Submittal Warnings',
-							indicator: 'orange',
-							message: warnings.join('<br>')
-						});
-					}
-				}
-				// Refresh export history
-				loadExportHistory();
-				// Download via the secure serve endpoint (portal users cannot
-				// access private files directly).
-				if (r.message.export_job) {
-					window.open(
-						'/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
-						+ '?export_job_id=' + encodeURIComponent(r.message.export_job),
-						'_blank'
-					);
-				} else if (r.message.file_url) {
-					window.open(r.message.file_url, '_blank');
-				}
-			} else {
-				var allWarnings = (r.message && r.message.warnings) || [];
-				var warnings = allWarnings.filter(function(w) { return w.indexOf('[DEBUG]') !== 0; });
-
-				var errorHtml = '<p>' + (r.message.message || 'Error generating spec submittal') + '</p>';
-				if (warnings.length > 0) {
-					errorHtml += '<br><strong>Warnings:</strong><br>' + warnings.join('<br>');
-				}
-				frappe.msgprint({
-					title: 'Spec Submittal Error',
-					indicator: 'red',
-					message: errorHtml
-				});
-			}
-		},
-		error: function(err) {
-			frappe.msgprint({
-				title: 'Spec Submittal Error',
-				indicator: 'red',
-				message: 'Error generating spec submittal'
-			});
-		}
-	});
+function watchPacket(job, attempt) {
+    attempt = attempt || 0;
+    frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.packet_jobs.status', args: {job_name: job}, callback: function (r) {
+        var value = r.message || {};
+        loadExportHistory();
+        if (value.status === 'COMPLETE') {
+            frappe.show_alert({message: __('Packet complete. Download it from export history.'), indicator: 'green'});
+        } else if (value.status === 'FAILED' || value.status === 'INCOMPLETE') {
+            frappe.msgprint({title: __('Packet incomplete'), message: frappe.utils.escape_html(value.error || __('Review the failed attempt and retry.')), indicator: 'red'});
+        } else if (attempt < 30) {
+            window.setTimeout(function () { watchPacket(job, attempt + 1); }, 3000);
+        }
+    }});
+}
+function generateSpecSubmittal(exportType, allowPartial) {
+    frappe.call({method: 'illumenate_lighting.illumenate_lighting.api.spec_submittal.generate_spec_submittal_packet',
+        args: {schedule_name: schedule_name, export_type: exportType, include_cover: true, allow_partial: !!allowPartial},
+        callback: function (r) {
+            if (!r.message || !r.message.success) { frappe.msgprint(__('Packet request failed. Retry when the connection is restored.')); return; }
+            frappe.show_alert({message: __('Packet queued. You can leave this page and retrieve it from export history.'), indicator: 'blue'});
+            watchPacket(r.message.export_job);
+        }
+    });
+}
+function retryPacket(job) {
+    frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.packet_jobs.retry', args: {job_name: job}, callback: function (r) {
+        if (r.message && r.message.success) watchPacket(r.message.export_job);
+    }});
 }
 
 function generateExport(format, priced) {
@@ -3385,7 +3163,7 @@ function renderExportHistory(exports) {
 			'QUEUED': 'warning',
 			'RUNNING': 'info',
 			'COMPLETE': 'success',
-			'FAILED': 'danger'
+			'FAILED': 'danger', 'INCOMPLETE': 'warning'
 		}[exp.status] || 'secondary';
 
 		var typeLabelMap = {
@@ -3402,30 +3180,43 @@ function renderExportHistory(exports) {
 		html += '<tr>';
 		html += '<td>' + typeLabel + '</td>';
 		html += '<td><span class="badge badge-' + statusClass + '">' + exp.status + '</span></td>';
-		html += '<td>' + (exp.requested_by_name || '-') + '</td>';
+		html += '<td>' + frappe.utils.escape_html(exp.requested_by_name || '-') + '</td>';
 		html += '<td>' + createdOn + '</td>';
 		html += '<td>';
-		if (exp.status === 'COMPLETE' && exp.output_file) {
+		if ((exp.status === 'COMPLETE' || exp.status === 'INCOMPLETE') && exp.output_file) {
 			var dlUrl = '/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
 				+ '?export_job_id=' + encodeURIComponent(exp.name);
 			html += '<a href="' + dlUrl + '" target="_blank" class="btn btn-sm btn-outline-primary">';
 			html += '<i class="fa fa-download"></i> Download</a>';
+            if (exp.export_type.indexOf('SPEC_SUBMITTAL') === 0 && exp.status === 'COMPLETE') {
+                if (exp.issued_on) html += ' <span>Issued ' + frappe.utils.escape_html(exp.issued_on) + '</span>';
+                else if ({{ can_issue_packet | default(false) | tojson }}) html += ' <button class="btn btn-sm btn-outline-primary packet-issue" data-job="' + frappe.utils.escape_html(exp.name) + '">Issue packet</button>';
+            }
 		} else if (exp.status === 'FAILED') {
 			html += '<span class="text-danger"><i class="fa fa-times"></i> Failed</span>';
+            if (exp.export_type.indexOf('SPEC_SUBMITTAL') === 0) html += ' <button class="btn btn-sm btn-outline-primary packet-retry" data-job="' + frappe.utils.escape_html(exp.name) + '">Retry</button>';
 		} else {
 			html += '<span class="text-muted"><i class="fa fa-clock-o"></i> Pending</span>';
 		}
-		html += '</td>';
-		html += '</tr>';
-	});
+        if (exp.status === 'INCOMPLETE' && exp.export_type.indexOf('SPEC_SUBMITTAL') === 0) html += ' <button class="btn btn-sm btn-outline-primary packet-retry" data-job="' + frappe.utils.escape_html(exp.name) + '">Retry draft</button>';
+		if (exp.error_log) html += '<details><summary>Omissions / errors</summary><pre style="white-space:pre-wrap">' + frappe.utils.escape_html(exp.error_log) + '</pre></details>';
+        if (exp.status === 'RUNNING') html += ' ' + frappe.utils.escape_html(exp.progress_message || '') + ' (' + Number(exp.progress || 0) + '%)';
+        html += '</td>';
+        html += '</tr>';
+    });
 
-	html += '</tbody></table></div>';
-	$('#exportHistoryContainer').html(html);
+    html += '</tbody></table></div>';
+    $('#exportHistoryContainer').html(html);
+    $('#exportHistoryContainer .packet-issue').on('click', function () {
+        frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.packet_jobs.issue', args: {job_name: this.dataset.job}, callback: loadExportHistory});
+    });
+    $('#exportHistoryContainer .packet-retry').on('click', function () { retryPacket(this.dataset.job); });
 }
 
 // Load export history on page load
 $(document).ready(function() {
 	loadExportHistory();
+    $('.line-documents').on('click', function () { PortalLineDocuments.open(this.dataset.schedule, this.dataset.line); });
 	loadVersionHistory();
 	restoreScrollAfterReorder();
 	initLineReorder();

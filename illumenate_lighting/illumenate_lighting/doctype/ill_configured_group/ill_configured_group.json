@@ -1,0 +1,116 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Configured-Group",
+ "module": "ilLumenate Lighting",
+ "engine": "InnoDB",
+ "field_order": [
+  "family",
+  "template_type",
+  "template",
+  "engine_version",
+  "input_hash",
+  "config_hash",
+  "build_snapshot_json",
+  "members",
+  "allocations",
+  "configured_item",
+  "bom"
+ ],
+ "fields": [
+  {
+   "fieldname": "family",
+   "fieldtype": "Select",
+   "label": "Family",
+   "read_only": 1,
+   "options": "Linear Fixture\nLED Tape\nLED Neon\nLED Sheet",
+   "reqd": 1
+  },
+  {
+   "fieldname": "template_type",
+   "fieldtype": "Link",
+   "label": "Template Type",
+   "read_only": 1,
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Dynamic Link",
+   "label": "Template",
+   "read_only": 1,
+   "options": "template_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "engine_version",
+   "fieldtype": "Data",
+   "label": "Engine Version",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "input_hash",
+   "fieldtype": "Data",
+   "label": "Input Hash",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "config_hash",
+   "fieldtype": "Data",
+   "label": "Config Hash",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "build_snapshot_json",
+   "fieldtype": "Long Text",
+   "label": "Build Snapshot Json",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "members",
+   "fieldtype": "Table",
+   "label": "Members",
+   "read_only": 1,
+   "options": "ilL-Child-Group-Member"
+  },
+  {
+   "fieldname": "allocations",
+   "fieldtype": "Table",
+   "label": "Allocations",
+   "read_only": 1,
+   "options": "ilL-Child-Group-Allocation"
+  },
+  {
+   "fieldname": "configured_item",
+   "fieldtype": "Link",
+   "label": "Configured Item",
+   "read_only": 1,
+   "options": "Item"
+  },
+  {
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "Bom",
+   "read_only": 1,
+   "options": "BOM"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  },
+  {
+   "role": "Dealer",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "autoname": "field:config_hash"
+}

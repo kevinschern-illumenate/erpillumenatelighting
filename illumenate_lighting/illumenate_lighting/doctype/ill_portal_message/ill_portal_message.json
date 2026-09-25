@@ -1,0 +1,89 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Portal-Message",
+ "module": "ilLumenate Lighting",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_type",
+  "reference_name",
+  "actor",
+  "visibility",
+  "action",
+  "body",
+  "request_key",
+  "request_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_type",
+   "fieldtype": "Select",
+   "label": "Reference Type",
+   "read_only": 1,
+   "options": "ilL-Document-Request\nIssue",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "read_only": 1,
+   "options": "reference_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Author",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "visibility",
+   "fieldtype": "Select",
+   "label": "Visibility",
+   "read_only": 1,
+   "options": "Customer\nInternal",
+   "reqd": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "label": "Action",
+   "read_only": 1,
+   "options": "REPLY\nREQUEST_INFO\nRESOLVE\nREOPEN",
+   "reqd": 1
+  },
+  {
+   "fieldname": "body",
+   "fieldtype": "Long Text",
+   "label": "Message",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_key",
+   "fieldtype": "Data",
+   "label": "Retry Key",
+   "read_only": 1,
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_hash",
+   "fieldtype": "Data",
+   "label": "Content Hash",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

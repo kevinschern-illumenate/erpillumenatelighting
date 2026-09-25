@@ -17,6 +17,20 @@ class ilLConfiguredFixture(Document):
 		rows in document order so the stored index is always contiguous and the
 		config hash (computed in ``before_save``) is order-defined.
 		"""
+		old = self.get_doc_before_save()
+		if self.get("build_schema_version") == 2 or (old and old.get("build_schema_version") == 2):
+			from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
+			snapshot(self)
+			if self.is_new() and not self.flags.linear_engine_write:
+				frappe.throw("Save immutable builds through the configurator")
+			if old:
+				mutable = {"configured_item", "bom", "work_order", "spec_submittal", "modified", "modified_by"}
+				for field in self.meta.fields:
+					if field.fieldtype in ("Section Break", "Column Break", "Tab Break") or field.fieldname in mutable:
+						continue
+					if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
+						frappe.throw("This fixture build is immutable. Create a configuration variant.")
+			return
 		self._renumber_user_segments()
 
 	def _renumber_user_segments(self):
@@ -32,6 +46,9 @@ class ilLConfiguredFixture(Document):
 		If the document already has a name (e.g., loaded from database or name pre-set),
 		keep the existing name to avoid duplicate errors.
 		"""
+		if self.get("build_schema_version") == 2:
+			self.name = "ILL-CF-" + self.config_hash
+			return
 		# If name is already set and exists in database, keep it
 		if self.name and frappe.db.exists("ilL-Configured-Fixture", self.name):
 			return
@@ -46,8 +63,10 @@ class ilLConfiguredFixture(Document):
 		fixtures. This method only computes it if not already set (e.g., for
 		manually created fixtures).
 		"""
+		if self.get("build_schema_version") == 2:
+			return
 		# For single-segment fixtures, feed_direction_end is always "Endcap"
-		if not self.is_multi_segment:
+		if not self.is_multi_segment and not self.feed_direction_end:
 			self.feed_direction_end = "Endcap"
 
 		if not self.config_hash:

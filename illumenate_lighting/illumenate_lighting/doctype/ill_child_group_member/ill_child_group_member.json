@@ -1,0 +1,28 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Child-Group-Member",
+ "module": "ilLumenate Lighting",
+ "engine": "InnoDB",
+ "field_order": [
+  "member_key",
+  "snapshot_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "member_key",
+   "fieldtype": "Data",
+   "label": "Member Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "snapshot_json",
+   "fieldtype": "Long Text",
+   "label": "Snapshot Json",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "istable": 1
+}

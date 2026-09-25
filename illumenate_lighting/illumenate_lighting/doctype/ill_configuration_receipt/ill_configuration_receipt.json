@@ -1,0 +1,62 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-Configuration-Receipt",
+ "module": "ilLumenate Lighting",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule",
+  "actor",
+  "request_key",
+  "request_hash",
+  "response_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule",
+   "fieldtype": "Link",
+   "label": "Schedule",
+   "read_only": 1,
+   "options": "ilL-Project-Fixture-Schedule"
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Saved By",
+   "reqd": 1,
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "request_key",
+   "fieldtype": "Data",
+   "label": "Request Key",
+   "reqd": 1,
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "request_hash",
+   "fieldtype": "Data",
+   "label": "Request Hash",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "response_json",
+   "fieldtype": "Long Text",
+   "label": "Receipt",
+   "reqd": 1,
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

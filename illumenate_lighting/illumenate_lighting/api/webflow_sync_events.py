@@ -83,7 +83,7 @@ def on_attribute_update(doc, method):
     if not has_legacy and not has_per_brand:
         return
 
-    if getattr(doc, "_skip_webflow_sync", False):
+    if getattr(doc, "_skip_webflow_sync", False) or doc.flags.get("_skip_webflow_sync"):
         return
 
     if method == "on_trash":
@@ -124,8 +124,11 @@ def on_attribute_insert(doc, method):
 
 def on_product_update(doc, method):
     """Mark Webflow product as needing sync for every targeted brand."""
-    if getattr(doc, "_skip_webflow_sync", False):
+    if getattr(doc, "_skip_webflow_sync", False) or doc.flags.get("_skip_webflow_sync"):
         return
+
+    from illumenate_lighting.illumenate_lighting.api.publication import invalidate_product
+    invalidate_product(doc, method)
 
     try:
         for brand_code in _list_targeted_brands(doc):
@@ -155,7 +158,7 @@ def on_product_update(doc, method):
 
 def on_category_update(doc, method):
     """Mark Webflow category as needing sync for every targeted brand."""
-    if getattr(doc, "_skip_webflow_sync", False):
+    if getattr(doc, "_skip_webflow_sync", False) or doc.flags.get("_skip_webflow_sync"):
         return
 
     try:

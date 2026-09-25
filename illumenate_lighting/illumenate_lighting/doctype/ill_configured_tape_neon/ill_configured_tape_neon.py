@@ -26,10 +26,25 @@ class ilLConfiguredTapeNeon(Document):
 
 	def before_save(self):
 		"""Populate SKU code fields from the linked attribute records."""
+		if not self.is_new() and self.get("build_schema_version") == 2:
+			return
 		self._populate_sku_codes()
 
 	def validate(self):
 		self._ensure_config_hash()
+		if self.get("build_schema_version") == 2:
+			from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot
+			snapshot(self)
+			if self.is_new() and not self.flags.get("tape_engine_write"):
+				frappe.throw("Create tape/neon builds through the validated configuration service")
+		old = self.get_doc_before_save()
+		if old and old.get("build_schema_version") == 2:
+			mutable = {"modified", "modified_by", "configured_item", "bom", "work_order", "spec_submittal"}
+			for field in self.meta.fields:
+				if field.fieldtype in ("Section Break", "Column Break", "Tab Break") or field.fieldname in mutable:
+					continue
+				if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
+					frappe.throw("This build is immutable. Create a new configuration variant.")
 
 	def _populate_sku_codes(self):
 		"""
