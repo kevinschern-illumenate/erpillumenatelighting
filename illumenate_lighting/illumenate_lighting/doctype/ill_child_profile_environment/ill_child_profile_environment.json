@@ -44,7 +44,7 @@
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Profile Environment",
- "naming_rule": "random",
+ "naming_rule": "Random",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",

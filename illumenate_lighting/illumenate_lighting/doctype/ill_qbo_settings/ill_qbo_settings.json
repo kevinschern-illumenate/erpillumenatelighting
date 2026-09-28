@@ -45,7 +45,6 @@
             "label": "Payment Entry Defaults"
         },
         {
-            "default": "1010 - ilLumenate Lighting WA Trust - ilL",
             "fieldname": "paid_to_account",
             "fieldtype": "Link",
             "label": "Paid To Account",
@@ -57,7 +56,6 @@
             "fieldtype": "Column Break"
         },
         {
-            "default": "QuickBooks Online",
             "fieldname": "mode_of_payment",
             "fieldtype": "Link",
             "label": "Mode of Payment",

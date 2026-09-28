@@ -1,0 +1,1330 @@
+{
+  "source": "https://github.com/frappe/frappe",
+  "commit": "012667b9c4e7f66d5e1ff5858d2e922331d4300a",
+  "license": "MIT",
+  "schemas": {
+    "DocField": {
+      "label": {
+        "fieldtype": "Data",
+        "length": 255
+      },
+      "fieldtype": {
+        "default": "Data",
+        "fieldtype": "Select",
+        "options": "Autocomplete\nAttach\nAttach Image\nAttachment Gallery\nBarcode\nButton\nCheck\nCode\nColor\nColumn Break\nCurrency\nData\nDate\nDatetime\nDuration\nDynamic Link\nFloat\nFold\nGeolocation\nHeading\nHTML\nHTML Editor\nIcon\nImage\nInt\nJSON\nLink\nLong Text\nMarkdown Editor\nPassword\nPercent\nPhone\nRead Only\nRating\nSection Break\nSelect\nSignature\nSmall Text\nTab Break\nTable\nTable MultiSelect\nText\nText Editor\nTime",
+        "reqd": 1
+      },
+      "fieldname": {
+        "fieldtype": "Data"
+      },
+      "reqd": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "precision": {
+        "fieldtype": "Select",
+        "options": "\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9"
+      },
+      "length": {
+        "fieldtype": "Int"
+      },
+      "search_index": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "in_list_view": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "in_standard_filter": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "in_global_search": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "in_preview": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_in_quick_entry": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "bold": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "translatable": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "collapsible": {
+        "default": "0",
+        "fieldtype": "Check",
+        "length": 255
+      },
+      "collapsible_depends_on": {
+        "fieldtype": "Code",
+        "options": "JS"
+      },
+      "options": {
+        "fieldtype": "Small Text"
+      },
+      "default": {
+        "fieldtype": "Small Text"
+      },
+      "fetch_from": {
+        "fieldtype": "Small Text"
+      },
+      "fetch_if_empty": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "depends_on": {
+        "fieldtype": "Code",
+        "length": 255,
+        "options": "JS"
+      },
+      "hidden": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "read_only": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "unique": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "set_only_once": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_bulk_edit": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "permlevel": {
+        "default": "0",
+        "fieldtype": "Int"
+      },
+      "ignore_user_permissions": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_on_submit": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "report_hide": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "remember_last_selected_value": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "ignore_xss_filter": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "in_filter": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "no_copy": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "print_hide": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "print_hide_if_no_value": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "print_width": {
+        "fieldtype": "Data",
+        "length": 10
+      },
+      "width": {
+        "fieldtype": "Data",
+        "length": 10
+      },
+      "columns": {
+        "fieldtype": "Int"
+      },
+      "description": {
+        "fieldtype": "Small Text"
+      },
+      "oldfieldname": {
+        "fieldtype": "Data"
+      },
+      "oldfieldtype": {
+        "fieldtype": "Data"
+      },
+      "mandatory_depends_on": {
+        "fieldtype": "Code",
+        "options": "JS"
+      },
+      "read_only_depends_on": {
+        "fieldtype": "Code",
+        "options": "JS"
+      },
+      "alignment": {
+        "fieldtype": "Select",
+        "options": "\nLeft\nCenter\nRight"
+      },
+      "hide_days": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "hide_seconds": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "hide_border": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "non_negative": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "max_height": {
+        "fieldtype": "Data",
+        "length": 10
+      },
+      "show_dashboard": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "is_virtual": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "documentation_url": {
+        "fieldtype": "Data",
+        "options": "URL"
+      },
+      "sort_options": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "link_filters": {
+        "fieldtype": "JSON"
+      },
+      "not_nullable": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "show_on_timeline": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "placeholder": {
+        "fieldtype": "Data"
+      },
+      "make_attachment_public": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "sticky": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "mask": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "button_color": {
+        "fieldtype": "Select",
+        "options": "\nDefault\nPrimary\nInfo\nSuccess\nWarning\nDanger"
+      },
+      "show_description_on_click": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "DocPerm": {
+      "role": {
+        "fieldtype": "Link",
+        "options": "Role",
+        "reqd": 1
+      },
+      "if_owner": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "permlevel": {
+        "default": "0",
+        "fieldtype": "Int"
+      },
+      "read": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "write": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "create": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "delete": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "submit": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "cancel": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "amend": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "report": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "export": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "import": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "share": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "print": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "email": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "select": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "mask": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "DocType": {
+      "module": {
+        "fieldtype": "Link",
+        "options": "Module Def",
+        "reqd": 1
+      },
+      "is_submittable": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "istable": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "issingle": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "editable_grid": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "quick_entry": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "track_changes": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "track_seen": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "track_views": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "custom": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "beta": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "fields": {
+        "fieldtype": "Table",
+        "options": "DocField"
+      },
+      "autoname": {
+        "fieldtype": "Data"
+      },
+      "description": {
+        "fieldtype": "Small Text"
+      },
+      "image_field": {
+        "fieldtype": "Data"
+      },
+      "timeline_field": {
+        "fieldtype": "Data"
+      },
+      "max_attachments": {
+        "fieldtype": "Int"
+      },
+      "hide_toolbar": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_copy": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_rename": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "allow_import": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_events_in_timeline": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_auto_repeat": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "title_field": {
+        "fieldtype": "Data"
+      },
+      "search_fields": {
+        "fieldtype": "Data"
+      },
+      "default_print_format": {
+        "fieldtype": "Data"
+      },
+      "sort_field": {
+        "default": "creation",
+        "fieldtype": "Data"
+      },
+      "sort_order": {
+        "default": "DESC",
+        "fieldtype": "Select",
+        "options": "ASC\nDESC"
+      },
+      "document_type": {
+        "fieldtype": "Select",
+        "options": "\nDocument\nSetup\nSystem\nOther"
+      },
+      "icon": {
+        "fieldtype": "Data"
+      },
+      "color": {
+        "fieldtype": "Data"
+      },
+      "show_preview_popup": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "show_name_in_global_search": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "permissions": {
+        "fieldtype": "Table",
+        "options": "DocPerm"
+      },
+      "restrict_to_domain": {
+        "fieldtype": "Link",
+        "options": "Domain"
+      },
+      "read_only": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "in_create": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "has_web_view": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "allow_guest_to_view": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "route": {
+        "fieldtype": "Data"
+      },
+      "is_published_field": {
+        "fieldtype": "Data"
+      },
+      "engine": {
+        "default": "InnoDB",
+        "fieldtype": "Select",
+        "options": "InnoDB\nMyISAM"
+      },
+      "is_tree": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "nsm_parent_field": {
+        "fieldtype": "Data"
+      },
+      "documentation": {
+        "fieldtype": "Data"
+      },
+      "actions": {
+        "fieldtype": "Table",
+        "options": "DocType Action"
+      },
+      "links": {
+        "fieldtype": "Table",
+        "options": "DocType Link"
+      },
+      "subject_field": {
+        "fieldtype": "Data"
+      },
+      "sender_field": {
+        "fieldtype": "Data"
+      },
+      "email_append_to": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "index_web_pages_for_search": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "is_virtual": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "default_email_template": {
+        "fieldtype": "Link",
+        "options": "Email Template"
+      },
+      "website_search_field": {
+        "fieldtype": "Data"
+      },
+      "naming_rule": {
+        "fieldtype": "Select",
+        "length": 40,
+        "options": "\nSet by user\nAutoincrement\nBy fieldname\nBy \"Naming Series\" field\nExpression\nExpression (old style)\nRandom\nUUID\nBy script"
+      },
+      "migration_hash": {
+        "fieldtype": "Data"
+      },
+      "states": {
+        "fieldtype": "Table",
+        "options": "DocType State"
+      },
+      "show_title_field_in_link": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "translated_doctype": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "make_attachments_public": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "queue_in_background": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "default_view": {
+        "fieldtype": "Select"
+      },
+      "force_re_route_to_default_view": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "is_calendar_and_gantt": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "sender_name_field": {
+        "fieldtype": "Data"
+      },
+      "row_format": {
+        "default": "Dynamic",
+        "fieldtype": "Select",
+        "options": "Dynamic\nCompressed"
+      },
+      "grid_page_length": {
+        "default": "50",
+        "fieldtype": "Int"
+      },
+      "protect_attached_files": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "rows_threshold_for_grid_search": {
+        "default": "20",
+        "fieldtype": "Int"
+      },
+      "recipient_account_field": {
+        "fieldtype": "Data"
+      },
+      "allow_bulk_edit": {
+        "default": "1",
+        "fieldtype": "Check"
+      }
+    },
+    "DocType Action": {
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "group": {
+        "fieldtype": "Data"
+      },
+      "action_type": {
+        "fieldtype": "Select",
+        "options": "Server Action\nRoute",
+        "reqd": 1
+      },
+      "action": {
+        "fieldtype": "Small Text",
+        "reqd": 1
+      },
+      "hidden": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "custom": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "DocType Link": {
+      "link_doctype": {
+        "fieldtype": "Link",
+        "options": "DocType",
+        "reqd": 1
+      },
+      "link_fieldname": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "group": {
+        "fieldtype": "Data"
+      },
+      "hidden": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "custom": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "parent_doctype": {
+        "fieldtype": "Link",
+        "options": "DocType"
+      },
+      "is_child_table": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "table_fieldname": {
+        "fieldtype": "Data"
+      }
+    },
+    "DocType State": {
+      "title": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "color": {
+        "default": "Blue",
+        "fieldtype": "Select",
+        "options": "Blue\nCyan\nGray\nGreen\nLight Blue\nOrange\nPink\nPurple\nRed\nYellow",
+        "reqd": 1
+      },
+      "custom": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "Has Role": {
+      "role": {
+        "fieldtype": "Link",
+        "options": "Role"
+      }
+    },
+    "Page": {
+      "system_page": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "page_name": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "title": {
+        "fieldtype": "Data"
+      },
+      "icon": {
+        "fieldtype": "Data"
+      },
+      "module": {
+        "fieldtype": "Link",
+        "options": "Module Def",
+        "reqd": 1
+      },
+      "restrict_to_domain": {
+        "fieldtype": "Link",
+        "options": "Domain"
+      },
+      "standard": {
+        "fieldtype": "Select",
+        "options": "Yes\nNo",
+        "reqd": 1
+      },
+      "roles": {
+        "fieldtype": "Table",
+        "options": "Has Role"
+      }
+    },
+    "Report": {
+      "report_name": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "ref_doctype": {
+        "fieldtype": "Link",
+        "options": "DocType",
+        "reqd": 1
+      },
+      "reference_report": {
+        "fieldtype": "Data"
+      },
+      "is_standard": {
+        "fieldtype": "Select",
+        "options": "No\nYes",
+        "reqd": 1
+      },
+      "module": {
+        "fieldtype": "Link",
+        "options": "Module Def"
+      },
+      "add_total_row": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "report_type": {
+        "fieldtype": "Select",
+        "options": "Report Builder\nQuery Report\nScript Report\nCustom Report",
+        "reqd": 1
+      },
+      "disabled": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "letter_head": {
+        "fieldtype": "Link",
+        "options": "Letter Head"
+      },
+      "query": {
+        "fieldtype": "Code",
+        "options": "SQL"
+      },
+      "javascript": {
+        "fieldtype": "Code",
+        "options": "Javascript"
+      },
+      "json": {
+        "fieldtype": "Code"
+      },
+      "roles": {
+        "fieldtype": "Table",
+        "options": "Has Role"
+      },
+      "prepared_report": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "report_script": {
+        "fieldtype": "Code",
+        "options": "Python"
+      },
+      "filters": {
+        "fieldtype": "Table",
+        "options": "Report Filter"
+      },
+      "columns": {
+        "fieldtype": "Table",
+        "options": "Report Column"
+      },
+      "timeout": {
+        "fieldtype": "Int"
+      },
+      "add_translate_data": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "disable_prepared_report_automation": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "doctype_to_sync": {
+        "fieldtype": "Table",
+        "options": "Doctype To Sync"
+      },
+      "snapshot_report": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "Report Column": {
+      "fieldname": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "fieldtype": {
+        "fieldtype": "Select",
+        "options": "Check\nCurrency\nData\nDate\nDatetime\nDuration\nDynamic Link\nFloat\nFold\nInt\nLink\nSelect\nTime",
+        "reqd": 1
+      },
+      "options": {
+        "fieldtype": "Data"
+      },
+      "width": {
+        "fieldtype": "Int"
+      }
+    },
+    "Report Filter": {
+      "fieldname": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "fieldtype": {
+        "fieldtype": "Select",
+        "options": "Check\nCurrency\nData\nDate\nDatetime\nDynamic Link\nFloat\nFold\nInt\nLink\nSelect\nTime",
+        "reqd": 1
+      },
+      "mandatory": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "options": {
+        "fieldtype": "Small Text"
+      },
+      "wildcard_filter": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "default": {
+        "fieldtype": "Small Text"
+      }
+    },
+    "Role": {
+      "role_name": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "disabled": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "desk_access": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "two_factor_auth": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "restrict_to_domain": {
+        "fieldtype": "Link",
+        "options": "Domain"
+      },
+      "home_page": {
+        "fieldtype": "Data"
+      },
+      "is_custom": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "Number Card": {
+      "document_type": {
+        "fieldtype": "Link",
+        "options": "DocType"
+      },
+      "function": {
+        "fieldtype": "Select",
+        "options": "Count\nSum\nAverage\nMinimum\nMaximum"
+      },
+      "aggregate_function_based_on": {
+        "fieldtype": "Select"
+      },
+      "filters_json": {
+        "fieldtype": "Code",
+        "options": "JSON"
+      },
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "color": {
+        "fieldtype": "Color"
+      },
+      "is_public": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "show_percentage_stats": {
+        "default": "1",
+        "fieldtype": "Check"
+      },
+      "stats_time_interval": {
+        "default": "Daily",
+        "fieldtype": "Select",
+        "options": "Daily\nWeekly\nMonthly\nYearly"
+      },
+      "is_standard": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "module": {
+        "fieldtype": "Link",
+        "options": "Module Def"
+      },
+      "dynamic_filters_json": {
+        "fieldtype": "Code",
+        "options": "JSON"
+      },
+      "type": {
+        "fieldtype": "Select",
+        "options": "Document Type\nReport\nCustom"
+      },
+      "report_name": {
+        "fieldtype": "Link",
+        "options": "Report"
+      },
+      "report_field": {
+        "fieldtype": "Select"
+      },
+      "method": {
+        "fieldtype": "Data"
+      },
+      "filters_config": {
+        "fieldtype": "Code",
+        "options": "JSON"
+      },
+      "report_function": {
+        "fieldtype": "Select",
+        "options": "Sum\nAverage\nMinimum\nMaximum"
+      },
+      "parent_document_type": {
+        "fieldtype": "Link",
+        "options": "DocType"
+      },
+      "currency": {
+        "fieldtype": "Link",
+        "options": "Currency"
+      },
+      "background_color": {
+        "fieldtype": "Color"
+      },
+      "show_full_number": {
+        "default": "0",
+        "fieldtype": "Check"
+      }
+    },
+    "Workspace": {
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "charts": {
+        "fieldtype": "Table",
+        "options": "Workspace Chart"
+      },
+      "shortcuts": {
+        "fieldtype": "Table",
+        "options": "Workspace Shortcut"
+      },
+      "restrict_to_domain": {
+        "fieldtype": "Link",
+        "options": "Domain"
+      },
+      "module": {
+        "fieldtype": "Link",
+        "options": "Module Def"
+      },
+      "for_user": {
+        "fieldtype": "Data"
+      },
+      "hide_custom": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "icon": {
+        "fieldtype": "Icon"
+      },
+      "links": {
+        "fieldtype": "Table",
+        "options": "Workspace Link"
+      },
+      "public": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "title": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "parent_page": {
+        "fieldtype": "Link",
+        "options": "Workspace"
+      },
+      "content": {
+        "default": "[]",
+        "fieldtype": "Long Text"
+      },
+      "sequence_id": {
+        "fieldtype": "Float"
+      },
+      "roles": {
+        "fieldtype": "Table",
+        "options": "Has Role"
+      },
+      "quick_lists": {
+        "fieldtype": "Table",
+        "options": "Workspace Quick List"
+      },
+      "is_hidden": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "number_cards": {
+        "fieldtype": "Table",
+        "options": "Workspace Number Card"
+      },
+      "custom_blocks": {
+        "fieldtype": "Table",
+        "options": "Workspace Custom Block"
+      },
+      "indicator_color": {
+        "fieldtype": "Select",
+        "options": "green\ncyan\nblue\norange\nyellow\ngray\ngrey\nred\npink\ndarkgrey\npurple\nlight-blue"
+      },
+      "app": {
+        "fieldtype": "Data"
+      },
+      "type": {
+        "default": "Workspace",
+        "fieldtype": "Select",
+        "options": "Workspace\nLink\nURL",
+        "reqd": 1
+      },
+      "link_type": {
+        "fieldtype": "Select",
+        "options": "DocType\nPage\nReport"
+      },
+      "link_to": {
+        "fieldtype": "Dynamic Link",
+        "options": "link_type"
+      },
+      "external_link": {
+        "fieldtype": "Data",
+        "options": "URL"
+      }
+    },
+    "Workspace Chart": {
+      "chart_name": {
+        "fieldtype": "Link",
+        "options": "Dashboard Chart",
+        "reqd": 1
+      },
+      "label": {
+        "fieldtype": "Data"
+      }
+    },
+    "Workspace Custom Block": {
+      "custom_block_name": {
+        "fieldtype": "Link",
+        "options": "Custom HTML Block"
+      },
+      "label": {
+        "fieldtype": "Data"
+      }
+    },
+    "Workspace Link": {
+      "type": {
+        "default": "Link",
+        "fieldtype": "Select",
+        "options": "Link\nCard Break",
+        "reqd": 1
+      },
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "icon": {
+        "fieldtype": "Data"
+      },
+      "hidden": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "link_type": {
+        "fieldtype": "Select",
+        "options": "DocType\nPage\nReport"
+      },
+      "link_to": {
+        "fieldtype": "Dynamic Link",
+        "options": "link_type"
+      },
+      "dependencies": {
+        "fieldtype": "Data"
+      },
+      "only_for": {
+        "fieldtype": "Link",
+        "options": "Country"
+      },
+      "onboard": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "is_query_report": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "link_count": {
+        "fieldtype": "Int"
+      },
+      "description": {
+        "fieldtype": "HTML Editor"
+      },
+      "report_ref_doctype": {
+        "fieldtype": "Link",
+        "options": "DocType"
+      }
+    },
+    "Workspace Number Card": {
+      "number_card_name": {
+        "fieldtype": "Link",
+        "options": "Number Card",
+        "reqd": 1
+      },
+      "label": {
+        "fieldtype": "Data"
+      }
+    },
+    "Workspace Quick List": {
+      "document_type": {
+        "fieldtype": "Link",
+        "options": "DocType",
+        "reqd": 1
+      },
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "quick_list_filter": {
+        "fieldtype": "Code",
+        "options": "JSON"
+      }
+    },
+    "Workspace Shortcut": {
+      "type": {
+        "fieldtype": "Select",
+        "options": "DocType\nReport\nPage\nDashboard\nURL",
+        "reqd": 1
+      },
+      "link_to": {
+        "fieldtype": "Dynamic Link",
+        "options": "type"
+      },
+      "doc_view": {
+        "fieldtype": "Select",
+        "options": "\nList\nReport Builder\nDashboard\nTree\nNew\nCalendar\nKanban\nImage"
+      },
+      "label": {
+        "fieldtype": "Data",
+        "reqd": 1
+      },
+      "icon": {
+        "fieldtype": "Data"
+      },
+      "restrict_to_domain": {
+        "fieldtype": "Link",
+        "options": "Domain"
+      },
+      "stats_filter": {
+        "fieldtype": "Code",
+        "options": "JSON"
+      },
+      "color": {
+        "fieldtype": "Color"
+      },
+      "format": {
+        "fieldtype": "Data"
+      },
+      "url": {
+        "fieldtype": "Data"
+      },
+      "kanban_board": {
+        "fieldtype": "Link",
+        "options": "Kanban Board"
+      },
+      "report_ref_doctype": {
+        "fieldtype": "Link",
+        "options": "DocType"
+      }
+    },
+    "Print Format": {
+      "doc_type": {
+        "fieldtype": "Link",
+        "options": "DocType"
+      },
+      "module": {
+        "fieldtype": "Link",
+        "options": "Module Def"
+      },
+      "disabled": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "standard": {
+        "default": "No",
+        "fieldtype": "Select",
+        "options": "No\nYes",
+        "reqd": 1
+      },
+      "custom_format": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "print_format_type": {
+        "default": "Jinja",
+        "fieldtype": "Select",
+        "options": "Jinja\nJS"
+      },
+      "raw_printing": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "html": {
+        "fieldtype": "Code",
+        "options": "Jinja"
+      },
+      "raw_commands": {
+        "fieldtype": "Code",
+        "options": "Jinja"
+      },
+      "align_labels_right": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "show_section_headings": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "line_breaks": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "default_print_language": {
+        "fieldtype": "Link",
+        "options": "Language"
+      },
+      "font": {
+        "fieldtype": "Data"
+      },
+      "css": {
+        "fieldtype": "Code",
+        "options": "CSS"
+      },
+      "format_data": {
+        "fieldtype": "Code"
+      },
+      "print_format_builder": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "absolute_value": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "print_format_builder_beta": {
+        "default": "0",
+        "fieldtype": "Check"
+      },
+      "margin_top": {
+        "default": "15",
+        "fieldtype": "Float"
+      },
+      "margin_bottom": {
+        "default": "15",
+        "fieldtype": "Float"
+      },
+      "margin_left": {
+        "default": "15",
+        "fieldtype": "Float"
+      },
+      "margin_right": {
+        "default": "15",
+        "fieldtype": "Float"
+      },
+      "font_size": {
+        "default": "14",
+        "fieldtype": "Int"
+      },
+      "page_number": {
+        "default": "Hide",
+        "fieldtype": "Select",
+        "options": "Hide\nTop Left\nTop Center\nTop Right\nBottom Left\nBottom Center\nBottom Right"
+      },
+      "pdf_generator": {
+        "default": "wkhtmltopdf",
+        "fieldtype": "Select",
+        "options": "wkhtmltopdf\nchrome"
+      },
+      "print_format_for": {
+        "default": "DocType",
+        "fieldtype": "Select",
+        "options": "DocType\nReport"
+      },
+      "report": {
+        "fieldtype": "Link",
+        "options": "Report"
+      }
+    }
+  }
+}

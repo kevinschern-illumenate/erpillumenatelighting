@@ -28,7 +28,7 @@
     {
       "label": "Open Rate (%)",
       "fieldname": "open_rate",
-      "fieldtype": "Percent",
+      "fieldtype": "Float",
       "width": 120
     }
   ],

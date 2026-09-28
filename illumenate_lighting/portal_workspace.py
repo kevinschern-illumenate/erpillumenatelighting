@@ -13,6 +13,10 @@ WORKSPACE = "ilLumenate Lighting"
 def merge_workspace(site, shipped):
 	"""Retain site rows/blocks and add shipped destinations by stable identity."""
 	result = copy.deepcopy(site)
+	# v16 makes Workspace.type mandatory. Backups made on v15 (including a
+	# pending snapshot from a failed upgrade) do not contain it. A normal save
+	# of an existing document does not apply the new-document default.
+	result["type"] = site.get("type") or shipped.get("type") or "Workspace"
 	keys = {
 		"shortcuts": ("type", "link_to", "label"),
 		"links": ("type", "link_to", "label"),
@@ -85,6 +89,10 @@ def after_migrate():
 	doc = frappe.get_doc("Workspace", WORKSPACE)
 	for field in (
 		"content",
+		"type",
+		"link_type",
+		"link_to",
+		"external_link",
 		"shortcuts",
 		"links",
 		"number_cards",
@@ -106,8 +114,14 @@ def after_migrate():
 		if field in merged and doc.meta.has_field(field):
 			doc.set(field, merged[field])
 	doc.save(ignore_permissions=True)
-	# Keep immutable backups; a receipt distinguishes applied from pending data.
-	(directory / "last-merge.json").write_text(
-		json.dumps({"backup": name, "applied_on": str(frappe.utils.now())}), encoding="utf-8"
-	)
-	pending.unlink()
+
+	# Other apps' after_migrate hooks still run in the same transaction. Keep
+	# the original snapshot pending if a later hook fails and rolls this save
+	# back; only mark it applied once Frappe commits the complete migration.
+	def finish_merge():
+		(directory / "last-merge.json").write_text(
+			json.dumps({"backup": name, "applied_on": str(frappe.utils.now())}), encoding="utf-8"
+		)
+		pending.unlink(missing_ok=True)
+
+	frappe.db.after_commit.add(finish_merge)

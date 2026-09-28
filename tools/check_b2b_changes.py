@@ -62,14 +62,14 @@ def main():
 	added.update(git("diff", "--name-only", "--diff-filter=A", base, "--", *SCOPES).splitlines())
 	python = sorted(p for p in changed | added if p.endswith(".py"))
 	if "--format-new" in sys.argv:
-		subprocess.run(
-			[str(RUFF), "format", "--no-cache", *sorted(p for p in added if p.endswith(".py"))],
-			cwd=ROOT,
-			check=True,
-		)
-		subprocess.run(
-			[str(RUFF), "check", "--no-cache", "--select", "I", "--fix", *python], cwd=ROOT, check=True
-		)
+		new_python = sorted(p for p in added if p.endswith(".py"))
+		# An empty Ruff path list means the entire repository, not no files.
+		if new_python:
+			subprocess.run([str(RUFF), "format", "--no-cache", *new_python], cwd=ROOT, check=True)
+		if python:
+			subprocess.run(
+				[str(RUFF), "check", "--no-cache", "--select", "I", "--fix", *python], cwd=ROOT, check=True
+			)
 	new_errors, baseline_count = [], 0
 	for path in python:
 		source = (ROOT / path).read_text(encoding="utf-8")
