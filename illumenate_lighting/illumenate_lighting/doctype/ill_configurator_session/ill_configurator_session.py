@@ -5,7 +5,7 @@ import frappe
 from frappe.model.document import Document
 
 
-class IlLConfiguratorSession(Document):
+class ilLConfiguratorSession(Document):
 	def before_insert(self):
 		self.session_token = frappe.generate_hash(length=32)
 		self.user = frappe.session.user

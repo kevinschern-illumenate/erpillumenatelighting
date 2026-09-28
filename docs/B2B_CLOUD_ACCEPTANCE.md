@@ -4,6 +4,8 @@ This is the runnable handoff for the original plan and grouping add-on. Local te
 
 ## Site preparation and historical evidence
 
+For the September 28 migration failure involving missing Number Cards and three orphaned DocTypes, apply the [migration repair and retry instructions](B2B_MIGRATION_REPAIR_2026_09_28.md). Retain the pending workspace backup from the failed attempt.
+
 Use both a fresh ERPNext site and a restored, sanitized production-shaped site with the same intended app commits. Record Frappe/ERPNext/app commits, Python/Node/MariaDB versions, installed apps, custom overrides, asset manifest, PDF renderer, scheduler/worker state, stock reservation settings, companies/warehouses, CMS schema and n8n version. Keep real outbound mail, production credentials and live publication disabled during rehearsal. Use a mail sink for notification acceptance.
 
 Back up database, public/private files, site configuration, custom Workspace records, custom permissions and the previous deployed assets. Retain the current code revision alongside those backups. On the restored site, put this app's new code on disk, but capture the historical checkpoint **before** migration. The checkpoint reader tolerates new DocTypes/fields being absent. Run as the Bench Administrator; all evidence functions below are Bench-only System Manager tools.

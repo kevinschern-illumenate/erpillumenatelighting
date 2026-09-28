@@ -1,5 +1,5 @@
 from frappe.model.document import Document
 
 
-class IllChildGroupAllocation(Document):
+class ilLChildGroupAllocation(Document):
 	pass
