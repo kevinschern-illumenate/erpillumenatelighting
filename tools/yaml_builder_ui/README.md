@@ -44,6 +44,28 @@ The editor does not contact ERPNext, upload attachments, publish products, or cr
 orders. Live ERPNext readiness remains authoritative for site records, compatibility
 coverage, electrical selection, PDFs, and channel publication.
 
+## Host on Vercel
+
+The builder is a static site: drafts stay in each browser's storage and exports are
+browser downloads, so it needs no server or ERPNext access.
+
+1. In Vercel, choose **Add New → Project** and import this GitHub repository.
+2. Set **Root Directory** to `tools/yaml_builder_ui`. Keep **Include files outside
+   the root directory in the Build Step** enabled; the build checks the schema
+   snapshot against `illumenate_lighting/**/doctype` JSON.
+3. Leave the build settings alone. `vercel.json` runs the schema check, the tests,
+   and `vite build`, then serves `dist/`.
+4. Deploy. Pushes to the production branch redeploy automatically; other branches
+   get preview URLs.
+
+To limit who can open it, enable **Settings → Deployment Protection → Vercel
+Authentication** (or Password Protection) for all deployments. Drafts are per browser
+and per URL, so use **Save draft** to move work between devices. Run the CLI
+locally on the downloaded YAML as described above.
+
+To deploy from a terminal instead, set the Root Directory in the dashboard first,
+then run `npx vercel link` and `npx vercel --prod` from the repository root.
+
 ## Keep fields current
 
 ```powershell
