@@ -1,0 +1,5740 @@
+{
+  "schema_version": 2,
+  "products": {
+    "fixture": {
+      "label": "Linear fixtures",
+      "template": "ilL-Fixture-Template",
+      "spec": "ilL-Spec-Profile"
+    },
+    "tape": {
+      "label": "LED tape",
+      "template": "ilL-Tape-Neon-Template",
+      "spec": "ilL-Spec-LED Tape"
+    },
+    "neon": {
+      "label": "LED neon",
+      "template": "ilL-Tape-Neon-Template",
+      "spec": "ilL-Spec-LED Tape"
+    },
+    "led-sheet": {
+      "label": "LED sheets",
+      "template": "ilL-LED-Sheet-Template",
+      "spec": "ilL-Spec-LED-Sheet"
+    },
+    "extrusion-kit": {
+      "label": "Extrusion kits",
+      "template": "ilL-Extrusion-Kit-Template",
+      "spec": "ilL-Spec-Profile"
+    },
+    "driver": {
+      "label": "Drivers",
+      "template": "ilL-Driver-Template",
+      "spec": "ilL-Spec-Driver"
+    },
+    "controller": {
+      "label": "Controllers",
+      "template": "ilL-Controller-Template",
+      "spec": "ilL-Spec-Controller"
+    }
+  },
+  "doctypes": {
+    "Item": {
+      "autoname": "field:item_code",
+      "fields": [
+        {
+          "fieldname": "item_code",
+          "label": "Item Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "item_name",
+          "label": "Item Name",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "item_group",
+          "label": "Item Group",
+          "fieldtype": "Link",
+          "options": "Item Group",
+          "reqd": 1
+        },
+        {
+          "fieldname": "stock_uom",
+          "label": "Default Unit of Measure",
+          "fieldtype": "Link",
+          "options": "UOM",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_stock_item",
+          "label": "Maintain Stock",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "disabled",
+          "label": "Disabled",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_sales_item",
+          "label": "Is Sales Item",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "is_purchase_item",
+          "label": "Is Purchase Item",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Text Editor"
+        },
+        {
+          "fieldname": "brand",
+          "label": "Brand",
+          "fieldtype": "Link",
+          "options": "Brand"
+        },
+        {
+          "fieldname": "warranty_period",
+          "label": "Warranty Period (in days)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "image",
+          "label": "Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "has_variants",
+          "label": "Has Variants",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "variant_of",
+          "label": "Variant Of",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "variant_based_on",
+          "label": "Variant Based On",
+          "fieldtype": "Select",
+          "options": "Item Attribute\nManufacturer"
+        },
+        {
+          "fieldname": "attributes",
+          "label": "Variant Attributes",
+          "fieldtype": "Table",
+          "options": "Item Variant Attribute"
+        },
+        {
+          "fieldname": "supplier_items",
+          "label": "Supplier Items",
+          "fieldtype": "Table",
+          "options": "Item Supplier"
+        }
+      ]
+    },
+    "Item Variant Attribute": {
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "attribute",
+          "label": "Attribute",
+          "fieldtype": "Link",
+          "options": "Item Attribute",
+          "reqd": 1
+        },
+        {
+          "fieldname": "attribute_value",
+          "label": "Attribute Value",
+          "fieldtype": "Data"
+        }
+      ]
+    },
+    "Item Supplier": {
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "supplier",
+          "label": "Supplier",
+          "fieldtype": "Link",
+          "options": "Supplier",
+          "reqd": 1
+        },
+        {
+          "fieldname": "supplier_part_no",
+          "label": "Supplier Part Number",
+          "fieldtype": "Data"
+        }
+      ]
+    },
+    "Item Attribute": {
+      "autoname": "field:attribute_name",
+      "fields": [
+        {
+          "fieldname": "attribute_name",
+          "label": "Attribute Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "item_attribute_values",
+          "label": "Item Attribute Values",
+          "fieldtype": "Table",
+          "options": "Item Attribute Value"
+        }
+      ]
+    },
+    "Item Attribute Value": {
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "attribute_value",
+          "label": "Attribute Value",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "abbr",
+          "label": "Abbreviation",
+          "fieldtype": "Data",
+          "reqd": 1
+        }
+      ]
+    },
+    "Item Group": {
+      "autoname": "field:item_group_name",
+      "fields": [
+        {
+          "fieldname": "item_group_name",
+          "label": "Item Group Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "parent_item_group",
+          "label": "Parent Item Group",
+          "fieldtype": "Link",
+          "options": "Item Group"
+        },
+        {
+          "fieldname": "is_group",
+          "label": "Is Group",
+          "fieldtype": "Check",
+          "default": "0"
+        }
+      ]
+    },
+    "UOM": {
+      "autoname": "field:uom_name",
+      "fields": [
+        {
+          "fieldname": "uom_name",
+          "label": "UOM Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "must_be_whole_number",
+          "label": "Must be Whole Number",
+          "fieldtype": "Check"
+        }
+      ]
+    },
+    "Brand": {
+      "autoname": "field:brand",
+      "fields": [
+        {
+          "fieldname": "brand",
+          "label": "Brand",
+          "fieldtype": "Data",
+          "reqd": 1
+        }
+      ]
+    },
+    "Item Price": {
+      "fields": [
+        {
+          "fieldname": "item_code",
+          "label": "Item Code",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "price_list",
+          "label": "Price List",
+          "fieldtype": "Link",
+          "options": "Price List",
+          "reqd": 1
+        },
+        {
+          "fieldname": "price_list_rate",
+          "label": "Rate",
+          "fieldtype": "Currency",
+          "reqd": 1
+        },
+        {
+          "fieldname": "currency",
+          "label": "Currency",
+          "fieldtype": "Link",
+          "options": "Currency"
+        },
+        {
+          "fieldname": "uom",
+          "label": "UOM",
+          "fieldtype": "Link",
+          "options": "UOM"
+        }
+      ]
+    },
+    "ilL-Attribute-CCT": {
+      "autoname": "field:cct_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "cct_name",
+          "label": "CCT Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "lumen_multiplier",
+          "label": "Lumen Multiplier",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "code",
+          "label": "CCT Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "kelvin",
+          "label": "Kelvin Value",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "hex_color",
+          "label": "Hex Color",
+          "fieldtype": "Color"
+        },
+        {
+          "fieldname": "sample_photo",
+          "label": "Sample Photo",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "label",
+          "label": "Label",
+          "fieldtype": "Data"
+        }
+      ]
+    },
+    "ilL-Attribute-CRI": {
+      "autoname": "field:cri_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "cri_name",
+          "label": "CRI Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "CRI Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "minimum_ra",
+          "label": "Minimum Ra",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r9",
+          "label": "R9 Value",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "tm30_rf",
+          "label": "TM-30 Rf",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "tm30_rg",
+          "label": "TM-30 Rg",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active?",
+          "fieldtype": "Check",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Attribute-Certification": {
+      "autoname": "field:certification_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "certification_name",
+          "label": "Certification Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "certification_code",
+          "label": "Certification Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "certification_body",
+          "label": "Certification Body",
+          "fieldtype": "Data",
+          "description": "Organization that issued the certification (e.g., Underwriters Laboratories)"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "badge_image",
+          "label": "Badge Image",
+          "fieldtype": "Attach Image",
+          "description": "Icon or badge image for display on product pages"
+        },
+        {
+          "fieldname": "applies_to_types",
+          "label": "Applies to Product Types",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Certification-Applies-To",
+          "description": "Product types this certification can apply to"
+        }
+      ]
+    },
+    "ilL-Attribute-Controller Type": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Controller Type Label",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Display label, e.g. 'DMX Controller'"
+        },
+        {
+          "fieldname": "code",
+          "label": "Controller Type Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Short SKU code used in part numbers, e.g. 'DMX'"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "webflow_sync_targets",
+          "label": "Webflow Sync Targets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Sync-State",
+          "description": "Per-brand Webflow CMS sync state (authoritative)."
+        }
+      ]
+    },
+    "ilL-Attribute-Dimming Protocol": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Protocol Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Select",
+          "options": "0-10V\nTRIAC\nELV\nMLV\nDALI\nDMX512\nDMX/RDM\nSPI\nPWM",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Protocol Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "signal_type",
+          "label": "Signal Type",
+          "fieldtype": "Select",
+          "options": "Analog\nPhase-cut\nDigital"
+        },
+        {
+          "fieldname": "requires_interface",
+          "label": "Requires Interface?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Endcap Color": {
+      "autoname": "field:code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Attribute-Endcap Style": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Endcap Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "style",
+          "label": "Style",
+          "fieldtype": "Select",
+          "options": "Solid\nFeed-through\nGasketed\nQuick-connect\nCable-grip"
+        },
+        {
+          "fieldname": "allowance_mm_per_side",
+          "label": "Allowance per Side (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "supports_feed",
+          "label": "Supports Feed?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "gasketed",
+          "label": "Gasketed?",
+          "fieldtype": "Check",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Attribute-Environment Rating": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Environment Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Environment Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Feed-Direction": {
+      "autoname": "field:direction_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "direction_name",
+          "label": "Direction Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Single character code for part number (E=End, B=Back, L=Left, R=Right)"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "webflow_item_id",
+          "label": "Webflow Item ID",
+          "fieldtype": "Data",
+          "description": "Webflow CMS item ID (populated after sync)",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Attribute-Finish": {
+      "autoname": "field:finish_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "finish_name",
+          "label": "Finish Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Finish Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "status",
+          "label": "Status",
+          "fieldtype": "Select",
+          "options": "Active\nEnd of Life\nDiscontinued\nPrototype",
+          "default": "Active"
+        },
+        {
+          "fieldname": "hex_color",
+          "label": "Hex Color",
+          "fieldtype": "Color"
+        },
+        {
+          "fieldname": "texture_feel",
+          "label": "Texture/Feel",
+          "fieldtype": "Select",
+          "options": "Smooth\nSand-Blasted\nBrushed\nGlossy\nMatte",
+          "default": "Smooth"
+        },
+        {
+          "fieldname": "image_attach",
+          "label": "Finish Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "type",
+          "label": "Finish Type",
+          "fieldtype": "Select"
+        },
+        {
+          "fieldname": "supplier_link",
+          "label": "Supplier",
+          "fieldtype": "Link",
+          "options": "Supplier"
+        },
+        {
+          "fieldname": "thermal_performance_factor",
+          "label": "Thermal Performance Factor",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "moq",
+          "label": "Minimum Order Quantity",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-IP Rating": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "IP Rating Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "IP Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Joiner Angle": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Joiner Angle Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Joiner Angle Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Joiner System": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Joiner System Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-LED Package": {
+      "autoname": "prompt",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "code",
+          "label": "LED Package Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "spectrum_type",
+          "label": "Spectrum Type",
+          "fieldtype": "Select",
+          "options": "Static White\nDim to Warm\nTunable White\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "channels",
+          "label": "Channels",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "is_pixel",
+          "label": "Is Pixel?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "compatible_ccts",
+          "label": "Compatible CCTs",
+          "fieldtype": "Table",
+          "options": "ilL-Child-LED Package CCT",
+          "description": "List all CCT values that are available for this LED package"
+        }
+      ]
+    },
+    "ilL-Attribute-Lead Time Class": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Lead Time Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "days_min",
+          "label": "Days Minimum",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "days_max",
+          "label": "Days Maximum",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Leader Cable": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Leader Cable Label",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "no_conductors",
+          "label": "Number of Conductors",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "awg",
+          "label": "AWG",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "jacket_rating",
+          "label": "Jacket Rating",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "default_length_mm",
+          "label": "Default Length (mm)",
+          "fieldtype": "Float"
+        }
+      ]
+    },
+    "ilL-Attribute-Lens Appearance": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Lens Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Lens Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "transmission",
+          "label": "Light Transmission",
+          "fieldtype": "Percent"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Lens Interface Type": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Interface Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Mounting Method": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Mounting Method Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Mounting Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Select",
+          "options": "Surface\nRecessed\nAngled\nSuspension\nPendant\nAdhesive\nTrimless"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Mounting Type": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Mounting Type Label",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Display label, e.g. 'DIN Rail'. Physical mounting of a driver or controller enclosure (distinct from ilL-Attribute-Mounting Method, which describes fixture mounting)."
+        },
+        {
+          "fieldname": "code",
+          "label": "Mounting Type Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Short SKU code used in part numbers, e.g. 'DIN'"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "webflow_sync_targets",
+          "label": "Webflow Sync Targets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Sync-State",
+          "description": "Per-brand Webflow CMS sync state (authoritative)."
+        }
+      ]
+    },
+    "ilL-Attribute-Output Level": {
+      "autoname": "field:output_level_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "output_level_name",
+          "label": "Output Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "value",
+          "label": "Numeric Value",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "sku_code",
+          "label": "SKU Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_fixture_level",
+          "label": "Is Fixture Level",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_tape_level",
+          "label": "Is Tape Level",
+          "fieldtype": "Check",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Attribute-Output Voltage": {
+      "autoname": "field:voltage_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "dc_voltage",
+          "label": "DC Voltage",
+          "fieldtype": "Select",
+          "options": "\n5V\n12V\n24V\n36V\n48V"
+        },
+        {
+          "fieldname": "ac_voltage",
+          "label": "AC Voltage",
+          "fieldtype": "Select",
+          "options": "\n12V\n120V\n240V\n277V"
+        },
+        {
+          "fieldname": "voltage_name",
+          "label": "Voltage Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "voltage_code",
+          "label": "Voltage Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Attribute-PCB Finish": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "PCB Finish Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "PCB Finish Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-PCB Mounting": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "PCB Mounting Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "PCB Mounting Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Power Feed Type": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Feed Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Feed Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "type",
+          "label": "Feed Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+          "fieldname": "connection_type",
+          "label": "Connection Type",
+          "fieldtype": "Select",
+          "options": "Soldered\nPress Fit\nSnap On\nInjection Molded"
+        },
+        {
+          "fieldname": "directionality",
+          "label": "Directionality",
+          "fieldtype": "Select",
+          "options": "Start\nMiddle\nEnd"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Attribute-Pricing Class": {
+      "autoname": "field:label",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "label",
+          "label": "Class Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "default_adder",
+          "label": "Default Adder",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "multiplier",
+          "label": "Multiplier",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "code",
+          "label": "Class Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Attribute-SDCM": {
+      "autoname": "field:sdcm",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "sdcm",
+          "label": "SDCM",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "sdcm_code",
+          "label": "SDCM Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Attribute-Series": {
+      "autoname": "field:series_name",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "series_name",
+          "label": "Series Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "code",
+          "label": "Series Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Text Editor"
+        },
+        {
+          "fieldname": "webflow_item_id",
+          "label": "Webflow Item ID",
+          "fieldtype": "Data",
+          "description": "Webflow CMS item ID (populated after sync)",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_sync_status",
+          "label": "Sync Status",
+          "fieldtype": "Select",
+          "options": "Pending\nSynced\nError\nNever Synced",
+          "default": "Never Synced",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_last_synced",
+          "label": "Last Synced",
+          "fieldtype": "Datetime",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_sync_error",
+          "label": "Sync Error",
+          "fieldtype": "Small Text",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Child-Certification-Applies-To": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "product_type",
+          "label": "Product Type",
+          "fieldtype": "Select",
+          "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nComponent\nAccessory",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Compatible Lens": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "lens_spec",
+          "label": "Lens Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Lens",
+          "reqd": 1
+        },
+        {
+          "fieldname": "lens_item",
+          "label": "Lens Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "read_only": 1
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance",
+          "read_only": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Child-Compatible-Driver": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "driver_spec",
+          "label": "Driver Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Driver",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Controller-Allowed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "Controller Type\nChannels\nZones\nInput Protocol\nOutput Protocol\nWireless Protocol\nMounting Type",
+          "reqd": 1
+        },
+        {
+          "fieldname": "attribute_doctype",
+          "label": "Attribute DocType",
+          "fieldtype": "Select",
+          "options": "\nilL-Attribute-Controller Type\nilL-Attribute-Dimming Protocol\nilL-Attribute-Mounting Type"
+        },
+        {
+          "fieldname": "attribute_link",
+          "label": "Attribute Link",
+          "fieldtype": "Dynamic Link",
+          "options": "attribute_doctype"
+        },
+        {
+          "fieldname": "option_value",
+          "label": "Option Value",
+          "fieldtype": "Data",
+          "description": "Scalar value for non-attribute option types (e.g. '4' for Channels, 'Zigbee' for Wireless Protocol)."
+        },
+        {
+          "fieldname": "option_label",
+          "label": "Option Label",
+          "fieldtype": "Data",
+          "description": "Display label override shown in the Webflow configurator."
+        },
+        {
+          "fieldname": "option_code",
+          "label": "Option Code",
+          "fieldtype": "Data",
+          "description": "Short code used when building the configured part number."
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "msrp_adder",
+          "label": "MSRP Adder",
+          "fieldtype": "Currency"
+        }
+      ]
+    },
+    "ilL-Child-Controller-Protocol": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Controller-Template-Variant": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "controller_spec",
+          "label": "Controller Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Controller",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Pre-select this variant when the configurator loads."
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "variant_code",
+          "label": "Variant Code",
+          "fieldtype": "Data",
+          "description": "Short code for this variant, used when building the configured part number."
+        },
+        {
+          "fieldname": "msrp",
+          "label": "MSRP",
+          "fieldtype": "Currency"
+        },
+        {
+          "fieldname": "controller_type",
+          "label": "Controller Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Controller Type"
+        },
+        {
+          "fieldname": "channels",
+          "label": "Channels",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "zones",
+          "label": "Zones",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "input_protocol",
+          "label": "Input Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "description": "Dimming signal this variant accepts as input."
+        },
+        {
+          "fieldname": "output_protocol",
+          "label": "Output Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "description": "Dimming signal this variant outputs."
+        },
+        {
+          "fieldname": "wireless_protocol",
+          "label": "Wireless Protocol",
+          "fieldtype": "Select",
+          "options": "\nBluetooth\nZigbee\nZ-Wave\nWiFi\nRF 433MHz\nRF 2.4GHz"
+        },
+        {
+          "fieldname": "mounting_type",
+          "label": "Mounting Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Type"
+        },
+        {
+          "fieldname": "item",
+          "label": "Controller Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "read_only": 1
+        },
+        {
+          "fieldname": "max_load_watts",
+          "label": "Max Load (Watts)",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "input_voltage_min",
+          "label": "Input Voltage Min",
+          "fieldtype": "Int",
+          "read_only": 1
+        },
+        {
+          "fieldname": "input_voltage_max",
+          "label": "Input Voltage Max",
+          "fieldtype": "Int",
+          "read_only": 1
+        },
+        {
+          "fieldname": "input_voltage_type",
+          "label": "Input Voltage Type",
+          "fieldtype": "Data",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Child-Driver-Allowed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "Wattage\nVoltage Output\nInput Protocol\nOutput Protocol\nMounting Type",
+          "reqd": 1
+        },
+        {
+          "fieldname": "attribute_doctype",
+          "label": "Attribute DocType",
+          "fieldtype": "Select",
+          "options": "\nilL-Attribute-Output Voltage\nilL-Attribute-Dimming Protocol\nilL-Attribute-Mounting Type"
+        },
+        {
+          "fieldname": "attribute_link",
+          "label": "Attribute Link",
+          "fieldtype": "Dynamic Link",
+          "options": "attribute_doctype"
+        },
+        {
+          "fieldname": "option_value",
+          "label": "Option Value",
+          "fieldtype": "Data",
+          "description": "Scalar value for non-attribute option types (e.g. '60' for Wattage)."
+        },
+        {
+          "fieldname": "option_label",
+          "label": "Option Label",
+          "fieldtype": "Data",
+          "description": "Display label override shown in the Webflow configurator."
+        },
+        {
+          "fieldname": "option_code",
+          "label": "Option Code",
+          "fieldtype": "Data",
+          "description": "Short code used when building the configured part number."
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "msrp_adder",
+          "label": "MSRP Adder",
+          "fieldtype": "Currency"
+        }
+      ]
+    },
+    "ilL-Child-Driver-Input-Protocol": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Driver-Template-Variant": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "driver_spec",
+          "label": "Driver Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Driver",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Pre-select this variant when the configurator loads."
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "variant_code",
+          "label": "Variant Code",
+          "fieldtype": "Data",
+          "description": "Short code for this variant, used when building the configured part number."
+        },
+        {
+          "fieldname": "msrp",
+          "label": "MSRP",
+          "fieldtype": "Currency"
+        },
+        {
+          "fieldname": "wattage",
+          "label": "Wattage (W)",
+          "fieldtype": "Float",
+          "description": "Rated wattage advertised for this variant (matches the Wattage option value)."
+        },
+        {
+          "fieldname": "voltage_output",
+          "label": "Voltage Output",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Voltage"
+        },
+        {
+          "fieldname": "input_protocol",
+          "label": "Input Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "description": "Dimming signal this variant accepts (0-10V, DALI, Triac, ...)."
+        },
+        {
+          "fieldname": "output_protocol",
+          "label": "Output Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol"
+        },
+        {
+          "fieldname": "item",
+          "label": "Driver Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "read_only": 1
+        },
+        {
+          "fieldname": "outputs_count",
+          "label": "Outputs",
+          "fieldtype": "Int",
+          "read_only": 1
+        },
+        {
+          "fieldname": "input_voltage_min",
+          "label": "Input Voltage Min",
+          "fieldtype": "Int",
+          "read_only": 1
+        },
+        {
+          "fieldname": "input_voltage_max",
+          "label": "Input Voltage Max",
+          "fieldtype": "Int",
+          "read_only": 1
+        },
+        {
+          "fieldname": "input_voltage_type",
+          "label": "Input Voltage Type",
+          "fieldtype": "Data",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Child-Kit-Allowed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "Finish\nLens Appearance\nMounting Method\nEndcap Style\nEndcap Color",
+          "reqd": 1
+        },
+        {
+          "fieldname": "finish",
+          "label": "Finish",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Finish"
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance"
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Method"
+        },
+        {
+          "fieldname": "endcap_style",
+          "label": "Endcap Style",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Style"
+        },
+        {
+          "fieldname": "endcap_color",
+          "label": "Endcap Color",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Color"
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "msrp_adder",
+          "label": "MSRP Adder",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "MSRP price adder for this option"
+        }
+      ]
+    },
+    "ilL-Child-LED Package CCT": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "cct",
+          "label": "CCT",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT",
+          "reqd": 1
+        },
+        {
+          "fieldname": "sort_order",
+          "label": "Sort Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-LED-Sheet-Allowed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "CCT\nOutput Level\nEnvironment Rating\nMounting\nFinish"
+        },
+        {
+          "fieldname": "attribute_doctype",
+          "label": "Attribute DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Attribute-CCT\nilL-Attribute-Output Level\nilL-Attribute-Environment Rating\nilL-Attribute-Mounting Method\nilL-Attribute-Finish"
+        },
+        {
+          "fieldname": "attribute_link",
+          "label": "Attribute Link",
+          "fieldtype": "Dynamic Link",
+          "options": "attribute_doctype"
+        },
+        {
+          "fieldname": "option_code",
+          "label": "Option Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "msrp_adder",
+          "label": "MSRP Adder",
+          "fieldtype": "Currency"
+        }
+      ]
+    },
+    "ilL-Child-LED-Sheet-Allowed-Spec": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "spec",
+          "label": "Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-LED-Sheet"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Child-Lens Environments": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        }
+      ]
+    },
+    "ilL-Child-PN-Builder-Row": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "section_name",
+          "label": "Section Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "section_order",
+          "label": "Section Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "option_code",
+          "label": "Option Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "option_label",
+          "label": "Option Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "option_order",
+          "label": "Option Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Profile Environment": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Child-Spec-Certification": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "certification",
+          "label": "Certification",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Certification",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Tape-Dimming-Protocol": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Tape-Neon-Allowed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "CCT\nOutput Level\nLens Appearance\nEnvironment Rating\nIP Rating\nFeed Direction\nPower Feed Type\nPCB Mounting\nPCB Finish\nMounting Method\nFinish\nEndcap Style",
+          "reqd": 1
+        },
+        {
+          "fieldname": "cct",
+          "label": "CCT",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT"
+        },
+        {
+          "fieldname": "output_level",
+          "label": "Output Level",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Level"
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance"
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "ip_rating",
+          "label": "IP Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-IP Rating",
+          "description": "IP rating for neon endcaps (e.g. IP67, IP68)"
+        },
+        {
+          "fieldname": "feed_direction",
+          "label": "Feed Direction",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+          "fieldname": "feed_position",
+          "label": "Feed Position",
+          "fieldtype": "Select",
+          "options": "Both\nStart\nEnd",
+          "default": "Both",
+          "description": "Which end of the fixture this direction applies to (Both, Start only, or End only)"
+        },
+        {
+          "fieldname": "power_feed_type",
+          "label": "Power Feed Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+          "fieldname": "pcb_mounting",
+          "label": "PCB Mounting",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-PCB Mounting",
+          "description": "PCB mounting method (e.g. Rigid, Flex)"
+        },
+        {
+          "fieldname": "pcb_finish",
+          "label": "PCB Finish",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-PCB Finish",
+          "description": "PCB color/finish (e.g. White, Black)"
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Method",
+          "description": "Neon mounting method (e.g. Surface, Channel)"
+        },
+        {
+          "fieldname": "finish",
+          "label": "Finish",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Finish",
+          "description": "Neon extrusion finish (e.g. Clear, Frosted)"
+        },
+        {
+          "fieldname": "endcap_style",
+          "label": "Endcap Style",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Style"
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "msrp_adder",
+          "label": "MSRP Adder",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "Additional MSRP charge for this option"
+        }
+      ]
+    },
+    "ilL-Child-Tape-Neon-Allowed-Spec": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "tape_spec",
+          "label": "Tape Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-LED Tape",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating",
+          "description": "Override environment rating constraint for this spec (LED Tape only)"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Child-Template-Allowed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "Finish\nLens Appearance\nMounting Method\nEndcap Style\nPower Feed Type\nEnvironment Rating",
+          "reqd": 1
+        },
+        {
+          "fieldname": "finish",
+          "label": "Finish",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Finish"
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance"
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Method"
+        },
+        {
+          "fieldname": "endcap_style",
+          "label": "Endcap Style",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Style"
+        },
+        {
+          "fieldname": "power_feed_type",
+          "label": "Power Feed Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "msrp_adder",
+          "label": "MSRP Adder",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "MSRP price adder for this option"
+        }
+      ]
+    },
+    "ilL-Child-Template-Allowed-TapeOffering": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "tape_offering",
+          "label": "Tape Offering",
+          "fieldtype": "Link",
+          "options": "ilL-Rel-Tape Offering",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Attribute-Link": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "attribute_type",
+          "label": "Attribute Type",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The category of this attribute (e.g., Finish, Lens Appearance, CCT)"
+        },
+        {
+          "fieldname": "attribute_doctype",
+          "label": "Attribute DocType",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The DocType name for the attribute (e.g., ilL-Attribute-Finish)"
+        },
+        {
+          "fieldname": "attribute_name",
+          "label": "Attribute Name",
+          "fieldtype": "Dynamic Link",
+          "options": "attribute_doctype",
+          "reqd": 1,
+          "description": "The specific attribute record name/ID in ERPNext"
+        },
+        {
+          "fieldname": "display_label",
+          "label": "Display Label",
+          "fieldtype": "Data",
+          "description": "Human-readable display label for Webflow"
+        },
+        {
+          "fieldname": "webflow_item_id",
+          "label": "Webflow Item ID",
+          "fieldtype": "Data",
+          "description": "Webflow CMS item ID for this attribute",
+          "read_only": 1
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Brand-Target": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "brand",
+          "label": "Brand",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Brand",
+          "reqd": 1,
+          "description": "Webflow brand this record should be published to."
+        },
+        {
+          "fieldname": "enabled",
+          "label": "Enabled",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "Uncheck to temporarily depublish without losing sync state."
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Certification-Link": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "certification",
+          "label": "Certification",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Certification",
+          "reqd": 1
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Compatibility": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "related_product",
+          "label": "Related Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "reqd": 1
+        },
+        {
+          "fieldname": "relationship_type",
+          "label": "Relationship Type",
+          "fieldtype": "Select",
+          "options": "Works With\nRequires\nRecommended With\nReplaces\nAlternative To",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Data",
+          "description": "Additional context, e.g., 'Required for wet locations'"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Configurator-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "option_step",
+          "label": "Step Order",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "option_type",
+          "label": "Option Type",
+          "fieldtype": "Select",
+          "options": "LED Package\nCCT\nOutput Level\nLens Appearance\nFinish\nMounting Method\nMounting\nCoverage\nEnvironment Rating\nIP Rating\nPower Feed Type\nEndcap Style\nEndcap Color\nFeed Direction\nStart Feed Direction\nEnd Feed Direction\nLength\nFixture Output Level\nWattage\nVoltage Output\nOutput Protocol\nInput Protocol\nController Type\nChannels\nZones\nWireless Protocol\nMounting Type",
+          "reqd": 1
+        },
+        {
+          "fieldname": "option_label",
+          "label": "Option Label",
+          "fieldtype": "Data",
+          "description": "Display label override, e.g., 'Choose Your Color Temperature'"
+        },
+        {
+          "fieldname": "option_description",
+          "label": "Option Description",
+          "fieldtype": "Small Text",
+          "description": "Helper text shown to user for this step"
+        },
+        {
+          "fieldname": "is_required",
+          "label": "Is Required",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "depends_on_step",
+          "label": "Depends on Step",
+          "fieldtype": "Int",
+          "description": "Step number this option depends on (for cascading dependencies)"
+        },
+        {
+          "fieldname": "allowed_values_json",
+          "label": "Allowed Values (JSON)",
+          "fieldtype": "JSON",
+          "description": "Cached allowed values for Webflow export. JSON array of {value, label, code, is_default}"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Document": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "document_file",
+          "label": "Document File",
+          "fieldtype": "Attach",
+          "reqd": 1
+        },
+        {
+          "fieldname": "document_type",
+          "label": "Document Type",
+          "fieldtype": "Select",
+          "options": "Spec Sheet\nIES File\nInstallation Guide\nCAD Drawing\nWarranty\nDatasheet",
+          "reqd": 1
+        },
+        {
+          "fieldname": "document_title",
+          "label": "Document Title",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Feed-Length": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "step",
+          "label": "Step",
+          "fieldtype": "Int",
+          "reqd": 1,
+          "description": "Configurator step this feed length belongs to (matches option_step in Configurator Options, e.g., 9 = Start Feed Length, 11 = End Feed Length). Tells the Webflow script where to insert this code in the part number."
+        },
+        {
+          "fieldname": "label",
+          "label": "Label",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Display label shown to web users (e.g., '6 in', '12 in', '24 in')"
+        },
+        {
+          "fieldname": "code",
+          "label": "Order Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Order code used to specify this feed length in part numbers (e.g., '06', '12', '24')"
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Gallery-Image": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "image",
+          "label": "Image",
+          "fieldtype": "Attach Image",
+          "reqd": 1
+        },
+        {
+          "fieldname": "alt_text",
+          "label": "Alt Text",
+          "fieldtype": "Data",
+          "description": "Accessibility alt text for the image"
+        },
+        {
+          "fieldname": "caption",
+          "label": "Caption",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Kit-Component": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "component_type",
+          "label": "Component Type",
+          "fieldtype": "Select",
+          "options": "Profile\nLens\nEndcap Set\nMounting Kit\nJoiner\nHardware",
+          "reqd": 1
+        },
+        {
+          "fieldname": "component_item",
+          "label": "Component Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "component_spec_doctype",
+          "label": "Spec DocType",
+          "fieldtype": "Select",
+          "options": "\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Accessory"
+        },
+        {
+          "fieldname": "component_spec_name",
+          "label": "Spec Reference",
+          "fieldtype": "Dynamic Link",
+          "options": "component_spec_doctype"
+        },
+        {
+          "fieldname": "quantity",
+          "label": "Quantity",
+          "fieldtype": "Int",
+          "default": "1"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Data",
+          "description": "Additional notes, e.g., '8ft length', 'Pack of 10'"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Specification": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "spec_group",
+          "label": "Specification Group",
+          "fieldtype": "Select",
+          "options": "Electrical\nPhysical\nPerformance\nOptical\nControl\nEnvironmental"
+        },
+        {
+          "fieldname": "spec_label",
+          "label": "Specification Label",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "spec_value",
+          "label": "Specification Value",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "spec_unit",
+          "label": "Unit",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_calculated",
+          "label": "Is Calculated",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Checked if this spec was auto-populated from source doctype"
+        },
+        {
+          "fieldname": "show_on_card",
+          "label": "Show on Card",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Show this specification in product card preview"
+        },
+        {
+          "fieldname": "attribute_doctype",
+          "label": "Attribute DocType",
+          "fieldtype": "Data",
+          "description": "The DocType name for the linked attribute (e.g., ilL-Attribute-Finish)"
+        },
+        {
+          "fieldname": "attribute_options_json",
+          "label": "Attribute Options (JSON)",
+          "fieldtype": "Long Text",
+          "description": "JSON array of linked attribute options with doctype, value, and label"
+        }
+      ]
+    },
+    "ilL-Child-Webflow-Sync-State": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "brand",
+          "label": "Brand",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Brand",
+          "reqd": 1,
+          "description": "Webflow brand this sync row applies to."
+        },
+        {
+          "fieldname": "sync_status",
+          "label": "Sync Status",
+          "fieldtype": "Select",
+          "options": "Never Synced\nPending\nSynced\nError",
+          "default": "Never Synced"
+        },
+        {
+          "fieldname": "webflow_item_id",
+          "label": "Webflow Item ID",
+          "fieldtype": "Data",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_collection_slug",
+          "label": "Webflow Collection Slug",
+          "fieldtype": "Data",
+          "description": "Webflow collection slug (Product/Category only).",
+          "read_only": 1
+        },
+        {
+          "fieldname": "last_synced_at",
+          "label": "Last Synced At",
+          "fieldtype": "Datetime",
+          "read_only": 1
+        },
+        {
+          "fieldname": "sync_error_message",
+          "label": "Sync Error Message",
+          "fieldtype": "Small Text",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Child-Wireless-Protocol": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Select",
+          "options": "Bluetooth\nZigbee\nZ-Wave\nWiFi\nRF 433MHz\nRF 2.4GHz",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Controller-Submittal-Mapping": {
+      "autoname": "format:{controller_template}-{pdf_field_name}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "controller_template",
+          "label": "Controller Template",
+          "fieldtype": "Link",
+          "options": "ilL-Controller-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "pdf_field_name",
+          "label": "PDF Field Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The name of the form field in the fillable PDF template"
+        },
+        {
+          "fieldname": "source_doctype",
+          "label": "Source DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Controller-Template\nilL-Child-Controller-Template-Variant\nilL-Spec-Controller\nilL-Webflow-Product",
+          "reqd": 1,
+          "description": "The DocType to pull the source value from"
+        },
+        {
+          "fieldname": "source_field",
+          "label": "Source Field",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options."
+        },
+        {
+          "fieldname": "prefix",
+          "label": "Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the value"
+        },
+        {
+          "fieldname": "suffix",
+          "label": "Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the value"
+        },
+        {
+          "fieldname": "transformation",
+          "label": "Transformation",
+          "fieldtype": "Select",
+          "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT",
+          "description": "Optional transformation to apply to the source value before filling"
+        },
+        {
+          "fieldname": "logic",
+          "label": "Logic",
+          "fieldtype": "Select",
+          "options": "\nNone\n0.00_TO_BLANK",
+          "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead."
+        },
+        {
+          "fieldname": "webflow_field",
+          "label": "Webflow Field",
+          "fieldtype": "Select",
+          "options": "\nproject_name\nfixture_type\nproject_location\npart_number",
+          "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided."
+        },
+        {
+          "fieldname": "webflow_skip_transformation",
+          "label": "Skip Transformation on Webflow Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format and should not be transformed."
+        },
+        {
+          "fieldname": "webflow_prefix_suffix",
+          "label": "Webflow Prefix/Suffix",
+          "fieldtype": "Select",
+          "options": "\nKeep\nOverride\nNone",
+          "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely."
+        },
+        {
+          "fieldname": "webflow_prefix",
+          "label": "Webflow Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the Webflow override value"
+        },
+        {
+          "fieldname": "webflow_suffix",
+          "label": "Webflow Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the Webflow override value"
+        },
+        {
+          "fieldname": "required_value",
+          "label": "Required Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-Controller-Template": {
+      "autoname": "field:template_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_code",
+          "label": "Template Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Unique code for this controller family, e.g. 'CTRL-DMX'"
+        },
+        {
+          "fieldname": "template_name",
+          "label": "Template Name",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series"
+        },
+        {
+          "fieldname": "sku_series_code",
+          "label": "SKU Series Code",
+          "fieldtype": "Data",
+          "description": "Short series code used as the part-number prefix."
+        },
+        {
+          "fieldname": "webflow_product",
+          "label": "Webflow Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "read_only": 1
+        },
+        {
+          "fieldname": "base_price_msrp",
+          "label": "Base Price MSRP",
+          "fieldtype": "Currency",
+          "description": "Fallback base MSRP used when the matched variant has no MSRP of its own."
+        },
+        {
+          "fieldname": "pricing_class",
+          "label": "Pricing Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Pricing Class"
+        },
+        {
+          "fieldname": "lead_time_class",
+          "label": "Lead Time Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lead Time Class"
+        },
+        {
+          "fieldname": "variants",
+          "label": "Variants",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Controller-Template-Variant",
+          "description": "Every orderable controller in this family. The configurator resolves a selection to exactly one row."
+        },
+        {
+          "fieldname": "allowed_options",
+          "label": "Allowed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Controller-Allowed-Option",
+          "description": "Selectable options exposed by the Webflow configurator, with optional MSRP adders."
+        },
+        {
+          "fieldname": "spec_submittal_template",
+          "label": "Spec Submittal Template",
+          "fieldtype": "Attach",
+          "description": "Fillable PDF used to generate configured spec sheets."
+        },
+        {
+          "fieldname": "spec_sheet",
+          "label": "Spec Sheet",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "warranty",
+          "label": "Warranty",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Driver-Submittal-Mapping": {
+      "autoname": "format:{driver_template}-{pdf_field_name}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "driver_template",
+          "label": "Driver Template",
+          "fieldtype": "Link",
+          "options": "ilL-Driver-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "pdf_field_name",
+          "label": "PDF Field Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The name of the form field in the fillable PDF template"
+        },
+        {
+          "fieldname": "source_doctype",
+          "label": "Source DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Driver-Template\nilL-Child-Driver-Template-Variant\nilL-Spec-Driver\nilL-Webflow-Product",
+          "reqd": 1,
+          "description": "The DocType to pull the source value from"
+        },
+        {
+          "fieldname": "source_field",
+          "label": "Source Field",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options."
+        },
+        {
+          "fieldname": "prefix",
+          "label": "Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the value"
+        },
+        {
+          "fieldname": "suffix",
+          "label": "Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the value"
+        },
+        {
+          "fieldname": "transformation",
+          "label": "Transformation",
+          "fieldtype": "Select",
+          "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT",
+          "description": "Optional transformation to apply to the source value before filling"
+        },
+        {
+          "fieldname": "logic",
+          "label": "Logic",
+          "fieldtype": "Select",
+          "options": "\nNone\n0.00_TO_BLANK",
+          "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead."
+        },
+        {
+          "fieldname": "webflow_field",
+          "label": "Webflow Field",
+          "fieldtype": "Select",
+          "options": "\nproject_name\nfixture_type\nproject_location\npart_number",
+          "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided."
+        },
+        {
+          "fieldname": "webflow_skip_transformation",
+          "label": "Skip Transformation on Webflow Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format and should not be transformed."
+        },
+        {
+          "fieldname": "webflow_prefix_suffix",
+          "label": "Webflow Prefix/Suffix",
+          "fieldtype": "Select",
+          "options": "\nKeep\nOverride\nNone",
+          "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely."
+        },
+        {
+          "fieldname": "webflow_prefix",
+          "label": "Webflow Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the Webflow override value"
+        },
+        {
+          "fieldname": "webflow_suffix",
+          "label": "Webflow Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the Webflow override value"
+        },
+        {
+          "fieldname": "required_value",
+          "label": "Required Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-Driver-Template": {
+      "autoname": "field:template_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_code",
+          "label": "Template Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Unique code for this driver family, e.g. 'PS-CV24'"
+        },
+        {
+          "fieldname": "template_name",
+          "label": "Template Name",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series"
+        },
+        {
+          "fieldname": "sku_series_code",
+          "label": "SKU Series Code",
+          "fieldtype": "Data",
+          "description": "Short series code used as the part-number prefix."
+        },
+        {
+          "fieldname": "webflow_product",
+          "label": "Webflow Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "read_only": 1
+        },
+        {
+          "fieldname": "base_price_msrp",
+          "label": "Base Price MSRP",
+          "fieldtype": "Currency",
+          "description": "Fallback base MSRP used when the matched variant has no MSRP of its own."
+        },
+        {
+          "fieldname": "pricing_class",
+          "label": "Pricing Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Pricing Class"
+        },
+        {
+          "fieldname": "lead_time_class",
+          "label": "Lead Time Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lead Time Class"
+        },
+        {
+          "fieldname": "variants",
+          "label": "Variants",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Driver-Template-Variant",
+          "description": "Every orderable driver in this family. The configurator resolves a selection to exactly one row."
+        },
+        {
+          "fieldname": "allowed_options",
+          "label": "Allowed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Driver-Allowed-Option",
+          "description": "Selectable options exposed by the Webflow configurator, with optional MSRP adders."
+        },
+        {
+          "fieldname": "spec_submittal_template",
+          "label": "Spec Submittal Template",
+          "fieldtype": "Attach",
+          "description": "Fillable PDF used to generate configured spec sheets."
+        },
+        {
+          "fieldname": "spec_sheet",
+          "label": "Spec Sheet",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "warranty",
+          "label": "Warranty",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Extrusion-Kit-Template": {
+      "autoname": "field:template_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_code",
+          "label": "Template Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "template_name",
+          "label": "Template Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series"
+        },
+        {
+          "fieldname": "default_profile_family",
+          "label": "Default Profile Family",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "profile_stock_length_mm",
+          "label": "Profile Stock Length (mm)",
+          "fieldtype": "Int",
+          "reqd": 1,
+          "default": "2000",
+          "description": "Length of profile piece included in kit (mm)"
+        },
+        {
+          "fieldname": "lens_stock_length_mm",
+          "label": "Lens Stock Length (mm)",
+          "fieldtype": "Int",
+          "reqd": 1,
+          "default": "2000",
+          "description": "Length of lens piece included in kit (mm)"
+        },
+        {
+          "fieldname": "solid_endcap_qty",
+          "label": "Solid Endcap Qty",
+          "fieldtype": "Int",
+          "reqd": 1,
+          "default": "2",
+          "description": "Number of solid (closed) endcaps per kit"
+        },
+        {
+          "fieldname": "feed_through_endcap_qty",
+          "label": "Feed-Through Endcap Qty",
+          "fieldtype": "Int",
+          "reqd": 1,
+          "default": "2",
+          "description": "Number of feed-through (open) endcaps per kit"
+        },
+        {
+          "fieldname": "mounting_accessory_qty",
+          "label": "Mounting Accessory Qty",
+          "fieldtype": "Int",
+          "reqd": 1,
+          "default": "6",
+          "description": "Number of mounting accessories per kit"
+        },
+        {
+          "fieldname": "default_profile_spec",
+          "label": "Default Profile Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Profile",
+          "description": "Default profile spec for this kit family"
+        },
+        {
+          "fieldname": "default_lens_spec",
+          "label": "Default Lens Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Lens",
+          "description": "Default lens spec for this kit family"
+        },
+        {
+          "fieldname": "spec_sheet",
+          "label": "Spec Sheet",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "webflow_product",
+          "label": "Webflow Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "read_only": 1
+        },
+        {
+          "fieldname": "allowed_options",
+          "label": "Allowed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Kit-Allowed-Option",
+          "description": "Define which attribute values are valid for this kit"
+        },
+        {
+          "fieldname": "base_price_msrp",
+          "label": "Base Price (MSRP)",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "Base kit MSRP price before option adders"
+        }
+      ]
+    },
+    "ilL-Fixture-Template": {
+      "autoname": "field:template_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_code",
+          "label": "Template Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "template_name",
+          "label": "Template Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series",
+          "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
+        },
+        {
+          "fieldname": "default_profile_family",
+          "label": "Default Profile Family",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "default_profile_stock_len_mm",
+          "label": "Default Profile Stock Length (mm)",
+          "fieldtype": "Int",
+          "default": "2000"
+        },
+        {
+          "fieldname": "assembled_max_len_mm",
+          "label": "Assembled Max Length (mm)",
+          "fieldtype": "Int",
+          "description": "Maximum assembled length for 8.5ft rule"
+        },
+        {
+          "fieldname": "leader_allowance_mm_per_fixture",
+          "label": "Leader Allowance per Fixture (mm)",
+          "fieldtype": "Int",
+          "default": "15"
+        },
+        {
+          "fieldname": "minimum_side_bend_diameter_mm",
+          "label": "Minimum Side Bend Diameter (mm)",
+          "fieldtype": "Float",
+          "description": "Smallest safe side-bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm)."
+        },
+        {
+          "fieldname": "minimum_top_bend_diameter_mm",
+          "label": "Minimum Top Bend Diameter (mm)",
+          "fieldtype": "Float",
+          "description": "Smallest safe top-bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm)."
+        },
+        {
+          "fieldname": "base_price_msrp",
+          "label": "Base Price (MSRP)",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "Base fixture price (MSRP) before length adders"
+        },
+        {
+          "fieldname": "price_per_ft_msrp",
+          "label": "Price per Foot (MSRP)",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "Price per foot based on selected length basis"
+        },
+        {
+          "fieldname": "pricing_length_basis",
+          "label": "Pricing Length Basis",
+          "fieldtype": "Select",
+          "options": "L_tape_cut\nL_mfg",
+          "default": "L_tape_cut",
+          "description": "Which length value to use for $/ft pricing: L_tape_cut (LED tape length) or L_mfg (manufacturable overall length)"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "allowed_options",
+          "label": "Allowed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Template-Allowed-Option"
+        },
+        {
+          "fieldname": "allowed_tape_offerings",
+          "label": "Allowed Tape Offerings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Template-Allowed-TapeOffering"
+        },
+        {
+          "fieldname": "part_number_builder",
+          "label": "Part Number Builder",
+          "fieldtype": "Table",
+          "options": "ilL-Child-PN-Builder-Row"
+        },
+        {
+          "fieldname": "spec_sheet",
+          "label": "Spec Sheet",
+          "fieldtype": "Attach",
+          "description": "Static product specification sheet PDF for this fixture template"
+        },
+        {
+          "fieldname": "spec_submittal_template",
+          "label": "Spec Submittal Template",
+          "fieldtype": "Attach",
+          "description": "Blank fillable PDF template with AcroForm fields for spec submittal generation"
+        },
+        {
+          "fieldname": "webflow_product",
+          "label": "Webflow Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "description": "Backlink to the Webflow product that references this template",
+          "read_only": 1
+        },
+        {
+          "fieldname": "default_profile_spec",
+          "label": "Default Profile Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Profile",
+          "description": "Used to pull dimensions for Webflow export"
+        }
+      ]
+    },
+    "ilL-LED-Sheet-Submittal-Mapping": {
+      "autoname": "format:{led_sheet_template}-{pdf_field_name}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "led_sheet_template",
+          "label": "LED Sheet Template",
+          "fieldtype": "Link",
+          "options": "ilL-LED-Sheet-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "pdf_field_name",
+          "label": "PDF Field Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The name of the form field in the fillable PDF template"
+        },
+        {
+          "fieldname": "source_doctype",
+          "label": "Source DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Configured-LED-Sheet\nilL-LED-Sheet-Template\nilL-Spec-LED-Sheet\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "reqd": 1,
+          "description": "The DocType to pull the source value from"
+        },
+        {
+          "fieldname": "source_field",
+          "label": "Source Field",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options."
+        },
+        {
+          "fieldname": "prefix",
+          "label": "Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the value"
+        },
+        {
+          "fieldname": "suffix",
+          "label": "Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the value"
+        },
+        {
+          "fieldname": "transformation",
+          "label": "Transformation",
+          "fieldtype": "Select",
+          "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT\nMAX_FOOTAGE_100W",
+          "description": "Optional transformation to apply to the source value before filling"
+        },
+        {
+          "fieldname": "logic",
+          "label": "Logic",
+          "fieldtype": "Select",
+          "options": "\nNone\n0.00_TO_BLANK",
+          "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead."
+        },
+        {
+          "fieldname": "webflow_field",
+          "label": "Webflow Field",
+          "fieldtype": "Select",
+          "options": "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction\nenvironment_rating",
+          "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided."
+        },
+        {
+          "fieldname": "webflow_skip_transformation",
+          "label": "Skip Transformation on Webflow Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format (e.g. feet) and should not be transformed."
+        },
+        {
+          "fieldname": "webflow_prefix_suffix",
+          "label": "Webflow Prefix/Suffix",
+          "fieldtype": "Select",
+          "options": "\nKeep\nOverride\nNone",
+          "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely."
+        },
+        {
+          "fieldname": "webflow_prefix",
+          "label": "Webflow Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the Webflow override value"
+        },
+        {
+          "fieldname": "webflow_suffix",
+          "label": "Webflow Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the Webflow override value"
+        },
+        {
+          "fieldname": "required_value",
+          "label": "Required Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-LED-Sheet-Template": {
+      "autoname": "field:template_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_code",
+          "label": "Template Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "template_name",
+          "label": "Template Name",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series"
+        },
+        {
+          "fieldname": "sku_series_code",
+          "label": "SKU Series Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "webflow_product",
+          "label": "Webflow Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "read_only": 1
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text",
+          "description": "Short description shown on the configurator template card"
+        },
+        {
+          "fieldname": "image",
+          "label": "Image",
+          "fieldtype": "Attach Image",
+          "description": "Card image for the configurator. Falls back to the linked Webflow product gallery when empty."
+        },
+        {
+          "fieldname": "price_per_sheet_msrp",
+          "label": "Price per Sheet MSRP",
+          "fieldtype": "Currency"
+        },
+        {
+          "fieldname": "pricing_class",
+          "label": "Pricing Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Pricing Class"
+        },
+        {
+          "fieldname": "lead_time_class",
+          "label": "Lead Time Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lead Time Class"
+        },
+        {
+          "fieldname": "jumper_cable_item",
+          "label": "Jumper Cable Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "leader_cable_item",
+          "label": "Leader Cable Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "allowed_specs",
+          "label": "Allowed Specs",
+          "fieldtype": "Table",
+          "options": "ilL-Child-LED-Sheet-Allowed-Spec"
+        },
+        {
+          "fieldname": "allowed_options",
+          "label": "Allowed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-LED-Sheet-Allowed-Option"
+        },
+        {
+          "fieldname": "spec_submittal_template",
+          "label": "Spec Submittal Template",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "spec_sheet",
+          "label": "Spec Sheet",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "warranty",
+          "label": "Warranty",
+          "fieldtype": "Data"
+        }
+      ]
+    },
+    "ilL-Neon-Submittal-Mapping": {
+      "autoname": "format:{tape_neon_template}-{pdf_field_name}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "tape_neon_template",
+          "label": "Tape/Neon Template",
+          "fieldtype": "Link",
+          "options": "ilL-Tape-Neon-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "pdf_field_name",
+          "label": "PDF Field Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The name of the form field in the fillable PDF template"
+        },
+        {
+          "fieldname": "source_doctype",
+          "label": "Source DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Configured-Tape-Neon\nilL-Child-Tape-Neon-Segment\nilL-Tape-Neon-Template\nilL-Webflow-Product\nilL-Spec-LED Tape\nilL-Rel-Tape Offering\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "reqd": 1,
+          "description": "The DocType to pull the source value from"
+        },
+        {
+          "fieldname": "source_field",
+          "label": "Source Field",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options."
+        },
+        {
+          "fieldname": "prefix",
+          "label": "Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the value"
+        },
+        {
+          "fieldname": "suffix",
+          "label": "Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the value"
+        },
+        {
+          "fieldname": "transformation",
+          "label": "Transformation",
+          "fieldtype": "Select",
+          "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT\nMAX_FOOTAGE_100W",
+          "description": "Optional transformation to apply to the source value before filling"
+        },
+        {
+          "fieldname": "logic",
+          "label": "Logic",
+          "fieldtype": "Select",
+          "options": "\nNone\n0.00_TO_BLANK",
+          "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead."
+        },
+        {
+          "fieldname": "webflow_field",
+          "label": "Webflow Field",
+          "fieldtype": "Select",
+          "options": "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction\nenvironment_rating",
+          "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided."
+        },
+        {
+          "fieldname": "webflow_skip_transformation",
+          "label": "Skip Transformation on Webflow Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format (e.g. feet) and should not be transformed."
+        },
+        {
+          "fieldname": "webflow_prefix_suffix",
+          "label": "Webflow Prefix/Suffix",
+          "fieldtype": "Select",
+          "options": "\nKeep\nOverride\nNone",
+          "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely."
+        },
+        {
+          "fieldname": "webflow_prefix",
+          "label": "Webflow Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the Webflow override value"
+        },
+        {
+          "fieldname": "webflow_suffix",
+          "label": "Webflow Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the Webflow override value"
+        },
+        {
+          "fieldname": "required_value",
+          "label": "Required Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-Rel-Driver-Eligibility": {
+      "autoname": "format:{template_type}-{fixture_template}-{driver_spec}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_type",
+          "label": "Template Type",
+          "fieldtype": "Select",
+          "options": "ilL-Fixture-Template\nilL-Tape-Neon-Template\nilL-LED-Sheet-Template",
+          "reqd": 1,
+          "default": "ilL-Fixture-Template"
+        },
+        {
+          "fieldname": "fixture_template",
+          "label": "Product Template",
+          "fieldtype": "Dynamic Link",
+          "options": "template_type",
+          "reqd": 1
+        },
+        {
+          "fieldname": "driver_spec",
+          "label": "Driver Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Driver",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_allowed",
+          "label": "Is Allowed",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "priority",
+          "label": "Priority",
+          "fieldtype": "Int",
+          "default": "0",
+          "description": "Lower value = higher priority (preferred)"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Endcap-Map": {
+      "autoname": "format:{fixture_template}-{endcap_style}-{endcap_color}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "fixture_template",
+          "label": "Fixture Template",
+          "fieldtype": "Link",
+          "options": "ilL-Fixture-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "endcap_style",
+          "label": "Endcap Style",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Style",
+          "reqd": 1
+        },
+        {
+          "fieldname": "endcap_color",
+          "label": "Endcap Color",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Color",
+          "reqd": 1
+        },
+        {
+          "fieldname": "power_feed_type",
+          "label": "Power Feed Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "endcap_item",
+          "label": "Endcap Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Finish Endcap Color": {
+      "autoname": "format:{finish}-{endcap_color}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "finish",
+          "label": "Finish",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Finish",
+          "reqd": 1
+        },
+        {
+          "fieldname": "endcap_color",
+          "label": "Endcap Color",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Color",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Is Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Kit-Endcap-Map": {
+      "autoname": "format:{kit_template}-{endcap_style}-{endcap_color}-{endcap_type}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "kit_template",
+          "label": "Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "endcap_style",
+          "label": "Endcap Style",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Style",
+          "reqd": 1
+        },
+        {
+          "fieldname": "endcap_color",
+          "label": "Endcap Color",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Color",
+          "reqd": 1
+        },
+        {
+          "fieldname": "endcap_type",
+          "label": "Endcap Type",
+          "fieldtype": "Select",
+          "options": "Solid\nFeed-Through",
+          "reqd": 1,
+          "description": "Whether this is a Solid (closed) or Feed-Through (open/with hole) endcap"
+        },
+        {
+          "fieldname": "endcap_spec",
+          "label": "Endcap Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Accessory",
+          "description": "The accessory spec for this endcap (ilL-Spec-Accessory with type=Endcap)"
+        },
+        {
+          "fieldname": "endcap_item",
+          "label": "Endcap Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1,
+          "description": "The resolved endcap Item"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Kit-Lens-Map": {
+      "autoname": "format:{kit_template}-{lens_appearance}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "kit_template",
+          "label": "Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance",
+          "reqd": 1
+        },
+        {
+          "fieldname": "lens_spec",
+          "label": "Lens Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Lens",
+          "reqd": 1,
+          "description": "The lens spec that matches this kit + lens appearance combination"
+        },
+        {
+          "fieldname": "lens_item",
+          "label": "Lens Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "description": "Resolved lens Item (auto-fetched from lens spec)",
+          "read_only": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Kit-Mounting-Map": {
+      "autoname": "format:{kit_template}-{mounting_method}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "kit_template",
+          "label": "Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Method",
+          "reqd": 1
+        },
+        {
+          "fieldname": "accessory_spec",
+          "label": "Accessory Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Accessory",
+          "description": "The accessory spec for this mounting component (ilL-Spec-Accessory with type=Mounting)"
+        },
+        {
+          "fieldname": "accessory_item",
+          "label": "Accessory Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1,
+          "description": "The resolved mounting accessory Item"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Kit-Profile-Map": {
+      "autoname": "format:{kit_template}-{finish}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "kit_template",
+          "label": "Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "finish",
+          "label": "Finish",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Finish",
+          "reqd": 1
+        },
+        {
+          "fieldname": "profile_spec",
+          "label": "Profile Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Profile",
+          "reqd": 1,
+          "description": "The profile spec that matches this kit + finish combination"
+        },
+        {
+          "fieldname": "profile_item",
+          "label": "Profile Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "description": "Resolved profile Item (auto-fetched from profile spec)",
+          "read_only": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Leader-Cable-Map": {
+      "autoname": "format:{tape_spec}-{power_feed_type}-{leader_item}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "tape_spec",
+          "label": "Tape Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-LED Tape",
+          "reqd": 1
+        },
+        {
+          "fieldname": "power_feed_type",
+          "label": "Power Feed Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Power Feed Type",
+          "reqd": 1
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "leader_cable_attribute",
+          "label": "Leader Cable Attribute",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Leader Cable"
+        },
+        {
+          "fieldname": "leader_item",
+          "label": "Leader Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "default_length_mm",
+          "label": "Default Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Mounting-Accessory-Map": {
+      "autoname": "format:{template_type}-{fixture_template}-{mounting_method}-{accessory_item}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_type",
+          "label": "Template Type",
+          "fieldtype": "Select",
+          "options": "ilL-Fixture-Template\nilL-Tape-Neon-Template",
+          "reqd": 1,
+          "default": "ilL-Fixture-Template"
+        },
+        {
+          "fieldname": "fixture_template",
+          "label": "Product Template",
+          "fieldtype": "Dynamic Link",
+          "options": "template_type",
+          "reqd": 1
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Method",
+          "reqd": 1
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "accessory_item",
+          "label": "Accessory Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "qty_rule_type",
+          "label": "Qty Rule Type",
+          "fieldtype": "Select",
+          "options": "PER_FIXTURE\nPER_SEGMENT\nPER_RUN\nPER_X_MM",
+          "reqd": 1
+        },
+        {
+          "fieldname": "qty_rule_value",
+          "label": "Qty Rule Value",
+          "fieldtype": "Float",
+          "default": "1"
+        },
+        {
+          "fieldname": "min_qty",
+          "label": "Min Qty",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "rounding",
+          "label": "Rounding",
+          "fieldtype": "Select",
+          "options": "CEIL\nFLOOR\nROUND",
+          "default": "CEIL"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
+    "ilL-Rel-Profile Lens": {
+      "autoname": "format:{profile_spec}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "profile_spec",
+          "label": "Profile Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Profile",
+          "reqd": 1
+        },
+        {
+          "fieldname": "profile_item",
+          "label": "Profile Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "read_only": 1
+        },
+        {
+          "fieldname": "lens_interface",
+          "label": "Lens Interface",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Interface Type",
+          "read_only": 1
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series",
+          "read_only": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "compatible_lenses",
+          "label": "Compatible Lenses",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Compatible Lens",
+          "reqd": 1
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Rel-Tape Offering": {
+      "autoname": "format:{tape_spec}-{cct}-{output_level}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "tape_spec",
+          "label": "Tape Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-LED Tape",
+          "reqd": 1
+        },
+        {
+          "fieldname": "cct",
+          "label": "CCT",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT",
+          "reqd": 1
+        },
+        {
+          "fieldname": "cri",
+          "label": "CRI",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CRI",
+          "reqd": 1
+        },
+        {
+          "fieldname": "sdcm",
+          "label": "SDCM",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-SDCM",
+          "reqd": 1
+        },
+        {
+          "fieldname": "led_package",
+          "label": "LED Package",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-LED Package",
+          "reqd": 1
+        },
+        {
+          "fieldname": "output_level",
+          "label": "Output Level",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Level",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "watts_per_ft_override",
+          "label": "Watts/ft Override",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cut_increment_mm_override",
+          "label": "Cut Increment (mm) Override",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "pricing_class_override",
+          "label": "Pricing Class Override",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Pricing Class"
+        },
+        {
+          "fieldname": "lead_time_class_override",
+          "label": "Lead Time Class Override",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lead Time Class"
+        }
+      ]
+    },
+    "ilL-Spec-Accessory": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Accessory Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "type",
+          "label": "Accessory Type",
+          "fieldtype": "Select",
+          "options": "Endcap\nJoiner\nMounting\nLeader\nFeed\nConnector\nGasket\nHardware"
+        },
+        {
+          "fieldname": "profile_family",
+          "label": "Profile Family",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "environment_rating",
+          "label": "Environment Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Environment Rating"
+        },
+        {
+          "fieldname": "mounting_method",
+          "label": "Mounting Method",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Mounting Method"
+        },
+        {
+          "fieldname": "joiner_system",
+          "label": "Joiner System",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Joiner System"
+        },
+        {
+          "fieldname": "joiner_angle",
+          "label": "Joiner Angle",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Joiner Angle"
+        },
+        {
+          "fieldname": "endcap_style",
+          "label": "Endcap Style",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Endcap Style"
+        },
+        {
+          "fieldname": "allowance_override_per_side_mm",
+          "label": "Allowance Override per Side (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "leader_cable",
+          "label": "Leader Cable",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Leader Cable"
+        },
+        {
+          "fieldname": "feed_type",
+          "label": "Feed Type",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Power Feed Type"
+        },
+        {
+          "fieldname": "qty_rule_type",
+          "label": "QTY Rule Type",
+          "fieldtype": "Select",
+          "options": "Per Fixture\nPer Joint\nPer Run\nPer x mm"
+        },
+        {
+          "fieldname": "qty_rule_value",
+          "label": "QTY Rule Value",
+          "fieldtype": "Float"
+        }
+      ]
+    },
+    "ilL-Spec-Controller": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Controller Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "controller_name",
+          "label": "Controller Name",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "controller_type",
+          "label": "Controller Type",
+          "fieldtype": "Select",
+          "options": "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "input_voltage_min",
+          "label": "Input Voltage Min",
+          "fieldtype": "Int",
+          "description": "Minimum input voltage (e.g., 100)"
+        },
+        {
+          "fieldname": "input_voltage_max",
+          "label": "Input Voltage Max",
+          "fieldtype": "Int",
+          "description": "Maximum input voltage (e.g., 277)"
+        },
+        {
+          "fieldname": "input_voltage_type",
+          "label": "Input Voltage Type",
+          "fieldtype": "Select",
+          "options": "VAC\nVDC"
+        },
+        {
+          "fieldname": "max_load_watts",
+          "label": "Max Load (Watts)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_load_amps",
+          "label": "Max Load (Amps)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "standby_power_watts",
+          "label": "Standby Power (Watts)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "channels",
+          "label": "Channels",
+          "fieldtype": "Int",
+          "description": "Number of control channels"
+        },
+        {
+          "fieldname": "zones",
+          "label": "Zones",
+          "fieldtype": "Int",
+          "description": "Number of zones"
+        },
+        {
+          "fieldname": "input_protocols",
+          "label": "Input Protocols",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Controller-Protocol",
+          "description": "Dimming protocols this controller accepts as input"
+        },
+        {
+          "fieldname": "output_protocols",
+          "label": "Output Protocols",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Controller-Protocol",
+          "description": "Dimming protocols this controller outputs"
+        },
+        {
+          "fieldname": "wireless_protocols",
+          "label": "Wireless Protocols",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Wireless-Protocol",
+          "description": "Wireless communication protocols supported"
+        },
+        {
+          "fieldname": "width_mm",
+          "label": "Width (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "height_mm",
+          "label": "Height (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "depth_mm",
+          "label": "Depth (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "weight_grams",
+          "label": "Weight (grams)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "mounting_type",
+          "label": "Mounting Type",
+          "fieldtype": "Select",
+          "options": "Wall Mount\nIn-Wall\nSurface\nDIN Rail\nPortable"
+        },
+        {
+          "fieldname": "compatible_drivers",
+          "label": "Compatible Drivers",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Compatible-Driver",
+          "description": "Drivers known to be compatible with this controller"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
+    "ilL-Spec-Driver": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Driver Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "input_voltage",
+          "label": "Input Voltage",
+          "fieldtype": "Data",
+          "description": "Legacy field - use structured voltage fields instead"
+        },
+        {
+          "fieldname": "input_voltage_min",
+          "label": "Input Voltage Min",
+          "fieldtype": "Int",
+          "description": "Minimum input voltage (e.g., 100)"
+        },
+        {
+          "fieldname": "input_voltage_max",
+          "label": "Input Voltage Max",
+          "fieldtype": "Int",
+          "description": "Maximum input voltage (e.g., 277)"
+        },
+        {
+          "fieldname": "input_voltage_type",
+          "label": "Input Voltage Type",
+          "fieldtype": "Select",
+          "options": "VAC\nVDC"
+        },
+        {
+          "fieldname": "voltage_output",
+          "label": "Voltage Output",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Voltage"
+        },
+        {
+          "fieldname": "outputs_count",
+          "label": "Outputs",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "output_type",
+          "label": "Output Type",
+          "fieldtype": "Select",
+          "options": "Constant Voltage\nConstant Current"
+        },
+        {
+          "fieldname": "output_protocol",
+          "label": "Output Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "description": "The dimming signal protocol this driver outputs to the LED tape (e.g., PWM)"
+        },
+        {
+          "fieldname": "max_wattage",
+          "label": "Max Wattage (W)",
+          "fieldtype": "Float",
+          "reqd": 1
+        },
+        {
+          "fieldname": "max_wattage_per_output",
+          "label": "Max Wattage per Output",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "usable_load_factor",
+          "label": "Usable Load Factor",
+          "fieldtype": "Float",
+          "default": "0.8"
+        },
+        {
+          "fieldname": "cost",
+          "label": "Unit Cost",
+          "fieldtype": "Currency",
+          "description": "Unit cost for driver selection policy (lowest cost preferred)"
+        },
+        {
+          "fieldname": "sku_control_code",
+          "label": "Control Code",
+          "fieldtype": "Data",
+          "description": "Short code representing the driver control/dimming type (e.g., 0-10V, DALI)"
+        },
+        {
+          "fieldname": "sku_wattage_output_code",
+          "label": "Wattage Output Code",
+          "fieldtype": "Data",
+          "description": "Short code representing the driver wattage output capacity"
+        },
+        {
+          "fieldname": "sku_form_code",
+          "label": "Form Code",
+          "fieldtype": "Data",
+          "description": "Short code representing the driver physical form factor"
+        },
+        {
+          "fieldname": "input_protocols",
+          "label": "Supported Input Protocols",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Driver-Input-Protocol",
+          "description": "Dimming signal protocols this driver accepts from user/controller (e.g., 0-10V, DALI, Triac)"
+        },
+        {
+          "fieldname": "width_mm",
+          "label": "Width (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "height_mm",
+          "label": "Height (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "depth_mm",
+          "label": "Depth (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "weight_grams",
+          "label": "Weight (grams)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "independent_outputs_count",
+          "label": "Independent Power Outputs",
+          "fieldtype": "Int",
+          "description": "Number of separately loadable feed outputs. Required when Outputs exceeds one; exclude color/control channels. Must not exceed physical Outputs."
+        }
+      ]
+    },
+    "ilL-Spec-LED Tape": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Tape Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "led_package",
+          "label": "LED Package",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-LED Package",
+          "description": "The LED package used on this tape"
+        },
+        {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Select",
+          "options": "LED Tape\nLED Neon",
+          "default": "LED Tape",
+          "description": "Product category this tape belongs to (LED Tape or LED Neon)"
+        },
+        {
+          "fieldname": "leader_cable_item",
+          "label": "Leader Cable Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "description": "The leader cable Item associated with this tape for sales orders"
+        },
+        {
+          "fieldname": "input_voltage",
+          "label": "Input Voltage",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Voltage",
+          "reqd": 1
+        },
+        {
+          "fieldname": "watts_per_foot",
+          "label": "W/ft",
+          "fieldtype": "Float",
+          "reqd": 1
+        },
+        {
+          "fieldname": "voltage_drop_max_run_length_ft",
+          "label": "Voltage Drop Max Run Length (ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "operating_temp",
+          "label": "Operating Temperature",
+          "fieldtype": "Data",
+          "description": "Operating temperature range (e.g. -40°C to +85°C)"
+        },
+        {
+          "fieldname": "input_protocol",
+          "label": "Input Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "description": "The dimming signal protocol this tape requires from the driver output"
+        },
+        {
+          "fieldname": "lumens_per_foot",
+          "label": "Lumens per Foot",
+          "fieldtype": "Float",
+          "description": "Tape output in lumens per foot before lens"
+        },
+        {
+          "fieldname": "cri_typical",
+          "label": "CRI (Typical)",
+          "fieldtype": "Int",
+          "description": "Typical CRI value (e.g., 90)"
+        },
+        {
+          "fieldname": "led_pitch_mm",
+          "label": "LED Pitch (mm)",
+          "fieldtype": "Float",
+          "description": "LED spacing in millimeters"
+        },
+        {
+          "fieldname": "pcb_mounting",
+          "label": "PCB Mounting",
+          "fieldtype": "Data",
+          "description": "PCB mounting type (e.g. Adhesive Back, Screw Mounted)"
+        },
+        {
+          "fieldname": "pcb_finish",
+          "label": "PCB Finish",
+          "fieldtype": "Data",
+          "description": "PCB finish/color (e.g. White, Black)"
+        },
+        {
+          "fieldname": "cut_increment_mm",
+          "label": "Cut Increment (mm)",
+          "fieldtype": "Float",
+          "reqd": 1
+        },
+        {
+          "fieldname": "is_free_cutting",
+          "label": "Free Cutting",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "If checked, this tape can be cut at any length with no cut increment restriction"
+        },
+        {
+          "fieldname": "supported_dimming_protocols",
+          "label": "Supported Dimming Protocols",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Tape-Dimming-Protocol",
+          "description": "Dimming protocols supported by this tape"
+        }
+      ]
+    },
+    "ilL-Spec-LED-Sheet": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "led_package",
+          "label": "LED Package",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-LED Package"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "sheet_width_ft",
+          "label": "Sheet Width (ft)",
+          "fieldtype": "Float",
+          "default": "1.0"
+        },
+        {
+          "fieldname": "sheet_height_ft",
+          "label": "Sheet Height (ft)",
+          "fieldtype": "Float",
+          "default": "2.0"
+        },
+        {
+          "fieldname": "sheet_area_sqft",
+          "label": "Sheet Area (sq ft)",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "cut_interval_width_in",
+          "label": "Cut Interval Width (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cut_interval_height_in",
+          "label": "Cut Interval Height (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "watts_per_sqft",
+          "label": "Watts per sq ft",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "total_sheet_watts",
+          "label": "Total Sheet Watts",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "lumens_per_sqft",
+          "label": "Lumens per sq ft",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "total_sheet_lumens",
+          "label": "Total Sheet Lumens",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "max_sqft_per_100w",
+          "label": "Max Squarefootage per 100W",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "input_voltage",
+          "label": "Input Voltage",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Voltage"
+        },
+        {
+          "fieldname": "cct",
+          "label": "CCT",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT"
+        },
+        {
+          "fieldname": "cri",
+          "label": "CRI",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CRI"
+        },
+        {
+          "fieldname": "ip_rating",
+          "label": "IP Rating",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-IP Rating"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "operating_temp_min_c",
+          "label": "Operating Temperature Min (°C)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "operating_temp_max_c",
+          "label": "Operating Temperature Max (°C)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "sku_series_code",
+          "label": "SKU Series Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "sku_led_package_code",
+          "label": "SKU LED Package Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "max_panels_per_feed",
+          "label": "Optional Maximum Panels per Feed",
+          "fieldtype": "Int",
+          "description": "Additional engineering limit. Leave zero to use eligible drivers: full panel watts, usable total and per-output capacity."
+        },
+        {
+          "fieldname": "input_protocol",
+          "label": "Required Input Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "description": "When specified, eligible drivers must match this output protocol. Eligibility must explicitly approve compatibility for this sheet template."
+        }
+      ]
+    },
+    "ilL-Spec-Lens": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens Appearance",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series",
+          "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
+        },
+        {
+          "fieldname": "stock_type",
+          "label": "Stock Type",
+          "fieldtype": "Select",
+          "options": "Stick\nContinuous Roll"
+        },
+        {
+          "fieldname": "stock_length_mm",
+          "label": "Stock Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "continuous_max_length_mm",
+          "label": "Continuous Max Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "item",
+          "label": "Lens Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "family",
+          "label": "Lens Family",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "supported_environment_ratings",
+          "label": "Supported Environment Ratings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Lens Environments"
+        }
+      ]
+    },
+    "ilL-Spec-Profile": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1
+        },
+        {
+          "fieldname": "family",
+          "label": "Family",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "variant_code",
+          "label": "Variant Code",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series",
+          "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
+        },
+        {
+          "fieldname": "width_mm",
+          "label": "Width (mm)",
+          "fieldtype": "Float",
+          "description": "Profile width in millimeters"
+        },
+        {
+          "fieldname": "height_mm",
+          "label": "Height (mm)",
+          "fieldtype": "Float",
+          "description": "Profile height in millimeters"
+        },
+        {
+          "fieldname": "dimensions",
+          "label": "Dimensions",
+          "fieldtype": "Data",
+          "description": "Combined dimensions (Width x Height)",
+          "read_only": 1
+        },
+        {
+          "fieldname": "weight_per_meter_grams",
+          "label": "Weight per Meter (grams)",
+          "fieldtype": "Float",
+          "description": "Weight per meter for shipping calculations"
+        },
+        {
+          "fieldname": "stock_length_mm",
+          "label": "Stock Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_assembled_length_mm",
+          "label": "Max Assembled Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "is_cuttable",
+          "label": "Is Cuttable?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "supported_environment_ratings",
+          "label": "Supported Environment Ratings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Profile Environment"
+        },
+        {
+          "fieldname": "supports_joiners",
+          "label": "Supports Joiners?",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "joiner_system",
+          "label": "Joiner System",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Joiner System"
+        },
+        {
+          "fieldname": "lens_interface",
+          "label": "Lens Interface",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Interface Type"
+        }
+      ]
+    },
+    "ilL-Spec-Submittal-Mapping": {
+      "autoname": "format:{fixture_template}-{pdf_field_name}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "fixture_template",
+          "label": "Fixture Template",
+          "fieldtype": "Link",
+          "options": "ilL-Fixture-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "pdf_field_name",
+          "label": "PDF Field Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The name of the form field in the fillable PDF template"
+        },
+        {
+          "fieldname": "source_doctype",
+          "label": "Source DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Webflow-Product\nilL-Rel-Tape Offering\nilL-Spec-LED Tape\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "reqd": 1,
+          "description": "The DocType to pull the source value from"
+        },
+        {
+          "fieldname": "source_field",
+          "label": "Source Field",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options."
+        },
+        {
+          "fieldname": "prefix",
+          "label": "Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the value"
+        },
+        {
+          "fieldname": "suffix",
+          "label": "Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the value"
+        },
+        {
+          "fieldname": "transformation",
+          "label": "Transformation",
+          "fieldtype": "Select",
+          "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT\nMAX_FOOTAGE_100W",
+          "description": "Optional transformation to apply to the source value before filling"
+        },
+        {
+          "fieldname": "logic",
+          "label": "Logic",
+          "fieldtype": "Select",
+          "options": "\nNone\n0.00_TO_BLANK",
+          "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead."
+        },
+        {
+          "fieldname": "webflow_field",
+          "label": "Webflow Field",
+          "fieldtype": "Select",
+          "options": "\nproject_name\nfixture_type\nproject_location\nstart_feed_length_ft\nend_feed_length_ft\nstart_feed_direction\nend_feed_direction\nenvironment_rating",
+          "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided."
+        },
+        {
+          "fieldname": "webflow_skip_transformation",
+          "label": "Skip Transformation on Webflow Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format (e.g. feet) and should not be transformed."
+        },
+        {
+          "fieldname": "webflow_prefix_suffix",
+          "label": "Webflow Prefix/Suffix",
+          "fieldtype": "Select",
+          "options": "\nKeep\nOverride\nNone",
+          "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely."
+        },
+        {
+          "fieldname": "webflow_prefix",
+          "label": "Webflow Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the Webflow override value"
+        },
+        {
+          "fieldname": "webflow_suffix",
+          "label": "Webflow Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the Webflow override value"
+        },
+        {
+          "fieldname": "required_value",
+          "label": "Required Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-Tape-Neon-Template": {
+      "autoname": "field:template_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "template_code",
+          "label": "Template Code",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "template_name",
+          "label": "Template Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Select",
+          "options": "LED Tape\nLED Neon",
+          "reqd": 1,
+          "default": "LED Tape",
+          "description": "Product category this template belongs to"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series",
+          "description": "Product series for filtering (e.g., 'NT01', 'TL03')"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text",
+          "description": "Short description shown on the configurator template selection"
+        },
+        {
+          "fieldname": "image",
+          "label": "Image",
+          "fieldtype": "Attach Image",
+          "description": "Primary product image (used as fallback if no Webflow product linked)"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "spec_sheet_dimensions",
+          "label": "Dimensions (L×W×H)",
+          "fieldtype": "Data",
+          "description": "Display value for the CSV Dimensions (L×W×H) column."
+        },
+        {
+          "fieldname": "minimum_side_bend_diameter_mm",
+          "label": "Minimum Side Bend Diameter (mm)",
+          "fieldtype": "Float",
+          "description": "Smallest safe side-bend diameter for bendable/flexible products, entered in millimeters and exported as inches (mm)."
+        },
+        {
+          "fieldname": "minimum_top_bend_diameter_mm",
+          "label": "Minimum Top Bend Diameter (mm)",
+          "fieldtype": "Float",
+          "description": "Smallest safe top-bend diameter for bendable/flexible products, entered in millimeters and exported as inches (mm)."
+        },
+        {
+          "fieldname": "available_lenses",
+          "label": "Available Lenses",
+          "fieldtype": "Small Text",
+          "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured."
+        },
+        {
+          "fieldname": "available_finishes",
+          "label": "Available Finishes",
+          "fieldtype": "Small Text",
+          "description": "Fallback display value for the CSV Finish column when no Finish options are configured."
+        },
+        {
+          "fieldname": "available_mountings",
+          "label": "Available Mountings",
+          "fieldtype": "Small Text",
+          "description": "Fallback display value for the CSV Available Mountings column when no Mounting options are configured."
+        },
+        {
+          "fieldname": "driver_max_wattage_override",
+          "label": "Driver Max Wattage Override (W)",
+          "fieldtype": "Float",
+          "description": "Fallback/override value for the CSV Driver Max Wattage column when no preferred driver eligibility is configured."
+        },
+        {
+          "fieldname": "production_interval_mm",
+          "label": "Production Interval (mm)",
+          "fieldtype": "Float",
+          "description": "Fallback production/cut interval in millimeters when the tape offering/spec does not provide a cut increment."
+        },
+        {
+          "fieldname": "is_free_cutting",
+          "label": "Free Cutting",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "If checked, the CSV Production Interval column exports Free-Cutting."
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (years)",
+          "fieldtype": "Int",
+          "description": "Product warranty duration in years"
+        },
+        {
+          "fieldname": "default_tape_spec",
+          "label": "Default Tape Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-LED Tape",
+          "description": "Default tape spec to use if only one spec is linked"
+        },
+        {
+          "fieldname": "leader_allowance_mm_per_fixture",
+          "label": "Leader Allowance per Fixture (mm)",
+          "fieldtype": "Int",
+          "default": "15",
+          "description": "Extra tape length to tuck inside the endcap, per fixture"
+        },
+        {
+          "fieldname": "base_price_msrp",
+          "label": "Base Price (MSRP)",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "Base price before length-based adders"
+        },
+        {
+          "fieldname": "price_per_ft_msrp",
+          "label": "Price per Foot (MSRP)",
+          "fieldtype": "Currency",
+          "default": "0",
+          "description": "Price per foot based on selected length basis"
+        },
+        {
+          "fieldname": "pricing_length_basis",
+          "label": "Pricing Length Basis",
+          "fieldtype": "Select",
+          "options": "L_tape_cut\nL_mfg",
+          "default": "L_tape_cut",
+          "description": "Which length value to use for $/ft pricing"
+        },
+        {
+          "fieldname": "allowed_tape_specs",
+          "label": "Allowed Tape Specs",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Tape-Neon-Allowed-Spec",
+          "description": "Tape specs (ilL-Spec-LED Tape) that can be used with this template"
+        },
+        {
+          "fieldname": "allowed_options",
+          "label": "Allowed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Tape-Neon-Allowed-Option",
+          "description": "Configuration options available for this template (CCT, Output Level, Environment Rating, etc.)"
+        },
+        {
+          "fieldname": "spec_sheet",
+          "label": "Spec Sheet",
+          "fieldtype": "Attach",
+          "description": "Static product specification sheet PDF"
+        },
+        {
+          "fieldname": "spec_submittal_template",
+          "label": "Spec Submittal Template",
+          "fieldtype": "Attach",
+          "description": "Blank fillable PDF template for spec submittal generation"
+        },
+        {
+          "fieldname": "webflow_product",
+          "label": "Webflow Product",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Product",
+          "description": "Backlink to the Webflow product that references this template (for gallery images)",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Webflow-Category": {
+      "autoname": "field:category_slug",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "category_name",
+          "label": "Category Name",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "category_slug",
+          "label": "Category Slug",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "URL-friendly slug (e.g., 'linear-fixtures')"
+        },
+        {
+          "fieldname": "parent_category",
+          "label": "Parent Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Parent category for hierarchical navigation"
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "category_image",
+          "label": "Category Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "Brands (Webflow sites) this category should be published to."
+        },
+        {
+          "fieldname": "sync_targets",
+          "label": "Sync Targets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Sync-State",
+          "description": "Per-brand sync state. One row per brand.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_item_id",
+          "label": "Webflow Item ID (legacy)",
+          "fieldtype": "Data",
+          "description": "DEPRECATED: use Sync Targets table.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "last_synced_at",
+          "label": "Last Synced At (legacy)",
+          "fieldtype": "Datetime",
+          "read_only": 1
+        },
+        {
+          "fieldname": "sync_status",
+          "label": "Sync Status (legacy)",
+          "fieldtype": "Select",
+          "options": "Pending\nSynced\nError\nNever Synced",
+          "default": "Never Synced",
+          "read_only": 1
+        }
+      ]
+    },
+    "ilL-Webflow-Product": {
+      "autoname": "field:product_slug",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "product_name",
+          "label": "Product Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Display name for the product (e.g., 'SH01 Linear Fixture')"
+        },
+        {
+          "fieldname": "product_slug",
+          "label": "Product Slug",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "URL-friendly slug (e.g., 'sh01-linear-fixture')"
+        },
+        {
+          "fieldname": "product_type",
+          "label": "Product Type",
+          "fieldtype": "Select",
+          "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
+          "reqd": 1
+        },
+        {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Optional taxonomy category for navigation/filtering"
+        },
+        {
+          "fieldname": "series",
+          "label": "Series",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Series",
+          "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "fixture_template",
+          "label": "Fixture Template",
+          "fieldtype": "Link",
+          "options": "ilL-Fixture-Template"
+        },
+        {
+          "fieldname": "driver_spec",
+          "label": "Driver Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Driver",
+          "description": "Single driver. Leave blank and use Driver Template instead when the product page offers a configurable family."
+        },
+        {
+          "fieldname": "driver_template",
+          "label": "Driver Template",
+          "fieldtype": "Link",
+          "options": "ilL-Driver-Template",
+          "description": "Driver family used to drive the Webflow configurator (wattage, output voltage, dimming protocol)."
+        },
+        {
+          "fieldname": "controller_spec",
+          "label": "Controller Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Controller",
+          "description": "Single controller. Leave blank and use Controller Template instead when the product page offers a configurable family."
+        },
+        {
+          "fieldname": "controller_template",
+          "label": "Controller Template",
+          "fieldtype": "Link",
+          "options": "ilL-Controller-Template",
+          "description": "Controller family used to drive the Webflow configurator (type, channels, zones, protocols)."
+        },
+        {
+          "fieldname": "profile_spec",
+          "label": "Profile Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Profile"
+        },
+        {
+          "fieldname": "lens_spec",
+          "label": "Lens Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Lens"
+        },
+        {
+          "fieldname": "tape_spec",
+          "label": "LED Tape Spec (Deprecated)",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-LED Tape"
+        },
+        {
+          "fieldname": "tape_neon_template",
+          "label": "Tape / Neon Template",
+          "fieldtype": "Link",
+          "options": "ilL-Tape-Neon-Template"
+        },
+        {
+          "fieldname": "led_sheet_template",
+          "label": "LED Sheet Template",
+          "fieldtype": "Link",
+          "options": "ilL-LED-Sheet-Template"
+        },
+        {
+          "fieldname": "accessory_spec",
+          "label": "Accessory Spec",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Accessory"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Enable web configurator for this product"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text",
+          "description": "Intro text shown at start of configurator (e.g., 'Build your custom SH01 fixture...')"
+        },
+        {
+          "fieldname": "min_length_mm",
+          "label": "Min Length (mm)",
+          "fieldtype": "Int",
+          "description": "Minimum configurable length in mm"
+        },
+        {
+          "fieldname": "max_length_mm",
+          "label": "Max Length (mm)",
+          "fieldtype": "Int",
+          "description": "Maximum configurable length in mm"
+        },
+        {
+          "fieldname": "length_increment_mm",
+          "label": "Length Increment (mm)",
+          "fieldtype": "Int",
+          "description": "Step size for length selector in mm"
+        },
+        {
+          "fieldname": "auto_populate_configurator_options",
+          "label": "Auto-Populate Configurator Options on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the Configurator Options below are automatically rebuilt from the linked template every time you save (any manual edits are overwritten). Uncheck this to manually customize the Configurator Options rows without losing your changes on save, while keeping the configurator enabled."
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "Configuration steps and allowed values for each option"
+        },
+        {
+          "fieldname": "feed_lengths",
+          "label": "Feed Lengths (Webflow Configurator)",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Feed-Length",
+          "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext."
+        },
+        {
+          "fieldname": "kit_components",
+          "label": "Kit Components",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Kit-Component",
+          "description": "Components included in this extrusion kit"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text",
+          "description": "Tagline or subtitle for the product"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data",
+          "description": "Optional marketing sublabel or subheading"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON",
+          "default": "[]",
+          "description": "Structured feature data for Webflow (array of objects with title and description)"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image",
+          "description": "Technical dimensions diagram or illustration"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image",
+          "description": "Hero image representing the product's series family"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document",
+          "description": "Spec sheets, IES files, installation guides, etc."
+        },
+        {
+          "fieldname": "auto_populate_attributes",
+          "label": "Auto Populate Attributes",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "Automatically populate attribute links from linked fixture template's allowed options and tape offerings"
+        },
+        {
+          "fieldname": "auto_calculate_specs",
+          "label": "Auto Calculate Specs",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "Automatically calculate specifications from linked source doctype (deprecated - use Attribute Links)"
+        },
+        {
+          "fieldname": "specifications",
+          "label": "Specifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Specification"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering."
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Certification-Link"
+        },
+        {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility",
+          "description": "Related products for cross-selling and compatibility info"
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle (°)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "operating_temp_min_c",
+          "label": "Min Operating Temp (°C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_max_c",
+          "label": "Max Operating Temp (°C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "l70_life_hours",
+          "label": "L70 Life (hours)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (years)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "Brands (Webflow sites) this product should be published to. Leave empty during migration; defaults to the default brand."
+        },
+        {
+          "fieldname": "sync_targets",
+          "label": "Sync Targets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Sync-State",
+          "description": "Per-brand sync state. One row per brand. Populated automatically.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_item_id",
+          "label": "Webflow Item ID (legacy)",
+          "fieldtype": "Data",
+          "description": "DEPRECATED: use Sync Targets table. Webflow CMS item ID for the default brand.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_collection_slug",
+          "label": "Webflow Collection Slug (legacy)",
+          "fieldtype": "Data",
+          "description": "DEPRECATED: use Sync Targets table. Webflow collection slug for the default brand.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "last_synced_at",
+          "label": "Last Synced At (legacy)",
+          "fieldtype": "Datetime",
+          "read_only": 1
+        },
+        {
+          "fieldname": "sync_status",
+          "label": "Sync Status (legacy)",
+          "fieldtype": "Select",
+          "options": "Pending\nSynced\nError\nNever Synced",
+          "default": "Never Synced",
+          "read_only": 1
+        },
+        {
+          "fieldname": "sync_error_message",
+          "label": "Sync Error Message (legacy)",
+          "fieldtype": "Small Text",
+          "read_only": 1
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Approved Standard Sales Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
+        }
+      ]
+    }
+  }
+}

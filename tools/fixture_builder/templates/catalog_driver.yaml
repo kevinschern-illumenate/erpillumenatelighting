@@ -1,0 +1,72 @@
+# Illustrative values only; verify engineering ratings and external links before import.
+schema_version: 2
+product_type: driver
+series_name: Example Series
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: DEMO-DRIVER
+    item_name: Example DEMO-DRIVER
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Spec-Driver:
+  - item: DEMO-DRIVER
+    voltage_output: 24V DC
+    output_type: Constant Voltage
+    output_protocol: PWM
+    outputs_count: 1
+    independent_outputs_count: 1
+    max_wattage: 96
+    max_wattage_per_output: 96
+    usable_load_factor: 0.8
+    input_voltage_min: 120
+    input_voltage_max: 277
+    input_voltage_type: VAC
+    input_protocols:
+    - protocol: 0-10V
+      is_default: 1
+  ilL-Driver-Template:
+  - template_code: DEMO-DRIVER
+    template_name: Example Drivers
+    series: Example Series
+    is_active: 1
+    sku_series_code: DEMO
+    base_price_msrp: 90
+    variants:
+    - driver_spec: DEMO-DRIVER
+      wattage: 96
+      voltage_output: 24V DC
+      input_protocol: 0-10V
+      output_protocol: PWM
+      is_default: 1
+      is_active: 1
+    allowed_options:
+    - option_type: Wattage
+      option_value: '96'
+      option_code: 96W
+      is_default: 1
+      is_active: 1
+  ilL-Webflow-Product:
+  - product_name: Example Drivers
+    product_slug: example-driver
+    product_type: Driver
+    is_configurable: 1
+    is_active: 1
+    series: Example Series
+    driver_template: DEMO-DRIVER
+external_links:
+  Item Group:
+  - Products
+  UOM:
+  - Nos
+  ilL-Attribute-Output Voltage:
+  - 24V DC
+  ilL-Attribute-Dimming Protocol:
+  - PWM
+  - 0-10V

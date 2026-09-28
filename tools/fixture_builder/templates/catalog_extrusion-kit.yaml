@@ -1,0 +1,164 @@
+# Illustrative values only; verify engineering ratings and external links before import.
+schema_version: 2
+product_type: extrusion-kit
+series_name: Example Series
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: CH-DEMO-WH
+    item_name: Example CH-DEMO-WH
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: LNS-DEMO-WH-FR
+    item_name: Example LNS-DEMO-WH-FR
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: EC-DEMO-WH-NO
+    item_name: Example EC-DEMO-WH-NO
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: EC-DEMO-WH-HO
+    item_name: Example EC-DEMO-WH-HO
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: ACC-DEMO-MC
+    item_name: Example ACC-DEMO-MC
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Spec-Profile:
+  - item: CH-DEMO-WH
+    family: DEMO
+    series: Example Series
+    width_mm: 20
+    height_mm: 10
+    stock_length_mm: 2000
+    max_assembled_length_mm: 2000
+    is_cuttable: 1
+    lens_interface: Snap-in
+    supported_environment_ratings:
+    - environment_rating: Dry
+  ilL-Spec-Lens:
+  - item: LNS-DEMO-WH-FR
+    family: DEMO
+    series: Example Series
+    lens_appearance: Frosted
+    stock_type: Stick
+    stock_length_mm: 2000
+  ilL-Rel-Profile Lens:
+  - profile_spec: CH-DEMO-WH
+    compatible_lenses:
+    - lens_spec: LNS-DEMO-WH-FR
+  ilL-Spec-Accessory:
+  - item: EC-DEMO-WH-NO
+    type: Endcap
+    profile_family: DEMO
+    endcap_style: Solid
+  - item: EC-DEMO-WH-HO
+    type: Endcap
+    profile_family: DEMO
+    endcap_style: Feed Through
+  - item: ACC-DEMO-MC
+    type: Mounting
+    mounting_method: Mounting Clip
+    profile_family: DEMO
+  ilL-Rel-Finish Endcap Color:
+  - finish: White
+    endcap_color: White
+    is_default: 1
+  ilL-Extrusion-Kit-Template:
+  - template_code: DEMO-EXTRUSION-KIT
+    template_name: Example Extrusion kits
+    series: Example Series
+    is_active: 1
+    default_profile_family: DEMO
+    default_profile_spec: CH-DEMO-WH
+    default_lens_spec: LNS-DEMO-WH-FR
+    profile_stock_length_mm: 2000
+    lens_stock_length_mm: 2000
+    solid_endcap_qty: 2
+    feed_through_endcap_qty: 1
+    mounting_accessory_qty: 4
+    base_price_msrp: 35
+    allowed_options:
+    - option_type: Finish
+      finish: White
+      is_default: 1
+      is_active: 1
+    - option_type: Lens Appearance
+      lens_appearance: Frosted
+      is_default: 1
+      is_active: 1
+    - option_type: Mounting Method
+      mounting_method: Mounting Clip
+      is_default: 1
+      is_active: 1
+    - option_type: Endcap Style
+      endcap_style: Solid
+      is_default: 1
+      is_active: 1
+  ilL-Rel-Kit-Profile-Map:
+  - kit_template: DEMO-EXTRUSION-KIT
+    finish: White
+    profile_spec: CH-DEMO-WH
+    profile_item: CH-DEMO-WH
+  ilL-Rel-Kit-Lens-Map:
+  - kit_template: DEMO-EXTRUSION-KIT
+    lens_appearance: Frosted
+    lens_spec: LNS-DEMO-WH-FR
+    lens_item: LNS-DEMO-WH-FR
+  ilL-Rel-Kit-Mounting-Map:
+  - kit_template: DEMO-EXTRUSION-KIT
+    mounting_method: Mounting Clip
+    accessory_item: ACC-DEMO-MC
+    accessory_spec: ACC-DEMO-MC
+  ilL-Rel-Kit-Endcap-Map:
+  - kit_template: DEMO-EXTRUSION-KIT
+    endcap_style: Solid
+    endcap_color: White
+    endcap_type: Solid
+    endcap_item: EC-DEMO-WH-NO
+    endcap_spec: EC-DEMO-WH-NO
+  - kit_template: DEMO-EXTRUSION-KIT
+    endcap_style: Solid
+    endcap_color: White
+    endcap_type: Feed-Through
+    endcap_item: EC-DEMO-WH-HO
+    endcap_spec: EC-DEMO-WH-HO
+external_links:
+  Item Group:
+  - Products
+  UOM:
+  - Nos
+  ilL-Attribute-Environment Rating:
+  - Dry
+  ilL-Attribute-Lens Interface Type:
+  - Snap-in
+  ilL-Attribute-Lens Appearance:
+  - Frosted
+  ilL-Attribute-Endcap Style:
+  - Solid
+  - Feed Through
+  ilL-Attribute-Mounting Method:
+  - Mounting Clip
+  ilL-Attribute-Finish:
+  - White
+  ilL-Attribute-Endcap Color:
+  - White

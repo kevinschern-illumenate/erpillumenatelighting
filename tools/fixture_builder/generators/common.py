@@ -89,6 +89,7 @@ CONFIGURATOR_STEP_TYPES = {
 
 # ── Tape / Neon constants ──────────────────────────────────────────────
 TAPE_NEON_OPTION_TYPES = {
+    "Lens Appearance": "lens_appearance",
     "CCT": "cct",
     "Output Level": "output_level",
     "Environment Rating": "environment_rating",

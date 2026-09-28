@@ -1,0 +1,115 @@
+# Illustrative values only; verify engineering ratings and external links before import.
+schema_version: 2
+product_type: tape
+series_name: Example Series
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: DEMO-TAPE
+    item_name: Example DEMO-TAPE
+    item_group: Products
+    stock_uom: Meter
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: DEMO-LEADER
+    item_name: Example DEMO-LEADER
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Spec-LED Tape:
+  - item: DEMO-TAPE
+    led_package: SW
+    product_category: LED Tape
+    input_voltage: 24V DC
+    input_protocol: PWM
+    watts_per_foot: 4.4
+    voltage_drop_max_run_length_ft: 16.4
+    cut_increment_mm: 50
+    lumens_per_foot: 400
+    leader_cable_item: DEMO-LEADER
+  ilL-Rel-Tape Offering:
+  - tape_spec: DEMO-TAPE
+    cct: 3000K
+    cri: '90'
+    sdcm: '3'
+    led_package: SW
+    output_level: Standard
+  ilL-Rel-Leader-Cable-Map:
+  - tape_spec: DEMO-TAPE
+    power_feed_type: Single End Feed
+    leader_item: DEMO-LEADER
+    default_length_mm: 300
+  ilL-Tape-Neon-Template:
+  - template_code: DEMO-TAPE
+    template_name: Example LED tape
+    series: Example Series
+    is_active: 1
+    product_category: LED Tape
+    default_tape_spec: DEMO-TAPE
+    base_price_msrp: 10
+    price_per_ft_msrp: 12
+    production_interval_mm: 50
+    leader_allowance_mm_per_fixture: 15
+    allowed_tape_specs:
+    - tape_spec: DEMO-TAPE
+      is_default: 1
+      environment_rating: Dry
+    allowed_options:
+    - option_type: CCT
+      cct: 3000K
+      is_default: 1
+      is_active: 1
+    - option_type: Output Level
+      output_level: Standard
+      is_default: 1
+      is_active: 1
+    - option_type: Environment Rating
+      environment_rating: Dry
+      is_default: 1
+      is_active: 1
+  ilL-Rel-Driver-Eligibility:
+  - template_type: ilL-Tape-Neon-Template
+    fixture_template: DEMO-TAPE
+    driver_spec: EXISTING-96W-DRIVER
+    is_allowed: 1
+    priority: 1
+  ilL-Webflow-Product:
+  - product_name: Example LED tape
+    product_slug: example-tape
+    product_type: LED Tape
+    is_configurable: 1
+    is_active: 1
+    series: Example Series
+    tape_neon_template: DEMO-TAPE
+external_links:
+  Item Group:
+  - Products
+  UOM:
+  - Meter
+  - Nos
+  ilL-Attribute-LED Package:
+  - SW
+  ilL-Attribute-Output Voltage:
+  - 24V DC
+  ilL-Attribute-Dimming Protocol:
+  - PWM
+  ilL-Attribute-CCT:
+  - 3000K
+  ilL-Attribute-CRI:
+  - '90'
+  ilL-Attribute-SDCM:
+  - '3'
+  ilL-Attribute-Output Level:
+  - Standard
+  ilL-Attribute-Power Feed Type:
+  - Single End Feed
+  ilL-Attribute-Environment Rating:
+  - Dry
+  ilL-Spec-Driver:
+  - EXISTING-96W-DRIVER

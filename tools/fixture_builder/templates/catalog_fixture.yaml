@@ -1,0 +1,228 @@
+# Illustrative values only; verify engineering ratings and external links before import.
+schema_version: 2
+product_type: fixture
+series_name: Example Series
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: DEMO-TAPE
+    item_name: Example DEMO-TAPE
+    item_group: Products
+    stock_uom: Meter
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: DEMO-LEADER
+    item_name: Example DEMO-LEADER
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: CH-DEMO-WH
+    item_name: Example CH-DEMO-WH
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: LNS-DEMO-WH-FR
+    item_name: Example LNS-DEMO-WH-FR
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: EC-DEMO-WH-NO
+    item_name: Example EC-DEMO-WH-NO
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: EC-DEMO-WH-HO
+    item_name: Example EC-DEMO-WH-HO
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: ACC-DEMO-MC
+    item_name: Example ACC-DEMO-MC
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Spec-LED Tape:
+  - item: DEMO-TAPE
+    led_package: SW
+    product_category: LED Tape
+    input_voltage: 24V DC
+    input_protocol: PWM
+    watts_per_foot: 4.4
+    voltage_drop_max_run_length_ft: 16.4
+    cut_increment_mm: 50
+    lumens_per_foot: 400
+    leader_cable_item: DEMO-LEADER
+  ilL-Rel-Tape Offering:
+  - tape_spec: DEMO-TAPE
+    cct: 3000K
+    cri: '90'
+    sdcm: '3'
+    led_package: SW
+    output_level: Standard
+  ilL-Rel-Leader-Cable-Map:
+  - tape_spec: DEMO-TAPE
+    power_feed_type: Single End Feed
+    leader_item: DEMO-LEADER
+    default_length_mm: 300
+  ilL-Spec-Profile:
+  - item: CH-DEMO-WH
+    family: DEMO
+    series: Example Series
+    width_mm: 20
+    height_mm: 10
+    stock_length_mm: 2000
+    max_assembled_length_mm: 2000
+    is_cuttable: 1
+    lens_interface: Snap-in
+    supported_environment_ratings:
+    - environment_rating: Dry
+  ilL-Spec-Lens:
+  - item: LNS-DEMO-WH-FR
+    family: DEMO
+    series: Example Series
+    lens_appearance: Frosted
+    stock_type: Stick
+    stock_length_mm: 2000
+  ilL-Rel-Profile Lens:
+  - profile_spec: CH-DEMO-WH
+    compatible_lenses:
+    - lens_spec: LNS-DEMO-WH-FR
+  ilL-Spec-Accessory:
+  - item: EC-DEMO-WH-NO
+    type: Endcap
+    profile_family: DEMO
+    endcap_style: Solid
+  - item: EC-DEMO-WH-HO
+    type: Endcap
+    profile_family: DEMO
+    endcap_style: Feed Through
+  - item: ACC-DEMO-MC
+    type: Mounting
+    mounting_method: Mounting Clip
+    profile_family: DEMO
+  ilL-Rel-Finish Endcap Color:
+  - finish: White
+    endcap_color: White
+    is_default: 1
+  ilL-Fixture-Template:
+  - template_code: DEMO-FIXTURE
+    template_name: Example Linear fixtures
+    series: Example Series
+    is_active: 1
+    default_profile_family: DEMO
+    default_profile_spec: CH-DEMO-WH
+    default_profile_stock_len_mm: 2000
+    assembled_max_len_mm: 2000
+    base_price_msrp: 20
+    price_per_ft_msrp: 15
+    allowed_options:
+    - option_type: Finish
+      finish: White
+      is_default: 1
+      is_active: 1
+    - option_type: Lens Appearance
+      lens_appearance: Frosted
+      is_default: 1
+      is_active: 1
+    - option_type: Mounting Method
+      mounting_method: Mounting Clip
+      is_default: 1
+      is_active: 1
+    - option_type: Endcap Style
+      endcap_style: Solid
+      is_default: 1
+      is_active: 1
+    - option_type: Environment Rating
+      environment_rating: Dry
+      is_active: 1
+    - option_type: Power Feed Type
+      power_feed_type: Single End Feed
+      is_active: 1
+    allowed_tape_offerings:
+    - tape_offering: DEMO-TAPE-3000K-Standard
+      is_default: 1
+  ilL-Rel-Endcap-Map:
+  - fixture_template: DEMO-FIXTURE
+    endcap_style: Solid
+    endcap_color: White
+    endcap_item: EC-DEMO-WH-NO
+  - fixture_template: DEMO-FIXTURE
+    endcap_style: Feed Through
+    endcap_color: White
+    endcap_item: EC-DEMO-WH-HO
+  ilL-Rel-Mounting-Accessory-Map:
+  - template_type: ilL-Fixture-Template
+    fixture_template: DEMO-FIXTURE
+    mounting_method: Mounting Clip
+    accessory_item: ACC-DEMO-MC
+    qty_rule_type: PER_X_MM
+    qty_rule_value: 304.8
+  ilL-Rel-Driver-Eligibility:
+  - template_type: ilL-Fixture-Template
+    fixture_template: DEMO-FIXTURE
+    driver_spec: EXISTING-96W-DRIVER
+    is_allowed: 1
+    priority: 1
+  ilL-Webflow-Product:
+  - product_name: Example Linear fixtures
+    product_slug: example-fixture
+    product_type: Fixture Template
+    is_configurable: 1
+    is_active: 1
+    series: Example Series
+    fixture_template: DEMO-FIXTURE
+external_links:
+  Item Group:
+  - Products
+  UOM:
+  - Meter
+  - Nos
+  ilL-Attribute-LED Package:
+  - SW
+  ilL-Attribute-Output Voltage:
+  - 24V DC
+  ilL-Attribute-Dimming Protocol:
+  - PWM
+  ilL-Attribute-CCT:
+  - 3000K
+  ilL-Attribute-CRI:
+  - '90'
+  ilL-Attribute-SDCM:
+  - '3'
+  ilL-Attribute-Output Level:
+  - Standard
+  ilL-Attribute-Power Feed Type:
+  - Single End Feed
+  ilL-Attribute-Environment Rating:
+  - Dry
+  ilL-Attribute-Lens Interface Type:
+  - Snap-in
+  ilL-Attribute-Lens Appearance:
+  - Frosted
+  ilL-Attribute-Endcap Style:
+  - Solid
+  - Feed Through
+  ilL-Attribute-Mounting Method:
+  - Mounting Clip
+  ilL-Attribute-Finish:
+  - White
+  ilL-Attribute-Endcap Color:
+  - White
+  ilL-Spec-Driver:
+  - EXISTING-96W-DRIVER

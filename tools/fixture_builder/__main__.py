@@ -42,7 +42,19 @@ from .prompts import prompt_all
 
 def validate_config(config: FixtureBuilderConfig) -> list[str]:
     """Validate config and return list of error messages (empty = valid)."""
+    if isinstance(config, dict):
+        from .catalog import prepare_catalog
+        try:
+            prepare_catalog(config)
+        except ValueError as exc:
+            return str(exc).splitlines()
+        return []
     errors = []
+
+    if config.product_type not in ("fixture", "tape", "neon", "led-sheet"):
+        errors.append("This product type requires a schema_version: 2 catalog configuration")
+    if config.mode not in ("new-family", "new-variant"):
+        errors.append("mode must be new-family or new-variant")
 
     if not config.series_name:
         errors.append("series_name is required")
@@ -145,6 +157,11 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
 def generate_all(config: FixtureBuilderConfig, output_dir: str,
                  source_submittal_csv: str = "") -> dict[str, str]:
     """Generate all CSV files and return {filename: filepath} mapping."""
+    if isinstance(config, dict):
+        from .catalog import generate_catalog
+        return generate_catalog(config, output_dir)
+    if config.product_type not in ("fixture", "tape", "neon", "led-sheet"):
+        raise ValueError("Unsupported legacy product_type")
     if config.product_type in ("tape", "neon"):
         return generate_all_tape_neon(config, output_dir, source_submittal_csv)
     if config.product_type == "led-sheet":
@@ -197,6 +214,8 @@ def generate_all_tape_neon(config: FixtureBuilderConfig, output_dir: str,
 
     # Phase 2: Both modes (templates, submittal, webflow)
     results["ilL-Tape-Neon-Template.csv"] = gen_tape_neon_template.generate(config, output_dir)
+    if config.mounting_accessories:
+        results["ilL-Rel-Mounting-Accessory-Map.csv"] = gen_rel_mounting_map.generate(config, output_dir)
     results["ilL-Rel-Driver-Eligibility.csv"] = gen_rel_driver_eligibility.generate(config, output_dir)
     results["ilL-Neon-Submittal-Mapping.csv"] = gen_neon_submittal_mapping.generate(
         config, output_dir, source_csv_path=source_submittal_csv
@@ -223,8 +242,9 @@ def generate_all_led_sheet(config: FixtureBuilderConfig, output_dir: str,
 
 def _count_data_rows(filepath: str) -> int:
     """Count non-header rows in a CSV file."""
-    with open(filepath, "r", encoding="utf-8") as f:
-        return sum(1 for _ in f) - 1
+    import csv
+    with open(filepath, "r", encoding="utf-8-sig", newline="") as f:
+        return sum(1 for _ in csv.reader(f)) - 1
 
 
 def main():
@@ -249,7 +269,7 @@ def main():
     )
     parser.add_argument(
         "--product-type", "-t",
-        choices=["fixture", "tape", "neon", "led-sheet"],
+        choices=["fixture", "tape", "neon", "led-sheet", "extrusion-kit", "driver", "controller"],
         default=None,
         help="Product type: fixture (default), tape, neon, or led-sheet",
     )
@@ -271,20 +291,30 @@ def main():
         if not os.path.exists(args.config):
             print(f"Error: config file not found: {args.config}", file=sys.stderr)
             sys.exit(1)
-        config = load_config(args.config)
+        try:
+            config = load_config(args.config)
+        except (ValueError, TypeError) as exc:
+            parser.error(str(exc))
     else:
         config = FixtureBuilderConfig()
 
     # Override mode if specified
     if args.mode:
+        if isinstance(config, dict):
+            parser.error("--mode applies only to legacy family configs")
         config.mode = args.mode
 
     # Override product type if specified
     if args.product_type:
-        config.product_type = args.product_type
+        if isinstance(config, dict):
+            config["product_type"] = args.product_type
+        else:
+            config.product_type = args.product_type
 
     # Interactive prompts for missing data
     if args.interactive or not args.config:
+        if isinstance(config, dict) or config.product_type in ("extrusion-kit", "driver", "controller"):
+            parser.error("Use the YAML Builder product catalog editor to author version 2 configurations")
         prompt_all(config)
 
     # Validate
@@ -296,8 +326,9 @@ def main():
         sys.exit(1)
 
     # Generate
-    ptype = config.product_type
-    print(f"\nGenerating CSVs for {config.series_name} series ({config.mode} mode, {ptype})...")
+    ptype = config["product_type"] if isinstance(config, dict) else config.product_type
+    series = config.get("series_name", "Product catalog") if isinstance(config, dict) else config.series_name
+    print(f"\nGenerating CSVs for {series} ({ptype})...")
     print(f"Output directory: {os.path.abspath(args.output)}\n")
 
     results = generate_all(config, args.output, source_submittal_csv=args.source_submittal_csv)

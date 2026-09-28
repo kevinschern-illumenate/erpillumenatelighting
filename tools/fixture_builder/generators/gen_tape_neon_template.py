@@ -41,6 +41,7 @@ HEADERS = [
     "Is Default (Allowed Options)",
     "Is Active (Allowed Options)",
     "MSRP Adder (Allowed Options)",
+    "Lens Appearance (Allowed Options)",
 ]
 
 NUM_COLS = len(HEADERS)
@@ -58,6 +59,7 @@ _OPTION_VALUE_COL = {
     "Mounting Method": 22,
     "Finish": 23,
     "Endcap Style": 24,
+    "Lens Appearance": 29,
 }
 
 

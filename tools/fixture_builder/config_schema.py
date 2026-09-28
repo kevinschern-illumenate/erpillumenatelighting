@@ -574,13 +574,19 @@ def load_config(path: str) -> FixtureBuilderConfig:
         raw = yaml.safe_load(f)
     if raw is None:
         raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("Configuration must be a YAML mapping")
+    if "schema_version" in raw:
+        if raw["schema_version"] != 2:
+            raise ValueError("Unsupported schema_version; expected 2")
+        return raw
     return _nested_dataclass(FixtureBuilderConfig, raw)
 
 
 def save_config(config: FixtureBuilderConfig, path: str) -> None:
     """Save a config object to YAML."""
     import dataclasses
-    data = dataclasses.asdict(config)
+    data = config if isinstance(config, dict) else dataclasses.asdict(config)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)

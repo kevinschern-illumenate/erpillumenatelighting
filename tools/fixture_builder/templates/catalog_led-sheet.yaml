@@ -1,0 +1,94 @@
+# Illustrative values only; verify engineering ratings and external links before import.
+schema_version: 2
+product_type: led-sheet
+series_name: Example Series
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: DEMO-SHEET
+    item_name: Example DEMO-SHEET
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: DEMO-LEADER
+    item_name: Example DEMO-LEADER
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: DEMO-JUMPER
+    item_name: Example DEMO-JUMPER
+    item_group: Products
+    stock_uom: Nos
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Spec-LED-Sheet:
+  - item: DEMO-SHEET
+    led_package: SW
+    sheet_width_ft: 1
+    sheet_height_ft: 2
+    watts_per_sqft: 10
+    total_sheet_watts: 20
+    lumens_per_sqft: 1000
+    input_voltage: 24V DC
+    input_protocol: PWM
+    cct: 3000K
+    cut_interval_width_in: 2
+    cut_interval_height_in: 2
+    sku_series_code: DEMO
+    sku_led_package_code: SW
+  ilL-LED-Sheet-Template:
+  - template_code: DEMO-LED-SHEET
+    template_name: Example LED sheets
+    series: Example Series
+    is_active: 1
+    sku_series_code: DEMO
+    price_per_sheet_msrp: 50
+    leader_cable_item: DEMO-LEADER
+    jumper_cable_item: DEMO-JUMPER
+    allowed_specs:
+    - spec: DEMO-SHEET
+      is_active: 1
+    allowed_options:
+    - option_type: CCT
+      attribute_doctype: ilL-Attribute-CCT
+      attribute_link: 3000K
+      option_code: '30'
+      is_default: 1
+      is_active: 1
+  ilL-Rel-Driver-Eligibility:
+  - template_type: ilL-LED-Sheet-Template
+    fixture_template: DEMO-LED-SHEET
+    driver_spec: EXISTING-96W-DRIVER
+    is_allowed: 1
+    priority: 1
+  ilL-Webflow-Product:
+  - product_name: Example LED sheets
+    product_slug: example-led-sheet
+    product_type: LED Sheet
+    is_configurable: 1
+    is_active: 1
+    series: Example Series
+    led_sheet_template: DEMO-LED-SHEET
+external_links:
+  Item Group:
+  - Products
+  UOM:
+  - Nos
+  ilL-Attribute-LED Package:
+  - SW
+  ilL-Attribute-Output Voltage:
+  - 24V DC
+  ilL-Attribute-CCT:
+  - 3000K
+  ilL-Attribute-Dimming Protocol:
+  - PWM
+  ilL-Spec-Driver:
+  - EXISTING-96W-DRIVER

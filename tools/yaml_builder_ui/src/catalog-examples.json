@@ -1,0 +1,1246 @@
+{
+  "fixture": {
+    "schema_version": 2,
+    "product_type": "fixture",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "DEMO-TAPE",
+          "item_name": "Example DEMO-TAPE",
+          "item_group": "Products",
+          "stock_uom": "Meter",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "DEMO-LEADER",
+          "item_name": "Example DEMO-LEADER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "CH-DEMO-WH",
+          "item_name": "Example CH-DEMO-WH",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "LNS-DEMO-WH-FR",
+          "item_name": "Example LNS-DEMO-WH-FR",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "EC-DEMO-WH-NO",
+          "item_name": "Example EC-DEMO-WH-NO",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "EC-DEMO-WH-HO",
+          "item_name": "Example EC-DEMO-WH-HO",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "ACC-DEMO-MC",
+          "item_name": "Example ACC-DEMO-MC",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-LED Tape": [
+        {
+          "item": "DEMO-TAPE",
+          "led_package": "SW",
+          "product_category": "LED Tape",
+          "input_voltage": "24V DC",
+          "input_protocol": "PWM",
+          "watts_per_foot": 4.4,
+          "voltage_drop_max_run_length_ft": 16.4,
+          "cut_increment_mm": 50,
+          "lumens_per_foot": 400,
+          "leader_cable_item": "DEMO-LEADER"
+        }
+      ],
+      "ilL-Rel-Tape Offering": [
+        {
+          "tape_spec": "DEMO-TAPE",
+          "cct": "3000K",
+          "cri": "90",
+          "sdcm": "3",
+          "led_package": "SW",
+          "output_level": "Standard"
+        }
+      ],
+      "ilL-Rel-Leader-Cable-Map": [
+        {
+          "tape_spec": "DEMO-TAPE",
+          "power_feed_type": "Single End Feed",
+          "leader_item": "DEMO-LEADER",
+          "default_length_mm": 300
+        }
+      ],
+      "ilL-Spec-Profile": [
+        {
+          "item": "CH-DEMO-WH",
+          "family": "DEMO",
+          "series": "Example Series",
+          "width_mm": 20,
+          "height_mm": 10,
+          "stock_length_mm": 2000,
+          "max_assembled_length_mm": 2000,
+          "is_cuttable": 1,
+          "lens_interface": "Snap-in",
+          "supported_environment_ratings": [
+            {
+              "environment_rating": "Dry"
+            }
+          ]
+        }
+      ],
+      "ilL-Spec-Lens": [
+        {
+          "item": "LNS-DEMO-WH-FR",
+          "family": "DEMO",
+          "series": "Example Series",
+          "lens_appearance": "Frosted",
+          "stock_type": "Stick",
+          "stock_length_mm": 2000
+        }
+      ],
+      "ilL-Rel-Profile Lens": [
+        {
+          "profile_spec": "CH-DEMO-WH",
+          "compatible_lenses": [
+            {
+              "lens_spec": "LNS-DEMO-WH-FR"
+            }
+          ]
+        }
+      ],
+      "ilL-Spec-Accessory": [
+        {
+          "item": "EC-DEMO-WH-NO",
+          "type": "Endcap",
+          "profile_family": "DEMO",
+          "endcap_style": "Solid"
+        },
+        {
+          "item": "EC-DEMO-WH-HO",
+          "type": "Endcap",
+          "profile_family": "DEMO",
+          "endcap_style": "Feed Through"
+        },
+        {
+          "item": "ACC-DEMO-MC",
+          "type": "Mounting",
+          "mounting_method": "Mounting Clip",
+          "profile_family": "DEMO"
+        }
+      ],
+      "ilL-Rel-Finish Endcap Color": [
+        {
+          "finish": "White",
+          "endcap_color": "White",
+          "is_default": 1
+        }
+      ],
+      "ilL-Fixture-Template": [
+        {
+          "template_code": "DEMO-FIXTURE",
+          "template_name": "Example Linear fixtures",
+          "series": "Example Series",
+          "is_active": 1,
+          "default_profile_family": "DEMO",
+          "default_profile_spec": "CH-DEMO-WH",
+          "default_profile_stock_len_mm": 2000,
+          "assembled_max_len_mm": 2000,
+          "base_price_msrp": 20,
+          "price_per_ft_msrp": 15,
+          "allowed_options": [
+            {
+              "option_type": "Finish",
+              "finish": "White",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Lens Appearance",
+              "lens_appearance": "Frosted",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Mounting Method",
+              "mounting_method": "Mounting Clip",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Endcap Style",
+              "endcap_style": "Solid",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Environment Rating",
+              "environment_rating": "Dry",
+              "is_active": 1
+            },
+            {
+              "option_type": "Power Feed Type",
+              "power_feed_type": "Single End Feed",
+              "is_active": 1
+            }
+          ],
+          "allowed_tape_offerings": [
+            {
+              "tape_offering": "DEMO-TAPE-3000K-Standard",
+              "is_default": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Rel-Endcap-Map": [
+        {
+          "fixture_template": "DEMO-FIXTURE",
+          "endcap_style": "Solid",
+          "endcap_color": "White",
+          "endcap_item": "EC-DEMO-WH-NO"
+        },
+        {
+          "fixture_template": "DEMO-FIXTURE",
+          "endcap_style": "Feed Through",
+          "endcap_color": "White",
+          "endcap_item": "EC-DEMO-WH-HO"
+        }
+      ],
+      "ilL-Rel-Mounting-Accessory-Map": [
+        {
+          "template_type": "ilL-Fixture-Template",
+          "fixture_template": "DEMO-FIXTURE",
+          "mounting_method": "Mounting Clip",
+          "accessory_item": "ACC-DEMO-MC",
+          "qty_rule_type": "PER_X_MM",
+          "qty_rule_value": 304.8
+        }
+      ],
+      "ilL-Rel-Driver-Eligibility": [
+        {
+          "template_type": "ilL-Fixture-Template",
+          "fixture_template": "DEMO-FIXTURE",
+          "driver_spec": "EXISTING-96W-DRIVER",
+          "is_allowed": 1,
+          "priority": 1
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example Linear fixtures",
+          "product_slug": "example-fixture",
+          "product_type": "Fixture Template",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "fixture_template": "DEMO-FIXTURE"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Meter",
+        "Nos"
+      ],
+      "ilL-Attribute-LED Package": [
+        "SW"
+      ],
+      "ilL-Attribute-Output Voltage": [
+        "24V DC"
+      ],
+      "ilL-Attribute-Dimming Protocol": [
+        "PWM"
+      ],
+      "ilL-Attribute-CCT": [
+        "3000K"
+      ],
+      "ilL-Attribute-CRI": [
+        "90"
+      ],
+      "ilL-Attribute-SDCM": [
+        "3"
+      ],
+      "ilL-Attribute-Output Level": [
+        "Standard"
+      ],
+      "ilL-Attribute-Power Feed Type": [
+        "Single End Feed"
+      ],
+      "ilL-Attribute-Environment Rating": [
+        "Dry"
+      ],
+      "ilL-Attribute-Lens Interface Type": [
+        "Snap-in"
+      ],
+      "ilL-Attribute-Lens Appearance": [
+        "Frosted"
+      ],
+      "ilL-Attribute-Endcap Style": [
+        "Solid",
+        "Feed Through"
+      ],
+      "ilL-Attribute-Mounting Method": [
+        "Mounting Clip"
+      ],
+      "ilL-Attribute-Finish": [
+        "White"
+      ],
+      "ilL-Attribute-Endcap Color": [
+        "White"
+      ],
+      "ilL-Spec-Driver": [
+        "EXISTING-96W-DRIVER"
+      ]
+    }
+  },
+  "tape": {
+    "schema_version": 2,
+    "product_type": "tape",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "DEMO-TAPE",
+          "item_name": "Example DEMO-TAPE",
+          "item_group": "Products",
+          "stock_uom": "Meter",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "DEMO-LEADER",
+          "item_name": "Example DEMO-LEADER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-LED Tape": [
+        {
+          "item": "DEMO-TAPE",
+          "led_package": "SW",
+          "product_category": "LED Tape",
+          "input_voltage": "24V DC",
+          "input_protocol": "PWM",
+          "watts_per_foot": 4.4,
+          "voltage_drop_max_run_length_ft": 16.4,
+          "cut_increment_mm": 50,
+          "lumens_per_foot": 400,
+          "leader_cable_item": "DEMO-LEADER"
+        }
+      ],
+      "ilL-Rel-Tape Offering": [
+        {
+          "tape_spec": "DEMO-TAPE",
+          "cct": "3000K",
+          "cri": "90",
+          "sdcm": "3",
+          "led_package": "SW",
+          "output_level": "Standard"
+        }
+      ],
+      "ilL-Rel-Leader-Cable-Map": [
+        {
+          "tape_spec": "DEMO-TAPE",
+          "power_feed_type": "Single End Feed",
+          "leader_item": "DEMO-LEADER",
+          "default_length_mm": 300
+        }
+      ],
+      "ilL-Tape-Neon-Template": [
+        {
+          "template_code": "DEMO-TAPE",
+          "template_name": "Example LED tape",
+          "series": "Example Series",
+          "is_active": 1,
+          "product_category": "LED Tape",
+          "default_tape_spec": "DEMO-TAPE",
+          "base_price_msrp": 10,
+          "price_per_ft_msrp": 12,
+          "production_interval_mm": 50,
+          "leader_allowance_mm_per_fixture": 15,
+          "allowed_tape_specs": [
+            {
+              "tape_spec": "DEMO-TAPE",
+              "is_default": 1,
+              "environment_rating": "Dry"
+            }
+          ],
+          "allowed_options": [
+            {
+              "option_type": "CCT",
+              "cct": "3000K",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Output Level",
+              "output_level": "Standard",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Environment Rating",
+              "environment_rating": "Dry",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Rel-Driver-Eligibility": [
+        {
+          "template_type": "ilL-Tape-Neon-Template",
+          "fixture_template": "DEMO-TAPE",
+          "driver_spec": "EXISTING-96W-DRIVER",
+          "is_allowed": 1,
+          "priority": 1
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example LED tape",
+          "product_slug": "example-tape",
+          "product_type": "LED Tape",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "tape_neon_template": "DEMO-TAPE"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Meter",
+        "Nos"
+      ],
+      "ilL-Attribute-LED Package": [
+        "SW"
+      ],
+      "ilL-Attribute-Output Voltage": [
+        "24V DC"
+      ],
+      "ilL-Attribute-Dimming Protocol": [
+        "PWM"
+      ],
+      "ilL-Attribute-CCT": [
+        "3000K"
+      ],
+      "ilL-Attribute-CRI": [
+        "90"
+      ],
+      "ilL-Attribute-SDCM": [
+        "3"
+      ],
+      "ilL-Attribute-Output Level": [
+        "Standard"
+      ],
+      "ilL-Attribute-Power Feed Type": [
+        "Single End Feed"
+      ],
+      "ilL-Attribute-Environment Rating": [
+        "Dry"
+      ],
+      "ilL-Spec-Driver": [
+        "EXISTING-96W-DRIVER"
+      ]
+    }
+  },
+  "neon": {
+    "schema_version": 2,
+    "product_type": "neon",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "DEMO-TAPE",
+          "item_name": "Example DEMO-TAPE",
+          "item_group": "Products",
+          "stock_uom": "Meter",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "DEMO-LEADER",
+          "item_name": "Example DEMO-LEADER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-LED Tape": [
+        {
+          "item": "DEMO-TAPE",
+          "led_package": "SW",
+          "product_category": "LED Neon",
+          "input_voltage": "24V DC",
+          "input_protocol": "PWM",
+          "watts_per_foot": 4.4,
+          "voltage_drop_max_run_length_ft": 16.4,
+          "cut_increment_mm": 50,
+          "lumens_per_foot": 400,
+          "leader_cable_item": "DEMO-LEADER"
+        }
+      ],
+      "ilL-Rel-Tape Offering": [
+        {
+          "tape_spec": "DEMO-TAPE",
+          "cct": "3000K",
+          "cri": "90",
+          "sdcm": "3",
+          "led_package": "SW",
+          "output_level": "Standard"
+        }
+      ],
+      "ilL-Rel-Leader-Cable-Map": [
+        {
+          "tape_spec": "DEMO-TAPE",
+          "power_feed_type": "Single End Feed",
+          "leader_item": "DEMO-LEADER",
+          "default_length_mm": 300
+        }
+      ],
+      "ilL-Tape-Neon-Template": [
+        {
+          "template_code": "DEMO-NEON",
+          "template_name": "Example LED neon",
+          "series": "Example Series",
+          "is_active": 1,
+          "product_category": "LED Neon",
+          "default_tape_spec": "DEMO-TAPE",
+          "base_price_msrp": 10,
+          "price_per_ft_msrp": 12,
+          "production_interval_mm": 50,
+          "leader_allowance_mm_per_fixture": 15,
+          "allowed_tape_specs": [
+            {
+              "tape_spec": "DEMO-TAPE",
+              "is_default": 1,
+              "environment_rating": "Dry"
+            }
+          ],
+          "allowed_options": [
+            {
+              "option_type": "CCT",
+              "cct": "3000K",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Output Level",
+              "output_level": "Standard",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Environment Rating",
+              "environment_rating": "Dry",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Rel-Driver-Eligibility": [
+        {
+          "template_type": "ilL-Tape-Neon-Template",
+          "fixture_template": "DEMO-NEON",
+          "driver_spec": "EXISTING-96W-DRIVER",
+          "is_allowed": 1,
+          "priority": 1
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example LED neon",
+          "product_slug": "example-neon",
+          "product_type": "LED Neon",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "tape_neon_template": "DEMO-NEON"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Meter",
+        "Nos"
+      ],
+      "ilL-Attribute-LED Package": [
+        "SW"
+      ],
+      "ilL-Attribute-Output Voltage": [
+        "24V DC"
+      ],
+      "ilL-Attribute-Dimming Protocol": [
+        "PWM"
+      ],
+      "ilL-Attribute-CCT": [
+        "3000K"
+      ],
+      "ilL-Attribute-CRI": [
+        "90"
+      ],
+      "ilL-Attribute-SDCM": [
+        "3"
+      ],
+      "ilL-Attribute-Output Level": [
+        "Standard"
+      ],
+      "ilL-Attribute-Power Feed Type": [
+        "Single End Feed"
+      ],
+      "ilL-Attribute-Environment Rating": [
+        "Dry"
+      ],
+      "ilL-Spec-Driver": [
+        "EXISTING-96W-DRIVER"
+      ]
+    }
+  },
+  "led-sheet": {
+    "schema_version": 2,
+    "product_type": "led-sheet",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "DEMO-SHEET",
+          "item_name": "Example DEMO-SHEET",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "DEMO-LEADER",
+          "item_name": "Example DEMO-LEADER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "DEMO-JUMPER",
+          "item_name": "Example DEMO-JUMPER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-LED-Sheet": [
+        {
+          "item": "DEMO-SHEET",
+          "led_package": "SW",
+          "sheet_width_ft": 1,
+          "sheet_height_ft": 2,
+          "watts_per_sqft": 10,
+          "total_sheet_watts": 20,
+          "lumens_per_sqft": 1000,
+          "input_voltage": "24V DC",
+          "input_protocol": "PWM",
+          "cct": "3000K",
+          "cut_interval_width_in": 2,
+          "cut_interval_height_in": 2,
+          "sku_series_code": "DEMO",
+          "sku_led_package_code": "SW"
+        }
+      ],
+      "ilL-LED-Sheet-Template": [
+        {
+          "template_code": "DEMO-LED-SHEET",
+          "template_name": "Example LED sheets",
+          "series": "Example Series",
+          "is_active": 1,
+          "sku_series_code": "DEMO",
+          "price_per_sheet_msrp": 50,
+          "leader_cable_item": "DEMO-LEADER",
+          "jumper_cable_item": "DEMO-JUMPER",
+          "allowed_specs": [
+            {
+              "spec": "DEMO-SHEET",
+              "is_active": 1
+            }
+          ],
+          "allowed_options": [
+            {
+              "option_type": "CCT",
+              "attribute_doctype": "ilL-Attribute-CCT",
+              "attribute_link": "3000K",
+              "option_code": "30",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Rel-Driver-Eligibility": [
+        {
+          "template_type": "ilL-LED-Sheet-Template",
+          "fixture_template": "DEMO-LED-SHEET",
+          "driver_spec": "EXISTING-96W-DRIVER",
+          "is_allowed": 1,
+          "priority": 1
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example LED sheets",
+          "product_slug": "example-led-sheet",
+          "product_type": "LED Sheet",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "led_sheet_template": "DEMO-LED-SHEET"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Nos"
+      ],
+      "ilL-Attribute-LED Package": [
+        "SW"
+      ],
+      "ilL-Attribute-Output Voltage": [
+        "24V DC"
+      ],
+      "ilL-Attribute-CCT": [
+        "3000K"
+      ],
+      "ilL-Attribute-Dimming Protocol": [
+        "PWM"
+      ],
+      "ilL-Spec-Driver": [
+        "EXISTING-96W-DRIVER"
+      ]
+    }
+  },
+  "extrusion-kit": {
+    "schema_version": 2,
+    "product_type": "extrusion-kit",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "CH-DEMO-WH",
+          "item_name": "Example CH-DEMO-WH",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "LNS-DEMO-WH-FR",
+          "item_name": "Example LNS-DEMO-WH-FR",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "EC-DEMO-WH-NO",
+          "item_name": "Example EC-DEMO-WH-NO",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "EC-DEMO-WH-HO",
+          "item_name": "Example EC-DEMO-WH-HO",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        },
+        {
+          "item_code": "ACC-DEMO-MC",
+          "item_name": "Example ACC-DEMO-MC",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-Profile": [
+        {
+          "item": "CH-DEMO-WH",
+          "family": "DEMO",
+          "series": "Example Series",
+          "width_mm": 20,
+          "height_mm": 10,
+          "stock_length_mm": 2000,
+          "max_assembled_length_mm": 2000,
+          "is_cuttable": 1,
+          "lens_interface": "Snap-in",
+          "supported_environment_ratings": [
+            {
+              "environment_rating": "Dry"
+            }
+          ]
+        }
+      ],
+      "ilL-Spec-Lens": [
+        {
+          "item": "LNS-DEMO-WH-FR",
+          "family": "DEMO",
+          "series": "Example Series",
+          "lens_appearance": "Frosted",
+          "stock_type": "Stick",
+          "stock_length_mm": 2000
+        }
+      ],
+      "ilL-Rel-Profile Lens": [
+        {
+          "profile_spec": "CH-DEMO-WH",
+          "compatible_lenses": [
+            {
+              "lens_spec": "LNS-DEMO-WH-FR"
+            }
+          ]
+        }
+      ],
+      "ilL-Spec-Accessory": [
+        {
+          "item": "EC-DEMO-WH-NO",
+          "type": "Endcap",
+          "profile_family": "DEMO",
+          "endcap_style": "Solid"
+        },
+        {
+          "item": "EC-DEMO-WH-HO",
+          "type": "Endcap",
+          "profile_family": "DEMO",
+          "endcap_style": "Feed Through"
+        },
+        {
+          "item": "ACC-DEMO-MC",
+          "type": "Mounting",
+          "mounting_method": "Mounting Clip",
+          "profile_family": "DEMO"
+        }
+      ],
+      "ilL-Rel-Finish Endcap Color": [
+        {
+          "finish": "White",
+          "endcap_color": "White",
+          "is_default": 1
+        }
+      ],
+      "ilL-Extrusion-Kit-Template": [
+        {
+          "template_code": "DEMO-EXTRUSION-KIT",
+          "template_name": "Example Extrusion kits",
+          "series": "Example Series",
+          "is_active": 1,
+          "default_profile_family": "DEMO",
+          "default_profile_spec": "CH-DEMO-WH",
+          "default_lens_spec": "LNS-DEMO-WH-FR",
+          "profile_stock_length_mm": 2000,
+          "lens_stock_length_mm": 2000,
+          "solid_endcap_qty": 2,
+          "feed_through_endcap_qty": 1,
+          "mounting_accessory_qty": 4,
+          "base_price_msrp": 35,
+          "allowed_options": [
+            {
+              "option_type": "Finish",
+              "finish": "White",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Lens Appearance",
+              "lens_appearance": "Frosted",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Mounting Method",
+              "mounting_method": "Mounting Clip",
+              "is_default": 1,
+              "is_active": 1
+            },
+            {
+              "option_type": "Endcap Style",
+              "endcap_style": "Solid",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Rel-Kit-Profile-Map": [
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "finish": "White",
+          "profile_spec": "CH-DEMO-WH",
+          "profile_item": "CH-DEMO-WH"
+        }
+      ],
+      "ilL-Rel-Kit-Lens-Map": [
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "lens_appearance": "Frosted",
+          "lens_spec": "LNS-DEMO-WH-FR",
+          "lens_item": "LNS-DEMO-WH-FR"
+        }
+      ],
+      "ilL-Rel-Kit-Mounting-Map": [
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "mounting_method": "Mounting Clip",
+          "accessory_item": "ACC-DEMO-MC",
+          "accessory_spec": "ACC-DEMO-MC"
+        }
+      ],
+      "ilL-Rel-Kit-Endcap-Map": [
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "endcap_style": "Solid",
+          "endcap_color": "White",
+          "endcap_type": "Solid",
+          "endcap_item": "EC-DEMO-WH-NO",
+          "endcap_spec": "EC-DEMO-WH-NO"
+        },
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "endcap_style": "Solid",
+          "endcap_color": "White",
+          "endcap_type": "Feed-Through",
+          "endcap_item": "EC-DEMO-WH-HO",
+          "endcap_spec": "EC-DEMO-WH-HO"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Nos"
+      ],
+      "ilL-Attribute-Environment Rating": [
+        "Dry"
+      ],
+      "ilL-Attribute-Lens Interface Type": [
+        "Snap-in"
+      ],
+      "ilL-Attribute-Lens Appearance": [
+        "Frosted"
+      ],
+      "ilL-Attribute-Endcap Style": [
+        "Solid",
+        "Feed Through"
+      ],
+      "ilL-Attribute-Mounting Method": [
+        "Mounting Clip"
+      ],
+      "ilL-Attribute-Finish": [
+        "White"
+      ],
+      "ilL-Attribute-Endcap Color": [
+        "White"
+      ]
+    }
+  },
+  "driver": {
+    "schema_version": 2,
+    "product_type": "driver",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "DEMO-DRIVER",
+          "item_name": "Example DEMO-DRIVER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-Driver": [
+        {
+          "item": "DEMO-DRIVER",
+          "voltage_output": "24V DC",
+          "output_type": "Constant Voltage",
+          "output_protocol": "PWM",
+          "outputs_count": 1,
+          "independent_outputs_count": 1,
+          "max_wattage": 96,
+          "max_wattage_per_output": 96,
+          "usable_load_factor": 0.8,
+          "input_voltage_min": 120,
+          "input_voltage_max": 277,
+          "input_voltage_type": "VAC",
+          "input_protocols": [
+            {
+              "protocol": "0-10V",
+              "is_default": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Driver-Template": [
+        {
+          "template_code": "DEMO-DRIVER",
+          "template_name": "Example Drivers",
+          "series": "Example Series",
+          "is_active": 1,
+          "sku_series_code": "DEMO",
+          "base_price_msrp": 90,
+          "variants": [
+            {
+              "driver_spec": "DEMO-DRIVER",
+              "wattage": 96,
+              "voltage_output": "24V DC",
+              "input_protocol": "0-10V",
+              "output_protocol": "PWM",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ],
+          "allowed_options": [
+            {
+              "option_type": "Wattage",
+              "option_value": "96",
+              "option_code": "96W",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example Drivers",
+          "product_slug": "example-driver",
+          "product_type": "Driver",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "driver_template": "DEMO-DRIVER"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Nos"
+      ],
+      "ilL-Attribute-Output Voltage": [
+        "24V DC"
+      ],
+      "ilL-Attribute-Dimming Protocol": [
+        "PWM",
+        "0-10V"
+      ]
+    }
+  },
+  "controller": {
+    "schema_version": 2,
+    "product_type": "controller",
+    "series_name": "Example Series",
+    "records": {
+      "ilL-Attribute-Series": [
+        {
+          "series_name": "Example Series",
+          "code": "DEMO",
+          "is_active": 1
+        }
+      ],
+      "Item": [
+        {
+          "item_code": "DEMO-CONTROLLER",
+          "item_name": "Example DEMO-CONTROLLER",
+          "item_group": "Products",
+          "stock_uom": "Nos",
+          "is_stock_item": 1,
+          "is_sales_item": 1,
+          "is_purchase_item": 1
+        }
+      ],
+      "ilL-Spec-Controller": [
+        {
+          "item": "DEMO-CONTROLLER",
+          "controller_name": "Example controller",
+          "controller_type": "Wireless Receiver",
+          "mounting_type": "Surface",
+          "input_voltage_type": "VDC",
+          "input_voltage_min": 12,
+          "input_voltage_max": 24,
+          "channels": 4,
+          "zones": 1,
+          "max_load_watts": 96,
+          "input_protocols": [
+            {
+              "protocol": "DMX"
+            }
+          ],
+          "output_protocols": [
+            {
+              "protocol": "PWM"
+            }
+          ]
+        }
+      ],
+      "ilL-Controller-Template": [
+        {
+          "template_code": "DEMO-CONTROLLER",
+          "template_name": "Example Controllers",
+          "series": "Example Series",
+          "is_active": 1,
+          "sku_series_code": "DEMO",
+          "base_price_msrp": 60,
+          "variants": [
+            {
+              "controller_spec": "DEMO-CONTROLLER",
+              "channels": 4,
+              "zones": 1,
+              "input_protocol": "DMX",
+              "output_protocol": "PWM",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ],
+          "allowed_options": [
+            {
+              "option_type": "Channels",
+              "option_value": "4",
+              "option_code": "4CH",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example Controllers",
+          "product_slug": "example-controller",
+          "product_type": "Controller",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "controller_template": "DEMO-CONTROLLER"
+        }
+      ]
+    },
+    "external_links": {
+      "Item Group": [
+        "Products"
+      ],
+      "UOM": [
+        "Nos"
+      ],
+      "ilL-Attribute-Dimming Protocol": [
+        "DMX",
+        "PWM"
+      ]
+    }
+  }
+}
