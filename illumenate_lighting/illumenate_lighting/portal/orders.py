@@ -365,7 +365,7 @@ def get_order_read_model(order_name, user=None):
 			"per_delivered": order.per_delivered,
 			"per_billed": order.per_billed,
 			"fixture_schedule": order.get("ill_fixture_schedule"),
-			"remarks": order.remarks,
+			"remarks": order.get("remarks"),
 		}
 	)
 	_decorate(head, work_orders, [row.as_dict() for row in order.items])

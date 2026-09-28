@@ -66,3 +66,7 @@ Final local results on September 28: **205 portal unit tests passed**, and **all
 CI now rehearses two migrations on both Frappe v15 and v16. The existing full server test suite remains on v15; the new migration regression module also runs on v16 using its `IntegrationTestCase` API. GitHub Actions itself was not run locally. The legacy v16 test compatibility class eagerly prepares unrelated ERP fixtures (including optional Payment Gateway records), so the migration module uses the modern test class with a v15 fallback.
 
 The rehearsal uses a fresh database plus explicit upgrade scenarios, not a copy of the Cloud database. It verifies the exact app stack and reported failure, but cannot certify unknown Cloud customizations or existing data. Cloud has not been modified from this workspace. Deploy the corrected app and rerun **Migrate**, keeping the existing pending workspace backup.
+
+## Subsequent portal runtime repair
+
+An existing-order page load exposed missing commercial custom fields that the empty-site migration checks did not cover. See [the portal schema repair](B2B_PORTAL_SCHEMA_REPAIR_2026_09_28.md) for the new migration, additional order-detail fix, real page-rendering tests and updated validation results.

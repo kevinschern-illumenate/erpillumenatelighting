@@ -397,3 +397,53 @@ Related pages refreshed on 44 pages
   ✓ AGENTS.md updated
   ✓ VS Code MCP configured (C:\Users\Kevin\Documents\GitHub\erpillumenatelighting\.vscode\mcp.json)
   ✓ VS Code extension recommended (C:\Users\Kevin\Documents\GitHub\erpillumenatelighting\.vscode\extensions.json)
+
+--- post-commit hook fired at Mon, Sep 28, 2026  9:50:04 AM for HEAD 3358edcae1c3da15e4dca0cdc3240e14442c96a1 ---
+repowise update · erpillumenatelighting
+c9b9ffde..3358edca
+136 changed · 28 modified, 108 added
+    modified  .claude/CLAUDE.md
+    modified  .github/workflows/ci.yml
+    modified  .repowise/.update.log
+    modified  .repowise/centrality_cache.pkl
+    modified  .repowise/commit_window_cache.json
+    modified  .repowise/duplication_cache.pkl
+    modified  .repowise/duplication_pairs.pkl
+    modified  .repowise/episodes/episodes.db
+    modified  .repowise/health_walk_cache.pkl
+    modified  .repowise/knowledge-graph.json
+  +126 more (use -v to list all)
+Dynamic hint edges added: 1
+Pages from an older renderer: 40
+Reconciling stale structural pages: 4
+
+⚠ Cascade budget of 50 pages was reached. 86 dependent pages were skipped and marked stale.
+  Pass `--cascade-budget 136` to regenerate them all.
+
+Pages to regenerate: 91
+Pages to decay: 86
+2026-09-28 09:50:39 [debug    ] duplication_incremental_splice changed=13 deleted=0 pairs=31521 touched_buckets=5904
+Health analysis (partial): 136 changed, 36 performance-affected, 21 findings
+Dead code findings: 832
+Knowledge graph refreshed: 9 layers, 12 tour steps
+  ✓ Re-rendered 85 wiki pages from structure
+Related pages refreshed on 19 pages
+
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── {^ ^}  repowise index-only update complete ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                                                                                                                                                                                                                                                                                                                              │
+│   Files changed           136                                                                                                                                                                                                                                                                                                                                                                                │
+│   Graph                   6,199 nodes · 13,371 edges                                                                                                                                                                                                                                                                                                                                                         │
+│   Dead code               1 unreachable · 0 unused exports                                                                                                                                                                                                                                                                                                                                                   │
+│   Wiki pages              85 re-rendered from structure                                                                                                                                                                                                                                                                                                                                                      │
+│   Git history             4 files refreshed                                                                                                                                                                                                                                                                                                                                                                  │
+│   Elapsed                 48.2s                                                                                                                                                                                                                                                                                                                                                                              │
+│                                                                                                                                                                                                                                                                                                                                                                                                              │
+│   What's next:                                                                                                                                                                                                                                                                                                                                                                                               │
+│   repowise serve              browse the index at localhost:3000                                                                                                                                                                                                                                                                                                                                             │
+│   repowise generate           upgrade the wiki to model-written prose (needs a key)                                                                                                                                                                                                                                                                                                                          │
+│                                                                                                                                                                                                                                                                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ✓ AGENTS.md updated
+  ✓ VS Code MCP configured (C:\Users\Kevin\Documents\GitHub\erpillumenatelighting\.vscode\mcp.json)
+  ✓ VS Code extension recommended (C:\Users\Kevin\Documents\GitHub\erpillumenatelighting\.vscode\extensions.json)

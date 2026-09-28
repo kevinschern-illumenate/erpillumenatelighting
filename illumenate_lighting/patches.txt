@@ -40,3 +40,4 @@ illumenate_lighting.patches.b2b_accounts
 illumenate_lighting.patches.b2b_order_service
 illumenate_lighting.patches.b2b_commercial_lineage
 illumenate_lighting.patches.b2b_authoring_roles
+illumenate_lighting.patches.b2b_commercial_schema

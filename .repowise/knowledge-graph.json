@@ -567,8 +567,8 @@
       "filePath": ".github/workflows/ci.yml",
       "language": "yaml",
       "symbolCount": 0,
-      "lineCount": 80,
-      "complexity": "simple",
+      "lineCount": 104,
+      "complexity": "moderate",
       "pagerank": 0.000603,
       "communityId": 19,
       "tags": [
@@ -661,7 +661,7 @@
       "filePath": "AGENTS.md",
       "language": "markdown",
       "symbolCount": 0,
-      "lineCount": 222,
+      "lineCount": 223,
       "complexity": "moderate",
       "pagerank": 0.000603,
       "communityId": 25,
@@ -726,7 +726,7 @@
       "filePath": "docs/B2B_MIGRATION_REPAIR_2026_09_28.md",
       "language": "markdown",
       "symbolCount": 0,
-      "lineCount": 114,
+      "lineCount": 230,
       "complexity": "moderate",
       "pagerank": 0.000603,
       "communityId": 30,
@@ -1068,7 +1068,7 @@
       "symbolCount": 1,
       "lineCount": 0,
       "complexity": "simple",
-      "pagerank": 0.000603,
+      "pagerank": 0.000645,
       "communityId": 67,
       "tags": [],
       "summary": "Application module __init__ (1 symbols)."
@@ -1092,7 +1092,7 @@
       "filePath": "illumenate_lighting/hooks.py",
       "language": "python",
       "symbolCount": 27,
-      "lineCount": 631,
+      "lineCount": 632,
       "complexity": "complex",
       "pagerank": 0.000603,
       "communityId": 69,
@@ -1173,7 +1173,7 @@
       "lineCount": 121,
       "complexity": "moderate",
       "pagerank": 0.000799,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "API module authoring_contract defining record_issues."
     },
@@ -1235,7 +1235,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/api/configured_product_builder.py",
       "language": "python",
       "symbolCount": 33,
-      "lineCount": 1345,
+      "lineCount": 1346,
       "complexity": "complex",
       "pagerank": 0.000766,
       "communityId": 1,
@@ -1316,7 +1316,7 @@
       "lineCount": 1530,
       "complexity": "complex",
       "pagerank": 0.00114,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "API module exports defining _save_file_ignore_permissions, _check_schedule_access, _check_pricing_permission."
     },
@@ -1417,7 +1417,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/api/led_sheet_configurator.py",
       "language": "python",
       "symbolCount": 25,
-      "lineCount": 584,
+      "lineCount": 585,
       "complexity": "complex",
       "pagerank": 0.000889,
       "communityId": 1,
@@ -1485,7 +1485,7 @@
       "lineCount": 125,
       "complexity": "moderate",
       "pagerank": 0.00084,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "API module manufacturing_order defining pinned_build, traveler, create_for_line."
     },
@@ -1498,7 +1498,7 @@
       "lineCount": 3861,
       "complexity": "complex",
       "pagerank": 0.001466,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "API module portal defining _safe_error, _can_access_configured_record, get_allowed_customers_for_project."
     },
@@ -1534,7 +1534,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/api/product_catalog.py",
       "language": "python",
       "symbolCount": 4,
-      "lineCount": 350,
+      "lineCount": 351,
       "complexity": "moderate",
       "pagerank": 0.000603,
       "communityId": 1,
@@ -1563,7 +1563,7 @@
       "lineCount": 382,
       "complexity": "moderate",
       "pagerank": 0.00066,
-      "communityId": 1,
+      "communityId": 3,
       "tags": [],
       "summary": "API module product_readiness defining require_catalog_reader, authoring_preview, content_record."
     },
@@ -1707,7 +1707,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/api/spec_submittal.py",
       "language": "python",
       "symbolCount": 38,
-      "lineCount": 2108,
+      "lineCount": 2109,
       "complexity": "complex",
       "pagerank": 0.001016,
       "communityId": 1,
@@ -1722,7 +1722,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/api/tape_neon_bom.py",
       "language": "python",
       "symbolCount": 5,
-      "lineCount": 219,
+      "lineCount": 220,
       "complexity": "moderate",
       "pagerank": 0.000754,
       "communityId": 1,
@@ -1934,11 +1934,11 @@
       "type": "file",
       "filePath": "illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
       "language": "python",
-      "symbolCount": 3,
-      "lineCount": 36,
-      "complexity": "simple",
+      "symbolCount": 5,
+      "lineCount": 111,
+      "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 0,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -1954,7 +1954,7 @@
       "lineCount": 521,
       "complexity": "complex",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 4,
       "tags": [
         "test"
       ],
@@ -1984,7 +1984,7 @@
       "lineCount": 129,
       "complexity": "complex",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -2089,7 +2089,7 @@
       "lineCount": 74,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 0,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -2164,7 +2164,7 @@
       "lineCount": 348,
       "complexity": "moderate",
       "pagerank": 0.000994,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "API module unit_conversion defining mm_to_inches, inches_to_mm, mm_to_feet."
     },
@@ -2190,7 +2190,7 @@
       "lineCount": 66,
       "complexity": "simple",
       "pagerank": 0.000731,
-      "communityId": 0,
+      "communityId": 2,
       "tags": [],
       "summary": "API module webflow_auth defining get_user_context."
     },
@@ -2307,7 +2307,7 @@
       "lineCount": 152,
       "complexity": "moderate",
       "pagerank": 0.000972,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module dealer_permissions defining apply_dealer_permissions, _current_permission_value, _dealer_customer."
     },
@@ -4850,8 +4850,7 @@
       "pagerank": 0.000603,
       "communityId": 0,
       "tags": [],
-      "summary": "Application module ill_child_group_allocation defining IllChildGroupAllocation.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module ill_child_group_allocation defining IllChildGroupAllocation."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_child_group_member/__init__.py",
@@ -4892,8 +4891,7 @@
       "pagerank": 0.000603,
       "communityId": 0,
       "tags": [],
-      "summary": "Application module ill_child_group_member defining IllChildGroupMember.",
-      "primaryOwner": "kevinscherncascade"
+      "summary": "Application module ill_child_group_member defining IllChildGroupMember."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_child_kit_allowed_option/__init__.py",
@@ -6293,8 +6291,7 @@
       "pagerank": 0.000603,
       "communityId": 0,
       "tags": [],
-      "summary": "Application module ill_configurator_session defining IlLConfiguratorSession, before_insert.",
-      "primaryOwner": "kevinschern-illumenate"
+      "summary": "Application module ill_configurator_session defining IlLConfiguratorSession, before_insert."
     },
     {
       "id": "file:illumenate_lighting/illumenate_lighting/doctype/ill_configured_fixture/__init__.py",
@@ -6481,7 +6478,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/doctype/ill_configured_tape_neon/ill_configured_tape_neon.py",
       "language": "python",
       "symbolCount": 7,
-      "lineCount": 156,
+      "lineCount": 157,
       "complexity": "moderate",
       "pagerank": 0.000603,
       "communityId": 1,
@@ -6617,7 +6614,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/doctype/ill_document_request/ill_document_request.py",
       "language": "python",
       "symbolCount": 20,
-      "lineCount": 467,
+      "lineCount": 468,
       "complexity": "complex",
       "pagerank": 0.001257,
       "communityId": 4,
@@ -6810,7 +6807,7 @@
       "lineCount": 119,
       "complexity": "moderate",
       "pagerank": 0.000667,
-      "communityId": 1,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module ill_export_job defining ilLExportJob, before_insert, validate."
     },
@@ -6823,7 +6820,7 @@
       "lineCount": 95,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 0,
       "tags": [
         "test"
       ],
@@ -7004,7 +7001,7 @@
       "lineCount": 31,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 2,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module ill_item_literature defining ilLItemLiterature, validate."
     },
@@ -7686,7 +7683,7 @@
       "lineCount": 2,
       "complexity": "simple",
       "pagerank": 0.001781,
-      "communityId": 1,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module __init__."
     },
@@ -7727,7 +7724,7 @@
       "lineCount": 136,
       "complexity": "moderate",
       "pagerank": 0.004325,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module ill_project defining _is_internal_user, _is_dealer_user, ilLProject."
     },
@@ -7740,7 +7737,7 @@
       "lineCount": 180,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 0,
       "tags": [
         "test"
       ],
@@ -7796,7 +7793,7 @@
       "lineCount": 1464,
       "complexity": "complex",
       "pagerank": 0.001596,
-      "communityId": 1,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module ill_project_fixture_schedule defining _validate_tape_neon_mode, _is_internal_user, _is_dealer_user."
     },
@@ -7875,7 +7872,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/doctype/ill_qbo_settings/ill_qbo_settings.json",
       "language": "json",
       "symbolCount": 0,
-      "lineCount": 94,
+      "lineCount": 91,
       "complexity": "simple",
       "pagerank": 0.000603,
       "communityId": 335,
@@ -9813,7 +9810,7 @@
       "lineCount": 84,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 0,
+      "communityId": 1,
       "tags": [],
       "summary": "Application module ill_webflow_session defining ilLWebflowSession, before_insert, validate."
     },
@@ -9895,7 +9892,7 @@
       "lineCount": 71,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module install defining after_install, create_dealer_role, setup_dealer_permissions."
     },
@@ -9975,7 +9972,7 @@
       "lineCount": 334,
       "complexity": "complex",
       "pagerank": 0.005548,
-      "communityId": 1,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module access defining Actor, __init__, is_company_dealer_for."
     },
@@ -9988,7 +9985,7 @@
       "lineCount": 551,
       "complexity": "complex",
       "pagerank": 0.001049,
-      "communityId": 1,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module accounts defining _login, company, linked_to."
     },
@@ -10001,7 +9998,7 @@
       "lineCount": 120,
       "complexity": "moderate",
       "pagerank": 0.000641,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module build_documents defining member_document, generate_group."
     },
@@ -10027,7 +10024,7 @@
       "lineCount": 39,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 4,
+      "communityId": 0,
       "tags": [],
       "summary": "Application module commercial_tasks defining assign."
     },
@@ -10131,7 +10128,7 @@
       "lineCount": 58,
       "complexity": "moderate",
       "pagerank": 0.001509,
-      "communityId": 2,
+      "communityId": 4,
       "tags": [],
       "summary": "Application module file_validation defining validate_content."
     },
@@ -10193,7 +10190,7 @@
       "filePath": "illumenate_lighting/illumenate_lighting/portal/notifications.py",
       "language": "python",
       "symbolCount": 10,
-      "lineCount": 168,
+      "lineCount": 169,
       "complexity": "moderate",
       "pagerank": 0.001213,
       "communityId": 4,
@@ -10235,7 +10232,7 @@
       "lineCount": 90,
       "complexity": "simple",
       "pagerank": 0.000695,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module order_acknowledgment defining create, download."
     },
@@ -10313,7 +10310,7 @@
       "lineCount": 193,
       "complexity": "moderate",
       "pagerank": 0.000684,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module packet_jobs defining InterruptedPacket, lock_running, checkpoint."
     },
@@ -10339,7 +10336,7 @@
       "lineCount": 381,
       "complexity": "moderate",
       "pagerank": 0.000718,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module packets defining gather, _incomplete_watermark, generate."
     },
@@ -10352,7 +10349,7 @@
       "lineCount": 26,
       "complexity": "simple",
       "pagerank": 0.000786,
-      "communityId": 1,
+      "communityId": 3,
       "tags": [],
       "summary": "Application module pdf_mapping defining set_value, check_mappings."
     },
@@ -10378,7 +10375,7 @@
       "lineCount": 77,
       "complexity": "simple",
       "pagerank": 0.000722,
-      "communityId": 2,
+      "communityId": 1,
       "tags": [],
       "summary": "Application module product_downloads defining isolated_download, save_generated."
     },
@@ -10495,7 +10492,7 @@
       "lineCount": 123,
       "complexity": "moderate",
       "pagerank": 0.001234,
-      "communityId": 4,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module status defining schedule_status_label, schedule_status_class, schedule_status_description."
     },
@@ -10846,7 +10843,7 @@
       "symbolCount": 7,
       "lineCount": 130,
       "complexity": "moderate",
-      "pagerank": 0.029238,
+      "pagerank": 0.029196,
       "communityId": 1,
       "tags": [],
       "summary": "Application module utils defining after_request, parse_positive_int, get_compatible_lenses_for_profile."
@@ -10914,7 +10911,7 @@
       "lineCount": 76,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_configured_variant_fields defining _quote_order_power_supply_fields, execute."
     },
@@ -10927,7 +10924,7 @@
       "lineCount": 75,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_qbo_payment_sync_fields defining execute, _ensure_mode_of_payment."
     },
@@ -10940,7 +10937,7 @@
       "lineCount": 84,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_qbo_sync_fields defining execute."
     },
@@ -10953,7 +10950,7 @@
       "lineCount": 146,
       "complexity": "moderate",
       "pagerank": 0.000743,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_quote_order_configurator_fields defining _configured_product_fields, execute."
     },
@@ -10966,7 +10963,7 @@
       "lineCount": 19,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_sales_order_section_label defining execute."
     },
@@ -10992,7 +10989,7 @@
       "lineCount": 162,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_webflow_lead_fields defining delete_field_if_type_mismatch, execute."
     },
@@ -11005,7 +11002,7 @@
       "lineCount": 124,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module add_webflow_sync_fields_to_attributes defining delete_field_if_type_mismatch, execute."
     },
@@ -11018,7 +11015,7 @@
       "lineCount": 19,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_accounts defining execute."
     },
@@ -11031,7 +11028,7 @@
       "lineCount": 5,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_authoring_roles defining execute."
     },
@@ -11044,7 +11041,7 @@
       "lineCount": 63,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_commercial_lineage defining execute."
     },
@@ -11057,7 +11054,7 @@
       "lineCount": 17,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_configurator_receipts defining execute."
     },
@@ -11070,7 +11067,7 @@
       "lineCount": 52,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_conversations defining execute."
     },
@@ -11083,7 +11080,7 @@
       "lineCount": 12,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_fixture_groups defining execute."
     },
@@ -11096,7 +11093,7 @@
       "lineCount": 25,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_order_service defining execute."
     },
@@ -11109,7 +11106,7 @@
       "lineCount": 65,
       "complexity": "simple",
       "pagerank": 0.000659,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module b2b_portal_foundations defining execute."
     },
@@ -11135,7 +11132,7 @@
       "lineCount": 88,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "Application module backfill_driver_controller_templates defining execute, _backfill_product, _derive_template_code."
     },
@@ -11174,7 +11171,7 @@
       "lineCount": 111,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module consolidate_section_label_field defining _section_label_field, _fixture_type_field, _schedule_line_id_field."
     },
@@ -11187,7 +11184,7 @@
       "lineCount": 151,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 9,
+      "communityId": 0,
       "tags": [],
       "summary": "Application module convert_lead_job_title_to_link defining execute, _categorize_job_title."
     },
@@ -11239,7 +11236,7 @@
       "lineCount": 24,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 9,
+      "communityId": 0,
       "tags": [],
       "summary": "Application module make_po_schedule_date_optional defining execute."
     },
@@ -11252,7 +11249,7 @@
       "lineCount": 132,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module migrate_attribute_sync_fields_to_brand_table defining _add_table_field, _hide_legacy_scalars, _backfill_per_brand_rows."
     },
@@ -11278,7 +11275,7 @@
       "lineCount": 19,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module setup_dealer_sales_permissions defining execute."
     },
@@ -11317,7 +11314,7 @@
       "lineCount": 120,
       "complexity": "moderate",
       "pagerank": 0.001526,
-      "communityId": 6,
+      "communityId": 7,
       "tags": [],
       "summary": "Application module portal_staff_permissions defining authoring_permissions, apply_staff_permissions, apply_service_permissions."
     },
@@ -11327,12 +11324,13 @@
       "filePath": "illumenate_lighting/portal_workspace.py",
       "language": "python",
       "symbolCount": 5,
-      "lineCount": 84,
+      "lineCount": 98,
       "complexity": "moderate",
-      "pagerank": 0.000603,
-      "communityId": 1,
+      "pagerank": 0.000645,
+      "communityId": 2,
       "tags": [],
-      "summary": "Application module portal_workspace defining merge_workspace, _directory, before_migrate."
+      "summary": "Application module portal_workspace defining merge_workspace, _directory, before_migrate.",
+      "primaryOwner": "kevinscherncascade"
     },
     {
       "id": "file:illumenate_lighting/public/js/authoring_readiness.js",
@@ -11356,7 +11354,7 @@
       "lineCount": 82,
       "complexity": "simple",
       "pagerank": 0.000667,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module commercial_tasks."
     },
@@ -11369,7 +11367,7 @@
       "lineCount": 3021,
       "complexity": "complex",
       "pagerank": 0.000706,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module coordinator defining Coordinator."
     },
@@ -11382,7 +11380,7 @@
       "lineCount": 367,
       "complexity": "moderate",
       "pagerank": 0.000706,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module fixture_group_editor defining clone, button, geometry."
     },
@@ -11395,7 +11393,7 @@
       "lineCount": 1489,
       "complexity": "complex",
       "pagerank": 0.000706,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module fixture_steps defining Fixture, getHandoff, cssEscape."
     },
@@ -11408,7 +11406,7 @@
       "lineCount": 746,
       "complexity": "complex",
       "pagerank": 0.000706,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module led_sheet_steps defining money, num, LedSheet."
     },
@@ -11421,7 +11419,7 @@
       "lineCount": 1030,
       "complexity": "complex",
       "pagerank": 0.000706,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module shared_configurator defining Base, debounce, loadUserProjects."
     },
@@ -11434,7 +11432,7 @@
       "lineCount": 1086,
       "complexity": "complex",
       "pagerank": 0.000706,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module tape_neon_steps defining TapeNeon, getHandoff, cssEscape."
     },
@@ -11447,7 +11445,7 @@
       "lineCount": 1183,
       "complexity": "complex",
       "pagerank": 0.000667,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module desk_dialog defining canConfigure, selectedItemRowName, variantOriginFor."
     },
@@ -11473,7 +11471,7 @@
       "lineCount": 12,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module illumenate_desk.bundle."
     },
@@ -11486,7 +11484,7 @@
       "lineCount": 14,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module illumenate_web.bundle."
     },
@@ -11512,7 +11510,7 @@
       "lineCount": 189,
       "complexity": "moderate",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal."
     },
@@ -11525,7 +11523,7 @@
       "lineCount": 224,
       "complexity": "moderate",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal_accounts defining call, escape, dialog."
     },
@@ -11538,7 +11536,7 @@
       "lineCount": 138,
       "complexity": "moderate",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal_commercial defining dialog, quote, order."
     },
@@ -11551,7 +11549,7 @@
       "lineCount": 161,
       "complexity": "moderate",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal_conversation defining element, load, mount."
     },
@@ -11577,7 +11575,7 @@
       "lineCount": 101,
       "complexity": "moderate",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal_line_documents defining open."
     },
@@ -11590,7 +11588,7 @@
       "lineCount": 119,
       "complexity": "moderate",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal_order_intake defining esc, open."
     },
@@ -11603,7 +11601,7 @@
       "lineCount": 46,
       "complexity": "simple",
       "pagerank": 0.000642,
-      "communityId": 7,
+      "communityId": 8,
       "tags": [],
       "summary": "Application module portal_uploads defining upload, uploadAll, call."
     },
@@ -11915,7 +11913,7 @@
       "lineCount": 80,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 0,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module account defining get_context, _get_user_customer, _get_contact_job_title."
     },
@@ -11941,7 +11939,7 @@
       "lineCount": 107,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module collaborators defining get_context, _get_available_users."
     },
@@ -12032,7 +12030,7 @@
       "lineCount": 37,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module configure_sheet defining get_context."
     },
@@ -12110,7 +12108,7 @@
       "lineCount": 144,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 0,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module drawings defining _get_user_customer, get_context, _get_project_names."
     },
@@ -12136,7 +12134,7 @@
       "lineCount": 88,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module edit_fixture defining get_context."
     },
@@ -12185,7 +12183,7 @@
       "filePath": "illumenate_lighting/templates/pages/ill_support.py",
       "language": "python",
       "symbolCount": 3,
-      "lineCount": 36,
+      "lineCount": 37,
       "complexity": "simple",
       "pagerank": 0.000603,
       "communityId": 4,
@@ -12211,7 +12209,7 @@
       "filePath": "illumenate_lighting/templates/pages/order_detail.py",
       "language": "python",
       "symbolCount": 2,
-      "lineCount": 53,
+      "lineCount": 54,
       "complexity": "simple",
       "pagerank": 0.000603,
       "communityId": 4,
@@ -12240,7 +12238,7 @@
       "lineCount": 26,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 4,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module orders defining get_context, _get_user_customer, _get_sales_orders_in_production."
     },
@@ -12292,7 +12290,7 @@
       "lineCount": 33,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module product_detail defining get_context."
     },
@@ -12318,7 +12316,7 @@
       "lineCount": 17,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module products_catalog defining get_context."
     },
@@ -12344,7 +12342,7 @@
       "lineCount": 128,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module project defining get_context, schedule_status_class, _get_new_project_context."
     },
@@ -12370,7 +12368,7 @@
       "lineCount": 9,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 4,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module quote_detail defining get_context."
     },
@@ -12396,7 +12394,7 @@
       "lineCount": 6,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 4,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module quote_request_detail defining get_context."
     },
@@ -12500,7 +12498,7 @@
       "lineCount": 895,
       "complexity": "complex",
       "pagerank": 0.000745,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [],
       "summary": "UI module schedule defining get_context, _get_new_schedule_context, schedule_status_class."
     },
@@ -12541,7 +12539,7 @@
       "lineCount": 11,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 4,
+      "communityId": 0,
       "tags": [],
       "summary": "UI module support_detail defining get_context."
     },
@@ -12897,7 +12895,7 @@
       "lineCount": 120,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [
         "test"
       ],
@@ -12912,7 +12910,7 @@
       "lineCount": 325,
       "complexity": "complex",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -13002,7 +13000,7 @@
       "lineCount": 219,
       "complexity": "moderate",
       "pagerank": 0.000654,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -13017,7 +13015,7 @@
       "lineCount": 127,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 2,
+      "communityId": 1,
       "tags": [
         "test"
       ],
@@ -13058,9 +13056,9 @@
       "type": "file",
       "filePath": "tests/portal_unit/test_migration_assets.py",
       "language": "python",
-      "symbolCount": 15,
-      "lineCount": 189,
-      "complexity": "moderate",
+      "symbolCount": 22,
+      "lineCount": 312,
+      "complexity": "complex",
       "pagerank": 0.000603,
       "communityId": 2,
       "tags": [
@@ -13078,7 +13076,7 @@
       "lineCount": 134,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -13228,7 +13226,7 @@
       "lineCount": 261,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -13258,7 +13256,7 @@
       "lineCount": 134,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -13273,7 +13271,7 @@
       "lineCount": 68,
       "complexity": "moderate",
       "pagerank": 0.000603,
-      "communityId": 1,
+      "communityId": 2,
       "tags": [
         "test"
       ],
@@ -13311,12 +13309,13 @@
       "filePath": "tools/check_b2b_changes.py",
       "language": "python",
       "symbolCount": 6,
-      "lineCount": 75,
+      "lineCount": 78,
       "complexity": "moderate",
       "pagerank": 0.000603,
       "communityId": 2,
       "tags": [],
-      "summary": "Utility module check_b2b_changes defining git, lint, main."
+      "summary": "Utility module check_b2b_changes defining git, lint, main.",
+      "primaryOwner": "kevinscherncascade"
     },
     {
       "id": "file:tools/check_pdf_fidelity.py",
@@ -13392,7 +13391,7 @@
       "lineCount": 14,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Re-export barrel for configurator_ui/."
     },
@@ -13433,7 +13432,7 @@
       "lineCount": 14,
       "complexity": "simple",
       "pagerank": 0.000918,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "entry_point"
       ],
@@ -13461,7 +13460,7 @@
       "lineCount": 78,
       "complexity": "simple",
       "pagerank": 0.000696,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module CompareTable defining cellValue, CompareTable."
     },
@@ -13474,7 +13473,7 @@
       "lineCount": 19,
       "complexity": "simple",
       "pagerank": 0.000733,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module GlossaryTerm defining GlossaryTerm."
     },
@@ -13487,7 +13486,7 @@
       "lineCount": 146,
       "complexity": "moderate",
       "pagerank": 0.00077,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module ProgressBar defining ProgressBar."
     },
@@ -13500,7 +13499,7 @@
       "lineCount": 436,
       "complexity": "moderate",
       "pagerank": 0.00077,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module QuestionStep defining QuestionStep, OptionList, DisabledOptionWrapper."
     },
@@ -13513,7 +13512,7 @@
       "lineCount": 354,
       "complexity": "moderate",
       "pagerank": 0.00077,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module Results defining Results."
     },
@@ -13526,7 +13525,7 @@
       "lineCount": 104,
       "complexity": "moderate",
       "pagerank": 0.00077,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module SideNav defining SideNav."
     },
@@ -13539,7 +13538,7 @@
       "lineCount": 125,
       "complexity": "moderate",
       "pagerank": 0.000915,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module Tooltip defining Tooltip."
     },
@@ -13552,7 +13551,7 @@
       "lineCount": 196,
       "complexity": "moderate",
       "pagerank": 0.001384,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "UI module Wizard defining computeRevealedCount, Wizard."
     },
@@ -13565,7 +13564,7 @@
       "lineCount": 270,
       "complexity": "moderate",
       "pagerank": 0.000915,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "config"
       ],
@@ -13580,7 +13579,7 @@
       "lineCount": 336,
       "complexity": "moderate",
       "pagerank": 0.001903,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "config"
       ],
@@ -13595,7 +13594,7 @@
       "lineCount": 88,
       "complexity": "simple",
       "pagerank": 0.000841,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "config"
       ],
@@ -13610,7 +13609,7 @@
       "lineCount": 57,
       "complexity": "simple",
       "pagerank": 0.000841,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "config"
       ],
@@ -13625,7 +13624,7 @@
       "lineCount": 4833,
       "complexity": "complex",
       "pagerank": 0.000841,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "config"
       ],
@@ -13640,7 +13639,7 @@
       "lineCount": 89,
       "complexity": "moderate",
       "pagerank": 0.000696,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Service module configureHandoff defining buildConfigureUrl, buildLoginUrl, saveToLocalStorage."
     },
@@ -13653,7 +13652,7 @@
       "lineCount": 134,
       "complexity": "moderate",
       "pagerank": 0.00153,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Service module engine defining testClause, evalCondition, isQuestionVisible."
     },
@@ -13666,7 +13665,7 @@
       "lineCount": 293,
       "complexity": "complex",
       "pagerank": 0.001123,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Service module recommend defining kelvinOf, criMinFor, hardFilterReasons."
     },
@@ -13679,7 +13678,7 @@
       "lineCount": 70,
       "complexity": "simple",
       "pagerank": 0.000696,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Service module resultObject defining buildResultObject, downloadResultObject."
     },
@@ -13692,7 +13691,7 @@
       "lineCount": 52,
       "complexity": "simple",
       "pagerank": 0.001115,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "entry_point"
       ],
@@ -13735,7 +13734,7 @@
       "lineCount": 27,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 8,
+      "communityId": 9,
       "tags": [],
       "summary": "Utility module vite.config."
     },
@@ -13748,7 +13747,7 @@
       "lineCount": 22,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 8,
+      "communityId": 9,
       "tags": [],
       "summary": "Utility module vite.preview.config."
     },
@@ -13761,7 +13760,7 @@
       "lineCount": 413,
       "complexity": "complex",
       "pagerank": 0.000603,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module csv_to_seed defining _split, _float, _int."
     },
@@ -13800,7 +13799,7 @@
       "lineCount": 360,
       "complexity": "moderate",
       "pagerank": 0.000666,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [
         "entry_point"
       ],
@@ -13815,7 +13814,7 @@
       "lineCount": 546,
       "complexity": "complex",
       "pagerank": 0.006421,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module config_schema defining ProfileDef, LensDef, AccessoryDef."
     },
@@ -13828,7 +13827,7 @@
       "lineCount": 0,
       "complexity": "simple",
       "pagerank": 0.000734,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module __init__."
     },
@@ -13838,10 +13837,10 @@
       "filePath": "tools/fixture_builder/generators/common.py",
       "language": "python",
       "symbolCount": 15,
-      "lineCount": 125,
+      "lineCount": 126,
       "complexity": "moderate",
       "pagerank": 0.00576,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module common defining led_sheet_attribute_doctype, write_csv, blank_row."
     },
@@ -13854,7 +13853,7 @@
       "lineCount": 155,
       "complexity": "moderate",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_fixture_template defining _build_allowed_option_row, _build_tape_offering_row, _build_pn_builder_row."
     },
@@ -13867,7 +13866,7 @@
       "lineCount": 155,
       "complexity": "moderate",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_item_csv defining _row, _continuation_row, generate."
     },
@@ -13880,7 +13879,7 @@
       "lineCount": 99,
       "complexity": "moderate",
       "pagerank": 0.00067,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_led_sheet_submittal_mapping defining _load_source_mappings, generate."
     },
@@ -13893,7 +13892,7 @@
       "lineCount": 109,
       "complexity": "moderate",
       "pagerank": 0.00067,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_led_sheet_template defining _spec_rows, _option_rows, generate_specs."
     },
@@ -13906,7 +13905,7 @@
       "lineCount": 206,
       "complexity": "moderate",
       "pagerank": 0.000624,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_led_sheet_webflow defining _build_configurator_step, _build_attribute_link, generate."
     },
@@ -13919,7 +13918,7 @@
       "lineCount": 143,
       "complexity": "moderate",
       "pagerank": 0.00066,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_neon_submittal_mapping defining _load_source_mappings, generate."
     },
@@ -13929,10 +13928,10 @@
       "filePath": "tools/fixture_builder/generators/gen_rel_driver_eligibility.py",
       "language": "python",
       "symbolCount": 2,
-      "lineCount": 32,
+      "lineCount": 33,
       "complexity": "simple",
       "pagerank": 0.000697,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_rel_driver_eligibility defining generate."
     },
@@ -13945,7 +13944,7 @@
       "lineCount": 48,
       "complexity": "simple",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_rel_endcap_map defining generate."
     },
@@ -13958,7 +13957,7 @@
       "lineCount": 89,
       "complexity": "moderate",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_rel_mounting_map defining generate, _matches_family."
     },
@@ -13971,7 +13970,7 @@
       "lineCount": 54,
       "complexity": "simple",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_rel_profile_lens defining _get_lens_items, generate."
     },
@@ -13984,7 +13983,7 @@
       "lineCount": 27,
       "complexity": "simple",
       "pagerank": 0.00066,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_rel_tape_offering defining generate."
     },
@@ -13997,7 +13996,7 @@
       "lineCount": 55,
       "complexity": "simple",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_spec_accessory defining generate."
     },
@@ -14010,7 +14009,7 @@
       "lineCount": 48,
       "complexity": "simple",
       "pagerank": 0.00066,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_spec_led_tape defining generate."
     },
@@ -14023,7 +14022,7 @@
       "lineCount": 30,
       "complexity": "simple",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_spec_lens defining generate."
     },
@@ -14036,7 +14035,7 @@
       "lineCount": 51,
       "complexity": "simple",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_spec_profile defining generate."
     },
@@ -14049,7 +14048,7 @@
       "lineCount": 143,
       "complexity": "moderate",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_spec_submittal_mapping defining _load_source_mappings, generate."
     },
@@ -14062,7 +14061,7 @@
       "lineCount": 54,
       "complexity": "simple",
       "pagerank": 0.00066,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_tape_item_csv defining _row, generate."
     },
@@ -14075,7 +14074,7 @@
       "lineCount": 115,
       "complexity": "moderate",
       "pagerank": 0.00066,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_tape_neon_template defining _build_spec_child, _build_option_child, generate."
     },
@@ -14088,7 +14087,7 @@
       "lineCount": 207,
       "complexity": "moderate",
       "pagerank": 0.00066,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_tape_neon_webflow defining _build_configurator_step, _build_attribute_link, generate."
     },
@@ -14101,7 +14100,7 @@
       "lineCount": 244,
       "complexity": "moderate",
       "pagerank": 0.00065,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module gen_webflow_product defining _build_configurator_step, _build_attribute_link, generate."
     },
@@ -14114,7 +14113,7 @@
       "lineCount": 680,
       "complexity": "complex",
       "pagerank": 0.000624,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module prompts defining _input, _input_int, _input_float."
     },
@@ -14216,7 +14215,7 @@
       "symbolCount": 0,
       "lineCount": 0,
       "complexity": "simple",
-      "pagerank": 0.001627,
+      "pagerank": 0.00167,
       "communityId": 533,
       "tags": [
         "test"
@@ -14232,7 +14231,7 @@
       "lineCount": 697,
       "complexity": "complex",
       "pagerank": 0.000603,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [
         "test"
       ],
@@ -14244,10 +14243,10 @@
       "filePath": "tools/fixture_builder/tests/test_tape_neon_generators.py",
       "language": "python",
       "symbolCount": 71,
-      "lineCount": 668,
+      "lineCount": 669,
       "complexity": "complex",
       "pagerank": 0.000603,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [
         "test"
       ],
@@ -14275,7 +14274,7 @@
       "lineCount": 80,
       "complexity": "simple",
       "pagerank": 0.000649,
-      "communityId": 2,
+      "communityId": 5,
       "tags": [],
       "summary": "Utility module validate_authoring_csv defining validate, main."
     },
@@ -14301,7 +14300,7 @@
       "lineCount": 8,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Re-export barrel for yaml_builder_ui/."
     },
@@ -14342,7 +14341,7 @@
       "lineCount": 2252,
       "complexity": "complex",
       "pagerank": 0.001184,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "entry_point"
       ],
@@ -14357,7 +14356,7 @@
       "lineCount": 1474,
       "complexity": "complex",
       "pagerank": 0.000938,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [],
       "summary": "Utility module fixtures defining blankFixtureState, renderProfile, renderLens."
     },
@@ -14370,7 +14369,7 @@
       "lineCount": 6,
       "complexity": "simple",
       "pagerank": 0.001115,
-      "communityId": 5,
+      "communityId": 6,
       "tags": [
         "entry_point"
       ],
@@ -14398,7 +14397,7 @@
       "lineCount": 4,
       "complexity": "simple",
       "pagerank": 0.000603,
-      "communityId": 8,
+      "communityId": 9,
       "tags": [],
       "summary": "Utility module vite.config."
     },
@@ -33654,6 +33653,13 @@
     },
     {
       "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
+      "target": "file:external:hashlib",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
       "target": "file:external:json",
       "type": "tested_by",
       "direction": "forward",
@@ -33668,8 +33674,43 @@
     },
     {
       "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
+      "target": "file:external:tempfile",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
+      "target": "file:external:unittest.mock",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
+      "target": "file:illumenate_lighting/__init__.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
       "target": "file:illumenate_lighting/illumenate_lighting/utils.py",
       "type": "tested_by",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
+      "target": "file:illumenate_lighting/portal_workspace.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:illumenate_lighting/illumenate_lighting/api/test_migration_assets.py",
+      "target": "file:tools/fixture_builder/tests/__init__.py",
+      "type": "imports",
       "direction": "forward",
       "weight": 1.0
     },

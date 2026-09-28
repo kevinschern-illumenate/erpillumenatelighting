@@ -6,6 +6,7 @@ The local portal_unit suite checks packaging without Frappe; these tests check
 real controller imports, installed records and Frappe link validation.
 """
 
+import ast
 import hashlib
 import json
 import tempfile
@@ -25,6 +26,107 @@ from illumenate_lighting import portal_workspace
 
 
 class TestMigrationAssets(IntegrationTestCase):
+	def test_commercial_setup_extends_legacy_choices_without_resetting_site_settings(self):
+		from illumenate_lighting.patches.b2b_commercial_schema import execute
+
+		field = frappe.get_doc("Custom Field", {"dt": "Sales Order Item", "fieldname": "ill_product_type"})
+		original_options, original_label = field.options, field.label
+		count = frappe.db.count("Custom Field", {"dt": "Sales Order Item"})
+		try:
+			field.options = "\nLinear Fixture\nLED Tape\nLED Neon\nSite Product"
+			field.label = "Site Product Family"
+			field.save(ignore_permissions=True)
+			execute()
+			execute()
+			field.reload()
+			self.assertEqual(field.options.split("\n")[-2:], ["Site Product", "LED Sheet"])
+			self.assertEqual(field.label, "Site Product Family")
+			self.assertEqual(frappe.db.count("Custom Field", {"dt": "Sales Order Item"}), count)
+		finally:
+			field.options, field.label = original_options, original_label
+			field.save(ignore_permissions=True)
+
+	def test_literal_portal_query_fields_have_physical_columns(self):
+		app = Path(frappe.get_app_path("illumenate_lighting"))
+		paths = [*(app / "illumenate_lighting/portal").glob("*.py"), *(app / "templates/pages").glob("*.py")]
+		columns = {}
+		for path in paths:
+			for call in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+				if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Attribute):
+					continue
+				if ast.unparse(call.func) not in ("frappe.get_all", "frappe.get_list", "frappe.db.get_value"):
+					continue
+				if not call.args or not isinstance(call.args[0], ast.Constant) or not isinstance(call.args[0].value, str):
+					continue
+				doctype = call.args[0].value
+				fields = next((arg.value for arg in call.keywords if arg.arg in ("fields", "fieldname", "pluck")), None)
+				if fields is None and call.func.attr == "get_value" and len(call.args) > 2:
+					fields = call.args[2]
+				try:
+					fields = ast.literal_eval(fields)
+				except (TypeError, ValueError):
+					continue  # Dynamic selections and SQL expressions need runtime coverage.
+				if isinstance(fields, str):
+					fields = [fields]
+				if not isinstance(fields, (list, tuple)):
+					continue
+				if doctype not in columns:
+					columns[doctype] = set(frappe.db.get_table_columns(doctype))
+				for field in fields:
+					if isinstance(field, str) and field.isidentifier():
+						with self.subTest(path=str(path.relative_to(app)), line=call.lineno, doctype=doctype, field=field):
+							self.assertIn(field, columns[doctype])
+
+	def test_commercial_lineage_fields_have_physical_columns(self):
+		from illumenate_lighting.illumenate_lighting.portal.commercial_lineage import FIELDS
+
+		for doctype in ("Quotation Item", "Sales Order Item", "Delivery Note Item", "Sales Invoice Item"):
+			with self.subTest(doctype=doctype):
+				meta = frappe.get_meta(doctype)
+				self.assertFalse(set(FIELDS) - set(frappe.db.get_table_columns(doctype)))
+				for field in FIELDS:
+					self.assertTrue(meta.has_field(field), (doctype, field))
+				self.assertIn("LED Sheet", meta.get_field("ill_product_type").options.split("\n"))
+				self.assertEqual(meta.get_field("ill_configured_led_sheet").options, "ilL-Configured-LED-Sheet")
+				# Query even an empty table so a missing physical column is caught.
+				frappe.get_all(doctype, fields=list(FIELDS), limit_page_length=1)
+		for doctype in ("Quotation", "Sales Order"):
+			self.assertIn("ill_fixture_schedule", frappe.db.get_table_columns(doctype))
+
+	def test_portal_pages_render_with_an_existing_order(self):
+		from frappe.website.serve import get_response
+		from werkzeug.wrappers import Request
+
+		# A read-only route fixture, not a submitted commercial transaction.
+		# The previous empty-site checks skipped the Sales Order Item query.
+		order = frappe.get_doc({
+			"doctype": "Sales Order", "name": "ILL-PORTAL-SCHEMA-TEST", "customer": "Schema Test",
+			"customer_name": "Schema Test", "status": "Draft", "docstatus": 0,
+			"transaction_date": "2026-09-28", "delivery_date": "2026-10-01",
+			"currency": "USD", "grand_total": 10, "total": 10, "total_qty": 1,
+		})
+		order.db_insert()
+		line = frappe.get_doc({
+			"doctype": "Sales Order Item", "name": "ILL-PORTAL-SCHEMA-LINE", "parent": order.name,
+			"parenttype": "Sales Order", "parentfield": "items", "item_code": "Schema Item",
+			"item_name": "Schema Item", "qty": 1, "rate": 10, "amount": 10, "uom": "Nos",
+			"conversion_factor": 1,
+		})
+		line.db_insert()
+		try:
+			for path, args in (("portal", {}), ("portal/orders", {}), (f"portal/orders/{order.name}", {"order": order.name})):
+				with (
+					self.subTest(path=path),
+					patch.object(frappe.local, "request", Request.from_values(path="/" + path), create=True),
+					patch.object(frappe.local, "form_dict", frappe._dict(args)),
+				):
+					response = get_response(path)
+					self.assertEqual(response.status_code, 200)
+					self.assertIn(order.name, response.get_data(as_text=True))
+		finally:
+			frappe.db.delete("Sales Order Item", {"name": line.name})
+			frappe.db.delete("Sales Order", {"name": order.name})
+
 	def test_shipped_doctypes_survive_orphan_cleanup(self):
 		folder = Path(frappe.get_app_path("illumenate_lighting", "illumenate_lighting", "doctype"))
 		for path in folder.glob("*/*.json"):
