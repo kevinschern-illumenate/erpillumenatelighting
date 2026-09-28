@@ -6,15 +6,16 @@ import math
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	DEFAULT_UOM,
 	canonical_json,
 	fingerprint,
 	finite_number,
+	is_count_uom,
 	parse_bool,
 )
 from illumenate_lighting.illumenate_lighting.api.power_planner import plan_power
 
 ENGINE_VERSION = "led-sheet-2"
-COUNT_UOMS = {"Nos", "Unit", "Each"}
 
 
 def electrical_groups(panels, watts_per_panel, max_panels_per_feed):
@@ -76,7 +77,7 @@ def _component(item_code, qty, role):
 	if not item_code:
 		raise ValueError(f"An approved {role} Item is required")
 	item = frappe.db.get_value("Item", item_code, ["stock_uom", "disabled"], as_dict=True)
-	if not item or item.disabled or item.stock_uom not in COUNT_UOMS:
+	if not item or item.disabled or not is_count_uom(item.stock_uom):
 		raise ValueError(
 			f"{item_code}: {role} requires an active, count-based Item; bulk cable needs an explicit length mapping"
 		)
@@ -256,6 +257,7 @@ def ensure_artifacts(doc):
 	from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
 		ILLUMENATE_BRAND,
 		_ensure_brand_exists,
+		_ensure_default_uom_exists,
 		_ensure_item_group_exists,
 	)
 
@@ -277,21 +279,22 @@ def ensure_artifacts(doc):
 		_ensure_item_group_exists("Configured LED Sheets")
 		_ensure_brand_exists(ILLUMENATE_BRAND)
 		if not frappe.db.exists("Item", code):
+			_ensure_default_uom_exists()
 			frappe.get_doc(
 				{
 					"doctype": "Item",
 					"item_code": code,
 					"item_name": doc.part_number or doc.name,
 					"item_group": "Configured LED Sheets",
-					"stock_uom": "Nos",
+					"stock_uom": DEFAULT_UOM,
 					"is_stock_item": 1,
 					"brand": ILLUMENATE_BRAND,
 					"description": f"LED Sheet bundle {doc.name}; build {doc.config_hash}",
 				}
 			).insert(ignore_permissions=True)
 		item = frappe.db.get_value("Item", code, ["stock_uom", "disabled"], as_dict=True)
-		if item.disabled or item.stock_uom != "Nos":
-			raise ValueError("Configured Sheet Item must be active and measured in complete bundles (Nos)")
+		if not item or item.disabled or not is_count_uom(item.stock_uom):
+			raise ValueError("Configured Sheet Item must be active and measured in complete bundles (Ea)")
 		bom_name = doc.bom or frappe.db.get_value(
 			"BOM", {"item": code, "is_active": 1, "docstatus": 1}, "name"
 		)

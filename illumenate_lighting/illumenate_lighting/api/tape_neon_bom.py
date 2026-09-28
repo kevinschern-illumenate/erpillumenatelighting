@@ -98,11 +98,14 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
     ):
         macc_qty = int(configured.mounting_accessory_qty or 0)
         if macc_qty > 0:
+            mounting_uom = (
+                frappe.db.get_value("Item", configured.mounting_accessory_item, "stock_uom") or DEFAULT_UOM
+            )
             bom_items.append({
                 "item_code": configured.mounting_accessory_item,
                 "qty": macc_qty,
-                "uom": DEFAULT_UOM,
-                "stock_uom": DEFAULT_UOM,
+                "uom": mounting_uom,
+                "stock_uom": mounting_uom,
             })
 
     if configured.get("build_schema_version") == 2 and configured.get("include_power_supply"):

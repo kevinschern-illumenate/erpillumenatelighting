@@ -8,6 +8,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	cable_stock_quantity,
 	fingerprint,
 	finite_number,
+	is_count_uom,
 )
 
 
@@ -26,7 +27,7 @@ def item_row(item_code, qty, role, *, length_unit=None):
 		qty = cable_stock_quantity(
 			qty, length_unit, item.stock_uom, assembly_length_mm=item.ill_cable_assembly_length_mm or None
 		)
-	elif item.stock_uom not in {"Nos", "Unit", "Each"}:
+	elif not is_count_uom(item.stock_uom):
 		raise ValueError(f"{role} must use an approved count-based Item")
 	if qty <= 0:
 		raise ValueError(f"{role} quantity must be positive")

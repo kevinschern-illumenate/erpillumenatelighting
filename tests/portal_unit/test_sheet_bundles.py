@@ -212,6 +212,7 @@ class SheetBundles(unittest.TestCase):
 		helpers = types.SimpleNamespace(
 			ILLUMENATE_BRAND="ilLumenate",
 			_ensure_brand_exists=lambda name: None,
+			_ensure_default_uom_exists=lambda: None,
 			_ensure_item_group_exists=lambda name: None,
 		)
 		with load_service(

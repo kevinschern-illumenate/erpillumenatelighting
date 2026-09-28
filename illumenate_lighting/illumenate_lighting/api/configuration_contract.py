@@ -10,6 +10,7 @@ import math
 from decimal import Decimal
 
 CONTRACT_VERSION = 2
+DEFAULT_UOM = "Ea"
 FAMILY_ALIASES = {
 	"Fixture Template": "Linear Fixture",
 	"Linear Fixtures": "Linear Fixture",
@@ -104,13 +105,18 @@ def build_identity(inputs, components, dependency_revision, *, engine_version):
 	)
 
 
+def is_count_uom(uom):
+	"""Recognize individual-unit UOMs while preserving the Item's stored spelling."""
+	return isinstance(uom, str) and uom.lower() in {"ea", "nos", "unit", "each"}
+
+
 def cable_stock_quantity(length, length_unit, stock_uom, *, assembly_length_mm=None):
-	"""Convert a physical cable once; Nos requires an exact assembly mapping."""
+	"""Convert a physical cable once; count UOMs require an exact assembly mapping."""
 	mm = length_mm(length, length_unit)
 	factors = {"Millimeter": 1, "Meter": 1000, "Foot": 304.8, "Feet": 304.8, "Inch": 25.4}
 	if stock_uom in factors:
 		return mm / factors[stock_uom]
-	if stock_uom in ("Nos", "Unit") and assembly_length_mm is not None:
+	if is_count_uom(stock_uom) and assembly_length_mm is not None:
 		if math.isclose(mm, finite_number(assembly_length_mm, minimum=0), abs_tol=1e-6):
 			return 1
 	raise ValueError("Cable requires a supported length UOM or an exact fixed-length assembly")

@@ -5,7 +5,12 @@ import json
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build, ensure_bom
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	DEFAULT_UOM,
+	canonical_json,
+	fingerprint,
+	is_count_uom,
+)
 from illumenate_lighting.illumenate_lighting.api.group_contract import ENGINE_VERSION, TEMPLATE_TYPES
 
 DOCTYPE = "ilL-Configured-Group"
@@ -74,6 +79,7 @@ def ensure_artifacts(doc, msrp=None):
 		ILLUMENATE_BRAND,
 		_create_item_price_at_msrp,
 		_ensure_brand_exists,
+		_ensure_default_uom_exists,
 		_ensure_item_group_exists,
 	)
 
@@ -86,13 +92,14 @@ def ensure_artifacts(doc, msrp=None):
 	_ensure_item_group_exists("Configured Fixture Groups")
 	_ensure_brand_exists(ILLUMENATE_BRAND)
 	if not frappe.db.exists("Item", code):
+		_ensure_default_uom_exists()
 		frappe.get_doc(
 			{
 				"doctype": "Item",
 				"item_code": code,
 				"item_name": f"{doc.family} group ({len(build['members'])} members)",
 				"item_group": "Configured Fixture Groups",
-				"stock_uom": "Nos",
+				"stock_uom": DEFAULT_UOM,
 				"is_stock_item": 1,
 				"is_sales_item": 1,
 				"brand": ILLUMENATE_BRAND,
@@ -100,8 +107,8 @@ def ensure_artifacts(doc, msrp=None):
 			}
 		).insert(ignore_permissions=True)
 	item = frappe.db.get_value("Item", code, ["stock_uom", "disabled"], as_dict=True)
-	if not item or item.disabled or item.stock_uom != "Nos":
-		raise ValueError("Group Items must be active and measured in complete groups (Nos)")
+	if not item or item.disabled or not is_count_uom(item.stock_uom):
+		raise ValueError("Group Items must be active and measured in complete groups (Ea)")
 	bom = ensure_bom(doc, code, build["components"])
 	msrp = current_estimate(doc) if msrp is None else msrp
 	messages = []

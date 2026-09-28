@@ -26,6 +26,11 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	DEFAULT_UOM,
+	is_count_uom,
+)
+
 # Engine version for tracking
 ENGINE_VERSION = "1.0.0"
 
@@ -35,9 +40,6 @@ CONFIGURED_ITEM_GROUP = "Configured Fixtures"
 # Item groups for configured tape/neon
 CONFIGURED_TAPE_ITEM_GROUP = "Configured LED Tape"
 CONFIGURED_NEON_ITEM_GROUP = "Configured LED Neon"
-
-# Default UOM for configured fixtures
-DEFAULT_UOM = "Nos"
 
 # Brand applied to all configured items so the Pricing Rule can match
 ILLUMENATE_BRAND = "ilLumenate Lighting"
@@ -480,6 +482,14 @@ def _ensure_brand_exists(brand_name: str) -> None:
 		)
 
 
+def _ensure_default_uom_exists() -> None:
+	"""Ensure the count UOM exists before creating a configured Item."""
+	if not frappe.db.exists("UOM", DEFAULT_UOM):
+		frappe.get_doc({"doctype": "UOM", "uom_name": DEFAULT_UOM, "must_be_whole_number": 1}).insert(
+			ignore_permissions=True, ignore_if_duplicate=True
+		)
+
+
 def _create_or_get_configured_item(
 	fixture,
 	skip_if_exists: bool = True,
@@ -593,6 +603,7 @@ def _create_or_get_configured_item(
 
 	# Create the Item
 	try:
+		_ensure_default_uom_exists()
 		item_doc = frappe.get_doc({
 			"doctype": "Item",
 			"item_code": item_code,
@@ -715,6 +726,7 @@ def _create_or_get_configured_tape_neon_item(
 	_ensure_brand_exists(ILLUMENATE_BRAND)
 
 	try:
+		_ensure_default_uom_exists()
 		item_doc = frappe.get_doc({
 			"doctype": "Item",
 			"item_code": item_code,
@@ -802,12 +814,25 @@ def _generate_tape_neon_item_description(configured_tape_neon) -> str:
 	return "\n".join(lines)
 
 
+def _count_bom_row(item_code, qty, *, strict=False):
+	"""Count physical pieces in the component Item's own stock UOM."""
+	uom = frappe.db.get_value("Item", item_code, "stock_uom")
+	if strict and not is_count_uom(uom):
+		frappe.throw(
+			f"Linear component {item_code} has incompatible stock UOM {uom!r}; "
+			"use Ea or another supported count UOM for components counted as pieces"
+		)
+	uom = uom if is_count_uom(uom) else DEFAULT_UOM
+	return {"item_code": item_code, "qty": qty, "uom": uom, "stock_uom": uom}
+
+
 def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 	"""Build default BOM rows for a configured fixture without creating a BOM."""
 	if fixture.get("build_schema_version") == 2 and fixture.get("component_manifest_json"):
 		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
 		return snapshot(fixture)["components"]
 	bom_items = []
+	strict = fixture.get("build_schema_version") == 2
 
 	# Determine if this is a multi-segment fixture
 	is_multi_segment = fixture.is_multi_segment if hasattr(fixture, 'is_multi_segment') else 0
@@ -817,24 +842,14 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 		# Calculate profile quantity based on segments
 		profile_qty = _calculate_profile_quantity(fixture)
 		if profile_qty > 0:
-			bom_items.append({
-				"item_code": fixture.profile_item,
-				"qty": profile_qty,
-				"uom": "Nos",
-				"stock_uom": "Nos",
-			})
+			bom_items.append(_count_bom_row(fixture.profile_item, profile_qty, strict=strict))
 
 	# --- Role 2: Lens ---
 	if fixture.lens_item:
 		# Lens quantity mirrors profile for stick-type lenses
 		lens_qty = _calculate_lens_quantity(fixture)
 		if lens_qty > 0:
-			bom_items.append({
-				"item_code": fixture.lens_item,
-				"qty": lens_qty,
-				"uom": "Nos",
-				"stock_uom": "Nos",
-			})
+			bom_items.append(_count_bom_row(fixture.lens_item, lens_qty, strict=strict))
 
 	# --- Role 3: Endcaps (properly counted for multi-segment fixtures) ---
 	# For multi-segment fixtures, calculate endcaps based on segment configuration
@@ -842,12 +857,7 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 
 	# Add feed-through endcaps (start endcap)
 	if endcap_counts.get("feed_through_qty", 0) > 0 and fixture.endcap_item_start:
-		bom_items.append({
-			"item_code": fixture.endcap_item_start,
-			"qty": endcap_counts["feed_through_qty"],
-			"uom": "Nos",
-			"stock_uom": "Nos",
-		})
+		bom_items.append(_count_bom_row(fixture.endcap_item_start, endcap_counts["feed_through_qty"], strict=strict))
 
 	# Add solid endcaps (end endcap)
 	if endcap_counts.get("solid_qty", 0) > 0 and fixture.endcap_item_end:
@@ -863,23 +873,13 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 			bom_items[existing_endcap_idx]["qty"] += endcap_counts["solid_qty"]
 		else:
 			# Different item - add new line
-			bom_items.append({
-				"item_code": fixture.endcap_item_end,
-				"qty": endcap_counts["solid_qty"],
-				"uom": "Nos",
-				"stock_uom": "Nos",
-			})
+			bom_items.append(_count_bom_row(fixture.endcap_item_end, endcap_counts["solid_qty"], strict=strict))
 
 	# --- Role 4: Mounting Accessories ---
 	if fixture.mounting_item:
 		mounting_qty = _calculate_mounting_quantity(fixture)
 		if mounting_qty > 0:
-			bom_items.append({
-				"item_code": fixture.mounting_item,
-				"qty": mounting_qty,
-				"uom": "Nos",
-				"stock_uom": "Nos",
-			})
+			bom_items.append(_count_bom_row(fixture.mounting_item, mounting_qty, strict=strict))
 
 	# --- Role 5: LED Tape (calculate from ALL segments for multi-segment) ---
 	tape_item = _get_tape_item(fixture)
@@ -888,21 +888,20 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 		total_tape_mm = _calculate_total_tape_length(fixture)
 		tape_length_ft = total_tape_mm / 304.8
 		if tape_length_ft > 0:
+			tape_uom = "Foot"
+			tape_qty = round(tape_length_ft, 2)
+			if strict:
+				from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+					cable_stock_quantity,
+				)
+				tape_uom = frappe.db.get_value("Item", tape_item, "stock_uom")
+				tape_qty = cable_stock_quantity(total_tape_mm, "mm", tape_uom)
 			bom_items.append({
 				"item_code": tape_item,
-				"qty": round(tape_length_ft, 2),
-				"uom": "Foot",  # Use Foot as UOM
-				"stock_uom": "Foot",
+				"qty": tape_qty,
+				"uom": tape_uom,
+				"stock_uom": tape_uom,
 			})
-
-	if fixture.get("build_schema_version") == 2:
-		from illumenate_lighting.illumenate_lighting.api.configuration_contract import cable_stock_quantity
-		for row in bom_items:
-			uom = frappe.db.get_value("Item", row["item_code"], "stock_uom")
-			if row["item_code"] == tape_item:
-				row.update(qty=cable_stock_quantity(_calculate_total_tape_length(fixture), "mm", uom), uom=uom, stock_uom=uom)
-			elif uom != row["stock_uom"]:
-				frappe.throw("A count-based linear component has an incompatible stock UOM; review its specification")
 
 	# New builds use the physical cable manifest, shared with stock and cut instructions.
 	if fixture.get("build_schema_version") == 2:
@@ -914,24 +913,14 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 			jumper_items = _calculate_jumper_cable_items(fixture)
 			for jumper_item in jumper_items:
 				if jumper_item.get("item_code") and jumper_item.get("qty", 0) > 0:
-					bom_items.append({
-						"item_code": jumper_item["item_code"],
-						"qty": jumper_item["qty"],
-						"uom": "Nos",
-						"stock_uom": "Nos",
-					})
+					bom_items.append(_count_bom_row(jumper_item["item_code"], jumper_item["qty"]))
 
 
 	# --- Role 8: Drivers ---
 	if fixture.drivers:
 		for driver in fixture.drivers:
 			if driver.driver_item and driver.driver_qty > 0:
-				bom_items.append({
-					"item_code": driver.driver_item,
-					"qty": driver.driver_qty,
-					"uom": "Nos",
-					"stock_uom": "Nos",
-				})
+				bom_items.append(_count_bom_row(driver.driver_item, driver.driver_qty, strict=strict))
 
 	return bom_items
 

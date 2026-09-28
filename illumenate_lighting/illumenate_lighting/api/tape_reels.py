@@ -2,7 +2,11 @@
 
 import frappe
 
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, length_mm
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	finite_number,
+	is_count_uom,
+	length_mm,
+)
 
 
 def validate_request(selections, segments, template):
@@ -61,7 +65,7 @@ def physical_manifest(result):
 			resolved["tape_item"], computed["manufacturable_length_mm"], "light engine", length_unit="mm"
 		)
 	]
-	if rows[0]["stock_uom"] in {"Nos", "Unit", "Each"}:
+	if is_count_uom(rows[0]["stock_uom"]):
 		raise ValueError("Continuous bulk tape requires a length-based stock UOM")
 	for driver in (resolved.get("driver_plan") or {}).get("drivers", []):
 		rows.append(item_row(driver["driver_item"], driver["qty"], "power"))
