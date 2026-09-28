@@ -8,10 +8,15 @@ from frappe import _
 
 
 @frappe.whitelist()
-def file_create_debug(user: str, attached_to_doctype: str = "ilL-Webflow-Product"):
+def file_create_debug(
+	user: str,
+	attached_to_doctype: str = "ilL-Webflow-Product",
+	attached_to_name: str = "",
+	attached_to_field: str = "featured_image",
+):
 	"""Explain why `user` may be denied creating a File.
 
-	Call: /api/method/illumenate_lighting.illumenate_lighting.api.permission_debug.file_create_debug?user=<email>
+	Call: /api/method/illumenate_lighting.illumenate_lighting.api.permission_debug.file_create_debug?user=<email>&attached_to_name=ill-fs01-sw
 	"""
 	if "System Manager" not in frappe.get_roles():
 		frappe.throw(_("System Manager role required"), frappe.PermissionError)
@@ -25,6 +30,10 @@ def file_create_debug(user: str, attached_to_doctype: str = "ilL-Webflow-Product
 
 	doc = frappe.new_doc("File")
 	doc.attached_to_doctype = attached_to_doctype
+	doc.attached_to_name = attached_to_name or None
+	doc.attached_to_field = attached_to_field
+	doc.folder = "Home"
+	doc.file_name = "debug.jpg"
 	doc.is_private = 0
 
 	for path in frappe.get_hooks("has_permission").get("File", []):
@@ -33,13 +42,23 @@ def file_create_debug(user: str, attached_to_doctype: str = "ilL-Webflow-Product
 		except Exception as e:
 			result["hooks"][path] = f"raised {type(e).__name__}: {e}"
 
-	controller = frappe.get_attr("frappe.core.doctype.file.file.File")
-	method = getattr(controller, "has_permission", None)
-	if method:
+	if attached_to_name:
 		try:
-			result["controller_has_permission"] = repr(method(doc, "create", user))
+			ref = frappe.get_doc(attached_to_doctype, attached_to_name)
+			result["attached_doc"] = {
+				"write": ref.has_permission("write", user=user),
+				"read": ref.has_permission("read", user=user),
+				"docstatus": ref.docstatus,
+				"owner": ref.owner,
+			}
 		except Exception as e:
-			result["controller_has_permission"] = f"raised {type(e).__name__}: {e}"
+			result["attached_doc"] = f"raised {type(e).__name__}: {e}"
+
+	try:
+		result["file_permission_create"] = frappe.has_permission(doc=doc, ptype="create", user=user)
+	except Exception as e:
+		result["file_permission_create"] = f"raised {type(e).__name__}: {e}"
+	result["session_user"] = frappe.session.user
 
 	try:
 		result["user_permissions_on_file"] = frappe.get_all(
