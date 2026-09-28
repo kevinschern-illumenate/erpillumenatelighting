@@ -426,26 +426,17 @@ def _get_source_value(
 					return val
 
 		if source_doctype == "ilL-Spec-Lens" and configured_fixture:
-			lens_appearance = configured_fixture.lens_appearance
+			# ilL-Spec-Lens is autonamed by item; appearances can be shared by many lenses.
+			lens_item = getattr(configured_fixture, "lens_item", None)
 			_debug(
 				f"_get_source_value: {source_doctype}.{source_field} – "
-				f"lens_appearance={lens_appearance!r}",
+				f"lens_item={lens_item!r}",
 				warnings,
 			)
-			if lens_appearance:
-				# Get the lens spec linked to this appearance
-				lens_spec = frappe.db.get_value(
-					"ilL-Attribute-Lens Appearance", lens_appearance, "lens_spec"
-				)
-				_debug(
-					f"_get_source_value: {source_doctype}.{source_field} – "
-					f"lens_spec={lens_spec!r}",
-					warnings,
-				)
-				if lens_spec:
-					val = frappe.db.get_value("ilL-Spec-Lens", lens_spec, source_field)
-					_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
-					return val
+			if lens_item:
+				val = frappe.db.get_value("ilL-Spec-Lens", lens_item, source_field)
+				_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r}", warnings)
+				return val
 
 		if source_doctype == "ilL-Spec-Driver" and configured_fixture:
 			# Get driver from the first driver allocation if available

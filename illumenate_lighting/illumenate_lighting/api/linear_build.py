@@ -258,9 +258,8 @@ def finish(doc, inputs, computed, resolved, include_power, override, *, in_memor
 			if doc.tape_offering
 			else None,
 			profile=doc.profile_item,
-			lens=frappe.db.get_value("ilL-Attribute-Lens Appearance", doc.lens_appearance, "lens_spec")
-			if doc.lens_appearance
-			else None,
+			# ilL-Spec-Lens is autonamed by item, as are profile and driver specs.
+			lens=doc.lens_item,
 			driver=doc.drivers[0].driver_item if doc.drivers else None,
 		),
 	}
