@@ -7,11 +7,11 @@ import io
 import json
 import os
 import re
-from pathlib import Path
 
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
+from illumenate_lighting.private_storage import private_state_directory
 
 ACTORS = {
 	"admin": ("System User", "System Manager", None),
@@ -170,7 +170,7 @@ def seed(run_id):
 		"engineering_cases": [],
 		"seeded_on": str(frappe.utils.now()),
 	}
-	directory = Path(frappe.get_site_path("private", "backups", "b2b-release"))
+	directory = private_state_directory(frappe.get_site_path("private"), "b2b-release")
 	directory.mkdir(parents=True, exist_ok=True)
 	path = directory / (prefix + "-fixtures.json")
 	# Save only when the complete database transaction succeeds.

@@ -12,6 +12,7 @@ from pathlib import Path
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+from illumenate_lighting.private_storage import private_state_directory
 
 HEADERS = {
 	"Sales Order": ("docstatus", "customer", "company", "currency", "grand_total", "terms", "amended_from"),
@@ -160,7 +161,7 @@ def capture(label):
 	frappe.only_for("System Manager")
 	if not isinstance(label, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", label):
 		raise ValueError("Use a short checkpoint label containing letters, digits, hyphens or underscores")
-	directory = Path(frappe.get_site_path("private", "backups", "b2b-release"))
+	directory = private_state_directory(frappe.get_site_path("private"), "b2b-release")
 	directory.mkdir(parents=True, exist_ok=True)
 	path = directory / (label + ".json")
 	evidence = collect()
@@ -176,7 +177,7 @@ def compare_checkpoints(before_label, after_label):
 	frappe.only_for("System Manager")
 	if any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", label) for label in (before_label, after_label)):
 		raise ValueError("Invalid checkpoint label")
-	directory = Path(frappe.get_site_path("private", "backups", "b2b-release"))
+	directory = private_state_directory(frappe.get_site_path("private"), "b2b-release")
 	return compare(
 		*(
 			json.loads((directory / (label + ".json")).read_text(encoding="utf-8"))

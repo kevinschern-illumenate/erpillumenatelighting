@@ -21,9 +21,9 @@ bench --site TEST_SITE execute illumenate_lighting.illumenate_lighting.portal.re
 bench --site TEST_SITE run-tests --app illumenate_lighting
 ```
 
-Use the Cloud deployment/job equivalents when direct Bench commands are unavailable. Do not run mutation-based tests on production. Historical Quotation/Sales Order/BOM/configured-record/offer/intake hashes must have no unexplained changes or missing records. New schema rows are reported separately. The collector also records app commits, active-hook/asset hashes, managed custom fields and role permissions; compare those explicitly, since the historical-record comparator does not approve permission changes. Evidence lives under `private/backups/b2b-release`; protect downloaded copies too.
+Use the Cloud deployment/job equivalents when direct Bench commands are unavailable. Do not run mutation-based tests on production. Historical Quotation/Sales Order/BOM/configured-record/offer/intake hashes must have no unexplained changes or missing records. New schema rows are reported separately. The collector also records app commits, active-hook/asset hashes, managed custom fields and role permissions; compare those explicitly, since the historical-record comparator does not approve permission changes. Evidence lives under `private/b2b-release`; protect downloaded copies too.
 
-The Workspace migration saves the prior workspace beneath `private/backups/ill-workspace`. Compare every existing useful destination and site-specific block after the merge. No users are assigned new job roles automatically. Verify each ordinary role with its intended native ERP permissions, not an Administrator session.
+The Workspace migration saves the prior workspace beneath `private/ill-workspace`. These app-state directories must stay outside Frappe's temporary `private/backups` cleanup directory. For sites with the old paths, see the [backup cleanup repair](FRAPPE_CLOUD_BACKUP_REPAIR_2026_09_28.md); retain separate private copies of this state through restores and site moves. Compare every existing useful destination and site-specific block after the merge. No users are assigned new job roles automatically. Verify each ordinary role with its intended native ERP permissions, not an Administrator session.
 
 ## Actor fixtures and browser suite
 

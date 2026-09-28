@@ -23,7 +23,7 @@ Local regression checks are in `tests/portal_unit/test_migration_assets.py` and 
 
 On September 28, all **200 local portal unit tests passed**, including seven new migration regressions. The changed-file syntax/JSON/lint check passed with zero new diagnostics. The six relocated Number Card definitions were compared with the committed originals and are unchanged.
 
-Deploy the updated app revision, then rerun **Migrate** in Frappe Cloud. Keep the site's existing `private/backups/ill-workspace/pending.json` and its referenced backup: they hold the workspace customization snapshot from the interrupted migration. No Patch Log reset or manual card creation is needed.
+Deploy the updated app revision, then rerun **Migrate** in Frappe Cloud. Keep the site's pending workspace snapshot and its referenced backup: they hold the workspace customizations from the interrupted migration. The corrected location is `private/ill-workspace/pending.json`. If the site still uses `private/backups/ill-workspace`, follow the [backup cleanup repair](FRAPPE_CLOUD_BACKUP_REPAIR_2026_09_28.md) to move the entire directory intact before retrying a blocked Cloud update. No Patch Log reset or manual card creation is needed.
 
 After migration, verify the ilLumenate Lighting workspace opens with all six financial cards and Portal Operations, and that `ilL-Child-Group-Member`, `ilL-Child-Group-Allocation` and `ilL-Configurator-Session` are no longer reported as orphaned. Inspect an existing configured group/session if the site has such records.
 

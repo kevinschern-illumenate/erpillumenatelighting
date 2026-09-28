@@ -7,6 +7,8 @@ from pathlib import Path
 
 import frappe
 
+from illumenate_lighting.private_storage import private_state_directory
+
 WORKSPACE = "ilLumenate Lighting"
 
 
@@ -47,7 +49,7 @@ def merge_workspace(site, shipped):
 
 
 def _directory():
-	return Path(frappe.get_site_path("private", "backups", "ill-workspace"))
+	return private_state_directory(frappe.get_site_path("private"), "ill-workspace")
 
 
 def before_migrate():
