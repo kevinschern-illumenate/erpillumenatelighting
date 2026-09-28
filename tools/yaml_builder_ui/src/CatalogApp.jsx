@@ -27,7 +27,7 @@ function download(text, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function RecordFields({ doctype, row, onChange, catalog, filter = '', depth = 0 }) {
+export function RecordFields({ doctype, row, onChange, catalog, filter = '', depth = 0 }) {
   const id = useId();
   const meta = schema.doctypes[doctype];
   const edit = (key, value) => {

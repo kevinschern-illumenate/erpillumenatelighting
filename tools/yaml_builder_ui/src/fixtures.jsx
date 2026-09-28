@@ -26,7 +26,7 @@ export const ENDCAP_COLOR_CHOICES = ['WH', 'BK', 'GR'];
 export const ENDCAP_STYLE_CHOICES = ['Solid', 'Feed Through'];
 export const LENS_APPEARANCE_CHOICES = ['White', 'Frosted', 'Clear', 'Black'];
 export const LENS_SHAPE_CHOICES = ['WH', 'RD', 'AS', 'CV'];
-export const LENS_STOCK_TYPE_CHOICES = ['Stick', 'Continuous'];
+export const LENS_STOCK_TYPE_CHOICES = ['Stick', 'Continuous Roll'];
 export const LENS_INTERFACE_CHOICES = ['Snap-in', 'Slide-in', 'None'];
 export const ACCESSORY_TYPE_CHOICES = ['Mounting', 'Joiner', 'Endcap'];
 export const MOUNTING_METHOD_CHOICES = [
@@ -36,7 +36,7 @@ export const MOUNTING_METHOD_CHOICES = [
 export const QTY_RULE_CHOICES = ['Per x mm', 'Per Fixture', 'Per Segment', 'Per Run'];
 export const FIXTURE_LED_PACKAGES = ['FS', 'SW', 'TW', 'RGBW', 'RGB'];
 export const POWER_FEED_CHOICES = ['Single End Feed', 'Dual End Feed', 'Mid Feed', 'Power Joiner'];
-export const FIXTURE_PRICING_BASIS = ['L_tape_cut', 'L_fixture_cut', 'L_fixture_total'];
+export const FIXTURE_PRICING_BASIS = ['L_tape_cut', 'L_mfg'];
 export const FIXTURE_ENV_RATINGS = ['Dry', 'Damp', 'Wet'];
 export const FIXTURE_CONFIG_STEPS = [
   'Environment Rating', 'CCT', 'Lens Appearance', 'Output Level',

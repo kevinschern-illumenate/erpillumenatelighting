@@ -18,9 +18,17 @@ PRODUCTS = {
 	"tape": {"label": "LED tape", "template": "ilL-Tape-Neon-Template", "spec": "ilL-Spec-LED Tape"},
 	"neon": {"label": "LED neon", "template": "ilL-Tape-Neon-Template", "spec": "ilL-Spec-LED Tape"},
 	"led-sheet": {"label": "LED sheets", "template": "ilL-LED-Sheet-Template", "spec": "ilL-Spec-LED-Sheet"},
-	"extrusion-kit": {"label": "Extrusion kits", "template": "ilL-Extrusion-Kit-Template", "spec": "ilL-Spec-Profile"},
+	"extrusion-kit": {
+		"label": "Extrusion kits",
+		"template": "ilL-Extrusion-Kit-Template",
+		"spec": "ilL-Spec-Profile",
+	},
 	"driver": {"label": "Drivers", "template": "ilL-Driver-Template", "spec": "ilL-Spec-Driver"},
-	"controller": {"label": "Controllers", "template": "ilL-Controller-Template", "spec": "ilL-Spec-Controller"},
+	"controller": {
+		"label": "Controllers",
+		"template": "ilL-Controller-Template",
+		"spec": "ilL-Spec-Controller",
+	},
 }
 
 
@@ -35,55 +43,85 @@ def standard_doctypes():
 	contract is deliberately explicit; site-specific customizations are not guessed.
 	"""
 	return {
-		"Item": {"autoname": "field:item_code", "fields": [
-			_field("item_code", "Item Code", reqd=1), _field("item_name", "Item Name"),
-			_field("item_group", "Item Group", "Link", options="Item Group", reqd=1),
-			_field("stock_uom", "Default Unit of Measure", "Link", options="UOM", reqd=1),
-			_field("is_stock_item", "Maintain Stock", "Check", default="1"),
-			_field("disabled", "Disabled", "Check", default="0"),
-			_field("is_sales_item", "Is Sales Item", "Check", default="1"),
-			_field("is_purchase_item", "Is Purchase Item", "Check", default="1"),
-			_field("description", "Description", "Text Editor"),
-			_field("brand", "Brand", "Link", options="Brand"),
-			_field("warranty_period", "Warranty Period (in days)", "Int"),
-			_field("image", "Image", "Attach Image"),
-			_field("has_variants", "Has Variants", "Check", default="0"),
-			_field("variant_of", "Variant Of", "Link", options="Item"),
-			_field("variant_based_on", "Variant Based On", "Select", options="Item Attribute\nManufacturer"),
-			_field("attributes", "Variant Attributes", "Table", options="Item Variant Attribute"),
-			_field("supplier_items", "Supplier Items", "Table", options="Item Supplier"),
-		]},
-		"Item Variant Attribute": {"istable": 1, "fields": [
-			_field("attribute", "Attribute", "Link", options="Item Attribute", reqd=1),
-			_field("attribute_value", "Attribute Value"),
-		]},
-		"Item Supplier": {"istable": 1, "fields": [
-			_field("supplier", "Supplier", "Link", options="Supplier", reqd=1),
-			_field("supplier_part_no", "Supplier Part Number"),
-		]},
-		"Item Attribute": {"autoname": "field:attribute_name", "fields": [
-			_field("attribute_name", "Attribute Name", reqd=1),
-			_field("item_attribute_values", "Item Attribute Values", "Table", options="Item Attribute Value"),
-		]},
-		"Item Attribute Value": {"istable": 1, "fields": [
-			_field("attribute_value", "Attribute Value", reqd=1), _field("abbr", "Abbreviation", reqd=1),
-		]},
-		"Item Group": {"autoname": "field:item_group_name", "fields": [
-			_field("item_group_name", "Item Group Name", reqd=1),
-			_field("parent_item_group", "Parent Item Group", "Link", options="Item Group"),
-			_field("is_group", "Is Group", "Check", default="0"),
-		]},
-		"UOM": {"autoname": "field:uom_name", "fields": [
-			_field("uom_name", "UOM Name", reqd=1), _field("must_be_whole_number", "Must be Whole Number", "Check"),
-		]},
+		"Item": {
+			"autoname": "field:item_code",
+			"fields": [
+				_field("item_code", "Item Code", reqd=1),
+				_field("item_name", "Item Name"),
+				_field("item_group", "Item Group", "Link", options="Item Group", reqd=1),
+				_field("stock_uom", "Default Unit of Measure", "Link", options="UOM", reqd=1),
+				_field("is_stock_item", "Maintain Stock", "Check", default="1"),
+				_field("disabled", "Disabled", "Check", default="0"),
+				_field("is_sales_item", "Is Sales Item", "Check", default="1"),
+				_field("is_purchase_item", "Is Purchase Item", "Check", default="1"),
+				_field("description", "Description", "Text Editor"),
+				_field("brand", "Brand", "Link", options="Brand"),
+				_field("warranty_period", "Warranty Period (in days)", "Int"),
+				_field("image", "Image", "Attach Image"),
+				_field("has_variants", "Has Variants", "Check", default="0"),
+				_field("variant_of", "Variant Of", "Link", options="Item"),
+				_field(
+					"variant_based_on", "Variant Based On", "Select", options="Item Attribute\nManufacturer"
+				),
+				_field("attributes", "Variant Attributes", "Table", options="Item Variant Attribute"),
+				_field("supplier_items", "Supplier Items", "Table", options="Item Supplier"),
+			],
+		},
+		"Item Variant Attribute": {
+			"istable": 1,
+			"fields": [
+				_field("attribute", "Attribute", "Link", options="Item Attribute", reqd=1),
+				_field("attribute_value", "Attribute Value"),
+			],
+		},
+		"Item Supplier": {
+			"istable": 1,
+			"fields": [
+				_field("supplier", "Supplier", "Link", options="Supplier", reqd=1),
+				_field("supplier_part_no", "Supplier Part Number"),
+			],
+		},
+		"Item Attribute": {
+			"autoname": "field:attribute_name",
+			"fields": [
+				_field("attribute_name", "Attribute Name", reqd=1),
+				_field(
+					"item_attribute_values", "Item Attribute Values", "Table", options="Item Attribute Value"
+				),
+			],
+		},
+		"Item Attribute Value": {
+			"istable": 1,
+			"fields": [
+				_field("attribute_value", "Attribute Value", reqd=1),
+				_field("abbr", "Abbreviation", reqd=1),
+			],
+		},
+		"Item Group": {
+			"autoname": "field:item_group_name",
+			"fields": [
+				_field("item_group_name", "Item Group Name", reqd=1),
+				_field("parent_item_group", "Parent Item Group", "Link", options="Item Group"),
+				_field("is_group", "Is Group", "Check", default="0"),
+			],
+		},
+		"UOM": {
+			"autoname": "field:uom_name",
+			"fields": [
+				_field("uom_name", "UOM Name", reqd=1),
+				_field("must_be_whole_number", "Must be Whole Number", "Check"),
+			],
+		},
 		"Brand": {"autoname": "field:brand", "fields": [_field("brand", "Brand", reqd=1)]},
-		"Item Price": {"fields": [
-			_field("item_code", "Item Code", "Link", options="Item", reqd=1),
-			_field("price_list", "Price List", "Link", options="Price List", reqd=1),
-			_field("price_list_rate", "Rate", "Currency", reqd=1),
-			_field("currency", "Currency", "Link", options="Currency"),
-			_field("uom", "UOM", "Link", options="UOM"),
-		]},
+		"Item Price": {
+			"fields": [
+				_field("item_code", "Item Code", "Link", options="Item", reqd=1),
+				_field("price_list", "Price List", "Link", options="Price List", reqd=1),
+				_field("price_list_rate", "Rate", "Currency", reqd=1),
+				_field("currency", "Currency", "Link", options="Currency"),
+				_field("uom", "UOM", "Link", options="UOM"),
+			]
+		},
 	}
 
 
@@ -93,7 +131,10 @@ def build_schema():
 		doc = json.loads(path.read_text(encoding="utf-8"))
 		all_docs[doc["name"]] = doc
 	selected = {
-		name for name, doc in all_docs.items() if not doc.get("istable") and (
+		name
+		for name, doc in all_docs.items()
+		if not doc.get("istable")
+		and (
 			name.startswith(("ilL-Attribute-", "ilL-Spec-", "ilL-Rel-"))
 			or name.endswith(("-Template", "-Submittal-Mapping"))
 			or name in {"ilL-Webflow-Product", "ilL-Webflow-Category"}
@@ -114,10 +155,12 @@ def build_schema():
 	for name in sorted(selected):
 		doc = all_docs[name]
 		doctypes[name] = {
-			"autoname": doc.get("autoname", ""), "istable": doc.get("istable", 0),
+			"autoname": doc.get("autoname", ""),
+			"istable": doc.get("istable", 0),
 			"fields": [
 				{k: field[k] for k in keys if k in field}
-				for field in doc["fields"] if field["fieldtype"] not in NON_VALUE
+				for field in doc["fields"]
+				if field["fieldtype"] not in NON_VALUE
 			],
 		}
 	return {"schema_version": 2, "products": PRODUCTS, "doctypes": doctypes}
@@ -125,6 +168,7 @@ def build_schema():
 
 def main():
 	import argparse
+
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--check", action="store_true", help="Fail if the browser schema is stale")
 	args = parser.parse_args()

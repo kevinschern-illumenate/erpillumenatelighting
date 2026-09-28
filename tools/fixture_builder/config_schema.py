@@ -568,10 +568,13 @@ def _resolve_type(type_str: str):
     return getattr(mod, type_str, None)
 
 
-def load_config(path: str) -> FixtureBuilderConfig:
+def load_config(path: str) -> FixtureBuilderConfig | dict:
     """Load and validate a YAML configuration file."""
     with open(path, "r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
+        try:
+            raw = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Invalid YAML: {exc}") from exc
     if raw is None:
         raw = {}
     if not isinstance(raw, dict):

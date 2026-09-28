@@ -555,7 +555,7 @@ def validate_kit_configuration(selections: str) -> dict:
 @frappe.whitelist()
 def save_kit_to_schedule(
     schedule_name: str,
-    line_idx: int = None,
+    line_idx: int | str | None = None,
     configuration_result: str = None,
 ) -> dict:
     """
@@ -572,6 +572,12 @@ def save_kit_to_schedule(
         line_idx: existing line index to overwrite, or None for new line
         configuration_result: JSON string of the validate_kit_configuration result
     """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
+    try:
+        line_idx = optional_integer(line_idx, minimum=0, field="line index")
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}
+
     if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
         return {"success": False, "error": "Schedule not found"}
 

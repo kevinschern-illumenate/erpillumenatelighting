@@ -217,6 +217,53 @@ test('rendered coordinator mounts all legacy families and retains tape reels and
   }
 });
 
+test('all coordinator families omit unused numeric overrides after form encoding', () => {
+  for (const category of ['Linear Fixture', 'LED Tape', 'LED Neon']) {
+    const html = fs.readFileSync(path.join(__dirname, 'rendered', category.replaceAll(' ', '-') + '-coordinator.html'), 'utf8');
+    const { dom, $, api, requests } = setup(html);
+    const inst = new api.Coordinator($('#portal-configurator'), { product_category: category, is_tape: category === 'LED Tape', is_neon: category === 'LED Neon', is_tape_neon: category !== 'Linear Fixture', has_templates: false });
+    inst.init();
+    if (category === 'Linear Fixture') {
+      inst.restoreGeometry({segments: [{requested_length_mm: 1000, end_type: 'Endcap'}]});
+      inst.$name('delivered_output_value').append('<option value="100">100</option>').val('100');
+    }
+    const calculate = () => inst.$(category === 'Linear Fixture' ? '#calculateBtn' : '#tnCalculateBtn').prop('disabled', false).trigger('click');
+    inst.$('#overrideMaxRunCheck').prop('checked', false);
+    inst.$('#includePowerSupply').prop('checked', false);
+    calculate();
+    const blank = requests.at(-1);
+    assert.match(blank.method, /validate_/);
+    assert.equal(Object.hasOwn(blank.args, 'override_max_run_ft'), false, category);
+    const encoded = new URLSearchParams($.param(blank.args));
+    assert.equal(encoded.has('override_max_run_ft'), false, category);
+    assert.equal(encoded.get('include_power_supply'), 'false');
+    assert.equal(encoded.get('_skip_record_creation'), 'true');
+    inst.$('#overrideMaxRunCheck').prop('checked', true);
+    inst.$('#overrideMaxRunInput').val('12.5');
+    calculate();
+    assert.equal(requests.at(-1).args.override_max_run_ft, 12.5, category);
+    for (const value of ['', '0', '-1', 'Infinity', '12feet']) {
+      inst.$('#overrideMaxRunInput').val(value);
+      const before = requests.length;
+      calculate();
+      assert.equal(requests.length, before, category + ': invalid override ' + value);
+    }
+    dom.window.close();
+  }
+});
+
+test('embedded fixture rejects invalid enabled overrides before sending a request', () => {
+  for (const value of ['', '0', '-1', 'Infinity', '12feet']) {
+    const {dom, $, api, requests} = setup('<div id="host"><input id="overrideMaxRunCheck" type="checkbox" checked><input id="overrideMaxRunInput"></div>');
+    const inst = new api.Fixture($('#host'), {});
+    inst.$('#overrideMaxRunInput').val(value);
+    inst._gatherAllSelections = () => ({segments: [{requested_length_mm: 1000, end_type: 'Endcap'}], delivered_output_value: 100, override_max_run_ft: inst._getOverrideMaxRunFt()});
+    inst.validateConfiguration();
+    assert.equal(requests.length, 0, value);
+    dom.window.close();
+  }
+});
+
 test('coordinator ignores a calculation after input changes or close', () => {
   const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Tape-coordinator.html'), 'utf8');
   const { dom, $, api, requests } = setup(html);

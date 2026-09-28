@@ -612,7 +612,7 @@ def validate_and_quote(
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
 	relax_length_validation: bool = False,
-	override_max_run_ft: float | None = None,
+	override_max_run_ft: float | str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
@@ -1201,7 +1201,7 @@ def validate_and_quote_multisegment_with_output(
 	led_package_code: str,
 	endcap_color_code: str = None,
 	cct_code: str = None,
-	delivered_output_value: int = None,
+	delivered_output_value: int | str | None = None,
 	segments_json: str = None,
 	dimming_protocol_code: str = None,
 	qty: int = 1,
@@ -1209,7 +1209,7 @@ def validate_and_quote_multisegment_with_output(
 	_skip_record_creation: bool = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
-	override_max_run_ft: float | None = None,
+	override_max_run_ft: float | str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture using the output-based cascading flow.
@@ -1352,7 +1352,7 @@ def validate_and_quote_multisegment(
 	_skip_record_creation: bool = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
-	override_max_run_ft: float | None = None,
+	override_max_run_ft: float | str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture configuration.
@@ -4762,7 +4762,7 @@ def auto_select_tape_for_configuration(
 	environment_rating_code: str,
 	cct_code: str = None,
 	lens_appearance_code: str = None,
-	delivered_output_value: int = None,
+	delivered_output_value: int | str | None = None,
 ) -> dict[str, Any]:
 	"""
 	Automatically select the tape offering based on the user's configuration choices.
@@ -5245,13 +5245,13 @@ def get_cascading_options_for_template(
 		all_finishes = frappe.get_all(
 			"ilL-Attribute-Finish",
 			filters={"is_active": 1} if frappe.db.has_column("ilL-Attribute-Finish", "is_active") else {},
-			fields=["name", "code", "display_name"],
+			fields=["name", "code", "finish_name"],
 			ignore_permissions=True,
 		)
 		options["finishes"] = [
 			{
 				"value": f.name,
-				"label": f.display_name or f.name,
+				"label": f.finish_name or f.name,
 			}
 			for f in all_finishes
 		]

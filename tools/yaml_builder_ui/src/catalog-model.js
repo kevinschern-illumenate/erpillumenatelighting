@@ -128,7 +128,8 @@ export function makeItemRecords(catalog, schema) {
   if (!missing.length) return result;
   result.records.Item ||= [];
   for (const link of missing) result.records.Item.push({
-    ...blankRecord('Item', schema), item_code: link.name, item_name: link.name, stock_uom: 'Nos',
+    ...blankRecord('Item', schema), item_code: link.name, item_name: link.name,
+    stock_uom: (result.records['ilL-Spec-LED Tape'] || []).some(spec => spec.item === link.name) ? 'Meter' : 'Nos',
   });
   return result;
 }

@@ -1,6 +1,29 @@
-# Fixture Builder CLI
+# Product Catalog and Fixture Builder CLI
 
-Standalone Python CLI tool that generates all **11 CSV import files** needed to onboard a new fixture profile family (or LED package variant) into ERPNext.
+The recommended workflow is the [YAML Builder](../yaml_builder_ui/README.md) and
+its **version 2 product catalogs**. It supports all seven configurable families:
+linear fixtures, tape, neon, LED sheets, extrusion kits, drivers, and controllers.
+
+```powershell
+python -m tools.fixture_builder --config tools/fixture_builder/templates/catalog_driver.yaml --output ./output/driver/
+```
+
+Version 2 generates dependency-ordered ERPNext CSVs, `manifest.json`, a normalized
+`records.json`, and `IMPORT.md`. It validates current DocType fields, child rows,
+required engineering values, explicit external dependencies, and orderable variants
+before writing files. See [CATALOG.md](CATALOG.md) for coverage and import details.
+
+PyYAML is required (`python -m pip install pyyaml`). No Frappe runtime is required.
+
+## Legacy family expansion
+
+The original configuration format and commands remain available. This mode expands
+family conventions into Items, specs, templates and relationships. Use version 2
+for current-field coverage, reopened YAML drafts, drivers, controllers, and kits.
+LED sheets now generate Item masters; tape/neon mounting definitions generate their
+relationship CSV, and legacy Webflow exports use current product links and fields.
+
+Standalone Python CLI tool that generates all **13 CSV import files** needed to onboard a new fixture profile family (or LED package variant) into ERPNext.
 
 ## Requirements
 
@@ -20,7 +43,7 @@ python -m tools.fixture_builder --config tools/fixture_builder/templates/castle_
 # 2. Interactive mode (prompts for all values)
 python -m tools.fixture_builder --interactive --output ./output/my_series/
 
-# 3. New LED variant mode (reuses existing profiles/lenses, generates 6 of 11 CSVs)
+# 3. New LED variant mode (reuses existing profiles/lenses, generates 6 of 13 CSVs)
 python -m tools.fixture_builder --mode new-variant --config variant.yaml --output ./output/
 
 # 4. Clone submittal mappings from an existing CSV
@@ -32,25 +55,29 @@ python -m tools.fixture_builder --config config.yaml --output ./output/ \
 
 | Mode | CSVs Generated | Use Case |
 |------|---------------|----------|
-| `new-family` (default) | All 11 | New profile family from scratch |
-| `new-variant` | 6 of 11 | New LED package for existing profiles |
+| `new-family` (default) | All 13 | New profile family from scratch |
+| `new-variant` | 6 of 13 | New LED package for existing profiles |
 
-### New Family (all 11 CSVs)
+### New Family (13 CSVs total)
 
-1. `Item CSV.csv` — ERPNext Item master (profiles, lenses, accessories, endcaps)
-2. `ilL-Spec-Profile.csv` — Profile spec with environment ratings
-3. `ilL-Spec-Lens.csv` — Lens specs
-4. `ilL-Spec-Accessory.csv` — Mounting, joiner, and endcap accessories
-5. `ilL-Rel-Profile Lens.csv` — Profile → lens compatibility
+1. `Item Attribute.csv` — Attribute values used by component variants
+2. `Item CSV.csv` — Item templates and standalone accessories
+3. `Item Variants.csv` — Profile, lens and endcap component Items
+4. `ilL-Spec-Profile.csv` — Profile spec with environment ratings
+5. `ilL-Spec-Lens.csv` — Lens specs
+6. `ilL-Spec-Accessory.csv` — Mounting, joiner, and endcap accessories
+7. `ilL-Rel-Profile Lens.csv` — Profile/lens compatibility
+
+Import Item Attributes (merge existing attribute values if present), Item CSV, then Item Variants before the component specs.
 
 ### Both Modes (6 CSVs)
 
-6. `ilL-Fixture-Template.csv` — Template definitions with child tables
-7. `ilL-Rel-Mounting-Accessory-Map.csv` — Mounting accessory mapping
-8. `ilL-Rel-Endcap-Map.csv` — Endcap mapping
-9. `ilL-Rel-Driver-Eligibility.csv` — Driver eligibility
-10. `ilL-Spec-Submittal-Mapping.csv` — Submittal field mappings (cloned from source)
-11. `ilL-Webflow-Product.csv` — Webflow product skeleton
+8. `ilL-Fixture-Template.csv` — Template definitions with child tables
+9. `ilL-Rel-Mounting-Accessory-Map.csv` — Mounting accessory mapping
+10. `ilL-Rel-Endcap-Map.csv` — Endcap mapping
+11. `ilL-Rel-Driver-Eligibility.csv` — Driver eligibility
+12. `ilL-Spec-Submittal-Mapping.csv` — Submittal field mappings (cloned from source)
+13. `ilL-Webflow-Product.csv` — Webflow product skeleton
 
 ## Configuration
 

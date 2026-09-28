@@ -342,7 +342,7 @@ class TestSpecLedTape(unittest.TestCase):
         self.assertEqual(first[1], "FS")        # LED Package
         self.assertEqual(first[2], "LED Tape")   # Product Category
         self.assertEqual(first[4], "4.4")        # Watts per Foot
-        self.assertEqual(first[headers.index("CRI Typical")], "97")
+        self.assertEqual(first[headers.index("CRI (Typical)")], "97")
         self.assertEqual(first[headers.index("Protocol (Supported Dimming Protocols)")], "TRIAC")
 
 
@@ -492,7 +492,7 @@ class TestTapeNeonWebflow(unittest.TestCase):
         path = gen_tape_neon_webflow.generate(self.config, self.tmpdir)
         _, rows = _read_csv(path)
         primary = [r for r in rows if r[0] != ""]
-        self.assertEqual(primary[0][2], "Tape Neon Template")
+        self.assertEqual(primary[0][2], "LED Tape")
 
     def test_has_configurator_steps(self):
         """Should have continuation rows for configurator steps."""

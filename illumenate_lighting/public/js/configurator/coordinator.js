@@ -1225,17 +1225,12 @@ function validateAndQuote() {
 		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
 		segments_json: JSON.stringify(segments),
 		include_power_supply: power.include_power_supply,
-		dimming_protocol_code: power.dimming_protocol_code,
-		override_max_run_ft: power.override_max_run_ft
+		dimming_protocol_code: power.dimming_protocol_code
 	};
 
-	// Optional fixture-wide max run length override
-	if ($('#overrideMaxRunCheck').is(':checked')) {
-		var overrideMaxRunVal = parseFloat($('#overrideMaxRunInput').val());
-		if (!isNaN(overrideMaxRunVal) && overrideMaxRunVal > 0) {
-			data.override_max_run_ft = overrideMaxRunVal;
-		}
-	}
+	// Omit an unused optional number: form encoding turns null into an empty
+	// string, which Frappe's typed API validation cannot parse as a float.
+	if (power.override_max_run_ft !== '') data.override_max_run_ft = power.override_max_run_ft;
 	
 	// Show loading state
 	$('#calculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Calculating...') + '');
@@ -2711,7 +2706,10 @@ function tnValidateAndQuote() {
 		args.segments_json = JSON.stringify(tapeSegments);
 	}
 
-	if (!templateCode || !hasTemplates) Object.assign(args, power);
+	if (!templateCode || !hasTemplates) {
+		Object.assign(args, power);
+		if (power.override_max_run_ft === '') delete args.override_max_run_ft;
+	}
 	lastTnSelections = selections;
 	lastTnSegments = args.segments_json || null;
 	lastTnTemplate = templateCode || null;

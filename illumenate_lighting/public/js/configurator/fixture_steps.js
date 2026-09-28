@@ -866,8 +866,8 @@
 
 	Fixture.prototype._getOverrideMaxRunFt = function () {
 		if (!this.$('#overrideMaxRunCheck').is(':checked')) return '';
-		var val = parseFloat(this.$('#overrideMaxRunInput').val());
-		return (!isNaN(val) && val > 0) ? val : '';
+		var val = Number(this.$('#overrideMaxRunInput').val());
+		return (Number.isFinite(val) && val > 0) ? val : '';
 	};
 
 	Fixture.prototype._updateButtons = function () {
@@ -956,6 +956,11 @@
 		var self = this;
 		var sel = this._gatherAllSelections();
 		var segments = sel.segments;
+		if (this.$('#overrideMaxRunCheck').is(':checked') && sel.override_max_run_ft === '') {
+			frappe.msgprint(__('Enter a finite maximum run length greater than zero.'));
+			this.$('#overrideMaxRunInput').trigger('focus');
+			return;
+		}
 
 		if (!segments.length) {
 			frappe.msgprint(__('Please add at least one segment'));

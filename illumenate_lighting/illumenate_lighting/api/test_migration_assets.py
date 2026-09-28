@@ -49,6 +49,11 @@ class TestMigrationAssets(IntegrationTestCase):
 	def test_literal_portal_query_fields_have_physical_columns(self):
 		app = Path(frappe.get_app_path("illumenate_lighting"))
 		paths = [*(app / "illumenate_lighting/portal").glob("*.py"), *(app / "templates/pages").glob("*.py")]
+		paths.extend(app / "illumenate_lighting/api" / filename for filename in (
+			"configurator_engine.py", "tape_neon_configurator.py", "led_sheet_configurator.py",
+			"extrusion_kit_configurator.py", "webflow_configurator.py", "desk_configurator.py",
+			"configured_product_builder.py", "portal.py",
+		))
 		columns = {}
 		for path in paths:
 			for call in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):

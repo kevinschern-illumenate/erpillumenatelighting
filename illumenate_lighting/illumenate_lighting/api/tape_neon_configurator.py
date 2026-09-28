@@ -407,7 +407,7 @@ def validate_tape_configuration(
     dimming_protocol_code: str | None = None,
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
-    override_max_run_ft: float | None = None,
+    override_max_run_ft: float | str | None = None,
 ) -> dict:
     """
     Validate a complete LED Tape configuration and compute manufacturable length.
@@ -967,7 +967,7 @@ def validate_neon_configuration(
     dimming_protocol_code: str | None = None,
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
-    override_max_run_ft: float | None = None,
+    override_max_run_ft: float | str | None = None,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -1468,7 +1468,7 @@ def _write_tape_neon_line(line, result: dict, template_name: str = None, variant
 @atomic_build
 def save_tape_to_schedule(
     schedule_name: str,
-    line_idx: int = None,
+    line_idx: int | str | None = None,
     configuration_result: str = None,
 ) -> dict:
     """
@@ -1485,6 +1485,12 @@ def save_tape_to_schedule(
         line_idx: existing line index to overwrite, or None for new line
         configuration_result: JSON string of the validate_tape/neon_configuration result
     """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
+    try:
+        line_idx = optional_integer(line_idx, minimum=0, field="line index")
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}
+
     if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
         return {"success": False, "error": "Schedule not found"}
 
@@ -2297,7 +2303,7 @@ def validate_tape_neon_template_config(
 @atomic_build
 def save_tape_neon_template_to_schedule(
     schedule_name: str,
-    line_idx: int = None,
+    line_idx: int | str | None = None,
     template_code: str = None,
     configuration_result: str = None,
 ) -> dict:
@@ -2315,6 +2321,12 @@ def save_tape_neon_template_to_schedule(
         template_code: ilL-Tape-Neon-Template template_code
         configuration_result: JSON string of validation result
     """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
+    try:
+        line_idx = optional_integer(line_idx, minimum=0, field="line index")
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}
+
     if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
         return {"success": False, "error": "Schedule not found"}
 

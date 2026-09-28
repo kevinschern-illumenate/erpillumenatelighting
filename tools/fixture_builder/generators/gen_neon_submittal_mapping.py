@@ -15,7 +15,7 @@ from ..config_schema import FixtureBuilderConfig
 from .common import mapping_row, write_csv
 
 HEADERS = [
-    "Tape Neon Template",
+    "Tape/Neon Template",
     "PDF Field Name",
     "Source DocType",
     "Source Field",
@@ -71,10 +71,10 @@ def _load_source_mappings(source_csv_path: str, source_template: str) -> list[tu
         return []
 
     mappings = []
-    with open(source_csv_path, "r", encoding="utf-8") as f:
+    with open(source_csv_path, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            if row.get("Tape Neon Template", "").strip() == source_template:
+            if (row.get("Tape/Neon Template") or row.get("Tape Neon Template", "")).strip() == source_template:
                 mappings.append((
                     row.get("PDF Field Name", ""),
                     row.get("Source DocType", ""),

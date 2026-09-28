@@ -12,35 +12,35 @@ import shutil
 import tempfile
 import unittest
 
+from tools.fixture_builder.__main__ import generate_all, validate_config
 from tools.fixture_builder.config_schema import (
-    FixtureBuilderConfig,
-    ProfileDef,
-    LensDef,
     AccessoryDef,
-    EndcapDef,
-    ProfileLensMapping,
-    FixtureTemplateDef,
-    TemplateAllowedOptions,
     DriverDef,
+    EndcapDef,
+    FixtureBuilderConfig,
+    FixtureTemplateDef,
+    LensDef,
+    ProfileDef,
+    ProfileLensMapping,
     SubmittalMappingDef,
+    TemplateAllowedOptions,
     WebflowDef,
     load_config,
     save_config,
 )
 from tools.fixture_builder.generators import (
-    gen_item_csv,
-    gen_spec_profile,
-    gen_spec_lens,
-    gen_spec_accessory,
-    gen_rel_profile_lens,
     gen_fixture_template,
-    gen_rel_mounting_map,
-    gen_rel_endcap_map,
+    gen_item_csv,
     gen_rel_driver_eligibility,
+    gen_rel_endcap_map,
+    gen_rel_mounting_map,
+    gen_rel_profile_lens,
+    gen_spec_accessory,
+    gen_spec_lens,
+    gen_spec_profile,
     gen_spec_submittal_mapping,
     gen_webflow_product,
 )
-from tools.fixture_builder.__main__ import validate_config, generate_all
 
 
 def _castle_config() -> FixtureBuilderConfig:
@@ -579,9 +579,9 @@ class TestGenerateAll(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def test_new_family_generates_11_files(self):
+    def test_new_family_generates_13_files(self):
         results = generate_all(self.config, self.tmpdir)
-        self.assertEqual(len(results), 11)
+        self.assertEqual(len(results), 13)
 
     def test_new_variant_generates_6_files(self):
         self.config.mode = "new-variant"

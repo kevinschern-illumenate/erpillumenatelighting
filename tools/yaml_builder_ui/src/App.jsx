@@ -233,7 +233,7 @@ const OUTPUT_LEVEL_CHOICES = [
   '100 lm/ft', '150 lm/ft', '200 lm/ft', '250 lm/ft', '300 lm/ft',
   '400 lm/ft', '500 lm/ft', '750 lm/ft', '1000 lm/ft', '1250 lm/ft', '1500 lm/ft'
 ];
-const PRICING_BASIS_CHOICES = ['L_tape_cut', 'L_fixture_cut', 'L_fixture_total'];
+const PRICING_BASIS_CHOICES = ['L_tape_cut', 'L_mfg'];
 const ENV_RATING_CHOICES = ['Dry', 'Damp', 'Wet'];
 
 const OPTION_TYPE_SUGGESTIONS_TAPE = [
@@ -327,6 +327,8 @@ function renderTapeSpec(spec, level) {
   out += `${indent(level)}product_category: ${yamlScalar(spec.productCategory)}\n`;
   out += `${indent(level)}input_voltage: ${yamlScalar(spec.inputVoltage)}\n`;
   out += `${indent(level)}watts_per_foot: ${yamlScalar(spec.wattsPerFoot)}\n`;
+  out += `${indent(level)}input_protocol: ${yamlScalar(spec.inputProtocol || '')}\n`;
+  out += `${indent(level)}voltage_drop_max_run_length_ft: ${yamlScalar(spec.voltageDropMaxRunLengthFt || 0)}\n`;
   out += `${indent(level)}lumens_per_foot: ${yamlScalar(spec.lumensPerFoot)}\n`;
   out += `${indent(level)}cri_typical: ${yamlScalar(spec.criTypical)}\n`;
   out += `${indent(level)}led_pitch_mm: ${yamlScalar(spec.ledPitchMm)}\n`;
@@ -367,6 +369,8 @@ function renderAllowedOption(o, level) {
   out += `${indent(level)}option_type: ${yamlScalar(o.optionType)}\n`;
   out += `${indent(level)}value: ${yamlScalar(o.value)}\n`;
   if (o.isDefault) out += `${indent(level)}is_default: true\n`;
+  out += `${indent(level)}is_active: ${yamlScalar(o.isActive !== false)}\n`;
+  if (o.feedPosition) out += `${indent(level)}feed_position: ${yamlScalar(o.feedPosition)}\n`;
   out += `${indent(level)}msrp_adder: ${yamlScalar(o.msrpAdder)}\n`;
   return out;
 }
@@ -928,6 +932,12 @@ function TapeSpecsSection({ s, setS }) {
             <Field label="Input Voltage">
               <Select value={spec.inputVoltage} onChange={v => update(i, { inputVoltage: v })} options={VOLTAGE_CHOICES} />
             </Field>
+            <Field label="Required Input Protocol" required hint="Driver output protocol required by this tape">
+              <TextInput value={spec.inputProtocol || ''} onChange={v => update(i, { inputProtocol: v })} placeholder="PWM" />
+            </Field>
+            <Field label="Maximum Run Length (ft)" required hint="Voltage-drop limit from the engineering specification">
+              <NumInput value={spec.voltageDropMaxRunLengthFt || ''} onChange={v => update(i, { voltageDropMaxRunLengthFt: v })} />
+            </Field>
             <Field label="Watts / ft">
               <NumInput value={spec.wattsPerFoot} onChange={v => update(i, { wattsPerFoot: v })} placeholder="4.4" />
             </Field>
@@ -1355,6 +1365,10 @@ function OptionRow({ o, typeSuggestions, onUpdate, onRemove, onMove }) {
         <Button size="sm" variant="ghost" icon={ArrowUp} onClick={() => onMove(-1)} />
         <Button size="sm" variant="ghost" icon={ArrowDown} onClick={() => onMove(1)} />
         <Button size="sm" variant="danger" icon={Trash2} onClick={onRemove} />
+      </div>
+      <div className="flex gap-3" style={{ gridColumn: '1 / -1' }}>
+        <Checkbox checked={o.isActive !== false} onChange={v => onUpdate({ isActive: v })} label="Active" />
+        {o.optionType === 'Feed Direction' && <Select value={o.feedPosition || 'Both'} onChange={v => onUpdate({ feedPosition: v })} options={['Both', 'Start', 'End']} />}
       </div>
     </div>
   );

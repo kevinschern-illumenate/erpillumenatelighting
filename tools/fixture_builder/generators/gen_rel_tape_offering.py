@@ -15,8 +15,8 @@ HEADERS = [
     "SDCM",
     "LED Package",
     "Output Level",
-    "Watts per Ft Override",
-    "Cut Increment mm Override",
+    "Watts/ft Override",
+    "Cut Increment (mm) Override",
 ]
 
 

@@ -9,6 +9,8 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	fingerprint,
 	finite_number,
 	length_mm,
+	optional_integer,
+	optional_positive,
 	parse_bool,
 )
 from illumenate_lighting.illumenate_lighting.api.power_planner import plan_power
@@ -16,6 +18,20 @@ from illumenate_lighting.illumenate_lighting.api.product_projection import proje
 
 
 class ConfigurationContracts(unittest.TestCase):
+	def test_optional_form_numbers_distinguish_blank_zero_and_invalid(self):
+		for value in (None, ""):
+			self.assertIsNone(optional_integer(value))
+			self.assertIsNone(optional_positive(value))
+		self.assertEqual(optional_integer("0"), 0)
+		self.assertEqual(optional_integer("2"), 2)
+		self.assertEqual(optional_positive("12.5"), 12.5)
+		for value in ("1.5", "invalid", "Infinity", "NaN", "-1", True):
+			with self.subTest(value=value), self.assertRaises(ValueError):
+				optional_integer(value)
+		for value in ("0", "-1", "12feet", "NaN", "Infinity", False):
+			with self.subTest(value=value), self.assertRaises(ValueError):
+				optional_positive(value)
+
 	def test_boolean_wire_values(self):
 		for value in (False, 0, "0", "false", "False", "off", "no"):
 			with self.subTest(value=value):

@@ -74,6 +74,16 @@ def optional_positive(value, *, field="value"):
 	return result
 
 
+def optional_integer(value, *, minimum=0, field="value"):
+	"""Normalize an optional form number without truncating fractional input."""
+	if value in (None, ""):
+		return None
+	result = finite_number(value, minimum=minimum, field=field)
+	if not result.is_integer():
+		raise ValueError(f"{field} must be a whole number")
+	return int(result)
+
+
 def canonical_json(value):
 	return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 

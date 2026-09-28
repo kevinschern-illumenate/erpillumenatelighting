@@ -16,15 +16,36 @@ from .catalog_schema import PRODUCTS, build_schema
 
 TABLES = {"Table", "Table MultiSelect"}
 NUMBERS = {"Int", "Float", "Currency", "Percent"}
+CONFIGURATION_TABLES = {
+	"ilL-Fixture-Template": "allowed_tape_offerings",
+	"ilL-Tape-Neon-Template": "allowed_tape_specs",
+	"ilL-LED-Sheet-Template": "allowed_specs",
+	"ilL-Driver-Template": "variants",
+	"ilL-Controller-Template": "variants",
+}
+WEBFLOW_TEMPLATES = {
+	"Fixture Template": ("fixture_template", "ilL-Fixture-Template"),
+	"LED Tape": ("tape_neon_template", "ilL-Tape-Neon-Template"),
+	"LED Neon": ("tape_neon_template", "ilL-Tape-Neon-Template"),
+	"LED Sheet": ("led_sheet_template", "ilL-LED-Sheet-Template"),
+	"Driver": ("driver_template", "ilL-Driver-Template"),
+	"Controller": ("controller_template", "ilL-Controller-Template"),
+}
 AXES = {
 	"ilL-Driver-Template": {
-		"Wattage": "wattage", "Voltage Output": "voltage_output",
-		"Input Protocol": "input_protocol", "Output Protocol": "output_protocol",
+		"Wattage": "wattage",
+		"Voltage Output": "voltage_output",
+		"Input Protocol": "input_protocol",
+		"Output Protocol": "output_protocol",
 	},
 	"ilL-Controller-Template": {
-		"Controller Type": "controller_type", "Channels": "channels", "Zones": "zones",
-		"Input Protocol": "input_protocol", "Output Protocol": "output_protocol",
-		"Wireless Protocol": "wireless_protocol", "Mounting Type": "mounting_type",
+		"Controller Type": "controller_type",
+		"Channels": "channels",
+		"Zones": "zones",
+		"Input Protocol": "input_protocol",
+		"Output Protocol": "output_protocol",
+		"Wireless Protocol": "wireless_protocol",
+		"Mounting Type": "mounting_type",
 	},
 }
 
@@ -51,8 +72,10 @@ def with_defaults(doctype, record, schema):
 					continue  # Runtime defaults such as Today are not guessed offline.
 			result[key] = value
 		if kind in TABLES and isinstance(result.get(key), list):
-			result[key] = [with_defaults(field["options"], row, schema) if isinstance(row, dict) else row
-				for row in result[key]]
+			result[key] = [
+				with_defaults(field["options"], row, schema) if isinstance(row, dict) else row
+				for row in result[key]
+			]
 	return result
 
 
@@ -92,6 +115,23 @@ def _record_errors(doctype, record, schema, path):
 			errors.append(f"{path}.{key}: unsupported choice {value!r}")
 	if not errors:
 		errors.extend(f"{path}.{row['field']}: {row['message']}" for row in record_issues(doctype, record))
+		errors.extend(_configuration_errors(doctype, record, path))
+	return errors
+
+
+def _configuration_errors(doctype, record, path):
+	errors = []
+	choices = CONFIGURATION_TABLES.get(doctype)
+	if (
+		choices
+		and record.get("is_active", 1)
+		and not any(row.get("is_active", 1) for row in record.get(choices, []))
+	):
+		errors.append(f"{path}.{choices}: at least one active compatible specification is required")
+	if doctype == "ilL-Webflow-Product" and record.get("is_configurable"):
+		info = WEBFLOW_TEMPLATES.get(record.get("product_type"))
+		if info and not record.get(info[0]):
+			errors.append(f"{path}.{info[0]}: select the matching product template")
 	return errors
 
 
@@ -126,7 +166,11 @@ def _variant_errors(doctype, record, path):
 	errors, choices = [], defaultdict(set)
 	for option in record.get("allowed_options", []):
 		kind = option.get("option_type")
-		value = option.get("option_value") if kind in {"Wattage", "Channels", "Zones", "Wireless Protocol"} else option.get("attribute_link")
+		value = (
+			option.get("option_value")
+			if kind in {"Wattage", "Channels", "Zones", "Wireless Protocol"}
+			else option.get("attribute_link")
+		)
 		if value in (None, ""):
 			errors.append(f"{path}.allowed_options: {kind} requires an option value or attribute link")
 		elif option.get("is_active", 1):
@@ -174,7 +218,9 @@ def prepare_catalog(config, schema=None):
 	if not isinstance(raw, dict) or not raw:
 		raise ValueError("records must contain DocType names mapped to lists of records")
 	external = config.get("external_links", {})
-	if not isinstance(external, dict) or any(not isinstance(v, list) or any(not isinstance(s, str) or not s for s in v) for v in external.values()):
+	if not isinstance(external, dict) or any(
+		not isinstance(v, list) or any(not isinstance(s, str) or not s for s in v) for v in external.values()
+	):
 		raise ValueError("external_links must map DocType names to lists of existing record names")
 	records, nodes, names = {}, {}, {}
 	for doctype, rows in raw.items():
@@ -194,8 +240,10 @@ def prepare_catalog(config, schema=None):
 			if issues:
 				continue
 			name = identity(doctype, row, schema)
-			if meta.get("autoname", "").startswith("field:") and not name:
-				errors.append(f"{path}: naming field {meta['autoname'][6:]} is required")
+			if not name and (
+				meta.get("autoname", "").startswith("field:") or meta.get("autoname") == "prompt"
+			):
+				errors.append(f"{path}: a record name is required by {meta['autoname']}")
 			if name and (doctype, name) in names:
 				errors.append(f"{path}: duplicate record {name}")
 			node = (doctype, i)
@@ -219,15 +267,20 @@ def prepare_catalog(config, schema=None):
 			elif value in external.get(target, []):
 				used_external.add((target, value))
 			else:
-				errors.append(f"{node[0]}[{node[1]}].{field}: unresolved {target or 'Dynamic Link DocType'} / {value}; add the record or declare an external link")
+				errors.append(
+					f"{node[0]}[{node[1]}].{field}: unresolved {target or 'Dynamic Link DocType'} / {value}; add the record or declare an external link"
+				)
 	if errors:
 		raise ValueError("\n".join(errors))
 	batches = []
 	while dependencies:
 		ready = [node for node, deps in dependencies.items() if not deps]
 		if not ready:
-			raise ValueError("Circular import links: " + ", ".join(sorted({node[0] for node in dependencies}))
-				+ ". Remove optional reverse links (such as template.webflow_product), import, then set them in ERPNext.")
+			raise ValueError(
+				"Circular import links: "
+				+ ", ".join(sorted({node[0] for node in dependencies}))
+				+ ". Remove optional reverse links (such as template.webflow_product), import, then set them in ERPNext."
+			)
 		groups = defaultdict(list)
 		for node in ready:
 			groups[node[0]].append(nodes[node])
@@ -251,7 +304,9 @@ def csv_data(doctype, records, schema):
 			for child_field in schema["doctypes"][field["options"]]["fields"]:
 				child_key = child_field["fieldname"]
 				if any(child_key in child for child in children):
-					columns.append((key, child_key, f"{child_field.get('label', child_key)} ({field.get('label', key)})"))
+					columns.append(
+						(key, child_key, f"{child_field.get('label', child_key)} ({field.get('label', key)})")
+					)
 		elif any(key in row for row in records):
 			columns.append((None, key, field.get("label", key)))
 	headers = []
@@ -282,8 +337,15 @@ def generate_catalog(config, output_dir):
 	records, batches, external = prepare_catalog(config, schema)
 	output = Path(output_dir)
 	output.mkdir(parents=True, exist_ok=True)
-	results, manifest = {}, {"schema_version": 2, "product_type": config["product_type"], "imports": [],
-		"external_links": [{"doctype": dt, "name": name} for dt, name in external]}
+	results, manifest = (
+		{},
+		{
+			"schema_version": 2,
+			"product_type": config["product_type"],
+			"imports": [],
+			"external_links": [{"doctype": dt, "name": name} for dt, name in external],
+		},
+	)
 	for i, (doctype, batch) in enumerate(batches, 1):
 		filename = f"{i:03d}-{doctype}.csv"
 		path = output / filename
@@ -293,9 +355,19 @@ def generate_catalog(config, output_dir):
 			writer.writerow(headers)
 			writer.writerows(rows)
 		results[filename] = str(path)
-		manifest["imports"].append({"file": filename, "doctype": doctype, "records": len(batch), "rows": len(rows), "import_type": "Insert New Records"})
+		manifest["imports"].append(
+			{
+				"file": filename,
+				"doctype": doctype,
+				"records": len(batch),
+				"rows": len(rows),
+				"import_type": "Insert New Records",
+			}
+		)
 	(output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-	(output / "records.json").write_text(json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+	(output / "records.json").write_text(
+		json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+	)
 	(output / "IMPORT.md").write_text(
 		"# Product catalog import\n\nConfirm the existing records in manifest.json external_links first.\n"
 		"Import the CSV files in manifest order through ERPNext Data Import, using the listed DocType and Insert New Records.\n"

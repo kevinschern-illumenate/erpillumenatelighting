@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..catalog import csv_data
+from ..catalog_schema import build_schema
 from ..config_schema import FixtureBuilderConfig
 from .common import led_sheet_attribute_doctype, write_csv
 
@@ -111,7 +113,17 @@ def generate_templates(config: FixtureBuilderConfig, output_dir: str) -> str:
 
 
 def generate(config: FixtureBuilderConfig, output_dir: str) -> dict[str, str]:
-    return {
+    results = {
         "ilL-Spec-LED-Sheet.csv": generate_specs(config, output_dir),
         "ilL-LED-Sheet-Template.csv": generate_templates(config, output_dir),
     }
+    if config.mode == "new-family":
+        records = [{"item_code": spec.item_code, "item_name": f"{config.series_name} LED Sheet {spec.item_code}",
+                    "item_group": "LED Sheets", "stock_uom": "Nos", "is_stock_item": 1,
+                    "brand": config.brand, "warranty_period": config.warranty_days}
+                   for spec in config.led_sheet_specs]
+        headers, rows = csv_data("Item", records, build_schema())
+        path = f"{output_dir}/Item CSV.csv"
+        write_csv(path, headers, rows)
+        results = {"Item CSV.csv": path, **results}
+    return results

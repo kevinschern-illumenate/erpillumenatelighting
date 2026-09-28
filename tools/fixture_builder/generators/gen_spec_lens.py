@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv, LENS_APPEARANCE_CODES
+from .common import LENS_APPEARANCE_CODES, write_csv
 
 HEADERS = [
     "Lens Item",
@@ -28,7 +28,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
                 lens.family,
                 appearance,
                 config.series_name,
-                lens.stock_type,
+                "Continuous Roll" if lens.stock_type == "Continuous" else lens.stock_type,
                 lens.stock_length_mm,
                 lens.continuous_max_length_mm if lens.continuous_max_length_mm else "",
             ])

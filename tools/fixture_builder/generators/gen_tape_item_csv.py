@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv, TAPE_ITEM_GROUPS
+from .common import TAPE_ITEM_GROUPS, write_csv
 
 HEADERS = [
     "Item Code",
@@ -18,7 +18,7 @@ HEADERS = [
     "Variant Based On",
     "Attribute (Variant Attributes)",
     "Supplier (Supplier Items)",
-    "Supplier Description (Supplier Items)",
+    "Attribute Value (Variant Attributes)",
     "Supplier Part Number (Supplier Items)",
 ]
 

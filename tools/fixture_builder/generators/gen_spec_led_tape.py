@@ -9,20 +9,20 @@ from ..config_schema import FixtureBuilderConfig
 from .common import write_csv
 
 HEADERS = [
-    "Item",
+    "Tape Item",
     "LED Package",
     "Product Category",
     "Input Voltage",
-    "Watts per Foot",
+    "W/ft",
     "Voltage Drop Max Run Length (ft)",
     "Input Protocol",
     "Lumens per Foot",
-    "CRI Typical",
+    "CRI (Typical)",
     "LED Pitch (mm)",
     "PCB Mounting",
     "PCB Finish",
     "Cut Increment (mm)",
-    "Is Free Cutting",
+    "Free Cutting",
     "Leader Cable Item",
     "Protocol (Supported Dimming Protocols)",
 ]

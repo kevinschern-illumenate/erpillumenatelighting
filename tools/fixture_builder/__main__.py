@@ -16,6 +16,7 @@ import sys
 
 from .config_schema import FixtureBuilderConfig, load_config
 from .generators import (
+    gen_component_variants,
     gen_fixture_template,
     gen_item_csv,
     gen_led_sheet_submittal_mapping,
@@ -179,7 +180,10 @@ def generate_all_fixture(config: FixtureBuilderConfig, output_dir: str,
 
     if is_new_family:
         # Phase 1: New family CSVs
+        component_files = gen_component_variants.generate(config, output_dir)
+        results["Item Attribute.csv"] = component_files["Item Attribute.csv"]
         results["Item CSV.csv"] = gen_item_csv.generate(config, output_dir)
+        results["Item Variants.csv"] = component_files["Item Variants.csv"]
         results["ilL-Spec-Profile.csv"] = gen_spec_profile.generate(config, output_dir)
         results["ilL-Spec-Lens.csv"] = gen_spec_lens.generate(config, output_dir)
         results["ilL-Spec-Accessory.csv"] = gen_spec_accessory.generate(config, output_dir)

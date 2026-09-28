@@ -9,7 +9,7 @@ Template code = ILL-{FAMILY}-{LED_PKG}
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv, LED_PACKAGE_NAMES
+from .common import LED_PACKAGE_NAMES, write_csv
 
 HEADERS = [
     "Template Code",
@@ -17,11 +17,11 @@ HEADERS = [
     "Is Active",
     "Series",
     "Default Profile Family",
-    "Default Profile Stock Len (mm)",
-    "Assembled Max Len (mm)",
-    "Leader Allowance mm per Fixture",
-    "Base Price MSRP",
-    "Price per ft MSRP",
+    "Default Profile Stock Length (mm)",
+    "Assembled Max Length (mm)",
+    "Leader Allowance per Fixture (mm)",
+    "Base Price (MSRP)",
+    "Price per Foot (MSRP)",
     "Pricing Length Basis",
     "Notes",
     # allowed_options child table
@@ -43,6 +43,7 @@ HEADERS = [
     "Option Code (Part Number Builder)",
     "Option Label (Part Number Builder)",
     "Option Order (Part Number Builder)",
+    "Default Profile Spec",
 ]
 
 NUM_COLS = len(HEADERS)
@@ -135,15 +136,16 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
 
             if child_rows:
                 first_type, first_data = child_rows[0]
-                row = primary + _expand_child(first_type, first_data)
+                row = primary + _expand_child(first_type, first_data) + [f"CH-{profile.family}-{profile.finishes[0]}"]
                 rows.append(row)
 
                 # Continuation rows
                 for child_type, child_data in child_rows[1:]:
-                    row = [""] * 12 + _expand_child(child_type, child_data)
+                    row = [""] * 12 + _expand_child(child_type, child_data) + [""]
                     rows.append(row)
             else:
                 row = primary + [""] * (NUM_COLS - 12)
+                row[-1] = f"CH-{profile.family}-{profile.finishes[0]}"
                 rows.append(row)
 
     filepath = f"{output_dir}/ilL-Fixture-Template.csv"
@@ -160,4 +162,4 @@ def _expand_child(child_type, child_data):
         return [""] * 9 + child_data + [""] * 5
     elif child_type == "pn":
         return [""] * 9 + [""] * 2 + child_data
-    return [""] * (NUM_COLS - 12)
+    return [""] * (NUM_COLS - 13)

@@ -9,12 +9,12 @@ to project fixture schedules. Bridges the Webflow configurator selections to
 the existing validate_and_quote API format.
 """
 
-import frappe
 import json
-from frappe import _
-from typing import Optional, Dict, Any
-from frappe.utils import now_datetime
+from typing import Any, Dict, Optional
 
+import frappe
+from frappe import _
+from frappe.utils import now_datetime
 
 # =============================================================================
 # PUBLIC API ENDPOINTS
@@ -162,7 +162,8 @@ def add_to_schedule(
     
     # Generate part number
     from illumenate_lighting.illumenate_lighting.api.webflow_configurator import (
-        _get_series_info, _generate_full_part_number
+        _generate_full_part_number,
+        _get_series_info,
     )
     series_info = _get_series_info(template)
     part_number = _generate_full_part_number(series_info, config)
@@ -211,7 +212,7 @@ def add_to_schedule(
 def add_from_session(
     session_id: str,
     schedule_id: str,
-    quantity: int = None
+    quantity: int | str | None = None
 ) -> dict:
     """
     Add a configured fixture from a Webflow session to a schedule.
@@ -226,6 +227,12 @@ def add_from_session(
     Returns:
         dict: Result with line_id or error
     """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
+    try:
+        quantity = optional_integer(quantity, minimum=1, field="quantity")
+    except ValueError as exc:
+        return {"success": False, "error": str(exc)}
+
     # Get session
     if not frappe.db.exists("ilL-Webflow-Session", session_id):
         return {"success": False, "error": "Session not found"}

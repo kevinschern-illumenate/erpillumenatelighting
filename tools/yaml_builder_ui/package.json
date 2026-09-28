@@ -4,8 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "schema": "python ../fixture_builder/catalog_schema.py",
+    "schema:check": "python ../fixture_builder/catalog_schema.py --check",
+    "predev": "npm run schema",
     "dev": "vite",
+    "prebuild": "npm run schema:check",
     "build": "vite build",
+    "test": "node --test tests/*.test.js",
+    "test:render": "node tests/render.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

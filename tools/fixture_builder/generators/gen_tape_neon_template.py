@@ -7,7 +7,7 @@ Same multi-line child table CSV pattern as gen_fixture_template.py.
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import write_csv, TAPE_NEON_OPTION_TYPES
+from .common import TAPE_NEON_OPTION_TYPES, write_csv
 
 HEADERS = [
     "Template Code",
@@ -16,10 +16,10 @@ HEADERS = [
     "Product Category",
     "Series",
     "Default Tape Spec",
-    "Base Price MSRP",
-    "Price per ft MSRP",
+    "Base Price (MSRP)",
+    "Price per Foot (MSRP)",
     "Pricing Length Basis",
-    "Leader Allowance mm per Fixture",
+    "Leader Allowance per Fixture (mm)",
     # allowed_tape_specs child table
     "Tape Spec (Allowed Tape Specs)",
     "Is Default (Allowed Tape Specs)",

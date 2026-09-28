@@ -11,9 +11,9 @@ HEADERS = [
     "Mounting Method",
     "Environment Rating",
     "Accessory Item",
-    "QTY Rule Type",
-    "QTY Rule Value",
-    "Min QTY",
+    "Qty Rule Type",
+    "Qty Rule Value",
+    "Min Qty",
     "Rounding",
     "Is Active",
 ]

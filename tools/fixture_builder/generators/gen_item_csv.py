@@ -5,8 +5,8 @@ Handles multi-line continuation rows for variant attributes.
 
 from __future__ import annotations
 
-from ..config_schema import FixtureBuilderConfig, FINISH_NAMES
-from .common import write_csv, ITEM_GROUPS, LENS_APPEARANCE_CODES
+from ..config_schema import FINISH_NAMES, FixtureBuilderConfig
+from .common import ITEM_GROUPS, LENS_APPEARANCE_CODES, write_csv
 
 HEADERS = [
     "Item Code",
@@ -21,7 +21,7 @@ HEADERS = [
     "Variant Based On",
     "Attribute (Variant Attributes)",
     "Supplier (Supplier Items)",
-    "Supplier Description (Supplier Items)",
+    "Attribute Value (Variant Attributes)",
     "Supplier Part Number (Supplier Items)",
 ]
 

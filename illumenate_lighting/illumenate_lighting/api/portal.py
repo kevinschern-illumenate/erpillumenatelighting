@@ -1815,11 +1815,11 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 			finish_doc = frappe.db.get_value(
 				"ilL-Attribute-Finish",
 				cf.finish,
-				["code", "display_name"],
+				["code", "finish_name"],
 				as_dict=True,
 			)
 			if finish_doc:
-				details["finish"] = finish_doc.display_name or finish_doc.code or cf.finish
+				details["finish"] = finish_doc.finish_name or finish_doc.code or cf.finish
 
 		# Get lens appearance and transmission
 		lens_transmission = 1.0  # Default 100% if not found (as decimal)
@@ -1901,7 +1901,7 @@ def save_configured_fixture_to_schedule(
 	schedule_name: str,
 	configured_fixture_id: str,
 	manufacturable_length_mm: int,
-	line_idx: int = None,
+	line_idx: int | str | None = None,
 ) -> dict:
 	"""
 	Save a configured fixture to a schedule line.
@@ -1915,6 +1915,12 @@ def save_configured_fixture_to_schedule(
 	Returns:
 		dict: {"success": True/False, "error": "message if error", "line_idx": index}
 	"""
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
+	try:
+		line_idx = optional_integer(line_idx, minimum=0, field="line index")
+	except ValueError as exc:
+		return {"success": False, "error": str(exc)}
+
 	# Validate schedule exists
 	if not frappe.db.exists("ilL-Project-Fixture-Schedule", schedule_name):
 		return {"success": False, "error": "Schedule not found"}

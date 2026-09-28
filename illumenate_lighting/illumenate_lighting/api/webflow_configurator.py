@@ -307,7 +307,7 @@ def get_cascading_options(
 def validate_configuration(
     product_slug: str,
     selections: str,
-    override_max_run_ft: float | None = None,
+    override_max_run_ft: float | str | None = None,
 ) -> dict:
     """
     Validate a complete configuration and generate final part number.
@@ -330,13 +330,12 @@ def validate_configuration(
     # Fall back to a value embedded in the selections payload when present.
     if override_max_run_ft in (None, ""):
         override_max_run_ft = selections_dict.get("override_max_run_ft")
-    override_active = False
-    if override_max_run_ft not in (None, ""):
-        try:
-            override_max_run_ft = float(override_max_run_ft)
-            override_active = override_max_run_ft > 0
-        except (ValueError, TypeError):
-            override_max_run_ft = None
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_positive
+    try:
+        override_max_run_ft = optional_positive(override_max_run_ft, field="maximum run length")
+    except ValueError as exc:
+        return {"success": False, "is_valid": False, "error": str(exc), "field": "override_max_run_ft"}
+    override_active = override_max_run_ft is not None
     
     product = _get_configurable_product(product_slug)
     if not product:
