@@ -178,6 +178,21 @@ def _is_privileged_user() -> bool:
 # inter-warehouse stock is not promised. Matched on Warehouse.warehouse_name so
 # the company suffix ("ilL-Stores - ILL") does not matter.
 PORTAL_STOCK_WAREHOUSE_NAME = "ilL-Stores"
+PORTAL_STOCK_COMPANY = "ilLumenate Lighting"
+
+
+class StockScopeUnavailable(frappe.ValidationError):
+    """The approved stock scope is not configured; optional views may continue."""
+
+
+def portal_stock_company() -> str:
+    """Use the approved company, independent of the ERP-wide default company."""
+    return frappe.conf.get("ill_portal_stock_company") or PORTAL_STOCK_COMPANY
+
+
+def unavailable_stock() -> dict[str, Any]:
+    """Unknown availability carries no quantities or implied shortages."""
+    return {"all_in_stock": False, "items": [], "availability": "unknown", "scope": None}
 
 
 def _eligible_warehouses() -> list[str]:
@@ -185,16 +200,14 @@ def _eligible_warehouses() -> list[str]:
     cached = getattr(frappe.local, "_ill_portal_warehouses", None)
     if cached is not None:
         return cached
-    company = frappe.conf.get("ill_portal_stock_company") or frappe.db.get_single_value("Global Defaults", "default_company")
-    if not company:
-        frappe.throw(_("Stock availability is unavailable: configure the portal stock company."))
+    company = portal_stock_company()
     names = frappe.get_all(
         "Warehouse",
         filters={"warehouse_name": PORTAL_STOCK_WAREHOUSE_NAME, "company": company, "is_group": 0, "disabled": 0},
         pluck="name",
     )
     if not names:
-        frappe.throw(_("Stock availability is unavailable: configure ilL-Stores for the portal stock company."))
+        raise StockScopeUnavailable(_("Stock availability is unavailable: configure ilL-Stores for the portal stock company."))
     frappe.local._ill_portal_warehouses = names
     return names
 
@@ -215,7 +228,7 @@ def _available_qty_sql(item_placeholders: str) -> tuple[str, list[str]]:
     """SQL summing available (actual - reserved) qty over eligible warehouses."""
     warehouses = _eligible_warehouses()
     if not warehouses:
-        frappe.throw(_("Stock availability is unavailable: no eligible warehouse."))
+        raise StockScopeUnavailable(_("Stock availability is unavailable: no eligible warehouse."))
     where = f"item_code IN ({item_placeholders})"
     where += " AND warehouse IN (" + ", ".join(["%s"] * len(warehouses)) + ")"
     sql = f"""SELECT item_code,
@@ -478,7 +491,11 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
 
     # Batch stock query
     distinct_items = list({c[1] for c in components})
-    stock_map = _bulk_stock_query(distinct_items)
+    try:
+        stock_map = _bulk_stock_query(distinct_items)
+        scope = stock_scope_info()
+    except StockScopeUnavailable:
+        return unavailable_stock()
 
     # Build result items
     show_qty = _is_privileged_user()
@@ -506,7 +523,7 @@ def _compute_stock_for_fixture(cf) -> dict[str, Any]:
         "all_in_stock": all_ok,
         "items": items,
         "availability": "available" if all_ok else "partial",
-        "scope": stock_scope_info(),
+        "scope": scope,
     }
 
 
@@ -541,7 +558,10 @@ def get_bom_stock_for_items(items: list[dict[str, Any]]) -> dict[str, Any]:
             expanded_items.append(it)
 
     distinct_codes = list({it["item_code"] for it in expanded_items if it.get("item_code")})
-    stock_map = _bulk_stock_query(distinct_codes)
+    try:
+        stock_map = _bulk_stock_query(distinct_codes)
+    except StockScopeUnavailable:
+        return unavailable_stock()
 
     show_qty = _is_privileged_user()
     result_items: list[dict[str, Any]] = []
@@ -631,11 +651,14 @@ def batch_stock_for_schedule_lines(line_specs: list[dict[str, Any]]) -> dict[str
         for _ctype, item_code, _qty, _uom in spec.get("components") or []:
             item_codes.add(item_code)
 
-    stock_map = _bulk_stock_query(list(item_codes)) if item_codes else {}
+    try:
+        stock_map = _bulk_stock_query(list(item_codes)) if item_codes else {}
+        scope = stock_scope_info() if item_codes else None
+    except StockScopeUnavailable:
+        return {"lines": {spec["key"]: unavailable_stock() for spec in line_specs}, "shortages": [], "scope": None}
     remaining = dict(stock_map)
     demand: dict[str, float] = {}
     show_qty = _is_privileged_user()
-    scope = stock_scope_info()
 
     lines: dict[Any, dict[str, Any]] = {}
     for spec in line_specs:
@@ -710,7 +733,10 @@ def batch_stock_for_fixtures(configured_fixture_ids: list[str]) -> dict[str, dic
         return {}
 
     all_item_codes = {item_code for comps in fixture_components_map.values() for _, item_code, _, _ in comps}
-    stock_map = _bulk_stock_query(list(all_item_codes))
+    try:
+        stock_map = _bulk_stock_query(list(all_item_codes))
+    except StockScopeUnavailable:
+        return {cf_id: unavailable_stock() for cf_id in fixture_components_map}
 
     show_qty = _is_privileged_user()
     results: dict[str, dict[str, Any]] = {}

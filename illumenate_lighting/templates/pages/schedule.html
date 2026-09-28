@@ -614,14 +614,17 @@ body.reorder-no-select {
 	<div class="row mb-4">
 		<div class="col-12">
 			<div class="d-flex align-items-center flex-wrap">
-				{% if stock_lines_in_stock == stock_lines_total %}
+				{% if stock_lines_unknown %}
+				<span class="badge badge-secondary mr-2">{{ _("Stock availability unavailable") }}{% if stock_lines_unknown < stock_lines_total %} ({{ stock_lines_unknown }} / {{ stock_lines_total }}){% endif %}</span>
+				<small class="text-muted">{{ _("You can continue working on this schedule. Contact us to confirm availability.") }}</small>
+				{% elif stock_lines_in_stock == stock_lines_total %}
 				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts Available Now") }}</span>
 				{% elif stock_lines_in_stock > 0 %}
 				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock }} / {{ stock_lines_total }} {{ _("lines fully available now") }}</span>
 				{% else %}
 				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully available now") }}</span>
 				{% endif %}
-				{% if stock_scope %}
+				{% if stock_scope and not stock_lines_unknown %}
 				<small class="text-muted">
 					{{ _("Based on the full schedule quantities; on hand minus reserved") }}
 					{% if stock_scope.warehouse_scoped %}{{ _("in") }} {{ stock_scope.warehouse_scope | join(", ") }}{% endif %}
@@ -717,7 +720,9 @@ body.reorder-no-select {
 											{% if line.get('stock_availability') %}
 											{% set sa = line.get('stock_availability') %}
 											<div class="small mt-1">
-												{% if sa.get('all_in_stock') %}
+												{% if sa.get('availability') == 'unknown' %}
+												<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
+												{% elif sa.get('all_in_stock') %}
 												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
 												{% elif sa.get('items', []) | length > 0 %}
 												<details class="stock-breakdown">
@@ -786,7 +791,9 @@ body.reorder-no-select {
 											{% set total_count = sa.get('items', []) | length %}
 											<details class="kit-stock-breakdown stock-breakdown mt-1">
 												<summary>
-													{% if sa.get('all_in_stock') %}
+													{% if sa.get('availability') == 'unknown' %}
+													<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
+													{% elif sa.get('all_in_stock') %}
 													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("All In Stock") }} ({{ total_count }}/{{ total_count }})</span>
 													{% elif in_count > 0 %}
 													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})</span>
@@ -933,7 +940,9 @@ body.reorder-no-select {
 										{% if line.get('stock_availability') %}
 										{% set sa = line.get('stock_availability') %}
 										<div class="small mt-1">
-											{% if sa.get('all_in_stock') %}
+											{% if sa.get('availability') == 'unknown' %}
+											<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
+											{% elif sa.get('all_in_stock') %}
 											<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
 											{% else %}
 											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}

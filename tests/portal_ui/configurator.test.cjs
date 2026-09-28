@@ -19,6 +19,21 @@ function setup(html = '') {
   return { dom, w, $: w.$, requests, api: w.IllConfigurator };
 }
 
+test('fixture availability distinguishes unknown setup from known stock and shortages', () => {
+  const { dom, $, api } = setup('<div id="host"><div id="stockAvailability"><div id="stockItemsList"></div></div></div>');
+  const inst = new api.Fixture($('#host'), {});
+  inst._renderStockAvailability({ all_in_stock: true, items: [{ item_code: 'PROFILE', is_sufficient: true }] });
+  assert.match(inst.$('#stockItemsList').text(), /All In Stock/);
+  inst._renderStockAvailability({ availability: 'unknown', all_in_stock: false, items: [] });
+  assert.equal(inst.$('#stockItemsList').text(), 'Stock availability unavailable');
+  assert.notEqual(inst.$('#stockAvailability').css('display'), 'none');
+  assert.equal(inst.$('#stockItemsList .text-danger').length, 0);
+  inst._renderStockAvailability({ all_in_stock: false, items: [{ item_code: 'PROFILE', is_sufficient: false }] });
+  assert.match(inst.$('#stockItemsList').text(), /Not In Stock/);
+  assert.doesNotMatch(inst.$('#stockItemsList').text(), /unavailable/);
+  dom.window.close();
+});
+
 test('embedded labels target only their instance and remount has one change handler', () => {
   const { dom, $, api } = setup(['a', 'b'].map(id => '<div id="' + id + '"><input id="power" type="checkbox"><label for="power">Power</label></div>').join(''));
   const a = new api.Base($('#a'), {});

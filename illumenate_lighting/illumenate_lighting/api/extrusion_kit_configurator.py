@@ -33,7 +33,6 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # PRICING HELPERS
 # ═══════════════════════════════════════════════════════════════════════
@@ -842,13 +841,17 @@ def _build_kit_stock_result(component_defs: list) -> dict:
 	import math
 
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+		StockScopeUnavailable,
 		_bulk_stock_query,
 	)
 
 	# Batch-fetch stock for all distinct item codes in one query
 	# (includes automatic Product Bundle resolution)
 	item_codes = [c[1] for c in component_defs if c[1]]
-	stock_map = _bulk_stock_query(item_codes)
+	try:
+		stock_map = _bulk_stock_query(item_codes)
+	except StockScopeUnavailable:
+		return {"success": False, "availability": "unknown", "components": [], "message": _("Stock availability unavailable")}
 
 	# Batch-fetch lead_time_days and item_name for all item codes
 	lead_time_map: dict[str, int] = {}

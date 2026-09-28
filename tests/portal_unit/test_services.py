@@ -63,12 +63,14 @@ def load_service(relative, extras=None):
 
 
 class WarehouseScope(unittest.TestCase):
-	def test_company_is_mandatory(self):
+	def test_approved_company_is_independent_of_global_default(self):
 		with load_service(ROOT + ".api.pricing_utils") as (module, frappe):
-			frappe.db.get_single_value.return_value = None
-			with self.assertRaisesRegex(ValueError, "stock company"):
+			frappe.db.get_single_value.return_value = "Another Company"
+			frappe.get_all.return_value = []
+			with self.assertRaises(module.StockScopeUnavailable):
 				module._eligible_warehouses()
-			frappe.get_all.assert_not_called()
+			self.assertEqual(frappe.get_all.call_args.kwargs["filters"]["company"], "ilLumenate Lighting")
+			frappe.db.get_single_value.assert_not_called()
 
 	def test_missing_scope_never_queries_all_bins(self):
 		with load_service(ROOT + ".api.pricing_utils") as (module, frappe):
@@ -87,6 +89,61 @@ class WarehouseScope(unittest.TestCase):
 			self.assertIn("AND warehouse IN (%s)", sql)
 			self.assertEqual(warehouses, ["ilL-Stores - A"])
 			self.assertNotIn("all", module.stock_scope_info()["warehouse_scope"])
+
+	def test_missing_scope_is_unknown_for_optional_stock_views(self):
+		with load_service(ROOT + ".api.pricing_utils") as (module, frappe):
+			frappe.get_all.return_value = []
+			components = [("Profile", "PROFILE", 1, "Nos")]
+			with (
+				patch.object(module, "fixture_components", return_value=components),
+				patch.object(module, "_get_product_bundle_items", return_value=[]),
+			):
+				checks = [
+					module._compute_stock_for_fixture(object()),
+					module.get_bom_stock_for_items([{"item_code": "PROFILE", "qty": 1}]),
+					module.batch_stock_for_fixtures(["CF1"])["CF1"],
+				]
+				result = module.batch_stock_for_schedule_lines([{"key": 1, "qty": 2, "components": components}])
+				checks.append(result["lines"][1])
+			for result_row in checks:
+				self.assertEqual(result_row["availability"], "unknown")
+				self.assertFalse(result_row["all_in_stock"])
+				self.assertEqual(result_row["items"], [])
+			self.assertEqual(result["shortages"], [])
+			self.assertIsNone(result["scope"])
+			frappe.db.sql.assert_not_called()
+
+	def test_empty_schedule_demand_does_not_require_stock_configuration(self):
+		with (
+			load_service(ROOT + ".api.pricing_utils") as (module, _frappe),
+			patch.object(module, "_is_privileged_user", return_value=False),
+		):
+			result = module.batch_stock_for_schedule_lines([{"key": 1, "components": []}])
+			self.assertEqual(result["lines"][1]["availability"], "unknown")
+			self.assertIsNone(result["scope"])
+
+	def test_unrelated_stock_errors_are_not_hidden(self):
+		with (
+			load_service(ROOT + ".api.pricing_utils") as (module, _frappe),
+			patch.object(module, "_bulk_stock_query", side_effect=RuntimeError("database failure")),
+		):
+			with self.assertRaisesRegex(RuntimeError, "database failure"):
+				module.batch_stock_for_schedule_lines([{"key": 1, "components": [("Profile", "P", 1, "Nos")]}])
+
+	def test_shared_demand_still_uses_scoped_stock(self):
+		with (
+			load_service(ROOT + ".api.pricing_utils") as (module, _frappe),
+			patch.object(module, "_bulk_stock_query", return_value={"P": 3}),
+			patch.object(module, "_is_privileged_user", return_value=True),
+			patch.object(module, "_eligible_warehouses", return_value=["ilL-Stores - ILL"]),
+		):
+			result = module.batch_stock_for_schedule_lines([
+				{"key": 1, "qty": 2, "components": [("Profile", "P", 1, "Nos")]},
+				{"key": 2, "qty": 2, "components": [("Profile", "P", 1, "Nos")]},
+			])
+			self.assertTrue(result["lines"][1]["all_in_stock"])
+			self.assertFalse(result["lines"][2]["all_in_stock"])
+			self.assertEqual(result["shortages"][0]["shortage"], 1)
 
 
 class PrivateUploadAccess(unittest.TestCase):

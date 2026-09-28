@@ -127,6 +127,110 @@ class TestMigrationAssets(IntegrationTestCase):
 			frappe.db.delete("Sales Order Item", {"name": line.name})
 			frappe.db.delete("Sales Order", {"name": order.name})
 
+	def test_populated_schedule_renders_when_stock_scope_is_unavailable(self):
+		from frappe.website.serve import get_response
+		from werkzeug.wrappers import Request
+
+		from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+			_build_kit_stock_result,
+		)
+
+		# Read-model fixtures exercise the real queries and template, without
+		# creating a commercial transaction or changing the site's stock setup.
+		prefix = "ILL-STOCK-" + frappe.generate_hash(length=10)
+		definitions = [
+			{"doctype": "Item", "name": prefix, "item_code": prefix, "item_name": "Stock Test Accessory", "stock_uom": "Nos"},
+			{"doctype": "ilL-Configured-Fixture", "name": prefix, "config_hash": prefix,
+			 "display_part_number": "Stock Test Fixture", "profile_item": prefix, "build_schema_version": 1,
+			 "manufacturable_overall_length_mm": 1000, "include_power_supply": 0},
+			{"doctype": "ilL-Project", "name": prefix, "project_name": "Stock Test Project", "customer": prefix, "owner_customer": prefix},
+			{"doctype": "ilL-Project-Fixture-Schedule", "name": prefix, "schedule_name": "Stock Test Schedule", "ill_project": prefix, "customer": prefix, "status": "DRAFT"},
+			{"doctype": "ilL-Child-Fixture-Schedule-Line", "name": prefix, "parent": prefix,
+			 "parenttype": "ilL-Project-Fixture-Schedule", "parentfield": "lines", "idx": 1,
+			 "line_id": "A1", "manufacturer_type": "ACCESSORY", "qty": 2,
+			 "accessory_item": prefix, "accessory_item_name": "Stock Test Accessory"},
+			{"doctype": "ilL-Child-Fixture-Schedule-Line", "name": prefix + "-fixture", "parent": prefix,
+			 "parenttype": "ilL-Project-Fixture-Schedule", "parentfield": "lines", "idx": 2,
+			 "line_id": "F1", "manufacturer_type": "ILLUMENATE", "qty": 3,
+			 "product_type": "Linear Fixture", "configured_fixture": prefix},
+		]
+		inserted = []
+		try:
+			for definition in definitions:
+				doc = frappe.get_doc(definition)
+				doc.db_insert()
+				inserted.append(doc)
+			path = f"portal/schedules/{prefix}"
+			with (
+				patch.dict(frappe.conf, {"ill_portal_stock_company": prefix}),
+				patch.object(frappe.local, "_ill_portal_warehouses", None, create=True),
+				patch.object(frappe.local, "request", Request.from_values(path="/" + path), create=True),
+				patch.object(frappe.local, "form_dict", frappe._dict(schedule=prefix)),
+				patch.object(frappe.local, "message_log", []),
+			):
+				response = get_response(path)
+				self.assertEqual(response.status_code, 200)
+				html = response.get_data(as_text=True)
+				self.assertIn("Stock Test Schedule", html)
+				self.assertIn("Stock Test Accessory", html)
+				self.assertIn("Stock Test Fixture", html)
+				self.assertIn("Stock availability unavailable", html)
+				self.assertNotIn("No lines fully available now", html)
+				self.assertNotIn("All Parts Available Now", html)
+				kit = _build_kit_stock_result([("Profile", prefix, 1)])
+				self.assertEqual(kit["availability"], "unknown")
+				self.assertEqual(kit["components"], [])
+				self.assertEqual(frappe.local.message_log, [])
+		finally:
+			for doc in reversed(inserted):
+				frappe.db.delete(doc.doctype, {"name": doc.name})
+
+	def test_stock_queries_only_count_the_approved_company_and_warehouse(self):
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+			_bulk_stock_query,
+			batch_stock_for_schedule_lines,
+		)
+
+		prefix = "ILL-STOCK-" + frappe.generate_hash(length=10)
+		inserted = []
+		try:
+			for index, (company, warehouse_name, disabled, is_group) in enumerate([
+				(prefix, "ilL-Stores", 0, 0),
+				(prefix + "-other", "ilL-Stores", 0, 0),
+				(prefix, "Other Stores", 0, 0),
+				(prefix, "ilL-Stores", 1, 0),
+				(prefix, "ilL-Stores", 0, 1),
+			]):
+				warehouse = frappe.get_doc({
+					"doctype": "Warehouse", "name": f"{prefix}-{index}", "company": company,
+					"warehouse_name": warehouse_name, "disabled": disabled, "is_group": is_group,
+				})
+				warehouse.db_insert()
+				inserted.append(warehouse)
+				stock = frappe.get_doc({
+					"doctype": "Bin", "name": f"{prefix}-{index}", "warehouse": warehouse.name,
+					"item_code": prefix, "actual_qty": 7 if index == 0 else 1000,
+					"reserved_qty": 4 if index == 0 else 0,
+				})
+				stock.db_insert()
+				inserted.append(stock)
+			with (
+				patch.dict(frappe.conf, {"ill_portal_stock_company": prefix}),
+				patch.object(frappe.local, "_ill_portal_warehouses", None, create=True),
+			):
+				self.assertEqual(_bulk_stock_query([prefix, prefix + "-empty"]), {prefix: 3, prefix + "-empty": 0})
+				result = batch_stock_for_schedule_lines([
+					{"key": key, "qty": 2, "components": [("Accessory", prefix, 1, "Nos")]}
+					for key in (1, 2)
+				])
+				self.assertEqual(result["scope"]["warehouse_scope"], [prefix + "-0"])
+				self.assertTrue(result["lines"][1]["all_in_stock"])
+				self.assertFalse(result["lines"][2]["all_in_stock"])
+				self.assertEqual(result["shortages"][0]["shortage"], 1)
+		finally:
+			for doc in reversed(inserted):
+				frappe.db.delete(doc.doctype, {"name": doc.name})
+
 	def test_shipped_doctypes_survive_orphan_cleanup(self):
 		folder = Path(frappe.get_app_path("illumenate_lighting", "illumenate_lighting", "doctype"))
 		for path in folder.glob("*/*.json"):

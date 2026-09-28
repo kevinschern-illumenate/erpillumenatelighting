@@ -385,6 +385,10 @@ def get_context(context):
 	context.other_count = other_count
 	context.stock_lines_total = stock_lines_total
 	context.stock_lines_in_stock = stock_lines_in_stock
+	context.stock_lines_unknown = sum(
+		1 for line in lines_with_details
+		if line.get("stock_availability", {}).get("availability") == "unknown"
+	)
 	context.stock_shortages = schedule_stock.get("shortages") or []
 	context.stock_scope = schedule_stock.get("scope")
 	context.schedule_status_class = schedule_status_class
@@ -894,6 +898,9 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 		endcap_color=selections.get("endcap_color", ""),
 	)
 
+	if stock_result.get("availability") == "unknown":
+		from illumenate_lighting.illumenate_lighting.api.pricing_utils import unavailable_stock
+		return unavailable_stock()
 	if not stock_result.get("success"):
 		return None
 

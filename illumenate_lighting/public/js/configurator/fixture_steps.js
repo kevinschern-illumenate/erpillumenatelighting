@@ -1168,6 +1168,11 @@
 	Fixture.prototype._renderStockAvailability = function (stockData) {
 		var $container = this.$('#stockAvailability');
 		var $list = this.$('#stockItemsList').empty();
+		if (stockData && stockData.availability === 'unknown') {
+			$list.text(__('Stock availability unavailable'));
+			$container.show();
+			return;
+		}
 		if (!stockData || !stockData.items || !stockData.items.length) { $container.hide(); return; }
 		var items = stockData.items;
 		var inStock = items.filter(function (i) { return i.is_sufficient; }).length;

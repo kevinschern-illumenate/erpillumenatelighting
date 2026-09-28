@@ -12,6 +12,8 @@ ENGINEERING_REFERENCES = {
 
 def inventory():
 	frappe.only_for("System Manager")
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import portal_stock_company
+
 	return {
 		"schema_version": 1,
 		"site": frappe.local.site,
@@ -33,8 +35,7 @@ def inventory():
 			as_dict=True,
 		),
 		"dealer_desk_access": frappe.db.get_value("Role", "Dealer", "desk_access"),
-		"stock_company": frappe.conf.get("ill_portal_stock_company")
-		or frappe.db.get_single_value("Global Defaults", "default_company"),
+		"stock_company": portal_stock_company(),
 		"warehouses": frappe.get_all(
 			"Warehouse",
 			filters={"warehouse_name": "ilL-Stores"},
