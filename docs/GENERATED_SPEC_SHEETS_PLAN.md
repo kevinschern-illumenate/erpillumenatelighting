@@ -1,6 +1,6 @@
 # Generated Spec Sheets and Submittals — Investigation and Plan
 
-Status: **Phase 0 complete (local and Frappe Cloud); Phase 1 next** · Prepared 2026-09-29 · Updated 2026-09-29 (Phase 0 results, §15)
+Status: **Phase 0 complete (local and Frappe Cloud); Phase 1 foundations built, awaiting deploy (§16); Phase 2 next** · Prepared 2026-09-29 · Updated 2026-09-29 (Phase 0 results §15, Phase 1 results §16)
 
 ## 1. Goal
 
@@ -105,7 +105,7 @@ Measured from the supplied PDFs and InDesign files (see Appendix A for exact met
 
 | Element | Source (new fields marked **new**) |
 |---|---|
-| Hero image (144×144pt, rounded) | Webflow Product **`spec_hero_image`** (new; today `custom_image_hero` → a TIF on the Mac) |
+| Hero image (144×144pt, rounded) | Webflow Product **`spec_assets` row with role Hero** (new; today `custom_image_hero` → a TIF on the Mac) |
 | Title (2 lines, Manrope Bold 20pt) | Webflow Product `product_name`, with an optional **`spec_title_line_break`** hint |
 | Sublabel ("SURFACE", "DUAL-BENDING NEON") | Webflow Product `sublabel`, uppercased |
 | Logo (top right, 112×72pt) | Brand document profile, **one logo per product line** (InDesign links `ilLumenate Logo_SW_Black_Main`, `…_DW_Black_Main`, …) |
@@ -228,7 +228,7 @@ Add it as a `spec_assets` table on:
 
 | DocType | Typical assets |
 |---|---|
-| `ilL-Webflow-Product` | Hero (also add a `spec_hero_image` shortcut field) |
+| `ilL-Webflow-Product` | Hero (a `spec_assets` row with role Hero; no separate shortcut field) |
 | `ilL-Spec-Profile` | Cross Section, Side View, Product Photo |
 | `ilL-Spec-Lens` | Product Photo |
 | `ilL-Spec-Accessory` | Accessory Drawing, Product Photo (plus a `spec_title` field, e.g. "Pivot Clip") |
@@ -245,7 +245,7 @@ Icons and branding live on masters: `spec_icon` on Output Voltage and Environmen
 | Current field | New home |
 |---|---|
 | `custom_image_illumenate_logo`, `custom_image_spec_line` | Brand document profile |
-| `custom_image_hero` | Webflow Product `spec_hero_image` |
+| `custom_image_hero` | Webflow Product `spec_assets` (role Hero) |
 | `custom_component_1..3_*` | Derived from the template's profile/tape/lens specs (Product Photo) |
 | `custom_image_*_icon` (ETL, UL, voltages, Dry/Damp/Wet) | Certification / Output Voltage / Environment Rating masters |
 | `custom_image_dimensions_1..5`, titles | Profile or tape-neon template `spec_assets` |
@@ -472,7 +472,7 @@ sections.
 ## 7. Date code
 
 - **Catalog sheet:** `MMDDYY` of the approval date + the approver's initials (from a new
-  **`document_initials`** field on User, defaulting to first/last initials). This matches the
+  **`ill_document_initials`** field on User, defaulting to first/last initials). This matches the
   existing meaning ("when created + who made it"). The code changes only when a new revision is
   approved.
 - **Submittal:** `MMDDYY` of generation + the initials of the user who generated it. Portal
@@ -493,6 +493,10 @@ Add a **Document Branding** section to `ilL-Webflow-Brand` (one row per brand):
 - `document_font_heading` / `document_font_body` (default Manrope / Poppins)
 - `default_document_initials`
 
+**Built in Phase 1 in a smaller form (§16.1):** `document_logos`, `default_document_initials`, and
+one `document_branding_json` field for footer lines, notice and colour roles. Blank fields use the
+app's brand folder. Spec line stops and fonts stay in the app until 206 Lighting needs its own.
+
 Templates read only tokens from the brand, never literals. A 206 Lighting sheet is then a data
 change plus a one-time visual QA pass. Product-level brand overrides (a different hero or product
 name per brand) can use the existing `target_brands` rows later if needed.
@@ -507,14 +511,14 @@ prints what ERPNext says**. Decisions received on 2026-09-29:
 | Item | ERPNext today | Current PDF | Resolution |
 |---|---|---|---|
 | Operating temperature | −40 °C to 65 °C | −20 °C to 45 °C | **ERPNext wins**; generated sheets print −40 °F (−40 °C) to 149 °F (65 °C) |
-| Output columns shown | 100–1500 incl. 200/250/400 | 100/300/500/750/1000 | **Keep today's columns** via `show_on_spec_sheet` on the template's output levels; extra levels stay in ERPNext for later |
+| Output columns shown | 100–1500 incl. 200/250/400 | 100/300/500/750/1000 | **Keep today's columns** via the template's `spec_output_levels` table; extra levels stay in ERPNext for later |
 | White / black lens wattage | see §9.1 | 1.7 W / 2.5 W at 100 lm/ft | Brighter tape behind low-transmission lenses (decision 11); **rule to confirm, §9.1** |
 | Finishes | SV/BK/WH | + **CU (Provide RAL #)** | **Standard on every linear fixture and kit**: add the Custom finish option with `spec_note` "Provide RAL #" |
 | Dry/Wet | Only `I — Dry` | `I — Indoor`, `O — Outdoor` | **Outdoor is standard on every linear fixture and kit**: add the option |
 | Feed directions / lengths | B/E/L/R(/CAP); 2–30 ft | E/B(/C); 2–25 ft | **Per product**, from the new feed options table (§3.8) |
 | Dimming | TRIAC/ELV/0-10V (attribute links) | + DMX, DALI, Bluetooth | Union of all approved drivers in `ilL-Rel-Driver-Eligibility` (decision 6a) |
 | Icon row / UL | "24V DC", "Dry/Damp/Wet Rated" modelled as certifications; no UL cert | UL "For use with … Light Source" | Model per §3.2 |
-| Hero image | `featured_image` = `SH01_LIT.jpg` (website) | `SH01 Hero Image - TIF` | New `spec_hero_image` |
+| Hero image | `featured_image` = `SH01_LIT.jpg` (website) | `SH01 Hero Image - TIF` | New Hero row in Webflow Product `spec_assets` |
 
 A **data readiness report** (Phase 2) lists gaps like these per product before its first generated
 revision is approved.
@@ -562,11 +566,13 @@ The published max-run values also differ slightly from the tape sheet in five ce
    - computes its SHA-256
    - copies it into `output/<catalog>/assets/`
    - writes `assets_manifest.json` (path → sha256 → target DocType/field/row)
-   - writes the CSV cell as the final public URL `/files/spec-assets/<sha8>-<name>`
+   - leaves the local path out of the CSV (a value that is already a `/files/` URL stays in the CSV)
 3. **Asset importer** (a new whitelisted staff method plus a Desk page, "Import Spec Asset Pack"):
    takes the zip and manifest, validates every file, creates public `File` records at the exact
    manifest URLs (idempotent by sha256), converts TIF to PNG and PDF to SVG, and reports anything
-   missing. It **runs before the CSV import**, so Attach values resolve.
+   missing. It **runs after the CSV import** and attaches each file to its target record itself,
+   because Frappe may reuse an existing File's URL for identical content, so URLs cannot be
+   fixed in advance (built in Phase 1, §16).
 4. The **`IMPORT.md`** the builder generates gets the new first step: "Import the asset pack".
 5. **Updates to existing products:** re-running the asset importer is idempotent. Changed files get
    new sha-based URLs, so old revisions keep their exact assets. Record updates go through the
@@ -627,18 +633,22 @@ Sizes are relative (S ≈ days, M ≈ 1–2 weeks, L ≈ 2–4 weeks of focused 
   St. Helens spec hero (`SH01 Hero Image`, cut from the PDF) and the inline UL mark (CC Libraries:
   Icons/UL, cut from the PDF).
 
-### Phase 1 — Foundations (M)
-- `spec_sheets/facts.py` refactor, with characterization tests proving Webflow Product and CSV
-  outputs are unchanged.
-- New fields/tables: `ilL-Child-Spec-Asset`, `ilL-Child-Feed-Option` (§3.8), `spec_icon`,
-  `spec_label`/`spec_note`/`spec_group_label`, `show_on_spec_sheet`, `color_role`, certification
-  `spec_sheet_placement`, brand document fields, User `document_initials`.
-- Standard options: Custom finish (CU, "Provide RAL #") and Outdoor (O) on every linear fixture and
-  extrusion kit template; YAML Builder examples include them by default.
-- Background job (after migrate) that installs the pinned Chromium, so no request waits on it.
-- Patches: seed the ilLumenate brand document profile. Also migrate existing `custom_image_*` data
-  where a value is already an ERPNext `/files/` URL; Mac paths are reported, not copied.
-- YAML Builder schema refresh, examples, asset-path support, asset pack output; asset importer.
+### Phase 1 — Foundations (M) — built, awaiting deploy (§16)
+- ✅ `spec_sheets/facts.py`: the formatters copied across the CSV export, Webflow Product and the
+  Webflow export now live in one module; outputs unchanged, pinned by tests. Dimming is one rule
+  everywhere (every approved driver's protocols, decision 6a).
+- ✅ New fields/tables: `ilL-Child-Spec-Asset`, `ilL-Child-Feed-Option` (§3.8),
+  `ilL-Child-Spec-Output-Level`, `ilL-Child-Brand-Logo`, `spec_icon`,
+  `spec_label`/`spec_note`/`spec_group_label`, `spec_output_levels`, `color_role`, certification
+  `spec_sheet_placement`, brand document fields, User `ill_document_initials`.
+- ⚠️ Standard options: Custom finish (CU, "Provide RAL #") and Outdoor (O). A coverage report lists
+  every template missing them and every finish the configurators would refuse. Adding the options
+  themselves waits on engineering data (§16.4); YAML Builder examples gain them once it arrives.
+- ✅ Background job (after migrate) that installs the pinned Chromium, so no request waits on it.
+- ✅ Brand profile: no seed needed. Blank Document Branding fields mean "use the app defaults".
+  `custom_image_*` values that are already ERPNext Files move into `spec_assets`; everything else is
+  reported, not copied.
+- ✅ YAML Builder schema refresh, asset-path support, asset pack output; asset importer.
 
 ### Phase 2 — Linear fixture catalog sheet (L)
 - Sheet model, templates, CSS tokens, renderer integration.
@@ -693,7 +703,7 @@ Brand profile data + visual QA; no template changes expected.
 
 ## 14. Open items (non-blocking; defaults in bold)
 
-1. Output columns on catalog sheets: **curated per template via `show_on_spec_sheet`**, or all fixture levels.
+1. Output columns on catalog sheets: **curated per template via `spec_output_levels`**, or all fixture levels.
 2. Asset storage: **child table on the owning record (§4)**, or a single standalone `ilL-Spec-Sheet-Asset` DocType with a dynamic link. Both keep assets in ERPNext; the child table avoids duplication.
 3. SVG text: **outlined text**, or live text with inlined SVGs (searchable drawings).
 4. Submittal initials for portal-generated packets: **brand default initials**, or the portal user's.
@@ -903,4 +913,88 @@ Run from the System Console on the production bench after PR #268 was deployed:
   and status checks read the RQ job, so a lost job is visible and retried.
 - The bench's files are rebuilt on each deploy, so the pinned Chromium is fetched again after a
   deploy. Phase 1 adds an after-migrate background job that installs it so no request waits.
+
+---
+
+## 16. Phase 1 results (2026-09-29)
+
+### 16.1 What was built
+
+| Area | Where | Notes |
+|---|---|---|
+| Artwork homes | `ilL-Child-Spec-Asset` as `spec_assets` on Webflow Product, Profile, Lens, Accessory, LED Tape, Tape-Neon Template, Extrusion Kit Template; `spec_icon` on Output Voltage and Environment Rating | Saving a record stamps each row's SHA-256, refuses links, unprintable formats and unsafe SVGs, and flags FPO-magenta SVGs as placeholders (`spec_sheets/site.stamp_spec_assets`) |
+| Spec copy | `spec_title` (Webflow Product, Accessory), `spec_label`/`spec_note` (Finish, Mounting), `spec_group_label` (Lens Appearance), certification `spec_sheet_placement` + `spec_statement`, PN builder `color_role` | Read by the Phase 2 sheet model |
+| Output columns | `spec_output_levels` on Fixture and Tape-Neon templates | Replaces the `show_on_spec_sheet` idea: a table of the levels printed as columns |
+| Feed options | `feed_options` (`ilL-Child-Feed-Option`) on Fixture and Tape-Neon templates | §3.8 |
+| Branding | Webflow Brand: `document_branding_json` (`footer_lines`, `notice`, `colors`), `default_document_initials`, `document_logos` | Blank = app defaults in `spec_sheets/brands/illumenate/`; validated on save (unknown keys, non-hex or FPO colours, linked logos) |
+| Date code initials | User `ill_document_initials` (patch) | Blank = initials of the full name |
+| Chromium | `after_migrate` queues a deduplicated install job | Skipped when Chromium is present, in tests, or when Redis is unreachable (Frappe would otherwise run the 110 MB download inside the migration) |
+| Legacy images | Patch `spec_sheet_legacy_images` | Moves `custom_image_*` values that are already Files into Webflow Product `spec_assets` |
+| Asset pack | YAML Builder CLI writes `assets.zip`; `spec_sheets/asset_pack.import_asset_pack` imports it | See §16.2 |
+| Shared facts | `spec_sheets/facts.py`, `driver_catalog.approved_input_protocols` | See §16.3 |
+| Standard options | `api/standard_options.report`, plus the fixture coverage audit | See §16.4 |
+
+### 16.2 Getting artwork into ERPNext
+
+1. In a version 2 catalog, set any artwork field to a path relative to the catalog file, e.g.
+   `spec_assets: [{asset_role: Cross Section, title: Cross Section, file: assets/SH01_cross.svg}]`.
+   The CLI checks each file (SVG, PNG, JPEG or TIFF; at most 20 MB; SVG with no script, event
+   handlers, DTDs or external references; inside the catalog folder), keeps the path out of the
+   CSVs, and writes a byte-for-byte reproducible `assets.zip` with `assets_manifest.json`.
+2. Import the CSVs as before, then upload `assets.zip` as a private File and run a dry run from the
+   System Console:
+
+		print(frappe.call("illumenate_lighting.illumenate_lighting.api.spec_sheets.asset_pack.import_asset_pack",
+			file_url="/private/files/assets.zip", dry_run=1))
+
+3. When it reports no errors, run it again with `dry_run=0` and **Commit** ticked. Nothing is written
+   unless the whole pack is valid. TIFF photos are converted to PNG. Files are stored as
+   `spec-<sha8>-<name>`. Rows are matched by role, title and feed/bend, so re-running a pack, or a
+   pack with changed artwork, updates rows in place. Allowed for System Manager, ilL Catalog
+   Publisher and ilL Engineering. Record permissions still apply.
+
+Values from the InDesign era: `legacy_images.report` lists every `custom_image_*` value that still
+needs uploading (Mac paths, external URLs, TIFFs, shared icons):
+
+		print(frappe.call("illumenate_lighting.illumenate_lighting.api.spec_sheets.legacy_images.report"))
+
+### 16.3 Shared facts and behaviour changes
+
+- Operating temperature, beam angle, voltages, input voltage, intervals, 100 W supply footage and
+  CRI/SDCM now come from `facts.py` for the website, the InDesign CSV and generated sheets. Their
+  outputs are unchanged.
+- **Dimming changed (decision 6a).** Everywhere now lists every approved driver's input protocols:
+  active and allowed eligibility rows whose driver Item is enabled. This is the list the configurator
+  already offered. As a result:
+  - the CSV lists more protocols (before, only the preferred driver's), and
+  - Webflow lists fewer where a template had disallowed drivers or drivers with a disabled Item.
+
+### 16.4 Open questions for engineering (block nothing else)
+
+1. **Custom finish (CU) data.** The fixture configurator needs two things for every allowed finish:
+   - a profile variant (`ilL-Spec-Profile` for the family with variant code `CU`), and
+   - an endcap colour (`ilL-Rel-Finish Endcap Color`).
+
+   Kits need an `ilL-Rel-Kit-Profile-Map` for the finish. Open questions:
+   - Is a CU fixture built from its own profile Item or from the silver/raw profile sent out for paint?
+   - Which endcap colour ships with it?
+   - Is there a price adder?
+
+   Once these are answered, CU can be added to templates and the YAML Builder examples.
+2. **Outdoor on extrusion kits.** Kits have no environment option today. The kit part number
+   (`ILL-KIT-{SERIES}-{FINISH}-{LENS}-{MOUNT}-{ENDCAP_STYLE}-{ENDCAP_COLOR}`) has no place for it.
+   Adding Outdoor means:
+   - a new kit option type,
+   - a part-number segment, which changes kit part numbers, and
+   - deciding what Outdoor changes in the kit (endcaps, gaskets, lens).
+
+   Linear fixtures already support Outdoor (code `O`) through Environment Rating options.
+3. **CCT lumen multiplier.** The InDesign CSV multiplies tape lm/ft by the CCT's `lumen_multiplier`
+   when it picks the tape behind each lens. The configurator and Webflow do not. Generated sheets
+   will follow whichever rule is confirmed; the default is the configurator's (no multiplier), so
+   sheets match what is sold.
+
+Standard option coverage on a site:
+
+		print(frappe.call("illumenate_lighting.illumenate_lighting.api.standard_options.report"))
 
