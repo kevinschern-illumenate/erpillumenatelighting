@@ -1,6 +1,6 @@
 # Frappe Cloud deployment recovery and stabilization plan — September 29, 2026
 
-This plan covers the failed Frappe Cloud deployments of `illumenate_lighting` to
+This plan covers the Frappe Cloud deployments of `illumenate_lighting` to
 `illumenatelighting.v.frappe.cloud` and the regressions introduced since the last
 clean state. It is written as a hand-off: an implementing agent can execute
 Phases 2–4 in this repository. Items marked **OWNER** need Frappe Cloud dashboard
@@ -8,6 +8,38 @@ access or a business decision and cannot be done from the repository.
 
 Assessed revision: `main` at `a88f5e4` (September 28, 2026).
 Last clean merge before the September work: `12c76df` (PR #255, August 24, 2026).
+
+---
+
+## Current status (September 29, from dashboard evidence) — read this first
+
+This section supersedes anything below that says deployments are failing.
+
+- **The deploy pipeline is working.** Bench group *ilLumenate Production - V16* deployed `a88f5e4`
+  (latest `main`) successfully, Sep 28 5:00–5:07 PM. App commits: frappe `012667b`, erpnext `fb78e58`,
+  hrms `c0a04b8`, crm `a6dfe8b`, print_designer `7beaad2`. The site is **Active** on that bench.
+- **The site's update history is clean after two morning failures.** Site → Updates shows:
+  - Migrate at 7:20 AM and 8:01 AM: *Recovered* (the Number Card and `Workspace.type` failures, now fixed);
+  - Migrate at 10:05 AM and **10:47 AM: Success** (10:47 was `786a521`, which added the
+    `b2b_commercial_schema` patch);
+  - then **Pull** updates, all Success, at 11:53 AM, 1:18, 1:49, 4:11, 4:35, 4:54 and 5:06 PM.
+- **Pull was the correct choice.** Frappe Cloud migrates only when the diff touches `*/patches.txt`,
+  `*/hooks.py`, `*/fixtures/`, `*/*/custom/` or a DocType/Workspace/Report JSON (`press`
+  `app_release_difference.is_migrate_needed`). No such file changed in `786a521..a88f5e4`, so the
+  database schema matches the running code.
+- **The v15→v16 upgrade is already done.** Summary item 2 below describes the earlier retries, not the
+  current state.
+- **The red job is automatic and non-blocking.** It is *Update Bench Configuration* at 5:33 PM
+  (§3.0), not a failed deploy or site update.
+- 🔴 **Backups are broken right now** (§3.3). The last successful migration (10:47 AM, `786a521`) still
+  wrote workspace snapshots to `private/backups/ill-workspace/`. Frappe's backup cleanup tries to
+  `os.remove()` every non-file entry in `private/backups` **regardless of age**, so every scheduled or
+  manual backup fails with `IsADirectoryError` until the directory moves. The relocation code is
+  deployed (`b219f5c`) but runs only inside `bench migrate`, and no migration has run since. **Fix now:
+  §5.1.**
+- 🔴 **The remaining problems are runtime bugs in the new code, not deployment failures:** File uploads
+  (§6.1), Sales Order submit (§6.2), and the Phase 3 behavior changes. Most Phase 2 fixes touch only
+  Python and JS files, so they deploy as fast **Pull** updates (§6 intro).
 
 ---
 
@@ -36,10 +68,11 @@ Last clean merge before the September work: `12c76df` (PR #255, August 24, 2026)
    *Update (Sep 29):* the failing job on screen turned out to be the **bench-level** *Update Bench
    Configuration*. It is also automatic and runs no app code, and its traceback is visible only to
    support (§3.0).
-2. **Every deploy attempt has been two upgrades at once.** The site moves from Frappe/ERPNext **v15 to v16**
-   and takes about **87,000 lines of new app code** (1,672 files changed since `12c76df`) in the same
+2. **The earlier failed attempts were two upgrades at once.** The site moved from Frappe/ERPNext **v15 to
+   v16** and took about **87,000 lines of new app code** (1,672 files changed since `12c76df`) in the same
    migration. When a migration fails, Cloud restores the touched database tables. Files under `private/`
-   are *not* restored, so each retry starts from a slightly different state.
+   are *not* restored, so each retry started from a slightly different state. *Update (Sep 29):* the
+   upgrade has since succeeded (Current status above).
 3. **The fresh-site install is healthy.** On the latest `main`, the GitHub CI v16 job installs the app on a
    fresh v16 site and runs `bench migrate` twice successfully. Locally, all 231 portal unit tests pass on
    Python 3.14. Every Python file compiles, every JSON file parses, and all 110 dotted paths in `hooks.py`
@@ -188,14 +221,21 @@ more partial state. Collect the output (Phase 0) and hand it to support with the
 - Commits `bc295d6` (Sep 25) through `140db15` wrote workspace snapshots to
   `sites/<site>/private/backups/ill-workspace/`. The fix to `private/ill-workspace/` arrived in `b219f5c`
   (Sep 28, 16:23).
-- On deployed Frappe v16, `frappe.utils.backups.delete_temp_backups(older_than=23)` calls `os.remove()` on
-  every entry in `private/backups` older than 23 hours. For a directory that raises `IsADirectoryError`.
-  So **every backup of the site fails**, both scheduled ones and the pre-update backup, once that directory
-  is older than 23 hours.
-- The corrected app code relocates the directory only when it runs (in `before_migrate`). Cloud takes its
-  backup *before* app code runs, so the directory must be moved on the server (support or bench SSH), or the
-  update must run with backups skipped **after** a manual copy of the database is secured. Support is the
-  safe route.
+- On deployed Frappe v16, every `bench backup` (`new_backup`) first calls
+  `delete_temp_backups(older_than=23)`, which runs `os.remove()` on each entry of `private/backups`
+  for which `is_file_old()` is true. For anything that isn't a regular file, `is_file_old()` takes its
+  "does not exist" branch and **returns True regardless of age**. So `os.remove(<directory>)` raises
+  `IsADirectoryError` on **every** backup, from the moment the directory exists.
+  - Affected: scheduled backups, manual *Schedule Backup*, and offsite backups (agent job *Backup Site*).
+  - Not affected: the pre-update backup of a *Migrate* update, which dumps tables directly with
+    `mysqldump` (step *Backup Site Tables*).
+  - The last successful migration (10:47 AM Sep 28, `786a521`) still used the old path, so backups are
+    failing now.
+- The corrected code (`b219f5c`, deployed) relocates the directory in `before_migrate`, which runs in
+  any `bench migrate`. Two ways to trigger it:
+  - the dashboard **Actions → Migrate** (§5.1). The schema is already current, so this migration has
+    nothing else pending;
+  - support moves the directory by hand (§5.2).
 - Keep the whole directory, including `pending.json` and every snapshot. It may hold the only copy of
   workspace customizations from an interrupted migration.
 
@@ -278,36 +318,45 @@ Optional app keys (leave absent on production unless the row says otherwise):
 
 ---
 
-## 5. Phase 1 — Unblock the Cloud site (OWNER + Frappe Cloud support)
+## 5. Phase 1 — Restore backups and stabilize (OWNER, about 15 minutes)
 
-### 5.1 Stop the churn
-- Do not retry the update or click Activate again until support has checked the site location
-  (a failed recovery compounds).
-- Do not deploy new `main` commits to the production bench group until Phase 2 is merged.
+### 5.1 Restore backups now (self-serve)
+The site is Active and current (see Current status), so there is nothing to unblock. The urgent item is
+the backup failure (§3.3).
 
-### 5.2 Support ticket (edit bracketed parts; attach the Phase 0 outputs)
+1. Dashboard → Site → **Backups**. Confirm recent backups show as failed (or are missing) since
+   Sep 28 morning. If you have an older successful backup, download a copy of it now.
+2. Dashboard → Site → **Actions → Migrate**. Leave *Skip failing patches* **unchecked**.
+   - This runs `bench migrate` with the deployed `a88f5e4` code. Its `before_migrate` moves
+     `private/backups/ill-workspace` to `private/ill-workspace` intact.
+   - Nothing else is pending: no patch or schema change since the successful 10:47 AM migration, and
+     the hooks are the ones that passed then.
+   - This action takes no backup first. That is unavoidable while backups are broken, and it is why
+     step 1 comes first.
+3. Once it succeeds, Backups → **Schedule Backup** (with files). It must finish successfully. Then
+   download the database, private-files and config parts and keep them off-site.
+4. If the Migrate job fails, don't retry. Copy the red step's output and send the §5.2 request.
 
-> 0. On bench group *ilLumenate Production - V16*, the automatic **Update Bench Configuration** job
->    created Sep 28, 2026 5:33 PM failed with no step output. Both recorded steps (Update Bench
->    Configuration, Bench Setup NGINX) succeeded, so the error is in the job-level traceback, which we
->    can't see. Please share it, and re-apply the bench configuration (docker compose / memory limits /
->    restart) so the bench runs with its current config.
+Also:
+- Leave the red *Update Bench Configuration* job (§3.0) to support; it doesn't block anything.
+- Don't deploy new `main` commits to production until the Phase 2 fixes are merged and rehearsed.
+
+### 5.2 Support request (only if §5.1 step 2 fails, or to clear the bench job)
+
+> Bench group *ilLumenate Production - V16*: the automatic **Update Bench Configuration** job created
+> Sep 28, 2026 5:33 PM failed with no step output. Both recorded steps (Update Bench Configuration,
+> Bench Setup NGINX) succeeded, so the error is in the job-level traceback, which we can't see. Please
+> share it and re-apply the bench configuration (docker compose / memory limits / restart).
 >
-> Site: `illumenatelighting.v.frappe.cloud`. Our app update failed, and now the **Update Site Configuration**
-> job fails with: `[paste output]`. Site status is `[Broken/…]`, and the dashboard shows it on bench `[X]`.
->
-> 1. Please verify where the site directory physically lives (`sites/illumenatelighting.v.frappe.cloud/`
->    with a valid `site_config.json`) and reconcile it with the bench on record. A previous
->    *Recover Failed Site Migrate* may not have completed. Please check every `site_config.json` on that
->    bench parses, and clear any stale `site_config.json.lock`.
-> 2. Backups fail with `IsADirectoryError` because `frappe.utils.backups.delete_temp_backups()` calls
->    `os.remove()` on the directory `private/backups/ill-workspace`, which our app created. Please **move**
->    (not copy, not delete) `private/backups/ill-workspace` → `private/ill-workspace`, and, if present,
->    `private/backups/b2b-release` → `private/b2b-release`. Preserve `pending.json` and every snapshot. If a
->    destination already exists, keep both and tell us; don't merge. The leftover `bypass_unlink.so` in
->    `private/backups` is from your streaming backup and can be removed.
-> 3. Then take a fresh full backup (database, public and private files, site config) and confirm it
->    succeeded. We'll hold the app update until you confirm.
+> Site `illumenatelighting.v.frappe.cloud`: backups fail with `IsADirectoryError`, because
+> `frappe.utils.backups.delete_temp_backups()` calls `os.remove()` on the directory
+> `private/backups/ill-workspace`, which our app created. [If applicable: our dashboard Migrate, which
+> would relocate it, failed with: `paste output`.] Please **move** (not copy, not delete)
+> `private/backups/ill-workspace` → `private/ill-workspace`, and, if present,
+> `private/backups/b2b-release` → `private/b2b-release`. Preserve `pending.json` and every snapshot. If a
+> destination already exists, keep both and tell us; don't merge. A leftover `bypass_unlink.so` in
+> `private/backups` is from your streaming backup and can be removed. Then run a full backup and confirm
+> it succeeds.
 
 ### 5.3 Site Config hygiene (OWNER)
 - On **production**, remove `ill_portal_acceptance` if it was set. It enables test-fixture seeding tools.
@@ -327,6 +376,17 @@ scheduler on it. All deploy rehearsals happen there first.
 ---
 
 ## 6. Phase 2 — Code fixes required before the next production deploy (implementing agent)
+
+**How each fix reaches production.** Frappe Cloud runs a *Pull* update (new code, no `bench migrate`, no
+backup) unless the diff touches `*/patches.txt`, `*/hooks.py`, `*/fixtures/`, `*/*/custom/` or a
+DocType/Workspace/Report/Print Format/Page JSON. Any of those makes it a *Migrate*.
+- 6.1, 6.2, 6.4, 6.5, 6.6 and 7.3–7.6 only touch Python, JS and workflow files, so they ship as Pull
+  updates.
+- 6.3 ships as Pull, but its code takes effect only at the next migrate.
+- 7.7 edits `hooks.py`, so it forces a Migrate.
+- Batch any Migrate-triggering change separately, after §5.1 has restored working backups.
+- Never add a patch whose effect a Pull deploy would silently skip. If a fix needs data or schema
+  changes, give it a new `patches.txt` entry so Cloud migrates.
 
 ### 6.1 [P0] File `has_permission` hook breaks on v16
 
