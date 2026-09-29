@@ -800,18 +800,22 @@ python -m unittest discover -s tools/spec_sheets/tests
 **Prerequisite:** the site must be running code from this branch (merged to the branch the bench
 deploys, or deployed to a staging bench). Until then the probe module does not exist on the site.
 
-**Option A: server console (recommended).** In the Frappe Cloud dashboard open the site's server
-console (Python) and run:
+**Option A: System Console (recommended).** Desk → search "System Console" → Type **Python**,
+tick **Commit**, paste this single line and press Execute:
 
 ```python
-from illumenate_lighting.illumenate_lighting.api.spec_sheets.probe import console_check
-console_check()
+print(frappe.call("illumenate_lighting.illumenate_lighting.api.spec_sheets.probe.run"))
 ```
 
-The first run downloads the pinned Chromium (~110 MB, SHA-256 checked), which can take a minute;
-later runs reuse it. It prints the Chromium version, timings, page size, embedded font names and a
-`download_url` for the rendered PDF (a private File; open it while signed in as an administrator).
-If it fails, it prints the reason (download blocked, missing system library, timeout).
+The System Console runs in Frappe's restricted sandbox, so `import` statements are not allowed;
+`frappe.call` runs the whitelisted probe instead. The first run returns `status: "running"` while a
+background job downloads the pinned Chromium (~110 MB, SHA-256 checked) and renders the page. Wait
+a few minutes and execute the same line again: the result shows the Chromium version, timings,
+page size, embedded font names and the private `file_url` of the rendered PDF (open it while signed
+in as an administrator). Leave **Commit** ticked, or the PDF's File record is discarded.
+
+With shell access (`bench --site <site> console`), `console_check()` in the same module does the
+whole thing in one synchronous call.
 
 **Option B: browser console.** Signed in as a System Manager, paste only the code below (not the
 lines with backticks):

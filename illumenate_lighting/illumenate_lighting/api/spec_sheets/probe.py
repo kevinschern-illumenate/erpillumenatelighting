@@ -96,16 +96,24 @@ def background_probe():
 
 @frappe.whitelist(methods=["POST"])
 def run(force_background=0):
-	"""Render the Phase 0 page, or report the background job's result."""
+	"""Render the Phase 0 page, or report the background job's result.
+
+	From the System Console (Python, with **Commit** ticked):
+
+		print(frappe.call("illumenate_lighting.illumenate_lighting.api.spec_sheets.probe.run"))
+	"""
 	frappe.only_for("System Manager")
 	previous = frappe.cache().get_value(CACHE_KEY)
 	expected = _expected_chromium_path()
 	installed = os.path.isfile(expected) and os.access(expected, os.X_OK)
-	if previous and previous.get("status") == "running":
+	if previous and previous.get("status") == "running" and not _stale(previous):
 		return {**previous, "chromium_expected_at": expected, "chromium_installed": installed}
 	if installed and not frappe.utils.cint(force_background):
 		result = _render()
 		result["chromium_installed"] = True
+		result["note"] = (
+			"The PDF's File record is kept only if this call is committed (System Console: tick Commit)."
+		)
 		return result
 	state = {
 		"status": "running",
@@ -113,19 +121,29 @@ def run(force_background=0):
 		"note": "Chromium is being located or downloaded in a background job. Call run again in a few minutes.",
 	}
 	frappe.cache().set_value(CACHE_KEY, state, expires_in_sec=3600)
+	# Not enqueue_after_commit: the System Console rolls back unless Commit is ticked,
+	# and the job does not depend on anything written by this request.
 	frappe.enqueue(
 		"illumenate_lighting.illumenate_lighting.api.spec_sheets.probe.background_probe",
 		queue="long",
 		timeout=1800,
-		enqueue_after_commit=True,
 	)
 	return {**state, "chromium_expected_at": expected, "chromium_installed": installed, "previous": previous}
 
 
-def console_check():
-	"""Run the probe from the Frappe Cloud server console (Python), printing a readable report.
+def _stale(state, minutes=30):
+	"""A "running" marker whose job never reported back (worker restart, lost job)."""
+	try:
+		started = frappe.utils.get_datetime(state.get("started_at"))
+	except Exception:
+		return True
+	return (frappe.utils.now_datetime() - started).total_seconds() > minutes * 60
 
-	Paste these two lines into the site's server console:
+
+def console_check():
+	"""Run the probe from ``bench --site <site> console`` (not the sandboxed System Console).
+
+	Paste these two lines:
 
 		from illumenate_lighting.illumenate_lighting.api.spec_sheets.probe import console_check
 		console_check()
