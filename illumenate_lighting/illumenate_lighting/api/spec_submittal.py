@@ -742,9 +742,15 @@ def _fill_pdf_form_fields(
 		writer = PdfWriter(clone_from=reader)
 
 		# Detect ALL form fields (not just text – also checkboxes, dropdowns, etc.)
-		all_fields = reader.get_fields()
-		if not all_fields or not field_values or set(field_values) - set(all_fields):
-			_warn("PDF filling blocked: the template must contain every mapped form field.", warnings)
+		all_fields = reader.get_fields() or {}
+		# Mapped fields missing from the PDF are reported below; only a template that
+		# matches none of the mapping is the wrong master and would be a blank copy.
+		if not field_values or not set(field_values) & set(all_fields):
+			_warn(
+				f"PDF filling blocked: none of the {len(field_values)} mapped field(s) exist in the "
+				f"PDF template {pdf_template_path}.",
+				warnings,
+			)
 			return None
 		text_fields = reader.get_form_text_fields()
 		_debug(
@@ -1209,7 +1215,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, prefix, suffix
 			)
-			_set_mapped_value(field_values, mapping, value, transformed_value)
+			_set_mapped_value(field_values, mapping, value, transformed_value, warnings)
 			_debug(
 				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
 				f"raw={value!r} → final={transformed_value!r}"
@@ -1368,7 +1374,7 @@ def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list |
 					prefix, suffix = mapping.get("webflow_prefix"), mapping.get("webflow_suffix")
 				elif mode == "None":
 					prefix = suffix = None
-			_set_mapped_value(field_values, mapping, value, _apply_prefix_suffix(transformed, prefix, suffix))
+			_set_mapped_value(field_values, mapping, value, _apply_prefix_suffix(transformed, prefix, suffix), warnings)
 		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
 
 		mapping_snapshot = json.loads(frappe.as_json(mappings))
@@ -1765,7 +1771,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 			transformed_value = _apply_prefix_suffix(
 				transformed_value, prefix, suffix
 			)
-			_set_mapped_value(field_values, mapping, value, transformed_value)
+			_set_mapped_value(field_values, mapping, value, transformed_value, warnings)
 			_debug(
 				f"  mapping[{pdf_field}]: {src_dt}.{src_fld} "
 				f"raw={value!r} → final={transformed_value!r}"
@@ -2070,7 +2076,7 @@ def _generate_filled_variant_submittal(
 				elif ps_mode == "None":
 					prefix = suffix = None
 
-			_set_mapped_value(field_values, mapping, value, _apply_prefix_suffix(transformed, prefix, suffix))
+			_set_mapped_value(field_values, mapping, value, _apply_prefix_suffix(transformed, prefix, suffix), warnings)
 
 		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
 

@@ -60,10 +60,14 @@ class LineDocuments(unittest.TestCase):
 		}
 		with self.assertRaisesRegex(ValueError, "Required engineering"):
 			set_value({}, mapping, None, "Length: ")
-		values = {}
-		set_value(values, mapping, 0, "0 mm")
+		values, warnings = {}, []
+		set_value(values, mapping, 0, "0 mm", warnings)
 		self.assertEqual(values["Length"], "0 mm")
-		with self.assertRaisesRegex(ValueError, "exactly once"):
-			set_value(values, mapping, 1, "1 mm")
+		# Authoring mistakes warn instead of blocking the submittal; preflight still reports them.
+		set_value(values, mapping, 1, "1 mm", warnings)
+		set_value(values, {**mapping, "pdf_field_name": None}, 2, "2 mm", warnings)
+		self.assertEqual(values, {"Length": "1 mm"})
+		self.assertIn("mapped more than once", warnings[0])
+		self.assertIn("no PDF field name", warnings[1])
 		self.assertTrue(check_mappings([mapping, mapping], {"Length": {}}))
 		self.assertTrue(check_mappings([mapping], {"Other": {}}))

@@ -16,7 +16,7 @@ function Coordinator(rootEl, context) {
     self.invalidateValidation = function () {
         Base.prototype.invalidateValidation.call(self);
         currentResult = tnCurrentResult = bulkReelCurrentResult = null;
-        $('#saveBtn, #tnSaveBtn, #brSaveBtn, #buildItemBtn, #tnBuildItemBtn').prop('disabled', true);
+        $('#saveBtn, #tnSaveBtn, #brSaveBtn').prop('disabled', true);
         $('#resultsContent, #tnResultsContent, #brResultsContent').hide();
         $('#calculateBtn, #tnCalculateBtn, #brCalculateBtn').each(function () {
             var label = $(this).data('illCalculationLabel');
@@ -83,7 +83,6 @@ function Coordinator(rootEl, context) {
         switch (action) {
 case 'dismiss-warning': this.parentNode.style.display='none'; break;
 case 'validateAndQuote-1': validateAndQuote(); break;
-case 'buildConfiguredFixtureAndItem-2': buildConfiguredFixtureAndItem(); break;
 case 'saveToSchedule-3': saveToSchedule(); break;
 case 'setTapeMode-4': setTapeMode('custom'); break;
 case 'setTapeMode-5': setTapeMode('reel'); break;
@@ -93,7 +92,6 @@ case 'selectBulkReelLength-8': selectBulkReelLength(100); break;
 case 'bulkReelCalculate-9': bulkReelCalculate(); break;
 case 'bulkReelSave-10': bulkReelSave(); break;
 case 'tnValidateAndQuote-11': tnValidateAndQuote(); break;
-case 'tnBuildConfiguredItem-12': tnBuildConfiguredItem(); break;
 case 'tnSaveToSchedule-13': tnSaveToSchedule(); break;
 case 'copyToClipboard-14': copyToClipboard('partNumberValue'); break;
 case 'copyToClipboard-15': copyToClipboard('partDescriptionValue'); break;
@@ -127,7 +125,6 @@ var MM_PER_FOOT = 304.8;
 var INCHES_PER_FOOT = 12;
 var scheduleLines = [];  // Cached schedule lines
 var canSaveToSchedule = !!context.can_save;
-var isSystemManager = !!context.is_system_manager;
 var isPopulating = false;  // Flag to suppress cascading events during populateOptions
 var isMultiCCT = false;  // Track whether the current LED package is multi-CCT (Tunable White, etc.)
 var MULTI_CCT_SPECTRUM_TYPES = ['Tunable White', 'Dim to Warm', 'RGB+TW', 'RGBTW', 'RGB+W', 'RGBW'];
@@ -342,15 +339,6 @@ function updateSaveButtonVisibility() {
 		}
 	} else {
 		$('#saveBtn').hide();
-	}
-
-	// Show/enable Build Item button for System Managers when config is valid
-	if (isSystemManager) {
-		if (currentResult && currentResult.is_valid) {
-			$('#buildItemBtn').show().prop('disabled', false);
-		} else {
-			$('#buildItemBtn').show().prop('disabled', true);
-		}
 	}
 }
 
@@ -1495,45 +1483,6 @@ function displayResults(result) {
 	}
 }
 
-function buildConfiguredFixtureAndItem() {
-	if (!currentResult || !currentResult.is_valid || !currentResult.configured_fixture_id) {
-		frappe.msgprint(__('Cannot build: configuration is not valid or missing fixture ID'));
-		return;
-	}
-
-	$('#buildItemBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Building...');
-
-	coordinatorRequest({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.build_configured_fixture_and_item',
-		args: {
-			configured_fixture_id: currentResult.configured_fixture_id
-		},
-		callback: function(r) {
-			$('#buildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Fixture & Item');
-			if (r.message && r.message.success) {
-				var msg = r.message.created
-					? __('Created Item: {0}', [r.message.item_code])
-					: __('Item already exists: {0}', [r.message.item_code]);
-				frappe.msgprint({
-					title: __('Build Successful'),
-					message: msg,
-					indicator: 'green'
-				});
-			} else {
-				frappe.msgprint({
-					title: __('Build Failed'),
-					message: (r.message && r.message.error) || __('An error occurred'),
-					indicator: 'red'
-				});
-			}
-			$('#buildItemBtn').prop('disabled', false);
-		},
-		error: function() {
-			$('#buildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Fixture & Item').prop('disabled', false);
-		}
-	});
-}
-
 function saveToSchedule() {
 	if (!currentResult || !currentResult.is_valid) {
 		frappe.msgprint('Cannot save: configuration is not valid');
@@ -2417,14 +2366,6 @@ function tnUpdateSaveButtonVisibility() {
 	}
 }
 
-function tnUpdateBuildButtonVisibility() {
-	if (isSystemManager && tnCurrentResult && tnCurrentResult.is_valid && tnCurrentResult.configured_tape_neon) {
-		$('#tnBuildItemBtn').show().prop('disabled', false);
-	} else {
-		$('#tnBuildItemBtn').hide();
-	}
-}
-
 // ═════════════════════════════════════════════════════════════════════
 // BULK REEL MODE (LED Tape only)
 // ═════════════════════════════════════════════════════════════════════
@@ -2787,7 +2728,6 @@ function tnDisplayResults(result) {
 		$('#ledRunDetailsPanel').hide();
 		$('#driverResults').hide();
 		tnUpdateSaveButtonVisibility();
-		tnUpdateBuildButtonVisibility();
 		return;
 	}
 
@@ -2919,47 +2859,6 @@ function tnDisplayResults(result) {
 	}
 
 	tnUpdateSaveButtonVisibility();
-	tnUpdateBuildButtonVisibility();
-}
-
-// ─── Build Configured Item (tape/neon) ───────────────────────────────
-function tnBuildConfiguredItem() {
-	if (!tnCurrentResult || !tnCurrentResult.is_valid || !tnCurrentResult.configured_tape_neon) {
-		frappe.msgprint(__('Cannot build: configuration is not valid or missing configured tape/neon ID'));
-		return;
-	}
-
-	$('#tnBuildItemBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Building...');
-
-	coordinatorRequest({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.build_configured_tape_neon_and_item',
-		args: {
-			configured_tape_neon_id: tnCurrentResult.configured_tape_neon
-		},
-		callback: function(r) {
-			$('#tnBuildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Item');
-			if (r.message && r.message.success) {
-				var msg = r.message.created
-					? __('Created Item: {0}', [r.message.item_code])
-					: __('Item already exists: {0}', [r.message.item_code]);
-				frappe.msgprint({
-					title: __('Build Successful'),
-					message: msg,
-					indicator: 'green'
-				});
-			} else {
-				frappe.msgprint({
-					title: __('Build Failed'),
-					message: (r.message && r.message.error) || __('An error occurred'),
-					indicator: 'red'
-				});
-			}
-			$('#tnBuildItemBtn').prop('disabled', false);
-		},
-		error: function() {
-			$('#tnBuildItemBtn').html('<i class="fa fa-wrench"></i> Build Configured Item').prop('disabled', false);
-		}
-	});
 }
 
 // ─── Save to schedule (tape/neon) ────────────────────────────────────

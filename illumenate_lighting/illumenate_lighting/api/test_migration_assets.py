@@ -182,6 +182,9 @@ class TestMigrationAssets(IntegrationTestCase):
 				self.assertIn("Stock availability unavailable", html)
 				self.assertNotIn("No lines fully available now", html)
 				self.assertNotIn("All Parts Available Now", html)
+				# Edit Config must address the saved line, never a serialized null.
+				self.assertIn(f"line_key={prefix}-fixture", html)
+				self.assertNotIn("line_key=None", html)
 				kit = _build_kit_stock_result([("Profile", prefix, 1)])
 				self.assertEqual(kit["availability"], "unknown")
 				self.assertEqual(kit["components"], [])

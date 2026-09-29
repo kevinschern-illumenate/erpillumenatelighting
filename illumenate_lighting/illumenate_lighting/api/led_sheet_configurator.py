@@ -89,11 +89,16 @@ def _resolve_options(template_doc, options: dict[str, Any]) -> dict[str, Any]:
     allowed = _allowed_option_map(template_doc)
     resolved = {}
     for option_type in OPTION_FIELD_BY_TYPE:
+        offered = allowed.get(option_type, {})
         selected = options.get(option_type)
+        if not selected and not offered:
+            # The template offers no choice for this option, e.g. Mounting on
+            # Sheets that ship with a standard adhesive backing.
+            continue
         if not selected:
-            # Use default option if supplied by template.
+            # Use the template default, or its only choice.
             defaults = [r for r in (template_doc.allowed_options or []) if r.is_active and r.option_type == option_type and r.is_default]
-            selected = defaults[0].attribute_link if defaults else None
+            selected = defaults[0].attribute_link if defaults else (next(iter(offered)) if len(offered) == 1 else None)
         if not selected:
             frappe.throw(_("Missing LED Sheet option: {0}").format(option_type))
         if selected not in allowed.get(option_type, {}):
@@ -220,7 +225,7 @@ def _calculate_sheet(
 
     include_ps = _coerce_bool(include_power_supply)
     resolved = _resolve_options(template_doc, _coerce_options(options))
-    if spec_doc.cct and resolved["CCT"]["value"] != spec_doc.cct:
+    if spec_doc.cct and "CCT" in resolved and resolved["CCT"]["value"] != spec_doc.cct:
         frappe.throw(_("Selected CCT does not match the physical Sheet specification"))
     width, height = _resolve_dimensions(
         coverage_width_ft,

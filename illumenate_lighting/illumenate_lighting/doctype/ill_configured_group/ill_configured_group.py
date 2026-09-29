@@ -50,11 +50,14 @@ class ilLConfiguredGroup(Document):
 			frappe.throw("Group output allocations must match the pinned snapshot")
 		old = self.get_doc_before_save()
 		if old:
-			for field in self.meta.fields:
-				if field.fieldname in {"configured_item", "bom"}:
-					continue
-				if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
-					frappe.throw("Group engineering builds are immutable; save a new configuration")
+			from illumenate_lighting.illumenate_lighting.api.build_immutability import assert_unchanged
+
+			assert_unchanged(
+				self,
+				old,
+				{"configured_item", "bom"},
+				"Group engineering builds are immutable; save a new configuration",
+			)
 
 
 def has_permission(doc, user=None, permission_type=None, ptype=None):

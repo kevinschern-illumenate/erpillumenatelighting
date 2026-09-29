@@ -181,6 +181,9 @@ def get_context(context):
 		# Create a dict representation with all needed fields
 		line_dict = {
 			"idx": line.idx,
+			# Edit/Configure links and line documents address the line by its stable key.
+			"name": line.name,
+			"line_key": line.get("line_key") or line.name,
 			"line_id": line.line_id,
 			"qty": line.qty,
 			"location": line.location,

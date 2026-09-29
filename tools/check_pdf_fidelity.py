@@ -68,6 +68,12 @@ def main():
 			merged = pdf._merge_pdfs([first, second])
 			assert merged, "Merge failed"
 			assert pdf._fill_pdf_form_fields("/files/master.pdf", {"missing_field": "No"}) is None
+			warnings = []
+			partial = pdf._fill_pdf_form_fields(
+				"/files/master.pdf", {"designation": "L2", "retired_field": "No"}, warnings=warnings
+			)
+			assert partial and "L2" in PdfReader(io.BytesIO(partial)).pages[0].extract_text()
+			assert any("retired_field" in warning for warning in warnings), warnings
 	(output / "filled-members.pdf").write_bytes(merged)
 	reader = PdfReader(io.BytesIO(merged))
 	assert len(reader.pages) == 4
@@ -83,7 +89,8 @@ def main():
 			bitmap.close()
 			page.close()
 	print(
-		"Actual filler and merger: 4 distinct pages; missing mapped field blocked; raster previews in "
+		"Actual filler and merger: 4 distinct pages; unmatched master blocked; partial mismatch warned; "
+		+ "raster previews in "
 		+ str(output)
 	)
 

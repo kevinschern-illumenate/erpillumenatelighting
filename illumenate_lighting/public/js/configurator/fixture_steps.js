@@ -26,7 +26,7 @@
  *
  * context:
  *   schedule_name, project_name, line_idx, can_save, show_pricing,
- *   is_system_manager, product_slug, saveHandler(payload) (desk), qty
+ *   product_slug, saveHandler(payload) (desk), qty
  */
 (function (root) {
 	'use strict';
@@ -226,7 +226,6 @@
 		this.$('[data-action="reset"]').on('click' + '.' + self.instanceId, function () { self.resetConfiguration(); });
 		this.$('[data-action="validate"]').on('click' + '.' + self.instanceId, function () { self.validateConfiguration(); });
 		this.$('[data-action="add-to-schedule"]').on('click' + '.' + self.instanceId, function () { self.addToSchedule(); });
-		this.$('[data-action="build-item"]').on('click' + '.' + self.instanceId, function () { self.buildFixtureAndItem(); });
 		this.$('[data-action="copy-part-number"]').on('click' + '.' + self.instanceId, function () { self._copy(self.$('#partNumberValue').text()); });
 		this.$('[data-action="copy-description"]').on('click' + '.' + self.instanceId, function () { self._copy(self.$('#partDescriptionValue').text()); });
 		this.$('[data-action="copy-both"]').on('click' + '.' + self.instanceId, function () {
@@ -890,7 +889,6 @@
 		var valid = !!(this.currentResult && this.currentResult.is_valid);
 		var canSave = valid && (this._usesSaveHandler() || (this._hasScheduleTarget() && this._canSaveToSchedule()));
 		this.$('#addToScheduleBtn').prop('disabled', !canSave);
-		this.$('#buildItemBtn').prop('disabled', !(valid && this.currentResult.configured_fixture_id));
 	};
 
 	Fixture.prototype._invalidateResult = function () {
@@ -1257,32 +1255,6 @@
             selections: this._gatherAllSelections(), product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val()
         });
     };
-
-	Fixture.prototype.buildFixtureAndItem = function () {
-		var self = this;
-		if (!this.currentResult || !this.currentResult.is_valid || !this.currentResult.configured_fixture_id) {
-			frappe.msgprint(__('Cannot build: configuration is not valid or missing fixture ID'));
-			return;
-		}
-		var $btn = this.$('#buildItemBtn');
-		var original = $btn.html();
-		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Building…'));
-		self.request({
-			method: PORTAL + 'build_configured_fixture_and_item',
-			args: { configured_fixture_id: this.currentResult.configured_fixture_id },
-			callback: function (r) {
-				$btn.html(original).prop('disabled', false);
-				var msg = r.message || {};
-				if (msg.success) {
-					frappe.msgprint({ title: __('Build Successful'), indicator: 'green',
-						message: msg.created ? __('Created Item: {0}', [escapeHtml(msg.item_code)]) : __('Item already exists: {0}', [escapeHtml(msg.item_code)]) });
-				} else {
-					frappe.msgprint({ title: __('Build Failed'), indicator: 'red', message: msg.error || __('An error occurred') });
-				}
-			},
-			error: function () { $btn.html(original).prop('disabled', false); }
-		});
-	};
 
 	Fixture.prototype._copy = function (text) {
 		if (!text) return;

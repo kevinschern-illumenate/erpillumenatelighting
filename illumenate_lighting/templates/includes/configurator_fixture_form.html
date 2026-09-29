@@ -22,7 +22,6 @@ Context:
 - product_slug: Webflow product slug (optional)
 - can_save: show the Add button (default true)
 - show_pricing: show the pricing block (default true)
-- show_build_button: System Manager "Build Configured Fixture & Item" (default false)
 #}
 <div class="row">
 	<!-- Configurator Form -->
@@ -184,11 +183,6 @@ Context:
 				<button type="button" class="btn btn-primary mr-2" id="validateBtn" data-action="validate" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
-				{% if show_build_button %}
-				<button type="button" class="btn btn-warning mr-2" id="buildItemBtn" data-action="build-item" disabled>
-					<i class="fa fa-wrench"></i> {{ _("Build Fixture & Item") }}
-				</button>
-				{% endif %}
 				{% if can_save is not defined or can_save %}
 				<button type="button" class="btn btn-success" id="addToScheduleBtn" data-action="add-to-schedule" disabled>
 					<i class="fa fa-plus"></i> {{ _("Add to Schedule") }}

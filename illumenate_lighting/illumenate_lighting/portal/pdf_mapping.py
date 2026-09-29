@@ -1,14 +1,22 @@
 """Mapping validation shared by authoring preflight and actual filled output."""
 
 
-def set_value(values, mapping, raw, rendered):
+def set_value(values, mapping, raw, rendered, warnings=None):
+	"""Record one mapped value. Only a missing required engineering value blocks filling;
+	authoring problems are reported as warnings so the submittal still generates."""
 	field = mapping.get("pdf_field_name")
-	if not field or field in values:
-		raise ValueError(f"PDF field must be mapped exactly once: {field or '(missing)'}")
 	if mapping.get("required_value") and (raw is None or str(raw).strip() == ""):
 		raise ValueError(
 			f"Required engineering value is missing: {mapping.get('source_doctype')}.{mapping.get('source_field')} for {field}"
 		)
+	if not field:
+		if warnings is not None:
+			warnings.append(
+				f"Skipped a mapping with no PDF field name ({mapping.get('source_doctype')}.{mapping.get('source_field')})"
+			)
+		return
+	if field in values and warnings is not None:
+		warnings.append(f"PDF field {field} is mapped more than once; the last mapping was used")
 	values[field] = rendered
 
 
