@@ -21,6 +21,8 @@ class StaffQueues(unittest.TestCase):
 			self.assertEqual(result["total"], len(result["rows"]))
 			count, rows = frappe.get_list.call_args_list
 			self.assertEqual(count.kwargs["filters"], rows.kwargs["filters"])
+			# Frappe v16 rejects SQL functions passed as field strings.
+			self.assertEqual(count.kwargs["fields"], [{"COUNT": "name", "as": "total"}])
 			self.assertEqual(rows.kwargs["filters"]["assigned_to"], ["is", "not set"])
 			self.assertNotIn("assigned_to", module.QUEUES["drawings"][3])
 

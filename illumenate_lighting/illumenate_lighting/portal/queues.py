@@ -149,8 +149,15 @@ def query(queue, view="all", search=None):
 
 def _count(doctype, filters):
 	# get_list applies the same native permissions and query conditions as rows.
-	rows = frappe.get_list(doctype, filters=filters, fields=["count(name) as total"], limit_page_length=1)
-	return int(rows[0].get("total", 0)) if rows else 0
+	# Frappe v16 rejects SQL functions written as strings, so the count uses dict syntax.
+	rows = frappe.get_list(
+		doctype,
+		filters=filters,
+		fields=[{"COUNT": "name", "as": "total"}],
+		order_by=None,
+		limit_page_length=1,
+	)
+	return int(rows[0].get("total") or 0) if rows else 0
 
 
 @frappe.whitelist()

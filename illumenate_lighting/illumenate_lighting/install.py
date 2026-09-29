@@ -41,6 +41,11 @@ def after_install():
 	from illumenate_lighting.patches.b2b_commercial_lineage import execute as commercial_lineage
 
 	commercial_lineage()
+	from illumenate_lighting.patches.add_company_invoice_payment_instructions import (
+		execute as invoice_payment_instructions,
+	)
+
+	invoice_payment_instructions()
 	frappe.db.commit()
 
 
