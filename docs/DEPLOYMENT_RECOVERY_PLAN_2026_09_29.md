@@ -31,12 +31,12 @@ This section supersedes anything below that says deployments are failing.
   current state.
 - **The red job is automatic and non-blocking.** It is *Update Bench Configuration* at 5:33 PM
   (§3.0), not a failed deploy or site update.
-- 🔴 **Backups are broken right now** (§3.3). The last successful migration (10:47 AM, `786a521`) still
-  wrote workspace snapshots to `private/backups/ill-workspace/`. Frappe's backup cleanup tries to
-  `os.remove()` every non-file entry in `private/backups` **regardless of age**, so every scheduled or
-  manual backup fails with `IsADirectoryError` until the directory moves. The relocation code is
-  deployed (`b219f5c`) but runs only inside `bench migrate`, and no migration has run since. **Fix now:
-  §5.1.**
+- ✅ **Backups restored (Sep 29).** The last successful migration (10:47 AM, `786a521`) had written
+  workspace snapshots to `private/backups/ill-workspace/`. Frappe's backup cleanup tries to `os.remove()`
+  every non-file entry in `private/backups` regardless of age, so backups failed with
+  `IsADirectoryError` from then on (§3.3). The OWNER ran dashboard **Actions → Migrate** on `a88f5e4`
+  (its `before_migrate` relocates the directory), then a manual backup, and **both succeeded**. Phase 1
+  §5.1 is complete. §5.2 remains only for the non-blocking bench job (§3.0).
 - 🔴 **The remaining problems are runtime bugs in the new code, not deployment failures:** File uploads
   (§6.1), Sales Order submit (§6.2), and the Phase 3 behavior changes. Most Phase 2 fixes touch only
   Python and JS files, so they deploy as fast **Pull** updates (§6 intro).
