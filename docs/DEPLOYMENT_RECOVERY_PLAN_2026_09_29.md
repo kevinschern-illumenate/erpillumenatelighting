@@ -1,0 +1,583 @@
+# Frappe Cloud deployment recovery and stabilization plan — September 29, 2026
+
+This plan covers the failed Frappe Cloud deployments of `illumenate_lighting` to
+`illumenatelighting.v.frappe.cloud` and the regressions introduced since the last
+clean state. It is written as a hand-off: an implementing agent can execute
+Phases 2–4 in this repository. Items marked **OWNER** need Frappe Cloud dashboard
+access or a business decision and cannot be done from the repository.
+
+Assessed revision: `main` at `a88f5e4` (September 28, 2026).
+Last clean merge before the September work: `12c76df` (PR #255, August 24, 2026).
+
+---
+
+## 0. Rules for the implementing agent
+
+1. Work on a feature branch and open one PR per phase (2, 3, 4). Never push to `main` directly.
+2. Do not touch the Cloud site from code. Do not reset Patch Log, delete workspace snapshots,
+   enable `developer_mode`, or set `ill_portal_acceptance` on production.
+3. Production runs **Frappe 16.35.0** (`012667b9c4e7f66d5e1ff5858d2e922331d4300a`), ERPNext 16.36.1,
+   HRMS 16.20.0, CRM 1.85.1, Print Designer 1.6.7 and Python 3.14. Verify framework behavior against
+   that Frappe commit, not against v15 or `develop`.
+4. Before each PR: `ruff check` on changed files; `python -B -m unittest discover -s tests/portal_unit`;
+   and both GitHub workflows green (Phase 2.6 makes this possible).
+5. Keep fixes minimal and behavior-preserving except where a section says to change behavior.
+6. Order matters: finish Phase 2 before the next production deploy. Phase 3 can follow in a second deploy.
+
+---
+
+## 1. Executive summary
+
+1. **The failing "Update Site Configuration" step does not run any app code.** In Frappe Cloud's agent,
+   that job only reads and rewrites `sites/<site>/site_config.json` (details in §3). When it fails, the
+   usual cause is the state the site was left in by earlier failed updates: site directory not on the
+   bench Frappe Cloud expects, an unparsable `site_config.json` on that bench, a stale lock, or a full disk.
+   Only Frappe Cloud support (or bench SSH) can fix that. **Get the job's output first (Phase 0).**
+2. **Every deploy attempt has been two upgrades at once.** The site moves from Frappe/ERPNext **v15 to v16**
+   and takes about **87,000 lines of new app code** (1,672 files changed since `12c76df`) in the same
+   migration. When a migration fails, Cloud restores the touched database tables. Files under `private/`
+   are *not* restored, so each retry starts from a slightly different state.
+3. **The fresh-site install is healthy.** On the latest `main`, the GitHub CI v16 job installs the app on a
+   fresh v16 site and runs `bench migrate` twice successfully. Locally, all 231 portal unit tests pass on
+   Python 3.14. Every Python file compiles, every JSON file parses, and all 110 dotted paths in `hooks.py`
+   resolve. So the remaining deployment risk is in **site state and upgrade-only code paths**. On a fresh
+   install Frappe marks all patches as done without running them, so CI has never executed the 11 new
+   patches.
+4. **Critical v16 regression: File permissions.** In the deployed Frappe v16 build, a `has_permission` hook
+   returning `None` means **deny**; v15 treated `None` as "no opinion". The app's File hook returns `None` for
+   create/write/delete and for any file not attached to a portal DocType. Result: **every non-Administrator
+   user, System Managers included, is denied creating, editing or deleting attachments**, and is denied
+   doc-level read of most private files. This is the File-upload problem the last two commits
+   (PRs #257/#258) were trying to diagnose.
+5. **Critical workflow regression: Sales Order submit.** Any Sales Order with `ill_fixture_schedule` set now
+   has to pass the full dealer-portal approval workflow. The normal ERPNext path *Quotation → Create →
+   Sales Order* copies that field, but creates no portal intake. Those orders now **cannot be submitted at
+   all**: "This order has no portal intake…". Only System Manager or the new `ilL Order Approver` role may
+   approve even portal orders.
+6. **CI has been red on every recent commit**, for fixable harness reasons (§2.6), so real regressions were
+   hidden in the noise.
+7. **Correction to existing docs:** `bypass_unlink.so` in `private/backups` is **Frappe Cloud's own**
+   streaming-backup shim (an `LD_PRELOAD` helper compiled by the agent and normally deleted afterwards).
+   It is not a security concern. See §3.4.
+
+---
+
+## 2. What changed, and what has already been fixed
+
+### 2.1 Timeline
+
+| When | Commits | What landed |
+| --- | --- | --- |
+| Aug 24 | `12c76df` (PR #255) | Last reviewed merge. Schedule → Sales Order conversion fixes. |
+| Sep 10–25 | `015a020` … `bc295d6` ("big fable changes", "new features", "SHEETS AND FIXES", "BIG FIX") | B2B dealer portal: 22 new DocTypes, 11 new patches, File and Email Queue class overrides, new `has_permission`/query hooks, Sales Order/Quotation/Work Order/Delivery Note/Sales Invoice/Issue doc events, 5-minute scheduler jobs, workspace `before/after_migrate` hooks, desk/web asset bundles, configurator rewrite. |
+| Sep 28 | `c9b9ffd` … `24bd0bb` (mostly "asdf"), PRs #256–#258 | Cloud repair rounds, documented in `docs/*_2026_09_28.md`, plus a temporary File permission diagnostic endpoint. |
+
+Nearly all September work was pushed straight to `main` without review, and CI was red throughout.
+
+### 2.2 Repairs already in `main` (keep them)
+
+| Repair | Where | Status |
+| --- | --- | --- |
+| Number Card fixtures moved to the app-level `fixtures/` dir | `illumenate_lighting/fixtures/number_card.json` | Done. Verified by CI migrate. |
+| Controller class names for 3 orphaned DocTypes | `ilLChildGroupMember`, `ilLChildGroupAllocation`, `ilLConfiguratorSession` | Done. |
+| `Workspace.type` mandatory on v16 | `portal_workspace.merge_workspace` | Done. |
+| `naming_rule` `random` → `Random` (2 DocTypes), report column type, QBO Link defaults | DocType JSON | Done. |
+| Workspace snapshot/evidence dirs moved out of `private/backups` | `private_storage.py` (commit `b219f5c`) | Done in code. **Cloud still has the old dir** if any build from `bc295d6` through `140db15` ever migrated there (§3.3). |
+| Missing commercial custom fields on existing sites | patch `b2b_commercial_schema` | Done. Runs only on the next successful migrate. |
+| Stock scope returns "unknown" instead of throwing | `pricing_utils.py` | Done. |
+| Blank numeric override parameters on configurator APIs | linear/tape/neon/webflow APIs | Done for 6 parameters (see §4.5 for the rest). |
+
+### 2.3 Verified in this assessment
+
+- ✅ CI "Server (version-16)" on `a88f5e4`: fresh install, `bench build`, two migrations, and the
+  `test_migration_assets` and `test_configurator_transport` modules all pass.
+- ✅ 231 portal unit tests pass on Python 3.14 (`tests/portal_unit`).
+- ✅ All 110 dotted paths in `hooks.py` resolve; all `doctype_js` files exist.
+- ✅ DocType schema changes since `12c76df` are additive only: no field type changes, no new unique or
+  required fields on existing DocTypes, no removed fields.
+- ✅ Frappe v16 pins `Pillow~=12.3.0` and `pypdf==6.15.0`, which satisfy the app's `>=` requirements.
+- ❌ CI "Server (version-15)" fails in test bootstrap, not app code:
+  `LinkValidationError: Could not find Warehouse Type: Transit`.
+- ❌ "B2B local contracts" fails with `FileNotFoundError: .tools/portal-template-…`, because
+  `tools/check_portal_templates.py:281` writes into a `.tools/` dir that doesn't exist on a clean checkout.
+
+---
+
+## 3. The "Update Site Configuration" failure
+
+### 3.1 What that step is
+
+In Frappe Cloud's agent (`frappe/agent`, `agent/site.py`), the job `Update Site Configuration` runs a
+single step:
+
+```python
+@step("Update Site Configuration")
+def update_config(self, value, remove=None):
+    new_config = self.get_config(for_update=True)   # filelock + json.load(site_config.json)
+    new_config.update(value)
+    ...
+    self.set_config(new_config)                     # write temp file, rename, copy
+```
+
+The HTTP route (`POST /benches/<bench>/sites/<site>/config`) first resolves the site through
+`Bench.valid_sites`. That call parses **every** site's `site_config.json` on the bench, and raises
+`SiteNotExistsException` if the site directory isn't on the bench Frappe Cloud has on record.
+
+Frappe Cloud (`press`) queues this job when:
+- a Site Config key is added or changed in the dashboard;
+- **Activate** is used on a Broken or Inactive site. This sets `maintenance_mode: 0`, which is what
+  happens after a failed update leaves the site Broken;
+- a site is deactivated or suspended (`maintenance_mode: 1`), or its host name is changed.
+
+No `bench` command and no app code runs in this job. An app bug cannot make it fail. A site left in a
+bad physical state by the earlier failed updates can.
+
+### 3.2 Failure signatures and what to do
+
+| Output in the failed job | Meaning | Who fixes it |
+| --- | --- | --- |
+| `SiteNotExistsException`, "does not exist on bench", `Path … is not a directory`, `site_config.json does not exist` | After a failed **Update Site Migrate** the site directory was moved to the new bench, and **Recover Failed Site Migrate** did not move it back (or the reverse). Cloud's record and disk disagree. | **Frappe Cloud support**: reconcile the site's bench record with its physical location. |
+| `Error parsing JSON in <dir>`, `JSONDecodeError`, `InvalidSiteConfigException` | A `site_config.json` on that bench is invalid, possibly **another** site's (the agent validates all of them). | Support, or bench SSH: restore from `site_config.json.bak`. |
+| Lock timeout on `site_config.json.lock` | A crashed job left a lock. | Support. |
+| `No space left on device` / `OSError: [Errno 28]` | Disk full. | Clear old backups, raise plan storage, or support. |
+| Dashboard error before any job (e.g. "blacklisted", "developer mode", invalid value) | Bad key or type typed into Site Config. | OWNER: fix the value (§5.3). |
+
+**Most likely here:** earlier updates failed at **Backup Site** (`IsADirectoryError`, §3.3) and at
+**Migrate** (after_migrate errors). A recovery that did not finish leaves the site *Broken*, and
+reactivating it triggers exactly this job. Don't keep clicking Update or Activate; each attempt can leave
+more partial state. Collect the output (Phase 0) and hand it to support with the §5.2 request.
+
+### 3.3 The `private/backups/ill-workspace` trap
+
+- Commits `bc295d6` (Sep 25) through `140db15` wrote workspace snapshots to
+  `sites/<site>/private/backups/ill-workspace/`. The fix to `private/ill-workspace/` arrived in `b219f5c`
+  (Sep 28, 16:23).
+- On deployed Frappe v16, `frappe.utils.backups.delete_temp_backups(older_than=23)` calls `os.remove()` on
+  every entry in `private/backups` older than 23 hours. For a directory that raises `IsADirectoryError`.
+  So **every backup of the site fails**, both scheduled ones and the pre-update backup, once that directory
+  is older than 23 hours.
+- The corrected app code relocates the directory only when it runs (in `before_migrate`). Cloud takes its
+  backup *before* app code runs, so the directory must be moved on the server (support or bench SSH), or the
+  update must run with backups skipped **after** a manual copy of the database is secured. Support is the
+  safe route.
+- Keep the whole directory, including `pending.json` and every snapshot. It may hold the only copy of
+  workspace customizations from an interrupted migration.
+
+### 3.4 `bypass_unlink.so`
+
+This file is Frappe Cloud's own. The agent's streaming backup (`Site.backup(streaming=True)`) compiles
+`lib/bypass_unlink.c` into `private/backups/bypass_unlink.so` and `LD_PRELOAD`s it. The shim makes
+`unlink()` a no-op for paths containing `%stream%`. The agent deletes it in a `finally:` block, so a
+leftover copy means a streaming backup was interrupted. Support can remove it; it is not a compromise
+indicator. **Implementing agent:** correct the paragraph about it in
+`docs/FRAPPE_CLOUD_BACKUP_REPAIR_2026_09_28.md`.
+
+---
+
+## 4. Phase 0 — Collect facts (OWNER, about 30 minutes, before anything else)
+
+Record the answers in the Phase 1 support ticket and give them to the implementing agent.
+
+1. **The failed job's output.** Dashboard → Site → *Jobs* (or *Updates* → the failed update → expand the
+   failed step). Copy the full output of the step marked failed, plus the job name (e.g. "Update Site
+   Configuration", "Update Site Migrate", "Recover Failed Site Migrate").
+2. **Site status and location.** Dashboard → Site → Overview: status (Active/Broken/Recovering/Inactive),
+   the bench group, and the bench (release) it's on. Bench group → *Deploys*: the currently deployed
+   `illumenate_lighting` commit hash and the Frappe/ERPNext versions of that bench.
+3. **Which framework version the site runs now.** Log in as a System Manager → Help → About. Or visit
+   `/api/method/frappe.utils.change_log.get_versions`. If it says v15, every retry is still a v15→v16
+   upgrade.
+4. **Site Config keys.** Dashboard → Site → *Site Config*. List every key starting with `ill_`, plus
+   `maintenance_mode`, `pause_scheduler`, `keep_backups_for_hours`. Note each key's type (String, Boolean,
+   JSON, Number).
+5. **Backups.** Dashboard → Site → *Backups*: when did the last successful backup finish? Try
+   *Schedule Backup* once. If it fails with `IsADirectoryError`, §3.3 applies.
+6. **Disk usage.** Dashboard → Site → Overview → storage and database usage versus plan limits.
+7. **Other app updates bundled into the pending deploy** (ERPNext/HRMS/CRM/Print Designer commit changes).
+   Note them. Don't bundle framework bumps with app deploys (Phase 5).
+
+---
+
+## 5. Phase 1 — Unblock the Cloud site (OWNER + Frappe Cloud support)
+
+### 5.1 Stop the churn
+- Do not retry the update or click Activate again until support has checked the site location
+  (a failed recovery compounds).
+- Do not deploy new `main` commits to the production bench group until Phase 2 is merged.
+
+### 5.2 Support ticket (edit bracketed parts; attach the Phase 0 outputs)
+
+> Site: `illumenatelighting.v.frappe.cloud`. Our app update failed, and now the **Update Site Configuration**
+> job fails with: `[paste output]`. Site status is `[Broken/…]`, and the dashboard shows it on bench `[X]`.
+>
+> 1. Please verify where the site directory physically lives (`sites/illumenatelighting.v.frappe.cloud/`
+>    with a valid `site_config.json`) and reconcile it with the bench on record. A previous
+>    *Recover Failed Site Migrate* may not have completed. Please check every `site_config.json` on that
+>    bench parses, and clear any stale `site_config.json.lock`.
+> 2. Backups fail with `IsADirectoryError` because `frappe.utils.backups.delete_temp_backups()` calls
+>    `os.remove()` on the directory `private/backups/ill-workspace`, which our app created. Please **move**
+>    (not copy, not delete) `private/backups/ill-workspace` → `private/ill-workspace`, and, if present,
+>    `private/backups/b2b-release` → `private/b2b-release`. Preserve `pending.json` and every snapshot. If a
+>    destination already exists, keep both and tell us; don't merge. The leftover `bypass_unlink.so` in
+>    `private/backups` is from your streaming backup and can be removed.
+> 3. Then take a fresh full backup (database, public and private files, site config) and confirm it
+>    succeeded. We'll hold the app update until you confirm.
+
+### 5.3 Site Config hygiene (OWNER)
+- On **production**, remove `ill_portal_acceptance` if it was set. It enables test-fixture seeding tools.
+- `ill_portal_enabled_families` and `ill_portal_pilot_users` must be type **JSON** holding a list, or be
+  absent. An empty pilot list (`[]`) **locks every dealer out** of new configurations. Absent means
+  "everyone as before". A String-typed value currently makes every configurator request raise (§6.5).
+- `ill_portal_fixture_groups` must be type **Boolean** (false until group acceptance). As a String,
+  `"false"` is read as *enabled* by two call sites (§6.5).
+- `ill_portal_stock_company` is optional (defaults to "ilLumenate Lighting").
+
+### 5.4 Stand up a staging copy (OWNER, needed for Phase 5)
+Create a **private bench group** for staging. Pin Frappe/ERPNext/HRMS/CRM/Print Designer to the same
+commits as production's target, and point `illumenate_lighting` at a `staging` branch. Create a site from
+the fresh production backup (database, public and private files, config). Disable outgoing email and the
+scheduler on it. All deploy rehearsals happen there first.
+
+---
+
+## 6. Phase 2 — Code fixes required before the next production deploy (implementing agent)
+
+### 6.1 [P0] File `has_permission` hook breaks on v16
+
+**Evidence.** In the deployed Frappe v16 (`frappe/permissions.py`, `has_controller_permissions`):
+
+```python
+for method in reversed(methods):
+    controller_permission = frappe.call(method, doc=doc, ptype=ptype, user=user, debug=debug)
+    if not controller_permission:          # v16: None or False → deny
+        return bool(controller_permission)
+return True
+```
+
+Frappe v15 used `if controller_permission is not None: return bool(...)`, so `None` meant "no opinion".
+`illumenate_lighting/illumenate_lighting/portal/private_file.py:7-48` (`portal_file_permission`, registered
+for `"File"` at `hooks.py:265`) returns `None` at line 9 for every ptype other than
+read/select/print/export, and at line 34 for any file not attached to a portal DocType. On v16 that denies
+File create/write/delete to **every user except Administrator**, and denies doc-level read of other private
+files. There's no System Manager bypass: controller checks run before role permissions in
+`get_doc_permissions`. Introduced in `bc295d6` (Sep 25).
+
+The other 14 `has_permission` hooks in `hooks.py` always return booleans (checked by AST scan). Only the
+File hook has this problem.
+
+**Change.**
+1. Split the function into `_portal_file_decision(doc, ptype, user) -> bool | None` (current logic), and
+   a hook `portal_file_permission` that never returns `None`:
+   ```python
+   def portal_file_permission(doc, ptype="read", user=None, debug=False):
+       decision = _portal_file_decision(doc, ptype, user)
+       if decision is not None:
+           return decision
+       # No portal opinion: defer to Frappe's own File rule. v16 treats a falsy hook result as a
+       # denial, and on v15 a bare True here would short-circuit Frappe's File hook.
+       from frappe.core.doctype.file.file import has_permission as file_has_permission
+       return bool(file_has_permission(doc, ptype=ptype, user=user))
+   ```
+2. `PortalFile.is_downloadable` keeps using `_portal_file_decision` (None → `super()`).
+3. Add a guard test in `tests/portal_unit` that AST-scans every `has_permission` hook in `hooks.py` and fails
+   on a bare `return`, `return None`, or a path that can fall off the end. This prevents a repeat.
+4. Add an installed-site regression module
+   (`illumenate_lighting/illumenate_lighting/api/test_file_permissions.py`, v16 `IntegrationTestCase`),
+   and add it to the v16 CI step. Users: a non-Administrator **System Manager**, and a **Sales User**
+   with Sales Order write. Assertions:
+   - both can insert a File attached to a Sales Order they can write;
+   - the System Manager can insert a File attached to an `ilL-Webflow-Product` (the diagnostic's scenario);
+   - both can read and delete their own attachment;
+   - the Sales User is denied a private File attached to a Sales Order they cannot read;
+   - portal-owned files (`ilL-Order-Intake`, `ilL-Quote-Offer`, `ilL-Export-Job`, `ilL-Portal-Upload`,
+     `ilL-Document-Request`) keep their current allow/deny decisions.
+
+**Acceptance.** New tests pass on v16 CI. The debug endpoint's scenario (System Manager uploading a
+featured image to `ilL-Webflow-Product`) succeeds.
+
+### 6.2 [P0] Sales Order approval gate blocks normal ERPNext flows
+
+**Evidence.** `portal/order_review.py`:
+- `before_submit` (line 166), `on_submit` (222) and `validate_order` (400) run for every Sales Order with
+  `ill_fixture_schedule` set.
+- `before_submit` calls `_load()`, which throws "This order has no portal intake…" (line 137) when no
+  `ilL-Order-Intake` exists.
+- The Quotation custom field `ill_fixture_schedule` (`patches/consolidate_section_label_field.py:77`) is
+  not `no_copy`. So ERPNext's *Quotation → Create → Sales Order* copies it, but creates no intake.
+  `quote_from_schedule.py:133-142` sets it on Quotations built from schedules.
+- Even with an intake, only `System Manager` or `ilL Order Approver` (a new role that nobody holds yet)
+  may submit.
+- Draft Sales Orders created before this deploy that link to a schedule are also stuck.
+
+**Change.** Apply the portal approval workflow only to portal-originated orders, meaning orders with an
+`ilL-Order-Intake` row. Everything else gets native ERPNext behavior, as before September.
+1. Add a helper, e.g. `_intake_name(order) -> str | None`
+   (`frappe.db.get_value("ilL-Order-Intake", {"sales_order": order.name}, "name")`).
+2. `before_submit` and `on_submit`: return early when there's no intake (instead of the
+   `ill_fixture_schedule` check).
+3. `validate_order`: keep stamping `ill_delivery_confirmed_by/on` for all orders. Apply `_staff()` checks
+   and the "past date" / "submitted promise" rules only to intake orders. The amendment branch (clearing
+   offer and promise) also applies only to intake orders.
+4. Dealers can't bypass review this way: `DEALER_PERMISSION_MATRIX` gives Dealers no Sales Order
+   `submit`, and portal conversions always call `capture()`
+   (`ill_project_fixture_schedule.py:491-493`, `offers.py:335-356`).
+5. Tests (installed-site, v16):
+   - a Quotation with `ill_fixture_schedule` → `make_sales_order` → submit as a user with Sales Order
+     submit permission (no ilL roles) succeeds;
+   - an intake order still requires acknowledgment and approver;
+   - amending a non-intake order works for a Sales Manager.
+
+**Acceptance.** The same Sales Order flows that worked on August 24 work again for users with only
+standard ERPNext roles.
+
+### 6.3 [P0] Migration hooks must never abort `bench migrate`
+
+**Evidence.** The `after_migrate` workspace restore has already failed a production migration twice
+(missing Number Cards, then `MandatoryError: type`). Each failure costs a full rollback.
+`private_storage.private_state_directory` raises `FileExistsError` when both the legacy and new dirs exist,
+from inside `before_migrate` (`portal_workspace.py:52,55`), which also aborts the migration.
+
+**Change.**
+1. `portal_workspace.before_migrate` and `after_migrate`: wrap the bodies in `try/except Exception`. On
+   failure, `frappe.log_error(title="ilL workspace preservation", ...)` and return. Never re-raise. Keep
+   `pending.json` whenever the merge didn't complete, so the next migration retries it.
+2. `after_migrate`: if `pending.json` names a snapshot that doesn't exist, log it and leave `pending.json`
+   in place. Don't throw.
+3. `private_storage.private_state_directory`: when **both** the legacy and new dirs exist, don't raise.
+   Move the legacy directory intact to `private/<name>/legacy-<UTC timestamp>/` (a new, unique path, so
+   nothing is merged or overwritten), then log a warning that a person should review it. This clears
+   `private/backups` so backups work again. Keep the file and symlink refusals, but log and return the
+   destination instead of raising, when called from the migration hooks.
+4. Unit tests in `tests/portal_unit/test_private_storage.py`:
+   - conflict case relocates into `legacy-*` and preserves both trees byte-for-byte;
+   - a hook exception doesn't propagate;
+   - a missing snapshot keeps `pending.json`.
+
+**Acceptance.** A migration with a corrupted `pending.json`, a missing snapshot, or both dirs present
+completes. The Error Log explains what was skipped.
+
+### 6.4 [P0] Remove the temporary diagnostic endpoint
+
+Delete `illumenate_lighting/illumenate_lighting/api/permission_debug.py` (added in PRs #257/#258) once 6.1
+is merged. It is labelled temporary, and 6.1 fixes the problem it was diagnosing.
+
+### 6.5 [P1] Make site-config flags tolerant of how Frappe Cloud stores them
+
+**Evidence.**
+- `templates/pages/configure.py:34`, `api/desk_configurator.py:245` and
+  `portal/release_evidence.py:145` use `bool(frappe.conf.get("ill_portal_fixture_groups"))`, so the String
+  `"false"` counts as enabled.
+- `api/fixture_group_bom.py:147` and `api/fixture_group_configurator.py:220` use `parse_bool`, so the UI can
+  show group mode while the server rejects it.
+- `portal/rollout.py:8-12` raises `ValueError` on every configurator request if
+  `ill_portal_enabled_families` or `ill_portal_pilot_users` is stored as a JSON **string**.
+
+**Change.**
+1. Add `conf_flag(key, default=False)` (using `configuration_contract.parse_bool`, logging and returning
+   the default on invalid input) and `conf_list(key)` (accepting a list or a JSON-encoded string of a
+   list). Put them in a small module such as `illumenate_lighting/illumenate_lighting/portal/site_flags.py`.
+2. Use them at all five `ill_portal_fixture_groups` reads and in `rollout._list`.
+3. Invalid list values: log to the Error Log and treat as *absent*, which preserves availability, instead
+   of raising.
+
+**OWNER decision:** confirm "invalid → absent (fail open)". The alternative is "invalid → block new
+configurations with a clear message".
+
+### 6.6 [P0] Get CI green and make it test the upgrade path
+
+1. **B2B local contracts:** before the `TemporaryDirectory(... dir=ROOT / ".tools")` at
+   `tools/check_portal_templates.py:281`, add `(ROOT / ".tools").mkdir(exist_ok=True)`. Or add
+   `mkdir -p .tools` to `.github/workflows/b2b-contracts.yml`.
+2. **Server (version-15):** production is v16 and code now relies on v16 behavior. Remove v15 from the
+   matrix in `.github/workflows/ci.yml`, or mark it `continue-on-error: true`. If kept, fix bootstrap by
+   completing ERPNext setup before tests: add `before_tests` in `hooks.py` pointing at ERPNext's
+   `erpnext.setup.utils.before_tests` (verify that function exists on the pinned ERPNext) or an app
+   wrapper around it.
+3. **Server (version-16):** add the new modules from 6.1 and 6.2. Optionally run the full suite once
+   `before_tests` is in place.
+4. **New job: upgrade rehearsal (v16).** This is the gap that let every production failure through.
+   1. Check out the app at `PREVIOUS_DEPLOYED_SHA`, a repo variable. Set it to the commit production
+      actually runs from Phase 0; otherwise use `12c76df`.
+   2. Install it on a fresh v16 + ERPNext site. Seed minimal data: a Customer, a schedule-linked Quotation
+      and Sales Order, an Issue, a Workspace customization (extra custom block), and a legacy
+      `private/backups/ill-workspace/` with `pending.json` plus a snapshot.
+   3. Check out `HEAD` and run `bench migrate` twice, so all 11 new patches **actually execute**.
+   4. Then run: `bench --site test_site backup` (proves `private/backups` is clean), the 6.1/6.2 tests, and
+      a check that the workspace kept the custom block.
+   5. If practical, also install HRMS, CRM and Print Designer at the production commits, to mirror
+      production's `after_migrate` ordering.
+
+**Acceptance.** Both workflows green on the Phase 2 PR. The upgrade-rehearsal job passes, and fails if 6.1,
+6.2 or 6.3 is reverted.
+
+---
+
+## 7. Phase 3 — "Works like before" regressions (implementing agent + OWNER decisions)
+
+These are deliberate B2B design changes, but each changes existing staff or dealer behavior. For each:
+confirm with OWNER, then either restore the old behavior or keep it and document the required setup.
+
+### 7.1 [P1] Staff need the new job roles
+- New roles: `ilL Sales Review`, `ilL Order Approver`, `ilL Engineering`, `ilL Catalog Publisher`,
+  `ilL Integration`, `ilL Support`, `ilL Operations` (`portal/staff.py:6-14`,
+  `patches/b2b_portal_foundations.py:70-80`).
+- **No users get these roles automatically.** Only System Manager is treated as internal
+  (`ill_project.py:10`). Staff who used standard ERPNext roles (Sales User/Manager, Stock User…) lose:
+  - portal project and schedule visibility;
+  - approval of portal orders;
+  - Webflow "Mark Pending" (`webflow_export.trigger_sync` now calls `require("catalog")`);
+  - catalog authoring, drawing review, and support queues.
+- **Deliverable:** a Bench-only System Manager helper, `portal/role_audit.py::report()`, that lists enabled
+  System Users and which capability each has or lacks. Plus a checklist in `docs/B2B_STAFF_OPERATIONS.md`
+  mapping each person to roles.
+- **OWNER:** assign roles on production right after the deploy (staging first).
+
+### 7.2 [P1] Dealer access changes
+- `b2b_portal_foundations` sets `Role Dealer.desk_access = 0` (line 82). Dealer users whose only
+  desk-granting role was Dealer lose Desk, and become Website Users the next time their User record is
+  saved.
+- `dealer_permissions.DEALER_PERMISSION_MATRIX` revokes every Dealer permission not listed on 8 ERPNext
+  DocTypes. For example, Sales Order is read/create/print only.
+- **OWNER:** confirm dealers should be portal-only. If some dealers relied on Desk, list them before the
+  deploy.
+
+### 7.3 [P1] Dealer → Customer resolution returns nothing when ambiguous
+- `ill_project._get_user_customer` (line 148) now returns `None` when a user's Contacts (matched by `user`
+  **or** `email_id`) link to more than one Customer. Before September, the Contact linked by `user` won,
+  then the first Customer link. Affected dealers silently lose their company's projects, schedules and
+  orders.
+- **Change:**
+  1. Prefer Contacts whose `user` field equals the user. Consider email-only matches only when there are
+     none.
+  2. Among the chosen Contacts, if exactly one Customer is linked, use it.
+  3. Keep `None` only for genuine ambiguity. Also add a Bench-only audit, `portal/role_audit.py::dealers()`,
+     that lists Dealer users with 0 or more than 1 resolved Customer, so staff can fix Contact links.
+- Tests in `tests/portal_unit` for all three branches.
+
+### 7.4 [P2] Webflow sync endpoints reject Desk calls (pre-existing, but now user-visible)
+- `webflow_export.trigger_sync(product_slugs: list, category_slugs: list)` (line 824),
+  `webflow_attributes.trigger_attribute_sync(doc_names: list)` (1150), and
+  `get_product_attribute_references(product_slugs: list)` (1713): `frappe.call` JSON-stringifies arrays
+  (`request.js` in v16), and Frappe's pydantic validation rejects a string for `list` **before** the
+  function body's own `json.loads` runs. Verified locally with pydantic: `Union[list, None]` rejects
+  `'["slug"]'`. The "Mark Pending" button in `ill_webflow_product.js:96` is affected.
+- **Change:** annotate these as `str | list | None`, and keep the existing `json.loads` normalization.
+
+### 7.5 [P2] Other whitelisted parameters that reject blank form values
+- Frappe validates whitelisted-method annotations during requests. A scan (excluding modules with
+  `from __future__ import annotations`, which Frappe skips: `desk_configurator.py`,
+  `configured_product_builder.py`, `webflow_brand.py`) found **48 int/float** and **29 bool** parameters
+  that reject `""`. jQuery sends `null` and empty inputs as `""`.
+- **Change:** extend the existing test
+  `test_configurator_transport.test_all_optional_numeric_whitelist_parameters_accept_form_blanks`:
+  cover parameters with non-`None` defaults (e.g. `qty: int = 1`) and `list`/`dict` annotations
+  (JSON-string input). Fix failures by widening annotations to `str | int | None` (etc.) and normalizing
+  inside. Prioritize endpoints called from portal/desk JS with optional inputs.
+
+### 7.6 [P2] `commercial_lineage.validate` runs on every Delivery Note and Sales Invoice
+- `portal/commercial_lineage.py:34-62` is hooked on all DN/SI `validate`. It throws when the source order
+  has a different customer or company, isn't submitted, or has a different `item_code`. It also overwrites
+  lineage fields from the source row on every save.
+- **Change:** skip rows whose source row carries no configured-lineage fields (no `ill_configured_*`,
+  `ill_fixture_schedule`, `ill_schedule_line_id`). Standard ERPNext stock and invoicing then behaves as
+  before. Keep the checks for configured rows. Add a test with a plain stock Item DN from a Sales Order.
+
+### 7.7 [P2] Unfiltered `Custom Field` fixture export
+- `hooks.py:181-207` exports `{"dt": "Custom Field"}` with no filter, plus `Item` and `Workspace`. Anyone
+  running `bench export-fixtures` would write **every app's** custom fields into
+  `illumenate_lighting/fixtures/`. Since the Number Card move, that directory is imported on every
+  migrate, so it would overwrite ERPNext, HRMS and CRM fields.
+- **Change:** filter Custom Field to `[["module", "=", "ilLumenate Lighting"]]`, or remove the entries the
+  app doesn't intend to ship. Add a comment that `fixtures/` is live on every migrate.
+
+### 7.8 [P3] Dead route
+`hooks.py:110-111` routes `/portal/configure-kit` to a `configure_kit` page that doesn't exist (404).
+Remove the rules or add a redirect to `/portal/configure`.
+
+---
+
+## 8. Phase 4 — Repository hygiene and deploy pipeline (implementing agent + OWNER)
+
+1. **Stop shipping local tool caches.** Frappe Cloud copies the whole repository into every build image.
+   - Remove `.repowise/` (1,235 files, about 140 MB, including SQLite `wiki.db`/`-wal` and pickles).
+   - Remove `tools/yaml_builder_ui/.npm-cache/` (about 10 MB).
+   - Remove `diff_bbb8605.txt` and `output/` (generated CSVs).
+   - Use `git rm -r --cached` and add all of them to `.gitignore`.
+   - Decide whether `tools/configurator_ui/dist-preview/` (about 10 MB) should be built rather than
+     committed.
+   - `.mcp.json` and `.codex/config.toml` contain only local Windows paths (no secrets found), but they
+     belong in local config.
+2. **Branching.** Protect `main`: require PRs and green CI. Use a `staging` branch for the staging bench
+   group, promote to `main` by PR, and tag production releases (`release-2026-10-xx`). Replace "asdf"
+   commit messages with descriptive ones.
+3. **Deploy one thing at a time.** App deploys should not include Frappe/ERPNext/HRMS/CRM/Print Designer
+   version bumps. Framework upgrades get their own staging rehearsal.
+4. **Update the existing repair docs** (`docs/FRAPPE_CLOUD_BACKUP_REPAIR_2026_09_28.md`,
+   `docs/B2B_CLOUD_ACCEPTANCE.md`) to point at this plan, and correct the `bypass_unlink.so` note (§3.4).
+
+---
+
+## 9. Phase 5 — Staging rehearsal and production cut-over (OWNER + implementing agent)
+
+1. Merge Phase 2 into `staging`. Deploy to the staging bench group and update the staging site (which was
+   restored from production).
+2. Confirm on staging:
+   - the update log shows every new patch executing, `Executing after_migrate hooks…` with no traceback,
+     and no new Error Log entries titled "ilL workspace preservation";
+   - `bench backup` / *Schedule Backup* succeeds, and `private/backups` holds only backup files.
+3. **Smoke test on staging.** Use real non-Administrator users for each item.
+   - [ ] System Manager uploads an attachment to a Sales Order, an Item image, and an
+         `ilL-Webflow-Product` featured image; opens and deletes a private attachment.
+   - [ ] Sales User: Quotation from a fixture schedule → Create Sales Order → **Submit**. Then Delivery
+         Note → Sales Invoice from that order.
+   - [ ] Work Order from a configured Sales Order (manufacturing generator runs; no drawing hold unless a
+         request is flagged `required_for_manufacturing`).
+   - [ ] Desk "Configure & Add Fixture" dialog on a Quotation, for each of the four families.
+   - [ ] Dealer: `/portal` dashboard, projects, schedule page (stock label shows or says "unavailable"),
+         configurator save to schedule, orders list and order detail.
+   - [ ] Webflow product "Mark Pending" (after 7.4) as a Catalog Publisher.
+   - [ ] A normal ERPNext notification email reaches the Email Queue and sends (mail sink).
+   - [ ] The ilLumenate Lighting workspace opens with all six number cards and its custom blocks.
+   - [ ] Error Log: no new errors after one hour with the scheduler enabled.
+4. Assign staff roles on staging (7.1) and repeat the relevant checks as those users.
+5. Production:
+   1. Pick a maintenance window and confirm a successful fresh backup (Phase 1).
+   2. Deploy the exact commit that passed staging.
+   3. Update the site.
+   4. Run the same smoke test.
+   5. Assign roles.
+   6. Watch the Error Log.
+6. **Rollback:** restore the matched pre-update backup (database, files, config) together with the previous
+   app commit. Never run old code against a database that newer code has migrated.
+
+---
+
+## 10. Owner decisions needed (defaults in bold)
+
+| # | Decision | Default |
+| --- | --- | --- |
+| 1 | Portal approval workflow applies to | **Only orders with a portal intake (§6.2)** |
+| 2 | Invalid rollout list config | **Treated as absent and logged (§6.5)** |
+| 3 | Keep the v15 CI job | **Remove; production is v16** |
+| 4 | Dealers lose Desk access | Confirm (currently yes) |
+| 5 | Staff role mapping | Owner supplies names → roles |
+| 6 | `tools/configurator_ui/dist-preview` committed | **Build it instead of committing it** |
+
+---
+
+## Appendix A — How findings were verified
+
+- Frappe v16 behavior: read at the deployed commit `012667b9…`, in `frappe/permissions.py`
+  (`has_controller_permissions`), `frappe/utils/backups.py` (`delete_temp_backups`),
+  `frappe/core/doctype/file/file.py`, `frappe/utils/typing_validations.py`, `frappe/__init__.py`
+  (`whitelist`) and `frappe/public/js/frappe/request.js`. Compared with `version-15` for the permission
+  hook semantics.
+- Frappe Cloud behavior: read in `frappe/agent` (`agent/site.py`, `agent/server.py`, `agent/bench.py`,
+  `agent/web.py`, `lib/bypass_unlink.c`) and `frappe/press` (`press/agent.py`, site and site_update
+  DocTypes).
+- CI: GitHub Actions runs 36500862803 ("CI") and 36500862764 ("B2B local contracts") on `a88f5e4`.
+- Local: Python 3.14 compile of all modules, JSON parse of all app JSON, `ruff` (F821/F811/E9/F7), the
+  `tests/portal_unit` suite (231 tests, OK), an AST scan of `has_permission` hooks and whitelisted
+  annotations, a DocType schema diff `12c76df..HEAD`, and hooks.py reference resolution.
+- Not verified: the live Cloud site's state, data or logs (no access from here), and a full upgrade
+  migration against a copy of production data (Phase 5 covers it).
