@@ -1,9 +1,12 @@
 import hashlib
 import io
+import types
 import unittest
+from unittest.mock import MagicMock
 
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
+from test_services import ROOT, Record, load_service
 
 from illumenate_lighting.illumenate_lighting.portal.packet_manifest import assemble_manifest
 
@@ -79,6 +82,24 @@ class PacketManifest(unittest.TestCase):
 		self.assertFalse(parts)
 		self.assertIn("filled submittal", errors[0])
 
+	def test_failed_render_reports_its_reason_and_row(self):
+		_manifest, _parts, errors = assemble_manifest(
+			[
+				line(
+					"first",
+					line_id=None,
+					idx=3,
+					manufacturer_type="ILLUMENATE",
+					render_error="Failed to fill PDF form fields; PDF filling blocked: none of the 2 mapped field(s) exist",
+				)
+			],
+			lambda _: self.fail("A failed render must not load a source"),
+		)
+		self.assertTrue(
+			errors[0].startswith("Line Row 3 (first): The filled submittal could not be generated")
+		)
+		self.assertIn("none of the 2 mapped field(s) exist", errors[0])
+
 	def test_corrupt_and_encrypted_documents_block_completion(self):
 		for content in (b"%PDF-invalid", pdf_bytes(password="secret")):
 			with self.subTest(encrypted=len(content) > 100):
@@ -110,6 +131,51 @@ class PacketManifest(unittest.TestCase):
 	def test_duplicate_stable_identity_is_rejected(self):
 		with self.assertRaisesRegex(ValueError, "unique stable key"):
 			assemble_manifest([line("one"), line("one")], lambda _: (pdf_bytes(), "source.pdf"))
+
+
+class PacketGather(unittest.TestCase):
+	def gather(self, *rows):
+		def unfillable(name, warnings=None, schedule_line=None):
+			warnings.append(
+				"PDF filling blocked: none of the 2 mapped field(s) exist in the PDF template /files/t.pdf."
+			)
+			return {"success": False, "message": "Failed to fill PDF form fields", "warnings": warnings}
+
+		stubs = {
+			ROOT + ".api.spec_submittal": types.ModuleType("spec_submittal"),
+			ROOT + ".portal.build_documents": types.ModuleType("build_documents"),
+			ROOT + ".portal.line_documents": types.ModuleType("line_documents"),
+		}
+		stubs[ROOT + ".api.spec_submittal"].__dict__.update(
+			generate_filled_submittal=unfillable,
+			generate_filled_neon_submittal=MagicMock(),
+			generate_filled_sheet_submittal=MagicMock(),
+		)
+		stubs[ROOT + ".portal.build_documents"].generate_group = MagicMock()
+		stubs[ROOT + ".portal.line_documents"].active = lambda schedule, line: []
+		with load_service(ROOT + ".portal.packets", stubs) as (module, _frappe):
+			warnings = []
+			return module.gather(Record(name="S1", lines=list(rows)), warnings), warnings
+
+	def test_each_line_keeps_the_reason_its_submittal_failed(self):
+		row = dict(idx=1, line_id=None, qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
+		lines, warnings = self.gather(
+			Record(row, name="R1", line_key="K1", configured_fixture="CF1"),
+			Record(row, name="R2", line_key="K2", idx=2),
+		)
+		self.assertEqual(
+			lines[0]["render_error"],
+			"Failed to fill PDF form fields; PDF filling blocked: none of the 2 mapped field(s) exist in the PDF template /files/t.pdf.",
+		)
+		self.assertIn(lines[0]["render_error"], warnings)
+		self.assertIn("no configured build", lines[1]["render_error"])
+		_manifest, _parts, errors = assemble_manifest(lines, lambda _: self.fail("No source should load"))
+		self.assertIn(
+			"Line Row 1 (K1): The filled submittal could not be generated: Failed to fill", errors[0]
+		)
+		self.assertIn(
+			"Line Row 2 (K2): The filled submittal could not be generated: The line has no", errors[1]
+		)
 
 
 if __name__ == "__main__":

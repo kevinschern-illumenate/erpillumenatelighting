@@ -39,7 +39,7 @@ def assemble_manifest(lines, load_source, *, filled=True, cover_pages=0):
 		seen.add(key)
 		entry = {
 			"line_key": key,
-			"designation": line.get("line_id"),
+			"designation": line.get("line_id") or (f"Row {line['idx']}" if line.get("idx") else None),
 			"quantity": line.get("qty"),
 			"manufacturer_type": line.get("manufacturer_type"),
 			"source_url": line.get("spec_document_url"),
@@ -60,6 +60,8 @@ def assemble_manifest(lines, load_source, *, filled=True, cover_pages=0):
 				and entry["manufacturer_type"] == "ILLUMENATE"
 				and not line.get("has_submittal")
 			):
+				if line.get("render_error"):
+					raise ValueError("The filled submittal could not be generated: " + line["render_error"])
 				raise ValueError("A filled submittal is required; static literature cannot replace it")
 			if not entry["source_url"]:
 				raise ValueError("Required source document is missing")

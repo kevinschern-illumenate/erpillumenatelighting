@@ -26,6 +26,7 @@ def gather(schedule, warnings, pinned=None):
 		entry = {
 			"line_key": line.get("line_key") or line.name,
 			"schedule_line": line.name,
+			"idx": line.idx,
 			"line_id": line.line_id,
 			"qty": line.qty,
 			"location": line.location,
@@ -46,14 +47,19 @@ def gather(schedule, warnings, pinned=None):
 				has_submittal=prior.get("source_kind") == "filled_submittal",
 			)
 		elif line.manufacturer_type == "ILLUMENATE":
+			entry["render_error"] = "The line has no configured build; configure it before exporting"
 			for field, doctype, renderer in families:
 				if line.get(field):
 					entry["build"] = {"doctype": doctype, "name": line.get(field)}
+					# Keep this line's diagnostics separate so its failure reason reaches the packet error.
+					line_warnings = []
 					try:
-						result = renderer(line.get(field), warnings=warnings, schedule_line=line.name)
+						result = renderer(line.get(field), warnings=line_warnings, schedule_line=line.name)
 					except (ValueError, frappe.ValidationError) as error:
 						result = {"success": False, "message": str(error)}
+					warnings.extend(line_warnings)
 					if result.get("success"):
+						entry.pop("render_error")
 						entry.update(
 							spec_document_url=result.get("file_url"),
 							has_submittal=True,
@@ -61,7 +67,10 @@ def gather(schedule, warnings, pinned=None):
 							provenance=result.get("provenance"),
 						)
 					else:
-						warnings.append(result.get("message") or f"Could not render line {line.line_id}")
+						reasons = [result.get("message") or f"Could not render line {line.line_id}"]
+						reasons += [note for note in line_warnings if not note.startswith("[DEBUG]")]
+						entry["render_error"] = "; ".join(dict.fromkeys(reasons))
+						warnings.append(entry["render_error"])
 					break
 		elif line.manufacturer_type == "OTHER":
 			entry.update(spec_document_url=line.spec_sheet, source_kind="uploaded_literature")
