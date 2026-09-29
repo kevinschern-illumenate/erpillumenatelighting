@@ -89,9 +89,10 @@ class DirectoryAssets:
 
 
 class Page:
-	def __init__(self, colors, assets):
+	def __init__(self, colors, assets, brand_assets=None):
 		self.colors = colors
 		self.assets = assets
+		self.brand_assets = brand_assets
 		self.fonts = set()
 		self._defs = []
 		self._body = []
@@ -143,14 +144,14 @@ class Page:
 			f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(width)}" height="{_num(height)}" fill="url(#{gradient_id})"/>'
 		)
 
-	def natural_size(self, ref):
-		content, mime = self.assets.get(ref)
+	def natural_size(self, ref, brand=False):
+		content, mime = (self.brand_assets if brand else self.assets).get(ref)
 		if mime != "image/svg+xml":
 			raise ValueError(f"Natural size needs an SVG asset: {ref!r}")
 		return svg_size(content)
 
-	def image(self, ref, x, y, width, height, radius=None, fit="none"):
-		content, mime = self.assets.get(ref)
+	def image(self, ref, x, y, width, height, radius=None, fit="none", brand=False):
+		content, mime = (self.brand_assets if brand else self.assets).get(ref)
 		if mime == "image/svg+xml":
 			reject_fpo(content, ref)
 		clip = ""

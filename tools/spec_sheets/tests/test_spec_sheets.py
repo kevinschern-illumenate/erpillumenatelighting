@@ -130,6 +130,16 @@ class SpecLineTest(unittest.TestCase):
 		self.assertEqual(stops[0][0], "#ffc35a")
 		self.assertEqual(stops[-1][0], "#f6fbff")
 
+	def test_product_line_mapping(self):
+		self.assertEqual(tokens.spec_line_for("Linear Fixture", "Static White"), "SW")
+		self.assertEqual(tokens.spec_line_for("LED Tape", "Dim to Warm"), "DW")
+		self.assertEqual(tokens.spec_line_for("LED Neon", "RGBW"), "CC")
+		self.assertEqual(tokens.spec_line_for("Linear Fixture", "Horticulture"), "SW")  # owner decision
+		self.assertEqual(tokens.spec_line_for("Driver"), "PS")
+		self.assertEqual(tokens.spec_line_for("Extrusion Kit"), "OTHER")
+		with self.assertRaises(ValueError):
+			tokens.spec_line_for("Linear Fixture", "Unknown")
+
 	def test_unknown_line_is_rejected(self):
 		with self.assertRaisesRegex(ValueError, "Unknown spec line"):
 			tokens.spec_line_stops("XX")
@@ -149,6 +159,40 @@ class SpecLineTest(unittest.TestCase):
 		svg = page.svg()
 		self.assertIn('<stop offset="70%" stop-color="#ffffff" stop-opacity="0.5"/>', svg)
 		self.assertIn('<stop offset="100%" stop-color="#000000"/>', svg)
+
+
+class BrandTest(unittest.TestCase):
+	def test_every_spec_line_has_a_logo_file(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import load_brand, logo_for
+
+		brand = load_brand("illumenate")
+		for code in ("SW", "DW", "TW", "FS", "CC", "PS", "OTHER"):
+			self.assertTrue((brand["root"] / logo_for(brand, code)["file"]).is_file(), code)
+
+	def test_supplied_logos_are_not_placeholders(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import load_brand, logo_for
+
+		brand = load_brand("illumenate")
+		for code in ("SW", "DW", "FS"):
+			self.assertNotIn("placeholder", logo_for(brand, code))
+		for code in ("TW", "CC", "PS", "OTHER"):
+			self.assertIn("placeholder", logo_for(brand, code))
+
+	def test_placeholders_are_reported(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.pages import placeholders
+
+		model = json.loads((FIXTURE / "model.json").read_text(encoding="utf-8"))
+		found = placeholders(model)
+		self.assertTrue(any(item.startswith("hero.jpg") for item in found), found)
+		self.assertFalse(any(item.startswith("logo") for item in found), found)
+		model["spec_line"] = "TW"
+		self.assertTrue(any(item.startswith("logo TW") for item in placeholders(model)))
+
+	def test_copyright_year_comes_from_the_document(self):
+		model = json.loads((FIXTURE / "model.json").read_text(encoding="utf-8"))
+		model["footer"]["copyright_year"] = 2031
+		html = build_html(model, DirectoryAssets(FIXTURE / "assets"))
+		self.assertIn("© 2031 ilLumenate Lighting Inc.", html)
 
 
 class ChromiumResolutionTest(unittest.TestCase):

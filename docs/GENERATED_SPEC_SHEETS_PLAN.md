@@ -37,6 +37,9 @@ PDF field mappings (`ilL-Spec-Submittal-Mapping`, `ilL-Neon-Submittal-Mapping`, 
 | 13 | **Custom finish (CU, "Provide RAL #") and Outdoor (O)** are standard options on every linear fixture and extrusion kit. |
 | 14 | Feed directions and feed lengths vary by product and come from a child table on the template (§3.8). |
 | 15 | Defaults accepted for every open item in §14. |
+| 16 | **Horticulture** LED packages use the **Static White** spec line and logo. |
+| 17 | **Tape behind a lens = closest delivered output** (§9.1). Implemented in the configurator engine and the Webflow lens map (`api/tape_selection.py`). |
+| 18 | Missing designer assets use flagged placeholders until supplied and verified. |
 
 ---
 
@@ -533,10 +536,18 @@ and 56 % / 32 % transmission, the two rules disagree in two cells:
 | White lens, 750 lm/ft | 1250 lm/ft tape → 700 delivered, 11.6 W/ft | 1500 lm/ft tape → 840 delivered, 14.4 W/ft |
 | Black lens, 100 lm/ft | 300 lm/ft tape → 96 delivered, 2.5 W/ft | 400 lm/ft tape → 128 delivered, 3.6 W/ft |
 
-The Webflow configurator's lens map (`_get_output_levels_lens_map`) shows yet another tape, the
-first one that snaps (e.g. white 100 → 100 lm/ft tape). The spec sheet must print what the engine
-builds, so **the engine rule is the one to settle** (§14, item 6). The sheet model will call the
-engine's tape selection instead of re-deriving it.
+The Webflow configurator's lens map (`_get_output_levels_lens_map`) showed yet another tape, the
+first one that snaps (e.g. white 100 → 100 lm/ft tape).
+
+**Resolved 2026-09-29: closest.** Which output columns exist is unchanged (a tape offers the
+level its delivered output rounds to). When several tapes round to the same level, the one whose
+delivered output is closest to it builds the fixture; ties go to the lower-output tape.
+`api/tape_selection.py` holds the rule and is used by `get_delivered_outputs_for_template`,
+`auto_select_tape_for_configuration` and the Webflow lens map, so the configurator, the website and
+the spec sheet agree. It reproduces every wattage and "—" on the published St. Helens sheet
+(`tests/portal_unit/test_tape_selection.py`). Transmission is read as a fraction (0.56); a percent
+(56) is now also understood. Builds already saved keep their sealed tape. New quotes for white 750
+and black 100 lm/ft (and similar cells on other templates) now select the lower-wattage tape.
 
 The published max-run values also differ slightly from the tape sheet in five cells (e.g. 36 ft vs
 35 ft for 200 lm/ft tape). Generated sheets print the engine's computed max run.
@@ -608,9 +619,13 @@ Sizes are relative (S ≈ days, M ≈ 1–2 weeks, L ≈ 2–4 weeks of focused 
   runs there.
 - ✅ Designer asset pack received (§15.4): CAD drawings, rating/certification icons and all seven
   InDesign files. The fixture now uses the real drawings and icons and still passes.
-- ⏳ Still needed from the designer: the St. Helens spec hero image (`SH01 Hero Image`), the dark
-  logos per product line (`ilLumenate Logo_<LINE>_Black_Main`), and the inline UL mark
-  (CC Libraries: Icons/UL). Stand-ins cut from the PDF are used until then.
+- ✅ Logos received for Static White, Dim to Warm and Full Spectrum (plus the black logo); converted
+  to vector SVG in `api/spec_sheets/brands/illumenate/logos/`, placed at InDesign's 40 %.
+- ⏳ Placeholders until the designer supplies them (the renderer lists every placeholder it uses,
+  and Phase 2 blocks approving a revision while any remain): Tunable White logo (Static White logo
+  stands in), Color Changing / Power Supply / Other Products logos (black logo stands in), the
+  St. Helens spec hero (`SH01 Hero Image`, cut from the PDF) and the inline UL mark (CC Libraries:
+  Icons/UL, cut from the PDF).
 
 ### Phase 1 — Foundations (M)
 - `spec_sheets/facts.py` refactor, with characterization tests proving Webflow Product and CSV
@@ -686,9 +701,7 @@ Brand profile data + visual QA; no template changes expected.
 
 All five defaults were accepted on 2026-09-29. New item:
 
-6. **Tape selection rule behind low-transmission lenses (§9.1):** closest delivered output (matches
-   the published sheet), or the engine's current "highest tape that snaps to the level". This changes
-   wattage, drivers and price for real builds, so it is an engineering decision; the sheet follows it.
+6. ~~Tape selection rule behind low-transmission lenses~~ **Resolved: closest delivered output** (§9.1).
 
 ---
 
@@ -834,4 +847,20 @@ sheet.
 **Authoring note:** `.ai`/PDF → SVG conversion and InDesign extraction run on the authoring side
 (YAML Builder CLI) with PyMuPDF/Pillow; the ERPNext server only ever receives SVG, PNG or JPEG.
 PyMuPDF is AGPL-licensed, which is fine for internal tooling but is why it is kept out of the app.
+
+### 15.5 Logos, placeholders and product lines
+
+- **Brand folder** `api/spec_sheets/brands/illumenate/brand.json`: footer copy (with `{year}`), the
+  notice, colour overrides and one logo per spec line, each either a designer file or a flagged
+  placeholder. A second brand (206 Lighting) is another folder; Phase 1 moves the same fields onto
+  `ilL-Webflow-Brand`.
+- **Logo placement:** the line logos are 309.26 × 205pt artboards; InDesign placed them at 40 % with
+  the artboard at (457.76, 31.8), found by aligning the lettering with the published PDF. The
+  fixture passes with the vector SW logo: 174/174 words, 59/59 rules, 0.68 % of pixels differ
+  (logo edges are now vector-crisp where the published PDF used a 300 dpi PNG).
+- **Placeholders** are reported by `pages.placeholders(model)` and printed by
+  `tools/spec_sheets/render_fixture.py`, so nothing is mistaken for final art.
+- **Product line** comes from `tokens.spec_line_for(family, spectrum_type)`: Static White and
+  Horticulture → SW, Dim to Warm → DW, Tunable White → TW, Full Spectrum → FS, the RGB types → CC,
+  drivers/controllers → PS, extrusion kits/accessories → OTHER.
 

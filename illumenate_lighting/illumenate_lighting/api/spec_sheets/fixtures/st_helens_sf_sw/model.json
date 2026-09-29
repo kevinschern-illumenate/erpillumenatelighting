@@ -2,22 +2,10 @@
  "schema": "ill-spec-sheet-model/0",
  "family": "Linear Fixture",
  "document": "catalog",
- "source_note": "Phase 0 fixture: values transcribed from the St. Helens [SF] Static White InDesign PDF (031026RY). Drawings and rating icons are the designer's files; see assets/SOURCES.json.",
+ "source_note": "Phase 0 fixture: values transcribed from the St. Helens [SF] Static White InDesign PDF (031026RY). Drawings, rating icons and the SW logo are the designer's files; hero and UL mark are placeholders (see assets/SOURCES.json).",
  "spec_line": "SW",
  "brand": {
-  "brand_code": "illumenate",
-  "logo": "logo.png",
-  "footer_lines": [
-   [
-    "PO BOX 297, Bothell, WA 98041  ",
-    " +1 (425) 381-2447"
-   ],
-   [
-    "sales@ilLumenate.lighting  ",
-    "© 2026 ilLumenate Lighting Inc. All Rights Reserved"
-   ]
-  ],
-  "notice": "Specification subject to change without notice.   "
+  "brand_code": "illumenate"
  },
  "header": {
   "title_lines": [
@@ -192,6 +180,11 @@
  },
  "footer": {
   "date_code": "031026RY",
-  "page_count": 3
+  "page_count": 3,
+  "copyright_year": 2026
+ },
+ "placeholders": {
+  "hero.jpg": "Spec hero (SH01 Hero Image) cut from the published PDF; designer file pending",
+  "icon_ul.svg": "Inline UL mark (CC Libraries: Icons/UL) cut from the published PDF; designer file pending"
  }
 }

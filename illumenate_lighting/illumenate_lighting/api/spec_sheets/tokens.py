@@ -58,7 +58,8 @@ STYLES = {
 
 # Page chrome shared by every family.
 HERO = {"x": 36.0, "y": 36.0, "size": 144.0, "radius": 14.4}
-LOGO = {"x": 463.566, "y": 36.0, "width": 112.289, "height": 72.0}
+# The logo artboard (309.26 x 205pt for the line logos) is placed at 40 %.
+LOGO = {"x": 457.76, "y": 31.8, "scale": 0.4}
 TITLE = {"x": 198.0, "first_baseline": 57.32, "leading": 24.0, "sublabel_baseline": 109.98}
 SPEC_LINE_TOP = {"y": 130.34, "height": 3.6}
 SPEC_LINE_BOTTOM = {"y": 704.41, "height": 3.6}
@@ -143,6 +144,31 @@ def spec_line_stops(code):
 	if code not in lines:
 		raise ValueError(f"Unknown spec line {code!r}; expected one of {', '.join(sorted(lines))}")
 	return [tuple(stop) for stop in lines[code]["stops"]]
+
+
+# Which spec line (gradient bar and logo) a product uses.
+SPEC_LINE_BY_SPECTRUM = {
+	"Static White": "SW",
+	"Dim to Warm": "DW",
+	"Tunable White": "TW",
+	"Full Spectrum": "FS",
+	"RGB": "CC",
+	"RGB+W": "CC",
+	"RGBW": "CC",
+	"RGB+TW": "CC",
+	"RGBTW": "CC",
+	"Horticulture": "SW",
+}
+SPEC_LINE_BY_FAMILY = {"Driver": "PS", "Controller": "PS", "Extrusion Kit": "OTHER", "Accessory": "OTHER"}
+
+
+def spec_line_for(family, spectrum_type=None):
+	"""Spec line code for a product: drivers/controllers and kits by family, light sources by spectrum."""
+	if family in SPEC_LINE_BY_FAMILY:
+		return SPEC_LINE_BY_FAMILY[family]
+	if spectrum_type not in SPEC_LINE_BY_SPECTRUM:
+		raise ValueError(f"No spec line for LED package spectrum type {spectrum_type!r}")
+	return SPEC_LINE_BY_SPECTRUM[spectrum_type]
 
 
 def brand_colors(brand=None):

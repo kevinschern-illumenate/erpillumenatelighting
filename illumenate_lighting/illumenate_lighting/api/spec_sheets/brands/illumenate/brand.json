@@ -1,0 +1,19 @@
+{
+ "brand_code": "illumenate",
+ "label": "ilLumenate Lighting",
+ "footer_lines": [
+  ["PO BOX 297, Bothell, WA 98041  ", " +1 (425) 381-2447"],
+  ["sales@ilLumenate.lighting  ", "© {year} ilLumenate Lighting Inc. All Rights Reserved"]
+ ],
+ "notice": "Specification subject to change without notice.   ",
+ "logos": {
+  "SW": {"file": "logos/SW.svg", "source": "ilLumenate_Lighting_Logo_SW_Main.ai"},
+  "DW": {"file": "logos/DW.svg", "source": "ilLumenate_Lighting_Logo_DW_Main.ai"},
+  "FS": {"file": "logos/FS.svg", "source": "ilLumenate_Lighting_Logo_FS_Main.ai"},
+  "TW": {"file": "logos/SW.svg", "placeholder": "Tunable White logo not supplied yet; Static White logo stands in"},
+  "CC": {"file": "logos/Black.svg", "placeholder": "Color Changing logo not supplied yet; black logo stands in"},
+  "PS": {"file": "logos/Black.svg", "placeholder": "Power Supply logo not supplied yet; black logo stands in"},
+  "OTHER": {"file": "logos/Black.svg", "placeholder": "Extrusion kit / other products logo not supplied yet; black logo stands in"}
+ },
+ "colors": {}
+}

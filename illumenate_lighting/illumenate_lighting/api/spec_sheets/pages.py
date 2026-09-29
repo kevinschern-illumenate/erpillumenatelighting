@@ -8,8 +8,11 @@ Layout functions place its content with the measured tokens; they never read
 the database, so the same model always produces the same PDF.
 """
 
+from datetime import date
+
 from illumenate_lighting.illumenate_lighting.api.spec_sheets import tokens
-from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import Page, document
+from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import load_brand, logo_for
+from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import DirectoryAssets, Page, document
 
 
 def _bulleted_line(page, segments, baseline, x=None, right=None):
@@ -32,8 +35,8 @@ def _bulleted_line(page, segments, baseline, x=None, right=None):
 			cursor += bullet + footer["bullet_gap_after"]
 
 
-def page_chrome(page, model, page_number, page_count):
-	header, brand, footer = model["header"], model["brand"], model.get("footer") or {}
+def page_chrome(page, model, brand, page_number, page_count):
+	header, footer = model["header"], model.get("footer") or {}
 
 	# The hero sits above the top spec line; the bottom line is the top one mirrored.
 	stops = tokens.spec_line_stops(model["spec_line"])
@@ -45,8 +48,9 @@ def page_chrome(page, model, page_number, page_count):
 	page.image(
 		header["hero"], hero["x"], hero["y"], hero["size"], hero["size"], radius=hero["radius"], fit="cover"
 	)
-	logo = tokens.LOGO
-	page.image(brand["logo"], logo["x"], logo["y"], logo["width"], logo["height"])
+	logo, logo_file = tokens.LOGO, logo_for(brand, model["spec_line"])["file"]
+	width, height = page.natural_size(logo_file, brand=True)
+	page.image(logo_file, logo["x"], logo["y"], width * logo["scale"], height * logo["scale"], brand=True)
 
 	title = tokens.TITLE
 	for index, line in enumerate(header["title_lines"]):
@@ -61,8 +65,10 @@ def page_chrome(page, model, page_number, page_count):
 			raise NotImplementedError("Filled footer fields arrive with submittals (Phase 3)")
 
 	first, second = settings["first_line_baseline"], settings["second_line_baseline"]
-	_bulleted_line(page, brand["footer_lines"][0], first, x=tokens.MARGIN)
-	_bulleted_line(page, brand["footer_lines"][1], second, x=tokens.MARGIN)
+	year = str(footer.get("copyright_year") or date.today().year)
+	lines = [[segment.replace("{year}", year) for segment in line] for line in brand["footer_lines"]]
+	_bulleted_line(page, lines[0], first, x=tokens.MARGIN)
+	_bulleted_line(page, lines[1], second, x=tokens.MARGIN)
 	page.text(tokens.CONTENT_RIGHT, first, f"{page_number}/{page_count}", "page_number", anchor="end")
 	_bulleted_line(page, [brand["notice"], footer["date_code"]], second, right=tokens.CONTENT_RIGHT)
 
@@ -133,9 +139,26 @@ def drawings(page, section_baseline, section):
 		x += width + settings["gap"]
 
 
+def resolve_brand(model):
+	overrides = model.get("brand") or {}
+	return load_brand(overrides.get("brand_code") or "illumenate", overrides)
+
+
+def placeholders(model):
+	"""Placeholder artwork this sheet would use; a revision cannot be approved while any remain."""
+	brand = resolve_brand(model)
+	found = (
+		[f"logo {model['spec_line']}: {note}"]
+		if (note := logo_for(brand, model["spec_line"]).get("placeholder"))
+		else []
+	)
+	return found + [f"{ref}: {note}" for ref, note in (model.get("placeholders") or {}).items()]
+
+
 def linear_catalog_page_one(model, assets, page_count):
-	page = Page(tokens.brand_colors(model.get("brand")), assets)
-	page_chrome(page, model, 1, page_count)
+	brand = resolve_brand(model)
+	page = Page(tokens.brand_colors(brand), assets, DirectoryAssets(brand["root"]))
+	page_chrome(page, model, brand, 1, page_count)
 	icon_row(page, model)
 	last_row = spec_table(page, model["spec_table"]["section_baseline"], model["spec_table"])
 	drawings(page, last_row + tokens.SPEC_TABLE["after_table_to_section"], model["dimensions"])

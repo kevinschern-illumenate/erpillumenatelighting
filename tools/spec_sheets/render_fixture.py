@@ -11,7 +11,7 @@ import argparse
 import json
 from pathlib import Path
 
-from illumenate_lighting.illumenate_lighting.api.spec_sheets.pages import build_html
+from illumenate_lighting.illumenate_lighting.api.spec_sheets.pages import build_html, placeholders
 from illumenate_lighting.illumenate_lighting.api.spec_sheets.render import render_pdf
 from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import DirectoryAssets
 
@@ -35,6 +35,9 @@ def main():
 	args = parser.parse_args()
 	pdf = render_fixture(args.model, args.output, args.html)
 	print(f"Wrote {args.output} ({len(pdf)} bytes)")
+	model = json.loads(Path(args.model).read_text(encoding="utf-8"))
+	for item in placeholders(model):
+		print(f"PLACEHOLDER {item}")
 
 
 if __name__ == "__main__":

@@ -9,10 +9,10 @@
   "Rating_Damp_GrayLine.svg": "certifications/Rating_Damp_GrayLine.svg",
   "Rating_Wet_GrayLine.svg": "certifications/Rating_Wet_GrayLine.svg"
  },
- "stand_ins_cut_from_published_pdf": {
+ "spec_line": "Vector gradient 'SW' from spec_lines.json, extracted from the Static White .indd",
+ "placeholders_pending_designer_files": {
   "hero.jpg": "SH01 Hero Image (the pack's SH01_ASSEMBLED.jpg is a different photo)",
-  "logo.png": "ilLumenate Logo_SW_Black_Main (the pack's logo SVG is the white version)",
   "icon_ul.svg": "CC Libraries: Icons/UL (inline 'For use with UL Light Source' mark)"
  },
- "spec_line": "Vector gradient 'SW' from spec_lines.json, extracted from the Static White .indd"
+ "logo": "brands/illumenate/logos/SW.svg from ilLumenate_Lighting_Logo_SW_Main.ai"
 }

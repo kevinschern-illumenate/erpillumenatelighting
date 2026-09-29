@@ -77,7 +77,13 @@
    704.41,
    612.0,
    708.01
+  ],
+  [
+   463.57,
+   36.0,
+   575.86,
+   108.0
   ]
  ],
- "vector_images_note": "Spec lines are drawn as vector gradients (spec_lines.json) instead of the placed PNG; the raster check covers them."
+ "vector_images_note": "Spec lines are vector gradients (spec_lines.json) and the logo is the designer's vector artwork (brands/illumenate/logos/SW.svg) instead of the placed PNGs; the raster check covers them."
 }
