@@ -107,7 +107,7 @@ class CountUoms(unittest.TestCase):
 
 class ConfiguredItemUoms(unittest.TestCase):
 	def test_new_linear_tape_and_neon_items_default_to_ea(self):
-		snapshot = types.SimpleNamespace(snapshot=lambda doc: {})
+		snapshot = types.SimpleNamespace(snapshot=lambda doc: {}, current_estimate=lambda doc: 100)
 		with (
 			load_service(
 				ROOT + ".api.manufacturing_generator",
@@ -124,34 +124,47 @@ class ConfiguredItemUoms(unittest.TestCase):
 			for category in ("Linear Fixture", "LED Tape", "LED Neon"):
 				with self.subTest(category=category):
 					frappe.get_doc.reset_mock()
+					frappe.db.exists.side_effect = None
 					frappe.db.exists.return_value = False
-					frappe.db.get_value.return_value = "Fixture template"
+					frappe.db.get_value.side_effect = lambda doctype, key, *a, **k: (
+						None if isinstance(key, dict) else "Fixture template"
+					)
+					linear = category == "Linear Fixture"
 					doc = Record(
-						name="ILL-CF-EXAMPLE",
+						doctype="ilL-Configured-Fixture" if linear else "ilL-Configured-Tape-Neon",
+						name="ILL-CF-" + "a" * 64 if linear else "ILL-CTN-00001",
 						fixture_template="F1",
 						build_schema_version=2,
 						config_hash="a" * 64,
 						part_number="READABLE",
+						display_part_number="READABLE",
 						product_category=category,
 					)
 					create = (
 						engine._create_or_get_configured_item
-						if category == "Linear Fixture"
+						if linear
 						else engine._create_or_get_configured_tape_neon_item
 					)
 					result = create(doc)
 					self.assertTrue(result["success"], result)
 					self.assertTrue(result["created"])
+					self.assertEqual(result["item_code"], "READABLE")
 					documents = [call.args[0] for call in frappe.get_doc.call_args_list]
 					self.assertEqual(
 						documents[0], {"doctype": "UOM", "uom_name": "Ea", "must_be_whole_number": 1}
 					)
 					self.assertEqual(documents[1]["doctype"], "Item")
 					self.assertEqual(documents[1]["stock_uom"], "Ea")
-					# Reusing an existing Item must not change its stock UOM.
+					self.assertEqual(documents[1]["ill_build_id"], ("ILL-CF-" if linear else "ILL-TN-") + "a" * 64)
+					# Reusing this build's existing Item must not change its stock UOM.
 					frappe.get_doc.reset_mock()
-					frappe.db.exists.return_value = True
-					self.assertTrue(create(doc)["skipped"])
+					frappe.db.exists.side_effect = lambda doctype, code: code == "READABLE"
+					frappe.db.get_value.side_effect = lambda doctype, key, *a, **k: (
+						"READABLE" if isinstance(key, dict) else "Fixture template"
+					)
+					reused = create(doc)
+					self.assertTrue(reused["skipped"])
+					self.assertEqual(reused["item_code"], "READABLE")
 					frappe.get_doc.assert_not_called()
 					frappe.db.set_value.assert_not_called()
 

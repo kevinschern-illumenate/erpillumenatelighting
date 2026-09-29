@@ -7,6 +7,57 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
 
+# Immutable builds with readable Item codes: the Item field that links back to
+# the build, and the prefix of the content-addressed build ID.
+BUILD_ITEMS = {
+	"ilL-Configured-Fixture": ("custom_ill_configured_fixture", "ILL-CF-"),
+	"ilL-Configured-Tape-Neon": ("custom_ill_configured_tape_neon", "ILL-TN-"),
+}
+ITEM_CODE_MAX_LENGTH = 140
+
+
+def build_id(configured):
+	"""Content-addressed identity of an immutable build (its historical Item code)."""
+	build_hash = configured.config_hash or ""
+	if len(build_hash) != 64 or any(char not in "0123456789abcdef" for char in build_hash):
+		raise ValueError("A versioned configured product requires a complete build hash")
+	return BUILD_ITEMS[configured.doctype][1] + build_hash
+
+
+def item_belongs_to_build(item_code, configured):
+	"""An Item is a build's own when its code is the build ID or it links back to the build."""
+	if not item_code:
+		return False
+	if item_code == build_id(configured):
+		return True
+	link_field = BUILD_ITEMS[configured.doctype][0]
+	return frappe.db.get_value("Item", item_code, link_field) == configured.name
+
+
+def build_item_code(configured, part_number):
+	"""The Item code for a build: its part number, kept unique per build.
+
+	A part number omits some engineering inputs, so different builds can share
+	one while each still needs its own Item and BOM. The first build takes the
+	plain part number, a later one appends part of its build hash, and the build
+	ID is the last resort. An existing Item is only ever returned for its own build.
+	"""
+	identity = build_id(configured)
+	# A build keeps the Item it already has, including a legacy build-ID code.
+	if frappe.db.exists("Item", identity):
+		return identity
+	own = frappe.db.get_value("Item", {BUILD_ITEMS[configured.doctype][0]: configured.name}, "name")
+	if own:
+		return own
+	base = (part_number or "").strip()
+	suffixed = [f"{base}-{configured.config_hash[:size].upper()}" for size in (6, 12)]
+	for code in ([base, *suffixed] if base else []):
+		if len(code) > ITEM_CODE_MAX_LENGTH or "<" in code or ">" in code:
+			continue
+		if not frappe.db.exists("Item", code):
+			return code
+	return identity
+
 
 def atomic_build(function):
 	@wraps(function)

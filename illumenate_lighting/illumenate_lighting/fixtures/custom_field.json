@@ -268,6 +268,18 @@
 	},
 	{
 		"doctype": "Custom Field",
+		"dt": "Item",
+		"fieldname": "ill_build_id",
+		"fieldtype": "Data",
+		"label": "Configured Build ID",
+		"description": "Content-addressed identity of the immutable configured build this Item manufactures.",
+		"insert_after": "custom_ill_configured_tape_neon",
+		"read_only": 1,
+		"no_copy": 1,
+		"search_index": 1
+	},
+	{
+		"doctype": "Custom Field",
 		"dt": "CRM Lead",
 		"fieldname": "webflow_form_details_section",
 		"fieldtype": "Section Break",
