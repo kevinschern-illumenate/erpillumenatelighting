@@ -1,6 +1,6 @@
 # Generated Spec Sheets and Submittals — Investigation and Plan
 
-Status: **Phase 0 complete locally; Frappe Cloud probe pending** · Prepared 2026-09-29 · Updated 2026-09-29 (Phase 0 results, §15)
+Status: **Phase 0 complete (local and Frappe Cloud); Phase 1 next** · Prepared 2026-09-29 · Updated 2026-09-29 (Phase 0 results, §15)
 
 ## 1. Goal
 
@@ -615,8 +615,8 @@ Sizes are relative (S ≈ days, M ≈ 1–2 weeks, L ≈ 2–4 weeks of focused 
   InDesign PDF (§15).
 - ✅ Fonts bundled with licences; HarfBuzz metrics table; stand-in assets cut from the golden PDF
   (`tools/spec_sheets/extract_standins.py`) until the designer's exports arrive.
-- ⏳ Run the probe on the Frappe Cloud bench (§15.3) to confirm the pinned Chromium downloads and
-  runs there.
+- ✅ Frappe Cloud probe passed on 2026-09-29 (§15.6): the pinned Chromium downloads and runs on the
+  bench and renders St. Helens page 1 in 0.7 s with real embedded fonts.
 - ✅ Designer asset pack received (§15.4): CAD drawings, rating/certification icons and all seven
   InDesign files. The fixture now uses the real drawings and icons and still passes.
 - ✅ Logos received for Static White, Dim to Warm and Full Spectrum (plus the black logo); converted
@@ -795,7 +795,7 @@ python -m unittest discover -s tools/spec_sheets/tests
 
 `out/diff.png` highlights every differing pixel in red over a grey blend of both pages.
 
-### 15.3 Run the probe on Frappe Cloud
+### 15.3 Run the probe on Frappe Cloud (done 2026-09-29, §15.6)
 
 **Prerequisite:** the site must be running code from this branch (merged to the branch the bench
 deploys, or deployed to a staging bench). Until then the probe module does not exist on the site.
@@ -880,4 +880,27 @@ PyMuPDF is AGPL-licensed, which is fine for internal tooling but is why it is ke
 - **Product line** comes from `tokens.spec_line_for(family, spectrum_type)`: Static White and
   Horticulture → SW, Dim to Warm → DW, Tunable White → TW, Full Spectrum → FS, the RGB types → CC,
   drivers/controllers → PS, extrusion kits/accessories → OTHER.
+
+### 15.6 Frappe Cloud result (2026-09-29)
+
+Run from the System Console on the production bench after PR #268 was deployed:
+
+| Field | Result |
+|---|---|
+| Chromium | `/home/frappe/frappe-bench/chromium-spec-sheets/141.0.7390.54/…/chrome-headless-shell` |
+| Version | Google Chrome for Testing 141.0.7390.54 (downloaded and SHA-256 verified by the background job) |
+| Render time | 0.7 s for one page |
+| Page size | 612 × 792pt |
+| Fonts | Manrope-Bold, Manrope-Regular, Manrope-SemiBold, Poppins-Light, Poppins-Medium, Poppins-Regular (TrueType subsets, not Type 3) |
+| PDF | 134,148 bytes, the same size as the locally rendered page that passes the fidelity harness |
+
+**Lessons for later phases:**
+- The System Console runs in Frappe's `safe_exec` sandbox: no `import`, only whitelisted methods via
+  `frappe.call`, and nothing is kept unless **Commit** is ticked. Staff tools should be whitelisted
+  methods or Desk buttons, not console snippets.
+- The first attempt stalled because the job was queued "after commit" from an uncommitted console
+  run. Background work started from staff actions is now queued immediately with a fixed job id,
+  and status checks read the RQ job, so a lost job is visible and retried.
+- The bench's files are rebuilt on each deploy, so the pinned Chromium is fetched again after a
+  deploy. Phase 1 adds an after-migrate background job that installs it so no request waits.
 
