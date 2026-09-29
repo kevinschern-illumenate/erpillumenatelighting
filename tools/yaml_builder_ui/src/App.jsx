@@ -228,7 +228,7 @@ const VOLTAGE_CHOICES = ['12V DC', '24V DC', '36V DC', '48V DC', '120V AC', '277
 const PCB_MOUNTING_CHOICES = ['Adhesive Backed', 'Channel Mounted', 'Free Standing', 'None'];
 const PCB_FINISH_CHOICES = ['White', 'Black', 'Copper', 'Aluminum'];
 const DIMMING_PROTOCOL_CHOICES = ['TRIAC', '0-10V', 'DALI', 'ELV', 'PWM', 'Forward Phase', 'Reverse Phase'];
-const LED_PACKAGE_CHOICES = ['FS', 'SW', 'TW', 'RGBW', 'RGB', 'RGBWW', 'Pixel'];
+const LED_PACKAGE_CHOICES = ['FS', 'SW', 'TW', 'DW', 'RGBW', 'RGB', 'RGBWW', 'PX'];
 const OUTPUT_LEVEL_CHOICES = [
   '100 lm/ft', '150 lm/ft', '200 lm/ft', '250 lm/ft', '300 lm/ft',
   '400 lm/ft', '500 lm/ft', '750 lm/ft', '1000 lm/ft', '1250 lm/ft', '1500 lm/ft'

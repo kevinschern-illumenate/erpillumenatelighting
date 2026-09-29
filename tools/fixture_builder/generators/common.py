@@ -47,6 +47,8 @@ LED_PACKAGE_NAMES = {
     "FS": "Full Spectrum",
     "SW": "Static White",
     "TW": "Tunable White",
+    "DW": "Dim to Warm",
+    "PX": "SPI Pixel",
 }
 
 # ── LED Sheet option type → attribute DocType ──────────────────────────

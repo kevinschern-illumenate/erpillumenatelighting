@@ -34,7 +34,7 @@ export const MOUNTING_METHOD_CHOICES = [
   'Recessed Mount', 'Wall Mount', 'Suspended Mount',
 ];
 export const QTY_RULE_CHOICES = ['Per x mm', 'Per Fixture', 'Per Segment', 'Per Run'];
-export const FIXTURE_LED_PACKAGES = ['FS', 'SW', 'TW', 'RGBW', 'RGB'];
+export const FIXTURE_LED_PACKAGES = ['FS', 'SW', 'TW', 'DW', 'RGBW', 'RGB', 'PX'];
 export const POWER_FEED_CHOICES = ['Single End Feed', 'Dual End Feed', 'Mid Feed', 'Power Joiner'];
 export const FIXTURE_PRICING_BASIS = ['L_tape_cut', 'L_mfg'];
 export const FIXTURE_ENV_RATINGS = ['Dry', 'Damp', 'Wet'];

@@ -236,6 +236,26 @@ class TestItemCSV(unittest.TestCase):
         self.assertEqual(by_code["CH-CA01"][part_col], "")
 
 
+class TestFixtureTemplateNames(unittest.TestCase):
+    """LED package codes expand to readable template names."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config = _castle_config()
+        self.config.fixture_templates.led_packages = ["DW", "PX"]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_dim_to_warm_and_spi_pixel_names(self):
+        path = gen_fixture_template.generate(self.config, self.tmpdir)
+        headers, rows = _read_csv(path)
+        code_col, name_col = headers.index("Template Code"), headers.index("Template Name")
+        names = {r[code_col]: r[name_col] for r in rows if r[code_col]}
+        self.assertEqual(names["ILL-CA02-DW"], "Castle [WD] Dim to Warm")
+        self.assertEqual(names["ILL-CA02-PX"], "Castle [WD] SPI Pixel")
+
+
 class TestSpecProfile(unittest.TestCase):
     """Test ilL-Spec-Profile.csv generator."""
 
