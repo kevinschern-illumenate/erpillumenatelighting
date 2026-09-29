@@ -354,6 +354,35 @@ test('coordinator reopens independent tape segments and preserves excluded power
   dom.window.close();
 });
 
+test('coordinator jumper edits made after the next segment is added reach its inherited start', async () => {
+  for (const family of ['neon', 'tape']) {
+    const category = family === 'neon' ? 'LED Neon' : 'LED Tape';
+    const html = fs.readFileSync(path.join(__dirname, 'rendered', category.replace(' ', '-') + '-coordinator.html'), 'utf8');
+    const { dom, $, api, requests } = setup(html);
+    const inst = new api.Coordinator($('#portal-configurator'), { product_category: category, is_tape: family === 'tape', is_neon: family === 'neon', is_tape_neon: true, has_templates: false });
+    inst.init();
+    const feedDirections = [{ value: 'End', label: 'End' }, { value: 'Back', label: 'Back' }];
+    requests.find(r => r.method.endsWith('get_tape_neon_spec_init')).callback({ message: { success: true, options: { ccts: [{ value: '3000K' }], output_levels: [{ value: 'High' }], ip_ratings: [{ value: 'IP67', label: 'IP67' }], feed_directions: feedDirections } } });
+    const cards = () => inst.$('#' + family + 'SegmentsList .' + family + '-segment-card');
+    cards().first().find('[data-coordinator-action="set' + (family === 'neon' ? 'Neon' : 'Tape') + 'EndType-' + (family === 'neon' ? 25 : 22) + '"]').trigger('click');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal(cards().length, 2, family);
+    // The user sets the jumper only after the next segment has been auto-added.
+    cards().first().find('[name="' + family + '_end_feed_direction"]').val('Back').trigger('change');
+    cards().first().find('[name="' + family + '_end_feed_length_inches"]').val('6').trigger('input');
+    assert.match(cards().last().find('.' + family + '-inherited-text').text(), /Back, 6" jumper/, family);
+    inst.$('#tnCalculateBtn').prop('disabled', false).trigger('click');
+    const calc = requests.at(-1);
+    assert.match(calc.method, family === 'neon' ? /validate_neon_configuration/ : /validate_tape_configuration/);
+    const actual = JSON.parse(calc.args.segments_json);
+    assert.equal(actual[0].end_feed_length_inches, 6, family);
+    assert.equal(actual[1].start_feed_direction, 'Back', family);
+    assert.equal(actual[1].start_lead_length_inches, 6, family);
+    inst.destroy();
+    dom.window.close();
+  }
+});
+
 test('reel preview is read-only and saving submits input to the atomic service', () => {
   const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Tape-coordinator.html'), 'utf8');
   const { dom, $, api, requests } = setup(html);

@@ -1800,17 +1800,7 @@ function addTapeSegment(isFirst) {
 		card.querySelector('.tape-first-segment-start').style.display = 'none';
 		card.querySelector('.tape-inherited-start').style.display = 'block';
 		card.querySelector('.remove-tape-segment-btn').style.display = 'inline-block';
-
-		// Copy inherited info from the prior run's jumper
-		var priorSegment = $('#tapeSegmentsList .tape-segment-card').last();
-		if (priorSegment.length) {
-			var priorEndDir = priorSegment.find('[name="tape_end_feed_direction"]').val() || '';
-			var priorJumperIn = priorSegment.find('[name="tape_end_feed_length_inches"]').val() || '12';
-			card.dataset.inheritedFeedDirection = priorEndDir;
-			card.dataset.inheritedCableLength = priorJumperIn;
-			card.querySelector('.tape-inherited-text').textContent =
-				'From prior run: ' + priorEndDir + ', ' + priorJumperIn + '" jumper';
-		}
+		// The inherited start text is filled by tnSyncInheritedStarts() via tnUpdateUI().
 	}
 
 	$('#' + 'tapeSegmentsList')[0].appendChild(clone);
@@ -1902,13 +1892,32 @@ function tnCollectTapeSegments() {
 			seg.start_feed_direction = card.find('[name="tape_start_feed_direction"]').val() || '';
 			seg.start_lead_length_inches = parseFloat(card.find('[name="tape_start_lead_length_inches"]').val()) || 0;
 		} else {
-			seg.start_feed_direction = card[0].dataset.inheritedFeedDirection || '';
-			seg.start_lead_length_inches = parseFloat(card[0].dataset.inheritedCableLength) || 0;
+			// The prior run's outgoing jumper is this run's start cable.
+			seg.start_feed_direction = segments[index - 1].end_feed_direction;
+			seg.start_lead_length_inches = segments[index - 1].end_feed_length_inches;
 		}
 
 		segments.push(seg);
 	});
 	return segments;
+}
+
+// A segment after a jumper starts on that same physical cable, so its start
+// always mirrors the prior card's current jumper fields. Those are usually
+// edited after the next card is auto-added, so they cannot be copied once.
+function tnSyncInheritedStarts() {
+	[['#tapeSegmentsList .tape-segment-card', 'tape', 'From prior run: '],
+	 ['#neonSegmentsList .neon-segment-card', 'neon', 'From prior: ']].forEach(function(spec) {
+		var cards = $(spec[0]), prefix = spec[1];
+		cards.each(function(index) {
+			if (index === 0) return;
+			var prior = cards.eq(index - 1);
+			var priorEndDir = prior.find('[name="' + prefix + '_end_feed_direction"]').val() || '';
+			var priorJumperIn = parseFloat(prior.find('[name="' + prefix + '_end_feed_length_inches"]').val()) || 0;
+			$(this).find('.' + prefix + '-inherited-text').text(
+				spec[2] + (priorEndDir ? priorEndDir + ', ' : '') + priorJumperIn + '" jumper');
+		});
+	});
 }
 
 // Keep the Calculate button in sync while the user types run lengths, and
@@ -2286,6 +2295,7 @@ function tnUpdateUI() {
 		bulkReelUpdateSaveBtn();
 		return;
 	}
+	tnSyncInheritedStarts();
 	var isComplete = false;
 
 	if (isTape) {
@@ -2932,16 +2942,7 @@ function addNeonSegment(isFirst) {
 		card.querySelector('.neon-first-segment-start').style.display = 'none';
 		card.querySelector('.neon-inherited-start').style.display = 'block';
 		card.querySelector('.remove-neon-segment-btn').style.display = 'inline-block';
-
-		// Copy inherited info from prior segment's end
-		var priorSegment = $('#neonSegmentsList .neon-segment-card').last();
-		if (priorSegment.length) {
-			var priorEndDir = priorSegment.find('[name="neon_end_feed_direction"]').val() || '';
-			var priorJumperIn = priorSegment.find('[name="neon_end_feed_length_inches"]').val() || '12';
-			card.dataset.inheritedFeedDirection = priorEndDir;
-			card.dataset.inheritedCableLength = priorJumperIn;
-			card.querySelector('.neon-inherited-text').textContent = 'From prior: ' + priorEndDir + ', ' + priorJumperIn + '" jumper';
-		}
+		// The inherited start text is filled by tnSyncInheritedStarts() via tnUpdateUI().
 	}
 
 	$('#' + 'neonSegmentsList')[0].appendChild(clone);
@@ -3040,8 +3041,9 @@ function tnCollectNeonSegments() {
 			seg.start_feed_direction = card.find('[name="neon_start_feed_direction"]').val();
 			seg.start_lead_length_inches = Number(card.find('[name="neon_start_lead_length_inches"]').val());
 		} else {
-			seg.start_feed_direction = card[0].dataset.inheritedFeedDirection || 'End';
-			seg.start_lead_length_inches = Number(card[0].dataset.inheritedCableLength || 0);
+			// The prior segment's outgoing jumper is this segment's start cable.
+			seg.start_feed_direction = segments[index - 1].end_feed_direction || 'End';
+			seg.start_lead_length_inches = segments[index - 1].end_feed_length_inches;
 		}
 
 		segments.push(seg);
