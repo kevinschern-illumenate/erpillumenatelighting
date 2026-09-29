@@ -10,7 +10,6 @@ rounding. The document is self-contained: fonts and images are data URIs.
 """
 
 import base64
-import mimetypes
 import re
 from html import escape
 from pathlib import Path
@@ -66,16 +65,22 @@ _FPO_COLOR = re.compile(
 )
 
 
+def has_fpo(content):
+	"""True if SVG bytes use the FPO magenta swatch."""
+	return bool(_FPO_COLOR.search(content))
+
+
 def reject_fpo(content, ref):
 	"""Raise if SVG artwork still contains FPO magenta."""
-	if _FPO_COLOR.search(content):
+	if has_fpo(content):
 		raise ValueError(f"{ref!r} contains FPO magenta placeholder artwork; replace it before publishing")
 
 
 def image_mime(name):
-	mime = IMAGE_TYPES.get(Path(name).suffix.lower()) or mimetypes.guess_type(name)[0]
-	if not mime or not mime.startswith("image/"):
-		raise ValueError(f"Unsupported asset type: {name!r}")
+	"""MIME type for artwork Chromium can print (not TIFF, EPS or AI)."""
+	mime = IMAGE_TYPES.get(Path(name.split("?", 1)[0]).suffix.lower())
+	if not mime:
+		raise ValueError(f"Unsupported asset type: {name!r} (use SVG, PNG, JPEG or WebP)")
 	return mime
 
 

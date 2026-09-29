@@ -428,6 +428,7 @@ doc_events = {
 	},
 	# Webflow product and category sync events
 	"ilL-Webflow-Product": {
+		"validate": "illumenate_lighting.illumenate_lighting.api.spec_sheets.site.stamp_spec_assets",
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",
 	},
 	"ilL-Webflow-Category": {
@@ -435,8 +436,21 @@ doc_events = {
 	},
 	# Per-brand cache invalidation
 	"ilL-Webflow-Brand": {
+		"validate": "illumenate_lighting.illumenate_lighting.api.spec_sheets.site.validate_document_branding",
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_brand_update",
 		"on_trash": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_brand_update",
+	},
+	# Spec sheet artwork: SHA-256 and FPO placeholder flags on spec_assets rows
+	**{
+		doctype: {"validate": "illumenate_lighting.illumenate_lighting.api.spec_sheets.site.stamp_spec_assets"}
+		for doctype in (
+			"ilL-Spec-Profile",
+			"ilL-Spec-Lens",
+			"ilL-Spec-Accessory",
+			"ilL-Spec-LED Tape",
+			"ilL-Tape-Neon-Template",
+			"ilL-Extrusion-Kit-Template",
+		)
 	},
 }
 
