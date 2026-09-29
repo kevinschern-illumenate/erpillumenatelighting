@@ -193,6 +193,68 @@ class SheetBundles(unittest.TestCase):
 				self.assertNotIn("unit_price", result["build_snapshot_json"])
 				self.assertEqual(sum(g["group_watts"] for g in result["groups"]), 120)
 
+	def test_template_without_mounting_choices_calculates_without_mounting(self):
+		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, db):
+			template, spec, drivers = self.setup_engine(engine, db)
+			template.update(
+				is_active=1,
+				sku_series_code="SNOW",
+				price_per_sheet_msrp=10,
+				allowed_specs=[Record(spec="PANEL", is_active=1)],
+			)
+			spec.update(is_active=1, cct="3000K", sheet_width_ft=1, sheet_height_ft=2, total_sheet_watts=20)
+			with load_service(ROOT + ".api.led_sheet_configurator") as (api, frappe):
+				template["allowed_options"] = [
+					Record(
+						option_type=key,
+						attribute_link="3000K" if key == "CCT" else key,
+						option_code=key[:2].upper(),
+						msrp_adder=0,
+						is_active=1,
+						is_default=1,
+					)
+					for key in ("CCT", "Output Level", "Environment Rating", "Finish")
+				]
+				frappe.get_doc.side_effect = lambda doctype, name: (
+					template if doctype.endswith("Template") else spec
+				)
+				with (
+					drivers,
+					patch.object(api, "led_sheet_bundle", engine),
+					patch.object(api, "_item_name", side_effect=lambda code: code),
+					patch.object(api, "_item_price", return_value=1),
+				):
+					result = api._calculate_sheet(
+						"Snowfield", "PANEL", coverage_width_ft=3, coverage_height_ft=4
+					)
+				self.assertNotIn("Mounting", result["options"])
+				self.assertEqual(result["part_number"], "SNOW-EN-CC-OU-FI")
+
+	def test_offered_options_are_still_required_unless_only_one_exists(self):
+		with load_service(ROOT + ".api.led_sheet_configurator") as (api, _frappe):
+
+			def template(*links):
+				return Record(
+					allowed_options=[
+						Record(
+							option_type="Mounting",
+							attribute_link=link,
+							option_code=link,
+							msrp_adder=0,
+							is_active=1,
+							is_default=0,
+						)
+						for link in links
+					]
+				)
+
+			self.assertEqual(api._resolve_options(template(), {}), {})
+			self.assertEqual(api._resolve_options(template("Adhesive"), {})["Mounting"]["value"], "Adhesive")
+			with self.assertRaisesRegex(ValueError, "Missing LED Sheet option: Mounting"):
+				api._resolve_options(template("Adhesive", "Clips"), {})
+			with self.assertRaisesRegex(ValueError, "not allowed"):
+				api._resolve_options(template(), {"mounting": "Clips"})
+
 	def test_identical_lines_cannot_steal_ambiguous_legacy_accessories(self):
 		with load_service(ROOT + ".api.led_sheet_configurator") as (api, _):
 			line = Record(name="ROW1", configured_led_sheet="SH1", manufacturer_type="ILLUMENATE")
