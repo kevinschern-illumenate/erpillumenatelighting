@@ -46,6 +46,31 @@ class OrderIntake(unittest.TestCase):
 			with self.assertRaisesRegex(PermissionError, "foreign contact"):
 				service.validate_context("A", service.normalize(self.body()))
 
+	def test_buyer_denial_names_the_failed_condition(self):
+		def actor(**facts):
+			facts.setdefault("is_dealer", True)
+			return Record(
+				is_company_dealer_for=lambda customer: bool(
+					facts["is_dealer"] and facts.get("customer") and customer == facts["customer"]
+				),
+				**facts,
+			)
+
+		with load_service(ROOT + ".portal.order_intake", dependencies()) as (service, _frappe):
+			self.assertIsNone(service.buyer_denial("A", actor(customer="A")))
+			for facts, customer, expected in (
+				({"customer": "A"}, None, "no ordering company"),
+				({"is_internal": True, "is_dealer": False, "customer": "A"}, "A", "Staff accounts"),
+				({"is_dealer": False, "customer": "A"}, "A", "does not have the Dealer role"),
+				({"customer": None}, "A", "not linked to exactly one company"),
+				({"customer": "B"}, "A", "belongs to B.*Owner Company"),
+			):
+				with self.subTest(expected=expected):
+					self.assertRegex(service.buyer_denial(customer, actor(**facts)), expected)
+			with patch.object(service, "get_actor", return_value=actor(customer="B")):
+				with self.assertRaisesRegex(PermissionError, r"ordering company \(A\).*belongs to B"):
+					service._buyer("A")
+
 	def test_unknown_fields_and_missing_scope_ack_are_rejected(self):
 		with load_service(ROOT + ".portal.order_intake", dependencies()) as (service, _frappe):
 			for body in ({**self.body(), "rate": 0}, {**self.body(), "acknowledge_scope": "false"}):

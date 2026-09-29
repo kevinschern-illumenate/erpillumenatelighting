@@ -560,6 +560,9 @@ body.reorder-no-select {
 							{% endif %}
 						</div>
 					</div>
+					{% if order_block_reason %}
+					<p class="text-muted small text-right mt-2 mb-0" id="orderBlockReason">{{ order_block_reason }}</p>
+					{% endif %}
 					{% if can_show_dealer_pricing and can_view_pricing %}
 					<div class="mt-2" id="dealerPricingToggleRow">
 						<button id="dealerPricingBtn" class="btn btn-sm btn-outline-warning" onclick="toggleDealerPricing()">
