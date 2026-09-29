@@ -11,6 +11,12 @@ TEMPLATE_FIELDS = {
 	"LED Neon": "tape_neon_template",
 	"LED Sheet": "led_sheet_template",
 }
+# Families priced by the foot; the catalog shows the template's MSRP per foot.
+PER_FOOT_TEMPLATES = {
+	"Linear Fixture": "ilL-Fixture-Template",
+	"LED Tape": "ilL-Tape-Neon-Template",
+	"LED Neon": "ilL-Tape-Neon-Template",
+}
 
 
 def safe_document_url(value):
@@ -37,6 +43,7 @@ def safe_document_url(value):
 
 
 def project_product(product, *, certifications=(), price=None, commercial=False, configure_available=True):
+	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families."""
 	get = product.get
 	family = FAMILY_ALIASES.get(get("product_type"), get("product_type"))
 	template_field = TEMPLATE_FIELDS.get(family)
@@ -168,11 +175,12 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 			],
 		}
 	)
-	if commercial and family == "Linear Fixture" and price is not None:
-		result["base_price_msrp"] = price
+	if commercial and family in PER_FOOT_TEMPLATES and price is not None:
+		result["price_per_ft_msrp"] = price
 		result["pricing"] = {
-			"basis": "fixture_base_msrp",
+			"basis": "msrp_per_foot",
 			"amount": price,
+			"unit": "ft",
 			"excludes": ["configuration-dependent components"],
 		}
 	return result

@@ -250,8 +250,8 @@ function renderGrid() {
 		}
 
 		var priceHtml = '';
-		if (p.base_price_msrp != null) {
-			priceHtml = '<span class="product-card-price">Base MSRP $' + Number(p.base_price_msrp).toLocaleString() + '<small class="d-block">Before length and options</small></span>';
+		if (p.price_per_ft_msrp != null) {
+			priceHtml = '<span class="product-card-price">$' + Number(p.price_per_ft_msrp).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / ft<small class="d-block">MSRP, before options</small></span>';
 		}
 
 		var ctaLabel = 'View Details';

@@ -30,6 +30,37 @@ def _parse_json_param(value):
     return value
 
 
+def _per_foot_prices(products) -> dict:
+    """Map product name → template MSRP per foot for linear, tape and neon products."""
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+    from illumenate_lighting.illumenate_lighting.api.product_projection import (
+        PER_FOOT_TEMPLATES,
+        TEMPLATE_FIELDS,
+    )
+
+    wanted: dict = {}
+    for product in products:
+        family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
+        doctype = PER_FOOT_TEMPLATES.get(family)
+        template = product.get(TEMPLATE_FIELDS[family]) if doctype else None
+        if template:
+            wanted.setdefault(doctype, {})[product.get("name")] = template
+
+    prices = {}
+    for doctype, by_product in wanted.items():
+        rows = frappe.get_all(
+            doctype,
+            filters={"name": ["in", list(set(by_product.values()))]},
+            fields=["name", "price_per_ft_msrp"],
+            ignore_permissions=True,
+        )
+        rates = {row.name: row.price_per_ft_msrp for row in rows}
+        for name, template in by_product.items():
+            if rates.get(template) is not None:
+                prices[name] = rates[template]
+    return prices
+
+
 # ── public API ───────────────────────────────────────────────────────
 
 @frappe.whitelist()
@@ -179,21 +210,12 @@ def get_catalog_products(
 
     products = frappe.db.sql(data_sql, params, as_dict=True)
 
-    # ── attach pricing from fixture template where available ─────────
-    template_codes = [p.fixture_template for p in products if p.fixture_template]
-    pricing_map = {}
-    if template_codes:
-        prices = frappe.get_all(
-            "ilL-Fixture-Template",
-            filters={"name": ["in", template_codes]},
-            fields=["name", "base_price_msrp"],
-            ignore_permissions=True,
-        )
-        pricing_map = {p.name: p.base_price_msrp for p in prices}
+    # ── attach MSRP per foot from linear / tape / neon templates ─────
+    pricing_map = _per_foot_prices(products)
 
     from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
     from illumenate_lighting.illumenate_lighting.portal.rollout import available
-    result = [project_product(product, price=pricing_map.get(product.fixture_template), commercial=True, configure_available=available(product.product_type)) for product in products]
+    result = [project_product(product, price=pricing_map.get(product.name), commercial=True, configure_available=available(product.product_type)) for product in products]
 
     return {
         "success": True,
@@ -240,9 +262,7 @@ def get_catalog_product_detail(product_slug: str) -> dict:
         certifications.append({key: master.get(key) for key in (
             "certification_name", "certification_body", "certification_code", "badge_image"
         )})
-    price = None
-    if product.product_type == "Fixture Template" and product.fixture_template:
-        price = frappe.db.get_value("ilL-Fixture-Template", product.fixture_template, "base_price_msrp")
+    price = _per_foot_prices([product]).get(product.name)
     from illumenate_lighting.illumenate_lighting.portal.rollout import available
     from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
     projection = project_product(product, certifications=certifications, price=price, commercial=True, configure_available=available(product.product_type))

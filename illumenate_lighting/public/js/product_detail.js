@@ -3,34 +3,28 @@
  *
  * Drives the /portal/products/<slug> page.
  *  – Fetches full product detail from the catalog API
- *  – Renders gallery, specs, docs, certs
- *  – For configurable products: initialises the embedded configurator
- *    (reuses WebflowConfigurator from webflow_configurator.js)
- *    and wires project → schedule → line cascading selectors.
+ *  – Renders gallery, specs, docs, certs and the per-foot MSRP
+ *  – Renders the "Add to a Fixture Schedule" panel: configurable products
+ *    route to their family configurator; everything else becomes an
+ *    accessory line.
  */
 
-/* global frappe, WebflowConfigurator, initializeFromProduct,
-   handleInitResponse, populatePillSelector, populateFeedDirections,
-   showAllSections, updateProgress, updatePartNumberPreview,
-   gatherAllSelections, updateValidateButton, validateConfiguration,
-   handleValidationResponse, resetConfiguration, handlePillClick, debounce */
+/* global frappe, __ */
 
 // ── Page-level state ────────────────────────────────────────────────
 
 var ProductDetail = {
 	slug: null,
 	product: null,
-	isConfigurable: false,
-	fixtureTemplate: ''
+	schedules: [],
+	scheduleRequest: 0,
+	saveAttempt: null
 };
 
 // ── Initialisation ──────────────────────────────────────────────────
 
-function initProductDetail(slug, isConfigurable, fixtureTemplate) {
+function initProductDetail(slug) {
 	ProductDetail.slug = slug;
-	ProductDetail.isConfigurable = isConfigurable;
-	ProductDetail.fixtureTemplate = fixtureTemplate;
-
 	loadProductDetail(slug);
 }
 
@@ -42,8 +36,7 @@ function loadProductDetail(slug) {
 			if (r.message && r.message.success) {
 				ProductDetail.product = r.message.product;
 				renderDetail(r.message.product);
-
-				renderConfigureAction(r.message.product);
+				renderProductAction(r.message.product);
 			} else {
 				$('#detailLoading').html(
 					'<p class="text-danger">' + _escHtml(r.message && r.message.error || 'Product not found') + '</p>'
@@ -75,8 +68,8 @@ function renderDetail(p) {
 	}
 
 	var priceHtml = '';
-	if (p.base_price_msrp !== undefined && p.base_price_msrp !== null) {
-		priceHtml = '<div class="product-hero-price">Base MSRP $' + Number(p.base_price_msrp).toLocaleString() + ' <small>before length and options</small></div>';
+	if (p.price_per_ft_msrp !== undefined && p.price_per_ft_msrp !== null) {
+		priceHtml = '<div class="product-hero-price">' + _escHtml(formatPerFoot(p.price_per_ft_msrp)) + ' <small>MSRP, before options</small></div>';
 	}
 
 	$('#productInfo').html(
@@ -97,10 +90,10 @@ function renderDetail(p) {
 		renderCerts(p.certifications || []);
 	}
 
-	// Configurator intro text
-	if (p.configurator_intro_text && ProductDetail.isConfigurable) {
-		$('#configuratorIntro').text(p.configurator_intro_text);
-	}
+}
+
+function formatPerFoot(amount) {
+	return '$' + Number(amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / ft';
 }
 
 function renderGallery(images) {
@@ -162,296 +155,189 @@ function renderCerts(certs) {
 	$('#tabCerts').html(html);
 }
 
-// ── Embedded Configurator ───────────────────────────────────────────
+// ── Add to fixture schedule ─────────────────────────────────────────
+//
+// Configurable products (linear fixtures, LED tape, LED neon, LED sheets)
+// hand off to their family's configurator with a line draft, so the saved
+// configuration lands on a new schedule line carrying the fixture type and
+// location entered here. Other products (extrusion kits, components,
+// accessories, drivers, controllers) are added directly as accessory lines.
 
-function renderConfigureAction(product) {
-	var section = $('#configuratorSection').empty().show();
-	if (product.capability === 'quantity') {
-		section.append($('<p class="text-muted">').text(__('Select an approved SKU and quantity. Current pricing is calculated for the quotation or order request.')));
-		section.append($('<button class="btn btn-primary">').text(__('Add quantity to schedule')).on('click', () => openStandardProduct(product)));
-		return;
-	}
-	if (!product.configure_url) {
-		section.append($('<a class="btn btn-outline-primary">').attr('href', '/portal/support').text(__('Request product assistance')));
-		return;
-	}
+var STANDARD_API = 'illumenate_lighting.illumenate_lighting.portal.standard_products.';
+var FAMILY_LABELS = {
+	'Linear Fixture': 'linear fixture',
+	'LED Tape': 'LED tape',
+	'LED Neon': 'LED neon',
+	'LED Sheet': 'LED sheet'
+};
+
+function navigateTo(href) {
+	window.location.assign(href);
+}
+
+function productActionMode(product) {
+	if (product.configure_url) return 'configure';
+	if (product.capability === 'quantity') return 'standard';
+	return 'inquiry';
+}
+
+function configureHref(product, params) {
 	var url = new URL(product.configure_url, window.location.origin);
+	Object.keys(params || {}).forEach(function(key) {
+		if (params[key] !== null && params[key] !== undefined && params[key] !== '') url.searchParams.set(key, params[key]);
+	});
+	return url.pathname + url.search;
+}
+
+function renderProductAction(product) {
+	var $section = $('#productActionSection').empty().show();
+	var mode = productActionMode(product);
 	var context = new URLSearchParams(window.location.search);
-	['schedule', 'line_idx'].forEach(function(key) {
-		if (context.has(key)) url.searchParams.set(key, context.get(key));
+	$section.append($('<h5>').text(__('Add to a Fixture Schedule')));
+
+	if (mode === 'inquiry') {
+		$section.append($('<p class="text-muted">').text(__('This product is not yet orderable from the portal. Contact us and we will add it to your schedule.')));
+		$section.append($('<a class="btn btn-outline-primary">').attr('href', '/portal/support').text(__('Request product assistance')));
+		return;
+	}
+
+	var familyLabel = FAMILY_LABELS[product.family] || String(product.family || '').toLowerCase();
+	if (mode === 'configure' && (context.has('line_idx') || context.has('line_key'))) {
+		// Reconfiguring an existing schedule line: its fixture type and location are already set.
+		$section.append($('<p class="text-muted">').text(__('Open the {0} configurator to update the selected schedule line.', [familyLabel])));
+		$section.append($('<a class="btn btn-primary" id="productActionSubmit">').attr('href', configureHref(product, {
+			schedule: context.get('schedule'), line_idx: context.get('line_idx'), line_key: context.get('line_key')
+		})).text(__('Configure this product')));
+		return;
+	}
+
+	if (mode === 'configure' && product.configurator_intro_text) {
+		$section.append($('<p>').text(product.configurator_intro_text));
+	}
+	$section.append($('<p class="text-muted">').text(mode === 'configure'
+		? __('Enter the fixture type and location for the new schedule line, then configure this product in the {0} configurator. The line is added when you save the configuration.', [familyLabel])
+		: __('This product is added to the schedule as an accessory line. Enter the fixture type and location for the line.')));
+
+	var $form = $('<form id="scheduleLineForm" novalidate>');
+	function field(id, label, $input, cols) {
+		return $('<div class="form-group">').addClass(cols || 'col-md-6')
+			.append($('<label>').attr('for', id).text(label))
+			.append($input.attr('id', id).addClass('form-control form-control-sm'));
+	}
+	$form.append($('<div class="form-row">')
+		.append(field('scheduleSearch', __('Find schedule'), $('<input type="search">').attr('placeholder', __('Search by schedule name'))))
+		.append(field('scheduleSelect', __('Fixture schedule') + ' *', $('<select required>'))));
+	if (mode === 'standard') {
+		var $sku = $('<select required>');
+		(product.standard_choices || []).forEach(function(row) {
+			$sku.append($('<option>').val(row.item_code).text(row.label + ' [' + row.stock_uom + ']'));
+		});
+		$form.append($('<div class="form-row">').append(field('skuSelect', __('SKU') + ' *', $sku, 'col-md-12')));
+	}
+	$form.append($('<div class="form-row">')
+		.append(field('lineFixtureType', __('Fixture type') + ' *', $('<input type="text" required maxlength="140">').attr('placeholder', __('e.g. A1')), 'col-md-4'))
+		.append(field('lineLocation', __('Location'), $('<input type="text" maxlength="140">').attr('placeholder', __('e.g. Lobby cove')), 'col-md-5'))
+		.append(field('lineQty', mode === 'standard' ? __('Quantity (stock UOM)') + ' *' : __('Quantity') + ' *', $('<input type="number" min="1" step="1" required>').val(1), 'col-md-3')));
+	$form.append($('<div class="form-row">').append(field('lineNotes', __('Notes'), $('<textarea rows="2" maxlength="4000">'), 'col-md-12')));
+	var $actions = $('<div class="d-flex flex-wrap align-items-center" style="gap:0.5rem">');
+	$actions.append($('<button type="submit" class="btn btn-primary" id="productActionSubmit">')
+		.text(mode === 'configure' ? __('Configure & add to schedule') : __('Add to schedule')));
+	if (mode === 'configure') {
+		$actions.append($('<a class="btn btn-link btn-sm" id="configureOnlyLink">').attr('href', configureHref(product, {}))
+			.text(__('Configure without a schedule')));
+	}
+	$form.append($actions);
+	$section.append($form);
+
+	ProductDetail.schedules = [];
+	ProductDetail.saveAttempt = null;
+	$form.on('submit', function(event) {
+		event.preventDefault();
+		submitProductAction(product, mode);
 	});
-	section.append($('<a class="btn btn-primary">').attr('href', url.pathname + url.search).text(__('Configure this product')));
+	var searchTimer = null;
+	$('#scheduleSearch').on('input', function() {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(function() { loadSchedules(product, $('#scheduleSearch').val()); }, 250);
+	});
+	return loadSchedules(product, '', context.get('schedule'));
 }
 
-async function openStandardProduct(product) {
-    const api = 'illumenate_lighting.illumenate_lighting.portal.standard_products.';
-    try {
-        let data = (await frappe.call({method: api + 'prepare', args: {product_slug: product.product_slug}})).message;
-        let requestVersion = 0;
-        const key = crypto.randomUUID();
-        const dialog = new frappe.ui.Dialog({title: __('Add standard product'), fields: [
-            {fieldname: 'item_code', fieldtype: 'Select', label: __('SKU and stock UOM'), options: data.choices.map(row => ({value: row.item_code, label: row.label + ' [' + row.stock_uom + ']'})), reqd: 1},
-            {fieldname: 'schedule_search', fieldtype: 'Data', label: __('Find schedule by name'), onchange: async () => {
-                const serial = ++requestVersion;
-                try {
-                const response = await frappe.call({method: api + 'prepare', args: {product_slug: product.product_slug, search: dialog.get_value('schedule_search')}});
-                if (serial !== requestVersion || !dialog.$wrapper.is(':visible')) return;
-                data = response.message;
-                dialog.set_df_property('schedule_name', 'options', data.schedules.map(row => ({value: row.name, label: row.schedule_name + ' (' + row.name + ')'})));
-                dialog.set_value('schedule_name', '');
-                } catch (error) { if (serial === requestVersion) frappe.msgprint(__('Schedules could not be loaded. Your entries are retained; try the search again.')); }
-            }},
-            {fieldname: 'schedule_name', fieldtype: 'Select', label: __('Editable schedule'), options: data.schedules.map(row => ({value: row.name, label: row.schedule_name + ' (' + row.name + ')'})), reqd: 1},
-            {fieldname: 'quantity', fieldtype: 'Int', label: __('Quantity in stock UOM'), default: 1, reqd: 1},
-            {fieldname: 'line_id', fieldtype: 'Data', label: __('Fixture designation / line ID'), reqd: 1},
-            {fieldname: 'location', fieldtype: 'Data', label: __('Room / location')},
-            {fieldname: 'notes', fieldtype: 'Small Text', label: __('Notes')}
-        ], primary_action_label: __('Add to schedule'), primary_action: async values => {
-            const schedule = data.schedules.find(row => row.name === values.schedule_name);
-            if (!schedule) { frappe.msgprint(__('Choose an editable schedule.')); return; }
-            const {schedule_search, ...input} = values;
-            try {
-                dialog.get_primary_btn().prop('disabled', true);
-                const response = await frappe.call({method: api + 'add', type: 'POST', args: {...input, product_slug: product.product_slug, expected_modified: schedule.modified, idempotency_key: key}});
-                dialog.hide(); window.location.assign('/portal/schedules/' + encodeURIComponent(response.message.schedule_name));
-            } catch (error) { frappe.msgprint(__('The Item was not confirmed. Your entries are retained; retry or reload the schedule if its revision changed.'));
-            } finally { dialog.get_primary_btn().prop('disabled', false); }
-        }});
-        dialog.show();
-        const context = new URLSearchParams(window.location.search).get('schedule');
-        if (data.schedules.some(row => row.name === context)) dialog.set_value('schedule_name', context);
-    } catch (error) { frappe.msgprint(_escHtml(error.message || __('Product choices could not be loaded.'))); }
-}
-
-function initEmbeddedConfigurator(slug) {
-	// Re-use WebflowConfigurator global object
-	WebflowConfigurator.context = { product_slug: slug, can_save: true, show_pricing: true };
-	WebflowConfigurator.productSlug = slug;
-
-	// Build the step HTML inside #configSteps (same IDs the shared JS expects)
-	buildConfiguratorDOM();
-
-	// Call the shared init function which fetches options from API
-	initializeFromProduct(slug);
-
-	// Bind action buttons
-	$('#validateConfigBtn').off('click').on('click', function() {
-		validateConfiguration();
-	});
-	$('#resetConfigBtn').off('click').on('click', function() {
-		resetConfiguration();
-		$('#validateConfigBtn').prop('disabled', true);
-		$('#addToScheduleBtn').prop('disabled', true);
-	});
-	$('#addToScheduleBtn').off('click').on('click', function() {
-		addFixtureFromDetail();
-	});
-}
-
-/**
- * Build the HTML skeleton the shared webflow_configurator.js expects.
- */
-function buildConfiguratorDOM() {
-	var $steps = $('#configSteps').empty();
-
-	// Series (locked)
-	$steps.append(
-		'<div class="config-step locked" id="seriesSection">' +
-		'<h6><i class="fa fa-lock text-muted mr-1"></i> Series</h6>' +
-		'<div class="series-badge" id="seriesName">Loading…</div>' +
-		'<span id="seriesCode" style="display:none"></span>' +
-		'</div>'
-	);
-
-	// Dynamic steps
-	var stepDefs = [
-		{ id: 'environmentSection', field: 'environment_rating', label: 'Environment (Dry/Wet)' },
-		{ id: 'cctSection', field: 'cct', label: 'CCT' },
-		{ id: 'lensSection', field: 'lens_appearance', label: 'Lens' },
-		{ id: 'outputSection', field: 'output_level', label: 'Output' },
-		{ id: 'mountingSection', field: 'mounting_method', label: 'Mounting' },
-		{ id: 'finishSection', field: 'finish', label: 'Finish' }
-	];
-
-	stepDefs.forEach(function(s) {
-		$steps.append(
-			'<div class="config-step" id="' + s.id + '" style="display:none">' +
-			'<h6>' + s.label + '</h6>' +
-			'<div class="pill-selector" data-field="' + s.field + '"></div>' +
-			'<select class="form-control form-control-sm mt-2 select-fallback" name="' + s.field + '" style="display:none"></select>' +
-			'</div>'
-		);
-	});
-
-	// Length
-	$steps.append(
-		'<div class="config-step" id="lengthSection" style="display:none">' +
-		'<h6>Length</h6>' +
-		'<div class="length-group">' +
-		'<input type="number" class="form-control form-control-sm" name="length_value" placeholder="50">' +
-		'<select class="form-control form-control-sm" name="length_unit">' +
-		'<option value="inches" selected>in</option><option value="mm">mm</option>' +
-		'</select></div>' +
-		'<small class="text-muted" id="lengthNote"></small>' +
-		'</div>'
-	);
-
-	// Feed directions
-	$steps.append(
-		'<div class="config-step" id="feedSection" style="display:none">' +
-		'<h6>Feed Directions</h6>' +
-		'<div class="feed-row">' +
-		'<div>' +
-		'<label class="small font-weight-bold">Start Feed</label>' +
-		'<div class="pill-selector" data-field="start_feed_direction"></div>' +
-		'<select class="form-control form-control-sm mt-1 select-fallback" name="start_feed_direction" style="display:none"></select>' +
-		'<label class="small mt-2">Start Leader (ft)</label>' +
-		'<select class="form-control form-control-sm" name="start_feed_length_ft"></select>' +
-		'</div>' +
-		'<div>' +
-		'<label class="small font-weight-bold">End Feed</label>' +
-		'<div class="pill-selector" data-field="end_feed_direction"></div>' +
-		'<select class="form-control form-control-sm mt-1 select-fallback" name="end_feed_direction" style="display:none"></select>' +
-		'<label class="small mt-2">End Leader (ft)</label>' +
-		'<select class="form-control form-control-sm" name="end_feed_length_ft"></select>' +
-		'</div></div></div>'
-	);
-
-	// Power Supply Option
-	$steps.append(
-		'<div class="config-step mt-3" id="powerSupplySection">' +
-		'<div class="custom-control custom-checkbox">' +
-		'<input type="checkbox" class="custom-control-input" id="includePowerSupply" name="include_power_supply" checked>' +
-		'<label class="custom-control-label" for="includePowerSupply">' +
-		'<strong>Include Power Supplies?</strong>' +
-		'<small class="text-muted d-block">Uncheck to exclude drivers/power supplies from this fixture and source them separately.</small>' +
-		'</label></div></div>'
-	);
-
-	// Validation messages
-	$steps.append(
-		'<div id="validationMessages" style="display:none"><div id="messagesList"></div></div>'
-	);
-
-	// Hidden helpers the shared JS looks for
-	$steps.append('<span id="validationStatus" class="badge badge-secondary" style="display:none"></span>');
-	$steps.append('<span id="summaryList" style="display:none"></span>');
-	$steps.append('<span id="summaryPlaceholder" style="display:none"></span>');
-	$steps.append('<div id="pricingPreview" style="display:none"><span id="basePrice"></span><span id="lengthPrice"></span><span id="totalMsrp"></span></div>');
-	$steps.append('<div id="complexFixtureBanner" style="display:none"></div>');
-}
-
-// ── Schedule cascading dropdowns ────────────────────────────────────
-
-function loadProjectDropdown() {
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_user_projects_for_configurator',
-		callback: function(r) {
-			if (!r.message || !r.message.success) return;
-			var $sel = $('#projectSelect').empty().append('<option value="">Select project…</option>');
-			(r.message.projects || []).forEach(function(p) {
-				$sel.append('<option value="' + _escHtml(p.value) + '">' + _escHtml(p.label) + '</option>');
+function loadSchedules(product, search, preferred) {
+	var serial = ++ProductDetail.scheduleRequest;
+	var previous = preferred || $('#scheduleSelect').val();
+	return Promise.resolve(frappe.call({method: STANDARD_API + 'prepare', args: {product_slug: product.product_slug, search: search || ''}}))
+		.then(function(r) {
+			if (serial !== ProductDetail.scheduleRequest) return;
+			var data = (r && r.message) || {};
+			ProductDetail.schedules = data.schedules || [];
+			var $select = $('#scheduleSelect').empty()
+				.append($('<option value="">').text(ProductDetail.schedules.length ? __('Select schedule…') : __('No editable schedules found')));
+			ProductDetail.schedules.forEach(function(row) {
+				$select.append($('<option>').val(row.name).text(row.schedule_name + ' (' + row.name + ')'));
 			});
-		}
-	});
-
-	$('#projectSelect').off('change').on('change', function() {
-		var proj = $(this).val();
-		$('#scheduleSelect').prop('disabled', !proj).empty().append('<option value="">Select schedule…</option>');
-		$('#lineSelect').prop('disabled', true).empty().append('<option value="">New line</option>');
-		if (!proj) return;
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedules_for_project',
-			args: { project_name: proj },
-			callback: function(r) {
-				if (!r.message || !r.message.success) return;
-				var $s = $('#scheduleSelect');
-				(r.message.schedules || []).forEach(function(s) {
-					$s.append('<option value="' + _escHtml(s.value) + '">' + _escHtml(s.label) + '</option>');
-				});
-			}
+			if (previous && ProductDetail.schedules.some(function(row) { return row.name === previous; })) $select.val(previous);
+		})
+		.catch(function() {
+			if (serial === ProductDetail.scheduleRequest) frappe.msgprint(__('Schedules could not be loaded. Your entries are retained; try the search again.'));
 		});
-	});
-
-	$('#scheduleSelect').off('change').on('change', function() {
-		var sched = $(this).val();
-		$('#lineSelect').prop('disabled', !sched).empty().append('<option value="">New line</option>');
-		if (!sched) return;
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_lines_for_configurator',
-			args: { schedule_name: sched },
-			callback: function(r) {
-				if (!r.message || !r.message.success) return;
-				var $l = $('#lineSelect');
-				(r.message.lines || []).forEach(function(line) {
-					$l.append('<option value="' + _escHtml(line.line_id) + '">' +
-						_escHtml(line.line_id) + ' — ' + _escHtml(line.summary || '') + '</option>');
-				});
-			}
-		});
-	});
 }
 
-// ── Add to schedule from detail page ────────────────────────────────
+function readLineForm() {
+	return {
+		schedule_name: $('#scheduleSelect').val(),
+		item_code: $('#skuSelect').val(),
+		line_id: String($('#lineFixtureType').val() || '').trim(),
+		location: String($('#lineLocation').val() || '').trim(),
+		qty: Number($('#lineQty').val()),
+		notes: String($('#lineNotes').val() || '')
+	};
+}
 
-function addFixtureFromDetail() {
-	var project = $('#projectSelect').val();
-	var schedule = $('#scheduleSelect').val();
-	var lineId = $('#lineSelect').val();
+function submitProductAction(product, mode) {
+	var values = readLineForm();
+	var schedule = ProductDetail.schedules.find(function(row) { return row.name === values.schedule_name; });
+	if (!schedule) { frappe.msgprint(__('Choose an editable fixture schedule.')); return; }
+	if (!values.line_id) { frappe.msgprint(__('Enter a fixture type for the schedule line.')); return; }
+	if (!Number.isInteger(values.qty) || values.qty < 1) { frappe.msgprint(__('Enter a positive whole quantity.')); return; }
+	if (mode === 'standard' && !values.item_code) { frappe.msgprint(__('Choose a SKU.')); return; }
+	return mode === 'configure' ? startConfigureDraft(product, schedule, values) : addStandardLine(product, schedule, values);
+}
 
-	if (!project || !schedule) {
-		frappe.msgprint(__('Please select a project and fixture schedule first.'));
+function startConfigureDraft(product, schedule, values) {
+	var id = window.crypto.randomUUID();
+	var metadata = {line_id: values.line_id, location: values.location, qty: values.qty, notes: values.notes};
+	try {
+		window.sessionStorage.setItem('ill-line-draft:' + id, JSON.stringify({schedule: schedule.name, metadata: metadata, savedAt: Date.now()}));
+		window.sessionStorage.setItem('ill-line-draft-last:' + schedule.name, id);
+	} catch (_) {
+		frappe.msgprint(__('Browser storage is unavailable. Allow session storage to carry the fixture type and location into the configurator.'));
 		return;
 	}
+	navigateTo(configureHref(product, {schedule: schedule.name, draft: id}));
+}
 
-	// Gather part number from the validated configuration
-	var partNumber = $('#partNumberPreview').text().trim();
-	if (!partNumber || partNumber.indexOf('…') !== -1) {
-		frappe.msgprint(__('Please complete and validate the configuration first.'));
-		return;
+async function addStandardLine(product, schedule, values) {
+	var args = {
+		product_slug: product.product_slug, item_code: values.item_code, schedule_name: schedule.name,
+		quantity: values.qty, line_id: values.line_id, location: values.location, notes: values.notes,
+		expected_modified: schedule.modified
+	};
+	// Retries of identical content reuse the key so a lost response cannot add a duplicate line.
+	var signature = JSON.stringify(args);
+	if (!ProductDetail.saveAttempt || ProductDetail.saveAttempt.signature !== signature) {
+		ProductDetail.saveAttempt = {signature: signature, key: window.crypto.randomUUID()};
 	}
-
-	var overwrite = lineId ? '1' : '0';
-
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.webflow_portal.add_fixture_to_schedule',
-		args: {
-			project: project,
-			fixture_schedule: schedule,
-			fixture_part_number: partNumber,
-			line_id: lineId || '',
-			overwrite: overwrite
-		},
-		freeze: true,
-		freeze_message: __('Adding to schedule…'),
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.show_alert({
-					message: __('Fixture added to schedule (Line {0})', [r.message.line_id]),
-					indicator: 'green'
-				});
-
-				$('#addToScheduleBtn').prop('disabled', true);
-
-				// Offer next actions
-				var $msg = $(
-					'<div class="alert alert-success mt-3">' +
-					'<strong>Success!</strong> Line ' + _escHtml(r.message.line_id) + ' ' + r.message.action + '.' +
-					'<div class="mt-2">' +
-					'<a href="/portal/products/' + encodeURIComponent(ProductDetail.slug) + '" class="btn btn-sm btn-outline-primary mr-2">Configure Another</a>' +
-					'<a href="/portal/schedules/' + encodeURIComponent(schedule) + '" class="btn btn-sm btn-primary">View Schedule</a>' +
-					'</div></div>'
-				);
-				$('#configuratorSection').append($msg);
-			} else {
-				frappe.msgprint({
-					title: __('Error'),
-					message: (r.message && r.message.error) || __('Failed to add fixture'),
-					indicator: 'red'
-				});
-			}
-		}
-	});
+	args.idempotency_key = ProductDetail.saveAttempt.key;
+	var $button = $('#productActionSubmit').prop('disabled', true);
+	try {
+		var response = await frappe.call({method: STANDARD_API + 'add', type: 'POST', args: args});
+		navigateTo('/portal/schedules/' + encodeURIComponent(response.message.schedule_name));
+	} catch (error) {
+		frappe.msgprint(__('The line was not confirmed. Your entries are retained; retry, or reload the schedule if it changed.'));
+	} finally {
+		$button.prop('disabled', false);
+	}
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

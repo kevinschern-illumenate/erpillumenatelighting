@@ -98,6 +98,16 @@ class ProductContracts(unittest.TestCase):
 				product["is_active"] = 0
 				self.assertEqual(project_product(product)["capability"], "unavailable")
 
+	def test_catalog_price_is_msrp_per_foot_for_linear_tape_and_neon_only(self):
+		for family in ("Fixture Template", "LED Tape", "LED Neon"):
+			with self.subTest(family=family):
+				projection = project_product(self.product(family), price=12.5, commercial=True)
+				self.assertEqual(projection["price_per_ft_msrp"], 12.5)
+				self.assertEqual(projection["pricing"]["basis"], "msrp_per_foot")
+				self.assertNotIn("base_price_msrp", projection)
+		self.assertNotIn("pricing", project_product(self.product("LED Sheet"), price=12.5, commercial=True))
+		self.assertNotIn("price_per_ft_msrp", project_product(self.product("LED Tape"), price=12.5))
+
 	def test_schema_document_option_projection(self):
 		product = self.product()
 		product["documents"] = [
