@@ -10,6 +10,32 @@ import frappe
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 from illumenate_lighting.illumenate_lighting.portal.packet_manifest import assemble_manifest
 
+DOCUMENT_LABELS = {
+	"filled_submittal": "Spec submittal",
+	"approved_literature": "Product literature",
+	"approved_item_literature": "Product literature",
+	"uploaded_literature": "Spec sheet",
+	"selected_line_document": "Attached document",
+}
+
+
+def _part_number(line):
+	"""The part number a customer recognizes; engine-built linear fixtures are named by config hash."""
+	if line.manufacturer_type == "OTHER":
+		return line.get("fixture_model_number")
+	if line.manufacturer_type == "ACCESSORY":
+		return line.get("accessory_item")
+	if line.get("configured_group"):
+		return frappe.db.get_value("ilL-Configured-Group", line.configured_group, "template")
+	for field, doctype, column in (
+		("configured_fixture", "ilL-Configured-Fixture", "display_part_number"),
+		("configured_tape_neon", "ilL-Configured-Tape-Neon", "part_number"),
+		("configured_led_sheet", "ilL-Configured-LED-Sheet", "part_number"),
+	):
+		if line.get(field):
+			return frappe.db.get_value(doctype, line.get(field), column) or line.get(field)
+	return None
+
 
 def gather(schedule, warnings, pinned=None):
 	from illumenate_lighting.illumenate_lighting.api import spec_submittal as pdf
@@ -32,6 +58,7 @@ def gather(schedule, warnings, pinned=None):
 			"location": line.location,
 			"notes": line.notes,
 			"manufacturer_type": line.manufacturer_type,
+			"part_number": _part_number(line),
 			"spec_document_url": None,
 			"has_submittal": False,
 			"required": True,
@@ -332,14 +359,16 @@ def generate(
 				"<tr><td>"
 				+ html.escape(str(entry.get("designation") or ""))
 				+ "</td><td>"
-				+ html.escape(str(entry["line_key"]))
+				+ html.escape(str(entry.get("part_number") or ""))
+				+ "</td><td>"
+				+ html.escape(DOCUMENT_LABELS.get(entry.get("source_kind"), ""))
 				+ "</td><td>"
 				+ html.escape(str(entry.get("page_start") or entry.get("reason") or entry["status"]))
 				+ "</td></tr>"
 				for entry in manifest
 			)
 			index_pdf = get_pdf(
-				"<html><head><style>body{font:10pt Arial} table{width:100%;border-collapse:collapse} td,th{border-bottom:1px solid #ddd;padding:8px;word-break:break-all} thead{display:table-header-group} tr{page-break-inside:avoid}</style></head><body><h1>Packet page index</h1><table><thead><tr><th>Designation</th><th>Line / document</th><th>First page / omission</th></tr></thead><tbody>"
+				"<html><head><style>body{font:10pt Arial} table{width:100%;border-collapse:collapse} td,th{border-bottom:1px solid #ddd;padding:8px;word-break:break-all} thead{display:table-header-group} tr{page-break-inside:avoid}</style></head><body><h1>Packet page index</h1><table><thead><tr><th>Designation</th><th>Part number</th><th>Document</th><th>First page / omission</th></tr></thead><tbody>"
 				+ rows
 				+ "</tbody></table></body></html>"
 			)

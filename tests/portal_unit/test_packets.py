@@ -134,7 +134,7 @@ class PacketManifest(unittest.TestCase):
 
 
 class PacketGather(unittest.TestCase):
-	def gather(self, *rows):
+	def gather(self, *rows, get_value=None):
 		def unfillable(name, warnings=None, schedule_line=None):
 			warnings.append(
 				"PDF filling blocked: none of the 2 mapped field(s) exist in the PDF template /files/t.pdf."
@@ -154,6 +154,8 @@ class PacketGather(unittest.TestCase):
 		stubs[ROOT + ".portal.build_documents"].generate_group = MagicMock()
 		stubs[ROOT + ".portal.line_documents"].active = lambda schedule, line: []
 		with load_service(ROOT + ".portal.packets", stubs) as (module, _frappe):
+			if get_value:
+				_frappe.db.get_value.side_effect = get_value
 			warnings = []
 			return module.gather(Record(name="S1", lines=list(rows)), warnings), warnings
 
@@ -176,6 +178,24 @@ class PacketGather(unittest.TestCase):
 		self.assertIn(
 			"Line Row 2 (K2): The filled submittal could not be generated: The line has no", errors[1]
 		)
+
+	def test_linear_line_carries_display_part_number_not_hash_name(self):
+		row = dict(idx=1, line_id="A", qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
+		calls = []
+
+		def get_value(doctype, name, field):
+			calls.append((doctype, name, field))
+			return "ILL-SL-SW-I-30-HO-FR-SM-WH-48"
+
+		lines, _warnings = self.gather(
+			Record(row, name="R1", line_key="K1", configured_fixture="ILL-CF-" + "a" * 64),
+			Record(row, name="R2", line_key="K2", manufacturer_type="OTHER", fixture_model_number="ACM-200"),
+			get_value=get_value,
+		)
+		self.assertEqual([entry["part_number"] for entry in lines], ["ILL-SL-SW-I-30-HO-FR-SM-WH-48", "ACM-200"])
+		self.assertEqual(calls, [("ilL-Configured-Fixture", "ILL-CF-" + "a" * 64, "display_part_number")])
+		manifest, _parts, _errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "source.pdf"))
+		self.assertEqual(manifest[0]["part_number"], "ILL-SL-SW-I-30-HO-FR-SM-WH-48")
 
 
 if __name__ == "__main__":
