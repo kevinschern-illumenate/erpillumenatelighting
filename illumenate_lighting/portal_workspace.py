@@ -48,15 +48,48 @@ def merge_workspace(site, shipped):
 	return result
 
 
+SAVEPOINT = "ill_workspace_restore"
+
+
 def _directory():
-	return private_state_directory(frappe.get_site_path("private"), "ill-workspace")
+	return private_state_directory(
+		frappe.get_site_path("private"),
+		"ill-workspace",
+		log=lambda message: frappe.log_error(title="ilL workspace preservation", message=message),
+	)
+
+
+def _log_failure(stage):
+	frappe.log_error(
+		title=f"ilL workspace preservation: {stage} skipped",
+		message=frappe.get_traceback(),
+	)
 
 
 def before_migrate():
+	# Preserving workspace edits is best-effort and must never abort a migration.
+	try:
+		_snapshot_workspace()
+	except Exception:
+		_log_failure("before_migrate")
+
+
+def after_migrate():
+	# Roll back a partial workspace save and keep pending.json for the next migration.
+	try:
+		frappe.db.savepoint(SAVEPOINT)
+		_restore_workspace()
+	except Exception:
+		frappe.db.rollback(save_point=SAVEPOINT)
+		_log_failure("after_migrate")
+
+
+def _snapshot_workspace():
+	# Resolve first: this also moves a legacy directory out of private/backups.
+	directory = _directory()
 	if not frappe.db.exists("Workspace", WORKSPACE):
 		return
 	data = frappe.as_json(frappe.get_doc("Workspace", WORKSPACE).as_dict())
-	directory = _directory()
 	directory.mkdir(parents=True, exist_ok=True)
 	if (directory / "pending.json").exists():
 		# A failed migration may already have imported shipped workspace data.
@@ -67,7 +100,7 @@ def before_migrate():
 	(directory / "pending.json").write_text(json.dumps({"backup": name}), encoding="utf-8")
 
 
-def after_migrate():
+def _restore_workspace():
 	directory = _directory()
 	pending = directory / "pending.json"
 	if not pending.exists():

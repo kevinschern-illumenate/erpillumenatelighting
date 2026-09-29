@@ -129,6 +129,25 @@ def lock_orders(*order_names):
 			frappe.throw("The order's source schedule changed. Reload and retry.")
 
 
+def _portal_governed(order):
+	"""Whether the buyer-acknowledgment approval workflow applies to this Sales Order.
+
+	Only portal-originated orders carry an intake. An amendment inherits the
+	workflow from the order it amends. Other Sales Orders, including Quotation →
+	Sales Order for a schedule-linked Quotation, keep native ERPNext behavior.
+	"""
+	if not order.get("ill_fixture_schedule"):
+		return False
+	names = [order.name] if order.get("name") else []
+	previous = order.get("amended_from")
+	for _ in range(20):
+		if not previous or previous in names:
+			break
+		names.append(previous)
+		previous = frappe.db.get_value("Sales Order", previous, "amended_from")
+	return bool(names) and bool(frappe.db.exists(DOCTYPE, {"sales_order": ["in", names]}))
+
+
 def _load(order_name):
 	lock_orders(order_name)
 	order = frappe.get_doc("Sales Order", order_name)
@@ -164,7 +183,7 @@ def record_buyer_po_edit(order, previous_hash, user):
 
 
 def before_submit(order, method=None):
-	if not order.get("ill_fixture_schedule"):
+	if not _portal_governed(order):
 		return
 	_staff(order, approve=True)
 	_, request = _load(order.name)
@@ -220,7 +239,7 @@ def before_submit(order, method=None):
 
 
 def on_submit(order, method=None):
-	if not order.get("ill_fixture_schedule"):
+	if not _portal_governed(order):
 		return
 	_, request = _load(order.name)
 	request.state = "APPROVED"
@@ -398,11 +417,16 @@ def detail(order_name):
 
 
 def validate_order(order, method=None):
-	"""Record who made a delivery promise, including native Desk edits."""
+	"""Record who made a delivery promise, including native Desk edits.
+
+	Promise rules and staff-role checks apply only to portal-governed orders;
+	other schedule-linked orders just record who set the date.
+	"""
 	if not order.get("ill_fixture_schedule"):
 		return
+	governed = _portal_governed(order)
 	old = order.get_doc_before_save()
-	if not old and order.get("amended_from"):
+	if governed and not old and order.get("amended_from"):
 		_staff(order)
 		# A cancelled order's offer acceptance and delivery promise belong to
 		# that order. The amendment gets a fresh intake and buyer acknowledgment.
@@ -412,16 +436,17 @@ def validate_order(order, method=None):
 		old.get("ill_confirmed_delivery_date") if old else None
 	)
 	if changed:
-		_staff(order)
-		if order.docstatus == 1:
-			frappe.throw("Use an approved order-change workflow to change a submitted delivery promise")
-		if order.get("ill_confirmed_delivery_date") and frappe.utils.getdate(
-			order.ill_confirmed_delivery_date
-		) < frappe.utils.getdate(frappe.utils.nowdate()):
-			frappe.throw("A new delivery promise cannot be in the past")
+		if governed:
+			_staff(order)
+			if order.docstatus == 1:
+				frappe.throw("Use an approved order-change workflow to change a submitted delivery promise")
+			if order.get("ill_confirmed_delivery_date") and frappe.utils.getdate(
+				order.ill_confirmed_delivery_date
+			) < frappe.utils.getdate(frappe.utils.nowdate()):
+				frappe.throw("A new delivery promise cannot be in the past")
 		order.ill_delivery_confirmed_by = frappe.session.user if order.ill_confirmed_delivery_date else None
 		order.ill_delivery_confirmed_on = now() if order.ill_confirmed_delivery_date else None
-		if order.ill_confirmed_delivery_date:
+		if governed and order.ill_confirmed_delivery_date:
 			order.delivery_date = order.ill_confirmed_delivery_date
 			for row in order.get("items") or []:
 				row.delivery_date = order.ill_confirmed_delivery_date

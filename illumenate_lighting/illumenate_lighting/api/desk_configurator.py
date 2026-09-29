@@ -61,6 +61,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedul
 	has_permission as schedule_has_permission,
 )
 from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
+from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
 
 PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
@@ -242,7 +243,7 @@ def get_desk_context(
 			{"value": p.name, "label": p.project_name or p.name, "customer": p.customer} for p in projects
 		],
 		"product_types": [{"value": pt, "label": _(pt)} for pt in DESK_PRODUCT_TYPES],
-		"groups_enabled": bool(frappe.conf.get("ill_portal_fixture_groups")),
+		"groups_enabled": conf_flag("ill_portal_fixture_groups"),
 		"can_create_project": bool(frappe.has_permission(PROJECT_DOCTYPE, "create")),
 		"can_create_schedule": bool(frappe.has_permission(SCHEDULE_DOCTYPE, "create")),
 	}

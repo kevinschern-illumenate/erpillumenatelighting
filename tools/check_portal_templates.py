@@ -278,6 +278,8 @@ for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"):
 		output = configurator.render(**context)
 		parser.feed(output)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
+# .tools/ is git-ignored, so a clean checkout (CI) does not have it yet.
+(ROOT / ".tools").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools") as directory:
 	for index, source in enumerate(parser.sources):
 		path = Path(directory) / f"script-{index}.js"

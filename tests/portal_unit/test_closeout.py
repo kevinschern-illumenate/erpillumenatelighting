@@ -36,9 +36,16 @@ class Closeout(unittest.TestCase):
 			self.assertTrue(service.available("LED Sheets"))
 			with self.assertRaises(PermissionError):
 				service.require_family("LED Neon")
+			# Frappe Cloud may store a JSON-typed key as a JSON-encoded string.
+			frappe.conf["ill_portal_enabled_families"] = '["LED Neon"]'
+			self.assertFalse(service.available("LED Sheet"))
+			self.assertTrue(service.available("LED Neon"))
+			# An unreadable value is logged once and treated as absent.
+			frappe.log_error = MagicMock()
 			frappe.conf["ill_portal_enabled_families"] = "LED Sheet"
-			with self.assertRaisesRegex(ValueError, "JSON list"):
-				service.available("LED Sheet")
+			self.assertTrue(service.available("LED Sheet"))
+			self.assertTrue(service.available("LED Sheet"))
+			frappe.log_error.assert_called_once()
 			frappe.db.set_value.assert_not_called()
 
 	def test_tape_and_neon_previews_share_persisted_build_identity(self):
@@ -236,7 +243,9 @@ class Closeout(unittest.TestCase):
 		):
 			old = row(ill_confirmed_delivery_date=None)
 			item = row(delivery_date="2026-10-01")
+			# A portal order: its intake exists (the stub's db.exists is truthy).
 			order = row(
+				name="SO-PORTAL",
 				ill_fixture_schedule="S",
 				docstatus=0,
 				ill_confirmed_delivery_date="2026-11-01",

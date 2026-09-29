@@ -218,8 +218,12 @@ class WorkspaceMigrationRetry(unittest.TestCase):
 				self.assertEqual(schema_errors(applied, "Workspace"), [])
 
 			doc.save.side_effect = validate_links
-			with self.assertRaisesRegex(ValueError, "Missing Number Card"):
-				module.after_migrate()
+			frappe.log_error = MagicMock()
+			frappe.get_traceback = MagicMock(return_value="ValueError: Missing Number Card")
+			# The failure is logged and rolled back instead of aborting the migration.
+			module.after_migrate()
+			frappe.db.rollback.assert_called_once_with(save_point=module.SAVEPOINT)
+			self.assertIn("after_migrate", frappe.log_error.call_args.kwargs["title"])
 			self.assertTrue(pending.exists())
 			self.assertFalse((Path(temporary) / "last-merge.json").exists())
 			available_cards.update(
