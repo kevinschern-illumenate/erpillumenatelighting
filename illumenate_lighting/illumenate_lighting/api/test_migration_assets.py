@@ -9,6 +9,7 @@ real controller imports, installed records and Frappe link validation.
 import ast
 import hashlib
 import json
+import re
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -97,6 +98,23 @@ class TestMigrationAssets(IntegrationTestCase):
 				frappe.get_all(doctype, fields=list(FIELDS), limit_page_length=1)
 		for doctype in ("Quotation", "Sales Order"):
 			self.assertIn("ill_fixture_schedule", frappe.db.get_table_columns(doctype))
+
+	def test_print_format_lookups_have_physical_columns(self):
+		# Print formats render from disk before migrate adds columns, so a lookup of a
+		# field that only exists in an unsynced fixture fails at print time.
+		lookup = re.compile(r"frappe\.db\.get_value\(\s*'([^']+)'\s*,[^,]+,\s*(\[[^\]]*\]|'[^']*')")
+		app = Path(frappe.get_app_path("illumenate_lighting"))
+		for path in (app / "illumenate_lighting/print_format").glob("*/*.html"):
+			for doctype, fields in lookup.findall(path.read_text(encoding="utf-8")):
+				fields = ast.literal_eval(fields)
+				for field in [fields] if isinstance(fields, str) else fields:
+					with self.subTest(path=path.name, doctype=doctype, field=field):
+						self.assertIn(field, frappe.db.get_table_columns(doctype))
+
+	def test_staff_queue_count_runs_on_the_installed_framework(self):
+		from illumenate_lighting.illumenate_lighting.portal.queues import _count
+
+		self.assertEqual(_count("User", {"name": "Administrator"}), 1)
 
 	def test_portal_pages_render_with_an_existing_order(self):
 		from frappe.website.serve import get_response
