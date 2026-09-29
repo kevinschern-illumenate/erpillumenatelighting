@@ -33,6 +33,9 @@ Last clean merge before the September work: `12c76df` (PR #255, August 24, 2026)
    usual cause is the state the site was left in by earlier failed updates: site directory not on the
    bench Frappe Cloud expects, an unparsable `site_config.json` on that bench, a stale lock, or a full disk.
    Only Frappe Cloud support (or bench SSH) can fix that. **Get the job's output first (Phase 0).**
+   *Update (Sep 29):* the failing job on screen turned out to be the **bench-level** *Update Bench
+   Configuration*. It is also automatic and runs no app code, and its traceback is visible only to
+   support (§3.0).
 2. **Every deploy attempt has been two upgrades at once.** The site moves from Frappe/ERPNext **v15 to v16**
    and takes about **87,000 lines of new app code** (1,672 files changed since `12c76df`) in the same
    migration. When a migration fails, Cloud restores the touched database tables. Files under `private/`
@@ -104,6 +107,39 @@ Nearly all September work was pushed straight to `main` without review, and CI w
 ---
 
 ## 3. The "Update Site Configuration" failure
+
+### 3.0 Update (September 29): the job on screen was *Update Bench Configuration*
+
+The owner's dashboard showed a **bench-level** job, not the site-level job described in §3.1–3.2:
+- Bench group *ilLumenate Production - V16* (status Active) → Jobs → **Update Bench Configuration**, *Failure*.
+- Created Sep 28, 2026 5:33 PM by `Administrator`, duration 0 s.
+- Steps: *Update Bench Configuration* ✅ and *Bench Setup NGINX* ✅ (no output); *Generate Docker Compose
+  File*, *Update Bench Memory Limits* and *Deploy Bench* not run.
+
+What this means:
+- **Frappe Cloud starts this job itself.** In press, `Bench.on_update` calls `Agent.update_bench_config()`
+  whenever a bench's `config` or `bench_config` changes. That includes worker and memory rebalancing
+  (`Bench.allocate_workers`, run from the server's auto-scaling) when benches are deployed or sites move,
+  and edits in the bench group's Config or Env tabs. `Administrator` as creator means it was automatic;
+  it ran about 30 minutes after `a88f5e4` was merged, consistent with post-deploy rebalancing.
+- **No app code runs in it.** The agent's `Bench.update_config_job` rewrites `common_site_config.json`
+  and the bench config, regenerates nginx, then regenerates `docker-compose.yml` (or updates supervisor and
+  runtime limits) and restarts the bench. Nothing in this repository can make it fail or fix it.
+- **"No Output" everywhere is expected for this failure shape.** Both recorded steps succeeded. The
+  exception happened in the agent's job body *between* steps, and the agent stores that traceback on the
+  **job record** (`job_record.failure({"traceback": …})`), which the customer dashboard does not display.
+  Only Frappe Cloud support can read it.
+- **Impact:** the new bench config (workers, memory limits, env) was written but the containers were not
+  recomposed or restarted with it. The bench itself is Active. This job alone does not run or fail a
+  site migration.
+
+Next evidence needed (OWNER):
+1. The bench group's **Deploys** tab: status of the latest deploy and its `illumenate_lighting` commit.
+2. **Sites → the site → Jobs/Updates**: status of the latest *Update Site Migrate* and any
+   *Recover Failed Site Migrate*, with the output of any red step.
+3. Dashboard **Notifications** (26 unread at the time): failed-update notices usually carry the error.
+
+Ask support for the job-level traceback of this job, and to re-apply the bench config (§5.2 item 0).
 
 ### 3.1 What that step is
 
@@ -251,6 +287,12 @@ Optional app keys (leave absent on production unless the row says otherwise):
 
 ### 5.2 Support ticket (edit bracketed parts; attach the Phase 0 outputs)
 
+> 0. On bench group *ilLumenate Production - V16*, the automatic **Update Bench Configuration** job
+>    created Sep 28, 2026 5:33 PM failed with no step output. Both recorded steps (Update Bench
+>    Configuration, Bench Setup NGINX) succeeded, so the error is in the job-level traceback, which we
+>    can't see. Please share it, and re-apply the bench configuration (docker compose / memory limits /
+>    restart) so the bench runs with its current config.
+>
 > Site: `illumenatelighting.v.frappe.cloud`. Our app update failed, and now the **Update Site Configuration**
 > job fails with: `[paste output]`. Site status is `[Broken/…]`, and the dashboard shows it on bench `[X]`.
 >
