@@ -37,9 +37,26 @@ This section supersedes anything below that says deployments are failing.
   `IsADirectoryError` from then on (§3.3). The OWNER ran dashboard **Actions → Migrate** on `a88f5e4`
   (its `before_migrate` relocates the directory), then a manual backup, and **both succeeded**. Phase 1
   §5.1 is complete. §5.2 remains only for the non-blocking bench job (§3.0).
-- 🔴 **The remaining problems are runtime bugs in the new code, not deployment failures:** File uploads
-  (§6.1), Sales Order submit (§6.2), and the Phase 3 behavior changes. Most Phase 2 fixes touch only
-  Python and JS files, so they deploy as fast **Pull** updates (§6 intro).
+- ✅ **Phase 2 implemented (Sep 29)** on branch `claude/frappe-deploy-assessment-wn7rcq`, commit
+  `db06599`, verified on a local bench at production's exact Frappe/ERPNext commits:
+  - 6.1 File hook: `portal/private_file.py`. 6.2 Sales Order gate: `portal/order_review.py`
+    (`_portal_governed`). 6.3 Hooks: `portal_workspace.py`, `private_storage.py`.
+    6.4 `api/permission_debug.py` deleted. 6.5 `portal/site_flags.py`. 6.6 `.github/workflows/ci.yml`,
+    `.github/scripts/upgrade_rehearsal.py`, `tools/check_portal_templates.py`.
+  - New installed-site module `api/test_deploy_regressions.py`. It **fails on the old code**: attachment
+    uploads raise `PermissionError` even for a System Manager. It passes with the fixes.
+  - Fresh install plus two migrations pass. So do the existing `test_migration_assets` (10) and
+    `test_configurator_transport` (7) modules, 245 portal unit tests (Python 3.11 and 3.14), and every
+    B2B contracts step.
+  - The upgrade rehearsal passed. It installed `a88f5e4`, seeded production's
+    `private/backups/ill-workspace` (reproducing "Backup failed … may be corrupted"), migrated twice to
+    `db06599`, then confirmed the folder was relocated, the workspace customization kept and a backup
+    succeeded.
+  - No file in this change triggers a Cloud *Migrate*, so it deploys as a **Pull**. The 6.3 hook changes
+    take effect at the next migration.
+  - Owner decision defaults applied: portal-intake-only approval gate, invalid rollout config treated
+    as absent, v15 CI removed.
+- 🔴 **Remaining:** Phase 3 behavior changes (§7) and Phase 4 hygiene (§8).
 
 ---
 
