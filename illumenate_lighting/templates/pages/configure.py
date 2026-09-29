@@ -70,8 +70,8 @@ def get_context(context):
 
 	# Get optional schedule context (pre-fill from fixture schedule line UI)
 	schedule_name = frappe.form_dict.get("schedule")
-	line_idx = frappe.form_dict.get("line_idx")
-	line_key = frappe.form_dict.get("line_key")
+	line_idx = _query_value(frappe.form_dict.get("line_idx"))
+	line_key = _query_value(frappe.form_dict.get("line_key"))
 	template_code = frappe.form_dict.get("template")
 
 	schedule = None
@@ -103,7 +103,10 @@ def get_context(context):
 
 		if not schedule:
 			frappe.throw("Choose a schedule for this line")
-		line_idx = schedule.lines.index(resolve_line(schedule, line_key))
+		try:
+			line_idx = schedule.lines.index(resolve_line(schedule, line_key))
+		except ValueError as exc:
+			frappe.throw(str(exc))
 	if line_idx is not None:
 		from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
 
@@ -204,6 +207,13 @@ def get_context(context):
 	context.no_cache = 1
 
 	return context
+
+
+def _query_value(value):
+	"""Treat blank and serialized-null query values (``line_key=None``) as not supplied."""
+	if value is None or str(value).strip().lower() in ("", "none", "null", "undefined"):
+		return None
+	return value
 
 
 def _normalize_product_category(category):
