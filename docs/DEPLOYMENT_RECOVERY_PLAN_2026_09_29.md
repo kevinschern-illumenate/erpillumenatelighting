@@ -196,6 +196,50 @@ Record the answers in the Phase 1 support ticket and give them to the implementi
 7. **Other app updates bundled into the pending deploy** (ERPNext/HRMS/CRM/Print Designer commit changes).
    Note them. Don't bundle framework bumps with app deploys (Phase 5).
 
+### 4.1 Findings so far (September 29)
+
+**Site Config (item 4) — collected.** The dashboard shows: `installed_apps`, `encryption_key` (masked),
+`user_type_doctype_limit` (`{}`), `allow_cors` (Webflow staging and `illumenate.lighting`), and
+`n8n_campaign_webhook_url`.
+- **It is complete for production.** The dashboard lists only keys added through Frappe Cloud. Database
+  credentials and other server-generated keys live only in the server-side `site_config.json` and are
+  never shown; the site could not load without them.
+- The app needs **no** `ill_*` keys to behave as before. Every one is optional and its absence is the
+  intended production default (see the table below).
+- None of the risky values from §5.3 are present: no `ill_portal_pilot_users`,
+  `ill_portal_enabled_families`, `ill_portal_acceptance`, `maintenance_mode` or `developer_mode`. So §6.5
+  is hardening, not an active outage.
+- These dashboard values cannot explain the *Update Site Configuration* failure, which points again to
+  server-side state (§3.2). The dashboard does not show the on-disk file, so a corrupted server-side
+  `site_config.json` is still possible.
+- **Installed-app order is `frappe, illumenate_lighting, erpnext, hrms, crm, print_designer`.** Frappe
+  reads the real order from the database (`db.get_global("installed_apps")`); this key most likely mirrors
+  it. If so, this app's patches and `after_migrate` hook run **before** ERPNext's, HRMS's and CRM's in every
+  migration, including before ERPNext's own v16 data patches during the v15→v16 upgrade. Don't try to
+  reorder apps on production. The CI upgrade-rehearsal job (§6.6) must reproduce this order: install
+  ERPNext first, then set the `installed_apps` global to this order before migrating.
+- `n8n_campaign_webhook_url` is **unused**. Its only reader, `email_campaign_scheduler.run_scheduled_campaigns`,
+  lost its scheduler entry in commit `1e99926` (August 12), and nothing else calls it. Scheduled Postmark
+  campaigns have not fired since then. OWNER: confirm that's intended; if so, the key and module can be
+  removed (Phase 3).
+- `allow_cors` only affects Frappe's built-in CORS. The app sets CORS itself for the longer
+  `ALLOWED_ORIGINS` list in `illumenate_lighting/illumenate_lighting/utils.py:17-25`, so no change is
+  needed.
+- A staging site, `stagingillumenatelighting.v.frappe.cloud`, is already referenced in
+  `ALLOWED_ORIGINS`. OWNER: if it is on its own bench group, reuse it for §5.4 and Phase 5.
+
+Optional app keys (leave absent on production unless the row says otherwise):
+
+| Key | Absent means | Set only when |
+| --- | --- | --- |
+| `ill_portal_stock_company` | Stock uses the company named exactly "ilLumenate Lighting" and its enabled, non-group warehouse named "ilL-Stores". | The Company's name differs. Otherwise fix the Company or Warehouse, not the config. |
+| `ill_portal_enabled_families` | All four families available, as before. | Restricting families (type JSON, a list). |
+| `ill_portal_pilot_users` | All authorized dealers, as before. `[]` would lock dealers out. | Running a named pilot (type JSON, a list). |
+| `ill_portal_fixture_groups` | Grouped fixtures off. | After group acceptance (type Boolean). |
+| `ill_portal_acceptance` | Acceptance seeding disabled. | Never on production. |
+| `qbo_webhook_secret` | The secret is read from ilL-QBO-Settings → Webhook Secret. | Not needed if that field is set. |
+| `host_name` | Links in background emails use the site name. | A custom domain is primary. Set it with Domains → *Set Primary*, not by hand. |
+
 ---
 
 ## 5. Phase 1 — Unblock the Cloud site (OWNER + Frappe Cloud support)
@@ -406,6 +450,9 @@ configurations with a clear message".
       a check that the workspace kept the custom block.
    5. If practical, also install HRMS, CRM and Print Designer at the production commits, to mirror
       production's `after_migrate` ordering.
+   6. Reproduce production's installed-app order (§4.1): `frappe, illumenate_lighting, erpnext, hrms,
+      crm, print_designer`. Install normally, then set the `installed_apps` global to that order before the
+      HEAD migration.
 
 **Acceptance.** Both workflows green on the Phase 2 PR. The upgrade-rehearsal job passes, and fails if 6.1,
 6.2 or 6.3 is reverted.
