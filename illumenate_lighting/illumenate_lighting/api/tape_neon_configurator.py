@@ -2750,6 +2750,9 @@ def _tape_neon_snapshot(template, validation_result, is_neon):
 
     build_snapshot = {
         "schema_version": 2, "engine_version": "tape-neon-2", "engineering_inputs": hash_parts,
+        # The customer-facing part number is part of the identity, so a changed
+        # numbering scheme yields a new build instead of reusing an old-format record.
+        "part_number": validation_result.get("part_number"),
         "selections": {k: v for k, v in sel.items() if not any(t in k for t in ("price", "msrp", "cost"))},
         "computed": {k: v for k, v in computed.items() if not any(t in k for t in ("price", "msrp", "cost"))},
         "include_power_supply": parse_bool(validation_result.get("include_power_supply"), default=True),
@@ -3537,6 +3540,16 @@ def _get_code(doctype: str, name: str, code_field: str = "code") -> str:
     return code or "xx"
 
 
+def _offering_codes(sel: dict, tape_offering) -> list[str]:
+    """CCT and output level codes of the resolved offering, as the linear part number carries them."""
+    cct = (tape_offering or {}).get("cct") or sel.get("cct")
+    output_level = (tape_offering or {}).get("output_level") or sel.get("output_level")
+    return [
+        _get_code("ilL-Attribute-CCT", cct),
+        _get_code("ilL-Attribute-Output Level", output_level, "sku_code"),
+    ]
+
+
 def _valid_feed_direction(direction: str | None) -> str | None:
     """Return the feed direction only when it is a real ilL-Attribute-Feed-Direction."""
     if not direction:
@@ -3574,12 +3587,13 @@ def _build_tape_part_number(
     Build LED Tape part number.
 
     Single-segment (endcapped):
-        {tape_spec_name}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
+        {tape_spec_name}-{cct}-{output}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
 
     Multi-segment (jumper-chained):
-        {tape_spec_name}-{total_length_inches}-J({hash})
+        {tape_spec_name}-{cct}-{output}-{total_length_inches}-J({hash})
 
-    Uses the tape spec ID as the base, then appends the total manufacturable
+    Uses the tape spec ID as the base, then the CCT and output level codes
+    (the spec is shared by every CCT/output offering), then the total manufacturable
     length in inches (or "xx" when the length is not yet specified), followed
     by an optional feed segment (feed-type code + leader cable length in feet)
     and "C" for endcapped.  Jumper-chained configurations replace the feed
@@ -3591,7 +3605,7 @@ def _build_tape_part_number(
     """
     import hashlib
 
-    parts = [tape_spec.name]
+    parts = [tape_spec.name, *_offering_codes(sel, tape_offering)]
 
     # Total length in inches (manufacturable) — "xx" when not specified.
     if manufacturable_length_mm:
@@ -3714,12 +3728,13 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     Build LED Neon part number.
 
     Single-segment (endcapped):
-        {tape_spec_name}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
+        {tape_spec_name}-{cct}-{output}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
 
     Multi-segment (jumpered):
-        {tape_spec_name}-{total_length_inches}-J({hash})
+        {tape_spec_name}-{cct}-{output}-{total_length_inches}-J({hash})
 
-    Uses the tape spec ID as the base, then appends the total manufacturable
+    Uses the tape spec ID as the base, then the CCT and output level codes
+    (the spec is shared by every CCT/output offering), then the total manufacturable
     length in inches.  For single-segment configs the feed direction code and
     leader cable length in feet are added followed by "C" for endcapped.  For
     multi-segment (jumpered) configs, "-J({hash})" is appended where the hash
@@ -3727,7 +3742,7 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     """
     import hashlib
 
-    parts = [tape_spec.name]
+    parts = [tape_spec.name, *_offering_codes(sel, tape_offering)]
 
     # Total manufacturable length in inches (sum of all segments).
     # When no length has been provided yet, fall back to "xx".
