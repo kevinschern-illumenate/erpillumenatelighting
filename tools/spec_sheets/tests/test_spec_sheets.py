@@ -78,6 +78,24 @@ class PagePrimitiveTest(unittest.TestCase):
 		self.assertIn("&lt;Clip &amp; Pivot&gt;", svg)
 		self.assertIn("Poppins-Light", self.page.fonts)
 
+	def test_fpo_magenta_artwork_is_rejected(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import reject_fpo
+
+		for marked in (
+			b'<path fill="#EC008C"/>',
+			b"<g style='fill:#ff00ff'/>",
+			b'<path fill="rgb(236, 0, 140)"/>',
+		):
+			with self.assertRaisesRegex(ValueError, "FPO"):
+				reject_fpo(marked, "drawing.svg")
+		reject_fpo(b'<path fill="#231f20"/><path fill="#0b598d"/>', "drawing.svg")
+
+	def test_fixture_artwork_has_no_fpo_marks(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import reject_fpo
+
+		for path in (FIXTURE / "assets").glob("*.svg"):
+			reject_fpo(path.read_bytes(), path.name)
+
 	def test_svg_natural_size_uses_points(self):
 		self.assertEqual(svg_size(b'<svg xmlns="x" width="24.6" height="24.6pt">'), (24.6, 24.6))
 		with self.assertRaises(ValueError):

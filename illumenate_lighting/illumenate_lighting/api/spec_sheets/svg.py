@@ -57,6 +57,21 @@ def data_uri(content, mime):
 	return f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"
 
 
+# Marketing marks FPO ("for position only") placeholder artwork with InDesign's
+# "C=0 M=100 Y=0 K=0" magenta swatch. It must never reach a customer sheet.
+# sRGB renderings of that swatch under common CMYK profiles, plus pure magenta.
+_FPO_COLOR = re.compile(
+	rb"#(?:ec008c|e6007e|e4007c|ff00ff|f0f)\b|rgb\(\s*(?:236\s*,\s*0\s*,\s*140|255\s*,\s*0\s*,\s*255)\s*\)",
+	re.I,
+)
+
+
+def reject_fpo(content, ref):
+	"""Raise if SVG artwork still contains FPO magenta."""
+	if _FPO_COLOR.search(content):
+		raise ValueError(f"{ref!r} contains FPO magenta placeholder artwork; replace it before publishing")
+
+
 class DirectoryAssets:
 	"""Resolve asset references to files in one directory (fixtures and local tools)."""
 
@@ -136,6 +151,8 @@ class Page:
 
 	def image(self, ref, x, y, width, height, radius=None, fit="none"):
 		content, mime = self.assets.get(ref)
+		if mime == "image/svg+xml":
+			reject_fpo(content, ref)
 		clip = ""
 		if radius:
 			clip_id = f"c{len(self._defs)}"

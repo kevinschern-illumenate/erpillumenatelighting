@@ -265,6 +265,10 @@ Once every product has migrated, the Customize Form fields are removed, and the 
   uploader converts TIF with Pillow (already a dependency).
 - **CC Library assets** (the UL icon and the "Dark Gray Sparkle" logo in the INDD links) must be
   exported once and uploaded to their master records.
+- **FPO marks:** marketing flags placeholder ("for position only") content with the InDesign
+  `C=0 M=100 Y=0 K=0` magenta swatch. The renderer refuses SVG artwork that still contains that
+  magenta (`svg.reject_fpo`), and the asset importer will apply the same check at upload, so
+  placeholder art cannot reach a published sheet. Everything else uses the standard colours.
 - Uploads are validated with the existing `portal/file_validation.validate_content`, and each
   `sha256` is recorded.
 
