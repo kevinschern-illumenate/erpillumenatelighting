@@ -119,6 +119,7 @@ jobs:
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_migration_assets
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_configurator_transport
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_deploy_regressions
+          bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_build_saves
         env:
           TYPE: server
 
