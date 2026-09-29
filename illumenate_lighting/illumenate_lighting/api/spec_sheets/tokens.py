@@ -9,7 +9,10 @@ with ``tools/spec_sheets/fidelity.py extract``. Colours that a brand may change
 are named roles; ``brand_colors`` supplies the ilLumenate values.
 """
 
+import json
 from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
 
 PAGE_WIDTH = 612.0
 PAGE_HEIGHT = 792.0
@@ -59,7 +62,8 @@ LOGO = {"x": 463.566, "y": 36.0, "width": 112.289, "height": 72.0}
 TITLE = {"x": 198.0, "first_baseline": 57.32, "leading": 24.0, "sublabel_baseline": 109.98}
 SPEC_LINE_TOP = {"y": 130.34, "height": 3.6}
 SPEC_LINE_BOTTOM = {"y": 704.41, "height": 3.6}
-ICON_ROW = {"x": 198.3, "y": 155.1, "gap": 4.9}
+# Rating/certification icons are 72-unit artboards that InDesign scales to 24.55pt.
+ICON_ROW = {"x": 198.3, "y": 155.1, "size": 24.55, "pitch": 29.45}
 LISTING_STATEMENT = {"baseline": 180.0, "icon_size": 10.7, "icon_top": 169.2}
 
 FOOTER = {
@@ -95,29 +99,50 @@ SPEC_TABLE = {
 }
 
 # Drawings section (FIXTURE DIMENSIONS).
-DRAWINGS = {"caption_below_section": 22.88}
+# Drawings are placed at 1:1 from the artboard, left to right with a fixed gap.
+# A captioned drawing ("Side View") sits lower to make room for its caption.
+DRAWINGS = {"top_below_section": 22.33, "caption_below_section": 22.88, "caption_offset": 9.0, "gap": 26.1}
 
 # CCT band sampled from the InDesign "27K-40K Fill Gradient" swatch (Phase 2
 # derives stops from ilL-Attribute-CCT.hex_color).
 CCT_GRADIENT = (
-	("#ffcc68", 0.0),
-	("#ffd575", 6.13),
-	("#ffe184", 12.39),
-	("#feeb92", 18.64),
-	("#fdf3a2", 24.90),
-	("#fcf7b0", 31.16),
-	("#fcf7b8", 37.42),
-	("#fcf8c0", 43.68),
-	("#fdfaca", 49.93),
-	("#fdfad1", 56.19),
-	("#fefbd9", 62.45),
-	("#fefce1", 68.71),
-	("#fdfce6", 74.97),
-	("#fcfced", 81.23),
-	("#fbfcf3", 87.48),
-	("#fafcf8", 93.74),
-	("#f9fbfd", 100.0),
+	("#ffcc68", 1.0, 0.0),
+	("#ffd575", 1.0, 6.13),
+	("#ffe184", 1.0, 12.39),
+	("#feeb92", 1.0, 18.64),
+	("#fdf3a2", 1.0, 24.90),
+	("#fcf7b0", 1.0, 31.16),
+	("#fcf7b8", 1.0, 37.42),
+	("#fcf8c0", 1.0, 43.68),
+	("#fdfaca", 1.0, 49.93),
+	("#fdfad1", 1.0, 56.19),
+	("#fefbd9", 1.0, 62.45),
+	("#fefce1", 1.0, 68.71),
+	("#fdfce6", 1.0, 74.97),
+	("#fcfced", 1.0, 81.23),
+	("#fbfcf3", 1.0, 87.48),
+	("#fafcf8", 1.0, 93.74),
+	("#f9fbfd", 1.0, 100.0),
 )
+
+
+SPEC_LINES_FILE = Path(__file__).resolve().parent / "spec_lines.json"
+
+
+@cache
+def _spec_lines():
+	return json.loads(SPEC_LINES_FILE.read_text(encoding="utf-8"))
+
+
+def spec_line_stops(code):
+	"""Gradient stops for a product line's spec line (SW, DW, TW, FS, CC, PS, OTHER).
+
+	Extracted from the InDesign spec sheets by ``tools/spec_sheets/extract_indesign.py``.
+	"""
+	lines = _spec_lines()
+	if code not in lines:
+		raise ValueError(f"Unknown spec line {code!r}; expected one of {', '.join(sorted(lines))}")
+	return [tuple(stop) for stop in lines[code]["stops"]]
 
 
 def brand_colors(brand=None):

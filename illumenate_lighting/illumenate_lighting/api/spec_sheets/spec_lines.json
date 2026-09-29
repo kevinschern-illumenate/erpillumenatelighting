@@ -1,0 +1,544 @@
+{
+ "CC": {
+  "name": "Color Changing",
+  "source": "ilLumenate Lighting_Color Changing - Standard Density LED Tape_Spec Sheet.indd",
+  "source_pixels": [
+   2551,
+   16
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#fffcad",
+    1.0,
+    0.0
+   ],
+   [
+    "#fffcb0",
+    1.0,
+    0.71
+   ],
+   [
+    "#f6fbff",
+    1.0,
+    14.31
+   ],
+   [
+    "#ef575e",
+    1.0,
+    24.78
+   ],
+   [
+    "#ed1c24",
+    1.0,
+    28.59
+   ],
+   [
+    "#ff921e",
+    1.0,
+    42.75
+   ],
+   [
+    "#fcee21",
+    1.0,
+    57.18
+   ],
+   [
+    "#f0eb23",
+    1.0,
+    57.8
+   ],
+   [
+    "#03b24b",
+    1.0,
+    71.25
+   ],
+   [
+    "#00b04c",
+    1.0,
+    71.49
+   ],
+   [
+    "#0b9d5f",
+    1.0,
+    74.51
+   ],
+   [
+    "#3153a4",
+    1.0,
+    85.73
+   ],
+   [
+    "#93278f",
+    1.0,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Blue": "#5a5aff",
+   "Darker 27K": "#fdad0d",
+   "Green": "#5aff5a",
+   "Light Gray": "#b9c0c8",
+   "Red": "#ff5a5a",
+   "Secondary": "#00588c"
+  }
+ },
+ "DW": {
+  "name": "Dim to Warm",
+  "source": "ilLumenate Lighting_St. Helens [SF] Dim to Warm_Spec Sheet.indd",
+  "source_pixels": [
+   2550,
+   16
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#f6fbff",
+    1.0,
+    0.0
+   ],
+   [
+    "#ffffda",
+    1.0,
+    26.32
+   ],
+   [
+    "#fffec8",
+    1.0,
+    35.5
+   ],
+   [
+    "#fffcad",
+    1.0,
+    50.18
+   ],
+   [
+    "#ffe98e",
+    1.0,
+    59.47
+   ],
+   [
+    "#ffa41c",
+    1.0,
+    94.59
+   ],
+   [
+    "#ff990a",
+    1.0,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "18K": "#ff990a",
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Darker 27K": "#fdad0d",
+   "Gray": "#a2abb6",
+   "Secondary": "#00588c"
+  }
+ },
+ "FS": {
+  "name": "Full Spectrum",
+  "source": "ilLumenate Lighting_St. Helens [SF] Full Spectrum_Spec Sheet.indd",
+  "source_pixels": [
+   2550,
+   16
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#ffa41c",
+    1.0,
+    0.0
+   ],
+   [
+    "#ffac34",
+    1.0,
+    15.14
+   ],
+   [
+    "#ffc35a",
+    1.0,
+    34.21
+   ],
+   [
+    "#fff8a7",
+    1.0,
+    52.65
+   ],
+   [
+    "#fffcae",
+    1.0,
+    54.26
+   ],
+   [
+    "#feffe0",
+    1.0,
+    69.32
+   ],
+   [
+    "#f6fbff",
+    1.0,
+    80.03
+   ],
+   [
+    "#5a5aff",
+    1.0,
+    90.04
+   ],
+   [
+    "#5afd5c",
+    1.0,
+    94.98
+   ],
+   [
+    "#5cfd5a",
+    1.0,
+    95.1
+   ],
+   [
+    "#c6935a",
+    1.0,
+    98.31
+   ],
+   [
+    "#f0695a",
+    1.0,
+    99.57
+   ],
+   [
+    "#f2675a",
+    1.0,
+    99.65
+   ],
+   [
+    "#fd5c5a",
+    1.0,
+    99.96
+   ],
+   [
+    "#fd5c5a",
+    1.0,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Blue": "#5a5aff",
+   "Darker 27K": "#fdad0d",
+   "Gray": "#a2abb6",
+   "Green": "#5aff5a",
+   "Light Gray": "#b9c0c8",
+   "Red": "#ff5a5a",
+   "Secondary": "#00588c"
+  }
+ },
+ "OTHER": {
+  "name": "Extrusion Kit",
+  "source": "ilLumenate Lighting_St. Helens [SF] Extrusion Kit_Spec Sheet.indd",
+  "source_pixels": [
+   1224,
+   8
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#b9c0c8",
+    1.0,
+    0.0
+   ],
+   [
+    "#b3cddd",
+    1.0,
+    50.94
+   ],
+   [
+    "#b3d2c2",
+    1.0,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "#00588C": "#00588c",
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Darker 27K": "#fdad0d",
+   "Gray": "#a2abb6",
+   "Light Gray": "#b9c0c8",
+   "Other Products": "#006833",
+   "Secondary": "#00588c"
+  }
+ },
+ "PS": {
+  "name": "Power Supply",
+  "source": "ilLumenate Lighting_Power Supply - Universal Dimming_Spec Sheet.indd",
+  "source_pixels": [
+   2550,
+   15
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#00588c",
+    0.675,
+    0.0
+   ],
+   [
+    "#01588b",
+    0.671,
+    25.42
+   ],
+   [
+    "#075688",
+    0.659,
+    26.52
+   ],
+   [
+    "#0a5586",
+    0.651,
+    26.99
+   ],
+   [
+    "#274c76",
+    0.58,
+    32.76
+   ],
+   [
+    "#3d456a",
+    0.529,
+    37.47
+   ],
+   [
+    "#444365",
+    0.51,
+    39.43
+   ],
+   [
+    "#543e5c",
+    0.475,
+    43.19
+   ],
+   [
+    "#603a55",
+    0.443,
+    46.8
+   ],
+   [
+    "#6f354d",
+    0.408,
+    51.35
+   ],
+   [
+    "#803043",
+    0.369,
+    57.43
+   ],
+   [
+    "#8e2b3b",
+    0.333,
+    63.79
+   ],
+   [
+    "#9a2834",
+    0.306,
+    70.66
+   ],
+   [
+    "#a22530",
+    0.286,
+    77.13
+   ],
+   [
+    "#a7242d",
+    0.275,
+    82.78
+   ],
+   [
+    "#ab222b",
+    0.263,
+    90.86
+   ],
+   [
+    "#ac222a",
+    0.263,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Darker 27K": "#fdad0d",
+   "Gray": "#a2abb6",
+   "Secondary": "#00588c"
+  }
+ },
+ "SW": {
+  "name": "Static White",
+  "source": "ilLumenate Lighting_St. Helens [SF] Static White_Spec Sheet.indd",
+  "source_pixels": [
+   2550,
+   15
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#ffc35a",
+    1.0,
+    0.0
+   ],
+   [
+    "#fffcae",
+    1.0,
+    50.49
+   ],
+   [
+    "#ffffdd",
+    1.0,
+    75.79
+   ],
+   [
+    "#f6fbff",
+    1.0,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Darker 27K": "#fdad0d",
+   "Gray": "#a2abb6",
+   "Secondary": "#00588c"
+  }
+ },
+ "TW": {
+  "name": "Tunable White",
+  "source": "ilLumenate Lighting_St. Helens [SF] Tunable White_Spec Sheet.indd",
+  "source_pixels": [
+   2550,
+   16
+  ],
+  "tolerance": 1.0,
+  "stops": [
+   [
+    "#ff990b",
+    1.0,
+    0.0
+   ],
+   [
+    "#ff9c0f",
+    1.0,
+    0.63
+   ],
+   [
+    "#ffcf63",
+    1.0,
+    10.91
+   ],
+   [
+    "#ffef97",
+    1.0,
+    17.34
+   ],
+   [
+    "#fffaa9",
+    1.0,
+    19.5
+   ],
+   [
+    "#fffcad",
+    1.0,
+    20.05
+   ],
+   [
+    "#ffdd7a",
+    1.0,
+    26.25
+   ],
+   [
+    "#ffd56d",
+    1.0,
+    27.89
+   ],
+   [
+    "#ffa924",
+    1.0,
+    36.84
+   ],
+   [
+    "#ff990a",
+    1.0,
+    40.02
+   ],
+   [
+    "#ffd98f",
+    1.0,
+    52.65
+   ],
+   [
+    "#ffffdc",
+    1.0,
+    60.02
+   ],
+   [
+    "#ff990a",
+    1.0,
+    80.03
+   ],
+   [
+    "#fea427",
+    1.0,
+    82.31
+   ],
+   [
+    "#fea629",
+    1.0,
+    82.58
+   ],
+   [
+    "#fcb755",
+    1.0,
+    86.11
+   ],
+   [
+    "#fad39a",
+    1.0,
+    91.8
+   ],
+   [
+    "#f7f2e9",
+    1.0,
+    98.2
+   ],
+   [
+    "#f6fbfe",
+    1.0,
+    100.0
+   ]
+  ],
+  "swatches": {
+   "18K": "#ff990a",
+   "27K": "#ffc35a",
+   "30K": "#fffcad",
+   "35K": "#ffffdc",
+   "40K": "#f6fbff",
+   "Darker 27K": "#fdad0d",
+   "Gray": "#a2abb6",
+   "Secondary": "#00588c"
+  }
+ }
+}

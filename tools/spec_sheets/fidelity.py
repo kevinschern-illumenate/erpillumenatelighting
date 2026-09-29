@@ -7,7 +7,8 @@ Checks, per page:
   * raster: share of visibly different pixels at 150 dpi, plus a diff image
 
 Text inside ``asset_boxes`` (drawings and icons, whose labels are artwork) is
-compared by the raster check only. ``approved_differences`` lists deliberate
+compared by the raster check only, as are golden images listed in ``vector_images``
+(drawn as vectors on purpose, e.g. spec line gradients). ``approved_differences`` lists deliberate
 content changes; with ``line_shifts`` the rest of that line may move sideways.
 
 Usage:
@@ -178,6 +179,10 @@ def compare_words(golden, generated, tolerances, asset_boxes=(), approved=()):
 	}
 
 
+def _listed(box, boxes, tolerance=0.5):
+	return any(all(abs(a - b) <= tolerance for a, b in zip(box, other, strict=True)) for other in boxes)
+
+
 def compare_boxes(golden, generated, tolerance):
 	missing = [
 		box
@@ -256,7 +261,9 @@ def compare(config_path, generated_pdf, report_dir=None):
 			config.get("approved_differences", ()),
 		),
 		"images": compare_boxes(
-			extract_images(golden_page), extract_images(generated_page), tolerances["position_pt"]
+			[box for box in extract_images(golden_page) if not _listed(box, config.get("vector_images", ()))],
+			extract_images(generated_page),
+			tolerances["position_pt"],
 		),
 		"rules": compare_rules(
 			extract_rules(golden_page), extract_rules(generated_page), tolerances["position_pt"]

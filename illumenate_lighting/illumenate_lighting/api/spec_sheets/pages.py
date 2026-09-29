@@ -36,9 +36,10 @@ def page_chrome(page, model, page_number, page_count):
 	header, brand, footer = model["header"], model["brand"], model.get("footer") or {}
 
 	# The hero sits above the top spec line; the bottom line is the top one mirrored.
+	stops = tokens.spec_line_stops(model["spec_line"])
 	top, bottom = tokens.SPEC_LINE_TOP, tokens.SPEC_LINE_BOTTOM
-	page.image(brand["spec_line"], 0, top["y"], tokens.PAGE_WIDTH, top["height"])
-	page.image(brand["spec_line"], 0, bottom["y"], tokens.PAGE_WIDTH, bottom["height"], flip_x=True)
+	page.gradient_rect(0, top["y"], tokens.PAGE_WIDTH, top["height"], stops)
+	page.gradient_rect(0, bottom["y"], tokens.PAGE_WIDTH, bottom["height"], stops, reverse=True)
 
 	hero = tokens.HERO
 	page.image(
@@ -68,11 +69,8 @@ def page_chrome(page, model, page_number, page_count):
 
 def icon_row(page, model):
 	row = tokens.ICON_ROW
-	x = row["x"]
-	for icon in model.get("icons") or []:
-		width, height = page.natural_size(icon)
-		page.image(icon, x, row["y"], width, height)
-		x += width + row["gap"]
+	for index, icon in enumerate(model.get("icons") or []):
+		page.image(icon, row["x"] + index * row["pitch"], row["y"], row["size"], row["size"])
 	statement = model.get("listing_statement")
 	if statement:
 		settings = tokens.LISTING_STATEMENT
@@ -121,16 +119,18 @@ def spec_table(page, section_baseline, table):
 
 
 def drawings(page, section_baseline, section):
+	"""Place drawings at their artboard size, left to right, with optional captions."""
+	settings = tokens.DRAWINGS
 	page.text(tokens.MARGIN, section_baseline, section["title"], "section")
+	x = tokens.MARGIN
 	for item in section["drawings"]:
+		width, height = page.natural_size(item["asset"])
+		top = section_baseline + settings["top_below_section"]
 		if item.get("caption"):
-			page.text(
-				item.get("caption_x", item["x"]),
-				section_baseline + tokens.DRAWINGS["caption_below_section"],
-				item["caption"],
-				"caption",
-			)
-		page.image(item["asset"], item["x"], section_baseline + item["dy"], item["width"], item["height"])
+			page.text(x, section_baseline + settings["caption_below_section"], item["caption"], "caption")
+			top += settings["caption_offset"]
+		page.image(item["asset"], x, top, width, height)
+		x += width + settings["gap"]
 
 
 def linear_catalog_page_one(model, assets, page_count):

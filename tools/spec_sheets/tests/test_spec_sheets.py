@@ -95,6 +95,44 @@ class PagePrimitiveTest(unittest.TestCase):
 		self.assertIn("@page{size:612pt 792pt;margin:0}", html)
 
 
+class SpecLineTest(unittest.TestCase):
+	def test_every_product_line_has_ordered_stops(self):
+		for code in ("SW", "DW", "TW", "FS", "CC", "PS", "OTHER"):
+			stops = tokens.spec_line_stops(code)
+			offsets = [offset for _, _, offset in stops]
+			self.assertEqual((offsets[0], offsets[-1]), (0.0, 100.0), code)
+			self.assertEqual(offsets, sorted(offsets), code)
+			for color, opacity, _ in stops:
+				self.assertRegex(color, r"^#[0-9a-f]{6}$")
+				self.assertTrue(0 < opacity <= 1)
+
+	def test_static_white_line_is_the_cct_swatches(self):
+		# 27K -> 30K -> 35K -> 40K, as built in InDesign.
+		stops = tokens.spec_line_stops("SW")
+		self.assertEqual(stops[0][0], "#ffc35a")
+		self.assertEqual(stops[-1][0], "#f6fbff")
+
+	def test_unknown_line_is_rejected(self):
+		with self.assertRaisesRegex(ValueError, "Unknown spec line"):
+			tokens.spec_line_stops("XX")
+
+	def test_fit_reproduces_a_gradient_within_tolerance(self):
+		from tools.spec_sheets.extract_indesign import fit_stops
+
+		row = [(round(255 * x / 99), 0, 255 - round(255 * x / 99), 255) for x in range(100)]
+		row += [(255, round(255 * x / 99), 0, 255) for x in range(100)]
+		stops = fit_stops(row, 1.0)
+		self.assertLessEqual(len(stops), 4)
+		self.assertEqual((stops[0], stops[-1]), (0, 199))
+
+	def test_mirrored_gradient_reverses_offsets(self):
+		page = Page(tokens.brand_colors(), DirectoryAssets(FIXTURE / "assets"))
+		page.gradient_rect(0, 0, 10, 1, [("#000000", 1.0, 0.0), ("#ffffff", 0.5, 30.0)], reverse=True)
+		svg = page.svg()
+		self.assertIn('<stop offset="70%" stop-color="#ffffff" stop-opacity="0.5"/>', svg)
+		self.assertIn('<stop offset="100%" stop-color="#000000"/>', svg)
+
+
 class ChromiumResolutionTest(unittest.TestCase):
 	def test_environment_override_wins(self):
 		previous = os.environ.get(render.CHROMIUM_ENV)

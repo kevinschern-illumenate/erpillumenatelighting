@@ -110,10 +110,16 @@ class Page:
 			f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{self._color(color)}"/>'
 		)
 
-	def gradient_rect(self, x, y, width, height, stops):
+	def gradient_rect(self, x, y, width, height, stops, reverse=False):
+		"""Horizontal linear gradient; ``stops`` are (colour, opacity, offset %) triples."""
+		if reverse:
+			stops = [(color, opacity, 100 - offset) for color, opacity, offset in reversed(stops)]
 		gradient_id = f"g{len(self._defs)}"
 		stop_tags = "".join(
-			f'<stop offset="{_num(offset)}%" stop-color="{color}"/>' for color, offset in stops
+			f'<stop offset="{_num(offset)}%" stop-color="{color}"'
+			+ (f' stop-opacity="{_num(opacity)}"' if opacity < 1 else "")
+			+ "/>"
+			for color, opacity, offset in stops
 		)
 		self._defs.append(
 			f'<linearGradient id="{gradient_id}" x1="0" y1="0" x2="1" y2="0">{stop_tags}</linearGradient>'
@@ -128,7 +134,7 @@ class Page:
 			raise ValueError(f"Natural size needs an SVG asset: {ref!r}")
 		return svg_size(content)
 
-	def image(self, ref, x, y, width, height, radius=None, fit="none", flip_x=False):
+	def image(self, ref, x, y, width, height, radius=None, fit="none"):
 		content, mime = self.assets.get(ref)
 		clip = ""
 		if radius:
@@ -139,10 +145,9 @@ class Page:
 			)
 			clip = f' clip-path="url(#{clip_id})"'
 		aspect = {"none": "none", "cover": "xMidYMid slice", "contain": "xMidYMid meet"}[fit]
-		mirror = f' transform="matrix(-1 0 0 1 {_num(2 * x + width)} 0)"' if flip_x else ""
 		self._body.append(
 			f'<image href="{data_uri(content, mime)}" x="{_num(x)}" y="{_num(y)}" width="{_num(width)}" '
-			f'height="{_num(height)}" preserveAspectRatio="{aspect}"{clip}{mirror}/>'
+			f'height="{_num(height)}" preserveAspectRatio="{aspect}"{clip}/>'
 		)
 
 	def svg(self):

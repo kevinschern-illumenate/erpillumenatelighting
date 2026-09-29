@@ -105,8 +105,8 @@ Measured from the supplied PDFs and InDesign files (see Appendix A for exact met
 | Hero image (144×144pt, rounded) | Webflow Product **`spec_hero_image`** (new; today `custom_image_hero` → a TIF on the Mac) |
 | Title (2 lines, Manrope Bold 20pt) | Webflow Product `product_name`, with an optional **`spec_title_line_break`** hint |
 | Sublabel ("SURFACE", "DUAL-BENDING NEON") | Webflow Product `sublabel`, uppercased |
-| Logo (top right, 112×72pt) | Brand **`document_logo`** (new, on the document brand profile) |
-| Spec line gradient bars (full-bleed, y=130pt and y=704pt) | Brand **`spec_line_lit`** / **`spec_line_kit`** images (kits use the blue-grey variant) |
+| Logo (top right, 112×72pt) | Brand document profile, **one logo per product line** (InDesign links `ilLumenate Logo_SW_Black_Main`, `…_DW_Black_Main`, …) |
+| Spec line gradient bars (full-bleed, y=130.34pt and y=704.41pt; bottom mirrored) | **Vector gradient per product line** (SW, DW, TW, FS, CC, PS, OTHER), extracted from the InDesign files into `api/spec_sheets/spec_lines.json` (§15.4) |
 | Icon row (24V DC, Dry/Damp/Wet, UL) | Derived; see §3.2 |
 | Footer: PROJECT NAME / FIXTURE TYPE / LOCATION | Blank on catalog sheets; filled on submittals |
 | Footer address, phone, email, © year | Brand document profile (email **sales@**); © year = generation year |
@@ -233,7 +233,8 @@ Add it as a `spec_assets` table on:
 | `ilL-Tape-Neon-Template` | Feed Drawing (per direction), Bend Drawing, Cross Section |
 | `ilL-Extrusion-Kit-Template` | Hero override, component photos (endcap set) |
 
-Icons and branding live on masters: `spec_icon` on Output Voltage and Environment Rating;
+Icons and branding live on masters: `spec_icon` on Output Voltage and Environment Rating (the designer's
+`Rating_*_GrayLine.svg` files are 72-unit artboards drawn at 24.55pt, so icon size is a layout token);
 `badge_image` (existing) on Certification; logo and spec lines on the brand profile (§8).
 
 **Mapping from today's Customize Form fields:**
@@ -477,7 +478,9 @@ sections.
 
 Add a **Document Branding** section to `ilL-Webflow-Brand` (one row per brand):
 
-- `document_logo`, `spec_line_lit`, `spec_line_kit` (images)
+- `document_logos`: one logo per product line (SW, DW, TW, FS, CC, PS, OTHER)
+- `spec_lines`: gradient stops per product line (JSON), seeded from `spec_lines.json`; 206 Lighting
+  supplies its own stops rather than images
 - `document_address_line`, `document_phone`, `document_email` (sales@), `copyright_holder`
 - `accent_product` (`#FDAD0D`), `accent_length` (`#00588C`), `accent_power` (`#AC212A`), `text_color` (`#231F20`), `muted_color` (`#A2ABB6`), `rule_color` (`#D1D6DB`)
 - `document_font_heading` / `document_font_body` (default Manrope / Poppins)
@@ -599,8 +602,11 @@ Sizes are relative (S ≈ days, M ≈ 1–2 weeks, L ≈ 2–4 weeks of focused 
   (`tools/spec_sheets/extract_standins.py`) until the designer's exports arrive.
 - ⏳ Run the probe on the Frappe Cloud bench (§15.3) to confirm the pinned Chromium downloads and
   runs there.
-- ⏳ Designer exports sample assets: cross-section SVG (outlined text), side view, mounting clip,
-  pivot clip, hero PNG, icons, logo, spec lines. The same fixture is then re-run with real assets.
+- ✅ Designer asset pack received (§15.4): CAD drawings, rating/certification icons and all seven
+  InDesign files. The fixture now uses the real drawings and icons and still passes.
+- ⏳ Still needed from the designer: the St. Helens spec hero image (`SH01 Hero Image`), the dark
+  logos per product line (`ilLumenate Logo_<LINE>_Black_Main`), and the inline UL mark
+  (CC Libraries: Icons/UL). Stand-ins cut from the PDF are used until then.
 
 ### Phase 1 — Foundations (M)
 - `spec_sheets/facts.py` refactor, with characterization tests proving Webflow Product and CSV
@@ -726,7 +732,7 @@ family page is measured with `python -m tools.spec_sheets.fidelity extract <pdf>
 
 | Area | Files |
 |---|---|
-| Built in Phase 0 | `api/spec_sheets/{render,probe,svg,text,tokens,pages}.py`, `api/spec_sheets/fonts/*` (+ `metrics.json`), `api/spec_sheets/fixtures/st_helens_sf_sw/*`, `tools/spec_sheets/{fidelity,render_fixture,extract_standins,build_font_metrics}.py`, `tools/spec_sheets/tests/`, `tests/fixtures/spec_sheets/st_helens_sf_sw/{golden.pdf,fidelity.json}`, CI step in `b2b-contracts.yml` |
+| Built in Phase 0 | `api/spec_sheets/{render,probe,svg,text,tokens,pages}.py`, `api/spec_sheets/fonts/*` (+ `metrics.json`), `api/spec_sheets/fixtures/st_helens_sf_sw/*`, `api/spec_sheets/spec_lines.json`, `tools/spec_sheets/{fidelity,render_fixture,extract_standins,extract_indesign,convert_artwork,build_font_metrics}.py`, `tools/spec_sheets/tests/`, `tests/fixtures/spec_sheets/st_helens_sf_sw/{golden.pdf,fidelity.json}`, CI step in `b2b-contracts.yml` |
 | New | `api/spec_sheets/{model,facts,revision}.py`, `api/spec_sheets/families/*.py`, DocTypes `ilL-Child-Spec-Asset`, `ilL-Child-Feed-Option`, `ilL-Spec-Sheet-Revision` |
 | Changed | `portal/packets.py` (dispatch + kit branch), `api/spec_sheet_generator.py`, `api/public_sheet.py`, `api/webflow_configurator.py` (download), `api/product_readiness.py`, `api/publication.py` (documents), `doctype/ill_webflow_product/ill_webflow_product.py` (facts), `api/spec_sheet_export.py` (facts), attribute/spec/brand DocType JSON, `tools/fixture_builder/catalog*.py`, `tools/yaml_builder_ui` schema + examples |
 | Retired (Phase 6) | Fillable-PDF paths in `api/spec_submittal.py`, `portal/pdf_mapping.py`, mapping DocTypes, mapping generators, `custom_image_*` Customize Form fields |
@@ -747,7 +753,7 @@ PDF; assets cut from the PDF as stand-ins) and compared with the InDesign export
 | Baseline position | max 0.014pt off |
 | Horizontal position | max 0.37pt; mean 0.044pt; 0.2pt outside the approved footer line |
 | Word width | max 0.38pt |
-| Images | 5 / 5 boxes match (hero, logo, both spec lines, CCT band) |
+| Images | 5 / 5 boxes match (hero, logo, both spec lines, CCT band); after §15.4 the spec lines are vector gradients and 3 / 3 raster images match |
 | Rules | 59 / 59 match (table rules, footer rules, drawing lines), none extra |
 | Raster (150 dpi) | 0.57 % of pixels differ; almost all in the two approved changes below |
 | Fonts in the PDF | Real subset TrueType (Manrope-Bold, Poppins-Light, …), not Type 3 |
@@ -792,4 +798,36 @@ command on it to confirm the bench output matches.
 
 If the result is `failed`, the error names the cause (download blocked, missing system library,
 timeout); the full trace is in Error Log under "Spec sheet render probe failed".
+
+### 15.4 Designer asset pack (St. Helens)
+
+| Asset | What it is | Result |
+|---|---|---|
+| `St. Helens [SF]_Spec CAD.ai` (2 artboards), `_Side View`, `_Mounting Clip`, `_Pivot Clip` | PDF-compatible Illustrator, 1:1 artboards (108, 407 × 46.8, 144, 144pt) | Converted to SVG with outlined text (`tools/spec_sheets/convert_artwork.py`). InDesign placed them at exactly (36, 559.7) and (170.1, 568.7), which gives the drawing layout rule: 1:1, left to right, 26.1pt gap, captioned drawings 9pt lower |
+| `certifications/*.svg` (19 icons) | 72-unit artboards with the grey rounded tile | Rating icons used as-is at 24.55pt; they match the PDF |
+| 7 InDesign files (SW, DW, TW, FS, CC, Power Supply, Extrusion Kit) | Each embeds its full-resolution `Spec Line_<LINE>.png` (2550 × 15/16px; kit 1224 × 8px) | Gradients fitted to ≤ 1 colour level (`tools/spec_sheets/extract_indesign.py`) → `spec_lines.json`. Rendered through Chrome at 300 dpi they match the PNGs to 0.6–2.3 levels on average |
+| Swatches in the InDesign files | 27K `#FFC35A`, 30K `#FFFCAD`, 35K `#FFFFDC`, 40K `#F6FBFF`, 18K `#FF990A` (DW/TW), Darker 27K `#FDAD0D`, Gray `#A2ABB6`, Secondary `#00588C`, Other Products `#006833`, Light Gray `#B9C0C8` | Seed values for `ilL-Attribute-CCT.hex_color` and the brand colour roles (Phase 1) |
+| `ilLumenate Lighting Logo_White_Main.svg` | White logo (all fills `#FFF`) | Not usable on white paper; stand-in kept |
+| `SH01_ASSEMBLED.jpg` | A different lit product photo | Not the spec hero; stand-in kept |
+
+**The gradient lines are built from the CCT swatches.** Static White runs 27K → 30K → 35K → 40K at
+0/50/75/100 %; Dim to Warm runs the other way and ends at 18K; Tunable White alternates warm and
+cool; Full Spectrum continues past 40K into blue, green and red; Color Changing runs through the
+RGB hues; Power Supply fades Secondary blue into Dark Red at 26–68 % opacity; kits go Light Gray → blue
+→ green. Each is a horizontal gradient (checked row by row), so it is stored as colour stops, not
+an image. The renderer draws it as a vector: the top bar left to right, the bottom bar mirrored.
+
+**Which line a product uses** comes from data: `ilL-Attribute-LED Package.spectrum_type` (Static
+White → SW, Dim to Warm → DW, Tunable White → TW, RGB/RGB+W/RGBW/RGB+TW/RGBTW → CC); drivers and
+controllers → PS; extrusion kits and accessories → OTHER. `spectrum_type` has no "Full Spectrum"
+option yet, so Phase 1 adds it; Horticulture needs a decision.
+
+**Fixture result with the real assets:** 174/174 words, 3/3 raster images (hero, logo, CCT band;
+the two spec lines are now vectors, checked by the raster comparison), 59/59 rules,
+0.58 % of pixels differ. The same as with stand-ins, so the conversions line up with the published
+sheet.
+
+**Authoring note:** `.ai`/PDF → SVG conversion and InDesign extraction run on the authoring side
+(YAML Builder CLI) with PyMuPDF/Pillow; the ERPNext server only ever receives SVG, PNG or JPEG.
+PyMuPDF is AGPL-licensed, which is fine for internal tooling but is why it is kept out of the app.
 
