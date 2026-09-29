@@ -85,6 +85,29 @@ def optional_integer(value, *, minimum=0, field="value"):
 	return int(result)
 
 
+def segment_list(value, *, field="segments"):
+	"""Decode a segments payload into a list of segment objects.
+
+	One extra JSON-string layer (as older desk clients sent) is unwrapped;
+	anything else that is not a list of objects is rejected before an engine
+	iterates it.
+	"""
+	for _layer in range(2):
+		if not isinstance(value, str):
+			break
+		if not value.strip():
+			return None
+		try:
+			value = json.loads(value)
+		except json.JSONDecodeError as exc:
+			raise ValueError(f"{field} must be valid JSON") from exc
+	if value is None:
+		return None
+	if not isinstance(value, list) or not all(isinstance(segment, dict) for segment in value):
+		raise ValueError(f"{field} must be a list of segment objects")
+	return value
+
+
 def canonical_json(value):
 	return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
