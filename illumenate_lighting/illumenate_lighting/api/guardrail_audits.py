@@ -85,6 +85,8 @@ def _audit_template(template_name: str) -> dict[str, Any]:
 		"missing_leader_maps": [],
 		"missing_tape_offerings": False,
 		"ambiguous_mappings": [],
+		"finish_gaps": [],
+		"missing_standard_options": [],
 	}
 
 	# Gather allowed options from template
@@ -110,6 +112,12 @@ def _audit_template(template_name: str) -> dict[str, Any]:
 	ambiguous = _check_ambiguous_mappings(template.template_code, allowed_options)
 	result["ambiguous_mappings"] = ambiguous
 
+	# 6. Finishes the configurator would refuse, and missing standard options (CU, Outdoor).
+	# Standard options are reported only: offering them does not stop other options working.
+	from illumenate_lighting.illumenate_lighting.api.standard_options import FIXTURE, audit
+
+	result.update(audit(FIXTURE, template.as_dict()))
+
 	# Determine if template has issues
 	result["has_issues"] = (
 		len(result["missing_endcap_maps"]) > 0
@@ -117,6 +125,7 @@ def _audit_template(template_name: str) -> dict[str, Any]:
 		or len(result["missing_leader_maps"]) > 0
 		or result["missing_tape_offerings"]
 		or len(result["ambiguous_mappings"]) > 0
+		or len(result["finish_gaps"]) > 0
 	)
 
 	return result
