@@ -33,12 +33,14 @@ class ilLConfiguredLEDSheet(Document):
 			if self.is_new() and not self.flags.sheet_engine_write:
 				frappe.throw("Save Sheet builds through the configurator so engineering inputs are validated")
 			if old:
-				mutable = {"modified", "modified_by", "status", "configured_item", "bom", "spec_submittal"}
-				for field in self.meta.fields:
-					if field.fieldtype in ("Section Break", "Column Break", "Tab Break") or field.fieldname in mutable:
-						continue
-					if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
-						frappe.throw("This Sheet build is immutable. Save a new configuration to change it.")
+				from illumenate_lighting.illumenate_lighting.api.build_immutability import assert_unchanged
+
+				assert_unchanged(
+					self,
+					old,
+					{"modified", "modified_by", "status", "configured_item", "bom", "spec_submittal"},
+					"This Sheet build is immutable. Save a new configuration to change it.",
+				)
 			if self.configured_item and self.configured_item != item_code(self):
 				frappe.throw("Configured Item does not match this Sheet build")
 			return

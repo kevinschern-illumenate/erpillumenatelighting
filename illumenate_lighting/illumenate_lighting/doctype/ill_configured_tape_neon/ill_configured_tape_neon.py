@@ -39,12 +39,14 @@ class ilLConfiguredTapeNeon(Document):
 				frappe.throw("Create tape/neon builds through the validated configuration service")
 		old = self.get_doc_before_save()
 		if old and old.get("build_schema_version") == 2:
-			mutable = {"modified", "modified_by", "configured_item", "bom", "work_order", "spec_submittal"}
-			for field in self.meta.fields:
-				if field.fieldtype in ("Section Break", "Column Break", "Tab Break") or field.fieldname in mutable:
-					continue
-				if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
-					frappe.throw("This build is immutable. Create a new configuration variant.")
+			from illumenate_lighting.illumenate_lighting.api.build_immutability import assert_unchanged
+
+			assert_unchanged(
+				self,
+				old,
+				{"modified", "modified_by", "configured_item", "bom", "work_order", "spec_submittal"},
+				"This build is immutable. Create a new configuration variant.",
+			)
 
 	def _populate_sku_codes(self):
 		"""
