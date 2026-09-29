@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-29 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "spec_line",
+  "logo",
+  "is_placeholder",
+  "placeholder_note"
+ ],
+ "fields": [
+  {
+   "description": "SW Static White, DW Dim to Warm, TW Tunable White, FS Full Spectrum, CC Color Changing, PS Power Supply, OTHER extrusion kits and accessories.",
+   "fieldname": "spec_line",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Product Line",
+   "options": "SW\nDW\nTW\nFS\nCC\nPS\nOTHER",
+   "reqd": 1
+  },
+  {
+   "description": "Vector SVG converted from the designer's .ai logo.",
+   "fieldname": "logo",
+   "fieldtype": "Attach",
+   "in_list_view": 1,
+   "label": "Logo",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Stand-in artwork until the designer's file is supplied. A spec sheet revision cannot be approved while placeholders remain.",
+   "fieldname": "is_placeholder",
+   "fieldtype": "Check",
+   "label": "Placeholder"
+  },
+  {
+   "depends_on": "eval:doc.is_placeholder",
+   "fieldname": "placeholder_note",
+   "fieldtype": "Data",
+   "label": "Placeholder Note"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Brand-Logo",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "ASC",
+ "states": []
+}

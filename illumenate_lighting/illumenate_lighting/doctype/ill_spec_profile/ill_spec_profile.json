@@ -30,7 +30,9 @@
                         "supported_environment_ratings",
                         "supports_joiners",
                         "joiner_system",
-                        "lens_interface"
+                        "lens_interface",
+                        "spec_sheet_section",
+                        "spec_assets"
                     ],
     "fields":  [
                    {
@@ -162,6 +164,19 @@
                        "fieldtype":  "Link",
                        "label":  "Lens Interface",
                        "options":  "ilL-Attribute-Lens Interface Type"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Cross section, side view and product photo, exported 1:1 in points.",
+                       "fieldname":  "spec_assets",
+                       "fieldtype":  "Table",
+                       "label":  "Spec Sheet Assets",
+                       "options":  "ilL-Child-Spec-Asset"
                    }
                ],
     "grid_page_length":  50,
@@ -169,7 +184,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 12:29:30.395128",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Spec-Profile",

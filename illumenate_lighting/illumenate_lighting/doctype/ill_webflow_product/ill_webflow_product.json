@@ -69,6 +69,9 @@
   "l70_life_hours",
   "warranty_years",
   "fixture_weight_per_foot_grams",
+  "spec_sheet_layout_section",
+  "spec_title",
+  "spec_assets",
   "sync_section",
   "target_brands",
   "sync_targets",
@@ -478,6 +481,25 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "spec_sheet_layout_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Sheet Layout"
+  },
+  {
+   "description": "Title as printed on the spec sheet, one line per row (e.g. \"St. Helens [SF]\" then \"Static White\"). Blank uses the product name.",
+   "fieldname": "spec_title",
+   "fieldtype": "Small Text",
+   "label": "Spec Sheet Title"
+  },
+  {
+   "description": "Spec sheet hero image and any product-specific artwork.",
+   "fieldname": "spec_assets",
+   "fieldtype": "Table",
+   "label": "Spec Sheet Assets",
+   "options": "ilL-Child-Spec-Asset"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "sync_section",
    "fieldtype": "Section Break",
    "label": "Webflow Brands & Sync"
@@ -559,7 +581,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-21 10:00:00.000000",
+ "modified": "2026-09-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

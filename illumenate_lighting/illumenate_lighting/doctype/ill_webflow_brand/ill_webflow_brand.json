@@ -21,7 +21,11 @@
   "erpnext_base_url",
   "webflow_site_url",
   "collections_section",
-  "collections"
+  "collections",
+  "document_branding_section",
+  "document_branding_json",
+  "default_document_initials",
+  "document_logos"
  ],
  "fields": [
   {
@@ -123,11 +127,37 @@
    "fieldtype": "Table",
    "label": "Collections",
    "options": "ilL-Webflow-Brand-Collection"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "document_branding_section",
+   "fieldtype": "Section Break",
+   "label": "Document Branding"
+  },
+  {
+   "description": "Spec sheet footer copy and colour overrides as JSON (footer_lines, notice, colors). Blank uses the app defaults for this brand.",
+   "fieldname": "document_branding_json",
+   "fieldtype": "Code",
+   "label": "Document Branding",
+   "options": "JSON"
+  },
+  {
+   "description": "Initials in spec sheet date codes when no staff member is responsible (e.g. portal-generated submittals).",
+   "fieldname": "default_document_initials",
+   "fieldtype": "Data",
+   "label": "Default Document Initials"
+  },
+  {
+   "description": "Logo per product line. Rows marked placeholder block approval of spec sheet revisions.",
+   "fieldname": "document_logos",
+   "fieldtype": "Table",
+   "label": "Document Logos",
+   "options": "ilL-Child-Brand-Logo"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-07 10:00:00.000000",
+ "modified": "2026-09-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Brand",

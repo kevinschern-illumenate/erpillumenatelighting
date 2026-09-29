@@ -23,6 +23,7 @@
                         "spec_sheet_details_section",
                         "minimum_side_bend_diameter_mm",
                         "minimum_top_bend_diameter_mm",
+                        "spec_output_levels",
                         "pricing_section",
                         "base_price_msrp",
                         "price_per_ft_msrp",
@@ -36,6 +37,8 @@
                         "allowed_tape_offerings",
                         "part_number_builder_section",
                         "part_number_builder",
+                        "feed_options_section",
+                        "feed_options",
                         "spec_documents_section",
                         "spec_sheet",
                         "column_break_spec_documents",
@@ -136,6 +139,13 @@
                        "label":  "Minimum Top Bend Diameter (mm)"
                    },
                    {
+                       "description":  "Output levels printed as columns on the catalog spec sheet, in this order. Leave empty to print every level the template offers.",
+                       "fieldname":  "spec_output_levels",
+                       "fieldtype":  "Table",
+                       "label":  "Spec Sheet Output Columns",
+                       "options":  "ilL-Child-Spec-Output-Level"
+                   },
+                   {
                        "fieldname":  "pricing_section",
                        "fieldtype":  "Section Break",
                        "label":  "Pricing"
@@ -212,6 +222,19 @@
                    },
                    {
                        "collapsible":  1,
+                       "fieldname":  "feed_options_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Feed Options"
+                   },
+                   {
+                       "description":  "Start and end feed directions and leader lengths offered for this product. The part number builder, the spec sheet and the configurator read this table.",
+                       "fieldname":  "feed_options",
+                       "fieldtype":  "Table",
+                       "label":  "Feed Options",
+                       "options":  "ilL-Child-Feed-Option"
+                   },
+                   {
+                       "collapsible":  1,
                        "fieldname":  "spec_documents_section",
                        "fieldtype":  "Section Break",
                        "label":  "Spec Documents"
@@ -259,7 +282,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 21:00:00.000000",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Fixture-Template",

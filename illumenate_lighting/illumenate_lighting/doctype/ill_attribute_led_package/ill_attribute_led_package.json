@@ -30,7 +30,7 @@
                        "fieldtype":  "Select",
                        "in_list_view":  1,
                        "label":  "Spectrum Type",
-                       "options":  "Static White\nDim to Warm\nTunable White\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
+                       "options":  "Static White\nDim to Warm\nTunable White\nFull Spectrum\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
                        "reqd":  1
                    },
                    {
@@ -71,7 +71,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-02-10 10:00:00.000000",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-LED Package",

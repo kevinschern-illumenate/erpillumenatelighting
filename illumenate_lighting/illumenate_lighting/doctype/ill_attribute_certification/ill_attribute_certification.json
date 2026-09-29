@@ -17,6 +17,8 @@
                         "details_section",
                         "description",
                         "badge_image",
+                        "spec_sheet_placement",
+                        "spec_statement",
                         "applicability_section",
                         "applies_to_types"
                     ],
@@ -75,6 +77,21 @@
                        "label":  "Badge Image"
                    },
                    {
+                       "description":  "Icon Row: shown with the rating icons. Listing Statement: printed as \"For use with [icon] Light Source.\"",
+                       "fieldname":  "spec_sheet_placement",
+                       "fieldtype":  "Select",
+                       "label":  "Spec Sheet Placement",
+                       "options":  "\nIcon Row\nListing Statement"
+                   },
+                   {
+                       "default":  "For use with {icon} Light Source.",
+                       "depends_on":  "eval:doc.spec_sheet_placement=='Listing Statement'",
+                       "description":  "{icon} marks where the badge is drawn.",
+                       "fieldname":  "spec_statement",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Statement"
+                   },
+                   {
                        "collapsible":  1,
                        "fieldname":  "applicability_section",
                        "fieldtype":  "Section Break",
@@ -92,7 +109,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-21 10:00:00.000000",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Certification",

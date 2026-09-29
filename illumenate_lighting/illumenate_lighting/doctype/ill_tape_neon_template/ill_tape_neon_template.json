@@ -32,6 +32,11 @@
         "is_free_cutting",
         "certifications",
         "warranty_years",
+        "spec_output_levels",
+        "feed_options_section",
+        "feed_options",
+        "spec_assets_section",
+        "spec_assets",
         "defaults_section",
         "default_tape_spec",
         "column_break_defaults",
@@ -208,6 +213,39 @@
             "label": "Warranty (years)"
         },
         {
+            "description": "Output levels printed as columns on the catalog spec sheet, in this order. Leave empty to print every level the template offers.",
+            "fieldname": "spec_output_levels",
+            "fieldtype": "Table",
+            "label": "Spec Sheet Output Columns",
+            "options": "ilL-Child-Spec-Output-Level"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "feed_options_section",
+            "fieldtype": "Section Break",
+            "label": "Feed Options"
+        },
+        {
+            "description": "Start and end feed directions and leader lengths offered for this product. The part number builder, the spec sheet and the configurator read this table.",
+            "fieldname": "feed_options",
+            "fieldtype": "Table",
+            "label": "Feed Options",
+            "options": "ilL-Child-Feed-Option"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "spec_assets_section",
+            "fieldtype": "Section Break",
+            "label": "Spec Sheet Assets"
+        },
+        {
+            "description": "Feed drawings (one per feed direction), bend drawings and cross section.",
+            "fieldname": "spec_assets",
+            "fieldtype": "Table",
+            "label": "Spec Sheet Assets",
+            "options": "ilL-Child-Spec-Asset"
+        },
+        {
             "fieldname": "defaults_section",
             "fieldtype": "Section Break",
             "label": "Defaults"
@@ -325,7 +363,7 @@
     "grid_page_length": 50,
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-03-02 12:00:00.000000",
+    "modified": "2026-09-29 12:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-Tape-Neon-Template",

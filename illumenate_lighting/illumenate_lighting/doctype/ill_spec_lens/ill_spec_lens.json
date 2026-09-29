@@ -19,7 +19,9 @@
                         "stock_length_mm",
                         "continuous_max_length_mm",
                         "compatibility_section",
-                        "supported_environment_ratings"
+                        "supported_environment_ratings",
+                        "spec_sheet_section",
+                        "spec_assets"
                     ],
     "fields":  [
                    {
@@ -90,6 +92,19 @@
                        "fieldtype":  "Table",
                        "label":  "Supported Environment Ratings",
                        "options":  "ilL-Child-Lens Environments"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Lens product photo.",
+                       "fieldname":  "spec_assets",
+                       "fieldtype":  "Table",
+                       "label":  "Spec Sheet Assets",
+                       "options":  "ilL-Child-Spec-Asset"
                    }
                ],
     "grid_page_length":  50,
@@ -97,7 +112,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 12:43:59.877924",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Spec-Lens",

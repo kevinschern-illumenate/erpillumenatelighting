@@ -10,7 +10,9 @@
     "field_order":  [
                         "label",
                         "code",
-                        "notes"
+                        "notes",
+                        "spec_sheet_sb",
+                        "spec_icon"
                     ],
     "fields":  [
                    {
@@ -32,6 +34,18 @@
                        "fieldname":  "notes",
                        "fieldtype":  "Small Text",
                        "label":  "Notes"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "SVG icon shown in the spec sheet icon row (e.g. Rating_24VDC_GrayLine.svg).",
+                       "fieldname":  "spec_icon",
+                       "fieldtype":  "Attach",
+                       "label":  "Spec Sheet Icon"
                    }
                ],
     "grid_page_length":  50,
@@ -39,7 +53,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 11:45:35.938634",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Environment Rating",

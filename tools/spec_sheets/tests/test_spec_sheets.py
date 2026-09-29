@@ -195,6 +195,91 @@ class BrandTest(unittest.TestCase):
 		self.assertIn("© 2031 ilLumenate Lighting Inc.", html)
 
 
+class SiteBrandOverrideTest(unittest.TestCase):
+	def brand(self, **record):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import (
+			apply_site_overrides,
+			load_brand,
+		)
+
+		return apply_site_overrides(load_brand("illumenate"), record)
+
+	def test_blank_record_keeps_the_app_defaults(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import load_brand
+
+		defaults = load_brand("illumenate")
+		self.assertEqual(self.brand(document_branding_json="", document_logos=[]), defaults)
+
+	def test_copy_and_colours_merge_over_the_defaults(self):
+		brand = self.brand(
+			document_branding_json=json.dumps(
+				{"notice": "Subject to change.", "colors": {"accent_power": "#aa0000"}}
+			),
+			default_document_initials="IL",
+		)
+		self.assertEqual(brand["notice"], "Subject to change.")
+		self.assertEqual(brand["default_document_initials"], "IL")
+		colors = tokens.brand_colors(brand)
+		self.assertEqual(colors["accent_power"], "#aa0000")
+		self.assertEqual(colors["text"], tokens.ILLUMENATE_COLORS["text"])
+
+	def test_invalid_branding_is_rejected(self):
+		for values, message in (
+			({"logos": {}}, "Unknown document branding keys"),
+			({"colors": {"headline": "#000000"}}, "Unknown document colour role"),
+			({"colors": {"text": "black"}}, "#rrggbb"),
+			({"colors": {"text": "#EC008C"}}, "FPO magenta"),
+		):
+			with self.subTest(values=values), self.assertRaisesRegex(ValueError, message):
+				self.brand(document_branding_json=json.dumps(values))
+
+	def test_uploaded_logo_replaces_one_product_line(self):
+		brand = self.brand(
+			document_logos=[
+				{"spec_line": "TW", "logo": "/files/tw.svg", "is_placeholder": 0},
+				{
+					"spec_line": "CC",
+					"logo": "/files/cc.svg",
+					"is_placeholder": 1,
+					"placeholder_note": "Draft",
+				},
+			]
+		)
+		self.assertEqual(brand["logos"]["TW"], {"file": "/files/tw.svg", "source": "ilL-Webflow-Brand"})
+		self.assertEqual(brand["logos"]["CC"]["placeholder"], "Draft")
+		self.assertEqual(brand["logos"]["SW"]["file"], "logos/SW.svg")
+
+	def test_site_logo_renders_from_a_file_url_and_clears_the_placeholder(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.pages import placeholders
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import FileURLAssets
+
+		model = json.loads((FIXTURE / "model.json").read_text(encoding="utf-8"))
+		model["spec_line"] = "TW"
+		logo = (FIXTURE.parents[1] / "brands/illumenate/logos/SW.svg").read_bytes()
+		loaded = []
+		brand = self.brand(document_logos=[{"spec_line": "TW", "logo": "/private/files/tw.svg"}])
+		brand["file_assets"] = FileURLAssets(lambda url: loaded.append(url) or logo)
+		self.assertFalse(any(item.startswith("logo") for item in placeholders(model, brand)))
+		build_html(model, DirectoryAssets(FIXTURE / "assets"), brand)
+		self.assertEqual(loaded, ["/private/files/tw.svg"])
+
+
+class AssetResolverTest(unittest.TestCase):
+	def test_file_urls_and_directory_assets_resolve_separately(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import CompositeAssets, FileURLAssets
+
+		files = FileURLAssets(lambda url: b"png")
+		assets = CompositeAssets(DirectoryAssets(FIXTURE / "assets"), files)
+		self.assertEqual(assets.get("/files/hero.PNG"), (b"png", "image/png"))
+		self.assertEqual(assets.get("hero.jpg")[1], "image/jpeg")
+		with self.assertRaisesRegex(ValueError, "No File resolver"):
+			CompositeAssets(DirectoryAssets(FIXTURE / "assets")).get("/files/hero.png")
+		with self.assertRaisesRegex(ValueError, "Not a File URL"):
+			files.get("https://example.com/hero.png")
+		with self.assertRaisesRegex(ValueError, "Unsupported asset type"):
+			files.get("/files/sheet.pdf")
+
+
 class ChromiumResolutionTest(unittest.TestCase):
 	def test_environment_override_wins(self):
 		previous = os.environ.get(render.CHROMIUM_ENV)

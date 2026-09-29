@@ -24,7 +24,10 @@
                         "feed_type",
                         "qty_rules_section",
                         "qty_rule_type",
-                        "qty_rule_value"
+                        "qty_rule_value",
+                        "spec_sheet_section",
+                        "spec_title",
+                        "spec_assets"
                     ],
     "fields":  [
                    {
@@ -121,6 +124,25 @@
                        "fieldname":  "qty_rule_value",
                        "fieldtype":  "Float",
                        "label":  "QTY Rule Value"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Caption printed above the accessory drawing, e.g. \"Pivot Clip\".",
+                       "fieldname":  "spec_title",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Title"
+                   },
+                   {
+                       "description":  "Accessory dimension drawing and product photo.",
+                       "fieldname":  "spec_assets",
+                       "fieldtype":  "Table",
+                       "label":  "Spec Sheet Assets",
+                       "options":  "ilL-Child-Spec-Asset"
                    }
                ],
     "grid_page_length":  50,
@@ -128,7 +150,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 13:23:39.135438",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Spec-Accessory",

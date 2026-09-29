@@ -12,7 +12,10 @@
                         "code",
                         "mounting_method",
                         "column_break_hskv",
-                        "notes"
+                        "notes",
+                        "spec_sheet_sb",
+                        "spec_label",
+                        "spec_note"
                     ],
     "fields":  [
                    {
@@ -44,6 +47,24 @@
                        "fieldname":  "notes",
                        "fieldtype":  "Small Text",
                        "label":  "Notes"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Wording printed on spec sheets, e.g. \"Anodized Silver\". Blank uses the name.",
+                       "fieldname":  "spec_label",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Label"
+                   },
+                   {
+                       "description":  "Printed after the label in brackets, e.g. \"Provide RAL #\".",
+                       "fieldname":  "spec_note",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Note"
                    }
                ],
     "grid_page_length":  50,
@@ -51,7 +72,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 11:52:01.535114",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Mounting Method",

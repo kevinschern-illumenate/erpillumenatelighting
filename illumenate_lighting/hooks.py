@@ -173,7 +173,11 @@ website_redirects = [
 # before_install = "illumenate_lighting.install.before_install"
 after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
 before_migrate = "illumenate_lighting.portal_workspace.before_migrate"
-after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
+after_migrate = [
+	"illumenate_lighting.portal_workspace.after_migrate",
+	# Installs the pinned Chromium used for spec sheets (background job, never blocks migrate).
+	"illumenate_lighting.illumenate_lighting.api.spec_sheets.site.after_migrate",
+]
 
 # Fixtures
 # --------

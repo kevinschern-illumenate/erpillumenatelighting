@@ -26,7 +26,10 @@
                         "column_break_fdow",
                         "thermal_performance_factor",
                         "pricing_logistics_sb",
-                        "moq"
+                        "moq",
+                        "spec_sheet_sb",
+                        "spec_label",
+                        "spec_note"
                     ],
     "fields":  [
                    {
@@ -128,6 +131,24 @@
                        "label":  "Minimum Order Quantity"
                    },
                    {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Wording printed on spec sheets, e.g. \"Anodized Silver\". Blank uses the name.",
+                       "fieldname":  "spec_label",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Label"
+                   },
+                   {
+                       "description":  "Printed after the label in brackets, e.g. \"Provide RAL #\".",
+                       "fieldname":  "spec_note",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Note"
+                   },
+                   {
                        "fieldname":  "notes",
                        "fieldtype":  "Small Text",
                        "label":  "Notes"
@@ -138,7 +159,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 11:47:19.821409",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Finish",

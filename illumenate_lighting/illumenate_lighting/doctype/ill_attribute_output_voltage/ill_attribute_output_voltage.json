@@ -13,7 +13,9 @@
                         "is_active",
                         "column_break_scuy",
                         "dc_voltage",
-                        "ac_voltage"
+                        "ac_voltage",
+                        "spec_sheet_sb",
+                        "spec_icon"
                     ],
     "fields":  [
                    {
@@ -27,6 +29,18 @@
                        "fieldtype":  "Select",
                        "label":  "AC Voltage",
                        "options":  "\n12V\n120V\n240V\n277V"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "SVG icon shown in the spec sheet icon row (e.g. Rating_24VDC_GrayLine.svg).",
+                       "fieldname":  "spec_icon",
+                       "fieldtype":  "Attach",
+                       "label":  "Spec Sheet Icon"
                    },
                    {
                        "fieldname":  "voltage_name",
@@ -58,7 +72,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 11:32:58.929700",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Output Voltage",

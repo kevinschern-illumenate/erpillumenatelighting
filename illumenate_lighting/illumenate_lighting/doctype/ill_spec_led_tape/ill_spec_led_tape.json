@@ -31,7 +31,9 @@
                         "cut_increment_mm",
                         "is_free_cutting",
                         "dimming_section",
-                        "supported_dimming_protocols"
+                        "supported_dimming_protocols",
+                        "spec_sheet_section",
+                        "spec_assets"
                     ],
     "fields":  [
                    {
@@ -184,6 +186,19 @@
                        "fieldtype":  "Table",
                        "label":  "Supported Dimming Protocols",
                        "options":  "ilL-Child-Tape-Dimming-Protocol"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_section",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Tape product photo and dimension drawing.",
+                       "fieldname":  "spec_assets",
+                       "fieldtype":  "Table",
+                       "label":  "Spec Sheet Assets",
+                       "options":  "ilL-Child-Spec-Asset"
                    }
                ],
     "grid_page_length":  50,
@@ -191,7 +206,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-02-10 10:00:00.000000",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Spec-LED Tape",

@@ -72,6 +72,13 @@ def reject_fpo(content, ref):
 		raise ValueError(f"{ref!r} contains FPO magenta placeholder artwork; replace it before publishing")
 
 
+def image_mime(name):
+	mime = IMAGE_TYPES.get(Path(name).suffix.lower()) or mimetypes.guess_type(name)[0]
+	if not mime or not mime.startswith("image/"):
+		raise ValueError(f"Unsupported asset type: {name!r}")
+	return mime
+
+
 class DirectoryAssets:
 	"""Resolve asset references to files in one directory (fixtures and local tools)."""
 
@@ -82,10 +89,44 @@ class DirectoryAssets:
 		path = (self.root / ref).resolve()
 		if self.root.resolve() not in path.parents:
 			raise ValueError(f"Asset outside the asset directory: {ref!r}")
-		mime = IMAGE_TYPES.get(path.suffix.lower()) or mimetypes.guess_type(path.name)[0]
-		if not mime or not mime.startswith("image/"):
-			raise ValueError(f"Unsupported asset type: {ref!r}")
-		return path.read_bytes(), mime
+		return path.read_bytes(), image_mime(path.name)
+
+
+FILE_URL_PREFIXES = ("/files/", "/private/files/")
+
+
+class FileURLAssets:
+	"""Resolve Frappe File URLs through ``load(url) -> bytes`` (see ``spec_sheets.site``).
+
+	Each URL is loaded once per instance; build one per document.
+	"""
+
+	def __init__(self, load):
+		self.load = load
+		self._loaded = {}
+
+	def get(self, ref):
+		if not ref.startswith(FILE_URL_PREFIXES):
+			raise ValueError(f"Not a File URL: {ref!r}")
+		mime = image_mime(ref)
+		if ref not in self._loaded:
+			self._loaded[ref] = self.load(ref)
+		return self._loaded[ref], mime
+
+
+class CompositeAssets:
+	"""File URLs go to ``files``; everything else to ``default`` (a directory)."""
+
+	def __init__(self, default, files=None):
+		self.default = default
+		self.files = files
+
+	def get(self, ref):
+		if ref.startswith(FILE_URL_PREFIXES):
+			if not self.files:
+				raise ValueError(f"No File resolver for {ref!r}")
+			return self.files.get(ref)
+		return self.default.get(ref)
 
 
 class Page:

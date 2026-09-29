@@ -42,3 +42,4 @@ illumenate_lighting.patches.b2b_commercial_lineage
 illumenate_lighting.patches.b2b_authoring_roles
 illumenate_lighting.patches.b2b_commercial_schema
 illumenate_lighting.patches.add_company_invoice_payment_instructions
+illumenate_lighting.patches.spec_sheet_document_initials

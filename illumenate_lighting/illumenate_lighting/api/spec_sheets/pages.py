@@ -12,7 +12,12 @@ from datetime import date
 
 from illumenate_lighting.illumenate_lighting.api.spec_sheets import tokens
 from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import load_brand, logo_for
-from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import DirectoryAssets, Page, document
+from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import (
+	CompositeAssets,
+	DirectoryAssets,
+	Page,
+	document,
+)
 
 
 def _bulleted_line(page, segments, baseline, x=None, right=None):
@@ -139,14 +144,17 @@ def drawings(page, section_baseline, section):
 		x += width + settings["gap"]
 
 
-def resolve_brand(model):
+def resolve_brand(model, brand=None):
+	"""The brand to draw with: ``brand`` if given (e.g. ``site.site_brand``), else the app defaults."""
+	if brand is not None:
+		return brand
 	overrides = model.get("brand") or {}
 	return load_brand(overrides.get("brand_code") or "illumenate", overrides)
 
 
-def placeholders(model):
+def placeholders(model, brand=None):
 	"""Placeholder artwork this sheet would use; a revision cannot be approved while any remain."""
-	brand = resolve_brand(model)
+	brand = resolve_brand(model, brand)
 	found = (
 		[f"logo {model['spec_line']}: {note}"]
 		if (note := logo_for(brand, model["spec_line"]).get("placeholder"))
@@ -155,9 +163,10 @@ def placeholders(model):
 	return found + [f"{ref}: {note}" for ref, note in (model.get("placeholders") or {}).items()]
 
 
-def linear_catalog_page_one(model, assets, page_count):
-	brand = resolve_brand(model)
-	page = Page(tokens.brand_colors(brand), assets, DirectoryAssets(brand["root"]))
+def linear_catalog_page_one(model, assets, page_count, brand=None):
+	brand = resolve_brand(model, brand)
+	brand_assets = CompositeAssets(DirectoryAssets(brand["root"]), brand.get("file_assets"))
+	page = Page(tokens.brand_colors(brand), assets, brand_assets)
 	page_chrome(page, model, brand, 1, page_count)
 	icon_row(page, model)
 	last_row = spec_table(page, model["spec_table"]["section_baseline"], model["spec_table"])
@@ -165,10 +174,10 @@ def linear_catalog_page_one(model, assets, page_count):
 	return page
 
 
-def build_html(model, assets):
+def build_html(model, assets, brand=None):
 	"""Phase 0: the linear catalog sheet's first page as a self-contained HTML document."""
 	if model.get("family") != "Linear Fixture":
 		raise ValueError("Phase 0 renders linear fixture catalog sheets only")
 	page_count = model.get("footer", {}).get("page_count") or 1
-	pages = [linear_catalog_page_one(model, assets, page_count)]
+	pages = [linear_catalog_page_one(model, assets, page_count, brand)]
 	return document(pages, " ".join(model["header"]["title_lines"]))

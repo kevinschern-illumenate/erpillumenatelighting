@@ -27,6 +27,8 @@
   "column_break_spec_links",
   "spec_sheet",
   "webflow_product",
+  "spec_assets_section",
+  "spec_assets",
   "allowed_options_section",
   "allowed_options",
   "pricing_section",
@@ -167,6 +169,19 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
+   "fieldname": "spec_assets_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Sheet Assets"
+  },
+  {
+   "description": "Kit hero and component photos (e.g. the endcap set).",
+   "fieldname": "spec_assets",
+   "fieldtype": "Table",
+   "label": "Spec Sheet Assets",
+   "options": "ilL-Child-Spec-Asset"
+  },
+  {
    "fieldname": "allowed_options_section",
    "fieldtype": "Section Break",
    "label": "Allowed Options"
@@ -199,7 +214,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-02 12:00:00.000000",
+ "modified": "2026-09-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",

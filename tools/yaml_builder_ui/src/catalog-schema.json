@@ -451,6 +451,20 @@
           "description": "Icon or badge image for display on product pages"
         },
         {
+          "fieldname": "spec_sheet_placement",
+          "label": "Spec Sheet Placement",
+          "fieldtype": "Select",
+          "options": "\nIcon Row\nListing Statement",
+          "description": "Icon Row: shown with the rating icons. Listing Statement: printed as \"For use with [icon] Light Source.\""
+        },
+        {
+          "fieldname": "spec_statement",
+          "label": "Spec Sheet Statement",
+          "fieldtype": "Data",
+          "default": "For use with {icon} Light Source.",
+          "description": "{icon} marks where the badge is drawn."
+        },
+        {
           "fieldname": "applies_to_types",
           "label": "Applies to Product Types",
           "fieldtype": "Table",
@@ -645,6 +659,12 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "spec_icon",
+          "label": "Spec Sheet Icon",
+          "fieldtype": "Attach",
+          "description": "SVG icon shown in the spec sheet icon row (e.g. Rating_24VDC_GrayLine.svg)."
         }
       ]
     },
@@ -747,6 +767,18 @@
           "fieldtype": "Float"
         },
         {
+          "fieldname": "spec_label",
+          "label": "Spec Sheet Label",
+          "fieldtype": "Data",
+          "description": "Wording printed on spec sheets, e.g. \"Anodized Silver\". Blank uses the name."
+        },
+        {
+          "fieldname": "spec_note",
+          "label": "Spec Sheet Note",
+          "fieldtype": "Data",
+          "description": "Printed after the label in brackets, e.g. \"Provide RAL #\"."
+        },
+        {
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
@@ -841,7 +873,7 @@
           "fieldname": "spectrum_type",
           "label": "Spectrum Type",
           "fieldtype": "Select",
-          "options": "Static White\nDim to Warm\nTunable White\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
+          "options": "Static White\nDim to Warm\nTunable White\nFull Spectrum\nRGB\nRGB+W\nRGBW\nRGB+TW\nRGBTW\nHorticulture",
           "reqd": 1
         },
         {
@@ -957,6 +989,24 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "spec_label",
+          "label": "Spec Sheet Label",
+          "fieldtype": "Data",
+          "description": "Wording printed on spec sheets, e.g. \"Anodized Silver\". Blank uses the name."
+        },
+        {
+          "fieldname": "spec_note",
+          "label": "Spec Sheet Note",
+          "fieldtype": "Data",
+          "description": "Printed after the label in brackets, e.g. \"Provide RAL #\"."
+        },
+        {
+          "fieldname": "spec_group_label",
+          "label": "Spec Sheet Group Label",
+          "fieldtype": "Data",
+          "description": "Lenses with the same group label share spec-table rows when their values match, e.g. \"Other Lenses\"."
         }
       ]
     },
@@ -1015,6 +1065,18 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "spec_label",
+          "label": "Spec Sheet Label",
+          "fieldtype": "Data",
+          "description": "Wording printed on spec sheets, e.g. \"Anodized Silver\". Blank uses the name."
+        },
+        {
+          "fieldname": "spec_note",
+          "label": "Spec Sheet Note",
+          "fieldtype": "Data",
+          "description": "Printed after the label in brackets, e.g. \"Provide RAL #\"."
         }
       ]
     },
@@ -1117,6 +1179,12 @@
           "label": "AC Voltage",
           "fieldtype": "Select",
           "options": "\n12V\n120V\n240V\n277V"
+        },
+        {
+          "fieldname": "spec_icon",
+          "label": "Spec Sheet Icon",
+          "fieldtype": "Attach",
+          "description": "SVG icon shown in the spec sheet icon row (e.g. Rating_24VDC_GrayLine.svg)."
         },
         {
           "fieldname": "voltage_name",
@@ -1778,6 +1846,69 @@
         }
       ]
     },
+    "ilL-Child-Feed-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "position",
+          "label": "Position",
+          "fieldtype": "Select",
+          "options": "Start\nEnd",
+          "reqd": 1
+        },
+        {
+          "fieldname": "kind",
+          "label": "Kind",
+          "fieldtype": "Select",
+          "options": "Direction\nLength",
+          "reqd": 1
+        },
+        {
+          "fieldname": "feed_direction",
+          "label": "Feed Direction",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+          "fieldname": "length_ft",
+          "label": "Length (ft)",
+          "fieldtype": "Float",
+          "description": "Leader length in feet."
+        },
+        {
+          "fieldname": "code",
+          "label": "Code",
+          "fieldtype": "Data",
+          "description": "Part number code. Leave blank for the \"Blank\" option (e.g. Blank — Endcap)."
+        },
+        {
+          "fieldname": "label",
+          "label": "Label",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "As printed in the part number builder, e.g. \"End\", \"2ft\", \"Endcap\"."
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_default",
+          "label": "Default",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Active",
+          "fieldtype": "Check",
+          "default": "1"
+        }
+      ]
+    },
     "ilL-Child-Kit-Allowed-Option": {
       "autoname": "",
       "istable": 1,
@@ -1967,6 +2098,14 @@
           "label": "Option Order",
           "fieldtype": "Int",
           "default": "0"
+        },
+        {
+          "fieldname": "color_role",
+          "label": "Colour Role",
+          "fieldtype": "Select",
+          "options": "Product\nLength-Feed\nPower",
+          "default": "Product",
+          "description": "Colour of this section's code on the spec sheet part number."
         }
       ]
     },
@@ -1994,6 +2133,69 @@
         }
       ]
     },
+    "ilL-Child-Spec-Asset": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "asset_role",
+          "label": "Role",
+          "fieldtype": "Select",
+          "options": "Hero\nProduct Photo\nCross Section\nSide View\nDimension Drawing\nFeed Drawing\nBend Drawing\nAccessory Drawing",
+          "reqd": 1
+        },
+        {
+          "fieldname": "file",
+          "label": "File",
+          "fieldtype": "Attach",
+          "reqd": 1,
+          "description": "SVG for drawings and icons (text converted to outlines, exported 1:1 in points); PNG or JPEG at 300 dpi for photos."
+        },
+        {
+          "fieldname": "title",
+          "label": "Title",
+          "fieldtype": "Data",
+          "description": "Caption printed with the artwork, e.g. \"Side View\" or \"End Feed\"."
+        },
+        {
+          "fieldname": "feed_direction",
+          "label": "Feed Direction",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Feed-Direction"
+        },
+        {
+          "fieldname": "bend_axis",
+          "label": "Bend Axis",
+          "fieldtype": "Select",
+          "options": "\nSide\nTop"
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_placeholder",
+          "label": "Placeholder",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Stand-in artwork until the designer's file is supplied. A spec sheet revision cannot be approved while placeholders remain."
+        },
+        {
+          "fieldname": "placeholder_note",
+          "label": "Placeholder Note",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "sha256",
+          "label": "SHA-256",
+          "fieldtype": "Data",
+          "description": "SHA-256 of the file, set when the asset is imported.",
+          "read_only": 1
+        }
+      ]
+    },
     "ilL-Child-Spec-Certification": {
       "autoname": "",
       "istable": 1,
@@ -2003,6 +2205,19 @@
           "label": "Certification",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Certification",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Spec-Output-Level": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "output_level",
+          "label": "Output Level",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Level",
           "reqd": 1
         }
       ]
@@ -3197,6 +3412,13 @@
           "read_only": 1
         },
         {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Kit hero and component photos (e.g. the endcap set)."
+        },
+        {
           "fieldname": "allowed_options",
           "label": "Allowed Options",
           "fieldtype": "Table",
@@ -3277,6 +3499,13 @@
           "description": "Smallest safe top-bend diameter for bendable/flexible fixtures, entered in millimeters and exported as inches (mm)."
         },
         {
+          "fieldname": "spec_output_levels",
+          "label": "Spec Sheet Output Columns",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Output-Level",
+          "description": "Output levels printed as columns on the catalog spec sheet, in this order. Leave empty to print every level the template offers."
+        },
+        {
           "fieldname": "base_price_msrp",
           "label": "Base Price (MSRP)",
           "fieldtype": "Currency",
@@ -3320,6 +3549,13 @@
           "label": "Part Number Builder",
           "fieldtype": "Table",
           "options": "ilL-Child-PN-Builder-Row"
+        },
+        {
+          "fieldname": "feed_options",
+          "label": "Feed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Feed-Option",
+          "description": "Start and end feed directions and leader lengths offered for this product. The part number builder, the spec sheet and the configurator read this table."
         },
         {
           "fieldname": "spec_sheet",
@@ -4313,6 +4549,19 @@
           "fieldname": "qty_rule_value",
           "label": "QTY Rule Value",
           "fieldtype": "Float"
+        },
+        {
+          "fieldname": "spec_title",
+          "label": "Spec Sheet Title",
+          "fieldtype": "Data",
+          "description": "Caption printed above the accessory drawing, e.g. \"Pivot Clip\"."
+        },
+        {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Accessory dimension drawing and product photo."
         }
       ]
     },
@@ -4706,6 +4955,13 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Tape-Dimming-Protocol",
           "description": "Dimming protocols supported by this tape"
+        },
+        {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Tape product photo and dimension drawing."
         }
       ]
     },
@@ -4901,6 +5157,13 @@
           "label": "Supported Environment Ratings",
           "fieldtype": "Table",
           "options": "ilL-Child-Lens Environments"
+        },
+        {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Lens product photo."
         }
       ]
     },
@@ -5002,6 +5265,13 @@
           "label": "Lens Interface",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Lens Interface Type"
+        },
+        {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Cross section, side view and product photo, exported 1:1 in points."
         }
       ]
     },
@@ -5227,6 +5497,27 @@
           "label": "Warranty (years)",
           "fieldtype": "Int",
           "description": "Product warranty duration in years"
+        },
+        {
+          "fieldname": "spec_output_levels",
+          "label": "Spec Sheet Output Columns",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Output-Level",
+          "description": "Output levels printed as columns on the catalog spec sheet, in this order. Leave empty to print every level the template offers."
+        },
+        {
+          "fieldname": "feed_options",
+          "label": "Feed Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Feed-Option",
+          "description": "Start and end feed directions and leader lengths offered for this product. The part number builder, the spec sheet and the configurator read this table."
+        },
+        {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Feed drawings (one per feed direction), bend drawings and cross section."
         },
         {
           "fieldname": "default_tape_spec",
@@ -5682,6 +5973,19 @@
           "fieldname": "fixture_weight_per_foot_grams",
           "label": "Fixture Weight per Foot (g)",
           "fieldtype": "Float"
+        },
+        {
+          "fieldname": "spec_title",
+          "label": "Spec Sheet Title",
+          "fieldtype": "Small Text",
+          "description": "Title as printed on the spec sheet, one line per row (e.g. \"St. Helens [SF]\" then \"Static White\"). Blank uses the product name."
+        },
+        {
+          "fieldname": "spec_assets",
+          "label": "Spec Sheet Assets",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Asset",
+          "description": "Spec sheet hero image and any product-specific artwork."
         },
         {
           "fieldname": "target_brands",

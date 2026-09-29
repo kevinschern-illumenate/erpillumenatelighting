@@ -11,7 +11,11 @@
                         "label",
                         "code",
                         "transmission",
-                        "notes"
+                        "notes",
+                        "spec_sheet_sb",
+                        "spec_label",
+                        "spec_note",
+                        "spec_group_label"
                     ],
     "fields":  [
                    {
@@ -38,6 +42,30 @@
                        "fieldname":  "notes",
                        "fieldtype":  "Small Text",
                        "label":  "Notes"
+                   },
+                   {
+                       "collapsible":  1,
+                       "fieldname":  "spec_sheet_sb",
+                       "fieldtype":  "Section Break",
+                       "label":  "Spec Sheet"
+                   },
+                   {
+                       "description":  "Wording printed on spec sheets, e.g. \"Anodized Silver\". Blank uses the name.",
+                       "fieldname":  "spec_label",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Label"
+                   },
+                   {
+                       "description":  "Printed after the label in brackets, e.g. \"Provide RAL #\".",
+                       "fieldname":  "spec_note",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Note"
+                   },
+                   {
+                       "description":  "Lenses with the same group label share spec-table rows when their values match, e.g. \"Other Lenses\".",
+                       "fieldname":  "spec_group_label",
+                       "fieldtype":  "Data",
+                       "label":  "Spec Sheet Group Label"
                    }
                ],
     "grid_page_length":  50,
@@ -45,7 +73,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 11:49:26.301003",
+    "modified":  "2026-09-29 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Lens Appearance",
