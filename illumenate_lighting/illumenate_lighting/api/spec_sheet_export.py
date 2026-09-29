@@ -25,6 +25,8 @@ from frappe import _
 from frappe.utils import get_url
 from frappe.utils.file_manager import save_file
 
+from illumenate_lighting.illumenate_lighting.api.driver_catalog import approved_input_protocols
+from illumenate_lighting.illumenate_lighting.api.spec_sheets import facts
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	format_length_inches,
 )
@@ -170,7 +172,7 @@ MAX_OUTPUT_LEVELS = 8            # fixed output-level block count
 # ``_generate_indesign_csv`` / ``_generate_tape_neon_indesign_csv`` enforces
 # that the two code paths can never drift apart.
 INDESIGN_TOTAL_COLUMNS = 622
-MAX_POWER_SUPPLY_USABLE_WATTS = 80
+MAX_POWER_SUPPLY_USABLE_WATTS = facts.MAX_POWER_SUPPLY_USABLE_WATTS
 
 
 # ──────────────────────────────────────────────────────────
@@ -279,15 +281,7 @@ def _copy_custom_spec_fields(result, wp_doc, *fallback_docs):
 
 
 def _format_voltage_value(value, suffix):
-	if not _has_value(value):
-		return ""
-	text = str(value).strip()
-	compact = text.upper().replace(" ", "")
-	if compact.endswith(suffix):
-		return text
-	if compact.endswith("V"):
-		return f"{text}{suffix[1:]}"
-	return f"{text}{suffix}"
+	return facts.voltage_value(value, suffix)
 
 
 def _format_output_voltage(voltage_name):
@@ -300,51 +294,28 @@ def _format_output_voltage(voltage_name):
 		["dc_voltage", "ac_voltage"],
 		as_dict=True,
 	)
-	if voltage_data:
-		dc_voltage = voltage_data.get("dc_voltage")
-		if dc_voltage:
-			return _format_voltage_value(dc_voltage, "VDC")
-		ac_voltage = voltage_data.get("ac_voltage")
-		if ac_voltage:
-			return _format_voltage_value(ac_voltage, "VAC")
-	return str(voltage_name)
+	voltage_data = voltage_data or {}
+	return facts.output_voltage(voltage_data.get("dc_voltage"), voltage_data.get("ac_voltage"), voltage_name)
 
 
 def _format_driver_input_voltage(driver):
 	if not driver:
 		return ""
-	if driver.input_voltage_min and driver.input_voltage_max:
-		vtype = driver.input_voltage_type or "VAC"
-		return f"{driver.input_voltage_min}V-{driver.input_voltage_max}{vtype}"
-	return ""
+	return facts.driver_input_voltage(
+		driver.input_voltage_min, driver.input_voltage_max, driver.input_voltage_type
+	)
 
 
 def _format_mm_interval(length_mm):
-	if not _has_value(length_mm):
-		return ""
-	try:
-		length_mm = float(length_mm)
-	except (TypeError, ValueError):
-		return ""
-	if not length_mm:
-		return ""
-	inches_str = format_length_inches(length_mm, precision=2)
-	if not inches_str:
-		return ""
-	mm_val = int(length_mm) if length_mm == int(length_mm) else length_mm
-	return f"{inches_str} ({mm_val}mm)"
+	return facts.mm_interval(length_mm)
 
 
 def _max_footage_per_100w_supply(watts_per_foot):
-	watts = _safe_float(watts_per_foot)
-	if not watts:
-		return ""
-	return round(MAX_POWER_SUPPLY_USABLE_WATTS / watts, 1)
+	return facts.max_footage_per_100w_supply(watts_per_foot)
 
 
 def _format_max_footage_per_100w_supply(watts_per_foot):
-	footage = _max_footage_per_100w_supply(watts_per_foot)
-	return f"{_fmt_num(footage)}ft" if footage != "" else ""
+	return facts.format_max_footage_per_100w_supply(watts_per_foot)
 
 
 def _get_preferred_driver_info(template_type, template_name):
@@ -356,6 +327,9 @@ def _get_preferred_driver_info(template_type, template_name):
 	}
 	if not template_name:
 		return info
+	# Dimming is every approved driver's protocols, not just the preferred driver's.
+	if template_type:
+		info["dimming_protocols"].update(approved_input_protocols(template_type, template_name))
 
 	filters = {
 		"fixture_template": template_name,
@@ -378,9 +352,6 @@ def _get_preferred_driver_info(template_type, template_name):
 	driver = frappe.get_cached_doc("ilL-Spec-Driver", elig_rows[0].driver_spec)
 	info["input_voltage"] = _format_driver_input_voltage(driver)
 	info["max_wattage"] = driver.max_wattage or ""
-	for row in (driver.input_protocols or []):
-		if row.protocol:
-			info["dimming_protocols"].add(row.protocol)
 	return info
 
 
@@ -545,10 +516,10 @@ def _collect_tape_neon_offering_data(tnt_doc):
 
 def _format_production_interval(tape_offering, tape_spec):
 	"""Return production interval as '<inches>" (<mm>mm)' string."""
-	if _is_checked(getattr(tape_spec, "is_free_cutting", 0)):
-		return "Free-Cutting"
-	cut_mm = tape_offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0
-	return _format_mm_interval(cut_mm)
+	return facts.production_interval(
+		tape_offering.cut_increment_mm_override or tape_spec.cut_increment_mm or 0,
+		_is_checked(getattr(tape_spec, "is_free_cutting", 0)),
+	)
 
 
 def _format_cri_quality(cri_doc, sdcm_val):
@@ -559,12 +530,7 @@ def _format_cri_quality(cri_doc, sdcm_val):
 	Uses the ``cri_name`` field (e.g. "95 CRI") per user preference
 	rather than raw ``minimum_ra``.
 	"""
-	parts = []
-	if cri_doc and getattr(cri_doc, "cri_name", None):
-		parts.append(cri_doc.cri_name)
-	if sdcm_val:
-		parts.append(f"{sdcm_val} SDCM")
-	return " / ".join(parts)
+	return facts.cri_quality(getattr(cri_doc, "cri_name", None) if cri_doc else None, sdcm_val)
 
 
 def _get_available_lenses(ft_doc):
@@ -689,55 +655,17 @@ def _collect_product_data(wp_doc):
 		tape_voltage_label = first_ts.input_voltage or ""
 
 	# --- Driver info from ilL-Rel-Driver-Eligibility (highest-priority eligible) ---
-	driver_max_wattage = ""
-	driver_voltage_str = ""
-	dimming_protocols = ""
-	if ft_doc:
-		elig_rows = frappe.get_all(
-			"ilL-Rel-Driver-Eligibility",
-			filters={
-				"fixture_template": ft_doc.name,
-				"is_active": 1,
-				"is_allowed": 1,
-			},
-			fields=["driver_spec"],
-			order_by="priority asc",
-			limit=1,
-		)
-		if elig_rows and elig_rows[0].driver_spec:
-			driver = frappe.get_cached_doc("ilL-Spec-Driver", elig_rows[0].driver_spec)
-			if driver.input_voltage_min and driver.input_voltage_max:
-				vtype = driver.input_voltage_type or "VAC"
-				driver_voltage_str = f"{driver.input_voltage_min}V-{driver.input_voltage_max}{vtype}"
-			driver_max_wattage = driver.max_wattage or ""
-			# --- Dimming protocols from driver's input protocols ---
-			dimming_set = set()
-			for row in (driver.input_protocols or []):
-				if row.protocol:
-					dimming_set.add(row.protocol)
-			dimming_protocols = ", ".join(sorted(dimming_set))
-
-	if tape_voltage_label and driver_voltage_str:
-		input_voltage = f"{tape_voltage_label} (Power Supply: {driver_voltage_str})"
-	elif tape_voltage_label:
-		input_voltage = tape_voltage_label
-	elif driver_voltage_str:
-		input_voltage = driver_voltage_str
+	driver_info = _get_preferred_driver_info("ilL-Fixture-Template", ft_doc.name if ft_doc else None)
+	driver_voltage_str = driver_info["input_voltage"]
+	driver_max_wattage = driver_info["max_wattage"]
+	dimming_protocols = ", ".join(sorted(driver_info["dimming_protocols"]))
+	input_voltage = facts.input_voltage(tape_voltage_label, driver_voltage_str)
 
 	# --- Operating temp range ---
-	temp_range = ""
-	if wp_doc.operating_temp_min_c is not None and wp_doc.operating_temp_max_c is not None:
-		c_min = wp_doc.operating_temp_min_c
-		c_max = wp_doc.operating_temp_max_c
-		f_min = round(c_min * 9 / 5 + 32)
-		f_max = round(c_max * 9 / 5 + 32)
-		temp_range = f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)"
+	temp_range = facts.operating_temperature(wp_doc.operating_temp_min_c, wp_doc.operating_temp_max_c)
 
 	# --- Beam angle formatting ---
-	beam_angle = ""
-	if wp_doc.beam_angle:
-		val = wp_doc.beam_angle
-		beam_angle = f"{int(val)}°" if val == int(val) else f"{val}°"
+	beam_angle = facts.beam_angle(wp_doc.beam_angle)
 
 	result = {
 		"product_name": wp_doc.product_name or "",
@@ -1462,27 +1390,13 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 	dimming_protocols = ", ".join(sorted(dimming_set))
 	driver_voltage_str = driver_info["input_voltage"]
 	driver_max_wattage = _doc_get(tnt_doc, "driver_max_wattage_override") or driver_info["max_wattage"]
-	if tape_voltage_label and driver_voltage_str:
-		input_voltage = f"{tape_voltage_label} (Power Supply: {driver_voltage_str})"
-	elif tape_voltage_label:
-		input_voltage = tape_voltage_label
-	else:
-		input_voltage = driver_voltage_str
+	input_voltage = facts.input_voltage(tape_voltage_label, driver_voltage_str)
 
 	# --- Operating temp range ---
-	temp_range = ""
-	if wp_doc.operating_temp_min_c is not None and wp_doc.operating_temp_max_c is not None:
-		c_min = wp_doc.operating_temp_min_c
-		c_max = wp_doc.operating_temp_max_c
-		f_min = round(c_min * 9 / 5 + 32)
-		f_max = round(c_max * 9 / 5 + 32)
-		temp_range = f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)"
+	temp_range = facts.operating_temperature(wp_doc.operating_temp_min_c, wp_doc.operating_temp_max_c)
 
 	# --- Beam angle (typically blank for neon) ---
-	beam_angle = ""
-	if wp_doc.beam_angle:
-		val = wp_doc.beam_angle
-		beam_angle = f"{int(val)}°" if val == int(val) else f"{val}°"
+	beam_angle = facts.beam_angle(wp_doc.beam_angle)
 
 	result = {
 		"product_name": wp_doc.product_name or "",

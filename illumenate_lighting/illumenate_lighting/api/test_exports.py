@@ -1207,11 +1207,14 @@ class TestSpecSheetExportNeonInDesign(FrappeTestCase):
 				return {"dc_voltage": "24V", "ac_voltage": ""}
 			return None
 
+		# Dimming is the union of every approved driver (driver_catalog.approved_input_protocols).
 		with patch.object(sse.frappe, "get_cached_doc", side_effect=fake_get_cached_doc), \
 			 patch.object(sse.frappe, "get_all", side_effect=fake_get_all), \
 			 patch.object(sse.frappe.db, "get_value", side_effect=fake_get_value), \
+			 patch.object(sse, "approved_input_protocols", return_value=["0-10V"]) as approved, \
 			 patch.object(sse, "get_url", side_effect=lambda url: f"https://erp.test{url}"):
 			data = sse._collect_tape_neon_product_data_indesign(wp_doc)
+		approved.assert_called_once_with("ilL-Tape-Neon-Template", "TNT-1")
 
 		self.assertEqual(data["input_voltage"], "24VDC (Power Supply: 120V-277VAC)")
 		self.assertEqual(data["available_mountings"], "Adhesive")

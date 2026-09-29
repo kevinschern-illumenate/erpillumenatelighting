@@ -4,6 +4,8 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.api.driver_catalog import approved_input_protocols
+from illumenate_lighting.illumenate_lighting.api.spec_sheets import facts
 from illumenate_lighting.illumenate_lighting.api.tape_selection import closest_tape, transmission_fraction
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	format_length_inches,
@@ -650,38 +652,28 @@ class ilLWebflowProduct(Document):
 						"display_order": display_order
 					})
 		
-		# Get dimming protocols from eligible drivers (ilL-Rel-Driver-Eligibility)
-		eligible_drivers = frappe.get_all(
-			"ilL-Rel-Driver-Eligibility",
-			filters={"fixture_template": self.fixture_template, "is_active": 1},
-			fields=["driver_spec"],
-		)
-		for elig in eligible_drivers:
-			driver_doc = frappe.get_doc("ilL-Spec-Driver", elig.driver_spec)
-			for ip in getattr(driver_doc, "input_protocols", []):
-				protocol_name = ip.protocol
-				if not protocol_name:
-					continue
-				if not any(
-					a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
-					and a["attribute_name"] == protocol_name
-					for a in attribute_links
-				):
-					display_order += 1
-					proto_data = frappe.db.get_value(
-						"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
-					)
-					webflow_id = self._get_attribute_webflow_id(
-						"ilL-Attribute-Dimming Protocol", protocol_name
-					)
-					attribute_links.append({
-						"attribute_type": "Dimming Protocol",
-						"attribute_doctype": "ilL-Attribute-Dimming Protocol",
-						"attribute_name": protocol_name,
-						"display_label": proto_data.get("label") if proto_data else protocol_name,
-						"webflow_item_id": webflow_id,
-						"display_order": display_order,
-					})
+		# Dimming: every approved driver's input protocols (same rule as the configurator)
+		for protocol_name in approved_input_protocols("ilL-Fixture-Template", self.fixture_template):
+			if not any(
+				a["attribute_doctype"] == "ilL-Attribute-Dimming Protocol"
+				and a["attribute_name"] == protocol_name
+				for a in attribute_links
+			):
+				display_order += 1
+				proto_data = frappe.db.get_value(
+					"ilL-Attribute-Dimming Protocol", protocol_name, ["label"], as_dict=True
+				)
+				webflow_id = self._get_attribute_webflow_id(
+					"ilL-Attribute-Dimming Protocol", protocol_name
+				)
+				attribute_links.append({
+					"attribute_type": "Dimming Protocol",
+					"attribute_doctype": "ilL-Attribute-Dimming Protocol",
+					"attribute_name": protocol_name,
+					"display_label": proto_data.get("label") if proto_data else protocol_name,
+					"webflow_item_id": webflow_id,
+					"display_order": display_order,
+				})
 
 	def _populate_extrusion_kit_attributes(self, attribute_links):
 		"""Extract attributes from extrusion kit profile spec, lens spec, and kit components."""
@@ -1604,14 +1596,10 @@ class ilLWebflowProduct(Document):
 
 		# Operating Temperature from webflow product fields
 		if self.operating_temp_min_c is not None and self.operating_temp_max_c is not None:
-			c_min = self.operating_temp_min_c
-			c_max = self.operating_temp_max_c
-			f_min = round(c_min * 9 / 5 + 32)
-			f_max = round(c_max * 9 / 5 + 32)
 			specs_to_add.append({
 				"spec_group": "Environmental",
 				"spec_label": "Operating Temperature",
-				"spec_value": f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)",
+				"spec_value": facts.operating_temperature(self.operating_temp_min_c, self.operating_temp_max_c),
 				"is_calculated": 1,
 				"display_order": 82
 			})

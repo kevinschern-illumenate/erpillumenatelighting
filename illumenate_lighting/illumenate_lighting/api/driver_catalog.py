@@ -16,13 +16,13 @@ def independent_outputs(driver):
 	return int(count)
 
 
-@frappe.whitelist(allow_guest=True)
-def input_protocols(template_type, template):
-	"""Public choices from approved associations; never expose driver costs."""
-	if template_type not in {"ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template"}:
-		raise ValueError("Unsupported template family")
-	if not frappe.db.get_value(template_type, template, "is_active"):
-		raise ValueError("Template is unavailable")
+def approved_input_protocols(template_type, template):
+	"""Dimming protocols a template can be ordered with: every approved driver's input protocols.
+
+	Approved means an active, allowed ilL-Rel-Driver-Eligibility row whose driver Item is
+	enabled. Protocols come in driver priority order, each once. This is the one rule for
+	the configurator, Webflow, the CSV export and spec sheets (spec sheet plan, decision 6a).
+	"""
 	rows = frappe.get_all(
 		"ilL-Rel-Driver-Eligibility",
 		filters={
@@ -32,16 +32,31 @@ def input_protocols(template_type, template):
 			"is_active": 1,
 		},
 		fields=["driver_spec"],
+		order_by="priority asc, name asc",
 		limit_page_length=201,
 	)
 	if len(rows) > 200:
 		raise ValueError("Too many driver associations; ask engineering to review this template")
-	protocols = set()
+	protocols = []
 	for row in rows:
+		if not row.driver_spec:
+			continue
 		driver = frappe.get_doc("ilL-Spec-Driver", row.driver_spec)
 		if driver.item and not frappe.db.get_value("Item", driver.item, "disabled"):
-			protocols.update(p.protocol for p in driver.input_protocols or [] if p.protocol)
-	return {"protocols": sorted(protocols)}
+			for protocol in driver.input_protocols or []:
+				if protocol.protocol and protocol.protocol not in protocols:
+					protocols.append(protocol.protocol)
+	return protocols
+
+
+@frappe.whitelist(allow_guest=True)
+def input_protocols(template_type, template):
+	"""Public choices from approved associations; never expose driver costs."""
+	if template_type not in {"ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template"}:
+		raise ValueError("Unsupported template family")
+	if not frappe.db.get_value(template_type, template, "is_active"):
+		raise ValueError("Template is unavailable")
+	return {"protocols": sorted(approved_input_protocols(template_type, template))}
 
 
 def candidates(template_type, template, voltage, output_protocol=None, input_protocol=None):

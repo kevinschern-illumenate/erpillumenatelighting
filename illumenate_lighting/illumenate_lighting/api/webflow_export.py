@@ -20,6 +20,8 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.driver_catalog import approved_input_protocols
+from illumenate_lighting.illumenate_lighting.api.spec_sheets import facts
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
 )
@@ -1338,35 +1340,21 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
     # ── Dimming ────────────────────────────────────────────────
     if "Dimming" not in existing_labels:
         protocol_options = []
-        seen_protocols = set()
-        eligible_drivers = frappe.get_all(
-            "ilL-Rel-Driver-Eligibility",
-            filters={"fixture_template": product["fixture_template"], "is_active": 1},
-            fields=["driver_spec"],
-        )
-        for elig in eligible_drivers:
-            try:
-                driver_doc = frappe.get_doc("ilL-Spec-Driver", elig.driver_spec)
-            except frappe.DoesNotExistError:
-                continue
-            for ip in getattr(driver_doc, "input_protocols", []):
-                protocol_name = getattr(ip, "protocol", None)
-                if not protocol_name or protocol_name in seen_protocols:
-                    continue
-                seen_protocols.add(protocol_name)
-                proto_data = frappe.db.get_value(
-                    "ilL-Attribute-Dimming Protocol", protocol_name,
-                    ["label", "code"],
-                    as_dict=True,
-                )
-                if proto_data:
-                    protocol_options.append({
-                        "attribute_type": "Dimming Protocol",
-                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
-                        "attribute_value": protocol_name,
-                        "display_label": proto_data.get("label") or protocol_name,
-                        "code": proto_data.get("code") or "",
-                    })
+        # Every approved driver's input protocols (same rule as the configurator)
+        for protocol_name in approved_input_protocols("ilL-Fixture-Template", product["fixture_template"]):
+            proto_data = frappe.db.get_value(
+                "ilL-Attribute-Dimming Protocol", protocol_name,
+                ["label", "code"],
+                as_dict=True,
+            )
+            if proto_data:
+                protocol_options.append({
+                    "attribute_type": "Dimming Protocol",
+                    "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                    "attribute_value": protocol_name,
+                    "display_label": proto_data.get("label") or protocol_name,
+                    "code": proto_data.get("code") or "",
+                })
         if protocol_options:
             specs.append({
                 "spec_group": "Control",
@@ -2132,14 +2120,10 @@ def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=No
             and getattr(doc, "operating_temp_min_c", None) is not None
             and getattr(doc, "operating_temp_max_c", None) is not None
         ):
-            c_min = doc.operating_temp_min_c
-            c_max = doc.operating_temp_max_c
-            f_min = round(c_min * 9 / 5 + 32)
-            f_max = round(c_max * 9 / 5 + 32)
             specs.append({
                 "spec_group": "Environmental",
                 "spec_label": "Operating Temperature",
-                "spec_value": f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)",
+                "spec_value": facts.operating_temperature(doc.operating_temp_min_c, doc.operating_temp_max_c),
                 "spec_unit": "",
                 "is_calculated": 1,
                 "display_order": 80,
