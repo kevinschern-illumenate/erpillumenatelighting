@@ -120,3 +120,28 @@ def run(force_background=0):
 		enqueue_after_commit=True,
 	)
 	return {**state, "chromium_expected_at": expected, "chromium_installed": installed, "previous": previous}
+
+
+def console_check():
+	"""Run the probe from the Frappe Cloud server console (Python), printing a readable report.
+
+	Paste these two lines into the site's server console:
+
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.probe import console_check
+		console_check()
+
+	The first run downloads the pinned Chromium (~110 MB, SHA-256 checked); later runs reuse it.
+	"""
+	print(f"Chromium expected at: {_expected_chromium_path()}")
+	try:
+		result = _render(download=True)
+	except Exception as error:
+		frappe.db.rollback()
+		print(f"FAILED: {type(error).__name__}: {error}")
+		return {"status": "failed", "error": f"{type(error).__name__}: {error}"}
+	# The console does not commit on its own; keep the rendered PDF's File record.
+	frappe.db.commit()
+	result["download_url"] = frappe.utils.get_url(result["file_url"])
+	for key, value in result.items():
+		print(f"{key}: {value}")
+	return result
