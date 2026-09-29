@@ -26,6 +26,7 @@ from pathlib import Path
 import frappe
 
 CACHE_KEY = "ill_spec_sheet_render_probe"
+JOB_ID = "ill_spec_sheet_render_probe"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "st_helens_sf_sw"
 
 
@@ -107,7 +108,11 @@ def run(force_background=0):
 	expected = _expected_chromium_path()
 	installed = os.path.isfile(expected) and os.access(expected, os.X_OK)
 	if previous and previous.get("status") == "running" and not _stale(previous):
-		return {**previous, "chromium_expected_at": expected, "chromium_installed": installed}
+		job = _job_report()
+		if job["job_status"] in ("queued", "started", "deferred", "scheduled"):
+			return {**previous, **job, "chromium_expected_at": expected, "chromium_installed": installed}
+		# The job ended without recording a result (or was lost): report why and start again.
+		previous = {**previous, **job}
 	if installed and not frappe.utils.cint(force_background):
 		result = _render()
 		result["chromium_installed"] = True
@@ -127,8 +132,33 @@ def run(force_background=0):
 		"illumenate_lighting.illumenate_lighting.api.spec_sheets.probe.background_probe",
 		queue="long",
 		timeout=1800,
+		job_id=JOB_ID,
+		deduplicate=True,
 	)
 	return {**state, "chromium_expected_at": expected, "chromium_installed": installed, "previous": previous}
+
+
+def _job_report():
+	"""RQ status of the probe job and how much of the Chromium download has arrived."""
+	from frappe.utils.background_jobs import get_job
+
+	from illumenate_lighting.illumenate_lighting.api.spec_sheets.render import pinned_chromium_dir
+
+	report = {"job_status": None}
+	try:
+		job = get_job(JOB_ID)
+	except Exception as error:
+		report["job_error"] = f"{type(error).__name__}: {error}"
+		job = None
+	if job:
+		status = job.get_status(refresh=True)
+		report["job_status"] = getattr(status, "value", status)
+		if job.exc_info:
+			report["job_error"] = job.exc_info.strip().splitlines()[-1]
+	downloads = sorted(pinned_chromium_dir().parent.glob(".download-*/chromium.zip"))
+	if downloads:
+		report["download_mb"] = round(sum(path.stat().st_size for path in downloads) / 1_048_576, 1)
+	return report
 
 
 def _stale(state, minutes=30):
