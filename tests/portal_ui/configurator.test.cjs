@@ -383,6 +383,41 @@ test('coordinator jumper edits made after the next segment is added reach its in
   }
 });
 
+test('coordinator hands desk hosts a segment list and keeps the portal save argument unchanged', () => {
+  for (const family of ['neon', 'tape']) {
+    const category = family === 'neon' ? 'LED Neon' : 'LED Tape';
+    const html = fs.readFileSync(path.join(__dirname, 'rendered', category.replace(' ', '-') + '-coordinator.html'), 'utf8');
+    for (const desk of [true, false]) {
+      const { dom, $, api, requests } = setup(html);
+      const saved = [];
+      const inst = new api.Coordinator($('#portal-configurator'), { product_category: category, is_tape: family === 'tape', is_neon: family === 'neon', is_tape_neon: true, has_templates: false,
+        saveHandler: desk ? payload => saved.push(payload) : undefined });
+      inst.init();
+      requests.find(r => r.method.endsWith('get_tape_neon_spec_init')).callback({ message: { success: true, options: { ccts: [{ value: '3000K' }], output_levels: [{ value: 'High' }], ip_ratings: [{ value: 'IP67', label: 'IP67' }] } } });
+      inst.$('#tnCalculateBtn').prop('disabled', false).trigger('click');
+      const calc = requests.at(-1);
+      calc.callback({ message: { success: true, is_valid: true, computed: {} } });
+      if (!desk) {
+        inst.$('#scheduleSelect').append($('<option>').val('S1')).val('S1');
+        inst.$('#lineSelect').append($('<option>').val('__new__')).val('__new__');
+        inst.setScheduleSnapshot({ modified: 'r1', lines: [] });
+      }
+      inst.$('#tnSaveBtn').prop('disabled', false).trigger('click');
+      if (desk) {
+        assert.equal(saved.length, 1, family);
+        assert.ok(Array.isArray(saved[0].segments), family + ': desk receives a list, not encoded JSON');
+        assert.deepEqual(JSON.parse(JSON.stringify(saved[0].segments)), JSON.parse(calc.args.segments_json));
+      } else {
+        const save = requests.at(-1);
+        assert.match(save.method, /portal.configuration.save$/);
+        assert.equal(save.args.segments, calc.args.segments_json, family + ': portal sends the calculated argument');
+      }
+      inst.destroy();
+      dom.window.close();
+    }
+  }
+});
+
 test('reel preview is read-only and saving submits input to the atomic service', () => {
   const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Tape-coordinator.html'), 'utf8');
   const { dom, $, api, requests } = setup(html);

@@ -15,6 +15,31 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule, can_read_schedule
 
 RECEIPT = "ilL-Configuration-Receipt"
+# Everything a schedule line carries about its current product; cleared before
+# a new configuration is written so no link from a previous family survives.
+LINE_PRODUCT_FIELDS = (
+	"configured_group",
+	"configured_fixture",
+	"configured_tape_neon",
+	"configured_led_sheet",
+	"fixture_template",
+	"tape_neon_template",
+	"led_sheet_template",
+	"accessory_item",
+	"accessory_item_name",
+	"accessory_product_type",
+	"variant_selections",
+	"kit_template",
+	"manufacturer_name",
+	"fixture_model_number",
+	"trim_info",
+	"housing_model_number",
+	"driver_model_number",
+	"lamp_info",
+	"dimming_protocol",
+	"input_voltage",
+	"other_finish",
+)
 FAMILIES = {
 	"Linear Fixture": ("configured_fixture", "ilL-Configured-Fixture", "fixture_template"),
 	"LED Tape": ("configured_tape_neon", "ilL-Configured-Tape-Neon", "tape_neon_template"),
@@ -154,29 +179,7 @@ def apply_artifact(schedule, line, family, artifact, metadata):
 	if line is None:
 		line = schedule.append("lines", {"qty": 1, "line_key": uuid.uuid4().hex})
 	remove_sheet_accessories_for_line(schedule, line)
-	for field in (
-		"configured_group",
-		"configured_fixture",
-		"configured_tape_neon",
-		"configured_led_sheet",
-		"fixture_template",
-		"tape_neon_template",
-		"led_sheet_template",
-		"accessory_item",
-		"accessory_item_name",
-		"accessory_product_type",
-		"variant_selections",
-		"kit_template",
-		"manufacturer_name",
-		"fixture_model_number",
-		"trim_info",
-		"housing_model_number",
-		"driver_model_number",
-		"lamp_info",
-		"dimming_protocol",
-		"input_voltage",
-		"other_finish",
-	):
+	for field in LINE_PRODUCT_FIELDS:
 		line.set(field, None)
 	link, _doctype, template_field = FAMILIES[family]
 	line.set(

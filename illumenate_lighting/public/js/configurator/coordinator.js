@@ -2877,8 +2877,10 @@ function tnSaveToSchedule() {
         frappe.msgprint(__('Calculate a valid configuration before saving.'));
         return;
     }
+    // lastTnSegments is the encoded request argument; hosts receive the list.
     if (context.saveHandler) return context.saveHandler({product_type: productCategory,
-        selections: lastTnSelections, segments: lastTnSegments, tape_neon_template: lastTnTemplate, validation: tnCurrentResult, instance: self});
+        selections: lastTnSelections, segments: lastTnSegments ? JSON.parse(lastTnSegments) : null,
+        tape_neon_template: lastTnTemplate, validation: tnCurrentResult, instance: self});
     return self.saveScheduleConfiguration({ family: productCategory,
         selections: lastTnSelections, segments: lastTnSegments, template: lastTnTemplate });
 }

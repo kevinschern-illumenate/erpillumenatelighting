@@ -24,7 +24,11 @@ from frappe.utils import cint, flt
 
 from illumenate_lighting.illumenate_lighting.api import led_sheet_configurator, tape_neon_configurator
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, finite_number
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	canonical_json,
+	finite_number,
+	segment_list,
+)
 from illumenate_lighting.illumenate_lighting.api.configured_product_builder import (
 	_coerce_dict,
 	_dispatch_save,
@@ -507,6 +511,10 @@ def build_configured_line(
 	notes = (notes or "").strip() or None
 	selections = _coerce_dict(selections_json) or {}
 	header = _safe_header(_coerce_dict(header_json) or {})
+	try:
+		segments = segment_list(segments_json)
+	except ValueError as exc:
+		return _error(str(exc))
 	variant_origin = variant_origin or ("Sales Order Tool" if parent_doctype == "Sales Order" else "Quotation Tool")
 
 	# ── 1. Schedule preflight (before any engine write) ─────────────
@@ -543,7 +551,7 @@ def build_configured_line(
 			if product_type == PRODUCT_TYPE_FIXTURE:
 				payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
 			else:
-				payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments_json)
+				payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments)
 			validation = _dispatch_save(
 				product_type,
 				payload,
@@ -597,7 +605,7 @@ def build_configured_line(
 	engineering_request = canonical_json({
 		"schema_version": 2, "family": product_type, "product_slug": product_slug,
 		"template": tape_neon_template or selections.get("fixture_template_code") or selections.get("template") or (selections.get("group_request") or {}).get("template"),
-		"selections": selections, "segments": json.loads(segments_json) if isinstance(segments_json, str) else segments_json,
+		"selections": selections, "segments": segments,
 	})
 	line_name = None
 	line_position = None
@@ -797,32 +805,31 @@ def _write_schedule_line(
 		line = schedule_doc.lines[line_idx] if line_idx is not None else None
 		return apply_artifact(schedule_doc, line, product_type, artifact,
 			{"line_id": fixture_type, "location": location, "qty": qty, "notes": notes})
+	from illumenate_lighting.illumenate_lighting.portal.configuration import LINE_PRODUCT_FIELDS
+
 	line = schedule_doc.lines[line_idx] if line_idx is not None else schedule_doc.append("lines", {})
-	line.configured_group = None
+	# An overwritten line may hold another family or an OTHER-manufacturer
+	# product: drop its generated sheet accessories and every stale link and
+	# note first, as the portal's apply_artifact does.
+	led_sheet_configurator.remove_sheet_accessories_for_line(schedule_doc, line)
+	for field in LINE_PRODUCT_FIELDS:
+		line.set(field, None)
+	line.ill_bom = artifact.get("bom")
+	line.notes = notes or ""
 
 	if product_type == PRODUCT_TYPE_FIXTURE:
 		line.manufacturer_type = "ILLUMENATE"
 		line.product_type = PRODUCT_TYPE_FIXTURE
 		line.fixture_template = artifact.get("template_code")
 		line.configured_fixture = artifact["configured_fixture"]
-		line.configured_tape_neon = None
-		line.tape_neon_template = None
-		line.variant_selections = None
 		line.configuration_status = "Configured"
 		line.ill_item_code = artifact["item_code"]
 		line.manufacturable_length_mm = artifact.get("mfg_length_mm")
-		line.notes = notes or ""
 	elif product_type == PRODUCT_TYPE_SHEET:
-		led_sheet_configurator.remove_sheet_accessories_for_line(schedule_doc, line)
 		line.manufacturer_type = "ILLUMENATE"
 		line.product_type = PRODUCT_TYPE_SHEET
 		line.led_sheet_template = artifact.get("template_code")
 		line.configured_led_sheet = artifact["configured_led_sheet"]
-		line.configured_fixture = None
-		line.fixture_template = None
-		line.configured_tape_neon = None
-		line.tape_neon_template = None
-		line.variant_selections = None
 		line.configuration_status = "Configured"
 		line.ill_item_code = artifact["item_code"]
 		line.manufacturable_length_mm = None
@@ -848,19 +855,11 @@ def _write_schedule_line(
 				"pricing": {"total_price_msrp": computed.get("total_price_msrp", 0)},
 			},
 		)
-		line.configured_fixture = None
-		line.fixture_template = None
 		line.ill_item_code = artifact["item_code"]
-		if notes:
-			line.notes = notes
 
 	line.line_id = fixture_type
 	line.location = location
 	line.qty = cint(qty) or 1
-	# Clear OTHER-manufacturer data when overriding such a line with an ilLumenate product.
-	for field in ("manufacturer_name", "fixture_model_number", "accessory_item", "accessory_product_type"):
-		if line.meta.has_field(field):
-			line.set(field, None)
 	if product_type == PRODUCT_TYPE_SHEET:
 		# Jumper / leader / power-supply ACCESSORY rows scaled by the bundle qty,
 		# exactly as the portal LED Sheet configurator writes them.

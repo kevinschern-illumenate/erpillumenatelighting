@@ -999,7 +999,9 @@
 		} else if (isSheet(productType)) {
 			// selections_json already carries template / spec / options / coverage.
 		} else {
-			if (payload.segments) args.segments_json = JSON.stringify(payload.segments);
+			if (payload.segments) {
+				args.segments_json = typeof payload.segments === 'string' ? payload.segments : JSON.stringify(payload.segments);
+			}
 			if (payload.tape_neon_template) args.tape_neon_template = payload.tape_neon_template;
 		}
 
