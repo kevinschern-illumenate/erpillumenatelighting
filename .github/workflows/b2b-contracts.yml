@@ -37,6 +37,13 @@ jobs:
           npm run list --prefix tests/portal_e2e
       - name: PDF filler and merger contract
         run: python -B tools/check_pdf_fidelity.py
+      - name: Generated spec sheet matches the InDesign golden
+        env:
+          ILL_SPEC_SHEET_CHROMIUM: google-chrome
+        run: |
+          python -m pip install pymupdf
+          google-chrome --version
+          python -B -m unittest discover -s tools/spec_sheets/tests -v
       - name: Changed-file lint and schemas
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -53,3 +60,4 @@ jobs:
           path: |
             .tools/b2b-validation.json
             .tools/portal-pdf-qa/
+            .tools/spec-sheet-fidelity/

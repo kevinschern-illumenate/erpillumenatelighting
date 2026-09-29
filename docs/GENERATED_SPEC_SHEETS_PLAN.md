@@ -1,6 +1,6 @@
 # Generated Spec Sheets and Submittals — Investigation and Plan
 
-Status: **Plan, awaiting approval** · Prepared 2026-09-29
+Status: **Phase 0 complete locally; Frappe Cloud probe pending** · Prepared 2026-09-29 · Updated 2026-09-29 (Phase 0 results, §15)
 
 ## 1. Goal
 
@@ -31,6 +31,12 @@ PDF field mappings (`ilL-Spec-Submittal-Mapping`, `ilL-Neon-Submittal-Mapping`, 
 | 7 | ilLumenate branding first. The design must accept a second brand (206 Lighting: own logo, colours, footer) later without template changes. |
 | 8 | Order: linear fixtures, LED tape, LED neon, extrusion kits; then LED sheets, drivers, controllers. |
 | 9 | The `custom_image_*` Webflow Product fields (added through Customize Form) hold local paths on the designer's Mac. They get real ERPNext homes. |
+| 10 | **ERPNext is the source of truth** where it and a published PDF disagree (e.g. operating temperature). |
+| 11 | Low-transmission lenses use brighter tape to reach the same delivered output: white ≈ 56 %, black ≈ 32 %, frosted/clear ≈ 99 % transmission (§9.1). |
+| 12 | Catalog sheets show the same output columns as today. ERPNext keeps the extra levels so columns can be added later without data work. |
+| 13 | **Custom finish (CU, "Provide RAL #") and Outdoor (O)** are standard options on every linear fixture and extrusion kit. |
+| 14 | Feed directions and feed lengths vary by product and come from a child table on the template (§3.8). |
+| 15 | Defaults accepted for every open item in §14. |
 
 ---
 
@@ -176,6 +182,25 @@ As for linear, except:
 
 Each `ilL-Child-PN-Builder-Row` section gets a **`color_role`** (Product / Length-Feed / Power).
 
+### 3.8 Feed options (new child table)
+
+Feed directions and lengths differ per product, and today they are spread across Webflow
+configurator rows (`feed_lengths`) and allowed options. Add **`ilL-Child-Feed-Option`** to the
+fixture template and the tape/neon template:
+
+| Field | Type | Notes |
+|---|---|---|
+| `position` | Select `Start`/`End` | |
+| `kind` | Select `Direction`/`Length` | |
+| `feed_direction` | Link → `ilL-Attribute-Feed-Direction` | Direction rows (E, B, L, R, Endcap) |
+| `length_ft` | Float | Length rows |
+| `code` / `label` | Data | What the PN builder prints ("E — End", "2 — 2ft", "C — Endcap", "Blank — Endcap") |
+| `is_default`, `display_order`, `is_active` | | |
+
+The PN builder, the Webflow configurator payload and the engine's feed validation all read this one
+table. The St. Helens sheet (start E/B; end E/B/C; lengths 2/5/10/15/20/25 ft) and the Cowlitz sheet
+(B/E/L/R; lengths 2–30 ft) become two sets of rows instead of hand-typed columns.
+
 ---
 
 ## 4. Asset model (where every image lives)
@@ -261,7 +286,7 @@ Once every product has migrated, the Customize Form fields are removed, and the 
   └────────────────────────────────────────────────────────────────────────────────────┘
                                                         │
                                                         ▼
-         Jinja page templates + design-token CSS (pt units, absolute layout)
+          SVG page description: measured tokens, baseline-placed text (pages.py)
                                                         │
                                                         ▼
                         Renderer (Chrome headless) ──► PDF bytes
@@ -300,36 +325,62 @@ Extract the calculations now spread across `spec_sheet_export.py`, `ill_webflow_
 Webflow Product, the CSV export and the sheet model all call it. The first PR is a pure refactor
 with characterization tests, so the website and the sheet can never disagree again.
 
-### 5.3 Templates and design tokens
+### 5.3 Page description and design tokens (built in Phase 0)
 
-- `templates/spec_sheets/base.html` holds page-frame macros: header, icon row, spec line, footer.
-  Section macros: spec table, drawing grid, accessory grid, component cards, PN example, PN builder,
-  power-supply builder, length note, mounting-accessory list, kit component cards.
-- **Family page compositions** (`linear.html`, `tape.html`, `neon.html`, `kit.html`) mirror the
-  InDesign pages. Submittal variants reuse the same macros with the focused spec table.
-- `public/css/spec_sheet.css` contains **pt-unit tokens measured from the InDesign PDFs** (Appendix A):
-  - `@page { size: 612pt 792pt; margin: 0 }`
-  - absolute positioning for the fixed chrome
-  - measured row pitch (15.85pt) for tables
-- Fonts are **self-hosted** in `public/fonts/`. Poppins, Manrope and Onest are OFL-licensed, so
-  bundling them is permitted. The sheets also use **Menlo** (the "×" in "100W × 2") and
-  **Minion Pro** (a stray glyph on the tape sheet); both are proprietary. Plan: substitute Poppins'
-  "×" and confirm the visual match in Phase 0.
+Phase 0 replaced the HTML/CSS template idea with a **point-accurate SVG page description**, because
+it matches InDesign's model: every element sits at an absolute position, and text is placed by
+baseline.
 
-### 5.4 Renderer
+- `api/spec_sheets/tokens.py` holds the measured tokens (Appendix A): page size, margins, text styles
+  (font, size, InDesign tracking, colour role), chrome positions, table metrics and the CCT gradient.
+- `api/spec_sheets/svg.py` provides `Page` primitives: `text` (baseline, `start`/`middle`/`end`
+  anchor), `line`, `circle`, `image` (rounded clip, mirroring), `gradient_rect`. `document()`
+  assembles one self-contained HTML file with one inline SVG per page and data-URI fonts and images.
+- `api/spec_sheets/pages.py` contains the layout functions: `page_chrome`, `icon_row`, `spec_table`,
+  `drawings`. Family pages are compositions of these. Later phases add PN builder, power supply,
+  component cards, accessory grid, feed drawings and the focused submittal table.
+- `api/spec_sheets/text.py` measures text from `fonts/metrics.json`, a HarfBuzz shaping table built by
+  `tools/spec_sheets/build_font_metrics.py`. This is used for right-aligned composites (footer bullets,
+  the "For use with … Light Source" statement), overflow checks and future wrapping, without a
+  shaping library on the server.
+- **Why SVG and not HTML boxes:** Chrome rounds font ascent and descent to whole pixels, so an HTML
+  box's baseline moves by up to 0.4pt depending on font and size. SVG `<text y>` is the baseline:
+  measured error 0.014pt.
+- **Tracking:** InDesign tracking becomes SVG `letter-spacing`. Chrome turns off ligatures when
+  letter-spacing is set, but InDesign keeps them (Manrope's `t_t` in "Wattage"), so pages set
+  `font-feature-settings: 'liga' 1`.
+- **Fonts** are bundled under `api/spec_sheets/fonts/` (Poppins 4.004, the version InDesign used;
+  Manrope and Onest as static instances of the Google Fonts variable fonts; all OFL, licences
+  included). Menlo and Minion Pro are not bundled; the "×" uses Poppins (approved default).
+- **Assets are sized by their own SVG dimensions**, exported 1:1 in points. The icon row, for example,
+  places each icon at its natural width with a 4.9pt gap, which is InDesign's spacing.
 
-Rendering happens behind one function, `render_pdf(html) -> bytes`, so the engine can change.
+### 5.4 Renderer (decided in Phase 0)
 
-| Option | Fidelity | Cloud risk | Recommendation |
-|---|---|---|---|
-| **Frappe v16 `chrome` PDF generator** | Excellent: modern CSS, web fonts, SVG, vector text | Must confirm Chromium exists and runs on the Frappe Cloud bench | **Primary, if Phase 0 passes** |
-| Headless Chromium in a small external render service (the HTML is self-contained; the service returns PDF bytes) | Excellent, same engine | New service to host and secure; the payload contains no commercial data | Fallback |
-| WeasyPrint | Good, but its own layout engine, so small metric differences | Needs Pango system libraries on the bench | Not recommended for "exact" |
-| ReportLab (absolute drawing) | Exact, but every section is coded by hand | None (pure Python) | Only if both Chrome options fail |
-| wkhtmltopdf (current default) | Poor for this design | None | Rejected |
+`api/spec_sheets/render.py::render_pdf(html) -> bytes` runs a **pinned Chrome for Testing
+headless shell** with `--print-to-pdf`.
 
-Post-processing with pypdf (already a dependency) sets PDF metadata (title, author = brand, subject
-= revision code) and merges into packets as today.
+- **Frappe's own Chrome print path is not used.** Frappe v16's Chrome generator (#35812) is built
+  for Print Formats: without a header/footer it forces 15 mm margins, and it rounds "Letter" to
+  216 × 279 mm. Spec sheets need a full-bleed 612 × 792pt page.
+- **Frappe's default Chromium (133) is not used either.** Chrome 136 and earlier embed `@font-face`
+  fonts as **Type 3** glyph procedures, not as the real fonts. Bisected on this project's page:
+  134/135/136 → Type 3, 137/141 → TrueType. So the renderer pins **141.0.7390.54**. It downloads the
+  build once per bench into `<bench>/chromium-spec-sheets/<version>/`, verifies its SHA-256 and
+  unpacks it with path checks. Frappe's Chromium and Print Formats are untouched.
+- **Lookup order:** `ILL_SPEC_SHEET_CHROMIUM` (local tools/CI), the site-config key
+  `spec_sheet_chromium_path`, then the pinned build. The download happens only in a background job,
+  never inside a web request.
+- **Security:** a Content-Security-Policy is injected as the first `<head>` element: no scripts, no
+  network, no file access; only inline styles and data-URI images and fonts. (Chrome's
+  `scriptEnabled=false` switch silently stops `--print-to-pdf`, so the policy does this job instead.)
+  A test proves an inline script and an external image do not load.
+- **Speed:** ≈ 0.25–0.35 s per page locally, including Chromium start-up.
+- **Version drift:** CI uses the runner's Google Chrome (≥ 137); the bench uses the pinned build.
+  Both pass the same fidelity test.
+
+Post-processing with pypdf (already a dependency) will set PDF metadata (title, author = brand,
+subject = revision code) and merge into packets as today.
 
 ### 5.5 Catalog revisions and publishing
 
@@ -441,28 +492,47 @@ name per brand) can use the existing `target_brands` rows later if needed.
 ## 9. Data reconciliation findings (St. Helens [SF] Static White)
 
 Comparing the supplied Webflow Product export with the InDesign PDF shows that **the generated sheet
-will print what ERPNext says, and today ERPNext and the PDF disagree.** Each item needs a decision
-during the pilot:
+prints what ERPNext says**. Decisions received on 2026-09-29:
 
-| Item | ERPNext today | Current PDF | Needed |
+| Item | ERPNext today | Current PDF | Resolution |
 |---|---|---|---|
-| Operating temperature | −40 °C to 65 °C | −20 °C to 45 °C | Engineering confirms the true value |
-| Output columns shown | 100–1500 incl. 200/250/400 | 100/300/500/750/1000 | New curated list: **`show_on_spec_sheet`** on template allowed output levels |
-| White lens @100 lm/ft | lens map: 100 lm/ft tape (0.8 W/ft) | 1.7 W (≈200 lm/ft tape) | Reconcile the `transmission` values and snapping rule with engineering |
-| Black lens @100 lm/ft | 100 lm/ft tape | 2.5 W (≈300 lm/ft tape) | Same |
-| Finishes | SV/BK/WH | SV/WH/BK/**CU (Provide RAL #)** | Add Custom finish option + spec note, or drop it from the sheet |
-| Dry/Wet | Only `I — Dry` | `I — Indoor`, `O — Outdoor` | Add Outdoor/Wet option or correct the sheet |
-| Start feed directions | B/E/L/R | E/B | Confirm allowed directions |
-| End feed | B/E/L/R/CAP | E/B/C | Same; confirm code `C` vs `CAP` |
-| Feed lengths | 2,4,6,8,10,15,20,25,30 ft | 2,5,10,15,20,25 ft | Confirm |
-| Dimming | TRIAC/ELV/0-10V (attribute links) | + DMX, DALI, Bluetooth | Resolved by rule 6a once eligibility rows are complete |
+| Operating temperature | −40 °C to 65 °C | −20 °C to 45 °C | **ERPNext wins**; generated sheets print −40 °F (−40 °C) to 149 °F (65 °C) |
+| Output columns shown | 100–1500 incl. 200/250/400 | 100/300/500/750/1000 | **Keep today's columns** via `show_on_spec_sheet` on the template's output levels; extra levels stay in ERPNext for later |
+| White / black lens wattage | see §9.1 | 1.7 W / 2.5 W at 100 lm/ft | Brighter tape behind low-transmission lenses (decision 11); **rule to confirm, §9.1** |
+| Finishes | SV/BK/WH | + **CU (Provide RAL #)** | **Standard on every linear fixture and kit**: add the Custom finish option with `spec_note` "Provide RAL #" |
+| Dry/Wet | Only `I — Dry` | `I — Indoor`, `O — Outdoor` | **Outdoor is standard on every linear fixture and kit**: add the option |
+| Feed directions / lengths | B/E/L/R(/CAP); 2–30 ft | E/B(/C); 2–25 ft | **Per product**, from the new feed options table (§3.8) |
+| Dimming | TRIAC/ELV/0-10V (attribute links) | + DMX, DALI, Bluetooth | Union of all approved drivers in `ilL-Rel-Driver-Eligibility` (decision 6a) |
 | Icon row / UL | "24V DC", "Dry/Damp/Wet Rated" modelled as certifications; no UL cert | UL "For use with … Light Source" | Model per §3.2 |
 | Hero image | `featured_image` = `SH01_LIT.jpg` (website) | `SH01 Hero Image - TIF` | New `spec_hero_image` |
 
-A **data readiness report** (Phase 2) lists these gaps per product before its first generated
+A **data readiness report** (Phase 2) lists gaps like these per product before its first generated
 revision is approved.
 
----
+### 9.1 Which tape sits behind each lens
+
+The published St. Helens sheet follows one rule exactly. For each output column, choose the tape
+whose **delivered output (tape lm/ft × lens transmission) is closest to the column value**, and
+print "—" when the best tape misses by more than about 15 %. With 56 % (white), 32 % (black) and
+≈ 99 % (frosted/clear) transmission this reproduces every wattage and every "—" on the sheet.
+
+The configurator engine (`configurator_engine.py`, `auto_select_tape_offering`) uses a different rule.
+It snaps each tape's delivered output to the nearest fixture level, then picks the **highest-output**
+tape among those that snap to the selected level. With the fixture levels in the St. Helens export
+and 56 % / 32 % transmission, the two rules disagree in two cells:
+
+| Column | Published sheet (closest) | Engine today (highest that snaps) |
+|---|---|---|
+| White lens, 750 lm/ft | 1250 lm/ft tape → 700 delivered, 11.6 W/ft | 1500 lm/ft tape → 840 delivered, 14.4 W/ft |
+| Black lens, 100 lm/ft | 300 lm/ft tape → 96 delivered, 2.5 W/ft | 400 lm/ft tape → 128 delivered, 3.6 W/ft |
+
+The Webflow configurator's lens map (`_get_output_levels_lens_map`) shows yet another tape, the
+first one that snaps (e.g. white 100 → 100 lm/ft tape). The spec sheet must print what the engine
+builds, so **the engine rule is the one to settle** (§14, item 6). The sheet model will call the
+engine's tape selection instead of re-deriving it.
+
+The published max-run values also differ slightly from the tape sheet in five cells (e.g. 36 ft vs
+35 ft for 200 lm/ft tape). Generated sheets print the engine's computed max run.
 
 ## 10. YAML Builder, import and asset upload
 
@@ -491,8 +561,7 @@ revision is approved.
 
 ## 11. Proving "exact match"
 
-A **fidelity harness** (`tools/spec_sheet_fidelity.py`, extending the existing
-`tools/check_pdf_fidelity.py` approach) compares a generated PDF with the InDesign "golden" PDF:
+A **fidelity harness** (`tools/spec_sheets/fidelity.py`, built in Phase 0) compares a generated PDF with the InDesign "golden" PDF:
 
 1. **Text geometry:** every text span matched by content must use the same font family and weight,
    the same size (±0.05pt), the same colour (exact hex), and the same baseline and x-position
@@ -503,8 +572,13 @@ A **fidelity harness** (`tools/spec_sheet_fidelity.py`, extending the existing
 4. **Goldens:** the four supplied PDFs, re-exported from InDesign **after** the data is reconciled
    (§9), so the goldens and ERPNext agree. Otherwise the harness measures data drift, not layout.
 
-The harness runs in CI against local fixtures and against staging-generated PDFs during rollout.
-Sign-off per family is: harness green + designer visual approval.
+Text inside drawing and icon boxes is artwork, so it is covered by the raster check only. Approved
+content changes are listed per fixture (`approved_differences`); where one changes a string's width
+(sales@ vs info@), the rest of that line may move sideways.
+
+The harness runs in CI (`b2b-contracts.yml`, "Generated spec sheet matches the InDesign golden")
+against local fixtures, and against staging-generated PDFs during rollout. Sign-off per family is:
+harness green + designer visual approval.
 
 Known deliberate differences, listed for approval: corrected page numbering, sales@ email, family-
 correct length note, generated © year, and Menlo "×" replaced with the Poppins glyph if that is
@@ -516,20 +590,27 @@ approved.
 
 Sizes are relative (S ≈ days, M ≈ 1–2 weeks, L ≈ 2–4 weeks of focused work).
 
-### Phase 0 — Feasibility spike (S)
-- Confirm Frappe v16 `chrome` PDF generation on the Frappe Cloud bench (staging). If it isn't
-  available, stand up the external Chromium render fallback.
-- Hand-build St. Helens page 1 in HTML/CSS with self-hosted fonts and run the fidelity harness
-  against the golden. **Exit:** text geometry within tolerance on page 1, renderer decision recorded.
-- Designer exports sample assets: cross-section SVG (outlined text), side view, mounting clip, pivot
-  clip, hero PNG, icons, logo, spec lines.
+### Phase 0 — Feasibility spike (S) — done locally, Cloud probe pending
+- ✅ Renderer decided and built (§5.4): pinned Chrome for Testing 141 headless shell, exact page
+  size, CSP-locked; Frappe's Print Format path and Chrome 133 ruled out, with reasons.
+- ✅ St. Helens page 1 rebuilt from a sheet model and **passes the fidelity harness** against the
+  InDesign PDF (§15).
+- ✅ Fonts bundled with licences; HarfBuzz metrics table; stand-in assets cut from the golden PDF
+  (`tools/spec_sheets/extract_standins.py`) until the designer's exports arrive.
+- ⏳ Run the probe on the Frappe Cloud bench (§15.3) to confirm the pinned Chromium downloads and
+  runs there.
+- ⏳ Designer exports sample assets: cross-section SVG (outlined text), side view, mounting clip,
+  pivot clip, hero PNG, icons, logo, spec lines. The same fixture is then re-run with real assets.
 
 ### Phase 1 — Foundations (M)
 - `spec_sheets/facts.py` refactor, with characterization tests proving Webflow Product and CSV
   outputs are unchanged.
-- New fields/tables: `ilL-Child-Spec-Asset`, `spec_icon`, `spec_label`/`spec_note`/`spec_group_label`,
-  `show_on_spec_sheet`, `color_role`, certification `spec_sheet_placement`, brand document fields,
-  User `document_initials`.
+- New fields/tables: `ilL-Child-Spec-Asset`, `ilL-Child-Feed-Option` (§3.8), `spec_icon`,
+  `spec_label`/`spec_note`/`spec_group_label`, `show_on_spec_sheet`, `color_role`, certification
+  `spec_sheet_placement`, brand document fields, User `document_initials`.
+- Standard options: Custom finish (CU, "Provide RAL #") and Outdoor (O) on every linear fixture and
+  extrusion kit template; YAML Builder examples include them by default.
+- Background job (after migrate) that installs the pinned Chromium, so no request waits on it.
 - Patches: seed the ilLumenate brand document profile. Also migrate existing `custom_image_*` data
   where a value is already an ERPNext `/files/` URL; Mac paths are reported, not copied.
 - YAML Builder schema refresh, examples, asset-path support, asset pack output; asset importer.
@@ -577,7 +658,7 @@ Brand profile data + visual QA; no template changes expected.
 
 | Risk | Mitigation |
 |---|---|
-| Chrome unavailable on Frappe Cloud | Phase 0 decides first; the renderer sits behind one function; external render fallback |
+| Pinned Chromium cannot download or run on Frappe Cloud (egress, missing system libraries) | The Phase 0 probe checks both; `spec_sheet_chromium_path` accepts a bench-provided binary; the HTML is self-contained, so an external render service remains a fallback |
 | "Exact" match fails on text shaping (kerning, line breaks) | Absolute positioning with measured coordinates; fixed-width note blocks with explicit line breaks; harness tolerance agreed up front |
 | Data disagreements surface on generated sheets | Readiness report plus the approval gate; nothing publishes without approval |
 | Designer workload for asset export | Each asset is exported once per component and reused across products; batch export presets in Illustrator |
@@ -593,6 +674,12 @@ Brand profile data + visual QA; no template changes expected.
 4. Submittal initials for portal-generated packets: **brand default initials**, or the portal user's.
 5. Catalog regeneration trigger: **automatic Draft on change + manual approve**, or fully automatic publish.
 
+All five defaults were accepted on 2026-09-29. New item:
+
+6. **Tape selection rule behind low-transmission lenses (§9.1):** closest delivered output (matches
+   the published sheet), or the engine's current "highest tape that snaps to the level". This changes
+   wattage, drivers and price for real builds, so it is an engineering decision; the sheet follows it.
+
 ---
 
 ## Appendix A — Measured design tokens (St. Helens PDF, InDesign 20.5 export)
@@ -601,16 +688,16 @@ Page: US Letter **612 × 792 pt**; outer margin **36 pt** (0.5 in).
 
 | Element | Font | Size | Colour | Position (x, top) |
 |---|---|---|---|---|
-| Title lines | Manrope Bold | 20 pt | `#231F20` | 198, 33.3 / 57.3 |
-| Sublabel ("SURFACE"), section headers | Manrope Bold | 8.78 pt | `#231F20` | 198, 99.2 · 36, 198.2 |
-| Spec labels | Manrope SemiBold | 7.8 pt | `#231F20` | 37.4, rows every **15.85 pt** from 231.0 |
-| Spec values | Poppins Light | 7.8 pt | `#231F20` | value columns start at 192 |
+| Title lines | Manrope Bold | 20 pt, tracking 0 | `#231F20` | 198, baselines 57.32 / 81.32 |
+| Sublabel ("SURFACE"), section headers | Manrope Bold | 8.78 pt, tracking +7 | `#231F20` | 198, baseline 109.98 · 36, baseline 208.98 |
+| Spec labels | Manrope SemiBold | 7.8 pt, tracking −12 | `#231F20` | 37.44, baselines every **15.84 pt** from 240.40 |
+| Spec values | Poppins Light | 7.8 pt, tracking −12 | `#231F20` | centred in equal columns across 192.9–576.0; baseline 0.07 above the label |
 | Table rules | — | 0.25 pt stroke | `#D1D6DB` | full content width |
 | CCT gradient bar | raster 384×16 pt | — | stops = CCT swatches | 192, 339 |
 | Drawing callouts | Manrope Bold / Poppins Light | 7 pt | `#231F20` (accent `#0C598D`) | inside the drawing |
 | "For use with … Light Source." | Poppins Light | 7.8 pt | `#231F20` | 469.4, 171.6 |
-| Footer labels | Manrope Regular | 8 pt | `#231F20` | 36 / 233.2 / 424.4, 722.3 |
-| Footer address / notice / date code | Poppins Light | 7 pt | `#A2ABB6` | 36, 740.6 · 370.7, 748.6 |
+| Footer labels | Manrope Regular | 8 pt, tracking +50 | `#231F20` | 36 / 233.17 / 424.43, baseline 731.21; 108pt rules at y 731.0 |
+| Footer address / notice / date code | Poppins Light | 7 pt | `#A2ABB6` | baselines 748 / 756; 2pt `#9FABB7` bullet dots, 3.85pt gap after |
 | Page number | Poppins Medium | 7 pt | `#231F20` | right-aligned at 576, 740.5 |
 | PN example | Manrope SemiBold | 10 pt | `#FDAD0D` / `#00588C` / `#AC212A` | centred, 207.1 / 231.5 |
 | PN builder series | Manrope SemiBold | 11.7 pt | role colour | 37.8, 294.5 |
@@ -630,13 +717,79 @@ InDesign swatches present: `27K`, `30K`, `35K`, `40K`, `Darker 27K`, `Dark Gray`
 `Light Gray 2`, `Secondary`, `#00588C`, `Dark Red`.
 Fonts referenced: Poppins (full family), Manrope, Onest (kit components page), Menlo, Minion Pro.
 
-Phase 0 repeats this measurement for every page of all four families and commits the result as
-`spec_sheet_tokens.json`, which the CSS and the fidelity harness both read.
+Tracking is in 1/1000 em, derived by comparing HarfBuzz-shaped widths with the golden spans. Row
+rules sit 3.70pt below the label baseline (0.25pt `#D1D6DB`). The bottom spec line is the top image
+mirrored. The hero clip radius is 14.4pt. These values live in `api/spec_sheets/tokens.py`; each new
+family page is measured with `python -m tools.spec_sheets.fidelity extract <pdf> --page N`.
 
 ## Appendix B — Files this plan touches
 
 | Area | Files |
 |---|---|
-| New | `api/spec_sheets/{model,facts,render,revision}.py`, `api/spec_sheets/families/*.py`, `templates/spec_sheets/*.html`, `public/css/spec_sheet.css`, `public/fonts/*`, DocTypes `ilL-Child-Spec-Asset`, `ilL-Spec-Sheet-Revision`, `tools/spec_sheet_fidelity.py` |
+| Built in Phase 0 | `api/spec_sheets/{render,probe,svg,text,tokens,pages}.py`, `api/spec_sheets/fonts/*` (+ `metrics.json`), `api/spec_sheets/fixtures/st_helens_sf_sw/*`, `tools/spec_sheets/{fidelity,render_fixture,extract_standins,build_font_metrics}.py`, `tools/spec_sheets/tests/`, `tests/fixtures/spec_sheets/st_helens_sf_sw/{golden.pdf,fidelity.json}`, CI step in `b2b-contracts.yml` |
+| New | `api/spec_sheets/{model,facts,revision}.py`, `api/spec_sheets/families/*.py`, DocTypes `ilL-Child-Spec-Asset`, `ilL-Child-Feed-Option`, `ilL-Spec-Sheet-Revision` |
 | Changed | `portal/packets.py` (dispatch + kit branch), `api/spec_sheet_generator.py`, `api/public_sheet.py`, `api/webflow_configurator.py` (download), `api/product_readiness.py`, `api/publication.py` (documents), `doctype/ill_webflow_product/ill_webflow_product.py` (facts), `api/spec_sheet_export.py` (facts), attribute/spec/brand DocType JSON, `tools/fixture_builder/catalog*.py`, `tools/yaml_builder_ui` schema + examples |
 | Retired (Phase 6) | Fillable-PDF paths in `api/spec_submittal.py`, `portal/pdf_mapping.py`, mapping DocTypes, mapping generators, `custom_image_*` Customize Form fields |
+
+---
+
+## 15. Phase 0 results (2026-09-29)
+
+### 15.1 Fidelity: St. Helens [SF] Static White, page 1
+
+The generated page is built from `fixtures/st_helens_sf_sw/model.json` (values transcribed from the
+PDF; assets cut from the PDF as stand-ins) and compared with the InDesign export:
+
+| Check | Result |
+|---|---|
+| Page size | 612 × 792pt, identical |
+| Words (text, font, size, colour) | **174 / 174** match |
+| Baseline position | max 0.014pt off |
+| Horizontal position | max 0.37pt; mean 0.044pt; 0.2pt outside the approved footer line |
+| Word width | max 0.38pt |
+| Images | 5 / 5 boxes match (hero, logo, both spec lines, CCT band) |
+| Rules | 59 / 59 match (table rules, footer rules, drawing lines), none extra |
+| Raster (150 dpi) | 0.57 % of pixels differ; almost all in the two approved changes below |
+| Fonts in the PDF | Real subset TrueType (Manrope-Bold, Poppins-Light, …), not Type 3 |
+
+Approved differences in this fixture: footer email **sales@** (was info@) and page count **1/3**
+(the published PDF skips page 2 but prints 1/4).
+
+Checked on three Chromium builds: Playwright Chromium 141, Chrome for Testing 141.0.7390.54 (the
+pinned build) and full Chromium 141. Chrome for Testing 133 (Frappe's default) passes visually but
+embeds Type 3 fonts, which is why the build is pinned.
+
+### 15.2 Reproduce locally
+
+```bash
+pip install pymupdf
+export ILL_SPEC_SHEET_CHROMIUM=/path/to/chrome-headless-shell   # or google-chrome
+python -m tools.spec_sheets.render_fixture \
+    illumenate_lighting/illumenate_lighting/api/spec_sheets/fixtures/st_helens_sf_sw/model.json out.pdf
+python -m tools.spec_sheets.fidelity compare tests/fixtures/spec_sheets/st_helens_sf_sw/fidelity.json out.pdf --report out/
+python -m unittest discover -s tools/spec_sheets/tests
+```
+
+`out/diff.png` highlights every differing pixel in red over a grey blend of both pages.
+
+### 15.3 Run the probe on Frappe Cloud
+
+After this branch is deployed, sign in as a System Manager, open the browser console on the site
+and run:
+
+```js
+frappe.call({
+  method: "illumenate_lighting.illumenate_lighting.api.spec_sheets.probe.run",
+  type: "POST",
+}).then((r) => console.log(r.message));
+```
+
+The first call starts a background job (long queue) that downloads the pinned Chromium (~110 MB,
+SHA-256 checked) and renders St. Helens page 1; it returns `status: "running"`. Call it again after
+a few minutes. A successful result reports the Chromium version, render time, page size, embedded
+font names and a private `file_url` for the PDF. Download that PDF and run the §15.2 `compare`
+command on it to confirm the bench output matches.
+
+If the result is `failed`, the error names the cause (download blocked, missing system library,
+timeout); the full trace is in Error Log under "Spec sheet render probe failed".
+
