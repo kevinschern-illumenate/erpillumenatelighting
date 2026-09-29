@@ -490,6 +490,14 @@ def _ensure_default_uom_exists() -> None:
 		)
 
 
+def _build_id_or_none(configured) -> str | None:
+	"""Build ID recorded on a configured Item; legacy (v1) records have none."""
+	if configured.get("build_schema_version") != 2:
+		return None
+	from illumenate_lighting.illumenate_lighting.api.build_artifacts import build_id
+	return build_id(configured)
+
+
 def _create_or_get_configured_item(
 	fixture,
 	skip_if_exists: bool = True,
@@ -515,10 +523,12 @@ def _create_or_get_configured_item(
 		"messages": [],
 	}
 
-	if fixture.get("build_schema_version") == 2:
+	is_build = fixture.get("build_schema_version") == 2
+	if is_build:
+		from illumenate_lighting.illumenate_lighting.api.build_artifacts import item_belongs_to_build
 		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
 		snapshot(fixture)
-		if fixture.configured_item and fixture.configured_item != fixture.name:
+		if fixture.configured_item and not item_belongs_to_build(fixture.configured_item, fixture):
 			frappe.throw("Configured Item does not match this immutable linear build")
 	# Check if fixture already has a configured item
 	if fixture.configured_item and skip_if_exists:
@@ -531,9 +541,14 @@ def _create_or_get_configured_item(
 			})
 			return result
 
-	# Use the fixture name (part number) as the item code
-	# The fixture name is now formatted as: ILL-{Profile}-{LED}-{CCT}-{Output}-{Lens}-{Mount}-{Finish}-{Length}
-	item_code = fixture.name
+	# Legacy fixtures are named by their part number:
+	# ILL-{Profile}-{LED}-{CCT}-{Output}-{Lens}-{Mount}-{Finish}-{Length}.
+	# Immutable builds are named by hash, so their Item takes the display part number.
+	if is_build:
+		from illumenate_lighting.illumenate_lighting.api.build_artifacts import build_item_code
+		item_code = build_item_code(fixture, fixture.get("display_part_number"))
+	else:
+		item_code = fixture.name
 
 	# Check if item already exists
 	if frappe.db.exists("Item", item_code):
@@ -614,6 +629,7 @@ def _create_or_get_configured_item(
 			"has_serial_no": 1,  # Epic 7: Enable serial tracking for finished goods
 			"description": _generate_item_description(fixture),
 			"custom_ill_configured_fixture": fixture.name,  # Link back to fixture
+			"ill_build_id": _build_id_or_none(fixture),
 			"brand": ILLUMENATE_BRAND,
 		})
 		item_doc.insert(ignore_permissions=True)
@@ -668,16 +684,16 @@ def _create_or_get_configured_tape_neon_item(
 	}
 
 	# Version 2 engineering identity includes the supply allocation and dependencies.
-	# A readable part number alone is not a safe Item/BOM reuse key.
-	versioned_item = None
-	if configured_tape_neon.get("build_schema_version") == 2:
+	# A readable part number alone is not a safe Item/BOM reuse key, so the
+	# Item code is the part number made unique per build (see build_item_code).
+	is_build = configured_tape_neon.get("build_schema_version") == 2
+	if is_build:
+		from illumenate_lighting.illumenate_lighting.api.build_artifacts import item_belongs_to_build
 		from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot
 		snapshot(configured_tape_neon)
-		build_hash = configured_tape_neon.config_hash or ""
-		if len(build_hash) != 64 or any(char not in "0123456789abcdef" for char in build_hash):
-			frappe.throw(_("A versioned configured product requires a complete build hash"))
-		versioned_item = f"ILL-TN-{build_hash}"
-		if configured_tape_neon.configured_item and configured_tape_neon.configured_item != versioned_item:
+		if configured_tape_neon.configured_item and not item_belongs_to_build(
+			configured_tape_neon.configured_item, configured_tape_neon
+		):
 			frappe.throw(_("The configured Item does not match this immutable build"))
 
 	# Check if record already has a configured item
@@ -692,7 +708,11 @@ def _create_or_get_configured_tape_neon_item(
 			return result
 
 	# Use the part_number as the item code
-	item_code = versioned_item or configured_tape_neon.part_number
+	if is_build:
+		from illumenate_lighting.illumenate_lighting.api.build_artifacts import build_item_code
+		item_code = build_item_code(configured_tape_neon, configured_tape_neon.part_number)
+	else:
+		item_code = configured_tape_neon.part_number
 	if not item_code:
 		result["success"] = False
 		result["messages"].append({
@@ -736,6 +756,7 @@ def _create_or_get_configured_tape_neon_item(
 			"is_stock_item": 1,
 			"description": description,
 			"custom_ill_configured_tape_neon": configured_tape_neon.name,
+			"ill_build_id": _build_id_or_none(configured_tape_neon),
 			"brand": ILLUMENATE_BRAND,
 		})
 		item_doc.insert(ignore_permissions=True)
@@ -986,9 +1007,12 @@ def _create_or_get_bom(
 		dict: {"success": bool, "bom_name": str, "created": bool, "skipped": bool, "messages": list}
 	"""
 	if fixture.get("build_schema_version") == 2:
-		from illumenate_lighting.illumenate_lighting.api.build_artifacts import ensure_bom
+		from illumenate_lighting.illumenate_lighting.api.build_artifacts import (
+			ensure_bom,
+			item_belongs_to_build,
+		)
 		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
-		if item_code != fixture.name:
+		if not item_belongs_to_build(item_code, fixture):
 			frappe.throw("BOM Item does not match this immutable fixture build")
 		return ensure_bom(fixture, item_code, snapshot(fixture)["components"])
 	result = {

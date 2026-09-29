@@ -137,8 +137,11 @@ def create_or_get_tape_neon_bom(
         ``{"success", "bom_name", "created", "skipped", "messages"}``
     """
     if configured.get("build_schema_version") == 2:
-        from illumenate_lighting.illumenate_lighting.api.build_artifacts import ensure_bom
-        if item_code != "ILL-TN-" + configured.config_hash:
+        from illumenate_lighting.illumenate_lighting.api.build_artifacts import (
+            ensure_bom,
+            item_belongs_to_build,
+        )
+        if not item_belongs_to_build(item_code, configured):
             raise ValueError("Configured Item does not match the tape/neon build identity")
         return ensure_bom(configured, item_code, build_tape_neon_bom_items(configured))
     result: dict[str, Any] = {
