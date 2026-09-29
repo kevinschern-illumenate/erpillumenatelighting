@@ -156,11 +156,11 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
 
 
 def generate_all(config: FixtureBuilderConfig, output_dir: str,
-                 source_submittal_csv: str = "") -> dict[str, str]:
+                 source_submittal_csv: str = "", asset_root: str | None = None) -> dict[str, str]:
     """Generate all CSV files and return {filename: filepath} mapping."""
     if isinstance(config, dict):
         from .catalog import generate_catalog
-        return generate_catalog(config, output_dir)
+        return generate_catalog(config, output_dir, asset_root=asset_root)
     if config.product_type not in ("fixture", "tape", "neon", "led-sheet"):
         raise ValueError("Unsupported legacy product_type")
     if config.product_type in ("tape", "neon"):
@@ -335,20 +335,34 @@ def main():
     print(f"\nGenerating CSVs for {series} ({ptype})...")
     print(f"Output directory: {os.path.abspath(args.output)}\n")
 
-    results = generate_all(config, args.output, source_submittal_csv=args.source_submittal_csv)
+    try:
+        results = generate_all(
+            config,
+            args.output,
+            source_submittal_csv=args.source_submittal_csv,
+            asset_root=os.path.dirname(os.path.abspath(args.config)) if args.config else None,
+        )
+    except ValueError as exc:
+        print("Generation errors:", file=sys.stderr)
+        for err in str(exc).splitlines():
+            print(f"  - {err}", file=sys.stderr)
+        sys.exit(1)
 
     # Summary
     print("=" * 60)
     print(f"{'File':<45} {'Rows':>6}")
     print("-" * 60)
     total_rows = 0
-    for filename, filepath in results.items():
+    csv_files = {name: path for name, path in results.items() if name.endswith(".csv")}
+    for filename, filepath in csv_files.items():
         count = _count_data_rows(filepath)
         total_rows += count
         print(f"  {filename:<43} {count:>6}")
     print("-" * 60)
     print(f"  {'TOTAL':<43} {total_rows:>6}")
-    print(f"\n{len(results)} CSV files generated successfully.")
+    print(f"\n{len(csv_files)} CSV files generated successfully.")
+    if "assets.zip" in results:
+        print(f"Spec artwork: {results['assets.zip']} (import it after the CSVs; see IMPORT.md)")
 
 
 if __name__ == "__main__":

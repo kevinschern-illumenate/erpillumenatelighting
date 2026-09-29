@@ -209,6 +209,40 @@ class AssetPackImport(unittest.TestCase):
 		self.assertTrue(inserted[0].file_name.endswith("-hero.png"))
 		self.assertTrue(inserted[0].content.startswith(b"\x89PNG"))
 
+	def test_packs_written_by_the_yaml_builder_import_cleanly(self):
+		import tempfile
+		from pathlib import Path
+
+		from tools.fixture_builder.catalog_assets import extract_assets, write_pack
+
+		with tempfile.TemporaryDirectory() as folder:
+			(Path(folder) / "art").mkdir()
+			(Path(folder) / "art" / "cross.svg").write_bytes(SVG)
+			(Path(folder) / "art" / "wet.png").write_bytes(png())
+			records = {
+				"ilL-Spec-Profile": [
+					{
+						"item": "SH01",
+						"spec_assets": [{"asset_role": "Cross Section", "file": "art/cross.svg"}],
+					}
+				],
+				"ilL-Attribute-Environment Rating": [{"label": "Wet", "spec_icon": "art/wet.png"}],
+			}
+			assets, errors = extract_assets(
+				records, lambda doctype, row: row.get("item") or row["label"], folder
+			)
+			self.assertEqual(errors, [])
+			data = Path(write_pack(assets, folder)).read_bytes()
+		docs = {
+			("ilL-Spec-Profile", "SH01"): Doc(spec_assets=[]),
+			("ilL-Attribute-Environment Rating", "Wet"): Doc(),
+		}
+		report, docs, _inserted = self.run_import(data, docs=docs)
+		self.assertEqual(report["errors"], [])
+		self.assertEqual((report["rows_added"], report["fields_set"]), (1, 1))
+		self.assertEqual(records["ilL-Spec-Profile"][0]["spec_assets"], [])
+		self.assertNotIn("spec_icon", records["ilL-Attribute-Environment Rating"][0])
+
 	def test_broken_packs_are_reported_as_a_whole(self):
 		with load_service(MODULE) as (module, _frappe):
 			for data, message in (

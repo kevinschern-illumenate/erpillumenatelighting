@@ -336,9 +336,18 @@ def csv_data(doctype, records, schema):
 	return headers, rows
 
 
-def generate_catalog(config, output_dir):
+def generate_catalog(config, output_dir, asset_root=None):
+	"""Write ordered import CSVs, and ``assets.zip`` when records reference local artwork.
+
+	``asset_root`` is the folder local artwork paths are relative to (the catalog file's folder).
+	"""
+	from .catalog_assets import PACK, extract_assets, write_pack
+
 	schema = build_schema()
 	records, batches, external = prepare_catalog(config, schema)
+	assets, errors = extract_assets(records, lambda doctype, row: identity(doctype, row, schema), asset_root)
+	if errors:
+		raise ValueError("\n".join(errors))
 	output = Path(output_dir)
 	output.mkdir(parents=True, exist_ok=True)
 	results, manifest = (
@@ -368,6 +377,13 @@ def generate_catalog(config, output_dir):
 				"import_type": "Insert New Records",
 			}
 		)
+	if assets:
+		results[PACK] = str(write_pack(assets, output))
+		manifest["asset_pack"] = {
+			"file": PACK,
+			"assets": len(assets),
+			"targets": sum(len(entry["targets"]) for entry in assets.values()),
+		}
 	(output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 	(output / "records.json").write_text(
 		json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -379,7 +395,16 @@ def generate_catalog(config, output_dir):
 		"Use only files listed in this manifest; older files in the output folder may belong to an earlier build.\n"
 		"Review the import preview before submitting. This package does not publish or sync products.\n"
 		"Configured products, BOMs, and sales transactions are created by the ERP configurators at runtime.\n"
-		"Upload referenced attachments to the site first. Site custom fields and live link existence require site validation.\n",
+		"Upload referenced attachments to the site first. Site custom fields and live link existence require site validation.\n"
+		+ (
+			f"\n## Spec artwork\n\nAfter every CSV is imported, upload {PACK} as a private file and run, from the System Console:\n\n"
+			'    print(frappe.call("illumenate_lighting.illumenate_lighting.api.spec_sheets.asset_pack.import_asset_pack",\n'
+			f'        file_url="/private/files/{PACK}", dry_run=1))\n\n'
+			"Use the uploaded File's URL if ERPNext renamed it. Fix anything the dry run reports, then run it\n"
+			"again with dry_run=0 and Commit ticked. Re-running it is safe.\n"
+			if assets
+			else ""
+		),
 		encoding="utf-8",
 	)
 	return results

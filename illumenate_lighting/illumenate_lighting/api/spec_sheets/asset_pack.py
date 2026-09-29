@@ -47,61 +47,20 @@ from pathlib import PurePosixPath
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.spec_sheets.asset_targets import (
+	ASSET_ROLES,
+	FIELDS,
+	FORMAT,
+	MANIFEST,
+	SPEC_LINES,
+	TABLES,
+)
 from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import check_svg, has_fpo
 
-MANIFEST = "assets_manifest.json"
-FORMAT = "ill-spec-asset-pack"
 MAX_ASSETS = 500
 MAX_ASSET_BYTES = 20 * 1024 * 1024
 MAX_PACK_BYTES = 250 * 1024 * 1024
 ROLES = ("System Manager", "ilL Catalog Publisher", "ilL Engineering")
-
-SPEC_ASSET_PARENTS = (
-	"ilL-Webflow-Product",
-	"ilL-Spec-Profile",
-	"ilL-Spec-Lens",
-	"ilL-Spec-Accessory",
-	"ilL-Spec-LED Tape",
-	"ilL-Tape-Neon-Template",
-	"ilL-Extrusion-Kit-Template",
-)
-# table -> (parent doctypes, row fields accepted from the manifest, fields identifying a row)
-TABLES = {
-	"spec_assets": (
-		SPEC_ASSET_PARENTS,
-		(
-			"asset_role",
-			"title",
-			"feed_direction",
-			"bend_axis",
-			"display_order",
-			"is_placeholder",
-			"placeholder_note",
-		),
-		("asset_role", "title", "feed_direction", "bend_axis"),
-	),
-	"document_logos": (
-		("ilL-Webflow-Brand",),
-		("spec_line", "is_placeholder", "placeholder_note"),
-		("spec_line",),
-	),
-}
-FIELDS = {
-	"ilL-Attribute-Output Voltage": ("spec_icon",),
-	"ilL-Attribute-Environment Rating": ("spec_icon",),
-	"ilL-Attribute-Certification": ("badge_image",),
-}
-ASSET_ROLES = (
-	"Hero",
-	"Product Photo",
-	"Cross Section",
-	"Side View",
-	"Dimension Drawing",
-	"Feed Drawing",
-	"Bend Drawing",
-	"Accessory Drawing",
-)
-SPEC_LINES = ("SW", "DW", "TW", "FS", "CC", "PS", "OTHER")
 
 
 class PackError(ValueError):
@@ -223,7 +182,7 @@ def _check_target(target):
 		row = target.get("row")
 		if not isinstance(row, dict):
 			raise PackError(f"{doctype} {target['name']}: table targets need a row")
-		unknown = set(row) - set(table[1])
+		unknown = set(row) - set(table[2])
 		if unknown:
 			raise PackError(f"unknown row fields {', '.join(sorted(unknown))}")
 		if target["table"] == "spec_assets" and row.get("asset_role") not in ASSET_ROLES:
@@ -267,8 +226,8 @@ def _apply(asset, url, report):
 			doc.set(target["field"], url)
 			report["fields_set"] += 1
 		else:
-			key_fields = TABLES[target["table"]][2]
-			wanted = {**target["row"], ("file" if target["table"] == "spec_assets" else "logo"): url}
+			_parents, file_field, _fields, key_fields = TABLES[target["table"]]
+			wanted = {**target["row"], file_field: url}
 			match = next(
 				(
 					row
