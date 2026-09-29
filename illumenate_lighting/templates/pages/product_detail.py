@@ -34,8 +34,6 @@ def get_context(context):
 
     context.product_slug = product_slug
     context.product_name = product.product_name
-    context.is_configurable = bool(product.is_configurable)
-    context.fixture_template = product.fixture_template or ""
     context.title = product.product_name or _("Product Detail")
     context.no_cache = 1
     return context

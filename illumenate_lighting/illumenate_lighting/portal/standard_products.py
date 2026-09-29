@@ -37,6 +37,19 @@ def choices(product):
 						spec = frappe.get_doc("ilL-Spec-" + kind, row.get(prefix + "_spec"))
 						if not spec.meta.has_field("is_active") or spec.is_active:
 							candidates.append((spec.get("item"), row.variant_code or spec.name))
+	if product.product_type == "Component":
+		# Individual profile/lens/hardware pieces are scheduled as accessory
+		# lines against the Item their spec points to. Extrusion Kits are sold
+		# as one SKU, so they rely on portal_item above.
+		for field, doctype in (
+			("profile_spec", "ilL-Spec-Profile"),
+			("lens_spec", "ilL-Spec-Lens"),
+			("accessory_spec", "ilL-Spec-Accessory"),
+		):
+			if product.get(field):
+				spec = frappe.get_doc(doctype, product.get(field))
+				if not spec.meta.has_field("is_active") or spec.is_active:
+					candidates.append((spec.get("item"), spec.name))
 	result, seen = [], set()
 	for code, label in candidates:
 		if not code or code in seen:
@@ -104,8 +117,10 @@ def add(
 		frappe.throw("Enter a whole number in the Item stock UOM")
 	if not isinstance(idempotency_key, str) or not 8 <= len(idempotency_key) <= 128:
 		frappe.throw("A save retry key is required")
+	line_id = str(line_id or "").strip()
+	location = str(location or "").strip() or None
 	if not line_id or len(line_id) > 140 or len(location or "") > 140 or len(notes or "") > 4000:
-		frappe.throw("Enter a designation and use at most 140 characters for location and 4,000 for notes")
+		frappe.throw("Enter a fixture type and use at most 140 characters for location and 4,000 for notes")
 	schedule = schedule_context(schedule_name, write=True, lock=True)
 	body = {
 		"product": product_slug,

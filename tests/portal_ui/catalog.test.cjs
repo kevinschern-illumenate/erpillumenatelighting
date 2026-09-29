@@ -32,9 +32,9 @@ test('catalog filters are keyboard buttons and image attributes cannot inject ma
     const button = w.document.querySelector('.product-type-tab');
     assert.equal(button.tagName, 'BUTTON'); button.click(); assert.equal(button.getAttribute('aria-pressed'), 'true');
     const group = w.document.querySelector('.filter-group-title'); assert.equal(group.tagName, 'BUTTON'); group.click(); assert.equal(group.getAttribute('aria-expanded'), 'false');
-    w.CatalogState.products = [{product_name: 'Name " onerror="alert(1)', product_slug: 'safe', product_type: 'LED Tape', featured_image: '/files/a.png" onerror="alert(1)', base_price_msrp: 0}];
+    w.CatalogState.products = [{product_name: 'Name " onerror="alert(1)', product_slug: 'safe', product_type: 'LED Tape', featured_image: '/files/a.png" onerror="alert(1)', price_per_ft_msrp: 12.5}];
     w.renderGrid();
     assert.equal(w.document.querySelector('img').hasAttribute('onerror'), false);
-    assert.match(w.document.querySelector('.product-card-price').textContent, /Base MSRP \$0/);
+    assert.match(w.document.querySelector('.product-card-price').textContent, /\$12\.50 \/ ft/);
     dom.window.close();
 });
