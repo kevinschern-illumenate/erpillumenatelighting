@@ -270,6 +270,16 @@ class TestTapeItemCSV(unittest.TestCase):
         headers, _ = _read_csv(path)
         self.assertEqual(headers, gen_tape_item_csv.HEADERS)
 
+    def test_supplier_part_number_and_description(self):
+        self.config.tape_specs[0].supplier_part_no = "LN-2835-120"
+        self.config.tape_specs[0].supplier_description = "2835 120 LED/m strip"
+        path = gen_tape_item_csv.generate(self.config, self.tmpdir)
+        headers, rows = _read_csv(path)
+        self.assertEqual(headers[-1], "supplier_items.custom_supplier_description")
+        part_col = headers.index("Supplier Part Number (Supplier Items)")
+        self.assertEqual((rows[0][part_col], rows[0][-1]), ("LN-2835-120", "2835 120 LED/m strip"))
+        self.assertEqual((rows[1][part_col], rows[1][-1]), ("", ""))
+
     def test_row_count(self):
         """Should have 2 rows (one per tape spec)."""
         path = gen_tape_item_csv.generate(self.config, self.tmpdir)

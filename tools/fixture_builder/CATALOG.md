@@ -22,7 +22,10 @@ child table reachable from those records. This currently comprises 65 parent
 DocTypes and 37 child DocTypes, including the standard master-data subset below.
 
 Standard ERPNext master support includes Item (variant attributes and supplier
-parts), Item Attribute/values, Item Group, UOM, Brand, and Item Price. Existing
+parts), Item Attribute/values, Item Group, UOM, Brand, and Item Price. Each Supplier
+Items row takes a Supplier, Supplier Part Number, and Supplier Description; the
+description is the site's `custom_supplier_description` field, exported under its
+`supplier_items.custom_supplier_description` header. Existing
 Supplier, Price List, Currency and site integration records can be referenced
 through explicit external links. Standard metadata is an explicit ERPNext v15
 subset; custom product metadata is derived from the checked-in JSON.

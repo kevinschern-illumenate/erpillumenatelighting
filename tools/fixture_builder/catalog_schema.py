@@ -79,6 +79,8 @@ def standard_doctypes():
 			"fields": [
 				_field("supplier", "Supplier", "Link", options="Supplier", reqd=1),
 				_field("supplier_part_no", "Supplier Part Number"),
+				# Site custom field shown on the ilL Purchase Order print format.
+				_field("custom_supplier_description", "Supplier Description", "Small Text"),
 			],
 		},
 		"Item Attribute": {

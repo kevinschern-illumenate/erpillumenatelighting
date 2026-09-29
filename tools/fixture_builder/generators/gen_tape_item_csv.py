@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..config_schema import FixtureBuilderConfig
-from .common import TAPE_ITEM_GROUPS, write_csv
+from .common import TAPE_ITEM_GROUPS, write_item_csv
 
 HEADERS = [
     "Item Code",
@@ -23,7 +23,7 @@ HEADERS = [
 ]
 
 
-def _row(item_code, item_group, item_name, brand, warranty_days, supplier=""):
+def _row(item_code, item_group, item_name, brand, warranty_days, supplier="", source=None):
     """Build a primary Item row for a tape/neon spec (non-variant)."""
     return [
         item_code,
@@ -38,8 +38,9 @@ def _row(item_code, item_group, item_name, brand, warranty_days, supplier=""):
         "",                     # Variant Based On
         "",                     # Attribute
         supplier,
-        "",                     # Supplier Description
-        "",                     # Supplier Part Number
+        "",                     # Attribute Value
+        str(getattr(source, "supplier_part_no", "") or ""),
+        str(getattr(source, "supplier_description", "") or ""),  # optional trailing column
     ]
 
 
@@ -60,8 +61,9 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
             brand=config.brand,
             warranty_days=config.warranty_days,
             supplier=config.supplier,
+            source=ts,
         ))
 
     filepath = f"{output_dir}/Item CSV.csv"
-    write_csv(filepath, HEADERS, rows)
+    write_item_csv(filepath, HEADERS, rows)
     return filepath

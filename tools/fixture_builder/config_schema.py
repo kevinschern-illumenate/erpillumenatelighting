@@ -43,6 +43,8 @@ class ProfileDef:
     joiner_system: str = ""              # e.g. "Eldorado-Single"
     lens_interface: str = "Snap-in"
     environment_ratings: list[str] = field(default_factory=lambda: ["Dry"])
+    supplier_part_no: str = ""           # Item Supplier row: part number at config.supplier
+    supplier_description: str = ""       # Item Supplier row: custom_supplier_description
 
 
 @dataclass
@@ -54,6 +56,8 @@ class LensDef:
     stock_type: str = "Stick"
     stock_length_mm: int = 2000
     continuous_max_length_mm: int = 0
+    supplier_part_no: str = ""           # Item Supplier row: part number at config.supplier
+    supplier_description: str = ""       # Item Supplier row: custom_supplier_description
 
 
 @dataclass
@@ -72,6 +76,8 @@ class AccessoryDef:
     qty_rule_type: str = "Per x mm"
     qty_rule_value: float = 304.8
     environment_rating: str = ""
+    supplier_part_no: str = ""           # Item Supplier row: part number at config.supplier
+    supplier_description: str = ""       # Item Supplier row: custom_supplier_description
 
 
 @dataclass
@@ -81,6 +87,8 @@ class EndcapDef:
     colors: list[str] = field(default_factory=lambda: ["WH", "BK", "GR"])
     styles: list[str] = field(default_factory=lambda: ["Solid", "Feed Through"])
     allowance_override_per_side_mm: float = 2.0
+    supplier_part_no: str = ""           # Item Supplier row: part number at config.supplier
+    supplier_description: str = ""       # Item Supplier row: custom_supplier_description
 
     def generate_items(self) -> list[AccessoryDef]:
         """Expand into individual AccessoryDef rows."""
@@ -185,6 +193,8 @@ class TapeSpecDef:
     is_free_cutting: bool = False
     leader_cable_item: str = ""
     dimming_protocols: list[str] = field(default_factory=list)
+    supplier_part_no: str = ""           # Item Supplier row: part number at config.supplier
+    supplier_description: str = ""       # Item Supplier row: custom_supplier_description
 
 
 @dataclass

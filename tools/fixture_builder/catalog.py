@@ -304,11 +304,15 @@ def csv_data(doctype, records, schema):
 			for child_field in schema["doctypes"][field["options"]]["fields"]:
 				child_key = child_field["fieldname"]
 				if any(child_key in child for child in children):
-					columns.append(
-						(key, child_key, f"{child_field.get('label', child_key)} ({field.get('label', key)})")
+					# A site's custom field label is unknown offline; Frappe also matches table.fieldname.
+					label = (
+						f"{key}.{child_key}"
+						if child_key.startswith("custom_")
+						else f"{child_field.get('label', child_key)} ({field.get('label', key)})"
 					)
+					columns.append((key, child_key, label))
 		elif any(key in row for row in records):
-			columns.append((None, key, field.get("label", key)))
+			columns.append((None, key, key if key.startswith("custom_") else field.get("label", key)))
 	headers = []
 	for parent, key, label in columns:
 		headers.append((f"{parent}.{key}" if parent else key) if label in headers else label)

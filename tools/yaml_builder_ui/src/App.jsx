@@ -320,6 +320,16 @@ export function yamlSimpleList(items, level) {
   return items.map((v) => `${indent(level)}- ${yamlScalar(v)}\n`).join('');
 }
 
+// Item Supplier row values. Always quoted so part numbers like 00123 stay text.
+export function renderSupplierPart(obj, level) {
+  let out = '';
+  if (obj.supplierPartNo?.trim()) out += `${indent(level)}supplier_part_no: ${JSON.stringify(obj.supplierPartNo.trim())}\n`;
+  if (obj.supplierDescription?.trim()) out += `${indent(level)}supplier_description: ${JSON.stringify(obj.supplierDescription.trim())}\n`;
+  return out;
+}
+
+export const hasSupplierPart = obj => Boolean(obj.supplierPartNo?.trim() || obj.supplierDescription?.trim());
+
 function renderTapeSpec(spec, level) {
   let out = '';
   out += `${indent(level)}item_code: ${yamlScalar(spec.itemCode)}\n`;
@@ -337,6 +347,7 @@ function renderTapeSpec(spec, level) {
   out += `${indent(level)}cut_increment_mm: ${yamlScalar(spec.cutIncrementMm)}\n`;
   out += `${indent(level)}is_free_cutting: ${yamlScalar(!!spec.isFreeCutting)}\n`;
   out += `${indent(level)}leader_cable_item: ${yamlScalar(spec.leaderCableItem || '')}\n`;
+  out += renderSupplierPart(spec, level);
   out += `${indent(level)}dimming_protocols:\n`;
   out += yamlSimpleList(spec.dimmingProtocols || [], level + 1);
   return out;
@@ -478,7 +489,11 @@ function validate(s) {
 
   if (!s.seriesName?.trim()) issues.push({ level: 'warn', text: 'Series name is empty.' });
   if (!s.seriesCode?.trim()) issues.push({ level: 'warn', text: 'Series code is empty.' });
-  if (!s.supplier?.trim()) issues.push({ level: 'warn', text: 'Supplier is empty.' });
+  if (!s.supplier?.trim()) {
+    issues.push(s.tapeSpecs.some(hasSupplierPart)
+      ? { level: 'error', text: 'Supplier is required when a spec has a supplier part number or description.' }
+      : { level: 'warn', text: 'Supplier is empty.' });
+  }
   if (!s.brand?.trim()) issues.push({ level: 'warn', text: 'Brand is empty.' });
   if (!isNumericString(String(s.warrantyDays)) || Number(s.warrantyDays) <= 0) {
     issues.push({ level: 'warn', text: 'Warranty days should be a positive number.' });
@@ -761,6 +776,20 @@ export function Button({ children, onClick, variant = 'default', size = 'md', ic
   );
 }
 
+// Supplier Part Number and Description for this item's row at the series Supplier.
+export function SupplierPartFields({ value, onChange }) {
+  return (
+    <>
+      <Field label="Supplier Part Number" hint="Item Supplier row">
+        <TextInput monospace value={value.supplierPartNo} onChange={v => onChange({ supplierPartNo: v })} placeholder="(optional)" />
+      </Field>
+      <Field label="Supplier Description" hint="Item Supplier row">
+        <TextInput value={value.supplierDescription} onChange={v => onChange({ supplierDescription: v })} placeholder="(optional)" />
+      </Field>
+    </>
+  );
+}
+
 /* ============================================================================
    SECTION CARD
    ============================================================================ */
@@ -840,7 +869,7 @@ function ProductInfoSection({ s, upd }) {
         <Field label="Series Code" required hint="Short code used in SKUs, e.g. FX, NF">
           <TextInput value={s.seriesCode} onChange={v => upd({ seriesCode: v })} placeholder="FX" />
         </Field>
-        <Field label="Supplier" required>
+        <Field label="Supplier" required hint="Supplier on each Item's Supplier Items row">
           <TextInput value={s.supplier} onChange={v => upd({ supplier: v })} placeholder="Linea Lighting Co., Limited" />
         </Field>
         <Field label="Brand" required>
@@ -965,6 +994,7 @@ function TapeSpecsSection({ s, setS }) {
             <Field label="Free Cutting?">
               <Checkbox checked={!!spec.isFreeCutting} onChange={v => update(i, { isFreeCutting: v })} label={spec.isFreeCutting ? 'Yes — can cut anywhere' : 'No — cut only at increment'} />
             </Field>
+            <SupplierPartFields value={spec} onChange={patch => update(i, patch)} />
             <Field label="Dimming Protocols" wide>
               <MultiSelect value={spec.dimmingProtocols} onChange={v => update(i, { dimmingProtocols: v })} options={DIMMING_PROTOCOL_CHOICES} />
             </Field>
