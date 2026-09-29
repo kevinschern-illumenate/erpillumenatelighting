@@ -8,6 +8,28 @@ import frappe
 from frappe.model.document import Document
 
 
+# Frappe restamps these on every child row during save (``set_user_and_timestamp``),
+# so they must not count as a change to an immutable build.
+_ROW_BOOKKEEPING = frozenset(
+	("name", "owner", "creation", "modified", "modified_by", "parent", "parenttype", "parentfield", "doctype")
+)
+
+
+def _build_value(doc, field):
+	"""Serialize a field's build content for the v2 immutability comparison."""
+	value = doc.get(field.fieldname)
+	if field.fieldtype in ("Table", "Table MultiSelect"):
+		value = [
+			{
+				key: val
+				for key, val in (row.as_dict() if hasattr(row, "as_dict") else dict(row)).items()
+				if key not in _ROW_BOOKKEEPING and not key.startswith("__")
+			}
+			for row in value or []
+		]
+	return frappe.as_json(value)
+
+
 class ilLConfiguredFixture(Document):
 	def validate(self):
 		"""Server-side normalization run before ``before_save``.
@@ -28,7 +50,11 @@ class ilLConfiguredFixture(Document):
 				for field in self.meta.fields:
 					if field.fieldtype in ("Section Break", "Column Break", "Tab Break") or field.fieldname in mutable:
 						continue
-					if frappe.as_json(self.get(field.fieldname)) != frappe.as_json(old.get(field.fieldname)):
+					# Frappe re-fetches fetch_from fields from the linked record on every
+					# save; they mirror that record, not this build's content.
+					if field.fetch_from:
+						continue
+					if _build_value(self, field) != _build_value(old, field):
 						frappe.throw("This fixture build is immutable. Create a configuration variant.")
 			return
 		self._renumber_user_segments()
