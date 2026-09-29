@@ -40,6 +40,7 @@ def assemble_manifest(lines, load_source, *, filled=True, cover_pages=0):
 		entry = {
 			"line_key": key,
 			"designation": line.get("line_id") or (f"Row {line['idx']}" if line.get("idx") else None),
+			"part_number": line.get("part_number"),
 			"quantity": line.get("qty"),
 			"manufacturer_type": line.get("manufacturer_type"),
 			"source_url": line.get("spec_document_url"),

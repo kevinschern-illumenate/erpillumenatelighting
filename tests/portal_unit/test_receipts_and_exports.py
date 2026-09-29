@@ -81,3 +81,29 @@ class ExportRevocation(unittest.TestCase):
 			self.assertIn("SCOPED_SCHEDULES", query)
 			self.assertIn("NOT IN ('PDF_PRICED', 'CSV_PRICED')", query)
 			self.assertNotIn(" OR ", query)
+
+
+class SchedulePartNumbers(unittest.TestCase):
+	def test_linear_fixture_shows_display_part_number_not_hash_name(self):
+		file_manager = types.ModuleType("frappe.utils.file_manager")
+		file_manager.save_file = MagicMock()
+		with load_service(ROOT + ".api.exports", {file_manager.__name__: file_manager}) as (module, frappe):
+			line = Record(
+				idx=1,
+				line_id="A",
+				qty=2,
+				manufacturer_type="ILLUMENATE",
+				configured_fixture="ILL-CF-" + "a" * 64,
+			)
+			frappe.get_doc.return_value = Record(
+				schedule_name="Schedule", status="DRAFT", ill_project=None, customer=None, lines=[line]
+			)
+			frappe.get_all.return_value = [
+				Record(name=line.configured_fixture, display_part_number="ILL-SL-SW-I-30-HO-FR-SM-WH-48")
+			]
+			module._get_fixture_export_details = MagicMock(return_value={})
+			data = module._get_schedule_data("S1")
+			self.assertIn("display_part_number", frappe.get_all.call_args.kwargs["fields"])
+			html = module._generate_pdf_content(data)
+			self.assertIn("<strong>ILL-SL-SW-I-30-HO-FR-SM-WH-48</strong>", html)
+			self.assertNotIn("ILL-CF-", html)

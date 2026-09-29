@@ -340,6 +340,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				"mounting_method", "power_feed_type", "environment_rating",
 				"requested_overall_length_mm", "manufacturable_overall_length_mm",
 				"runs_count", "tape_offering", "is_multi_segment", "build_description",
+				"display_part_number",
 			],
 		)
 		for f in fixtures:
@@ -434,6 +435,8 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			if fixture:
 				line_data["template_code"] = fixture.fixture_template or ""
 				line_data["configured_fixture_name"] = line.configured_fixture
+				# Engine-built fixtures are named ILL-CF-<config hash>; customers see the display part number.
+				line_data["part_number"] = fixture.get("display_part_number") or line.configured_fixture
 				line_data["config_summary"] = _build_config_summary_from_dict(fixture)
 				line_data["requested_length_mm"] = fixture.requested_overall_length_mm or 0
 				line_data["manufacturable_length_mm"] = fixture.manufacturable_overall_length_mm or 0
@@ -887,7 +890,7 @@ def _detail_row(items: list) -> str:
 
 def _build_illumenate_description(line: dict) -> str:
 	"""Build compact description for a configured ILLUMENATE fixture line."""
-	part_number = line.get("configured_fixture_name") or line.get("template_code", "")
+	part_number = line.get("part_number") or line.get("configured_fixture_name") or line.get("template_code", "")
 	parts = [f"<strong>{part_number}</strong>"]
 
 	# Row 1 — optical: CCT · CRI · Output · Environment
