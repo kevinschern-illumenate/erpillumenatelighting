@@ -76,7 +76,17 @@ def reject_fpo(content, ref):
 		raise ValueError(f"{ref!r} contains FPO magenta placeholder artwork; replace it before publishing")
 
 
-_SVG_BANNED_TAGS = {"script", "foreignobject", "iframe", "embed", "object", "audio", "video", "handler", "listener"}
+_SVG_BANNED_TAGS = {
+	"script",
+	"foreignobject",
+	"iframe",
+	"embed",
+	"object",
+	"audio",
+	"video",
+	"handler",
+	"listener",
+}
 _SVG_EXTERNAL_URL = re.compile(r"url\(\s*['\"]?\s*(?!#)|@import", re.I)
 _SVG_SAFE_HREF = re.compile(r"^(#|data:image/(png|jpeg|webp);base64,)", re.I)
 
