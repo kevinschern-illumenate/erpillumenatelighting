@@ -102,6 +102,32 @@ class CatalogTests(unittest.TestCase):
 		self.assertEqual([row[output_col] for row in rows], ["PWM", ""])
 		self.assertEqual(rows[1][headers.index("Controller Item")], "")
 
+	def test_item_supplier_rows_export_part_number_and_description(self):
+		record = {
+			"item_code": "CH-CA01",
+			"supplier_items": [
+				{
+					"supplier": "Linea Lighting Co., Limited",
+					"supplier_part_no": "00123",
+					"custom_supplier_description": "Channel, 2 m",
+				},
+				{"supplier": "Backup Supplier", "supplier_part_no": "B-9"},
+			],
+		}
+		headers, rows = csv_data("Item", [record], self.schema)
+		columns = [
+			headers.index(name)
+			for name in (
+				"Supplier (Supplier Items)",
+				"Supplier Part Number (Supplier Items)",
+				"supplier_items.custom_supplier_description",
+			)
+		]
+		self.assertEqual(
+			[[row[i] for i in columns] for row in rows],
+			[["Linea Lighting Co., Limited", "00123", "Channel, 2 m"], ["Backup Supplier", "B-9", ""]],
+		)
+
 	def test_unresolved_links_fail_before_any_files_are_written(self):
 		config = example_catalog("led-sheet")
 		config["records"]["ilL-LED-Sheet-Template"][0]["leader_cable_item"] = "TYPO"

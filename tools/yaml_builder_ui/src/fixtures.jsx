@@ -14,7 +14,7 @@ import {
   Field, TextInput, NumInput, Select, Checkbox, MultiSelect, Button,
   Section, Card, EmptyHint,
   yamlScalar, yamlListOfObjects, yamlSimpleList, indent,
-  isNumericString,
+  isNumericString, SupplierPartFields, renderSupplierPart, hasSupplierPart,
 } from './App.jsx';
 
 /* ============================================================================
@@ -34,7 +34,7 @@ export const MOUNTING_METHOD_CHOICES = [
   'Recessed Mount', 'Wall Mount', 'Suspended Mount',
 ];
 export const QTY_RULE_CHOICES = ['Per x mm', 'Per Fixture', 'Per Segment', 'Per Run'];
-export const FIXTURE_LED_PACKAGES = ['FS', 'SW', 'TW', 'RGBW', 'RGB'];
+export const FIXTURE_LED_PACKAGES = ['FS', 'SW', 'TW', 'DW', 'RGBW', 'RGB', 'PX'];
 export const POWER_FEED_CHOICES = ['Single End Feed', 'Dual End Feed', 'Mid Feed', 'Power Joiner'];
 export const FIXTURE_PRICING_BASIS = ['L_tape_cut', 'L_mfg'];
 export const FIXTURE_ENV_RATINGS = ['Dry', 'Damp', 'Wet'];
@@ -217,6 +217,7 @@ function renderProfile(p, level) {
   out += `${indent(level)}joiner_system: ${yamlScalar(p.joinerSystem || '')}\n`;
   out += `${indent(level)}lens_interface: ${yamlScalar(p.lensInterface)}\n`;
   out += `${indent(level)}environment_ratings: [${(p.environmentRatings || []).map(yamlScalar).join(', ')}]\n`;
+  out += renderSupplierPart(p, level);
   return out;
 }
 
@@ -230,6 +231,7 @@ function renderLens(l, level) {
   if (l.continuousMaxLengthMm && String(l.continuousMaxLengthMm).trim() !== '') {
     out += `${indent(level)}continuous_max_length_mm: ${yamlScalar(l.continuousMaxLengthMm)}\n`;
   }
+  out += renderSupplierPart(l, level);
   return out;
 }
 
@@ -259,6 +261,7 @@ function renderAccessory(a, level) {
     out += `${indent(level)}qty_rule_value: ${yamlScalar(a.qtyRuleValue)}\n`;
   }
   if (a.environmentRating) out += `${indent(level)}environment_rating: ${yamlScalar(a.environmentRating)}\n`;
+  out += renderSupplierPart(a, level);
   return out;
 }
 
@@ -268,6 +271,7 @@ function renderEndcap(e, level) {
   out += `${indent(level)}colors: [${(e.colors || []).map(yamlScalar).join(', ')}]\n`;
   out += `${indent(level)}styles: [${(e.styles || []).map(yamlScalar).join(', ')}]\n`;
   out += `${indent(level)}allowance_override_per_side_mm: ${yamlScalar(e.allowanceOverridePerSideMm)}\n`;
+  out += renderSupplierPart(e, level);
   return out;
 }
 
@@ -389,7 +393,12 @@ export function validateFixture(s) {
 
   if (!s.seriesName?.trim())  issues.push({ level: 'warn', text: 'Series name is empty.' });
   if (!s.seriesCode?.trim())  issues.push({ level: 'warn', text: 'Series code is empty.' });
-  if (!s.supplier?.trim())    issues.push({ level: 'warn', text: 'Supplier is empty.' });
+  if (!s.supplier?.trim()) {
+    const itemRows = [...s.fixtureProfiles, ...s.fixtureLenses, ...s.fixtureAccessories, ...s.fixtureEndcaps];
+    issues.push(itemRows.some(hasSupplierPart)
+      ? { level: 'error', text: 'Supplier is required when an item has a supplier part number or description.' }
+      : { level: 'warn', text: 'Supplier is empty.' });
+  }
   if (!s.brand?.trim())       issues.push({ level: 'warn', text: 'Brand is empty.' });
   if (!isNumericString(String(s.warrantyDays)) || Number(s.warrantyDays) <= 0) {
     issues.push({ level: 'warn', text: 'Warranty days should be a positive number.' });
@@ -575,6 +584,7 @@ function ProfilesSection({ s, setS }) {
             <Field label="Environment Ratings" wide>
               <MultiSelect value={p.environmentRatings} onChange={v => upd(i, { environmentRatings: v })} options={FIXTURE_ENV_RATINGS} />
             </Field>
+            <SupplierPartFields value={p} onChange={patch => upd(i, patch)} />
           </div>
         </Card>
       ))}
@@ -631,6 +641,7 @@ function LensesSection({ s, setS }) {
             <Field label="Appearances" wide>
               <MultiSelect value={l.appearances} onChange={v => upd(i, { appearances: v })} options={LENS_APPEARANCE_CHOICES} />
             </Field>
+            <SupplierPartFields value={l} onChange={patch => upd(i, patch)} />
           </div>
         </Card>
       ))}
@@ -774,6 +785,7 @@ function AccessoriesSection({ s, setS }) {
             <Field label="Feed Type" hint="Optional">
               <TextInput value={a.feedType} onChange={v => upd(i, { feedType: v })} placeholder="(optional)" />
             </Field>
+            <SupplierPartFields value={a} onChange={patch => upd(i, patch)} />
           </div>
         </Card>
       ))}
@@ -831,6 +843,7 @@ function EndcapsSection({ s, setS }) {
             <Field label="Styles" wide>
               <MultiSelect value={e.styles} onChange={v => upd(i, { styles: v })} options={ENDCAP_STYLE_CHOICES} />
             </Field>
+            <SupplierPartFields value={e} onChange={patch => upd(i, patch)} />
           </div>
         </Card>
       ))}

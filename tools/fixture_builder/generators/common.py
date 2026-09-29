@@ -47,6 +47,8 @@ LED_PACKAGE_NAMES = {
     "FS": "Full Spectrum",
     "SW": "Static White",
     "TW": "Tunable White",
+    "DW": "Dim to Warm",
+    "PX": "SPI Pixel",
 }
 
 # ── LED Sheet option type → attribute DocType ──────────────────────────
@@ -126,6 +128,22 @@ def write_csv(filepath: str, headers: list[str], rows: list[list[Any]]) -> int:
         for row in rows:
             writer.writerow(row)
     return len(rows)
+
+
+# Frappe Data Import matches "<table>.<fieldname>" whatever label the site gives
+# this custom Item Supplier field (read by the ilL Purchase Order print format).
+SUPPLIER_DESCRIPTION_HEADER = "supplier_items.custom_supplier_description"
+
+
+def write_item_csv(filepath: str, headers: list[str], rows: list[list[Any]]) -> int:
+    """Write Item rows whose last cell is the supplier description.
+
+    The description column is added only when an item has one, so imports that
+    don't use it keep the base columns unchanged.
+    """
+    if any(row[-1] for row in rows):
+        return write_csv(filepath, [*headers, SUPPLIER_DESCRIPTION_HEADER], rows)
+    return write_csv(filepath, headers, [row[:-1] for row in rows])
 
 
 def mapping_row(values: list, headers: list[str]) -> list:

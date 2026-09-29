@@ -6,7 +6,7 @@ Handles multi-line continuation rows for variant attributes.
 from __future__ import annotations
 
 from ..config_schema import FINISH_NAMES, FixtureBuilderConfig
-from .common import ITEM_GROUPS, LENS_APPEARANCE_CODES, write_csv
+from .common import ITEM_GROUPS, LENS_APPEARANCE_CODES, write_item_csv
 
 HEADERS = [
     "Item Code",
@@ -27,8 +27,8 @@ HEADERS = [
 
 
 def _row(item_code, item_group, item_name, has_variants, brand, warranty_days,
-         attribute="", supplier="", variant_of="", variant_based_on=""):
-    """Build a primary Item row."""
+         attribute="", supplier="", variant_of="", variant_based_on="", source=None):
+    """Build a primary Item row; ``source`` supplies the Item Supplier part number and description."""
     return [
         item_code,
         item_group,
@@ -42,14 +42,15 @@ def _row(item_code, item_group, item_name, has_variants, brand, warranty_days,
         variant_based_on if has_variants else "",
         attribute,
         supplier,
-        "",                     # Supplier Description
-        "",                     # Supplier Part Number
+        "",                     # Attribute Value (template attributes have none)
+        str(getattr(source, "supplier_part_no", "") or ""),
+        str(getattr(source, "supplier_description", "") or ""),  # optional trailing column
     ]
 
 
 def _continuation_row(attribute):
     """Build a continuation row (only the Attribute column populated)."""
-    row = [""] * len(HEADERS)
+    row = [""] * (len(HEADERS) + 1)
     row[10] = attribute  # Attribute (Variant Attributes)
     return row
 
@@ -71,6 +72,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
             warranty_days=config.warranty_days,
             attribute="Finish",
             supplier=config.supplier,
+            source=profile,
             variant_based_on="Item Attribute",
         ))
 
@@ -96,6 +98,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
             warranty_days=config.warranty_days,
             attribute="Lens Style",
             supplier=config.supplier,
+            source=lens,
             variant_based_on="Item Attribute",
         ))
         # Continuation row for Lens Color attribute
@@ -124,6 +127,7 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
             brand=config.brand,
             warranty_days=config.warranty_days,
             supplier=config.supplier,
+            source=acc,
         ))
 
     # ── Endcap template Items (variant: Endcap Color × Endcap Type) ──
@@ -140,13 +144,14 @@ def generate(config: FixtureBuilderConfig, output_dir: str) -> str:
             warranty_days=config.warranty_days,
             attribute="Endcap Color",
             supplier=config.supplier,
+            source=endcap,
             variant_based_on="Item Attribute",
         ))
         # Continuation row for Endcap Type attribute
         rows.append(_continuation_row("Endcap Type"))
 
     filepath = f"{output_dir}/Item CSV.csv"
-    write_csv(filepath, HEADERS, rows)
+    write_item_csv(filepath, HEADERS, rows)
     return filepath
 
 

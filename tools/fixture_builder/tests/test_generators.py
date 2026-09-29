@@ -220,6 +220,41 @@ class TestItemCSV(unittest.TestCase):
         for r in acc_rows:
             self.assertEqual(r[5], "0")  # Has Variants = 0
 
+    def test_supplier_part_number_and_description(self):
+        """Per-item supplier values land on the Item Supplier row; description column is opt-in."""
+        self.config.profiles[0].supplier_part_no = "00123"
+        self.config.accessories[0].supplier_description = "Pivot clip, zinc"
+        path = gen_item_csv.generate(self.config, self.tmpdir)
+        headers, rows = _read_csv(path)
+        self.assertEqual(headers, [*gen_item_csv.HEADERS, "supplier_items.custom_supplier_description"])
+        self.assertTrue(all(len(r) == len(headers) for r in rows))
+        by_code = {r[0]: r for r in rows if r[0]}
+        part_col = headers.index("Supplier Part Number (Supplier Items)")
+        self.assertEqual(by_code["CH-CA02"][part_col], "00123")
+        self.assertEqual(by_code["CH-CA02"][headers.index("Supplier (Supplier Items)")], self.config.supplier)
+        self.assertEqual(by_code[self.config.accessories[0].item_code][-1], "Pivot clip, zinc")
+        self.assertEqual(by_code["CH-CA01"][part_col], "")
+
+
+class TestFixtureTemplateNames(unittest.TestCase):
+    """LED package codes expand to readable template names."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config = _castle_config()
+        self.config.fixture_templates.led_packages = ["DW", "PX"]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_dim_to_warm_and_spi_pixel_names(self):
+        path = gen_fixture_template.generate(self.config, self.tmpdir)
+        headers, rows = _read_csv(path)
+        code_col, name_col = headers.index("Template Code"), headers.index("Template Name")
+        names = {r[code_col]: r[name_col] for r in rows if r[code_col]}
+        self.assertEqual(names["ILL-CA02-DW"], "Castle [WD] Dim to Warm")
+        self.assertEqual(names["ILL-CA02-PX"], "Castle [WD] SPI Pixel")
+
 
 class TestSpecProfile(unittest.TestCase):
     """Test ilL-Spec-Profile.csv generator."""
