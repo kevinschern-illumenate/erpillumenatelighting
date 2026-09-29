@@ -25,6 +25,7 @@ SCOPES = (
 	"tools/fixture_builder",
 	"tools/validate_authoring_csv.py",
 	"tools/check_pdf_fidelity.py",
+	"tools/spec_sheets",
 	"tools/reconcile_webflow.cjs",
 )
 

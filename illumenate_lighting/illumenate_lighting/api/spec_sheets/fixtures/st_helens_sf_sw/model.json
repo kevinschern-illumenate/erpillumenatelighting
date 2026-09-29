@@ -1,0 +1,190 @@
+{
+ "schema": "ill-spec-sheet-model/0",
+ "family": "Linear Fixture",
+ "document": "catalog",
+ "source_note": "Phase 0 fixture: values transcribed from the St. Helens [SF] Static White InDesign PDF (031026RY). Drawings, rating icons and the SW logo are the designer's files; hero and UL mark are placeholders (see assets/SOURCES.json).",
+ "spec_line": "SW",
+ "brand": {
+  "brand_code": "illumenate"
+ },
+ "header": {
+  "title_lines": [
+   "St. Helens [SF] ",
+   "Static White"
+  ],
+  "sublabel": "Surface",
+  "hero": "hero.jpg"
+ },
+ "icons": [
+  "Rating_24VDC_GrayLine.svg",
+  "Rating_Dry_GrayLine.svg",
+  "Rating_Damp_GrayLine.svg",
+  "Rating_Wet_GrayLine.svg"
+ ],
+ "listing_statement": {
+  "before": "For use with",
+  "icon": "icon_ul.svg",
+  "after": "Light Source."
+ },
+ "spec_table": {
+  "title": "SPECIFICATIONS",
+  "section_baseline": 208.98,
+  "rows": [
+   {
+    "label": "Output Options",
+    "values": [
+     "100lm/ft",
+     "300lm/ft",
+     "500lm/ft",
+     "750lm/ft",
+     "1000lm/ft"
+    ]
+   },
+   {
+    "label": "Fixture Wattage (White Lens)",
+    "values": [
+     "1.7W",
+     "4.0W",
+     "8.5W",
+     "11.6W",
+     "—"
+    ]
+   },
+   {
+    "label": "Max Run Length (White Lens)",
+    "values": [
+     "36ft",
+     "20ft",
+     "10ft",
+     "9ft",
+     "—"
+    ]
+   },
+   {
+    "label": "Fixture Wattage (Black Lens)",
+    "values": [
+     "2.5W",
+     "8.5W",
+     "14.4W",
+     "—",
+     "—"
+    ]
+   },
+   {
+    "label": "Max Run Length (Black Lens)",
+    "values": [
+     "29ft",
+     "12ft",
+     "7ft",
+     "—",
+     "—"
+    ]
+   },
+   {
+    "label": "Fixture Wattage (Other Lenses)",
+    "values": [
+     "0.8W",
+     "2.5W",
+     "4.0W",
+     "6.4W",
+     "8.5W"
+    ]
+   },
+   {
+    "label": "Max Run Length (Other Lenses)",
+    "values": [
+     "46ft",
+     "29ft",
+     "20ft",
+     "15ft",
+     "10ft"
+    ]
+   },
+   {
+    "label": "Light Color (CCT)",
+    "values": [
+     "2700K",
+     "3000K",
+     "3500K",
+     "4000K"
+    ],
+    "band": "cct"
+   },
+   {
+    "label": "Color Rendering",
+    "values": [
+     "95+ CRI / 2-Step"
+    ]
+   },
+   {
+    "label": "Lenses",
+    "values": [
+     "White, Frosted, Clear, Black"
+    ]
+   },
+   {
+    "label": "Mounting",
+    "values": [
+     "Clip, Pivot Clip"
+    ]
+   },
+   {
+    "label": "Finish",
+    "values": [
+     "Anodized Silver, White, Black, Custom (Provide RAL #)"
+    ]
+   },
+   {
+    "label": "Input Voltage",
+    "values": [
+     "24VDC (Power Supply: 120VAC - 277VAC)"
+    ]
+   },
+   {
+    "label": "Dimming",
+    "values": [
+     "TRIAC, ELV, 0-10V, DMX, DALI, Bluetooth"
+    ]
+   },
+   {
+    "label": "Dimensions",
+    "values": [
+     "0.67” (17.1mm) × 0.33” (8.4mm)"
+    ]
+   },
+   {
+    "label": "Production Interval",
+    "values": [
+     "1.31” (33.3mm)"
+    ]
+   },
+   {
+    "label": "Operating Temperature",
+    "values": [
+     "-4°F (-20°C) to 113°F (45°C)"
+    ]
+   }
+  ]
+ },
+ "dimensions": {
+  "title": "FIXTURE DIMENSIONS",
+  "drawings": [
+   {
+    "asset": "drawing_cross_section.svg"
+   },
+   {
+    "asset": "drawing_side_view.svg",
+    "caption": "Side View"
+   }
+  ]
+ },
+ "footer": {
+  "date_code": "031026RY",
+  "page_count": 3,
+  "copyright_year": 2026
+ },
+ "placeholders": {
+  "hero.jpg": "Spec hero (SH01 Hero Image) cut from the published PDF; designer file pending",
+  "icon_ul.svg": "Inline UL mark (CC Libraries: Icons/UL) cut from the published PDF; designer file pending"
+ }
+}

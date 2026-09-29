@@ -129,6 +129,10 @@ from frappe.utils import cint, now
 from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
     get_tier_price_for_customer,
 )
+from illumenate_lighting.illumenate_lighting.api.tape_selection import (
+    closest_tape,
+    transmission_fraction,
+)
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     add_inch_values_to_computed,
     inches_to_mm,
@@ -4589,8 +4593,8 @@ def get_delivered_outputs_for_template(
 		if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 			lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 			if lens_doc.transmission:
-				# Value is stored as decimal (0.56 for 56%)
-				lens_transmission_decimal = float(lens_doc.transmission)
+				# Stored as a fraction (0.56); a percent (56) is accepted too
+				lens_transmission_decimal = transmission_fraction(lens_doc.transmission)
 
 		# Get tape offerings linked to this template, filtering by environment rating
 		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -4705,8 +4709,16 @@ def get_delivered_outputs_for_template(
 					"transmission_pct": lens_transmission_decimal * 100,  # Convert to percentage for display
 					"matching_tapes": [],
 				}
-			delivered_output_map[output_level_key]["matching_tapes"].append(tape.name)
+			delivered_output_map[output_level_key]["matching_tapes"].append(
+				{"name": tape.name, "output_value_lm_ft": tape_output_lm_ft}
+			)
 			compatible_tapes.append(tape.name)
+
+		# The tape that builds each level is the one whose delivered output is closest
+		# to it (see tape_selection); report that tape's output.
+		for data in delivered_output_map.values():
+			chosen = closest_tape(data["matching_tapes"], data["value"], lens_transmission_decimal)
+			data["tape_output_lm_ft"] = chosen["output_value_lm_ft"]
 
 		# Build result sorted by output value
 		delivered_outputs = []
@@ -4822,8 +4834,8 @@ def auto_select_tape_for_configuration(
 	if lens_appearance_code and frappe.db.exists("ilL-Attribute-Lens Appearance", lens_appearance_code):
 		lens_doc = frappe.get_cached_doc("ilL-Attribute-Lens Appearance", lens_appearance_code)
 		if lens_doc.transmission:
-			# Value is stored as decimal (0.56 for 56%)
-			lens_transmission_decimal = float(lens_doc.transmission)
+			# Stored as a fraction (0.56); a percent (56) is accepted too
+			lens_transmission_decimal = transmission_fraction(lens_doc.transmission)
 
 	# Get valid tape offering names from template (with constraint filtering)
 	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
@@ -4936,9 +4948,9 @@ def auto_select_tape_for_configuration(
 		return {"success": False, "tape_offering_id": None, "tape_details": None, "error": "No tape matches the selected output"}
 
 	if len(matching_tapes) > 1:
-		# Multiple tapes match - pick the one with the highest output (lm/ft)
-		matching_tapes.sort(key=lambda t: t["output_value_lm_ft"], reverse=True)
-		selected = matching_tapes[0]
+		# Multiple tapes round to this level: use the one whose delivered output is
+		# closest to it (owner decision 2026-09-29; matches the published spec sheets).
+		selected = closest_tape(matching_tapes, delivered_output_value, lens_transmission_decimal)
 		return {
 			"success": True,
 			"tape_offering_id": selected["tape_offering_id"],
@@ -4951,7 +4963,7 @@ def auto_select_tape_for_configuration(
 				"cri": selected["cri"],
 				"sdcm": selected["sdcm"],
 			},
-			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected highest output tape ({selected['output_value_lm_ft']} lm/ft).",
+			"warning": f"Multiple tapes match ({len(matching_tapes)}). Selected the tape whose delivered output is closest ({selected['output_value_lm_ft']} lm/ft).",
 			"error": None,
 		}
 

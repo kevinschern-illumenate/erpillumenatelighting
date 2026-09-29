@@ -1,0 +1,18 @@
+{
+ "designer_files": {
+  "drawing_cross_section.svg": "St. Helens [SF]_Spec CAD.ai, artboard 1 (tools/spec_sheets/convert_artwork.py)",
+  "drawing_side_view.svg": "St. Helens [SF]_Side View_Spec CAD.ai",
+  "drawing_mounting_clip.svg": "St. Helens [SF]_Mounting Clip_Spec CAD.ai (page 3, Phase 2)",
+  "drawing_pivot_clip.svg": "St. Helens [SF]_Pivot Clip_Spec CAD.ai (page 3, Phase 2)",
+  "Rating_24VDC_GrayLine.svg": "certifications/Rating_24VDC_GrayLine.svg",
+  "Rating_Dry_GrayLine.svg": "certifications/Rating_Dry_GrayLine.svg",
+  "Rating_Damp_GrayLine.svg": "certifications/Rating_Damp_GrayLine.svg",
+  "Rating_Wet_GrayLine.svg": "certifications/Rating_Wet_GrayLine.svg"
+ },
+ "spec_line": "Vector gradient 'SW' from spec_lines.json, extracted from the Static White .indd",
+ "placeholders_pending_designer_files": {
+  "hero.jpg": "SH01 Hero Image (the pack's SH01_ASSEMBLED.jpg is a different photo)",
+  "icon_ul.svg": "CC Libraries: Icons/UL (inline 'For use with UL Light Source' mark)"
+ },
+ "logo": "brands/illumenate/logos/SW.svg from ilLumenate_Lighting_Logo_SW_Main.ai"
+}

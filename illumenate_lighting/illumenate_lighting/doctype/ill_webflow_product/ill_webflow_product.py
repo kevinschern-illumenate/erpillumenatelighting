@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.api.tape_selection import closest_tape, transmission_fraction
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	format_length_inches,
 )
@@ -2929,10 +2930,10 @@ class ilLWebflowProduct(Document):
 		lens_map = {}
 		for lens in lenses:
 			lens_code = lens.get("code")
-			transmission = float(lens.get("transmission") or 1.0)
+			transmission = transmission_fraction(lens.get("transmission"))
 
 			options = []
-			seen = set()
+			by_level = {}
 			for raw in raw_outputs:
 				tape_lm = raw.get("tape_output_lm_ft") or raw.get("lm_per_ft") or 0
 				delivered = tape_lm * transmission
@@ -2942,15 +2943,9 @@ class ilLWebflowProduct(Document):
 						fixture_output_levels,
 						key=lambda x: abs((x.value or 0) - delivered)
 					)
-					if closest.name not in seen:
-						seen.add(closest.name)
-						options.append({
-							"value": raw.get("value"),
-							"label": f"{closest.value} lm/ft",
-							"code": closest.sku_code or raw.get("code", ""),
-							"tape_output_lm_ft": tape_lm,
-							"delivered_lm_ft": closest.value,
-						})
+					by_level.setdefault(closest.name, (closest, []))[1].append(
+						{**raw, "output_value_lm_ft": tape_lm}
+					)
 				else:
 					delivered_rounded = int(round(delivered))
 					options.append({
@@ -2960,6 +2955,18 @@ class ilLWebflowProduct(Document):
 						"tape_output_lm_ft": tape_lm,
 						"delivered_lm_ft": delivered_rounded,
 					})
+
+			# Same rule as the configurator engine: of the tapes that round to a
+			# level, the one whose delivered output is closest builds it.
+			for level, candidates in by_level.values():
+				raw = closest_tape(candidates, level.value or 0, transmission)
+				options.append({
+					"value": raw.get("value"),
+					"label": f"{level.value} lm/ft",
+					"code": level.sku_code or raw.get("code", ""),
+					"tape_output_lm_ft": raw["output_value_lm_ft"],
+					"delivered_lm_ft": level.value,
+				})
 
 			lens_map[lens_code] = sorted(
 				options, key=lambda x: x.get("delivered_lm_ft", 0)
