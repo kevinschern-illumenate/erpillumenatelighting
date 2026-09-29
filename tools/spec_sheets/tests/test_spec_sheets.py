@@ -279,6 +279,14 @@ class AssetResolverTest(unittest.TestCase):
 		with self.assertRaisesRegex(ValueError, "Unsupported asset type"):
 			files.get("/files/sheet.pdf")
 
+	def test_bundled_artwork_passes_the_upload_safety_check(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import check_svg
+
+		artwork = sorted((FIXTURE.parents[1]).rglob("*.svg"))
+		self.assertGreater(len(artwork), 10)
+		for path in artwork:
+			check_svg(path.read_bytes(), path.name)
+
 
 class ChromiumResolutionTest(unittest.TestCase):
 	def test_environment_override_wins(self):

@@ -149,9 +149,13 @@ class SpecAssetValidation(unittest.TestCase):
 			("https://cdn.example.com/hero.png", "upload the file"),
 			("/files/hero.tif", "Unsupported asset type"),
 			("/files/missing.png", "No File record"),
+			("/files/script.svg", "contains <script>"),
 		):
 			with self.subTest(file=file), self.assertRaisesRegex(ValueError, message):
-				self.validate([Row(name="r", idx=1, file=file, sha256=None, is_placeholder=0)])
+				self.validate(
+					[Row(name="r", idx=1, file=file, sha256=None, is_placeholder=0)],
+					files={"/files/script.svg": b'<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>'},
+				)
 
 
 class BrandValidation(unittest.TestCase):

@@ -76,6 +76,47 @@ def reject_fpo(content, ref):
 		raise ValueError(f"{ref!r} contains FPO magenta placeholder artwork; replace it before publishing")
 
 
+_SVG_BANNED_TAGS = {"script", "foreignobject", "iframe", "embed", "object", "audio", "video", "handler", "listener"}
+_SVG_EXTERNAL_URL = re.compile(r"url\(\s*['\"]?\s*(?!#)|@import", re.I)
+_SVG_SAFE_HREF = re.compile(r"^(#|data:image/(png|jpeg|webp);base64,)", re.I)
+
+
+def check_svg(content, ref="SVG"):
+	"""Raise unless ``content`` is a self-contained SVG with no script or external references.
+
+	Spec assets are public Files served from the site's own origin, so an SVG that
+	scripts or loads anything would be a stored cross-site scripting hole.
+	"""
+	import xml.etree.ElementTree as ET
+
+	try:
+		text = content.decode("utf-8-sig")
+	except UnicodeDecodeError:
+		raise ValueError(f"{ref!r} is not UTF-8 SVG")
+	if re.search(r"<!(DOCTYPE|ENTITY)", text, re.I):
+		raise ValueError(f"{ref!r} declares a DOCTYPE or entities; export it again without them")
+	try:
+		root = ET.fromstring(text)
+	except ET.ParseError as error:
+		raise ValueError(f"{ref!r} is not valid SVG: {error}")
+	if root.tag.rsplit("}", 1)[-1] != "svg":
+		raise ValueError(f"{ref!r} is not an SVG document")
+	for element in root.iter():
+		tag = element.tag.rsplit("}", 1)[-1].lower() if isinstance(element.tag, str) else ""
+		if tag in _SVG_BANNED_TAGS:
+			raise ValueError(f"{ref!r} contains <{tag}>; export it as plain artwork")
+		if tag == "style" and _SVG_EXTERNAL_URL.search(element.text or ""):
+			raise ValueError(f"{ref!r} loads external styles or images")
+		for name, value in element.attrib.items():
+			local = name.rsplit("}", 1)[-1].lower()
+			if local.startswith("on"):
+				raise ValueError(f"{ref!r} has an event handler ({local})")
+			if local == "href" and not _SVG_SAFE_HREF.match(value.strip()):
+				raise ValueError(f"{ref!r} links to {value[:60]!r}; embed or outline it")
+			if local == "style" and _SVG_EXTERNAL_URL.search(value):
+				raise ValueError(f"{ref!r} loads external styles or images")
+
+
 def image_mime(name):
 	"""MIME type for artwork Chromium can print (not TIFF, EPS or AI)."""
 	mime = IMAGE_TYPES.get(Path(name.split("?", 1)[0]).suffix.lower())

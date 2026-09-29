@@ -15,6 +15,7 @@ from illumenate_lighting.illumenate_lighting.api.spec_sheets.brands import (
 from illumenate_lighting.illumenate_lighting.api.spec_sheets.svg import (
 	FILE_URL_PREFIXES,
 	FileURLAssets,
+	check_svg,
 	has_fpo,
 	image_mime,
 )
@@ -43,8 +44,9 @@ def file_assets():
 def stamp_spec_assets(doc, method=None):
 	"""``validate`` on every DocType with a ``spec_assets`` table.
 
-	Keeps each row's SHA-256 in step with its file and marks SVG artwork that still
-	uses the FPO magenta swatch as a placeholder, so no revision can be approved with it.
+	Keeps each row's SHA-256 in step with its file, refuses SVGs that script or load
+	anything (they are public Files on the site's origin) and marks SVG artwork that
+	still uses the FPO magenta swatch as a placeholder, so no revision can be approved with it.
 	"""
 	before = doc.get_doc_before_save() if hasattr(doc, "get_doc_before_save") else None
 	previous = {row.name: row.file for row in ((before.get("spec_assets") if before else None) or [])}
@@ -62,6 +64,8 @@ def stamp_spec_assets(doc, method=None):
 		try:
 			image_mime(row.file)
 			content = _file_content(row.file)
+			if row.file.lower().endswith(".svg"):
+				check_svg(content, row.file)
 		except ValueError as error:
 			frappe.throw(frappe._("Spec asset row {0}: {1}").format(row.idx, error))
 		row.sha256 = hashlib.sha256(content).hexdigest()
