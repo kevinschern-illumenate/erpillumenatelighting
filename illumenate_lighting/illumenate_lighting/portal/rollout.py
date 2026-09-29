@@ -3,13 +3,12 @@
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_list
 
 
 def _list(key):
-	value = frappe.conf.get(key)
-	if value is not None and (not isinstance(value, list) or any(not isinstance(v, str) for v in value)):
-		raise ValueError(f"{key} must be a JSON list, or omitted to preserve existing availability")
-	return value
+	# Absent (or unreadable, which is logged) preserves existing availability.
+	return conf_list(key)
 
 
 def available(family, *, public=False):

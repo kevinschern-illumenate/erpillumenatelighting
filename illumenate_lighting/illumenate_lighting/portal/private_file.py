@@ -2,9 +2,11 @@
 
 import frappe
 from frappe.core.doctype.file.file import File
+from frappe.core.doctype.file.file import has_permission as file_has_permission
 
 
-def portal_file_permission(doc, ptype="read", user=None):
+def _portal_file_decision(doc, ptype="read", user=None):
+	"""Return a decision for portal-owned files, or None when the portal has no opinion."""
 	if ptype not in ("read", "select", "print", "export"):
 		return None
 	user = user or frappe.session.user
@@ -48,7 +50,17 @@ def portal_file_permission(doc, ptype="read", user=None):
 	return doc.owner == request.requester_user
 
 
+def portal_file_permission(doc, ptype="read", user=None, debug=False):
+	decision = _portal_file_decision(doc, ptype, user)
+	if decision is not None:
+		return bool(decision)
+	# No portal opinion: defer to Frappe's own File rule. Frappe v16 treats a falsy
+	# has_permission hook result as a denial, and on v15 a bare True here would
+	# short-circuit Frappe's File hook, so neither None nor True is safe.
+	return bool(file_has_permission(doc, ptype=ptype, user=user))
+
+
 class PortalFile(File):
 	def is_downloadable(self):
-		decision = portal_file_permission(self)
+		decision = _portal_file_decision(self)
 		return super().is_downloadable() if decision is None else decision

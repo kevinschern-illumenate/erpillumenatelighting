@@ -12,6 +12,7 @@ from pathlib import Path
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
 from illumenate_lighting.private_storage import private_state_directory
 
 HEADERS = {
@@ -142,7 +143,7 @@ def collect():
 		if assets.is_file()
 		else None,
 		"records": records,
-		"group_rollout_enabled": bool(frappe.conf.get("ill_portal_fixture_groups")),
+		"group_rollout_enabled": conf_flag("ill_portal_fixture_groups"),
 		"enabled_families": frappe.conf.get("ill_portal_enabled_families"),
 		"pilot_users": frappe.conf.get("ill_portal_pilot_users"),
 		"role_permissions": frappe.get_all(

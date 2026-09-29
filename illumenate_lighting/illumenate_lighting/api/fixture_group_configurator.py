@@ -212,12 +212,12 @@ def calculate(request):
 
 @frappe.whitelist(methods=["POST"])
 def preview(request):
-	from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import get_tier_price_for_customer
 	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
 
 	require_catalog_access()
-	if not parse_bool(frappe.conf.get("ill_portal_fixture_groups"), default=False):
+	if not conf_flag("ill_portal_fixture_groups"):
 		frappe.throw("Independent fixture groups are not enabled for this site", frappe.PermissionError)
 	result = calculate(request)
 	result["pricing"].update(get_tier_price_for_customer(result["pricing"]["msrp_unit"]))

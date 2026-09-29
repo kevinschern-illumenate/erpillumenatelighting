@@ -139,12 +139,12 @@ def ensure_artifacts(doc, msrp=None):
 
 @atomic_build
 def persist(request):
-	from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 	from illumenate_lighting.illumenate_lighting.api.fixture_group_configurator import calculate
 	from illumenate_lighting.illumenate_lighting.api.group_contract import normalize
 	from illumenate_lighting.illumenate_lighting.portal.access import register_configured_record_handoff
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
 
-	if not parse_bool(frappe.conf.get("ill_portal_fixture_groups"), default=False):
+	if not conf_flag("ill_portal_fixture_groups"):
 		frappe.throw("Independent fixture groups are not enabled for this site", frappe.PermissionError)
 
 	intent = normalize(request)

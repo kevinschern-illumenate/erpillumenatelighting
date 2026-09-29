@@ -102,7 +102,8 @@ class OrderApproval(unittest.TestCase):
 				acknowledged_hash=fingerprint(module.snapshot(order)),
 				request_snapshot=json.dumps(module.snapshot(order)),
 			)
-			frappe.db.exists.return_value = False
+			# The order has a portal intake, but no active BOM exists.
+			frappe.db.exists.side_effect = lambda doctype, filters: doctype == module.DOCTYPE
 			with patch.object(module, "_staff"), patch.object(module, "_load", return_value=(order, request)):
 				with self.assertRaisesRegex(ValueError, "BOM"):
 					module.before_submit(order)
@@ -215,3 +216,66 @@ class SellingPrices(unittest.TestCase):
 				frappe.get_all.return_value = [row]
 				with self.assertRaises(ValueError):
 					module.selling_amount("WIRE", 1)
+
+
+class NativeSalesOrders(unittest.TestCase):
+	"""Schedule-linked Sales Orders without a portal intake keep native ERPNext behavior."""
+
+	def order(self, **values):
+		data = {
+			"name": "SO-DESK",
+			"ill_fixture_schedule": "S1",
+			"amended_from": None,
+			"docstatus": 0,
+			"customer": "A",
+			"delivery_date": "2026-10-01",
+			"items": [Record(delivery_date="2026-10-01")],
+			"ill_confirmed_delivery_date": None,
+			"ill_delivery_confirmed_by": None,
+			"ill_delivery_confirmed_on": None,
+			**values,
+		}
+		order = types.SimpleNamespace(**data)
+		order.get = lambda field: getattr(order, field, None)
+		order.get_doc_before_save = lambda: None
+		return order
+
+	def test_quotation_mapped_order_submits_without_portal_intake(self):
+		with load_service(ROOT + ".portal.order_review", OrderApproval().dependencies()) as (module, frappe):
+			frappe.db.exists.return_value = None
+			order = self.order()
+			with patch.object(module, "_staff") as staff, patch.object(module, "_load") as load:
+				module.before_submit(order)
+				module.on_submit(order)
+			staff.assert_not_called()
+			load.assert_not_called()
+			frappe.db.exists.assert_called_with(module.DOCTYPE, {"sales_order": ["in", ["SO-DESK"]]})
+
+	def test_desk_order_records_promise_without_portal_roles_or_date_rewrite(self):
+		with load_service(ROOT + ".portal.order_review", OrderApproval().dependencies()) as (module, frappe):
+			frappe.db.exists.return_value = None
+			frappe.get_roles.return_value = ["Sales User"]
+			order = self.order(ill_confirmed_delivery_date="2020-01-01")
+			module.validate_order(order)
+			self.assertEqual(order.ill_delivery_confirmed_by, frappe.session.user)
+			self.assertEqual(order.delivery_date, "2026-10-01")
+			self.assertEqual(order.items[0].delivery_date, "2026-10-01")
+
+	def test_amendment_of_portal_order_keeps_approval_workflow(self):
+		with load_service(ROOT + ".portal.order_review", OrderApproval().dependencies()) as (module, frappe):
+			frappe.db.get_value.return_value = None
+			frappe.db.exists.side_effect = lambda doctype, filters: (
+				"INTAKE-1" if "SO-PORTAL" in filters["sales_order"][1] else None
+			)
+			order = self.order(
+				name="SO-PORTAL-1", amended_from="SO-PORTAL", ill_confirmed_delivery_date="2026-11-01"
+			)
+			with patch.object(module, "_staff") as staff:
+				module.validate_order(order)
+				staff.assert_called()
+				self.assertIsNone(order.ill_confirmed_delivery_date)
+				with patch.object(module, "_load", side_effect=ValueError("no portal intake")):
+					with self.assertRaisesRegex(ValueError, "no portal intake"):
+						module.before_submit(order)
+				staff.assert_called_with(order, approve=True)
+			frappe.db.get_value.assert_called_with("Sales Order", "SO-PORTAL", "amended_from")

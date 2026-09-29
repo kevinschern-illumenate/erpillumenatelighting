@@ -1,4 +1,3 @@
-
 name: CI
 
 on:
@@ -7,25 +6,24 @@ on:
       - develop
       - main
   pull_request:
+  workflow_dispatch:
 
 concurrency:
-  group: develop-illumenate_lighting-${{ github.event.number }}
+  group: develop-illumenate_lighting-${{ github.event.number || github.ref }}
   cancel-in-progress: true
+
+# Production runs Frappe/ERPNext version-16 on Python 3.14. The app relies on
+# v16 behavior (e.g. has_permission hooks returning None deny access), so v15
+# is no longer tested.
+env:
+  FRAPPE_BRANCH: version-16
+  PYTHON_VERSION: '3.14'
+  NODE_VERSION: '24'
 
 jobs:
   tests:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - frappe_branch: version-15
-            python: '3.11'
-            node: '18'
-          - frappe_branch: version-16
-            python: '3.14'
-            node: '24'
-    name: Server (${{ matrix.frappe_branch }})
+    name: Server (version-16)
 
     services:
       redis-cache:
@@ -56,12 +54,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ env.NODE_VERSION }}
           check-latest: true
 
       - name: Cache pip
@@ -91,14 +89,14 @@ jobs:
       - name: Setup
         run: |
           pip install frappe-bench
-          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-branch ${{ matrix.frappe_branch }} ~/frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-branch $FRAPPE_BRANCH ~/frappe-bench
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
       - name: Install
         working-directory: /home/runner/frappe-bench
         run: |
-          bench get-app erpnext --branch ${{ matrix.frappe_branch }}
+          bench get-app erpnext --branch $FRAPPE_BRANCH
           bench get-app illumenate_lighting $GITHUB_WORKSPACE
           bench setup requirements --dev
           bench new-site --db-root-password root --admin-password admin test_site
@@ -114,21 +112,101 @@ jobs:
           bench --site test_site migrate
           bench --site test_site migrate
 
-      - name: Run existing server suite (v15)
-        if: matrix.frappe_branch == 'version-15'
-        working-directory: /home/runner/frappe-bench
-        run: |
-          bench --site test_site set-config allow_tests true
-          bench --site test_site run-tests --app illumenate_lighting
-        env:
-          TYPE: server
-
-      - name: Run migration regression suite (v16)
-        if: matrix.frappe_branch == 'version-16'
+      - name: Run installed-site regression suites
         working-directory: /home/runner/frappe-bench
         run: |
           bench --site test_site set-config allow_tests true
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_migration_assets
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_configurator_transport
+          bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_deploy_regressions
         env:
           TYPE: server
+
+  upgrade:
+    # A fresh install marks every patch as done without running it. This job
+    # installs the base revision (what main has deployed), gives the site the
+    # production state that broke earlier deploys, then migrates to this change.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    name: Upgrade rehearsal (version-16)
+    env:
+      # Set the PRODUCTION_SHA repository variable to the commit production runs
+      # when it differs from the pull request base.
+      BASE_SHA: ${{ vars.PRODUCTION_SHA || github.event.pull_request.base.sha || 'origin/main' }}
+
+    services:
+      redis-cache:
+        image: redis:alpine
+        ports:
+          - 13000:6379
+      redis-queue:
+        image: redis:alpine
+        ports:
+          - 11000:6379
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install MariaDB Client
+        run: sudo apt-get install mariadb-client
+
+      - name: Setup
+        run: |
+          pip install frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-branch $FRAPPE_BRANCH ~/frappe-bench
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+
+      - name: Install the base revision
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench get-app erpnext --branch $FRAPPE_BRANCH
+          bench get-app illumenate_lighting $GITHUB_WORKSPACE
+          git -C apps/illumenate_lighting fetch --quiet "$GITHUB_WORKSPACE" "+refs/remotes/origin/*:refs/remotes/base/*"
+          git -C apps/illumenate_lighting checkout --detach "$(git -C "$GITHUB_WORKSPACE" rev-parse "$BASE_SHA")"
+          bench setup requirements --dev
+          bench new-site --db-root-password root --admin-password admin test_site
+          bench --site test_site install-app erpnext
+          bench --site test_site install-app illumenate_lighting
+        env:
+          CI: 'Yes'
+
+      - name: Seed production state
+        working-directory: /home/runner/frappe-bench/sites
+        run: ../env/bin/python "$GITHUB_WORKSPACE/.github/scripts/upgrade_rehearsal.py" seed test_site
+
+      - name: Upgrade to this revision and migrate twice
+        working-directory: /home/runner/frappe-bench
+        run: |
+          git -C apps/illumenate_lighting checkout --detach "${{ github.sha }}"
+          ./env/bin/pip install --quiet -e apps/illumenate_lighting
+          bench --site test_site migrate
+          bench --site test_site migrate
+
+      - name: Verify the upgraded site
+        working-directory: /home/runner/frappe-bench
+        run: |
+          (cd sites && ../env/bin/python "$GITHUB_WORKSPACE/.github/scripts/upgrade_rehearsal.py" verify test_site)
+          bench --site test_site backup
+          bench --site test_site set-config allow_tests true
+          bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_deploy_regressions
