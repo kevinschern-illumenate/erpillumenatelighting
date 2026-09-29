@@ -134,7 +134,7 @@ Allows users to configure fixtures using segment-based configuration
 			<div class="ill-configurator ill-configurator-fixture">
 				{# The wizard has its own Schedule Target picker above, so the Add
 				   button always renders and JS gates it on schedule + line. #}
-				{% with can_save=True, show_build_button=is_system_manager %}
+				{% with can_save=True %}
 				{% include "illumenate_lighting/templates/includes/configurator_fixture_form.html" %}
 				{% endwith %}
 			</div>
@@ -186,8 +186,7 @@ var configuratorContext = {
 	product_slug: {{ (product_slug or '') | tojson }},
 	session_id: "",
 	can_save: {{ 'true' if can_save else 'false' }},
-	show_pricing: {{ 'true' if show_pricing else 'false' }},
-	is_system_manager: {{ 'true' if is_system_manager else 'false' }}
+	show_pricing: {{ 'true' if show_pricing else 'false' }}
 };
 
 $(function() {
@@ -209,7 +208,6 @@ $(function () {
         product_category: {{ product_category | tojson }},
         selected_template: {{ selected_template | tojson }},
         can_save: {{ can_save | tojson }},
-        is_system_manager: {{ is_system_manager | tojson }},
         is_tape_neon: {{ is_tape_neon | tojson }},
         is_neon: {{ is_neon | tojson }},
         is_tape: {{ is_tape | tojson }},

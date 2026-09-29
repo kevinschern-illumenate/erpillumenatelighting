@@ -74,11 +74,6 @@
 				<button type="button" class="btn btn-primary" id="calculateBtn" data-coordinator-action="validateAndQuote-1" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
-				{% if is_system_manager %}
-				<button type="button" class="btn btn-warning" id="buildItemBtn" data-coordinator-action="buildConfiguredFixtureAndItem-2" style="display: none;" disabled>
-					<i class="fa fa-wrench"></i> {{ _("Build Configured Fixture & Item") }}
-				</button>
-				{% endif %}
 				<button type="button" class="btn btn-success" id="saveBtn" data-coordinator-action="saveToSchedule-3" style="display: none;" disabled>
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>
@@ -192,11 +187,6 @@
 				<button type="button" class="btn btn-primary" id="tnCalculateBtn" data-coordinator-action="tnValidateAndQuote-11" disabled>
 					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
 				</button>
-				{% if is_system_manager %}
-				<button type="button" class="btn btn-warning" id="tnBuildItemBtn" data-coordinator-action="tnBuildConfiguredItem-12" style="display: none;" disabled>
-					<i class="fa fa-wrench"></i> {{ _("Build Configured Item") }}
-				</button>
-				{% endif %}
 				<button type="button" class="btn btn-success" id="tnSaveBtn" data-coordinator-action="tnSaveToSchedule-13" style="display: none;" disabled>
 					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
 				</button>

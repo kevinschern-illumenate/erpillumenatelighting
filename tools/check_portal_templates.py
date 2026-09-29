@@ -267,7 +267,6 @@ for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"):
 		line_idx=None,
 		can_save=False,
 		show_pricing=True,
-		is_system_manager=True,
 		configurator_mode="coordinator",
 		title="Configure " + category,
 		existing_configured_sheet=None,

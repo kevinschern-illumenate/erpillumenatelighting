@@ -164,9 +164,6 @@ def get_context(context):
 	# Determine if pricing should be shown based on user role
 	show_pricing = True
 
-	# Check if user is a System Manager (for build item button)
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
-
 	# Map category to page title
 	title_map = {
 		"Linear Fixture": "Configure Fixture",
@@ -195,7 +192,6 @@ def get_context(context):
 	context.line_key = line_key
 	context.expected_modified = str(schedule.modified) if schedule else None
 	context.initial_request = initial_request
-	context.is_system_manager = is_system_manager
 	context.templates = templates
 	context.selected_template = template_code
 	context.configurator_mode = configurator_mode
@@ -378,7 +374,7 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 		"is_tape_neon": True, "is_tape": product_category == "LED Tape", "is_neon": product_category == "LED Neon",
 		"is_led_sheet": False, "product_category": product_category,
 		"title": "Configure " + product_category, "templates": templates, "has_templates": bool(templates),
-		"selected_template": selected_template, "show_pricing": True, "is_system_manager": False,
+		"selected_template": selected_template, "show_pricing": True,
 		"can_save": True, "schedule_name": "", "line_idx": None, "has_quiz_handoff": False,
 		"embedded": True,
 	}

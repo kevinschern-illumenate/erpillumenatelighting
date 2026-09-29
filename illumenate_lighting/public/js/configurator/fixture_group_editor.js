@@ -92,7 +92,7 @@
         });
         this.$label.val((this.members[this.active] || {}).label || '');
         // Family calculation/save actions are replaced by the aggregate actions while grouping.
-        this.instance.$('#calculateBtn, #tnCalculateBtn, #brCalculateBtn, #saveBtn, #tnSaveBtn, #brSaveBtn, #buildItemBtn, #tnBuildItemBtn, [data-action="validate"], [data-action="add-to-schedule"]').addClass('ill-single-action').toggle(!this.enabled);
+        this.instance.$('#calculateBtn, #tnCalculateBtn, #brCalculateBtn, #saveBtn, #tnSaveBtn, #brSaveBtn, [data-action="validate"], [data-action="add-to-schedule"]').addClass('ill-single-action').toggle(!this.enabled);
         this.instance.$('[data-coordinator-action="setTapeMode-4"], [data-coordinator-action="setTapeMode-5"]').toggle(!this.enabled);
     };
     Editor.prototype.select = function (index) {
