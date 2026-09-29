@@ -62,6 +62,15 @@ def get_context(context):
 		can_convert_schedule_to_order,
 	)
 	can_create_order = can_convert_schedule_to_order(schedule, frappe.session.user)[0]
+	# The button opens portal order intake, which also requires a Dealer of the
+	# ordering company; explain instead of offering a button that will be refused.
+	order_block_reason = None
+	if can_create_order:
+		from illumenate_lighting.illumenate_lighting.portal.offers import commercial_customer
+		from illumenate_lighting.illumenate_lighting.portal.order_intake import buyer_denial
+
+		order_block_reason = buyer_denial(commercial_customer(schedule))
+		can_create_order = not order_block_reason
 
 	# Dealers can toggle their customer-group tier pricing in-page. Resolve
 	# their linked customer group up-front so the UI can label it without an
@@ -381,6 +390,7 @@ def get_context(context):
 	context.is_dealer = is_dealer
 	context.is_internal = is_internal
 	context.can_create_order = can_create_order
+	context.order_block_reason = order_block_reason
 	context.can_show_dealer_pricing = can_show_dealer_pricing
 	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty

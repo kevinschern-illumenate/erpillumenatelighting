@@ -28,11 +28,37 @@ FIELDS = {
 }
 
 
-def _buyer(customer):
-	if not get_actor().is_company_dealer_for(customer):
-		frappe.throw(
-			"Only a current buyer for the ordering company may submit intake", frappe.PermissionError
+def buyer_denial(customer, actor=None):
+	"""Why the session user may not buy for ``customer``, or ``None`` when they may.
+
+	The ordering company is the project's Owner Company, which can differ from the
+	Customer shown on the project, so each reason names the condition that failed.
+	"""
+	actor = actor or get_actor()
+	if actor.is_company_dealer_for(customer):
+		return None
+	if not customer:
+		return "This schedule has no ordering company. Ask ilLumenate to set the project's Owner Company."
+	required = f"Only a Dealer at the ordering company ({customer}) may submit order intake."
+	if actor.is_internal and not actor.is_dealer:
+		return f"{required} Staff accounts convert schedules from the schedule form in Desk."
+	if not actor.is_dealer:
+		return f"{required} Your account does not have the Dealer role."
+	if not actor.customer:
+		return (
+			f"{required} Your account is not linked to exactly one company: "
+			f"its Contact must link to {customer} and to no other Customer."
 		)
+	return (
+		f"{required} Your account belongs to {actor.customer}. The ordering company is the "
+		"project's Owner Company, which can differ from the Customer shown on the project."
+	)
+
+
+def _buyer(customer):
+	reason = buyer_denial(customer)
+	if reason:
+		frappe.throw(reason, frappe.PermissionError)
 
 
 def _schedule(name, *, lock=False):
