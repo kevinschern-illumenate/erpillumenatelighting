@@ -67,8 +67,8 @@ def _per_foot_prices(products) -> dict:
 def get_catalog_products(
     filters: Union[str, dict, None] = None,
     search: str = "",
-    page: int = 1,
-    page_size: int = 12,
+    page: int | str | None = 1,
+    page_size: int | str | None = 12,
     sort: str = "product_name asc",
 ) -> dict:
     """Paginated product list with multi-attribute filtering.

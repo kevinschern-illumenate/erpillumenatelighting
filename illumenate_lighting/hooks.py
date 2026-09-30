@@ -107,8 +107,6 @@ website_route_rules = [
 	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-sheet", "to_route": "configure_sheet"},
 	{"from_route": "/configure-sheet", "to_route": "configure_sheet"},
-	{"from_route": "/portal/configure-kit", "to_route": "configure_kit"},
-	{"from_route": "/portal/configure-kit/<template>", "to_route": "configure_kit"},
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
 	# Product Catalog (System Manager only)
@@ -150,6 +148,9 @@ website_route_rules = [
 website_redirects = [
 	{"source": r"/portal/configure-webflow/(.*)", "target": r"/portal/configure?template=\1&category=Linear Fixture&mode=wizard"},
 	{"source": r"/portal/configure-webflow", "target": r"/portal/configure?category=Linear Fixture&mode=wizard"},
+	# No kit configurator page exists; send old links to the configurator instead of a 404.
+	{"source": r"/portal/configure-kit/(.*)", "target": "/portal/configure"},
+	{"source": r"/portal/configure-kit", "target": "/portal/configure"},
 ]
 
 # Generators
@@ -178,6 +179,10 @@ after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
 # Fixtures
 # --------
 # Fixtures are records that get inserted during app installation
+# `bench export-fixtures` writes these into illumenate_lighting/fixtures/, and every
+# `bench migrate` imports that directory and overwrites matching records. Keep each
+# entry filtered to records this app owns: an unfiltered Custom Field entry would
+# ship ERPNext, HRMS and CRM fields and overwrite them on every site.
 fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
 	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
@@ -198,8 +203,8 @@ fixtures = [
 	},
 	# Job Title Master for CRM Lead integration
 	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
-	# Custom fields for CRM Lead and other DocTypes
-	{"dt": "Custom Field"},
+	# Custom fields this app owns. Most are created by patches instead.
+	{"dt": "Custom Field", "filters": [["module", "=", "ilLumenate Lighting"]]},
 	# Workspace for sidebar navigation
 	{"dt": "Workspace", "filters": [["module", "=", "ilLumenate Lighting"]]},
 	# Dashboard number cards for the ilLumenate Lighting workspace

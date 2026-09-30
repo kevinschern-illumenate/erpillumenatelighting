@@ -6,6 +6,7 @@ These use Frappe's real permission engine and database, which the portal_unit
 stubs cannot: Frappe v16 treats a None has_permission hook result as a denial.
 """
 
+import base64
 import json
 import tempfile
 from pathlib import Path
@@ -20,6 +21,8 @@ except ImportError:  # Frappe v15
 
 from illumenate_lighting import portal_workspace
 from illumenate_lighting.illumenate_lighting.portal import order_review
+
+PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
 
 
 def _system_user(email, roles):
@@ -64,6 +67,38 @@ class TestDeployRegressions(IntegrationTestCase):
 				self.assertTrue(attachment.is_downloadable())
 				attachment.delete()
 				frappe.set_user("Administrator")
+
+	def test_system_manager_uploads_webflow_product_featured_image(self):
+		# The scenario the removed permission diagnostic reproduced (recovery plan §6.1).
+		slug = "ill-regression-" + frappe.generate_hash(length=10)
+		frappe.get_doc(
+			{
+				"doctype": "ilL-Webflow-Product",
+				"name": slug,
+				"product_slug": slug,
+				"product_name": "Regression Product",
+				"product_type": "LED Tape",
+			}
+		).db_insert()
+		try:
+			frappe.set_user(_system_user("ill-regression-manager@example.com", ["System Manager"]))
+			image = frappe.get_doc(
+				{
+					"doctype": "File",
+					"file_name": "regression-featured.png",
+					"content": base64.b64decode(PNG_1X1),
+					"attached_to_doctype": "ilL-Webflow-Product",
+					"attached_to_name": slug,
+					"attached_to_field": "featured_image",
+					"is_private": 0,
+				}
+			).insert()
+			for ptype in ("read", "write", "delete"):
+				self.assertTrue(frappe.has_permission("File", ptype, image), ptype)
+			image.delete()
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.delete("ilL-Webflow-Product", {"name": slug})
 
 	def test_other_users_private_attachment_stays_denied(self):
 		frappe.set_user(_system_user("ill-regression-owner@example.com", ["System Manager"]))

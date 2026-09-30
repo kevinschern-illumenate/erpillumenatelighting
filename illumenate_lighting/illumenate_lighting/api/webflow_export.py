@@ -189,7 +189,7 @@ def get_webflow_products(
     sync_status: str = None,
     limit: int = 100,
     offset: int = 0,
-    include_child_tables: bool = True,
+    include_child_tables: bool | str | None = True,
     brand: str = None,
     product_slug: str = None,
 ) -> dict:
@@ -218,7 +218,7 @@ def get_webflow_products(
 
     require_catalog_reader()
     limit, offset = max(1, min(int(limit), 100)), max(0, int(offset))
-    include_child_tables = parse_bool(include_child_tables)
+    include_child_tables = parse_bool(include_child_tables, default=True)
     # Resolve brand (defaulting to the configured default brand for back-compat).
     brand_code = brand or get_default_brand() or "illumenate"
     try:
@@ -822,10 +822,10 @@ def mark_category_error(
 
 @frappe.whitelist(methods=["POST"])
 def trigger_sync(
-    product_slugs: list = None,
+    product_slugs: str | list | None = None,
     product_type: str = None,
-    category_slugs: list = None,
-    sync_all_categories: bool = False,
+    category_slugs: str | list | None = None,
+    sync_all_categories: bool | str | None = False,
     brand: str = None,
 ) -> dict:
     """
@@ -835,11 +835,15 @@ def trigger_sync(
     sync row matching ``brand`` (default brand if not specified).
     """
     from illumenate_lighting.illumenate_lighting.api import publication
-    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool, string_list
     from illumenate_lighting.illumenate_lighting.portal.staff import require
     require("catalog")
-    product_slugs = json.loads(product_slugs) if isinstance(product_slugs, str) else product_slugs
-    category_slugs = json.loads(category_slugs) if isinstance(category_slugs, str) else category_slugs
+    # frappe.call sends arrays as JSON strings; a `list` annotation would reject them.
+    try:
+        product_slugs = string_list(product_slugs, field="product_slugs")
+        category_slugs = string_list(category_slugs, field="category_slugs")
+    except ValueError as exc:
+        frappe.throw(str(exc))
     sync_all_categories = parse_bool(sync_all_categories)
     for value in (product_slugs, category_slugs):
         if value is not None and (not isinstance(value, list) or len(value) > 200):

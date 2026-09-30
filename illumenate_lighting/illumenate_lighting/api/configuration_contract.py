@@ -108,6 +108,25 @@ def segment_list(value, *, field="segments"):
 	return value
 
 
+def string_list(value, *, field="value"):
+	"""Decode an optional list of names sent as a list or a JSON-encoded list.
+
+	frappe.call JSON-encodes arrays, and a blank form value means "none".
+	"""
+	if isinstance(value, str):
+		if not value.strip():
+			return None
+		try:
+			value = json.loads(value)
+		except json.JSONDecodeError as exc:
+			raise ValueError(f"{field} must be a JSON list") from exc
+	if value is None:
+		return None
+	if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+		raise ValueError(f"{field} must be a list of names")
+	return value
+
+
 def canonical_json(value):
 	return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 

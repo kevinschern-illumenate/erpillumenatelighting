@@ -146,7 +146,21 @@ def has_website_permission(doc, ptype="read", user=None, verbose=False):
 
 
 def _get_user_customer(user):
-	"""Resolve one company; new contact-only records cannot silently grant membership."""
+	"""Resolve one company; new contact-only records cannot silently grant membership.
+
+	Two Customers at the deciding tier are genuinely ambiguous and resolve to None,
+	so staff must fix the Contact links (``portal.role_audit.dealers`` lists them).
+	"""
+	customers = _user_customer_candidates(user)
+	return next(iter(customers)) if len(customers) == 1 else None
+
+
+def _user_customer_candidates(user):
+	"""The Customers that decide a user's company.
+
+	Contacts whose ``user`` is this user decide. Email-only matches count only when
+	no such Contact links a Customer.
+	"""
 	meta = frappe.get_meta("Contact")
 	filters = {"ill_portal_archived": 0} if meta.has_field("ill_portal_archived") else {}
 	fields = ["name", "user"]
@@ -154,9 +168,15 @@ def _get_user_customer(user):
 		fields.append("ill_portal_contact_only")
 	contacts = frappe.get_all("Contact", filters=filters,
 		or_filters={"user": user, "email_id": user}, fields=fields)
-	names = [row.name for row in contacts if row.user == user or (not row.user and not row.get("ill_portal_contact_only"))]
-	if not names:
-		return None
-	customers = set(frappe.get_all("Dynamic Link", filters={"parenttype": "Contact",
-		"parent": ["in", names], "link_doctype": "Customer"}, pluck="link_name"))
-	return next(iter(customers)) if len(customers) == 1 else None
+	linked = {row.name for row in contacts if row.user == user}
+	email_only = {row.name for row in contacts if not row.user and not row.get("ill_portal_contact_only")}
+	if not (linked or email_only):
+		return set()
+	links = frappe.get_all("Dynamic Link", filters={"parenttype": "Contact",
+		"parent": ["in", sorted(linked | email_only)], "link_doctype": "Customer"},
+		fields=["parent", "link_name"])
+	for names in (linked, email_only):
+		customers = {row.link_name for row in links if row.parent in names}
+		if customers:
+			return customers
+	return set()
