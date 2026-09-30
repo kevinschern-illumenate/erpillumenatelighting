@@ -56,7 +56,36 @@ This section supersedes anything below that says deployments are failing.
     take effect at the next migration.
   - Owner decision defaults applied: portal-intake-only approval gate, invalid rollout config treated
     as absent, v15 CI removed.
-- 🔴 **Remaining:** Phase 3 behavior changes (§7) and Phase 4 hygiene (§8).
+- ✅ **Phase 3 and Phase 4 code implemented (Sep 30)** on branch `claude/confident-ptolemy-dq65eg`. Every
+  Phase 2 fix was re-checked on `main` at `4131713` (PRs #260–#270 did not touch them) and still holds.
+  - 7.3 `ill_project._get_user_customer`: user-linked Contacts decide, email-only matches are a fallback.
+    It resolves every case the previous code resolved, with the same answer.
+  - 7.1 `portal/role_audit.py` (`report`, `dealers`; bench execute only) and a role assignment checklist in
+    `docs/B2B_STAFF_OPERATIONS.md`. `dealers()` also lists the Dealer users 7.2 would move off Desk.
+  - 7.4 and 7.5: the three Webflow list parameters accept `frappe.call`'s JSON strings. Parameters whose
+    body already normalizes blanks now accept them too. Verified against production Frappe's own
+    `typing_validations.py` with pydantic 2.12. The installed-site transport test now covers non-`None`
+    defaults and JSON-encoded lists and dicts. It lists the 28 remaining strict parameters in
+    `KNOWN_STRICT`; no portal or Desk caller sends those blank.
+  - 7.6 `commercial_lineage.validate` skips rows where neither side carries configured lineage. Lineage
+    typed onto a plain row is still replaced from its source.
+  - 7.7 and 7.8 are in their own commit because they edit `hooks.py`: the deploy that carries it runs a
+    **Migrate**, not a Pull. The Custom Field fixture is filtered to this app's module, and
+    `/portal/configure-kit` redirects to `/portal/configure`.
+  - 8.1: `output/` and `tools/configurator_ui/dist-preview/` (built by Vercel) are no longer tracked, and
+    `diff_bbb8605.txt` is deleted. 8.4: the backup repair and acceptance docs point here, with the
+    `bypass_unlink.so` note corrected.
+  - §6.1 acceptance: `test_deploy_regressions` now performs the real System Manager featured-image upload
+    to an `ilL-Webflow-Product`.
+- 🔴 **Remaining (OWNER):**
+  - Run `role_audit.report` and assign roles (7.1).
+  - Decide on Dealer Desk access using `role_audit.dealers` (7.2).
+  - Untrack `.repowise/`, `.mcp.json` and `.codex/` **from your own checkout**. Run
+    `git rm -r --cached .repowise .mcp.json .codex`, add them to `.gitignore`, then commit. Doing this from
+    another clone would delete your working copies on the next pull (8.1).
+  - Branch protection and deploy discipline (8.2, 8.3).
+  - Confirm the stopped Postmark campaign scheduler (§4.1).
+  - Run the staging rehearsal (Phase 5).
 
 ---
 
