@@ -29,12 +29,26 @@ FIELDS = (
 	"ill_lens",
 	"ill_engine_version",
 )
+# Descriptive text any row may carry; the other fields mark a configured build.
+DESCRIPTIVE = frozenset(("additional_notes", "ill_section_label", "ill_fixture_type", "ill_product_type"))
+LINEAGE = tuple(field for field in FIELDS if field not in DESCRIPTIVE)
+
+
+def _carries_lineage(row):
+	return any(row.get(field) for field in LINEAGE)
 
 
 def validate(doc, method=None):
+	"""Copy build evidence onto configured fulfillment rows from their exact source row.
+
+	Rows where neither side carries configured lineage keep native ERPNext stock and
+	invoicing behavior. Lineage on either side is enforced, so a value typed onto a
+	plain row is still replaced from its source.
+	"""
 	if doc.docstatus == 2:
 		return
-	cache = {}
+	sources = {}
+	checked = set()
 	for row in doc.get("items") or []:
 		if doc.doctype == "Sales Invoice" and row.get("dn_detail"):
 			doctype, name, source_name = "Delivery Note", row.get("delivery_note"), row.dn_detail
@@ -47,14 +61,19 @@ def validate(doc, method=None):
 		if not name or not source_name:
 			continue
 		key = (doctype, name)
-		if key not in cache:
+		if key not in sources:
 			source = frappe.get_doc(doctype, name)
+			sources[key] = source, {item.name: item for item in source.get("items") or []}
+		source, rows = sources[key]
+		original = rows.get(source_name)
+		if not _carries_lineage(row) and not (original and _carries_lineage(original)):
+			continue
+		if key not in checked:
 			if not frappe.has_permission(doctype, "read", doc=source):
 				frappe.throw("Source transaction access required", frappe.PermissionError)
 			if source.customer != doc.customer or source.company != doc.company or source.docstatus != 1:
 				frappe.throw("Fulfillment source must be submitted for the same customer and company")
-			cache[key] = {item.name: item for item in source.get("items") or []}
-		original = cache[key].get(source_name)
+			checked.add(key)
 		if not original or original.item_code != row.item_code:
 			frappe.throw("The source row does not match this fulfillment Item")
 		for field in FIELDS:

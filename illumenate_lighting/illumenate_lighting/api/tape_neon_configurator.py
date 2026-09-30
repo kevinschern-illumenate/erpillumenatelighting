@@ -401,9 +401,9 @@ def get_tape_cascading_options(
 def validate_tape_configuration(
     selections: str,
     segments_json: str | None = None,
-    _skip_record_creation: bool = False,
+    _skip_record_creation: bool | str | None = False,
     parent_configured_tape_neon: str | None = None,
-    include_power_supply: bool = True,
+    include_power_supply: bool | str | None = True,
     dimming_protocol_code: str | None = None,
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
@@ -961,9 +961,9 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
 def validate_neon_configuration(
     selections: str,
     segments_json: str,
-    _skip_record_creation: bool = False,
+    _skip_record_creation: bool | str | None = False,
     parent_configured_tape_neon: str | None = None,
-    include_power_supply: bool = True,
+    include_power_supply: bool | str | None = True,
     dimming_protocol_code: str | None = None,
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
@@ -2164,7 +2164,7 @@ def validate_tape_neon_template_config(
     template_code: str,
     selections: str,
     segments_json: str = None,
-    _skip_record_creation: bool = False,
+    _skip_record_creation: bool | str | None = False,
 ) -> dict:
     """
     Validate a complete tape/neon template configuration and return computed results.
@@ -3852,9 +3852,9 @@ def _build_neon_description(
 def get_mounting_accessories(
     template_code: str,
     product_category: str = None,
-    length_mm: float = 0,
+    length_mm: float | str | None = 0,
     environment_rating: str = None,
-    segments: int = 1,
+    segments: int | str | None = 1,
 ) -> dict:
     """
     Return eligible mounting accessories for a tape/neon template.

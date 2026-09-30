@@ -386,8 +386,8 @@ def submit_request(request_name: str, file_ids=None) -> dict:
 @frappe.whitelist()
 def list_requests(
 	tab: str = "all",
-	page: int = 1,
-	page_size: int = DEFAULT_PAGE_SIZE,
+	page: int | str | None = 1,
+	page_size: int | str | None = DEFAULT_PAGE_SIZE,
 	search: str = None,
 ) -> dict:
 	"""

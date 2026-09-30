@@ -32,6 +32,34 @@ LINEAR = {
 	"include_power_supply": "false",
 	"_skip_record_creation": "true",
 }
+# Whitelisted parameters that still reject a blank form value. No portal or Desk
+# caller sends them blank today, and their bodies do not normalize one, so each
+# needs a body change as well as a wider annotation (recovery plan §7.5).
+KNOWN_STRICT = {
+	"api.configurator_engine.validate_and_quote": {
+		"start_leader_len_mm",
+		"end_leader_len_mm",
+		"relax_length_validation",
+	},
+	"api.configurator_engine.validate_and_quote_with_output": {"start_leader_len_mm", "end_leader_len_mm"},
+	"api.document_requests.add_deliverable": {"publish"},
+	"api.exports.generate_schedule_csv": {"priced"},
+	"api.exports.generate_schedule_pdf": {"priced"},
+	"api.manufacturing_generator.generate_manufacturing_artifacts": {"qty", "skip_if_exists"},
+	"api.portal.create_website_user": {"send_invite"},
+	"api.portal.get_items_by_product_type": {"exclude_variants"},
+	"api.portal.get_product_types": {"include_subgroups"},
+	"api.portal.invite_project_collaborator": {"send_invite"},
+	"api.reconciliation.regenerate_artifacts": {"regenerate_bom", "regenerate_work_order"},
+	"api.spec_submittal.generate_spec_submittal_packet": {"include_cover", "allow_partial"},
+	"api.webflow_attributes.get_product_attribute_references": {"limit", "offset"},
+	"api.webflow_attributes.get_webflow_attributes": {"limit", "offset"},
+	"api.webflow_attributes.trigger_attribute_sync": {"sync_all"},
+	"api.webflow_export.get_webflow_categories": {"include_inactive"},
+	"api.webflow_export.get_webflow_products": {"limit", "offset"},
+	"api.webflow_integration.get_related_products": {"limit"},
+	"api.webflow_schedule.add_to_schedule": {"quantity"},
+}
 
 
 class TestConfiguratorTransport(IntegrationTestCase):
@@ -151,14 +179,22 @@ class TestConfiguratorTransport(IntegrationTestCase):
 				self.assertEqual(result["field"], "override_max_run_ft")
 
 	def test_all_optional_numeric_whitelist_parameters_accept_form_blanks(self):
-		"""Catch another strict optional scalar before a browser reaches it."""
+		"""Catch another strict optional scalar before a browser reaches it.
+
+		Every defaulted int/float/bool parameter must accept a blank form value, and
+		every list/dict parameter a JSON string (frappe.call encodes arrays and
+		objects that way). Parameters in KNOWN_STRICT are the exceptions.
+		"""
 		import ast
 		from pathlib import Path
 
+		from frappe.exceptions import FrappeTypeError
 		from frappe.utils.typing_validations import transform_parameter_types
 
+		app = Path(frappe.get_app_path("illumenate_lighting"))
 		checked = 0
-		for path in Path(frappe.get_app_path("illumenate_lighting")).rglob("*.py"):
+		failures = set()
+		for path in app.rglob("*.py"):
 			if path.name.startswith("test_"):
 				continue
 			for definition in ast.parse(path.read_text(encoding="utf-8")).body:
@@ -168,23 +204,43 @@ class TestConfiguratorTransport(IntegrationTestCase):
 					continue
 				args = definition.args.args
 				defaults = definition.args.defaults
-				for arg, default in zip(args[len(args) - len(defaults) :], defaults, strict=True):
-					annotation = ast.unparse(arg.annotation) if arg.annotation else ""
-					if (
-						not isinstance(default, ast.Constant)
-						or default.value is not None
-						or not any(t in annotation for t in ("float", "int", "bool"))
-					):
-						continue
-					module = ".".join(
-						path.relative_to(Path(frappe.get_app_path("illumenate_lighting")).parent)
-						.with_suffix("")
-						.parts
+				optional = list(zip(args[len(args) - len(defaults) :], defaults, strict=True))
+				optional += [
+					(arg, default)
+					for arg, default in zip(
+						definition.args.kwonlyargs, definition.args.kw_defaults, strict=True
 					)
+					if default is not None
+				]
+				for arg, _default in optional:
+					annotation = ast.unparse(arg.annotation) if arg.annotation else ""
+					probes = []
+					if any(t in annotation for t in ("float", "int", "bool")):
+						probes.append("")
+					if "list" in annotation.lower():
+						probes.append('["value"]')
+					if "dict" in annotation.lower():
+						probes.append('{"key": "value"}')
+					if not probes:
+						continue
+					module = ".".join(path.relative_to(app.parent).with_suffix("").parts)
 					function = inspect.unwrap(frappe.get_attr(module + "." + definition.name))
-					with self.subTest(method=definition.name, arg=arg.arg):
-						transform_parameter_types(function, (), {arg.arg: ""})
+					method = (
+						module.removeprefix("illumenate_lighting.illumenate_lighting.")
+						+ "."
+						+ definition.name
+					)
+					for probe in probes:
+						try:
+							transform_parameter_types(function, (), {arg.arg: probe})
+						except FrappeTypeError:
+							failures.add((method, arg.arg))
 						checked += 1
+		known = {(method, arg) for method, names in KNOWN_STRICT.items() for arg in names}
+		self.assertEqual(sorted(failures - known), [], "Widen these annotations and normalize inside")
+		self.assertEqual(
+			sorted(known - failures), [], "These now accept form values; remove from KNOWN_STRICT"
+		)
 		self.assertGreaterEqual(checked, 13)
 
 	def test_finish_options_and_saved_fixture_details_use_installed_schema(self):

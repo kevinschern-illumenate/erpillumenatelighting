@@ -14,6 +14,31 @@ Open **ilLumenate Lighting → Portal Operations** (`/app/ill-portal-operations`
 
 Engineering also receives master authoring and Item-literature permissions. Item creation, pricing maintenance, stock/manufacturing execution and accounting still require the corresponding native ERP job roles. The Operations role by itself supplies a drawing-hold view; it does not grant Work Order submission. See the [authoring field register](B2B_AUTHORING_FIELD_REGISTER.md) for setup/import order and public Sheet markup.
 
+## Role assignment checklist
+
+No user receives these roles automatically, and only System Manager is treated as internal staff everywhere. Staff who did this work with standard ERPNext roles before the B2B portal (Sales User, Sales Manager, Stock User…) lose it until they hold the matching ilL role. Assign roles on staging first, then on production right after the deploy ([recovery plan §7.1](DEPLOYMENT_RECOVERY_PLAN_2026_09_29.md)).
+
+1. List every enabled System User, the capabilities each has or lacks, and the capabilities nobody but a System Manager covers (`uncovered`):
+   `bench --site <site> execute illumenate_lighting.illumenate_lighting.portal.role_audit.report`
+2. Map each person using the table below. The ilL role adds to, and never replaces, the native ERP role (for example, approving a portal order also needs Sales Order submit permission).
+3. List Dealer users the portal cannot place in exactly one company (`unresolved`: fix their Contact → Customer links), and Dealer users who would lose Desk the next time their User record is saved (`desk_access_at_risk`):
+   `bench --site <site> execute illumenate_lighting.illumenate_lighting.portal.role_audit.dealers`
+4. Run step 1 again and confirm `uncovered` is empty, or that a System Manager intentionally covers the rest.
+
+| Work they did before | Assign | What it restores |
+|---|---|---|
+| Quotes, dealer projects and fixture schedules; Desk **Configure & Add Fixture** | ilL Sales Review | All-company project and schedule visibility, the Desk configurator, quote request and draft order review |
+| Submitting Sales Orders that came from the portal | ilL Order Approver | Portal order approval (includes the Sales Review work above) |
+| Drawings and technical review | ilL Engineering | Drawing requests, technical exports, master authoring |
+| Webflow **Mark Pending**, product and catalog authoring | ilL Catalog Publisher | Webflow sync, publication, Item literature |
+| Publication and email failures | ilL Integration | Publication job and outbox retries |
+| Customer issues and account requests | ilL Support | Issue queue and account change requests |
+| Work Order drawing holds | ilL Operations | Read-only drawing-hold view |
+
+| Person | ilL roles assigned | Staging verified | Production assigned |
+|---|---|---|---|
+| | | | |
+
 Use **Mine**, **Unassigned** or **Overdue** where offered. Department leads must assign an enabled System User and arrange absence coverage; no random fallback assignee is selected by the new queue service. Drawing request types continue to provide their existing default assignee, SLA and optional Task behavior.
 
 Customer-visible replies appear in the portal and may generate a link-only notification. **Staff only** messages and their attachments do not appear in the customer thread or email. Reply retry keys avoid duplicate messages after a network interruption. Attachments are verified PDF/JPEG/PNG files, at most 20 MiB each and ten per reply.
