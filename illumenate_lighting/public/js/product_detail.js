@@ -39,6 +39,7 @@ function loadProductDetail(slug) {
 				ProductDetail.product = r.message.product;
 				renderDetail(r.message.product);
 				renderProductAction(r.message.product);
+				focusActionIfRequested();
 			} else {
 				$('#detailLoading').html(
 					'<p class="text-danger">' + _escHtml(r.message && r.message.error || 'Product not found') + '</p>'
@@ -203,7 +204,8 @@ function renderProductAction(product) {
 			not_configurable: __('This product is available with help from our team.'),
 			missing_template: __('This product needs a configurator template before it can be ordered online.'),
 			inactive_template: __('This product\'s configurator is temporarily unavailable.'),
-			family_not_enabled: __('Online configuration for this product family is not enabled yet.')
+			family_not_enabled: __('Online configuration for this product family is not enabled yet.'),
+			pilot_only: __('Online configuration for this product family is not yet available for your account.')
 		};
 		var reason = String(product.capability_reason || '');
 		var message = messages[reason] || (reason.indexOf('invalid_options:') === 0
@@ -356,6 +358,17 @@ async function addStandardLine(product, schedule, values) {
 	} finally {
 		$button.prop('disabled', false);
 	}
+}
+
+// Catalog cards link to "#configure" so the dealer lands on this panel, not the page top.
+function focusActionIfRequested() {
+	if (window.location.hash !== '#configure') return;
+	var section = document.getElementById('productActionSection');
+	if (!section) return;
+	section.setAttribute('tabindex', '-1');
+	section.scrollIntoView({block: 'start'});
+	var target = section.querySelector('input, select, textarea, button, a[href]') || section;
+	target.focus({preventScroll: true});
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

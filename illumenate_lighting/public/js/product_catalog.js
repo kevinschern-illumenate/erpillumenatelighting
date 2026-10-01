@@ -118,7 +118,7 @@ function renderFilterSidebar(data) {
 		var active = CatalogState.productType.indexOf(pt.value) !== -1 ? ' active' : '';
 		$tabs.append(
 			'<button type="button" aria-pressed="' + (active ? 'true' : 'false') + '" class="product-type-tab' + active + '" data-type="' +
-			escapeHtml(pt.value) + '">' + escapeHtml(pt.value) +
+			escapeHtml(pt.value) + '">' + escapeHtml(productFamilyLabel(pt.value)) +
 			' <small class="text-muted">(' + pt.count + ')</small></button>'
 		);
 	});

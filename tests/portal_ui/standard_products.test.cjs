@@ -85,3 +85,23 @@ test('an existing schedule line reopens the configurator and unmapped products a
     assert.equal(w.$('#productActionSection a').attr('href'), '/portal/support');
     dom.window.close();
 });
+
+test('a catalog "#configure" link focuses the action panel once it renders', async () => {
+    const {dom, w} = setup('https://portal.test/portal/products/clip#configure', () => schedules);
+    let scrolled = false;
+    w.HTMLElement.prototype.scrollIntoView = function () { scrolled = this.id === 'productActionSection'; };
+    await w.renderProductAction({product_slug: 'clip', capability: 'quantity', family: 'Accessory',
+        standard_choices: [{item_code: 'CLIP', label: 'Clip', stock_uom: 'Nos'}]});
+    w.focusActionIfRequested();
+    assert.equal(scrolled, true);
+    assert.equal(w.document.activeElement.id, 'scheduleSearch');
+    dom.window.close();
+});
+
+test('pilot-only products explain the account limit to dealers', async () => {
+    const {dom, w} = setup('https://portal.test/portal/products/tape', () => schedules);
+    await w.renderProductAction({product_slug: 'tape', capability: 'inquiry', capability_reason: 'pilot_only', family: 'LED Tape'});
+    assert.match(w.$('#productActionSection').text(), /not yet available for your account/);
+    assert.doesNotMatch(w.$('#productActionSection').text(), /capability reason/i);
+    dom.window.close();
+});

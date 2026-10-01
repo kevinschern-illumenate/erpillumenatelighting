@@ -56,3 +56,22 @@ test('numeric filters stay strings and unknown query parameters are ignored', ()
     assert.equal(w.document.querySelector('.badge-type').textContent, 'Linear Fixtures');
     dom.window.close();
 });
+
+test('product type tabs show family labels and cards offer the action the product page supports', () => {
+    const {dom, w} = setup();
+    w.renderFilterSidebar({product_types: [{value: 'Fixture Template', count: 2}], filters: []});
+    const tab = w.document.querySelector('.product-type-tab');
+    assert.match(tab.textContent, /^Linear Fixtures/);
+    assert.equal(tab.getAttribute('data-type'), 'Fixture Template');
+    w.CatalogState.products = [
+        {product_name: 'Fixture', product_slug: 'fixture', product_type: 'Fixture Template', is_configurable: true, capability: 'configure'},
+        {product_name: 'Clip', product_slug: 'clip', product_type: 'Accessory', is_configurable: false, capability: 'quantity'},
+        {product_name: 'Custom', product_slug: 'custom', product_type: 'Component', is_configurable: false, capability: 'inquiry'},
+    ];
+    w.CatalogState.total = 3;
+    w.renderGrid();
+    const ctas = Array.from(w.document.querySelectorAll('.product-card-cta')).map(a => [a.textContent, new w.URL(a.href).pathname + new w.URL(a.href).hash]);
+    assert.deepEqual(ctas, [['Configure', '/portal/products/fixture#configure'], ['Add to schedule', '/portal/products/clip#configure']]);
+    assert.equal(w.document.querySelectorAll('.product-card-details').length, 3);
+    dom.window.close();
+});

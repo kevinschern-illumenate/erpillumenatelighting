@@ -63,22 +63,17 @@ def _per_foot_prices(products) -> dict:
 def _template_activity(products) -> dict:
     """Return ``(DocType, template) -> active`` using one query per template type."""
     from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
-    from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_FIELDS
+    from illumenate_lighting.illumenate_lighting.api.product_projection import (
+        TEMPLATE_DOCTYPES,
+        TEMPLATE_FIELDS,
+    )
 
-    template_doctypes = {
-        "Linear Fixture": "ilL-Fixture-Template",
-        "LED Tape": "ilL-Tape-Neon-Template",
-        "LED Neon": "ilL-Tape-Neon-Template",
-        "LED Sheet": "ilL-LED-Sheet-Template",
-    }
     wanted = {}
     for product in products:
         family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
-        field = TEMPLATE_FIELDS.get(family)
-        doctype = template_doctypes.get(family)
-        template = product.get(field) if field else None
-        if doctype and template:
-            wanted.setdefault(doctype, set()).add(template)
+        template = product.get(TEMPLATE_FIELDS[family]) if family in TEMPLATE_FIELDS else None
+        if template:
+            wanted.setdefault(TEMPLATE_DOCTYPES[family], set()).add(template)
 
     activity = {}
     for doctype, names in wanted.items():
@@ -93,19 +88,42 @@ def _template_activity(products) -> dict:
 
 
 def _is_template_active(product, activity) -> bool:
+    """A linked template that is inactive or no longer exists cannot be configured."""
     from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
-    from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_FIELDS
+    from illumenate_lighting.illumenate_lighting.api.product_projection import (
+        TEMPLATE_DOCTYPES,
+        TEMPLATE_FIELDS,
+    )
 
     family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
-    doctypes = {
-        "Linear Fixture": "ilL-Fixture-Template",
-        "LED Tape": "ilL-Tape-Neon-Template",
-        "LED Neon": "ilL-Tape-Neon-Template",
-        "LED Sheet": "ilL-LED-Sheet-Template",
-    }
-    field = TEMPLATE_FIELDS.get(family)
-    template = product.get(field) if field else None
-    return activity.get((doctypes.get(family), template), False) if template else True
+    template = product.get(TEMPLATE_FIELDS[family]) if family in TEMPLATE_FIELDS else None
+    return activity.get((TEMPLATE_DOCTYPES[family], template), False) if template else True
+
+
+def _project(product, activity, **kwargs) -> dict:
+    """Project with the family rollout gate and template state the caller already resolved."""
+    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
+    from illumenate_lighting.illumenate_lighting.portal.rollout import reason
+
+    gate = reason(product.get("product_type"))
+    return project_product(
+        product,
+        commercial=True,
+        configure_available=gate == "ok",
+        rollout_reason=gate,
+        template_active=_is_template_active(product, activity),
+        **kwargs,
+    )
+
+
+def _standard_choices(product) -> list:
+    """Orderable SKUs for a product without a configurator; a dangling spec link offers none."""
+    from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
+
+    try:
+        return choices(product)
+    except frappe.DoesNotExistError:
+        return []
 
 
 # ── public API ───────────────────────────────────────────────────────
@@ -246,6 +264,15 @@ def get_catalog_products(
         f"  `tabilL-Webflow-Product`.fixture_template, "
         f"  `tabilL-Webflow-Product`.tape_neon_template, "
         f"  `tabilL-Webflow-Product`.led_sheet_template, "
+        # Links read by standard_products.choices() for "Add to schedule" products.
+        f"  `tabilL-Webflow-Product`.portal_item, "
+        f"  `tabilL-Webflow-Product`.driver_spec, "
+        f"  `tabilL-Webflow-Product`.driver_template, "
+        f"  `tabilL-Webflow-Product`.controller_spec, "
+        f"  `tabilL-Webflow-Product`.controller_template, "
+        f"  `tabilL-Webflow-Product`.accessory_spec, "
+        f"  `tabilL-Webflow-Product`.profile_spec, "
+        f"  `tabilL-Webflow-Product`.lens_spec, "
         f"  `tabilL-Webflow-Product`.is_active "
         f"FROM `tabilL-Webflow-Product` {attr_join} "
         f"WHERE {where} "
@@ -261,15 +288,13 @@ def get_catalog_products(
     pricing_map = _per_foot_prices(products)
     template_activity = _template_activity(products)
 
-    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
-    from illumenate_lighting.illumenate_lighting.portal.rollout import available
-    result = [project_product(
-        product,
-        price=pricing_map.get(product.name),
-        commercial=True,
-        configure_available=available(product.product_type),
-        template_active=_is_template_active(product, template_activity),
-    ) for product in products]
+    result = []
+    for product in products:
+        projection = _project(product, template_activity, price=pricing_map.get(product.name))
+        # Cards offer "Add to schedule" only when the product page will have an orderable SKU.
+        if projection["capability"] == "inquiry" and _standard_choices(product):
+            projection["capability"] = "quantity"
+        result.append(projection)
 
     return {
         "success": True,
@@ -305,8 +330,6 @@ def get_catalog_product_detail(product_slug: str) -> dict:
     if not product.is_active:
         return {"success": False, "error": _("Product not found")}
 
-    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
-
     certifications = []
     for row in sorted(product.certifications or [], key=lambda r: r.display_order or 0):
         master = frappe.get_doc("ilL-Attribute-Certification", row.certification)
@@ -317,19 +340,11 @@ def get_catalog_product_detail(product_slug: str) -> dict:
             "certification_name", "certification_body", "certification_code", "badge_image"
         )})
     price = _per_foot_prices([product]).get(product.name)
-    template_activity = _template_activity([product])
-    from illumenate_lighting.illumenate_lighting.portal.rollout import available
-    from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
-    projection = project_product(
-        product,
-        certifications=certifications,
-        price=price,
-        commercial=True,
-        configure_available=available(product.product_type),
-        template_active=_is_template_active(product, template_activity),
+    projection = _project(
+        product, _template_activity([product]), certifications=certifications, price=price
     )
     if not projection["configure_url"]:
-        projection["standard_choices"] = choices(product)
+        projection["standard_choices"] = _standard_choices(product)
         if projection["standard_choices"]:
             projection["capability"] = "quantity"
     return {"success": True, "product": projection}

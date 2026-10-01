@@ -1,4 +1,4 @@
-"""Optional family controls for new configurations."""
+"""Optional family and named-user cohort controls for new configurations."""
 
 import frappe
 
@@ -21,7 +21,14 @@ def reason(family, *, public=False):
 	family = FAMILY_ALIASES.get(family, family)
 	if families is not None and family not in families:
 		return "family_not_enabled"
-	return "ok"
+	users = _list("ill_portal_pilot_users")
+	if users is None or public or frappe.flags.get("ill_product_download"):
+		return "ok"
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if frappe.session.user in users or allowed("sales") or allowed("engineering"):
+		return "ok"
+	return "pilot_only"
 
 
 def require_family(family, *, public=False):

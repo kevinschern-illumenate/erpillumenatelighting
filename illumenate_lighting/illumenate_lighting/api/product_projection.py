@@ -11,6 +11,13 @@ TEMPLATE_FIELDS = {
 	"LED Neon": "tape_neon_template",
 	"LED Sheet": "led_sheet_template",
 }
+# DocType each family's template link points at.
+TEMPLATE_DOCTYPES = {
+	"Linear Fixture": "ilL-Fixture-Template",
+	"LED Tape": "ilL-Tape-Neon-Template",
+	"LED Neon": "ilL-Tape-Neon-Template",
+	"LED Sheet": "ilL-LED-Sheet-Template",
+}
 # Families priced by the foot; the catalog shows the template's MSRP per foot.
 PER_FOOT_TEMPLATES = {
 	"Linear Fixture": "ilL-Fixture-Template",
@@ -50,8 +57,13 @@ def project_product(
 	commercial=False,
 	configure_available=True,
 	template_active=True,
+	rollout_reason=None,
 ):
-	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families."""
+	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families.
+
+	``rollout_reason`` is ``portal.rollout.reason()`` for the product's family; it names why
+	``configure_available`` is false (for example ``pilot_only``).
+	"""
 	get = product.get
 	family = FAMILY_ALIASES.get(get("product_type"), get("product_type"))
 	template_field = TEMPLATE_FIELDS.get(family)
@@ -73,16 +85,17 @@ def project_product(
 			errors.append(
 				{"field": "configurator_options", "code": "INVALID_OPTIONS", "step": row.get("option_step")}
 			)
+		step = row.get("option_step")
 		options.append(
 			{
-				"step": row.get("option_step"),
+				"step": step,
 				"type": row.get("option_type"),
 				"label": row.get("option_label"),
 				"description": row.get("option_description"),
 				"required": parse_bool(row.get("is_required")),
 				"depends_on_step": row.get("depends_on_step"),
 				"allowed_values": values,
-				"metadata": isinstance(values, dict) or (row.get("option_step") or 0) >= 90,
+				"metadata": isinstance(values, dict) or (isinstance(step, (int, float)) and step >= 90),
 			}
 		)
 	if not active:
@@ -96,7 +109,7 @@ def project_product(
 	elif errors:
 		capability, capability_reason = "inquiry", f"invalid_options:{errors[0].get('step')}"
 	elif not configure_available:
-		capability, capability_reason = "inquiry", "family_not_enabled"
+		capability, capability_reason = "inquiry", rollout_reason or "family_not_enabled"
 	else:
 		capability, capability_reason = "configure", "ok"
 	configure_url = None

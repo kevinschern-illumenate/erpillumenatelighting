@@ -185,3 +185,68 @@ class CatalogPricing(unittest.TestCase):
 				sorted(call.args[0] for call in frappe.get_all.call_args_list),
 				["ilL-Fixture-Template", "ilL-Tape-Neon-Template"],
 			)
+
+
+class CatalogCapability(unittest.TestCase):
+	def run_list(self, gate="ok"):
+		def orderable(product):
+			if product.name == "dangling":
+				raise LookupError("ilL-Spec-Accessory GONE not found")  # frappe.DoesNotExistError
+			return [{"item_code": "CLIP"}] if product.name == "clip" else []
+
+		choices = MagicMock(side_effect=orderable)
+		deps = {
+			ROOT + ".portal.access": types.SimpleNamespace(require_catalog_access=MagicMock()),
+			ROOT + ".portal.rollout": types.SimpleNamespace(reason=MagicMock(return_value=gate)),
+			ROOT + ".portal.standard_products": types.SimpleNamespace(choices=choices),
+		}
+		products = [
+			Record(
+				name="fixture",
+				product_slug="fixture",
+				product_type="Fixture Template",
+				fixture_template="F1",
+				is_configurable=1,
+				is_active=1,
+			),
+			Record(
+				name="clip",
+				product_slug="clip",
+				product_type="Accessory",
+				accessory_spec="A1",
+				is_configurable=0,
+				is_active=1,
+			),
+			Record(
+				name="custom", product_slug="custom", product_type="Component", is_configurable=0, is_active=1
+			),
+			Record(
+				name="dangling",
+				product_slug="dangling",
+				product_type="Accessory",
+				accessory_spec="GONE",
+				is_configurable=0,
+				is_active=1,
+			),
+		]
+		with load_service(ROOT + ".api.product_catalog", deps) as (service, frappe):
+			frappe.db.sql.side_effect = [[Record(cnt=len(products))], products]
+			frappe.get_all.side_effect = lambda doctype, **kwargs: [
+				Record(name="F1", is_active=1, price_per_ft_msrp=None)
+			]
+			result = service.get_catalog_products()
+		return {row["product_slug"]: row for row in result["products"]}, choices
+
+	def test_list_marks_orderable_products_without_a_configurator_as_quantity(self):
+		rows, choices = self.run_list()
+		self.assertEqual(
+			{slug: row["capability"] for slug, row in rows.items()},
+			{"fixture": "configure", "clip": "quantity", "custom": "inquiry", "dangling": "inquiry"},
+		)
+		self.assertNotIn("fixture", [call.args[0].name for call in choices.call_args_list])
+		self.assertNotIn("standard_choices", rows["clip"])
+
+	def test_pilot_cohort_reason_reaches_the_projection(self):
+		rows, _choices = self.run_list(gate="pilot_only")
+		self.assertEqual(rows["fixture"]["capability"], "inquiry")
+		self.assertEqual(rows["fixture"]["capability_reason"], "pilot_only")
