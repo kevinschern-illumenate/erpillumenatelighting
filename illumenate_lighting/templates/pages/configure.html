@@ -16,7 +16,18 @@ Allows users to configure fixtures using segment-based configuration
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 			<polyline points="20 6 9 17 4 12"/>
 		</svg>
-		<span>Your selections from the configurator have been pre-filled below. Review and adjust as needed.</span>
+		{% set prefill = quiz_prefill | default(none) %}
+		<span>
+			{% if prefill is none or prefill.applied %}
+			{{ _("Your answers from the product quiz have been pre-filled below. Review and adjust as needed.") }}
+			{% else %}
+			{{ _("None of your quiz answers match this product's options, so nothing was pre-filled.") }}
+			{% endif %}
+			{% if prefill and prefill.unmatched %}
+			<br>{{ _("Not offered on this product:") }}
+			{% for row in prefill.unmatched %}{{ row.answer }}{% if not loop.last %}, {% endif %}{% endfor %}
+			{% endif %}
+		</span>
 	</div>
 	{% endif %}
 	<!-- Breadcrumb -->

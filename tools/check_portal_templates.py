@@ -278,6 +278,32 @@ for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"):
 		output = configurator.render(**context)
 		parser.feed(output)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
+prefilled = configurator.render(
+	**{
+		**context,
+		"product_category": "Linear Fixture",
+		"is_led_sheet": False,
+		"is_tape_neon": False,
+		"is_tape": False,
+		"is_neon": False,
+		"configurator_mode": "coordinator",
+		"has_quiz_handoff": True,
+		"quiz_prefill": {
+			"applied": [{"field": "moisture", "answer": "Damp", "value": "Damp"}],
+			"unmatched": [{"field": "finish", "answer": "<b>Gold</b>"}],
+		},
+	}
+)
+assert "pre-filled below" in prefilled and "Not offered on this product" in prefilled
+assert "&lt;b&gt;Gold&lt;/b&gt;" in prefilled
+nothing = configurator.render(
+	**{
+		**context,
+		"has_quiz_handoff": True,
+		"quiz_prefill": {"applied": [], "unmatched": [{"field": "cct", "answer": "5000K"}]},
+	}
+)
+assert "nothing was pre-filled" in nothing and "5000K" in nothing
 # .tools/ is git-ignored, so a clean checkout (CI) does not have it yet.
 (ROOT / ".tools").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools") as directory:

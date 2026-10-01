@@ -141,6 +141,15 @@ def get_context(context):
 			if product_category != "Linear Fixture":
 				configurator_mode = "coordinator"
 
+	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
+	# options this template offers, so the browser does not apply the raw labels.
+	quiz_prefill = None
+	if quiz_handoff and initial_request is None and product_category in ("Linear Fixture", "LED Tape", "LED Neon"):
+		from illumenate_lighting.illumenate_lighting.portal.quiz_prefill import resolve
+
+		quiz_prefill = resolve(product_category, template_code, quiz_handoff)
+		initial_request = {"template": template_code, "selections": quiz_prefill["selections"]}
+
 	# Fetch templates based on product category
 	templates = []
 	led_sheet_templates = []
@@ -200,6 +209,7 @@ def get_context(context):
 	context.title = title_map.get(product_category, "Configure Fixture")
 	context.quiz_handoff_json = frappe.as_json(quiz_handoff)
 	context.has_quiz_handoff = bool(quiz_handoff)
+	context.quiz_prefill = quiz_prefill
 	context.no_cache = 1
 
 	return context
