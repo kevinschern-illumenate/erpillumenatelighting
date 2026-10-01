@@ -18,8 +18,8 @@ tools/fixture_builder/templates/rsk_config.yaml
 tools/seed_imports/*.csv
 tools/fixture_builder/templates/scm_config.yaml
 
-# repowise API keys (local)
-.repowise/.env
+# repowise local index and API keys (machine-specific, keeps the deploy image small)
+.repowise/
 tests/portal_ui/rendered/
 tests/portal_e2e/artifacts/
 tests/portal_e2e/playwright-report/
