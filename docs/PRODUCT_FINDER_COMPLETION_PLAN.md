@@ -1,6 +1,6 @@
 # Product Finder — Completion Plan (handoff)
 
-Written 2026-10-01 against `staging` at commit `648b649`. Supersedes the PR ordering in §18 of `docs/PRODUCT_FINDER_PORTAL_IMPLEMENTATION_PLAN.md` (v2). The v2 plan still holds the product decisions; this document is the build instruction.
+Written 2026-10-01; updated after `main` was merged into `staging` (PR #273, merge commit `579f3df`). Supersedes the PR ordering in §18 of `docs/PRODUCT_FINDER_PORTAL_IMPLEMENTATION_PLAN.md` (v2). The v2 plan still holds the product decisions; this document is the build instruction.
 
 ---
 
@@ -14,14 +14,25 @@ Written 2026-10-01 against `staging` at commit `648b649`. Supersedes the PR orde
 > - Commit in logical units as you go (one commit per coherent change, with a descriptive message in the repo's style). **Push to `staging` after each workstream** so work is never lost. Do not open a pull request unless the user asks.
 > - Your final message to the user is the only report: what was built, what was verified, which defaults you chose, and what the user must do after deploying (§16).
 
-### 0.1 Step zero: sync branches
+### 0.1 Step zero: sync branches (the main merge is already done)
+
+`main` was merged into `staging` on 2026-10-01 in PR #273 (merge commit `579f3df`), so **do not re-do that merge**. Every conflict was resolved correctly:
+- the `get_catalog_products` signature keeps both changes;
+- `test_closeout.py` keeps the pilot-cohort rollout test and `main`'s commercial-lineage tests;
+- `hooks.py` keeps both the `jinja` hook and the `/portal/configure-kit` redirects;
+- `tools/configurator_ui/dist-preview/` is now untracked and in `.gitignore`.
+
+At `579f3df` all of §0.3 passed: 340 Python unit tests, 42 DOM tests, the template, fixture-builder, publication and reconciliation checks, and no new lint versus `main`.
+
+Before starting:
 
 1. `git fetch origin main staging && git checkout staging && git pull origin staging`.
-2. `git merge origin/main`. `main` carries PR #271: the dead `/portal/configure-kit` redirect, the generated-output cleanup that untracks `tools/configurator_ui/dist-preview/`, and Phase 3 recovery fixes. Expected conflicts:
-   - `illumenate_lighting/illumenate_lighting/api/product_catalog.py`, the `get_catalog_products` signature. `main` changed `page`/`page_size` to `int | str | None`; `staging` changed `filters` to `str | dict | None`. Keep both changes.
-   - `tests/portal_unit/test_closeout.py`. Keep `staging`'s rollout test, which restores the pilot cohort and adds `pilot_only`, **and** `main`'s new commercial-lineage tests.
-   - `illumenate_lighting/hooks.py`. `main` edited `website_route_rules`, `website_redirects` and `fixtures`; `staging` added the `jinja` hook. Keep both.
-3. Run the full verification (§0.3) before starting new work. Commit the merge.
+2. If `git rev-list --count staging..origin/main` is not 0, `main` has moved since: `git merge origin/main`, resolve conflicts keeping both sides' intent, and commit. Otherwise skip this step.
+3. Run the full verification (§0.3), and confirm it passes before writing new code.
+
+What `main` added that this plan uses:
+- `portal/role_audit.py`, a bench-only staff role audit built from `portal/staff.py::CAPABILITIES` (see §2.4);
+- `api/configuration_contract.py::string_list(value, field=...)`, which decodes list parameters sent as JSON strings. Use it for list-valued API arguments, such as multi-select answers and `line_keys`.
 
 ### 0.2 Conventions (follow exactly)
 
@@ -138,6 +149,10 @@ Install the test dependencies first, the same as CI: `pip install ruff PyYAML Ji
    - Accept an `accessory_item` only if the Item exists, is not disabled, is a sales item and has no variants.
    - Keep current behaviour for staff, and add unit tests for both.
 3. **Retire the legacy client quiz alias.** In `shared_configurator.js` lines 40–46, keep the alias path only as a fallback when `initial_request` is absent. After Workstream F, `configure.py` always resolves finder and legacy answers on the server for every family, so the alias path should never run. Leave it, but add a comment saying why.
+4. **Make the Product Finder role a staff capability.** `main`'s `portal/role_audit.py` reports staff roles from `portal/staff.py::CAPABILITIES`. The PR 2 role `ilL Product Finder Manager` is not in it, so the audit cannot see who manages Finder content.
+   - Add `"finder": {"ilL Product Finder Manager"}` to `CAPABILITIES`.
+   - Replace the hard-coded `EDITOR_ROLES` in `portal/product_finder/desk.py` (and every new staff check in this plan) with `allowed("finder") or allowed("catalog") or allowed("sales") or allowed("engineering")`, wrapped in a helper `desk.can_edit_content(user=None)`. Keep `frappe.only_for` semantics by raising `frappe.PermissionError` when it is false.
+   - `test_role_audit.py` stubs its own `CAPABILITIES`, so it is unaffected. Add one assertion that the real `CAPABILITIES["finder"]` exists.
 
 ---
 
@@ -336,7 +351,7 @@ Apply `settings.results_limit` to `matches`, but keep `counts` accurate.
 
 ### A4. Desk "Preview matches"
 
-- In `portal/product_finder/desk.py`, add `@frappe.whitelist() preview_matches(answers)`, staff only (same `EDITOR_ROLES`). It calls `matcher.match` with `server_definition.load(include_inactive=True)` and returns the counts plus the first 20 matches (title, score, reasons, verify) and the excluded count per question.
+- In `portal/product_finder/desk.py`, add `@frappe.whitelist() preview_matches(answers)`, staff only (`desk.can_edit_content()`, §2.4). It calls `matcher.match` with `server_definition.load(include_inactive=True)` and returns the counts plus the first 20 matches (title, score, reasons, verify) and the excluded count per question.
 - In `ill_finder_question.js`, add a **Preview matches** button. It opens a dialog with a Select for this question's options and for every earlier active question's options (fetched from `definition.load_definition(include_inactive=True)` through a small whitelisted `desk.preview_definition()`), runs `preview_matches`, and renders the results table, escaping all text.
 
 ### A5. Pre-fill for every family (`prefill.py`)
@@ -411,7 +426,7 @@ Apply `settings.results_limit` to `matches`, but keep `counts` accurate.
 
 ### B3. Portal API (`api/product_finder.py`)
 
-Every endpoint is `@frappe.whitelist()`, requires login, calls `require_catalog_access()`, and throws a friendly `PermissionError` when `Settings.portal_enabled` is off. Staff (`EDITOR_ROLES`) may use `preview=1` even when the switch is off. POST endpoints use `methods=["POST"]`.
+Every endpoint is `@frappe.whitelist()`, requires login, calls `require_catalog_access()`, and throws a friendly `PermissionError` when `Settings.portal_enabled` is off. Staff (`desk.can_edit_content()`) may use `preview=1` even when the switch is off. POST endpoints use `methods=["POST"]`.
 
 | Endpoint | Verb | Rate limit (`frappe.rate_limiter.rate_limit`) | Returns |
 |---|---|---|---|
@@ -795,6 +810,7 @@ Every endpoint is `@frappe.whitelist(allow_guest=True)` and rate-limited. CORS c
 - `docs/PRODUCT_FINDER_PORTAL_IMPLEMENTATION_PLAN.md`: add a "Status" line at the top pointing to this file, and mark each section implemented.
 - `docs/DEALER_ROLE.md`: a section on the Product Finder (dealer view).
 - `docs/B2B_STAFF_OPERATIONS.md`:
+  - add `ilL Product Finder Manager` to the role table and to the role-assignment checklist (the checklist added by `main` for `role_audit.report`);
   - editing questions;
   - reading the Coverage and Configurability reports;
   - working the verification queue (states, resolution, what dealers see);
@@ -842,8 +858,8 @@ Every endpoint is `@frappe.whitelist(allow_guest=True)` and rate-limited. CORS c
 
 ## 17. Definition of Done (all must be true before you stop)
 
-- [ ] `main` is merged into `staging`, and every check in §0.3 passes on the final commit.
-- [ ] §2 fixes are done (controller facets and value-map patch, `add_schedule_line` hardening, alias comment).
+- [ ] `staging` contains every commit on `origin/main` (already true at `579f3df`; re-merge only if `main` moved), and every check in §0.3 passes on the final commit.
+- [ ] §2 fixes are done (controller facets and value-map patch, `add_schedule_line` hardening, alias comment, `finder` staff capability).
 - [ ] A: `engine.py` matches `engine.js` (parity test); facts cover every family in the A2 table; the matcher and evaluate are implemented and cached; Desk *Preview matches* works; `prefill_for_template` covers all seven families.
 - [ ] B: the session DocType is extended with permissions and hooks; the sessions service and every portal endpoint are in place with validation and rate limits; the expiry scheduler is registered; the legacy wrappers are fixed.
 - [ ] C: the verification request DocType, line fields, service, call sites and gates, queue, conversations, notifications, schedule badges and quote-request counts are all done.
