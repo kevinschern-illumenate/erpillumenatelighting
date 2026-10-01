@@ -33,6 +33,16 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+# The only values a caller supplies for a kit; everything else is resolved here.
+KIT_SELECTION_KEYS = (
+    "kit_template",
+    "finish",
+    "lens_appearance",
+    "mounting_method",
+    "endcap_style",
+    "endcap_color",
+)
+
 # ═══════════════════════════════════════════════════════════════════════
 # PRICING HELPERS
 # ═══════════════════════════════════════════════════════════════════════
@@ -345,6 +355,8 @@ def validate_kit_configuration(selections: str) -> dict:
         return {"success": False, "is_valid": False, "error": "Kit template not found"}
 
     template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
+    if not template.is_active:
+        return {"success": False, "is_valid": False, "error": "Kit template is not active"}
 
     # ── Validate selections against allowed options ───────────────────
     validation_checks = {
@@ -557,6 +569,7 @@ def save_kit_to_schedule(
     schedule_name: str,
     line_idx: int | str | None = None,
     configuration_result: str = None,
+    selections: str | dict | None = None,
 ) -> dict:
     """
     Save a validated Extrusion Kit configuration to a fixture schedule line.
@@ -567,10 +580,17 @@ def save_kit_to_schedule(
       - build description in notes
       - full config as JSON in variant_selections
 
+    Only the kit selections are taken from the request. The configuration is
+    validated again here, and the part number, components and pricing that are
+    stored (and later become Sales Order lines) come from that server result,
+    never from the caller.
+
     Args:
         schedule_name: ilL-Project-Fixture-Schedule name
         line_idx: existing line index to overwrite, or None for new line
-        configuration_result: JSON string of the validate_kit_configuration result
+        configuration_result: JSON of a validate_kit_configuration result; only
+            its ``selections`` are read (kept for existing callers)
+        selections: the kit selections; takes precedence over configuration_result
     """
     from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
     try:
@@ -589,16 +609,34 @@ def save_kit_to_schedule(
     if not has_permission(schedule, "write", frappe.session.user):
         return {"success": False, "error": "No write permission on this schedule"}
 
+    if schedule.get("is_locked"):
+        return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
     if schedule.status not in ["DRAFT", "READY"]:
         return {"success": False, "error": "Schedule is not in an editable status"}
 
     try:
-        result = json.loads(configuration_result) if isinstance(configuration_result, str) else configuration_result
+        if selections is None:
+            submitted = (
+                json.loads(configuration_result)
+                if isinstance(configuration_result, str)
+                else configuration_result
+            )
+            selections = (submitted or {}).get("selections") if isinstance(submitted, dict) else None
+        elif isinstance(selections, str):
+            selections = json.loads(selections)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid configuration result JSON"}
 
+    if not isinstance(selections, dict) or not selections:
+        return {"success": False, "error": "Kit selections are required"}
+    selections = {
+        key: str(selections[key]) for key in KIT_SELECTION_KEYS if selections.get(key) not in (None, "")
+    }
+
+    result = validate_kit_configuration(selections)
     if not result.get("is_valid"):
-        return {"success": False, "error": "Configuration is not valid"}
+        return {"success": False, "error": result.get("error") or "Configuration is not valid"}
 
     part_number = result.get("part_number", "")
     build_desc = result.get("build_description", "")
