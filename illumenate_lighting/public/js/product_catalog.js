@@ -16,6 +16,7 @@ var CatalogState = {
 	products: [],
 	total: 0,
 	filterMeta: null,
+	contextParams: {},
 	requestVersion: 0,
 	loading: false
 };
@@ -23,25 +24,34 @@ var CatalogState = {
 // ── Initialisation ──────────────────────────────────────────────────
 
 function initProductCatalog() {
-	loadFilterOptions();
 	readUrlState();
 	bindCatalogEvents();
-	fetchProducts(true);
+	loadFilterOptions(function() { fetchProducts(true); });
 }
 
 // ── URL state ───────────────────────────────────────────────────────
 
 function readUrlState() {
 	var params = new URLSearchParams(window.location.search);
+	CatalogState.attrFilters = {};
+	CatalogState.contextParams = {};
 	CatalogState.search = params.get('q') || '';
 	$('#catalogSearch').val(CatalogState.search);
 
 	var typeParam = params.get('type');
 	CatalogState.productType = typeParam ? typeParam.split(',') : [];
 
-	// Attribute filters encoded as ?Finish=White,Black&CCT=3000K
+	var reserved = ['finder', 'schedule', 'line_key', 'line_idx', 'draft'];
+	reserved.forEach(function(key) {
+		if (params.has(key)) CatalogState.contextParams[key] = params.get(key);
+	});
+
+	// Attribute filters encoded as ?Finish=White,Black&CCT=3000K. Ignore
+	// tracking and other unknown parameters rather than sending them to SQL.
+	var allowed = (CatalogState.filterMeta && CatalogState.filterMeta.filters || [])
+		.map(function(group) { return group.attribute_type; });
 	params.forEach(function(val, key) {
-		if (key === 'q' || key === 'type' || key === 'page') return;
+		if (allowed.indexOf(key) === -1) return;
 		CatalogState.attrFilters[key] = val.split(',');
 	});
 
@@ -58,6 +68,9 @@ function pushUrlState() {
 		if (vals && vals.length) params.set(k, vals.join(','));
 	});
 	if (CatalogState.page > 1) params.set('page', CatalogState.page);
+	Object.keys(CatalogState.contextParams).forEach(function(key) {
+		params.set(key, CatalogState.contextParams[key]);
+	});
 
 	var qs = params.toString();
 	var url = window.location.pathname + (qs ? '?' + qs : '');
@@ -81,14 +94,19 @@ function bindCatalogEvents() {
 
 // ── Filter sidebar ──────────────────────────────────────────────────
 
-function loadFilterOptions() {
+function loadFilterOptions(done) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_filter_options',
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				CatalogState.filterMeta = r.message;
+				readUrlState();
 				renderFilterSidebar(r.message);
 			}
+			if (done) done();
+		},
+		error: function() {
+			if (done) done();
 		}
 	});
 }
@@ -105,12 +123,12 @@ function renderFilterSidebar(data) {
 		);
 	});
 	$tabs.off('click', '.product-type-tab').on('click', '.product-type-tab', function() {
-		var type = $(this).data('type');
+		var type = this.getAttribute('data-type');
 		$(this).toggleClass('active').attr('aria-pressed', $(this).hasClass('active') ? 'true' : 'false');
 		// Rebuild array from active tabs
 		CatalogState.productType = [];
 		$tabs.find('.active').each(function() {
-			CatalogState.productType.push($(this).data('type'));
+			CatalogState.productType.push(this.getAttribute('data-type'));
 		});
 		CatalogState.page = 1;
 		fetchProducts(true);
@@ -143,8 +161,8 @@ function renderFilterSidebar(data) {
 	});
 
 	$groups.off('change', 'input[type=checkbox]').on('change', 'input[type=checkbox]', function() {
-		var attr = $(this).data('attr');
-		var val = $(this).data('val');
+		var attr = this.getAttribute('data-attr');
+		var val = this.getAttribute('data-val');
 		if (!CatalogState.attrFilters[attr]) CatalogState.attrFilters[attr] = [];
 		if (this.checked) {
 			CatalogState.attrFilters[attr].push(val);
@@ -241,6 +259,7 @@ function renderGrid() {
 	$('#catalogResultCount').text(CatalogState.total + ' product' + (CatalogState.total !== 1 ? 's' : ''));
 
 	products.forEach(function(p) {
+		var detailUrl = productDetailHref(p.product_slug);
 		var imgHtml;
 		if (p.featured_image) {
 			imgHtml = '<img class="product-card-img" src="' + escapeHtml(p.featured_image) +
@@ -254,8 +273,15 @@ function renderGrid() {
 			priceHtml = '<span class="product-card-price">$' + Number(p.price_per_ft_msrp).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / ft<small class="d-block">MSRP, before options</small></span>';
 		}
 
-		var ctaLabel = 'View Details';
-		var ctaClass = p.is_configurable ? 'btn-primary' : 'btn-outline-primary';
+		var actionHtml = '<a class="btn btn-sm btn-outline-primary product-card-details" href="' +
+			escapeHtml(detailUrl) + '">' + __('View details') + '</a>';
+		if (p.is_configurable) {
+			actionHtml = '<a class="btn btn-sm btn-primary product-card-cta" href="' +
+				escapeHtml(detailUrl + '#configure') + '">' + __('Configure') + '</a>' + actionHtml;
+		} else if (p.capability === 'quantity') {
+			actionHtml = '<a class="btn btn-sm btn-primary product-card-cta" href="' +
+				escapeHtml(detailUrl + '#configure') + '">' + __('Add to schedule') + '</a>' + actionHtml;
+		}
 
 		var seriesBadge = p.series ? '<span class="badge badge-series">' + escapeHtml(p.series) + '</span>' : '';
 
@@ -265,14 +291,13 @@ function renderGrid() {
 			'<div class="product-card-body">' +
 			'<h5>' + escapeHtml(p.product_name) + '</h5>' +
 			'<div class="product-card-meta">' +
-			'<span class="badge badge-type">' + escapeHtml(p.product_type) + '</span>' +
+			'<span class="badge badge-type">' + escapeHtml(productFamilyLabel(p.product_type)) + '</span>' +
 			seriesBadge +
 			'</div>' +
 			'<div class="product-card-desc">' + escapeHtml(p.short_description || '') + '</div>' +
 			'<div class="product-card-footer">' +
 			priceHtml +
-			'<a class="btn btn-sm product-card-cta ' + ctaClass + '" href="/portal/products/' +
-			encodeURIComponent(p.product_slug) + '">' + ctaLabel + '</a>' +
+			actionHtml +
 			'</div></div></div>'
 		);
 	});
@@ -282,8 +307,8 @@ function renderGrid() {
 	// Navigate on card click (except the CTA link)
 	$grid.off('click', '.product-card').on('click', '.product-card', function(e) {
 		if ($(e.target).closest('a').length) return; // let links work normally
-		var slug = $(this).data('slug');
-		if (slug) window.location.href = '/portal/products/' + encodeURIComponent(slug);
+		var slug = this.getAttribute('data-slug');
+		if (slug) window.location.href = productDetailHref(slug);
 	});
 
 	// Load-more button visibility
@@ -307,4 +332,14 @@ function escapeHtml(str) {
 	var div = document.createElement('div');
 	div.textContent = str;
 	return div.innerHTML.replaceAll('"', '&quot;').replaceAll("'", "&#39;");
+}
+
+function productFamilyLabel(family) {
+	return family === 'Fixture Template' ? __('Linear Fixtures') : family;
+}
+
+function productDetailHref(slug) {
+	var params = new URLSearchParams(CatalogState.contextParams);
+	var query = params.toString();
+	return '/portal/products/' + encodeURIComponent(slug) + (query ? '?' + query : '');
 }

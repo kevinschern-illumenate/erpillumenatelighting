@@ -8,7 +8,7 @@ const jquery = require('jquery');
 function setup() {
     const dom = new JSDOM('<body><input id="catalogSearch"><div id="productTypeTabs"></div><div id="filterGroups"></div><div id="productGrid"></div><p id="catalogFeedback"></p><p id="catalogResultCount"></p><div id="catalogEmpty"></div><div id="loadMoreWrap"><button id="loadMoreBtn"></button></div><button id="clearFilters"></button></body>', {runScripts: 'outside-only', url: 'https://portal.test/portal/products'});
     const w = dom.window, requests = [];
-    w.$ = jquery(w); w.frappe = {call: args => requests.push(args)};
+    w.$ = jquery(w); w.__ = (value) => value; w.frappe = {call: args => requests.push(args)};
     w.eval(fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/public/js/product_catalog.js'), 'utf8'));
     return {dom, w, requests};
 }
@@ -36,5 +36,23 @@ test('catalog filters are keyboard buttons and image attributes cannot inject ma
     w.renderGrid();
     assert.equal(w.document.querySelector('img').hasAttribute('onerror'), false);
     assert.match(w.document.querySelector('.product-card-price').textContent, /\$12\.50 \/ ft/);
+    dom.window.close();
+});
+
+test('numeric filters stay strings and unknown query parameters are ignored', () => {
+    const {dom, w, requests} = setup();
+    dom.reconfigure({url: 'https://portal.test/portal/products?utm_source=x&CCT=90&finder=TOKEN'});
+    w.CatalogState.filterMeta = {filters: [{attribute_type: 'CCT', options: [{value: '90', count: 1}]}]};
+    w.readUrlState();
+    w.renderFilterSidebar(w.CatalogState.filterMeta);
+    w.fetchProducts(true);
+    assert.deepEqual(Array.from(w.CatalogState.attrFilters.CCT), ['90']);
+    assert.equal(typeof w.CatalogState.attrFilters.CCT[0], 'string');
+    assert.equal(w.CatalogState.attrFilters.utm_source, undefined);
+    assert.deepEqual(JSON.parse(requests.at(-1).args.filters), {CCT: ['90']});
+    requests.at(-1).callback({message: {success: true, products: [{product_name: 'P', product_slug: 'p', product_type: 'Fixture Template', is_configurable: true}], total: 1, page: 1}});
+    requests.at(-1).always();
+    assert.match(w.document.querySelector('.product-card-details').href, /finder=TOKEN/);
+    assert.equal(w.document.querySelector('.badge-type').textContent, 'Linear Fixtures');
     dom.window.close();
 });

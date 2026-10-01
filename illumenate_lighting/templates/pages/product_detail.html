@@ -226,7 +226,10 @@ Full product detail with an "Add to a Fixture Schedule" panel
 <script src="/assets/illumenate_lighting/js/product_detail.js"></script>
 <script>
 $(function() {
-	initProductDetail({{ product_slug | tojson }});
+	initProductDetail({{ product_slug | tojson }}, {
+		isStaff: {{ is_staff | tojson }},
+		deskUrl: {{ product_desk_url | tojson }}
+	});
 });
 </script>
 {% endblock %}
