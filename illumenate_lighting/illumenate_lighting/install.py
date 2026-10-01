@@ -46,6 +46,12 @@ def after_install():
 	)
 
 	invoice_payment_instructions()
+	from illumenate_lighting.patches.create_product_finder_role import execute as product_finder_role
+
+	product_finder_role()
+	from illumenate_lighting.patches.seed_product_finder import execute as seed_product_finder
+
+	seed_product_finder()
 	frappe.db.commit()
 
 

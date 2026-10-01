@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-01 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "applies_to",
+  "option_value",
+  "match_group",
+  "depends_on_question",
+  "operator",
+  "value"
+ ],
+ "fields": [
+  {
+   "fieldname": "applies_to",
+   "fieldtype": "Select",
+   "label": "Applies To",
+   "options": "Show question when\nSkip question when\nHide option when",
+   "reqd": 1,
+   "in_list_view": 1,
+   "default": "Show question when"
+  },
+  {
+   "fieldname": "option_value",
+   "fieldtype": "Data",
+   "label": "Option Value",
+   "depends_on": "eval:doc.applies_to=='Hide option when'",
+   "mandatory_depends_on": "eval:doc.applies_to=='Hide option when'",
+   "in_list_view": 1,
+   "description": "The option on this question to hide."
+  },
+  {
+   "fieldname": "match_group",
+   "fieldtype": "Select",
+   "label": "Combine With",
+   "options": "All\nAny",
+   "default": "All",
+   "description": "How rows with the same Applies To (and option) combine: All = and, Any = or."
+  },
+  {
+   "fieldname": "depends_on_question",
+   "fieldtype": "Link",
+   "label": "Depends On Question",
+   "options": "ilL-Finder-Question",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Select",
+   "label": "Operator",
+   "options": "equals\nnot equals\nin\ngreater than\nat least\nless than\nat most\nanswered\nnot answered",
+   "reqd": 1,
+   "default": "equals",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Data",
+   "label": "Value",
+   "in_list_view": 1,
+   "description": "For 'in', separate values with commas."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Finder-Condition",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -95,7 +95,7 @@ Phase 0 fixes 3.1 and adds tooling that surfaces 3.2 per product.
 ```
             Desk (staff)                                   Portal (dealers)                 Webflow (public)
  ┌───────────────────────────────┐         ┌──────────────────────────────────────┐   ┌──────────────────────┐
- │ ilL-Product-Finder Settings   │         │ /portal (banner)                     │   │ Webflow page          │
+ │ ilL-Product-Finder-Settings   │         │ /portal (banner)                     │   │ Webflow page          │
  │ ilL-Finder-Question (+options,│         │ /portal/product-finder  (React,      │   │ ill-configurator.js   │
  │   conditions, value maps)     │         │     portal mode)                     │   │ (React, public mode)  │
  │ ilL-Finder-Glossary-Term      │         │ /portal/products?finder=…            │   └─────────┬────────────┘
@@ -217,9 +217,9 @@ Each fix lists the files, the change and the tests. Every fix includes its tests
 
 ### 6.1 DocTypes
 
-All of them go in module **Illumenate Lighting**. Permissions: **System Manager** and a new role **Product Finder Manager** get full access. Sales and engineering staff can read.
+All of them go in module **Illumenate Lighting**. Permissions: **System Manager** and a new role **ilL Product Finder Manager** get full access. Sales and engineering staff can read.
 
-#### `ilL-Product-Finder Settings` (Single)
+#### `ilL-Product-Finder-Settings` (Single)
 
 | Field | Type | Notes |
 |---|---|---|
@@ -282,6 +282,7 @@ All of them go in module **Illumenate Lighting**. Permissions: **System Manager*
 | `rank` | Int | For meets-or-exceeds comparisons (Dry 0 / Damp 1 / Wet 2; IP65 0 / IP67 1 / IP68 2). |
 | `numeric_min`, `numeric_max` | Float | Lumen bands, CRI minimum, wattage. |
 | `routes_to` | Select: (none) / Catalog only | For example, "Accessories & parts" goes straight to the filtered catalog. |
+| `is_no_preference` | Check | The answer does not filter products ("Not sure", "No preference"). It cannot carry value maps, and Coverage ignores it. |
 | `is_active` | Check | |
 
 `ilL-Child-Finder-Condition` (question-level and option-level visibility, replacing `visibleWhen`, `skipWhen` and `hideWhen`)
@@ -318,7 +319,8 @@ All of them go in module **Illumenate Lighting**. Permissions: **System Manager*
 
 - **Workspace "Product Finder"** with shortcuts: Settings, Questions (list sorted by sequence, showing families, mode, active), Glossary, Coverage report, Verification queue and Sessions report.
 - On the question form:
-  - The **Preview matches** button opens a dialog. Staff pick answers for this and earlier questions, and see the match, verify and excluded counts per family plus the first 20 products.
+  - **Preview** (shipped in PR 2) renders the question as dealers see it, from the unsaved form.
+  - The **Preview matches** button (PR 3, needs the matching engine) opens a dialog. Staff pick answers for this and earlier questions, and see the match, verify and excluded counts per family plus the first 20 products.
   - **Coverage for this question** lists facet values found on products that have no mapping.
 - On Settings, the **Open preview** button opens `/portal/product-finder?preview=1`. Staff only. It includes inactive questions, labelled "Draft".
 
@@ -438,7 +440,7 @@ It never invents a value that is not in the template's allowed options.
 | `result_computed_at`, `completed_on`, `claimed_on` | New. Datetime. |
 | `status` | Becomes `Active` → `Completed` → `Used` / `Expired`. |
 
-- **Permissions:** add `has_permission` and `permission_query_conditions` hooks. Users see only their own sessions. Product Finder Manager, System Manager and sales staff see all.
+- **Permissions:** add `has_permission` and `permission_query_conditions` hooks. Users see only their own sessions. ilL Product Finder Manager, System Manager and sales staff see all.
 - The portal API always resolves a session by `session_token` **and** `user == session.user`. Guest access works only through the public API with a guest token, and only while `user` is empty.
 - **Scheduler (daily):** mark user sessions untouched for `session_expiry_days` and unclaimed guest sessions older than 7 days as `Expired`. Delete expired guest sessions after 30 more days.
 - `api/configurator_session.save_session` and `get_latest_session` become thin wrappers over the new service. They reject Guest and drop the explicit `frappe.db.commit()`.

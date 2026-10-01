@@ -1,0 +1,1595 @@
+{
+ "version": 1,
+ "glossary": [
+  {
+   "term_key": "indoor_outdoor",
+   "label": "Indoor vs. Outdoor",
+   "tooltip": "Where the fixture lives sets the baseline weather and ingress protection it must survive.",
+   "learn_more": "Indoor locations are typically Dry rated, however, you will be able to select Damp or Wet if needed for fixtures located in restrooms or similar. Outdoor locations always need at least Damp protection, and most need Wet / IP67+ because they face rain, sprinklers, snow, or wash-down.",
+   "references": "ilL-Attribute-Environment Rating, ilL-Attribute-IP Rating"
+  },
+  {
+   "term_key": "environment_rating",
+   "label": "Environment Rating",
+   "tooltip": "How much moisture the location exposes the fixture to: Dry, Damp, or Wet.",
+   "learn_more": "Dry = conditioned interiors, no condensation. Damp = covered exterior / bathrooms where moisture is present but not direct. Wet = direct water contact (rain, sprinklers, fountains). The rating drives which profiles, lenses, and tape are eligible.",
+   "references": "ilL-Attribute-Environment Rating"
+  },
+  {
+   "term_key": "wet_rating",
+   "label": "Outdoor / Wet Rating",
+   "tooltip": "Survives direct water contact such as rain, sprinklers, or wash-down.",
+   "learn_more": "For outdoor installations, we recommend fully encapsulated IP67+ products that can survive rain and snow but are fully enclosed to also handle dirt and bugs.",
+   "references": "ilL-Attribute-Environment Rating, ilL-Attribute-IP Rating"
+  },
+  {
+   "term_key": "ip_rating",
+   "label": "IP Rating",
+   "tooltip": "A two-digit code that rates how well an enclosure resists solids (dust, debris) and liquids (water).",
+   "learn_more": "IP65 — Dust tight and protected against water jets, but not submersion. IP67 — Dust tight and can be temporarily submerged up to 1 meter for 30 minutes. IP68 — Dust tight and rated for continuous submersion beyond 1 meter at manufacturer-specified depth.",
+   "references": "ilL-Attribute-IP Rating"
+  },
+  {
+   "term_key": "light_type",
+   "label": "Light Type",
+   "tooltip": "The color behavior of the LED: static white, tunable white, dim-to-warm, or full color.",
+   "learn_more": "Static white = one fixed CCT (e.g., 3000K). Tunable white = blends between two CCTs (e.g., 1800K to 4000K). Dim-to-warm = warms as it dims (like halogen / incandescent). Full-color = RGB / RGBW and addressable pixels.",
+   "references": "led_package"
+  },
+  {
+   "term_key": "color_mode",
+   "label": "Color Mode",
+   "tooltip": "How full-color tape is driven: one color for the whole run, or individually addressable pixels.",
+   "learn_more": "Analog RGB / RGBW drives the whole strip to a single color at once. Addressable pixel (SPI) controls each pixel for chases, gradients, and video effects — and requires a DMX/SPI controller.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "fixture_purpose",
+   "label": "Fixture Purpose",
+   "tooltip": "What the light is used for — this will help determine the lumens/ft of the fixture.",
+   "learn_more": "Accent picks out an object or edge (lower output). Task lights a work surface (medium output). Ambient fills a room (higher output).",
+   "references": ""
+  },
+  {
+   "term_key": "installation_method",
+   "label": "Installation Method",
+   "tooltip": "How the fixture mounts to the building.",
+   "learn_more": "Surface mounts onto a finished face. Recessed sits inside a routed channel. Angled aims light from a corner. Drywall / plaster-in is mudded flush for a trimless look. Suspended hangs from cables. This selects the profile family.",
+   "references": "mounting_method"
+  },
+  {
+   "term_key": "target_cct",
+   "label": "Color Temperature (CCT)",
+   "tooltip": "Warmth of white light, measured in Kelvin (K).",
+   "learn_more": "2700K is warm / residential, 3000K warm-neutral, 3500K neutral, 4000K cool / commercial. Tunable white products cover a range instead of one value.",
+   "references": "ilL-Attribute-CCT"
+  },
+  {
+   "term_key": "cri",
+   "label": "CRI (Color Rendering)",
+   "tooltip": "How accurately colors appear under the light, on a 0–100 scale.",
+   "learn_more": "90+ is the standard for quality architectural lighting. 95+ is premium (galleries, retail, hospitality) but has limited availability in our current data — confirm before committing.",
+   "references": "cri_typical, ilL-Attribute-CRI"
+  },
+  {
+   "term_key": "run_length",
+   "label": "Run Length",
+   "tooltip": "Total continuous length of the lit run, in feet.",
+   "learn_more": "Long runs can drop voltage and exceed a single supply's capacity. We compare your length against the tape's max single-feed run length to flag when power injection or multiple supplies are needed.",
+   "references": "voltage_drop_max_run_length_ft"
+  },
+  {
+   "term_key": "power_injection",
+   "label": "Power Injection",
+   "tooltip": "Feeding power at more than one point along a run.",
+   "learn_more": "When a run exceeds the max single-feed length, or total watts exceed one supply, you inject power mid-run or add supplies to keep brightness even end-to-end. This is derived for you from watts/ft × length vs. driver capacity.",
+   "references": "max_wattage, watts_per_foot"
+  },
+  {
+   "term_key": "supply_voltage",
+   "label": "Supply Voltage",
+   "tooltip": "The input voltage feeding the tape or driver.",
+   "learn_more": "24VDC is the common low-voltage tape standard. 120VAC line-voltage products have an integral or remote driver. The supply voltage must match the tape's input voltage and the driver's input type.",
+   "references": "input_voltage, input_voltage_type"
+  },
+  {
+   "term_key": "dimming_protocol",
+   "label": "Dimming Protocol",
+   "tooltip": "The control signal used to dim or color the fixture.",
+   "learn_more": "0-10V, TRIAC, ELV, and DALI dim white light. DMX512 and SPI drive color / pixels. The tape, driver, and controller must all speak the same protocol. Addressable pixel runs force DMX or SPI.",
+   "references": "ilL-Attribute-Dimming Protocol, supported_dimming_protocols"
+  },
+  {
+   "term_key": "dimming_0_10v",
+   "label": "0-10V Dimming",
+   "tooltip": "An analog signal between 0 and 10 volts controls brightness. 10V = full output, 1V = dim-low, 0V = off.",
+   "learn_more": "0-10V is the most common protocol in architectural LED lighting. The driver needs a dedicated 0-10V input; standard wall dimmers will not work without a 0-10V wall station. Supported by virtually all LED tape drivers in our catalog.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "dimming_triac",
+   "label": "TRIAC Dimming",
+   "tooltip": "Phase-cut dimming that works with most standard wall dimmers — common for residential and retrofit 120VAC applications.",
+   "learn_more": "TRIAC (also called Forward Phase dimming) clips the AC sine wave to reduce average power. Works with most standard incandescent-style wall dimmers. Best for 120VAC line-voltage products. Some LED drivers have a minimum-load threshold below which they may flicker — confirm driver compatibility.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "dimming_elv",
+   "label": "ELV Dimming",
+   "tooltip": "Electronic Low Voltage dimming — also called Reverse Phase dimming. Smoother phase-cut than TRIAC for many LED loads.",
+   "learn_more": "ELV removes the trailing edge of the AC waveform rather than the leading edge (TRIAC). Many modern LED drivers prefer ELV because it puts less stress on the switching circuitry, resulting in smoother dimming and fewer compatibility issues. Requires an ELV-compatible wall dimmer.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "dimming_dali",
+   "label": "DALI",
+   "tooltip": "Digital Addressable Lighting Interface — a two-wire digital bus that can independently address up to 64 fixtures on one circuit.",
+   "learn_more": "DALI (IEC 62386) is the premium protocol for commercial and architectural projects. Each device has a unique address so scenes, schedules, and occupancy responses can be programmed per fixture without re-wiring. Provides status feedback (lamp failure, power failure) back to the building management system. Requires a DALI controller and DALI-capable drivers.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "dimming_dmx512",
+   "label": "DMX512",
+   "tooltip": "Industry-standard digital protocol for stage and architectural lighting. One universe = up to 512 channels of control.",
+   "learn_more": "DMX512 (EIA-485) is used for color mixing, effects, and architectural dynamic lighting. A single DMX run (universe) can carry 512 channels; RGB tape uses 3 channels per zone, RGBW uses 4. Requires a DMX controller (hardware or software). Common for hospitality, retail, and entertainment-grade color installations.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "dimming_spi",
+   "label": "SPI (Addressable Pixel)",
+   "tooltip": "High-speed serial protocol that gives each pixel its own IC chip — enables per-pixel chases, gradients, and video-mapped effects.",
+   "learn_more": "SPI (e.g., WS2812B, SK6812, APA102) embeds a controller IC inside every pixel. Each pixel is independently addressable, so thousands of pixels can run different colors simultaneously. Requires an SPI-compatible pixel controller and appropriate power injection. This is automatically forced when you select Addressable Pixel in the Color Mode question.",
+   "references": "ilL-Attribute-Dimming Protocol"
+  },
+  {
+   "term_key": "diffuser",
+   "label": "Diffuser / Lens",
+   "tooltip": "The lens covering the LEDs — changes look and delivered brightness.",
+   "learn_more": "Clear is brightest but shows dots. Frosted hides dots with a small light loss. White diffuses fully (more loss, no hotspots). Black is a stealth daytime look. Lower transmission means fewer delivered lumens.",
+   "references": "lens_appearance, transmission"
+  },
+  {
+   "term_key": "operating_temp",
+   "label": "Operating Temperature",
+   "tooltip": "The ambient temperature range at the install location.",
+   "learn_more": "Extreme heat shortens LED life; extreme cold can affect some drivers. Tape operating temp is free-text in ERP, so this is optional and informational in the prototype.",
+   "references": "operating_temp"
+  },
+  {
+   "term_key": "finish",
+   "label": "Finish",
+   "tooltip": "The visible color / finish of the extrusion.",
+   "learn_more": "Silver (mill / anodized), Black, and White are the common architectural finishes. Optional — it does not change the light, only the look of the channel.",
+   "references": "ilL-Attribute-Finish"
+  },
+  {
+   "term_key": "lumens_per_foot",
+   "label": "Lumens per Foot",
+   "tooltip": "Light output per foot of tape — a brightness measure.",
+   "learn_more": "Higher lumens/ft = brighter. Our purpose bands (accent / task / ambient) map onto lumens/ft ranges to rank products by how close they are to your goal.",
+   "references": "lumens_per_foot"
+  },
+  {
+   "term_key": "product_family",
+   "label": "Product type",
+   "tooltip": "Each product type has its own configurator. Linear fixtures are complete lights built to length.",
+   "learn_more": "Linear fixtures combine an aluminum channel, a lens and LED tape built to your exact length. LED tape and neon are flexible strips you install yourself. Extrusion kits are the channel and lens without the tape. Power supplies (drivers) and controllers run and dim the lights."
+  },
+  {
+   "term_key": "power_supply",
+   "label": "Power supply (driver)",
+   "tooltip": "Converts building power to the low voltage LED products use, and often handles dimming.",
+   "learn_more": "Size a power supply for the total watts it will run plus about 20% headroom, and match its output voltage and dimming input to the lights and controls."
+  },
+  {
+   "term_key": "output_voltage",
+   "label": "Output voltage",
+   "tooltip": "The DC voltage the lights expect, printed on the tape or fixture spec sheet (usually 24V).",
+   "learn_more": "Using the wrong voltage will either not light the product or damage it. Most ilLumenate tape and fixtures run on 24V DC."
+  },
+  {
+   "term_key": "load_watts",
+   "label": "Load (watts)",
+   "tooltip": "The total power of everything on the supply: run length × watts per foot.",
+   "learn_more": "Add about 20% headroom so the power supply is not run at its limit. Long runs may also need power fed at more than one point."
+  },
+  {
+   "term_key": "controller_type",
+   "label": "Controller type",
+   "tooltip": "How people will turn the lights on, dim them or change color.",
+   "learn_more": "Wall dimmers and keypads suit simple rooms. Wireless receivers work with apps and remotes. DMX controllers drive color-changing and show lighting."
+  },
+  {
+   "term_key": "channels",
+   "label": "Channels",
+   "tooltip": "Independent signals a controller sends: one for single white, two for tunable white, three or four for color.",
+   "learn_more": "A controller must have at least as many channels as the light needs in each zone."
+  },
+  {
+   "term_key": "zones",
+   "label": "Zones",
+   "tooltip": "Groups of lights that are switched or dimmed together.",
+   "learn_more": "Each zone can be set independently. Count the areas that need their own control."
+  }
+ ],
+ "questions": [
+  {
+   "question_key": "product_family",
+   "sequence": 10,
+   "label": "What are you looking for?",
+   "short_label": "Product",
+   "question_type": "Family chooser",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Any"
+    }
+   ],
+   "glossary_term": "product_family",
+   "options": [
+    {
+     "value": "Linear Fixture",
+     "label": "Linear Fixture",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/fixture-purpose-ambient.webp",
+     "description": "A complete light: channel, lens and LED built to your length.",
+     "badge_text": "Most popular — not sure? Start here",
+     "is_featured": 1
+    },
+    {
+     "value": "LED Tape",
+     "label": "LED Tape",
+     "is_active": 1,
+     "swatch_color": "#fff6e0",
+     "description": "Flexible LED strip for coves, shelves and under-cabinet."
+    },
+    {
+     "value": "LED Neon",
+     "label": "LED Neon",
+     "is_active": 1,
+     "swatch_color": "linear-gradient(135deg, #ff4081 0%, #40c4ff 100%)",
+     "description": "Smooth, dot-free neon-style lines for signs and accents."
+    },
+    {
+     "value": "LED Sheet",
+     "label": "LED Sheet",
+     "is_active": 1,
+     "swatch_color": "#f5f5f5",
+     "description": "Even backlighting panels for signs and countertops."
+    },
+    {
+     "value": "Extrusion Kit",
+     "label": "Extrusion Kit",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/finish-silver.webp",
+     "description": "Channel, lens and end caps to pair with your own tape."
+    },
+    {
+     "value": "Driver",
+     "label": "Power Supply (Driver)",
+     "is_active": 1,
+     "swatch_color": "#e8eaf6",
+     "description": "Powers and dims your LED products."
+    },
+    {
+     "value": "Controller",
+     "label": "Controller",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-dmx512.webp",
+     "description": "Wall controls, wireless and DMX control."
+    },
+    {
+     "value": "accessories",
+     "label": "Accessories & parts",
+     "is_active": 1,
+     "swatch_color": "#eeeeee",
+     "description": "Connectors, clips, end caps and more.",
+     "routes_to": "Catalog only"
+    }
+   ],
+   "conditions": [],
+   "match_mode": "None",
+   "unknown_policy": "Use default",
+   "tooltip": "Not sure? Start with Linear Fixture — a complete light you can configure step by step."
+  },
+  {
+   "question_key": "application",
+   "sequence": 20,
+   "label": "Where is the light going?",
+   "short_label": "Application",
+   "question_type": "Single",
+   "required": 0,
+   "is_active": 0,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    }
+   ],
+   "options": [
+    {
+     "value": "cove",
+     "label": "Cove or indirect",
+     "is_active": 1
+    },
+    {
+     "value": "under_cabinet",
+     "label": "Under-cabinet",
+     "is_active": 1
+    },
+    {
+     "value": "display",
+     "label": "Display case or shelving",
+     "is_active": 1
+    },
+    {
+     "value": "signage",
+     "label": "Signage",
+     "is_active": 1
+    },
+    {
+     "value": "facade",
+     "label": "Façade or landscape",
+     "is_active": 1
+    },
+    {
+     "value": "not_sure",
+     "label": "Not sure / other",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "application",
+   "comparison": "Any of",
+   "relax_priority": 5,
+   "tooltip": "Draft: activate once application categories exist in Webflow Category and are mapped below."
+  },
+  {
+   "question_key": "indoor_outdoor",
+   "sequence": 30,
+   "label": "Is this an indoor or outdoor installation?",
+   "short_label": "Location",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    },
+    {
+     "family": "Extrusion Kit"
+    }
+   ],
+   "glossary_term": "indoor_outdoor",
+   "options": [
+    {
+     "value": "Indoor",
+     "label": "Indoor",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/indoor-outdoor-indoor.webp",
+     "swatch_color": "#fef5e7"
+    },
+    {
+     "value": "Outdoor",
+     "label": "Outdoor",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/indoor-outdoor-outdoor.webp",
+     "swatch_color": "#fff3cd",
+     "glossary_term": "wet_rating"
+    }
+   ],
+   "conditions": [],
+   "match_mode": "None",
+   "unknown_policy": "Use default"
+  },
+  {
+   "question_key": "moisture",
+   "sequence": 40,
+   "label": "What moisture exposure will the location see?",
+   "short_label": "Moisture",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "Extrusion Kit"
+    }
+   ],
+   "glossary_term": "environment_rating",
+   "options": [
+    {
+     "value": "Dry",
+     "label": "Dry",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/moisture-dry.webp",
+     "swatch_color": "#f9e79f",
+     "rank": 0
+    },
+    {
+     "value": "Damp",
+     "label": "Damp",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/moisture-damp.webp",
+     "swatch_color": "#d6eaf8",
+     "rank": 1
+    },
+    {
+     "value": "Wet",
+     "label": "Wet",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/moisture-wet.webp",
+     "swatch_color": "#a9ccf0",
+     "rank": 2
+    }
+   ],
+   "conditions": [
+    {
+     "applies_to": "Hide option when",
+     "depends_on_question": "indoor_outdoor",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Outdoor",
+     "option_value": "Dry"
+    }
+   ],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "environment_rating",
+   "comparison": "Meets or exceeds",
+   "verification_reason_template": "{answer} location rating"
+  },
+  {
+   "question_key": "ip_rating",
+   "sequence": 50,
+   "label": "What IP (ingress protection) rating do you need?",
+   "short_label": "IP Rating",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    }
+   ],
+   "glossary_term": "ip_rating",
+   "options": [
+    {
+     "value": "IP65",
+     "label": "IP65 — water jets",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/ip-rating-ip65.webp",
+     "swatch_color": "#aed6f1",
+     "rank": 0
+    },
+    {
+     "value": "IP67",
+     "label": "IP67 — temporary immersion",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/ip-rating-ip67.webp",
+     "swatch_color": "#7fb3d5",
+     "rank": 1
+    },
+    {
+     "value": "IP68",
+     "label": "IP68 — continuous immersion",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/ip-rating-ip68.webp",
+     "swatch_color": "#5499c7",
+     "rank": 2
+    }
+   ],
+   "conditions": [
+    {
+     "applies_to": "Show question when",
+     "depends_on_question": "moisture",
+     "operator": "in",
+     "match_group": "Any",
+     "value": "Damp,Wet"
+    },
+    {
+     "applies_to": "Show question when",
+     "depends_on_question": "indoor_outdoor",
+     "operator": "equals",
+     "match_group": "Any",
+     "value": "Outdoor"
+    }
+   ],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "ip_rating",
+   "comparison": "Meets or exceeds",
+   "verification_reason_template": "{answer} rating"
+  },
+  {
+   "question_key": "light_type",
+   "sequence": 60,
+   "label": "What type of light do you need?",
+   "short_label": "Light Type",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    }
+   ],
+   "glossary_term": "light_type",
+   "options": [
+    {
+     "value": "Static white",
+     "label": "Static White",
+     "is_active": 1,
+     "swatch_color": "linear-gradient(135deg, #fffde7 0%, #fff9c4 50%, #fffef5 100%)"
+    },
+    {
+     "value": "Tunable white",
+     "label": "Tunable White",
+     "is_active": 1,
+     "swatch_color": "linear-gradient(90deg, #ffd580 0%, #fff8e7 40%, #e8f4ff 70%, #b3d9ff 100%)"
+    },
+    {
+     "value": "Dim-to-warm",
+     "label": "Dim-to-Warm",
+     "is_active": 1,
+     "swatch_color": "linear-gradient(135deg, #ff6f00 0%, #ffa726 20%, #ffe79c 100%)"
+    },
+    {
+     "value": "Full-color",
+     "label": "Full-color (RGBW / RGB+TW / Pixel)",
+     "is_active": 1,
+     "swatch_color": "linear-gradient(135deg, #ff4081 0%, #ff6e40 20%, #ffea00 40%, #69f0ae 60%, #40c4ff 80%, #e040fb 100%)"
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "light_type",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer} light type"
+  },
+  {
+   "question_key": "color_mode",
+   "sequence": 70,
+   "label": "How should the color be controlled?",
+   "short_label": "Color Mode",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    }
+   ],
+   "glossary_term": "color_mode",
+   "options": [
+    {
+     "value": "Analog RGB/RGBW",
+     "label": "Analog RGB / RGBW (one color at a time)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/color-mode-analog-rgb.webp",
+     "swatch_color": "linear-gradient(135deg, #ff4081 0%, #ff6e40 20%, #ffea00 40%, #69f0ae 60%, #40c4ff 80%, #e040fb 100%)"
+    },
+    {
+     "value": "Addressable pixel (SPI)",
+     "label": "Addressable pixel (SPI — per-pixel effects)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/color-mode-addressable-pixel.webp",
+     "swatch_color": "linear-gradient(90deg, #00bcd4, #03a9f4, #2196f3)"
+    }
+   ],
+   "conditions": [
+    {
+     "applies_to": "Show question when",
+     "depends_on_question": "light_type",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Full-color"
+    }
+   ],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "color_mode",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer} color control"
+  },
+  {
+   "question_key": "fixture_purpose",
+   "sequence": 80,
+   "label": "What is the primary purpose of this fixture?",
+   "short_label": "Purpose",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    }
+   ],
+   "glossary_term": "fixture_purpose",
+   "options": [
+    {
+     "value": "Accent",
+     "label": "Accent — highlight an object or edge",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/fixture-purpose-accent.webp",
+     "swatch_color": "#ffc107",
+     "description": "About 150–300 lumens per foot.",
+     "numeric_min": 150,
+     "numeric_max": 300
+    },
+    {
+     "value": "Task",
+     "label": "Task — light a work surface",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/fixture-purpose-task.webp",
+     "swatch_color": "#ffffff",
+     "description": "About 300–500 lumens per foot.",
+     "numeric_min": 300,
+     "numeric_max": 500
+    },
+    {
+     "value": "Ambient",
+     "label": "Ambient — fill a room",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/fixture-purpose-ambient.webp",
+     "swatch_color": "#fff9c4",
+     "description": "About 500 or more lumens per foot.",
+     "numeric_min": 500,
+     "numeric_max": 99999
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "lumens_per_ft",
+   "comparison": "Within band",
+   "relax_priority": 30
+  },
+  {
+   "question_key": "installation_method",
+   "sequence": 90,
+   "label": "How will the fixture be installed?",
+   "short_label": "Install Method",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "Extrusion Kit"
+    }
+   ],
+   "glossary_term": "installation_method",
+   "options": [
+    {
+     "value": "Surface",
+     "label": "Surface mount",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/installation-method-surface.webp",
+     "swatch_color": "#e8f4f8"
+    },
+    {
+     "value": "Recessed",
+     "label": "Recessed",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/installation-method-recessed.webp",
+     "swatch_color": "#f0f0f0"
+    },
+    {
+     "value": "Angled",
+     "label": "Angled / corner",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/installation-method-angled.webp",
+     "swatch_color": "#ffe8cc"
+    },
+    {
+     "value": "Drywall-plaster-in",
+     "label": "Drywall / plaster-in (trimless)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/installation-method-drywall-plaster-in.webp",
+     "swatch_color": "#f5f5f5"
+    },
+    {
+     "value": "Suspended",
+     "label": "Suspended",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/installation-method-suspended.webp",
+     "swatch_color": "#e8e8f8"
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "mounting_method",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer} mounting"
+  },
+  {
+   "question_key": "cct_range",
+   "sequence": 100,
+   "label": "Select the tunable white range you need.",
+   "short_label": "CCT Range",
+   "question_type": "Range",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    }
+   ],
+   "glossary_term": "target_cct",
+   "options": [],
+   "conditions": [
+    {
+     "applies_to": "Show question when",
+     "depends_on_question": "light_type",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Tunable white"
+    }
+   ],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "cct_range",
+   "comparison": "Range covers",
+   "relax_priority": 20,
+   "number_min": 1800,
+   "number_max": 6500,
+   "number_step": 100,
+   "unit": "K",
+   "range_default_low": 1800,
+   "range_default_high": 4000
+  },
+  {
+   "question_key": "target_cct",
+   "sequence": 105,
+   "label": "What color temperature (CCT) do you want?",
+   "short_label": "Color Temp",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 0,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    }
+   ],
+   "glossary_term": "target_cct",
+   "options": [
+    {
+     "value": "2700K",
+     "label": "2700K — warm",
+     "is_active": 1,
+     "swatch_color": "#ff9800"
+    },
+    {
+     "value": "3000K",
+     "label": "3000K — warm-neutral",
+     "is_active": 1,
+     "swatch_color": "#ffc107"
+    },
+    {
+     "value": "3500K",
+     "label": "3500K — neutral",
+     "is_active": 1,
+     "swatch_color": "#ffeb3b"
+    },
+    {
+     "value": "4000K",
+     "label": "4000K — cool",
+     "is_active": 1,
+     "swatch_color": "#e3f2fd"
+    }
+   ],
+   "conditions": [
+    {
+     "applies_to": "Show question when",
+     "depends_on_question": "light_type",
+     "operator": "in",
+     "match_group": "All",
+     "value": "Static white,Dim-to-warm"
+    }
+   ],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "cct",
+   "comparison": "Any of",
+   "relax_priority": 20,
+   "tooltip": "Draft: the prototype hid this question; activate it to ask for a white color temperature."
+  },
+  {
+   "question_key": "cri",
+   "sequence": 110,
+   "label": "What color rendering (CRI) do you require?",
+   "short_label": "CRI",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    }
+   ],
+   "glossary_term": "cri",
+   "options": [
+    {
+     "value": "90+",
+     "label": "90+ (standard architectural)",
+     "is_active": 1,
+     "swatch_color": "#f5f5f5",
+     "numeric_min": 90
+    },
+    {
+     "value": "95+",
+     "label": "95+ (premium)",
+     "is_active": 1,
+     "swatch_color": "#fafafa",
+     "note": "Limited availability — confirm before committing.",
+     "numeric_min": 95
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "cri_min",
+   "comparison": "At least",
+   "relax_priority": 10
+  },
+  {
+   "question_key": "dimming_protocol",
+   "sequence": 120,
+   "label": "Which dimming / control protocol will you use?",
+   "short_label": "Dimming",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Tape"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "LED Sheet"
+    },
+    {
+     "family": "Driver"
+    }
+   ],
+   "glossary_term": "dimming_protocol",
+   "options": [
+    {
+     "value": "0-10V",
+     "label": "0-10V",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-0-10v.webp",
+     "swatch_color": "linear-gradient(90deg, #c5cae9, #9fa8da)",
+     "glossary_term": "dimming_0_10v"
+    },
+    {
+     "value": "TRIAC",
+     "label": "TRIAC",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-triac.webp",
+     "swatch_color": "#e0e0e0",
+     "glossary_term": "dimming_triac"
+    },
+    {
+     "value": "ELV",
+     "label": "ELV",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-elv.webp",
+     "swatch_color": "#e8d7e8",
+     "glossary_term": "dimming_elv"
+    },
+    {
+     "value": "DALI",
+     "label": "DALI",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-dali.webp",
+     "swatch_color": "#c8e6c9",
+     "glossary_term": "dimming_dali"
+    },
+    {
+     "value": "DMX512",
+     "label": "DMX512",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-dmx512.webp",
+     "swatch_color": "#ffccbc",
+     "glossary_term": "dimming_dmx512"
+    },
+    {
+     "value": "SPI",
+     "label": "SPI (addressable pixel)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-spi.webp",
+     "swatch_color": "linear-gradient(90deg, #00bcd4, #03a9f4, #2196f3)",
+     "glossary_term": "dimming_spi"
+    },
+    {
+     "value": "not_sure",
+     "label": "Not sure yet",
+     "is_active": 1,
+     "description": "We'll help you choose a control later.",
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [
+    {
+     "applies_to": "Hide option when",
+     "depends_on_question": "color_mode",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Addressable pixel (SPI)",
+     "option_value": "0-10V"
+    },
+    {
+     "applies_to": "Hide option when",
+     "depends_on_question": "color_mode",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Addressable pixel (SPI)",
+     "option_value": "TRIAC"
+    },
+    {
+     "applies_to": "Hide option when",
+     "depends_on_question": "color_mode",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Addressable pixel (SPI)",
+     "option_value": "ELV"
+    },
+    {
+     "applies_to": "Hide option when",
+     "depends_on_question": "color_mode",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Addressable pixel (SPI)",
+     "option_value": "DALI"
+    }
+   ],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "dimming_protocol",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer} dimming"
+  },
+  {
+   "question_key": "diffuser",
+   "sequence": 130,
+   "label": "What diffuser / lens appearance do you want?",
+   "short_label": "Diffuser",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "Extrusion Kit"
+    }
+   ],
+   "glossary_term": "diffuser",
+   "options": [
+    {
+     "value": "Clear",
+     "label": "Clear (brightest)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/diffuser-clear.webp",
+     "swatch_color": "linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%)"
+    },
+    {
+     "value": "Frosted",
+     "label": "Frosted (hides dots)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/diffuser-frosted.webp",
+     "swatch_color": "#f5f5f5"
+    },
+    {
+     "value": "White",
+     "label": "White (fully diffused)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/diffuser-white.webp",
+     "swatch_color": "#ffffff"
+    },
+    {
+     "value": "Black",
+     "label": "Black (stealth daytime)",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/diffuser-black.webp",
+     "swatch_color": "#212121"
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "lens_appearance",
+   "comparison": "Any of",
+   "relax_priority": 40
+  },
+  {
+   "question_key": "finish",
+   "sequence": 140,
+   "label": "What channel finish do you prefer? (optional)",
+   "short_label": "Finish",
+   "question_type": "Single",
+   "required": 0,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Linear Fixture"
+    },
+    {
+     "family": "LED Neon"
+    },
+    {
+     "family": "Extrusion Kit"
+    }
+   ],
+   "glossary_term": "finish",
+   "options": [
+    {
+     "value": "Silver",
+     "label": "Silver",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/finish-silver.webp",
+     "swatch_color": "#c0c0c0"
+    },
+    {
+     "value": "Black",
+     "label": "Black",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/finish-black.webp",
+     "swatch_color": "#212121"
+    },
+    {
+     "value": "White",
+     "label": "White",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/finish-white.webp",
+     "swatch_color": "#ffffff"
+    },
+    {
+     "value": "no_preference",
+     "label": "No preference",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "finish",
+   "comparison": "Any of",
+   "relax_priority": 50
+  },
+  {
+   "question_key": "backlight_target",
+   "sequence": 200,
+   "label": "What will the sheet light up?",
+   "short_label": "Backlighting",
+   "question_type": "Single",
+   "required": 0,
+   "is_active": 0,
+   "families": [
+    {
+     "family": "LED Sheet"
+    }
+   ],
+   "options": [
+    {
+     "value": "signage",
+     "label": "Signage or a lightbox",
+     "is_active": 1
+    },
+    {
+     "value": "countertop",
+     "label": "Countertop or bar front",
+     "is_active": 1
+    },
+    {
+     "value": "ceiling_wall",
+     "label": "Ceiling or wall panel",
+     "is_active": 1
+    },
+    {
+     "value": "not_sure",
+     "label": "Not sure / other",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "application",
+   "comparison": "Any of",
+   "relax_priority": 5,
+   "tooltip": "Draft: activate once application categories exist in Webflow Category and are mapped below."
+  },
+  {
+   "question_key": "power_target",
+   "sequence": 300,
+   "label": "What will the power supply run?",
+   "short_label": "Powers",
+   "question_type": "Single",
+   "required": 0,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Driver"
+    }
+   ],
+   "glossary_term": "power_supply",
+   "options": [
+    {
+     "value": "tape",
+     "label": "LED tape or neon",
+     "is_active": 1
+    },
+    {
+     "value": "fixtures",
+     "label": "Linear fixtures",
+     "is_active": 1
+    },
+    {
+     "value": "mixed",
+     "label": "A mix / not sure",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "None",
+   "unknown_policy": "Use default"
+  },
+  {
+   "question_key": "output_voltage",
+   "sequence": 310,
+   "label": "What voltage do your lights need?",
+   "short_label": "Voltage",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Driver"
+    }
+   ],
+   "glossary_term": "output_voltage",
+   "options": [
+    {
+     "value": "24V",
+     "label": "24V",
+     "is_active": 1,
+     "description": "Most ilLumenate tape and fixtures."
+    },
+    {
+     "value": "12V",
+     "label": "12V",
+     "is_active": 1
+    },
+    {
+     "value": "48V",
+     "label": "48V",
+     "is_active": 1
+    },
+    {
+     "value": "not_sure",
+     "label": "Not sure",
+     "is_active": 1,
+     "description": "We'll confirm it with you.",
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "output_voltage",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer} output"
+  },
+  {
+   "question_key": "load_watts",
+   "sequence": 320,
+   "label": "About how many watts will it power?",
+   "short_label": "Load",
+   "question_type": "Number",
+   "required": 0,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Driver"
+    }
+   ],
+   "glossary_term": "load_watts",
+   "options": [],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "driver_wattage",
+   "comparison": "At least",
+   "verification_reason_template": "{answer} W capacity",
+   "tooltip": "Run length in feet × watts per foot, plus about 20% headroom. Leave blank if you're not sure.",
+   "number_min": 1,
+   "number_max": 2000,
+   "number_step": 1,
+   "unit": "W",
+   "placeholder": "e.g. 96"
+  },
+  {
+   "question_key": "driver_location",
+   "sequence": 330,
+   "label": "Where will the power supply be installed?",
+   "short_label": "Install Location",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Driver"
+    }
+   ],
+   "glossary_term": "environment_rating",
+   "options": [
+    {
+     "value": "Dry",
+     "label": "Dry",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/moisture-dry.webp",
+     "swatch_color": "#f9e79f",
+     "rank": 0
+    },
+    {
+     "value": "Damp",
+     "label": "Damp",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/moisture-damp.webp",
+     "swatch_color": "#d6eaf8",
+     "rank": 1
+    },
+    {
+     "value": "Wet",
+     "label": "Wet",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/moisture-wet.webp",
+     "swatch_color": "#a9ccf0",
+     "rank": 2
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "environment_rating",
+   "comparison": "Meets or exceeds",
+   "verification_reason_template": "{answer} location rating"
+  },
+  {
+   "question_key": "control_method",
+   "sequence": 400,
+   "label": "How do you want to control the lights?",
+   "short_label": "Control",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Controller"
+    }
+   ],
+   "glossary_term": "controller_type",
+   "options": [
+    {
+     "value": "Wall Dimmer",
+     "label": "A wall keypad or dimmer",
+     "is_active": 1
+    },
+    {
+     "value": "Wireless Receiver",
+     "label": "Phone app or wireless remote",
+     "is_active": 1
+    },
+    {
+     "value": "DMX Controller",
+     "label": "A DMX console or show controller",
+     "is_active": 1,
+     "image": "/assets/illumenate_lighting/product_finder/options/dimming-protocol-dmx512.webp"
+    },
+    {
+     "value": "Scene Controller",
+     "label": "Preset scenes",
+     "is_active": 1
+    },
+    {
+     "value": "not_sure",
+     "label": "Not sure",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "controller_type",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer}"
+  },
+  {
+   "question_key": "controlled_light",
+   "sequence": 410,
+   "label": "What kind of light will it control?",
+   "short_label": "Channels",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Controller"
+    }
+   ],
+   "glossary_term": "channels",
+   "options": [
+    {
+     "value": "single",
+     "label": "Single-color white",
+     "is_active": 1,
+     "numeric_min": 1
+    },
+    {
+     "value": "tunable",
+     "label": "Tunable white",
+     "is_active": 1,
+     "numeric_min": 2
+    },
+    {
+     "value": "rgb",
+     "label": "RGB color",
+     "is_active": 1,
+     "numeric_min": 3
+    },
+    {
+     "value": "rgbw",
+     "label": "RGBW color",
+     "is_active": 1,
+     "numeric_min": 4
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "channels",
+   "comparison": "At least",
+   "verification_reason_template": "{answer} channels"
+  },
+  {
+   "question_key": "zones",
+   "sequence": 420,
+   "label": "How many separately controlled zones?",
+   "short_label": "Zones",
+   "question_type": "Number",
+   "required": 0,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Controller"
+    }
+   ],
+   "glossary_term": "zones",
+   "options": [],
+   "conditions": [],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "zones",
+   "comparison": "At least",
+   "verification_reason_template": "{answer} zones",
+   "number_min": 1,
+   "number_max": 64,
+   "number_step": 1,
+   "placeholder": "e.g. 4"
+  },
+  {
+   "question_key": "wireless_protocol",
+   "sequence": 430,
+   "label": "Which wireless system?",
+   "short_label": "Wireless",
+   "question_type": "Single",
+   "required": 1,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Controller"
+    }
+   ],
+   "options": [
+    {
+     "value": "Bluetooth",
+     "label": "Bluetooth",
+     "is_active": 1
+    },
+    {
+     "value": "Zigbee",
+     "label": "Zigbee",
+     "is_active": 1
+    },
+    {
+     "value": "Z-Wave",
+     "label": "Z-Wave",
+     "is_active": 1
+    },
+    {
+     "value": "WiFi",
+     "label": "Wi-Fi",
+     "is_active": 1
+    },
+    {
+     "value": "RF 2.4GHz",
+     "label": "RF remote (2.4 GHz)",
+     "is_active": 1
+    },
+    {
+     "value": "not_sure",
+     "label": "Not sure",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [
+    {
+     "applies_to": "Show question when",
+     "depends_on_question": "control_method",
+     "operator": "equals",
+     "match_group": "All",
+     "value": "Wireless Receiver"
+    }
+   ],
+   "match_mode": "Hard",
+   "unknown_policy": "Verify",
+   "facet": "wireless_protocol",
+   "comparison": "Any of",
+   "verification_reason_template": "{answer} wireless"
+  },
+  {
+   "question_key": "controller_mounting",
+   "sequence": 440,
+   "label": "Where will the controller be mounted?",
+   "short_label": "Mounting",
+   "question_type": "Single",
+   "required": 0,
+   "is_active": 1,
+   "families": [
+    {
+     "family": "Controller"
+    }
+   ],
+   "options": [
+    {
+     "value": "Wall Mount",
+     "label": "On a wall",
+     "is_active": 1
+    },
+    {
+     "value": "In-Wall",
+     "label": "In a wall box",
+     "is_active": 1
+    },
+    {
+     "value": "DIN Rail",
+     "label": "DIN rail in a panel",
+     "is_active": 1
+    },
+    {
+     "value": "Surface",
+     "label": "On a surface",
+     "is_active": 1
+    },
+    {
+     "value": "Portable",
+     "label": "Handheld / portable",
+     "is_active": 1
+    },
+    {
+     "value": "no_preference",
+     "label": "No preference",
+     "is_active": 1,
+     "is_no_preference": 1
+    }
+   ],
+   "conditions": [],
+   "match_mode": "Soft",
+   "unknown_policy": "Use default",
+   "facet": "controller_mounting",
+   "comparison": "Any of",
+   "relax_priority": 60
+  }
+ ]
+}
