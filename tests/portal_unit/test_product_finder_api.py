@@ -103,3 +103,22 @@ class API(unittest.TestCase):
 			self.sessions.require_user.side_effect = PermissionError("Guest")
 			with self.assertRaises(PermissionError):
 				api.get_definition()
+
+
+class FinderManagerCatalogAccess(unittest.TestCase):
+	def test_finder_only_staff_can_read_catalog_for_preview(self):
+		identity = types.SimpleNamespace(
+			_is_internal_user=lambda user: False,
+			_is_dealer_user=lambda user: False,
+			_get_user_customer=lambda user: None,
+		)
+		deps = {
+			ROOT + ".doctype.ill_project.ill_project": identity,
+			ROOT + ".portal.staff": types.SimpleNamespace(
+				allowed=lambda capability, user=None: capability == "finder"
+			),
+		}
+		with load_service(ROOT + ".portal.access", deps) as (access, frappe):
+			frappe.db.get_value.return_value = True
+			self.assertTrue(access.can_view_catalog("finder-manager"))
+			self.assertFalse(access.can_view_catalog("Guest"))
