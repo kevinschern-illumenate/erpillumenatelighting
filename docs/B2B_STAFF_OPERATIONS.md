@@ -10,6 +10,7 @@ Open **ilLumenate Lighting → Portal Operations** (`/app/ill-portal-operations`
 | ilL Support | Issue response queue. Open **Portal conversation**, read the request, reply, request information, resolve with an explanation, or reopen. Returns remain requests; this flow does not issue credits. |
 | ilL Operations | Read manufacturing drawing holds. Obtain a current technical approval before submitting the Work Order; this queue never releases work automatically. |
 | ilL Integration | Publication and email failures. Inspect publication job errors before retrying. For email, distinguish failed queue creation from an existing Email Queue attempt. Never create a replacement email when delivery is uncertain. |
+| ilL Product Finder Manager | Maintain Finder questions, glossary, mappings and Settings; preview draft content and review product verification requests. |
 | ilL Catalog Publisher | Product, template/specification/compatibility/mapping authoring and approved Item literature. Run Engineering preflight on templates and Channel preflight on products, then approve/stage and explicitly publish the inspected revision. |
 
 Engineering also receives master authoring and Item-literature permissions. Item creation, pricing maintenance, stock/manufacturing execution and accounting still require the corresponding native ERP job roles. The Operations role by itself supplies a drawing-hold view; it does not grant Work Order submission. See the [authoring field register](B2B_AUTHORING_FIELD_REGISTER.md) for setup/import order and public Sheet markup.
@@ -33,6 +34,7 @@ No user receives these roles automatically, and only System Manager is treated a
 | Webflow **Mark Pending**, product and catalog authoring | ilL Catalog Publisher | Webflow sync, publication, Item literature |
 | Publication and email failures | ilL Integration | Publication job and outbox retries |
 | Customer issues and account requests | ilL Support | Issue queue and account change requests |
+| Product Finder content and verification | ilL Product Finder Manager | Finder authoring, draft previews and verification queue |
 | Work Order drawing holds | ilL Operations | Read-only drawing-hold view |
 
 | Person | ilL roles assigned | Staging verified | Production assigned |
@@ -58,3 +60,17 @@ Workspace upgrades back up the existing record under the site's `private/ill-wor
 Local service/DOM tests cover predicates, forbidden states, retry behavior and merge preservation. Actual ordinary-role Desk walkthroughs, asset loading, scheduler execution and fresh/upgraded Cloud migrations remain deployment acceptance tasks.
 
 Use [Cloud acceptance](B2B_CLOUD_ACCEPTANCE.md) for fixture secrets, historical checksums, concurrent-session tests, the mandatory role walkthrough matrix, legacy private-copy rehearsal, restore and rollout. Department leads must record named ownership and absence coverage there before release.
+
+## Product Finder operations
+
+Assign `ilL Product Finder Manager` explicitly and confirm the `finder` capability in the role audit. Sales Review and Engineering also have Finder editing/verification access. Dealer users never edit questions or verification decisions.
+
+Edit **ilL-Finder-Question** and its active options, images/swatches, conditions and value maps; use **Preview matches** to see live products before enabling content. The portal `?preview=1` includes draft questions only for authorized staff. Published client definitions omit private matching metadata. **Product Finder Coverage** identifies missing value maps and unmapped product facts. Unknown facts follow the question's Verify/Exclude/Include policy; Verify is the default.
+
+Run **Catalog Configurability** Preview, inspect changes, then Apply safe repairs. Confirm Linear Fixture, Tape, Neon, Sheet, Kit, Driver and Controller products intended for configuration have active correct template links and an `ok` result. Kit backlinks are populated by the deployment patch.
+
+The **Product verification** queue includes Requested, Under Review and Information Needed. Open a request, assign a reviewer, start review, request more information through the portal conversation, and record a resolution before Verified or Not Feasible. Decisions update only verification metadata on linked schedule lines, including locked historical versions, and advance the schedule revision. They notify the requester and add a conversation event. The default due date is two business days. Removed/replaced lines cancel requests with no remaining referenced lines. Matching verified reasons can be reused for the same product/session.
+
+In **Product Finder Settings**, the default verification gate is **Before quote is issued and order is placed**. Alternatives are **Before order only** and **Warning only**. Pending and Not Feasible lines are subject to the gate; quote requests remain available. If verification changes an already frozen quote snapshot, review/regenerate it before issuing.
+
+Enable Portal only after mapping and data checks. Public is separate: allowlist each Brand, set its HTTPS Webflow Site URL, and confirm enabled publication targets have Synced state and collection slugs. Guest responses contain no prices, stock or Item identifiers. Session retention defaults to 30 days for portal users; unclaimed public sessions expire at seven days and are removed after the additional 30-day retention period.

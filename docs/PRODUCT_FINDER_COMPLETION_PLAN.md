@@ -1,5 +1,12 @@
 # Product Finder — Completion Plan (handoff)
 
+
+> **Implementation record — 2026-10-01:** Workstreams A–H, hardening, local tests, committed portal/public bundles and operating documentation are implemented. Latest `main` was merged into `staging` at `49e5abd` after four upstream commits arrived during implementation. Deployment, database migration and live-site acceptance remain the operator steps in §16 and [B2B Cloud Acceptance](B2B_CLOUD_ACCEPTANCE.md#product-finder-staging-acceptance-2026-10-01).
+>
+> Local verification: 384 portal Python tests; 131 fixture-builder tests; 9 React tests; all 9 portal DOM test files (including mounting both production bundles without Node globals); YAML-builder tests; 41 Jinja templates with eight configurator modes and 18 embedded scripts; publication/reconciliation checks; zero new lint diagnostics. Playwright lists 42 desktop/mobile cases; live-site cases were not executed here. Both Vite builds are reproducible under the committed lockfile.
+>
+> Implementation decisions: use the brand's `webflow_site_url` for public product URLs (`get_base_url()` is the ERP host); an empty-result help request creates a support Issue because no product can honestly be linked to a verification request; caches include actor/catalog scope and an invalidation epoch so pilot/brand boundaries and deletions remain correct. Verification propagation writes only decision metadata under schedule locks and advances the schedule revision, including on locked versions; a full schedule save would reject locked historical versions or require a Finder reviewer to own the configured build. Engineering content stays unchanged. The plan's session, gate and publication defaults remain in place.
+
 Written 2026-10-01; updated after `main` was merged into `staging` (PR #273, merge commit `579f3df`). Supersedes the PR ordering in §18 of `docs/PRODUCT_FINDER_PORTAL_IMPLEMENTATION_PLAN.md` (v2). The v2 plan still holds the product decisions; this document is the build instruction.
 
 ---
@@ -858,15 +865,15 @@ Every endpoint is `@frappe.whitelist(allow_guest=True)` and rate-limited. CORS c
 
 ## 17. Definition of Done (all must be true before you stop)
 
-- [ ] `staging` contains every commit on `origin/main` (already true at `579f3df`; re-merge only if `main` moved), and every check in §0.3 passes on the final commit.
-- [ ] §2 fixes are done (controller facets and value-map patch, `add_schedule_line` hardening, alias comment, `finder` staff capability).
-- [ ] A: `engine.py` matches `engine.js` (parity test); facts cover every family in the A2 table; the matcher and evaluate are implemented and cached; Desk *Preview matches* works; `prefill_for_template` covers all seven families.
-- [ ] B: the session DocType is extended with permissions and hooks; the sessions service and every portal endpoint are in place with validation and rate limits; the expiry scheduler is registered; the legacy wrappers are fixed.
-- [ ] C: the verification request DocType, line fields, service, call sites and gates, queue, conversations, notifications, schedule badges and quote-request counts are all done.
-- [ ] D: the React app is in portal and public modes; prototype data, recommend, resultObject, configureHandoff and CompareTable are deleted; FamilyChooser has Linear featured; both bundles are built and committed; the vitest suite passes; the CI freshness step is added.
-- [ ] E: the `/portal/product-finder` page, banner (dismiss and resume), nav link, "Help me choose" link, and the product-type chooser on `/portal/configure` are done.
-- [ ] F: the finder-scoped catalog (banner, tabs, chips, relevance, companions, empty state) and the product page (why-fits, verification callout, ask team, pairs well with, `finder` through configure and save, "Back to your matches") are done.
-- [ ] G: driver, controller and kit configurators work end to end (projection, `kit_template`, configure page branches, JS classes, server-validated saves, Desk kit dialog on the shared writer, kit route redirect).
-- [ ] H: the public API (published-only, no prices), CORS, the claim flow, the public bundle and embed docs are done; the prototype Vercel preview is retired.
-- [ ] §12 hardening is done; §13 tests are all written and passing; §14 docs are updated.
-- [ ] Everything is pushed to `staging`. The final message to the user summarizes what was built, the verification results, the defaults chosen, and the §16 steps.
+- [x] `staging` contains every commit on `origin/main` (already true at `579f3df`; re-merge only if `main` moved), and every check in §0.3 passes on the final commit.
+- [x] §2 fixes are done (controller facets and value-map patch, `add_schedule_line` hardening, alias comment, `finder` staff capability).
+- [x] A: `engine.py` matches `engine.js` (parity test); facts cover every family in the A2 table; the matcher and evaluate are implemented and cached; Desk *Preview matches* works; `prefill_for_template` covers all seven families.
+- [x] B: the session DocType is extended with permissions and hooks; the sessions service and every portal endpoint are in place with validation and rate limits; the expiry scheduler is registered; the legacy wrappers are fixed.
+- [x] C: the verification request DocType, line fields, service, call sites and gates, queue, conversations, notifications, schedule badges and quote-request counts are all done.
+- [x] D: the React app is in portal and public modes; prototype data, recommend, resultObject, configureHandoff and CompareTable are deleted; FamilyChooser has Linear featured; both bundles are built and committed; the vitest suite passes; the CI freshness step is added.
+- [x] E: the `/portal/product-finder` page, banner (dismiss and resume), nav link, "Help me choose" link, and the product-type chooser on `/portal/configure` are done.
+- [x] F: the finder-scoped catalog (banner, tabs, chips, relevance, companions, empty state) and the product page (why-fits, verification callout, ask team, pairs well with, `finder` through configure and save, "Back to your matches") are done.
+- [x] G: driver, controller and kit configurators work end to end (projection, `kit_template`, configure page branches, JS classes, server-validated saves, Desk kit dialog on the shared writer, kit route redirect).
+- [x] H: the public API (published-only, no prices), CORS, the claim flow, the public bundle and embed docs are done; the prototype Vercel preview is retired.
+- [x] §12 hardening is done; §13 tests are all written and passing; §14 docs are updated.
+- [x] Everything is pushed to `staging`. The final message to the user summarizes what was built, the verification results, the defaults chosen, and the §16 steps.
