@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState, useId } from 'react';
 import { parse, stringify } from 'yaml';
 import schema from './catalog-schema.json';
 import examples from './catalog-examples.json';
-import { blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords } from './catalog-model.js';
+import {
+  blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
+  inReference, referenceSummary, withReferenceLinks, unconfirmedLinks,
+} from './catalog-model.js';
 import './catalog.css';
 
 const STORAGE = 'illumenate-product-catalog-v2';
@@ -20,6 +23,15 @@ function restore() {
   return { active: 'fixture', drafts: { fixture: emptyCatalog('fixture') } };
 }
 
+/** Copy a record for editing as a new one; its naming field is cleared. */
+function asNewRecord(doctype, row) {
+  const rule = schema.doctypes[doctype].autoname || '';
+  const copy = structuredClone(row);
+  if (rule.startsWith('field:')) copy[rule.slice(6)] = '';
+  else if (!rule.startsWith('format:')) copy.name = '';
+  return copy;
+}
+
 function download(text, filename) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/yaml;charset=utf-8' }));
   const anchor = document.createElement('a');
@@ -27,7 +39,7 @@ function download(text, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function RecordFields({ doctype, row, onChange, catalog, filter = '', depth = 0 }) {
+export function RecordFields({ doctype, row, onChange, catalog, reference = null, filter = '', depth = 0 }) {
   const id = useId();
   const meta = schema.doctypes[doctype];
   const edit = (key, value) => {
@@ -51,7 +63,7 @@ export function RecordFields({ doctype, row, onChange, catalog, filter = '', dep
           {value && !Array.isArray(value) && <p role="alert">Invalid child table. Replace it with rows below.</p>}
           {children.map((child, i) => <fieldset key={i}>
             <legend>{field.label} · {i + 1}</legend>
-            <RecordFields doctype={field.options} row={child && typeof child === 'object' ? child : {}} catalog={catalog} depth={depth + 1}
+            <RecordFields doctype={field.options} row={child && typeof child === 'object' ? child : {}} catalog={catalog} reference={reference} depth={depth + 1}
               onChange={next => edit(key, children.map((item, index) => index === i ? next : item))} />
             <button className="catalog-danger" onClick={() => edit(key, children.filter((_, index) => index !== i))}>Remove row {i + 1}</button>
           </fieldset>)}
@@ -59,8 +71,11 @@ export function RecordFields({ doctype, row, onChange, catalog, filter = '', dep
         </details>;
       }
       const target = field.fieldtype === 'Dynamic Link' ? row[field.options] : field.options;
-      const suggestions = ['Link', 'Dynamic Link'].includes(field.fieldtype)
-        ? [...new Set([...(catalog.records[target] || []).map(item => recordName(target, item, schema)), ...(catalog.external_links[target] || [])])].filter(Boolean) : [];
+      const isLink = ['Link', 'Dynamic Link'].includes(field.fieldtype);
+      const existing = isLink ? reference?.doctypes?.[target]?.records || {} : {};
+      const suggestions = isLink
+        ? [...new Set([...(catalog.records[target] || []).map(item => recordName(target, item, schema)), ...(catalog.external_links[target] || []),
+          ...Object.keys(existing)])].filter(Boolean) : [];
       const numeric = ['Int', 'Float', 'Currency', 'Percent'].includes(field.fieldtype);
       let input;
       if (field.fieldtype === 'Check') {
@@ -76,16 +91,41 @@ export function RecordFields({ doctype, row, onChange, catalog, filter = '', dep
         input = <><input id={inputId} type={numeric ? 'number' : 'text'} step={field.fieldtype === 'Int' ? '1' : 'any'} value={value}
           list={suggestions.length ? `${inputId}-choices` : undefined}
           onChange={e => edit(key, numeric && e.target.value !== '' ? Number(e.target.value) : e.target.value)} />
-          {suggestions.length > 0 && <datalist id={`${inputId}-choices`}>{suggestions.map(option => <option key={option} value={option} />)}</datalist>}</>;
+          {suggestions.length > 0 && <datalist id={`${inputId}-choices`}>{suggestions.map(option => <option key={option} value={option}
+            label={Object.hasOwn(existing, option) ? `ERPNext · ${referenceSummary(target, existing[option], schema, 3)}` : undefined} />)}</datalist>}</>;
       }
       return <div className={`catalog-field ${field.fieldtype === 'Check' ? 'catalog-check' : ''}`} key={key}>
         <label htmlFor={inputId}>{field.label || key}{field.reqd ? ' *' : ''}</label>
         {input}
-        {['Link', 'Dynamic Link'].includes(field.fieldtype) && <small>Links to {target || 'the selected attribute DocType'}</small>}
+        {isLink && <small>Links to {target || 'the selected attribute DocType'}</small>}
+        {isLink && value !== '' && inReference(reference, target, String(value)) && <small className="catalog-ok">
+          Existing ERPNext record{referenceSummary(target, existing[String(value)], schema) ? ` · ${referenceSummary(target, existing[String(value)], schema)}` : ''}</small>}
         {field.description && <small>{field.description.replace(/<[^>]*>/g, '')}</small>}
       </div>;
     })}
   </div>;
+}
+
+/** Existing ERPNext records of one DocType, from the checked-in export snapshot. */
+function ReferencePanel({ doctype, reference, onCopy }) {
+  const [query, setQuery] = useState('');
+  const entry = reference?.doctypes?.[doctype];
+  if (!entry) return null;
+  const names = Object.keys(entry.records);
+  const needle = query.trim().toLowerCase();
+  const matches = names.filter(name => !needle || `${name} ${JSON.stringify(entry.records[name])}`.toLowerCase().includes(needle));
+  const partial = entry.source !== 'export';
+  return <details className="catalog-reference">
+    <summary>{names.length} existing in ERPNext <span>export of {reference.exported_on}{partial ? ' · only records that exported records link to' : ''}</span></summary>
+    <p>Link to these from your new records instead of re-creating them; linked names count as existing ERPNext records.
+      {partial ? '' : ' Copy one to start a new record from its values.'}</p>
+    <input aria-label={`Search existing ${shortName(doctype)} records`} placeholder="Search existing records…" value={query} onChange={e => setQuery(e.target.value)} />
+    <div className="catalog-reference-list">{matches.slice(0, 100).map(name => <div className="catalog-link" key={name}>
+      <strong>{name}</strong><small>{referenceSummary(doctype, entry.records[name], schema)}</small>
+      {!partial && <button onClick={() => onCopy(entry.records[name])}>Copy as new record</button>}
+    </div>)}</div>
+    {matches.length > 100 && <p>Showing 100 of {matches.length}. Refine the search to see more.</p>}
+  </details>;
 }
 
 export default function CatalogApp({ onLegacy }) {
@@ -97,7 +137,13 @@ export default function CatalogApp({ onLegacy }) {
   const [showPreview, setShowPreview] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [undo, setUndo] = useState(null);
+  const [reference, setReference] = useState(null);
   const fileInput = useRef(null);
+  useEffect(() => {
+    // The ERPNext export is large, so it loads after the editor opens.
+    import('./erp-reference.json').then(module => setReference(module.default))
+      .catch(() => setMessage('Existing ERPNext records could not be loaded. Declare existing records manually.'));
+  }, []);
   const catalog = workspace.drafts[workspace.active] || emptyCatalog(workspace.active);
   const product = schema.products[workspace.active];
   const setCatalog = next => setWorkspace(previous => ({ ...previous, drafts: { ...previous.drafts, [previous.active]: next } }));
@@ -105,9 +151,13 @@ export default function CatalogApp({ onLegacy }) {
     try { localStorage.setItem(STORAGE, JSON.stringify(workspace)); }
     catch { setMessage('Browser storage is full or unavailable. Download YAML to save your work.'); }
   }, [workspace]);
-  const yaml = useMemo(() => '# ilLumenate product catalog — validate and generate with tools.fixture_builder\n' + stringify(catalog, { lineWidth: 0 }), [catalog]);
-  const issues = useMemo(() => catalogIssues(catalog, schema), [catalog]);
-  const missing = useMemo(() => unresolvedLinks(catalog, schema), [catalog]);
+  const resolved = useMemo(() => withReferenceLinks(catalog, schema, reference), [catalog, reference]);
+  const yaml = useMemo(() => '# ilLumenate product catalog — validate and generate with tools.fixture_builder\n' + stringify(resolved, { lineWidth: 0 }), [resolved]);
+  const issues = useMemo(() => catalogIssues(catalog, schema, reference), [catalog, reference]);
+  const missing = useMemo(() => unresolvedLinks(catalog, schema, reference), [catalog, reference]);
+  const unconfirmed = useMemo(() => unconfirmedLinks(catalog, reference), [catalog, reference]);
+  const fromErp = Object.values(resolved.external_links).reduce((sum, names) => sum + names.length, 0)
+    - Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0);
   const total = Object.values(catalog.records).reduce((sum, rows) => sum + rows.length, 0);
   const orderedTypes = [...new Set(['Item', product.spec, product.template, 'ilL-Webflow-Product', ...Object.keys(catalog.records), ...parentTypes])]
     .filter(name => name.toLowerCase().includes(search.toLowerCase()));
@@ -162,24 +212,30 @@ export default function CatalogApp({ onLegacy }) {
       <main className="catalog-editor">
         <div className="catalog-section-title"><div><h2>{shortName(selected)}</h2><p>{rows.length} records in this catalog</p></div>
           <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)])}>+ Add record</button></div>
+        <ReferencePanel key={selected} doctype={selected} reference={reference}
+          onCopy={record => { replaceRows([...rows, asNewRecord(selected, record)]); setMessage(`Copied into a new ${shortName(selected)} record. Give it a new name before importing.`); }} />
         <input className="catalog-field-search" aria-label="Find a field" placeholder="Find a field by name…" value={fieldSearch} onChange={e => setFieldSearch(e.target.value)} />
         {!rows.length && <div className="catalog-empty"><h3>Add your first {shortName(selected)} record</h3><p>Use the current ERPNext fields below, or load an example to explore a complete product setup.</p></div>}
         {rows.map((row, index) => <section className="catalog-record" key={index}>
           <div className="catalog-record-title"><h3>{recordName(selected, row, schema) || `New record ${index + 1}`}</h3>
-            <button onClick={() => replaceRows([...rows, { ...structuredClone(row), ...(schema.doctypes[selected].autoname?.startsWith('field:') ? { [schema.doctypes[selected].autoname.slice(6)]: '' } : { name: '' }) }])}>Duplicate</button>
+            <button onClick={() => replaceRows([...rows, asNewRecord(selected, row)])}>Duplicate</button>
             <button className="catalog-danger" onClick={() => { setUndo(structuredClone(catalog)); replaceRows(rows.filter((_, i) => i !== index)); }}>Remove</button></div>
-          <RecordFields doctype={selected} row={row} catalog={catalog} filter={fieldSearch} onChange={next => replaceRows(rows.map((item, i) => i === index ? next : item))} />
+          <RecordFields doctype={selected} row={row} catalog={catalog} reference={reference} filter={fieldSearch} onChange={next => replaceRows(rows.map((item, i) => i === index ? next : item))} />
         </section>)}
         {undo && <button onClick={() => { setCatalog(undo); setUndo(null); }}>Undo record removal</button>}
       </main>
       <aside className="catalog-review">
-        <h2>Import readiness</h2><p>Each link must point to a record in this catalog or a record you confirm already exists in ERPNext.</p>
-        {missing.some(link => link.doctype === 'Item') && <button onClick={() => { setCatalog(makeItemRecords(catalog, schema)); setSelected('Item'); }}>Create missing Item records</button>}
+        <h2>Import readiness</h2><p>Each link must point to a record in this catalog, a record in the ERPNext export, or a record you confirm already exists in ERPNext.</p>
+        <p>{reference ? `${fromErp} links resolve to existing ERPNext records (export of ${reference.exported_on}).` : 'Loading existing ERPNext records…'}</p>
+        {missing.some(link => link.doctype === 'Item') && <button onClick={() => { setCatalog(makeItemRecords(catalog, schema, reference)); setSelected('Item'); }}>Create missing Item records</button>}
         {missing.length > 0 && <details open><summary>{missing.length} unresolved links</summary>{missing.map(link => <div className="catalog-link" key={JSON.stringify([link.doctype, link.name])}>
           <strong>{link.name}</strong><small>{link.doctype || 'Select the Dynamic Link DocType first'}</small>
           {link.doctype && <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [link.doctype]: [...(catalog.external_links[link.doctype] || []), link.name] } })}>Use existing ERPNext record</button>}
         </div>)}</details>}
-        <details><summary>Existing ERPNext records ({Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0)})</summary>
+        {unconfirmed.length > 0 && <details open><summary>{unconfirmed.length} declared records not in the ERPNext export</summary>
+          <p>Check for a typo, or confirm the record was created after the export.</p>
+          {unconfirmed.map(link => <div className="catalog-link" key={`${link.doctype}/${link.name}`}><strong>{link.name}</strong><small>{link.doctype}</small></div>)}</details>}
+        <details><summary>Declared existing ERPNext records ({Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0)})</summary>
           {Object.entries(catalog.external_links).flatMap(([doctype, names]) => names.map(name => <div className="catalog-link" key={`${doctype}/${name}`}><strong>{name}</strong><small>{doctype}</small>
             <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [doctype]: names.filter(value => value !== name) } })}>Remove declaration</button></div>))}</details>
         {issues.length > 0 ? <details><summary>{issues.length} validation findings</summary><ul>{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul></details> : <p className="catalog-ok">Structure and references are ready for CLI engineering validation.</p>}

@@ -197,13 +197,16 @@ def _variant_errors(doctype, record, path):
 	return errors
 
 
-def prepare_catalog(config, schema=None):
+def prepare_catalog(config, schema=None, reference=None):
 	"""Return normalized records, ordered import batches, and explicit dependencies.
 
 	Fail before writing any output when data is malformed or links are unresolved.
-	External links must be deliberately declared; a typo is never assumed to exist.
+	External links must be declared or appear in ``reference`` ({DocType: names}
+	from an ERPNext export); a typo is never assumed to exist. A record that the
+	reference already holds is rejected, because Insert New Records would fail.
 	"""
 	schema = schema or build_schema()
+	reference = reference or {}
 	errors = []
 	if not isinstance(config, dict):
 		raise ValueError("Catalog must be a mapping")
@@ -246,6 +249,10 @@ def prepare_catalog(config, schema=None):
 				errors.append(f"{path}: a record name is required by {meta['autoname']}")
 			if name and (doctype, name) in names:
 				errors.append(f"{path}: duplicate record {name}")
+			if name in reference.get(doctype, ()):
+				errors.append(
+					f"{path}: {name} already exists in ERPNext; remove this record and link to the existing one"
+				)
 			node = (doctype, i)
 			if name:
 				names[doctype, name] = node
@@ -264,7 +271,7 @@ def prepare_catalog(config, schema=None):
 		for target, value, field in links(node[0], row, schema):
 			if (target, value) in names:
 				dependencies[node].add(names[target, value])
-			elif value in external.get(target, []):
+			elif value in external.get(target, []) or value in reference.get(target, ()):
 				used_external.add((target, value))
 			else:
 				errors.append(
@@ -336,9 +343,10 @@ def csv_data(doctype, records, schema):
 	return headers, rows
 
 
-def generate_catalog(config, output_dir):
+def generate_catalog(config, output_dir, reference=None):
 	schema = build_schema()
-	records, batches, external = prepare_catalog(config, schema)
+	records, batches, external = prepare_catalog(config, schema, reference)
+	declared = config.get("external_links", {})
 	output = Path(output_dir)
 	output.mkdir(parents=True, exist_ok=True)
 	results, manifest = (
@@ -347,7 +355,14 @@ def generate_catalog(config, output_dir):
 			"schema_version": 2,
 			"product_type": config["product_type"],
 			"imports": [],
-			"external_links": [{"doctype": dt, "name": name} for dt, name in external],
+			"external_links": [
+				{
+					"doctype": dt,
+					"name": name,
+					"source": "declared" if name in declared.get(dt, []) else "ERPNext export",
+				}
+				for dt, name in external
+			],
 		},
 	)
 	for i, (doctype, batch) in enumerate(batches, 1):

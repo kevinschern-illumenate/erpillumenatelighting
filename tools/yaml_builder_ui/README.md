@@ -24,8 +24,9 @@ Use **Family expansion editor** for the existing fixture/tape/neon wizard.
    and review every declared existing ERPNext record before using the example.
 3. Enter linked names. Suggestions include catalog records and declared existing
    records. Create missing Item records, then set their Item Group and UOM.
-4. Resolve references by adding records or selecting **Use existing ERPNext record**.
-   That declaration does not verify the live site.
+4. Resolve references by adding records, linking to a record in the ERPNext export
+   (below), or selecting **Use existing ERPNext record**. That declaration does not
+   verify the live site.
 5. **Save draft** works anytime. **Download catalog** requires browser structure and
    reference checks to pass. **Open YAML** reopens version 2 YAML or JSON without
    discarding fields. Replacing a draft asks for confirmation.
@@ -43,6 +44,35 @@ type. Use only files named in the current manifest.
 The editor does not contact ERPNext, upload attachments, publish products, or create
 orders. Live ERPNext readiness remains authoritative for site records, compatibility
 coverage, electrical selection, PDFs, and channel publication.
+
+## Existing ERPNext records
+
+`src/erp-reference.json` is a snapshot of the records already in ERPNext, built from
+ERPNext's DocType exports (LED Tape specs, profiles, lenses, accessories, drivers,
+templates, attributes, relationship maps, and the Items they link to). In the editor:
+
+- Link fields suggest existing records with their key values, and show
+  **Existing ERPNext record** when a link matches one, so a new fixture family can
+  use an existing LED Tape spec instead of re-creating it.
+- Links to existing records resolve automatically and are written to the
+  downloaded YAML's `external_links`, so the import package does not re-create them.
+- Each DocType page lists its existing records. Search them, or **Copy as new record**
+  to start from an existing spec or template.
+- Adding a record whose name already exists in ERPNext is a validation finding,
+  because Insert New Records would fail. A declared existing record that a fully
+  exported DocType does not contain is flagged as a likely typo.
+
+Prices and costs, audit fields, and Webflow sync state are not stored. Items, UOMs and
+other DocTypes that were not exported only list names that exported records link to.
+
+To refresh it, export each DocType in ERPNext (**Menu → Export**, all records, with
+child tables), zip the CSVs, and run from the repository root:
+
+```powershell
+python -m tools.fixture_builder.erp_reference DocType_Exports.zip
+```
+
+The CLI reads the same snapshot; pass `--no-reference` to ignore it.
 
 ## Host on Vercel
 

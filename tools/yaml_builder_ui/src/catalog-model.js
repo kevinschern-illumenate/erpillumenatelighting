@@ -57,7 +57,21 @@ export function linkedRecords(doctype, row, schema, prefix = '') {
   return result;
 }
 
-export function unresolvedLinks(catalog, schema) {
+/** True when an ERPNext export (erp-reference.json) lists this record. */
+export function inReference(reference, doctype, name) {
+  return Boolean(reference?.doctypes?.[doctype]?.records && Object.hasOwn(reference.doctypes[doctype].records, name));
+}
+
+/** A short, human description of an existing ERPNext record for pickers. */
+export function referenceSummary(doctype, record, schema, limit = 4) {
+  const fields = schema.doctypes[doctype]?.fields || [];
+  const naming = (schema.doctypes[doctype]?.autoname || '').replace(/^field:/, '');
+  return fields.filter(field => field.fieldname !== naming && ['Data', 'Link', 'Select', 'Int', 'Float'].includes(field.fieldtype)
+      && record?.[field.fieldname] !== undefined && record[field.fieldname] !== '' && record[field.fieldname] !== 0)
+    .slice(0, limit).map(field => `${field.label || field.fieldname}: ${record[field.fieldname]}`).join(' · ');
+}
+
+export function unresolvedLinks(catalog, schema, reference = null) {
   const known = new Set();
   for (const [doctype, rows] of Object.entries(catalog.records)) {
     rows.forEach(row => known.add(JSON.stringify([doctype, recordName(doctype, row, schema)])));
@@ -66,7 +80,8 @@ export function unresolvedLinks(catalog, schema) {
   for (const [doctype, rows] of Object.entries(catalog.records)) rows.forEach((row, i) => {
     linkedRecords(doctype, row, schema).forEach(link => {
       const key = JSON.stringify([link.doctype, link.name]);
-      if (!known.has(key) && !catalog.external_links?.[link.doctype]?.includes(link.name)) {
+      if (!known.has(key) && !catalog.external_links?.[link.doctype]?.includes(link.name)
+          && !inReference(reference, link.doctype, link.name)) {
         if (!missing.has(key)) missing.set(key, { ...link, sources: [] });
         missing.get(key).sources.push(`${doctype}[${i}].${link.path}`);
       }
@@ -75,7 +90,36 @@ export function unresolvedLinks(catalog, schema) {
   return [...missing.values()];
 }
 
-export function catalogIssues(catalog, schema) {
+/**
+ * Declare every link that resolves to an exported ERPNext record, so the YAML
+ * stays self-contained for the CLI and reviewers see what it depends on.
+ */
+export function withReferenceLinks(catalog, schema, reference) {
+  if (!reference) return catalog;
+  const known = new Set();
+  for (const [doctype, rows] of Object.entries(catalog.records)) {
+    rows.forEach(row => known.add(JSON.stringify([doctype, recordName(doctype, row, schema)])));
+  }
+  const external = Object.fromEntries(Object.entries(catalog.external_links || {}).map(([doctype, names]) => [doctype, [...names]]));
+  for (const [doctype, rows] of Object.entries(catalog.records)) rows.forEach(row => {
+    if (!row || typeof row !== 'object') return;
+    for (const link of linkedRecords(doctype, row, schema)) {
+      if (!link.doctype || known.has(JSON.stringify([link.doctype, link.name])) || !inReference(reference, link.doctype, link.name)) continue;
+      external[link.doctype] ||= [];
+      if (!external[link.doctype].includes(link.name)) external[link.doctype].push(link.name);
+    }
+  });
+  return { ...catalog, external_links: external };
+}
+
+/** Declared existing records missing from a fully exported DocType: likely typos. */
+export function unconfirmedLinks(catalog, reference) {
+  return Object.entries(catalog.external_links || {}).flatMap(([doctype, names]) =>
+    reference?.doctypes?.[doctype]?.source === 'export'
+      ? names.filter(name => !inReference(reference, doctype, name)).map(name => ({ doctype, name })) : []);
+}
+
+export function catalogIssues(catalog, schema, reference = null) {
   const issues = [];
   function inspect(doctype, row, path) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) { issues.push(`${path}: expected a record`); return; }
@@ -115,16 +159,19 @@ export function catalogIssues(catalog, schema) {
       const rule = schema.doctypes[doctype].autoname || '';
       if (!name && (rule === 'prompt' || rule.startsWith('field:'))) issues.push(`${doctype}[${i}]: record name is required`);
       if (name && names.has(name)) issues.push(`${doctype}: duplicate record ${name}`);
+      if (name && inReference(reference, doctype, name)) {
+        issues.push(`${doctype}[${i}]: ${name} already exists in ERPNext; remove it and link to the existing record`);
+      }
       names.add(name);
     });
   }
-  for (const link of unresolvedLinks(catalog, schema)) issues.push(`${link.sources[0]}: unresolved ${link.doctype} / ${link.name}`);
+  for (const link of unresolvedLinks(catalog, schema, reference)) issues.push(`${link.sources[0]}: unresolved ${link.doctype} / ${link.name}`);
   return issues;
 }
 
-export function makeItemRecords(catalog, schema) {
+export function makeItemRecords(catalog, schema, reference = null) {
   const result = structuredClone(catalog);
-  const missing = unresolvedLinks(result, schema).filter(link => link.doctype === 'Item');
+  const missing = unresolvedLinks(result, schema, reference).filter(link => link.doctype === 'Item');
   if (!missing.length) return result;
   result.records.Item ||= [];
   for (const link of missing) result.records.Item.push({

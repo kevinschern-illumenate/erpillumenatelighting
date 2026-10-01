@@ -15,6 +15,7 @@ import os
 import sys
 
 from .config_schema import FixtureBuilderConfig, load_config
+from .erp_reference import REFERENCE, load_reference, unconfirmed_links
 from .generators import (
     gen_component_variants,
     gen_fixture_template,
@@ -41,12 +42,15 @@ from .generators import (
 from .prompts import prompt_all
 
 
-def validate_config(config: FixtureBuilderConfig) -> list[str]:
-    """Validate config and return list of error messages (empty = valid)."""
+def validate_config(config: FixtureBuilderConfig, reference=None) -> list[str]:
+    """Validate config and return list of error messages (empty = valid).
+
+    ``reference`` maps DocTypes to record names that already exist in ERPNext.
+    """
     if isinstance(config, dict):
         from .catalog import prepare_catalog
         try:
-            prepare_catalog(config)
+            prepare_catalog(config, reference=reference)
         except ValueError as exc:
             return str(exc).splitlines()
         return []
@@ -156,11 +160,11 @@ def validate_config(config: FixtureBuilderConfig) -> list[str]:
 
 
 def generate_all(config: FixtureBuilderConfig, output_dir: str,
-                 source_submittal_csv: str = "") -> dict[str, str]:
+                 source_submittal_csv: str = "", reference=None) -> dict[str, str]:
     """Generate all CSV files and return {filename: filepath} mapping."""
     if isinstance(config, dict):
         from .catalog import generate_catalog
-        return generate_catalog(config, output_dir)
+        return generate_catalog(config, output_dir, reference)
     if config.product_type not in ("fixture", "tape", "neon", "led-sheet"):
         raise ValueError("Unsupported legacy product_type")
     if config.product_type in ("tape", "neon"):
@@ -287,6 +291,17 @@ def main():
         default="",
         help="Path to existing ilL-Spec-Submittal-Mapping.csv to clone from",
     )
+    parser.add_argument(
+        "--reference",
+        default=str(REFERENCE),
+        help="ERPNext records snapshot from tools.fixture_builder.erp_reference; "
+        "version 2 links to these records resolve as existing",
+    )
+    parser.add_argument(
+        "--no-reference",
+        action="store_true",
+        help="Ignore the ERPNext records snapshot; only declared external_links resolve",
+    )
 
     args = parser.parse_args()
 
@@ -321,8 +336,17 @@ def main():
             parser.error("Use the YAML Builder product catalog editor to author version 2 configurations")
         prompt_all(config)
 
+    reference = None
+    if args.reference != str(REFERENCE) and not os.path.exists(args.reference):
+        parser.error(f"reference file not found: {args.reference}")
+    if isinstance(config, dict) and not args.no_reference and os.path.exists(args.reference):
+        reference = load_reference(args.reference)
+        for doctype, name in unconfirmed_links(config, args.reference):
+            print(f"Warning: {doctype} / {name} is declared existing but is not in the ERPNext export",
+                  file=sys.stderr)
+
     # Validate
-    errors = validate_config(config)
+    errors = validate_config(config, reference)
     if errors:
         print("Configuration errors:", file=sys.stderr)
         for err in errors:
@@ -335,7 +359,8 @@ def main():
     print(f"\nGenerating CSVs for {series} ({ptype})...")
     print(f"Output directory: {os.path.abspath(args.output)}\n")
 
-    results = generate_all(config, args.output, source_submittal_csv=args.source_submittal_csv)
+    results = generate_all(config, args.output, source_submittal_csv=args.source_submittal_csv,
+                           reference=reference)
 
     # Summary
     print("=" * 60)

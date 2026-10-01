@@ -78,6 +78,14 @@ and `Insert New Records`. Existing records belong in `external_links`; updating
 already imported records requires an ERPNext update workflow, not replaying an
 insert package. `records.json` is an audit artifact, not an automatic importer.
 
+Existing ERPNext records come from `tools/yaml_builder_ui/src/erp-reference.json`,
+built by `python -m tools.fixture_builder.erp_reference <exports.zip>` from ERPNext
+DocType exports. The CLI resolves links to those records as existing, rejects catalog
+records whose names already exist there, warns about declared existing records that
+a fully exported DocType does not contain, and marks each manifest external link as
+`declared` or `ERPNext export`. Use `--reference <file>` or `--no-reference` to
+change this. The snapshot is only as current as its export.
+
 Circular references are reported before export. For a template/product cycle,
 omit the template's optional `webflow_product` reverse link, import the product's
 forward template link, then set the reverse link in ERPNext if needed. Other
