@@ -46,12 +46,21 @@ from datetime import datetime
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import string_list
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
     get_collection_id as _brand_get_collection_id,
     get_default_brand,
     list_active_brands,
     resolve_brand,
 )
+
+
+def _string_list(value, field):
+    """A list argument sent as a list or, by frappe.call, as a JSON string."""
+    try:
+        return string_list(value, field=field)
+    except ValueError as exc:
+        frappe.throw(str(exc))
 
 
 # Mapping from internal attribute key -> ilL-Webflow-Brand-Collection.collection_kind
@@ -1149,7 +1158,7 @@ def mark_attribute_error(
 @frappe.whitelist(allow_guest=False)
 def trigger_attribute_sync(
     attribute_type: str = None,
-    doc_names: list = None,
+    doc_names: str | list | None = None,
     sync_all: bool = False
 ) -> dict:
     """
@@ -1163,6 +1172,7 @@ def trigger_attribute_sync(
     Returns:
         dict: {"success": True, "marked_count": int, "attribute_types": list}
     """
+    doc_names = _string_list(doc_names, "doc_names")
     marked_count = 0
     attribute_types_marked = []
     
@@ -1711,7 +1721,7 @@ def build_product_filter_field_data(attribute_links_by_type: Dict[str, list]) ->
 
 @frappe.whitelist(allow_guest=False)
 def get_product_attribute_references(
-    product_slugs: list = None,
+    product_slugs: str | list | None = None,
     sync_status: str = None,
     limit: int = 100,
     offset: int = 0,
@@ -1745,6 +1755,7 @@ def get_product_attribute_references(
     Returns:
         dict with ``products``, ``total``, ``limit``, ``offset``, ``brand``.
     """
+    product_slugs = _string_list(product_slugs, "product_slugs")
     # Resolve brand (defaulting to the configured default brand for back-compat).
     brand_code = brand or get_default_brand() or "illumenate"
     try:

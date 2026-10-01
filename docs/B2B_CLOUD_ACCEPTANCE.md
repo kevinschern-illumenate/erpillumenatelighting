@@ -4,6 +4,8 @@ This is the runnable handoff for the original plan and grouping add-on. Local te
 
 ## Site preparation and historical evidence
 
+Read the [deployment recovery plan](DEPLOYMENT_RECOVERY_PLAN_2026_09_29.md) first. It records the production state after the September 28–29 recovery, the upgrade-path fixes, and the staging smoke test (§9) that this pack extends.
+
 For the September 28 migration failure involving missing Number Cards and three orphaned DocTypes, apply the [migration repair and retry instructions](B2B_MIGRATION_REPAIR_2026_09_28.md). Retain the pending workspace backup from the failed attempt.
 
 Use both a fresh ERPNext site and a restored, sanitized production-shaped site with the same intended app commits. Record Frappe/ERPNext/app commits, Python/Node/MariaDB versions, installed apps, custom overrides, asset manifest, PDF renderer, scheduler/worker state, stock reservation settings, companies/warehouses, CMS schema and n8n version. Keep real outbound mail, production credentials and live publication disabled during rehearsal. Use a mail sink for notification acceptance.
@@ -23,7 +25,7 @@ bench --site TEST_SITE run-tests --app illumenate_lighting
 
 Use the Cloud deployment/job equivalents when direct Bench commands are unavailable. Do not run mutation-based tests on production. Historical Quotation/Sales Order/BOM/configured-record/offer/intake hashes must have no unexplained changes or missing records. New schema rows are reported separately. The collector also records app commits, active-hook/asset hashes, managed custom fields and role permissions; compare those explicitly, since the historical-record comparator does not approve permission changes. Evidence lives under `private/b2b-release`; protect downloaded copies too.
 
-The Workspace migration saves the prior workspace beneath `private/ill-workspace`. These app-state directories must stay outside Frappe's temporary `private/backups` cleanup directory. For sites with the old paths, see the [backup cleanup repair](FRAPPE_CLOUD_BACKUP_REPAIR_2026_09_28.md); retain separate private copies of this state through restores and site moves. Compare every existing useful destination and site-specific block after the merge. No users are assigned new job roles automatically. Verify each ordinary role with its intended native ERP permissions, not an Administrator session.
+The Workspace migration saves the prior workspace beneath `private/ill-workspace`. These app-state directories must stay outside Frappe's temporary `private/backups` cleanup directory. Any migration moves the old `private/backups` paths out automatically (recovery plan §6.3; history in the [backup cleanup repair](FRAPPE_CLOUD_BACKUP_REPAIR_2026_09_28.md)); retain separate private copies of this state through restores and site moves. Compare every existing useful destination and site-specific block after the merge. No users are assigned new job roles automatically; use the [role assignment checklist](B2B_STAFF_OPERATIONS.md#role-assignment-checklist). Verify each ordinary role with its intended native ERP permissions, not an Administrator session.
 
 ## Actor fixtures and browser suite
 

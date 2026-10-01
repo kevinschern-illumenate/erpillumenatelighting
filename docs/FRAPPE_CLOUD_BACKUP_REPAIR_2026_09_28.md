@@ -1,5 +1,11 @@
 # September 28 Cloud backup cleanup repair
 
+> **Resolved September 29.** The dashboard **Actions → Migrate** relocated the
+> directory and backups succeed again. Current status, the remaining work and
+> the corrected notes below are in the
+> [deployment recovery plan](DEPLOYMENT_RECOVERY_PLAN_2026_09_29.md) (§3.3–3.4,
+> §5.1). This page is kept as the record of the incident.
+
 The update of `illumenatelighting.v.frappe.cloud` fails at **Backup Site** with
 `IsADirectoryError` for `private/backups/ill-workspace`. Frappe's
 `delete_temp_backups()` tries to unlink that directory as a file before starting
@@ -28,20 +34,27 @@ the traceback and the following request:
 > `private/b2b-release`. Do not overwrite or nest into an existing destination;
 > if both copies exist, preserve both and report the conflict before proceeding.
 >
-> The backup listing also contains `bypass_unlink.so`. Please identify its
-> origin and whether it is used by this bench. It is not the directory that
-> triggered this traceback, and our app repository has no reference to it.
+> A leftover `bypass_unlink.so` in `private/backups` is from your streaming
+> backup and can be removed.
 >
 > Coordinate the move with deployment of the app's corrected storage paths,
 > then take a fresh backup including database, public/private files and site
 > configuration, and retry the Cloud app update/migration. Please do not delete
 > workspace snapshots, bypass the backup, or reset Patch Log.
 
+*Correction (Sep 29):* `bypass_unlink.so` is Frappe Cloud's own file, not a
+security concern. The agent's streaming backup compiles it into
+`private/backups` and `LD_PRELOAD`s it so `unlink()` skips `%stream%` paths,
+then deletes it in a `finally:` block. A leftover copy only means a streaming
+backup was interrupted.
+
 Do the move while no migration or evidence capture is running. Deploy this fix
 before running another workspace migration: the old hook would recreate the
 old directory and would not read the relocated pending snapshot. An app
 migration patch alone cannot unblock the initial Cloud backup, because that
-backup runs first. The local repository change has not modified the Cloud site.
+backup runs first. *Correction (Sep 29):* a dashboard **Actions → Migrate** takes
+no backup first, so its `before_migrate` hook can relocate the directory; that
+is how the site was recovered.
 
 The workspace snapshots and release evidence live outside `private/files`;
 Frappe's normal files archive does not include these app-state directories.
@@ -55,8 +68,10 @@ under `public/files`.
 - Workspace snapshots now use `private/ill-workspace`.
 - Release checkpoints and acceptance manifests now use `private/b2b-release`.
 - The shared storage helper relocates a legacy directory intact when first
-  accessed with the corrected code. It refuses conflicting destinations,
-  unexpected files and symlinks. It never merges or deletes snapshot contents.
+  accessed with the corrected code. If the destination already exists, the
+  legacy tree moves whole into a new `legacy-<UTC timestamp>` child and the
+  Error Log says where (recovery plan §6.3). It refuses unexpected files and
+  symlinks. It never merges or deletes snapshot contents.
 - Existing pending snapshots remain authoritative until the complete migration
   transaction commits; workspace merge behavior is unchanged.
 

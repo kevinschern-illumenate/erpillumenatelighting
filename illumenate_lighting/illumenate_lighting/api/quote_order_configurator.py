@@ -181,7 +181,7 @@ def apply_existing_configured_product(
 	configured_tape_neon: str | None = None,
 	configured_led_sheet: str | None = None,
 	row_name: str | None = None,
-	qty: float = 1,
+	qty: float | str | None = 1,
 	configuration_json: str | dict[str, Any] | None = None,
 	bom_override_json: str | dict[str, Any] | None = None,
 	fixture_type: str | None = None,

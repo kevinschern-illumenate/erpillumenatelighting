@@ -231,13 +231,52 @@ class Closeout(unittest.TestCase):
 
 	def test_invoice_uses_delivery_row_and_denies_foreign_customer(self):
 		with load_service(ROOT + ".portal.commercial_lineage") as (service, frappe):
-			frappe.get_doc.return_value = Record(customer="B", company="MFG", docstatus=1)
+			configured = row(name="DNI", item_code="GROUP", ill_configured_group="PINNED")
+			frappe.get_doc.return_value = Record(customer="B", company="MFG", docstatus=1, items=[configured])
 			item = row(item_code="GROUP", delivery_note="DN", dn_detail="DNI")
 			with self.assertRaisesRegex(ValueError, "same customer"):
 				service.validate(
 					Record(doctype="Sales Invoice", customer="A", company="MFG", docstatus=0, items=[item])
 				)
 			frappe.get_doc.assert_called_once_with("Delivery Note", "DN")
+
+	def test_plain_stock_rows_keep_native_fulfillment_behavior(self):
+		# Recovery plan §7.6: a plain stock Item delivered from a Sales Order is not
+		# subject to configured-lineage checks, and nothing is copied onto it.
+		with load_service(ROOT + ".portal.commercial_lineage") as (service, frappe):
+			frappe.has_permission.return_value = False
+			plain = row(name="ROW", item_code="STOCK-ITEM", ill_section_label="Lobby")
+			frappe.get_doc.return_value = Record(customer="B", company="MFG", docstatus=1, items=[plain])
+			item = row(
+				item_code="STOCK-ITEM",
+				against_sales_order="SO",
+				so_detail="ROW",
+				ill_section_label="Typed on the delivery",
+				meta=types.SimpleNamespace(has_field=lambda _: True),
+			)
+			doc = Record(doctype="Delivery Note", customer="A", company="MFG", docstatus=0, items=[item])
+			service.validate(doc)
+			self.assertEqual(item.ill_section_label, "Typed on the delivery")
+			frappe.has_permission.assert_not_called()
+			item.item_code = "SUBSTITUTE"
+			service.validate(doc)
+
+	def test_lineage_typed_onto_a_plain_row_is_still_replaced_from_source(self):
+		with load_service(ROOT + ".portal.commercial_lineage") as (service, frappe):
+			plain = row(name="ROW", item_code="STOCK-ITEM")
+			frappe.get_doc.return_value = Record(customer="A", company="MFG", docstatus=1, items=[plain])
+			item = row(
+				item_code="STOCK-ITEM",
+				against_sales_order="SO",
+				so_detail="ROW",
+				ill_bom="FORGED",
+				meta=types.SimpleNamespace(has_field=lambda _: True),
+			)
+			service.validate(
+				Record(doctype="Delivery Note", customer="A", company="MFG", docstatus=0, items=[item])
+			)
+			self.assertIsNone(item.ill_bom)
+			frappe.has_permission.assert_called_once()
 
 	def test_delivery_promise_updates_native_dates_and_amendment_clears_old_evidence(self):
 		with load_service(ROOT + ".portal.order_review", test_reviews.OrderApproval().dependencies()) as (

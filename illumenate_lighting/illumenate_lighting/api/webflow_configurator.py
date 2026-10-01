@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 import frappe
 from frappe import _
 from frappe.rate_limiter import rate_limit
-from frappe.utils import add_to_date, now_datetime
+from frappe.utils import add_to_date, cint, now_datetime
 
 from illumenate_lighting.illumenate_lighting.portal.product_downloads import isolated_download
 
@@ -473,7 +473,7 @@ def create_complex_fixture_session(
     product_slug: str,
     selections: str,
     fixture_type_id: str = None,
-    quantity: int = 1
+    quantity: int | str | None = 1
 ) -> dict:
     """
     Create a session for complex multi-segment fixture configuration.
@@ -503,7 +503,7 @@ def create_complex_fixture_session(
     session.configuration_json = json.dumps(selections_dict)
     session.is_complex_fixture = 1
     session.prefill_fixture_type_id = fixture_type_id
-    session.prefill_quantity = quantity or 1
+    session.prefill_quantity = cint(quantity) or 1
     session.created_at = now_datetime()
     session.expires_at = add_to_date(now_datetime(), hours=24)
     
