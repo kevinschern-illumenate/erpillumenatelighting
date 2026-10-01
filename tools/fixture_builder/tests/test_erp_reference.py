@@ -162,6 +162,45 @@ class ErpReferenceTests(unittest.TestCase):
 		with self.assertRaisesRegex(ValueError, "add_to_reference must be true or false"):
 			prepare_catalog({**config, "add_to_reference": "yes", "series_name": "Flex"}, self.schema)
 
+	def test_item_exports_drop_suppliers_and_update_keeps_other_doctypes(self):
+		item_export = "\n".join(
+			[
+				'"Data Import Template"',
+				'"Table:","Item"',
+				'"DocType:","Item","","","","~","Item Variant Attribute","attributes","","~","Item Supplier","supplier_items",""',
+				'"Column Labels:","ID","Item Code","Item Group","Variant Of","","ID","Attribute","Attribute Value","","ID","Supplier"',
+				'"Column Name:","name","item_code","item_group","variant_of","~","name","attribute","attribute_value","~","name","supplier"',
+				'"Start entering data below this line"',
+				'"","""TAPE-A""","TAPE-A","LED Tape","TAPE","","""a1""","Finish","White","","""s1""","Acme Ltd"',
+			]
+		)
+		with tempfile.TemporaryDirectory() as folder:
+			tape, item = Path(folder) / "tape.csv", Path(folder) / "item.csv"
+			tape.write_text(TAPE_EXPORT, encoding="utf-8")
+			item.write_text(item_export, encoding="utf-8")
+			base, _ = build_reference([tape], self.schema, exported_on="2026-09-01")
+			base["catalog_additions"] = [{"catalog": "tape/Flex", "added_on": "2026-09-02", "records": {}}]
+			updated, _ = build_reference([item], self.schema, exported_on="2026-10-01", base=base)
+		items = updated["doctypes"]["Item"]
+		self.assertEqual(items["source"], "export")
+		self.assertEqual(
+			items["records"]["TAPE-A"],
+			{
+				"item_code": "TAPE-A",
+				"item_group": "LED Tape",
+				"variant_of": "TAPE",
+				"attributes": [{"attribute": "Finish", "attribute_value": "White"}],
+			},
+		)
+		# TAPE-B is linked from a tape spec but missing from the Item export: still existing.
+		self.assertIn("TAPE-B", items["records"])
+		self.assertIn("TAPE", items["records"])
+		self.assertEqual(updated["doctypes"]["ilL-Spec-LED Tape"], base["doctypes"]["ilL-Spec-LED Tape"])
+		self.assertEqual(updated["doctypes"]["ilL-Spec-LED Tape"]["exported_on"], "2026-09-01")
+		self.assertIn("Finish", updated["doctypes"]["Item Attribute"]["records"])
+		self.assertEqual(updated["catalog_additions"], base["catalog_additions"])
+		self.assertEqual(updated["exported_on"], "2026-10-01")
+
 
 if __name__ == "__main__":
 	unittest.main()
