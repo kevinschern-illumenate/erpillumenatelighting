@@ -11,6 +11,7 @@ from tools.fixture_builder.catalog_examples import example_catalog
 from tools.fixture_builder.catalog_schema import build_schema
 from tools.fixture_builder.erp_reference import (
 	REFERENCE,
+	add_catalog,
 	build_reference,
 	load_reference,
 	parse_export,
@@ -128,6 +129,38 @@ class ErpReferenceTests(unittest.TestCase):
 			}
 			self.assertEqual(unconfirmed_links(config, path), [("ilL-Attribute-CCT", "3000")])
 			self.assertEqual(load_reference(path)["ilL-Attribute-CCT"], {"3000K"})
+
+	def test_added_catalogs_become_existing_records_except_for_their_own_rebuilds(self):
+		config = example_catalog("tape")
+		config["add_to_reference"] = True
+		records, _, _ = prepare_catalog(config, self.schema)
+		data = {"schema_version": 1, "exported_on": "2026-10-01", "doctypes": {}}
+		add_catalog(data, config, records, self.schema, added_on="2026-10-02")
+		tape = config["records"]["ilL-Spec-LED Tape"][0]["item"]
+		self.assertEqual(data["doctypes"]["ilL-Spec-LED Tape"]["source"], "catalog")
+		self.assertIn(tape, data["doctypes"]["ilL-Spec-LED Tape"]["records"])
+		self.assertIn("Meter", data["doctypes"]["UOM"]["records"])
+		self.assertEqual(data["catalog_additions"][0]["catalog"], f"tape/{config['series_name']}")
+		template = config["records"]["ilL-Tape-Neon-Template"][0]
+		stored = data["doctypes"]["ilL-Tape-Neon-Template"]["records"][template["template_code"]]
+		self.assertNotIn("price_per_ft_msrp", stored)
+		with tempfile.TemporaryDirectory() as folder:
+			path = Path(folder) / "reference.json"
+			path.write_text(json.dumps(data))
+			self.assertIn(tape, load_reference(path)["ilL-Spec-LED Tape"])
+			prepare_catalog(config, self.schema, load_reference(path, config))
+			other = {**example_catalog("fixture"), "series_name": "Another family"}
+			self.assertIn(tape, load_reference(path, other)["ilL-Spec-LED Tape"])
+		add_catalog(data, config, {"ilL-Spec-LED Tape": records["ilL-Spec-LED Tape"]}, self.schema)
+		self.assertEqual(len(data["catalog_additions"]), 1)
+		self.assertIn("ilL-Tape-Neon-Template", data["catalog_additions"][0]["records"])
+
+	def test_add_to_reference_requires_a_catalog_name(self):
+		config = {**example_catalog("tape"), "add_to_reference": True, "series_name": " "}
+		with self.assertRaisesRegex(ValueError, "series_name is required"):
+			prepare_catalog(config, self.schema)
+		with self.assertRaisesRegex(ValueError, "add_to_reference must be true or false"):
+			prepare_catalog({**config, "add_to_reference": "yes", "series_name": "Flex"}, self.schema)
 
 
 if __name__ == "__main__":

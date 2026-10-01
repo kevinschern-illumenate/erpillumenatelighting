@@ -5,10 +5,13 @@ import examples from './catalog-examples.json';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
   inReference, referenceSummary, withReferenceLinks, unconfirmedLinks,
+  catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey,
 } from './catalog-model.js';
 import './catalog.css';
 
 const STORAGE = 'illumenate-product-catalog-v2';
+// Catalogs downloaded with "Add to ERPNext reference", until the checked-in reference includes them.
+const PENDING = 'illumenate-erp-reference-pending';
 const parentTypes = Object.keys(schema.doctypes).filter(name => !schema.doctypes[name].istable);
 const shortName = name => name.replace(/^ilL-/, '');
 
@@ -30,6 +33,13 @@ function asNewRecord(doctype, row) {
   if (rule.startsWith('field:')) copy[rule.slice(6)] = '';
   else if (!rule.startsWith('format:')) copy.name = '';
   return copy;
+}
+
+function restorePending() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PENDING));
+    return Array.isArray(saved) ? saved.filter(row => row && typeof row.catalog === 'string' && row.records) : [];
+  } catch { return []; }
 }
 
 function download(text, filename) {
@@ -122,6 +132,8 @@ function ReferencePanel({ doctype, reference, onCopy }) {
     <input aria-label={`Search existing ${shortName(doctype)} records`} placeholder="Search existing records…" value={query} onChange={e => setQuery(e.target.value)} />
     <div className="catalog-reference-list">{matches.slice(0, 100).map(name => <div className="catalog-link" key={name}>
       <strong>{name}</strong><small>{referenceSummary(doctype, entry.records[name], schema)}</small>
+      {referenceOrigin(reference, doctype, name) && <small className="catalog-origin">
+        {referenceOrigin(reference, doctype, name).pending ? 'Pending import · ' : ''}added from catalog {referenceOrigin(reference, doctype, name).catalog}</small>}
       {!partial && <button onClick={() => onCopy(entry.records[name])}>Copy as new record</button>}
     </div>)}</div>
     {matches.length > 100 && <p>Showing 100 of {matches.length}. Refine the search to see more.</p>}
@@ -137,11 +149,12 @@ export default function CatalogApp({ onLegacy }) {
   const [showPreview, setShowPreview] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [undo, setUndo] = useState(null);
-  const [reference, setReference] = useState(null);
+  const [exported, setExported] = useState(null);
+  const [pending, setPending] = useState(restorePending);
   const fileInput = useRef(null);
   useEffect(() => {
     // The ERPNext export is large, so it loads after the editor opens.
-    import('./erp-reference.json').then(module => setReference(module.default))
+    import('./erp-reference.json').then(module => setExported(module.default))
       .catch(() => setMessage('Existing ERPNext records could not be loaded. Declare existing records manually.'));
   }, []);
   const catalog = workspace.drafts[workspace.active] || emptyCatalog(workspace.active);
@@ -151,6 +164,13 @@ export default function CatalogApp({ onLegacy }) {
     try { localStorage.setItem(STORAGE, JSON.stringify(workspace)); }
     catch { setMessage('Browser storage is full or unavailable. Download YAML to save your work.'); }
   }, [workspace]);
+  useEffect(() => {
+    try { localStorage.setItem(PENDING, JSON.stringify(pending)); } catch { /* Pending additions are a convenience. */ }
+  }, [pending]);
+  const known = useMemo(() => mergeAdditions(exported, pending, schema), [exported, pending]);
+  // This catalog's own earlier additions must not count as existing records while it is edited.
+  const reference = useMemo(() => excludeCatalog(known, catalog), [known, catalog]);
+  const ownPending = known?.catalog_additions?.filter(row => row.pending) || [];
   const resolved = useMemo(() => withReferenceLinks(catalog, schema, reference), [catalog, reference]);
   const yaml = useMemo(() => '# ilLumenate product catalog — validate and generate with tools.fixture_builder\n' + stringify(resolved, { lineWidth: 0 }), [resolved]);
   const issues = useMemo(() => catalogIssues(catalog, schema, reference), [catalog, reference]);
@@ -184,7 +204,16 @@ export default function CatalogApp({ onLegacy }) {
         <button onClick={onLegacy}>Family expansion editor</button>
         <button onClick={() => fileInput.current.click()}>Open YAML</button>
         <button onClick={() => download(yaml, filename)}>Save draft</button>
-        <button className="catalog-primary" disabled={issues.length > 0} onClick={() => { download(yaml, filename); setMessage('Catalog downloaded. Run the command below for engineering validation and CSV generation.'); }}>Download catalog</button>
+        <button className="catalog-primary" disabled={issues.length > 0} onClick={() => {
+          download(yaml, filename);
+          if (catalog.add_to_reference) {
+            const addition = catalogAddition(catalog, schema, new Date().toISOString().slice(0, 10));
+            setPending(previous => [...previous.filter(row => row.catalog !== addition.catalog), addition]);
+          }
+          setMessage(catalog.add_to_reference
+            ? 'Catalog downloaded and added to the ERPNext reference in this browser. The CLI adds it to the shared reference when it generates the import package.'
+            : 'Catalog downloaded. Run the command below for engineering validation and CSV generation.');
+        }}>Download catalog</button>
         <input ref={fileInput} type="file" accept=".yaml,.yml,.json" hidden onChange={importFile} />
       </div>
     </header>
@@ -197,6 +226,12 @@ export default function CatalogApp({ onLegacy }) {
     {message && <div className="catalog-notice" role="status">{message}<button onClick={() => setMessage('')} aria-label="Dismiss message">×</button></div>}
     <div className="catalog-toolbar">
       <label>Catalog name <input value={catalog.series_name} onChange={e => setCatalog({ ...catalog, series_name: e.target.value })} placeholder="Your product family" /></label>
+      <label className="catalog-add-reference" title="Use this when you will import the package, so later catalogs can link to these records">
+        <input type="checkbox" checked={Boolean(catalog.add_to_reference)} onChange={e => {
+          const next = { ...catalog };
+          if (e.target.checked) next.add_to_reference = true; else delete next.add_to_reference;
+          setCatalog(next);
+        }} /> Add to ERPNext reference after import</label>
       <span>{total} records · {issues.length} checks to resolve</span>
       <button onClick={() => setConfirm({ title: 'Replace this draft with an illustrative example? Review engineering values before using it.', run: () => {
         setCatalog(structuredClone(examples[workspace.active])); setSelected(product.template); setUndo(null);
@@ -227,6 +262,12 @@ export default function CatalogApp({ onLegacy }) {
       <aside className="catalog-review">
         <h2>Import readiness</h2><p>Each link must point to a record in this catalog, a record in the ERPNext export, or a record you confirm already exists in ERPNext.</p>
         <p>{reference ? `${fromErp} links resolve to existing ERPNext records (export of ${reference.exported_on}).` : 'Loading existing ERPNext records…'}</p>
+        {catalog.add_to_reference && <p className="catalog-ok">On download, this catalog's records become existing ERPNext records for your other catalogs. Import the package into ERPNext and commit the reference file the CLI updates.</p>}
+        {ownPending.length > 0 && <details><summary>{ownPending.length} {ownPending.length === 1 ? 'catalog' : 'catalogs'} pending in this browser</summary>
+          <p>These count as existing until the shared reference includes them.</p>
+          {ownPending.map(row => <div className="catalog-link" key={row.catalog}><strong>{row.catalog}</strong>
+            <small>{Object.values(row.records).reduce((sum, names) => sum + names.length, 0)} records · {row.added_on}{row.catalog === catalogKey(catalog) ? ' · this catalog' : ''}</small>
+            <button onClick={() => setPending(previous => previous.filter(item => item.catalog !== row.catalog))}>Remove from this browser</button></div>)}</details>}
         {missing.some(link => link.doctype === 'Item') && <button onClick={() => { setCatalog(makeItemRecords(catalog, schema, reference)); setSelected('Item'); }}>Create missing Item records</button>}
         {missing.length > 0 && <details open><summary>{missing.length} unresolved links</summary>{missing.map(link => <div className="catalog-link" key={JSON.stringify([link.doctype, link.name])}>
           <strong>{link.name}</strong><small>{link.doctype || 'Select the Dynamic Link DocType first'}</small>

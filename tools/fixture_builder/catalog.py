@@ -211,8 +211,19 @@ def prepare_catalog(config, schema=None, reference=None):
 	if not isinstance(config, dict):
 		raise ValueError("Catalog must be a mapping")
 	for key in config:
-		if key not in {"schema_version", "product_type", "series_name", "records", "external_links"}:
+		if key not in {
+			"schema_version",
+			"product_type",
+			"series_name",
+			"records",
+			"external_links",
+			"add_to_reference",
+		}:
 			errors.append(f"Unknown catalog key: {key}")
+	if config.get("add_to_reference") not in (None, True, False):
+		errors.append("add_to_reference must be true or false")
+	if config.get("add_to_reference") and not str(config.get("series_name") or "").strip():
+		errors.append("series_name is required to add the catalog to the ERPNext reference")
 	if config.get("schema_version") != 2:
 		errors.append("schema_version must be 2")
 	if config.get("product_type") not in PRODUCTS:

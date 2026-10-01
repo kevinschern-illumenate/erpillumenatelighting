@@ -36,6 +36,9 @@ export function parseCatalog(text, parse, schema) {
       || Object.values(value.external_links).some(names => !Array.isArray(names) || names.some(name => typeof name !== 'string')))) {
     throw new Error('External links must list existing record names for each DocType.');
   }
+  if (value.add_to_reference !== undefined && typeof value.add_to_reference !== 'boolean') {
+    throw new Error('add_to_reference must be true or false.');
+  }
   return { ...value, external_links: value.external_links || {} };
 }
 
@@ -119,6 +122,86 @@ export function unconfirmedLinks(catalog, reference) {
       ? names.filter(name => !inReference(reference, doctype, name)).map(name => ({ doctype, name })) : []);
 }
 
+/** Identifies a catalog across builds, matching the CLI's catalog_key. */
+export function catalogKey(catalog) {
+  return `${catalog.product_type || ''}/${catalog.series_name || ''}`;
+}
+
+const SUMMARY_ONLY = new Set(['ilL-Webflow-Product']);
+const SHORT_TYPES = new Set(['Data', 'Link', 'Dynamic Link', 'Select', 'Int', 'Float', 'Check']);
+
+/** Keep what an ERPNext export would: current fields and child rows, without prices. */
+export function referenceRecord(doctype, row, schema) {
+  const result = {};
+  for (const field of schema.doctypes[doctype]?.fields || []) {
+    const value = row?.[field.fieldname];
+    if (value === undefined || value === null || value === '' || field.fieldtype === 'Currency') continue;
+    if (['Table', 'Table MultiSelect'].includes(field.fieldtype)) {
+      if (SUMMARY_ONLY.has(doctype) || field.options === 'ilL-Child-Webflow-Sync-State' || !Array.isArray(value)) continue;
+      const rows = value.filter(child => child && typeof child === 'object').map(child => referenceRecord(field.options, child, schema))
+        .filter(child => Object.keys(child).length);
+      if (rows.length) result[field.fieldname] = rows;
+    } else if (!SUMMARY_ONLY.has(doctype) || SHORT_TYPES.has(field.fieldtype)) result[field.fieldname] = value;
+  }
+  return result;
+}
+
+/** This catalog's records, to count as existing in this browser until the reference is updated. */
+export function catalogAddition(catalog, schema, addedOn) {
+  const records = {};
+  for (const [doctype, rows] of Object.entries(catalog.records)) rows.forEach(row => {
+    const name = recordName(doctype, row, schema);
+    if (name) (records[doctype] ||= {})[name] = referenceRecord(doctype, { ...blankRecord(doctype, schema), ...row }, schema);
+  });
+  return { catalog: catalogKey(catalog), added_on: addedOn, records };
+}
+
+/**
+ * Add pending catalog additions to the checked-in reference. An addition is
+ * dropped once the reference logs the same catalog on or after that date.
+ */
+export function mergeAdditions(reference, pending, schema) {
+  if (!reference) return reference;
+  const logged = reference.catalog_additions || [];
+  const open = (pending || []).filter(addition => !logged.some(row => row.catalog === addition.catalog && row.added_on >= addition.added_on));
+  if (!open.length) return reference;
+  const doctypes = { ...reference.doctypes };
+  const additions = [...logged];
+  for (const addition of open) {
+    for (const [doctype, records] of Object.entries(addition.records)) {
+      doctypes[doctype] = { source: doctypes[doctype]?.source || 'catalog', records: { ...doctypes[doctype]?.records, ...records } };
+      for (const row of Object.values(records)) {
+        for (const link of linkedRecords(doctype, row, schema)) {
+          if (!link.doctype || (doctypes[link.doctype] && doctypes[link.doctype].source !== 'links')) continue;
+          doctypes[link.doctype] = { source: 'links', records: { [link.name]: {}, ...doctypes[link.doctype]?.records } };
+        }
+      }
+    }
+    additions.push({ catalog: addition.catalog, added_on: addition.added_on, pending: true,
+      records: Object.fromEntries(Object.entries(addition.records).map(([doctype, records]) => [doctype, Object.keys(records)])) });
+  }
+  return { ...reference, doctypes, catalog_additions: additions };
+}
+
+/** The reference without records this catalog added, so it can be edited and rebuilt. */
+export function excludeCatalog(reference, catalog) {
+  const own = (reference?.catalog_additions || []).filter(row => row.catalog === catalogKey(catalog));
+  if (!own.length) return reference;
+  const doctypes = { ...reference.doctypes };
+  for (const addition of own) for (const [doctype, names] of Object.entries(addition.records)) {
+    if (!doctypes[doctype]) continue;
+    const records = { ...doctypes[doctype].records };
+    names.forEach(name => delete records[name]);
+    doctypes[doctype] = { ...doctypes[doctype], records };
+  }
+  return { ...reference, doctypes };
+}
+
+/** Which catalog added a reference record, if one did. */
+export function referenceOrigin(reference, doctype, name) {
+  return [...(reference?.catalog_additions || [])].reverse().find(row => row.records[doctype]?.includes(name)) || null;
+}
+
 export function catalogIssues(catalog, schema, reference = null) {
   const issues = [];
   function inspect(doctype, row, path) {
@@ -148,6 +231,9 @@ export function catalogIssues(catalog, schema, reference = null) {
         try { if (typeof value === 'string') JSON.parse(value); } catch { issues.push(`${location}: invalid JSON`); }
       } else if (typeof value !== 'string') issues.push(`${location}: expected text`);
     }
+  }
+  if (catalog.add_to_reference && !String(catalog.series_name || '').trim()) {
+    issues.push('Name the catalog to add it to the ERPNext reference');
   }
   const template = schema.products[catalog.product_type]?.template;
   if (!catalog.records[template]?.length) issues.push(`Add at least one ${template}`);

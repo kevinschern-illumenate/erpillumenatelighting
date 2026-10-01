@@ -5,6 +5,7 @@ import { parse, stringify } from 'yaml';
 import {
   blankRecord, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
   inReference, referenceSummary, withReferenceLinks, unconfirmedLinks,
+  catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin,
 } from '../src/catalog-model.js';
 
 const schema = JSON.parse(readFileSync(new URL('../src/catalog-schema.json', import.meta.url)));
@@ -83,4 +84,26 @@ test('existing ERPNext records are not re-imported and unknown declarations are 
   } };
   assert.ok(catalogIssues(catalog, schema, reference).some(issue => issue.includes(`${tape} already exists in ERPNext`)));
   assert.deepEqual(unconfirmedLinks(catalog, reference), [{ doctype: 'ilL-Attribute-CCT', name: '3000K' }]);
+});
+
+test('catalogs added to the reference count as existing for other catalogs only', () => {
+  const tape = structuredClone(examples.tape);
+  tape.series_name = 'Flex';
+  tape.add_to_reference = true;
+  assert.deepEqual(parseCatalog(stringify(tape), parse, schema), tape);
+  const addition = catalogAddition(tape, schema, '2026-10-02');
+  const spec = tape.records['ilL-Spec-LED Tape'][0].item;
+  assert.equal(addition.catalog, 'tape/Flex');
+  const reference = { exported_on: '2026-10-01', doctypes: {} };
+  const merged = mergeAdditions(reference, [addition], schema);
+  assert.equal(inReference(merged, 'ilL-Spec-LED Tape', spec), true);
+  assert.equal(referenceOrigin(merged, 'ilL-Spec-LED Tape', spec).pending, true);
+  assert.equal(inReference(excludeCatalog(merged, tape), 'ilL-Spec-LED Tape', spec), false);
+  assert.ok(!catalogIssues(tape, schema, excludeCatalog(merged, tape)).some(issue => issue.includes('already exists')));
+  const fixture = structuredClone(examples.fixture);
+  assert.equal(inReference(excludeCatalog(merged, fixture), 'ilL-Spec-LED Tape', spec), true);
+  const logged = { ...reference, catalog_additions: [{ catalog: 'tape/Flex', added_on: '2026-10-02', records: {} }] };
+  assert.equal(mergeAdditions(logged, [addition], schema), logged);
+  assert.ok(catalogIssues({ ...tape, series_name: '' }, schema).includes('Name the catalog to add it to the ERPNext reference'));
+  assert.throws(() => parseCatalog(stringify({ ...tape, add_to_reference: 'yes' }), parse, schema));
 });

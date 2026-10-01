@@ -15,7 +15,7 @@ import os
 import sys
 
 from .config_schema import FixtureBuilderConfig, load_config
-from .erp_reference import REFERENCE, load_reference, unconfirmed_links
+from .erp_reference import REFERENCE, add_catalog, load_reference, unconfirmed_links
 from .generators import (
     gen_component_variants,
     gen_fixture_template,
@@ -340,7 +340,7 @@ def main():
     if args.reference != str(REFERENCE) and not os.path.exists(args.reference):
         parser.error(f"reference file not found: {args.reference}")
     if isinstance(config, dict) and not args.no_reference and os.path.exists(args.reference):
-        reference = load_reference(args.reference)
+        reference = load_reference(args.reference, config)
         for doctype, name in unconfirmed_links(config, args.reference):
             print(f"Warning: {doctype} / {name} is declared existing but is not in the ERPNext export",
                   file=sys.stderr)
@@ -374,6 +374,30 @@ def main():
     print("-" * 60)
     print(f"  {'TOTAL':<43} {total_rows:>6}")
     print(f"\n{len(results)} CSV files generated successfully.")
+
+    if isinstance(config, dict) and config.get("add_to_reference"):
+        if reference is None:
+            print("\nNot added to the ERPNext reference: no reference file is in use.")
+        else:
+            add_to_reference(config, args.reference, reference)
+
+
+def add_to_reference(config, path, reference):
+    """Record a generated catalog as existing ERPNext records for later catalogs."""
+    import json
+
+    from .catalog import prepare_catalog
+    from .catalog_schema import build_schema
+
+    schema = build_schema()
+    records, _, _ = prepare_catalog(config, schema, reference)
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    count = add_catalog(data, config, records, schema)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+    print(f"\nAdded {count} records to the ERPNext reference ({path}).")
+    print("Import the package into ERPNext, then commit that file so the hosted YAML Builder can link to them.")
 
 
 if __name__ == "__main__":

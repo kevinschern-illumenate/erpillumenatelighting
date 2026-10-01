@@ -11,8 +11,14 @@ instead of re-creating them.
 
 Only fields in the current DocType metadata are kept. Audit fields (owner,
 creation, modified), Webflow sync state, prices and costs, and fields removed from
-the DocType are dropped; Webflow Products keep only their short summary fields. Records that exported records link to (Items, UOMs, Item Groups, ...)
-are listed as existing too, because ERPNext only saves a link to a real record.
+the DocType are dropped; Webflow Products keep only their short summary fields.
+Records that exported records link to (Items, UOMs, Item Groups, ...) are listed
+as existing too, because ERPNext only saves a link to a real record.
+
+A catalog with ``add_to_reference: true`` is merged in by the fixture builder CLI
+after it generates the import package (see ``add_catalog``), so later catalogs can
+link to it before the next export. Rebuilding from a new export replaces those
+additions with the records as ERPNext holds them.
 """
 
 from __future__ import annotations
@@ -22,9 +28,11 @@ import csv
 import io
 import json
 import zipfile
+from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+from .catalog import identity
 from .catalog_schema import ROOT, build_schema
 
 REFERENCE = ROOT / "tools/yaml_builder_ui/src/erp-reference.json"
@@ -193,10 +201,83 @@ def build_reference(paths, schema=None, exported_on=None):
 	return reference, skipped
 
 
-def load_reference(path=REFERENCE):
-	"""Return ``{doctype: set(names)}`` from a reference snapshot."""
+def catalog_key(config):
+	"""Identify a catalog across builds: its product type and series name."""
+	return f"{config.get('product_type', '')}/{config.get('series_name', '')}"
+
+
+def reference_record(doctype, record, schema):
+	"""Keep what an export would: current fields and child rows, without prices."""
+	fields = {field["fieldname"]: field for field in schema["doctypes"][doctype]["fields"]}
+	result = {}
+	for key, value in record.items():
+		field = fields.get(key)
+		if not field or value in (None, "", []) or field["fieldtype"] in SKIPPED_TYPES:
+			continue
+		if field["fieldtype"] in TABLES:
+			if doctype in SUMMARY_ONLY or field["options"] in SKIPPED_CHILDREN or not isinstance(value, list):
+				continue
+			rows = [reference_record(field["options"], row, schema) for row in value if isinstance(row, dict)]
+			if any(rows):
+				result[key] = [row for row in rows if row]
+		elif doctype not in SUMMARY_ONLY or field["fieldtype"] in SHORT_TYPES:
+			result[key] = value
+	return result
+
+
+def add_catalog(data, config, records, schema, added_on=None):
+	"""Merge a validated catalog's records into reference ``data`` in place.
+
+	Its links are listed as existing too, as for an export. The addition is logged
+	under ``catalog_additions`` so rebuilding the same catalog does not report its
+	own records as already existing. Returns the number of records added.
+	"""
+	added = defaultdict(set)
+	for doctype, rows in records.items():
+		for row in rows:
+			name = identity(doctype, row, schema)
+			if not name:
+				continue  # Autonamed records get their name from ERPNext on import.
+			entry = data["doctypes"].setdefault(doctype, {"source": "catalog", "records": {}})
+			entry["records"][name] = reference_record(doctype, row, schema)
+			added[doctype].add(name)
+			for target, linked in _linked(doctype, row, schema):
+				link_entry = data["doctypes"].setdefault(target, {"source": "links", "records": {}})
+				if link_entry["source"] == "links":
+					link_entry["records"].setdefault(linked, {})
+	for entry in data["doctypes"].values():
+		entry["records"] = dict(sorted(entry["records"].items()))
+	data["doctypes"] = dict(sorted(data["doctypes"].items()))
+	key = catalog_key(config)
+	additions = data.setdefault("catalog_additions", [])
+	for previous in [row for row in additions if row["catalog"] == key]:
+		for doctype, names in previous["records"].items():
+			added[doctype].update(names)
+		additions.remove(previous)
+	additions.append(
+		{
+			"catalog": key,
+			"added_on": added_on or date.today().isoformat(),
+			"records": {doctype: sorted(names) for doctype, names in sorted(added.items())},
+		}
+	)
+	return sum(len(rows) for rows in records.values())
+
+
+def load_reference(path=REFERENCE, config=None):
+	"""Return ``{doctype: set(names)}`` from a reference snapshot.
+
+	Records that ``config``'s own catalog added earlier are left out, so the
+	catalog can be rebuilt without its records counting as already existing.
+	"""
 	data = json.loads(Path(path).read_text(encoding="utf-8"))
-	return {doctype: set(entry["records"]) for doctype, entry in data["doctypes"].items()}
+	names = {doctype: set(entry["records"]) for doctype, entry in data["doctypes"].items()}
+	if config:
+		for addition in data.get("catalog_additions", []):
+			if addition["catalog"] == catalog_key(config):
+				for doctype, own in addition["records"].items():
+					names.get(doctype, set()).difference_update(own)
+	return names
 
 
 def unconfirmed_links(config, path=REFERENCE):

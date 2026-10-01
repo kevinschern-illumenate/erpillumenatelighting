@@ -62,6 +62,22 @@ templates, attributes, relationship maps, and the Items they link to). In the ed
   because Insert New Records would fail. A declared existing record that a fully
   exported DocType does not contain is flagged as a likely typo.
 
+### Add a new catalog to the reference
+
+Check **Add to ERPNext reference after import** when the catalog will be imported.
+The YAML then carries `add_to_reference: true` (the catalog needs a name):
+
+- On **Download catalog**, its records count as existing ERPNext records for your
+  other catalogs in this browser, marked *Pending import*.
+- When the CLI generates the import package, it adds the records to
+  `src/erp-reference.json` and logs the catalog under `catalog_additions`. Import the
+  package, then commit that file so every builder user can link to the new records.
+- Rebuilding the same catalog does not report its own records as already existing;
+  any other catalog that re-creates them is stopped.
+- Pending entries disappear once the deployed reference includes the catalog, or
+  use **Remove from this browser**. A later export rebuild replaces the additions
+  with the records as ERPNext holds them.
+
 Prices and costs, audit fields, and Webflow sync state are not stored. Items, UOMs and
 other DocTypes that were not exported only list names that exported records link to.
 
