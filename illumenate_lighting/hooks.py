@@ -162,10 +162,9 @@ website_redirects = [
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "illumenate_lighting.utils.jinja_methods",
-# 	"filters": "illumenate_lighting.utils.jinja_filters"
-# }
+jinja = {
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog"],
+}
 
 # Installation
 # ------------

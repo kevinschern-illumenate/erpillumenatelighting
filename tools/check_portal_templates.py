@@ -31,6 +31,7 @@ environment = Environment(
 environment.globals.update(
 	{
 		"_": lambda value: value,
+		"ill_can_view_catalog": lambda: True,
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(

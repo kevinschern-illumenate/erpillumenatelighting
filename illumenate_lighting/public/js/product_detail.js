@@ -19,6 +19,7 @@ var ProductDetail = {
 	schedules: [],
 	scheduleRequest: 0,
 	saveAttempt: null,
+	panelLoaded: false,
 	pageContext: {}
 };
 
@@ -167,6 +168,8 @@ function renderCerts(certs) {
 // accessories, drivers, controllers) are added directly as accessory lines.
 
 var STANDARD_API = 'illumenate_lighting.illumenate_lighting.portal.standard_products.';
+var PORTAL_API = 'illumenate_lighting.illumenate_lighting.api.portal.';
+var LAST_SCHEDULE_KEY = 'ill-last-schedule';
 var FAMILY_LABELS = {
 	'Linear Fixture': 'linear fixture',
 	'LED Tape': 'LED tape',
@@ -247,6 +250,11 @@ function renderProductAction(product) {
 	$form.append($('<div class="form-row">')
 		.append(field('scheduleSearch', __('Find schedule'), $('<input type="search">').attr('placeholder', __('Search by schedule name'))))
 		.append(field('scheduleSelect', __('Fixture schedule') + ' *', $('<select required>'))));
+	$form.append($('<div class="mb-2">').append(
+		$('<button type="button" class="btn btn-link btn-sm p-0" id="newScheduleToggle" aria-expanded="false" aria-controls="newSchedulePanel">')
+			.text(__('+ New project or schedule'))
+	));
+	$form.append(newSchedulePanel(field));
 	if (mode === 'standard') {
 		var $sku = $('<select required>');
 		(product.standard_choices || []).forEach(function(row) {
@@ -271,6 +279,7 @@ function renderProductAction(product) {
 
 	ProductDetail.schedules = [];
 	ProductDetail.saveAttempt = null;
+	ProductDetail.panelLoaded = false;
 	$form.on('submit', function(event) {
 		event.preventDefault();
 		submitProductAction(product, mode);
@@ -280,7 +289,122 @@ function renderProductAction(product) {
 		clearTimeout(searchTimer);
 		searchTimer = setTimeout(function() { loadSchedules(product, $('#scheduleSearch').val()); }, 250);
 	});
-	return loadSchedules(product, '', context.get('schedule'));
+	$('#newScheduleToggle').on('click', function() {
+		if ($('#newSchedulePanel').is(':visible')) closeNewSchedulePanel();
+		else openNewSchedulePanel();
+	});
+	$('#newScheduleProject').on('change', toggleNewProjectFields);
+	$('#newScheduleCreate').on('click', function() { createScheduleFromPanel(product); });
+	$('#newScheduleCancel').on('click', closeNewSchedulePanel);
+	// The panel sits inside the line form: Enter creates the schedule instead of submitting the line.
+	$('#newSchedulePanel').on('keydown', 'input, select', function(event) {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		createScheduleFromPanel(product);
+	});
+	return loadSchedules(product, '', context.get('schedule') || lastSchedule()).then(function() {
+		if (!ProductDetail.schedules.length) openNewSchedulePanel();
+	});
+}
+
+// ── New project / schedule (inline) ─────────────────────────────────
+
+function newSchedulePanel(field) {
+	var $panel = $('<div id="newSchedulePanel" class="border rounded p-2 mb-3" role="group">')
+		.attr('aria-label', __('New project or schedule')).hide();
+	$panel.append($('<div class="form-row">')
+		.append(field('newScheduleProject', __('Project') + ' *', $('<select>')))
+		.append(field('newScheduleName', __('New schedule name') + ' *', $('<input type="text" maxlength="140">').attr('placeholder', __('e.g. Level 2 lighting')))));
+	$panel.append($('<div class="form-row" id="newProjectFields">')
+		.append(field('newProjectName', __('New project name') + ' *', $('<input type="text" maxlength="140">')))
+		.append(field('newProjectCustomer', __('Company') + ' *', $('<select>'))).hide());
+	$panel.append($('<div class="d-flex" style="gap:0.5rem">')
+		.append($('<button type="button" class="btn btn-outline-primary btn-sm" id="newScheduleCreate">').text(__('Create schedule')))
+		.append($('<button type="button" class="btn btn-link btn-sm" id="newScheduleCancel">').text(__('Cancel'))));
+	return $panel;
+}
+
+function openNewSchedulePanel() {
+	$('#newSchedulePanel').show();
+	$('#newScheduleToggle').attr('aria-expanded', 'true');
+	if (ProductDetail.panelLoaded) return Promise.resolve();
+	ProductDetail.panelLoaded = true;
+	return Promise.all([
+		Promise.resolve(frappe.call({method: PORTAL_API + 'get_user_projects_for_configurator'})),
+		Promise.resolve(frappe.call({method: PORTAL_API + 'get_allowed_customers_for_project'}))
+	]).then(function(results) {
+		var projects = (results[0] && results[0].message && results[0].message.projects) || [];
+		var customers = (results[1] && results[1].message && results[1].message.allowed_customers) || [];
+		var $project = $('#newScheduleProject').empty();
+		projects.forEach(function(row) { $project.append($('<option>').val(row.value).text(row.label || row.value)); });
+		$project.append($('<option value="__new__">').text(__('New project…')));
+		var $customer = $('#newProjectCustomer').empty();
+		customers.forEach(function(row) { $customer.append($('<option>').val(row.value).text(row.label || row.value)); });
+		// One company needs no choice.
+		$customer.closest('.form-group').toggle(customers.length > 1);
+		toggleNewProjectFields();
+	}).catch(function() {
+		ProductDetail.panelLoaded = false;
+		frappe.msgprint(__('Projects could not be loaded. Try again.'));
+	});
+}
+
+function closeNewSchedulePanel() {
+	$('#newSchedulePanel').hide();
+	$('#newScheduleToggle').attr('aria-expanded', 'false').trigger('focus');
+}
+
+function toggleNewProjectFields() {
+	$('#newProjectFields').toggle($('#newScheduleProject').val() === '__new__');
+}
+
+async function createScheduleFromPanel(product) {
+	var project = $('#newScheduleProject').val();
+	var scheduleName = String($('#newScheduleName').val() || '').trim();
+	var projectName = String($('#newProjectName').val() || '').trim();
+	var customer = $('#newProjectCustomer').val();
+	if (!project) { frappe.msgprint(__('Choose a project or create a new one.')); return; }
+	if (project === '__new__' && !projectName) { frappe.msgprint(__('Enter a name for the new project.')); return; }
+	if (project === '__new__' && !customer) { frappe.msgprint(__('Choose the company for the new project.')); return; }
+	if (!scheduleName) { frappe.msgprint(__('Enter a name for the new schedule.')); return; }
+	var $button = $('#newScheduleCreate').prop('disabled', true);
+	try {
+		if (project === '__new__') {
+			var created = await frappe.call({method: PORTAL_API + 'create_project', type: 'POST',
+				args: {project_data: JSON.stringify({project_name: projectName, customer: customer})}});
+			if (!created.message || !created.message.success) throw new Error((created.message && created.message.error) || __('The project was not created.'));
+			project = created.message.project_name;
+			ProductDetail.panelLoaded = false;
+		}
+		var schedule = await frappe.call({method: PORTAL_API + 'create_schedule', type: 'POST',
+			args: {schedule_data: JSON.stringify({schedule_name: scheduleName, ill_project: project})}});
+		if (!schedule.message || !schedule.message.success) throw new Error((schedule.message && schedule.message.error) || __('The schedule was not created.'));
+		rememberSchedule(schedule.message.schedule_name);
+		$('#newScheduleName, #newProjectName').val('');
+		$('#newSchedulePanel').hide();
+		$('#newScheduleToggle').attr('aria-expanded', 'false');
+		await loadSchedules(product, '', schedule.message.schedule_name);
+		$('#lineFixtureType').trigger('focus');
+	} catch (error) {
+		frappe.msgprint((error && error.message) || __('The schedule was not created. Try again.'));
+	} finally {
+		$button.prop('disabled', false);
+	}
+}
+
+function lastSchedule() {
+	try { return window.localStorage.getItem(LAST_SCHEDULE_KEY); } catch (_) { return null; }
+}
+
+function rememberSchedule(name) {
+	try { window.localStorage.setItem(LAST_SCHEDULE_KEY, name); } catch (_) { /* preference only */ }
+}
+
+// Retry keys and draft ids; crypto.randomUUID needs a secure context.
+function newKey() {
+	if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+	if (frappe.utils && typeof frappe.utils.get_random === 'function') return frappe.utils.get_random(32);
+	return Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
 function loadSchedules(product, search, preferred) {
@@ -325,7 +449,7 @@ function submitProductAction(product, mode) {
 }
 
 function startConfigureDraft(product, schedule, values) {
-	var id = window.crypto.randomUUID();
+	var id = newKey();
 	var metadata = {line_id: values.line_id, location: values.location, qty: values.qty, notes: values.notes};
 	try {
 		window.sessionStorage.setItem('ill-line-draft:' + id, JSON.stringify({schedule: schedule.name, metadata: metadata, savedAt: Date.now()}));
@@ -334,6 +458,7 @@ function startConfigureDraft(product, schedule, values) {
 		frappe.msgprint(__('Browser storage is unavailable. Allow session storage to carry the fixture type and location into the configurator.'));
 		return;
 	}
+	rememberSchedule(schedule.name);
 	navigateTo(configureHref(product, {schedule: schedule.name, draft: id}));
 }
 
@@ -346,12 +471,13 @@ async function addStandardLine(product, schedule, values) {
 	// Retries of identical content reuse the key so a lost response cannot add a duplicate line.
 	var signature = JSON.stringify(args);
 	if (!ProductDetail.saveAttempt || ProductDetail.saveAttempt.signature !== signature) {
-		ProductDetail.saveAttempt = {signature: signature, key: window.crypto.randomUUID()};
+		ProductDetail.saveAttempt = {signature: signature, key: newKey()};
 	}
 	args.idempotency_key = ProductDetail.saveAttempt.key;
 	var $button = $('#productActionSubmit').prop('disabled', true);
 	try {
 		var response = await frappe.call({method: STANDARD_API + 'add', type: 'POST', args: args});
+		rememberSchedule(response.message.schedule_name);
 		navigateTo('/portal/schedules/' + encodeURIComponent(response.message.schedule_name));
 	} catch (error) {
 		frappe.msgprint(__('The line was not confirmed. Your entries are retained; retry, or reload the schedule if it changed.'));

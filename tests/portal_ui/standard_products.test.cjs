@@ -105,3 +105,66 @@ test('pilot-only products explain the account limit to dealers', async () => {
     assert.doesNotMatch(w.$('#productActionSection').text(), /capability reason/i);
     dom.window.close();
 });
+
+test('a dealer with no schedules creates a project and schedule inline and it is selected', async () => {
+    const created = [];
+    let schedulesNow = [];
+    const {dom, w, calls, messages} = setup('https://portal.test/portal/products/clip', options => {
+        if (options.method.endsWith('.prepare')) return {message: {choices: [], schedules: schedulesNow}};
+        if (options.method.endsWith('get_user_projects_for_configurator')) return {message: {success: true, projects: [{value: 'PRJ-1', label: 'Lobby'}]}};
+        if (options.method.endsWith('get_allowed_customers_for_project')) return {message: {success: true, allowed_customers: [{value: 'CUST-1', label: 'Acme'}]}};
+        if (options.method.endsWith('create_project')) { created.push(['project', JSON.parse(options.args.project_data)]); return {message: {success: true, project_name: 'PRJ-2'}}; }
+        if (options.method.endsWith('create_schedule')) {
+            created.push(['schedule', JSON.parse(options.args.schedule_data)]);
+            schedulesNow = [{name: 'SCH-9', schedule_name: 'Level 2', modified: 'r1'}];
+            return {message: {success: true, schedule_name: 'SCH-9'}};
+        }
+        throw new Error('unexpected ' + options.method);
+    });
+    await w.renderProductAction({product_slug: 'clip', capability: 'quantity', family: 'Accessory',
+        standard_choices: [{item_code: 'CLIP', label: 'Clip', stock_uom: 'Nos'}]});
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(w.$('#newSchedulePanel').css('display'), 'block');
+    assert.equal(w.$('#newScheduleToggle').attr('aria-expanded'), 'true');
+    assert.deepEqual(w.$('#newScheduleProject option').map((_, o) => o.value).get(), ['PRJ-1', '__new__']);
+    assert.equal(w.$('#newProjectCustomer').closest('.form-group').css('display'), 'none');
+
+    w.$('#newScheduleProject').val('__new__').trigger('change');
+    assert.notEqual(w.$('#newProjectFields').css('display'), 'none');
+    w.$('#newProjectName').val('Hotel');
+    w.$('#newScheduleName').val(' Level 2 ');
+    const enter = new w.KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
+    w.document.getElementById('newScheduleName').dispatchEvent(enter);
+    assert.equal(enter.defaultPrevented, true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(created, [
+        ['project', {project_name: 'Hotel', customer: 'CUST-1'}],
+        ['schedule', {schedule_name: 'Level 2', ill_project: 'PRJ-2'}],
+    ]);
+    assert.equal(w.$('#scheduleSelect').val(), 'SCH-9');
+    assert.equal(w.$('#newSchedulePanel').css('display'), 'none');
+    assert.equal(w.localStorage.getItem('ill-last-schedule'), 'SCH-9');
+    assert.equal(calls.filter(row => row.method.endsWith('.add')).length, 0);
+    assert.deepEqual(messages, []);
+    dom.window.close();
+});
+
+test('the last schedule used is preselected and retry keys work without crypto.randomUUID', async () => {
+    const {dom, w, calls} = setup('https://portal.test/portal/products/clip', options => {
+        if (options.method.endsWith('.prepare')) return {message: {choices: [], schedules: [
+            {name: 'S1', schedule_name: 'Office', modified: 'r1'}, {name: 'S2', schedule_name: 'Warehouse', modified: 'r2'}]}};
+        if (options.method.endsWith('.add')) return {message: {schedule_name: 'S2'}};
+        throw new Error('unexpected ' + options.method);
+    });
+    w.localStorage.setItem('ill-last-schedule', 'S2');
+    Object.defineProperty(w, 'crypto', {value: {}, configurable: true});
+    w.frappe.utils = {get_random: n => 'k'.repeat(n)};
+    await w.renderProductAction({product_slug: 'clip', capability: 'quantity', family: 'Accessory',
+        standard_choices: [{item_code: 'CLIP', label: 'Clip', stock_uom: 'Nos'}]});
+    assert.equal(w.$('#scheduleSelect').val(), 'S2');
+    assert.equal(w.$('#newSchedulePanel').css('display'), 'none');
+    fill(w, {lineFixtureType: 'A1', lineQty: '1'});
+    await w.submitProductAction({product_slug: 'clip'}, 'standard');
+    assert.equal(calls.find(row => row.method.endsWith('.add')).args.idempotency_key, 'k'.repeat(32));
+    dom.window.close();
+});
