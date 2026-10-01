@@ -2,7 +2,7 @@ name: B2B local contracts
 on:
   pull_request:
   push:
-    branches: [develop, main]
+    branches: [develop, main, staging]
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,6 +35,13 @@ jobs:
           node tests/portal_unit/publication_workflow.test.cjs
           node --test tests/portal_unit/reconciliation.test.cjs
           npm run list --prefix tests/portal_e2e
+      - name: Product Finder bundles are fresh
+        run: |
+          npm ci --prefix tools/configurator_ui
+          npm test --prefix tools/configurator_ui
+          npm run build:portal --prefix tools/configurator_ui
+          npm run build:public --prefix tools/configurator_ui
+          git diff --exit-code illumenate_lighting/public/product_finder
       - name: PDF filler and merger contract
         run: python -B tools/check_pdf_fidelity.py
       - name: Generated spec sheet matches the InDesign golden

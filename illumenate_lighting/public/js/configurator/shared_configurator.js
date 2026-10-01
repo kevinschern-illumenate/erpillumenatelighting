@@ -37,6 +37,9 @@
 		this.$root = $r;
 		this.rootEl = $r[0] || document;
 		this.context = context || {};
+		this.context.finder = this.context.finder || new URLSearchParams(root.location.search).get('finder');
+		// Legacy fallback for embedded callers without server-resolved initial_request.
+		// Portal Finder and legacy links now resolve allowed values on the server.
 		var handoff = this.context.quiz_handoff;
 		if (!this.context.initial_request && handoff && Object.keys(handoff).length) {
 			var neonTape = this.context.is_tape_neon;
@@ -51,6 +54,7 @@
 				var draft = JSON.parse(root.sessionStorage.getItem('ill-line-draft:' + draftId) || 'null');
 				if (draft && draft.schedule === this.context.schedule_name && Date.now() - draft.savedAt < 86400000) {
 					this.context.draft = draft.metadata;
+					this.context.finder = this.context.finder || draft.finder;
 					this.context.draft_id = draftId;
 				}
 			} catch (_) {}
@@ -328,7 +332,8 @@
 		var args = Object.assign({}, data, {
 			schedule_name: schedule, line_key: line ? line.line_key : null,
 			line_idx: line ? null : selected, expected_modified: snapshot.modified || (schedule === this.context.schedule_name ? this.context.expected_modified : null),
-			metadata: JSON.stringify(data.metadata || this.context.draft || {})
+			metadata: JSON.stringify(data.metadata || this.context.draft || {}),
+			finder: this.context.finder
 		});
 		if (line && this.context.initial_request && line.line_key === this.context.line_key && schedule === this.context.schedule_name) {
 			args.expected_modified = this.context.expected_modified;

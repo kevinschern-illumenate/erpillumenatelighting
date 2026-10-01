@@ -34,12 +34,13 @@ function initProductDetail(slug, pageContext) {
 function loadProductDetail(slug) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_product_detail',
-		args: { product_slug: slug },
+		args: { product_slug: slug, finder: new URLSearchParams(window.location.search).get("finder") },
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				ProductDetail.product = r.message.product;
 				renderDetail(r.message.product);
 				renderProductAction(r.message.product);
+				renderFinderProduct(r.message.product);
 				focusActionIfRequested();
 			} else {
 				$('#detailLoading').html(
@@ -189,6 +190,8 @@ function productActionMode(product) {
 
 function configureHref(product, params) {
 	var url = new URL(product.configure_url, window.location.origin);
+	var finder = new URLSearchParams(window.location.search).get("finder");
+	if (finder) url.searchParams.set("finder", finder);
 	Object.keys(params || {}).forEach(function(key) {
 		if (params[key] !== null && params[key] !== undefined && params[key] !== '') url.searchParams.set(key, params[key]);
 	});
@@ -452,7 +455,7 @@ function startConfigureDraft(product, schedule, values) {
 	var id = newKey();
 	var metadata = {line_id: values.line_id, location: values.location, qty: values.qty, notes: values.notes};
 	try {
-		window.sessionStorage.setItem('ill-line-draft:' + id, JSON.stringify({schedule: schedule.name, metadata: metadata, savedAt: Date.now()}));
+		window.sessionStorage.setItem('ill-line-draft:' + id, JSON.stringify({schedule: schedule.name, metadata: metadata, finder: new URLSearchParams(window.location.search).get("finder"), savedAt: Date.now()}));
 		window.sessionStorage.setItem('ill-line-draft-last:' + schedule.name, id);
 	} catch (_) {
 		frappe.msgprint(__('Browser storage is unavailable. Allow session storage to carry the fixture type and location into the configurator.'));
@@ -466,7 +469,7 @@ async function addStandardLine(product, schedule, values) {
 	var args = {
 		product_slug: product.product_slug, item_code: values.item_code, schedule_name: schedule.name,
 		quantity: values.qty, line_id: values.line_id, location: values.location, notes: values.notes,
-		expected_modified: schedule.modified
+		expected_modified: schedule.modified, finder: new URLSearchParams(window.location.search).get("finder")
 	};
 	// Retries of identical content reuse the key so a lost response cannot add a duplicate line.
 	var signature = JSON.stringify(args);
@@ -504,4 +507,31 @@ function _escHtml(str) {
 	var div = document.createElement('div');
 	div.textContent = str;
 	return div.innerHTML.replaceAll('"', '&quot;').replaceAll("'", "&#39;");
+}
+
+function renderFinderProduct(product) {
+	var finder = new URLSearchParams(window.location.search).get('finder');
+	if (!finder || !product.match) return;
+	$('#finderProductContext').remove();
+	var box = $('<section id="finderProductContext" class="card card-body mb-4">');
+	box.append($('<a>').attr('href','/portal/products?finder=' + encodeURIComponent(finder)).text('← Your matches'), $('<h3 class="mt-3">').text('Why this product fits'));
+	(product.match.reasons || []).forEach(function (text) { box.append($('<p class="text-success">').text(text)); });
+	(product.match.tradeoffs || []).forEach(function (text) { box.append($('<p>').text(text)); });
+	if ((product.match.verify || []).length) {
+		var settings = product.finder_settings || {};
+		var notice = $('<div class="alert alert-warning">').append($('<strong>').text(settings.verification_title || 'Most likely a fit — our team will confirm'), $('<p>').text((settings.verification_text || 'Our team will verify {reasons}.').replace('{reasons}',product.match.verify.join(', '))));
+		var message = $('<textarea class="form-control my-2" maxlength="4000" aria-label="Message for our team" placeholder="Tell us about your project" hidden>');
+		var button = $('<button type="button" class="btn btn-primary">').text('Ask our team to verify now');
+		button.on('click', function () { if(message.prop('hidden')) { message.prop('hidden',false).trigger('focus'); button.text('Send verification request'); return; }
+			button.prop('disabled',true);
+			var context = new URLSearchParams(window.location.search);
+			frappe.call({method:'illumenate_lighting.illumenate_lighting.api.product_finder.request_verification',type:'POST',args:{token:finder,product_slug:product.product_slug,schedule:context.get('schedule'),line_key:context.get('line_key'),message:message.val()},callback:function(r){button.text('Request ' + r.message.request + ' sent');},error:function(){button.prop('disabled',false);}});
+		});
+		notice.append(message,button);box.append(notice);
+	}
+	if ((product.companions || []).length) {
+		box.append($('<h4>').text('Pairs well with'));
+		product.companions.forEach(function (companion) { var href='/portal/products/'+encodeURIComponent(companion.slug)+'?finder='+encodeURIComponent(finder)+'#configure';var card=$('<div class="border rounded p-3 mb-2">');if(companion.image)card.append($('<img width="90" alt="">').attr('src',companion.image));card.append($('<strong class="mx-2">').text(companion.title),$('<span>').text(companion.relation),$('<a class="btn btn-link">').attr('href',href).text(companion.capability==='quantity'?'Add to schedule':'Configure'));box.append(card); });
+	}
+	$('#productActionSection').before(box);
 }

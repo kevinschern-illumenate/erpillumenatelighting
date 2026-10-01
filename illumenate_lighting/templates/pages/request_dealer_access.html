@@ -3,6 +3,7 @@
 <div class="ill-access-gate">
   <div class="ill-access-gate-card">
     <div class="ill-access-gate-icon">🔒</div>
+    {% if claim_token | default(none) %}<p>Your quiz answers are saved. Return to the <a href="/portal/product-finder">Product Finder</a> after dealer access is approved.</p>{% endif %}
     <h1 class="ill-access-gate-title">Dealer Access Required</h1>
     <p class="ill-access-gate-body">
       The ilLumenate configurator is available to authorized dealers only.
@@ -16,3 +17,8 @@
   </div>
 </div>
 {% endblock %}
+
+{% block script %}<script>
+const finderClaim = {{ claim_token | default(none) | tojson }};
+if (finderClaim) { try { localStorage.setItem('ill-finder-claim', finderClaim); } catch {} }
+</script>{% endblock %}

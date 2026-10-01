@@ -413,6 +413,7 @@ body.reorder-no-select {
 {% endblock %}
 
 {% block page_content %}
+{% if (lines | default([]) | selectattr("verification_status", "defined") | selectattr("verification_status", "equalto", "Pending") | list) %}<div class="alert alert-warning">Some lines await product verification. You may request a quote; our team will confirm before it is issued.</div>{% endif %}
 {% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
 	<!-- Breadcrumb -->
@@ -690,6 +691,9 @@ body.reorder-no-select {
 									{% endif %}
 									<td class="col-line-id" data-label="{{ _('Line') }}">{{ line.get('line_id') or line.get('idx') }}</td>
 									<td class="col-type" data-label="{{ _('Type') }}">
+                    {% if line.get('verification_status') == 'Pending' %}<a class="badge badge-warning" href="/portal/product-verification/{{ line.get('verification_request') | urlencode }}">Verification pending</a>
+                    {% elif line.get('verification_status') == 'Verified' %}<span class="badge badge-success">Verified by ilLumenate</span>
+                    {% elif line.get('verification_status') == 'Not Feasible' %}<a class="badge badge-danger" href="/portal/product-verification/{{ line.get('verification_request') | urlencode }}">Not feasible — see message</a>{% endif %}
 										{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<span class="badge badge-primary">ilLumenate</span>
 										{% elif line.get('manufacturer_type') == 'ACCESSORY' %}

@@ -1,4 +1,4 @@
-['Issue', 'ilL-Document-Request'].forEach(doctype => frappe.ui.form.on(doctype, {
+['Issue', 'ilL-Document-Request', 'ilL-Product-Verification-Request'].forEach(doctype => frappe.ui.form.on(doctype, {
 	refresh(frm) {
 		if (frm.is_new()) return;
 		frm.add_custom_button(__('Portal conversation'), () => {

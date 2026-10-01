@@ -298,6 +298,7 @@ Browse ilL-Webflow-Product records with attribute filtering
 {% endblock %}
 
 {% block page_content %}
+<div class="container pt-3">{% if ill_finder_enabled() %}<a href="/portal/product-finder">Help me choose</a>{% endif %}<div id="finderBanner" class="alert alert-info mt-3" style="display:none"></div></div>
 {% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page" style="padding:2rem 0">
 	<!-- Header -->

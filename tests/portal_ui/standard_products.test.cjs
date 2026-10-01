@@ -168,3 +168,10 @@ test('the last schedule used is preselected and retry keys work without crypto.r
     assert.equal(calls.find(row => row.method.endsWith('.add')).args.idempotency_key, 'k'.repeat(32));
     dom.window.close();
 });
+
+test('product Finder context escapes reasons, requests verification, and links companions with the token',()=>{
+ const {dom,w,calls}=setup('https://portal.test/portal/products/p?finder=T',()=>({message:{}}));
+ w.renderFinderProduct({product_slug:'p',match:{reasons:['Fits <wet>'],verify:['IP67']},companions:[{slug:'driver',title:'Driver',relation:'Compatible',capability:'configure'}]});
+ assert.match(w.$('#finderProductContext').text(),/Why this product fits/);assert.equal(w.$('#finderProductContext wet').length,0);assert.match(w.$('#finderProductContext a').last().attr('href'),/finder=T#configure/);
+ w.$('#finderProductContext button').trigger('click');w.$('#finderProductContext textarea').val('Please check');w.$('#finderProductContext button').trigger('click');assert.equal(calls.at(-1).type,'POST');assert.equal(calls.at(-1).args.token,'T');assert.equal(calls.at(-1).args.message,'Please check');dom.window.close();
+});

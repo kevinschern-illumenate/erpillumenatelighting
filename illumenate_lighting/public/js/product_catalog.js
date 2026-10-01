@@ -42,7 +42,7 @@ function readUrlState() {
 	var typeParam = params.get('type');
 	CatalogState.productType = typeParam ? typeParam.split(',') : [];
 
-	var reserved = ['finder', 'schedule', 'line_key', 'line_idx', 'draft'];
+	var reserved = ['finder', 'schedule', 'line_key', 'line_idx', 'draft', 'view'];
 	reserved.forEach(function(key) {
 		if (params.has(key)) CatalogState.contextParams[key] = params.get(key);
 	});
@@ -98,6 +98,7 @@ function bindCatalogEvents() {
 function loadFilterOptions(done) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_filter_options',
+		args: {finder: CatalogState.contextParams.finder, view: CatalogState.contextParams.view},
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				CatalogState.filterMeta = r.message;
@@ -221,12 +222,15 @@ function fetchProducts(replace, requestedPage) {
 			filters: JSON.stringify(filters),
 			search: CatalogState.search,
 			page: requestedPage || CatalogState.page,
-			page_size: CatalogState.pageSize
+			page_size: CatalogState.pageSize,
+			finder: CatalogState.contextParams.finder, view: CatalogState.contextParams.view,
+			sort: CatalogState.contextParams.finder ? "relevance" : "product_name asc"
 		},
 		callback: function(r) {
 			if (version !== CatalogState.requestVersion) return;
 			if (!r.message || !r.message.success) { $('#catalogFeedback').text((r.message && r.message.error) || 'Products unavailable. Retry.').addClass('text-danger'); return; }
 			var data = r.message;
+			renderFinderContext(data.finder);
 			CatalogState.page = data.page;
 			$('#catalogFeedback').text('');
 			CatalogState.total = data.total;
@@ -288,7 +292,7 @@ function renderGrid() {
 			'<div class="product-card" data-slug="' + escapeHtml(p.product_slug) + '">' +
 			imgHtml +
 			'<div class="product-card-body">' +
-			'<h5>' + escapeHtml(p.product_name) + '</h5>' +
+			'<h5>' + escapeHtml(p.product_name) + '</h5>' + finderCardChips(p) +
 			'<div class="product-card-meta">' +
 			'<span class="badge badge-type">' + escapeHtml(productFamilyLabel(p.product_type)) + '</span>' +
 			seriesBadge +
@@ -341,7 +345,7 @@ function refreshFacetCounts(filters) {
 	var version = ++CatalogState.facetVersion;
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_filter_options',
-		args: {filters: JSON.stringify(filters), search: CatalogState.search},
+		args: {filters: JSON.stringify(filters), search: CatalogState.search, finder: CatalogState.contextParams.finder, view: CatalogState.contextParams.view},
 		callback: function(r) {
 			if (version !== CatalogState.facetVersion || !r.message || !r.message.success) return;
 			applyFacetCounts(r.message);
@@ -446,4 +450,40 @@ function productDetailHref(slug) {
 	var params = new URLSearchParams(CatalogState.contextParams);
 	var query = params.toString();
 	return '/portal/products/' + encodeURIComponent(slug) + (query ? '?' + query : '');
+}
+
+function finderCardChips(product) {
+	var match = product.match || {};
+	var html = match.best ? '<span class="badge badge-primary">Best match</span> ' : '';
+	html += (match.reasons || []).slice(0, 2).map(function (text) { return '<span class="badge badge-success">' + escapeHtml(text) + '</span> '; }).join('');
+	if ((match.verify || []).length) html += '<span class="badge badge-warning" title="' + escapeHtml(match.verify.join(', ')) + '">Verify with our team</span>';
+	if (product.relation) html += '<p class="small">' + escapeHtml(product.relation) + '</p>';
+	return html;
+}
+function renderFinderContext(info) {
+	var $banner = $('#finderBanner').empty();
+	if (!info) { $banner.hide(); return; }
+	$banner.show();
+	var edit = '/portal/product-finder?session=' + encodeURIComponent(info.token);
+	$banner.append($('<strong>').text('Showing ' + info.counts.match + ' products that fit your answers · ' + info.counts.verify + ' need a quick check with our team'));
+	var chips = $('<div class="my-2">');
+	(info.answer_chips || []).forEach(function (chip) { chips.append($('<a class="badge badge-light mr-1">').attr('href', edit + '#' + encodeURIComponent(chip.question_id)).text(chip.label)); });
+	$banner.append(chips);
+	if ((info.relaxed || []).length) $banner.append($('<p>').text('Preferences broadened: ' + info.relaxed.join(', ')));
+	$banner.append($('<a class="mr-3">').attr('href', edit).text('Edit answers'), $('<a class="mr-3">').attr('href', '/portal/product-finder').text('Start over'));
+	var tabs = $('<div class="btn-group mt-3 d-flex" role="group" aria-label="Product views">');
+	[['Recommended (' + info.counts.match + ')',''],['Drivers, controllers & accessories (' + info.companions_count + ')','companions'],['All products','all']].forEach(function (tab) {
+		tabs.append($('<button type="button" class="btn btn-outline-primary">').text(tab[0]).attr('aria-pressed', (CatalogState.contextParams.view || '') === tab[1]).on('click', function () {
+			if(tab[1] === 'all') { delete CatalogState.contextParams.finder; delete CatalogState.contextParams.view; }
+			else CatalogState.contextParams.view = tab[1];
+			CatalogState.page = 1; pushUrlState(); fetchProducts(true);
+		}));
+	});
+	$banner.append(tabs);
+	if (!info.counts.match) {
+		$('#catalogEmpty').empty().append($('<h3>').text('No products match ' + (info.eliminated_by ? info.eliminated_by.answer : 'these answers')), $('<a class="btn btn-link">').attr('href', edit + (info.eliminated_by ? '#' + encodeURIComponent(info.eliminated_by.question) : '')).text('Edit answers'), $('<button type="button" class="btn btn-primary">').text('Ask our team').on('click', function () {
+			var button = $(this).prop('disabled', true);
+			frappe.call({method:'illumenate_lighting.illumenate_lighting.api.product_finder.request_verification',type:'POST',args:{token:info.token},callback:function(r){button.text('Request ' + r.message.request + ' sent');},error:function(){button.prop('disabled',false);}});
+		}));
+	}
 }

@@ -143,3 +143,11 @@ test('active filter chips remove one filter, sync the sidebar and keep keyboard 
     assert.equal(w.document.activeElement.id, 'catalogSearch');
     dom.window.close();
 });
+
+test('Finder banner chips and companion tabs carry the session into catalog and facet requests',()=>{
+ const {dom,w,requests}=setup();w.$('body').prepend('<div id="finderBanner"></div>');w.CatalogState.contextParams={finder:'T'};
+ w.renderFinderContext({token:'T',counts:{match:2,verify:1},companions_count:1,answer_chips:[{question_id:'ip',label:'IP67 <safe>'}],relaxed:['Finish']});
+ assert.match(w.$('#finderBanner').text(),/2 products/);assert.equal(w.$('#finderBanner img').length,0);assert.match(w.$('#finderBanner a').first().attr('href'),/session=T#ip/);
+ w.$('#finderBanner button').eq(1).trigger('click');assert.equal(requests.at(-1).args.finder,'T');assert.equal(requests.at(-1).args.view,'companions');
+ w.renderFinderContext({token:'T',counts:{match:0,verify:0},companions_count:0,eliminated_by:{question:'ip',answer:'IP67'}});w.$('#catalogEmpty button').trigger('click');assert.equal(requests.at(-1).type,'POST');assert.equal(requests.at(-1).args.token,'T');dom.window.close();
+});

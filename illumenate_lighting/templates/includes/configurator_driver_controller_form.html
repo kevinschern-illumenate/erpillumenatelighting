@@ -1,0 +1,13 @@
+<div class="card mb-3"><div class="card-header">Schedule Target</div><div class="card-body row">
+  <div class="col-md-4"><label for="projectSelect">Project</label><select id="projectSelect" class="form-control"><option value="">Select project…</option></select></div>
+  <div class="col-md-4"><label for="scheduleSelect">Schedule</label><select id="scheduleSelect" class="form-control" disabled><option value="">Select schedule…</option></select></div>
+  <div class="col-md-4"><label for="lineSelect">Line</label><select id="lineSelect" class="form-control" disabled><option value="">Select line…</option><option value="__new__">+ New Line</option></select></div>
+  <div id="linePreview" class="alert alert-warning mt-2" style="display:none"><span id="linePreviewText"></span></div>
+</div></div>
+<div class="card card-body">
+  <label for="familyProductSelect">Product</label><select id="familyProductSelect" class="form-control mb-3"><option value="">Choose a product…</option>{% for product in family_products | default([]) %}<option value="{{ product.product_slug }}">{{ product.product_name }}</option>{% endfor %}</select>
+  <div id="kitTemplatePicker"></div><select id="kitTemplateSelect" class="form-control mb-3" hidden><option value="">Choose a kit template…</option></select>
+  <div id="familySteps"></div><div id="familySummary" aria-live="polite" class="my-3"></div>
+  <div class="row"><div class="col-md-3"><label for="familyLineId">Fixture type</label><input id="familyLineId" class="form-control" maxlength="140" required></div><div class="col-md-3"><label for="familyLocation">Location</label><input id="familyLocation" class="form-control" maxlength="140"></div><div class="col-md-2"><label for="familyQty">Quantity</label><input id="familyQty" class="form-control" type="number" min="1" step="1" value="1"></div><div class="col-md-4"><label for="familyNotes">Notes</label><textarea id="familyNotes" class="form-control" maxlength="4000"></textarea></div></div>
+  <button id="familySave" type="button" class="btn btn-primary mt-3" disabled>Save to schedule</button>
+</div>

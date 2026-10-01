@@ -1,11 +1,9 @@
 // engine.js
 // Branching, skip logic, and step visibility for the wizard.
-// Pure functions only -- no React, no DOM. Driven entirely by questions.json.
+// Pure functions only -- no React, no DOM. Driven entirely by the server definition.
 
-import questionsData from '../content/questions.json';
-
-export const QUESTIONS = questionsData.questions;
-export const LUMENS_BANDS = questionsData.lumensBands;
+export let QUESTIONS = [];
+export function setDefinition(definition) { QUESTIONS = definition.questions || []; }
 
 /**
  * Evaluate a single condition clause against the current answers.
@@ -20,7 +18,7 @@ function testClause(clause, answers) {
     const has = value !== undefined && value !== null && value !== '';
     return clause.exists ? has : !has;
   }
-  const num = Number(value);
+  const num = value === null || value === '' || !['number','string'].includes(typeof value) || (typeof value === 'string' && !value.trim()) ? NaN : Number(value);
   if ('gt' in clause) return Number.isFinite(num) && num > clause.gt;
   if ('gte' in clause) return Number.isFinite(num) && num >= clause.gte;
   if ('lt' in clause) return Number.isFinite(num) && num < clause.lt;
@@ -49,6 +47,10 @@ export function evalCondition(group, answers) {
  * Visible when visibleWhen passes (or absent) AND skipWhen does not pass.
  */
 export function isQuestionVisible(question, answers) {
+  const familyQuestion = QUESTIONS.find((q) => q.type === 'family');
+  const family = familyQuestion && answers[familyQuestion.id];
+  const families = question.families || ['Any'];
+  if (question.type !== 'family' && family && !families.includes('Any') && !families.includes(family)) return false;
   if (question.visibleWhen && !evalCondition(question.visibleWhen, answers)) {
     return false;
   }
@@ -82,11 +84,12 @@ export function isAnswered(question, answers) {
   const value = answers[question.id];
   if (!question.required) return true;
   if (question.type === 'range') {
-    return value && Number.isFinite(Number(value.low)) && Number.isFinite(Number(value.high));
+    return value && value.low != null && value.high != null && Number.isFinite(Number(value.low)) && Number.isFinite(Number(value.high)) && Number(value.low) <= Number(value.high) && Number(value.low) >= (question.min ?? -Infinity) && Number(value.high) <= (question.max ?? Infinity);
   }
   if (question.type === 'number') {
-    return value !== undefined && value !== null && value !== '' && Number.isFinite(Number(value));
+    return value !== undefined && value !== null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= (question.min ?? -Infinity) && Number(value) <= (question.max ?? Infinity);
   }
+  if (question.type === 'multi') return Array.isArray(value) && value.length > 0;
   return value !== undefined && value !== null && value !== '';
 }
 
@@ -95,10 +98,14 @@ export function isAnswered(question, answers) {
  * (e.g. an IP rating chosen then switched to Dry) don't leak into results.
  */
 export function pruneHiddenAnswers(answers) {
-  const next = { ...answers };
+  const next = Object.fromEntries(QUESTIONS.filter(q => q.id in answers).map(q => [q.id, answers[q.id]]));
   for (const q of QUESTIONS) {
     if (!isQuestionVisible(q, next) && q.id in next) {
       delete next[q.id];
+    } else if (q.id in next && ['single', 'multi', 'family'].includes(q.type)) {
+      const valid = new Set(visibleOptions(q, next).map((o) => o.value));
+      if (q.type === 'multi' && Array.isArray(next[q.id])) next[q.id] = next[q.id].filter((v) => valid.has(v));
+      else if (!valid.has(next[q.id])) delete next[q.id];
     }
   }
   return next;
@@ -116,11 +123,6 @@ export function progress(answers) {
   };
 }
 
-/** Look up the lumens band definition for a fixture purpose value. */
-export function lumensBandFor(purpose) {
-  return purpose ? LUMENS_BANDS[purpose] || null : null;
-}
-
 /**
  * Returns true when the stored answer for `question` is still a valid choice
  * given the current `answers` map (i.e., the option has not been hidden by a
@@ -134,12 +136,12 @@ export function isAnswerStillValid(question, answers) {
 
   if (value === undefined || value === null) return true;
 
-  if (question.type !== 'single' && question.type !== 'multi') return true;
+  if (!['single', 'multi', 'family'].includes(question.type)) return true;
 
   const opts = visibleOptions(question, answers);
   const validValues = new Set(opts.map((o) => o.value));
 
-  if (question.type === 'single') {
+  if (question.type === 'single' || question.type === 'family') {
     return validValues.has(value);
   }
 
