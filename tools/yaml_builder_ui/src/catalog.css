@@ -50,6 +50,13 @@
 .catalog-link strong, .catalog-link small { display: block; }
 .catalog-link button { font-size: 11px; margin-top: 6px; }
 .catalog-app .catalog-ok { color: #3d6943; }
+.catalog-reference { background: #f1ede4; border: 1px solid #e0dace; border-radius: 10px; padding: 4px 16px; margin-bottom: 16px; }
+.catalog-reference[open] { padding-bottom: 16px; }
+.catalog-reference summary span { font-weight: 400; color: #827762; margin-left: 8px; }
+.catalog-reference > input { margin-bottom: 12px; }
+.catalog-reference-list { max-height: 360px; overflow: auto; }
+.catalog-app .catalog-origin { color: #86653b; }
+.catalog-toolbar .catalog-add-reference { gap: 8px; font-size: 13px; }
 .catalog-notice { padding: 12px 32px; background: #e8ecd9; display: flex; align-items: center; justify-content: space-between; }
 .catalog-modal-backdrop { position: fixed; inset: 0; background: #0007; display: grid; place-items: center; z-index: 100; }
 .catalog-modal { background: white; padding: 28px; max-width: 480px; border-radius: 12px; margin: 20px; }
