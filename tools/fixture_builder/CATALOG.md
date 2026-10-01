@@ -57,7 +57,8 @@ prompt-named records such as LED Package. Quote numeric-looking names (`"90"`,
 `"3"`, `"001"`); use numbers for Float/Int/Currency fields and booleans or 0/1 for Check.
 Lists and objects in JSON fields serialize as JSON in the corresponding CSV cell.
 
-Unknown fields/types, malformed child rows, invalid enum values, duplicate names,
+Set `add_to_reference: true` to add the catalog's records to the ERPNext reference
+after generation (see below). Unknown fields/types, malformed child rows, invalid enum values, duplicate names,
 missing required values, nonfinite numbers, unresolved links, ambiguous active
 driver/controller variants, and empty active template specification lists fail
 validation. The existing `api/authoring_contract.py` supplies engineering checks.
@@ -77,6 +78,16 @@ CSV batches. Import **only the files in manifest order**, using each listed DocT
 and `Insert New Records`. Existing records belong in `external_links`; updating
 already imported records requires an ERPNext update workflow, not replaying an
 insert package. `records.json` is an audit artifact, not an automatic importer.
+
+Existing ERPNext records come from `tools/yaml_builder_ui/src/erp-reference.json`,
+built by `python -m tools.fixture_builder.erp_reference <exports.zip>` from ERPNext
+DocType exports. The CLI resolves links to those records as existing, rejects catalog
+records whose names already exist there, warns about declared existing records that
+a fully exported DocType does not contain, and marks each manifest external link as
+`declared` or `ERPNext export`. Use `--reference <file>` or `--no-reference` to
+change this. The snapshot is only as current as its export. A catalog with
+`add_to_reference: true` (and a `series_name`) is merged into the snapshot after
+its package is generated, so later catalogs can link to it before the next export.
 
 Circular references are reported before export. For a template/product cycle,
 omit the template's optional `webflow_product` reverse link, import the product's

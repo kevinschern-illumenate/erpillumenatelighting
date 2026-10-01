@@ -36,6 +36,9 @@ export function parseCatalog(text, parse, schema) {
       || Object.values(value.external_links).some(names => !Array.isArray(names) || names.some(name => typeof name !== 'string')))) {
     throw new Error('External links must list existing record names for each DocType.');
   }
+  if (value.add_to_reference !== undefined && typeof value.add_to_reference !== 'boolean') {
+    throw new Error('add_to_reference must be true or false.');
+  }
   return { ...value, external_links: value.external_links || {} };
 }
 
@@ -57,7 +60,21 @@ export function linkedRecords(doctype, row, schema, prefix = '') {
   return result;
 }
 
-export function unresolvedLinks(catalog, schema) {
+/** True when an ERPNext export (erp-reference.json) lists this record. */
+export function inReference(reference, doctype, name) {
+  return Boolean(reference?.doctypes?.[doctype]?.records && Object.hasOwn(reference.doctypes[doctype].records, name));
+}
+
+/** A short, human description of an existing ERPNext record for pickers. */
+export function referenceSummary(doctype, record, schema, limit = 4) {
+  const fields = schema.doctypes[doctype]?.fields || [];
+  const naming = (schema.doctypes[doctype]?.autoname || '').replace(/^field:/, '');
+  return fields.filter(field => field.fieldname !== naming && ['Data', 'Link', 'Select', 'Int', 'Float'].includes(field.fieldtype)
+      && record?.[field.fieldname] !== undefined && record[field.fieldname] !== '' && record[field.fieldname] !== 0)
+    .slice(0, limit).map(field => `${field.label || field.fieldname}: ${record[field.fieldname]}`).join(' · ');
+}
+
+export function unresolvedLinks(catalog, schema, reference = null) {
   const known = new Set();
   for (const [doctype, rows] of Object.entries(catalog.records)) {
     rows.forEach(row => known.add(JSON.stringify([doctype, recordName(doctype, row, schema)])));
@@ -66,7 +83,8 @@ export function unresolvedLinks(catalog, schema) {
   for (const [doctype, rows] of Object.entries(catalog.records)) rows.forEach((row, i) => {
     linkedRecords(doctype, row, schema).forEach(link => {
       const key = JSON.stringify([link.doctype, link.name]);
-      if (!known.has(key) && !catalog.external_links?.[link.doctype]?.includes(link.name)) {
+      if (!known.has(key) && !catalog.external_links?.[link.doctype]?.includes(link.name)
+          && !inReference(reference, link.doctype, link.name)) {
         if (!missing.has(key)) missing.set(key, { ...link, sources: [] });
         missing.get(key).sources.push(`${doctype}[${i}].${link.path}`);
       }
@@ -75,7 +93,116 @@ export function unresolvedLinks(catalog, schema) {
   return [...missing.values()];
 }
 
-export function catalogIssues(catalog, schema) {
+/**
+ * Declare every link that resolves to an exported ERPNext record, so the YAML
+ * stays self-contained for the CLI and reviewers see what it depends on.
+ */
+export function withReferenceLinks(catalog, schema, reference) {
+  if (!reference) return catalog;
+  const known = new Set();
+  for (const [doctype, rows] of Object.entries(catalog.records)) {
+    rows.forEach(row => known.add(JSON.stringify([doctype, recordName(doctype, row, schema)])));
+  }
+  const external = Object.fromEntries(Object.entries(catalog.external_links || {}).map(([doctype, names]) => [doctype, [...names]]));
+  for (const [doctype, rows] of Object.entries(catalog.records)) rows.forEach(row => {
+    if (!row || typeof row !== 'object') return;
+    for (const link of linkedRecords(doctype, row, schema)) {
+      if (!link.doctype || known.has(JSON.stringify([link.doctype, link.name])) || !inReference(reference, link.doctype, link.name)) continue;
+      external[link.doctype] ||= [];
+      if (!external[link.doctype].includes(link.name)) external[link.doctype].push(link.name);
+    }
+  });
+  return { ...catalog, external_links: external };
+}
+
+/** Declared existing records missing from a fully exported DocType: likely typos. */
+export function unconfirmedLinks(catalog, reference) {
+  return Object.entries(catalog.external_links || {}).flatMap(([doctype, names]) =>
+    reference?.doctypes?.[doctype]?.source === 'export'
+      ? names.filter(name => !inReference(reference, doctype, name)).map(name => ({ doctype, name })) : []);
+}
+
+/** Identifies a catalog across builds, matching the CLI's catalog_key. */
+export function catalogKey(catalog) {
+  return `${catalog.product_type || ''}/${catalog.series_name || ''}`;
+}
+
+const SUMMARY_ONLY = new Set(['ilL-Webflow-Product']);
+const SHORT_TYPES = new Set(['Data', 'Link', 'Dynamic Link', 'Select', 'Int', 'Float', 'Check']);
+
+/** Keep what an ERPNext export would: current fields and child rows, without prices. */
+export function referenceRecord(doctype, row, schema) {
+  const result = {};
+  for (const field of schema.doctypes[doctype]?.fields || []) {
+    const value = row?.[field.fieldname];
+    if (value === undefined || value === null || value === '' || field.fieldtype === 'Currency') continue;
+    if (['Table', 'Table MultiSelect'].includes(field.fieldtype)) {
+      if (SUMMARY_ONLY.has(doctype) || field.options === 'ilL-Child-Webflow-Sync-State' || !Array.isArray(value)) continue;
+      const rows = value.filter(child => child && typeof child === 'object').map(child => referenceRecord(field.options, child, schema))
+        .filter(child => Object.keys(child).length);
+      if (rows.length) result[field.fieldname] = rows;
+    } else if (!SUMMARY_ONLY.has(doctype) || SHORT_TYPES.has(field.fieldtype)) result[field.fieldname] = value;
+  }
+  return result;
+}
+
+/** This catalog's records, to count as existing in this browser until the reference is updated. */
+export function catalogAddition(catalog, schema, addedOn) {
+  const records = {};
+  for (const [doctype, rows] of Object.entries(catalog.records)) rows.forEach(row => {
+    const name = recordName(doctype, row, schema);
+    if (name) (records[doctype] ||= {})[name] = referenceRecord(doctype, { ...blankRecord(doctype, schema), ...row }, schema);
+  });
+  return { catalog: catalogKey(catalog), added_on: addedOn, records };
+}
+
+/**
+ * Add pending catalog additions to the checked-in reference. An addition is
+ * dropped once the reference logs the same catalog on or after that date.
+ */
+export function mergeAdditions(reference, pending, schema) {
+  if (!reference) return reference;
+  const logged = reference.catalog_additions || [];
+  const open = (pending || []).filter(addition => !logged.some(row => row.catalog === addition.catalog && row.added_on >= addition.added_on));
+  if (!open.length) return reference;
+  const doctypes = { ...reference.doctypes };
+  const additions = [...logged];
+  for (const addition of open) {
+    for (const [doctype, records] of Object.entries(addition.records)) {
+      doctypes[doctype] = { source: doctypes[doctype]?.source || 'catalog', records: { ...doctypes[doctype]?.records, ...records } };
+      for (const row of Object.values(records)) {
+        for (const link of linkedRecords(doctype, row, schema)) {
+          if (!link.doctype || (doctypes[link.doctype] && doctypes[link.doctype].source !== 'links')) continue;
+          doctypes[link.doctype] = { source: 'links', records: { [link.name]: {}, ...doctypes[link.doctype]?.records } };
+        }
+      }
+    }
+    additions.push({ catalog: addition.catalog, added_on: addition.added_on, pending: true,
+      records: Object.fromEntries(Object.entries(addition.records).map(([doctype, records]) => [doctype, Object.keys(records)])) });
+  }
+  return { ...reference, doctypes, catalog_additions: additions };
+}
+
+/** The reference without records this catalog added, so it can be edited and rebuilt. */
+export function excludeCatalog(reference, catalog) {
+  const own = (reference?.catalog_additions || []).filter(row => row.catalog === catalogKey(catalog));
+  if (!own.length) return reference;
+  const doctypes = { ...reference.doctypes };
+  for (const addition of own) for (const [doctype, names] of Object.entries(addition.records)) {
+    if (!doctypes[doctype]) continue;
+    const records = { ...doctypes[doctype].records };
+    names.forEach(name => delete records[name]);
+    doctypes[doctype] = { ...doctypes[doctype], records };
+  }
+  return { ...reference, doctypes };
+}
+
+/** Which catalog added a reference record, if one did. */
+export function referenceOrigin(reference, doctype, name) {
+  return [...(reference?.catalog_additions || [])].reverse().find(row => row.records[doctype]?.includes(name)) || null;
+}
+
+export function catalogIssues(catalog, schema, reference = null) {
   const issues = [];
   function inspect(doctype, row, path) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) { issues.push(`${path}: expected a record`); return; }
@@ -105,6 +232,9 @@ export function catalogIssues(catalog, schema) {
       } else if (typeof value !== 'string') issues.push(`${location}: expected text`);
     }
   }
+  if (catalog.add_to_reference && !String(catalog.series_name || '').trim()) {
+    issues.push('Name the catalog to add it to the ERPNext reference');
+  }
   const template = schema.products[catalog.product_type]?.template;
   if (!catalog.records[template]?.length) issues.push(`Add at least one ${template}`);
   for (const [doctype, rows] of Object.entries(catalog.records)) {
@@ -115,16 +245,19 @@ export function catalogIssues(catalog, schema) {
       const rule = schema.doctypes[doctype].autoname || '';
       if (!name && (rule === 'prompt' || rule.startsWith('field:'))) issues.push(`${doctype}[${i}]: record name is required`);
       if (name && names.has(name)) issues.push(`${doctype}: duplicate record ${name}`);
+      if (name && inReference(reference, doctype, name)) {
+        issues.push(`${doctype}[${i}]: ${name} already exists in ERPNext; remove it and link to the existing record`);
+      }
       names.add(name);
     });
   }
-  for (const link of unresolvedLinks(catalog, schema)) issues.push(`${link.sources[0]}: unresolved ${link.doctype} / ${link.name}`);
+  for (const link of unresolvedLinks(catalog, schema, reference)) issues.push(`${link.sources[0]}: unresolved ${link.doctype} / ${link.name}`);
   return issues;
 }
 
-export function makeItemRecords(catalog, schema) {
+export function makeItemRecords(catalog, schema, reference = null) {
   const result = structuredClone(catalog);
-  const missing = unresolvedLinks(result, schema).filter(link => link.doctype === 'Item');
+  const missing = unresolvedLinks(result, schema, reference).filter(link => link.doctype === 'Item');
   if (!missing.length) return result;
   result.records.Item ||= [];
   for (const link of missing) result.records.Item.push({
