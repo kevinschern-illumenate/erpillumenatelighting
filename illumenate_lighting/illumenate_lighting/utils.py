@@ -15,6 +15,7 @@ import frappe
 # ---------------------------------------------------------------------------
 
 ALLOWED_ORIGINS = [
+	"https://illumenate.webflow.io",
 	"https://www.illumenatelighting.com",
 	"https://illumenatelighting.com",
 	"https://illumenatelighting.webflow.io",

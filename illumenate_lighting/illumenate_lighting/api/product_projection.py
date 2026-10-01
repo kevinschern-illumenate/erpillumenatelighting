@@ -6,6 +6,9 @@ from urllib.parse import unquote, urlencode, urlsplit
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES, parse_bool
 
 TEMPLATE_FIELDS = {
+	"Extrusion Kit": "kit_template",
+	"Driver": "driver_template",
+	"Controller": "controller_template",
 	"Linear Fixture": "fixture_template",
 	"LED Tape": "tape_neon_template",
 	"LED Neon": "tape_neon_template",
@@ -13,6 +16,9 @@ TEMPLATE_FIELDS = {
 }
 # DocType each family's template link points at.
 TEMPLATE_DOCTYPES = {
+	"Extrusion Kit": "ilL-Extrusion-Kit-Template",
+	"Driver": "ilL-Driver-Template",
+	"Controller": "ilL-Controller-Template",
 	"Linear Fixture": "ilL-Fixture-Template",
 	"LED Tape": "ilL-Tape-Neon-Template",
 	"LED Neon": "ilL-Tape-Neon-Template",
@@ -168,6 +174,9 @@ def project_product(
 			"fixture_template",
 			"tape_neon_template",
 			"led_sheet_template",
+			"kit_template",
+			"driver_template",
+			"controller_template",
 		)
 	}
 	result.update(

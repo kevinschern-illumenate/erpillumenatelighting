@@ -102,3 +102,22 @@ class FacetCounts(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+
+
+class FinderScope(unittest.TestCase):
+	def test_restrict_names_never_interpolates_user_values(self):
+		with load_service(ROOT + '.api.product_catalog', deps()) as (service, _):
+			_, where, params = service._scope({}, '', restrict_names=["P' OR 1=1", 'P2'])
+			self.assertIn('.name IN %(finder_names)s', where)
+			self.assertNotIn("P' OR 1=1", where)
+			self.assertIn("P' OR 1=1", params["finder_names"])
+			self.assertIn('1=0', service._scope({}, '', restrict_names=[])[1])
+
+	def test_companion_facet_queries_keep_session_scope(self):
+		with load_service(ROOT + '.api.product_catalog', deps()) as (service, frappe):
+			service._finder_scope = MagicMock(return_value=(['DRIVER'], {}, {}))
+			frappe.db.sql.return_value = []
+			service.get_catalog_filter_options(finder='TOKEN', view='companions')
+			service._finder_scope.assert_called_with('TOKEN', 'companions')
+			for call in frappe.db.sql.call_args_list:
+				self.assertIn('DRIVER', call.args[1]['finder_names'])

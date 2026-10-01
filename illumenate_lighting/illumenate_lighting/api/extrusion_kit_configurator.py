@@ -555,6 +555,7 @@ def validate_kit_configuration(selections: str) -> dict:
             "spec_sheet": template.spec_sheet,
         },
     }
+    result["pricing"] = _compute_kit_pricing(kit_composition)
     if stock_availability is not None:
         result["stock_availability"] = stock_availability
     return result
@@ -638,16 +639,6 @@ def save_kit_to_schedule(
     if not result.get("is_valid"):
         return {"success": False, "error": result.get("error") or "Configuration is not valid"}
 
-    part_number = result.get("part_number", "")
-    build_desc = result.get("build_description", "")
-    resolved = result.get("resolved_items", {})
-    kit_comp = result.get("kit_composition", {})
-    spec_data = result.get("spec_data", {})
-    kit_template_info = result.get("kit_template", {})
-
-    # Compute pricing from Standard Selling Item Prices
-    pricing = _compute_kit_pricing(kit_comp)
-
     try:
         if line_idx is not None:
             line_idx = int(line_idx)
@@ -658,25 +649,7 @@ def save_kit_to_schedule(
         else:
             line = schedule.append("lines", {})
 
-        line.manufacturer_type = "ILLUMENATE"
-        line.product_type = "Extrusion Kit"
-        line.configuration_status = "Configured"
-        line.ill_item_code = part_number
-        line.notes = build_desc
-        line.kit_template = kit_template_info.get("name", "")
-
-        # Store full configuration as JSON for later SO conversion
-        line.variant_selections = json.dumps({
-            "product_category": "Extrusion Kit",
-            "part_number": part_number,
-            "build_description": build_desc,
-            "kit_composition": kit_comp,
-            "spec_data": spec_data,
-            "resolved_items": resolved,
-            "selections": result.get("selections", {}),
-            "kit_template": kit_template_info,
-            "pricing": pricing,
-        })
+        _write_kit_line(schedule, line, result)
 
         schedule.save()
 
@@ -687,6 +660,41 @@ def save_kit_to_schedule(
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def _write_kit_line(schedule, line, result):
+    """One writer for Desk and portal, called only with fresh server validation."""
+    from illumenate_lighting.illumenate_lighting.portal.line_fields import LINE_PRODUCT_FIELDS
+
+    for field in LINE_PRODUCT_FIELDS:
+        setattr(line, field, None)
+    part_number = result.get("part_number", "")
+    build_desc = result.get("build_description", "")
+    resolved = result.get("resolved_items", {})
+    kit_comp = result.get("kit_composition", {})
+    spec_data = result.get("spec_data", {})
+    kit_template_info = result.get("kit_template", {})
+    pricing = _compute_kit_pricing(kit_comp)
+    line.manufacturer_type = "ILLUMENATE"
+    line.product_type = "Extrusion Kit"
+    line.configuration_status = "Configured"
+    line.ill_item_code = part_number
+    line.notes = build_desc
+    line.kit_template = kit_template_info.get("name", "")
+
+    # Store full configuration as JSON for later SO conversion
+    line.variant_selections = json.dumps({
+        "product_category": "Extrusion Kit",
+        "part_number": part_number,
+        "build_description": build_desc,
+        "kit_composition": kit_comp,
+        "spec_data": spec_data,
+        "resolved_items": resolved,
+        "selections": result.get("selections", {}),
+        "kit_template": kit_template_info,
+        "pricing": pricing,
+    })
+    return line
 
 
 def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) -> dict:

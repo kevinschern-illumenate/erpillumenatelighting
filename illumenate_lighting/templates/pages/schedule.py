@@ -205,6 +205,10 @@ def get_context(context):
 			# ilLumenate fixture fields
 			"product_type": line.product_type,
 			"configuration_status": getattr(line, "configuration_status", None),
+			"verification_status": line.get("verification_status"),
+			"verification_reasons": line.get("verification_reasons"),
+			"verification_request": line.get("verification_request"),
+			"finder_session": line.get("finder_session"),
 			"kit_template": getattr(line, "kit_template", None),
 			"fixture_template": line.fixture_template,
 			"fixture_template_name": None,  # Will be populated below

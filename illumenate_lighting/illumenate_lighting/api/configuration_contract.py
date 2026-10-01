@@ -12,6 +12,9 @@ from decimal import Decimal
 CONTRACT_VERSION = 2
 DEFAULT_UOM = "Ea"
 FAMILY_ALIASES = {
+	"Extrusion Kit": "Extrusion Kit",
+	"Driver": "Driver",
+	"Controller": "Controller",
 	"Fixture Template": "Linear Fixture",
 	"Linear Fixtures": "Linear Fixture",
 	"Linear Fixture": "Linear Fixture",

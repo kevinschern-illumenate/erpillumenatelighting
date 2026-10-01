@@ -397,6 +397,7 @@ class ilLWebflowProduct(Document):
 
 	def _update_controller_template_backlink(self):
 		self._update_template_backlink("ilL-Controller-Template", "controller_template")
+		self._update_template_backlink("ilL-Extrusion-Kit-Template", "kit_template")
 
 	def _update_template_backlink(self, template_doctype: str, fieldname: str):
 		"""Point the template's webflow_product backlink at this product.

@@ -4,6 +4,7 @@ import frappe
 from frappe import _
 
 CAPABILITIES = {
+	"finder": {"ilL Product Finder Manager"},
 	"accounts": {"ilL Support", "ilL Sales Review", "ilL Order Approver"},
 	"catalog": {"ilL Catalog Publisher"},
 	"integration": {"ilL Integration"},

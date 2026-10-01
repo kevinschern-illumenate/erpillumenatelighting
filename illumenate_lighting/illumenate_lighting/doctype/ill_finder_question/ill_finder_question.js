@@ -11,6 +11,7 @@ frappe.ui.form.on("ilL-Finder-Question", {
 
 	refresh(frm) {
 		frm.add_custom_button(__("Preview"), () => preview_question(frm));
+		frm.add_custom_button(__("Preview matches"), () => preview_matches(frm));
 		apply_facet(frm);
 	},
 
@@ -69,5 +70,19 @@ function preview_question(frm) {
 		<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${cards}</div>
 		${frm.doc.is_active ? "" : `<p class="text-warning" style="margin-top:10px">${__("Inactive: dealers do not see this question.")}</p>`}
 	`);
+	dialog.show();
+}
+
+async function preview_matches(frm) {
+	const api = 'illumenate_lighting.illumenate_lighting.portal.product_finder.desk.';
+	const {message: definition} = await frappe.call(api + 'preview_definition');
+	const questions = definition.questions.slice(0, definition.questions.findIndex(q => q.id === frm.doc.question_key) + 1);
+	const fields = questions.filter(q => q.options).map(q => ({fieldname:q.id, fieldtype:'Select', label:q.label, options:[{label:'',value:''}, ...q.options.map(o => ({label:o.label,value:o.value}))]}));
+	const dialog = new frappe.ui.Dialog({title:__('Preview matches'), fields:[...fields, {fieldname:'results',fieldtype:'HTML'}], primary_action_label:__('Find products'), async primary_action(values) {
+		const answers = Object.fromEntries(Object.entries(values).filter(([,v]) => v));
+		const {message: result} = await frappe.call({method:api + 'preview_matches', type:'POST', args:{answers:JSON.stringify(answers)}});
+		const esc = frappe.utils.escape_html;
+		dialog.fields_dict.results.$wrapper.html(`<p>${esc(String(result.counts.match))} products · ${esc(String(result.counts.verify))} need verification</p><table class="table"><thead><tr><th>Product</th><th>Score</th><th>Reasons</th><th>Verification</th></tr></thead><tbody>${result.matches.map(m => `<tr><td>${esc(m.title)}</td><td>${esc(String(m.score))}</td><td>${esc(m.reasons.join(', '))}</td><td>${esc(m.verify.join(', '))}</td></tr>`).join('')}</tbody></table><p>${esc(JSON.stringify(result.excluded_by || {}))}</p>`);
+	}});
 	dialog.show();
 }

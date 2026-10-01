@@ -35,7 +35,7 @@ PRODUCTS = [
 def fake_get_all(doctype, filters=None, **kwargs):
 	if doctype == "ilL-Webflow-Product":
 		return [row for row in PRODUCTS if row.name in filters["name"][1]]
-	return BACKLINKS[doctype]
+	return BACKLINKS.get(doctype, [])
 
 
 class CatalogRepair(unittest.TestCase):

@@ -6,7 +6,7 @@ import json
 import sys
 import types
 import unittest
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -27,7 +27,14 @@ def throwing(message, exception=ValueError):
 @contextmanager
 def load_service(relative, extras=None):
 	frappe = types.ModuleType("frappe")
-	frappe.whitelist = lambda **kwargs: lambda function: function
+	def whitelist(**kwargs):
+		def decorate(function):
+			function.whitelist_options = kwargs
+			return function
+		return decorate
+	frappe.whitelist = whitelist
+	frappe.cache = MagicMock()
+	frappe.cache().get_value.return_value = None
 	frappe._ = lambda value: value
 	frappe.throw = throwing
 	frappe.PermissionError = PermissionError
@@ -53,11 +60,16 @@ def load_service(relative, extras=None):
 	utils.getdate = lambda value: str(value)[:10]
 	utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(value)
 	frappe.utils = utils
-	modules = {"frappe": frappe, "frappe.utils": utils, **(extras or {})}
+	modules = {"frappe": frappe, "frappe.utils": utils, "frappe.rate_limiter": types.SimpleNamespace(rate_limit=lambda **kw: lambda fn: fn), **(extras or {})}
 	path = relative.replace(".", "/") + ".py"
 	spec = importlib.util.spec_from_file_location("isolated_service", path)
 	module = importlib.util.module_from_spec(spec)
-	with patch.dict(sys.modules, modules):
+	with patch.dict(sys.modules, modules), ExitStack() as boundaries:
+		# Python also keeps child modules on their parent package. Patch both lookup paths.
+		for name, value in (extras or {}).items():
+			parent, _, attr = name.rpartition(".")
+			if parent in sys.modules:
+				boundaries.enter_context(patch.object(sys.modules[parent], attr, value, create=True))
 		spec.loader.exec_module(module)
 		yield module, frappe
 

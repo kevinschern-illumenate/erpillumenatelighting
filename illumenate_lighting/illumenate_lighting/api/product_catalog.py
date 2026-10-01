@@ -100,12 +100,12 @@ def _is_template_active(product, activity) -> bool:
     return activity.get((TEMPLATE_DOCTYPES[family], template), False) if template else True
 
 
-def _project(product, activity, **kwargs) -> dict:
+def _project(product, activity, public=False, **kwargs) -> dict:
     """Project with the family rollout gate and template state the caller already resolved."""
     from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
     from illumenate_lighting.illumenate_lighting.portal.rollout import reason
 
-    gate = reason(product.get("product_type"))
+    gate = reason(product.get("product_type"), public=public)
     return project_product(
         product,
         commercial=True,
@@ -155,7 +155,7 @@ def _clean_filters(filters) -> tuple[dict, str | None]:
     return {key: [value] if isinstance(value, str) else value for key, value in filters.items() if value}, None
 
 
-def _scope(filters: dict, search: str, exclude: str | None = None) -> tuple[str, str, dict]:
+def _scope(filters: dict, search: str, exclude: str | None = None, restrict_names=None) -> tuple[str, str, dict]:
     """``(joins, where, params)`` selecting active products that match every filter but ``exclude``.
 
     Attribute filters AND across attribute types and OR within one type. Search covers
@@ -164,6 +164,12 @@ def _scope(filters: dict, search: str, exclude: str | None = None) -> tuple[str,
     conditions = ["`tabilL-Webflow-Product`.is_active = 1"]
     params: dict = {}
     joins = ""
+    if restrict_names is not None:
+        if restrict_names:
+            conditions.append("`tabilL-Webflow-Product`.name IN %(finder_names)s")
+            params["finder_names"] = tuple(restrict_names)
+        else:
+            conditions.append("1=0")
     for idx, (key, values) in enumerate(filters.items()):
         if key == exclude:
             continue
@@ -191,8 +197,8 @@ def _scope(filters: dict, search: str, exclude: str | None = None) -> tuple[str,
     return joins, " AND ".join(conditions), params
 
 
-def _scope_subquery(filters: dict, search: str, exclude: str | None = None) -> tuple[str, dict]:
-    joins, where, params = _scope(filters, search, exclude)
+def _scope_subquery(filters: dict, search: str, exclude: str | None = None, restrict_names=None) -> tuple[str, dict]:
+    joins, where, params = _scope(filters, search, exclude, restrict_names)
     return f"SELECT DISTINCT `tabilL-Webflow-Product`.name FROM `tabilL-Webflow-Product` {joins} WHERE {where}", params
 
 
@@ -204,7 +210,9 @@ def get_catalog_products(
     search: str = "",
     page: int | str | None = 1,
     page_size: int | str | None = 12,
-    sort: str = "product_name asc",
+    sort: str | None = None,
+    finder=None,
+    view=None,
 ) -> dict:
     """Paginated product list with multi-attribute filtering.
 
@@ -239,10 +247,19 @@ def get_catalog_products(
         "modified asc",
         "product_type asc",
     }
-    if sort not in allowed_sorts:
+    finder_names, finder_info, match_map = _finder_scope(finder, view)
+    if finder and (sort is None or sort == "relevance"):
+        sort = "relevance"
+    elif sort not in allowed_sorts:
         sort = "product_name asc"
 
-    attr_join, where, params = _scope(filters, search)
+    attr_join, where, params = _scope(filters, search, restrict_names=finder_names)
+    order_by = "`tabilL-Webflow-Product`." + (sort if sort != "relevance" else "product_name asc")
+    if sort == "relevance" and finder_names:
+        params.update({f"finder_order_{i}": name for i, name in enumerate(finder_names)})
+        placeholders = ", ".join(f"%(finder_order_{i})s" for i in range(len(finder_names)))
+        order_by = f"FIELD(`tabilL-Webflow-Product`.name, {placeholders})"
+
 
     # ── count total ──────────────────────────────────────────────────
     count_sql = (
@@ -266,6 +283,7 @@ def get_catalog_products(
         f"  `tabilL-Webflow-Product`.fixture_template, "
         f"  `tabilL-Webflow-Product`.tape_neon_template, "
         f"  `tabilL-Webflow-Product`.led_sheet_template, "
+        f"  `tabilL-Webflow-Product`.kit_template, "
         # Links read by standard_products.choices() for "Add to schedule" products.
         f"  `tabilL-Webflow-Product`.portal_item, "
         f"  `tabilL-Webflow-Product`.driver_spec, "
@@ -278,7 +296,7 @@ def get_catalog_products(
         f"  `tabilL-Webflow-Product`.is_active "
         f"FROM `tabilL-Webflow-Product` {attr_join} "
         f"WHERE {where} "
-        f"ORDER BY `tabilL-Webflow-Product`.{sort}, `tabilL-Webflow-Product`.name asc "
+        f"ORDER BY {order_by}, `tabilL-Webflow-Product`.name asc "
         f"LIMIT %(limit)s OFFSET %(offset)s"
     )
     params["limit"] = page_size
@@ -296,11 +314,15 @@ def get_catalog_products(
         # Cards offer "Add to schedule" only when the product page will have an orderable SKU.
         if projection["capability"] == "inquiry" and _standard_choices(product):
             projection["capability"] = "quantity"
+        if finder:
+            details = match_map.get(product.name, {})
+            projection["relation" if view == "companions" else "match"] = details.get("relation") if view == "companions" else details
         result.append(projection)
 
     return {
         "success": True,
         "products": result,
+        **({"finder": finder_info} if finder else {}),
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -308,7 +330,7 @@ def get_catalog_products(
 
 
 @frappe.whitelist()
-def get_catalog_product_detail(product_slug: str) -> dict:
+def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
     """Full product detail with all child tables.
 
     Args:
@@ -349,11 +371,30 @@ def get_catalog_product_detail(product_slug: str) -> dict:
         projection["standard_choices"] = _standard_choices(product)
         if projection["standard_choices"]:
             projection["capability"] = "quantity"
+    if finder:
+        from illumenate_lighting.illumenate_lighting.portal.product_finder import (
+            facts,
+            matcher,
+            server_definition,
+            sessions,
+        )
+
+        result = sessions.result(finder)
+        session = sessions.get_owned(finder)
+        projection["match"] = next((m for m in result["matches"] if m["name"] == product.name), None)
+        if projection["match"] is None:
+            rows = [p for p in facts.load() if p["name"] == product.name]
+            needed = matcher.requirements(server_definition.load(), sessions.decoded(session.quiz_answers))
+            states, reasons, _excluded = matcher.inspect_product(rows[0], needed) if rows else ({}, [], [])
+            projection["match"] = {"reasons": [f"{r['label']}: {r['answer_label']}" for r in needed if states.get(r["id"]) == "pass"][:3], "tradeoffs": [f"{r['label']}: {r['answer_label']} not offered" for r in needed if states.get(r["id"]) == "fail"], "verify": [r["reason"] for r in reasons]}
+        by_name = {p["name"]: p for p in facts.load()}
+        projection["companions"] = [{**{k: by_name[c["name"]][k] for k in ("slug", "title", "image", "capability")}, "relation": c["relation"]} for c in result["companions"] if c["name"] in by_name and c["name"] != product.name][:6]
+        projection["finder_settings"] = definition_settings()
     return {"success": True, "product": projection}
 
 
 @frappe.whitelist()
-def get_catalog_filter_options(filters: str | dict | None = None, search: str = "") -> dict:
+def get_catalog_filter_options(filters: str | dict | None = None, search: str = "", finder=None, view=None) -> dict:
     """Facet values grouped by attribute_type with product counts.
 
     With no ``filters`` or ``search`` the counts cover every active product. Otherwise
@@ -367,6 +408,7 @@ def get_catalog_filter_options(filters: str | dict | None = None, search: str = 
     """
     require_catalog_access()
 
+    finder_names, _finder_info, _match_map = _finder_scope(finder, view)
     filters, error = _clean_filters(filters)
     if error:
         return {"success": False, "error": error}
@@ -379,7 +421,7 @@ def get_catalog_filter_options(filters: str | dict | None = None, search: str = 
         return [{"value": value, "count": counts[value]} for value in sorted(counts, key=str.casefold)]
 
     # ── product type facets ──────────────────────────────────────────
-    scope, params = _scope_subquery(filters, search, exclude="product_type")
+    scope, params = _scope_subquery(filters, search, exclude="product_type", restrict_names=finder_names)
     type_rows = frappe.db.sql(
         f"""
         SELECT p.product_type, COUNT(*) AS cnt
@@ -402,13 +444,13 @@ def get_catalog_filter_options(filters: str | dict | None = None, search: str = 
     active_types = [key for key in filters if key not in PRODUCT_FIELD_FILTERS]
     attr_rows = []
     for attr_type in active_types:
-        scope, params = _scope_subquery(filters, search, exclude=attr_type)
+        scope, params = _scope_subquery(filters, search, exclude=attr_type, restrict_names=finder_names)
         attr_rows += frappe.db.sql(
             attribute_sql.format(scope=scope, only="AND al.attribute_type = %(facet_type)s"),
             {**params, "facet_type": attr_type},
             as_dict=True,
         )
-    scope, params = _scope_subquery(filters, search)
+    scope, params = _scope_subquery(filters, search, restrict_names=finder_names)
     only = ""
     if active_types:
         only = "AND al.attribute_type NOT IN ({})".format(
@@ -427,7 +469,7 @@ def get_catalog_filter_options(filters: str | dict | None = None, search: str = 
     ]
 
     for field in ("series", "product_category"):
-        scope, params = _scope_subquery(filters, search, exclude=field)
+        scope, params = _scope_subquery(filters, search, exclude=field, restrict_names=finder_names)
         rows = frappe.db.sql(
             f"""
             SELECT p.`{field}` AS value, COUNT(*) AS cnt
@@ -447,3 +489,22 @@ def get_catalog_filter_options(filters: str | dict | None = None, search: str = 
         "product_types": product_types,
         "filters": filters_out,
     }
+
+
+def definition_settings():
+    from illumenate_lighting.illumenate_lighting.portal.product_finder.definition import load_definition
+
+    return load_definition()["settings"]
+
+
+def _finder_scope(token, view=None):
+    if not token:
+        return None, None, {}
+    from illumenate_lighting.illumenate_lighting.portal.product_finder import sessions
+    from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import answer_chips
+
+    result = sessions.result(token)
+    doc = sessions.get_owned(token)
+    rows = result.get("companions" if view == "companions" else "matches", [])
+    info = {"token": token, "family": result.get("family"), "answer_chips": answer_chips(sessions.decoded(doc.quiz_answers)), "relaxed": result.get("relaxed", []), "counts": result["counts"], "companions_count": len(result.get("companions", [])), "route": result.get("route"), "eliminated_by": result.get("eliminated_by")}
+    return [m["name"] for m in rows], info, {m["name"]: m for m in rows}

@@ -49,7 +49,11 @@
   "linked_spec_document",
   "line_key",
   "ill_bom",
-  "ill_configurator_request"
+  "ill_configurator_request",
+  "verification_status",
+  "verification_reasons",
+  "verification_request",
+  "finder_session"
  ],
  "fields": [
   {
@@ -355,6 +359,34 @@
    "label": "Configured Group",
    "read_only": 1,
    "options": "ilL-Configured-Group"
+  },
+  {
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "\nPending\nVerified\nNot Feasible",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "verification_reasons",
+   "fieldtype": "Small Text",
+   "label": "Verification Reasons",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verification_request",
+   "fieldtype": "Link",
+   "label": "Verification Request",
+   "options": "ilL-Product-Verification-Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finder_session",
+   "fieldtype": "Link",
+   "label": "Finder Session",
+   "options": "ilL-Configurator-Session",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

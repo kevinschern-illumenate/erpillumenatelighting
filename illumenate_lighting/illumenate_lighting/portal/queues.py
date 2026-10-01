@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 # (label, capability, DocType, base filters, projected fields, owner, due date)
 QUEUES = {
+	"verification": ("Product verification", "sales", "ilL-Product-Verification-Request", {"state": ["in", ["REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED"]]}, ["name", "product_title", "customer", "state", "assigned_to", "due_date", "modified"], "assigned_to", "due_date"),
 	"order_changes": (
 		"Order changes and cancellations",
 		"sales",
@@ -127,11 +128,19 @@ QUEUES = {
 }
 
 
+def _queue_allowed(queue, capability):
+	if queue == "verification":
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import staff
+
+		return staff()
+	return allowed(capability)
+
+
 def query(queue, view="all", search=None):
 	if queue not in QUEUES:
 		frappe.throw("Unknown staff queue")
 	label, capability, doctype, filters, fields, owner, due = QUEUES[queue]
-	if not allowed(capability) or not frappe.has_permission(doctype, "read"):
+	if not _queue_allowed(queue, capability) or not frappe.has_permission(doctype, "read"):
 		frappe.throw("This staff queue is unavailable for your role", frappe.PermissionError)
 	filters = deepcopy(filters)
 	if view == "mine" and owner:
@@ -185,7 +194,7 @@ def items(queue, view="all", search=None, page=1, page_size=20):
 def summary():
 	result = []
 	for key, (label, capability, doctype, _filters, _fields, owner, due) in QUEUES.items():
-		if not allowed(capability):
+		if not _queue_allowed(key, capability):
 			continue
 		entry = {
 			"key": key,

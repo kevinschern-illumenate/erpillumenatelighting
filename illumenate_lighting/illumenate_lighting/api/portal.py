@@ -1448,6 +1448,15 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid line_data format"}
 
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	is_sales_staff = allowed("sales")
+	if not isinstance(line_data, dict):
+		return {"success": False, "error": "Line data must be an object"}
+	if not is_sales_staff and line_data.get("accessory_item"):
+		item = frappe.db.get_value("Item", line_data["accessory_item"], ["name", "disabled", "is_sales_item", "has_variants"], as_dict=True)
+		if not item or item.disabled or not item.is_sales_item or item.has_variants:
+			return {"success": False, "error": "Choose an active orderable Item"}
 	# Add the line
 	try:
 		line = schedule.append("lines", {})
@@ -1462,7 +1471,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.fixture_template = line_data.get("fixture_template")
 			line.tape_neon_template = line_data.get("tape_neon_template")
 			line.led_sheet_template = line_data.get("led_sheet_template")
-			line.configuration_status = line_data.get("configuration_status", "Pending")
+			line.configuration_status = line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
 
 		if line.manufacturer_type == "ACCESSORY":
 			line.accessory_product_type = line_data.get("accessory_product_type")

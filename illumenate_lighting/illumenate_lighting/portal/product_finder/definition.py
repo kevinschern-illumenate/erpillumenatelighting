@@ -61,6 +61,7 @@ OPTION_FIELDS = [
 	"badge_text",
 	"routes_to",
 	"is_active",
+	"is_no_preference",
 ]
 CONDITION_FIELDS = [
 	"parent",
@@ -123,7 +124,7 @@ def build_definition(version, include_inactive=False) -> dict:
 				children[field].setdefault(row.parent, []).append(row)
 
 	glossary = {
-		row.name: {"label": row.label, "tooltip": row.tooltip or "", "learnMore": row.learn_more or ""}
+		row.name: {"label": row.label, "tooltip": row.tooltip or "", "learnMore": safe_learn_more(row.learn_more)}
 		for row in frappe.get_all(GLOSSARY, fields=["name", "label", "tooltip", "learn_more"])
 	}
 	settings = frappe.get_cached_doc(SETTINGS)
@@ -153,7 +154,7 @@ def question_payload(row, options, conditions, families, include_inactive=False)
 		"required": bool(cint(row.required)),
 		"families": sorted({family.family for family in families}) or ["Any"],
 		"tooltip": row.tooltip or "",
-		"learnMore": row.learn_more or "",
+		"learnMore": safe_learn_more(row.learn_more),
 		"glossaryKey": row.glossary_term or None,
 	}
 	if include_inactive:
@@ -202,6 +203,7 @@ def option_payload(option, hide_conditions) -> dict:
 		"glossaryKey": option.glossary_term or None,
 		"note": option.note or "",
 		"featured": bool(cint(option.is_featured)),
+		"noPreference": bool(cint(option.get("is_no_preference"))),
 		"badge": option.badge_text or "",
 	}
 	if option.routes_to:
@@ -233,3 +235,10 @@ def clause(row) -> dict:
 	if operator in ("equals", "not equals"):
 		return {"q": row.depends_on_question, OPERATORS[operator]: value}
 	return {"q": row.depends_on_question, OPERATORS[operator]: float(value)}
+
+
+def safe_learn_more(value):
+	if not value:
+		return ""
+	# Sanitize editorial HTML on the server; clients render it as plain text.
+	return frappe.utils.sanitize_html(value)

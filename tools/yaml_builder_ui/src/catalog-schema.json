@@ -5738,6 +5738,12 @@
           "fieldtype": "Link",
           "options": "Item",
           "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
+        },
+        {
+          "fieldname": "kit_template",
+          "label": "Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template"
         }
       ]
     }

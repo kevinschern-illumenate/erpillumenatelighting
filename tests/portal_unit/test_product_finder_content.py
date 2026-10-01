@@ -640,6 +640,7 @@ class EngineContract(unittest.TestCase):
 			+ "const engine = await import('data:text/javascript,' + encodeURIComponent("
 			+ json.dumps(engine)
 			+ "));\n"
+			+ "engine.setDefinition(globalThis.__DEF__);\n"
 			+ "const ids = (answers) => engine.visibleQuestions(answers).map((q) => q.id);\n"
 			+ "const options = (id, answers) => engine.visibleOptions(engine.QUESTIONS.find((q) => q.id === id), answers).map((o) => o.value);\n"
 			+ "console.log(JSON.stringify({\n"
@@ -663,3 +664,18 @@ class EngineContract(unittest.TestCase):
 		self.assertEqual(seen["pixelDimming"], ["DMX512", "SPI", "not_sure"])
 		self.assertIn("wireless_protocol", seen["wireless"])
 		self.assertNotIn("wireless_protocol", seen["indoorDry"])
+
+
+class FinderRuntimeContent(unittest.TestCase):
+	def test_manager_capability_and_controller_facets(self):
+		with load_service(ROOT+'.portal.staff') as (staff,_):
+			self.assertIn('ilL Product Finder Manager',staff.CAPABILITIES['finder'])
+		self.assertIn('ilL-Attribute-Controller Type',facets.FACETS['controller_type']['doctypes'])
+		self.assertIn('ilL-Attribute-Mounting Type',facets.FACETS['controller_mounting']['doctypes'])
+
+	def test_client_option_no_preference_and_sanitized_help(self):
+		with load_service(FINDER+'.definition') as (definition,frappe):
+			frappe.utils.sanitize_html=lambda value:'<p>Safe</p>'
+			self.assertEqual(definition.safe_learn_more('<script>unsafe()</script>'),'<p>Safe</p>')
+			option=Record(value='any',label='Any',is_no_preference=1)
+			self.assertTrue(definition.option_payload(option,[])['noPreference'])

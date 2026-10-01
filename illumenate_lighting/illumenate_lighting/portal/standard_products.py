@@ -4,6 +4,7 @@ import json
 import uuid
 
 import frappe
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
@@ -15,7 +16,8 @@ from illumenate_lighting.illumenate_lighting.portal.access import can_edit_sched
 from illumenate_lighting.illumenate_lighting.portal.configuration import RECEIPT, schedule_context
 
 
-def choices(product):
+def choices(product, *, get_document=None, get_item=None):
+	get_document = get_document or frappe.get_doc
 	if not product.is_active:
 		return []
 	candidates = []
@@ -26,16 +28,16 @@ def choices(product):
 			continue
 		prefix = kind.lower()
 		if product.get(prefix + "_spec"):
-			spec = frappe.get_doc("ilL-Spec-" + kind, product.get(prefix + "_spec"))
-			if not spec.meta.has_field("is_active") or spec.is_active:
+			spec = get_document("ilL-Spec-" + kind, product.get(prefix + "_spec"))
+			if spec.get("is_active", 1):
 				candidates.append((spec.get("item"), spec.name))
 		if product.get(prefix + "_template"):
-			template = frappe.get_doc("ilL-" + kind + "-Template", product.get(prefix + "_template"))
+			template = get_document("ilL-" + kind + "-Template", product.get(prefix + "_template"))
 			if template.is_active:
 				for row in template.variants or []:
 					if row.is_active:
-						spec = frappe.get_doc("ilL-Spec-" + kind, row.get(prefix + "_spec"))
-						if not spec.meta.has_field("is_active") or spec.is_active:
+						spec = get_document("ilL-Spec-" + kind, row.get(prefix + "_spec"))
+						if spec.get("is_active", 1):
 							candidates.append((spec.get("item"), row.variant_code or spec.name))
 	if product.product_type == "Component":
 		# Individual profile/lens/hardware pieces are scheduled as accessory
@@ -47,15 +49,15 @@ def choices(product):
 			("accessory_spec", "ilL-Spec-Accessory"),
 		):
 			if product.get(field):
-				spec = frappe.get_doc(doctype, product.get(field))
-				if not spec.meta.has_field("is_active") or spec.is_active:
+				spec = get_document(doctype, product.get(field))
+				if spec.get("is_active", 1):
 					candidates.append((spec.get("item"), spec.name))
 	result, seen = [], set()
 	for code, label in candidates:
 		if not code or code in seen:
 			continue
 		seen.add(code)
-		item = frappe.db.get_value(
+		item = get_item(code) if get_item else frappe.db.get_value(
 			"Item",
 			code,
 			["name", "item_name", "stock_uom", "disabled", "has_variants", "is_sales_item"],
@@ -98,9 +100,7 @@ def prepare(product_slug, search=None):
 	}
 
 
-@frappe.whitelist(methods=["POST"])
-@atomic_build
-def add(
+def _add(
 	product_slug,
 	item_code,
 	schedule_name,
@@ -110,6 +110,8 @@ def add(
 	idempotency_key,
 	location=None,
 	notes=None,
+	finder=None,
+	configuration=None,
 ):
 	require_catalog_access()
 	quantity = finite_number(quantity, minimum=1, field="quantity")
@@ -130,6 +132,8 @@ def add(
 		"location": location,
 		"notes": notes,
 		"modified": str(expected_modified),
+		**({"finder": finder} if finder else {}),
+		**({"configuration": configuration} if configuration else {}),
 	}
 	digest = fingerprint(body)
 	key = fingerprint(
@@ -161,9 +165,14 @@ def add(
 			"configuration_status": "Configured",
 			"accessory_item": item_code,
 			"accessory_item_name": selected["label"],
-			"variant_selections": canonical_json({"product_slug": product_slug, "item_code": item_code}),
+			"variant_selections": canonical_json(configuration or {"product_slug": product_slug, "item_code": item_code}),
 		},
 	)
+	if finder:
+		from illumenate_lighting.illumenate_lighting.portal.product_finder import sessions, verification
+
+		verification.apply_to_line(schedule, line, _product(product_slug).name, finder)
+		sessions.mark_used(finder)
 	schedule.save(ignore_permissions=True)
 	response = {
 		"success": True,
@@ -185,3 +194,36 @@ def add(
 	doc.flags.configuration_service_write = True
 	doc.insert(ignore_permissions=True)
 	return response
+
+
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+def add(product_slug, item_code, schedule_name, quantity, line_id, expected_modified, idempotency_key, location=None, notes=None, finder=None):
+	return _add(product_slug, item_code, schedule_name, quantity, line_id, expected_modified, idempotency_key, location, notes, finder)
+
+
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=20, seconds=60)
+@atomic_build
+def add_configured(product_slug, selections, schedule_name, quantity, line_id, expected_modified, idempotency_key, location=None, notes=None, finder=None):
+	from illumenate_lighting.illumenate_lighting.api.driver_controller_configurator import (
+		_KINDS,
+		_validate_configuration,
+	)
+	from illumenate_lighting.illumenate_lighting.portal.configuration import object_value
+	from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
+
+	require_catalog_access()
+	product = _product(product_slug)
+	kind = product.product_type
+	if kind not in _KINDS:
+		frappe.throw("Choose a configurable driver or controller")
+	require_family(kind)
+	submitted = object_value(selections, "selections")
+	clean = {step["name"]: submitted[step["name"]] for step in _KINDS[kind]["steps"] if step["name"] in submitted}
+	result = _validate_configuration(kind, product_slug, canonical_json(clean))
+	if not result.get("success") or not result.get("variant", {}).get("item"):
+		frappe.throw(result.get("error") or "This configuration has no orderable Item")
+	item = result["variant"]["item"]
+	configuration = {"product_slug": product_slug, "template": result["template_code"], "selections": clean, "variant_code": result["variant"]["variant_code"], "item_code": item}
+	return _add(product_slug, item, schedule_name, quantity, line_id, expected_modified, idempotency_key, location, notes, finder, configuration)

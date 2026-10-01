@@ -102,7 +102,7 @@ FACETS = {
 		"label": "Controller type",
 		"families": ("Controller",),
 		"kind": "set",
-		"doctypes": (),
+		"doctypes": ("ilL-Attribute-Controller Type",),
 	},
 	"channels": {"label": "Channels", "families": ("Controller",), "kind": "number", "doctypes": ()},
 	"zones": {"label": "Zones", "families": ("Controller",), "kind": "number", "doctypes": ()},
@@ -116,7 +116,7 @@ FACETS = {
 		"label": "Controller mounting",
 		"families": ("Controller",),
 		"kind": "set",
-		"doctypes": (),
+		"doctypes": ("ilL-Attribute-Mounting Type",),
 	},
 }
 

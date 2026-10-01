@@ -127,6 +127,10 @@ def _add_schedule_to_transaction(
 
 	schedule = frappe.get_doc(SCHEDULE_DOCTYPE, fixture_schedule)
 	schedule.check_permission("read")
+	pending = [str(row.line_id or row.idx) for row in schedule.lines if row.get("verification_status") in ("Pending", "Not Feasible")]
+	if pending:
+		frappe.msgprint("Lines awaiting product verification: " + ", ".join(pending))
+
 
 	# Header-level traceability: one transaction carries one schedule.
 	header_changed = False

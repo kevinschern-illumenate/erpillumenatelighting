@@ -298,6 +298,8 @@ class ilLProjectFixtureSchedule(Document):
 		and every Item / Item Price / BOM / configured-record write is rolled
 		back to a savepoint if anything fails before the order is inserted.
 		"""
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import gate
+
 		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
 
 		allowed, reason = can_request_schedule_order(self, frappe.session.user)
@@ -316,6 +318,7 @@ class ilLProjectFixtureSchedule(Document):
 		if not allowed:
 			frappe.throw(reason, frappe.PermissionError)
 
+		gate(self, "order")
 		existing = self.get_linked_sales_order()
 		if existing:
 			from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order

@@ -24,7 +24,7 @@
    "fieldname": "attribute_doctype",
    "fieldtype": "Select",
    "label": "ERP Attribute Type",
-   "options": "\nilL-Attribute-CCT\nilL-Attribute-Dimming Protocol\nilL-Attribute-Environment Rating\nilL-Attribute-Finish\nilL-Attribute-IP Rating\nilL-Attribute-LED Package\nilL-Attribute-Lens Appearance\nilL-Attribute-Mounting Method\nilL-Attribute-Output Voltage\nilL-Webflow-Category",
+   "options": "\nilL-Attribute-CCT\nilL-Attribute-Controller Type\nilL-Attribute-Dimming Protocol\nilL-Attribute-Environment Rating\nilL-Attribute-Finish\nilL-Attribute-IP Rating\nilL-Attribute-LED Package\nilL-Attribute-Lens Appearance\nilL-Attribute-Mounting Method\nilL-Attribute-Mounting Type\nilL-Attribute-Output Voltage\nilL-Webflow-Category",
    "reqd": 1,
    "in_list_view": 1
   },
