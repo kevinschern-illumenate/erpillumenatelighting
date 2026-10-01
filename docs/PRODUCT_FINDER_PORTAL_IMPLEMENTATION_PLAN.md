@@ -1,482 +1,863 @@
-# Product Finder in the Dealer Portal — Implementation Plan
+# Product Finder and Product Catalog — Full Implementation Plan (v2)
 
-Status: proposed, 2026-10-01. Target branch: `staging`.
-
-## 1. Goal
-
-Bring the guided quiz in `tools/configurator_ui` into the Dealer Portal, alongside the existing `/portal/configure` configurator. The quiz is for customers who know little about lighting. It uses pictures, tooltips and "Learn more" text.
-
-Target flow:
-
-1. A dealer signs in to `/portal`. A small banner advertises the **Product Finder**.
-2. The banner opens the quiz at `/portal/product-finder`.
-3. When the quiz is finished, the dealer lands on `/portal/products`. The catalog shows **only the products that fit their answers**, ranked by fit, with the reasons each one matches.
-4. From a product page they either:
-   - **configure** a linear fixture, tape, neon or sheet and save it to a project's fixture schedule, or
-   - **add** an accessory, driver, controller, kit or component to a fixture schedule as a line.
-
-The plan also fixes the product catalog. That includes the reason the configurator does not appear on product pages even though fixture templates exist (§3). Those fixes are Phase 0 and can ship before any Product Finder work.
+Status: approved direction, 2026-10-01. Branch: `staging`. First deployment target: the **staging site**.
+This version replaces v1 of this document. It incorporates the decisions in §0.
 
 ---
 
-## 2. What exists today
+## 0. Decisions this plan is built on
 
-### 2.1 The quiz prototype (`tools/configurator_ui`)
+| # | Question | Decision | What it changes in the plan |
+|---|---|---|---|
+| 1 | A product has no data for an answer (for example, no IP rating on file) | **Show it, with a positive "needs verification" warning**: we most likely can do it, but the team must verify it before the dealer continues. | Matching adds a third result state, `verify`, alongside match and no match (§7.3). An amber warning appears on cards, product pages and schedule lines (§14.2). Staff get a verification workflow and queue (§14.3). Staff cannot issue a quote, and dealers cannot order, until the line is verified (§14.5). |
+| 2 | Who maintains how quiz answers map to ERP values | **Staff, in Desk.** | Questions, options, images, help text, glossary, rules and answer→ERP mappings all live in new DocTypes (§6). The JSON files in `tools/configurator_ui` become seed data only. |
+| 3 | Competitor comparison in the portal | **Dropped.** | `CompareTable` is removed from the portal and public builds (§10.3). |
+| 4 | Pilot user list | **Not used. This goes to a staging site.** | Remove the pilot list from the root-cause section. Enable everything on staging with Desk toggles (§16). |
+| 5 | Kits, drivers and controllers | **Give them configurators.** A question at the start routes to the right configurator. **Emphasize Linear Fixture** so a beginner can click it and get started. | The quiz's first question is a product-type chooser with Linear Fixture featured (§9.1). `/portal/configure` with no category shows the same chooser (§9.4). New portal configurators for driver, controller and extrusion kit (§13). |
+| 6 | Public (Webflow) quiz data | **Live ERP data.** | Guest endpoints, rate-limited and brand-aware, with published products only (§15). The offline seed and competitor sample are retired. |
 
-- A Vite + React 18 + Tailwind 3 app. `npm run build` produces an IIFE bundle for Webflow (`window.IllConfigurator.mount`). `npm run build:preview` produces a standalone SPA in `dist-preview/`, which is used on Vercel.
-- `src/content/questions.json` defines 17 questions with branching (`visibleWhen`, `skipWhen`, option-level `hideWhen`). Six are currently hidden with an empty `skipWhen.all`, which evaluates to true: `target_cct`, `run_length`, `continuous_run`, `power_injection`, `supply_voltage` (hard-coded to 24 VDC) and `operating_temp`.
-  The questions a user actually sees are: indoor/outdoor → moisture → IP rating (damp/wet only) → light type → color mode (full color only) → fixture purpose → installation method → CCT range (tunable only) → CRI → dimming protocol → diffuser → finish.
-- `src/content/glossary.json` holds the tooltip and "Learn more" copy. `src/assets/*.jpg` holds 38 option images; any option without an image falls back to a color swatch.
-- `src/lib/engine.js` handles visibility, answer pruning and progress. It is pure and can be reused as-is.
-- `src/lib/recommend.js` does the matching. Hard filters: environment rating (meets or exceeds), IP rating (meets or exceeds), light type, color mode, dimming protocol, voltage and mounting method. Soft checks: CRI, CCT and the lumens/ft band, relaxed in that order when nothing matches.
-- **Data is entirely offline.** `src/data/products.seed.json` contains 151 records, all of them **LED Tape**. It has no linear fixtures, neon, sheets or accessories. `competitors.sample.json` is illustrative only.
-- `src/lib/configureHandoff.js`: "Configure Now" sends the top recommendation to `/portal/configure?category=…&template=…&moisture=…`. It also calls `configurator_session.save_session`, using a CSRF token from a `csrftoken` cookie that Frappe does not set.
-- The results screen shows a JSON download/copy/console panel, a competitor table, and a footer reading "Prototype using seeded offline data". None of these belong in the portal.
+---
 
-### 2.2 Portal pieces this builds on
+## 1. End-to-end journeys
 
-| Piece | Location | Notes |
-|---|---|---|
-| Portal home | `templates/pages/portal.html`, `portal.py` | `can_view_catalog` already gates a "Product Catalog" card. This is where the banner goes. |
-| Portal nav | `templates/includes/portal_navigation.html` | Has only Overview, Projects, Support and Account. There is **no Products link**. |
-| Catalog page | `templates/pages/products_catalog.{py,html}`, `public/js/product_catalog.js` | URL-driven filters, facet sidebar, paging. |
-| Catalog API | `api/product_catalog.py` | `get_catalog_products`, `get_catalog_product_detail`, `get_catalog_filter_options`. |
-| Product projection | `api/product_projection.py::project_product` | Decides `capability` (`configure` / `quantity` / `inquiry` / `unavailable`) and `configure_url`. |
-| Product page | `templates/pages/product_detail.{py,html}`, `public/js/product_detail.js` | Has an "Add to a Fixture Schedule" panel. Configurable products open the configurator with a line draft; others become accessory lines through `portal/standard_products.py`. |
-| Configurator | `templates/pages/configure.py` and `public/js/configurator/*` | Already accepts `quiz_handoff` query parameters (`moisture`, `cct`, `lens`…) and pre-fills from them (`shared_configurator.js:40`). |
-| Quiz session | DocType `ilL-Configurator-Session`, `api/configurator_session.py` | Fields: `user`, `session_token`, `product_type` (Linear/Tape/Neon), `recommended_template`, `quiz_answers`, `status`. Only System Manager has permissions. |
-| Rollout gate | `portal/rollout.py::available` | Site config keys `ill_portal_enabled_families` and `ill_portal_pilot_users`. |
+### 1.1 Dealer in the portal
+
+1. The dealer signs in and lands on `/portal`. A slim banner reads: *"Not sure which fixture fits your project? Answer a few picture-guided questions."* It has a **Start the Product Finder** button, and **Resume** if a quiz is in progress.
+2. `/portal/product-finder`, **Question 1: "What are you looking for?"** Linear Fixture is a large featured card ("Most popular — not sure? Start here"). LED Tape, LED Neon, LED Sheet, Extrusion Kit, Power Supply (Driver), Controller and "Accessories & parts" are smaller cards.
+3. Picture-guided questions follow for that product type. Each option shows how many products remain. Options that would leave nothing are greyed out with a reason.
+4. Results summary: "We found 7 products that fit." It shows the top three, flags any relaxed criteria, and marks products needing verification with an amber chip. The CTAs are **See matching products** and **Configure the top match now**.
+5. `/portal/products?finder=<token>` shows only the matching products, ranked, with "Why it fits" chips and amber "Verify with our team" chips. A second tab lists compatible drivers, controllers and accessories.
+6. The product page has a "Why this fits" box and any verification warning. Its action panel either opens the family's configurator, pre-filled from the quiz, or adds a SKU to a fixture schedule (accessories). Dealers can create a project or schedule inline if they have none.
+7. When the line saves to the schedule, it carries the verification flag if one applies. The schedule shows the badge. Requesting a quote is allowed and routes the line to staff. Staff verify before the quotation can be issued.
+
+### 1.2 Public visitor on Webflow
+
+1. The same quiz runs on Webflow against **live, published** products, with no prices.
+2. Results link to Webflow product pages. **"Configure & add to a project (dealers)"** sends the visitor to log in, which claims the anonymous session into the portal (`/portal/product-finder?claim=<token>`) and opens the filtered catalog.
+
+### 1.3 Staff
+
+1. Desk → **Product Finder** workspace. Staff edit questions, option images and help text, glossary terms and answer→ERP mappings. The **Preview** button shows live match counts.
+2. A **Coverage** report lists products with missing data and unmapped ERP values.
+3. The **Product verification** queue lists requests and flagged lines. Staff mark them Verified or Not feasible and reply in the request's conversation thread.
+
+---
+
+## 2. Current state (summary of what was found)
+
+- **The quiz prototype** (`tools/configurator_ui`) is a Vite + React 18 + Tailwind app.
+  - `questions.json` has 17 questions; six are hidden by an empty `skipWhen.all`, which evaluates to true.
+  - `glossary.json` has the help text. `src/assets` has 38 option images.
+  - `engine.js` handles branching. `recommend.js` does hard and soft matching with relaxation.
+  - `products.seed.json` is **offline** and holds 151 LED Tape records and nothing else. `competitors.sample.json` is illustrative only.
+  - The results screen has JSON export, a competitor table and a "prototype" footer.
+- **The portal** already has:
+  - a catalog (`products_catalog.*`, `product_catalog.js`, `api/product_catalog.py`);
+  - product pages with an "Add to a Fixture Schedule" panel (`product_detail.*`, `portal/standard_products.py`);
+  - the unified configurator (`/portal/configure` with Linear, Tape, Neon and Sheet) and the unified save path `portal/configuration.save`;
+  - quiz pre-fill parameters (`quiz_handoff` in `configure.py`) and an `ilL-Configurator-Session` DocType;
+  - quote requests (`portal/quotes.py`), offers (`portal/offers.py`), order intake (`portal/order_intake.py`), staff queues (`portal/queues.py`) and conversations (`portal/conversations.py`).
+- **Driver and controller configurator APIs** (`api/driver_controller_configurator.py`) exist as guest endpoints for Webflow. They resolve the selected options to one template variant, whose spec carries an orderable `item`. **There is no portal UI** for them.
+- **The extrusion kit configurator API** (`api/extrusion_kit_configurator.py`) exists, with a **Desk-only** dialog in `ill_project_fixture_schedule.js`.
+  - `save_kit_to_schedule` **trusts the client's `configuration_result`**: the part number, resolved items and kit composition all come from the client, and pricing is computed from them. It must not be exposed to dealers as it is.
+  - `ilL-Webflow-Product` has **no `kit_template` field**. Only the template's `webflow_product` back-link exists.
+  - The `/portal/configure-kit` routes point to a page that does not exist.
 
 ---
 
 ## 3. Why the configurator does not appear on product pages
 
-`product_detail.js` shows the configurator only when the API returns a `configure_url`. `project_product` builds that URL only when **all** of these hold: the product is active, its template link is set, `is_configurable` is checked, there are **no `validation_errors` in `configurator_options`**, and the rollout gate passes. If any one fails, the page shows *"This product is not yet orderable from the portal. Contact us…"* and links to support.
+### 3.1 Confirmed root cause
 
-### 3.1 Root cause (confirmed): linear fixtures are always downgraded to "inquiry"
-
-- `ilL-Webflow-Product.populate_configurator_options()` runs on every save of a configurable linear fixture. It writes step 4 (*Output Level*) from `_get_output_levels_lens_map()`, which returns a **dict**: `{"lensMap": {...}}` (`ill_webflow_product.py:2975`).
-- `project_product` requires every row's `allowed_values_json` to be a list. Anything else raises `ValueError("Allowed values must be an array of choices")` (`product_projection.py:59`). The row is recorded as `INVALID_OPTIONS`, and `capability` falls back to `"inquiry"` (`product_projection.py:76-79`).
-- The step-4 row is written whenever the template has tape offerings with output levels. In practice that means **every configurable linear fixture product projects as inquiry-only**, and no product page shows the configurator for it.
-
-I reproduced this against the real function:
+- `ilL-Webflow-Product.populate_configurator_options()` stores the linear fixture **Output Level** step as a dict, `{"lensMap": {...}}` (`ill_webflow_product.py:2975`).
+- `project_product()` requires each option row to be a **list** (`product_projection.py:59`). It records `INVALID_OPTIONS` and downgrades `capability` to `inquiry` (`:76-79`), which leaves `configure_url = None`.
+- `product_detail.js` therefore shows *"This product is not yet orderable from the portal"* instead of the configurator, for **every configurable linear fixture whose template has tape offerings**.
+- Reproduced against the real function:
 
 ```text
-plain options row   -> capability: configure
-with the lensMap row -> capability: inquiry, validation_errors: [{code: INVALID_OPTIONS, step: 4}], configure_url: None
+list-shaped options only      -> capability: configure
+plus the real step-4 lensMap  -> capability: inquiry, validation_errors [INVALID_OPTIONS step 4], configure_url None
 ```
 
-The existing contract test (`tests/portal_unit/test_contracts.py`) only uses list-shaped options, so it never caught this. The same projection feeds the catalog cards, the product page, readiness checks and spec downloads, so the downgrade shows up everywhere.
+### 3.2 Other conditions to check on staging (the pilot list is not one of them)
 
-### 3.2 Other gates that can also hide the configurator (check each on the live site)
+1. `is_configurable` defaults to **0** on products created by hand in Desk.
+2. The product's template link field must be set (`fixture_template`, `tape_neon_template` or `led_sheet_template`). The template existing in the system is not enough.
+3. The template's `is_active` is not checked by the projection, but `configure.py` lists only active templates.
+4. `ill_portal_enabled_families`, if it is ever set, hides any family it does not list.
 
-1. **Pilot list.** If site config `ill_portal_pilot_users` is set, every dealer who is not in that list (and is not sales or engineering staff) gets `configure_available=False`, which means inquiry for every family. Likewise, `ill_portal_enabled_families` hides any family it does not name.
-2. **`is_configurable` defaults to 0** on `ilL-Webflow-Product`. Products created by hand in Desk (as opposed to `tools/fixture_builder`, which sets it to 1) are inquiry-only until someone ticks the box.
-3. **Missing template link.** `capability` requires `fixture_template` (when the product type is "Fixture Template"), `tape_neon_template` (tape/neon) or `led_sheet_template`. Fixture templates "existing in the system" is not enough: the Webflow product must link to them.
-4. **Inactive template.** The projection never checks the template's `is_active`. `configure.py` lists only active templates, so the page can link to a configurator that then has no matching template to select.
-5. **Families with no configurator path.** `TEMPLATE_FIELDS` covers only Linear, Tape, Neon and Sheet. Drivers, controllers and extrusion kits are never configurable from the catalog, even though `driver_controller_configurator.py` and `extrusion_kit_configurator.py` exist. The `/portal/configure-kit` routes in `hooks.py:110-111` point to a page, `configure_kit`, **that does not exist**, so they return 404.
-
----
-
-## 4. Target architecture (decisions)
-
-| Decision | Recommendation | Why |
-|---|---|---|
-| Where matching runs | **Server-side Python is the source of truth** (`portal/product_finder.py`). The React UI calls it for live option counts and final results. | Catalog filtering and quiz results must agree. Live ERP data cannot be shipped to the browser as a seed file. Python avoids a second copy of the logic in JS. |
-| Product data | Built from live `ilL-Webflow-Product` records: attribute links plus the linked templates. Cached and invalidated on save. | Replaces the tape-only offline seed. Covers linear, tape, neon and sheet. |
-| Answer → ERP value mapping | A versioned JSON file, `illumenate_lighting/config/product_finder/mapping.json`, plus a Desk coverage report (§6.6). | Reviewable in PRs and testable. A Desk-editable DocType is a possible later step (see §12). |
-| Questions and glossary | Move `questions.json` and `glossary.json` to `illumenate_lighting/config/product_finder/`. The Vite app imports them from there; Python reads the same files. | One source of truth for branching and validation on both sides. |
-| UI | Reuse the React app in a new **portal mode**. Build it as an IIFE and commit the output under `illumenate_lighting/public/product_finder/`. | Frappe Cloud runs `bench build` (esbuild) but does not run Vite or Tailwind. Committing the build output is how this app can ship. CI checks that the output is fresh. |
-| Quiz state | Extend `ilL-Configurator-Session`: autosave answers, store results, restrict access to the owner. | Supports resume, "Edit answers", and catalog URLs that do not carry answers in the query string. |
-| Catalog integration | `/portal/products?finder=<token>`. The catalog API restricts to the session's matched products and orders them by score. | Keeps the existing catalog UI and its filters. Dealers can refine further or clear the finder. |
-| Feature flag | Site config `ill_portal_product_finder` (read with `conf_flag`). | Allows a staged rollout, the same way `ill_portal_fixture_groups` works. |
+Phase 0 fixes 3.1 and adds tooling that surfaces 3.2 per product.
 
 ---
 
-## 5. Phase 0 — Product catalog fixes (ship first, independent)
+## 4. Architecture
 
-Each item lists the change, the files, and the tests.
+```
+            Desk (staff)                                   Portal (dealers)                 Webflow (public)
+ ┌───────────────────────────────┐         ┌──────────────────────────────────────┐   ┌──────────────────────┐
+ │ ilL-Product-Finder Settings   │         │ /portal (banner)                     │   │ Webflow page          │
+ │ ilL-Finder-Question (+options,│         │ /portal/product-finder  (React,      │   │ ill-configurator.js   │
+ │   conditions, value maps)     │         │     portal mode)                     │   │ (React, public mode)  │
+ │ ilL-Finder-Glossary-Term      │         │ /portal/products?finder=…            │   └─────────┬────────────┘
+ │ Coverage / Sessions reports   │         │ /portal/products/<slug>?finder=…     │             │ guest, CORS,
+ │ Verification queue            │         │ /portal/configure (chooser + 7       │             │ credentials:omit
+ └──────────────┬────────────────┘         │     families)                        │             │
+                │ definition + mappings    └───────────────┬──────────────────────┘             │
+                ▼                                          ▼                                    ▼
+      portal/product_finder/  (pure engine: definition loader, facts builder, matcher, verifier, prefill)
+                ▲                                          ▲                                    ▲
+   api/product_finder.py (portal, login)     api/product_catalog.py (finder-aware)   api/product_finder_public.py (guest)
+                │                                          │
+     ilL-Configurator-Session (answers, results)   ilL-Product-Verification-Request + schedule line flags
+```
 
-### C1. Accept metadata-shaped configurator options *(fixes §3.1)*
+Principles:
 
-- `api/product_projection.py`: let `allowed_values_json` be either a list of `str`/`dict` **or** a dict object (metadata such as `{"lensMap": …}`). Keep rejecting malformed JSON, scalars and lists of numbers.
-  - Mark metadata rows (dict-valued, or `option_step >= 90` such as 98 and 99) with `"metadata": true` in the projected `configurator_options`, so consumers do not render them as choices.
-  - **Do not** change the stored shape in `ill_webflow_product.py`. Webflow's part-number builder reads `lensMap` from the CMS.
-- Tests (`tests/portal_unit/test_contracts.py`):
-  - The real step-4 shape (`{"lensMap": {"WH": [...]}}`) projects as `configure` with a `configure_url`.
-  - Steps 98 and 99 (lists of dicts) project as configure.
-  - `"broken"`, `5` and `[1, 2]` still produce `INVALID_OPTIONS`.
-- Installed-site regression: save a Webflow product linked to a seeded fixture template with tape offerings. Assert `get_catalog_product_detail` returns `capability == "configure"`.
+- **One matching engine, in Python.** The portal UI, the public UI and the catalog all call it, so results never disagree.
+- **Content and mappings are data, in Desk.** Engineers own the **facet registry** in code: which product facts exist and how they are read from ERP. Staff own the questions and the mappings to those facets.
+- **Verification is decided on the server, never by the client.** The client cannot clear a verification flag.
 
-### C2. Explain why a product is not configurable
+---
 
-- Add `capability_reason` to the projection: `inactive`, `not_configurable`, `missing_template`, `inactive_template`, `invalid_options:<step>`, `family_not_enabled`, or `pilot_only`. `rollout.available` must return the reason as well as the boolean, so add a `rollout.reason(family)` helper.
-- In `product_detail.js`, inquiry mode: dealers still see the friendly message. Staff (`frappe.boot`/context flag `is_staff`) also see the reason and a link to the Desk record (`/app/ill-webflow-product/<name>`).
-- Tests: one unit test per reason, and a DOM test that staff see the reason and dealers do not.
+## 5. Phase 0 — Product catalog fixes (first PR, independent)
 
-### C3. Check that the linked template is active
+Each fix lists the files, the change and the tests. Every fix includes its tests.
 
-- In `get_catalog_products` and `get_catalog_product_detail`, fetch the `is_active` flag of the linked templates (one batched `frappe.get_all` per template DocType) and pass `template_active` into `project_product`. An inactive template gives `capability_reason = inactive_template`.
+### C1. Metadata-shaped configurator options (root cause)
 
-### C4. Data repair and a coverage report
+- `api/product_projection.py`: allow `allowed_values_json` to be a list of `str`/`dict` **or** a dict object.
+  - Project dict-valued rows, and rows with `option_step >= 90`, with `"metadata": true`.
+  - Malformed JSON, scalars and lists of numbers still produce `INVALID_OPTIONS`.
+  - The stored shape stays the same, because Webflow reads `lensMap`.
+- Tests in `tests/portal_unit/test_contracts.py`:
+  - The real step-4 lensMap row → `configure` with a URL.
+  - Step-98 and step-99 rows → `configure`.
+  - `"broken"`, `5` and `[1,2]` → `inquiry`.
+- Installed-site test: a product saved against a seeded fixture template with tape offerings → `get_catalog_product_detail().product.capability == "configure"`.
 
-- New Desk report **"Catalog Configurability"** (Script Report under `illumenate_lighting/report/`). It lists every active Webflow product with family, template link, template active flag, `is_configurable`, capability and `capability_reason`.
-- One-off, idempotent patch `patches/link_configurable_catalog_products.py`. For each active `ilL-Fixture-Template`, `ilL-Tape-Neon-Template` and `ilL-LED-Sheet-Template` whose `webflow_product` back-link points at a product, make sure that product has the matching template field set and `is_configurable = 1`, then save it so `before_save` regenerates its options. The patch should **log** what it changes and skip inactive products. Have staff review a dry run (a bench execute function with `dry_run=1`) before the patch is registered.
-- Runbook: check `bench --site <site> show-config` (or Frappe Cloud → Site Config) for `ill_portal_pilot_users` and `ill_portal_enabled_families`. Remove them, or add every dealer family, before launch.
+### C2. `capability_reason`
 
-### C5. Numeric filter values break filtering
+- The projection returns one of: `ok`, `inactive`, `not_configurable`, `missing_template`, `inactive_template`, `invalid_options:<step>`, `family_not_enabled`.
+- Add `rollout.reason(family)`, which returns the reason as well as `available(family)`.
+- `product_detail.js`: dealers see the friendly message. Staff (`is_staff` in the page context) also see the reason and a Desk link `/app/ill-webflow-product/<name>`.
 
-- `product_catalog.js:146-147` reads filter values with jQuery `.data('val')`. jQuery converts numeric-looking strings such as `"90"` (CRI) or `"24"` into numbers. The API then rejects the filters ("Choose up to 20 filters…") and the grid shows "Products unavailable".
-- Fix: use `this.getAttribute('data-val')` / `data-attr`, and the same for `data-type` on the product-type tabs.
-- DOM test: tick a facet whose value is `"90"`. The request should send `["90"]` as a string.
+### C3. Check that templates are active
 
-### C6. Unknown query parameters become attribute filters
+- One batched `frappe.get_all` per template DocType inside `get_catalog_products` and `get_catalog_product_detail`. Pass `template_active` into `project_product`.
 
-- `readUrlState` (`product_catalog.js:43`) treats every parameter except `q`, `type` and `page` as an attribute filter. `?utm_source=…`, `?finder=…` and `?schedule=…` all turn into filters that match nothing.
-- Fix: accept only attribute types that exist in `get_catalog_filter_options` (apply them after the filter metadata loads), plus `series` and `product_category`. Reserve `finder`, `schedule`, `line_key` and `line_idx` as context parameters that are carried through to product links.
-- DOM test: `?utm_source=x&CCT=3000K` sends only the CCT filter.
+### C4. Configurability report and repair
 
-### C7. Facet counts ignore the current filters
+- New Script Report **Catalog Configurability**: product, family, template link, template active, `is_configurable`, capability, reason.
+- `bench execute illumenate_lighting.illumenate_lighting.portal.catalog_repair.link_configurable_products --kwargs "{'dry_run': 1}"`.
+  - For each active template whose `webflow_product` back-link points to a product, it ensures the product's template field is set and `is_configurable = 1`.
+  - It then saves the product, which regenerates its options, and prints every change.
+  - Run it on staging with `dry_run=0` after staff review the dry-run output.
 
-- `get_catalog_filter_options` returns global counts, so a dealer can tick a value that has a count but produces zero results.
-- Fix: accept the same `filters`, `search` and `finder` arguments and compute disjunctive facets: counts for each group apply every *other* active group. Hide options with zero count unless they are selected.
+### C5. jQuery `.data()` turns numeric labels into numbers
 
-### C8. Labels and calls to action dealers can act on
+- `product_catalog.js:146-147`: use `getAttribute('data-attr' | 'data-val' | 'data-type')`.
+- DOM test: a facet value `"90"` is sent as the string `["90"]`.
 
-- Product-type tabs and badges show the raw value "Fixture Template". Map it to **"Linear Fixtures"** for display (keep the value). Use the same label map on cards and the product page.
-- Catalog cards: configurable products get a **"Configure"** primary button linking to `/portal/products/<slug>#configure`, which scrolls to and focuses the action panel. Others get **"Add to schedule"**. Both keep "View details".
+### C6. Unknown query parameters become filters
 
-### C9. Guests and non-dealers get an error page
+- `readUrlState()` accepts only attribute types present in the filter metadata, plus `series` and `product_category`.
+- Reserved context parameters `finder`, `schedule`, `line_key`, `line_idx` and `draft` are carried into product links instead.
+- DOM test: `?utm_source=x&CCT=3000K` sends only CCT.
 
-- `products_catalog.py` and `product_detail.py` call `frappe.throw` for Guest users. Copy the redirect pattern from `configure.py`: send guests to `/login?redirect-to=<current url>`, and send users without catalog access to `/portal/request-dealer-access`.
+### C7. Context-aware facet counts
+
+- `get_catalog_filter_options(filters, search, finder)` computes disjunctive counts: each group applies every *other* active group.
+- Hide options with zero count unless they are selected.
+
+### C8. Labels and calls to action
+
+- Display "Fixture Template" as **Linear Fixtures**, and use family labels everywhere.
+- Cards for configurable products get a **Configure** button (`/portal/products/<slug>#configure`, which focuses the action panel). Quantity products get **Add to schedule**. All keep **View details**.
+
+### C9. Guest and non-dealer handling
+
+- `products_catalog.py` and `product_detail.py`: send guests to `/login?redirect-to=…` and users without catalog access to `/portal/request-dealer-access`, the same as `configure.py`.
 
 ### C10. Navigation
 
-- Add **Products** to `portal_navigation.html` (shown when `can_view_catalog`). When the flag is on, also add **Product Finder**.
+- `portal_navigation.html`: add **Products** when `can_view_catalog`, and **Product Finder** when Settings has `portal_enabled` on.
 
-### C11. Product page with no schedule to add to
+### C11. Product page with no schedule
 
-- When `standard_products.prepare` returns no editable schedules, the form becomes a dead end ("No editable schedules found").
-- Add a **"New project / schedule"** inline flow using the existing `api.portal.create_project` and `api.portal.create_schedule`, then select the new schedule.
-- Remember the last schedule used (`localStorage` key `ill-last-schedule`, wrapped in try/catch) and preselect it.
+- Inline **New project / schedule** using `api.portal.create_project` and `create_schedule`, which then selects the new schedule.
+- Remember the last schedule used in `localStorage` (`ill-last-schedule`, inside try/catch).
 
-### C12. Dead `/portal/configure-kit` routes
+### C12. Dead kit routes
 
-- Remove both rules from `hooks.py` (kits are added as accessory lines today), **or** build the page around `extrusion_kit_configurator.py`. Recommendation: remove them now and track a kit configurator separately.
+- Replace the `/portal/configure-kit` rules with a redirect to `/portal/configure?category=Extrusion%20Kit`, which exists after §13.
 
-### C13. Quiz handoff pre-fill uses labels where codes are expected
+### C13. Quiz pre-fill uses labels where codes are expected
 
-- `shared_configurator.js:40-46` maps handoff values such as `moisture=Damp` or `cct=3000K` onto `environment_rating_code` and `cct_code`. The configurator's selects use **attribute codes**, so the pre-fill most likely does nothing. Confirm this in the browser.
-- Fix as part of §9: resolve answers to template-valid codes **on the server** (`product_finder.prefill_for_template`) and pass them in `initial_request.selections`. Keep accepting the raw parameters for old Webflow links.
+- `shared_configurator.js:40-46` maps label values (`moisture=Damp`) onto `*_code` fields, so the pre-fill most likely does nothing.
+- Replaced by the server-side `prefill_for_template()` in §12.3. Legacy parameters are converted on the server too.
 
-### C14. Small robustness items
+### C14. Robustness
 
-- Product page: `window.crypto.randomUUID` needs a secure context. Fall back to `frappe.utils.get_random(16)` when it is missing.
-- Catalog: add `aria-live` result-count updates, and give the active filter chips a removable "x".
+- Fall back to `frappe.utils.get_random(16)` when `crypto.randomUUID` is missing.
+- Catalog result counts get `aria-live`.
+- Active filter chips become removable.
+
+### C15. Kit save trusts the client (security, required before §13)
+
+- `extrusion_kit_configurator.save_kit_to_schedule` must stop trusting `configuration_result`.
+- New service `portal/kit_configuration.save(schedule_name, selections, idempotency_key, expected_modified, line_key=None, metadata=None, finder=None)`:
+  - Re-runs `validate_kit_configuration(selections)` on the server.
+  - Computes pricing on the server.
+  - Uses `schedule_context(write=True, lock=True)`, the same receipt and idempotency pattern as `portal/configuration.save`, and catalog access checks.
+- The old endpoint stays for the Desk dialog but re-validates the same way.
 
 ---
 
-## 6. Phase 1 — Product Finder backend
+## 6. Phase 1 — Finder content managed in Desk
 
-### 6.1 Module layout
+### 6.1 DocTypes
 
-```
-illumenate_lighting/config/product_finder/
-    questions.json        # moved from tools/configurator_ui/src/content/
-    glossary.json         # moved from tools/configurator_ui/src/content/
-    mapping.json          # NEW: answer value -> ERP attribute values / rules
-illumenate_lighting/illumenate_lighting/portal/product_finder.py   # pure engine
-illumenate_lighting/illumenate_lighting/api/product_finder.py      # whitelisted endpoints
-```
+All of them go in module **Illumenate Lighting**. Permissions: **System Manager** and a new role **Product Finder Manager** get full access. Sales and engineering staff can read.
 
-### 6.2 `mapping.json`: answers to ERP data
+#### `ilL-Product-Finder Settings` (Single)
 
-One entry per question. Each entry names the facet it reads from a product and how to compare:
+| Field | Type | Notes |
+|---|---|---|
+| `portal_enabled` | Check | Turns on the portal finder, the banner and the nav link. |
+| `public_enabled` | Check | Turns on the guest endpoints for Webflow. |
+| `public_brands` | Table MultiSelect → `ilL-Child-Webflow-Brand-Target` | Which brands may call the public API. |
+| `banner_enabled` | Check | |
+| `banner_headline` | Data | Default: "Not sure which fixture fits your project?" |
+| `banner_text` | Small Text | Default: "Answer a few picture-guided questions and we'll show you the products that fit." |
+| `banner_image` | Attach Image | |
+| `banner_cta_label` | Data | Default: "Start the Product Finder" |
+| `verification_title` | Data | Default: "Most likely a fit — our team will confirm" |
+| `verification_text` | Small Text | Default copy in §14.2. Supports `{reasons}`. |
+| `default_unknown_policy` | Select: Verify / Exclude / Include silently | Default **Verify** (decision 1). |
+| `verification_gate` | Select: Before quote is issued and order is placed / Before order only / Warning only | Default: the first option. |
+| `verification_assignee_role` | Link Role | Who gets the queue. Default: the sales capability. |
+| `results_limit` | Int | Default 60. |
+| `session_expiry_days` | Int | Default 30. Guest sessions expire after 7 days. |
+| `definition_version` | Int, read-only | Bumped on any content change. Used for caches and session staleness. |
 
-```jsonc
+#### `ilL-Finder-Question` (one record per question; name `field:question_key`)
+
+| Field | Type | Notes |
+|---|---|---|
+| `question_key` | Data, unique | For example `moisture`. Must be a valid identifier. |
+| `is_active` | Check | |
+| `sequence` | Int | Order in the quiz. |
+| `families` | Table → `ilL-Child-Finder-Family` (`family` Select: Any, Linear Fixture, LED Tape, LED Neon, LED Sheet, Extrusion Kit, Driver, Controller). A plain grid, because Table MultiSelect needs a Link field. | Which product-type paths ask this question. |
+| `short_label` | Data | Side-nav label. |
+| `label` | Data | The question text. |
+| `tooltip` | Small Text | Always-visible short help. |
+| `learn_more` | Text Editor | Expandable long help. |
+| `glossary_term` | Link `ilL-Finder-Glossary-Term` | Optional shared term. |
+| `question_type` | Select: Family chooser / Single / Multi / Number / Range / Info | |
+| `required` | Check | |
+| `number_min`, `number_max`, `number_step`, `unit`, `placeholder`, `range_default_low`, `range_default_high` | Float/Data | For Number and Range questions. |
+| `facet` | Select (registry, §7.1) | The product fact this question tests. Empty means display only. |
+| `match_mode` | Select: Hard / Soft / Rank only / None | |
+| `comparison` | Select: Any of / Meets or exceeds (rank) / At least (number) / Within band (number) / Range covers | |
+| `unknown_policy` | Select: Use default / Verify / Exclude / Include silently | |
+| `relax_priority` | Int | Soft questions only. Lower numbers are relaxed first (CRI 10, CCT 20, lumens 30). |
+| `verification_reason_template` | Data | For example "IP rating {answer} on this product". |
+| `options` | Table → `ilL-Child-Finder-Option` | |
+| `conditions` | Table → `ilL-Child-Finder-Condition` | |
+| `value_maps` | Table → `ilL-Child-Finder-Value-Map` | Answer → ERP mapping. |
+
+`ilL-Child-Finder-Option`
+
+| Field | Type | Notes |
+|---|---|---|
+| `value` | Data | Stored answer value. Unique per question. |
+| `label` | Data | |
+| `description` | Small Text | One line under the label, for beginners. |
+| `image` | Attach Image | Option picture. Falls back to `swatch_color`. |
+| `swatch_color` | Data | Hex value or CSS gradient (validated). |
+| `glossary_term` | Link | |
+| `note` | Data | For example "Limited availability". |
+| `is_featured` | Check | Rendered as the large card (Linear Fixture). |
+| `badge_text` | Data | For example "Most popular — not sure? Start here". |
+| `rank` | Int | For meets-or-exceeds comparisons (Dry 0 / Damp 1 / Wet 2; IP65 0 / IP67 1 / IP68 2). |
+| `numeric_min`, `numeric_max` | Float | Lumen bands, CRI minimum, wattage. |
+| `routes_to` | Select: (none) / Catalog only | For example, "Accessories & parts" goes straight to the filtered catalog. |
+| `is_active` | Check | |
+
+`ilL-Child-Finder-Condition` (question-level and option-level visibility, replacing `visibleWhen`, `skipWhen` and `hideWhen`)
+
+| Field | Type | Notes |
+|---|---|---|
+| `applies_to` | Select: Show question when / Skip question when / Hide option when | |
+| `option_value` | Data | Required for "Hide option when". |
+| `group` | Select: All / Any | How rows with the same `applies_to` and `option_value` combine. |
+| `depends_on_question` | Link `ilL-Finder-Question` | Must come earlier in `sequence` (validated, which prevents cycles). |
+| `operator` | Select: equals / not equals / in / > / ≥ / < / ≤ / answered / not answered | |
+| `value` | Data | Comma-separated for `in`. |
+
+`ilL-Child-Finder-Value-Map` (the Desk-maintained mapping, decision 2; same pattern as `ilL-Child-Driver-Allowed-Option`)
+
+| Field | Type | Notes |
+|---|---|---|
+| `option_value` | Data | Must equal one of the question's option values (validated). |
+| `attribute_doctype` | Select (limited to the facet's allowed DocTypes, §7.1) | |
+| `attribute_value` | Dynamic Link → `attribute_doctype` | So staff can only pick real ERP records. |
+| `notes` | Data | |
+
+`ilL-Finder-Glossary-Term`: `term_key` (unique), `label`, `tooltip`, `learn_more` (Text Editor), `references` (Small Text).
+
+### 6.2 Validation (controllers)
+
+- Option values must be unique per question. A Family chooser question must have exactly one active instance and the lowest `sequence`.
+- Conditions may reference only earlier, active questions. Operators must suit the referenced question's type.
+- Value maps: `option_value` must exist on the question, and `attribute_doctype` must be allowed by the facet registry. A facet with a `derive` rule (for example, light type from `LED Package.spectrum_type`) does not need value maps.
+- `swatch_color` must match a hex or `linear-gradient(...)` pattern before it is rendered into a style attribute.
+- `on_update` and `on_trash` of every finder DocType bump `definition_version` and clear the `ill_product_finder:*` cache keys.
+
+### 6.3 Desk experience
+
+- **Workspace "Product Finder"** with shortcuts: Settings, Questions (list sorted by sequence, showing families, mode, active), Glossary, Coverage report, Verification queue and Sessions report.
+- On the question form:
+  - The **Preview matches** button opens a dialog. Staff pick answers for this and earlier questions, and see the match, verify and excluded counts per family plus the first 20 products.
+  - **Coverage for this question** lists facet values found on products that have no mapping.
+- On Settings, the **Open preview** button opens `/portal/product-finder?preview=1`. Staff only. It includes inactive questions, labelled "Draft".
+
+### 6.4 Seeding (patch `patches/seed_product_finder.py`, idempotent)
+
+- Copy seed content into the app package so the patch does not depend on `tools/` at runtime: `illumenate_lighting/illumenate_lighting/product_finder/seed/{questions.json,glossary.json}`.
+- Option images are converted to WebP at 400 px and served from `/assets/illumenate_lighting/product_finder/options/*.webp`. Option `image` fields store that URL. Staff can upload a replacement.
+- The patch creates the family chooser (§9.1), the family question sets (§9.2) and the glossary terms.
+- **Best-effort value maps.** For each option, match its label case-insensitively against the facet's attribute DocType names, labels and codes, with synonyms (Silver ↔ Anodized Silver, Drywall ↔ Plaster-In). Anything unresolved is left empty and appears in the Coverage report.
+- It sets `portal_enabled = 0` and `public_enabled = 0`. Staff turn them on after reviewing coverage.
+
+---
+
+## 7. Phase 2 — Matching engine
+
+Package: `illumenate_lighting/illumenate_lighting/portal/product_finder/` with modules `definition.py`, `facets.py`, `facts.py`, `matcher.py`, `prefill.py` and `sessions.py`.
+
+### 7.1 Facet registry (`facets.py`, owned by engineering)
+
+| Facet | Families | Value type | Source | Allowed mapping DocTypes |
+|---|---|---|---|---|
+| `family` | all | set | `product_type` → family alias | — |
+| `application` | all | set | `product_category` (ilL-Webflow-Category) | ilL-Webflow-Category |
+| `environment_rating` | Linear, Tape, Neon, Kit | rank | Attribute links "Environment Rating"; template allowed options | ilL-Attribute-Environment Rating |
+| `ip_rating` | Tape, Neon, Sheet | rank | Tape/neon allowed options (IP Rating), `ilL-Spec-LED Sheet`. **Linear: unknown → Verify.** | ilL-Attribute-IP Rating |
+| `light_type` | Linear, Tape, Neon, Sheet | set | **Derived** from `ilL-Attribute-LED Package.spectrum_type`: Static White → Static white; Tunable White → Tunable white; Dim to Warm → Dim-to-warm; RGB / RGB+W / RGBW / RGB+TW / RGBTW → Full-color | ilL-Attribute-LED Package (override map) |
+| `color_mode` | Linear, Tape, Neon | set | LED Package `is_pixel` → "Addressable pixel"; full-color non-pixel → "Analog RGB/RGBW" | ilL-Attribute-LED Package |
+| `cct` | Linear, Tape, Neon, Sheet | set of kelvin | Attribute links CCT → `ilL-Attribute-CCT.kelvin` | ilL-Attribute-CCT |
+| `cct_range` | Tunable products | min/max kelvin | Min/max kelvin of the CCTs | — |
+| `cri_min` | Linear, Tape, Neon, Sheet | number | Attribute links CRI → `ilL-Attribute-CRI.minimum_ra` | ilL-Attribute-CRI |
+| `lumens_per_ft` | Linear, Tape, Neon | set of numbers | Output Level → `ilL-Attribute-Output Level.value` (fixture-level for linear) | — |
+| `mounting_method` | Linear, Kit | set | Attribute links / kit allowed options | ilL-Attribute-Mounting Method |
+| `lens_appearance` | Linear, Kit | set | Attribute links / kit allowed options | ilL-Attribute-Lens Appearance |
+| `finish` | Linear, Neon, Kit | set | Template / kit allowed options | ilL-Attribute-Finish |
+| `dimming_protocol` | Linear, Tape, Neon, Sheet, Driver (input), Controller (output) | set | Attribute links "Dimming Protocol"; driver input protocols; controller output protocols | ilL-Attribute-Dimming Protocol |
+| `output_voltage` | Tape, Driver | set | Attribute links "Output Voltage"; `ilL-Spec-Driver.voltage_output` | ilL-Attribute-Output Voltage |
+| `driver_wattage` | Driver | number (max over variants) | `ilL-Spec-Driver.max_wattage × usable_load_factor` | — |
+| `controller_type` | Controller | set | `ilL-Spec-Controller.controller_type` | — (Select values) |
+| `channels`, `zones` | Controller | number | Controller spec | — |
+| `wireless_protocol` | Controller | set | Controller spec wireless protocols | (that protocol DocType) |
+| `controller_mounting` | Controller | set | `mounting_type` | — |
+
+Adding a facet is a code change and a PR. Mapping values onto it is Desk work.
+
+### 7.2 Product facts (`facts.py`)
+
+- `build_facts()` reads all active `ilL-Webflow-Product` records with `capability in (configure, quantity)`, in batched queries (no per-product `get_doc` in a loop). It joins attribute links, templates and their allowed options, specs and the attribute masters.
+- Each product gets a dict: `{name, slug, family, image, title, short_description, facets: {facet: value | None}, sources: {facet: "attribute_link" | "template" | "derived"}}`. `None` means **unknown**.
+- Cache key: `ill_product_finder:facts:<definition_version>:<catalog_stamp>`. `catalog_stamp` is the max `modified` across Webflow products, templates and specs, computed cheaply. TTL is 1 hour.
+- `doc_events` on those DocTypes clear the key. Reuse the existing `webflow_sync_events.on_attribute_update` hook entries and add Webflow product and template hooks.
+- The rollout gate is applied per request, so the shared cache never leaks capability across users.
+
+### 7.3 Matching (`matcher.py`)
+
+`match(definition, answers, *, user_scope) -> Result`
+
+1. `answers = prune(definition, answers)`. Use the same visibility semantics as `engine.js`, against the Desk conditions.
+2. Restrict to the families chosen in the family question. "Not sure" counts as Linear Fixture.
+3. For each product and each answered question with a facet:
+   - **Hard:** comparison passes → keep. Fails → exclude, and record `{question, answer, reason}` for "why excluded". **Facet unknown** → apply `unknown_policy` (default **Verify**): keep the product and append a verification reason, rendered from `verification_reason_template`, for example "IP67 rating".
+   - **Soft:** pass or fail is recorded for scoring. Unknown counts as a neutral pass plus a verification reason, if the policy is Verify.
+4. Scoring is ported from `recommend.js`:
+   - Base 50.
+   - Lumens band within → +20, otherwise a closeness score.
+   - CCT pass +12 / fail −6.
+   - CRI pass +10 / fail −8.
+   - Finish/lens pass +4 each.
+   - **Verification needed −5**, so verified matches rank first when scores are otherwise equal.
+   - Clamp to 0–100.
+5. **Relaxation:** if no product passes every soft check, drop soft questions in `relax_priority` order until some survive, and report the relaxed labels.
+6. **Companions:** compatible drivers (dimming protocol plus output voltage), controllers for the chosen protocol, and `compatible_products` rows of the top 10 matches, de-duplicated. Each companion carries a reason ("Powers 24 V tape with 0-10V dimming").
+7. Return:
+
+```python
 {
-  "version": 1,
-  "families": ["Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"],
-  "questions": {
-    "moisture":   {"facet": "environment_rating", "mode": "hard", "compare": "rank_gte",
-                    "rank": {"Dry": 0, "Damp": 1, "Wet": 2},
-                    "erp": {"Dry": ["Dry"], "Damp": ["Damp"], "Wet": ["Wet"]}},
-    "ip_rating":  {"facet": "ip_rating", "mode": "hard", "compare": "rank_gte",
-                    "rank": {"IP65": 0, "IP67": 1, "IP68": 2}, "unknown": "include_with_warning"},
-    "light_type": {"facet": "light_type", "mode": "hard", "compare": "in",
-                    "derive_from": {"LED Package": {"Static White": "Static white", "Full Spectrum": "Static white",
-                                                      "Tunable White": "Tunable white", "Dim to Warm": "Dim-to-warm",
-                                                      "RGB": "Full-color", "RGBW": "Full-color", "Pixel": "Full-color"}}},
-    "installation_method": {"facet": "mounting_method", "mode": "hard", "compare": "any",
-                    "erp": {"Surface": ["Surface"], "Recessed": ["Recessed"], "Angled": ["Angled", "Corner"],
-                            "Drywall-plaster-in": ["Plaster-In", "Trimless"], "Suspended": ["Suspended", "Pendant"]}},
-    "dimming_protocol": {"facet": "dimming_protocol", "mode": "hard", "compare": "any"},
-    "cri":        {"facet": "cri_min", "mode": "soft", "compare": "gte", "erp": {"90+": 90, "95+": 95}},
-    "fixture_purpose": {"facet": "lumens_per_ft", "mode": "soft", "compare": "band", "bands": "lumensBands"},
-    "diffuser":   {"facet": "lens_appearance", "mode": "soft", "compare": "any",
-                    "erp": {"Clear": ["Clear"], "Frosted": ["Frosted"], "White": ["White"], "Black": ["Black"]}},
-    "finish":     {"facet": "finish", "mode": "soft", "compare": "any",
-                    "erp": {"Silver": ["Anodized Silver", "Silver"], "Black": ["Black"], "White": ["White"]}}
-  }
+  "matches": [{"name", "score", "reasons": [...], "tradeoffs": [...], "verify": [...], "best": bool}],
+  "companions": [{"name", "relation"}],
+  "relaxed": ["CRI requirement"],
+  "counts": {"match": 7, "verify": 3, "excluded": 41, "by_family": {...}},
+  "no_hard_match": False,
+  "eliminated_by": None,
 }
 ```
 
-The ERP strings above are **placeholders**. Fill them in from the real `ilL-Attribute-*` names using the coverage report (§6.6) before launch. A unit test fails if any mapped ERP value is not in the attribute fixtures/seed used by the test site.
+`evaluate(definition, answers, question_key)` returns `{match_count, verify_count, option_counts: {value: {match, verify}}, disabled: [{value, reason}]}` for the question being answered. It caches per `(definition_version, catalog_stamp, normalized answers)` for 10 minutes.
 
-### 6.3 Product facts (`product_finder.product_facts()`)
+### 7.4 Pre-fill (`prefill.py`)
 
-For each active `ilL-Webflow-Product` in the finder families, build one dict:
-`name, slug, family, template, capability, environment_rating[], ip_rating, light_type[], color_modes[], dimming_protocol[], mounting_method[], lens_appearance[], finish[], cri_min, cct_available[], cct_tunable_min/max, lumens_per_ft[] (delivered), input_voltage, product_category`.
+`prefill_for_template(family, template, answers) -> {selections, unmatched: [...]}` maps answers to **codes the template allows** for each family:
 
-Sources, in order of preference:
-1. `attribute_links` (Environment Rating, LED Package, CCT, CRI, Dimming Protocol, Mounting Method, Lens Appearance, Output Level, Output Voltage). These are already populated by `populate_attribute_links()`.
-2. The linked template, for anything attribute links do not carry: allowed options, tape offerings, and the IP rating for neon.
-3. Numeric values from the attribute masters: `ilL-Attribute-Output Level.value` and the CRI minimum.
+| Family | Selections it can fill |
+|---|---|
+| Linear | `environment_rating_code`, `cct_code`, `lens_appearance_code`, `finish_code`, `mounting_method_code`, `led_package_code`; `delivered_output_value` from the lumen band |
+| Tape / Neon | `environment_rating`, `cct`, `output_level`, `finish` |
+| Sheet | CCT and IP |
+| Kit | finish, lens, mounting |
+| Driver | `voltage_output`, `input_protocol`, smallest `wattage` ≥ requirement |
+| Controller | `controller_type`, `output_protocol`, `wireless_protocol`, `mounting_type` |
 
-**Cache:** `frappe.cache().get_value("ill_product_finder_facts")`. Clear it in `doc_events` `on_update`/`on_trash` for `ilL-Webflow-Product`, the three template DocTypes and the attribute masters that already have `on_attribute_update` hooks (`hooks.py:331-351`). Also set a 1-hour TTL as a backstop.
-
-Only products with `capability in ("configure", "quantity")` for the **current user** are eligible. The final filter runs per request, so the rollout gate still applies.
-
-### 6.4 Matching (`product_finder.match(answers)`)
-
-Port the semantics of `recommend.js`, driven by `mapping.json`:
-
-1. `prune_hidden_answers(answers)`: same rules as `engine.js`, evaluated against the shared `questions.json`.
-2. Hard filters. Products whose facet is **unknown** follow the question's `unknown` policy: `exclude` (the default) or `include_with_warning`. This avoids silently hiding products whose IP data is missing.
-3. Soft checks and scoring: CRI, CCT, lumen band, diffuser and finish. Relax CRI, then CCT, then lumens when nothing passes. Return `relaxed` labels.
-4. Output: `{matches: [{name, score, reasons[], tradeoffs[]}], relaxed[], no_hard_match, counts_by_family}`.
-5. **Companions** (the "add accessory or other product" part of the request):
-   - drivers whose `Dimming Protocol` and `Output Voltage` facets match the answers,
-   - controllers for the chosen protocol (DMX/SPI/DALI),
-   - every `compatible_products` row of the top matches.
-   Return them as `companions: [{name, relation}]`. They are not scored.
-
-`evaluate(answers, next_question_id)` returns `{match_count, option_counts: {value: n}, disabled: [values]}` for the question being answered. The UI uses it to show "12 products" on each option card and to grey out options that would eliminate everything. This replaces `optionWouldEliminateAll`, which ran against the offline seed.
-
-### 6.5 Session model: extend `ilL-Configurator-Session`
-
-| Field | Type | Purpose |
-|---|---|---|
-| `product_type` | Select | Make it optional and add `Mixed` (the finder spans families). |
-| `source` | Select `Portal` / `Webflow` | Analytics, and to keep the old Webflow handoff working. |
-| `questions_version` | Data | The version of `questions.json` the answers were given against. |
-| `quiz_answers` | JSON (was Long Text) | Answers, validated and size-capped (16 KB). |
-| `result_json` | JSON | The `match()` output saved at completion: names, scores, reasons, relaxed. |
-| `result_computed_at` | Datetime | Recompute if older than the facts cache. |
-| `completed_on` | Datetime | |
-| `status` | Select | `Active` → `Completed` → `Used` (configured or added to a schedule) / `Expired`. |
-
-- **Permissions:** add `Dealer` and the internal portal roles with read/write on records they own (`if_owner`), plus `permission_query_conditions` and a `has_permission` hook limiting reads to `user == session user` (System Manager and sales staff excepted). Every API call resolves the session by token **and** owner.
-- **Expiry:** a daily scheduler job marks sessions untouched for 30 days as `Expired`.
-- Fix `api/configurator_session.save_session`: reject Guest, validate `quiz_answers` as JSON within the size limit, and stop the explicit `frappe.db.commit()` (let the request commit).
-
-### 6.6 Desk report: "Product Finder Coverage"
-
-For each active product in the finder families: which facets are populated, which ERP values have no entry in `mapping.json`, which `LED Package` values cannot be mapped to a light type, and capability plus reason (shared with C4). This is the go-live checklist for data.
-
-### 6.7 Whitelisted endpoints (`api/product_finder.py`)
-
-All of them require login, `require_catalog_access()` and `conf_flag("ill_portal_product_finder")`.
-
-| Method | Verb | Purpose |
-|---|---|---|
-| `get_definition()` | GET | Questions, glossary, lumen bands and `questions_version`, so the bundle and server cannot drift. |
-| `start()` | POST | Creates a session and returns its `token`. |
-| `get_session(token)` | GET | Answers and status, for resume and "Edit answers". |
-| `save_answers(token, answers)` | POST | Debounced autosave from the UI. Validates against the schema. |
-| `evaluate(answers, question_id)` | POST | Live option counts (§6.4). Rate-limited with `frappe.rate_limiter` at 120/min per user. |
-| `complete(token)` | POST | Runs `match`, stores `result_json`, sets `Completed`, returns `{catalog_url}`. |
-| `dismiss_banner()` | POST | Stores the user default `ill_finder_banner_dismissed=1`. |
-
-Validation rejects unknown question IDs, option values not in the question's options, numbers outside min/max, and ranges where low > high.
+It never invents a value that is not in the template's allowed options.
 
 ---
 
-## 7. Phase 2 — Finder UI in the portal
+## 8. Phase 3 — Sessions, APIs and security
 
-### 7.1 Page
+### 8.1 Extend `ilL-Configurator-Session`
 
-- Route in `hooks.py`: `{"from_route": "/portal/product-finder", "to_route": "product_finder"}`.
-- `templates/pages/product_finder.py`:
-  - Guest → login redirect.
-  - No catalog access → `/portal/request-dealer-access`.
-  - Flag off → redirect to `/portal/products`.
-  - Context: `session_token` (from `?session=` if the user owns it, otherwise none) and the `csrf_token`.
-- `product_finder.html` extends `templates/web.html`, includes `portal_navigation.html`, and renders `<div id="ill-configurator-root" data-ill-manual-mount></div>`. It loads `/assets/illumenate_lighting/product_finder/ill-configurator.{css,js}` and calls:
+| Field | Change |
+|---|---|
+| `user` | Becomes optional (empty for unclaimed guest sessions). |
+| `product_type` | Becomes optional; adds Extrusion Kit, Driver, Controller and Mixed. |
+| `source` | New. Select: Portal / Webflow. |
+| `brand` | New. Link ilL-Webflow-Brand (public only). |
+| `definition_version` | New. Int. |
+| `quiz_answers` | Changes from Long Text to **JSON**. Validated and capped at 16 KB. |
+| `result_json` | New. JSON (matches, companions, relaxed, counts). |
+| `result_computed_at`, `completed_on`, `claimed_on` | New. Datetime. |
+| `status` | Becomes `Active` → `Completed` → `Used` / `Expired`. |
+
+- **Permissions:** add `has_permission` and `permission_query_conditions` hooks. Users see only their own sessions. Product Finder Manager, System Manager and sales staff see all.
+- The portal API always resolves a session by `session_token` **and** `user == session.user`. Guest access works only through the public API with a guest token, and only while `user` is empty.
+- **Scheduler (daily):** mark user sessions untouched for `session_expiry_days` and unclaimed guest sessions older than 7 days as `Expired`. Delete expired guest sessions after 30 more days.
+- `api/configurator_session.save_session` and `get_latest_session` become thin wrappers over the new service. They reject Guest and drop the explicit `frappe.db.commit()`.
+
+### 8.2 Portal API (`api/product_finder.py`)
+
+Every endpoint requires login, `require_catalog_access()` and `portal_enabled`.
+
+| Endpoint | Verb | Purpose |
+|---|---|---|
+| `get_definition(preview=0)` | GET | Active questions in sequence, options, conditions, glossary, version and Settings copy (banner, verification text). `preview=1` is staff only and includes drafts. |
+| `start(import_answers=None)` | POST | New session → `{token}`. |
+| `get_session(token)` | GET | Answers, status, stale flag. |
+| `save_answers(token, answers)` | POST | Autosave, validated against the definition. Rate limit 60/min/user. |
+| `evaluate(answers, question_key)` | POST | Live counts. Rate limit 120/min/user. |
+| `complete(token)` | POST | Runs `match`, stores the result, returns `{catalog_url, top: [...], counts}`. |
+| `claim(token)` | POST | Attaches an unclaimed guest session to the current user (decision 6). |
+| `dismiss_banner()` | POST | Sets user default `ill_finder_banner_dismissed = <definition_version>`. A new campaign version shows the banner again. |
+| `request_verification(token, product_slug, schedule=None, line_key=None, message=None)` | POST | Creates or reuses an `ilL-Product-Verification-Request` (§14.3). |
+
+**Answer validation:** keys must be known active question keys; values must be among the visible options; numbers within min/max; range low ≤ high; at most 40 keys and 16 KB. Invalid input → `frappe.ValidationError` with a field-level message.
+
+### 8.3 Public API (`api/product_finder_public.py`, decision 6)
+
+Every endpoint is `allow_guest=True`, requires `public_enabled`, and requires a brand from `public_brands`. CORS uses the existing `utils.after_request` and `ALLOWED_ORIGINS`.
+
+| Endpoint | Verb | Limit | Purpose |
+|---|---|---|---|
+| `get_definition(brand)` | GET | 60/min/IP | Same shape as the portal, with no staff fields. |
+| `evaluate(brand, answers, question_key)` | **GET** (answers JSON in the query, ≤ 4 KB) | 120/min/IP | Counts against **published** products only. |
+| `complete(brand, answers)` | POST | 10/min/IP | Creates a guest session (`source=Webflow`, `user` empty). Returns results with **no prices**: title, image, Webflow product URL (`webflow_brand.get_base_url(brand)` + collection slug + product slug), reasons and verification chips. Also returns `claim_url = <portal>/portal/product-finder?claim=<token>`. |
+
+- **Published** means: active, configurable or quantity capability, `target_brands` has the brand enabled, and that brand's `sync_targets` row is `Synced`.
+- The React app calls these with `credentials: 'omit'`. They therefore always run as Guest, which avoids Frappe's CSRF check for logged-in cookies on cross-origin POSTs.
+
+---
+
+## 9. Phase 4 — Product-type routing with Linear Fixture emphasis (decision 5)
+
+### 9.1 Question 1: "What are you looking for?" (Family chooser)
+
+| Option | Card | Subtitle | Behavior |
+|---|---|---|---|
+| **Linear Fixture** | **Large featured card** with a hero image and the badge "Most popular — not sure? Start here" | "A complete light: channel, lens and LED built to your length." | Linear question set |
+| LED Tape | Standard card | "Flexible LED strip for coves, shelves and under-cabinet." | Tape set |
+| LED Neon | Standard card | "Smooth, dot-free neon-style lines for signs and accents." | Neon set |
+| LED Sheet | Standard card | "Even backlighting panels for signs and countertops." | Sheet set |
+| Extrusion Kit | Standard card | "Channel, lens and end caps to pair with your own tape." | Kit set |
+| Power Supply (Driver) | Standard card | "Powers and dims your LED products." | Driver set |
+| Controller | Standard card | "Wall controls, wireless and DMX control." | Controller set |
+| Accessories & parts | Compact link | "Connectors, clips, end caps and more." | `routes_to = Catalog only`: goes straight to `/portal/products?type=Accessory,Component` |
+| "I'm not sure" | Text link under the Linear card | — | Selects Linear Fixture |
+
+Layout: on desktop the featured card spans two columns at the top, with a 3-column grid below. On mobile the featured card comes first at full width. Keyboard and screen-reader order matches the visual order.
+
+### 9.2 Seeded question sets per family (staff can edit all of them)
+
+| Family | Questions, in order (★ = new, ⚑ = unknown data falls back to Verify) |
+|---|---|
+| Linear Fixture | ★Where is it going (application) → indoor/outdoor → moisture → IP rating ⚑ (damp/wet) → light type → color mode (full color) → purpose (lumen band) → installation method → CCT range (tunable) → CRI → dimming protocol → diffuser → finish |
+| LED Tape | application → indoor/outdoor → moisture → IP rating → light type → color mode → purpose → CCT range → CRI → dimming protocol |
+| LED Neon | application → indoor/outdoor → moisture → IP rating → light type → color mode → purpose → dimming protocol → finish |
+| LED Sheet | ★What will it backlight (signage, countertop, ceiling/wall) → indoor/outdoor → IP rating → light type → CCT range → dimming protocol |
+| Extrusion Kit | installation method → moisture ⚑ → diffuser → finish |
+| Driver | ★What will it power (tape/neon/fixtures, informational) → dimming protocol (input) → ★output voltage (24 V default, "Not sure → 24 V") → ★load: a Number in watts **or** the helper "run length (ft) × W/ft", which computes watts and adds 20% headroom → ★location (dry/damp/wet) ⚑ |
+| Controller | ★How do you want to control it (wall keypad, phone/app wireless, DMX console, existing 0-10V dimmer) → light type (sets the channel requirement: 1 / 2 / 3–4 / pixel) → ★number of zones → wireless protocol (when wireless) → mounting type |
+
+Rules carried over from the prototype: Outdoor hides Dry; picking addressable pixel hides 0-10V, TRIAC, ELV and DALI; "Not sure" options exist on technical questions and map to "no constraint".
+
+### 9.3 After the quiz → the right configurator
+
+- The results CTA **See matching products** opens the catalog filtered to the chosen family plus a companions tab.
+- The results CTA **Configure the top match now** opens the top match's family configurator with pre-fill (§12.3).
+- From any product page, the action panel always opens **that product's family configurator** (§13).
+
+### 9.4 `/portal/configure` with no category shows the same chooser
+
+- In `configure.py`, when there is no `category`, no `template` and no `initial_request` (a reopened line), render a new chooser partial, `templates/includes/product_type_chooser.html`, instead of defaulting silently to Linear Fixture.
+  - It shows the same cards and emphasis as §9.1, from the Desk family question options, so the images and copy match.
+  - Card links keep `schedule`, `line_key`, `line_idx` and `draft`.
+  - It adds a link: "Not sure what you need? Take the Product Finder".
+- Pending schedule lines that link to `/portal/configure?schedule=…&line_key=…` without a category (`schedule.html:1250`) now reach the chooser.
+- Existing links with a category behave as before.
+- The LED Sheet category pills in `configure.html:36-43` are replaced by the chooser's compact variant ("Change product type") for every family.
+
+---
+
+## 10. Phase 5 — Finder UI (React)
+
+### 10.1 Modes and configuration
+
+`window.IllConfigurator.mount(el, config)`:
 
 ```js
-window.IllConfigurator.mount('ill-configurator-root', {
-  mode: 'portal', sessionToken: {{ session_token|tojson }},
-  csrfToken: frappe.csrf_token, catalogUrl: '/portal/products'
-});
+{
+  mode: 'portal' | 'public',
+  apiBase: '' /* portal */ | 'https://<erp>' /* public */,
+  brand: 'illumenate',      // public only
+  csrfToken,                // portal only
+  sessionToken,             // portal resume
+  claimToken,               // portal claim
+  preview: false,           // staff preview
+  catalogUrl: '/portal/products'
+}
 ```
 
-### 7.2 React changes (`tools/configurator_ui`)
+### 10.2 Code changes in `tools/configurator_ui`
 
-1. **Config plumbing.** `App` already receives `config`. Pass it to `Wizard` and `Results` through a small `ConfigContext`.
-2. **Data source by mode.** Add `src/lib/api.js` with `start`, `getSession`, `saveAnswers`, `evaluate` and `complete`. It uses `fetch` with `X-Frappe-CSRF-Token: config.csrfToken` and same-origin credentials.
-   - In `portal` mode, `QuestionStep` takes option counts and disabled state from `evaluate()` (debounced 150 ms; show the last counts while loading).
-   - In `webflow` mode, the existing seed logic stays unchanged until Webflow moves over (§10).
-3. **Shared content.** Change the imports to `../../../../illumenate_lighting/config/product_finder/questions.json` and add `server.fs.allow` in `vite.config.js`. Delete the copies in `src/content/`.
-4. **Autosave and resume.** Debounce `saveAnswers` by 500 ms. On mount with `sessionToken`, load the answers. "Start over" calls `start()` again.
-5. **Portal results screen.** Replace the results panel in portal mode with:
-   - "We found **N** products that fit your project", with counts per family.
-   - The relaxation notice, if any.
-   - A preview of the top three matches (image, name, "why it fits").
-   - Primary CTA **"See matching products"** → `complete()` → navigate to `catalog_url`.
-   - Secondary actions: "Edit answers" and "Start over".
-   - **Removed** in portal mode: JSON download/copy/console, the competitor table, and the "Prototype…" footer.
-6. **Content tweaks for non-experts:**
-   - "Outdoor" hides the "Dry" moisture option (`hideWhen`).
-   - Add a first optional question, **"Where is this light going?"** (cove, under-cabinet, display case, signage, façade, landscape). It maps to `product_category` (Application), which the catalog already facets on.
-   - Add the missing `target-cct-*.jpg` images, or keep the swatches.
-   - Re-check glossary copy for every visible question.
-7. **Accessibility and mobile:**
-   - Option cards become buttons with `aria-pressed`.
-   - Move focus to each newly revealed question's heading.
-   - Respect `prefers-reduced-motion` for `scrollIntoView`.
-   - Make sure the sticky SideNav does not sit under the portal navbar (`top` offset).
-8. **Style isolation check.** Tailwind is scoped with `important: '#ill-configurator-root'` and preflight is disabled. Verify that Bootstrap/portal CSS (`portal.css`, `illumenate_web.bundle.scss`) does not restyle the buttons and inputs inside the root. Add scoped resets in `src/index.css` where it does.
+1. `src/lib/api.js`: a client for both modes. Portal mode uses same-origin requests with `X-Frappe-CSRF-Token`. Public mode uses `credentials: 'omit'`.
+2. `src/lib/definition.js`: fetch the Desk definition and adapt it to the shape `engine.js` expects (conditions → `visibleWhen`/`skipWhen`/`hideWhen`). `engine.js` stays pure and is unit-tested against the same fixtures as the Python `prune()`.
+3. Remove `src/data/*.seed.json`, `competitors.sample.json`, `recommend.js`, `resultObject.js` and `CompareTable.jsx` (decisions 3 and 6). Remove `configureHandoff.js`; the portal flow replaces it.
+4. `src/content/*.json` move to `seed/` and are no longer imported at runtime.
+5. `QuestionStep.jsx`:
+   - Images come from `option.image` URLs, so the static import map goes away.
+   - Add a `FamilyChooser` variant with a featured card.
+   - Option cards show `match` / `verify` counts from `evaluate()` ("12 products · 3 need a check").
+   - Disabled options explain why ("No products for Wet + Recessed").
+6. `Wizard.jsx`:
+   - Debounced autosave (500 ms).
+   - Resume from `sessionToken`.
+   - `preview` shows "Draft" badges.
+   - Focus moves to each newly revealed question heading.
+   - Respect `prefers-reduced-motion`.
+   - Sticky offset below the portal navbar.
+7. `Results.jsx`, rewritten:
+   - A heading with counts by family, the relaxation notice, the top three cards, and amber verification chips with the Settings copy.
+   - **Portal:** "See matching products" and "Configure the top match now", plus "Edit answers" and "Start over".
+   - **Public:** product cards linking to Webflow pages and "Configure & add to a project (dealers)" → `claim_url` via login.
+   - No JSON export, competitor table or "prototype" footer.
+8. Accessibility: option cards are `button`s with `aria-pressed`; groups get `role=radiogroup` or `group`; tooltips are keyboard reachable (already in place); text contrast ≥ 4.5:1 on swatches (dark text on light swatches, light text on dark).
+9. Style isolation: keep `important: '#ill-configurator-root'` and preflight disabled. Add scoped resets wherever Bootstrap's `.btn`, `label` or `input` styles leak in. Verify on the portal page.
 
-### 7.3 Build and ship
+### 10.3 Builds and shipping
 
-- Add `vite.portal.config.js`: IIFE, `outDir: ../../illumenate_lighting/public/product_finder`, `base: '/assets/illumenate_lighting/product_finder/'`, and images emitted as hashed files (not inlined) to keep the JS small. Script: `"build:portal": "vite build --config vite.portal.config.js"`.
-- Commit the built files. Frappe serves `public/` at `/assets/illumenate_lighting/`.
-- Optimize the images to WebP at 400 px wide (about 40 KB each). The 38 JPGs are currently loaded at full size.
-- CI (`.github/workflows/ci.yml`): new job running `npm ci && npm run build:portal && git diff --exit-code illumenate_lighting/public/product_finder`, so a stale bundle fails the PR.
-- `tools/check_portal_templates.py`: add the new template to its parse and embedded-script checks.
+| Script | Config | Output | Used by |
+|---|---|---|---|
+| `build:portal` | `vite.portal.config.js` (IIFE, `base: /assets/illumenate_lighting/product_finder/`) | `illumenate_lighting/public/product_finder/portal/` | `/portal/product-finder` |
+| `build:public` | `vite.config.js` (IIFE) | `illumenate_lighting/public/product_finder/public/` | The Webflow `<script>` tag points to `https://<erp>/assets/illumenate_lighting/product_finder/public/ill-configurator.js`, so one source is hosted by the ERP. |
+| `build:preview` | unchanged | `dist-preview/` | Vercel preview (optional) |
+
+- Built output is **committed**, because Frappe Cloud's `bench build` does not run Vite or Tailwind.
+- CI job `product-finder-bundle`: `npm ci && npm run build:portal && npm run build:public && git diff --exit-code illumenate_lighting/public/product_finder`.
+- `tools/check_portal_templates.py` adds the new templates.
 
 ---
 
-## 8. Phase 3 — Dashboard banner and entry points
+## 11. Phase 6 — Dashboard banner and entry points
 
-- In `portal.py`, add to the context:
-  - `finder_enabled = conf_flag("ill_portal_product_finder") and can_view_catalog`
-  - `finder_banner_dismissed = frappe.defaults.get_user_default("ill_finder_banner_dismissed")`
-  - `finder_resume`: the user's latest `Active` session, if there is one.
-- In `portal.html`, between the hero and the card row:
-  - A slim, dismissible banner (about 96 px tall on desktop; it stacks on mobile).
-  - Contents: a thumbnail (`fixture-purpose-ambient.webp`), the headline **"Not sure which fixture fits your project?"**, the sub-line *"Answer a few picture-guided questions and we'll show you the products that fit."*, the CTA **"Start the Product Finder"** (or **"Resume"** with a progress hint when `finder_resume`), and a close "x".
-  - The close button calls `dismiss_banner()` and hides the banner without a reload. A dismissed banner reappears only when an admin resets the default; "Product Finder" stays in the nav and on the catalog.
+- `portal.py` adds to the context:
+  - `finder_enabled` = Settings `portal_enabled` and `can_view_catalog`.
+  - `finder_banner` = Settings copy and image, shown when `banner_enabled` and the user's dismissed version is not the current version.
+  - `finder_resume` = the latest `Active` session, with its progress percentage.
+- `portal.html`, between the hero and the cards:
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ [img]  Not sure which fixture fits your project?                      [×] │
+│        Answer a few picture-guided questions and we'll show you the       │
+│        products that fit.        [Start the Product Finder]  Browse catalog│
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+  - About 96 px tall on desktop, stacked on mobile.
+  - With `finder_resume`, the CTA reads "Resume (60% done)".
+  - × calls `dismiss_banner()` and fades the banner out.
 - Other entry points:
-  - A **"Help me choose"** link in the catalog header.
-  - A Product Finder card on the portal home when the banner is dismissed.
-  - A nav link (C10).
+  - Nav link **Product Finder** (C10).
+  - **Help me choose** in the catalog header.
+  - The chooser's "Take the Product Finder" link (§9.4).
+  - A small Product Finder card on the dashboard when the banner is dismissed.
+- Page: `templates/pages/product_finder.{py,html}` with route `/portal/product-finder`.
+  - Guest → login redirect (keeps `claim`).
+  - No catalog access → `/portal/request-dealer-access`.
+  - Disabled → `/portal/products`.
+  - Mounts the portal bundle with `sessionToken` (from `?session=`, owned by the user), `claimToken` (from `?claim=`) and `preview` (staff only).
 
 ---
 
-## 9. Phase 4 — Catalog filtered by the quiz
+## 12. Phase 7 — Catalog and product page with finder context
 
-### 9.1 API
+### 12.1 Catalog API
 
 `get_catalog_products(..., finder=None, sort=...)`:
-- If `finder` is set: load the session by token with an owner check. If `result_json` is stale, recompute `match()`.
-- Add the condition `` `tabilL-Webflow-Product`.name IN %(finder_names)s ``.
-- Add a `relevance` sort that orders by score. Use a `CASE` built from the parameterized name list; with an active finder it is the default.
-- Attach `match: {score, reasons, tradeoffs, best}` to each projected product.
-- Return a top-level `finder` block: `{token, answers_summary: [{question, label}], relaxed, total_matches, companions_count}`.
-- Normal attribute and search filters still narrow within the finder set.
-- `view=companions` returns the session's companion products (drivers, controllers, accessories) instead.
 
-`get_catalog_filter_options(finder=…)` scopes facet counts to the finder set (it builds on C7).
+- Resolve the owned session. If `result_json` is missing or stale (definition version or catalog stamp changed), recompute it.
+- Restrict with `` `tabilL-Webflow-Product`.name IN %(finder_names)s ``. Add `sort="relevance"`, ordering by score with a parameterized `CASE`; it is the default with a finder.
+- Add `match: {score, reasons, tradeoffs, verify, best}` to each product. Return a `finder` block: `{token, answer_chips: [{question, label}], relaxed, counts, companions_count, family}`.
+- `view="companions"` returns the companion products with their `relation`.
+- Normal search and attribute filters still narrow the finder set. Facets (C7) are scoped to it.
 
-### 9.2 UI (`products_catalog.html` and `product_catalog.js`)
+### 12.2 Catalog UI
 
-- `CatalogState.finder` comes from `?finder=`, a reserved parameter (C6).
-- A **finder banner** above the grid:
-  - "Showing **N** products that match your answers."
-  - Answer chips (Outdoor · Wet · IP67 · Static white · Surface · 0-10V …).
-  - Links: **Edit answers** → `/portal/product-finder?session=<token>`, **Show all products** (drops `finder`), and **Start over**.
-  - When criteria were relaxed, the banner says so.
-- Tabs: **Recommended (N)** | **Drivers, controllers & accessories (M)** | **All products**.
-- Cards in finder mode:
-  - A "Best match" badge on the top-scored card.
-  - Up to two "Why it fits" reasons and any trade-offs as small chips.
-  - Every product link carries `?finder=<token>`.
-- Empty finder result: explain which hard constraint eliminated everything (the API returns `no_hard_match` and the first eliminating question). Offer "Edit answers" and "Talk to us" (`/portal/support`).
+- A **finder banner**:
+  - "Showing **7** products that fit your answers · 3 need a quick check with our team".
+  - Answer chips (Outdoor · Wet · IP67 · Static white · Surface · 0-10V).
+  - **Edit answers** (`/portal/product-finder?session=<token>`), **Show all products** and **Start over**.
+  - The relaxation notice, when criteria were relaxed.
+- Tabs: **Recommended (7)** | **Drivers, controllers & accessories (5)** | **All products**.
+- Cards:
+  - A "Best match" badge on the top card.
+  - Up to two green "Why it fits" chips.
+  - An **amber "Verify with our team"** chip with a tooltip listing the reasons.
+  - Every link carries `?finder=<token>`.
+- Empty result: "No products match **Wet + Recessed + DMX**." Offer **Edit answers**, which jumps to the eliminating question, and **Ask our team**, which calls `request_verification` with no product to create a general request.
 
----
+### 12.3 Product page
 
-## 10. Phase 5 — Product page, configure, add to schedule
-
-### 10.1 Product page
-
-- When `?finder=` is present, show a **"Why this product fits"** box above the action panel (reasons and trade-offs from `match`). Add "Back to your matches" to the breadcrumb.
-- **Configure:** `configureHref` adds `finder=<token>`. `configure.py` reads it, loads the owned session and calls `product_finder.prefill_for_template(template, answers)`. That function returns only codes the template allows (environment, CCT, lens, finish, mounting, dimming). The result is passed as `initial_request = {template, selections}`, ahead of the legacy `quiz_handoff` parameters. The existing "pre-filled" banner then becomes accurate (C13).
-- **Accessories and other products** (`capability == "quantity"`): the existing "Add to schedule" flow is unchanged, plus the C11 inline project/schedule creation. Pre-fill the line notes with "Added from Product Finder" so staff have context.
-- **Companions:** a "Pairs well with" strip with compatible drivers, controllers and accessories, each with a quick "Add to schedule" action that reuses the standard-product flow.
-
-### 10.2 After saving
-
-- When a configured line saves from a finder flow, the configurator's success state adds **"Back to your matches"** (`/portal/products?finder=<token>`) next to "View schedule".
-- Set the session `status = Used` on the first successful save, through a small hook in `save_configured_fixture_to_schedule` and `standard_products.add` when they receive `finder`.
+- With `?finder`:
+  - A **"Why this product fits"** box.
+  - The **verification callout** (§14.2) when it applies, with **Ask our team to verify now**.
+  - The breadcrumb gets "← Your matches".
+- **Configure:** the URL gets `finder=<token>`. `configure.py` loads the owned session, calls `prefill_for_template(family, template, answers)` and sets `initial_request = {template, selections}`.
+  - The "pre-filled" banner lists what was pre-filled and anything that could not be applied ("Finish *White* is not offered on this product").
+  - Legacy `quiz_handoff` parameters are converted with the same function.
+- **Add to schedule** (quantity products): unchanged flow, plus inline project/schedule creation (C11). Driver and controller products now use their configurator first (§13).
+- **Pairs well with:** companion cards, each with quick **Add to schedule**.
 
 ---
 
-## 11. Phase 6 — Keep the Webflow embed working
+## 13. Phase 8 — Configurators for every family (decision 5)
 
-- Webflow mode stays the default for `npm run build` (`ill-configurator.js`). It keeps using the seed and `configureHandoff.js` until there is a guest endpoint.
-- Fix `configureHandoff.js`: drop the nonexistent `csrftoken` cookie, and call the new `start`/`save_answers` after login.
-- Better: after a Webflow user logs in, redirect them to `/portal/product-finder?import=<base64 answers>`, so the portal session takes over and they reach the filtered catalog. That removes the need for `configure.py` to understand raw quiz parameters.
-- Optional later: a public `evaluate_public` endpoint (guest access, published products only, rate-limited) so Webflow can also drop the offline seed.
+### 13.1 Projection and catalog capability
+
+- In `product_projection.py`, extend `TEMPLATE_FIELDS` with `"Extrusion Kit": "kit_template"`, `"Driver": "driver_template"` and `"Controller": "controller_template"`.
+- `configure_url = /portal/configure?category=<family>&template=<code>&product_slug=<slug>`.
+- Add a `kit_template` Link field to `ilL-Webflow-Product` (`depends_on: product_type == 'Extrusion Kit'`), with a back-link sync in `_update_template_backlink`.
+  - Patch `backfill_kit_template_links.py` fills it from `ilL-Extrusion-Kit-Template.webflow_product`.
+- Add Extrusion Kit, Driver and Controller to `configure._normalize_product_category`, `FAMILY_ALIASES` and the rollout family list.
+
+### 13.2 Driver and Controller configurator (portal)
+
+- Partial `templates/includes/configurator_driver_controller_form.html`.
+- JS class `IllConfigurator.DriverController` in `public/js/configurator/driver_controller_steps.js`, extending the shared Base and added to `illumenate_web.bundle.js`.
+- Steps come from `get_driver_configurator_init` / `get_controller_configurator_init`, with cascading through `get_*_cascading_options`. Each step is a picture/pill selector with the glossary help used by the finder.
+- **Validate** calls `validate_*_configuration`, which gives the variant, the spec, an **orderable Item** and MSRP pricing for dealers.
+- **Save** goes through a new `portal/standard_products.add_configured(product_slug, selections, schedule_name, quantity, line_id, location, notes, expected_modified, idempotency_key, finder=None)`:
+  - Re-validates on the server and resolves the variant's Item.
+  - Asserts the Item is in `choices(product)`.
+  - Writes an ACCESSORY line with `variant_selections = {product_slug, template, selections, variant_code, item_code}`.
+  - Uses the same receipts and idempotency as `add`.
+- Pre-fill comes from §7.4. Schedule context and line metadata come from the draft pattern the other configurators already use.
+
+### 13.3 Extrusion Kit configurator (portal)
+
+- Partial `templates/includes/configurator_kit_form.html`.
+- JS class `IllConfigurator.Kit` in `public/js/configurator/kit_steps.js`, ported from the Desk dialog in `ill_project_fixture_schedule.js:234-560`:
+  - Steps: Finish → Lens → Mounting → Endcap style and color.
+  - A live preview of the kit composition, MSRP and stock (`get_kit_component_stock`).
+- **Save** goes through `portal/kit_configuration.save` (C15). It re-validates on the server, prices on the server, and is idempotent. The Desk dialog moves to the same service.
+
+### 13.4 Configure page wiring
+
+- `configure.py` branches on the three new categories and renders their partials inside the existing schedule target card and draft handling.
+- `title_map` gets "Configure Power Supply", "Configure Controller" and "Configure Extrusion Kit".
 
 ---
 
-## 12. Rollout, analytics and docs
+## 14. Phase 9 — "Needs verification" workflow (decision 1)
 
-- **Flags:**
-  1. Set `ill_portal_product_finder` to true on staging.
-  2. Pilot it with internal staff.
-  3. Turn it on for dealers.
-  Phase 0 needs no flag.
-- **Funnel metrics:** session counts by status (`Active` → `Completed` → `Used`), plus a simple Desk report: sessions started, completed, completion rate, top answer combinations, and zero-result rate. No third-party tracking.
-- **Docs:**
-  - Add a "Product Finder" section to `docs/DEALER_ROLE.md` and `docs/B2B_STAFF_OPERATIONS.md` (how to read the coverage report and fix mappings).
-  - Update `tools/configurator_ui/README.md` with the portal mode, the new content location and `build:portal`.
+### 14.1 When a product needs verification
+
+- The product passed every hard rule it has data for, **and** at least one answered question's facet is **unknown** for that product, **and** the question's `unknown_policy` resolves to **Verify** (the default).
+- Example: a Linear Fixture for "Outdoor · Wet · IP67". Linear products have no IP data, so the reason is "IP67 rating".
+- It is computed **only on the server**, from the session's answers and the product's facts, at match time and again at save time.
+
+### 14.2 Warning copy and placement
+
+The default text is set in Desk Settings and can be edited there.
+
+> **Most likely a fit — our team will confirm.**
+> Based on your answers, we can most likely build this for your project, but our team needs to verify the **{reasons}** before you continue to quoting and ordering. You can keep configuring and adding it to your schedule now. We'll confirm before your quote is issued.
+
+Where it appears:
+
+| Place | Treatment |
+|---|---|
+| Quiz results card | Amber chip: "Needs a quick check" |
+| Catalog card | Amber chip: "Verify with our team" (tooltip: reasons) |
+| Product page | Callout as above, with **Ask our team to verify now** (optional message) |
+| Configurator | Slim amber notice above the save button |
+| Schedule line | Badge: "Verification pending" (amber), "Verified by ilLumenate" (green), "Not feasible — see message" (red) |
+
+### 14.3 Data model
+
+New DocType **`ilL-Product-Verification-Request`**, named `PVR-.YYYY.-.#####`:
+
+| Field | Type |
+|---|---|
+| `state` | Select: REQUESTED / UNDER_REVIEW / INFORMATION_NEEDED / VERIFIED / NOT_FEASIBLE / CANCELLED |
+| `product` | Link ilL-Webflow-Product |
+| `family` | Data |
+| `finder_session` | Link ilL-Configurator-Session |
+| `reasons` | JSON (`[{question_key, question_label, answer, reason}]`) |
+| `answers_snapshot` | JSON |
+| `schedule` | Link ilL-Project-Fixture-Schedule (optional) |
+| `line_key` | Data (optional) |
+| `project` | Link ilL-Project |
+| `customer` | Link Customer |
+| `requested_by` | Link User |
+| `message` | Small Text |
+| `assigned_to` | Link User |
+| `due_date` | Date (default: +2 business days) |
+| `resolution` | Small Text |
+| `resolved_by` | Link User |
+| `resolved_on` | Datetime |
+
+- Permissions: the requester and same-company dealers can read; staff with the sales or engineering capability can write. Implement it like `portal/quotes.has_permission`.
+- Add it to `conversations.PARENTS` so dealers and staff can message each other on it. Staff are the sales or engineering capability.
+- Add it to `queues.QUEUES` as `"verification"` (capability `sales`, open states REQUESTED, UNDER_REVIEW and INFORMATION_NEEDED, owner `assigned_to`, due `due_date`).
+
+New fields on **`ilL-Child-Fixture-Schedule-Line`**:
+
+| Field | Type |
+|---|---|
+| `verification_status` | Select: (blank) / Pending / Verified / Not Feasible |
+| `verification_reasons` | Small Text (JSON) |
+| `verification_request` | Link ilL-Product-Verification-Request |
+| `finder_session` | Link ilL-Configurator-Session |
+
+### 14.4 Writing the flags
+
+- `portal/configuration.save`, `standard_products.add`, `standard_products.add_configured` and `kit_configuration.save` accept an optional `finder` token.
+- With it, the server loads the owned session, recomputes the verification reasons for **this** product, and then:
+  - **No reasons:** clear the fields.
+  - **Reasons, and a VERIFIED request already exists** for the same product, session and reasons: set `verification_status = Verified` and link the request.
+  - **Otherwise:** set `Pending`, create or reuse a request with `schedule` and `line_key`, and link it.
+- Reconfiguring a line with a different product or answers recomputes the flags. A Pending request with no lines left is set to CANCELLED.
+- Staff resolving a request (VERIFIED or NOT_FEASIBLE) update every linked line, notify the requester through `portal/notifications.py`, and post a conversation message.
+
+### 14.5 Gates (`verification_gate` setting; default "Before quote is issued and order is placed")
+
+| Action | Behavior with Pending or Not Feasible lines |
+|---|---|
+| Dealer adds or edits lines | Allowed |
+| Dealer **Request Quote** (`portal/quotes.request_quote`) | Allowed. The snapshot includes `verification_status` and `verification_reasons` (add them to `LINE_FIELDS`). The quote request page shows "3 lines awaiting verification". |
+| Staff **prepare quotation** (`offers.prepare_quotation`) | Allowed, with a banner listing the pending lines and links to the requests |
+| Staff **submit quotation** (`offers.before_submit`) | **Blocked**: "Verify or remove the lines that need verification before issuing this quote" |
+| Dealer **accept offer** (`offers.respond` ACCEPT) and **order intake** (`order_intake.submit`) | **Blocked** with the same message (defense in depth) |
+| Desk `quote_from_schedule.add_schedule_to_quotation` | Warns with a msgprint listing the lines; it does not block. Staff are doing the review. |
+
+"Before order only" moves the quotation block to a warning. "Warning only" shows warnings everywhere and blocks nothing.
 
 ---
 
-## 13. Test plan
+## 15. Phase 10 — Public Webflow quiz on live data (decision 6)
 
-| Layer | Where | Cases |
+1. Ship `build:public` and the endpoints in §8.3. The staging Webflow site (`illumenate-staging.webflow.io`, already in `ALLOWED_ORIGINS`) points its script tag at the staging ERP asset URL.
+2. The public results show published products only, with no prices, linking to Webflow product pages.
+3. The **dealer path**: "Configure & add to a project" goes to `<erp>/login?redirect-to=/portal/product-finder?claim=<token>`. After login, `claim()` attaches the session and redirects to `/portal/products?finder=<token>`. Non-dealers land on `/portal/request-dealer-access`, with the claim kept for after approval.
+4. Retire the Vercel-hosted seed build: delete the seed data and update `README.md` and `docs/WEBFLOW_INTEGRATION_GUIDE.md`.
+5. Abuse controls:
+   - Rate limits and the 4 KB GET cap.
+   - Guest sessions are created only by `complete`.
+   - Guest results never include stock, pricing or unpublished products.
+
+---
+
+## 16. Staging deployment and rollout (decision 4)
+
+1. Merge each PR to `staging` and deploy it to the staging site. Run `bench migrate`, which installs the DocTypes and seed patch, and `bench build`.
+2. Run the C4 dry run, then the repair. Confirm the **Catalog Configurability** report shows linear, tape, neon, sheet and (after §13) kit, driver and controller products as `ok`.
+3. Staff complete the value maps until the **Product Finder Coverage** report has no unmapped values on active products.
+4. Staff turn on `portal_enabled`, then `banner_enabled`. Internal users run through the acceptance script in §18.
+5. Turn on `public_enabled` for the staging Webflow brand and test the claim path.
+6. When staging is signed off, repeat steps 1–5 on production. No production-only code paths.
+
+---
+
+## 17. Test plan
+
+| Layer | Location | Cases |
 |---|---|---|
-| Python unit | `tests/portal_unit/test_contracts.py`, new `test_product_finder.py` | C1 shapes; every `capability_reason`; answer validation; hidden-answer pruning matches `engine.js` on shared fixtures; hard filters (env/IP rank, unknown policy); relaxation order; companions; session owner check; stale-result recompute. |
-| DOM (node:test + jsdom) | `tests/portal_ui/catalog.test.cjs`, `standard_products.test.cjs`, new `product_finder.test.cjs` | C5 numeric values stay strings; C6 unknown parameters ignored and `finder` carried into links; finder banner chips and "Show all"; product page passes `finder` to the configure URL; banner dismiss posts and hides. |
-| React | `tools/configurator_ui` (add `vitest`) | `engine.js` visibility; portal-mode results CTA calls `complete()` and navigates; the evaluate debounce. |
-| Installed site | existing installed-site suite | A generated linear product projects as configure (C1 regression); `get_catalog_products(finder=…)` restricts and orders; permissions on `ilL-Configurator-Session`. |
-| E2E (Playwright) | `tests/portal_e2e/portal.spec.cjs` | Dealer login → banner → finder (Outdoor/Wet/IP67/Static/Surface/0-10V) → filtered catalog → linear product → configure pre-filled → save to schedule → line visible; and the accessory → add to schedule path. |
-| Lint | `ruff check .`, `ruff format .`, `tools/check_portal_templates.py` | |
+| Python unit | `tests/portal_unit/test_contracts.py` | C1 option shapes; C2 reasons; the new families' configure URLs. |
+| Python unit | **new** `tests/portal_unit/test_product_finder.py` | Definition loading and condition evaluation, matching `engine.js` on shared fixtures; answer validation (unknown keys, hidden-option values, ranges, size); hard rank comparisons; **unknown → Verify / Exclude / Include**; scoring order (verify −5); relaxation order; companions; `evaluate` counts and disabled reasons; pre-fill only uses template-allowed codes; session ownership, claim and expiry. |
+| Python unit | **new** `test_product_verification.py` | Flags computed at save; reuse of a VERIFIED request; recompute on reconfigure; resolution propagates to lines; each gate (quote submit, offer accept, order intake) under each `verification_gate` value. |
+| Python unit | **new** `test_kit_and_driver_saves.py` | C15: a forged `configuration_result` is rejected or re-derived; the driver/controller variant Item must be in `choices`; idempotent retries. |
+| DOM (node:test + jsdom) | `tests/portal_ui/catalog.test.cjs`, `standard_products.test.cjs`, **new** `product_finder.test.cjs` | C5, C6; finder banner chips, tabs and links carry `finder`; verification chips; product page callout and "Ask our team"; configure URL carries `finder`; banner dismiss; chooser on `/portal/configure` keeps schedule and draft parameters. |
+| React (add `vitest`) | `tools/configurator_ui` | `engine.js` against the shared fixtures; `FamilyChooser` featured layout and keyboard order; evaluate debounce; portal and public results CTAs; no competitor table in either build. |
+| Installed site | existing installed-site suite | A real generated linear product is configurable; a finder-restricted catalog query; session and verification permission hooks; public endpoints return only published products, no prices, and work with CORS. |
+| E2E (Playwright) | `tests/portal_e2e/portal.spec.cjs` | (a) Dealer: banner → Linear → Outdoor/Wet/IP67/Static/Surface/0-10V → catalog shows a verification chip → product → configure pre-filled → save → schedule line "Verification pending" → request quote → staff verify → line "Verified". (b) Driver path: chooser → driver questions → product → driver configurator → add to schedule. (c) Kit path. (d) Accessories card → catalog. (e) `/portal/configure` with no category shows the chooser with Linear featured. |
+| Lint and checks | `ruff check .`, `ruff format .`, `tools/check_portal_templates.py`, CI bundle freshness | |
 
 ---
 
-## 14. Order of work
+## 18. Work breakdown: PR sequence and acceptance criteria
 
-| # | Work | Size | Depends on |
-|---|---|---|---|
-| 1 | C1 lensMap fix + tests | S | — |
-| 2 | C2/C3 capability reasons + template active check | S | 1 |
-| 3 | C4 configurability report + dry-run repair patch; check rollout site config | M | 2 |
-| 4 | C5–C10, C12, C14 catalog JS/route/nav fixes | M | — |
-| 5 | C11 inline project/schedule creation | S | — |
-| 6 | Move questions/glossary; `mapping.json`; facts + cache | M | — |
-| 7 | Matching engine + evaluate + session model/permissions + endpoints | L | 6 |
-| 8 | Coverage report; fill in the real ERP mapping values | M | 6 |
-| 9 | React portal mode, build pipeline, CI freshness check | L | 7 |
-| 10 | Finder page + dashboard banner + nav | S | 9 |
-| 11 | Catalog finder integration (API + UI + companions tab) | M | 7 |
-| 12 | Product page finder context, server prefill (C13), "Used" status | M | 11 |
-| 13 | Webflow handoff cleanup | S | 12 |
-| 14 | E2E, docs, staging pilot, dealer rollout | M | all |
+| PR | Contents | Acceptance criteria |
+|---|---|---|
+| **1. Catalog fixes** | §5 C1–C14 (C12 redirect lands with PR 6) | A seeded linear product shows the configurator on its product page; staff see the reason for any inquiry product; numeric filters work; unknown query parameters are ignored; guests are redirected; nav has Products; a dealer can create a schedule from the product page. |
+| **2. Finder content in Desk** | §6 DocTypes, validation, workspace, preview dialog, seed patch, Coverage report | `bench migrate` creates all records from the seed; staff can edit an option image and see it in the preview; invalid conditions or mappings are rejected; the Coverage report lists unmapped values. |
+| **3. Engine, sessions, APIs, verification model** | §7, §8.1–8.2, §14.3 DocType and line fields, queue and conversations registration | Python unit suite green; `evaluate` returns correct counts for the seeded fixtures; sessions are owner-only. |
+| **4. Finder UI and entry points** | §9.1–9.2, §10, §11, §9.4 chooser on `/portal/configure` | A dealer completes the Linear path and reaches the filtered catalog; the banner shows, dismisses and resumes; the chooser features Linear; no competitor table; the CI bundle check passes. |
+| **5. Catalog and product page integration with the verification UI and gates** | §12, §14.2, §14.4, §14.5 | E2E (a) passes; gates block per setting; staff resolve from the queue and the dealer is notified. |
+| **6. Kit, driver and controller configurators** | §13, C12, C15 | E2E (b) and (c) pass; forged kit payloads are rejected; the Desk kit dialog still works through the new service. |
+| **7. Public quiz on live data** | §8.3, §15 | The staging Webflow page runs the live quiz; the claim path lands a dealer on the filtered catalog; the seed files are deleted. |
 
-Items 1–5 make up a standalone catalog-fix PR. Items 6–13 can follow as two or three PRs: backend, UI, then integration.
+PRs 1 and 2 can be developed in parallel. PR 3 depends on PR 2. PRs 4 and 6 depend on PR 3 and can run in parallel. PR 5 depends on PRs 3 and 4. PR 7 depends on PRs 3 and 4.
 
 ---
 
-## 15. Open questions for the business
+## 19. Risks and mitigations
 
-1. **Strictness with missing data:** if a product has no IP rating on file, should an IP67 answer hide it or show it with "confirm IP rating"? The plan defaults to hiding it, with the policy set per question.
-2. **Who maintains the mapping:** engineers in `mapping.json` (reviewed in PRs), or staff in a Desk DocType? The plan starts with JSON.
-3. **Competitor comparison:** drop it in the portal (recommended), or keep it for staff only?
-4. **Pilot list:** is `ill_portal_pilot_users` set on production today? If so, dealers outside it see every product as "inquiry", and that alone hides the configurator for them.
-5. **Kits, drivers and controllers:** should they get their own configurators from the catalog (the APIs exist), or stay "add to schedule" items?
-6. **Public quiz:** should the Webflow quiz eventually use live ERP data through a guest endpoint, or keep a periodically regenerated seed?
+| Risk | Mitigation |
+|---|---|
+| Missing or inconsistent product data makes results look wrong | The Coverage report is a go-live gate; unknown data defaults to Verify, so nothing is hidden for lack of data; staff preview before enabling. |
+| Desk edits break the quiz (for example, a condition pointing at a removed option) | Controller validation; `definition_version` bump plus stale-session detection; the UI falls back to "This question changed — please re-answer". |
+| Performance of facts and evaluate on every click | Batched facts build, cached per version and stamp; evaluate result cache; 150 ms client debounce; rate limits. |
+| The committed bundle drifts from source | CI freshness job. |
+| Bootstrap and Tailwind style clashes in the portal | Scoped Tailwind, scoped resets, and E2E screenshot checks on the finder page. |
+| Public endpoint abuse | GET size caps, per-IP rate limits, brand allow-list, published products only, no prices or stock. |
+| Kit save tampering (existing issue) | C15 server-side re-validation before any dealer access. |
+| Verification gates frustrate dealers | Positive copy, Verify reuse across lines, a 2-business-day due date in the staff queue, and a configurable gate. |
+
+---
+
+## 20. Small decisions taken by default (change in Desk Settings if needed)
+
+- Verification blocks **issuing the quote and placing the order**, not building the schedule or requesting a quote.
+- Products needing verification rank just below fully verified matches with the same fit (−5 score).
+- The "Not sure" options on technical questions mean "no constraint". "I'm not sure" on question 1 means Linear Fixture.
+- A dismissed banner stays hidden until staff change the banner campaign, which bumps `definition_version`.
+- Guest sessions expire after 7 days if unclaimed. Portal sessions expire after 30 days of inactivity.
