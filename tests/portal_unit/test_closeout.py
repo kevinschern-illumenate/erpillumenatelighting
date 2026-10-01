@@ -24,18 +24,18 @@ def row(**data):
 
 
 class Closeout(unittest.TestCase):
-	def test_rollout_family_and_pilot_gates_are_independent_of_history(self):
-		staff = types.SimpleNamespace(allowed=lambda _: False)
-		with load_service(ROOT + ".portal.rollout", {ROOT + ".portal.staff": staff}) as (service, frappe):
+	def test_rollout_family_gate_is_independent_of_obsolete_pilot_setting(self):
+		with load_service(ROOT + ".portal.rollout") as (service, frappe):
 			self.assertTrue(service.available("LED Sheet"))
 			frappe.conf["ill_portal_enabled_families"] = ["LED Sheet"]
 			frappe.conf["ill_portal_pilot_users"] = ["pilot@example.com"]
-			self.assertFalse(service.available("LED Sheet"))
+			self.assertTrue(service.available("LED Sheet"))
 			self.assertTrue(service.available("LED Sheet", public=True))
-			frappe.session.user = "pilot@example.com"
 			self.assertTrue(service.available("LED Sheets"))
+			self.assertEqual(service.reason("LED Sheets"), "ok")
 			with self.assertRaises(PermissionError):
 				service.require_family("LED Neon")
+			self.assertEqual(service.reason("LED Neon"), "family_not_enabled")
 			# Frappe Cloud may store a JSON-typed key as a JSON-encoded string.
 			frappe.conf["ill_portal_enabled_families"] = '["LED Neon"]'
 			self.assertFalse(service.available("LED Sheet"))

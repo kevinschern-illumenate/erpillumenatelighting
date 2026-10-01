@@ -18,13 +18,15 @@ var ProductDetail = {
 	product: null,
 	schedules: [],
 	scheduleRequest: 0,
-	saveAttempt: null
+	saveAttempt: null,
+	pageContext: {}
 };
 
 // ── Initialisation ──────────────────────────────────────────────────
 
-function initProductDetail(slug) {
+function initProductDetail(slug, pageContext) {
 	ProductDetail.slug = slug;
+	ProductDetail.pageContext = pageContext || {};
 	loadProductDetail(slug);
 }
 
@@ -196,7 +198,23 @@ function renderProductAction(product) {
 	$section.append($('<h5>').text(__('Add to a Fixture Schedule')));
 
 	if (mode === 'inquiry') {
-		$section.append($('<p class="text-muted">').text(__('This product is not yet orderable from the portal. Contact us and we will add it to your schedule.')));
+		var messages = {
+			inactive: __('This product is not currently available.'),
+			not_configurable: __('This product is available with help from our team.'),
+			missing_template: __('This product needs a configurator template before it can be ordered online.'),
+			inactive_template: __('This product\'s configurator is temporarily unavailable.'),
+			family_not_enabled: __('Online configuration for this product family is not enabled yet.')
+		};
+		var reason = String(product.capability_reason || '');
+		var message = messages[reason] || (reason.indexOf('invalid_options:') === 0
+			? __('This product\'s configurator options need review before it can be ordered online.')
+			: __('This product is not yet orderable from the portal. Contact us and we will add it to your schedule.'));
+		$section.append($('<p class="text-muted">').text(message));
+		if (ProductDetail.pageContext.isStaff) {
+			$section.append($('<p class="small text-muted">')
+				.append(document.createTextNode(__('Catalog capability reason: {0}. ', [reason || 'unknown'])))
+				.append($('<a>').attr('href', ProductDetail.pageContext.deskUrl).text(__('Open product in Desk'))));
+		}
 		$section.append($('<a class="btn btn-outline-primary">').attr('href', '/portal/support').text(__('Request product assistance')));
 		return;
 	}

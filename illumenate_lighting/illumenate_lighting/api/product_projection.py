@@ -42,7 +42,15 @@ def safe_document_url(value):
 	return None
 
 
-def project_product(product, *, certifications=(), price=None, commercial=False, configure_available=True):
+def project_product(
+	product,
+	*,
+	certifications=(),
+	price=None,
+	commercial=False,
+	configure_available=True,
+	template_active=True,
+):
 	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families."""
 	get = product.get
 	family = FAMILY_ALIASES.get(get("product_type"), get("product_type"))
@@ -55,8 +63,11 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 			values = row.get("allowed_values_json") or []
 			if isinstance(values, str):
 				values = json.loads(values)
-			if not isinstance(values, list) or any(not isinstance(v, (str, dict)) for v in values):
-				raise ValueError("Allowed values must be an array of choices")
+			if not (
+				isinstance(values, dict)
+				or (isinstance(values, list) and all(isinstance(value, (str, dict)) for value in values))
+			):
+				raise ValueError("Allowed values must be an array of choices or a metadata object")
 		except (ValueError, TypeError):
 			values = []
 			errors.append(
@@ -71,15 +82,23 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 				"required": parse_bool(row.get("is_required")),
 				"depends_on_step": row.get("depends_on_step"),
 				"allowed_values": values,
+				"metadata": isinstance(values, dict) or (row.get("option_step") or 0) >= 90,
 			}
 		)
-	capability = (
-		"configure"
-		if active and template and parse_bool(get("is_configurable")) and not errors and configure_available
-		else "inquiry"
-	)
 	if not active:
-		capability = "unavailable"
+		capability, capability_reason = "unavailable", "inactive"
+	elif not parse_bool(get("is_configurable")):
+		capability, capability_reason = "inquiry", "not_configurable"
+	elif not template:
+		capability, capability_reason = "inquiry", "missing_template"
+	elif not template_active:
+		capability, capability_reason = "inquiry", "inactive_template"
+	elif errors:
+		capability, capability_reason = "inquiry", f"invalid_options:{errors[0].get('step')}"
+	elif not configure_available:
+		capability, capability_reason = "inquiry", "family_not_enabled"
+	else:
+		capability, capability_reason = "configure", "ok"
 	configure_url = None
 	if capability == "configure":
 		configure_url = "/portal/configure?" + urlencode(
@@ -145,6 +164,7 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 			"is_active": active,
 			"is_configurable": capability == "configure",
 			"capability": capability,
+			"capability_reason": capability_reason,
 			"configure_url": configure_url,
 			"template": template,
 			"gallery": sorted(gallery, key=lambda r: r["display_order"]),

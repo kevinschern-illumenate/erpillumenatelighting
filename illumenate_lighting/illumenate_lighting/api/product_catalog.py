@@ -10,7 +10,6 @@ users).
 """
 
 import json
-from typing import Optional, Union
 
 import frappe
 from frappe import _
@@ -61,11 +60,59 @@ def _per_foot_prices(products) -> dict:
     return prices
 
 
+def _template_activity(products) -> dict:
+    """Return ``(DocType, template) -> active`` using one query per template type."""
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+    from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_FIELDS
+
+    template_doctypes = {
+        "Linear Fixture": "ilL-Fixture-Template",
+        "LED Tape": "ilL-Tape-Neon-Template",
+        "LED Neon": "ilL-Tape-Neon-Template",
+        "LED Sheet": "ilL-LED-Sheet-Template",
+    }
+    wanted = {}
+    for product in products:
+        family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
+        field = TEMPLATE_FIELDS.get(family)
+        doctype = template_doctypes.get(family)
+        template = product.get(field) if field else None
+        if doctype and template:
+            wanted.setdefault(doctype, set()).add(template)
+
+    activity = {}
+    for doctype, names in wanted.items():
+        rows = frappe.get_all(
+            doctype,
+            filters={"name": ["in", list(names)]},
+            fields=["name", "is_active"],
+            ignore_permissions=True,
+        )
+        activity.update({(doctype, row.name): bool(cint(row.is_active)) for row in rows})
+    return activity
+
+
+def _is_template_active(product, activity) -> bool:
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+    from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_FIELDS
+
+    family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
+    doctypes = {
+        "Linear Fixture": "ilL-Fixture-Template",
+        "LED Tape": "ilL-Tape-Neon-Template",
+        "LED Neon": "ilL-Tape-Neon-Template",
+        "LED Sheet": "ilL-LED-Sheet-Template",
+    }
+    field = TEMPLATE_FIELDS.get(family)
+    template = product.get(field) if field else None
+    return activity.get((doctypes.get(family), template), False) if template else True
+
+
 # ── public API ───────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_catalog_products(
-    filters: Union[str, dict, None] = None,
+    filters: str | dict | None = None,
     search: str = "",
     page: int = 1,
     page_size: int = 12,
@@ -212,10 +259,17 @@ def get_catalog_products(
 
     # ── attach MSRP per foot from linear / tape / neon templates ─────
     pricing_map = _per_foot_prices(products)
+    template_activity = _template_activity(products)
 
     from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
     from illumenate_lighting.illumenate_lighting.portal.rollout import available
-    result = [project_product(product, price=pricing_map.get(product.name), commercial=True, configure_available=available(product.product_type)) for product in products]
+    result = [project_product(
+        product,
+        price=pricing_map.get(product.name),
+        commercial=True,
+        configure_available=available(product.product_type),
+        template_active=_is_template_active(product, template_activity),
+    ) for product in products]
 
     return {
         "success": True,
@@ -263,9 +317,17 @@ def get_catalog_product_detail(product_slug: str) -> dict:
             "certification_name", "certification_body", "certification_code", "badge_image"
         )})
     price = _per_foot_prices([product]).get(product.name)
+    template_activity = _template_activity([product])
     from illumenate_lighting.illumenate_lighting.portal.rollout import available
     from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
-    projection = project_product(product, certifications=certifications, price=price, commercial=True, configure_available=available(product.product_type))
+    projection = project_product(
+        product,
+        certifications=certifications,
+        price=price,
+        commercial=True,
+        configure_available=available(product.product_type),
+        template_active=_is_template_active(product, template_activity),
+    )
     if not projection["configure_url"]:
         projection["standard_choices"] = choices(product)
         if projection["standard_choices"]:
