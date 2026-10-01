@@ -172,8 +172,9 @@ export function mergeAdditions(reference, pending, schema) {
       doctypes[doctype] = { source: doctypes[doctype]?.source || 'catalog', records: { ...doctypes[doctype]?.records, ...records } };
       for (const row of Object.values(records)) {
         for (const link of linkedRecords(doctype, row, schema)) {
-          if (!link.doctype || (doctypes[link.doctype] && doctypes[link.doctype].source !== 'links')) continue;
-          doctypes[link.doctype] = { source: 'links', records: { [link.name]: {}, ...doctypes[link.doctype]?.records } };
+          if (!link.doctype) continue;
+          doctypes[link.doctype] = { source: doctypes[link.doctype]?.source || 'links', ...doctypes[link.doctype],
+            records: { [link.name]: {}, ...doctypes[link.doctype]?.records } };
         }
       }
     }

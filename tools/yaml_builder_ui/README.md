@@ -48,8 +48,10 @@ coverage, electrical selection, PDFs, and channel publication.
 ## Existing ERPNext records
 
 `src/erp-reference.json` is a snapshot of the records already in ERPNext, built from
-ERPNext's DocType exports (LED Tape specs, profiles, lenses, accessories, drivers,
-templates, attributes, relationship maps, and the Items they link to). In the editor:
+ERPNext's DocType exports: LED Tape specs, profiles, lenses, accessories, drivers,
+templates, attributes, relationship maps, and every Item (templates and variants,
+with their variant attributes), plus the Item Groups, UOMs, Brands and Item
+Attributes those records link to. In the editor:
 
 - Link fields suggest existing records with their key values, and show
   **Existing ERPNext record** when a link matches one, so a new fixture family can
@@ -78,14 +80,22 @@ The YAML then carries `add_to_reference: true` (the catalog needs a name):
   use **Remove from this browser**. A later export rebuild replaces the additions
   with the records as ERPNext holds them.
 
-Prices and costs, audit fields, and Webflow sync state are not stored. Items, UOMs and
-other DocTypes that were not exported only list names that exported records link to.
+Prices and costs, Item supplier rows, audit fields, and Webflow sync state are not
+stored. DocTypes that were not exported (such as UOM and Item Group) only list names
+that exported records link to.
 
 To refresh it, export each DocType in ERPNext (**Menu → Export**, all records, with
 child tables), zip the CSVs, and run from the repository root:
 
 ```powershell
 python -m tools.fixture_builder.erp_reference DocType_Exports.zip
+```
+
+To refresh only some DocTypes, export just those and add `--update`; the others and
+any catalog additions are kept:
+
+```powershell
+python -m tools.fixture_builder.erp_reference Item.csv --update
 ```
 
 The CLI reads the same snapshot; pass `--no-reference` to ignore it.

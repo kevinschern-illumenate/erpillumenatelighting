@@ -126,7 +126,7 @@ function ReferencePanel({ doctype, reference, onCopy }) {
   const matches = names.filter(name => !needle || `${name} ${JSON.stringify(entry.records[name])}`.toLowerCase().includes(needle));
   const partial = entry.source !== 'export';
   return <details className="catalog-reference">
-    <summary>{names.length} existing in ERPNext <span>export of {reference.exported_on}{partial ? ' · only records that exported records link to' : ''}</span></summary>
+    <summary>{names.length} existing in ERPNext <span>export of {entry.exported_on || reference.exported_on}{partial ? ' · only records that exported records link to' : ''}</span></summary>
     <p>Link to these from your new records instead of re-creating them; linked names count as existing ERPNext records.
       {partial ? '' : ' Copy one to start a new record from its values.'}</p>
     <input aria-label={`Search existing ${shortName(doctype)} records`} placeholder="Search existing records…" value={query} onChange={e => setQuery(e.target.value)} />
