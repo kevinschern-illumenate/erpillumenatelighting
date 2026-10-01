@@ -75,3 +75,43 @@ test('product type tabs show family labels and cards offer the action the produc
     assert.equal(w.document.querySelectorAll('.product-card-details').length, 3);
     dom.window.close();
 });
+
+test('facet counts follow the other filters in place and ignore stale responses', () => {
+    const {dom, w, requests} = setup();
+    const meta = {
+        product_types: [{value: 'LED Tape', count: 5}, {value: 'LED Neon', count: 2}],
+        filters: [
+            {attribute_type: 'CCT', options: [{value: '2700K', count: 3}, {value: '3000K', count: 4}]},
+            {attribute_type: 'Finish', options: [{value: 'Black', count: 2}]},
+        ],
+    };
+    w.CatalogState.filterMeta = meta;
+    w.renderFilterSidebar(meta);
+    const box = w.document.querySelector('input[data-val="3000K"]');
+    box.checked = true;
+    w.$(box).trigger('change');
+    const facetCalls = requests.filter(r => r.method.endsWith('get_catalog_filter_options'));
+    assert.equal(facetCalls.length, 1);
+    assert.deepEqual(JSON.parse(facetCalls[0].args.filters), {CCT: ['3000K']});
+    assert.ok(requests.at(-1).method.endsWith('get_catalog_products'));
+
+    w.CatalogState.search = 'cove';
+    w.fetchProducts(true);
+    const latest = requests.filter(r => r.method.endsWith('get_catalog_filter_options')).at(-1);
+    assert.equal(latest.args.search, 'cove');
+    facetCalls[0].callback({message: {success: true, product_types: [], filters: []}});
+    assert.equal(w.document.querySelector('.product-type-tab').style.display, '');
+
+    latest.callback({message: {success: true,
+        product_types: [{value: 'LED Tape', count: 1}],
+        filters: [{attribute_type: 'CCT', options: [{value: '3000K', count: 0}]}]}});
+    const tabs = Array.from(w.document.querySelectorAll('.product-type-tab'));
+    assert.match(tabs[0].textContent, /\(1\)/);
+    assert.equal(tabs[1].style.display, 'none');
+    assert.strictEqual(w.document.querySelector('input[data-val="3000K"]'), box);
+    assert.equal(box.closest('.filter-option').style.display, '');
+    assert.equal(box.closest('.filter-option').querySelector('.count').textContent, '0');
+    assert.equal(w.document.querySelector('input[data-val="2700K"]').closest('.filter-option').style.display, 'none');
+    assert.equal(w.document.querySelector('input[data-attr="Finish"]').closest('.filter-group').style.display, 'none');
+    dom.window.close();
+});

@@ -18,6 +18,7 @@ var CatalogState = {
 	filterMeta: null,
 	contextParams: {},
 	requestVersion: 0,
+	facetVersion: 0,
 	loading: false
 };
 
@@ -208,13 +209,8 @@ function fetchProducts(replace, requestedPage) {
 	$('#productGrid').attr('aria-busy', 'true');
 	$('#catalogFeedback').text('Loading products...').removeClass('text-danger');
 	$('#loadMoreBtn').prop('disabled', true);
-	var filters = {};
-	if (CatalogState.productType.length) {
-		filters.product_type = CatalogState.productType;
-	}
-	Object.keys(CatalogState.attrFilters).forEach(function(k) {
-		filters[k] = CatalogState.attrFilters[k];
-	});
+	var filters = currentFilters();
+	if (replace) refreshFacetCounts(filters);
 
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_products',
@@ -318,6 +314,66 @@ function renderGrid() {
 	} else {
 		$('#loadMoreWrap').hide();
 	}
+}
+
+function currentFilters() {
+	var filters = {};
+	if (CatalogState.productType.length) {
+		filters.product_type = CatalogState.productType;
+	}
+	Object.keys(CatalogState.attrFilters).forEach(function(k) {
+		filters[k] = CatalogState.attrFilters[k];
+	});
+	return filters;
+}
+
+// ── Facet counts ────────────────────────────────────────────────────
+//
+// Counts follow the other active filters and the search, so a count is
+// the number of results ticking that value would give. They are updated
+// in place (not re-rendered) so the checkbox a dealer just used keeps focus.
+
+function refreshFacetCounts(filters) {
+	if (!CatalogState.filterMeta) return;
+	var version = ++CatalogState.facetVersion;
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_filter_options',
+		args: {filters: JSON.stringify(filters), search: CatalogState.search},
+		callback: function(r) {
+			if (version !== CatalogState.facetVersion || !r.message || !r.message.success) return;
+			applyFacetCounts(r.message);
+		}
+	});
+}
+
+function applyFacetCounts(data) {
+	var typeCounts = {};
+	(data.product_types || []).forEach(function(pt) { typeCounts[pt.value] = pt.count; });
+	$('#productTypeTabs .product-type-tab').each(function() {
+		var value = this.getAttribute('data-type');
+		var count = typeCounts[value] || 0;
+		$(this).find('small').text('(' + count + ')');
+		$(this).toggle(count > 0 || CatalogState.productType.indexOf(value) !== -1);
+	});
+
+	var counts = {};
+	(data.filters || []).forEach(function(group) {
+		(group.options || []).forEach(function(opt) {
+			counts[group.attribute_type + '\u0000' + opt.value] = opt.count;
+		});
+	});
+	$('#filterGroups .filter-group').each(function() {
+		var visible = 0;
+		$(this).find('input[type=checkbox]').each(function() {
+			var count = counts[this.getAttribute('data-attr') + '\u0000' + this.getAttribute('data-val')] || 0;
+			var $option = $(this).closest('.filter-option');
+			var show = count > 0 || this.checked;
+			$option.find('.count').text(count);
+			$option.toggle(show);
+			if (show) visible++;
+		});
+		$(this).toggle(visible > 0);
+	});
 }
 
 function loadMore() {
