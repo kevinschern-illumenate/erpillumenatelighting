@@ -3228,7 +3228,7 @@ function renderExportHistory(exports) {
 // Load export history on page load
 $(document).ready(function() {
 	loadExportHistory();
-    $('.line-documents').on('click', function () { PortalLineDocuments.open(this.dataset.schedule, this.dataset.line); });
+    $('.line-documents').on('click', function () { PortalLineDocuments.open(this.dataset.schedule, this.dataset.line).catch(function (error) { frappe.msgprint(frappe.utils.escape_html(error.message)); }); });
 	loadVersionHistory();
 	restoreScrollAfterReorder();
 	initLineReorder();

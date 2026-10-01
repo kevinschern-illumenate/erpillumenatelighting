@@ -3,9 +3,9 @@
     const method = 'illumenate_lighting.illumenate_lighting.portal.accounts.';
     const call = (name, args) => PortalUploads.call(method + name, args || {});
     const escape = value => frappe.utils.escape_html(String(value == null ? '' : value));
-    function dialog(title, fields, submit) {
+    async function dialog(title, fields, submit) {
         const previous = document.activeElement;
-        const form = new frappe.ui.Dialog({title: __(title), fields, primary_action_label: __('Save'),
+        const form = await window.PortalDialog.create({title: __(title), fields, primary_action_label: __('Save'),
             primary_action: async values => {
                 if (form.busy) return;
                 form.busy = true; form.get_primary_btn().prop('disabled', true);
@@ -57,7 +57,7 @@
                 const fields = names.map(name => ({fieldname: name, fieldtype: name === 'address_type' ? 'Select' : name === 'country' ? 'Link' : 'Data',
                     options: name === 'address_type' ? 'Billing\nShipping\nOffice\nOther' : name === 'country' ? 'Country' : name === 'email_id' ? 'Email' : undefined,
                     label: __(name.replaceAll('_', ' ')), default: row && row[name] || '', reqd: required.includes(name)}));
-                dialog(row ? 'Request ' + doctype.toLowerCase() + ' change' : 'Add ' + doctype.toLowerCase(), fields, async values => {
+                return dialog(row ? 'Request ' + doctype.toLowerCase() + ' change' : 'Add ' + doctype.toLowerCase(), fields, async values => {
                     const receipt = await call('save_record', {doctype, values: JSON.stringify(values), name: row && row.name, expected_modified: row && row.modified});
                     if (receipt.request) frappe.show_alert(__('Change submitted for review: {0}', [receipt.request]));
                     await refresh(container);
