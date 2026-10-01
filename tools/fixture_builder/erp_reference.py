@@ -37,8 +37,9 @@ from .catalog_schema import ROOT, build_schema
 
 REFERENCE = ROOT / "tools/yaml_builder_ui/src/erp-reference.json"
 TABLES = {"Table", "Table MultiSelect"}
-SKIPPED_CHILDREN = {"ilL-Child-Webflow-Sync-State"}
-# Prices and costs stay in ERPNext; the builder is a static site and only needs links.
+# Supplier names and part numbers, like prices and costs, stay in ERPNext; the
+# builder is a static site and only needs links.
+SKIPPED_CHILDREN = {"ilL-Child-Webflow-Sync-State", "Item Supplier"}
 SKIPPED_TYPES = {"Currency"}
 # Large records that are referenced by name: keep short identifying fields only.
 SUMMARY_ONLY = {"ilL-Webflow-Product"}
@@ -168,36 +169,55 @@ def _linked(doctype, record, schema):
 				yield target, str(value)
 
 
-def build_reference(paths, schema=None, exported_on=None):
+def build_reference(paths, schema=None, exported_on=None, base=None):
+	"""Build reference data from exports.
+
+	With ``base`` (existing reference data), only the exported DocTypes are
+	replaced; other DocTypes and logged catalog additions are kept.
+	"""
 	schema = schema or build_schema()
-	doctypes, skipped = {}, []
+	exported_on = exported_on or date.today().isoformat()
+	skipped, fresh = [], {}
 	for filename, text in _sources(paths):
 		try:
 			doctype, records = parse_export(text, schema)
 		except ValueError as error:
 			skipped.append(f"{filename}: {error}")
 			continue
-		if doctype in doctypes:
+		if doctype in fresh:
 			raise ValueError(f"{filename}: {doctype} was exported more than once; keep only the newest file")
-		doctypes[doctype] = {
+		fresh[doctype] = {
 			"source": "export",
+			"exported_on": exported_on,
 			"records": {record.pop("name"): record for record in sorted(records, key=lambda r: r["name"])},
 		}
-	exported = list(doctypes.items())
-	for doctype, entry in exported:
-		for record in entry["records"].values():
+	base = base or {}
+	doctypes = {}
+	for doctype, entry in (base.get("doctypes") or {}).items():
+		if entry["source"] == "links":
+			continue  # Recomputed below from the records that link to them.
+		doctypes[doctype] = {
+			"source": entry["source"],
+			"exported_on": entry.get("exported_on", base.get("exported_on")),
+			"records": entry["records"],
+		}
+	doctypes.update(fresh)
+	for doctype, entry in list(doctypes.items()):
+		for record in list(entry["records"].values()):
 			for target, name in _linked(doctype, record, schema):
-				if target not in doctypes:
-					doctypes[target] = {"source": "links", "records": {}}
-				if doctypes[target]["source"] == "links":
-					doctypes[target]["records"].setdefault(name, {})
+				# A saved link names a real record, even one missing from an export filter.
+				doctypes.setdefault(target, {"source": "links", "records": {}})["records"].setdefault(
+					name, {}
+				)
 	for entry in doctypes.values():
 		entry["records"] = dict(sorted(entry["records"].items()))
 	reference = {
 		"schema_version": 1,
-		"exported_on": exported_on or date.today().isoformat(),
+		"exported_on": max([exported_on, base.get("exported_on", "")]),
 		"doctypes": dict(sorted(doctypes.items())),
 	}
+	if base.get("catalog_additions"):
+		reference["catalog_additions"] = base["catalog_additions"]
 	return reference, skipped
 
 
@@ -242,9 +262,9 @@ def add_catalog(data, config, records, schema, added_on=None):
 			entry["records"][name] = reference_record(doctype, row, schema)
 			added[doctype].add(name)
 			for target, linked in _linked(doctype, row, schema):
-				link_entry = data["doctypes"].setdefault(target, {"source": "links", "records": {}})
-				if link_entry["source"] == "links":
-					link_entry["records"].setdefault(linked, {})
+				data["doctypes"].setdefault(target, {"source": "links", "records": {}})["records"].setdefault(
+					linked, {}
+				)
 	for entry in data["doctypes"].values():
 		entry["records"] = dict(sorted(entry["records"].items()))
 	data["doctypes"] = dict(sorted(data["doctypes"].items()))
@@ -303,8 +323,14 @@ def main():
 	parser.add_argument("exports", nargs="+", help="ERPNext DocType export CSVs, folders, or zip files")
 	parser.add_argument("--output", default=str(REFERENCE), help="Reference JSON to write")
 	parser.add_argument("--exported-on", help="Export date (YYYY-MM-DD); defaults to today")
+	parser.add_argument(
+		"--update",
+		action="store_true",
+		help="Replace only the exported DocTypes in the existing output file and keep the rest",
+	)
 	args = parser.parse_args()
-	reference, skipped = build_reference(args.exports, exported_on=args.exported_on)
+	base = json.loads(Path(args.output).read_text(encoding="utf-8")) if args.update else None
+	reference, skipped = build_reference(args.exports, exported_on=args.exported_on, base=base)
 	Path(args.output).write_text(json.dumps(reference, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 	for doctype, entry in reference["doctypes"].items():
 		print(
