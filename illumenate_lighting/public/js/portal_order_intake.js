@@ -19,7 +19,7 @@
             {fieldname: 'feedback', fieldtype: 'HTML', options: '<p role="alert" aria-live="polite" class="intake-feedback"></p>'}
         ];
         const key = crypto.randomUUID();
-        const dialog = new frappe.ui.Dialog({title: __('Order request intake'), size: 'large', fields, primary_action_label: __('Submit request'), primary_action: async values => {
+        const dialog = await PortalDialog.create({title: __('Order request intake'), size: 'large', fields, primary_action_label: __('Submit request'), primary_action: async values => {
             if (dialog.busy) return;
             dialog.busy = true; dialog.get_primary_btn().prop('disabled', true);
             const feedback = dialog.fields_dict.feedback.$wrapper.find('.intake-feedback'); feedback.text(__('Uploading and validating request...'));
