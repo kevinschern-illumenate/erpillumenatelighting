@@ -210,7 +210,10 @@ function fetchProducts(replace, requestedPage) {
 	$('#catalogFeedback').text('Loading products...').removeClass('text-danger');
 	$('#loadMoreBtn').prop('disabled', true);
 	var filters = currentFilters();
-	if (replace) refreshFacetCounts(filters);
+	if (replace) {
+		refreshFacetCounts(filters);
+		renderActiveFilterChips();
+	}
 
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.product_catalog.get_catalog_products',
@@ -374,6 +377,51 @@ function applyFacetCounts(data) {
 		});
 		$(this).toggle(visible > 0);
 	});
+}
+
+// ── Active filter chips ─────────────────────────────────────────────
+
+function renderActiveFilterChips() {
+	var $chips = $('#activeFilterChips').empty();
+	function chip(kind, attr, value, text) {
+		$chips.append($('<button type="button" class="active-filter-chip">')
+			.attr({'data-kind': kind, 'data-attr': attr, 'data-val': value, 'aria-label': __('Remove filter {0}', [text])})
+			.text(text + ' \u00d7'));
+	}
+	CatalogState.productType.forEach(function(value) { chip('type', '', value, productFamilyLabel(value)); });
+	Object.keys(CatalogState.attrFilters).forEach(function(attr) {
+		CatalogState.attrFilters[attr].forEach(function(value) { chip('attr', attr, value, facetLabel(attr) + ': ' + value); });
+	});
+	$chips.off('click', '.active-filter-chip').on('click', '.active-filter-chip', function() {
+		removeFilter(this.getAttribute('data-kind'), this.getAttribute('data-attr'), this.getAttribute('data-val'));
+	});
+}
+
+function facetLabel(attr) {
+	var group = ((CatalogState.filterMeta && CatalogState.filterMeta.filters) || [])
+		.find(function(row) { return row.attribute_type === attr; });
+	return (group && group.label) || attr;
+}
+
+function removeFilter(kind, attr, value) {
+	var index = $('#activeFilterChips .active-filter-chip').index(document.activeElement);
+	if (kind === 'type') {
+		CatalogState.productType = CatalogState.productType.filter(function(v) { return v !== value; });
+		$('#productTypeTabs .product-type-tab').each(function() {
+			if (this.getAttribute('data-type') === value) $(this).removeClass('active').attr('aria-pressed', 'false');
+		});
+	} else {
+		CatalogState.attrFilters[attr] = (CatalogState.attrFilters[attr] || []).filter(function(v) { return v !== value; });
+		if (!CatalogState.attrFilters[attr].length) delete CatalogState.attrFilters[attr];
+		$('#filterGroups input[type=checkbox]').each(function() {
+			if (this.getAttribute('data-attr') === attr && this.getAttribute('data-val') === value) this.checked = false;
+		});
+	}
+	CatalogState.page = 1;
+	fetchProducts(true);
+	// Keep keyboard users in the chip row, or return them to search when it empties.
+	var $remaining = $('#activeFilterChips .active-filter-chip');
+	($remaining.length ? $remaining.eq(Math.min(Math.max(index, 0), $remaining.length - 1)) : $('#catalogSearch')).trigger('focus');
 }
 
 function loadMore() {

@@ -115,3 +115,31 @@ test('facet counts follow the other filters in place and ignore stale responses'
     assert.equal(w.document.querySelector('input[data-attr="Finish"]').closest('.filter-group').style.display, 'none');
     dom.window.close();
 });
+
+test('active filter chips remove one filter, sync the sidebar and keep keyboard focus nearby', () => {
+    const {dom, w, requests} = setup();
+    w.document.body.insertAdjacentHTML('afterbegin', '<div id="activeFilterChips"></div>');
+    const meta = {product_types: [{value: 'Fixture Template', count: 2}],
+        filters: [{attribute_type: 'product_category', label: 'Application', options: [{value: 'Cove', count: 2}]},
+                  {attribute_type: 'CCT', options: [{value: '3000K', count: 2}]}]};
+    w.CatalogState.filterMeta = meta;
+    w.CatalogState.productType = ['Fixture Template'];
+    w.CatalogState.attrFilters = {product_category: ['Cove'], CCT: ['3000K']};
+    w.renderFilterSidebar(meta);
+    w.fetchProducts(true);
+    const labels = () => Array.from(w.document.querySelectorAll('.active-filter-chip')).map(b => b.textContent);
+    assert.deepEqual(labels(), ['Linear Fixtures ×', 'Application: Cove ×', 'CCT: 3000K ×']);
+    const cove = w.document.querySelectorAll('.active-filter-chip')[1];
+    cove.focus();
+    cove.click();
+    assert.deepEqual(JSON.parse(requests.at(-1).args.filters), {product_type: ['Fixture Template'], CCT: ['3000K']});
+    assert.equal(w.document.querySelector('input[data-val="Cove"]').checked, false);
+    assert.deepEqual(labels(), ['Linear Fixtures ×', 'CCT: 3000K ×']);
+    assert.equal(w.document.activeElement.textContent, 'CCT: 3000K ×');
+    w.document.querySelector('.active-filter-chip').click();
+    assert.equal(w.document.querySelector('.product-type-tab').getAttribute('aria-pressed'), 'false');
+    w.document.querySelector('.active-filter-chip').click();
+    assert.deepEqual(labels(), []);
+    assert.equal(w.document.activeElement.id, 'catalogSearch');
+    dom.window.close();
+});

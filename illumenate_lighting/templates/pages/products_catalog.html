@@ -236,6 +236,25 @@ Browse ilL-Webflow-Product records with attribute filtering
 	border-radius: 2rem;
 }
 
+/* ── Active filter chips ───────────────────────────── */
+.active-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-bottom: 0.75rem;
+}
+.active-filter-chips:empty {
+	display: none;
+}
+.active-filter-chip {
+	border: 1px solid var(--ill-primary, #1976d2);
+	background: #e7f1ff;
+	color: var(--ill-primary, #1976d2);
+	border-radius: 2rem;
+	padding: 0.15rem 0.65rem;
+	font-size: 0.8rem;
+}
+
 /* ── Load More ─────────────────────────────────────── */
 .load-more-wrap {
 	text-align: center;
@@ -326,6 +345,7 @@ Browse ilL-Webflow-Product records with attribute filtering
 				<input type="search" id="catalogSearch" placeholder="{{ _('Search products…') }}">
 			</div>
 
+            <div id="activeFilterChips" class="active-filter-chips" role="group" aria-label="{{ _('Active filters') }}"></div>
             <p id="catalogFeedback" role="status" aria-live="polite"></p>
             <button type="button" class="btn btn-link btn-sm" onclick="fetchProducts(true)">{{ _("Refresh products") }}</button>
 			<!-- Grid -->
