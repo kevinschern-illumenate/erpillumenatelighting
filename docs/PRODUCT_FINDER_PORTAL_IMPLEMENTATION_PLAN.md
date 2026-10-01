@@ -1,6 +1,8 @@
 # Product Finder and Product Catalog — Full Implementation Plan (v2)
 
 Status: approved direction, 2026-10-01. Branch: `staging`. First deployment target: the **staging site**.
+
+> **Build status:** Phase 0 (catalog fixes) and PR 2 (Desk-managed content) are done. The remaining work is specified in **`docs/PRODUCT_FINDER_COMPLETION_PLAN.md`**, which must be executed in one continuous session (not phase by phase).
 This version replaces v1 of this document. It incorporates the decisions in §0.
 
 ---
