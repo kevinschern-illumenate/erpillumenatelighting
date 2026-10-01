@@ -20,6 +20,10 @@ window.PortalDialog = {
 	},
 	async create(options) {
 		await this.ready();
-		return new frappe.ui.Dialog(options);
+		// As Frappe's web forms do: a Link control that is not only_select calls
+		// frappe.model.can_create, which reads frappe.boot.user (absent on the portal) and throws
+		// on every search, so the field never shows suggestions.
+		const fields = (options.fields || []).map(df => df.fieldtype === 'Link' && df.only_select === undefined ? {...df, only_select: 1} : df);
+		return new frappe.ui.Dialog({...options, fields});
 	}
 };

@@ -5,7 +5,7 @@
     const escape = value => frappe.utils.escape_html(String(value == null ? '' : value));
     async function dialog(title, fields, submit) {
         const previous = document.activeElement;
-        const form = await PortalDialog.create({title: __(title), fields, primary_action_label: __('Save'),
+        const form = await window.PortalDialog.create({title: __(title), fields, primary_action_label: __('Save'),
             primary_action: async values => {
                 if (form.busy) return;
                 form.busy = true; form.get_primary_btn().prop('disabled', true);
