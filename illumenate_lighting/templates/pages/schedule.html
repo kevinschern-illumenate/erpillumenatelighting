@@ -1145,7 +1145,7 @@ body.reorder-no-select {
 												{% if cls_details.get('total_system_watts') %}
 												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cls_details.get('total_system_watts') }}W</strong></span>
 												{% endif %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power Supplies: <strong>{{ 'Yes' if cls_details.get('include_power_supply') else 'No' }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power Supplies: <strong>{{ _('Own line below') if line.get('has_power_supply_lines') else ('Yes' if cls_details.get('include_power_supply') else 'No') }}</strong></span>
 											</div>
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}

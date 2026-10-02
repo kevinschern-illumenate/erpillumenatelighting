@@ -127,7 +127,9 @@ def resolve(result, template, spec):
 		_component(template.jumper_cable_item, 2 * result["panels_needed"], "jumpers"),
 		_component(template.leader_cable_item, len(groups), "leaders"),
 	]
-	components.extend(_component(d["driver_item"], d["qty"], "power") for d in plan["drivers"])
+	if not parse_bool(result.get("power_supply_separate"), default=False):
+		# Separate supplies keep their plan (feeds, allocations) but sit on their own line.
+		components.extend(_component(d["driver_item"], d["qty"], "power") for d in plan["drivers"])
 	result.update(
 		{
 			"groups": groups,

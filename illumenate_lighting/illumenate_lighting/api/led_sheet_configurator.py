@@ -233,13 +233,14 @@ def _resolve_dimensions(
 def validate_sheet_configuration(template, spec=None, options=None, coverage_width_ft=0,
     coverage_height_ft=0, schedule_name=None, line_idx=None, coverage_width_value=None,
     coverage_width_unit="ft", coverage_height_value=None, coverage_height_unit="ft",
-    include_power_supply=1, dimming_protocol_code=None):
+    include_power_supply=1, dimming_protocol_code=None, power_supply_separate=0):
     from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
 
     require_configuration("LED Sheet")
     return _calculate_sheet(template, spec, options, coverage_width_ft, coverage_height_ft,
         schedule_name, line_idx, coverage_width_value, coverage_width_unit,
-        coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code)
+        coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code,
+        power_supply_separate=power_supply_separate)
 
 
 def _calculate_sheet(
@@ -256,7 +257,7 @@ def _calculate_sheet(
     coverage_height_unit="ft",
     include_power_supply=1,
     dimming_protocol_code=None,
-    *, commercial=True,
+    *, commercial=True, power_supply_separate=0,
 ):
     template_doc = frappe.get_doc("ilL-LED-Sheet-Template", template)
     if not template_doc.is_active:
@@ -268,6 +269,9 @@ def _calculate_sheet(
         frappe.throw(_("Choose an active LED Sheet template and specification"))
 
     include_ps = _coerce_bool(include_power_supply)
+    # Included supplies on their own schedule line: plan them exactly as when
+    # bundled (feeds are sized by the drivers), but keep them out of the bundle.
+    separate_ps = include_ps and parse_bool(power_supply_separate, default=False)
     if spec_doc.cct and "CCT" in resolved and resolved["CCT"]["value"] != spec_doc.cct:
         frappe.throw(_("Selected CCT does not match the physical Sheet specification"))
     width, height = _resolve_dimensions(
@@ -301,6 +305,7 @@ def _calculate_sheet(
     physical = led_sheet_bundle.resolve({
         "panels_needed": panels_needed, "watts_per_panel": watts_per_panel,
         "include_power_supply": include_ps, "dimming_protocol_code": dimming_protocol_code,
+        **({"power_supply_separate": True} if separate_ps else {}),
     }, template_doc, spec_doc)
     groups = physical["groups"]
 
@@ -342,7 +347,8 @@ def _calculate_sheet(
                 ps["unit_price"] = price
                 ps["line_total"] = price * int(ps.get("qty") or 0)
                 power_supplies_msrp += ps["line_total"]
-        total_msrp = panels_msrp + jumpers_msrp + leaders_msrp + power_supplies_msrp
+        # Separate supplies are priced on their own line, not in the bundle.
+        total_msrp = panels_msrp + jumpers_msrp + leaders_msrp + (0 if separate_ps else power_supplies_msrp)
 
     options_payload = {k: v["value"] for k, v in resolved.items()}
     result = {
@@ -520,6 +526,7 @@ def save_sheet_configuration(
     coverage_height_unit="ft",
     include_power_supply=1,
     dimming_protocol_code=None,
+    power_supply_separate=0,
 ):
     from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule
     if frappe.session.user == "Guest":
@@ -544,6 +551,7 @@ def save_sheet_configuration(
         result = validate_sheet_configuration(
             template, spec, options, coverage_width_ft, coverage_height_ft, schedule_name, line_idx,
             coverage_width_value, coverage_width_unit, coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code,
+            power_supply_separate,
         )
         existing = frappe.db.get_value("ilL-Configured-LED-Sheet", {"config_hash": result["config_hash"]}, "name")
         if existing:

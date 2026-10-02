@@ -454,6 +454,8 @@
 			coverage_height_value: this.$('#coverageHeightValue').val(),
 			coverage_height_unit: this.$('#coverageHeightUnit').val(),
 			include_power_supply: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
+			// Included supplies are saved as their own schedule line under the sheet.
+			power_supply_separate: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
 			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null
 		};
 	};
@@ -547,10 +549,12 @@
 				+ (Number(p.option_msrp) ? '<tr><td>' + __('Option adders') + '</td><td class="text-right">' + money(p.option_msrp) + '</td></tr>' : '')
 				+ '<tr><td>' + __('Jumpers') + '</td><td class="text-right">' + money(p.jumpers_msrp) + '</td></tr>'
 				+ '<tr><td>' + __('Leaders') + '</td><td class="text-right">' + money(p.leaders_msrp) + '</td></tr>'
-				+ (includePs ? '<tr><td>' + __('Power supplies') + '</td><td class="text-right">' + money(p.power_supplies_msrp) + '</td></tr>' : '')
-				+ '<tr class="font-weight-bold"><td>' + __('Total MSRP') + '</td><td class="text-right">' + money(p.total_msrp != null ? p.total_msrp : r.total_msrp) + '</td></tr>'
+				+ '<tr class="font-weight-bold"><td>' + __('Sheet bundle MSRP') + '</td><td class="text-right">' + money(p.total_msrp != null ? p.total_msrp : r.total_msrp) + '</td></tr>'
+				+ (includePs ? '<tr><td>' + __('Power supplies (own line)') + '</td><td class="text-right">' + money(p.power_supplies_msrp) + '</td></tr>' : '')
 				+ '</tbody></table>'
-				+ '<small class="text-muted d-block mt-1">' + __('One schedule line includes all panels, cables, and selected power supplies. Quantity counts complete bundles.') + '</small>';
+				+ '<small class="text-muted d-block mt-1">' + (includePs
+					? __('The sheet line includes all panels and cables; the selected power supplies are added as their own line directly under it, with the same Fixture Type and Location. Quantity counts complete bundles.')
+					: __('One schedule line includes all panels and cables. Quantity counts complete bundles.')) + '</small>';
 		}
 
 		this.$('#sheetSummary').html(html);

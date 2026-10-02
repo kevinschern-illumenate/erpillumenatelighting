@@ -122,7 +122,9 @@
         var request = this.readMember(), values = request.selections || {}, shared = {};
         (SHARED[request.family] || []).forEach(function (key) { if (values[key] != null && values[key] !== '') shared[key] = values[key]; });
         return {schema_version: 3, family: request.family, template: request.template, shared: shared,
-            power: {include_power_supply: values.include_power_supply, dimming_protocol_code: values.dimming_protocol_code || null, override_max_run_ft: values.override_max_run_ft == null || values.override_max_run_ft === '' ? null : values.override_max_run_ft}, members: clone(this.members)};
+            power: {include_power_supply: values.include_power_supply, dimming_protocol_code: values.dimming_protocol_code || null, override_max_run_ft: values.override_max_run_ft == null || values.override_max_run_ft === '' ? null : values.override_max_run_ft,
+                // Included supplies are saved as their own line under the group.
+                separate_supply_line: true}, members: clone(this.members)};
     };
     Editor.prototype.calculate = function () {
         var self = this, instance = this.instance;
@@ -159,7 +161,7 @@
             (member.build.cables || []).forEach(function (cable) { $('<div class="small"></div>').text(cable.role + ': ' + cable.length_mm + ' mm · ' + cable.item_code).appendTo(block); });
         });
         $('<p class="mt-2"></p>').text(build.power_plan.status === 'excluded' ? __('External power required; supplies are excluded from the BOM and price.')
-            : ((build.request || {}).family === 'LED Sheet' ? __('Included supplies') : __('Included supplies (added as their own line under this group)'))).appendTo(target);
+            : __('Included supplies (added as their own line under this group, not in the group price)')).appendTo(target);
         if (build.power_plan.drivers.reduce(function (count, row) { return count + row.qty; }, 0) > 1) $('<p></p>').text(__('Multiple supplies are required to satisfy all independent circuits within the eligible total and per-output capacities.')).appendTo(target);
         build.power_plan.drivers.forEach(function (driver) { $('<div></div>').text(driver.qty + ' × ' + driver.driver_item).appendTo(target); });
         build.power_plan.requirements.forEach(function (circuit) { $('<div class="small"></div>').text(circuit.run_key + ': ' + circuit.watts + ' W').appendTo(target); });

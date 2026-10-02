@@ -1,14 +1,16 @@
 """Included power supplies as their own schedule lines.
 
-When a dealer includes power for a Linear Fixture, LED Tape or LED Neon build
-(single or grouped), the supplies are not folded into the configured Item. The
-fixture is built as an externally powered product, and every supply the power
-planner selects becomes an ACCESSORY line directly under the fixture line, with
-the same Fixture Type and Location. Quantity follows the fixture line: the
-supplies needed by one build times the number of builds.
+When a dealer includes power for a Linear Fixture, LED Tape, LED Neon or LED
+Sheet build (single or grouped), the supplies are not folded into the configured
+Item. Every supply the power planner selects becomes an ACCESSORY line directly
+under the fixture line, with the same Fixture Type and Location. Quantity
+follows the fixture line: the supplies needed by one build times the number of
+builds.
 
-LED Sheets keep their bundled power: a Sheet bundle prices and builds its
-supplies with the panels.
+Linear, tape and neon geometry does not depend on the supplies, so those builds
+are made as externally powered products. A Sheet's feeds are sized by its
+drivers, so a Sheet keeps its full power plan and is only marked
+``power_supply_separate``: the supplies stay out of its BOM and price.
 """
 
 import copy
@@ -20,7 +22,8 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 
-SPLIT_FAMILIES = ("Linear Fixture", "LED Tape", "LED Neon")
+SPLIT_FAMILIES = ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet")
+SHEET = "LED Sheet"
 # Schedule line fields that tie a power-supply line to its fixture line.
 OWNER_FIELD = "power_supply_for_line"
 PER_BUILD_FIELD = "power_supply_qty_per_build"
@@ -62,6 +65,10 @@ def split_power(family, payload):
 		power = request.get("power") or {}
 		if not parse_bool(power.get("include_power_supply"), default=True):
 			return payload, []
+		if family == SHEET:
+			# Sheet members size their feeds by the drivers: keep the plan, move the supplies.
+			build = {**request, "power": {**power, "separate_supply_line": True}}
+			return {**payload, "group_request": build}, _plan_drivers(calculate(build)["build"]["power_plan"])
 		# Plan the group's shared supplies once, then build the group without them.
 		drivers = _plan_drivers(calculate(request)["build"]["power_plan"])
 		build = {**request, "power": {**power, "include_power_supply": False}}
@@ -70,6 +77,17 @@ def split_power(family, payload):
 	if not parse_bool(payload.get("include_power_supply"), default=True):
 		return payload, []
 	from illumenate_lighting.illumenate_lighting.api.configured_product_builder import _dispatch_calculate
+
+	if family == SHEET:
+		build = {**payload, "power_supply_separate": 1}
+		preview = _dispatch_calculate(
+			family,
+			build,
+			parent_configured_fixture=None,
+			parent_configured_tape_neon=None,
+			tape_neon_template=None,
+		)
+		return build, _plan_drivers(preview.get("power_plan"), _error_text(preview))
 
 	preview = _dispatch_calculate(
 		family,

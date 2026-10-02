@@ -34,9 +34,12 @@ def description(build):
 		else:
 			dimensions = f"{geometry['coverage_width_ft']:g} x {geometry['coverage_height_ft']:g} ft area"
 		parts.append(member["member_key"] + ": " + dimensions)
+	power = build["request"]["power"]
 	parts.append(
-		"Power supplies included"
-		if build["request"]["power"]["include_power_supply"]
+		"Power supplies on their own line"
+		if power.get("separate_supply_line")
+		else "Power supplies included"
+		if power["include_power_supply"]
 		else "External power required"
 	)
 	return "\n".join(parts)
@@ -69,7 +72,8 @@ def current_estimate(doc):
 			else tape_neon_build
 		)
 		total += adapter.current_estimate(proxy)
-	total += sum(selling_amount(d["driver_item"], d["qty"]) for d in build["power_plan"]["drivers"])
+	if not build["request"]["power"].get("separate_supply_line"):
+		total += sum(selling_amount(d["driver_item"], d["qty"]) for d in build["power_plan"]["drivers"])
 	return round(total, 2)
 
 

@@ -62,6 +62,23 @@ class SheetBundles(unittest.TestCase):
 			counts = {row["role"]: row["qty"] for row in result["components"]}
 			self.assertEqual(counts, {"panels": 6, "jumpers": 12, "leaders": 2, "power": 1})
 
+	def test_separate_supplies_keep_the_feed_plan_but_leave_the_bundle(self):
+		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, frappe):
+			template, spec, drivers = self.setup_engine(engine, frappe)
+			with drivers:
+				bundled = engine.resolve(self.result(), template, spec)
+			template, spec, drivers = self.setup_engine(engine, frappe)
+			with drivers:
+				separate = engine.resolve({**self.result(), "power_supply_separate": 1}, template, spec)
+			self.assertEqual(separate["groups"], bundled["groups"])
+			self.assertEqual(separate["power_plan"]["status"], "selected")
+			self.assertEqual(separate["power_supplies"], [{"driver_item": "PS", "qty": 1}])
+			roles = {row["role"]: row["qty"] for row in separate["components"]}
+			self.assertEqual(roles, {"panels": 6, "jumpers": 12, "leaders": 2})
+			self.assertNotEqual(
+				engine.seal(separate, spec)["config_hash"], engine.seal(bundled, spec)["config_hash"]
+			)
+
 	def test_string_false_excludes_power_but_retains_actual_feed_requirements(self):
 		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, frappe):
 			template, spec, drivers = self.setup_engine(engine, frappe)

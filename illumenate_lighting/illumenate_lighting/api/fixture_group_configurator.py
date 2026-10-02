@@ -172,7 +172,8 @@ def calculate(request):
 	plan["dependency_revisions"] = {
 		row["driver_item"]: revisions[row["driver_item"]] for row in plan["drivers"]
 	}
-	for row in plan["drivers"]:
+	# Supplies on their own schedule line stay in the plan but not in the group's BOM or price.
+	for row in [] if request["power"].get("separate_supply_line") else plan["drivers"]:
 		components.append(item_row(row["driver_item"], row["qty"], "power"))
 		rate = selling_amount(row["driver_item"], 1)
 		breakdown.append(

@@ -773,7 +773,8 @@ def _assert_builder_supported(product_type: str) -> None:
 def _sheet_kwargs(payload):
     allowed = ("template", "spec", "options", "coverage_width_ft", "coverage_height_ft",
                "coverage_width_value", "coverage_width_unit", "coverage_height_value",
-               "coverage_height_unit", "include_power_supply", "dimming_protocol_code")
+               "coverage_height_unit", "include_power_supply", "dimming_protocol_code",
+               "power_supply_separate")
     return {key: payload[key] for key in allowed if key in payload}
 
 

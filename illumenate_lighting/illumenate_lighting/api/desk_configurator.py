@@ -551,7 +551,8 @@ def build_configured_line(
 			group_artifact = persist_artifact(product_type, payload)
 			validation = {"is_valid": True, "messages": []}
 		elif product_type == PRODUCT_TYPE_SHEET:
-			validation = _save_led_sheet(selections)
+			sheet_selections, drivers = split_power(product_type, selections)
+			validation = _save_led_sheet(sheet_selections)
 		else:
 			if product_type == PRODUCT_TYPE_FIXTURE:
 				payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
@@ -733,6 +734,7 @@ def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:
 		"coverage_height_unit": selections.get("coverage_height_unit") or "ft",
 		"include_power_supply": selections.get("include_power_supply", 1),
 		"dimming_protocol_code": selections.get("dimming_protocol_code"),
+		"power_supply_separate": selections.get("power_supply_separate") or 0,
 	}
 	result = led_sheet_configurator.validate_sheet_configuration(**kwargs)
 	saved = led_sheet_configurator.save_sheet_configuration(**kwargs)

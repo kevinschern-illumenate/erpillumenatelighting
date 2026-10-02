@@ -640,7 +640,10 @@ class ilLProjectFixtureSchedule(Document):
 				counts["groups"] = counts.get("groups", 0) + 1
 				continue
 			if mt == "ILLUMENATE" and line.get("configured_tape_neon") and not line.variant_selections:
+				line_rows_before = len(target_doc.items)
 				self._append_configured_tape_neon_row(target_doc, line, line_label, line.configured_tape_neon, counts, require_bom=True)
+				# Fixture Type, Section / Room and notes travel with the row, as for every other family.
+				self._stamp_group_fields(target_doc, line_rows_before, line)
 				counts["tape_neon"] += 1
 				continue
 

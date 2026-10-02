@@ -32,11 +32,19 @@ def service():
 	policy = types.ModuleType(ROOT + ".portal.access")
 	policy.can_edit_schedule = MagicMock(return_value=True)
 	policy.can_read_schedule = MagicMock(return_value=True)
+	# Power-supply line splitting has its own tests (test_power_supply_lines).
+	power = types.SimpleNamespace(
+		split_power=lambda family, payload: (payload, []), set_power_lines=MagicMock()
+	)
 	with (
 		load_service(ROOT + ".api.build_artifacts") as (atomic, _),
 		load_service(
 			ROOT + ".portal.configuration",
-			{ROOT + ".portal.access": policy, ROOT + ".api.build_artifacts": atomic},
+			{
+				ROOT + ".portal.access": policy,
+				ROOT + ".api.build_artifacts": atomic,
+				ROOT + ".api.power_supply_lines": power,
+			},
 		) as (module, frappe),
 	):
 		atomic.frappe = frappe

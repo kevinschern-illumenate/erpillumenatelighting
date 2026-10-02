@@ -62,17 +62,41 @@ class SplitPower(unittest.TestCase):
 		self.assertEqual(payload["selections"]["include_power_supply"], 1)  # Caller's payload is untouched.
 		self.assertTrue(stub._dispatch_calculate.call_args.args[1]["include_power_supply"])
 
-	def test_excluded_power_and_sheets_are_unchanged(self):
+	def test_excluded_power_is_unchanged(self):
 		stub = builder(SELECTED)
 		with service({ROOT + ".api.configured_product_builder": stub}) as (lines, _):
 			for family, payload in (
 				("Linear Fixture", {"include_power_supply": "false"}),
 				("LED Tape", {"include_power_supply": 0}),
-				("LED Sheet", {"include_power_supply": 1}),
+				("LED Sheet", {"include_power_supply": 0}),
+				("Extrusion Kit", {"include_power_supply": 1}),
 			):
 				with self.subTest(family=family):
 					self.assertEqual(lines.split_power(family, payload), (payload, []))
 		stub._dispatch_calculate.assert_not_called()
+
+	def test_sheet_keeps_its_power_plan_but_moves_the_supplies(self):
+		stub = types.SimpleNamespace(_dispatch_calculate=MagicMock(return_value={"power_plan": SELECTED}))
+		with service({ROOT + ".api.configured_product_builder": stub}) as (lines, _):
+			payload = {"template": "SNF", "include_power_supply": 1}
+			build, drivers = lines.split_power("LED Sheet", payload)
+		self.assertEqual(drivers, [{"driver_item": "PS-100", "qty": 2}])
+		# Feeds stay sized by the drivers; only the supplies leave the bundle.
+		self.assertEqual(build, {"template": "SNF", "include_power_supply": 1, "power_supply_separate": 1})
+		self.assertEqual(stub._dispatch_calculate.call_args.args[1], build)
+		self.assertNotIn("power_supply_separate", payload)
+
+	def test_sheet_group_marks_supplies_separate_instead_of_excluding_them(self):
+		request = {"family": "LED Sheet", "power": {"include_power_supply": True}}
+		calculate = MagicMock(return_value={"build": {"power_plan": SELECTED}})
+		extras = {ROOT + ".api.fixture_group_configurator": types.SimpleNamespace(calculate=calculate)}
+		with service(extras) as (lines, _):
+			build, drivers = lines.split_power("LED Sheet", {"group_request": request})
+		self.assertEqual(drivers, [{"driver_item": "PS-100", "qty": 2}])
+		self.assertEqual(
+			build["group_request"]["power"], {"include_power_supply": True, "separate_supply_line": True}
+		)
+		self.assertEqual(calculate.call_args.args[0], build["group_request"])
 
 	def test_included_power_without_a_feasible_supply_is_an_error(self):
 		failed = types.SimpleNamespace(

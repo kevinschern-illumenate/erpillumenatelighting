@@ -428,8 +428,8 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 			line_data.update({"is_group": True, "group_details": group, "template_code": group["template"],
 				"config_summary": group["description"], "build_description": group["description"],
 				"total_watts": group["total_watts"], "runs_count": len(group["power_plan"]["requirements"]),
-				"power_supply": "Included" if group["include_power_supply"]
-				else "Separate line" if line.get("line_key") in power_owner_keys
+				"power_supply": "Separate line" if line.get("line_key") in power_owner_keys
+				else "Included" if group["include_power_supply"]
 				else "External power required"})
 			if include_pricing:
 				unit = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
