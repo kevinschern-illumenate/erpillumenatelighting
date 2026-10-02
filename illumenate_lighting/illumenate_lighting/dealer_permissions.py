@@ -60,6 +60,11 @@ DEALER_PERMISSION_MATRIX = {
 	"Item Group": {"select": 1, "read": 1},
 	"UOM": {"select": 1, "read": 1},
 	"Currency": {"select": 1, "read": 1},
+	# ERPNext's Sales Order validation resolves the customer's receivable account
+	# (validate_currency -> get_party_account) and throws "User don't have
+	# permissions to select/read this account" without it. Select-only: dealers
+	# never open or list Accounts.
+	"Account": {"select": 1},
 }
 
 

@@ -534,6 +534,11 @@ class TestDealerOrderConversion(FrappeTestCase):
 		self.assertEqual(self._perm("Customer", "create"), 0)
 		self.assertEqual(self._perm("Contact", "write"), 0)
 
+		# Sales Order validation looks up the receivable Account; select is
+		# enough for that check and keeps the chart of accounts unreadable.
+		self.assertEqual(self._perm("Account", "select"), 1)
+		self.assertEqual(self._perm("Account", "read"), 0)
+
 	def test_dealer_cannot_see_another_customers_sales_order(self):
 		other_customer = "_Test Conv Other Customer"
 		if not frappe.db.exists("Customer", other_customer):
