@@ -44,9 +44,12 @@ def build_tape_neon_bom_items(configured) -> list[dict[str, Any]]:
         List of dicts with keys ``item_code``, ``qty``, ``uom``, ``stock_uom``.
     """
     if configured.get("build_schema_version") == 2:
+        from illumenate_lighting.illumenate_lighting.api.build_artifacts import merge_bom_rows
         from illumenate_lighting.illumenate_lighting.api.tape_neon_build import snapshot
-        return [{key: row[key] for key in ("item_code", "qty", "uom", "stock_uom")}
-                for row in snapshot(configured)["components"]]
+        return merge_bom_rows(
+            [{key: row[key] for key in ("item_code", "qty", "uom", "stock_uom")}
+             for row in snapshot(configured)["components"]]
+        )
     bom_items: list[dict[str, Any]] = []
 
     # ── Role 1: Tape item ─────────────────────────────────────────────

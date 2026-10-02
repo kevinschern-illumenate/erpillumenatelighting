@@ -225,12 +225,17 @@ def save(
 		raise ValueError("The schedule changed; reload it before saving this configuration")
 	if schedule.get("is_locked") or schedule.status not in {"DRAFT", "READY"}:
 		raise ValueError("Create an editable schedule version before changing its configuration")
+	from illumenate_lighting.illumenate_lighting.api.power_supply_lines import set_power_lines, split_power
+
 	line = resolve_line(schedule, line_key, line_idx)
 	payload = normalized_payload(
 		family, selections, product_slug=product_slug, template=template, segments=segments
 	)
+	# Included supplies become their own lines under the fixture line.
+	payload, drivers = split_power(family, payload)
 	artifact = persist_artifact(family, payload)
 	line = apply_artifact(schedule, line, family, artifact, metadata)
+	set_power_lines(schedule, line, drivers)
 	line.ill_configurator_request = canonical_json(
 		{
 			"schema_version": 2,

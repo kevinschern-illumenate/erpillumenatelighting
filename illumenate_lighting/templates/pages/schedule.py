@@ -186,6 +186,9 @@ def get_context(context):
 	# We'll add cf_details directly to each line for easy access in the template
 	lines_with_details = []
 	lines_json = []
+	power_owner_keys = {
+		line.get("power_supply_for_line") for line in lines if line.get("power_supply_for_line")
+	}
 	for line in lines:
 		# Create a dict representation with all needed fields
 		line_dict = {
@@ -240,6 +243,9 @@ def get_context(context):
 			"other_finish": line.other_finish,
 			"spec_sheet": line.spec_sheet,
 			"cf_details": {},
+			# Included power supplies are their own lines under the fixture line.
+			"power_supply_for_line": line.get("power_supply_for_line"),
+			"has_power_supply_lines": bool(line.get("line_key") and line.line_key in power_owner_keys),
 		}
 
 		if line.get("configured_group"):

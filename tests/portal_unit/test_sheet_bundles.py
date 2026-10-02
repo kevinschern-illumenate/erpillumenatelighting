@@ -126,6 +126,87 @@ class SheetBundles(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "immutable identity"):
 				engine.item_code(doc)
 
+	def sealed_doc(self, engine, frappe, **extra):
+		template, spec, drivers = self.setup_engine(engine, frappe)
+		with drivers:
+			result = engine.seal(engine.resolve(self.result(), template, spec), spec)
+		return Record(
+			engine_version=engine.ENGINE_VERSION,
+			bundle_mode="Bundle",
+			config_hash=result["config_hash"],
+			build_snapshot_json=result["build_snapshot_json"],
+			**extra,
+		)
+
+	def test_new_builds_take_their_readable_part_number_as_item_code(self):
+		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, frappe):
+			doc = self.sealed_doc(engine, frappe, part_number="SNOW-EN-CC-OU-FI-36X48")
+			owners = {}
+			frappe.db.exists.side_effect = lambda doctype, code: code in owners
+			frappe.db.get_value.side_effect = lambda doctype, key, field: (
+				next((c for c, o in owners.items() if o == key["ill_build_id"]), None)
+				if isinstance(key, dict)
+				else owners.get(key)
+			)
+			identity = "ILL-SHEET-" + doc.config_hash
+			self.assertEqual(engine.item_code(doc), "SNOW-EN-CC-OU-FI-36X48")
+			# Another build already holds the plain part number.
+			owners["SNOW-EN-CC-OU-FI-36X48"] = "ILL-SHEET-" + "f" * 64
+			suffixed = "SNOW-EN-CC-OU-FI-36X48-" + doc.config_hash[:6].upper()
+			self.assertEqual(engine.item_code(doc), suffixed)
+			self.assertFalse(engine.item_belongs("SNOW-EN-CC-OU-FI-36X48", doc))
+			# The build keeps the readable Item it already created.
+			owners[suffixed] = identity
+			self.assertTrue(engine.item_belongs(suffixed, doc))
+			self.assertEqual(engine.item_code(doc), suffixed)
+			# A legacy hash-coded Item stays with its build.
+			owners.clear()
+			owners[identity] = None
+			self.assertEqual(engine.item_code(doc), identity)
+			self.assertTrue(engine.item_belongs(identity, doc))
+
+	def test_coverage_code_is_inches(self):
+		from illumenate_lighting.illumenate_lighting.api.led_sheet_math import coverage_code
+
+		self.assertEqual(coverage_code(3, 4.5), "36X54")
+		self.assertEqual(coverage_code(1.0 / 12 * 10.5, 2), "10.5X24")
+
+	def test_options_select_the_panel_spec(self):
+		from illumenate_lighting.illumenate_lighting.api.led_sheet_math import match_sheet_specs
+
+		specs = [
+			{"name": "SW-O-10", "item": "LED-SNF-SW-O-10W-SHEET", "cct": None},
+			{"name": "SW-I-10", "item": "LED-SNF-SW-I-10W-SHEET", "cct": None},
+			{"name": "SW-O-20", "item": "LED-SNF-SW-O-20W-SHEET", "cct": None},
+		]
+		offered = {
+			"Environment Rating": ["O", "I"],
+			"Output Level": ["10W", "20W"],
+			"CCT": ["30K", "40K"],
+			"Finish": ["WH"],
+		}
+
+		def names(**choices):
+			picked = {
+				key.replace("_", " "): {"value": value, "code": code}
+				for key, (value, code) in choices.items()
+			}
+			return [row["name"] for row in match_sheet_specs(specs, picked, offered)]
+
+		self.assertEqual(
+			names(Environment_Rating=("Outdoor", "O"), Output_Level=("20W", "20W"), CCT=("3000K", "30K")),
+			["SW-O-20"],
+		)
+		self.assertEqual(names(Environment_Rating=("Indoor", "I"), Output_Level=("10W", "10W")), ["SW-I-10"])
+		# CCT and finish are not encoded in these spec codes, so they never narrow.
+		self.assertEqual(len(names(CCT=("4000K", "40K"), Finish=("White", "WH"))), 3)
+		self.assertEqual(names(Environment_Rating=("Indoor", "I"), Output_Level=("20W", "20W")), [])
+		# A spec's own CCT must match the chosen CCT.
+		specs[0]["cct"] = "4000K"
+		self.assertEqual(
+			names(Environment_Rating=("Outdoor", "O"), Output_Level=("10W", "10W"), CCT=("3000K", "30K")), []
+		)
+
 	def test_strict_dimensions(self):
 		self.assertEqual(normalize_dimension(36, "in"), 3)
 		for value, unit in ((float("nan"), "ft"), (float("inf"), "in"), (3, "yards"), (True, "ft")):
@@ -228,7 +309,7 @@ class SheetBundles(unittest.TestCase):
 						"Snowfield", "PANEL", coverage_width_ft=3, coverage_height_ft=4
 					)
 				self.assertNotIn("Mounting", result["options"])
-				self.assertEqual(result["part_number"], "SNOW-EN-CC-OU-FI")
+				self.assertEqual(result["part_number"], "SNOW-EN-CC-OU-FI-36X48")
 
 	def test_offered_options_are_still_required_unless_only_one_exists(self):
 		with load_service(ROOT + ".api.led_sheet_configurator") as (api, _frappe):

@@ -920,7 +920,11 @@ body.reorder-no-select {
 												{% endif %}
 											</div>
 											<!-- Driver sub-line -->
-											{% if cf_details.get('include_power_supply') == 0 %}
+											{% if line.get('has_power_supply_lines') %}
+											<div class="driver-sub-line">
+												<div class="small text-muted"><i class="fa fa-bolt mr-1"></i>{{ _("Power supply on its own line below") }}</div>
+											</div>
+											{% elif cf_details.get('include_power_supply') == 0 %}
 											<div class="driver-sub-line">
 												<div class="small">
 													<span class="badge badge-warning" style="font-weight:normal;"><i class="fa fa-exclamation-circle mr-1"></i>{{ _("Power Supply Not Included") }}</span>

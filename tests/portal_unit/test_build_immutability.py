@@ -138,7 +138,9 @@ class ControllerImmutability(unittest.TestCase):
 
 	def test_led_sheet_accepts_item_and_bom_after_group_rows_are_restamped(self):
 		bundle = stub(
-			ROOT + ".api.led_sheet_bundle", snapshot=MagicMock(), item_code=lambda doc: "SHEET-ITEM"
+			ROOT + ".api.led_sheet_bundle",
+			snapshot=MagicMock(),
+			item_belongs=lambda code, doc: code == "SHEET-ITEM",
 		)
 		extras = {"frappe.model.document": document_module(), ROOT + ".api.led_sheet_bundle": bundle}
 		with load_service(DOCTYPE + "ill_configured_led_sheet.ill_configured_led_sheet", extras) as (

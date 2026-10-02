@@ -28,7 +28,7 @@ class ilLConfiguredLEDSheet(Document):
 	def validate(self):
 		old = self.get_doc_before_save()
 		if self.get("engine_version") == "led-sheet-2" or (old and old.get("engine_version") == "led-sheet-2"):
-			from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import item_code, snapshot
+			from illumenate_lighting.illumenate_lighting.api.led_sheet_bundle import item_belongs, snapshot
 			snapshot(self)
 			if self.is_new() and not self.flags.sheet_engine_write:
 				frappe.throw("Save Sheet builds through the configurator so engineering inputs are validated")
@@ -41,7 +41,7 @@ class ilLConfiguredLEDSheet(Document):
 					{"modified", "modified_by", "status", "configured_item", "bom", "spec_submittal"},
 					"This Sheet build is immutable. Save a new configuration to change it.",
 				)
-			if self.configured_item and self.configured_item != item_code(self):
+			if self.configured_item and not item_belongs(self.configured_item, self):
 				frappe.throw("Configured Item does not match this Sheet build")
 			return
 		self._validate_template_spec()

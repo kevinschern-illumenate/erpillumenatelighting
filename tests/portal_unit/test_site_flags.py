@@ -35,6 +35,15 @@ class SiteFlags(unittest.TestCase):
 			self.assertTrue(flags.conf_flag("ill_portal_fixture_groups", default=True))
 			frappe.log_error.assert_called_once()
 
+	def test_fixture_groups_are_on_unless_a_site_turns_them_off(self):
+		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
+			frappe.log_error = MagicMock()
+			self.assertTrue(flags.fixture_groups_enabled())
+			for value in (False, 0, "false", "0"):
+				with self.subTest(value=value):
+					frappe.conf["ill_portal_fixture_groups"] = value
+					self.assertFalse(flags.fixture_groups_enabled())
+
 	def test_list_accepts_json_and_json_strings(self):
 		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
 			frappe.log_error = MagicMock()

@@ -184,9 +184,46 @@ def snapshot(doc):
 	return result
 
 
-def item_code(doc):
-	snapshot(doc)
+ITEM_CODE_MAX_LENGTH = 140
+
+
+def build_id(doc):
+	"""Content-addressed identity of a Sheet build (its historical Item code)."""
 	return "ILL-SHEET-" + doc.config_hash
+
+
+def item_belongs(code, doc):
+	"""An Item is the build's own when its code is the build ID or it records that ID."""
+	if not code:
+		return False
+	identity = build_id(doc)
+	return code == identity or frappe.db.get_value("Item", code, "ill_build_id") == identity
+
+
+def item_code(doc):
+	"""The build's Item code: an Item it already has, else its readable part number.
+
+	The part number includes the coverage size, but option-free engineering
+	inputs (power inclusion, dimming) are not in it, so a later build sharing a
+	part number takes part of its hash as a suffix. The build ID is the last
+	resort, and an existing Item is only ever returned for its own build.
+	"""
+	snapshot(doc)
+	identity = build_id(doc)
+	if item_belongs(doc.get("configured_item"), doc):
+		return doc.configured_item
+	if frappe.db.exists("Item", identity):
+		return identity
+	own = frappe.db.get_value("Item", {"ill_build_id": identity}, "name")
+	if own:
+		return own
+	base = (doc.get("part_number") or "").strip()
+	for code in [base, *(f"{base}-{doc.config_hash[:size].upper()}" for size in (6, 12))] if base else []:
+		if len(code) > ITEM_CODE_MAX_LENGTH or "<" in code or ">" in code:
+			continue
+		if not frappe.db.exists("Item", code):
+			return code
+	return identity
 
 
 def bom_items(doc):
@@ -242,7 +279,7 @@ def _totals(rows):
 def assert_bom(doc, bom):
 	expected, actual = _totals(bom_items(doc)), _totals(bom.items)
 	if (
-		bom.item != item_code(doc)
+		not item_belongs(bom.item, doc)
 		or bom.docstatus != 1
 		or not bom.is_active
 		or float(bom.quantity) != 1
@@ -265,9 +302,9 @@ def ensure_artifacts(doc):
 	try:
 		frappe.db.sql("select name from `tabilL-Configured-LED-Sheet` where name=%s for update", doc.name)
 		doc.reload()
-		code = item_code(doc)
-		if doc.configured_item and doc.configured_item != code:
+		if doc.configured_item and not item_belongs(doc.configured_item, doc):
 			raise ValueError("LED Sheet Item does not match this build")
+		code = item_code(doc)
 		for component in bom_items(doc):
 			master = frappe.db.get_value(
 				"Item", component["item_code"], ["stock_uom", "disabled"], as_dict=True
@@ -290,6 +327,7 @@ def ensure_artifacts(doc):
 					"is_stock_item": 1,
 					"brand": ILLUMENATE_BRAND,
 					"description": f"LED Sheet bundle {doc.name}; build {doc.config_hash}",
+					"ill_build_id": build_id(doc),
 				}
 			).insert(ignore_permissions=True)
 		item = frappe.db.get_value("Item", code, ["stock_uom", "disabled"], as_dict=True)

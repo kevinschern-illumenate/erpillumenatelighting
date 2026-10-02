@@ -500,3 +500,46 @@ test('group reopen unwraps only the active member and retains the complete reque
   inst.destroy();
   dom.window.close();
 });
+
+test('an endcap neon end sends no cable even when the hidden jumper input keeps its default', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Neon-coordinator.html'), 'utf8');
+  const { dom, $, api, requests } = setup(html);
+  const inst = new api.Coordinator($('#portal-configurator'), { product_category: 'LED Neon', is_neon: true, is_tape_neon: true, has_templates: false });
+  inst.init();
+  requests.find(r => r.method.endsWith('get_tape_neon_spec_init')).callback({ message: { success: true, options: { ccts: [{ value: '3000K' }], output_levels: [{ value: 'High' }], ip_ratings: [{ value: 'IP67', label: 'IP67' }] } } });
+  const card = inst.$('#neonSegmentsList .neon-segment-card').first();
+  assert.equal(card.find('[name="neon_end_type"]').val(), 'Endcap');
+  assert.equal(card.find('[name="neon_end_feed_length_inches"]').val(), '12');
+  inst.$('#tnCalculateBtn').prop('disabled', false).trigger('click');
+  const [segment] = JSON.parse(requests.at(-1).args.segments_json);
+  assert.equal(segment.end_type, 'Endcap');
+  assert.equal(segment.end_feed_length_inches, 0);
+  assert.equal(segment.end_feed_direction, '');
+  inst.destroy();
+  dom.window.close();
+});
+
+test('LED Sheet options select the panel spec; buyers are not asked for it', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Sheet-coordinator.html'), 'utf8');
+  const { dom, $, api } = setup(html);
+  const option = (option_type, attribute_link, option_code, is_default) => ({ option_type, attribute_link, option_code, is_default, msrp_adder: 0 });
+  const templates = [{
+    name: 'SNF-SW', template_name: 'Snowfield Static White',
+    allowed_specs: [
+      { name: 'SPEC-O-10', item: 'LED-SNF-SW-O-10W-SHEET', sheet_width_ft: 1, sheet_height_ft: 2, total_sheet_watts: 10 },
+      { name: 'SPEC-I-10', item: 'LED-SNF-SW-I-10W-SHEET', sheet_width_ft: 1, sheet_height_ft: 2, total_sheet_watts: 10 }
+    ],
+    allowed_options: [option('CCT', '3000K', '30K', 1), option('Output Level', '10W', '10W', 1),
+      option('Environment Rating', 'Outdoor', 'O', 1), option('Environment Rating', 'Indoor', 'I', 0), option('Finish', 'White', 'WH', 1)]
+  }];
+  const inst = new api.LedSheet($('#portal-configurator'), { templates, can_save: true });
+  inst.init();
+  inst.$('#sheetTemplate').append($('<option>').val('SNF-SW')).val('SNF-SW').trigger('change');
+  assert.equal(inst.$('#sheetSpecSection .pill').length, 0, 'no panel spec picker');
+  assert.equal(inst.$('#sheetSpecMatch').text(), 'LED-SNF-SW-O-10W-SHEET');
+  inst.$('#sheetEnvironment').val('Indoor').trigger('change');
+  assert.equal(inst.$('#sheetSpecMatch').text(), 'LED-SNF-SW-I-10W-SHEET');
+  assert.equal(inst.exportRequest().selections.spec, null, 'the server derives the spec');
+  inst.destroy();
+  dom.window.close();
+});

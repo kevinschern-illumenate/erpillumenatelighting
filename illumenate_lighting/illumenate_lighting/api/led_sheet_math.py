@@ -34,6 +34,54 @@ def normalize_dimension(value: float, unit: str) -> float:
     raise ValueError("Coverage dimensions must use feet or inches")
 
 
+def coverage_code(width_ft: float, height_ft: float) -> str:
+    """Coverage size for a configured Sheet part number, in inches: ``36X48``.
+
+    Rounded to 0.01 in with trailing zeros dropped, so 3 ft x 4.5 ft is ``36X54``.
+    """
+
+    def inches(value):
+        text = f"{finite_number(value, minimum=0, field='coverage dimension') * 12:.2f}"
+        return text.rstrip("0").rstrip(".")
+
+    return f"{inches(width_ft)}X{inches(height_ft)}"
+
+
+def _spec_tokens(spec: dict[str, Any]) -> set[str]:
+    code = str(spec.get("item") or spec.get("name") or "").upper()
+    return {token for token in code.split("-") if token}
+
+
+def match_sheet_specs(
+    specs: list[dict[str, Any]],
+    choices: dict[str, dict[str, Any]],
+    offered_codes: dict[str, list[str]],
+) -> list[dict[str, Any]]:
+    """Return the template panel specs consistent with the buyer's option choices.
+
+    The panel spec follows from the options, so buyers never pick it directly.
+    ``specs`` are dicts with ``name``, ``item`` and ``cct``; ``choices`` maps an
+    option type to ``{"value", "code"}``; ``offered_codes`` maps an option type
+    to every code the template offers for it.
+
+    A spec's own CCT, when set, must equal the chosen CCT. Beyond that an option
+    narrows the specs only when the template's specs encode it: its code is a
+    hyphen-separated token of the spec Item code (``LED-SNF-SW-O-10W-SHEET`` is
+    environment ``O`` and output ``10W``). Options no spec encodes, such as
+    finish or mounting, never narrow the choice.
+    """
+    remaining = list(specs)
+    for option_type, choice in choices.items():
+        value = choice.get("value")
+        code = str(choice.get("code") or "").strip().upper()
+        if option_type == "CCT":
+            remaining = [s for s in remaining if not s.get("cct") or s.get("cct") == value]
+        codes = {str(c or "").strip().upper() for c in offered_codes.get(option_type) or []} - {""}
+        if code and any(_spec_tokens(spec) & codes for spec in specs):
+            remaining = [s for s in remaining if code in _spec_tokens(s)]
+    return remaining
+
+
 def compute_panel_layout(
     width_ft: float, height_ft: float, sheet_width_ft: float, sheet_height_ft: float
 ) -> dict[str, Any]:

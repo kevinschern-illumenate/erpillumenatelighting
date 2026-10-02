@@ -25,6 +25,11 @@ def conf_flag(key, default=False):
 		return default
 
 
+def fixture_groups_enabled():
+	"""Independent fixture groups (multi-run lines). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_fixture_groups", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

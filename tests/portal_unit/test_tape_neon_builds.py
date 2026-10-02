@@ -54,6 +54,31 @@ class TapeNeonBuilds(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "additional split-run feeds"):
 				engine.physical_manifest(self.result())
 
+	def test_endcap_end_has_no_cable_even_with_a_stale_jumper_length(self):
+		with load_service(ROOT + ".api.tape_neon_build") as (engine, frappe):
+			frappe.db.get_value.return_value = Record(stock_uom="Foot", disabled=0)
+			result = self.result()
+			neon = result["computed"]["segments"][1]
+			result["computed"]["segments"] = [
+				{**neon, "start_lead_length_inches": 72, "end_feed_length_inches": 12}
+			]
+			_, cables = engine.physical_manifest(result)
+			self.assertEqual([(r["role"], r["length_mm"]) for r in cables], [("leader", 72 * 25.4)])
+
+	def test_bom_lists_each_cable_item_once(self):
+		with load_service(ROOT + ".api.build_artifacts") as (artifacts, _):
+			rows = [
+				{"item_code": "TAPE", "qty": 6, "uom": "Foot", "stock_uom": "Foot"},
+				{"item_code": "WIRE", "qty": 6, "uom": "Foot", "stock_uom": "Foot"},
+				{"item_code": "WIRE", "qty": 1, "uom": "Foot", "stock_uom": "Foot"},
+				{"item_code": "PS", "qty": 1, "uom": "Nos", "stock_uom": "Nos"},
+			]
+			merged = artifacts.merge_bom_rows(rows)
+			self.assertEqual(
+				[(r["item_code"], r["qty"]) for r in merged], [("TAPE", 6), ("WIRE", 7), ("PS", 1)]
+			)
+			self.assertEqual(rows[1]["qty"], 6)  # Inputs are not mutated.
+
 	def test_conflicting_jumper_ownership_and_invalid_lengths_fail(self):
 		with load_service(ROOT + ".api.tape_neon_build") as (engine, frappe):
 			frappe.db.get_value.return_value = Record(stock_uom="Foot", disabled=0)

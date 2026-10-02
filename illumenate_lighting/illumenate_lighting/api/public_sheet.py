@@ -127,8 +127,7 @@ def calculate(slug, selections):
 	require_family("LED Sheet", public=True)
 
 	intent = request(slug, selections)
-	if not intent["selections"].get("spec"):
-		raise ValueError("Select a Sheet specification")
+	# Without an explicit spec the engine derives it from the option choices.
 	return _calculate_sheet(intent["template"], commercial=False, **intent["selections"])
 
 

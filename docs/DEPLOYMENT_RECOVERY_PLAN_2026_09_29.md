@@ -357,7 +357,7 @@ Optional app keys (leave absent on production unless the row says otherwise):
 | `ill_portal_stock_company` | Stock uses the company named exactly "ilLumenate Lighting" and its enabled, non-group warehouse named "ilL-Stores". | The Company's name differs. Otherwise fix the Company or Warehouse, not the config. |
 | `ill_portal_enabled_families` | All four families available, as before. | Restricting families (type JSON, a list). |
 | `ill_portal_pilot_users` | All authorized dealers, as before. `[]` would lock dealers out. | Running a named pilot (type JSON, a list). |
-| `ill_portal_fixture_groups` | Grouped fixtures off. | After group acceptance (type Boolean). |
+| `ill_portal_fixture_groups` | Grouped fixtures **on** (default since 2026-10-02). | Set Boolean `false` only to turn multi-run groups off. |
 | `ill_portal_acceptance` | Acceptance seeding disabled. | Never on production. |
 | `qbo_webhook_secret` | The secret is read from ilL-QBO-Settings → Webhook Secret. | Not needed if that field is set. |
 | `host_name` | Links in background emails use the site name. | A custom domain is primary. Set it with Domains → *Set Primary*, not by hand. |
@@ -409,8 +409,9 @@ Also:
 - `ill_portal_enabled_families` and `ill_portal_pilot_users` must be type **JSON** holding a list, or be
   absent. An empty pilot list (`[]`) **locks every dealer out** of new configurations. Absent means
   "everyone as before". A String-typed value currently makes every configurator request raise (§6.5).
-- `ill_portal_fixture_groups` must be type **Boolean** (false until group acceptance). As a String,
-  `"false"` is read as *enabled* by two call sites (§6.5).
+- `ill_portal_fixture_groups` is optional and must be type **Boolean** when set. Since 2026-10-02
+  multi-run groups are **on** when it is absent; a site that set it `false` during acceptance must
+  remove it (or set it `true`) for dealers to see the group option.
 - `ill_portal_stock_company` is optional (defaults to "ilLumenate Lighting").
 
 ### 5.4 Stand up a staging copy (OWNER, needed for Phase 5)

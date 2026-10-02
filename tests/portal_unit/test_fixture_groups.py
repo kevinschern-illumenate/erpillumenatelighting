@@ -142,6 +142,8 @@ class GroupCalculation(unittest.TestCase):
 				ROOT + ".portal.access": access,
 			}
 			with load_service(ROOT + ".api.fixture_group_bom", deps) as (service, frappe):
+				# Groups are on by default; a site can turn them off.
+				frappe.conf["ill_portal_fixture_groups"] = False
 				with self.assertRaises(PermissionError):
 					service.persist(request())
 				frappe.get_doc.assert_not_called()

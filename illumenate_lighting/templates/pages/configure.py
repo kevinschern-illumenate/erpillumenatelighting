@@ -31,9 +31,9 @@ def get_context(context):
 		frappe.local.flags.redirect_location = "/portal/request-dealer-access"
 		raise frappe.Redirect
 
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
-	context.groups_enabled = conf_flag("ill_portal_fixture_groups")
+	context.groups_enabled = fixture_groups_enabled()
 
 	quiz_handoff = {
 		"template": frappe.form_dict.get("template"),

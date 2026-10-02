@@ -1420,25 +1420,7 @@ function displayResults(result) {
 	
 	// Display driver plan
 	if (result.resolved_items && result.resolved_items.driver_plan) {
-		var dp = result.resolved_items.driver_plan;
-		$('#driverResults').show();
-		if (dp.status === 'not_required') {
-			$('#driverPlan').html(
-				'<div class="alert alert-info py-2 mb-0">' +
-				'<i class="fa fa-info-circle mr-2"></i>' +
-				__('Power supplies excluded from this configuration.') +
-				'</div>'
-			);
-		} else if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
-			var driverHtml = '<table class="table table-sm">';
-			dp.drivers.forEach(function(d) {
-				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
-			});
-			driverHtml += '</table>';
-			$('#driverPlan').html(driverHtml);
-		} else {
-			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
-		}
+		renderDriverPlan(result.resolved_items.driver_plan);
 	}
 	
 	// Display pricing
@@ -1887,6 +1869,11 @@ function tnCollectTapeSegments() {
 			end_feed_direction: card.find('[name="tape_end_feed_direction"]').val() || '',
 			end_feed_length_inches: parseFloat(card.find('[name="tape_end_feed_length_inches"]').val()) || 0,
 		};
+		// The jumper inputs stay in the DOM while hidden; an endcap end has no cable.
+		if (seg.end_type !== 'Jumper') {
+			seg.end_feed_direction = '';
+			seg.end_feed_length_inches = 0;
+		}
 
 		if (index === 0) {
 			seg.start_feed_direction = card.find('[name="tape_start_feed_direction"]').val() || '';
@@ -2558,20 +2545,28 @@ function bulkReelDisplayResults(result) {
 		$('#buildDescription').text(result.build_description);
 	}
 
-	var dp = (result.resolved_items || {}).driver_plan;
-	$('#driverResults').toggle(!!dp);
-	var $plan = $('#driverPlan').empty();
-	if (dp && dp.drivers && dp.drivers.length) {
-		var $table = $('<table class="table table-sm mb-0"></table>');
-		dp.drivers.forEach(function (driver) {
-			$('<tr></tr>').append($('<td></td>').text(driver.driver_item),
-				$('<td></td>').text('?' + driver.qty)).appendTo($table);
-		});
-		$plan.append($table);
-	} else if (dp) {
-		$plan.text(__('Power supplies excluded. Follow the installation circuit requirements.'));
-	}
+	renderDriverPlan((result.resolved_items || {}).driver_plan);
 	$('#pricingResults').hide();
+}
+
+// Included supplies are saved as their own schedule line under the fixture.
+function renderDriverPlan(dp) {
+	var $plan = $('#driverPlan').empty();
+	$('#driverResults').toggle(!!dp);
+	if (!dp) return;
+	if (dp.status === 'selected' && dp.drivers && dp.drivers.length) {
+		var $table = $('<table class="table table-sm mb-1"></table>');
+		dp.drivers.forEach(function (driver) {
+			$('<tr></tr>').append($('<td></td>').text(driver.item_code || driver.driver_item),
+				$('<td class="text-right"></td>').text('\u00d7 ' + driver.qty)).appendTo($table);
+		});
+		$plan.append($table, $('<small class="text-muted d-block"></small>').text(
+			__('Added as its own line directly under this fixture, with the same Fixture Type and Location.')));
+	} else if (dp.status === 'excluded' || dp.status === 'not_required') {
+		$plan.text(__('Power supplies excluded. Follow the installation circuit requirements.'));
+	} else {
+		$plan.text(dp.status || '');
+	}
 }
 
 function bulkReelSave() {
@@ -2829,7 +2824,7 @@ function tnDisplayResults(result) {
 		} else {
 			$('#ledRunDetailsPanel').hide();
 		}
-		$('#driverResults').hide();
+		renderDriverPlan((result.resolved_items || {}).driver_plan);
 	}
 
 	// Pricing (basic for tape/neon)
@@ -3035,8 +3030,9 @@ function tnCollectNeonSegments() {
 			fixture_length_feet: feetVal,
 			fixture_length_inches: inchesVal,
 			end_type: endType,
-			end_feed_direction: card.find('[name="neon_end_feed_direction"]').val() || '',
-			end_feed_length_inches: parseFloat(card.find('[name="neon_end_feed_length_inches"]').val()) || 0,
+			// The jumper inputs stay in the DOM while hidden; an endcap end has no cable.
+			end_feed_direction: endType === 'Jumper' ? (card.find('[name="neon_end_feed_direction"]').val() || '') : '',
+			end_feed_length_inches: endType === 'Jumper' ? (parseFloat(card.find('[name="neon_end_feed_length_inches"]').val()) || 0) : 0,
 		};
 
 		if (index === 0) {

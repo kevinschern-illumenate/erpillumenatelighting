@@ -120,6 +120,11 @@ class ilLProjectFixtureSchedule(Document):
 					frappe.throw(_("Group family and pinned Item/BOM must be complete"))
 				if not finite_number(line.qty, minimum=1, field="group quantity").is_integer():
 					frappe.throw(_("Group quantity must be a positive whole number"))
+		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import reconcile
+
+		# Included power supplies sit under their fixture line and follow its
+		# quantity, Fixture Type and Location; orphaned ones are dropped.
+		reconcile(self)
 		self._validate_configuration_status()
 
 	def _validate_configuration_status(self):
@@ -922,6 +927,20 @@ class ilLProjectFixtureSchedule(Document):
 				row.conversion_factor = 1
 				if line.accessory_item_name:
 					row.description = line.accessory_item_name
+				if line.get("power_supply_for_line"):
+					# An included power supply split out of the fixture line above.
+					owner = next(
+						(o for o in self.lines if o.get("line_key") == line.power_supply_for_line), None
+					)
+					self._set_optional_row_value(row, "ill_is_power_supply_line", 1)
+					if owner is not None:
+						self._set_optional_row_value(
+							row,
+							"ill_power_supply_for",
+							owner.get("configured_group")
+							or owner.get("configured_fixture")
+							or owner.get("configured_tape_neon"),
+						)
 				self._stamp_group_fields(target_doc, len(target_doc.items) - 1, line)
 				counts["accessories"] += 1
 				continue
@@ -1252,24 +1271,46 @@ class ilLProjectFixtureSchedule(Document):
 		if line_idx < 0 or line_idx >= len(self.lines):
 			frappe.throw(_("Invalid line index"))
 
+		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import OWNER_FIELD
+
 		source_line = self.lines[line_idx]
+		power_lines = [
+			line
+			for line in self.lines
+			if source_line.line_key and line.get(OWNER_FIELD) == source_line.line_key
+		]
+		excluded = ["name", "idx", "parent", "parenttype", "parentfield", "doctype"]
 		new_line = self.append("lines", {})
 
 		# Copy all fields except name and idx
 		for field in source_line.as_dict():
-			if field not in ["name", "idx", "parent", "parenttype", "parentfield", "doctype"]:
+			if field not in excluded:
 				new_line.set(field, source_line.get(field))
+		new_line.line_key = uuid.uuid4().hex
+		if source_line.get(OWNER_FIELD):
+			# A copied supply line becomes an ordinary accessory line.
+			new_line.set(OWNER_FIELD, None)
+			new_line.power_supply_qty_per_build = None
 
 		# Update line_id to indicate it's a copy
 		if source_line.line_id:
 			new_line.line_id = f"{source_line.line_id} (copy)"
+
+		# The copy gets its own included power supplies.
+		for power in power_lines:
+			copy = self.append("lines", {})
+			for field in power.as_dict():
+				if field not in excluded:
+					copy.set(field, power.get(field))
+			copy.line_key = uuid.uuid4().hex
+			copy.set(OWNER_FIELD, new_line.line_key)
 
 		self.save()
 		from illumenate_lighting.illumenate_lighting.portal.line_documents import clone
 
 		clone(self.name, source_line, self.name, new_line)
 
-		return len(self.lines) - 1
+		return self.lines.index(new_line)
 
 	@frappe.whitelist()
 	def move_line(self, from_idx, to_idx):

@@ -4162,7 +4162,7 @@ def get_led_sheet_templates() -> dict:
 				continue
 			spec = frappe.db.get_value(
 				"ilL-Spec-LED-Sheet", row.spec,
-				["name", "item", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
+				["name", "item", "cct", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
 				as_dict=True,
 			)
 			if spec:
