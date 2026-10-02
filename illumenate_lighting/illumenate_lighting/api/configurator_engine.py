@@ -2457,11 +2457,29 @@ def _resolve_multisegment_items(
 			fields=["leader_item", "power_feed_type", "environment_rating"],
 		)
 
-		for leader_row in leader_candidates:
-			if leader_row.get("environment_rating") and leader_row.environment_rating != environment_rating_code:
-				continue
-			resolved["leader_item"] = leader_row.leader_item
-			break
+		# Prefer the map row for the first segment's start power feed type, then
+		# fall back to any environment-compatible row.
+		start_feed = (segments[0].get("start_power_feed_type") if segments else None) or None
+		env_ok = [
+			row for row in leader_candidates
+			if not row.get("environment_rating") or row.environment_rating == environment_rating_code
+		]
+		preferred = [row for row in env_ok if start_feed and row.get("power_feed_type") == start_feed]
+		for leader_row in preferred or env_ok:
+			if leader_row.get("leader_item"):
+				resolved["leader_item"] = leader_row.leader_item
+				break
+
+	if not resolved.get("leader_item"):
+		messages.append({
+			"severity": "error",
+			"text": (
+				"No leader cable Item resolved: check ilL-Rel-Leader-Cable-Map for this tape spec, "
+				f"environment '{environment_rating_code}' and power feed"
+			),
+			"field": "start_power_feed_type",
+		})
+		is_valid = False
 
 	return resolved, messages, is_valid
 
