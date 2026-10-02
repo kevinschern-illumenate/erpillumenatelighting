@@ -113,6 +113,32 @@ class QuestionValidation(unittest.TestCase):
 			self.errors(self.question(question_type="Number", facet=None, match_mode="None")),
 		)
 
+	def test_numeric_bounds(self):
+		def option(low, high):
+			return self.question(
+				options=[{"value": "90+", "is_active": 1, "numeric_min": low, "numeric_max": high}]
+			)
+
+		# An empty maximum is stored as 0 and means the option has no upper bound.
+		self.assertEqual(content.validate_question(option(90, 0), []), [])
+		self.assertEqual(content.validate_question(option(90, None), []), [])
+		self.assertEqual(content.validate_question(option(150, 300), []), [])
+		self.assertIn("minimum is above the maximum", self.errors(option(500, 300)))
+
+		def number(low, high):
+			return self.question(
+				question_type="Number",
+				options=[],
+				facet=None,
+				match_mode="None",
+				number_min=low,
+				number_max=high,
+			)
+
+		self.assertEqual(content.validate_question(number(0, 0), []), [])
+		self.assertEqual(content.validate_question(number(1, 0), []), [])
+		self.assertIn("Minimum must be below Maximum", self.errors(number(5, 5)))
+
 	def test_product_type_question_rules(self):
 		chooser = self.question(
 			question_key="product_family",
@@ -216,7 +242,11 @@ class SeedContent(unittest.TestCase):
 		questions = seed()["questions"]
 		for question in questions:
 			with self.subTest(question=question["question_key"]):
-				doc = dict(question)
+				# Frappe saves an empty Float as 0, so validate what the insert will see.
+				doc = {"number_min": 0, "number_max": 0, **question}
+				doc["options"] = [
+					{"numeric_min": 0, "numeric_max": 0, **row} for row in question.get("options") or []
+				]
 				if doc.get("facet") and not doc.get("comparison"):
 					doc["comparison"] = content.default_comparison(doc["facet"])
 				self.assertEqual(content.validate_question(doc, others_for(questions, question)), [])

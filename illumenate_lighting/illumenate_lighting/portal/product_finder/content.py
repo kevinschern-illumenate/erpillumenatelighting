@@ -17,6 +17,17 @@ VALUE_FREE_OPERATORS = ("answered", "not answered")
 NUMERIC_OPERATORS = ("greater than", "at least", "less than", "at most")
 
 
+def _bounds_inverted(low, high, strict=False):
+	"""True when both bounds are set and ``low`` is above (or, with ``strict``, at) ``high``.
+
+	Frappe stores an empty Float as 0, so a maximum of 0 means "no maximum": an
+	open-ended option such as CRI "90+" has a minimum and no upper bound.
+	"""
+	if low in (None, "") or high in (None, "") or not float(high):
+		return False
+	return float(low) >= float(high) if strict else float(low) > float(high)
+
+
 def default_comparison(facet):
 	kind = (FACETS.get(facet) or {}).get("kind")
 	return COMPARISONS.get(kind, ("Any of",))[0]
@@ -48,8 +59,7 @@ def validate_question(doc, others) -> list:
 			errors.append(
 				f"Option '{row.get('value')}': swatch color must be a hex color or a linear-gradient of hex colors."
 			)
-		low, high = row.get("numeric_min"), row.get("numeric_max")
-		if low not in (None, "") and high not in (None, "") and float(low) > float(high):
+		if _bounds_inverted(row.get("numeric_min"), row.get("numeric_max")):
 			errors.append(f"Option '{row.get('value')}': numeric minimum is above the maximum.")
 	if qtype in CHOICE_TYPES and active and not any(row.get("is_active") for row in options):
 		errors.append("Add at least one active option.")
@@ -57,8 +67,7 @@ def validate_question(doc, others) -> list:
 		errors.append(f"{qtype} questions do not use options; remove them or change the question type.")
 
 	if qtype in ("Number", "Range"):
-		low, high = doc.get("number_min"), doc.get("number_max")
-		if low not in (None, "") and high not in (None, "") and float(low) >= float(high):
+		if _bounds_inverted(doc.get("number_min"), doc.get("number_max"), strict=True):
 			errors.append("Minimum must be below Maximum.")
 
 	if qtype == "Family chooser":
