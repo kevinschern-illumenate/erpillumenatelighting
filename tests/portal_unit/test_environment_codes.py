@@ -156,6 +156,47 @@ class MountingAccessories(unittest.TestCase):
 		self.assertEqual(len(items(everything)), 4)  # No environment known: unchanged.
 
 
+class SpecSheetIpRating(unittest.TestCase):
+	"""A Webflow tape/neon spec sheet turns the environment into the IP rating its code names."""
+
+	def resolve(self, ip_ratings=("IP20", "IP54", "IP67", "IP68"), **selections):
+		environments = {code: name for name, code in CODES.items()}
+
+		def get_value(doctype, name, field=None, *args, **kwargs):
+			if isinstance(name, dict):
+				code = name.get("code")
+				if doctype == "ilL-Attribute-Environment Rating":
+					return environments.get(code)
+				return f"IP{code}" if f"IP{code}" in ip_ratings else None
+			return CODES.get(name) if doctype == "ilL-Attribute-Environment Rating" else None
+
+		with load_service(ROOT + ".api.spec_sheet_generator") as (generator, frappe):
+			frappe.db.get_value.side_effect = get_value
+			frappe.db.exists.side_effect = lambda doctype, name=None: name in CODES or name in ip_ratings
+			return generator._resolve_ip_rating_from_selection(Record(allowed_options=[]), selections)
+
+	def test_each_rating_maps_to_the_ip_rating_of_its_code(self):
+		self.assertEqual(self.resolve(environment_rating="Dry"), "IP20")
+		self.assertEqual(self.resolve(environment_rating="Damp"), "IP54")
+		self.assertEqual(self.resolve(environment_rating="Wet"), "IP67")
+		self.assertEqual(self.resolve(environment_rating="Wet+"), "IP68")
+		self.assertEqual(self.resolve(environment_rating_code="68"), "IP68")
+		# An explicit IP selection still wins.
+		self.assertEqual(self.resolve(environment_rating="Wet+", ip_rating="IP67"), "IP67")
+
+	def test_a_wet_plus_request_never_settles_for_ip67_while_ip68_exists(self):
+		self.assertEqual(self.resolve(ip_ratings=("IP67", "IP68"), environment_rating="Wet+"), "IP68")
+
+
+class WebflowSlugs(unittest.TestCase):
+	def test_wet_plus_does_not_take_the_wet_slug(self):
+		with load_service(ROOT + ".api.webflow_attributes") as (attributes, _frappe):
+			self.assertEqual(attributes.slugify("Wet"), "wet")
+			self.assertEqual(attributes.slugify("Wet+"), "wet-plus")
+			self.assertEqual(attributes.slugify("RGB+W"), "rgb-plus-w")
+			self.assertEqual(attributes.slugify("Dry Location"), "dry-location")
+
+
 class Propagation(unittest.TestCase):
 	def test_a_changed_code_reaches_the_templates_that_offer_the_rating(self):
 		docs = {name: MagicMock(name=name) for name in ("SHEET-A", "SHEET-B", "FT-A", "FT-BROKEN")}

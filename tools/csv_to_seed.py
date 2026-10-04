@@ -98,7 +98,7 @@ def _infer_category(product_name: str) -> str:
 def _parse_environment(env_str: str) -> str:
     """Return the highest-rated environment from a comma-separated list."""
     ratings = [v.strip() for v in (env_str or "").split(",")]
-    for r in ("Wet", "Damp", "Dry"):
+    for r in ("Wet+", "Wet", "Damp", "Dry"):
         if r in ratings:
             return r
     return "Dry"
