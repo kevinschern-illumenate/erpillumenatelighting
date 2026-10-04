@@ -43,6 +43,7 @@ illumenate_lighting.patches.b2b_commercial_lineage
 illumenate_lighting.patches.b2b_authoring_roles
 illumenate_lighting.patches.b2b_commercial_schema
 illumenate_lighting.patches.add_company_invoice_payment_instructions
+illumenate_lighting.patches.setup_dealer_sales_permissions #2026-10-02 grant Account select
 illumenate_lighting.patches.seed_product_finder
 
 illumenate_lighting.patches.product_finder_controller_value_maps
