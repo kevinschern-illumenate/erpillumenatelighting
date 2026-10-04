@@ -26,6 +26,7 @@ from typing import Any
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 from illumenate_lighting.illumenate_lighting.doctype.ill_controller_template.ill_controller_template import (
     CONTROLLER_VARIANT_AXES,
 )
@@ -141,8 +142,13 @@ def _get_configurator_init(kind: str, product_slug: str) -> dict:
 
     steps = []
     options = {}
+    variants = _matching_variants(template, [], cfg["axes"], {}, partial=True)
     for step in cfg["steps"]:
         values = _allowed_values(template, step["option_type"])
+        if template.variants:
+            # Only values some enabled, active variant still offers.
+            offered = {_normalise_axis_value(v.get(cfg["axes"][step["option_type"]])) for v in variants}
+            values = [v for v in values if _normalise_axis_value(v["value"]) in offered]
         if not values:
             continue
         steps.append({
@@ -171,7 +177,7 @@ def _get_configurator_init(kind: str, product_slug: str) -> dict:
         },
         "steps": steps,
         "options": options,
-        "variant_count": len([v for v in template.variants or [] if v.is_active]),
+        "variant_count": len(variants),
         "part_number_prefix": _part_number_prefix(template),
     }
 
@@ -363,7 +369,8 @@ def _matching_variants(
     match exactly, giving the single variant a configuration resolves to.
     """
     matches = []
-    for variant in template.variants or []:
+    # A variant whose Item is disabled cannot be configured.
+    for variant in enabled_rows(template.variants or [], "item"):
         if not variant.is_active:
             continue
         for step in active_steps:

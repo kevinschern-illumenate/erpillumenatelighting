@@ -1453,9 +1453,10 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	is_sales_staff = allowed("sales")
 	if not isinstance(line_data, dict):
 		return {"success": False, "error": "Line data must be an object"}
-	if not is_sales_staff and line_data.get("accessory_item"):
+	if line_data.get("accessory_item"):
 		item = frappe.db.get_value("Item", line_data["accessory_item"], ["name", "disabled", "is_sales_item", "has_variants"], as_dict=True)
-		if not item or item.disabled or not item.is_sales_item or item.has_variants:
+		# Disabled Items are refused for everyone; staff may still add non-sales Items.
+		if not item or item.disabled or (not is_sales_staff and (not item.is_sales_item or item.has_variants)):
 			return {"success": False, "error": "Choose an active orderable Item"}
 	# Add the line
 	try:
@@ -4167,6 +4168,9 @@ def get_led_sheet_templates() -> dict:
 			)
 			if spec:
 				template["allowed_specs"].append(spec)
+		from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+
+		template["allowed_specs"] = enabled_rows(template["allowed_specs"], "item")
 		template["allowed_options"] = [
 			{
 				"option_type": row.option_type,

@@ -16,6 +16,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
     finite_number,
     parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
     aggregate_power_supplies,
     build_accessory_lines,
@@ -125,6 +126,7 @@ def resolve_sheet_spec(template_doc, resolved: dict[str, Any], spec: str | None 
         doc = frappe.get_doc("ilL-Spec-LED-Sheet", name)
         if doc.is_active:
             specs.append({"name": name, "item": doc.item, "cct": doc.cct})
+    specs = enabled_rows(specs, "item")
     offered: dict[str, list[str]] = {}
     for row in template_doc.allowed_options or []:
         if row.is_active:

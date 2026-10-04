@@ -45,6 +45,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
     optional_positive,
     parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows, enabled_tape_specs
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     inches_to_mm,
     mm_to_inches,
@@ -276,6 +277,7 @@ def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
         ],
         order_by="name asc",
     )
+    tape_specs = enabled_rows(tape_specs, "item")
 
     if not tape_specs:
         return {"success": False, "error": "No LED Tape specs found"}
@@ -355,8 +357,9 @@ def get_tape_cascading_options(
     matching_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
         filters=spec_filters,
-        fields=["name"],
+        fields=["name", "item"],
     )
+    matching_specs = enabled_rows(matching_specs, "item")
     spec_names = [s.name for s in matching_specs]
     if not spec_names:
         return {"success": True, "ccts": [], "output_levels": []}
@@ -546,6 +549,7 @@ def validate_tape_configuration(
                 fields=_TAPE_SPEC_FIELDS,
                 ignore_permissions=True,
             )
+            _tpl_specs = enabled_rows(_tpl_specs, "item")
             _spec_by_name = {s.name: s for s in _tpl_specs}
             _env_specs = [_spec_by_name[n] for n in _tpl_env_names if n in _spec_by_name]
             _all_specs = [_spec_by_name[n] for n in _tpl_all_names if n in _spec_by_name]
@@ -904,6 +908,7 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
         ],
         order_by="name asc",
     )
+    tape_specs = enabled_rows(tape_specs, "item")
 
     if not tape_specs:
         return {"success": False, "error": "No LED Neon specs found"}
@@ -1067,6 +1072,7 @@ def validate_neon_configuration(
                 fields=_TAPE_SPEC_FIELDS,
                 ignore_permissions=True,
             )
+            _tpl_specs = enabled_rows(_tpl_specs, "item")
             _spec_by_name = {s.name: s for s in _tpl_specs}
             _tpl_specs = [_spec_by_name[n] for n in _tpl_spec_names if n in _spec_by_name]
             _tpl_fetched_names = [s.name for s in _tpl_specs]
@@ -1713,6 +1719,7 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         order_by="name asc",
         ignore_permissions=True,
     )
+    tape_specs = enabled_rows(tape_specs, "item")
 
     if not tape_specs:
         return {"success": False, "error": f"No {product_category} specs found"}
@@ -1821,9 +1828,10 @@ def get_tape_neon_spec_cascading(
     matching_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
         filters={"product_category": product_category},
-        fields=["name"],
+        fields=["name", "item"],
         ignore_permissions=True,
     )
+    matching_specs = enabled_rows(matching_specs, "item")
     spec_names = [s.name for s in matching_specs]
     if not spec_names:
         return {"success": True, "ccts": [], "output_levels": []}
@@ -1938,6 +1946,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         order_by="name asc",
         ignore_permissions=True,
     )
+    tape_specs = enabled_rows(tape_specs, "item")
     if not tape_specs:
         return {"success": False, "error": "No matching tape specs found"}
 
@@ -2093,6 +2102,7 @@ def get_tape_neon_template_cascading(
         if not spec_names and template.default_tape_spec:
             spec_names = [template.default_tape_spec]
 
+    spec_names = enabled_tape_specs(spec_names)
     if not spec_names:
         return {"success": True, "ccts": [], "output_levels": []}
 
@@ -3271,13 +3281,14 @@ def _get_template_spec_context(
         # Mirrors get_tape_neon_template_init: an empty allowed-spec table
         # still resolves through the template's default spec.
         spec_names = [default_spec]
+    spec_names = enabled_tape_specs(spec_names)
 
     env_spec_names = spec_names
     if environment_rating and rows:
-        env_spec_names = _order([
+        env_spec_names = enabled_tape_specs(_order([
             r for r in rows
             if not r.environment_rating or r.environment_rating == environment_rating
-        ])
+        ]))
 
     return {
         "spec_names": spec_names,
@@ -3350,6 +3361,7 @@ def _find_all_matching_tape_specs(
         ],
         order_by="name asc",
     )
+    specs = enabled_rows(specs, "item")
     if not specs:
         # Log all available specs for debugging
         all_specs = frappe.get_all(
@@ -3940,6 +3952,7 @@ def get_mounting_accessories(
         order_by="mounting_method asc",
         ignore_permissions=True,
     )
+    accessory_rows = enabled_rows(accessory_rows, "accessory_item")
 
     # Offer only what the build approves: untagged rows, rows for this environment,
     # and Wet rows for IP68 / Wet+ (tape_neon_build.mounting_component).

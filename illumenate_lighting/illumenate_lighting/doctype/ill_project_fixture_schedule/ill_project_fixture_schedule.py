@@ -87,6 +87,26 @@ def _is_dealer_user(user=None):
 
 
 class ilLProjectFixtureSchedule(Document):
+	def _reject_newly_added_disabled_items(self):
+		"""A line may not take on a disabled Item.
+
+		Only Items new to a line are checked, so disabling an Item never blocks
+		unrelated edits to a schedule that already carries it.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.item_availability import assert_enabled
+
+		before = self.get_doc_before_save()
+		existing = {(row.name, row.accessory_item) for row in (before.get("lines") if before else None) or []}
+		added = [
+			row.accessory_item
+			for row in self.get("lines") or []
+			if row.get("accessory_item") and (row.name, row.accessory_item) not in existing
+		]
+		try:
+			assert_enabled(added, "a schedule line")
+		except ValueError as exc:
+			frappe.throw(str(exc))
+
 	def validate(self):
 		"""Validate schedule data and sync customer from project."""
 		# Enforce locking — locked versions cannot be modified
@@ -94,6 +114,8 @@ class ilLProjectFixtureSchedule(Document):
 			frappe.throw(
 				_("This schedule version is locked and cannot be modified. Create a new version to make changes.")
 			)
+
+		self._reject_newly_added_disabled_items()
 
 		if self.ill_project:
 			project = frappe.get_doc("ilL-Project", self.ill_project)

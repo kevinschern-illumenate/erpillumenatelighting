@@ -6,6 +6,7 @@ import frappe
 from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+from illumenate_lighting.illumenate_lighting.api.item_availability import disabled_items
 
 
 def product_and_template(slug):
@@ -30,7 +31,7 @@ def data(slug):
 		if not row.is_active:
 			continue
 		spec = frappe.get_doc("ilL-Spec-LED-Sheet", row.spec)
-		if not spec.is_active:
+		if not spec.is_active or disabled_items([spec.item]):
 			continue
 		specs.append(
 			{

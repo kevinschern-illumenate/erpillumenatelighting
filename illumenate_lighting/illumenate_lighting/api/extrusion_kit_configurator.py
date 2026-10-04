@@ -33,6 +33,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+
 # The only values a caller supplies for a kit; everything else is resolved here.
 KIT_SELECTION_KEYS = (
     "kit_template",
@@ -228,6 +230,7 @@ def get_kit_cascading_options(
             filters={"kit_template": kit_template_name, "finish": finish, "is_active": 1},
             fields=["name", "profile_spec", "profile_item"],
         )
+        profile_maps = enabled_rows(profile_maps, "profile_item")
         result["profile_available"] = len(profile_maps) > 0
         if profile_maps:
             result["resolved_profile"] = {
@@ -242,10 +245,9 @@ def get_kit_cascading_options(
             lens_maps = frappe.get_all(
                 "ilL-Rel-Kit-Lens-Map",
                 filters={"kit_template": kit_template_name, "lens_appearance": la, "is_active": 1},
-                fields=["name"],
-                limit=1,
+                fields=["name", "lens_item"],
             )
-            if lens_maps:
+            if enabled_rows(lens_maps, "lens_item"):
                 data = frappe.db.get_value(
                     "ilL-Attribute-Lens Appearance", la,
                     ["name", "code"], as_dict=True,
@@ -267,13 +269,13 @@ def get_kit_cascading_options(
                 "endcap_style": endcap_style,
                 "is_active": 1,
             },
-            fields=["endcap_color"],
-            group_by="endcap_color",
+            fields=["endcap_color", "endcap_item"],
         )
         available_colors = []
-        for em in endcap_maps:
+        colors = {em.endcap_color for em in enabled_rows(endcap_maps, "endcap_item") if em.endcap_color}
+        for color in sorted(colors):
             data = frappe.db.get_value(
-                "ilL-Attribute-Endcap Color", em.endcap_color,
+                "ilL-Attribute-Endcap Color", color,
                 ["name", "code"], as_dict=True,
             )
             if data:
@@ -295,6 +297,7 @@ def get_kit_cascading_options(
             },
             fields=["name", "accessory_spec", "accessory_item"],
         )
+        mounting_maps = enabled_rows(mounting_maps, "accessory_item")
         result["mounting_available"] = len(mounting_maps) > 0
         if mounting_maps:
             result["resolved_mounting"] = {
@@ -995,6 +998,7 @@ def _resolve_kit_profile(kit_template_name: str, finish: str) -> Optional[Any]:
         fields=["name", "profile_spec", "profile_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "profile_item")
     return maps[0] if maps else None
 
 
@@ -1010,6 +1014,7 @@ def _resolve_kit_lens(kit_template_name: str, lens_appearance: str) -> Optional[
         fields=["name", "lens_spec", "lens_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "lens_item")
     return maps[0] if maps else None
 
 
@@ -1032,6 +1037,7 @@ def _resolve_kit_endcap(
         fields=["name", "endcap_spec", "endcap_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "endcap_item")
     return maps[0] if maps else None
 
 
@@ -1047,6 +1053,7 @@ def _resolve_kit_mounting(kit_template_name: str, mounting_method: str) -> Optio
         fields=["name", "accessory_spec", "accessory_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "accessory_item")
     return maps[0] if maps else None
 
 

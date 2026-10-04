@@ -19,6 +19,7 @@ from frappe import _
 from frappe.rate_limiter import rate_limit
 from frappe.utils import add_to_date, cint, now_datetime
 
+from illumenate_lighting.illumenate_lighting.api.item_availability import allowed_tape_offering_rows
 from illumenate_lighting.illumenate_lighting.portal.product_downloads import isolated_download
 
 # =============================================================================
@@ -676,7 +677,7 @@ def _get_series_info(template) -> dict:
     
     # Get LED package from first tape offering (or most common)
     led_packages = set()
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if not getattr(tape_row, 'is_active', True):
             continue
         tape_offering = getattr(tape_row, 'tape_offering', None)
@@ -727,7 +728,7 @@ _MULTI_CCT_SPECTRUM_TYPES = {"Tunable White", "Dim to Warm", "RGB+TW", "RGBTW", 
 
 def _is_multi_cct_template(template) -> bool:
     """Check if any LED package on this template's tapes is a multi-CCT type."""
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         tape_offering = getattr(tape_row, 'tape_offering', None)
         if tape_offering:
             led_pkg = frappe.db.get_value("ilL-Rel-Tape Offering", tape_offering, "led_package")
@@ -746,7 +747,7 @@ def _get_environment_ratings(template) -> list:
     """Get environment ratings available for this template's tape offerings."""
     environments = set()
     
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if getattr(tape_row, 'is_active', True) and getattr(tape_row, 'environment_rating', None):
             environments.add(tape_row.environment_rating)
     
@@ -780,7 +781,7 @@ def _get_ccts_for_environment(template, environment: str) -> list:
     
     # ── Determine LED packages and check for multi-CCT spectrum types ──
     led_packages_on_env = set()
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if not getattr(tape_row, 'is_active', True):
             continue
         if not _env_matches(tape_row, environment):
@@ -829,7 +830,7 @@ def _get_ccts_for_environment(template, environment: str) -> list:
     # ── Standard flow: get CCTs directly from tape offerings ──
     ccts = set()
     
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if not getattr(tape_row, 'is_active', True):
             continue
         if not _env_matches(tape_row, environment):
@@ -871,7 +872,7 @@ def _get_output_levels_for_cct(template, environment: str, cct: str) -> list:
     is_multi_cct = _is_multi_cct_template(template)
     output_levels = set()
     
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if not getattr(tape_row, 'is_active', True):
             continue
         if not _env_matches(tape_row, environment):
@@ -968,7 +969,7 @@ def _get_output_levels_with_transmission(template, environment: str, cct: str, l
     is_multi_cct = _is_multi_cct_template(template)
     tape_output_data = {}  # output_level_name -> tape_output_value
     
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if not getattr(tape_row, 'is_active', True):
             continue
         if not _env_matches(tape_row, environment):
@@ -1559,7 +1560,7 @@ def _resolve_tape_offering(template, selections: dict) -> Optional[str]:
     nearest_generic_match = None
     nearest_generic_diff = float("inf")
 
-    for tape_row in getattr(template, 'allowed_tape_offerings', []) or []:
+    for tape_row in allowed_tape_offering_rows(template):
         if not getattr(tape_row, 'is_active', True):
             continue
         if not _env_matches(tape_row, environment, env_code):

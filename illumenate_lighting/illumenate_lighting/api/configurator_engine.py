@@ -126,6 +126,10 @@ import frappe
 from frappe import _
 from frappe.utils import cint, now
 
+from illumenate_lighting.illumenate_lighting.api.item_availability import (
+	allowed_tape_offering_rows,
+	enabled_rows,
+)
 from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
     get_tier_price_for_customer,
 )
@@ -556,7 +560,7 @@ def debug_template_data(fixture_template_code: str) -> dict[str, Any]:
 	template_doc = frappe.get_doc("ilL-Fixture-Template", fixture_template_code)
 	
 	# Get tape offerings from template
-	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+	allowed_tape_rows = allowed_tape_offering_rows(template_doc)
 	tape_offering_names = [row.tape_offering for row in allowed_tape_rows if row.tape_offering]
 	
 	# Get tape offering details
@@ -2244,8 +2248,8 @@ def _resolve_multisegment_items(
 		"ilL-Spec-Profile",
 		filters={"family": profile_family, "variant_code": finish_variant_code, "is_active": 1},
 		fields=["name", "item", "lens_interface"],
-		limit=1,
 	)
+	profile_rows = enabled_rows(profile_rows, "item")
 
 	if profile_rows:
 		resolved["profile_item"] = profile_rows[0].item
@@ -2292,6 +2296,7 @@ def _resolve_multisegment_items(
 				filters={"lens_appearance": lens_appearance_code},
 				fields=["name", "item"],
 			)
+			lens_candidates = enabled_rows(lens_candidates, "item")
 
 			if lens_candidates and environment_rating_code:
 				# Check for environment rating compatibility
@@ -2335,6 +2340,7 @@ def _resolve_multisegment_items(
 		},
 		fields=["accessory_item", "environment_rating"],
 	)
+	mount_candidates = enabled_rows(mount_candidates, "accessory_item")
 
 	for mount_row in mount_candidates:
 		if mount_row.get("environment_rating") and mount_row.environment_rating != environment_rating_code:
@@ -2375,6 +2381,7 @@ def _resolve_multisegment_items(
 		},
 		fields=["endcap_item", "endcap_style", "power_feed_type"],
 	)
+	endcap_candidates = enabled_rows(endcap_candidates, "endcap_item")
 
 	# Build lookup of endcap styles to check supports_feed property
 	endcap_style_names = list({ec.endcap_style for ec in endcap_candidates if ec.endcap_style})
@@ -2456,6 +2463,7 @@ def _resolve_multisegment_items(
 			},
 			fields=["leader_item", "power_feed_type", "environment_rating"],
 		)
+		leader_candidates = enabled_rows(leader_candidates, "leader_item")
 
 		# Prefer the map row for the first segment's start power feed type, then
 		# fall back to any environment-compatible row.
@@ -2864,7 +2872,7 @@ def _validate_configuration(
 			tape_offering_doc = frappe.get_doc("ilL-Rel-Tape Offering", tape_offering_id)
 			allowed_tape_rows = [
 				row
-				for row in template_doc.get("allowed_tape_offerings", [])
+				for row in allowed_tape_offering_rows(template_doc)
 				if row.tape_offering == tape_offering_id
 				and (not row.environment_rating or row.environment_rating == environment_rating_code)
 				and (not row.lens_appearance or row.lens_appearance == lens_appearance_code)
@@ -3381,8 +3389,8 @@ def _resolve_items(
 		"ilL-Spec-Profile",
 		filters={"family": profile_family, "variant_code": finish_variant_code, "is_active": 1},
 		fields=["name", "item", "lens_interface"],
-		limit=1,
 	)
+	profile_rows = enabled_rows(profile_rows, "item")
 
 	if not profile_rows:
 		messages.append(
@@ -3437,6 +3445,7 @@ def _resolve_items(
 			lens_candidates = frappe.get_all(
 				"ilL-Spec-Lens", filters={"lens_appearance": lens_appearance_code}, fields=["name", "item"]
 			)
+			lens_candidates = enabled_rows(lens_candidates, "item")
 
 			# Pre-fetch supported environment ratings for all lens candidates to avoid N+1 queries
 			if lens_candidates and environment_rating_code:
@@ -3490,6 +3499,7 @@ def _resolve_items(
 		},
 		fields=["name", "endcap_item", "power_feed_type", "environment_rating"],
 	)
+	endcap_start_candidates = enabled_rows(endcap_start_candidates, "endcap_item")
 
 	endcap_item_start = None
 	for endcap_row in endcap_start_candidates:
@@ -3526,6 +3536,7 @@ def _resolve_items(
 		},
 		fields=["name", "endcap_item", "power_feed_type", "environment_rating"],
 	)
+	endcap_end_candidates = enabled_rows(endcap_end_candidates, "endcap_item")
 
 	endcap_item_end = None
 	for endcap_row in endcap_end_candidates:
@@ -3560,6 +3571,7 @@ def _resolve_items(
 		},
 		fields=["name", "accessory_item", "environment_rating"],
 	)
+	mount_candidates = enabled_rows(mount_candidates, "accessory_item")
 
 	mounting_item = None
 	for mount_row in mount_candidates:
@@ -3605,6 +3617,7 @@ def _resolve_items(
 		},
 		fields=["name", "leader_item", "environment_rating", "default_length_mm"],
 	)
+	leader_candidates = enabled_rows(leader_candidates, "leader_item")
 
 	leader_item = None
 	for leader_row in leader_candidates:
@@ -4211,7 +4224,7 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 
 	# Get all tape offerings linked to this template
 	tape_offering_names = [
-		row.tape_offering for row in template_doc.get("allowed_tape_offerings", [])
+		row.tape_offering for row in allowed_tape_offering_rows(template_doc)
 		if row.tape_offering
 	]
 
@@ -4363,7 +4376,7 @@ def get_ccts_for_template(
 	# If no LED package specified, try to infer from template's tape offerings
 	if not resolved_led_package_code:
 		led_pkgs_on_template = set()
-		for row in template_doc.get("allowed_tape_offerings", []):
+		for row in allowed_tape_offering_rows(template_doc):
 			if row.tape_offering:
 				pkg = frappe.db.get_value("ilL-Rel-Tape Offering", row.tape_offering, "led_package")
 				if pkg:
@@ -4402,7 +4415,7 @@ def get_ccts_for_template(
 		# Strategy 2: Get CCTs from tape offerings on the template
 		# -------------------------------------------------------------------
 		# Get tape offerings linked to this template, filtering by environment rating if specified
-		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+		allowed_tape_rows = allowed_tape_offering_rows(template_doc)
 
 		valid_tape_offering_names = []
 		for row in allowed_tape_rows:
@@ -4615,7 +4628,7 @@ def get_delivered_outputs_for_template(
 				lens_transmission_decimal = transmission_fraction(lens_doc.transmission)
 
 		# Get tape offerings linked to this template, filtering by environment rating
-		allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+		allowed_tape_rows = allowed_tape_offering_rows(template_doc)
 
 		# Build list of valid tape offering names considering constraints
 		valid_tape_offering_names = []
@@ -4856,7 +4869,7 @@ def auto_select_tape_for_configuration(
 			lens_transmission_decimal = transmission_fraction(lens_doc.transmission)
 
 	# Get valid tape offering names from template (with constraint filtering)
-	allowed_tape_rows = template_doc.get("allowed_tape_offerings", [])
+	allowed_tape_rows = allowed_tape_offering_rows(template_doc)
 	valid_tape_offering_names = []
 
 	for row in allowed_tape_rows:
