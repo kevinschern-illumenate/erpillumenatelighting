@@ -120,14 +120,19 @@ def mounting_component(result, template):
 		},
 		fields=["environment_rating"],
 	)
-	environments = {selections.get("environment_rating")} | {
-		s.get("ip_rating") for s in result["computed"].get("segments", [])
-	}
-	environments.discard(None)
-	environments.discard("")
+	from illumenate_lighting.illumenate_lighting.api.environment_codes import (
+		accessory_serves,
+		configuration_environments,
+	)
+
+	# A tape carries an Environment Rating; each neon segment an IP Rating instead.
+	environments = configuration_environments(
+		selections.get("environment_rating"),
+		[s.get("ip_rating") for s in result["computed"].get("segments", [])],
+	)
 	if not maps or not all(
-		any(not row.environment_rating or row.environment_rating == env for row in maps)
-		for env in (environments or {None})
+		any(accessory_serves(row.environment_rating, [env]) for row in maps)
+		for env in (environments or [(None, None)])
 	):
 		raise ValueError("Mounting accessory is not approved for this template and environment")
 	selections["mounting_accessory_qty"] = int(qty)

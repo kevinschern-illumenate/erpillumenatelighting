@@ -62,6 +62,100 @@ class SheetTemplates(unittest.TestCase):
 			self.assertFalse(codes.sync_sheet_template(template))
 
 
+RATING_CODES = {
+	**{("ilL-Attribute-Environment Rating", name): code for name, code in CODES.items()},
+	**{("ilL-Attribute-IP Rating", f"IP{code}"): code for code in ("54", "67", "68")},
+}
+
+
+def lookup(doctype, name, field=None, as_dict=False):
+	if doctype == "Item":
+		return Record(stock_uom="Nos", disabled=0, item_name=name, ill_cable_assembly_length_mm=None)
+	if isinstance(name, dict):
+		return "TPL" if doctype == "ilL-Tape-Neon-Template" else 2.0
+	return RATING_CODES.get((doctype, name))
+
+
+class MountingAccessories(unittest.TestCase):
+	"""Wet accessories serve IP67 and IP68 neon; Wet+ (IP68) accessories serve IP68 only."""
+
+	def test_which_accessory_ratings_serve_which_products(self):
+		with load_service(ROOT + ".api.environment_codes") as (codes, frappe):
+			frappe.db.get_value.side_effect = lookup
+			for row, product, expected in (
+				("Wet", {"ip": ["IP67"]}, True),
+				("Wet", {"ip": ["IP68"]}, True),
+				("Wet", {"environment": "Wet+"}, True),
+				("Wet", {"ip": ["IP54"]}, False),
+				("Wet", {"environment": "Damp"}, False),
+				("Wet+", {"ip": ["IP68"]}, True),
+				("Wet+", {"environment": "Wet+"}, True),
+				("Wet+", {"ip": ["IP67"]}, False),
+				("Wet+", {"environment": "Wet"}, False),
+				("Dry", {"ip": ["IP67"]}, False),
+				("Damp", {"environment": "Damp"}, True),
+				("", {"ip": ["IP67"]}, True),
+			):
+				with self.subTest(row=row, product=product):
+					environments = codes.configuration_environments(
+						product.get("environment"), product.get("ip", ())
+					)
+					self.assertIs(codes.accessory_serves(row, environments), expected)
+
+	def test_ip_ratings_arrive_as_a_list_json_or_comma_separated(self):
+		with load_service(ROOT + ".api.environment_codes") as (codes, frappe):
+			frappe.db.get_value.side_effect = lookup
+			expected = [("IP67", 67), ("IP68", 68)]
+			for value in (["IP67", "IP68", "IP67"], '["IP67", "IP68"]', "IP67, IP68"):
+				self.assertEqual(codes.configuration_environments(None, value), expected)
+
+	def neon(self, maps):
+		with load_service(ROOT + ".api.tape_neon_build") as (engine, frappe):
+			frappe.db.get_value.side_effect = lookup
+			frappe.get_all.return_value = [Record(environment_rating=row) for row in maps]
+			result = {
+				"selections": {"mounting_accessory_item": "CLIP", "mounting_accessory_qty": 4},
+				"computed": {"segments": [{"ip_rating": "IP67"}, {"ip_rating": "IP68"}]},
+			}
+			return engine.mounting_component(result, "NEON-TPL")
+
+	def test_a_wet_clip_is_approved_for_neon_with_ip67_and_ip68_segments(self):
+		self.assertEqual(self.neon(["Wet"])["qty"], 4)
+
+	def test_a_wet_plus_clip_needs_every_segment_to_be_ip68(self):
+		with self.assertRaisesRegex(ValueError, "not approved"):
+			self.neon(["Wet+"])
+		self.assertEqual(self.neon(["Wet+", "Wet"])["qty"], 4)
+		with self.assertRaisesRegex(ValueError, "not approved"):
+			self.neon(["Dry"])
+
+	def test_the_neon_picker_offers_only_accessories_the_build_approves(self):
+		rows = [
+			Record(
+				accessory_item=item,
+				environment_rating=rating,
+				mounting_method=item,
+				qty_rule_type="PER_SEGMENT",
+			)
+			for item, rating in (
+				("WET-CLIP", "Wet"),
+				("WETPLUS-CLIP", "Wet+"),
+				("DRY-CLIP", "Dry"),
+				("ANY-CLIP", ""),
+			)
+		]
+		with load_service(ROOT + ".api.tape_neon_configurator") as (service, frappe):
+			frappe.db.get_value.side_effect = lookup
+			frappe.get_all.return_value = rows
+			offered = service.get_mounting_accessories("NEON", ip_ratings='["IP67", "IP68"]', segments=2)
+			ip68 = service.get_mounting_accessories("NEON", ip_ratings="IP68", segments=2)
+			everything = service.get_mounting_accessories("NEON", segments=2)
+		items = lambda response: [a["accessory_item"] for a in response["accessories"]]  # noqa: E731
+		self.assertEqual(items(offered), ["WET-CLIP", "ANY-CLIP"])
+		self.assertEqual(items(ip68), ["WET-CLIP", "WETPLUS-CLIP", "ANY-CLIP"])
+		self.assertEqual(len(items(everything)), 4)  # No environment known: unchanged.
+
+
 class Propagation(unittest.TestCase):
 	def test_a_changed_code_reaches_the_templates_that_offer_the_rating(self):
 		docs = {name: MagicMock(name=name) for name in ("SHEET-A", "SHEET-B", "FT-A", "FT-BROKEN")}

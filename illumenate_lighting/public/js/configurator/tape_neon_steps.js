@@ -681,6 +681,8 @@
 				product_category: this.PRODUCT_CATEGORY,
 				length_mm: lengthMm,
 				environment_rating: this.selections.environment_rating || '',
+				// Neon has no environment selection; its segments' IP ratings decide the accessories.
+				ip_ratings: JSON.stringify((computed.segments || []).map(function (s) { return s.ip_rating; }).filter(Boolean)),
 				segments: segmentCount
 			},
 			callback: function (r) {

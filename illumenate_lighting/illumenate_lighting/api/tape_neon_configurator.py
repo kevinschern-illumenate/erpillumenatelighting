@@ -3873,6 +3873,7 @@ def get_mounting_accessories(
     length_mm: float | str | None = 0,
     environment_rating: str = None,
     segments: int | str | None = 1,
+    ip_ratings: str | list | None = None,
 ) -> dict:
     """
     Return eligible mounting accessories for a tape/neon template.
@@ -3889,8 +3890,12 @@ def get_mounting_accessories(
         template_code: The ilL-Tape-Neon-Template template_code (or name)
         product_category: Optional filter — "LED Tape" or "LED Neon"
         length_mm: Total tape/neon length in mm (for qty calculation)
-        environment_rating: Optional environment rating filter
+        environment_rating: Optional environment rating filter (LED Tape)
         segments: Number of neon segments (for PER_SEGMENT rule)
+        ip_ratings: Optional IP Rating of each neon segment (JSON list or comma-separated)
+
+    With an environment or IP ratings, only accessories the build will approve
+    are returned (see ``environment_codes.accessory_serves``).
 
     Returns:
         dict with ``accessories`` list, each containing:
@@ -3923,8 +3928,6 @@ def get_mounting_accessories(
         "template_type": "ilL-Tape-Neon-Template",
         "is_active": 1,
     }
-    if environment_rating:
-        map_filters["environment_rating"] = environment_rating
 
     accessory_rows = frappe.get_all(
         "ilL-Rel-Mounting-Accessory-Map",
@@ -3938,21 +3941,18 @@ def get_mounting_accessories(
         ignore_permissions=True,
     )
 
-    if not accessory_rows:
-        # Also try with environment_rating unfiltered if nothing found
-        if environment_rating:
-            map_filters.pop("environment_rating", None)
-            accessory_rows = frappe.get_all(
-                "ilL-Rel-Mounting-Accessory-Map",
-                filters=map_filters,
-                fields=[
-                    "name", "mounting_method", "accessory_item",
-                    "qty_rule_type", "qty_rule_value", "min_qty", "rounding",
-                    "environment_rating",
-                ],
-                order_by="mounting_method asc",
-                ignore_permissions=True,
-            )
+    # Offer only what the build approves: untagged rows, rows for this environment,
+    # and Wet rows for IP68 / Wet+ (tape_neon_build.mounting_component).
+    from illumenate_lighting.illumenate_lighting.api.environment_codes import (
+        accessory_serves,
+        configuration_environments,
+    )
+
+    environments = configuration_environments(environment_rating, ip_ratings)
+    if environments:
+        accessory_rows = [
+            row for row in accessory_rows if accessory_serves(row.environment_rating, environments)
+        ]
 
     accessories = []
     for row in accessory_rows:

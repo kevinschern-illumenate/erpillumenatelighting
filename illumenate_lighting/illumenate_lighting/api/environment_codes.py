@@ -11,11 +11,64 @@ Damp 54, Wet 67, and later Wet+ 68). Two places store a copy:
 These helpers keep both copies equal to the rating.
 """
 
+import json
+import re
+
 import frappe
 
 ENVIRONMENT_RATING = "ilL-Attribute-Environment Rating"
+IP_RATING = "ilL-Attribute-IP Rating"
 SHEET_TEMPLATE = "ilL-LED-Sheet-Template"
 FIXTURE_TEMPLATE = "ilL-Fixture-Template"
+
+# A mounting accessory approved for Wet (IP67) also serves IP68 products (Wet+ or an
+# IP68 neon segment). This is for accessories only: configurations never substitute
+# one rating's tape, spec or part number for another's.
+WET_IP = 67
+
+
+def ip_number(doctype: str, name: str | None) -> int | None:
+	"""The IP number a rating stands for: Wet → 67 (its code), IP68 → 68."""
+	if not name:
+		return None
+	code = str(frappe.db.get_value(doctype, name, "code") or "").strip()
+	if code.isdigit():
+		return int(code)
+	match = re.fullmatch(r"IP(\d+)", str(name).strip(), re.IGNORECASE)
+	return int(match.group(1)) if match else None
+
+
+def configuration_environments(environment_rating=None, ip_ratings=()) -> list[tuple[str, int | None]]:
+	"""``(name, IP number)`` for a tape's Environment Rating and each neon segment's IP Rating."""
+	if isinstance(ip_ratings, str):
+		ip_ratings = json.loads(ip_ratings) if ip_ratings.strip().startswith("[") else ip_ratings.split(",")
+	found = {}
+	if environment_rating:
+		found[environment_rating] = ip_number(ENVIRONMENT_RATING, environment_rating)
+	for ip in ip_ratings or ():
+		ip = (ip or "").strip()
+		if ip and ip not in found:
+			found[ip] = ip_number(IP_RATING, ip)
+	return list(found.items())
+
+
+def accessory_serves(row_environment: str | None, environments) -> bool:
+	"""True when a mounting-accessory map row tagged *row_environment* serves every configuration environment.
+
+	An untagged row serves anything. A tagged row serves its own rating and any rating
+	with the same IP number; a Wet (IP67) or higher row also serves higher IP numbers.
+	"""
+	if not row_environment:
+		return True
+	row_number = ip_number(ENVIRONMENT_RATING, row_environment)
+	for name, number in environments:
+		if name == row_environment:
+			continue
+		if row_number is None or number is None:
+			return False
+		if not (row_number == number or WET_IP <= row_number <= number):
+			return False
+	return True
 
 
 def sync_sheet_template(doc) -> bool:
