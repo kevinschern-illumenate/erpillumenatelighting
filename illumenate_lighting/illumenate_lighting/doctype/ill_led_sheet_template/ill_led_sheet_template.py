@@ -7,6 +7,10 @@ from frappe.model.document import Document
 
 class ilLLEDSheetTemplate(Document):
 	def validate(self):
+		from illumenate_lighting.illumenate_lighting.api.environment_codes import sync_sheet_template
+
+		# Environment codes come from the rating (Dry 20 / Damp 54 / Wet 67), not per template.
+		sync_sheet_template(self)
 		self._validate_allowed_specs()
 
 	def _validate_allowed_specs(self):
