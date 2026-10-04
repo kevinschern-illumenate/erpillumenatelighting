@@ -61,6 +61,21 @@ class PartNumbers(unittest.TestCase):
 		}
 		self.assertEqual(len(numbers), 4)
 
+	def test_part_number_starts_with_the_item_the_spec_currently_ships(self):
+		# A spec autonamed from its I/O-era Item, then re-pointed at the IP-rated variant:
+		# the BOM ships spec.item, so the part number must carry it too.
+		service = self.service()
+		repointed = Record(name="ILL-SH01-SW-I", item="ILL-SH01-SW-20")
+		self.assertEqual(
+			service._build_neon_part_number({}, repointed, offering(), [SEGMENT]),
+			"ILL-SH01-SW-20-30-S-150-E2-C",
+		)
+		sel = {"feed_type": "Standard", "lead_length_inches": 12}
+		self.assertEqual(
+			service._build_tape_part_number(sel, repointed, offering(), 120 * 25.4),
+			"ILL-SH01-SW-20-30-S-120-E1-C",
+		)
+
 	def test_selections_fill_in_when_no_offering_is_resolved_and_missing_codes_stay_visible(self):
 		service = self.service()
 		sel = {"cct": "4000K", "output_level": "Unknown"}

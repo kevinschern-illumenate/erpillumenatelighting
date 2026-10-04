@@ -3540,6 +3540,16 @@ def _get_code(doctype: str, name: str, code_field: str = "code") -> str:
     return code or "xx"
 
 
+def _spec_item_code(tape_spec) -> str:
+    """The Item the spec currently ships, which the part number starts with.
+
+    Specs are autonamed from their Item, but re-pointing a spec at a new Item
+    variant (e.g. an IP-rated replacement for an I/O variant) leaves the old
+    name behind.  The BOM uses ``tape_spec.item``, so the part number must too.
+    """
+    return getattr(tape_spec, "item", None) or tape_spec.name
+
+
 def _offering_codes(sel: dict, tape_offering) -> list[str]:
     """CCT and output level codes of the resolved offering, as the linear part number carries them."""
     cct = (tape_offering or {}).get("cct") or sel.get("cct")
@@ -3587,12 +3597,12 @@ def _build_tape_part_number(
     Build LED Tape part number.
 
     Single-segment (endcapped):
-        {tape_spec_name}-{cct}-{output}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
+        {tape_spec_item}-{cct}-{output}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
 
     Multi-segment (jumper-chained):
-        {tape_spec_name}-{cct}-{output}-{total_length_inches}-J({hash})
+        {tape_spec_item}-{cct}-{output}-{total_length_inches}-J({hash})
 
-    Uses the tape spec ID as the base, then the CCT and output level codes
+    Uses the tape spec's Item code as the base, then the CCT and output level codes
     (the spec is shared by every CCT/output offering), then the total manufacturable
     length in inches (or "xx" when the length is not yet specified), followed
     by an optional feed segment (feed-type code + leader cable length in feet)
@@ -3605,7 +3615,7 @@ def _build_tape_part_number(
     """
     import hashlib
 
-    parts = [tape_spec.name, *_offering_codes(sel, tape_offering)]
+    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_offering)]
 
     # Total length in inches (manufacturable) — "xx" when not specified.
     if manufacturable_length_mm:
@@ -3687,7 +3697,7 @@ def _build_tape_description(
     if cut_increment_mm is None:
         cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
-    lines.append(f"LED Tape: {tape_spec.name}")
+    lines.append(f"LED Tape: {_spec_item_code(tape_spec)}")
     if sel.get("environment_rating"):
         lines.append(f"Environment: {sel['environment_rating']}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
@@ -3728,12 +3738,12 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     Build LED Neon part number.
 
     Single-segment (endcapped):
-        {tape_spec_name}-{cct}-{output}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
+        {tape_spec_item}-{cct}-{output}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
 
     Multi-segment (jumpered):
-        {tape_spec_name}-{cct}-{output}-{total_length_inches}-J({hash})
+        {tape_spec_item}-{cct}-{output}-{total_length_inches}-J({hash})
 
-    Uses the tape spec ID as the base, then the CCT and output level codes
+    Uses the tape spec's Item code as the base, then the CCT and output level codes
     (the spec is shared by every CCT/output offering), then the total manufacturable
     length in inches.  For single-segment configs the feed direction code and
     leader cable length in feet are added followed by "C" for endcapped.  For
@@ -3742,7 +3752,7 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     """
     import hashlib
 
-    parts = [tape_spec.name, *_offering_codes(sel, tape_offering)]
+    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_offering)]
 
     # Total manufacturable length in inches (sum of all segments).
     # When no length has been provided yet, fall back to "xx".
@@ -3816,7 +3826,7 @@ def _build_neon_description(
     if cut_increment_mm is None:
         cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
-    lines.append(f"LED Neon: {tape_spec.name}")
+    lines.append(f"LED Neon: {_spec_item_code(tape_spec)}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
     lines.append(f"Output: {sel.get('output_level', '-')}")
     lines.append(f"Finish: {sel.get('finish', '-')}")
