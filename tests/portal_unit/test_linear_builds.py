@@ -93,6 +93,33 @@ class LinearBuilds(unittest.TestCase):
 			self.assertEqual(json.loads(original.build_snapshot_json)["cables"][0]["length_mm"], 1828.8)
 			frappe.db.sql.assert_not_called()  # Preview does not create or lock a build.
 
+	def test_part_number_is_part_of_the_build_identity(self):
+		class RecodedDoc(BuildDoc):
+			def _generate_part_number(self):
+				return "ILL-SH01-SW-20-EXAMPLE"
+
+		material = types.SimpleNamespace(
+			build_fixture_bom_items=lambda doc: [
+				{"item_code": "WIRE", "qty": 7, "uom": "Foot", "stock_uom": "Foot"}
+			]
+		)
+		with load_service(ROOT + ".api.linear_build", {ROOT + ".api.manufacturing_generator": material}) as (
+			engine,
+			frappe,
+		):
+			frappe.db.get_value.return_value = Record(stock_uom="Foot", disabled=0)
+
+			def calculate(fixture):
+				return engine.finish(fixture, {"length": 6000}, {"watts": 80}, {}, True, None, in_memory=True)
+
+			old, new = calculate(self.fixture()), calculate(RecodedDoc(self.fixture()))
+			old_build, new_build = json.loads(old.build_snapshot_json), json.loads(new.build_snapshot_json)
+			self.assertEqual(new_build["part_number"], "ILL-SH01-SW-20-EXAMPLE")
+			self.assertEqual(new.display_part_number, "ILL-SH01-SW-20-EXAMPLE")
+			self.assertEqual(old_build["components"], new_build["components"])
+			self.assertNotEqual(old.config_hash, new.config_hash)
+			self.assertNotEqual(old.name, new.name)
+
 	def test_color_channels_do_not_silently_become_independent_outputs(self):
 		with load_service(ROOT + ".api.driver_catalog") as (catalog, _):
 			driver = Record(name="TW", outputs_count=2, independent_outputs_count=0)

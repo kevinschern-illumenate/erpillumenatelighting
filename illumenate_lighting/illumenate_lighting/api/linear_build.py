@@ -242,6 +242,10 @@ def finish(doc, inputs, computed, resolved, include_power, override, *, in_memor
 	components = build_fixture_bom_items(doc)
 	value = {
 		"engine_version": ENGINE_VERSION,
+		# The customer-facing part number is part of the identity, so a changed attribute
+		# code (e.g. an Environment Rating moving from I/O to 20/54/67) yields a new build
+		# instead of reusing an older record that carries the old-format number.
+		"part_number": doc.display_part_number,
 		"inputs": {
 			**inputs,
 			"include_power_supply": parse_bool(include_power),
