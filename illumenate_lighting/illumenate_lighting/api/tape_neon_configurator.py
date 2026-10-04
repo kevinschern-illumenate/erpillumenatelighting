@@ -520,8 +520,9 @@ def validate_tape_configuration(
     #   1. Template's allowed specs for the selected environment rating,
     #      narrowed by any PCB mounting/finish selection
     #   2. Same specs, PCB filters dropped
-    #   3. Every spec the template allows (environment filter dropped)
-    #   4. All LED Tape specs (only when the template constrains nothing)
+    #   3. All LED Tape specs (only when the template constrains nothing)
+    # The environment filter is never dropped: the rating is the tape's IP
+    # rating, so a spec tagged for another environment is a different product.
     # Scoping to the template is what stops e.g. a Tunable White request from
     # resolving to a Dim-to-Warm spec that happens to publish an offering for
     # the same CCT / output level.
@@ -566,7 +567,6 @@ def validate_tape_configuration(
             _plan = [
                 (_pcb_filtered, _cct, "environment + PCB filters"),
                 (_env_specs, _cct, "environment scope"),
-                (_all_specs, _cct, "all template specs"),
             ]
             # Multi-CCT families publish a generic offering CCT that never
             # matches an individually selected one, so retry without it.
@@ -574,7 +574,6 @@ def validate_tape_configuration(
                 _plan += [
                     (_pcb_filtered, None, "multi-CCT + environment + PCB filters"),
                     (_env_specs, None, "multi-CCT + environment scope"),
-                    (_all_specs, None, "multi-CCT, all template specs"),
                 ]
             tape_offering, all_matching_specs = _search_offering_plan(
                 _plan, sel.get("output_level"), logger, "validate_tape"
@@ -597,19 +596,26 @@ def validate_tape_configuration(
 
     if not tape_offering:
         logger.warning(f"validate_tape: No offering found for cct={sel.get('cct')}, output_level={sel.get('output_level')}")
-        scope_hint = (
-            f" on the tape specs allowed by template '{tape_neon_template}'"
-            if template_scoped else ""
-        )
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": (
+        environment = sel.get("environment_rating")
+        if template_scoped and environment and not _env_specs:
+            error = (
+                f"Template '{tape_neon_template}' has no tape spec for environment "
+                f"'{environment}'. Add an Allowed Tape Spec tagged '{environment}' "
+                "(or with no environment) to the template."
+            )
+        else:
+            scope_hint = (
+                f" on the tape specs allowed by template '{tape_neon_template}'"
+                if template_scoped else ""
+            )
+            if template_scoped and environment:
+                scope_hint += f" for environment '{environment}'"
+            error = (
                 f"No tape offering found for CCT='{sel.get('cct')}' and "
                 f"Output Level='{sel.get('output_level')}'{scope_hint}. "
                 "Check that a matching ilL-Rel-Tape Offering record exists and is active."
-            ),
-        }
+            )
+        return {"success": False, "is_valid": False, "error": error}
     logger.info(f"validate_tape: found offering = {tape_offering.name}")
 
     # Resolve the correct tape spec from the offering
@@ -3217,10 +3223,14 @@ def _get_template_spec_context(
 
     Returns ``{"spec_names", "env_spec_names", "free_cutting"}``:
       - ``spec_names``     – every allowed spec, ordered
-      - ``env_spec_names`` – narrowed to *environment_rating* when that filter
-        leaves anything (rows with no rating always qualify), else identical to
-        ``spec_names``
+      - ``env_spec_names`` – narrowed to *environment_rating* (rows with no
+        rating always qualify); empty when no allowed spec serves that
+        environment.  Identical to ``spec_names`` when no rating is given.
       - ``free_cutting``   – the template-level override flag
+
+    A spec tagged for another environment is never substituted: the rating is
+    the tape's IP rating (Dry 20 / Damp 54 / Wet 67), so falling back would
+    build e.g. an IP20 tape for a Damp request under a Damp part number.
 
     Ordering puts ``is_default`` rows first, then the template's
     ``default_tape_spec``, then child-table order.  Callers pass the list to
@@ -3264,12 +3274,10 @@ def _get_template_spec_context(
 
     env_spec_names = spec_names
     if environment_rating and rows:
-        env_rows = [
+        env_spec_names = _order([
             r for r in rows
             if not r.environment_rating or r.environment_rating == environment_rating
-        ]
-        if env_rows:
-            env_spec_names = _order(env_rows)
+        ])
 
     return {
         "spec_names": spec_names,
