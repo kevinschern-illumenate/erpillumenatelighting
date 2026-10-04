@@ -1,0 +1,7 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "templates/includes/portal_navigation.html" %}
+<main class="container py-4"><h1>{{ verification.name }}</h1><h2>{{ verification.product_title }}</h2><p>{{ verification.state }}</p><p style="white-space:pre-wrap">{{ verification.resolution or '' }}</p>
+{% if verification.schedule %}<a href="/portal/schedules/{{ verification.schedule | urlencode }}">Open schedule</a>{% endif %}
+<div data-portal-conversation data-parent-type="ilL-Product-Verification-Request" data-parent-name="{{ verification.name }}"></div></main>
+{% endblock %}

@@ -30,6 +30,8 @@
   "accessory_product_type",
   "accessory_item",
   "accessory_item_name",
+  "power_supply_for_line",
+  "power_supply_qty_per_build",
   "variant_selections",
   "other_section",
   "manufacturer_name",
@@ -49,7 +51,11 @@
   "linked_spec_document",
   "line_key",
   "ill_bom",
-  "ill_configurator_request"
+  "ill_configurator_request",
+  "verification_status",
+  "verification_reasons",
+  "verification_request",
+  "finder_session"
  ],
  "fields": [
   {
@@ -222,6 +228,21 @@
    "read_only": 1
   },
   {
+   "fieldname": "power_supply_for_line",
+   "fieldtype": "Data",
+   "label": "Power Supply For Line",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Stable line key of the fixture line whose included power supplies this line holds. Quantity, Fixture Type and Location follow that line."
+  },
+  {
+   "depends_on": "power_supply_for_line",
+   "fieldname": "power_supply_qty_per_build",
+   "fieldtype": "Int",
+   "label": "Supplies per Build",
+   "read_only": 1
+  },
+  {
    "depends_on": "eval:doc.manufacturer_type=='ACCESSORY' && doc.accessory_item",
    "description": "JSON string of variant attribute selections (e.g. {\"Color\": \"White\", \"Size\": \"12in\"})",
    "fieldname": "variant_selections",
@@ -355,13 +376,41 @@
    "label": "Configured Group",
    "read_only": 1,
    "options": "ilL-Configured-Group"
+  },
+  {
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "\nPending\nVerified\nNot Feasible",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "verification_reasons",
+   "fieldtype": "Small Text",
+   "label": "Verification Reasons",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verification_request",
+   "fieldtype": "Link",
+   "label": "Verification Request",
+   "options": "ilL-Product-Verification-Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finder_session",
+   "fieldtype": "Link",
+   "label": "Finder Session",
+   "options": "ilL-Configurator-Session",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-02 12:00:00.000000",
+ "modified": "2026-10-02 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Fixture-Schedule-Line",

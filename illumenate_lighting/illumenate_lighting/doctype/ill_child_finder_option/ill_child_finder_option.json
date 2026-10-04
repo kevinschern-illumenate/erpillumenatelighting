@@ -1,0 +1,140 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-01 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "value",
+  "label",
+  "description",
+  "image",
+  "swatch_color",
+  "glossary_term",
+  "note",
+  "column_break_display",
+  "is_featured",
+  "badge_text",
+  "rank",
+  "numeric_min",
+  "numeric_max",
+  "routes_to",
+  "is_no_preference",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "value",
+   "fieldtype": "Data",
+   "label": "Value",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Stored answer value. Unique within the question; keep it stable once dealers use it."
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description",
+   "description": "One plain-language line shown under the label."
+  },
+  {
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "label": "Image",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "swatch_color",
+   "fieldtype": "Data",
+   "label": "Swatch Color",
+   "description": "Shown when there is no image: a hex color (#ffc107) or a CSS linear-gradient(...)."
+  },
+  {
+   "fieldname": "glossary_term",
+   "fieldtype": "Link",
+   "label": "Glossary Term",
+   "options": "ilL-Finder-Glossary-Term"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Data",
+   "label": "Note",
+   "description": "Short caution such as 'Limited availability'."
+  },
+  {
+   "fieldname": "column_break_display",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_featured",
+   "fieldtype": "Check",
+   "label": "Featured",
+   "default": "0",
+   "description": "Shown as the large highlighted card (for example Linear Fixture on the first question)."
+  },
+  {
+   "fieldname": "badge_text",
+   "fieldtype": "Data",
+   "label": "Badge Text"
+  },
+  {
+   "fieldname": "rank",
+   "fieldtype": "Int",
+   "label": "Rank",
+   "description": "Order for 'Meets or exceeds' (Dry 0, Damp 1, Wet 2)."
+  },
+  {
+   "fieldname": "numeric_min",
+   "fieldtype": "Float",
+   "label": "Numeric Minimum",
+   "description": "Lower bound for number comparisons (CRI minimum, lm/ft band start, watts)."
+  },
+  {
+   "fieldname": "numeric_max",
+   "fieldtype": "Float",
+   "label": "Numeric Maximum"
+  },
+  {
+   "fieldname": "routes_to",
+   "fieldtype": "Select",
+   "label": "Routes To",
+   "options": "\nCatalog only",
+   "description": "'Catalog only' skips the remaining questions and opens the catalog."
+  },
+  {
+   "fieldname": "is_no_preference",
+   "fieldtype": "Check",
+   "label": "No Preference",
+   "default": "0",
+   "description": "Choosing this option does not filter products (for answers such as 'Not sure')."
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1",
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Finder-Option",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

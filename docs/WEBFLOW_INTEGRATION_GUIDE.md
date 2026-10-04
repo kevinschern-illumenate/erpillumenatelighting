@@ -927,3 +927,24 @@ For questions about the ERPNext API or data structure, contact the development t
 **ERPNext Instance:** https://illumenatelighting.v.frappe.cloud
 
 **API Documentation:** See `WEBFLOW_API_DOCUMENTATION.md` in the codebase.
+
+## Live Product Finder embed
+
+The seed-catalog/Vercel quiz is retired. Load the committed public bundle from the ERP host. Use the exact Brand document name, not its display slug:
+
+```html
+<link rel="stylesheet" href="https://ERP-HOST/assets/illumenate_lighting/product_finder/public/ill-finder.css">
+<div id="ill-configurator-root" data-ill-manual-mount></div>
+<script src="https://ERP-HOST/assets/illumenate_lighting/product_finder/public/ill-finder.js"></script>
+<script>
+IllConfigurator.mount('ill-configurator-root', {
+  mode: 'public', apiBase: 'https://ERP-HOST', brand: 'EXACT-BRAND-NAME'
+});
+</script>
+```
+
+Enable Public Finder and allowlist the Brand in **ilL-Product-Finder-Settings**. Configure the brand's `webflow_site_url` with its HTTPS website origin. `webflow_brand.get_base_url()` is the ERP asset host; it is not the destination for product links. Products must have an enabled target for the brand, Synced publication state and a collection slug.
+
+The bundle calls `api.product_finder_public.get_definition` and `.evaluate` with GET, and `.complete` with POST. Requests omit credentials. Evaluate answers are capped at 4 KB; complete validates the full session payload. Approved production and `https://illumenate.webflow.io` origins are in the ERP CORS allowlist; confirm the actual browser Origin during staging acceptance. Add another origin only through the managed allowlist.
+
+Results link to published Webflow product pages and include a **Configure & add to a project (dealers)** claim URL. Login preserves the claim; users without catalog access are routed to dealer signup and retain the token locally until approval. Claims last seven days and are single use. No new embed generates legacy query-parameter configuration links; existing old links still resolve server-side.

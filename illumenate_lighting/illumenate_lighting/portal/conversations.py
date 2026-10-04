@@ -9,12 +9,16 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import f
 
 MESSAGE = "ilL-Portal-Message"
 COMMERCIAL = ("ilL-Quote-Request", "ilL-Order-Intake", "ilL-Order-Change")
-PARENTS = ("ilL-Document-Request", "Issue", *COMMERCIAL)
+PARENTS = ("ilL-Product-Verification-Request", "ilL-Document-Request", "Issue", *COMMERCIAL)
 CLOSED = ("Completed", "Closed", "Cancelled", "Resolved")
 
 
 def is_staff(doc, user=None):
 	user = user or frappe.session.user
+	if doc.doctype == "ilL-Product-Verification-Request":
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import staff
+
+		return staff(user)
 	if doc.doctype in COMMERCIAL:
 		from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
@@ -102,7 +106,7 @@ def list_messages(parent_type, parent_name, page=1, page_size=20):
 		"total": frappe.db.count(MESSAGE, filters),
 		"page": page,
 		"page_size": page_size,
-		"status": doc.get("state") if doc.doctype in COMMERCIAL else doc.status,
+		"status": doc.get("state") if doc.doctype in (*COMMERCIAL, "ilL-Product-Verification-Request") else doc.status,
 		"is_staff": staff,
 		"can_reply": _open(doc),
 		"next_action_by": doc.get("ill_next_action_by") or "Staff",
@@ -110,12 +114,23 @@ def list_messages(parent_type, parent_name, page=1, page_size=20):
 
 
 def _open(doc):
+	if doc.doctype == "ilL-Product-Verification-Request":
+		return doc.state in ("REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED")
 	if doc.doctype in COMMERCIAL:
 		return doc.state not in ("APPROVED", "REJECTED", "WITHDRAWN", "ISSUED", "CLOSED", "COMPLETED")
 	return doc.status not in CLOSED
 
 
 def _transition(doc, staff, action, visibility):
+	if doc.doctype == "ilL-Product-Verification-Request":
+		if visibility == "Internal" and action != "REPLY":
+			frappe.throw("Internal notes cannot change customer status")
+		if not _open(doc) or action not in ("REPLY", "REQUEST_INFO"):
+			frappe.throw("Use the verification review actions for this request")
+		if action == "REQUEST_INFO" and staff:
+			doc.state = "INFORMATION_NEEDED"
+			doc.save(ignore_permissions=True)
+		return
 	if visibility == "Internal":
 		if action != "REPLY":
 			frappe.throw("Internal notes cannot change customer status")
@@ -229,6 +244,8 @@ def _notify(doc, message, staff):
 	link_name = doc.name
 	if doc.doctype == "ilL-Quote-Request":
 		path, link_name = "quote-requests", doc.name
+	elif doc.doctype == "ilL-Product-Verification-Request":
+		path, link_name = "product-verification", doc.name
 	elif doc.doctype in ("ilL-Order-Intake", "ilL-Order-Change"):
 		path, link_name = "orders", doc.sales_order
 	for recipient in recipients:

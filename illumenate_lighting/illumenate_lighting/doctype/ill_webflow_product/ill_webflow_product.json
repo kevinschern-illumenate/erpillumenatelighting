@@ -78,7 +78,8 @@
   "column_break_sync",
   "last_synced_at",
   "sync_status",
-  "sync_error_message"
+  "sync_error_message",
+  "kit_template"
  ],
  "fields": [
   {
@@ -555,6 +556,13 @@
    "options": "Item",
    "label": "Approved Standard Sales Item",
    "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
+  },
+  {
+   "fieldname": "kit_template",
+   "fieldtype": "Link",
+   "label": "Kit Template",
+   "options": "ilL-Extrusion-Kit-Template",
+   "depends_on": "eval:doc.product_type=='Extrusion Kit'"
   }
  ],
  "index_web_pages_for_search": 1,

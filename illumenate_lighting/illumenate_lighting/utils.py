@@ -15,6 +15,7 @@ import frappe
 # ---------------------------------------------------------------------------
 
 ALLOWED_ORIGINS = [
+	"https://illumenate.webflow.io",
 	"https://www.illumenatelighting.com",
 	"https://illumenatelighting.com",
 	"https://illumenatelighting.webflow.io",
@@ -131,6 +132,10 @@ def get_compatible_lenses_for_profile(
 		order_by="is_default DESC, idx ASC",
 	)
 
+	from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+
+	# A lens whose Item is disabled is not compatible with anything.
+	child_rows = enabled_rows(child_rows, "lens_item")
 	if not child_rows:
 		return []
 

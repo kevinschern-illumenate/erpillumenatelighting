@@ -46,3 +46,9 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+#ill-configurator-root button { border-style: solid; line-height: inherit; font-size: inherit; }
+#ill-configurator-root input { display: block; max-width: 100%; border: 1px solid #8b97a4; border-radius: 6px; padding: 8px; background: white; color: inherit; }
+#ill-configurator-root label { color: inherit; font-weight: 500; }
+#ill-configurator-root h1, #ill-configurator-root h2, #ill-configurator-root h3, #ill-configurator-root h4 { margin-top: 0; line-height: 1.25; color: inherit; }
+#ill-configurator-root a { text-decoration-thickness: 1px; }

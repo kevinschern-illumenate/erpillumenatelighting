@@ -87,6 +87,26 @@ def _is_dealer_user(user=None):
 
 
 class ilLProjectFixtureSchedule(Document):
+	def _reject_newly_added_disabled_items(self):
+		"""A line may not take on a disabled Item.
+
+		Only Items new to a line are checked, so disabling an Item never blocks
+		unrelated edits to a schedule that already carries it.
+		"""
+		from illumenate_lighting.illumenate_lighting.api.item_availability import assert_enabled
+
+		before = self.get_doc_before_save()
+		existing = {(row.name, row.accessory_item) for row in (before.get("lines") if before else None) or []}
+		added = [
+			row.accessory_item
+			for row in self.get("lines") or []
+			if row.get("accessory_item") and (row.name, row.accessory_item) not in existing
+		]
+		try:
+			assert_enabled(added, "a schedule line")
+		except ValueError as exc:
+			frappe.throw(str(exc))
+
 	def validate(self):
 		"""Validate schedule data and sync customer from project."""
 		# Enforce locking — locked versions cannot be modified
@@ -94,6 +114,8 @@ class ilLProjectFixtureSchedule(Document):
 			frappe.throw(
 				_("This schedule version is locked and cannot be modified. Create a new version to make changes.")
 			)
+
+		self._reject_newly_added_disabled_items()
 
 		if self.ill_project:
 			project = frappe.get_doc("ilL-Project", self.ill_project)
@@ -120,6 +142,11 @@ class ilLProjectFixtureSchedule(Document):
 					frappe.throw(_("Group family and pinned Item/BOM must be complete"))
 				if not finite_number(line.qty, minimum=1, field="group quantity").is_integer():
 					frappe.throw(_("Group quantity must be a positive whole number"))
+		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import reconcile
+
+		# Included power supplies sit under their fixture line and follow its
+		# quantity, Fixture Type and Location; orphaned ones are dropped.
+		reconcile(self)
 		self._validate_configuration_status()
 
 	def _validate_configuration_status(self):
@@ -298,6 +325,8 @@ class ilLProjectFixtureSchedule(Document):
 		and every Item / Item Price / BOM / configured-record write is rolled
 		back to a savepoint if anything fails before the order is inserted.
 		"""
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import gate
+
 		tape_neon_mode = _validate_tape_neon_mode(tape_neon_mode)
 
 		allowed, reason = can_request_schedule_order(self, frappe.session.user)
@@ -316,6 +345,7 @@ class ilLProjectFixtureSchedule(Document):
 		if not allowed:
 			frappe.throw(reason, frappe.PermissionError)
 
+		gate(self, "order")
 		existing = self.get_linked_sales_order()
 		if existing:
 			from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
@@ -632,7 +662,10 @@ class ilLProjectFixtureSchedule(Document):
 				counts["groups"] = counts.get("groups", 0) + 1
 				continue
 			if mt == "ILLUMENATE" and line.get("configured_tape_neon") and not line.variant_selections:
+				line_rows_before = len(target_doc.items)
 				self._append_configured_tape_neon_row(target_doc, line, line_label, line.configured_tape_neon, counts, require_bom=True)
+				# Fixture Type, Section / Room and notes travel with the row, as for every other family.
+				self._stamp_group_fields(target_doc, line_rows_before, line)
 				counts["tape_neon"] += 1
 				continue
 
@@ -919,6 +952,20 @@ class ilLProjectFixtureSchedule(Document):
 				row.conversion_factor = 1
 				if line.accessory_item_name:
 					row.description = line.accessory_item_name
+				if line.get("power_supply_for_line"):
+					# An included power supply split out of the fixture line above.
+					owner = next(
+						(o for o in self.lines if o.get("line_key") == line.power_supply_for_line), None
+					)
+					self._set_optional_row_value(row, "ill_is_power_supply_line", 1)
+					if owner is not None:
+						self._set_optional_row_value(
+							row,
+							"ill_power_supply_for",
+							owner.get("configured_group")
+							or owner.get("configured_fixture")
+							or owner.get("configured_tape_neon"),
+						)
 				self._stamp_group_fields(target_doc, len(target_doc.items) - 1, line)
 				counts["accessories"] += 1
 				continue
@@ -1249,24 +1296,46 @@ class ilLProjectFixtureSchedule(Document):
 		if line_idx < 0 or line_idx >= len(self.lines):
 			frappe.throw(_("Invalid line index"))
 
+		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import OWNER_FIELD
+
 		source_line = self.lines[line_idx]
+		power_lines = [
+			line
+			for line in self.lines
+			if source_line.line_key and line.get(OWNER_FIELD) == source_line.line_key
+		]
+		excluded = ["name", "idx", "parent", "parenttype", "parentfield", "doctype"]
 		new_line = self.append("lines", {})
 
 		# Copy all fields except name and idx
 		for field in source_line.as_dict():
-			if field not in ["name", "idx", "parent", "parenttype", "parentfield", "doctype"]:
+			if field not in excluded:
 				new_line.set(field, source_line.get(field))
+		new_line.line_key = uuid.uuid4().hex
+		if source_line.get(OWNER_FIELD):
+			# A copied supply line becomes an ordinary accessory line.
+			new_line.set(OWNER_FIELD, None)
+			new_line.power_supply_qty_per_build = None
 
 		# Update line_id to indicate it's a copy
 		if source_line.line_id:
 			new_line.line_id = f"{source_line.line_id} (copy)"
+
+		# The copy gets its own included power supplies.
+		for power in power_lines:
+			copy = self.append("lines", {})
+			for field in power.as_dict():
+				if field not in excluded:
+					copy.set(field, power.get(field))
+			copy.line_key = uuid.uuid4().hex
+			copy.set(OWNER_FIELD, new_line.line_key)
 
 		self.save()
 		from illumenate_lighting.illumenate_lighting.portal.line_documents import clone
 
 		clone(self.name, source_line, self.name, new_line)
 
-		return len(self.lines) - 1
+		return self.lines.index(new_line)
 
 	@frappe.whitelist()
 	def move_line(self, from_idx, to_idx):

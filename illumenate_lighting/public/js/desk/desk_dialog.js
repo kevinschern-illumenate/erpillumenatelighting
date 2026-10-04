@@ -1051,15 +1051,34 @@
 			row = (frm.doc.items || []).find(function (r) { return !r.item_code && !r.ill_configured_product; }) || null;
 			if (!row) row = frm.add_child('items', {});
 		}
+		// A reconfigured row replaces the power-supply rows of its previous build.
+		var previousOwner = this.rowName ? (row.ill_configured_product || row.ill_configured_group || null) : null;
+		var previousType = row.ill_fixture_type;
+		if (previousOwner) {
+			var stale = (frm.doc.items || []).filter(function (r) {
+				return r !== row && r.ill_is_power_supply_line && r.ill_power_supply_for === previousOwner
+					&& r.ill_fixture_type === previousType;
+			});
+			frm.doc.items = frm.doc.items.filter(function (r) { return stale.indexOf(r) < 0; });
+			stale.forEach(function (r) { frappe.model.clear_doc(r.doctype, r.name); });
+		}
 		Object.keys(values).forEach(function (k) { row[k] = values[k]; });
 		row.__unsaved = 1;
 
-		// LED Sheet: jumpers / leaders / power supplies ride along as their own rows.
-		(msg.accessory_rows || []).forEach(function (acc) {
+		// Included power supplies (and legacy LED Sheet jumpers / leaders) ride
+		// along as their own rows, directly under the configured row.
+		var added = (msg.accessory_rows || []).map(function (acc) {
 			var accRow = frm.add_child('items', {});
 			Object.keys(acc).forEach(function (k) { accRow[k] = acc[k]; });
 			accRow.__unsaved = 1;
+			return accRow;
 		});
+		if (added.length) {
+			var ordered = frm.doc.items.filter(function (r) { return added.indexOf(r) < 0; });
+			ordered.splice.apply(ordered, [ordered.indexOf(row) + 1, 0].concat(added));
+			ordered.forEach(function (r, i) { r.idx = i + 1; });
+			frm.doc.items = ordered;
+		}
 
 		if (msg.header_values && msg.header_values.ill_fixture_schedule
 			&& !frm.doc.ill_fixture_schedule && frm.fields_dict.ill_fixture_schedule) {

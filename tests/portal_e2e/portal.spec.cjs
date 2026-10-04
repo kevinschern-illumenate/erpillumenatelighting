@@ -154,3 +154,76 @@ test('four family calculations match approved engineering references on the actu
         }
     } finally {await context.close();}
 });
+
+// The isolated fixture supplies current catalog choices and deterministic engineering inputs.
+// Required Finder fields and setup are documented in B2B_CLOUD_ACCEPTANCE.md.
+async function answerFinder(page, answers) {
+    for (const [id,value] of Object.entries(answers)) {
+        const question=page.locator('section[id="'+id+'"]');
+        await expect(question).toBeVisible();
+        if (typeof value==='number') await question.locator('input').fill(String(value));
+        else if (typeof value==='object') {
+            await question.locator('input').nth(0).fill(String(value.low));
+            await question.locator('input').nth(1).fill(String(value.high));
+        } else await question.getByRole('radio',{name:value,exact:false}).click();
+    }
+}
+async function completeFinder(page, answers) {
+    await page.goto('/portal/product-finder');await answerFinder(page,answers);
+    await page.getByRole('button',{name:'See matching products',exact:true}).click();
+    await page.getByRole('link',{name:'See matching products',exact:true}).click();
+    await expect(page.locator('#finderBanner')).toBeVisible();
+    return new URL(page.url()).searchParams.get('finder');
+}
+
+test('Finder dealer banner through wet Linear configuration, verification badge and quote request',async({browser})=>{
+    const data=fixture(),context=await actor(browser,'dealer_a'),page=await context.newPage();
+    try {
+        await page.goto('/portal');await expect(page.locator('#productFinderBanner')).toBeVisible();
+        expect(data.finder.linear.answers.moisture).toBe('Wet');expect(data.finder.linear.answers.ip_rating).toContain('IP67');
+        const token=await completeFinder(page,data.finder.linear.answers);
+        await page.locator('a.product-card-details[href*="/'+data.finder.linear.slug+'?"]').first().click();
+        await expect(page.locator('#finderProductContext')).toContainText('verify');
+        await page.goto('/portal/configure?category=Linear%20Fixture&template='+encodeURIComponent(data.finder.linear.template)+'&finder='+encodeURIComponent(token));
+        await expect(page.locator('.ill-handoff-banner')).toContainText('pre-filled');
+        const before=await schedule(context,data.schedules.a);
+        const result=await page.evaluate(async({API,token,before,entry})=>{
+            const r=await frappe.call({method:API+'portal.configuration.save',type:'POST',args:{...entry.portal_request,family:'Linear Fixture',finder:token,schedule_name:before.name,expected_modified:before.modified,idempotency_key:crypto.randomUUID(),metadata:{line_id:'FINDER-LINEAR',qty:1}}});return r.message;
+        },{API,token,before,entry:data.finder.linear});
+        expect(result.success).toBeTruthy();await page.goto('/portal/schedules/'+encodeURIComponent(data.schedules.a));
+        await expect(page.getByText('Verification pending').first()).toBeVisible();
+        await page.getByRole('button',{name:/Request Quote/i}).click();
+        await expect(page.getByRole('dialog',{name:'Request quote / engineering review'})).toBeVisible();
+        await page.getByRole('dialog',{name:'Request quote / engineering review'}).getByRole('button',{name:'Submit request'}).click();
+        await expect(page).toHaveURL(/quote-requests/);
+    } finally {await context.close();}
+});
+for (const [family,key] of [['Driver','driver'],['Extrusion Kit','kit']])test('Finder '+family+' configures and saves an authoritative schedule line',async({browser})=>{
+    const data=fixture(),context=await actor(browser,'dealer_a'),page=await context.newPage();
+    try {
+        const entry=data.finder[key],token=await completeFinder(page,entry.answers);
+        await page.goto('/portal/configure?category='+encodeURIComponent(family)+'&product_slug='+encodeURIComponent(entry.slug)+'&template='+encodeURIComponent(entry.template)+'&schedule='+encodeURIComponent(data.schedules.a)+'&finder='+encodeURIComponent(token));
+        for(const [axis,label] of Object.entries(entry.choices))await page.getByRole('radiogroup',{name:axis,exact:true}).getByRole('radio',{name:label,exact:true}).click();
+        await page.locator('[data-ill-original-id="lineSelect"], #lineSelect').selectOption('__new__');
+        await page.locator('[data-ill-original-id="familyLineId"], #familyLineId').fill('FINDER-'+key.toUpperCase());
+        await page.getByRole('button',{name:'Save to schedule',exact:true}).click();
+        await expect(page).toHaveURL(/portal\/schedules\//);await expect(page.getByText('FINDER-'+key.toUpperCase(),{exact:true})).toBeVisible();
+    } finally {await context.close();}
+});
+test('Finder accessories route and configurator chooser preserve project context',async({browser})=>{
+    const data=fixture(),context=await actor(browser,'dealer_a'),page=await context.newPage();
+    try {
+        await page.goto('/portal/configure?schedule='+encodeURIComponent(data.schedules.a)+'&draft=QA');
+        await expect(page.getByRole('heading',{name:'What would you like to configure?'})).toBeVisible();
+        expect(await page.locator('a.card').first().getAttribute('href')).toContain('schedule=');
+        await page.goto('/portal/product-finder');await page.getByRole('radio',{name:/Accessories & parts/}).click();
+        await expect(page).toHaveURL(/type=Accessory/);
+    } finally {await context.close();}
+});
+test('public Finder completion claims once and opens the dealer filtered catalog',async({browser,request})=>{
+    const data=fixture(),response=await request.post('/api/method/'+API+'api.product_finder_public.complete',{data:{brand:data.finder.brand,answers:data.finder.public_answers}});
+    expect(response.ok()).toBeTruthy();const result=(await response.json()).message;expect(result.matches.length).toBeGreaterThan(0);
+    const context=await actor(browser,'dealer_a'),page=await context.newPage();
+    try {await page.goto(result.claim_url);await expect(page).toHaveURL(/portal\/products\?finder=/);await expect(page.locator('#finderBanner')).toBeVisible();}
+    finally {await context.close();}
+});

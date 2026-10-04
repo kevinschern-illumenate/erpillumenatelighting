@@ -13,33 +13,9 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	finite_number,
 )
 from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule, can_read_schedule
+from illumenate_lighting.illumenate_lighting.portal.line_fields import LINE_PRODUCT_FIELDS
 
 RECEIPT = "ilL-Configuration-Receipt"
-# Everything a schedule line carries about its current product; cleared before
-# a new configuration is written so no link from a previous family survives.
-LINE_PRODUCT_FIELDS = (
-	"configured_group",
-	"configured_fixture",
-	"configured_tape_neon",
-	"configured_led_sheet",
-	"fixture_template",
-	"tape_neon_template",
-	"led_sheet_template",
-	"accessory_item",
-	"accessory_item_name",
-	"accessory_product_type",
-	"variant_selections",
-	"kit_template",
-	"manufacturer_name",
-	"fixture_model_number",
-	"trim_info",
-	"housing_model_number",
-	"driver_model_number",
-	"lamp_info",
-	"dimming_protocol",
-	"input_voltage",
-	"other_finish",
-)
 FAMILIES = {
 	"Linear Fixture": ("configured_fixture", "ilL-Configured-Fixture", "fixture_template"),
 	"LED Tape": ("configured_tape_neon", "ilL-Configured-Tape-Neon", "tape_neon_template"),
@@ -216,6 +192,7 @@ def save(
 	product_slug=None,
 	template=None,
 	segments=None,
+	finder=None,
 ):
 	"""Calculate and attach once; a failed artifact cannot leave an empty new line."""
 	if not isinstance(idempotency_key, str) or not 8 <= len(idempotency_key) <= 128:
@@ -233,6 +210,7 @@ def save(
 			"template": template,
 			"segments": segments,
 			"expected_modified": str(expected_modified),
+			**({"finder": finder} if finder else {}),
 		}
 	)
 	key = fingerprint({"actor": frappe.session.user, "schedule": schedule_name, "key": idempotency_key})
@@ -247,12 +225,17 @@ def save(
 		raise ValueError("The schedule changed; reload it before saving this configuration")
 	if schedule.get("is_locked") or schedule.status not in {"DRAFT", "READY"}:
 		raise ValueError("Create an editable schedule version before changing its configuration")
+	from illumenate_lighting.illumenate_lighting.api.power_supply_lines import set_power_lines, split_power
+
 	line = resolve_line(schedule, line_key, line_idx)
 	payload = normalized_payload(
 		family, selections, product_slug=product_slug, template=template, segments=segments
 	)
+	# Included supplies become their own lines under the fixture line.
+	payload, drivers = split_power(family, payload)
 	artifact = persist_artifact(family, payload)
 	line = apply_artifact(schedule, line, family, artifact, metadata)
+	set_power_lines(schedule, line, drivers)
 	line.ill_configurator_request = canonical_json(
 		{
 			"schema_version": 2,
@@ -263,6 +246,12 @@ def save(
 			"segments": json.loads(segments) if isinstance(segments, str) else segments,
 		}
 	)
+	if finder:
+		from illumenate_lighting.illumenate_lighting.portal.product_finder import sessions, verification
+
+		product = verification.product_name(family, artifact.get("template_code") or template, product_slug)
+		verification.apply_to_line(schedule, line, product, finder)
+		sessions.mark_used(finder)
 	schedule.save(ignore_permissions=True)  # Scoped write policy was rechecked under the schedule lock.
 	response = {
 		"success": True,

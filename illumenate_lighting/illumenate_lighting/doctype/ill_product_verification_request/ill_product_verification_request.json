@@ -1,0 +1,173 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:PVR-{YYYY}-{#####}",
+ "creation": "2026-10-01 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "state",
+  "product",
+  "product_title",
+  "family",
+  "finder_session",
+  "reasons",
+  "answers_snapshot",
+  "schedule",
+  "line_keys",
+  "project",
+  "customer",
+  "requested_by",
+  "message",
+  "assigned_to",
+  "due_date",
+  "resolution",
+  "resolved_by",
+  "resolved_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "label": "State",
+   "options": "REQUESTED\nUNDER_REVIEW\nINFORMATION_NEEDED\nVERIFIED\nNOT_FEASIBLE\nCANCELLED",
+   "default": "REQUESTED",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "options": "ilL-Webflow-Product",
+   "reqd": 1
+  },
+  {
+   "fieldname": "product_title",
+   "fieldtype": "Data",
+   "label": "Product Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "family",
+   "fieldtype": "Data",
+   "label": "Family"
+  },
+  {
+   "fieldname": "finder_session",
+   "fieldtype": "Link",
+   "label": "Finder Session",
+   "options": "ilL-Configurator-Session"
+  },
+  {
+   "fieldname": "reasons",
+   "fieldtype": "JSON",
+   "label": "Reasons"
+  },
+  {
+   "fieldname": "answers_snapshot",
+   "fieldtype": "JSON",
+   "label": "Answers Snapshot"
+  },
+  {
+   "fieldname": "schedule",
+   "fieldtype": "Link",
+   "label": "Schedule",
+   "options": "ilL-Project-Fixture-Schedule"
+  },
+  {
+   "fieldname": "line_keys",
+   "fieldtype": "Small Text",
+   "label": "Line Keys"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "ilL-Project"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "resolution",
+   "fieldtype": "Small Text",
+   "label": "Resolution"
+  },
+  {
+   "fieldname": "resolved_by",
+   "fieldtype": "Link",
+   "label": "Resolved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_on",
+   "fieldtype": "Datetime",
+   "label": "Resolved On",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Product-Verification-Request",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1
+  },
+  {
+   "role": "ilL Sales Review",
+   "read": 1,
+   "write": 1,
+   "report": 1
+  },
+  {
+   "role": "ilL Engineering",
+   "read": 1,
+   "write": 1,
+   "report": 1
+  },
+  {
+   "role": "ilL Product Finder Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

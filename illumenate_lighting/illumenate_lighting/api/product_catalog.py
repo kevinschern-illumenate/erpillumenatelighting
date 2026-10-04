@@ -10,7 +10,6 @@ users).
 """
 
 import json
-from typing import Optional, Union
 
 import frappe
 from frappe import _
@@ -61,15 +60,159 @@ def _per_foot_prices(products) -> dict:
     return prices
 
 
+def _template_activity(products) -> dict:
+    """Return ``(DocType, template) -> active`` using one query per template type."""
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+    from illumenate_lighting.illumenate_lighting.api.product_projection import (
+        TEMPLATE_DOCTYPES,
+        TEMPLATE_FIELDS,
+    )
+
+    wanted = {}
+    for product in products:
+        family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
+        template = product.get(TEMPLATE_FIELDS[family]) if family in TEMPLATE_FIELDS else None
+        if template:
+            wanted.setdefault(TEMPLATE_DOCTYPES[family], set()).add(template)
+
+    activity = {}
+    for doctype, names in wanted.items():
+        rows = frappe.get_all(
+            doctype,
+            filters={"name": ["in", list(names)]},
+            fields=["name", "is_active"],
+            ignore_permissions=True,
+        )
+        activity.update({(doctype, row.name): bool(cint(row.is_active)) for row in rows})
+    return activity
+
+
+def _is_template_active(product, activity) -> bool:
+    """A linked template that is inactive or no longer exists cannot be configured."""
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+    from illumenate_lighting.illumenate_lighting.api.product_projection import (
+        TEMPLATE_DOCTYPES,
+        TEMPLATE_FIELDS,
+    )
+
+    family = FAMILY_ALIASES.get(product.get("product_type"), product.get("product_type"))
+    template = product.get(TEMPLATE_FIELDS[family]) if family in TEMPLATE_FIELDS else None
+    return activity.get((TEMPLATE_DOCTYPES[family], template), False) if template else True
+
+
+def _project(product, activity, public=False, **kwargs) -> dict:
+    """Project with the family rollout gate and template state the caller already resolved."""
+    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
+    from illumenate_lighting.illumenate_lighting.portal.rollout import reason
+
+    gate = reason(product.get("product_type"), public=public)
+    return project_product(
+        product,
+        commercial=True,
+        configure_available=gate == "ok",
+        rollout_reason=gate,
+        template_active=_is_template_active(product, activity),
+        **kwargs,
+    )
+
+
+def _standard_choices(product) -> list:
+    """Orderable SKUs for a product without a configurator; a dangling spec link offers none."""
+    from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
+
+    try:
+        return choices(product)
+    except frappe.DoesNotExistError:
+        return []
+
+
+# Filters on product columns; every other filter key is an attribute type.
+PRODUCT_FIELD_FILTERS = ("product_type", "series", "product_category")
+SEARCH_FIELDS = (
+    "product_name",
+    "short_description",
+    "series",
+    "fixture_template",
+    "tape_neon_template",
+    "led_sheet_template",
+    "driver_spec",
+    "controller_spec",
+    "accessory_spec",
+)
+
+
+def _clean_filters(filters) -> tuple[dict, str | None]:
+    """Return ``({key: [value, ...]}, None)``, or ``({}, error)`` for an unusable payload."""
+    filters = _parse_json_param(filters) or {}
+    if not isinstance(filters, dict):
+        return {}, _("Filters must be an object")
+    if len(filters) > 20 or any(
+        not isinstance(value, (str, list))
+        or (isinstance(value, list) and (len(value) > 50 or any(not isinstance(part, str) for part in value)))
+        for value in filters.values()
+    ):
+        return {}, _("Choose up to 20 filters with at most 50 values each")
+    return {key: [value] if isinstance(value, str) else value for key, value in filters.items() if value}, None
+
+
+def _scope(filters: dict, search: str, exclude: str | None = None, restrict_names=None) -> tuple[str, str, dict]:
+    """``(joins, where, params)`` selecting active products that match every filter but ``exclude``.
+
+    Attribute filters AND across attribute types and OR within one type. Search covers
+    marketing names and ERP model/template identifiers as well as series.
+    """
+    conditions = ["`tabilL-Webflow-Product`.is_active = 1"]
+    params: dict = {}
+    joins = ""
+    if restrict_names is not None:
+        if restrict_names:
+            conditions.append("`tabilL-Webflow-Product`.name IN %(finder_names)s")
+            params["finder_names"] = tuple(restrict_names)
+        else:
+            conditions.append("1=0")
+    for idx, (key, values) in enumerate(filters.items()):
+        if key == exclude:
+            continue
+        placeholders = ", ".join(f"%(f{idx}_{j})s" for j in range(len(values)))
+        params.update({f"f{idx}_{j}": value for j, value in enumerate(values)})
+        if key in PRODUCT_FIELD_FILTERS:
+            conditions.append(f"`tabilL-Webflow-Product`.`{key}` IN ({placeholders})")
+            continue
+        alias = f"al{idx}"
+        joins += (
+            f" INNER JOIN `tabilL-Child-Webflow-Attribute-Link` `{alias}` "
+            f"ON `{alias}`.parent = `tabilL-Webflow-Product`.name "
+            f"AND `{alias}`.parenttype = 'ilL-Webflow-Product' "
+            f"AND `{alias}`.attribute_type = %(f{idx}_type)s "
+            f"AND `{alias}`.display_label IN ({placeholders}) "
+        )
+        params[f"f{idx}_type"] = key
+
+    search = str(search or "").strip()[:200]
+    if search:
+        conditions.append(
+            "(" + " OR ".join(f"`tabilL-Webflow-Product`.{field} LIKE %(search)s" for field in SEARCH_FIELDS) + ")"
+        )
+        params["search"] = f"%{search}%"
+    return joins, " AND ".join(conditions), params
+
+
+def _scope_subquery(filters: dict, search: str, exclude: str | None = None, restrict_names=None) -> tuple[str, dict]:
+    joins, where, params = _scope(filters, search, exclude, restrict_names)
+    return f"SELECT DISTINCT `tabilL-Webflow-Product`.name FROM `tabilL-Webflow-Product` {joins} WHERE {where}", params
+
+
 # ── public API ───────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_catalog_products(
-    filters: Union[str, dict, None] = None,
+    filters: str | dict | None = None,
     search: str = "",
     page: int | str | None = 1,
     page_size: int | str | None = 12,
-    sort: str = "product_name asc",
+    sort: str | None = None,
+    finder=None,
+    view=None,
 ) -> dict:
     """Paginated product list with multi-attribute filtering.
 
@@ -91,12 +234,9 @@ def get_catalog_products(
     require_catalog_access()
 
     # ── sanitise inputs ──────────────────────────────────────────────
-    filters = _parse_json_param(filters) or {}
-    if not isinstance(filters, dict):
-        return {"success": False, "error": _("Filters must be an object")}
-    filters = dict(filters)
-    if len(filters) > 20 or any(not isinstance(value, (str, list)) or (isinstance(value, list) and (len(value) > 50 or any(not isinstance(part, str) for part in value))) for value in filters.values()):
-        return {"success": False, "error": _("Choose up to 20 filters with at most 50 values each")}
+    filters, error = _clean_filters(filters)
+    if error:
+        return {"success": False, "error": error}
     page = max(1, cint(page))
     page_size = min(50, max(1, cint(page_size)))
 
@@ -107,75 +247,19 @@ def get_catalog_products(
         "modified asc",
         "product_type asc",
     }
-    if sort not in allowed_sorts:
+    finder_names, finder_info, match_map = _finder_scope(finder, view)
+    if finder and (sort is None or sort == "relevance"):
+        sort = "relevance"
+    elif sort not in allowed_sorts:
         sort = "product_name asc"
 
-    # ── build WHERE clause ───────────────────────────────────────────
-    conditions = ["`tabilL-Webflow-Product`.is_active = 1"]
-    params: dict = {}
+    attr_join, where, params = _scope(filters, search, restrict_names=finder_names)
+    order_by = "`tabilL-Webflow-Product`." + (sort if sort != "relevance" else "product_name asc")
+    if sort == "relevance" and finder_names:
+        params.update({f"finder_order_{i}": name for i, name in enumerate(finder_names)})
+        placeholders = ", ".join(f"%(finder_order_{i})s" for i in range(len(finder_names)))
+        order_by = f"FIELD(`tabilL-Webflow-Product`.name, {placeholders})"
 
-    # product_type filter (top-level, not an attribute)
-    if filters.get("product_type"):
-        pt = filters.pop("product_type")
-        if isinstance(pt, list):
-            placeholders = ", ".join(f"%(pt_{i})s" for i in range(len(pt)))
-            conditions.append(f"`tabilL-Webflow-Product`.product_type IN ({placeholders})")
-            for i, v in enumerate(pt):
-                params[f"pt_{i}"] = v
-        else:
-            conditions.append("`tabilL-Webflow-Product`.product_type = %(product_type)s")
-            params["product_type"] = pt
-
-    for field in ("series", "product_category"):
-        values = filters.pop(field, None)
-        if values:
-            values = [values] if isinstance(values, str) else values
-            placeholders = ", ".join(f"%({field}_{i})s" for i in range(len(values)))
-            conditions.append(f"`tabilL-Webflow-Product`.{field} IN ({placeholders})")
-            params.update({f"{field}_{i}": value for i, value in enumerate(values)})
-
-    # Search marketing names and ERP model/template identifiers as well as series.
-    search = str(search or "").strip()[:200]
-    if search:
-        conditions.append(
-            "(`tabilL-Webflow-Product`.product_name LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.short_description LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.series LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.fixture_template LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.tape_neon_template LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.led_sheet_template LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.driver_spec LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.controller_spec LIKE %(search)s "
-            "OR `tabilL-Webflow-Product`.accessory_spec LIKE %(search)s)"
-        )
-        params["search"] = f"%{search}%"
-
-    # ── attribute filters (AND across types, OR within a type) ───────
-    attr_join = ""
-    if filters:
-        for idx, (attr_type, attr_values) in enumerate(filters.items()):
-            if not attr_values:
-                continue
-            if isinstance(attr_values, str):
-                attr_values = [attr_values]
-
-            alias = f"al{idx}"
-            attr_join += (
-                f" INNER JOIN `tabilL-Child-Webflow-Attribute-Link` `{alias}` "
-                f"ON `{alias}`.parent = `tabilL-Webflow-Product`.name "
-                f"AND `{alias}`.parenttype = 'ilL-Webflow-Product' "
-                f"AND `{alias}`.attribute_type = %(attr_type_{idx})s "
-            )
-            params[f"attr_type_{idx}"] = attr_type
-
-            placeholders = ", ".join(
-                f"%(attr_val_{idx}_{j})s" for j in range(len(attr_values))
-            )
-            attr_join += f"AND `{alias}`.display_label IN ({placeholders}) "
-            for j, val in enumerate(attr_values):
-                params[f"attr_val_{idx}_{j}"] = val
-
-    where = " AND ".join(conditions)
 
     # ── count total ──────────────────────────────────────────────────
     count_sql = (
@@ -199,10 +283,20 @@ def get_catalog_products(
         f"  `tabilL-Webflow-Product`.fixture_template, "
         f"  `tabilL-Webflow-Product`.tape_neon_template, "
         f"  `tabilL-Webflow-Product`.led_sheet_template, "
+        f"  `tabilL-Webflow-Product`.kit_template, "
+        # Links read by standard_products.choices() for "Add to schedule" products.
+        f"  `tabilL-Webflow-Product`.portal_item, "
+        f"  `tabilL-Webflow-Product`.driver_spec, "
+        f"  `tabilL-Webflow-Product`.driver_template, "
+        f"  `tabilL-Webflow-Product`.controller_spec, "
+        f"  `tabilL-Webflow-Product`.controller_template, "
+        f"  `tabilL-Webflow-Product`.accessory_spec, "
+        f"  `tabilL-Webflow-Product`.profile_spec, "
+        f"  `tabilL-Webflow-Product`.lens_spec, "
         f"  `tabilL-Webflow-Product`.is_active "
         f"FROM `tabilL-Webflow-Product` {attr_join} "
         f"WHERE {where} "
-        f"ORDER BY `tabilL-Webflow-Product`.{sort}, `tabilL-Webflow-Product`.name asc "
+        f"ORDER BY {order_by}, `tabilL-Webflow-Product`.name asc "
         f"LIMIT %(limit)s OFFSET %(offset)s"
     )
     params["limit"] = page_size
@@ -212,14 +306,23 @@ def get_catalog_products(
 
     # ── attach MSRP per foot from linear / tape / neon templates ─────
     pricing_map = _per_foot_prices(products)
+    template_activity = _template_activity(products)
 
-    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
-    from illumenate_lighting.illumenate_lighting.portal.rollout import available
-    result = [project_product(product, price=pricing_map.get(product.name), commercial=True, configure_available=available(product.product_type)) for product in products]
+    result = []
+    for product in products:
+        projection = _project(product, template_activity, price=pricing_map.get(product.name))
+        # Cards offer "Add to schedule" only when the product page will have an orderable SKU.
+        if projection["capability"] == "inquiry" and _standard_choices(product):
+            projection["capability"] = "quantity"
+        if finder:
+            details = match_map.get(product.name, {})
+            projection["relation" if view == "companions" else "match"] = details.get("relation") if view == "companions" else details
+        result.append(projection)
 
     return {
         "success": True,
         "products": result,
+        **({"finder": finder_info} if finder else {}),
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -227,7 +330,7 @@ def get_catalog_products(
 
 
 @frappe.whitelist()
-def get_catalog_product_detail(product_slug: str) -> dict:
+def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
     """Full product detail with all child tables.
 
     Args:
@@ -251,8 +354,6 @@ def get_catalog_product_detail(product_slug: str) -> dict:
     if not product.is_active:
         return {"success": False, "error": _("Product not found")}
 
-    from illumenate_lighting.illumenate_lighting.api.product_projection import project_product
-
     certifications = []
     for row in sorted(product.certifications or [], key=lambda r: r.display_order or 0):
         master = frappe.get_doc("ilL-Attribute-Certification", row.certification)
@@ -263,22 +364,43 @@ def get_catalog_product_detail(product_slug: str) -> dict:
             "certification_name", "certification_body", "certification_code", "badge_image"
         )})
     price = _per_foot_prices([product]).get(product.name)
-    from illumenate_lighting.illumenate_lighting.portal.rollout import available
-    from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
-    projection = project_product(product, certifications=certifications, price=price, commercial=True, configure_available=available(product.product_type))
+    projection = _project(
+        product, _template_activity([product]), certifications=certifications, price=price
+    )
     if not projection["configure_url"]:
-        projection["standard_choices"] = choices(product)
+        projection["standard_choices"] = _standard_choices(product)
         if projection["standard_choices"]:
             projection["capability"] = "quantity"
+    if finder:
+        from illumenate_lighting.illumenate_lighting.portal.product_finder import (
+            facts,
+            matcher,
+            server_definition,
+            sessions,
+        )
+
+        result = sessions.result(finder)
+        session = sessions.get_owned(finder)
+        projection["match"] = next((m for m in result["matches"] if m["name"] == product.name), None)
+        if projection["match"] is None:
+            rows = [p for p in facts.load() if p["name"] == product.name]
+            needed = matcher.requirements(server_definition.load(), sessions.decoded(session.quiz_answers))
+            states, reasons, _excluded = matcher.inspect_product(rows[0], needed) if rows else ({}, [], [])
+            projection["match"] = {"reasons": [f"{r['label']}: {r['answer_label']}" for r in needed if states.get(r["id"]) == "pass"][:3], "tradeoffs": [f"{r['label']}: {r['answer_label']} not offered" for r in needed if states.get(r["id"]) == "fail"], "verify": [r["reason"] for r in reasons]}
+        by_name = {p["name"]: p for p in facts.load()}
+        projection["companions"] = [{**{k: by_name[c["name"]][k] for k in ("slug", "title", "image", "capability")}, "relation": c["relation"]} for c in result["companions"] if c["name"] in by_name and c["name"] != product.name][:6]
+        projection["finder_settings"] = definition_settings()
     return {"success": True, "product": projection}
 
 
 @frappe.whitelist()
-def get_catalog_filter_options() -> dict:
-    """Distinct attribute facets grouped by attribute_type with product counts.
+def get_catalog_filter_options(filters: str | dict | None = None, search: str = "", finder=None, view=None) -> dict:
+    """Facet values grouped by attribute_type with product counts.
 
-    Only considers active products.  Returns the data needed to render the
-    filter sidebar (attribute type → list of values with counts).
+    With no ``filters`` or ``search`` the counts cover every active product. Otherwise
+    each group's counts apply every *other* active filter plus the search (disjunctive
+    facets), so a count is the number of results that ticking that value would give.
+    Selected values are always returned, with a zero count if nothing matches.
 
     Returns:
         dict with ``success``, ``filters`` (list of facet groups),
@@ -286,58 +408,103 @@ def get_catalog_filter_options() -> dict:
     """
     require_catalog_access()
 
+    finder_names, _finder_info, _match_map = _finder_scope(finder, view)
+    filters, error = _clean_filters(filters)
+    if error:
+        return {"success": False, "error": error}
+
+    def selected(key, counts):
+        # Blank labels cannot be ticked; order case-insensitively like the database collation.
+        counts = {value: count for value, count in counts.items() if value not in (None, "")}
+        for value in filters.get(key, []):
+            counts.setdefault(value, 0)
+        return [{"value": value, "count": counts[value]} for value in sorted(counts, key=str.casefold)]
+
     # ── product type facets ──────────────────────────────────────────
+    scope, params = _scope_subquery(filters, search, exclude="product_type", restrict_names=finder_names)
     type_rows = frappe.db.sql(
-        """
-        SELECT product_type, COUNT(*) AS cnt
-        FROM `tabilL-Webflow-Product`
-        WHERE is_active = 1
-        GROUP BY product_type
-        ORDER BY product_type
+        f"""
+        SELECT p.product_type, COUNT(*) AS cnt
+        FROM `tabilL-Webflow-Product` p
+        WHERE p.name IN ({scope})
+        GROUP BY p.product_type
         """,
+        params,
         as_dict=True,
     )
-    product_types = [
-        {"value": r.product_type, "count": r.cnt} for r in type_rows
-    ]
+    product_types = selected("product_type", {row.product_type: row.cnt for row in type_rows})
 
     # ── attribute facets ─────────────────────────────────────────────
-    attr_rows = frappe.db.sql(
-        """
-        SELECT
-            al.attribute_type,
-            al.display_label,
-            COUNT(DISTINCT al.parent) AS cnt
+    attribute_sql = """
+        SELECT al.attribute_type, al.display_label, COUNT(DISTINCT al.parent) AS cnt
         FROM `tabilL-Child-Webflow-Attribute-Link` al
-        INNER JOIN `tabilL-Webflow-Product` p
-            ON p.name = al.parent AND al.parenttype = 'ilL-Webflow-Product'
-        WHERE p.is_active = 1
+        WHERE al.parenttype = 'ilL-Webflow-Product' AND al.parent IN ({scope}) {only}
         GROUP BY al.attribute_type, al.display_label
-        ORDER BY al.attribute_type, al.display_label
-        """,
-        as_dict=True,
-    )
+    """
+    active_types = [key for key in filters if key not in PRODUCT_FIELD_FILTERS]
+    attr_rows = []
+    for attr_type in active_types:
+        scope, params = _scope_subquery(filters, search, exclude=attr_type, restrict_names=finder_names)
+        attr_rows += frappe.db.sql(
+            attribute_sql.format(scope=scope, only="AND al.attribute_type = %(facet_type)s"),
+            {**params, "facet_type": attr_type},
+            as_dict=True,
+        )
+    scope, params = _scope_subquery(filters, search, restrict_names=finder_names)
+    only = ""
+    if active_types:
+        only = "AND al.attribute_type NOT IN ({})".format(
+            ", ".join(f"%(facet_type_{i})s" for i in range(len(active_types)))
+        )
+        params = {**params, **{f"facet_type_{i}": value for i, value in enumerate(active_types)}}
+    attr_rows += frappe.db.sql(attribute_sql.format(scope=scope, only=only), params, as_dict=True)
 
-    # Group by attribute_type
-    facets: dict = {}
+    facets: dict = {attr_type: {} for attr_type in active_types}
     for row in attr_rows:
-        facets.setdefault(row.attribute_type, []).append({
-            "value": row.display_label,
-            "count": row.cnt,
-        })
-
-    filters = [
-        {"attribute_type": atype, "options": opts}
-        for atype, opts in facets.items()
+        if row.attribute_type:
+            facets.setdefault(row.attribute_type, {})[row.display_label] = row.cnt
+    filters_out = [
+        {"attribute_type": attr_type, "options": selected(attr_type, facets[attr_type])}
+        for attr_type in sorted(facets, key=str.casefold)
     ]
 
     for field in ("series", "product_category"):
-        rows = frappe.db.sql(f"SELECT `{field}` AS value, COUNT(*) AS cnt FROM `tabilL-Webflow-Product` WHERE is_active=1 AND `{field}` IS NOT NULL AND `{field}` != '' GROUP BY `{field}` ORDER BY `{field}`", as_dict=True)
-        if rows:
-            filters.insert(0, {"attribute_type": field, "label": "Series" if field == "series" else "Application", "options": [{"value": row.value, "count": row.cnt} for row in rows]})
+        scope, params = _scope_subquery(filters, search, exclude=field, restrict_names=finder_names)
+        rows = frappe.db.sql(
+            f"""
+            SELECT p.`{field}` AS value, COUNT(*) AS cnt
+            FROM `tabilL-Webflow-Product` p
+            WHERE p.name IN ({scope}) AND p.`{field}` IS NOT NULL AND p.`{field}` != ''
+            GROUP BY p.`{field}`
+            """,
+            params,
+            as_dict=True,
+        )
+        options = selected(field, {row.value: row.cnt for row in rows})
+        if options:
+            filters_out.insert(0, {"attribute_type": field, "label": "Series" if field == "series" else "Application", "options": options})
 
     return {
         "success": True,
         "product_types": product_types,
-        "filters": filters,
+        "filters": filters_out,
     }
+
+
+def definition_settings():
+    from illumenate_lighting.illumenate_lighting.portal.product_finder.definition import load_definition
+
+    return load_definition()["settings"]
+
+
+def _finder_scope(token, view=None):
+    if not token:
+        return None, None, {}
+    from illumenate_lighting.illumenate_lighting.portal.product_finder import sessions
+    from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import answer_chips
+
+    result = sessions.result(token)
+    doc = sessions.get_owned(token)
+    rows = result.get("companions" if view == "companions" else "matches", [])
+    info = {"token": token, "family": result.get("family"), "answer_chips": answer_chips(sessions.decoded(doc.quiz_answers)), "relaxed": result.get("relaxed", []), "counts": result["counts"], "companions_count": len(result.get("companions", [])), "route": result.get("route"), "eliminated_by": result.get("eliminated_by")}
+    return [m["name"] for m in rows], info, {m["name"]: m for m in rows}

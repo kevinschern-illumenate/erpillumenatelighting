@@ -9,16 +9,36 @@ Allows users to configure fixtures using segment-based configuration
 
 
 {% block page_content %}
-<div id="portal-configurator">
-<div class="ill-configurator container portal-page">
+{% if show_type_chooser | default(false) %}
+{% include "templates/includes/product_type_chooser.html" %}
+{% else %}
+<a class="btn btn-link" href="{{ chooser_url | default('/portal/configure') }}">Change product type</a>
 	{% if has_quiz_handoff %}
 	<div class="ill-handoff-banner" role="status">
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 			<polyline points="20 6 9 17 4 12"/>
 		</svg>
-		<span>Your selections from the configurator have been pre-filled below. Review and adjust as needed.</span>
+		{% set prefill = quiz_prefill | default(none) %}
+		<span>
+			{% if prefill is none or prefill.applied %}
+			{{ _("Your answers from the product quiz have been pre-filled below. Review and adjust as needed.") }}
+			{% else %}
+			{{ _("None of your quiz answers match this product's options, so nothing was pre-filled.") }}
+			{% endif %}
+			{% if prefill and prefill.unmatched %}
+			<br>{{ _("Not offered on this product:") }}
+			{% for row in prefill.unmatched %}{{ row.answer }}{% if not loop.last %}, {% endif %}{% endfor %}
+			{% endif %}
+		</span>
 	</div>
 	{% endif %}
+{% if product_category in ('Driver', 'Controller', 'Extrusion Kit') %}
+<div id="familyConfigurator" class="ill-configurator container py-4"><h1>{{ title }}</h1>
+{% if product_category == 'Extrusion Kit' %}{% include "templates/includes/configurator_kit_form.html" %}{% else %}{% include "templates/includes/configurator_driver_controller_form.html" %}{% endif %}
+</div>
+{% else %}
+<div id="portal-configurator">
+<div class="ill-configurator container portal-page">
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -32,18 +52,6 @@ Allows users to configure fixtures using segment-based configuration
 
 
 	{% if is_led_sheet %}
-	<!-- Product Category Selector -->
-	<div class="form-group mb-3" id="categorySelector">
-		<label class="option-label">{{ _("Product Category") }} <span class="text-danger">*</span></label>
-		<div class="pill-selector">
-			<a class="pill-option {% if product_category == 'Linear Fixture' %}active{% endif %}" href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("Linear Fixture") }}</a>
-			<a class="pill-option {% if product_category == 'LED Tape' %}active{% endif %}" href="/portal/configure?category=LED%20Tape{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Tape") }}</a>
-			<a class="pill-option {% if product_category == 'LED Neon' %}active{% endif %}" href="/portal/configure?category=LED%20Neon{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Neon") }}</a>
-			<a class="pill-option {% if product_category == 'LED Sheet' %}active{% endif %}" href="/portal/configure?category=LED%20Sheet{% if schedule_name %}&schedule={{ schedule_name }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx }}{% endif %}">{{ _("LED Sheets") }}</a>
-		</div>
-	</div>
-	<hr class="mt-1 mb-3">
-
 	<!-- ─────────── LED Sheet Configurator (IllConfigurator.LedSheet) ─────────── -->
 	<div class="card mb-3" id="scheduleContextCard">
 		<div class="card-header d-flex justify-content-between align-items-center">
@@ -147,11 +155,16 @@ Allows users to configure fixtures using segment-based configuration
 
 {% endif %}
 </div>
+{% endif %}
+{% endif %}
 {% endblock %}
 
 {% block script %}
 <script>
-{% if is_led_sheet %}
+{% if show_type_chooser | default(false) %}
+{% elif product_category in ('Driver','Controller','Extrusion Kit') %}
+$(function(){var context={kind:{{ product_category | tojson }},product_slug:{{ product_slug | default('') | tojson }},selected_template:{{ selected_template | default(none) | tojson }},schedule_name:{{ schedule_name | default('') | tojson }},project_name:{{ project_name | default('') | tojson }},line_idx:{{ line_idx | default(none) | tojson }},line_key:{{ line_key | default(none) | tojson }},expected_modified:{{ expected_modified | default(none) | tojson }},initial_request:{{ initial_request | default(none) | tojson }},finder:{{ finder | default(none) | tojson }},show_pricing:{{ show_pricing | default(false) | tojson }},show_stock_qty:{{ show_stock_qty | default(false) | tojson }},can_save:{{ can_save | default(false) | tojson }}};var Class=context.kind==='Extrusion Kit'?IllConfigurator.Kit:IllConfigurator.DriverController;new Class(document.getElementById('familyConfigurator'),context).init();});
+{% elif is_led_sheet %}
 {# LED Sheet: IllConfigurator.LedSheet (led_sheet_steps.js, bundled) mounted on the
    configurator_led_sheet_form.html include. Template data is embedded by the include. #}
 $(function() {

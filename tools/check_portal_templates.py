@@ -31,6 +31,8 @@ environment = Environment(
 environment.globals.update(
 	{
 		"_": lambda value: value,
+		"ill_can_view_catalog": lambda: True,
+		"ill_finder_enabled": lambda: True,
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(
@@ -248,7 +250,7 @@ assert "<script>bad()" not in quote_request_html
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
 configurator = environment.get_template("templates/pages/configure.html")
-for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"):
+for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
 	context = dict(
 		product_category=category,
 		is_led_sheet=category == "LED Sheet",
@@ -271,12 +273,49 @@ for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"):
 		title="Configure " + category,
 		existing_configured_sheet=None,
 		product_slug="",
+		show_stock_qty=True,
+		finder="TOKEN",
 	)
 	for mode in ["coordinator", "wizard"] if category == "Linear Fixture" else ["coordinator"]:
 		context["configurator_mode"] = mode
 		output = configurator.render(**context)
 		parser.feed(output)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
+prefilled = configurator.render(
+	**{
+		**context,
+		"product_category": "Linear Fixture",
+		"is_led_sheet": False,
+		"is_tape_neon": False,
+		"is_tape": False,
+		"is_neon": False,
+		"configurator_mode": "coordinator",
+		"has_quiz_handoff": True,
+		"quiz_prefill": {
+			"applied": [{"field": "moisture", "answer": "Damp", "value": "Damp"}],
+			"unmatched": [{"field": "finish", "answer": "<b>Gold</b>"}],
+		},
+	}
+)
+assert "pre-filled below" in prefilled and "Not offered on this product" in prefilled
+assert "&lt;b&gt;Gold&lt;/b&gt;" in prefilled
+nothing = configurator.render(
+	**{
+		**context,
+		"has_quiz_handoff": True,
+		"quiz_prefill": {"applied": [], "unmatched": [{"field": "cct", "answer": "5000K"}]},
+	}
+)
+assert "nothing was pre-filled" in nothing and "5000K" in nothing
+finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
+assert 'ill-finder.js' in finder
+parser.feed(finder)
+banner = environment.get_template("templates/includes/product_finder_banner.html").render(finder_banner=View(image=None, headline="Find <light>", text="Choose", cta="Start", resume=View(url="/portal/product-finder?session=T", percent=50)))
+assert "Resume (50% done)" in banner and "Find &lt;light&gt;" in banner
+(render_dir / "finder-banner.html").write_text(banner, encoding="utf8")
+chooser = configurator.render(show_type_chooser=True, chooser_options=[View(value="Linear Fixture",label="Linear",featured=True,href="/portal/configure?category=Linear+Fixture&schedule=S&draft=D&finder=T"),View(value="Driver",label="Driver",featured=False,href="/portal/configure?category=Driver&schedule=S&draft=D&finder=T")])
+parser.feed(chooser)
+(render_dir / "finder-chooser.html").write_text(chooser, encoding="utf8")
 # .tools/ is git-ignored, so a clean checkout (CI) does not have it yet.
 (ROOT / ".tools").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools") as directory:
@@ -285,7 +324,7 @@ with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools")
 		path.write_text(source, encoding="utf8")
 		subprocess.run(["node", "--check", str(path)], check=True)
 print(
-	f"Parsed {parsed} Jinja templates; rendered quotes and five configurator modes; checked {len(parser.sources)} embedded scripts"
+	f"Parsed {parsed} Jinja templates; rendered quotes and eight configurator modes; checked {len(parser.sources)} embedded scripts"
 )
 
 shipment = SimpleNamespace(

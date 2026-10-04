@@ -8,4 +8,5 @@ from frappe.model.document import Document
 class ilLConfiguratorSession(Document):
 	def before_insert(self):
 		self.session_token = frappe.generate_hash(length=32)
-		self.user = frappe.session.user
+		self.user = frappe.session.user if frappe.session.user != "Guest" else None
+		self.last_seen = frappe.utils.now_datetime()

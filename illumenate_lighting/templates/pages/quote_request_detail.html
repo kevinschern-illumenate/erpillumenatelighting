@@ -8,6 +8,8 @@
   <p>{{ _("Requested timing") }}: {{ request.snapshot.requested_date or _("Not specified") }}. {{ _("Staff review due") }}: {{ request.due_date or _("Not assigned") }}</p>
   <p>{{ request.snapshot.contact | default('', true) | e }}</p>
   <p style="white-space:pre-wrap">{{ request.snapshot.notes | e }}</p>
+  {% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
+  {% if awaiting %}<p class="alert alert-warning">{{ awaiting | length }} lines awaiting verification</p>{% endif %}
   <p>{{ _("This is the submitted scope. Sales issues a separate quotation with commercial terms. OTHER manufacturer lines remain specification-only.") }}</p>
   <div class="table-responsive"><table class="table"><thead><tr><th>{{ _("Designation") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Manufacturer") }}</th><th>{{ _("Location / notes") }}</th></tr></thead><tbody>
   {% for line in request.snapshot.lines %}<tr><td>{{ line.line_id | e }}</td><td>{{ line.qty }}</td><td>{{ line.manufacturer_name or line.manufacturer_type }}</td><td>{{ line.location | default('', true) | e }}<br>{{ line.notes | default('', true) | e }}</td></tr>{% endfor %}

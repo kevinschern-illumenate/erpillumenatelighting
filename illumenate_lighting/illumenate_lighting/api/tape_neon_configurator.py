@@ -45,6 +45,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
     optional_positive,
     parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows, enabled_tape_specs
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     inches_to_mm,
     mm_to_inches,
@@ -276,6 +277,7 @@ def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
         ],
         order_by="name asc",
     )
+    tape_specs = enabled_rows(tape_specs, "item")
 
     if not tape_specs:
         return {"success": False, "error": "No LED Tape specs found"}
@@ -355,8 +357,9 @@ def get_tape_cascading_options(
     matching_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
         filters=spec_filters,
-        fields=["name"],
+        fields=["name", "item"],
     )
+    matching_specs = enabled_rows(matching_specs, "item")
     spec_names = [s.name for s in matching_specs]
     if not spec_names:
         return {"success": True, "ccts": [], "output_levels": []}
@@ -520,8 +523,9 @@ def validate_tape_configuration(
     #   1. Template's allowed specs for the selected environment rating,
     #      narrowed by any PCB mounting/finish selection
     #   2. Same specs, PCB filters dropped
-    #   3. Every spec the template allows (environment filter dropped)
-    #   4. All LED Tape specs (only when the template constrains nothing)
+    #   3. All LED Tape specs (only when the template constrains nothing)
+    # The environment filter is never dropped: the rating is the tape's IP
+    # rating, so a spec tagged for another environment is a different product.
     # Scoping to the template is what stops e.g. a Tunable White request from
     # resolving to a Dim-to-Warm spec that happens to publish an offering for
     # the same CCT / output level.
@@ -545,6 +549,7 @@ def validate_tape_configuration(
                 fields=_TAPE_SPEC_FIELDS,
                 ignore_permissions=True,
             )
+            _tpl_specs = enabled_rows(_tpl_specs, "item")
             _spec_by_name = {s.name: s for s in _tpl_specs}
             _env_specs = [_spec_by_name[n] for n in _tpl_env_names if n in _spec_by_name]
             _all_specs = [_spec_by_name[n] for n in _tpl_all_names if n in _spec_by_name]
@@ -566,7 +571,6 @@ def validate_tape_configuration(
             _plan = [
                 (_pcb_filtered, _cct, "environment + PCB filters"),
                 (_env_specs, _cct, "environment scope"),
-                (_all_specs, _cct, "all template specs"),
             ]
             # Multi-CCT families publish a generic offering CCT that never
             # matches an individually selected one, so retry without it.
@@ -574,7 +578,6 @@ def validate_tape_configuration(
                 _plan += [
                     (_pcb_filtered, None, "multi-CCT + environment + PCB filters"),
                     (_env_specs, None, "multi-CCT + environment scope"),
-                    (_all_specs, None, "multi-CCT, all template specs"),
                 ]
             tape_offering, all_matching_specs = _search_offering_plan(
                 _plan, sel.get("output_level"), logger, "validate_tape"
@@ -597,19 +600,26 @@ def validate_tape_configuration(
 
     if not tape_offering:
         logger.warning(f"validate_tape: No offering found for cct={sel.get('cct')}, output_level={sel.get('output_level')}")
-        scope_hint = (
-            f" on the tape specs allowed by template '{tape_neon_template}'"
-            if template_scoped else ""
-        )
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": (
+        environment = sel.get("environment_rating")
+        if template_scoped and environment and not _env_specs:
+            error = (
+                f"Template '{tape_neon_template}' has no tape spec for environment "
+                f"'{environment}'. Add an Allowed Tape Spec tagged '{environment}' "
+                "(or with no environment) to the template."
+            )
+        else:
+            scope_hint = (
+                f" on the tape specs allowed by template '{tape_neon_template}'"
+                if template_scoped else ""
+            )
+            if template_scoped and environment:
+                scope_hint += f" for environment '{environment}'"
+            error = (
                 f"No tape offering found for CCT='{sel.get('cct')}' and "
                 f"Output Level='{sel.get('output_level')}'{scope_hint}. "
                 "Check that a matching ilL-Rel-Tape Offering record exists and is active."
-            ),
-        }
+            )
+        return {"success": False, "is_valid": False, "error": error}
     logger.info(f"validate_tape: found offering = {tape_offering.name}")
 
     # Resolve the correct tape spec from the offering
@@ -898,6 +908,7 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
         ],
         order_by="name asc",
     )
+    tape_specs = enabled_rows(tape_specs, "item")
 
     if not tape_specs:
         return {"success": False, "error": "No LED Neon specs found"}
@@ -1061,6 +1072,7 @@ def validate_neon_configuration(
                 fields=_TAPE_SPEC_FIELDS,
                 ignore_permissions=True,
             )
+            _tpl_specs = enabled_rows(_tpl_specs, "item")
             _spec_by_name = {s.name: s for s in _tpl_specs}
             _tpl_specs = [_spec_by_name[n] for n in _tpl_spec_names if n in _spec_by_name]
             _tpl_fetched_names = [s.name for s in _tpl_specs]
@@ -1707,6 +1719,7 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
         order_by="name asc",
         ignore_permissions=True,
     )
+    tape_specs = enabled_rows(tape_specs, "item")
 
     if not tape_specs:
         return {"success": False, "error": f"No {product_category} specs found"}
@@ -1815,9 +1828,10 @@ def get_tape_neon_spec_cascading(
     matching_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
         filters={"product_category": product_category},
-        fields=["name"],
+        fields=["name", "item"],
         ignore_permissions=True,
     )
+    matching_specs = enabled_rows(matching_specs, "item")
     spec_names = [s.name for s in matching_specs]
     if not spec_names:
         return {"success": True, "ccts": [], "output_levels": []}
@@ -1932,6 +1946,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         order_by="name asc",
         ignore_permissions=True,
     )
+    tape_specs = enabled_rows(tape_specs, "item")
     if not tape_specs:
         return {"success": False, "error": "No matching tape specs found"}
 
@@ -2087,6 +2102,7 @@ def get_tape_neon_template_cascading(
         if not spec_names and template.default_tape_spec:
             spec_names = [template.default_tape_spec]
 
+    spec_names = enabled_tape_specs(spec_names)
     if not spec_names:
         return {"success": True, "ccts": [], "output_levels": []}
 
@@ -3217,10 +3233,14 @@ def _get_template_spec_context(
 
     Returns ``{"spec_names", "env_spec_names", "free_cutting"}``:
       - ``spec_names``     – every allowed spec, ordered
-      - ``env_spec_names`` – narrowed to *environment_rating* when that filter
-        leaves anything (rows with no rating always qualify), else identical to
-        ``spec_names``
+      - ``env_spec_names`` – narrowed to *environment_rating* (rows with no
+        rating always qualify); empty when no allowed spec serves that
+        environment.  Identical to ``spec_names`` when no rating is given.
       - ``free_cutting``   – the template-level override flag
+
+    A spec tagged for another environment is never substituted: the rating is
+    the tape's IP rating (Dry 20 / Damp 54 / Wet 67), so falling back would
+    build e.g. an IP20 tape for a Damp request under a Damp part number.
 
     Ordering puts ``is_default`` rows first, then the template's
     ``default_tape_spec``, then child-table order.  Callers pass the list to
@@ -3261,15 +3281,14 @@ def _get_template_spec_context(
         # Mirrors get_tape_neon_template_init: an empty allowed-spec table
         # still resolves through the template's default spec.
         spec_names = [default_spec]
+    spec_names = enabled_tape_specs(spec_names)
 
     env_spec_names = spec_names
     if environment_rating and rows:
-        env_rows = [
+        env_spec_names = enabled_tape_specs(_order([
             r for r in rows
             if not r.environment_rating or r.environment_rating == environment_rating
-        ]
-        if env_rows:
-            env_spec_names = _order(env_rows)
+        ]))
 
     return {
         "spec_names": spec_names,
@@ -3342,6 +3361,7 @@ def _find_all_matching_tape_specs(
         ],
         order_by="name asc",
     )
+    specs = enabled_rows(specs, "item")
     if not specs:
         # Log all available specs for debugging
         all_specs = frappe.get_all(
@@ -3540,6 +3560,16 @@ def _get_code(doctype: str, name: str, code_field: str = "code") -> str:
     return code or "xx"
 
 
+def _spec_item_code(tape_spec) -> str:
+    """The Item the spec currently ships, which the part number starts with.
+
+    Specs are autonamed from their Item, but re-pointing a spec at a new Item
+    variant (e.g. an IP-rated replacement for an I/O variant) leaves the old
+    name behind.  The BOM uses ``tape_spec.item``, so the part number must too.
+    """
+    return getattr(tape_spec, "item", None) or tape_spec.name
+
+
 def _offering_codes(sel: dict, tape_offering) -> list[str]:
     """CCT and output level codes of the resolved offering, as the linear part number carries them."""
     cct = (tape_offering or {}).get("cct") or sel.get("cct")
@@ -3587,12 +3617,12 @@ def _build_tape_part_number(
     Build LED Tape part number.
 
     Single-segment (endcapped):
-        {tape_spec_name}-{cct}-{output}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
+        {tape_spec_item}-{cct}-{output}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
 
     Multi-segment (jumper-chained):
-        {tape_spec_name}-{cct}-{output}-{total_length_inches}-J({hash})
+        {tape_spec_item}-{cct}-{output}-{total_length_inches}-J({hash})
 
-    Uses the tape spec ID as the base, then the CCT and output level codes
+    Uses the tape spec's Item code as the base, then the CCT and output level codes
     (the spec is shared by every CCT/output offering), then the total manufacturable
     length in inches (or "xx" when the length is not yet specified), followed
     by an optional feed segment (feed-type code + leader cable length in feet)
@@ -3605,7 +3635,7 @@ def _build_tape_part_number(
     """
     import hashlib
 
-    parts = [tape_spec.name, *_offering_codes(sel, tape_offering)]
+    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_offering)]
 
     # Total length in inches (manufacturable) — "xx" when not specified.
     if manufacturable_length_mm:
@@ -3687,7 +3717,7 @@ def _build_tape_description(
     if cut_increment_mm is None:
         cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
-    lines.append(f"LED Tape: {tape_spec.name}")
+    lines.append(f"LED Tape: {_spec_item_code(tape_spec)}")
     if sel.get("environment_rating"):
         lines.append(f"Environment: {sel['environment_rating']}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
@@ -3728,12 +3758,12 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     Build LED Neon part number.
 
     Single-segment (endcapped):
-        {tape_spec_name}-{cct}-{output}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
+        {tape_spec_item}-{cct}-{output}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
 
     Multi-segment (jumpered):
-        {tape_spec_name}-{cct}-{output}-{total_length_inches}-J({hash})
+        {tape_spec_item}-{cct}-{output}-{total_length_inches}-J({hash})
 
-    Uses the tape spec ID as the base, then the CCT and output level codes
+    Uses the tape spec's Item code as the base, then the CCT and output level codes
     (the spec is shared by every CCT/output offering), then the total manufacturable
     length in inches.  For single-segment configs the feed direction code and
     leader cable length in feet are added followed by "C" for endcapped.  For
@@ -3742,7 +3772,7 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     """
     import hashlib
 
-    parts = [tape_spec.name, *_offering_codes(sel, tape_offering)]
+    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_offering)]
 
     # Total manufacturable length in inches (sum of all segments).
     # When no length has been provided yet, fall back to "xx".
@@ -3816,7 +3846,7 @@ def _build_neon_description(
     if cut_increment_mm is None:
         cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
-    lines.append(f"LED Neon: {tape_spec.name}")
+    lines.append(f"LED Neon: {_spec_item_code(tape_spec)}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
     lines.append(f"Output: {sel.get('output_level', '-')}")
     lines.append(f"Finish: {sel.get('finish', '-')}")
@@ -3855,6 +3885,7 @@ def get_mounting_accessories(
     length_mm: float | str | None = 0,
     environment_rating: str = None,
     segments: int | str | None = 1,
+    ip_ratings: str | list | None = None,
 ) -> dict:
     """
     Return eligible mounting accessories for a tape/neon template.
@@ -3871,8 +3902,12 @@ def get_mounting_accessories(
         template_code: The ilL-Tape-Neon-Template template_code (or name)
         product_category: Optional filter — "LED Tape" or "LED Neon"
         length_mm: Total tape/neon length in mm (for qty calculation)
-        environment_rating: Optional environment rating filter
+        environment_rating: Optional environment rating filter (LED Tape)
         segments: Number of neon segments (for PER_SEGMENT rule)
+        ip_ratings: Optional IP Rating of each neon segment (JSON list or comma-separated)
+
+    With an environment or IP ratings, only accessories the build will approve
+    are returned (see ``environment_codes.accessory_serves``).
 
     Returns:
         dict with ``accessories`` list, each containing:
@@ -3905,8 +3940,6 @@ def get_mounting_accessories(
         "template_type": "ilL-Tape-Neon-Template",
         "is_active": 1,
     }
-    if environment_rating:
-        map_filters["environment_rating"] = environment_rating
 
     accessory_rows = frappe.get_all(
         "ilL-Rel-Mounting-Accessory-Map",
@@ -3919,22 +3952,20 @@ def get_mounting_accessories(
         order_by="mounting_method asc",
         ignore_permissions=True,
     )
+    accessory_rows = enabled_rows(accessory_rows, "accessory_item")
 
-    if not accessory_rows:
-        # Also try with environment_rating unfiltered if nothing found
-        if environment_rating:
-            map_filters.pop("environment_rating", None)
-            accessory_rows = frappe.get_all(
-                "ilL-Rel-Mounting-Accessory-Map",
-                filters=map_filters,
-                fields=[
-                    "name", "mounting_method", "accessory_item",
-                    "qty_rule_type", "qty_rule_value", "min_qty", "rounding",
-                    "environment_rating",
-                ],
-                order_by="mounting_method asc",
-                ignore_permissions=True,
-            )
+    # Offer only what the build approves: untagged rows, rows for this environment,
+    # and Wet rows for IP68 / Wet+ (tape_neon_build.mounting_component).
+    from illumenate_lighting.illumenate_lighting.api.environment_codes import (
+        accessory_serves,
+        configuration_environments,
+    )
+
+    environments = configuration_environments(environment_rating, ip_ratings)
+    if environments:
+        accessory_rows = [
+            row for row in accessory_rows if accessory_serves(row.environment_rating, environments)
+        ]
 
     accessories = []
     for row in accessory_rows:

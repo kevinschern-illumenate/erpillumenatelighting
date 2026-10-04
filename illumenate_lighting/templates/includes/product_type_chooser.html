@@ -1,0 +1,15 @@
+<section class="container py-4" aria-label="Choose a product type">
+<h1>What would you like to configure?</h1>
+<div class="row">
+{% for option in chooser_options | default([]) %}
+  <div class="{{ 'col-md-8' if option.featured | default(false) else 'col-md-4' }} mb-3">
+    <a class="card h-100 p-3 {{ 'border-primary' if option.featured | default(false) else '' }}" href="{{ option.href }}">
+      {% if option.image | default(none) %}<img src="{{ option.image }}" alt="" style="height:140px;object-fit:cover">{% endif %}
+      {% if option.badge | default('') %}<span class="badge badge-warning my-2">{{ option.badge }}</span>{% endif %}
+      <h2 class="h4">{{ option.label }}</h2><p>{{ option.description | default('') }}</p>
+    </a>
+  </div>
+{% endfor %}
+</div>
+{% if ill_finder_enabled() %}<a href="/portal/product-finder">Not sure what you need? Take the Product Finder</a>{% endif %}
+</section>

@@ -171,6 +171,9 @@ def normalize(value):
 		"dimming_protocol_code": str(power.get("dimming_protocol_code") or "").strip() or None,
 		"override_max_run_ft": override,
 	}
+	if policy["include_power_supply"] and parse_bool(power.get("separate_supply_line"), default=False):
+		# Supplies are planned for the group but ordered on their own schedule line.
+		policy["separate_supply_line"] = True
 	members = request.get("members")
 	if not isinstance(members, list) or not 1 <= len(members) <= 12:
 		raise ValueError("A group requires between 1 and 12 independent members")

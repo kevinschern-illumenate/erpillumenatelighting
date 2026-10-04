@@ -94,6 +94,61 @@ def _add_rows(doc, section_name, section_order, pairs):
 		})
 
 
+def _sync_rows(doc, section_name, section_order, pairs, live_codes):
+	"""Bring an existing *section_name* in line with the current attribute codes.
+
+	Unlike ``_add_rows`` this also updates a populated section, for sections whose
+	codes are re-assigned on the attribute (Environment Rating moved from I/O to
+	20/54/67).  A row whose label matches a pair takes the pair's code; a row
+	whose code no attribute uses any more (*live_codes*) is stale and removed;
+	any other row is a manual entry and kept.  Pairs not yet shown by label or
+	code are appended.  Returns True when the section changed.
+	"""
+	rows = [r for r in (doc.get("part_number_builder") or []) if r.section_name == section_name]
+	if not rows:
+		_add_rows(doc, section_name, section_order, pairs)
+		return bool(pairs)
+
+	codes_by_label = {label: code for code, label in pairs if code}
+	changed = False
+	for row in rows:
+		code = codes_by_label.get(row.option_label)
+		if code and row.option_code != code:
+			row.option_code = code
+			changed = True
+		elif not code and row.option_code not in live_codes:
+			doc.remove(row)
+			changed = True
+
+	kept = [r for r in doc.get("part_number_builder") if r.section_name == section_name]
+	shown = {r.option_label for r in kept} | {r.option_code for r in kept}
+	option_order = max((r.option_order or 0 for r in kept), default=0)
+	for code, label in pairs:
+		if not code or label in shown or code in shown:
+			continue
+		shown.update((code, label))
+		option_order += 1
+		doc.append("part_number_builder", {
+			"section_name": section_name,
+			"section_order": kept[0].section_order if kept else section_order,
+			"option_code": code,
+			"option_label": label,
+			"option_order": option_order,
+		})
+		changed = True
+	return changed
+
+
+def sync_environment_section(doc):
+	"""Re-sync the "Dry/Wet" section to the template's Environment Rating codes."""
+	pairs = _options_for_type(
+		doc, "Environment Rating", "environment_rating",
+		"ilL-Attribute-Environment Rating",
+	)
+	live_codes = set(frappe.get_all("ilL-Attribute-Environment Rating", pluck="code"))
+	return _sync_rows(doc, "Dry/Wet", SECTION_ORDER_DEFAULTS["Dry/Wet"], pairs, live_codes)
+
+
 def _options_for_type(doc, option_type, link_field, attr_doctype, code_field="code", label_field="label"):
 	"""Return ``(code, label)`` pairs from allowed_options of *option_type*."""
 	pairs = []
@@ -118,7 +173,9 @@ def populate_part_number_builder(docname):
 	"""Auto-fill empty sections of the Part Number Builder child table.
 
 	Only sections that have **no existing rows** are populated — manual
-	edits are preserved.
+	edits are preserved.  The Dry/Wet section is the exception: its codes
+	are re-synced to the current Environment Rating codes (see
+	``sync_environment_section``).
 	"""
 	doc = frappe.get_doc("ilL-Fixture-Template", docname)
 
@@ -131,12 +188,7 @@ def populate_part_number_builder(docname):
 			_add_rows(doc, "Series", SECTION_ORDER_DEFAULTS["Series"], [(code, label)])
 
 	# ── Dry/Wet  (Environment Rating) ──
-	pairs = _options_for_type(
-		doc, "Environment Rating", "environment_rating",
-		"ilL-Attribute-Environment Rating",
-	)
-	if pairs:
-		_add_rows(doc, "Dry/Wet", SECTION_ORDER_DEFAULTS["Dry/Wet"], pairs)
+	sync_environment_section(doc)
 
 	# ── CCT  (from tape offerings) ──
 	cct_pairs = []

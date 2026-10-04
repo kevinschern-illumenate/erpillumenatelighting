@@ -49,44 +49,43 @@ Context:
 					</div>
 
 					<div id="sheetOptions" style="display: none;">
-						<!-- 2. Panel spec -->
-						<div class="config-section" id="sheetSpecSection">
-							<h4><span class="ill-config-step-num">2</span>{{ _("Panel Spec") }}</h4>
-							<div class="pill-selector" data-field="sheet_spec"></div>
-							<select class="form-control select-fallback" id="sheetSpec" name="sheet_spec"></select>
-							<small class="text-muted d-block mt-1" id="sheetSpecHint"></small>
-						</div>
-
-						<!-- 3. Options -->
+						<!-- 2-6. Options; the panel spec follows from CCT, output and environment. -->
 						<div class="config-section" id="sheetCctSection">
-							<h4><span class="ill-config-step-num">3</span>{{ _("Color Temperature (CCT)") }}</h4>
+							<h4><span class="ill-config-step-num">2</span>{{ _("Color Temperature (CCT)") }}</h4>
 							<div class="pill-selector" data-field="sheet_cct"></div>
 							<select class="form-control select-fallback" id="sheetCct" name="sheet_cct"></select>
 						</div>
 						<div class="config-section" id="sheetOutputSection">
-							<h4><span class="ill-config-step-num">4</span>{{ _("Output Level") }}</h4>
+							<h4><span class="ill-config-step-num">3</span>{{ _("Output Level") }}</h4>
 							<div class="pill-selector" data-field="sheet_output"></div>
 							<select class="form-control select-fallback" id="sheetOutput" name="sheet_output"></select>
 						</div>
 						<div class="config-section" id="sheetEnvironmentSection">
-							<h4><span class="ill-config-step-num">5</span>{{ _("Environment Rating") }}</h4>
+							<h4><span class="ill-config-step-num">4</span>{{ _("Environment Rating") }}</h4>
 							<div class="pill-selector" data-field="sheet_environment"></div>
 							<select class="form-control select-fallback" id="sheetEnvironment" name="sheet_environment"></select>
 						</div>
 						<div class="config-section" id="sheetMountingSection">
-							<h4><span class="ill-config-step-num">6</span>{{ _("Mounting") }}</h4>
+							<h4><span class="ill-config-step-num">5</span>{{ _("Mounting") }}</h4>
 							<div class="pill-selector" data-field="sheet_mounting"></div>
 							<select class="form-control select-fallback" id="sheetMounting" name="sheet_mounting"></select>
 						</div>
 						<div class="config-section" id="sheetFinishSection">
-							<h4><span class="ill-config-step-num">7</span>{{ _("Finish") }}</h4>
+							<h4><span class="ill-config-step-num">6</span>{{ _("Finish") }}</h4>
 							<div class="pill-selector" data-field="sheet_finish"></div>
 							<select class="form-control select-fallback" id="sheetFinish" name="sheet_finish"></select>
 						</div>
 
-						<!-- 8. Coverage -->
+						<div class="config-section" id="sheetSpecSection" aria-live="polite">
+							<h6 class="mb-1">{{ _("Panel") }}: <code id="sheetSpecMatch"></code></h6>
+							{# Derived from the options above; hidden, kept for the payload. #}
+							<select class="d-none" id="sheetSpec" name="sheet_spec" aria-hidden="true" tabindex="-1"></select>
+							<small class="text-muted d-block" id="sheetSpecHint"></small>
+						</div>
+
+						<!-- 7. Coverage -->
 						<div class="config-section" id="sheetCoverageSection">
-							<h4><span class="ill-config-step-num">8</span>{{ _("Coverage Area") }}</h4>
+							<h4><span class="ill-config-step-num">7</span>{{ _("Coverage Area") }}</h4>
 							<p class="text-muted small mb-2" id="sheetCoverageHint">{{ _("Enter the area to cover; the panel count, groups and accessories are calculated for you.") }}</p>
 							<div class="row">
 								<div class="col-md-6">
@@ -120,7 +119,7 @@ Context:
 								<input type="checkbox" class="custom-control-input" id="sheetIncludePowerSupply" name="include_power_supply" checked>
 								<label class="custom-control-label" for="sheetIncludePowerSupply">
 									<strong>{{ _("Include Power Supplies?") }}</strong>
-									<small class="text-muted d-block">{{ _("Uncheck to exclude drivers/power supplies and source them separately. Groups are still calculated for validation.") }}</small>
+									<small class="text-muted d-block">{{ _("Selected power supplies are added as their own line directly under this sheet, with the same Fixture Type and Location. Uncheck to leave power out and source it separately; groups are still calculated for validation.") }}</small>
 								</label>
 							</div>
 						</div>

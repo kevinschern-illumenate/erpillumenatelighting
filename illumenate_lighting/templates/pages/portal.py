@@ -52,6 +52,9 @@ def get_context(context):
 	context.order_status_class = order_status_class
 	context.can_view_catalog = can_view_catalog(actor.user)
 
+	from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import banner
+
+	context.finder_banner = banner()
 	context.title = _("Portal")
 	context.no_cache = 1
 

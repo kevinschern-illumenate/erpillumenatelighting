@@ -158,6 +158,7 @@ class TestPartNumberBuilding(unittest.TestCase):
         }
         tape_spec = MagicMock()
         tape_spec.name = "TAPE-001"
+        tape_spec.item = "TAPE-001"  # specs are autonamed from their Item
         tape_offering = MagicMock()
         tape_offering.name = "TO-001"
 
@@ -186,6 +187,7 @@ class TestPartNumberBuilding(unittest.TestCase):
         }
         tape_spec = MagicMock()
         tape_spec.name = "NEON-001"
+        tape_spec.item = "NEON-001"  # specs are autonamed from their Item
         tape_offering = MagicMock()
         tape_offering.name = "NO-001"
         segments = [

@@ -1,204 +1,71 @@
-import { useMemo, useRef, useEffect, useState } from 'react';
-import { ChevronRight, AlertTriangle } from 'lucide-react';
-import ProgressBar from './ProgressBar.jsx';
-import SideNav from './SideNav.jsx';
+import {useEffect,useMemo,useRef,useState} from 'react';
+import {createClient} from '../lib/api.js';
+import {loadDefinition} from '../lib/definition.js';
+import {visibleQuestions,pruneHiddenAnswers,isAnswered,progress} from '../lib/engine.js';
 import QuestionStep from './QuestionStep.jsx';
 import Results from './Results.jsx';
-import {
-  visibleQuestions, pruneHiddenAnswers, isAnswered, progress, isAnswerStillValid,
-} from '../lib/engine.js';
 
-/**
- * Compute how many questions to reveal in the scroll.
- * All questions up to and including the first unanswered required question are shown.
- * Once all required questions are answered, all are revealed.
- */
-function computeRevealedCount(visible, answers) {
-  for (let i = 0; i < visible.length; i++) {
-    const q = visible[i];
-    if (q.required && q.type !== 'info' && !isAnswered(q, answers)) {
-      return i + 1;
-    }
+export default function Wizard({config={}}) {
+  const client=useMemo(()=>config.client||createClient(config),[config]);
+  const [definition,setDefinition]=useState(null),[token,setToken]=useState(null),[answers,setAnswers]=useState({}),[counts,setCounts]=useState({}),[result,setResult]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+  const refs=useRef({}),saveTimer=useRef(),saves=useRef(Promise.resolve()),boot=useRef(),evaluateSequence=useRef(0);
+  const navigate=(url)=>(config.navigate||((path)=>window.location.assign(path)))(url);
+  useEffect(()=>{
+    let active=true;
+    if(!boot.current) boot.current=(async()=>{
+      const def=await loadDefinition(client);
+      let claim=config.claimToken;
+      if(config.mode!=='public' && !claim) { try { claim=localStorage.getItem('ill-finder-claim'); } catch {} }
+      if(claim) {const claimed=await client.claim(claim);try{localStorage.removeItem('ill-finder-claim');}catch{}navigate(claimed.catalog_url);return {def};}
+      const session=config.sessionToken ? {token:config.sessionToken} : await client.start();
+      const previous=config.sessionToken ? await client.getSession(session.token) : {answers:{}};
+      return {def,token:session.token,answers:previous.answers,stale:previous.stale};
+    })();
+    boot.current.then(data=>{if(active){setDefinition(data.def);setToken(data.token);setAnswers(pruneHiddenAnswers(data.answers||{}));if(data.stale)setNotice('The catalog has changed. Your answers will be checked against the latest products.');}}).catch(e=>active&&setError(e.message));
+    return ()=>{active=false;};
+  },[client]);
+  const visible=definition?visibleQuestions(answers):[];
+  const unanswered=visible.findIndex(q=>q.required&&!isAnswered(q,answers));
+  const count=unanswered<0?visible.length:unanswered+1;
+  const current=visible[Math.max(0,count-1)];
+  function validAnswers(next) {
+    const clean={...next};
+    visibleQuestions(next).forEach(q=>{if(['number','range'].includes(q.type)&&!isAnswered({...q,required:true},next))delete clean[q.id];});
+    return clean;
   }
-  return visible.length;
-}
-
-/**
- * Continuous-scroll wizard: all answered questions stack up in a feed; each new
- * question appears after the previous one is answered. A sticky sidebar on
- * desktop (or top bar on mobile) lets the user jump to any revealed step.
- * Broken answers (no longer matching any fixture) are flagged inline.
- */
-export default function Wizard() {
-  const [answers, setAnswers] = useState({});
-  const [showResults, setShowResults] = useState(false);
-
-  const questionsRef = useRef({});
-  const prevRevealedRef = useRef(0);
-
-  // Visible questions recompute on every answer change (branching/skip).
-  const visible = useMemo(() => visibleQuestions(answers), [answers]);
-
-  // Derived: how many steps are currently shown in the scroll.
-  const revealedCount = computeRevealedCount(visible, answers);
-
-  // The "active" step is the last revealed one (the one the user should answer next).
-  const currentIndex = revealedCount - 1;
-
-  // All required visible questions have been answered.
-  const isAllAnswered = revealedCount >= visible.length && visible.length > 0;
-
-  const prog = progress(answers);
-
-  // Which revealed steps have a stale answer (no longer matches any fixture).
-  const brokenSet = useMemo(() => {
-    const broken = new Set();
-    visible.forEach((q, i) => {
-      if (i === currentIndex) return; // don't flag the active question
-      if (answers[q.id] === undefined) return;
-      if (!isAnswerStillValid(q, answers)) broken.add(i);
-    });
-    return broken;
-  }, [visible, answers, currentIndex]);
-
-  // Auto-scroll to each newly revealed question.
-  useEffect(() => {
-    if (revealedCount > prevRevealedRef.current && revealedCount <= visible.length) {
-      const newQ = visible[revealedCount - 1];
-      if (newQ) {
-        // Small delay so React has committed the new card to the DOM first.
-        setTimeout(() => {
-          questionsRef.current[newQ.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 50);
-      }
-    }
-    prevRevealedRef.current = revealedCount;
-  }, [revealedCount, visible]);
-
-  const setAnswer = (id, value) => {
-    setAnswers((prev) => {
-      const next = { ...prev, [id]: value };
-      // Drop answers for now-hidden questions so stale branches don't persist.
-      return pruneHiddenAnswers(next);
-    });
-  };
-
-  const scrollToQuestion = (id) => {
-    questionsRef.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const restart = () => {
-    setAnswers({});
-    setShowResults(false);
-    prevRevealedRef.current = 0;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const navSteps = visible.map((q) => ({ id: q.id, shortLabel: q.shortLabel ?? q.id }));
-
-  return (
-    <div className="min-h-screen bg-ill-bg">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-
-        {/* Mobile: horizontal progress bar at the top */}
-        <div className="mb-6 md:hidden">
-          <ProgressBar
-            steps={navSteps}
-            currentIndex={currentIndex}
-            maxReached={revealedCount - 1}
-            percent={prog.percent}
-            brokenSet={brokenSet}
-            onJump={(i) => scrollToQuestion(visible[i]?.id)}
-          />
-        </div>
-
-        <div className="md:flex md:gap-8">
-
-          {/* Desktop: sticky sidebar that follows scroll */}
-          <aside className="hidden md:block md:w-14 flex-none sticky top-8 self-start">
-            <SideNav
-              steps={navSteps}
-              currentIndex={currentIndex}
-              revealedCount={revealedCount}
-              brokenSet={brokenSet}
-              onJump={scrollToQuestion}
-            />
-          </aside>
-
-          {/* Main content: scrollable question feed */}
-          <main className="flex-1 min-w-0">
-            {visible.slice(0, revealedCount).map((q, i) => {
-              const isCurrent = i === currentIndex;
-              const isBroken = brokenSet.has(i);
-
-              return (
-                <div
-                  key={q.id}
-                  ref={(el) => { questionsRef.current[q.id] = el; }}
-                  className={[
-                    'mb-6 rounded-2xl border bg-ill-paper p-5 shadow-sm sm:p-7 scroll-mt-8',
-                    isBroken
-                      ? 'border-red-300'
-                      : isCurrent
-                      ? 'border-ill-accent shadow-md'
-                      : 'border-ill-border',
-                  ].join(' ')}
-                >
-                  {/* Step number badge */}
-                  <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-ill-subtle">
-                    Step {i + 1}
-                  </div>
-
-                  {/* Broken-answer warning banner */}
-                  {isBroken && (
-                    <div
-                      role="alert"
-                      className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-                    >
-                      <AlertTriangle size={16} className="mt-0.5 flex-none" aria-hidden="true" />
-                      <span>
-                        Your earlier answer here no longer matches any available fixture.
-                        Please update your selection below.
-                      </span>
-                    </div>
-                  )}
-
-                  <QuestionStep
-                    question={q}
-                    answers={answers}
-                    onChange={(value) => setAnswer(q.id, value)}
-                  />
-                </div>
-              );
-            })}
-
-            {/* See recommendations — appears once all required questions are answered */}
-            {isAllAnswered && !showResults && (
-              <div className="mb-6 text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowResults(true)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-ill-accent px-6 py-3 font-semibold text-white outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ill-accent focus-visible:ring-offset-2"
-                >
-                  See recommendations
-                  <ChevronRight size={18} aria-hidden="true" />
-                </button>
-              </div>
-            )}
-
-            {/* Results panel — renders inline below the questions */}
-            {showResults && (
-              <div className="rounded-2xl border border-ill-border bg-ill-paper p-5 shadow-sm sm:p-7">
-                <Results answers={answers} onRestart={restart} />
-              </div>
-            )}
-          </main>
-        </div>
-
-        <p className="mt-8 text-center text-xs text-ill-subtle">
-          Prototype using seeded offline data from real ERP attribute names. No live ERP calls.
-        </p>
-      </div>
-    </div>
-  );
+  function queueSave(next) {
+    saves.current=saves.current.catch(()=>{}).then(()=>client.saveAnswers(token,validAnswers(next)));
+    return saves.current;
+  }
+  useEffect(()=>{
+    if(!definition||config.mode==='public'||!token||busy) return;
+    saveTimer.current=setTimeout(()=>queueSave(answers).catch(e=>setError(e.message)),500);
+    return ()=>clearTimeout(saveTimer.current);
+  },[answers,token,definition,busy]);
+  useEffect(()=>{
+    if(!current) return;
+    const sequence=++evaluateSequence.current;
+    const timer=setTimeout(()=>client.evaluate(validAnswers(answers),current.id).then(data=>{if(sequence===evaluateSequence.current)setCounts(old=>({...old,[current.id]:data}));}).catch(e=>{if(sequence===evaluateSequence.current)setError(e.message);}),150);
+    return ()=>{clearTimeout(timer);evaluateSequence.current++;};
+  },[answers,current?.id]);
+  useEffect(()=>{if(current){const node=refs.current[current.id];node?.querySelector('h2')?.focus({preventScroll:true});node?.scrollIntoView?.({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});}},[current?.id]);
+  async function finish(next=answers) {
+    clearTimeout(saveTimer.current);setBusy(true);setError('');
+    try {if(config.mode!=='public')await queueSave(next);const data=await client.complete(token,next);if(data.route==='catalog')navigate(data.catalog_url||'/portal/products?type=Accessory%2CComponent');else setResult(data);}catch(e){setError(e.message);}finally{setBusy(false);}
+  }
+  function change(question,value) {
+    const next=pruneHiddenAnswers({...answers,[question.id]:value});setAnswers(next);setResult(null);
+    if(question.options?.some(o=>o.value===value&&o.routesTo==='catalog'))finish(next);
+  }
+  async function restart(){setBusy(true);try{await saves.current.catch(()=>{});const session=await client.start();setToken(session.token);setAnswers({});setResult(null);setCounts({});}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function ask(){try{const response=await client.requestVerification(token);setNotice(`Request ${response.request} sent. Our team will help you find a product.`);}catch(e){setError(e.message);}}
+  if(!definition)return <div role="status" className="p-6">{error||'Loading the Product Finder…'}</div>;
+  return <div className="min-h-screen bg-ill-bg p-4 sm:p-8"><div className="mx-auto max-w-4xl">
+    <header className="sticky z-10 mb-6 rounded-xl bg-white p-4 shadow-sm" style={{top:'var(--ill-finder-top, 80px)'}}><h1 className="font-display text-xl font-semibold">Find the right light for your project</h1><p className="text-sm" aria-live="polite">{progress(answers).percent}% complete{config.preview?' · Staff preview':''}</p></header>
+    {error&&<p role="alert" className="mb-4 rounded bg-ill-dangerBg p-4">{error}</p>}{notice&&<p role="status" className="mb-4 rounded bg-ill-accentBg p-4">{notice}</p>}
+    {result ? <Results result={result} token={token} config={config} settings={definition.settings} onRestart={restart} onAsk={ask} onEdit={id=>{setResult(null);setTimeout(()=>refs.current[id]?.scrollIntoView?.(),0);}}/> : <>
+      {visible.slice(0,count).map(q=><section id={q.id} key={q.id} ref={el=>{refs.current[q.id]=el;}} className="mb-6 rounded-2xl border border-ill-border bg-white p-5 sm:p-7" style={{scrollMarginTop:'calc(var(--ill-finder-top, 80px) + 100px)'}}><QuestionStep question={q} answers={answers} onChange={v=>change(q,v)} counts={counts[q.id]} glossary={definition.glossary}/></section>)}
+      {unanswered<0&&visible.length>0&&<button disabled={busy} type="button" onClick={()=>finish()} className="rounded-lg bg-ill-accent px-6 py-3 font-semibold text-white disabled:opacity-50">{busy?'Finding products…':'See matching products'}</button>}
+    </>}
+  </div></div>;
 }

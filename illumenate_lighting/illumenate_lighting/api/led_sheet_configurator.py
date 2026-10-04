@@ -16,15 +16,18 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
     finite_number,
     parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
     aggregate_power_supplies,
     build_accessory_lines,
     build_groups,
     compute_panel_layout,
+    coverage_code,
     generated_accessory_marker,
     is_generated_accessory_line,
     jumper_cable_qty,
     leader_cable_qty,
+    match_sheet_specs,
     normalize_dimension,
 )
 
@@ -108,6 +111,47 @@ def _resolve_options(template_doc, options: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def resolve_sheet_spec(template_doc, resolved: dict[str, Any], spec: str | None = None) -> str:
+    """The panel spec selected by the template and its resolved option choices.
+
+    Buyers choose CCT, output level and environment rating; the matching panel
+    spec follows from them. An explicit ``spec`` (older saved requests) is still
+    accepted when it is allowed and consistent with those choices.
+    """
+    allowed = [row.spec for row in template_doc.allowed_specs or [] if row.is_active]
+    if spec and spec not in allowed:
+        frappe.throw(_("LED Sheet spec {0} is not allowed for template {1}").format(spec, template_doc.name))
+    specs = []
+    for name in allowed:
+        doc = frappe.get_doc("ilL-Spec-LED-Sheet", name)
+        if doc.is_active:
+            specs.append({"name": name, "item": doc.item, "cct": doc.cct})
+    specs = enabled_rows(specs, "item")
+    offered: dict[str, list[str]] = {}
+    for row in template_doc.allowed_options or []:
+        if row.is_active:
+            offered.setdefault(row.option_type, []).append(row.option_code)
+    matches = [row["name"] for row in match_sheet_specs(specs, resolved, offered)]
+    if spec:
+        if spec not in matches:
+            frappe.throw(_("Panel spec {0} does not match the selected options").format(spec))
+        return spec
+    if len(matches) == 1:
+        return matches[0]
+    summary = ", ".join(
+        f"{option_type}: {resolved[option_type]['value']}"
+        for option_type in ("CCT", "Output Level", "Environment Rating")
+        if option_type in resolved
+    )
+    if not matches:
+        frappe.throw(_("No LED Sheet panel is available for {0}. Choose different options.").format(summary or template_doc.name))
+    frappe.throw(
+        _("More than one LED Sheet panel matches {0}; staff must make the template's panel specs distinguishable.").format(
+            summary or template_doc.name
+        )
+    )
+
+
 def _get_eligible_drivers(template_name: str) -> list[dict[str, Any]]:
     rows = frappe.get_all(
         "ilL-Rel-Driver-Eligibility",
@@ -188,21 +232,22 @@ def _resolve_dimensions(
 
 
 @frappe.whitelist()
-def validate_sheet_configuration(template, spec, options=None, coverage_width_ft=0,
+def validate_sheet_configuration(template, spec=None, options=None, coverage_width_ft=0,
     coverage_height_ft=0, schedule_name=None, line_idx=None, coverage_width_value=None,
     coverage_width_unit="ft", coverage_height_value=None, coverage_height_unit="ft",
-    include_power_supply=1, dimming_protocol_code=None):
+    include_power_supply=1, dimming_protocol_code=None, power_supply_separate=0):
     from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
 
     require_configuration("LED Sheet")
     return _calculate_sheet(template, spec, options, coverage_width_ft, coverage_height_ft,
         schedule_name, line_idx, coverage_width_value, coverage_width_unit,
-        coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code)
+        coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code,
+        power_supply_separate=power_supply_separate)
 
 
 def _calculate_sheet(
     template,
-    spec,
+    spec=None,
     options=None,
     coverage_width_ft=0,
     coverage_height_ft=0,
@@ -214,17 +259,21 @@ def _calculate_sheet(
     coverage_height_unit="ft",
     include_power_supply=1,
     dimming_protocol_code=None,
-    *, commercial=True,
+    *, commercial=True, power_supply_separate=0,
 ):
     template_doc = frappe.get_doc("ilL-LED-Sheet-Template", template)
+    if not template_doc.is_active:
+        frappe.throw(_("Choose an active LED Sheet template"))
+    resolved = _resolve_options(template_doc, _coerce_options(options))
+    spec = resolve_sheet_spec(template_doc, resolved, spec)
     spec_doc = frappe.get_doc("ilL-Spec-LED-Sheet", spec)
-    if not template_doc.is_active or not spec_doc.is_active:
+    if not spec_doc.is_active:
         frappe.throw(_("Choose an active LED Sheet template and specification"))
-    if spec not in {r.spec for r in template_doc.allowed_specs if r.is_active}:
-        frappe.throw(_("LED Sheet spec {0} is not allowed for template {1}").format(spec, template))
 
     include_ps = _coerce_bool(include_power_supply)
-    resolved = _resolve_options(template_doc, _coerce_options(options))
+    # Included supplies on their own schedule line: plan them exactly as when
+    # bundled (feeds are sized by the drivers), but keep them out of the bundle.
+    separate_ps = include_ps and parse_bool(power_supply_separate, default=False)
     if spec_doc.cct and "CCT" in resolved and resolved["CCT"]["value"] != spec_doc.cct:
         frappe.throw(_("Selected CCT does not match the physical Sheet specification"))
     width, height = _resolve_dimensions(
@@ -258,6 +307,7 @@ def _calculate_sheet(
     physical = led_sheet_bundle.resolve({
         "panels_needed": panels_needed, "watts_per_panel": watts_per_panel,
         "include_power_supply": include_ps, "dimming_protocol_code": dimming_protocol_code,
+        **({"power_supply_separate": True} if separate_ps else {}),
     }, template_doc, spec_doc)
     groups = physical["groups"]
 
@@ -277,6 +327,8 @@ def _calculate_sheet(
             sku.get("sku_output_code") or "",
             sku.get("sku_mounting_code") or "",
             sku.get("sku_finish_code") or "",
+            # The configured size, so each coverage area has its own part number.
+            coverage_code(width, height),
         ] if part
     ])
 
@@ -297,7 +349,8 @@ def _calculate_sheet(
                 ps["unit_price"] = price
                 ps["line_total"] = price * int(ps.get("qty") or 0)
                 power_supplies_msrp += ps["line_total"]
-        total_msrp = panels_msrp + jumpers_msrp + leaders_msrp + power_supplies_msrp
+        # Separate supplies are priced on their own line, not in the bundle.
+        total_msrp = panels_msrp + jumpers_msrp + leaders_msrp + (0 if separate_ps else power_supplies_msrp)
 
     options_payload = {k: v["value"] for k, v in resolved.items()}
     result = {
@@ -463,7 +516,7 @@ def _apply_multi_line_schedule(schedule, panel_line_idx: int, template, doc, res
 @frappe.whitelist(methods=["POST"])
 def save_sheet_configuration(
     template,
-    spec,
+    spec=None,
     options=None,
     coverage_width_ft=0,
     coverage_height_ft=0,
@@ -475,6 +528,7 @@ def save_sheet_configuration(
     coverage_height_unit="ft",
     include_power_supply=1,
     dimming_protocol_code=None,
+    power_supply_separate=0,
 ):
     from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule
     if frappe.session.user == "Guest":
@@ -499,6 +553,7 @@ def save_sheet_configuration(
         result = validate_sheet_configuration(
             template, spec, options, coverage_width_ft, coverage_height_ft, schedule_name, line_idx,
             coverage_width_value, coverage_width_unit, coverage_height_value, coverage_height_unit, include_power_supply, dimming_protocol_code,
+            power_supply_separate,
         )
         existing = frappe.db.get_value("ilL-Configured-LED-Sheet", {"config_hash": result["config_hash"]}, "name")
         if existing:
@@ -513,7 +568,7 @@ def save_sheet_configuration(
                 "jumper_cables_included", *SKU_FIELD_BY_TYPE.values(), "sku_series_code",
             )}
             fields.update({field: opts.get(key) for key, field in OPTION_FIELD_BY_TYPE.items()})
-            doc = frappe.get_doc({"doctype": "ilL-Configured-LED-Sheet", "sheet_template": template, "sheet_spec": spec,
+            doc = frappe.get_doc({"doctype": "ilL-Configured-LED-Sheet", "sheet_template": template, "sheet_spec": result["spec"],
                                   "sheets_needed": result["panels_needed"], "status": "Configured", **fields})
             doc.flags.sheet_engine_write = True
             doc.insert(ignore_permissions=True)

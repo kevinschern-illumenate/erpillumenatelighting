@@ -11,17 +11,100 @@
   "product_type",
   "recommended_template",
   "quiz_answers",
-  "status"
+  "status",
+  "source",
+  "brand",
+  "definition_version",
+  "result_json",
+  "result_stamp",
+  "completed_on",
+  "claimed_on",
+  "last_seen"
  ],
  "fields": [
-  {"fieldname": "user", "fieldtype": "Link", "label": "User", "options": "User", "reqd": 1},
-  {"fieldname": "session_token", "fieldtype": "Data", "label": "Session Token", "read_only": 1, "unique": 1},
-  {"fieldname": "product_type", "fieldtype": "Select", "label": "Product Type", "options": "Linear Fixture\nLED Tape\nLED Neon"},
-  {"fieldname": "recommended_template", "fieldtype": "Data", "label": "Recommended Template"},
-  {"fieldname": "quiz_answers", "fieldtype": "Long Text", "label": "Quiz Answers"},
-  {"default": "Active", "fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Active\nUsed\nExpired"}
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 0
+  },
+  {
+   "fieldname": "session_token",
+   "fieldtype": "Data",
+   "label": "Session Token",
+   "read_only": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product_type",
+   "fieldtype": "Select",
+   "label": "Product Type",
+   "options": "Linear Fixture\nLED Tape\nLED Neon\nLED Sheet\nExtrusion Kit\nDriver\nController\nMixed"
+  },
+  {
+   "fieldname": "recommended_template",
+   "fieldtype": "Data",
+   "label": "Recommended Template"
+  },
+  {
+   "fieldname": "quiz_answers",
+   "fieldtype": "JSON",
+   "label": "Quiz Answers"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nCompleted\nUsed\nExpired"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "Portal\nWebflow",
+   "default": "Portal"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "ilL-Webflow-Brand"
+  },
+  {
+   "fieldname": "definition_version",
+   "fieldtype": "Int",
+   "label": "Definition Version"
+  },
+  {
+   "fieldname": "result_json",
+   "fieldtype": "JSON",
+   "label": "Result Json"
+  },
+  {
+   "fieldname": "result_stamp",
+   "fieldtype": "Data",
+   "label": "Result Stamp"
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On"
+  },
+  {
+   "fieldname": "claimed_on",
+   "fieldtype": "Datetime",
+   "label": "Claimed On"
+  },
+  {
+   "fieldname": "last_seen",
+   "fieldtype": "Datetime",
+   "label": "Last Seen"
+  }
  ],
- "index_web_pages_for_search": 1,
+ "index_web_pages_for_search": 0,
  "links": [],
  "modified": "2026-06-30 00:00:00.000000",
  "modified_by": "Administrator",
@@ -29,7 +112,30 @@
  "name": "ilL-Configurator-Session",
  "owner": "Administrator",
  "permissions": [
-  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1}
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "role": "ilL Product Finder Manager",
+   "read": 1
+  },
+  {
+   "role": "ilL Sales Review",
+   "read": 1
+  },
+  {
+   "role": "ilL Catalog Publisher",
+   "read": 1
+  }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",

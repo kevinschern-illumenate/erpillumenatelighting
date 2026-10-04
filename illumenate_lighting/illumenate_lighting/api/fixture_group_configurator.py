@@ -172,7 +172,8 @@ def calculate(request):
 	plan["dependency_revisions"] = {
 		row["driver_item"]: revisions[row["driver_item"]] for row in plan["drivers"]
 	}
-	for row in plan["drivers"]:
+	# Supplies on their own schedule line stay in the plan but not in the group's BOM or price.
+	for row in [] if request["power"].get("separate_supply_line") else plan["drivers"]:
 		components.append(item_row(row["driver_item"], row["qty"], "power"))
 		rate = selling_amount(row["driver_item"], 1)
 		breakdown.append(
@@ -214,10 +215,10 @@ def calculate(request):
 def preview(request):
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import get_tier_price_for_customer
 	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
 	require_catalog_access()
-	if not conf_flag("ill_portal_fixture_groups"):
+	if not fixture_groups_enabled():
 		frappe.throw("Independent fixture groups are not enabled for this site", frappe.PermissionError)
 	result = calculate(request)
 	result["pricing"].update(get_tier_price_for_customer(result["pricing"]["msrp_unit"]))

@@ -691,6 +691,9 @@ def slugify(text: str) -> str:
         return ""
     # Convert to lowercase and strip
     slug = str(text).lower().strip()
+    # Spell out "+" so "Wet+" does not take the "wet" slug. Webflow only receives a
+    # slug when it creates an item, so existing items keep theirs.
+    slug = slug.replace('+', '-plus-')
     # Replace underscores and spaces with hyphens
     slug = slug.replace('_', '-').replace(' ', '-')
     # Remove any character that isn't a letter, number, or hyphen

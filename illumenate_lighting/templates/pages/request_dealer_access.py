@@ -5,5 +5,6 @@ import frappe
 
 
 def get_context(context):
+	context.claim_token = frappe.form_dict.get("claim")
 	context.title = "Dealer Access Required"
 	context.no_cache = 1

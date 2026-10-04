@@ -112,6 +112,9 @@ def before_submit(quotation, method=None):
 	if not frappe.has_permission("Quotation", "submit", doc=quotation):
 		frappe.throw("ERP Quotation submit permission required", frappe.PermissionError)
 
+	from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import gate
+
+	gate(schedule, "issue_quote")
 
 def on_submit(quotation, method=None):
 	if not quotation.get("ill_quote_request"):
@@ -326,6 +329,9 @@ def respond(offer_name, action, expected_hash, note=None, po_no=None, requested_
 		}
 	quotation, request, schedule, frozen = _current(offer)
 	if action == "ACCEPT":
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import gate
+
+		gate(schedule, "order")
 		if schedule.get_linked_sales_order():
 			frappe.throw("This schedule already has an order request; review that request with Sales")
 		if not requested_date or getdate(requested_date) < getdate(nowdate()):

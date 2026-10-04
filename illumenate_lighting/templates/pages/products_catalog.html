@@ -236,6 +236,25 @@ Browse ilL-Webflow-Product records with attribute filtering
 	border-radius: 2rem;
 }
 
+/* ── Active filter chips ───────────────────────────── */
+.active-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-bottom: 0.75rem;
+}
+.active-filter-chips:empty {
+	display: none;
+}
+.active-filter-chip {
+	border: 1px solid var(--ill-primary, #1976d2);
+	background: #e7f1ff;
+	color: var(--ill-primary, #1976d2);
+	border-radius: 2rem;
+	padding: 0.15rem 0.65rem;
+	font-size: 0.8rem;
+}
+
 /* ── Load More ─────────────────────────────────────── */
 .load-more-wrap {
 	text-align: center;
@@ -279,13 +298,14 @@ Browse ilL-Webflow-Product records with attribute filtering
 {% endblock %}
 
 {% block page_content %}
+<div class="container pt-3">{% if ill_finder_enabled() %}<a href="/portal/product-finder">Help me choose</a>{% endif %}<div id="finderBanner" class="alert alert-info mt-3" style="display:none"></div></div>
 {% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page" style="padding:2rem 0">
 	<!-- Header -->
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<div>
 			<h1 class="h4 mb-1">{{ _("Product Catalog") }}</h1>
-			<p class="text-muted mb-0" id="catalogResultCount"></p>
+			<p class="text-muted mb-0" id="catalogResultCount" aria-live="polite"></p>
 		</div>
 		<a href="/portal" class="btn btn-outline-secondary btn-sm">
 			<i class="fa fa-arrow-left"></i> {{ _("Portal") }}
@@ -326,6 +346,7 @@ Browse ilL-Webflow-Product records with attribute filtering
 				<input type="search" id="catalogSearch" placeholder="{{ _('Search products…') }}">
 			</div>
 
+            <div id="activeFilterChips" class="active-filter-chips" role="group" aria-label="{{ _('Active filters') }}"></div>
             <p id="catalogFeedback" role="status" aria-live="polite"></p>
             <button type="button" class="btn btn-link btn-sm" onclick="fetchProducts(true)">{{ _("Refresh products") }}</button>
 			<!-- Grid -->

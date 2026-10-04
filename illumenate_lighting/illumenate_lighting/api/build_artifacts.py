@@ -78,6 +78,23 @@ def atomic_build(function):
 	return wrapped
 
 
+def merge_bom_rows(rows):
+	"""One BOM line per Item and UOM, in first-seen order.
+
+	A build lists each physical cut (leader, jumper, additional feed) as its own
+	component; the BOM consumes the same cable Item once with the summed
+	quantity. The cut schedule stays in the build's cable manifest.
+	"""
+	merged = {}
+	for row in rows:
+		key = row["item_code"], row.get("uom"), row.get("stock_uom")
+		if key in merged:
+			merged[key]["qty"] = round(merged[key]["qty"] + row["qty"], 9)
+		else:
+			merged[key] = dict(row)
+	return list(merged.values())
+
+
 def quantities(rows):
 	totals = {}
 	for row in rows:
@@ -134,7 +151,7 @@ def ensure_bom(configured, item_code, components):
 				"is_active": 1,
 				"is_default": 1,
 				"with_operations": 0,
-				"items": components,
+				"items": merge_bom_rows(components),
 				"remarks": f"Pinned build {configured.name}; SHA-256 {configured.config_hash}",
 			}
 		)

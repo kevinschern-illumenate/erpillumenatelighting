@@ -12,6 +12,9 @@ from illumenate_lighting.illumenate_lighting.portal.configuration import (
 
 
 def for_line(line):
+	if line.get("kit_template") and line.get("variant_selections"):
+		stored = json.loads(line.variant_selections) if isinstance(line.variant_selections, str) else line.variant_selections
+		return {"family": "Extrusion Kit", "template": line.kit_template, "selections": stored.get("selections") or {}}
 	if line.get("ill_configurator_request"):
 		return json.loads(line.ill_configurator_request)
 	if line.get("configured_group"):

@@ -52,7 +52,7 @@ web_include_js = ["illumenate_web.bundle.js"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": "public/js/quote_request.js", "Sales Order": "public/js/sales_order.js", "Quotation": "public/js/quotation.js",
+doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": "public/js/quote_request.js", "Sales Order": "public/js/sales_order.js", "Quotation": "public/js/quotation.js",
     "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
@@ -86,6 +86,8 @@ role_home_page = {
 # Website Route Rules
 # -------------------
 website_route_rules = [
+	{"from_route": "/portal/product-verification/<request_name>", "to_route": "product_verification"},
+	{"from_route": "/portal/product-finder", "to_route": "product_finder"},
 	# Portal main pages
 	{"from_route": "/portal", "to_route": "portal"},
 	{"from_route": "/portal/", "to_route": "portal"},
@@ -149,8 +151,8 @@ website_redirects = [
 	{"source": r"/portal/configure-webflow/(.*)", "target": r"/portal/configure?template=\1&category=Linear Fixture&mode=wizard"},
 	{"source": r"/portal/configure-webflow", "target": r"/portal/configure?category=Linear Fixture&mode=wizard"},
 	# No kit configurator page exists; send old links to the configurator instead of a 404.
-	{"source": r"/portal/configure-kit/(.*)", "target": "/portal/configure"},
-	{"source": r"/portal/configure-kit", "target": "/portal/configure"},
+	{"source": r"/portal/configure-kit/(.*)", "target": "/portal/configure?category=Extrusion%20Kit"},
+	{"source": r"/portal/configure-kit", "target": "/portal/configure?category=Extrusion%20Kit"},
 ]
 
 # Generators
@@ -163,10 +165,9 @@ website_redirects = [
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "illumenate_lighting.utils.jinja_methods",
-# 	"filters": "illumenate_lighting.utils.jinja_filters"
-# }
+jinja = {
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled"],
+}
 
 # Installation
 # ------------
@@ -244,6 +245,8 @@ fixtures = [
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
+	"ilL-Configurator-Session": "illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.get_permission_query_conditions",
+	"ilL-Product-Verification-Request": "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.get_permission_query_conditions",
 	"ilL-Order-Change": "illumenate_lighting.illumenate_lighting.portal.order_changes.get_permission_query_conditions",
 	"ilL-Account-Request": "illumenate_lighting.illumenate_lighting.portal.accounts.query_conditions",
 	"ilL-Line-Document": "illumenate_lighting.illumenate_lighting.portal.line_documents.query_conditions",
@@ -260,6 +263,8 @@ permission_query_conditions = {
 }
 
 has_permission = {
+	"ilL-Configurator-Session": "illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.has_permission",
+	"ilL-Product-Verification-Request": "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.has_permission",
 	"ilL-Order-Change": "illumenate_lighting.illumenate_lighting.portal.order_changes.has_permission",
 	"ilL-Account-Request": "illumenate_lighting.illumenate_lighting.portal.accounts.has_permission",
 	"ilL-Line-Document": "illumenate_lighting.illumenate_lighting.portal.line_documents.has_permission",
@@ -297,7 +302,7 @@ override_doctype_class = {
 
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
-	"ilL-Project-Fixture-Schedule": {"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update"},
+	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans"]},
 	"Work Order": {"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit"},
 	"Quotation": {
 		# Only a submitted Quotation linked to an intake creates a portal offer.
@@ -444,7 +449,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
 
 # Testing
 # -------
@@ -532,3 +537,11 @@ after_request = ["illumenate_lighting.illumenate_lighting.utils.after_request"]
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
+
+# Invalidate the shared catalog stamp without replacing existing publication hooks.
+_finder_fact_doctypes = ['Item', 'ilL-Attribute-CCT', 'ilL-Attribute-CRI', 'ilL-Attribute-Certification', 'ilL-Attribute-Controller Type', 'ilL-Attribute-Dimming Protocol', 'ilL-Attribute-Endcap Color', 'ilL-Attribute-Endcap Style', 'ilL-Attribute-Environment Rating', 'ilL-Attribute-Feed-Direction', 'ilL-Attribute-Finish', 'ilL-Attribute-IP Rating', 'ilL-Attribute-Joiner Angle', 'ilL-Attribute-Joiner System', 'ilL-Attribute-LED Package', 'ilL-Attribute-Lead Time Class', 'ilL-Attribute-Leader Cable', 'ilL-Attribute-Lens Appearance', 'ilL-Attribute-Lens Interface Type', 'ilL-Attribute-Mounting Method', 'ilL-Attribute-Mounting Type', 'ilL-Attribute-Output Level', 'ilL-Attribute-Output Voltage', 'ilL-Attribute-PCB Finish', 'ilL-Attribute-PCB Mounting', 'ilL-Attribute-Power Feed Type', 'ilL-Attribute-Pricing Class', 'ilL-Attribute-SDCM', 'ilL-Attribute-Series', 'ilL-Controller-Template', 'ilL-Driver-Template', 'ilL-Extrusion-Kit-Template', 'ilL-Fixture-Template', 'ilL-LED-Sheet-Template', 'ilL-Rel-Tape Offering', 'ilL-Spec-Accessory', 'ilL-Spec-Controller', 'ilL-Spec-Driver', 'ilL-Spec-LED Tape', 'ilL-Spec-LED-Sheet', 'ilL-Spec-Lens', 'ilL-Spec-Profile', 'ilL-Tape-Neon-Template', 'ilL-Webflow-Product']
+for _finder_doctype in _finder_fact_doctypes:
+	for _finder_event in ("on_update", "on_trash"):
+		_finder_hooks = doc_events.setdefault(_finder_doctype, {})
+		_finder_old = _finder_hooks.get(_finder_event, [])
+		_finder_hooks[_finder_event] = ([_finder_old] if isinstance(_finder_old, str) else list(_finder_old)) + ["illumenate_lighting.illumenate_lighting.portal.product_finder.facts.invalidate"]

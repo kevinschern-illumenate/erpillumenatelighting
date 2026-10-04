@@ -607,3 +607,11 @@
  .portal-page .settings-card-body { padding:1rem; }
  .portal-page .notification-item { gap:1rem; }
 }
+
+/* Frappe appends each control's fieldname as a .tooltip-content span (a Desk
+   developer aid). Desk CSS hides it, but website pages only hide it inside Web
+   Forms, so portal dialogs such as Order request intake printed raw fieldnames
+   under every field. */
+.frappe-control .tooltip-content {
+	display: none !important;
+}

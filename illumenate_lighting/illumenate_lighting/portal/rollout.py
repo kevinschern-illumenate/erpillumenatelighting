@@ -12,16 +12,23 @@ def _list(key):
 
 
 def available(family, *, public=False):
+	return reason(family, public=public) == "ok"
+
+
+def reason(family, *, public=False):
+	"""Return the stable projection reason for a family's rollout state."""
 	families = _list("ill_portal_enabled_families")
 	family = FAMILY_ALIASES.get(family, family)
 	if families is not None and family not in families:
-		return False
+		return "family_not_enabled"
 	users = _list("ill_portal_pilot_users")
 	if users is None or public or frappe.flags.get("ill_product_download"):
-		return True
+		return "ok"
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
-	return frappe.session.user in users or allowed("sales") or allowed("engineering")
+	if frappe.session.user in users or allowed("sales") or allowed("engineering"):
+		return "ok"
+	return "pilot_only"
 
 
 def require_family(family, *, public=False):

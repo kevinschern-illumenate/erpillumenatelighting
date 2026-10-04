@@ -68,14 +68,19 @@ def physical_manifest(result, *, additional_feed_mm=0):
 			if prior_length <= 0 or (lead and abs(lead - prior_length) > 1e-6):
 				raise ValueError("A jumper belongs to its preceding segment; its inherited start must match")
 			lead = 0  # The preceding outgoing jumper is the same physical cable.
-		cuts = [
-			("leader", lead * 25.4),
-			(
-				"jumper" if segment.get("end_type") == "Jumper" else "end leader",
-				finite_number(segment.get("end_feed_length_inches") or 0, minimum=0, field="end cable length")
-				* 25.4,
-			),
-		]
+		cuts = [("leader", lead * 25.4)]
+		if segment.get("end_type") == "Jumper":
+			# Only a jumper end carries a cable; an endcap end has none, whatever
+			# value the hidden jumper-length input still holds.
+			cuts.append(
+				(
+					"jumper",
+					finite_number(
+						segment.get("end_feed_length_inches") or 0, minimum=0, field="jumper length"
+					)
+					* 25.4,
+				)
+			)
 		runs = finite_number(segment.get("runs_count") or 1, minimum=1, field="run count")
 		if not runs.is_integer():
 			raise ValueError("Run count must be an integer")
@@ -115,14 +120,19 @@ def mounting_component(result, template):
 		},
 		fields=["environment_rating"],
 	)
-	environments = {selections.get("environment_rating")} | {
-		s.get("ip_rating") for s in result["computed"].get("segments", [])
-	}
-	environments.discard(None)
-	environments.discard("")
+	from illumenate_lighting.illumenate_lighting.api.environment_codes import (
+		accessory_serves,
+		configuration_environments,
+	)
+
+	# A tape carries an Environment Rating; each neon segment an IP Rating instead.
+	environments = configuration_environments(
+		selections.get("environment_rating"),
+		[s.get("ip_rating") for s in result["computed"].get("segments", [])],
+	)
 	if not maps or not all(
-		any(not row.environment_rating or row.environment_rating == env for row in maps)
-		for env in (environments or {None})
+		any(accessory_serves(row.environment_rating, [env]) for row in maps)
+		for env in (environments or [(None, None)])
 	):
 		raise ValueError("Mounting accessory is not approved for this template and environment")
 	selections["mounting_accessory_qty"] = int(qty)

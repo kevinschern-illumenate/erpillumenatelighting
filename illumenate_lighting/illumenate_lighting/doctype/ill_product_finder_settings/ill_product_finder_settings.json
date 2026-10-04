@@ -1,0 +1,219 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-01 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_availability",
+  "portal_enabled",
+  "public_enabled",
+  "public_brands",
+  "column_break_availability",
+  "definition_version",
+  "section_banner",
+  "banner_enabled",
+  "banner_headline",
+  "banner_text",
+  "column_break_banner",
+  "banner_cta_label",
+  "banner_image",
+  "section_verification",
+  "default_unknown_policy",
+  "verification_gate",
+  "verification_assignee_role",
+  "column_break_verification",
+  "verification_title",
+  "verification_text",
+  "section_results",
+  "results_limit",
+  "column_break_results",
+  "session_expiry_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_availability",
+   "fieldtype": "Section Break",
+   "label": "Availability"
+  },
+  {
+   "fieldname": "portal_enabled",
+   "fieldtype": "Check",
+   "label": "Enable In Dealer Portal",
+   "default": "0",
+   "description": "Shows the Product Finder page, the dashboard banner and the navigation link to dealers."
+  },
+  {
+   "fieldname": "public_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Public (Webflow) Quiz",
+   "default": "0"
+  },
+  {
+   "fieldname": "public_brands",
+   "fieldtype": "Table MultiSelect",
+   "label": "Public Brands",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "depends_on": "public_enabled"
+  },
+  {
+   "fieldname": "column_break_availability",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "definition_version",
+   "fieldtype": "Int",
+   "label": "Content Version",
+   "default": "0",
+   "read_only": 1,
+   "description": "Increases whenever questions, glossary terms or these settings change."
+  },
+  {
+   "fieldname": "section_banner",
+   "fieldtype": "Section Break",
+   "label": "Dashboard Banner"
+  },
+  {
+   "fieldname": "banner_enabled",
+   "fieldtype": "Check",
+   "label": "Show Banner",
+   "default": "1"
+  },
+  {
+   "fieldname": "banner_headline",
+   "fieldtype": "Data",
+   "label": "Headline",
+   "default": "Not sure which fixture fits your project?"
+  },
+  {
+   "fieldname": "banner_text",
+   "fieldtype": "Small Text",
+   "label": "Text",
+   "default": "Answer a few picture-guided questions and we'll show you the products that fit."
+  },
+  {
+   "fieldname": "column_break_banner",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "banner_cta_label",
+   "fieldtype": "Data",
+   "label": "Button Label",
+   "default": "Start the Product Finder"
+  },
+  {
+   "fieldname": "banner_image",
+   "fieldtype": "Attach Image",
+   "label": "Image"
+  },
+  {
+   "fieldname": "section_verification",
+   "fieldtype": "Section Break",
+   "label": "Needs Verification"
+  },
+  {
+   "fieldname": "default_unknown_policy",
+   "fieldtype": "Select",
+   "label": "When A Product Has No Data",
+   "options": "Verify\nExclude\nInclude silently",
+   "default": "Verify",
+   "reqd": 1
+  },
+  {
+   "fieldname": "verification_gate",
+   "fieldtype": "Select",
+   "label": "Verification Gate",
+   "options": "Before quote is issued and order is placed\nBefore order only\nWarning only",
+   "default": "Before quote is issued and order is placed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "verification_assignee_role",
+   "fieldtype": "Link",
+   "label": "Verification Queue Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "column_break_verification",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "verification_title",
+   "fieldtype": "Data",
+   "label": "Warning Title",
+   "default": "Most likely a fit — our team will confirm"
+  },
+  {
+   "fieldname": "verification_text",
+   "fieldtype": "Small Text",
+   "label": "Warning Text",
+   "default": "Based on your answers, we can most likely build this for your project, but our team needs to verify the {reasons} before you continue to quoting and ordering. You can keep configuring and adding it to your schedule now. We'll confirm before your quote is issued."
+  },
+  {
+   "fieldname": "section_results",
+   "fieldtype": "Section Break",
+   "label": "Results And Sessions"
+  },
+  {
+   "fieldname": "results_limit",
+   "fieldtype": "Int",
+   "label": "Maximum Results",
+   "default": "60"
+  },
+  {
+   "fieldname": "column_break_results",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "session_expiry_days",
+   "fieldtype": "Int",
+   "label": "Portal Session Expiry (Days)",
+   "default": "30"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Product-Finder-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "ilL Product Finder Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "ilL Catalog Publisher"
+  },
+  {
+   "read": 1,
+   "role": "ilL Sales Review"
+  },
+  {
+   "read": 1,
+   "role": "ilL Engineering"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

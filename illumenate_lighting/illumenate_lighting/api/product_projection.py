@@ -6,10 +6,23 @@ from urllib.parse import unquote, urlencode, urlsplit
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES, parse_bool
 
 TEMPLATE_FIELDS = {
+	"Extrusion Kit": "kit_template",
+	"Driver": "driver_template",
+	"Controller": "controller_template",
 	"Linear Fixture": "fixture_template",
 	"LED Tape": "tape_neon_template",
 	"LED Neon": "tape_neon_template",
 	"LED Sheet": "led_sheet_template",
+}
+# DocType each family's template link points at.
+TEMPLATE_DOCTYPES = {
+	"Extrusion Kit": "ilL-Extrusion-Kit-Template",
+	"Driver": "ilL-Driver-Template",
+	"Controller": "ilL-Controller-Template",
+	"Linear Fixture": "ilL-Fixture-Template",
+	"LED Tape": "ilL-Tape-Neon-Template",
+	"LED Neon": "ilL-Tape-Neon-Template",
+	"LED Sheet": "ilL-LED-Sheet-Template",
 }
 # Families priced by the foot; the catalog shows the template's MSRP per foot.
 PER_FOOT_TEMPLATES = {
@@ -42,8 +55,21 @@ def safe_document_url(value):
 	return None
 
 
-def project_product(product, *, certifications=(), price=None, commercial=False, configure_available=True):
-	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families."""
+def project_product(
+	product,
+	*,
+	certifications=(),
+	price=None,
+	commercial=False,
+	configure_available=True,
+	template_active=True,
+	rollout_reason=None,
+):
+	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families.
+
+	``rollout_reason`` is ``portal.rollout.reason()`` for the product's family; it names why
+	``configure_available`` is false (for example ``pilot_only``).
+	"""
 	get = product.get
 	family = FAMILY_ALIASES.get(get("product_type"), get("product_type"))
 	template_field = TEMPLATE_FIELDS.get(family)
@@ -55,31 +81,43 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 			values = row.get("allowed_values_json") or []
 			if isinstance(values, str):
 				values = json.loads(values)
-			if not isinstance(values, list) or any(not isinstance(v, (str, dict)) for v in values):
-				raise ValueError("Allowed values must be an array of choices")
+			if not (
+				isinstance(values, dict)
+				or (isinstance(values, list) and all(isinstance(value, (str, dict)) for value in values))
+			):
+				raise ValueError("Allowed values must be an array of choices or a metadata object")
 		except (ValueError, TypeError):
 			values = []
 			errors.append(
 				{"field": "configurator_options", "code": "INVALID_OPTIONS", "step": row.get("option_step")}
 			)
+		step = row.get("option_step")
 		options.append(
 			{
-				"step": row.get("option_step"),
+				"step": step,
 				"type": row.get("option_type"),
 				"label": row.get("option_label"),
 				"description": row.get("option_description"),
 				"required": parse_bool(row.get("is_required")),
 				"depends_on_step": row.get("depends_on_step"),
 				"allowed_values": values,
+				"metadata": isinstance(values, dict) or (isinstance(step, (int, float)) and step >= 90),
 			}
 		)
-	capability = (
-		"configure"
-		if active and template and parse_bool(get("is_configurable")) and not errors and configure_available
-		else "inquiry"
-	)
 	if not active:
-		capability = "unavailable"
+		capability, capability_reason = "unavailable", "inactive"
+	elif not parse_bool(get("is_configurable")):
+		capability, capability_reason = "inquiry", "not_configurable"
+	elif not template:
+		capability, capability_reason = "inquiry", "missing_template"
+	elif not template_active:
+		capability, capability_reason = "inquiry", "inactive_template"
+	elif errors:
+		capability, capability_reason = "inquiry", f"invalid_options:{errors[0].get('step')}"
+	elif not configure_available:
+		capability, capability_reason = "inquiry", rollout_reason or "family_not_enabled"
+	else:
+		capability, capability_reason = "configure", "ok"
 	configure_url = None
 	if capability == "configure":
 		configure_url = "/portal/configure?" + urlencode(
@@ -136,6 +174,9 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 			"fixture_template",
 			"tape_neon_template",
 			"led_sheet_template",
+			"kit_template",
+			"driver_template",
+			"controller_template",
 		)
 	}
 	result.update(
@@ -145,6 +186,7 @@ def project_product(product, *, certifications=(), price=None, commercial=False,
 			"is_active": active,
 			"is_configurable": capability == "configure",
 			"capability": capability,
+			"capability_reason": capability_reason,
 			"configure_url": configure_url,
 			"template": template,
 			"gallery": sorted(gallery, key=lambda r: r["display_order"]),

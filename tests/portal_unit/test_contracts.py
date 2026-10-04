@@ -133,6 +133,48 @@ class ProductContracts(unittest.TestCase):
 			schema = json.loads(path.read_text())
 			self.assertTrue(set(fields) <= {row["fieldname"] for row in schema["fields"]})
 
+	def test_metadata_options_remain_configurable(self):
+		product = self.product()
+		product["configurator_options"] = [
+			{
+				"option_step": 4,
+				"option_label": "Output Level",
+				"allowed_values_json": '{"lensMap":{"Clear":["High"]}}',
+			},
+			{"option_step": 98, "allowed_values_json": '["note"]'},
+			{"option_step": 99, "allowed_values_json": '[{"code":"meta"}]'},
+		]
+		projection = project_product(product)
+		self.assertEqual(projection["capability"], "configure")
+		self.assertEqual(projection["capability_reason"], "ok")
+		self.assertEqual(
+			projection["configurator_options"][0]["allowed_values"]["lensMap"]["Clear"], ["High"]
+		)
+		self.assertTrue(all(row["metadata"] for row in projection["configurator_options"]))
+
+	def test_invalid_option_shapes_are_inquiry(self):
+		for value in ('"broken"', "5", "[1,2]"):
+			with self.subTest(value=value):
+				product = self.product()
+				product["configurator_options"] = [{"option_step": 4, "allowed_values_json": value}]
+				projection = project_product(product)
+				self.assertEqual(projection["capability"], "inquiry")
+				self.assertEqual(projection["capability_reason"], "invalid_options:4")
+
+	def test_capability_reasons_are_stable(self):
+		cases = (
+			({"is_active": 0}, {}, "inactive"),
+			({"is_configurable": 0}, {}, "not_configurable"),
+			({"fixture_template": None}, {}, "missing_template"),
+			({}, {"template_active": False}, "inactive_template"),
+			({}, {"configure_available": False}, "family_not_enabled"),
+		)
+		for changes, kwargs, reason in cases:
+			with self.subTest(reason=reason):
+				product = self.product()
+				product.update(changes)
+				self.assertEqual(project_product(product, **kwargs)["capability_reason"], reason)
+
 	def test_invalid_options_and_price_scope(self):
 		product = self.product()
 		product["configurator_options"] = [{"allowed_values_json": "broken"}]

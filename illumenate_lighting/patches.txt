@@ -1,6 +1,7 @@
 [pre_model_sync]
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
+illumenate_lighting.patches.create_product_finder_role
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -43,3 +44,10 @@ illumenate_lighting.patches.b2b_authoring_roles
 illumenate_lighting.patches.b2b_commercial_schema
 illumenate_lighting.patches.add_company_invoice_payment_instructions
 illumenate_lighting.patches.setup_dealer_sales_permissions #2026-10-02 grant Account select
+illumenate_lighting.patches.seed_product_finder
+
+illumenate_lighting.patches.product_finder_controller_value_maps
+illumenate_lighting.patches.product_finder_sessions_and_verification
+illumenate_lighting.patches.backfill_kit_template_links
+illumenate_lighting.patches.sync_environment_codes_in_part_number_builder
+illumenate_lighting.patches.sync_environment_codes_on_led_sheet_templates

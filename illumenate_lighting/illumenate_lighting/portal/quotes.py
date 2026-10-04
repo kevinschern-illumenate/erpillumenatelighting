@@ -11,6 +11,7 @@ from illumenate_lighting.illumenate_lighting.portal.access import can_edit_sched
 
 REQUEST_DOCTYPE = "ilL-Quote-Request"
 LINE_FIELDS = (
+	"verification_status", "verification_reasons", "verification_request", "finder_session",
 	"name",
 	"line_key",
 	"line_id",

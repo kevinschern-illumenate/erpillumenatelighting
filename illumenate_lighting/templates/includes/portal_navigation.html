@@ -1,6 +1,8 @@
 <nav class="ill-portal-navigation" aria-label="{{ _('Portal navigation') }}">
     <a href="/portal">{{ _("Overview") }}</a>
     <a href="/portal/projects">{{ _("Projects") }}</a>
+    {% if ill_can_view_catalog() %}<a href="/portal/products">{{ _("Products") }}</a>{% endif %}
+    {% if ill_finder_enabled() %}<a href="/portal/product-finder">{{ _("Product Finder") }}</a>{% endif %}
     <a href="/portal/support">{{ _("Support") }}</a>
     <a href="/portal/account">{{ _("Account") }}</a>
 </nav>

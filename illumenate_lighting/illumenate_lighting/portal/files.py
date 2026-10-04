@@ -18,6 +18,7 @@ from illumenate_lighting.illumenate_lighting.portal.file_validation import (
 
 UPLOAD_DOCTYPE = "ilL-Portal-Upload"
 ALLOWED_PARENTS = (
+	"ilL-Product-Verification-Request",
 	"ilL-Document-Request",
 	"ilL-Project-Fixture-Schedule",
 	"Issue",
@@ -35,6 +36,10 @@ def _context_access(doctype, name, ptype="read", user=None):
 	if not frappe.db.exists(doctype, name):
 		return False
 	doc = frappe.get_doc(doctype, name)
+	if doctype == "ilL-Product-Verification-Request":
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import can_access
+
+		return can_access(doc, ptype, user)
 	if doctype == "ilL-Order-Change":
 		from illumenate_lighting.illumenate_lighting.portal.order_changes import can_access
 

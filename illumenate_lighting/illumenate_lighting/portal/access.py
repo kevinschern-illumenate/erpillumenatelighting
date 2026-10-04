@@ -161,7 +161,7 @@ def can_view_catalog(user=None) -> bool:
 	actor = get_actor(user)
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
-	return not actor.is_guest and (actor.is_internal or actor.is_dealer or any(allowed(capability, actor.user) for capability in ("sales", "engineering", "catalog")))
+	return not actor.is_guest and (actor.is_internal or actor.is_dealer or any(allowed(capability, actor.user) for capability in ("sales", "engineering", "catalog", "finder")))
 
 
 def require_catalog_access(user=None) -> None:

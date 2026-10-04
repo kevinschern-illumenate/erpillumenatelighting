@@ -31,11 +31,14 @@ class Closeout(unittest.TestCase):
 			frappe.conf["ill_portal_enabled_families"] = ["LED Sheet"]
 			frappe.conf["ill_portal_pilot_users"] = ["pilot@example.com"]
 			self.assertFalse(service.available("LED Sheet"))
+			self.assertEqual(service.reason("LED Sheet"), "pilot_only")
 			self.assertTrue(service.available("LED Sheet", public=True))
 			frappe.session.user = "pilot@example.com"
 			self.assertTrue(service.available("LED Sheets"))
+			self.assertEqual(service.reason("LED Sheets"), "ok")
 			with self.assertRaises(PermissionError):
 				service.require_family("LED Neon")
+			self.assertEqual(service.reason("LED Neon"), "family_not_enabled")
 			# Frappe Cloud may store a JSON-typed key as a JSON-encoded string.
 			frappe.conf["ill_portal_enabled_families"] = '["LED Neon"]'
 			self.assertFalse(service.available("LED Sheet"))

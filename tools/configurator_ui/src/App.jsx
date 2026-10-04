@@ -11,7 +11,7 @@ import Wizard from './components/Wizard.jsx';
 export default function App({ config = {} }) {
   return (
     <div className="ill-configurator-app" data-config-keys={Object.keys(config).join(',')}>
-      <Wizard />
+      <Wizard config={config} />
     </div>
   );
 }

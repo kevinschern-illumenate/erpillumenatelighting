@@ -133,3 +133,13 @@ create_dealer_role()
 # Set up permissions on DocTypes
 setup_dealer_permissions()
 ```
+
+## Product Finder
+
+When enabled in Product Finder Settings, the dashboard and navigation open **Product Finder**. Choose a product family (Linear Fixture is featured), answer the visible questions, and review matching products or compatible drivers/controllers/accessories. Answers autosave; the dashboard can resume an active quiz. Dismissing the banner lasts for the current content version.
+
+**Verify with our team** means a requirement is not yet documented. You can configure, save the line, ask the team, attach files, and request a quote. The default gate requires staff verification before a quote is issued or an order is placed. Pending and Not Feasible lines link to the verification conversation. A verified decision updates every linked schedule line.
+
+The configurator opens with choices supported by the selected template. Review the prefilled values, choose a project and schedule, enter a fixture type and quantity, and save. Drivers/controllers add new lines; kits can replace a stable selected line. `/portal/configure` without a category opens the product-type chooser. Accessories lead to the catalog.
+
+A public quiz can be claimed after login. Users awaiting dealer approval retain the claim in that browser and resume it after approval. Claims expire after seven days and can be used once.

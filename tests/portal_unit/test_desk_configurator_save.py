@@ -51,6 +51,13 @@ def desk():
 			ROOT + ".api.configured_product_builder",
 			_coerce_dict=lambda value: json.loads(value) if isinstance(value, str) else value,
 			_dispatch_save=MagicMock(),
+			_dispatch_calculate=MagicMock(
+				return_value={
+					"resolved_items": {
+						"driver_plan": {"status": "selected", "drivers": [{"driver_item": "PS-60", "qty": 2}]}
+					}
+				}
+			),
 			_ensure_fixture_artifacts=MagicMock(),
 			_ensure_tape_neon_artifacts=MagicMock(),
 			_error_text_from_messages=MagicMock(),
@@ -91,7 +98,9 @@ def desk():
 			ROOT + ".portal.desk_build_receipt": stub(
 				ROOT + ".portal.desk_build_receipt", idempotent=lambda f: f
 			),
-			ROOT + ".portal.site_flags": stub(ROOT + ".portal.site_flags", conf_flag=MagicMock()),
+			ROOT + ".portal.site_flags": stub(
+				ROOT + ".portal.site_flags", conf_flag=MagicMock(), fixture_groups_enabled=MagicMock()
+			),
 			ROOT + ".portal.configuration": portal,
 		}
 		with load_service(ROOT + ".api.desk_configurator", extras) as (module, frappe):
@@ -131,6 +140,8 @@ class DeskSegments(unittest.TestCase):
 					self.assertEqual(
 						builder._tape_neon_payload_from_portal_selections.call_args.args[2], SEGMENTS
 					)
+					# Included supplies become their own lines; the neon is built without them.
+					self.assertIs(builder._dispatch_save.call_args.args[1]["include_power_supply"], False)
 				builder._tape_neon_payload_from_portal_selections.reset_mock()
 				result = module.build_configured_line(**call, segments_json=json.dumps("not a list"))
 				self.assertFalse(result["success"])

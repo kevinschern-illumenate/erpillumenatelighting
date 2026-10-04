@@ -1,0 +1,35 @@
+"""Product fields replaced atomically when a schedule line changes family."""
+
+# Everything a schedule line carries about its current product; cleared before
+# a new configuration is written so no link from a previous family survives.
+LINE_PRODUCT_FIELDS = (
+	"ill_configurator_request",
+	"ill_item_code",
+	"ill_bom",
+	"manufacturable_length_mm",
+	"verification_status",
+	"verification_reasons",
+	"verification_request",
+	"finder_session",
+	"configured_group",
+	"configured_fixture",
+	"configured_tape_neon",
+	"configured_led_sheet",
+	"fixture_template",
+	"tape_neon_template",
+	"led_sheet_template",
+	"accessory_item",
+	"accessory_item_name",
+	"accessory_product_type",
+	"variant_selections",
+	"kit_template",
+	"manufacturer_name",
+	"fixture_model_number",
+	"trim_info",
+	"housing_model_number",
+	"driver_model_number",
+	"lamp_info",
+	"dimming_protocol",
+	"input_voltage",
+	"other_finish",
+)

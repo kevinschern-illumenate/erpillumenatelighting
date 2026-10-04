@@ -1,0 +1,328 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:question_key",
+ "creation": "2026-10-01 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "question_key",
+  "label",
+  "short_label",
+  "column_break_identity",
+  "is_active",
+  "sequence",
+  "question_type",
+  "required",
+  "families",
+  "section_help",
+  "tooltip",
+  "learn_more",
+  "glossary_term",
+  "section_number",
+  "number_min",
+  "number_max",
+  "number_step",
+  "column_break_number",
+  "unit",
+  "placeholder",
+  "range_default_low",
+  "range_default_high",
+  "section_options",
+  "options",
+  "section_conditions",
+  "conditions",
+  "section_matching",
+  "facet",
+  "match_mode",
+  "comparison",
+  "column_break_matching",
+  "unknown_policy",
+  "relax_priority",
+  "verification_reason_template",
+  "section_value_maps",
+  "value_maps"
+ ],
+ "fields": [
+  {
+   "fieldname": "question_key",
+   "fieldtype": "Data",
+   "label": "Question Key",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Stable identifier used to store answers (letters, numbers, underscores)."
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Question",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "short_label",
+   "fieldtype": "Data",
+   "label": "Short Label",
+   "description": "Shown in the step navigation."
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "label": "Sequence",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Order in the quiz; lower comes first."
+  },
+  {
+   "fieldname": "question_type",
+   "fieldtype": "Select",
+   "label": "Question Type",
+   "options": "Single\nMulti\nFamily chooser\nNumber\nRange\nInfo",
+   "default": "Single",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "label": "Required",
+   "default": "1"
+  },
+  {
+   "fieldname": "families",
+   "fieldtype": "Table",
+   "label": "Asked For Product Types",
+   "options": "ilL-Child-Finder-Family",
+   "description": "Which product-type paths ask this question. Use 'Any' for every path."
+  },
+  {
+   "fieldname": "section_help",
+   "fieldtype": "Section Break",
+   "label": "Help Text"
+  },
+  {
+   "fieldname": "tooltip",
+   "fieldtype": "Small Text",
+   "label": "Tooltip"
+  },
+  {
+   "fieldname": "learn_more",
+   "fieldtype": "Text Editor",
+   "label": "Learn More"
+  },
+  {
+   "fieldname": "glossary_term",
+   "fieldtype": "Link",
+   "label": "Glossary Term",
+   "options": "ilL-Finder-Glossary-Term"
+  },
+  {
+   "fieldname": "section_number",
+   "fieldtype": "Section Break",
+   "label": "Number Input",
+   "depends_on": "eval:['Number','Range'].includes(doc.question_type)"
+  },
+  {
+   "fieldname": "number_min",
+   "fieldtype": "Float",
+   "label": "Minimum"
+  },
+  {
+   "fieldname": "number_max",
+   "fieldtype": "Float",
+   "label": "Maximum"
+  },
+  {
+   "fieldname": "number_step",
+   "fieldtype": "Float",
+   "label": "Step"
+  },
+  {
+   "fieldname": "column_break_number",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "Unit"
+  },
+  {
+   "fieldname": "placeholder",
+   "fieldtype": "Data",
+   "label": "Placeholder"
+  },
+  {
+   "fieldname": "range_default_low",
+   "fieldtype": "Float",
+   "label": "Range Default Low",
+   "depends_on": "eval:doc.question_type=='Range'"
+  },
+  {
+   "fieldname": "range_default_high",
+   "fieldtype": "Float",
+   "label": "Range Default High",
+   "depends_on": "eval:doc.question_type=='Range'"
+  },
+  {
+   "fieldname": "section_options",
+   "fieldtype": "Section Break",
+   "label": "Options",
+   "depends_on": "eval:['Single','Multi','Family chooser'].includes(doc.question_type)"
+  },
+  {
+   "fieldname": "options",
+   "fieldtype": "Table",
+   "label": "Options",
+   "options": "ilL-Child-Finder-Option"
+  },
+  {
+   "fieldname": "section_conditions",
+   "fieldtype": "Section Break",
+   "label": "When To Ask",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "conditions",
+   "fieldtype": "Table",
+   "label": "Conditions",
+   "options": "ilL-Child-Finder-Condition",
+   "description": "Show or skip this question, or hide one of its options, based on earlier answers."
+  },
+  {
+   "fieldname": "section_matching",
+   "fieldtype": "Section Break",
+   "label": "Matching"
+  },
+  {
+   "fieldname": "facet",
+   "fieldtype": "Select",
+   "label": "Product Fact",
+   "options": "\nfamily\napplication\nenvironment_rating\nip_rating\nlight_type\ncolor_mode\ncct\ncct_range\ncri_min\nlumens_per_ft\nmounting_method\nlens_appearance\nfinish\ndimming_protocol\noutput_voltage\ndriver_wattage\ncontroller_type\nchannels\nzones\nwireless_protocol\ncontroller_mounting",
+   "description": "The product fact this question filters on. Leave empty for questions that only guide the dealer."
+  },
+  {
+   "fieldname": "match_mode",
+   "fieldtype": "Select",
+   "label": "Match Mode",
+   "options": "None\nHard\nSoft\nRank only",
+   "default": "None",
+   "description": "Hard removes products that do not match. Soft only lowers their ranking."
+  },
+  {
+   "fieldname": "comparison",
+   "fieldtype": "Select",
+   "label": "Comparison",
+   "options": "\nAny of\nMeets or exceeds\nAt least\nWithin band\nRange covers",
+   "depends_on": "facet"
+  },
+  {
+   "fieldname": "column_break_matching",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unknown_policy",
+   "fieldtype": "Select",
+   "label": "When A Product Has No Data",
+   "options": "Use default\nVerify\nExclude\nInclude silently",
+   "default": "Use default",
+   "depends_on": "facet",
+   "description": "Verify keeps the product with a 'needs a quick check with our team' warning."
+  },
+  {
+   "fieldname": "relax_priority",
+   "fieldtype": "Int",
+   "label": "Relax Priority",
+   "depends_on": "eval:doc.match_mode=='Soft'",
+   "description": "When nothing matches, soft questions are relaxed from the lowest number up."
+  },
+  {
+   "fieldname": "verification_reason_template",
+   "fieldtype": "Data",
+   "label": "Verification Reason",
+   "depends_on": "facet",
+   "description": "Shown in the warning, for example '{answer} rating'. {answer} is the dealer's answer."
+  },
+  {
+   "fieldname": "section_value_maps",
+   "fieldtype": "Section Break",
+   "label": "ERP Mapping",
+   "depends_on": "facet"
+  },
+  {
+   "fieldname": "value_maps",
+   "fieldtype": "Table",
+   "label": "Answer To ERP Values",
+   "options": "ilL-Child-Finder-Value-Map",
+   "description": "Which ERP attribute records each answer means. One answer may map to several records."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Finder-Question",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ilL Product Finder Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "ilL Catalog Publisher"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "ilL Sales Review"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "ilL Engineering"
+  }
+ ],
+ "search_fields": "label,short_label",
+ "show_title_field_in_link": 1,
+ "sort_field": "sequence",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "label",
+ "track_changes": 1
+}

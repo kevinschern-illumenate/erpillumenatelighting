@@ -36,7 +36,7 @@
 		root.append(status, list, paging, form, result);
 		let page = 1, serial = 0, sending = false, retryBody, retryKey;
 		const context = { parent_type: root.dataset.parentType, parent_name: root.dataset.parentName };
-		const commercial = ['ilL-Quote-Request', 'ilL-Order-Intake', 'ilL-Order-Change'].includes(context.parent_type);
+		const commercial = ['ilL-Quote-Request', 'ilL-Order-Intake', 'ilL-Order-Change', 'ilL-Product-Verification-Request'].includes(context.parent_type);
 		if (commercial) [...action.options].filter(option => ['RESOLVE', 'REOPEN'].includes(option.value)).forEach(option => option.remove());
 		async function load() {
 			const token = ++serial;

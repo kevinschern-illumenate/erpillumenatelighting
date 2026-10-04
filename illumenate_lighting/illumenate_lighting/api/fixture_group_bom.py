@@ -34,9 +34,12 @@ def description(build):
 		else:
 			dimensions = f"{geometry['coverage_width_ft']:g} x {geometry['coverage_height_ft']:g} ft area"
 		parts.append(member["member_key"] + ": " + dimensions)
+	power = build["request"]["power"]
 	parts.append(
-		"Power supplies included"
-		if build["request"]["power"]["include_power_supply"]
+		"Power supplies on their own line"
+		if power.get("separate_supply_line")
+		else "Power supplies included"
+		if power["include_power_supply"]
 		else "External power required"
 	)
 	return "\n".join(parts)
@@ -69,7 +72,8 @@ def current_estimate(doc):
 			else tape_neon_build
 		)
 		total += adapter.current_estimate(proxy)
-	total += sum(selling_amount(d["driver_item"], d["qty"]) for d in build["power_plan"]["drivers"])
+	if not build["request"]["power"].get("separate_supply_line"):
+		total += sum(selling_amount(d["driver_item"], d["qty"]) for d in build["power_plan"]["drivers"])
 	return round(total, 2)
 
 
@@ -142,9 +146,9 @@ def persist(request):
 	from illumenate_lighting.illumenate_lighting.api.fixture_group_configurator import calculate
 	from illumenate_lighting.illumenate_lighting.api.group_contract import normalize
 	from illumenate_lighting.illumenate_lighting.portal.access import register_configured_record_handoff
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
-	if not conf_flag("ill_portal_fixture_groups"):
+	if not fixture_groups_enabled():
 		frappe.throw("Independent fixture groups are not enabled for this site", frappe.PermissionError)
 
 	intent = normalize(request)

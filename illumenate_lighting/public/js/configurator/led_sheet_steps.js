@@ -39,7 +39,36 @@
 		{ type: 'Mounting',           field: 'sheet_mounting',    select: '#sheetMounting',    label: __('Mounting') },
 		{ type: 'Finish',             field: 'sheet_finish',      select: '#sheetFinish',      label: __('Finish') }
 	];
-	var STEPS = ['template', 'spec', 'CCT', 'Output Level', 'Environment Rating', 'Mounting', 'Finish', 'coverage'];
+	// The panel spec is not a buyer step: it follows from CCT, output and environment.
+	var STEPS = ['template', 'CCT', 'Output Level', 'Environment Rating', 'Mounting', 'Finish', 'coverage', 'spec'];
+
+	function specTokens(spec) {
+		return String(spec.item || spec.name || '').toUpperCase().split('-').filter(Boolean);
+	}
+
+	// Mirrors led_sheet_math.match_sheet_specs; the server derivation is authoritative.
+	function matchSpecs(specs, options, choices) {
+		var remaining = specs.slice();
+		Object.keys(choices).forEach(function (type) {
+			var choice = choices[type];
+			if (!choice.value) return;
+			var code = String(choice.code || '').trim().toUpperCase();
+			if (type === 'CCT') {
+				remaining = remaining.filter(function (s) { return !s.cct || s.cct === choice.value; });
+			}
+			var codes = options.filter(function (o) { return o.option_type === type; })
+				.map(function (o) { return String(o.option_code || '').trim().toUpperCase(); })
+				.filter(Boolean);
+			var encoded = specs.some(function (s) {
+				var tokens = specTokens(s);
+				return codes.some(function (c) { return tokens.indexOf(c) >= 0; });
+			});
+			if (code && encoded) {
+				remaining = remaining.filter(function (s) { return specTokens(s).indexOf(code) >= 0; });
+			}
+		});
+		return remaining;
+	}
 
 	function money(v) { return '$' + Number(v || 0).toFixed(2); }
 	function num(v, d) { return Number(v || 0).toFixed(d === undefined ? 2 : d); }
@@ -149,11 +178,6 @@
 			$selector.find('.pill[data-value="' + $select.val() + '"]').addClass('active');
 		});
 
-		this.$('#sheetSpec').on('change' + '.' + self.instanceId, function () {
-			self.spec = self._specByName($(this).val());
-			self._updateSpecHint();
-			self._afterChange();
-		});
 		OPTION_FIELDS.forEach(function (f) {
 			self.$(f.select).on('change' + '.' + self.instanceId, function () { self._afterChange(); });
 		});
@@ -166,6 +190,7 @@
 	};
 
 	LedSheet.prototype._afterChange = function () {
+		this._deriveSpec();
 		this._invalidateResult();
 		this._updateEstimate();
 		this._updateProgress();
@@ -180,9 +205,24 @@
 		return (this.templates || []).find(function (t) { return t.name === name; }) || null;
 	};
 
-	LedSheet.prototype._specByName = function (name) {
-		var specs = (this.template && this.template.allowed_specs) || [];
-		return specs.find(function (s) { return s.name === name; }) || null;
+	// The panel spec that the selected CCT, output level and environment rating
+	// identify; kept in the hidden #sheetSpec select for the payload.
+	LedSheet.prototype._deriveSpec = function () {
+		var self = this;
+		if (!this.template) { this.spec = null; this._updateSpecHint(); return; }
+		var options = this.template.allowed_options || [];
+		var choices = {};
+		OPTION_FIELDS.forEach(function (f) {
+			var value = self._optionValue(f.type);
+			var row = options.find(function (o) { return o.option_type === f.type && o.attribute_link === value; });
+			choices[f.type] = { value: value, code: row ? row.option_code : '' };
+		});
+		var matches = matchSpecs(this.template.allowed_specs || [], options, choices);
+		this.spec = matches.length === 1 ? matches[0] : null;
+		this.specMatchCount = matches.length;
+		this.$('#sheetSpec').empty().append($('<option></option>').val(this.spec ? this.spec.name : '').text(this.spec ? (this.spec.item || this.spec.name) : ''));
+		this.$('#sheetSpec').val(this.spec ? this.spec.name : '');
+		this._updateSpecHint();
 	};
 
 	LedSheet.prototype._onTemplateSelected = function (name, existing) {
@@ -198,16 +238,6 @@
 		}
 
 		var self = this;
-		var specs = this.template.allowed_specs || [];
-		this._populatePill('sheet_spec', '#sheetSpec', specs.map(function (s) {
-			return {
-				value: s.name,
-				label: (s.item || s.name) + ' · ' + num(s.total_sheet_watts, 0) + 'W · '
-					+ num(s.sheet_width_ft, 1) + '×' + num(s.sheet_height_ft, 1) + ' ft'
-			};
-		}), existing ? existing.sheet_spec : null);
-		this.spec = this._specByName(this.$('#sheetSpec').val());
-		this._updateSpecHint();
 
 		var byType = {};
 		(this.template.allowed_options || []).forEach(function (o) {
@@ -275,8 +305,17 @@
 	LedSheet.prototype._updateSpecHint = function () {
 		var s = this.spec;
 		var $hint = this.$('#sheetSpecHint');
-		if (!s) { $hint.text(''); return; }
+		this.$('#sheetSpecMatch').text(s ? (s.item || s.name) : '');
+		if (!s) {
+			var waiting = !this.template || OPTION_FIELDS.some(function (f) { return this._optionRequired(f.type) && !this._optionValue(f.type); }, this);
+			$hint.text(waiting ? __('Choose the options above to identify the panel.')
+				: (this.specMatchCount ? __('More than one panel matches these options; contact ilLumenate.')
+					: __('No panel is available for this combination. Choose different options.')));
+			return;
+		}
 		var parts = [];
+		if (s.total_sheet_watts) parts.push(num(s.total_sheet_watts, 0) + ' W/panel');
+		if (s.sheet_width_ft && s.sheet_height_ft) parts.push(num(s.sheet_width_ft, 1) + ' × ' + num(s.sheet_height_ft, 1) + ' ft');
 		if (s.led_package) parts.push(__('LED package: {0}', [s.led_package]));
 		if (s.watts_per_sqft) parts.push(num(s.watts_per_sqft, 1) + ' W/sqft');
 		if (s.lumens_per_sqft) parts.push(num(s.lumens_per_sqft, 0) + ' lm/sqft');
@@ -407,13 +446,16 @@
 		OPTION_FIELDS.forEach(function (f) { options[f.type] = self._optionValue(f.type); });
 		return {
 			template: this.$('#sheetTemplate').val(),
-			spec: this.$('#sheetSpec').val(),
+			// Derived on the server from the options; never a buyer choice.
+			spec: null,
 			options: options,
 			coverage_width_value: this.$('#coverageWidthValue').val(),
 			coverage_width_unit: this.$('#coverageWidthUnit').val(),
 			coverage_height_value: this.$('#coverageHeightValue').val(),
 			coverage_height_unit: this.$('#coverageHeightUnit').val(),
 			include_power_supply: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
+			// Included supplies are saved as their own schedule line under the sheet.
+			power_supply_separate: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
 			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null
 		};
 	};
@@ -507,10 +549,12 @@
 				+ (Number(p.option_msrp) ? '<tr><td>' + __('Option adders') + '</td><td class="text-right">' + money(p.option_msrp) + '</td></tr>' : '')
 				+ '<tr><td>' + __('Jumpers') + '</td><td class="text-right">' + money(p.jumpers_msrp) + '</td></tr>'
 				+ '<tr><td>' + __('Leaders') + '</td><td class="text-right">' + money(p.leaders_msrp) + '</td></tr>'
-				+ (includePs ? '<tr><td>' + __('Power supplies') + '</td><td class="text-right">' + money(p.power_supplies_msrp) + '</td></tr>' : '')
-				+ '<tr class="font-weight-bold"><td>' + __('Total MSRP') + '</td><td class="text-right">' + money(p.total_msrp != null ? p.total_msrp : r.total_msrp) + '</td></tr>'
+				+ '<tr class="font-weight-bold"><td>' + __('Sheet bundle MSRP') + '</td><td class="text-right">' + money(p.total_msrp != null ? p.total_msrp : r.total_msrp) + '</td></tr>'
+				+ (includePs ? '<tr><td>' + __('Power supplies (own line)') + '</td><td class="text-right">' + money(p.power_supplies_msrp) + '</td></tr>' : '')
 				+ '</tbody></table>'
-				+ '<small class="text-muted d-block mt-1">' + __('One schedule line includes all panels, cables, and selected power supplies. Quantity counts complete bundles.') + '</small>';
+				+ '<small class="text-muted d-block mt-1">' + (includePs
+					? __('The sheet line includes all panels and cables; the selected power supplies are added as their own line directly under it, with the same Fixture Type and Location. Quantity counts complete bundles.')
+					: __('One schedule line includes all panels and cables. Quantity counts complete bundles.')) + '</small>';
 		}
 
 		this.$('#sheetSummary').html(html);

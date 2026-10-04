@@ -1448,6 +1448,16 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid line_data format"}
 
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	is_sales_staff = allowed("sales")
+	if not isinstance(line_data, dict):
+		return {"success": False, "error": "Line data must be an object"}
+	if line_data.get("accessory_item"):
+		item = frappe.db.get_value("Item", line_data["accessory_item"], ["name", "disabled", "is_sales_item", "has_variants"], as_dict=True)
+		# Disabled Items are refused for everyone; staff may still add non-sales Items.
+		if not item or item.disabled or (not is_sales_staff and (not item.is_sales_item or item.has_variants)):
+			return {"success": False, "error": "Choose an active orderable Item"}
 	# Add the line
 	try:
 		line = schedule.append("lines", {})
@@ -1462,7 +1472,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.fixture_template = line_data.get("fixture_template")
 			line.tape_neon_template = line_data.get("tape_neon_template")
 			line.led_sheet_template = line_data.get("led_sheet_template")
-			line.configuration_status = line_data.get("configuration_status", "Pending")
+			line.configuration_status = line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
 
 		if line.manufacturer_type == "ACCESSORY":
 			line.accessory_product_type = line_data.get("accessory_product_type")
@@ -4153,11 +4163,14 @@ def get_led_sheet_templates() -> dict:
 				continue
 			spec = frappe.db.get_value(
 				"ilL-Spec-LED-Sheet", row.spec,
-				["name", "item", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
+				["name", "item", "cct", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
 				as_dict=True,
 			)
 			if spec:
 				template["allowed_specs"].append(spec)
+		from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+
+		template["allowed_specs"] = enabled_rows(template["allowed_specs"], "item")
 		template["allowed_options"] = [
 			{
 				"option_type": row.option_type,

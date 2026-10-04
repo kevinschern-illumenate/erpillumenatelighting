@@ -33,6 +33,18 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+
+# The only values a caller supplies for a kit; everything else is resolved here.
+KIT_SELECTION_KEYS = (
+    "kit_template",
+    "finish",
+    "lens_appearance",
+    "mounting_method",
+    "endcap_style",
+    "endcap_color",
+)
+
 # ═══════════════════════════════════════════════════════════════════════
 # PRICING HELPERS
 # ═══════════════════════════════════════════════════════════════════════
@@ -218,6 +230,7 @@ def get_kit_cascading_options(
             filters={"kit_template": kit_template_name, "finish": finish, "is_active": 1},
             fields=["name", "profile_spec", "profile_item"],
         )
+        profile_maps = enabled_rows(profile_maps, "profile_item")
         result["profile_available"] = len(profile_maps) > 0
         if profile_maps:
             result["resolved_profile"] = {
@@ -232,10 +245,9 @@ def get_kit_cascading_options(
             lens_maps = frappe.get_all(
                 "ilL-Rel-Kit-Lens-Map",
                 filters={"kit_template": kit_template_name, "lens_appearance": la, "is_active": 1},
-                fields=["name"],
-                limit=1,
+                fields=["name", "lens_item"],
             )
-            if lens_maps:
+            if enabled_rows(lens_maps, "lens_item"):
                 data = frappe.db.get_value(
                     "ilL-Attribute-Lens Appearance", la,
                     ["name", "code"], as_dict=True,
@@ -257,13 +269,13 @@ def get_kit_cascading_options(
                 "endcap_style": endcap_style,
                 "is_active": 1,
             },
-            fields=["endcap_color"],
-            group_by="endcap_color",
+            fields=["endcap_color", "endcap_item"],
         )
         available_colors = []
-        for em in endcap_maps:
+        colors = {em.endcap_color for em in enabled_rows(endcap_maps, "endcap_item") if em.endcap_color}
+        for color in sorted(colors):
             data = frappe.db.get_value(
-                "ilL-Attribute-Endcap Color", em.endcap_color,
+                "ilL-Attribute-Endcap Color", color,
                 ["name", "code"], as_dict=True,
             )
             if data:
@@ -285,6 +297,7 @@ def get_kit_cascading_options(
             },
             fields=["name", "accessory_spec", "accessory_item"],
         )
+        mounting_maps = enabled_rows(mounting_maps, "accessory_item")
         result["mounting_available"] = len(mounting_maps) > 0
         if mounting_maps:
             result["resolved_mounting"] = {
@@ -345,6 +358,8 @@ def validate_kit_configuration(selections: str) -> dict:
         return {"success": False, "is_valid": False, "error": "Kit template not found"}
 
     template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
+    if not template.is_active:
+        return {"success": False, "is_valid": False, "error": "Kit template is not active"}
 
     # ── Validate selections against allowed options ───────────────────
     validation_checks = {
@@ -543,6 +558,7 @@ def validate_kit_configuration(selections: str) -> dict:
             "spec_sheet": template.spec_sheet,
         },
     }
+    result["pricing"] = _compute_kit_pricing(kit_composition)
     if stock_availability is not None:
         result["stock_availability"] = stock_availability
     return result
@@ -557,6 +573,7 @@ def save_kit_to_schedule(
     schedule_name: str,
     line_idx: int | str | None = None,
     configuration_result: str = None,
+    selections: str | dict | None = None,
 ) -> dict:
     """
     Save a validated Extrusion Kit configuration to a fixture schedule line.
@@ -567,10 +584,17 @@ def save_kit_to_schedule(
       - build description in notes
       - full config as JSON in variant_selections
 
+    Only the kit selections are taken from the request. The configuration is
+    validated again here, and the part number, components and pricing that are
+    stored (and later become Sales Order lines) come from that server result,
+    never from the caller.
+
     Args:
         schedule_name: ilL-Project-Fixture-Schedule name
         line_idx: existing line index to overwrite, or None for new line
-        configuration_result: JSON string of the validate_kit_configuration result
+        configuration_result: JSON of a validate_kit_configuration result; only
+            its ``selections`` are read (kept for existing callers)
+        selections: the kit selections; takes precedence over configuration_result
     """
     from illumenate_lighting.illumenate_lighting.api.configuration_contract import optional_integer
     try:
@@ -589,26 +613,34 @@ def save_kit_to_schedule(
     if not has_permission(schedule, "write", frappe.session.user):
         return {"success": False, "error": "No write permission on this schedule"}
 
+    if schedule.get("is_locked"):
+        return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
     if schedule.status not in ["DRAFT", "READY"]:
         return {"success": False, "error": "Schedule is not in an editable status"}
 
     try:
-        result = json.loads(configuration_result) if isinstance(configuration_result, str) else configuration_result
+        if selections is None:
+            submitted = (
+                json.loads(configuration_result)
+                if isinstance(configuration_result, str)
+                else configuration_result
+            )
+            selections = (submitted or {}).get("selections") if isinstance(submitted, dict) else None
+        elif isinstance(selections, str):
+            selections = json.loads(selections)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid configuration result JSON"}
 
+    if not isinstance(selections, dict) or not selections:
+        return {"success": False, "error": "Kit selections are required"}
+    selections = {
+        key: str(selections[key]) for key in KIT_SELECTION_KEYS if selections.get(key) not in (None, "")
+    }
+
+    result = validate_kit_configuration(selections)
     if not result.get("is_valid"):
-        return {"success": False, "error": "Configuration is not valid"}
-
-    part_number = result.get("part_number", "")
-    build_desc = result.get("build_description", "")
-    resolved = result.get("resolved_items", {})
-    kit_comp = result.get("kit_composition", {})
-    spec_data = result.get("spec_data", {})
-    kit_template_info = result.get("kit_template", {})
-
-    # Compute pricing from Standard Selling Item Prices
-    pricing = _compute_kit_pricing(kit_comp)
+        return {"success": False, "error": result.get("error") or "Configuration is not valid"}
 
     try:
         if line_idx is not None:
@@ -620,25 +652,7 @@ def save_kit_to_schedule(
         else:
             line = schedule.append("lines", {})
 
-        line.manufacturer_type = "ILLUMENATE"
-        line.product_type = "Extrusion Kit"
-        line.configuration_status = "Configured"
-        line.ill_item_code = part_number
-        line.notes = build_desc
-        line.kit_template = kit_template_info.get("name", "")
-
-        # Store full configuration as JSON for later SO conversion
-        line.variant_selections = json.dumps({
-            "product_category": "Extrusion Kit",
-            "part_number": part_number,
-            "build_description": build_desc,
-            "kit_composition": kit_comp,
-            "spec_data": spec_data,
-            "resolved_items": resolved,
-            "selections": result.get("selections", {}),
-            "kit_template": kit_template_info,
-            "pricing": pricing,
-        })
+        _write_kit_line(schedule, line, result)
 
         schedule.save()
 
@@ -649,6 +663,41 @@ def save_kit_to_schedule(
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def _write_kit_line(schedule, line, result):
+    """One writer for Desk and portal, called only with fresh server validation."""
+    from illumenate_lighting.illumenate_lighting.portal.line_fields import LINE_PRODUCT_FIELDS
+
+    for field in LINE_PRODUCT_FIELDS:
+        setattr(line, field, None)
+    part_number = result.get("part_number", "")
+    build_desc = result.get("build_description", "")
+    resolved = result.get("resolved_items", {})
+    kit_comp = result.get("kit_composition", {})
+    spec_data = result.get("spec_data", {})
+    kit_template_info = result.get("kit_template", {})
+    pricing = _compute_kit_pricing(kit_comp)
+    line.manufacturer_type = "ILLUMENATE"
+    line.product_type = "Extrusion Kit"
+    line.configuration_status = "Configured"
+    line.ill_item_code = part_number
+    line.notes = build_desc
+    line.kit_template = kit_template_info.get("name", "")
+
+    # Store full configuration as JSON for later SO conversion
+    line.variant_selections = json.dumps({
+        "product_category": "Extrusion Kit",
+        "part_number": part_number,
+        "build_description": build_desc,
+        "kit_composition": kit_comp,
+        "spec_data": spec_data,
+        "resolved_items": resolved,
+        "selections": result.get("selections", {}),
+        "kit_template": kit_template_info,
+        "pricing": pricing,
+    })
+    return line
 
 
 def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) -> dict:
@@ -949,6 +998,7 @@ def _resolve_kit_profile(kit_template_name: str, finish: str) -> Optional[Any]:
         fields=["name", "profile_spec", "profile_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "profile_item")
     return maps[0] if maps else None
 
 
@@ -964,6 +1014,7 @@ def _resolve_kit_lens(kit_template_name: str, lens_appearance: str) -> Optional[
         fields=["name", "lens_spec", "lens_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "lens_item")
     return maps[0] if maps else None
 
 
@@ -986,6 +1037,7 @@ def _resolve_kit_endcap(
         fields=["name", "endcap_spec", "endcap_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "endcap_item")
     return maps[0] if maps else None
 
 
@@ -1001,6 +1053,7 @@ def _resolve_kit_mounting(kit_template_name: str, mounting_method: str) -> Optio
         fields=["name", "accessory_spec", "accessory_item"],
         limit=1,
     )
+    maps = enabled_rows(maps, "accessory_item")
     return maps[0] if maps else None
 
 

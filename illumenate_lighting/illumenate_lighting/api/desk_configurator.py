@@ -65,7 +65,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedul
 	has_permission as schedule_has_permission,
 )
 from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
-from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
+from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
 PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
@@ -247,7 +247,7 @@ def get_desk_context(
 			{"value": p.name, "label": p.project_name or p.name, "customer": p.customer} for p in projects
 		],
 		"product_types": [{"value": pt, "label": _(pt)} for pt in DESK_PRODUCT_TYPES],
-		"groups_enabled": conf_flag("ill_portal_fixture_groups"),
+		"groups_enabled": fixture_groups_enabled(),
 		"can_create_project": bool(frappe.has_permission(PROJECT_DOCTYPE, "create")),
 		"can_create_schedule": bool(frappe.has_permission(SCHEDULE_DOCTYPE, "create")),
 	}
@@ -536,22 +536,30 @@ def build_configured_line(
 		fixture_type = _next_fixture_type(None, [])
 
 	# ── 2. Engine: persist the configured record ────────────────────
+	# Included supplies become their own lines; the fixture is built without them.
+	from illumenate_lighting.illumenate_lighting.api.power_supply_lines import split_power
+
 	group_artifact = None
+	drivers = []
 	try:
 		if selections.get("group_request"):
 			from illumenate_lighting.illumenate_lighting.portal.configuration import (
 				normalized_payload,
 				persist_artifact,
 			)
-			group_artifact = persist_artifact(product_type, normalized_payload(product_type, selections))
+			payload, drivers = split_power(product_type, normalized_payload(product_type, selections))
+			group_artifact = persist_artifact(product_type, payload)
 			validation = {"is_valid": True, "messages": []}
 		elif product_type == PRODUCT_TYPE_SHEET:
-			validation = _save_led_sheet(selections)
+			sheet_selections, drivers = split_power(product_type, selections)
+			validation = _save_led_sheet(sheet_selections)
 		else:
 			if product_type == PRODUCT_TYPE_FIXTURE:
 				payload = _fixture_payload_from_portal_selections(product_slug, selections, qty)
 			else:
 				payload = _tape_neon_payload_from_portal_selections(product_type, selections, segments)
+				payload["tape_neon_template"] = tape_neon_template
+			payload, drivers = split_power(product_type, payload)
 			validation = _dispatch_save(
 				product_type,
 				payload,
@@ -560,7 +568,7 @@ def build_configured_line(
 				tape_neon_template=tape_neon_template if product_type != PRODUCT_TYPE_FIXTURE else None,
 				variant_origin=variant_origin,
 			)
-	except frappe.ValidationError as exc:
+	except (frappe.ValidationError, ValueError) as exc:
 		return _error(str(exc))
 
 	if not validation.get("is_valid"):
@@ -626,6 +634,9 @@ def build_configured_line(
 				msrp_unit=msrp_unit,
 			)
 			line.ill_configurator_request = engineering_request
+			from illumenate_lighting.illumenate_lighting.api.power_supply_lines import set_power_lines
+
+			set_power_lines(schedule_doc, line, drivers)
 			schedule_doc.save()
 			line_name = line.name
 			line_position = line.idx
@@ -666,6 +677,18 @@ def build_configured_line(
 			parent_doctype, parent_name, header, configured_doc, qty,
 			section_label=location, fixture_type=fixture_type, schedule_line_id=line_name,
 		)
+	accessory_rows.extend(
+		_power_supply_rows(
+			parent_doctype,
+			parent_name,
+			header,
+			artifact,
+			drivers,
+			qty,
+			section_label=location,
+			fixture_type=fixture_type,
+		)
+	)
 	return {
 		"success": True,
 		"row_values": row_values,
@@ -694,13 +717,14 @@ def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:
 	Returns an engine-shaped dict (``is_valid`` / ``configured_led_sheet`` / the
 	validation result) so ``build_configured_line`` treats it like the other types.
 	"""
-	required = ("template", "spec")
+	# The panel spec follows from the option choices when the wizard omits it.
+	required = ("template",)
 	missing = [k for k in required if not selections.get(k)]
 	if missing:
 		return {"is_valid": False, "error": _("Missing LED Sheet selection: {0}").format(", ".join(missing))}
 	kwargs = {
 		"template": selections["template"],
-		"spec": selections["spec"],
+		"spec": selections.get("spec") or None,
 		"options": selections.get("options") or {},
 		"coverage_width_ft": selections.get("coverage_width_ft") or 0,
 		"coverage_height_ft": selections.get("coverage_height_ft") or 0,
@@ -710,6 +734,7 @@ def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:
 		"coverage_height_unit": selections.get("coverage_height_unit") or "ft",
 		"include_power_supply": selections.get("include_power_supply", 1),
 		"dimming_protocol_code": selections.get("dimming_protocol_code"),
+		"power_supply_separate": selections.get("power_supply_separate") or 0,
 	}
 	result = led_sheet_configurator.validate_sheet_configuration(**kwargs)
 	saved = led_sheet_configurator.save_sheet_configuration(**kwargs)
@@ -766,6 +791,55 @@ def _led_sheet_accessory_rows(
 				fixture_type=fixture_type,
 				schedule_line_id=schedule_line_id,
 				additional_notes=spec.get("notes"),
+			)
+		)
+	return rows
+
+
+def _power_supply_rows(
+	parent_doctype: str,
+	parent_name: str | None,
+	header: dict[str, Any],
+	artifact: dict[str, Any],
+	drivers: list[dict[str, Any]],
+	qty: float,
+	*,
+	section_label: str | None,
+	fixture_type: str | None,
+) -> list[dict[str, Any]]:
+	"""Rows for the included power supplies, inserted under the fixture row."""
+	from illumenate_lighting.illumenate_lighting.api.power_supply_lines import accessory_row_specs
+
+	owner = (
+		artifact.get("source_name")
+		or artifact.get("configured_group")
+		or artifact.get("configured_fixture")
+		or artifact.get("configured_tape_neon")
+	)
+	builds = cint(qty) or 1
+	rows = []
+	for spec in accessory_row_specs(drivers, builds):
+		supply = {
+			"product_type": artifact.get("product_type"),
+			"item_code": spec["item_code"],
+			"configuration_snapshot": {"power_supply_for": owner, "qty_per_build": spec["qty"] // builds},
+			"power_supply": {
+				"is_power_supply_line": True,
+				"power_supply_for": owner,
+				"parent_configured_fixture": artifact.get("configured_fixture"),
+			},
+		}
+		rows.append(
+			_build_row_values(
+				parent_doctype,
+				parent_name,
+				header,
+				supply,
+				spec["qty"],
+				section_label=section_label,
+				fixture_type=fixture_type,
+				schedule_line_id=None,
+				additional_notes=_("Power supply for {0}").format(fixture_type or owner),
 			)
 		)
 	return rows

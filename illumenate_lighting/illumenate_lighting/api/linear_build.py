@@ -11,6 +11,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	finite_number,
 	parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.api.item_availability import assert_enabled
 
 ENGINE_VERSION = "linear-2"
 
@@ -240,8 +241,14 @@ def finish(doc, inputs, computed, resolved, include_power, override, *, in_memor
 	cables = cable_manifest(doc)
 	doc.cable_manifest_json = canonical_json(cables)
 	components = build_fixture_bom_items(doc)
+	# Profile, lens, endcaps, mounting and tape are priced and built from these rows.
+	assert_enabled([row.get("item_code") for row in components], "this fixture")
 	value = {
 		"engine_version": ENGINE_VERSION,
+		# The customer-facing part number is part of the identity, so a changed attribute
+		# code (e.g. an Environment Rating moving from I/O to 20/54/67) yields a new build
+		# instead of reusing an older record that carries the old-format number.
+		"part_number": doc.display_part_number,
 		"inputs": {
 			**inputs,
 			"include_power_supply": parse_bool(include_power),

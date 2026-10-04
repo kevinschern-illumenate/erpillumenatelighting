@@ -31,9 +31,9 @@ def get_context(context):
 		frappe.local.flags.redirect_location = "/portal/request-dealer-access"
 		raise frappe.Redirect
 
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
-	context.groups_enabled = conf_flag("ill_portal_fixture_groups")
+	context.groups_enabled = fixture_groups_enabled()
 
 	quiz_handoff = {
 		"template": frappe.form_dict.get("template"),
@@ -57,7 +57,6 @@ def get_context(context):
 	# singular internal LED Sheet configurator instead of falling back to Linear.
 	product_category = _normalize_product_category(frappe.form_dict.get("category"))
 	from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
-	require_family(product_category)
 
 	# Configurator UI mode: "coordinator" (default, multi-segment/tape-neon
 	# builder) or "wizard" (guided step-by-step flow, Linear Fixture only,
@@ -141,6 +140,35 @@ def get_context(context):
 			if product_category != "Linear Fixture":
 				configurator_mode = "coordinator"
 
+	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
+	# options this template offers, so the browser does not apply the raw labels.
+	context.finder = frappe.form_dict.get("finder")
+	context.show_type_chooser = not frappe.form_dict.get("category") and not template_code and initial_request is None
+	from urllib.parse import urlencode
+
+	context.chooser_url = "/portal/configure?" + urlencode({k: frappe.form_dict[k] for k in ("schedule", "line_key", "line_idx", "draft", "finder") if frappe.form_dict.get(k)})
+	if context.show_type_chooser:
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import chooser
+
+		context.chooser_options = chooser(frappe.form_dict)
+		context.title = "Choose a product type"
+		context.no_cache = 1
+		return context
+	require_family(product_category)
+	quiz_prefill = None
+	if context.finder and template_code and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.product_finder import server_definition, sessions
+		from illumenate_lighting.illumenate_lighting.portal.product_finder.prefill import prefill_for_template
+
+		session = sessions.get_owned(context.finder)
+		quiz_prefill = prefill_for_template(product_category, template_code, sessions.decoded(session.quiz_answers), server_definition.load())
+		initial_request = {"template": template_code, "selections": quiz_prefill["selections"]}
+	if quiz_handoff and initial_request is None and product_category in ("Linear Fixture", "LED Tape", "LED Neon"):
+		from illumenate_lighting.illumenate_lighting.portal.quiz_prefill import resolve
+
+		quiz_prefill = resolve(product_category, template_code, quiz_handoff)
+		initial_request = {"template": template_code, "selections": quiz_prefill["selections"]}
+
 	# Fetch templates based on product category
 	templates = []
 	led_sheet_templates = []
@@ -158,7 +186,7 @@ def get_context(context):
 			existing_configured_sheet = get_configured_sheet_for_line(
 				schedule_name, int(line_idx)
 			).get("data")
-	else:
+	elif product_category in ("LED Tape", "LED Neon"):
 		templates = _get_tape_neon_templates(product_category)
 
 	# Determine if pricing should be shown based on user role
@@ -166,6 +194,9 @@ def get_context(context):
 
 	# Map category to page title
 	title_map = {
+		"Extrusion Kit": "Configure Extrusion Kit",
+		"Driver": "Configure Power Supply",
+		"Controller": "Configure Controller",
 		"Linear Fixture": "Configure Fixture",
 		"LED Tape": "Configure LED Tape",
 		"LED Neon": "Configure LED Neon",
@@ -199,7 +230,14 @@ def get_context(context):
 	context.show_pricing = show_pricing
 	context.title = title_map.get(product_category, "Configure Fixture")
 	context.quiz_handoff_json = frappe.as_json(quiz_handoff)
-	context.has_quiz_handoff = bool(quiz_handoff)
+	context.has_quiz_handoff = bool(quiz_handoff or context.finder)
+	context.quiz_prefill = quiz_prefill
+	context.family_products = []
+	context.show_stock_qty = True  # This page is restricted to catalog dealers and internal users.
+	if product_category in ("Driver", "Controller"):
+		context.family_products = frappe.get_all("ilL-Webflow-Product", filters={"product_type": product_category, "is_active": 1, "is_configurable": 1}, fields=["product_name", "product_slug", product_category.lower() + "_template"], order_by="product_name asc")
+		if not context.product_slug and template_code:
+			context.product_slug = next((p.product_slug for p in context.family_products if p.get(product_category.lower() + "_template") == template_code), "")
 	context.no_cache = 1
 
 	return context
@@ -216,6 +254,7 @@ def _normalize_product_category(category):
 	"""Return the canonical configurator category for URL/input aliases."""
 	category = (category or "Linear Fixture").strip()
 	category_map = {
+		**{alias: family for family, aliases in {"Extrusion Kit": ("Extrusion Kit", "Extrusion Kits", "extrusion-kit", "extrusion-kits"), "Driver": ("Driver", "Drivers", "driver", "drivers"), "Controller": ("Controller", "Controllers", "controller", "controllers")}.items() for alias in aliases},
 		"Linear Fixture": "Linear Fixture",
 		"Linear Fixtures": "Linear Fixture",
 		"linear-fixture": "Linear Fixture",

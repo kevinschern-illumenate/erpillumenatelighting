@@ -867,7 +867,7 @@ def _map_neon_selections(template, selections: dict) -> tuple[dict, list]:
         fixture_length_value = 0
 
     # IP rating — resolve from an explicit IP selection, otherwise map the
-    # environment (Dry → IP20, Damp → IP54, Wet → IP67), then template
+    # environment (Dry → IP20, Damp → IP54, Wet → IP67, Wet+ → IP68), then template
     # default, then a hard fallback.  Always yields a valid IP Rating document
     # name so the segment insert never fails with "Could not find … IP Rating".
     ip_rating = _resolve_ip_rating_from_selection(template, selections)
@@ -1020,14 +1020,16 @@ def _resolve_neon_attribute(
 # Maps an Environment Rating (by document name, lower-cased) to the IP Rating
 # document name used on tape/neon configured records.  The Webflow "Dry/Wet"
 # environment step is the user-facing control; the configured record needs a
-# concrete IP rating.  Indoor/dry installs default to IP20, damp to IP54, and
-# wet/outdoor to IP67.  Synonyms are included so either naming style resolves.
+# concrete IP rating.  A rating whose code is an IP number (Dry 20, Damp 54,
+# Wet 67, Wet+ 68) maps to that IP rating directly; this table is the fallback
+# for names, with synonyms so either naming style resolves.
 _ENVIRONMENT_TO_IP_RATING = {
     "dry": "IP20",
     "indoor": "IP20",
     "interior": "IP20",
     "damp": "IP54",
     "wet": "IP67",
+    "wet+": "IP68",
     "outdoor": "IP67",
     "exterior": "IP67",
 }
@@ -1040,7 +1042,7 @@ def _resolve_environment_rating_name(selections: dict) -> str:
     """Resolve the environment selection to an Environment Rating document name.
 
     The Webflow page may send the environment as a document name ("Dry"), a
-    short code ("I", "D", "O"), or a label — in either ``environment_rating``
+    short code ("20", "67"; formerly "I", "O"), or a label — in either ``environment_rating``
     or ``environment_rating_code``.  Returns the document name, or "".
     """
     doctype = "ilL-Attribute-Environment Rating"
@@ -1076,7 +1078,7 @@ def _resolve_ip_rating_from_selection(template, selections: dict) -> str:
 
     Resolution order:
       1. An explicit IP Rating selection (some pages send IP directly).
-      2. Map the environment (Dry/Damp/Wet) selection → IP rating.
+      2. Map the environment (Dry/Damp/Wet/Wet+) selection → IP rating.
       3. The template's default IP Rating allowed option.
       4. A sensible hard fallback (IP67 → IP65 → …).
 
@@ -1093,11 +1095,12 @@ def _resolve_ip_rating_from_selection(template, selections: dict) -> str:
     if explicit:
         return explicit
 
-    # 2. Environment → IP rating mapping
+    # 2. Environment → IP rating: its IP-number code (Wet+ 68 → IP68), then the name table
     env_name = _resolve_environment_rating_name(selections)
     if env_name:
+        code = str(frappe.db.get_value("ilL-Attribute-Environment Rating", env_name, "code") or "").strip()
         mapped = _ENVIRONMENT_TO_IP_RATING.get(env_name.strip().lower())
-        resolved = _first_existing_ip_rating(mapped)
+        resolved = _first_existing_ip_rating(f"IP{code}" if code.isdigit() else "", mapped)
         if resolved:
             return resolved
 
