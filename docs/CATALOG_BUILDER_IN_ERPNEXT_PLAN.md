@@ -3,11 +3,22 @@
 Status: **approved for implementation** (owner answers recorded 2026-10-05).
 Hand-off document for an engineer or coding agent with **no prior context**.
 
-**Session 1 source-review note:** §7.4 says `frappe.get_all` applies row-level user
+**Session 1 source-review correction (applied in §7.4):** the original plan said `frappe.get_all` applies row-level user
 permissions. The installed Frappe v16 source explicitly sets `ignore_permissions=True`
-in `get_all`. Session 2 must use `frappe.get_list` for the user-scoped live reference
-and adjust its tests accordingly. Session 1 serves only the role-gated snapshot;
+in `get_all`. Session 2 uses `frappe.get_list` for the user-scoped live reference
+and tests that it never calls `get_all`. Session 1 serves only the role-gated snapshot;
 this correction does not change its scope.
+
+**Session 2 implementation note:** shared pure catalog logic now lives in
+`illumenate_lighting/illumenate_lighting/catalog_authoring/`; the CLI re-exports it.
+The live picker uses `get_list`, filters field permissions, and full copies apply
+`apply_fieldlevel_read_permissions()` before reduction. ERP drafts preserve but
+ignore `add_to_reference`. Session 2 was branched from Session 1 while its PR was
+open; merge Session 1 first, then retarget the Session 2 PR to `main`.
+Local Frappe v16 verification used 2,331 synthetic Items: uncached reference 0.088 s,
+JSON 511,327 bytes, and Chromium datalist keydown-to-next-frame latency 37.5 ms
+median / 47.2 ms p95 over 30 keystrokes. Keep the datalist; production/staging
+measurement remains part of Session 5.
 
 ## How to use this document
 
@@ -982,7 +993,7 @@ def live_reference():
 			and (doctype not in SUMMARY_ONLY or f["fieldtype"] in SHORT_TYPES)
 			and live.has_field(f["fieldname"])
 		]
-		rows = frappe.get_all(doctype, fields=["name", *fields], limit_page_length=0, order_by="name asc")
+		rows = frappe.get_list(doctype, fields=["name", *fields], limit_page_length=0, order_by="name asc")
 		doctypes[doctype] = {
 			"source": "live",
 			"exported_on": now,
@@ -995,7 +1006,7 @@ Notes and decisions:
 
 - Standard fields like `item_code` are DB columns, so `has_field` covers the explicit
   standard subset too. For `Item`, `name == item_code`; that is fine.
-- `get_all` applies **user permissions** (row-level); `has_permission(doctype, "read")`
+- `get_list` applies **user permissions** (row-level); `get_all` bypasses them. `has_permission(doctype, "read")`
   is the DocType-level check. Catalog Publisher has read on everything listed after
   Session 3's patch; until then, `skipped` may list some DocTypes — the UI must show it.
 - Values `0` are dropped to keep the payload small; `referenceSummary` already ignores
@@ -1062,11 +1073,11 @@ Rebuild: `npm run build:erp` and commit the bundle.
 - `tools/fixture_builder/tests`: unchanged, green; plus one new test asserting
   `tools.fixture_builder.catalog.prepare_catalog is illumenate_lighting.illumenate_lighting.catalog_authoring.catalog.prepare_catalog`.
 - `tests/portal_unit/test_catalog_builder.py`: `live_reference()` with mocked
-  `frappe.db.exists`, `has_permission`, `get_meta().has_field`, `get_all`:
+  `frappe.db.exists`, `has_permission`, `get_meta().has_field`, `get_list`:
   output shape (`source: "live"`, records keyed by name, no `name` inside records),
-  Currency/long-text fields not requested (`get_all.call_args.kwargs["fields"]`),
+  Currency/long-text fields not requested (`get_list.call_args.kwargs["fields"]`),
   unreadable DocType in `skipped`, `Item Price` never queried, cache hit skips
-  `get_all`, `refresh=1` bypasses cache. `record()`: rejects non-schema DocTypes and
+  `get_list`, `refresh=1` bypasses cache. `record()`: rejects non-schema DocTypes and
   child tables; strips audit fields.
 - `tests/catalog.test.js`: `unconfirmedLinks` flags typos for `source: 'live'`;
   `isComplete`.

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState, useId } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { parse, stringify } from 'yaml';
 import schema from './catalog-schema.json';
 import examples from './catalog-examples.json';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
-  inReference, referenceSummary, withReferenceLinks, unconfirmedLinks,
+  inReference, referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
   catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey,
 } from './catalog-model.js';
 import './catalog.css';
@@ -14,6 +14,8 @@ const STORAGE = 'illumenate-product-catalog-v2';
 const PENDING = 'illumenate-erp-reference-pending';
 const parentTypes = Object.keys(schema.doctypes).filter(name => !schema.doctypes[name].istable);
 const shortName = name => name.replace(/^ilL-/, '');
+// The server timestamp is already in the site's timezone; keep that clock time.
+const loadedTime = timestamp => timestamp?.slice(11, 16) || 'unknown';
 
 function restore() {
   try {
@@ -116,17 +118,17 @@ export function RecordFields({ doctype, row, onChange, catalog, reference = null
   </div>;
 }
 
-/** Existing ERPNext records of one DocType, from the checked-in export snapshot. */
-function ReferencePanel({ doctype, reference, onCopy }) {
+/** Existing ERPNext records of one DocType, from a snapshot or the live site. */
+function ReferencePanel({ doctype, reference, onCopy, copying }) {
   const [query, setQuery] = useState('');
   const entry = reference?.doctypes?.[doctype];
   if (!entry) return null;
   const names = Object.keys(entry.records);
   const needle = query.trim().toLowerCase();
   const matches = names.filter(name => !needle || `${name} ${JSON.stringify(entry.records[name])}`.toLowerCase().includes(needle));
-  const partial = entry.source !== 'export';
+  const partial = !isComplete(entry);
   return <details className="catalog-reference">
-    <summary>{names.length} existing in ERPNext <span>export of {entry.exported_on || reference.exported_on}{partial ? ' · only records that exported records link to' : ''}</span></summary>
+    <summary>{names.length} existing in ERPNext <span>{entry.source === 'live' ? `Live from ERPNext · loaded ${loadedTime(entry.exported_on)}` : `export of ${entry.exported_on || reference.exported_on}`}{partial ? ' · only records that exported records link to' : ''}</span></summary>
     <p>Link to these from your new records instead of re-creating them; linked names count as existing ERPNext records.
       {partial ? '' : ' Copy one to start a new record from its values.'}</p>
     <input aria-label={`Search existing ${shortName(doctype)} records`} placeholder="Search existing records…" value={query} onChange={e => setQuery(e.target.value)} />
@@ -134,13 +136,13 @@ function ReferencePanel({ doctype, reference, onCopy }) {
       <strong>{name}</strong><small>{referenceSummary(doctype, entry.records[name], schema)}</small>
       {referenceOrigin(reference, doctype, name) && <small className="catalog-origin">
         {referenceOrigin(reference, doctype, name).pending ? 'Pending import · ' : ''}added from catalog {referenceOrigin(reference, doctype, name).catalog}</small>}
-      {!partial && <button onClick={() => onCopy(entry.records[name])}>Copy as new record</button>}
+      {!partial && <button disabled={Boolean(copying)} onClick={() => onCopy(name, entry.records[name])}>{copying === name ? 'Copying…' : 'Copy as new record'}</button>}
     </div>)}</div>
     {matches.length > 100 && <p>Showing 100 of {matches.length}. Refine the search to see more.</p>}
   </details>;
 }
 
-export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' }) {
+export default function CatalogApp({ onLegacy, loadReference, fetchRecord, mode = 'vercel' }) {
   const [workspace, setWorkspace] = useState(restore);
   const [selected, setSelected] = useState('Item');
   const [search, setSearch] = useState('');
@@ -151,16 +153,33 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
   const [undo, setUndo] = useState(null);
   const [exported, setExported] = useState(null);
   const [pending, setPending] = useState(restorePending);
+  const [referenceLoading, setReferenceLoading] = useState(false);
+  const [referenceError, setReferenceError] = useState('');
+  const [copying, setCopying] = useState(null);
   const fileInput = useRef(null);
-  useEffect(() => {
-    // The ERPNext records are large, so they load after the editor opens.
-    loadReference().then(data => {
+  const referenceRequest = useRef(0);
+  const loadExisting = useCallback(async (options) => {
+    const request = ++referenceRequest.current;
+    setReferenceLoading(true);
+    setReferenceError('');
+    try {
+      const data = await loadReference(options);
+      if (request !== referenceRequest.current) return;
+      if (data?.unavailable) throw new Error('Existing ERPNext records are unavailable. Declare existing records manually.');
       setExported(data);
-      if (data?.unavailable) setMessage('Existing ERPNext records are unavailable. Declare existing records manually.');
-    })
-      .catch(() => setMessage('Existing ERPNext records could not be loaded. Declare existing records manually.'));
+    } catch (error) {
+      if (request === referenceRequest.current) setReferenceError(error.message || 'Existing ERPNext records could not be loaded.');
+    } finally {
+      if (request === referenceRequest.current) setReferenceLoading(false);
+    }
   }, [loadReference]);
-  const catalog = workspace.drafts[workspace.active] || emptyCatalog(workspace.active);
+  useEffect(() => {
+    loadExisting();
+    return () => { referenceRequest.current += 1; };
+  }, [loadExisting]);
+  const catalog = useMemo(() => workspace.drafts[workspace.active] || emptyCatalog(workspace.active), [workspace]);
+  const currentDraft = useRef(null);
+  currentDraft.current = { catalog, active: workspace.active, selected };
   const product = schema.products[workspace.active];
   const setCatalog = next => setWorkspace(previous => ({ ...previous, drafts: { ...previous.drafts, [previous.active]: next } }));
   useEffect(() => {
@@ -168,15 +187,16 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
     catch { setMessage('Browser storage is full or unavailable. Download YAML to save your work.'); }
   }, [workspace]);
   useEffect(() => {
+    if (mode === 'erp') return;
     try { localStorage.setItem(PENDING, JSON.stringify(pending)); } catch { /* Pending additions are a convenience. */ }
-  }, [pending]);
-  const known = useMemo(() => mergeAdditions(exported, pending, schema), [exported, pending]);
+  }, [pending, mode]);
+  const known = useMemo(() => mergeAdditions(exported, mode === 'erp' ? [] : pending, schema), [exported, pending, mode]);
   // This catalog's own earlier additions must not count as existing records while it is edited.
   const reference = useMemo(() => excludeCatalog(known, catalog), [known, catalog]);
   const ownPending = known?.catalog_additions?.filter(row => row.pending) || [];
   const resolved = useMemo(() => withReferenceLinks(catalog, schema, reference), [catalog, reference]);
   const yaml = useMemo(() => '# ilLumenate product catalog — validate and generate with tools.fixture_builder\n' + stringify(resolved, { lineWidth: 0 }), [resolved]);
-  const issues = useMemo(() => catalogIssues(catalog, schema, reference), [catalog, reference]);
+  const issues = useMemo(() => catalogIssues(mode === 'erp' ? { ...catalog, add_to_reference: false } : catalog, schema, reference), [catalog, reference, mode]);
   const missing = useMemo(() => unresolvedLinks(catalog, schema, reference), [catalog, reference]);
   const unconfirmed = useMemo(() => unconfirmedLinks(catalog, reference), [catalog, reference]);
   const fromErp = Object.values(resolved.external_links).reduce((sum, names) => sum + names.length, 0)
@@ -187,6 +207,21 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
   const rows = catalog.records[selected] || [];
   const filename = `${(catalog.series_name || workspace.active).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-catalog.yaml`;
   const replaceRows = next => setCatalog({ ...catalog, records: { ...catalog.records, [selected]: next } });
+  const copyRecord = async (name, summary) => {
+    const target = currentDraft.current;
+    setCopying(name);
+    try {
+      const record = fetchRecord ? await fetchRecord(selected, name) : summary;
+      const latest = currentDraft.current;
+      if (latest.catalog !== target.catalog || latest.active !== target.active || latest.selected !== target.selected) {
+        setMessage('The draft changed while the record was loading. Copy again to add it to the current draft.');
+        return;
+      }
+      replaceRows([...rows, asNewRecord(selected, record)]);
+      setMessage(`Copied into a new ${shortName(selected)} record. Give it a new name before importing.`);
+    } catch (error) { setMessage(error.message || 'The ERPNext record could not be copied.'); }
+    finally { setCopying(null); }
+  };
   const importFile = async event => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -209,11 +244,11 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
         <button onClick={() => download(yaml, filename)}>Save draft</button>
         <button className="catalog-primary" disabled={issues.length > 0} onClick={() => {
           download(yaml, filename);
-          if (catalog.add_to_reference) {
+          if (mode !== 'erp' && catalog.add_to_reference) {
             const addition = catalogAddition(catalog, schema, new Date().toISOString().slice(0, 10));
             setPending(previous => [...previous.filter(row => row.catalog !== addition.catalog), addition]);
           }
-          setMessage(catalog.add_to_reference
+          setMessage(mode !== 'erp' && catalog.add_to_reference
             ? 'Catalog downloaded and added to the ERPNext reference in this browser. The CLI adds it to the shared reference when it generates the import package.'
             : 'Catalog downloaded. Run the command below for engineering validation and CSV generation.');
         }}>Download catalog</button>
@@ -229,12 +264,12 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
     {message && <div className="catalog-notice" role="status">{message}<button onClick={() => setMessage('')} aria-label="Dismiss message">×</button></div>}
     <div className="catalog-toolbar">
       <label>Catalog name <input value={catalog.series_name} onChange={e => setCatalog({ ...catalog, series_name: e.target.value })} placeholder="Your product family" /></label>
-      <label className="catalog-add-reference" title="Use this when you will import the package, so later catalogs can link to these records">
+      {mode !== 'erp' && <label className="catalog-add-reference" title="Use this when you will import the package, so later catalogs can link to these records">
         <input type="checkbox" checked={Boolean(catalog.add_to_reference)} onChange={e => {
           const next = { ...catalog };
           if (e.target.checked) next.add_to_reference = true; else delete next.add_to_reference;
           setCatalog(next);
-        }} /> Add to ERPNext reference after import</label>
+        }} /> Add to ERPNext reference after import</label>}
       <span>{total} records · {issues.length} checks to resolve</span>
       <button onClick={() => setConfirm({ title: 'Replace this draft with an illustrative example? Review engineering values before using it.', run: () => {
         setCatalog(structuredClone(examples[workspace.active])); setSelected(product.template); setUndo(null);
@@ -251,7 +286,7 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
         <div className="catalog-section-title"><div><h2>{shortName(selected)}</h2><p>{rows.length} records in this catalog</p></div>
           <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)])}>+ Add record</button></div>
         <ReferencePanel key={selected} doctype={selected} reference={reference}
-          onCopy={record => { replaceRows([...rows, asNewRecord(selected, record)]); setMessage(`Copied into a new ${shortName(selected)} record. Give it a new name before importing.`); }} />
+          onCopy={copyRecord} copying={copying} />
         <input className="catalog-field-search" aria-label="Find a field" placeholder="Find a field by name…" value={fieldSearch} onChange={e => setFieldSearch(e.target.value)} />
         {!rows.length && <div className="catalog-empty"><h3>Add your first {shortName(selected)} record</h3><p>Use the current ERPNext fields below, or load an example to explore a complete product setup.</p></div>}
         {rows.map((row, index) => <section className="catalog-record" key={index}>
@@ -263,10 +298,13 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
         {undo && <button onClick={() => { setCatalog(undo); setUndo(null); }}>Undo record removal</button>}
       </main>
       <aside className="catalog-review">
-        <h2>Import readiness</h2><p>Each link must point to a record in this catalog, a record in the ERPNext export, or a record you confirm already exists in ERPNext.</p>
-        <p>{reference ? `${fromErp} links resolve to existing ERPNext records (export of ${reference.exported_on}).` : 'Loading existing ERPNext records…'}</p>
-        {catalog.add_to_reference && <p className="catalog-ok">On download, this catalog's records become existing ERPNext records for your other catalogs. Import the package into ERPNext and commit the reference file the CLI updates.</p>}
-        {ownPending.length > 0 && <details><summary>{ownPending.length} {ownPending.length === 1 ? 'catalog' : 'catalogs'} pending in this browser</summary>
+        <h2>Import readiness</h2><p>Each link must point to a record in this catalog, a record in {mode === 'erp' ? 'the live ERPNext list' : 'the ERPNext export'}, or a record you confirm already exists in ERPNext.</p>
+        <p>{reference ? `${fromErp} links resolve to existing ERPNext records (${reference.source === 'live' ? `live from ERPNext, loaded ${loadedTime(reference.exported_on)}` : `export of ${reference.exported_on}`}).` : referenceLoading ? 'Loading existing ERPNext records…' : 'Existing ERPNext records have not loaded.'}</p>
+        {referenceError && <p role="alert">{referenceError}</p>}
+        {mode === 'erp' && <button disabled={referenceLoading} onClick={() => loadExisting({ refresh: true })}>{referenceLoading ? 'Loading ERPNext records…' : 'Refresh ERPNext records'}</button>}
+        {reference?.skipped?.length > 0 && <details><summary>No read access to {reference.skipped.length} DocTypes</summary><p>No read access to: {reference.skipped.join(', ')}</p></details>}
+        {mode !== 'erp' && catalog.add_to_reference && <p className="catalog-ok">On download, this catalog's records become existing ERPNext records for your other catalogs. Import the package into ERPNext and commit the reference file the CLI updates.</p>}
+        {mode !== 'erp' && ownPending.length > 0 && <details><summary>{ownPending.length} {ownPending.length === 1 ? 'catalog' : 'catalogs'} pending in this browser</summary>
           <p>These count as existing until the shared reference includes them.</p>
           {ownPending.map(row => <div className="catalog-link" key={row.catalog}><strong>{row.catalog}</strong>
             <small>{Object.values(row.records).reduce((sum, names) => sum + names.length, 0)} records · {row.added_on}{row.catalog === catalogKey(catalog) ? ' · this catalog' : ''}</small>
@@ -276,8 +314,8 @@ export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' })
           <strong>{link.name}</strong><small>{link.doctype || 'Select the Dynamic Link DocType first'}</small>
           {link.doctype && <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [link.doctype]: [...(catalog.external_links[link.doctype] || []), link.name] } })}>Use existing ERPNext record</button>}
         </div>)}</details>}
-        {unconfirmed.length > 0 && <details open><summary>{unconfirmed.length} declared records not in the ERPNext export</summary>
-          <p>Check for a typo, or confirm the record was created after the export.</p>
+        {unconfirmed.length > 0 && <details open><summary>{unconfirmed.length} declared records not in {mode === 'erp' ? 'the live ERPNext list' : 'the ERPNext export'}</summary>
+          <p>{mode === 'erp' ? 'Check for a typo, refresh the list, or confirm you have read access to the record.' : 'Check for a typo, or confirm the record was created after the export.'}</p>
           {unconfirmed.map(link => <div className="catalog-link" key={`${link.doctype}/${link.name}`}><strong>{link.name}</strong><small>{link.doctype}</small></div>)}</details>}
         <details><summary>Declared existing ERPNext records ({Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0)})</summary>
           {Object.entries(catalog.external_links).flatMap(([doctype, names]) => names.map(name => <div className="catalog-link" key={`${doctype}/${name}`}><strong>{name}</strong><small>{doctype}</small>

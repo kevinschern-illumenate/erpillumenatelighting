@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { parse, stringify } from 'yaml';
 import {
   blankRecord, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
-  inReference, referenceSummary, withReferenceLinks, unconfirmedLinks,
+  inReference, referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
   catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin,
 } from '../src/catalog-model.js';
 
@@ -106,4 +106,13 @@ test('catalogs added to the reference count as existing for other catalogs only'
   assert.equal(mergeAdditions(logged, [addition], schema), logged);
   assert.ok(catalogIssues({ ...tape, series_name: '' }, schema).includes('Name the catalog to add it to the ERPNext reference'));
   assert.throws(() => parseCatalog(stringify({ ...tape, add_to_reference: 'yes' }), parse, schema));
+});
+
+test('live lists confirm existing records and flag declared names they do not contain', () => {
+  const catalog = { external_links: { Item: ['EXISTS', 'TYPO'], Brand: ['Unknown'] } };
+  const reference = { doctypes: { Item: { source: 'live', records: { EXISTS: {} } } } };
+  assert.deepEqual(unconfirmedLinks(catalog, reference), [{ doctype: 'Item', name: 'TYPO' }]);
+  for (const source of ['live', 'export']) assert.equal(isComplete({ source }), true);
+  for (const source of ['linked', 'catalog', undefined]) assert.equal(isComplete({ source }), false);
+  assert.equal(isComplete(undefined), false);
 });

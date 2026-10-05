@@ -1,3 +1,6 @@
+export const completeSources = new Set(['export', 'live']);
+export function isComplete(entry) { return completeSources.has(entry?.source); }
+
 export function recordName(doctype, row, schema) {
   const rule = schema.doctypes[doctype]?.autoname || '';
   if (rule.startsWith('field:')) return String(row[rule.slice(6)] || '');
@@ -115,10 +118,10 @@ export function withReferenceLinks(catalog, schema, reference) {
   return { ...catalog, external_links: external };
 }
 
-/** Declared existing records missing from a fully exported DocType: likely typos. */
+/** Declared existing records missing from a complete reference list: review spelling or access. */
 export function unconfirmedLinks(catalog, reference) {
   return Object.entries(catalog.external_links || {}).flatMap(([doctype, names]) =>
-    reference?.doctypes?.[doctype]?.source === 'export'
+    isComplete(reference?.doctypes?.[doctype])
       ? names.filter(name => !inReference(reference, doctype, name)).map(name => ({ doctype, name })) : []);
 }
 

@@ -14,9 +14,13 @@ try {
   const { default: CatalogApp, RecordFields } = await server.ssrLoadModule('/src/CatalogApp.jsx');
   const loadReference = () => new Promise(() => {});
   const shell = renderToStaticMarkup(React.createElement(CatalogApp, { onLegacy() {}, loadReference }));
+  assert.ok(shell.includes('Add to ERPNext reference after import'));
+  assert.ok(!shell.includes('Refresh ERPNext records'));
   for (const product of Object.values(schema.products)) assert.ok(shell.includes(product.label));
   const { default: Workspace } = await server.ssrLoadModule('/src/Workspace.jsx');
   const erpShell = renderToStaticMarkup(React.createElement(Workspace, { loadReference, mode: 'erp' }));
+  assert.ok(erpShell.includes('Refresh ERPNext records'));
+  assert.ok(!erpShell.includes('Add to ERPNext reference after import'));
   assert.ok(erpShell.includes('Download catalog') && erpShell.includes('YAML Builder'));
   for (const [product, catalog] of Object.entries(examples)) {
     for (const [doctype, records] of Object.entries(catalog.records)) {
@@ -52,9 +56,26 @@ try {
       return { ok: true, json: async () => ({ message: reference }) };
     };
     assert.deepEqual(await mounted.loadReference(), reference);
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, '/api/reference?refresh=1');
+      assert.equal(options.credentials, 'same-origin');
+      return { ok: true, json: async () => ({ message: reference }) };
+    };
+    assert.deepEqual(await mounted.loadReference({ refresh: true }), reference);
+    const fullRecord = { profile: 'A&B', compatible_lenses: [{ lens: 'OPAL' }] };
+    globalThis.fetch = async (url, options) => {
+      const parsed = new URL(url, 'https://example.test');
+      assert.equal(parsed.pathname, '/api/method/illumenate_lighting.illumenate_lighting.api.catalog_builder.record');
+      assert.equal(parsed.searchParams.get('doctype'), 'ilL-Rel-Profile Lens');
+      assert.equal(parsed.searchParams.get('name'), 'A&B +/?');
+      assert.equal(options.credentials, 'same-origin');
+      return { ok: true, json: async () => ({ message: fullRecord }) };
+    };
+    assert.deepEqual(await mounted.fetchRecord('ilL-Rel-Profile Lens', 'A&B +/?'), fullRecord);
     for (const status of [401, 403, 500]) {
       globalThis.fetch = async () => ({ ok: false, status });
       await assert.rejects(mounted.loadReference(), status === 500 ? /500/ : /Reload the page/);
+      await assert.rejects(mounted.fetchRecord('Item', 'test'), status === 500 ? /500/ : /Reload the page/);
     }
   } finally {
     ReactDOM.createRoot = originalCreateRoot;
