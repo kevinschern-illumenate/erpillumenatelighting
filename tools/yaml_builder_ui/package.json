@@ -13,6 +13,7 @@
     "build:erp": "npm run schema:check && vite build --config vite.erp.config.js",
     "test": "node --test tests/*.test.js",
     "test:render": "node tests/render.mjs",
+    "test:browser": "node tests/erp-browser.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
