@@ -1457,7 +1457,7 @@ body.reorder-no-select {
 										<option value="">{{ _("Select Fixture Template...") }}</option>
 									</select>
 								</div>
-								<!-- Tape/Neon Template dropdown (shown when LED Tape or LED Neon selected) -->
+								<!-- Tape/Neon Template dropdown (shown when LED Tape, COB Tape or LED Neon selected) -->
 								<div class="form-group tape-neon-template-group" style="display: none;">
 									<label>{{ _("Product Series") }}</label>
 									<div id="add_tape_neon_template_cards"></div>
@@ -1529,7 +1529,7 @@ body.reorder-no-select {
 							</div>
 						</div>
 
-						<!-- Fixture configure section (shown for Linear Fixtures, LED Tape, LED Neon) -->
+						<!-- Fixture configure section (shown for Linear Fixtures, LED Tape, COB Tape, LED Neon) -->
 						<div class="fixture-configure-section" style="display: none;">
 							<div class="alert alert-info" id="addLineConfigureInfo">
 								<i class="fa fa-info-circle"></i> 
@@ -2067,17 +2067,12 @@ $('#add_product_type').on('change', function() {
 		$('.fixture-configure-section').show();
 		loadFixtureTemplates(productType);
 	} else if (isTapeNeonType) {
-		// LED Tape / LED Neon — show tape/neon template dropdown + configure section
+		// LED Tape / COB Tape / LED Neon — show tape/neon template dropdown + configure section
 		$('.tape-neon-template-group').show();
 		$('.fixture-configure-section').show();
 		loadTapeNeonTemplates(productType);
-		// Update configure button text for tape/neon
-		var categoryLabel = ($selected.text() || '').trim();
-		if (categoryLabel.toLowerCase().indexOf('neon') !== -1) {
-			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Neon Now") }}');
-		} else {
-			$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure LED Tape Now") }}');
-		}
+		// Update configure button text for the tape/neon category
+		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configureTapeNeonLabel(tapeNeonCategoryOf($selected)));
 	} else if (isLedSheetType) {
 		// LED Sheet — show LED Sheet template dropdown + configure section
 		$('.led-sheet-template-group').show();
@@ -2116,14 +2111,26 @@ function loadFixtureTemplates(productType) {
 	});
 }
 
+// Template category (LED Tape, COB Tape or LED Neon) of a Product Category option.
+// The server names it; older payloads fall back to the group's label.
+function tapeNeonCategoryOf($option) {
+	var category = $option.data('tape-neon-category');
+	if (category) return category;
+	var label = ($option.text() || '').trim().toLowerCase();
+	if (label.indexOf('neon') !== -1) return 'LED Neon';
+	if (label.indexOf('cob') !== -1) return 'COB Tape';
+	return 'LED Tape';
+}
+
+function configureTapeNeonLabel(category) {
+	if (category === 'LED Neon') return '{{ _("Configure LED Neon Now") }}';
+	if (category === 'COB Tape') return '{{ _("Configure COB Tape Now") }}';
+	return '{{ _("Configure LED Tape Now") }}';
+}
+
 // Load tape/neon templates from the server
 function loadTapeNeonTemplates(productType) {
-	// Determine the product category from the product type name
-	var productCategory = 'LED Tape';
-	var label = ($('#add_product_type option:selected').text() || '').trim().toLowerCase();
-	if (label.indexOf('neon') !== -1) {
-		productCategory = 'LED Neon';
-	}
+	var productCategory = tapeNeonCategoryOf($('#add_product_type option:selected'));
 
 	$('#add_tape_neon_template').html('<option value="">{{ _("Loading...") }}</option>');
 	
@@ -2193,8 +2200,7 @@ $('#add_tape_neon_template').on('change', function() {
 			$('#tape_neon_info_desc').hide();
 		}
 		// Update configure button text based on category
-		var configLabel = category === 'LED Neon' ? '{{ _("Configure LED Neon Now") }}' : '{{ _("Configure LED Tape Now") }}';
-		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configLabel);
+		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configureTapeNeonLabel(category));
 	} else {
 		$('.tape-neon-template-info').hide();
 	}
@@ -2349,8 +2355,8 @@ function loadProductCategories() {
 					} else if (pt.level === 2) {
 						indent = '        └─ ';
 					}
-					// Store is_fixture_type, is_tape_neon_type, is_led_sheet_type as data attributes
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+					// Store is_fixture_type, is_tape_neon_type, tape_neon_category, is_led_sheet_type as data attributes
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + (pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -2683,7 +2689,7 @@ function addLine() {
 			data.fixture_template = form.find('[name="fixture_template"]').val();
 			data.configuration_status = 'Pending';
 		} else if (isTapeNeonType) {
-			// LED Tape / LED Neon path - uses tape/neon template and configurator
+			// LED Tape / COB Tape / LED Neon path - uses tape/neon template and configurator
 			var tapeNeonTemplate = form.find('[name="tape_neon_template"]').val();
 			if (!tapeNeonTemplate) {
 				frappe.msgprint({
@@ -2831,7 +2837,7 @@ function configureFromAddModal() {
 	var selector = fixture ? '[name="fixture_template"]' : '[name="tape_neon_template"]';
 	var template = form.find(selector).val();
 	if (!template) { frappe.msgprint(__('Select a product before configuring.')); return; }
-	var category = fixture ? 'Linear Fixture' : (option.text().toLowerCase().includes('neon') ? 'LED Neon' : 'LED Tape');
+	var category = fixture ? 'Linear Fixture' : tapeNeonCategoryOf(option);
 	startConfigurationDraft(category, form.find(selector + ' option:selected').data('template-code') || template);
 }
 function configureLedSheetFromAddModal() {

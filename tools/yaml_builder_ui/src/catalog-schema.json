@@ -1367,7 +1367,7 @@
           "fieldname": "product_type",
           "label": "Product Type",
           "fieldtype": "Select",
-          "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nComponent\nAccessory",
+          "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nCOB Tape\nComponent\nAccessory",
           "reqd": 1
         }
       ]
@@ -4615,9 +4615,9 @@
           "fieldname": "product_category",
           "label": "Product Category",
           "fieldtype": "Select",
-          "options": "LED Tape\nLED Neon",
+          "options": "LED Tape\nCOB Tape\nLED Neon",
           "default": "LED Tape",
-          "description": "Product category this tape belongs to (LED Tape or LED Neon)"
+          "description": "Product category this tape belongs to (LED Tape, COB Tape or LED Neon)"
         },
         {
           "fieldname": "leader_cable_item",
@@ -5126,7 +5126,7 @@
           "fieldname": "product_category",
           "label": "Product Category",
           "fieldtype": "Select",
-          "options": "LED Tape\nLED Neon",
+          "options": "LED Tape\nCOB Tape\nLED Neon",
           "reqd": 1,
           "default": "LED Tape",
           "description": "Product category this template belongs to"
@@ -5406,7 +5406,7 @@
           "fieldname": "product_type",
           "label": "Product Type",
           "fieldtype": "Select",
-          "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
+          "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nCOB Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
           "reqd": 1
         },
         {

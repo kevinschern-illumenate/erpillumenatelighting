@@ -250,12 +250,12 @@ assert "<script>bad()" not in quote_request_html
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
 configurator = environment.get_template("templates/pages/configure.html")
-for category in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
+for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
 	context = dict(
 		product_category=category,
 		is_led_sheet=category == "LED Sheet",
-		is_tape_neon=category in {"LED Tape", "LED Neon"},
-		is_tape=category == "LED Tape",
+		is_tape_neon=category in {"LED Tape", "COB Tape", "LED Neon"},
+		is_tape=category in {"LED Tape", "COB Tape"},
 		is_neon=category == "LED Neon",
 		has_templates=True,
 		templates=[],
@@ -324,7 +324,7 @@ with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools")
 		path.write_text(source, encoding="utf8")
 		subprocess.run(["node", "--check", str(path)], check=True)
 print(
-	f"Parsed {parsed} Jinja templates; rendered quotes and eight configurator modes; checked {len(parser.sources)} embedded scripts"
+	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts"
 )
 
 shipment = SimpleNamespace(

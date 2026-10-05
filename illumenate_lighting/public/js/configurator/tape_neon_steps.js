@@ -7,7 +7,7 @@
  *
  * Usage:
  *   var inst = new IllConfigurator.TapeNeon(rootEl, {
- *       product_category: 'LED Tape',
+ *       product_category: 'LED Tape',   // or 'COB Tape' / 'LED Neon'
  *       is_neon: false,
  *       schedule_name: '...',
  *       project_name: '...',
@@ -792,7 +792,7 @@
 				handlerSelections.mounting_accessory_total_msrp = this.selectedMountingAccessory.total_msrp;
 			}
 			this.context.saveHandler({
-				product_type: this.IS_NEON ? 'LED Neon' : 'LED Tape',
+				product_type: this.PRODUCT_CATEGORY,
 				result: resultToSave,
 				selections: handlerSelections,
 				segments: this.lastCalcSegments || null,

@@ -35,6 +35,7 @@
 	var PRODUCT_TYPES = [
 		{ value: 'Linear Fixture', label: __('Linear Fixture') },
 		{ value: 'LED Tape',       label: __('LED Tape') },
+		{ value: 'COB Tape',       label: __('COB Tape') },
 		{ value: 'LED Neon',       label: __('LED Neon') },
 		{ value: 'LED Sheet',      label: __('LED Sheet') }
 	];
@@ -815,7 +816,7 @@
 		var c = this.controls;
 		if (!this.productType) {
 			frappe.msgprint({ title: __('Select a product type'), indicator: 'orange',
-				message: __('Please choose Linear Fixture, LED Tape, LED Neon or LED Sheet.') });
+				message: __('Please choose Linear Fixture, LED Tape, COB Tape, LED Neon or LED Sheet.') });
 			return;
 		}
 		var fixtureType = (c.fixture_type.get_value() || '').trim();
@@ -931,7 +932,7 @@
 			selected_template: (this.initialRequest || {}).template,
 			groups_enabled: !!(this.context && this.context.groups_enabled),
 			is_neon: this.productType === 'LED Neon',
-			is_tape: this.productType === 'LED Tape',
+			is_tape: this.productType === 'LED Tape' || this.productType === 'COB Tape',
 			is_tape_neon: !fixture && !sheet,
 			has_templates: !!$host.find('[name=fixture_template_code] option[value!=""]').length,
 			schedule_name: '',

@@ -219,7 +219,7 @@
       // the required set is only known server-side. Let the backend decide and
       // report any missing steps.
       required = [];
-    } else if (productType === 'LED Neon' || productType === 'LED Tape') {
+    } else if (productType === 'LED Neon' || productType === 'LED Tape' || productType === 'COB Tape') {
       required = ['cct', 'output_level', 'finish', 'length_inches'];
     } else {
       required = [
@@ -269,7 +269,7 @@
           msg = 'Enter the Sheet coverage width and height, then select its specification and options.';
         } else if (isVariantProductType(productType)) {
           msg = 'Please complete your configuration before downloading a spec sheet.';
-        } else if (productType === 'LED Neon' || productType === 'LED Tape') {
+        } else if (productType === 'LED Neon' || productType === 'LED Tape' || productType === 'COB Tape') {
           msg = 'Please complete your configuration before downloading a spec sheet.\n\n' +
             'Required: CCT, Output, Finish, and Length.';
         } else {

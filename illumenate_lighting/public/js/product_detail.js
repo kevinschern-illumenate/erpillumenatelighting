@@ -174,6 +174,7 @@ var LAST_SCHEDULE_KEY = 'ill-last-schedule';
 var FAMILY_LABELS = {
 	'Linear Fixture': 'linear fixture',
 	'LED Tape': 'LED tape',
+	'COB Tape': 'COB tape',
 	'LED Neon': 'LED neon',
 	'LED Sheet': 'LED sheet'
 };

@@ -5,6 +5,7 @@
     var SHARED = {
         'Linear Fixture': ['finish_code', 'lens_appearance_code', 'mounting_method_code', 'environment_rating_code', 'endcap_color_code', 'tape_offering_id', 'led_package_code', 'cct_code', 'delivered_output_value'],
         'LED Tape': ['cct', 'output_level', 'environment_rating', 'finish', 'tape_spec', 'mounting_accessory_item', 'mounting_accessory_qty', 'pcb_finish', 'pcb_mounting'],
+        'COB Tape': ['cct', 'output_level', 'environment_rating', 'finish', 'tape_spec', 'mounting_accessory_item', 'mounting_accessory_qty', 'pcb_finish', 'pcb_mounting'],
         'LED Neon': ['cct', 'output_level', 'environment_rating', 'finish', 'tape_spec', 'mounting_accessory_item', 'mounting_accessory_qty', 'pcb_finish', 'pcb_mounting'],
         'LED Sheet': ['spec', 'options']
     };

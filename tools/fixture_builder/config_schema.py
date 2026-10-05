@@ -179,7 +179,7 @@ class TapeSpecDef:
     """One ilL-Spec-LED Tape row."""
     item_code: str = ""                          # e.g. "TAPE-FS-24V-4.4W"
     led_package: str = ""                        # e.g. "FS"
-    product_category: str = "LED Tape"           # "LED Tape" or "LED Neon"
+    product_category: str = "LED Tape"           # "LED Tape", "COB Tape" or "LED Neon"
     input_voltage: str = "24V DC"
     watts_per_foot: float = 0.0
     voltage_drop_max_run_length_ft: float = 0.0  # max run before voltage drop issues
@@ -250,7 +250,7 @@ class TapeNeonTemplateDef:
     """One ilL-Tape-Neon-Template row."""
     template_code: str = ""              # e.g. "ILL-TNF-FS"
     template_name: str = ""
-    product_category: str = "LED Tape"   # "LED Tape" or "LED Neon"
+    product_category: str = "LED Tape"   # "LED Tape", "COB Tape" or "LED Neon"
     series: str = ""
     default_tape_spec: str = ""
     base_price_msrp: float = 0.0

@@ -2364,7 +2364,7 @@ function tnUpdateSaveButtonVisibility() {
 }
 
 // ═════════════════════════════════════════════════════════════════════
-// BULK REEL MODE (LED Tape only)
+// BULK REEL MODE (LED Tape / COB Tape only)
 // ═════════════════════════════════════════════════════════════════════
 
 function setTapeMode(mode) {
@@ -2574,7 +2574,7 @@ function bulkReelSave() {
 		frappe.msgprint(__('Cannot save: please calculate first to validate the configuration'));
 		return;
 	}
-	if (context.saveHandler) return context.saveHandler({product_type: 'LED Tape',
+	if (context.saveHandler) return context.saveHandler({product_type: productCategory,
 		selections: lastBulkSelections, tape_neon_template: lastBulkTemplate, validation: bulkReelCurrentResult, instance: self});
 	var selectedSchedule = $('#scheduleSelect').val();
 	var selectedLine = $('#lineSelect').val();
@@ -2587,7 +2587,7 @@ function bulkReelSave() {
 		return;
 	}
 	self.saveScheduleConfiguration({
-		family: 'LED Tape', schedule_name: selectedSchedule,
+		family: productCategory, schedule_name: selectedSchedule,
 		template: lastBulkTemplate, selections: lastBulkSelections
 	});
 }

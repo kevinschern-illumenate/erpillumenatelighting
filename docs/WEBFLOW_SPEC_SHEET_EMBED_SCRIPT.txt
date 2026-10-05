@@ -289,7 +289,7 @@
     var productType = getProductType();
     var required;
 
-    if (productType === 'LED Neon' || productType === 'LED Tape') {
+    if (productType === 'LED Neon' || productType === 'LED Tape' || productType === 'COB Tape') {
       // Backend validate_neon_configuration hard-requires only cct + output_level.
       // - mounting was removed from the neon configurator entirely
       // - finish has a full spec-search fallback when not supplied
