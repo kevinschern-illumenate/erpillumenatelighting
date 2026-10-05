@@ -10,7 +10,11 @@ import json
 
 import frappe
 
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_NEON_CATEGORIES,
+	fingerprint,
+	same_template_family,
+)
 from illumenate_lighting.illumenate_lighting.api.product_projection import project_product, safe_document_url
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
@@ -39,6 +43,7 @@ def authoring_preview(doctype, name):
 TEMPLATES = {
 	"Fixture Template": ("fixture_template", "ilL-Fixture-Template", "allowed_tape_offerings"),
 	"LED Tape": ("tape_neon_template", "ilL-Tape-Neon-Template", "allowed_tape_specs"),
+	"COB Tape": ("tape_neon_template", "ilL-Tape-Neon-Template", "allowed_tape_specs"),
 	"LED Neon": ("tape_neon_template", "ilL-Tape-Neon-Template", "allowed_tape_specs"),
 	"LED Sheet": ("led_sheet_template", "ilL-LED-Sheet-Template", "allowed_specs"),
 	"Driver": ("driver_template", "ilL-Driver-Template", "variants"),
@@ -243,9 +248,8 @@ def evaluate(product, channel="cms"):
 				for row in template.get(choices) or []
 			):
 				issue(template.name, choices, "Add at least one active compatible specification")
-			if (
-				product.product_type in ("LED Tape", "LED Neon")
-				and template.product_category != product.product_type
+			if product.product_type in TAPE_NEON_CATEGORIES and not same_template_family(
+				product.product_type, template.product_category
 			):
 				issue(template.name, "product_category", "Template family does not match product")
 			if channel == "pdf" or (product.is_configurable and channel in ("cms", "portal")):

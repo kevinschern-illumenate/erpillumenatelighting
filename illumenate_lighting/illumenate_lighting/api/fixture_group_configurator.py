@@ -5,6 +5,7 @@ import json
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_NEON_CATEGORIES,
 	canonical_json,
 	fingerprint,
 	finite_number,
@@ -127,7 +128,7 @@ def calculate(request):
 	template_doc = frappe.get_doc(TEMPLATE_TYPES[family], template)
 	if not template_doc.get("is_active"):
 		raise ValueError("This group template is unavailable")
-	if family in {"LED Tape", "LED Neon"} and template_doc.product_category != family:
+	if family in TAPE_NEON_CATEGORIES and template_doc.product_category != family:
 		raise ValueError("Group template does not match its family")
 	members, circuits, components, breakdown = [], [], [], []
 	compatibility = None

@@ -13,7 +13,7 @@
    "fieldname": "family",
    "fieldtype": "Select",
    "label": "Family",
-   "options": "Any\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet\nExtrusion Kit\nDriver\nController",
+   "options": "Any\nLinear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet\nExtrusion Kit\nDriver\nController",
    "reqd": 1,
    "in_list_view": 1,
    "default": "Any"
@@ -22,7 +22,7 @@
  "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-10-01 12:00:00.000000",
+ "modified": "2026-10-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Finder-Family",

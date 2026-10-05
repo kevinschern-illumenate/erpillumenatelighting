@@ -8,6 +8,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
+
 # Conversion constant: millimeters per foot
 MM_PER_FOOT = 304.8
 
@@ -163,7 +165,7 @@ class ilLProjectFixtureSchedule(Document):
 				if line.get("configured_group"):
 					continue
 				# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
-				if line.product_type in ("LED Tape", "LED Neon", "Extrusion Kit"):
+				if line.product_type in (*TAPE_NEON_CATEGORIES, "Extrusion Kit"):
 					if not line.variant_selections and not line.get("configured_tape_neon"):
 						line_id = line.line_id or f"Row {line.idx}"
 						unconfigured_lines.append(line_id)
@@ -547,7 +549,7 @@ class ilLProjectFixtureSchedule(Document):
 				pt = line.product_type
 				if line.get("configured_group"):
 					summary["groups"] = summary.get("groups", 0) + 1
-				elif pt in ("LED Tape", "LED Neon"):
+				elif pt in TAPE_NEON_CATEGORIES:
 					if line.variant_selections or line.get("configured_tape_neon"):
 						summary["tape_neon"] += 1
 					else:
@@ -669,8 +671,8 @@ class ilLProjectFixtureSchedule(Document):
 				counts["tape_neon"] += 1
 				continue
 
-			# ── ilLumenate: LED Tape / LED Neon ───────────────────────
-			if mt == "ILLUMENATE" and line.product_type in ("LED Tape", "LED Neon"):
+			# ── ilLumenate: LED Tape / COB Tape / LED Neon ────────────
+			if mt == "ILLUMENATE" and line.product_type in TAPE_NEON_CATEGORIES:
 				if not line.variant_selections:
 					counts["skipped"] += 1
 					counts["messages"].append(

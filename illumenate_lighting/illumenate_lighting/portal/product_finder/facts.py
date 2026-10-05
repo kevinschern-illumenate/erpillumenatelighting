@@ -5,6 +5,7 @@ from time import time_ns
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_DOCTYPES, TEMPLATE_FIELDS
 from illumenate_lighting.illumenate_lighting.portal.product_finder.facets import FACETS
 
@@ -17,6 +18,12 @@ TEMPLATES = {
 		"ilL-Child-Template-Allowed-TapeOffering",
 	),
 	"LED Tape": (
+		"ilL-Tape-Neon-Template",
+		"tape_neon_template",
+		"ilL-Child-Tape-Neon-Allowed-Option",
+		"ilL-Child-Tape-Neon-Allowed-Spec",
+	),
+	"COB Tape": (
 		"ilL-Tape-Neon-Template",
 		"tape_neon_template",
 		"ilL-Child-Tape-Neon-Allowed-Option",
@@ -204,7 +211,7 @@ def build_facts():
 					tables["ilL-Attribute-Output Level"].get(offering.get("output_level"), {}).get("value"),
 				)
 				light_specs.append(tables["ilL-Spec-LED Tape"].get(offering.get("tape_spec"), {}))
-			elif family in ("LED Tape", "LED Neon"):
+			elif family in TAPE_NEON_CATEGORIES:
 				light = tables["ilL-Spec-LED Tape"].get(row.get("tape_spec"), {})
 				if active(light):
 					add("environment_rating", row.get("environment_rating"))
@@ -221,7 +228,7 @@ def build_facts():
 			if family == "LED Sheet":
 				for facet in ("cct", "cri", "ip_rating"):
 					add(facet, light.get(facet), "spec")
-		if family in ("LED Tape", "LED Neon") and not values["lumens_per_ft"]:
+		if family in TAPE_NEON_CATEGORIES and not values["lumens_per_ft"]:
 			for light in filter(active, light_specs):
 				add("lumens_per_ft", light.get("lumens_per_foot"), "spec")
 		if family in ("Driver", "Controller"):

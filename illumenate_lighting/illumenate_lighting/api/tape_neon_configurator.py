@@ -2,10 +2,10 @@
 # For license information, please see license.txt
 
 """
-LED Tape & LED Neon Configurator Engine API
+LED Tape, COB Tape & LED Neon Configurator Engine API
 
 Provides the configuration, validation, and part-number-building flow for:
-  - LED Tape (standalone tape reels, not assembled into a fixture)
+  - LED Tape / COB Tape (standalone tape reels; COB Tape configures exactly like LED Tape)
   - LED Neon (silicone neon extrusion products with endcaps and segments)
 
 Both product types follow a similar step-by-step selection process to build a
@@ -40,10 +40,15 @@ from frappe.utils import flt, now
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+    LED_NEON,
+    LED_TAPE,
+    TAPE_NEON_CATEGORIES,
     canonical_json,
     fingerprint,
+    is_tape_category,
     optional_positive,
     parse_bool,
+    spec_categories_for,
 )
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows, enabled_tape_specs
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
@@ -413,7 +418,10 @@ def validate_tape_configuration(
     override_max_run_ft: float | str | None = None,
 ) -> dict:
     """
-    Validate a complete LED Tape configuration and compute manufacturable length.
+    Validate a complete LED Tape or COB Tape configuration and compute manufacturable length.
+
+    The product category comes from *tape_neon_template* (LED Tape when no
+    tape template is given); COB Tape configures exactly like LED Tape.
 
     Selections dict keys:
       - environment_rating     (str)
@@ -453,7 +461,8 @@ def validate_tape_configuration(
       - resolved tape spec + tape offering + leader cable item
     """
     from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
-    require_configuration("LED Tape")
+    product_category = _template_tape_category(tape_neon_template)
+    require_configuration(product_category)
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
     try:
         sel = json.loads(selections) if isinstance(selections, str) else selections
@@ -523,7 +532,7 @@ def validate_tape_configuration(
     #   1. Template's allowed specs for the selected environment rating,
     #      narrowed by any PCB mounting/finish selection
     #   2. Same specs, PCB filters dropped
-    #   3. All LED Tape specs (only when the template constrains nothing)
+    #   3. All specs of the tape category (only when the template constrains nothing)
     # The environment filter is never dropped: the rating is the tape's IP
     # rating, so a spec tagged for another environment is a different product.
     # Scoping to the template is what stops e.g. a Tunable White request from
@@ -585,9 +594,9 @@ def validate_tape_configuration(
 
     # Global fallback — only when the template did not constrain the search.
     if not tape_offering and not template_scoped:
-        logger.info("validate_tape: looking for tape specs with category=LED Tape (no mounting filter)")
+        logger.info(f"validate_tape: looking for tape specs with category={product_category} (no mounting filter)")
         all_matching_specs = _find_all_matching_tape_specs(
-            product_category="LED Tape",
+            product_category=spec_categories_for(product_category),
         )
         spec_names = [s.name for s in all_matching_specs]
         logger.info(f"validate_tape: found {len(all_matching_specs)} matching tape specs: {spec_names}")
@@ -789,7 +798,8 @@ def validate_tape_configuration(
                                                 lead_length_inches,
                                                 computed_segments,
                                                 is_free_cutting=is_free_cutting,
-                                                cut_increment_mm=cut_increment_mm)
+                                                cut_increment_mm=cut_increment_mm,
+                                                product_category=product_category)
 
     # ── Resolved items ────────────────────────────────────────────────
     # The tape item is from the tape spec, leader cable item is also on the spec
@@ -800,7 +810,7 @@ def validate_tape_configuration(
         "success": True,
         "is_valid": True,
         "messages": messages,
-        "product_category": "LED Tape",
+        "product_category": product_category,
         "part_number": part_number,
         "build_description": build_description,
         "computed": {
@@ -1426,7 +1436,7 @@ def _trusted_tape_neon_result(configured_name):
 
 
 def _write_tape_neon_line(line, result: dict, template_name: str = None, variant_extra: dict = None) -> None:
-    """Write a validated LED Tape / LED Neon result onto a schedule line.
+    """Write a validated LED Tape / COB Tape / LED Neon result onto a schedule line.
 
     Shared by ``save_tape_to_schedule``, ``save_tape_neon_template_to_schedule``
     and the desk configurator. Sets the product/configured links, part number,
@@ -1487,7 +1497,7 @@ def save_tape_to_schedule(
     Save a validated LED Tape or LED Neon configuration to a fixture schedule line.
 
     Stores:
-      - product_type = "LED Tape" or "LED Neon"
+      - product_type = "LED Tape", "COB Tape" or "LED Neon"
       - part number as the configured fixture reference
       - build description in notes
       - manufacturable length
@@ -1594,7 +1604,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
     items_added = 0
     messages = []
 
-    if product_category == "LED Tape":
+    if is_tape_category(product_category):
         lead_length_in = computed.get("lead_length_inches", 0)
         mfg_length_in = computed.get("manufacturable_length_in", 0)
 
@@ -1702,14 +1712,14 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
       ccts, output_levels, ip_ratings, feed_directions, finishes,
       endcap_styles
     """
-    if product_category not in ("LED Tape", "LED Neon"):
+    if product_category not in TAPE_NEON_CATEGORIES:
         return {"success": False, "error": f"Invalid product category: {product_category}"}
 
-    is_neon = product_category == "LED Neon"
+    is_neon = product_category == LED_NEON
 
     tape_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
-        filters={"product_category": product_category},
+        filters={"product_category": ["in", list(spec_categories_for(product_category))]},
         fields=[
             "name", "item", "led_package", "input_voltage",
             "watts_per_foot", "cut_increment_mm", "is_free_cutting",
@@ -1822,12 +1832,12 @@ def get_tape_neon_spec_cascading(
     different or no pcb_mounting / pcb_finish values.  The physical spec is
     resolved at validation time from the offering itself.
     """
-    if product_category not in ("LED Tape", "LED Neon"):
+    if product_category not in TAPE_NEON_CATEGORIES:
         return {"success": False, "error": f"Invalid product category: {product_category}"}
 
     matching_specs = frappe.get_all(
         "ilL-Spec-LED Tape",
-        filters={"product_category": product_category},
+        filters={"product_category": ["in", list(spec_categories_for(product_category))]},
         fields=["name", "item"],
         ignore_permissions=True,
     )
@@ -1915,7 +1925,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
         return {"success": False, "error": f"Template '{template_code}' not found or inactive"}
     template = template[0]
 
-    product_category = template.product_category  # "LED Tape" or "LED Neon"
+    product_category = template.product_category  # "LED Tape", "COB Tape" or "LED Neon"
     is_neon = product_category == "LED Neon"
 
     # ── Allowed tape specs ────────────────────────────────────────────
@@ -3135,6 +3145,18 @@ def _compute_run_split(
     }
 
 
+def _template_tape_category(tape_neon_template: str | None) -> str:
+    """The tape category (LED Tape or COB Tape) a tape configuration builds.
+
+    Taken from the template so a COB Tape template's builds, Items and schedule
+    lines are COB Tape; LED Tape without a template or for any other value.
+    """
+    if not tape_neon_template:
+        return LED_TAPE
+    category = frappe.db.get_value("ilL-Tape-Neon-Template", tape_neon_template, "product_category")
+    return category if is_tape_category(category) else LED_TAPE
+
+
 def _parse_tape_length(sel: dict) -> Optional[float]:
     """Parse the tape length from user selections into millimeters."""
     unit = sel.get("tape_length_unit", "in")
@@ -3336,13 +3358,18 @@ def _search_offering_plan(plan: list, output_level: str, logger, log_prefix: str
 
 
 def _find_all_matching_tape_specs(
-    product_category: str,
+    product_category: str | tuple,
     pcb_mounting: str = None,
     pcb_finish: str = None,
 ) -> list:
-    """Find all ilL-Spec-LED Tape records matching the given filters."""
+    """Find all ilL-Spec-LED Tape records matching the given filters.
+
+    *product_category* is one spec category or a tuple of them (see
+    ``spec_categories_for``).
+    """
     logger = frappe.logger("tape_neon_configurator", allow_site=True)
-    filters: dict[str, Any] = {"product_category": product_category}
+    category_filter = ["in", list(product_category)] if isinstance(product_category, tuple | list) else product_category
+    filters: dict[str, Any] = {"product_category": category_filter}
     if pcb_mounting:
         filters["pcb_mounting"] = pcb_mounting
     if pcb_finish:
@@ -3366,7 +3393,7 @@ def _find_all_matching_tape_specs(
         # Log all available specs for debugging
         all_specs = frappe.get_all(
             "ilL-Spec-LED Tape",
-            filters={"product_category": product_category},
+            filters={"product_category": category_filter},
             fields=["name", "pcb_mounting", "pcb_finish"],
         )
         logger.warning(
@@ -3724,9 +3751,9 @@ def _build_tape_part_number(
 
 def _build_tape_description(
     sel, tape_spec, tape_offering, mfg_length_mm, lead_length_in, segments=None,
-    is_free_cutting=None, cut_increment_mm=None,
+    is_free_cutting=None, cut_increment_mm=None, product_category=LED_TAPE,
 ) -> str:
-    """Build a human-readable description for LED Tape configuration.
+    """Build a human-readable description for an LED Tape / COB Tape configuration.
 
     *is_free_cutting* / *cut_increment_mm* carry the effective values resolved
     by the caller (template flag and offering override applied); they fall back
@@ -3737,7 +3764,7 @@ def _build_tape_description(
     if cut_increment_mm is None:
         cut_increment_mm = tape_spec.cut_increment_mm
     lines = []
-    lines.append(f"LED Tape: {_spec_item_code(tape_spec)}")
+    lines.append(f"{product_category}: {_spec_item_code(tape_spec)}")
     if sel.get("environment_rating"):
         lines.append(f"Environment: {sel['environment_rating']}")
     lines.append(f"CCT: {sel.get('cct', '-')}")
@@ -3921,7 +3948,7 @@ def get_mounting_accessories(
 
     Args:
         template_code: The ilL-Tape-Neon-Template template_code (or name)
-        product_category: Optional filter — "LED Tape" or "LED Neon"
+        product_category: Optional filter — "LED Tape", "COB Tape" or "LED Neon"
         length_mm: Total tape/neon length in mm (for qty calculation)
         environment_rating: Optional environment rating filter (LED Tape)
         segments: Number of neon segments (for PER_SEGMENT rule)

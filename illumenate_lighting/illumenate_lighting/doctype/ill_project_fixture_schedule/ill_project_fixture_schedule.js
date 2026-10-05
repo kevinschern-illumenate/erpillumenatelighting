@@ -111,6 +111,7 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 					!line.configured_fixture &&
 					!(line.product_type === "Extrusion Kit" && line.variant_selections) &&
 					!(line.product_type === "LED Tape" && line.variant_selections) &&
+					!(line.product_type === "COB Tape" && line.variant_selections) &&
 					!(line.product_type === "LED Neon" && line.variant_selections) &&
 					!(line.product_type === "LED Sheet" && line.configured_led_sheet)
 				) {

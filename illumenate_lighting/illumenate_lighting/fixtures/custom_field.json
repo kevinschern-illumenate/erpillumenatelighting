@@ -23,7 +23,7 @@
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
-		"options": "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet",
+		"options": "\nLinear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet",
 		"insert_after": "ill_fixture_type",
 		"read_only": 1
 	},
@@ -485,7 +485,7 @@
 		"fieldname": "ill_product_type",
 		"fieldtype": "Select",
 		"label": "Configured Product Type",
-		"options": "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet",
+		"options": "\nLinear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet",
 		"insert_after": "ill_fixture_type",
 		"read_only": 1
 	},

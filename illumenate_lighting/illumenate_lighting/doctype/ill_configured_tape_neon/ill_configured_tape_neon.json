@@ -149,7 +149,7 @@
             "in_list_view": 1,
             "in_standard_filter": 1,
             "label": "Product Category",
-            "options": "LED Tape\nLED Neon",
+            "options": "LED Tape\nCOB Tape\nLED Neon",
             "reqd": 1
         },
         {
@@ -212,20 +212,20 @@
             "options": "ilL-Attribute-Output Level"
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "fieldname": "tape_options_section",
             "fieldtype": "Section Break",
-            "label": "LED Tape Options"
+            "label": "Tape Options"
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "fieldname": "environment_rating",
             "fieldtype": "Link",
             "label": "Environment Rating",
             "options": "ilL-Attribute-Environment Rating"
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "description": "PCB mounting method (e.g. Rigid, Flex)",
             "fieldname": "pcb_mounting",
             "fieldtype": "Data",
@@ -233,7 +233,7 @@
             "label": "PCB Mounting"
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "description": "PCB color/finish (e.g. White, Black)",
             "fieldname": "pcb_finish",
             "fieldtype": "Data",
@@ -245,14 +245,14 @@
             "fieldtype": "Column Break"
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "fieldname": "feed_type",
             "fieldtype": "Link",
             "label": "Power Feed Type",
             "options": "ilL-Attribute-Power Feed Type"
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "default": "End Feed",
             "fieldname": "feed_direction",
             "fieldtype": "Data",
@@ -260,7 +260,7 @@
             "read_only": 1
         },
         {
-            "depends_on": "eval:doc.product_category=='LED Tape'",
+            "depends_on": "eval:['LED Tape','COB Tape'].includes(doc.product_category)",
             "fieldname": "lead_length_inches",
             "fieldtype": "Float",
             "label": "Lead Length (inches)"
@@ -624,7 +624,7 @@
     "grid_page_length": 50,
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-03-10 00:00:00.000000",
+    "modified": "2026-10-05 12:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-Configured-Tape-Neon",

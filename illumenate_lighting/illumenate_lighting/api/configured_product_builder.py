@@ -6,7 +6,7 @@ Product" tool.
 
 This sits in front of the existing engines:
     - ``configurator_engine``        (Linear Fixture)
-    - ``tape_neon_configurator``     (LED Tape, LED Neon)
+    - ``tape_neon_configurator``     (LED Tape, COB Tape, LED Neon)
     - ``tape_neon_bom``              (tape/neon BOM)
     - ``manufacturing_generator``    (fixture Item / BOM)
 
@@ -42,6 +42,7 @@ from illumenate_lighting.illumenate_lighting.api import (
 )
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+    TAPE_CATEGORIES,
     finite_number,
     optional_positive,
     parse_bool,
@@ -54,9 +55,11 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
     _create_or_get_configured_item,
     _create_or_get_configured_tape_neon_item,
     _ensure_item_group_exists,
+    configured_tape_neon_item_group,
     ensure_configured_item_price,
 )
 from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
+    PRODUCT_TYPE_COB_TAPE,
     PRODUCT_TYPE_FIXTURE,
     PRODUCT_TYPE_NEON,
     PRODUCT_TYPE_SHEET,
@@ -117,7 +120,7 @@ def calculate_and_lookup(
     record so the UI can offer a "reuse" path.
 
     Args:
-        product_type: ``"Linear Fixture"``, ``"LED Tape"``, or ``"LED Neon"``.
+        product_type: ``"Linear Fixture"``, ``"LED Tape"``, ``"COB Tape"`` or ``"LED Neon"``.
         payload_json: Engine arguments as a JSON string or dict.  Shape
             depends on ``product_type`` — see ``_dispatch_calculate``.
         parent_configured_fixture: Set when calculating a variant of an
@@ -764,6 +767,12 @@ def _check_parent_builds(fixture, tape_neon):
             _get_required_doc(doctype, name, "parent configuration")
 
 
+def _require_category_template(product_type: str, tape_neon_template: str | None) -> None:
+    """COB Tape takes its category from its template; without one it would build as LED Tape."""
+    if product_type == PRODUCT_TYPE_COB_TAPE and not tape_neon_template:
+        frappe.throw(_("Choose a COB Tape product series to configure COB Tape."))
+
+
 def _assert_builder_supported(product_type: str) -> None:
     """Every supported family has an explicit adapter; never fall through to neon."""
     if product_type not in PRODUCT_TYPES:
@@ -812,7 +821,8 @@ def _dispatch_calculate(
     if isinstance(selections, dict):
         selections = json.dumps(selections)
 
-    if product_type == PRODUCT_TYPE_TAPE:
+    if product_type in TAPE_CATEGORIES:
+        _require_category_template(product_type, tape_neon_template)
         return tape_neon_configurator.validate_tape_configuration(
             selections,
             segments_json=_serialize_json(payload.get("segments_json") or payload.get("segments")),
@@ -876,7 +886,8 @@ def _dispatch_save(
     if isinstance(selections, dict):
         selections = json.dumps(selections)
 
-    if product_type == PRODUCT_TYPE_TAPE:
+    if product_type in TAPE_CATEGORIES:
+        _require_category_template(product_type, tape_neon_template)
         return tape_neon_configurator.validate_tape_configuration(
             selections,
             segments_json=_serialize_json(payload.get("segments_json") or payload.get("segments")),
@@ -982,10 +993,7 @@ def _ensure_tape_neon_artifacts(configured_tape_neon: str, product_type: str) ->
             configured.name, configured.product_category, product_type
         ))
 
-    is_neon = product_type == PRODUCT_TYPE_NEON
-    _ensure_item_group_exists(
-        CONFIGURED_NEON_ITEM_GROUP if is_neon else CONFIGURED_TAPE_ITEM_GROUP
-    )
+    _ensure_item_group_exists(configured_tape_neon_item_group(product_type))
 
     item_result = _create_or_get_configured_tape_neon_item(configured, skip_if_exists=True)
     if not item_result.get("success"):

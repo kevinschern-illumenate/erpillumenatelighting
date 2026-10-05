@@ -42,7 +42,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			// or LED Tape/Neon with linked tape_neon_template)
 			if (
 				(frm.doc.product_type === "Fixture Template" && frm.doc.fixture_template)
-				|| (["LED Tape", "LED Neon"].includes(frm.doc.product_type) && frm.doc.tape_neon_template)
+				|| (["LED Tape", "COB Tape", "LED Neon"].includes(frm.doc.product_type) && frm.doc.tape_neon_template)
 			) {
 				frm.add_custom_button(__("Export Spec Sheet CSV"), function() {
 					frappe.call({
@@ -151,6 +151,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			"Controller": "controls",
 			"Extrusion Kit": "extrusion-kits",
 			"LED Tape": "components",
+			"COB Tape": "components",
 			"LED Neon": "components",
 			"Component": "components",
 			"Accessory": "components"

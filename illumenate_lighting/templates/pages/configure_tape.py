@@ -9,4 +9,4 @@ no_cache = 1
 
 def get_context(context):
     category = frappe.form_dict.get("category", "LED Tape")
-    redirect_to_configurator(category if category in {"LED Tape", "LED Neon"} else "LED Tape")
+    redirect_to_configurator(category if category in {"LED Tape", "COB Tape", "LED Neon"} else "LED Tape")

@@ -1377,7 +1377,7 @@ def _collect_tape_neon_product_data_indesign(wp_doc):
 	"""
 	tnt_doc = frappe.get_cached_doc("ilL-Tape-Neon-Template", wp_doc.tape_neon_template)
 	attr_links = wp_doc.attribute_links or []
-	is_tape = wp_doc.product_type == "LED Tape"
+	is_tape = wp_doc.product_type in ("LED Tape", "COB Tape")
 
 	# --- Certifications ---
 	certifications = _join_list_values(
@@ -1925,7 +1925,7 @@ def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dic
 	"""
 	wp_doc = frappe.get_doc("ilL-Webflow-Product", webflow_product)
 
-	if wp_doc.product_type in ("LED Tape", "LED Neon"):
+	if wp_doc.product_type in ("LED Tape", "COB Tape", "LED Neon"):
 		if not wp_doc.tape_neon_template:
 			return {"success": False, "error": _("No Tape/Neon Template linked — please set the 'Tape / Neon Template' field to generate a spec sheet.")}
 		# Default to the unified InDesign schema so marketing's data-merge
@@ -1943,7 +1943,7 @@ def export_spec_sheet_csv(webflow_product: str, format: str = "indesign") -> dic
 		else:
 			csv_content = _generate_indesign_csv(wp_doc)
 	else:
-		return {"success": False, "error": _("Spec sheet export is only available for Fixture Template, LED Tape, and LED Neon products.")}
+		return {"success": False, "error": _("Spec sheet export is only available for Fixture Template, LED Tape, COB Tape, and LED Neon products.")}
 
 	slug = wp_doc.product_slug or wp_doc.name
 	fname = f"spec-sheet-{slug}.csv"

@@ -40,7 +40,7 @@ class TestMigrationAssets(IntegrationTestCase):
 			execute()
 			execute()
 			field.reload()
-			self.assertEqual(field.options.split("\n")[-2:], ["Site Product", "LED Sheet"])
+			self.assertEqual(field.options.split("\n")[-3:], ["Site Product", "COB Tape", "LED Sheet"])
 			self.assertEqual(field.label, "Site Product Family")
 			self.assertEqual(frappe.db.count("Custom Field", {"dt": "Sales Order Item"}), count)
 		finally:

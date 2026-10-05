@@ -39,7 +39,18 @@ CONFIGURED_ITEM_GROUP = "Configured Fixtures"
 
 # Item groups for configured tape/neon
 CONFIGURED_TAPE_ITEM_GROUP = "Configured LED Tape"
+CONFIGURED_COB_TAPE_ITEM_GROUP = "Configured COB Tape"
 CONFIGURED_NEON_ITEM_GROUP = "Configured LED Neon"
+CONFIGURED_TAPE_NEON_ITEM_GROUPS = {
+	"LED Tape": CONFIGURED_TAPE_ITEM_GROUP,
+	"COB Tape": CONFIGURED_COB_TAPE_ITEM_GROUP,
+	"LED Neon": CONFIGURED_NEON_ITEM_GROUP,
+}
+
+
+def configured_tape_neon_item_group(product_category):
+	"""Item Group for a configured tape/neon Item of *product_category* (LED Tape by default)."""
+	return CONFIGURED_TAPE_NEON_ITEM_GROUPS.get(product_category, CONFIGURED_TAPE_ITEM_GROUP)
 
 # Brand applied to all configured items so the Pricing Rule can match
 ILLUMENATE_BRAND = "ilLumenate Lighting"
@@ -733,8 +744,7 @@ def _create_or_get_configured_tape_neon_item(
 			return result
 
 	# Determine item group by product category
-	is_neon = configured_tape_neon.product_category == "LED Neon"
-	item_group = CONFIGURED_NEON_ITEM_GROUP if is_neon else CONFIGURED_TAPE_ITEM_GROUP
+	item_group = configured_tape_neon_item_group(configured_tape_neon.product_category)
 
 	# Generate item name and description
 	item_name = _generate_tape_neon_item_name(configured_tape_neon)

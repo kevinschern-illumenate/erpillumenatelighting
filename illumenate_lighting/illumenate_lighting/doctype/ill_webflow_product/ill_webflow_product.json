@@ -114,7 +114,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Product Type",
-   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
+   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nCOB Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
    "reqd": 1
   },
   {
@@ -209,7 +209,7 @@
    "options": "ilL-Spec-LED Tape"
   },
   {
-   "depends_on": "eval:doc.product_type=='LED Tape' || doc.product_type=='LED Neon'",
+   "depends_on": "eval:in_list(['LED Tape','COB Tape','LED Neon'], doc.product_type)",
    "fieldname": "tape_neon_template",
    "fieldtype": "Link",
    "label": "Tape / Neon Template",
@@ -231,7 +231,7 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','LED Sheet','Extrusion Kit','Driver','Controller'], doc.product_type)",
+   "depends_on": "eval:in_list(['Fixture Template','LED Tape','COB Tape','LED Neon','LED Sheet','Extrusion Kit','Driver','Controller'], doc.product_type)",
    "fieldname": "configurator_section",
    "fieldtype": "Section Break",
    "label": "Configurator Settings"
@@ -437,7 +437,7 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
+   "depends_on": "eval:in_list(['Fixture Template','LED Tape','COB Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
    "description": "Data not captured elsewhere \u2014 fill in for spec sheet export",
    "fieldname": "spec_sheet_data_section",
    "fieldtype": "Section Break",
@@ -567,7 +567,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-21 10:00:00.000000",
+ "modified": "2026-10-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

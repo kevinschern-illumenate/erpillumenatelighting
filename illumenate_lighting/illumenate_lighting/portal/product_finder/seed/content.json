@@ -245,6 +245,13 @@
      "description": "Flexible LED strip for coves, shelves and under-cabinet."
     },
     {
+     "value": "COB Tape",
+     "label": "COB Tape",
+     "is_active": 1,
+     "swatch_color": "#fff3d6",
+     "description": "Dot-free COB LED strip for a continuous line of light."
+    },
+    {
      "value": "LED Neon",
      "label": "LED Neon",
      "is_active": 1,
@@ -309,6 +316,9 @@
      "family": "LED Tape"
     },
     {
+     "family": "COB Tape"
+    },
+    {
      "family": "LED Neon"
     }
    ],
@@ -369,6 +379,9 @@
      "family": "LED Tape"
     },
     {
+     "family": "COB Tape"
+    },
+    {
      "family": "LED Neon"
     },
     {
@@ -414,6 +427,9 @@
     },
     {
      "family": "LED Tape"
+    },
+    {
+     "family": "COB Tape"
     },
     {
      "family": "LED Neon"
@@ -479,6 +495,9 @@
     },
     {
      "family": "LED Tape"
+    },
+    {
+     "family": "COB Tape"
     },
     {
      "family": "LED Neon"
@@ -552,6 +571,9 @@
      "family": "LED Tape"
     },
     {
+     "family": "COB Tape"
+    },
+    {
      "family": "LED Neon"
     },
     {
@@ -608,6 +630,9 @@
      "family": "LED Tape"
     },
     {
+     "family": "COB Tape"
+    },
+    {
      "family": "LED Neon"
     }
    ],
@@ -657,6 +682,9 @@
     },
     {
      "family": "LED Tape"
+    },
+    {
+     "family": "COB Tape"
     },
     {
      "family": "LED Neon"
@@ -779,6 +807,9 @@
      "family": "LED Tape"
     },
     {
+     "family": "COB Tape"
+    },
+    {
      "family": "LED Neon"
     },
     {
@@ -822,6 +853,9 @@
     },
     {
      "family": "LED Tape"
+    },
+    {
+     "family": "COB Tape"
     },
     {
      "family": "LED Neon"
@@ -889,6 +923,9 @@
      "family": "LED Tape"
     },
     {
+     "family": "COB Tape"
+    },
+    {
      "family": "LED Neon"
     },
     {
@@ -934,6 +971,9 @@
     },
     {
      "family": "LED Tape"
+    },
+    {
+     "family": "COB Tape"
     },
     {
      "family": "LED Neon"

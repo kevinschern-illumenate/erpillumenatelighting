@@ -19,10 +19,51 @@ FAMILY_ALIASES = {
 	"Linear Fixtures": "Linear Fixture",
 	"Linear Fixture": "Linear Fixture",
 	"LED Tape": "LED Tape",
+	"COB Tape": "COB Tape",
 	"LED Neon": "LED Neon",
 	"LED Sheet": "LED Sheet",
 	"LED Sheets": "LED Sheet",
 }
+
+# ilL-Tape-Neon-Template product categories. COB Tape is its own product family
+# that configures, prices and builds exactly like LED Tape; branch on these
+# groups rather than on the "LED Tape" literal so both categories share one path.
+LED_TAPE, COB_TAPE, LED_NEON = "LED Tape", "COB Tape", "LED Neon"
+TAPE_CATEGORIES = (LED_TAPE, COB_TAPE)
+TAPE_NEON_CATEGORIES = (*TAPE_CATEGORIES, LED_NEON)
+
+
+def is_tape_category(category):
+	"""True for the tape (single-run, environment/PCB/feed-type) categories."""
+	return category in TAPE_CATEGORIES
+
+
+def is_tape_neon_category(category):
+	"""True for every category configured from an ilL-Tape-Neon-Template."""
+	return category in TAPE_NEON_CATEGORIES
+
+
+def same_template_family(product_type, template_category):
+	"""True when a product of *product_type* may use a template of *template_category*.
+
+	Tape products and templates match across LED Tape and COB Tape, so a template
+	can move to COB Tape before the products that link it.
+	"""
+	if is_tape_category(product_type) and is_tape_category(template_category):
+		return True
+	return product_type == template_category
+
+
+def spec_categories_for(category):
+	"""ilL-Spec-LED Tape product categories a template of *category* may use.
+
+	COB Tape templates may keep using specs still filed as LED Tape, so the
+	category can be switched on the template alone; LED Tape templates never
+	pick up specs filed as COB Tape.
+	"""
+	if category == COB_TAPE:
+		return (COB_TAPE, LED_TAPE)
+	return (category,)
 
 
 def parse_bool(value, *, default=False):

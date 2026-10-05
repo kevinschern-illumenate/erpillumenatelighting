@@ -950,7 +950,7 @@ def get_sync_statistics() -> dict:
             stats["products"]["needs_sync"] += count
     
     # Product stats - Count by product type
-    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "LED Neon", "LED Sheet", "Component", "Accessory"]:
+    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Component", "Accessory"]:
         count = frappe.db.count(
             "ilL-Webflow-Product",
             {"product_type": ptype, "is_active": 1}
@@ -1155,7 +1155,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         additional_specs.extend(
             _enrich_controller_template_variants(product, existing_labels)
         )
-    elif product_type in ("LED Tape", "LED Neon") and product.get("tape_neon_template"):
+    elif product_type in ("LED Tape", "COB Tape", "LED Neon") and product.get("tape_neon_template"):
         additional_specs.extend(
             _enrich_tape_neon_template_specs(product, existing_labels, doc)
         )
@@ -1180,6 +1180,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
             "Driver": ["driver_spec", "driver_template"],
             "Controller": ["controller_spec", "controller_template"],
             "LED Tape": ["tape_neon_template", "tape_spec"],
+            "COB Tape": ["tape_neon_template"],
             "LED Neon": ["tape_neon_template"],
             "LED Sheet": ["led_sheet_template"],
             "Component": ["profile_spec"],

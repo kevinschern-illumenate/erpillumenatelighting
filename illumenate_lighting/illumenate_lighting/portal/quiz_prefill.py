@@ -10,6 +10,8 @@ import re
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
+
 # quiz key -> (attribute DocType, linear selection key, tape/neon selection key, linear option list)
 FIELDS = {
 	"moisture": (
@@ -42,7 +44,7 @@ SPECTRUM_TYPES = {
 	"Dim-to-warm": {"Dim to Warm"},
 	"Full-color": {"RGB", "RGB+W", "RGBW", "RGB+TW", "RGBTW"},
 }
-LINEAR, TAPE_NEON = "Linear Fixture", ("LED Tape", "LED Neon")
+LINEAR, TAPE_NEON = "Linear Fixture", TAPE_NEON_CATEGORIES
 
 
 def _norm(value) -> str:

@@ -3,6 +3,7 @@
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
 from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
@@ -743,7 +744,7 @@ def compute_line_msrp(
 		if cls_details is None:
 			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet)
 		unit_price = (cls_details or {}).get("msrp")
-	elif getattr(line, "product_type", None) in ("LED Tape", "LED Neon") and getattr(line, "tape_neon_template", None):
+	elif getattr(line, "product_type", None) in TAPE_NEON_CATEGORIES and getattr(line, "tape_neon_template", None):
 		unit_price = _get_msrp_from_variant_selections(line)
 	elif getattr(line, "product_type", None) == "Extrusion Kit":
 		vs_raw = getattr(line, "variant_selections", None)

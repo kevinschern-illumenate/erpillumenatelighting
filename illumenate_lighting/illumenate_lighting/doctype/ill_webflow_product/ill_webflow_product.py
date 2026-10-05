@@ -4,6 +4,10 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_NEON_CATEGORIES,
+	is_tape_category,
+)
 from illumenate_lighting.illumenate_lighting.api.tape_selection import closest_tape, transmission_fraction
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	format_length_inches,
@@ -73,14 +77,31 @@ class ilLWebflowProduct(Document):
 
 	if TYPE_CHECKING:
 		from frappe.types import DF
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_specification.ill_child_webflow_specification import ilLChildWebflowSpecification
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_configurator_option.ill_child_webflow_configurator_option import ilLChildWebflowConfiguratorOption
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_kit_component.ill_child_webflow_kit_component import ilLChildWebflowKitComponent
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_certification_link.ill_child_webflow_certification_link import ilLChildWebflowCertificationLink
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_compatibility.ill_child_webflow_compatibility import ilLChildWebflowCompatibility
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_gallery_image.ill_child_webflow_gallery_image import ilLChildWebflowGalleryImage
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_document.ill_child_webflow_document import ilLChildWebflowDocument
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_attribute_link.ill_child_webflow_attribute_link import ilLChildWebflowAttributeLink
+
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_attribute_link.ill_child_webflow_attribute_link import (
+			ilLChildWebflowAttributeLink,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_certification_link.ill_child_webflow_certification_link import (
+			ilLChildWebflowCertificationLink,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_compatibility.ill_child_webflow_compatibility import (
+			ilLChildWebflowCompatibility,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_configurator_option.ill_child_webflow_configurator_option import (
+			ilLChildWebflowConfiguratorOption,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_document.ill_child_webflow_document import (
+			ilLChildWebflowDocument,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_gallery_image.ill_child_webflow_gallery_image import (
+			ilLChildWebflowGalleryImage,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_kit_component.ill_child_webflow_kit_component import (
+			ilLChildWebflowKitComponent,
+		)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_specification.ill_child_webflow_specification import (
+			ilLChildWebflowSpecification,
+		)
 
 		accessory_spec: DF.Link | None
 		attribute_links: DF.Table[ilLChildWebflowAttributeLink]
@@ -117,7 +138,7 @@ class ilLWebflowProduct(Document):
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data
-		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "LED Neon", "Component", "Accessory"]
+		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "COB Tape", "LED Neon", "Component", "Accessory"]
 		profile_spec: DF.Link | None
 		series_family_image: DF.AttachImage | None
 		short_description: DF.SmallText | None
@@ -437,8 +458,8 @@ class ilLWebflowProduct(Document):
 		# Handle Extrusion Kit
 		elif self.product_type == "Extrusion Kit":
 			self._populate_extrusion_kit_attributes(attribute_links)
-		# Handle LED Tape / LED Neon via tape_neon_template
-		elif self.product_type in ("LED Tape", "LED Neon") and self.tape_neon_template:
+		# Handle LED Tape / COB Tape / LED Neon via tape_neon_template
+		elif self.product_type in TAPE_NEON_CATEGORIES and self.tape_neon_template:
 			self._populate_tape_neon_template_attributes(attribute_links)
 		elif self.product_type == "LED Sheet" and self.led_sheet_template:
 			self._populate_led_sheet_template_attributes(attribute_links)
@@ -2335,7 +2356,7 @@ class ilLWebflowProduct(Document):
 	def populate_tape_neon_configurator_options(self):
 		"""Populate configurator options from tape/neon template's allowed options.
 
-		LED Tape flow: Environment → CCT → Output → Power Feed Type → Length.
+		LED Tape / COB Tape flow: Environment → CCT → Output → Power Feed Type → Length.
 		LED Neon flow: CCT → Output → Finish → IP Rating → Feed Direction → Length.
 
 		Mounting selection (PCB Mounting for tape, Mounting Method for neon) has been
@@ -2346,7 +2367,7 @@ class ilLWebflowProduct(Document):
 		"""
 		template = frappe.get_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
 
-		if self.product_type == "LED Tape":
+		if is_tape_category(self.product_type):
 			option_flow = [
 				(1, "Environment Rating", "Environment", 0),
 				(2, "CCT", "CCT", 1),

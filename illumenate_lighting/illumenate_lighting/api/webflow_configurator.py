@@ -595,7 +595,7 @@ def download_spec_sheet(
     product = _get_configurable_product(product_slug)
     tape_neon_template = getattr(product, "tape_neon_template", None) if product else None
 
-    if product_type in ("LED Tape", "LED Neon") or (
+    if product_type in ("LED Tape", "COB Tape", "LED Neon") or (
         tape_neon_template and not getattr(product, "fixture_template", None)
     ):
         from illumenate_lighting.illumenate_lighting.api.spec_sheet_generator import (

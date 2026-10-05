@@ -1,6 +1,6 @@
 """Included power supplies as their own schedule lines.
 
-When a dealer includes power for a Linear Fixture, LED Tape, LED Neon or LED
+When a dealer includes power for a Linear Fixture, LED Tape, COB Tape, LED Neon or LED
 Sheet build (single or grouped), the supplies are not folded into the configured
 Item. Every supply the power planner selects becomes an ACCESSORY line directly
 under the fixture line, with the same Fixture Type and Location. Quantity
@@ -22,7 +22,7 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 
-SPLIT_FAMILIES = ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet")
+SPLIT_FAMILIES = ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet")
 SHEET = "LED Sheet"
 # Schedule line fields that tie a power-supply line to its fixture line.
 OWNER_FIELD = "power_supply_for_line"

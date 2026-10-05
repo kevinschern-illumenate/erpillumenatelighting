@@ -61,12 +61,12 @@
                    },
                    {
                        "default":  "LED Tape",
-                       "description":  "Product category this tape belongs to (LED Tape or LED Neon)",
+                       "description":  "Product category this tape belongs to (LED Tape, COB Tape or LED Neon)",
                        "fieldname":  "product_category",
                        "fieldtype":  "Select",
                        "in_list_view":  1,
                        "label":  "Product Category",
-                       "options":  "LED Tape\nLED Neon"
+                       "options":  "LED Tape\nCOB Tape\nLED Neon"
                    },
                    {
                        "description":  "The leader cable Item associated with this tape for sales orders",
@@ -191,7 +191,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-02-10 10:00:00.000000",
+    "modified":  "2026-10-05 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Spec-LED Tape",

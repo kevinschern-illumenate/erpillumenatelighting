@@ -14,7 +14,13 @@ from typing import Union
 import frappe
 from frappe import _
 
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	COB_TAPE,
+	LED_NEON,
+	LED_TAPE,
+	TAPE_NEON_CATEGORIES,
+	parse_bool,
+)
 from illumenate_lighting.illumenate_lighting.utils import (
 	VALID_ACCESS_LEVELS,
 	parse_positive_int,
@@ -627,6 +633,19 @@ def get_template_options(template_code: str) -> dict:
 	return options
 
 
+def tape_neon_category_for_group(name):
+	"""Template category an Item Group's add-line flow uses, or None.
+
+	"LED Tape", "COB Tape" and "LED Neon" groups (and groups named after them,
+	e.g. "LED Tape - Outdoor") pick a Product Series instead of an Item.
+	"""
+	name_lower = (name or "").strip().lower()
+	for category in (COB_TAPE, LED_TAPE, LED_NEON):
+		if name_lower.startswith(category.lower()):
+			return category
+	return None
+
+
 @frappe.whitelist()
 def get_product_types(include_subgroups: bool = True) -> dict:
 	"""
@@ -666,8 +685,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 
 		# Define which item groups should show tape/neon templates instead of items
 		def is_tape_neon_group(name):
-			name_lower = (name or "").lower()
-			return name_lower in ("led tape", "led neon") or name_lower.startswith("led tape") or name_lower.startswith("led neon")
+			return bool(tape_neon_category_for_group(name))
 
 		# Define which item groups should show LED Sheet templates instead of items
 		def is_led_sheet_group(name):
@@ -701,6 +719,8 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"is_header": False,
 					"is_fixture_type": is_fixture_group(child.name) or is_fixture_group(child.item_group_name),
 					"is_tape_neon_type": is_tape_neon_group(child.name) or is_tape_neon_group(child.item_group_name),
+					"tape_neon_category": tape_neon_category_for_group(child.name)
+					or tape_neon_category_for_group(child.item_group_name),
 					"is_led_sheet_type": is_led_sheet_group(child.name) or is_led_sheet_group(child.item_group_name),
 				})
 
@@ -724,6 +744,8 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 							"is_header": False,
 							"is_fixture_type": is_fixture_group(sub.name) or is_fixture_group(sub.item_group_name),
 							"is_tape_neon_type": is_tape_neon_group(sub.name) or is_tape_neon_group(sub.item_group_name),
+							"tape_neon_category": tape_neon_category_for_group(sub.name)
+							or tape_neon_category_for_group(sub.item_group_name),
 							"is_led_sheet_type": is_led_sheet_group(sub.name) or is_led_sheet_group(sub.item_group_name),
 						})
 
@@ -746,6 +768,8 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 								"is_header": False,
 								"is_fixture_type": is_fixture_group(grandchild.name) or is_fixture_group(grandchild.item_group_name),
 								"is_tape_neon_type": is_tape_neon_group(grandchild.name) or is_tape_neon_group(grandchild.item_group_name),
+								"tape_neon_category": tape_neon_category_for_group(grandchild.name)
+								or tape_neon_category_for_group(grandchild.item_group_name),
 								"is_led_sheet_type": is_led_sheet_group(grandchild.name) or is_led_sheet_group(grandchild.item_group_name),
 							})
 
@@ -798,7 +822,15 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 		# ERPNext sites), fall back to well-known selectable categories that
 		# actually exist before using the hardcoded Linear Fixture minimum.
 		if not result:
-			fallback_names = ["Linear Fixture", "Linear Fixtures", "LED Tape", "LED Neon", "LED Sheet", "LED Sheets"]
+			fallback_names = [
+				"Linear Fixture",
+				"Linear Fixtures",
+				"LED Tape",
+				"COB Tape",
+				"LED Neon",
+				"LED Sheet",
+				"LED Sheets",
+			]
 			for group_name in fallback_names:
 				if frappe.db.exists("Item Group", group_name):
 					label = frappe.db.get_value("Item Group", group_name, "item_group_name") or group_name
@@ -812,6 +844,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 						"is_header": False,
 						"is_fixture_type": is_fixture_group(group_name),
 						"is_tape_neon_type": is_tape_neon_group(group_name),
+						"tape_neon_category": tape_neon_category_for_group(group_name),
 						"is_led_sheet_type": is_led_sheet_group(group_name),
 					})
 
@@ -1344,14 +1377,14 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 	Get available tape/neon templates for the schedule add-line modal.
 
 	Args:
-		product_category: "LED Tape" or "LED Neon"
+		product_category: "LED Tape", "COB Tape" or "LED Neon"
 
 	Returns:
 		dict: {
 			"templates": [{"name": template_name, "template_name": name, "template_code": code, "image": url or None, "gallery": [...]}]
 		}
 	"""
-	if product_category not in ("LED Tape", "LED Neon"):
+	if product_category not in TAPE_NEON_CATEGORIES:
 		return {"templates": []}
 
 	templates = frappe.get_all(
@@ -1471,6 +1504,11 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.product_type = line_data.get("product_type")
 			line.fixture_template = line_data.get("fixture_template")
 			line.tape_neon_template = line_data.get("tape_neon_template")
+			if line.tape_neon_template:
+				# The series decides LED Tape / COB Tape / LED Neon, whatever the group is called.
+				category = frappe.db.get_value("ilL-Tape-Neon-Template", line.tape_neon_template, "product_category")
+				if category in TAPE_NEON_CATEGORIES:
+					line.product_type = category
 			line.led_sheet_template = line_data.get("led_sheet_template")
 			line.configuration_status = line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
 

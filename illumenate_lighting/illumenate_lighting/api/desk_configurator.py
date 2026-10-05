@@ -42,6 +42,7 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 	ensure_configured_item_price,
 )
 from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
+	PRODUCT_TYPE_COB_TAPE,
 	PRODUCT_TYPE_FIXTURE,
 	PRODUCT_TYPE_NEON,
 	PRODUCT_TYPE_SHEET,
@@ -71,7 +72,13 @@ PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
 PROJECT_DOCTYPE = "ilL-Project"
 EDITABLE_SCHEDULE_STATUSES = tuple(EDITABLE_STATUSES)
-DESK_PRODUCT_TYPES = (PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON, PRODUCT_TYPE_SHEET)
+DESK_PRODUCT_TYPES = (
+	PRODUCT_TYPE_FIXTURE,
+	PRODUCT_TYPE_TAPE,
+	PRODUCT_TYPE_COB_TAPE,
+	PRODUCT_TYPE_NEON,
+	PRODUCT_TYPE_SHEET,
+)
 DEFAULT_SCHEDULE_NAME = "Main Schedule"
 SCHEDULE_LINE_SAVEPOINT = "ill_desk_cfg_line"
 
@@ -502,6 +509,9 @@ def build_configured_line(
 	product_type = _normalize_product_type(product_type)
 	if product_type not in DESK_PRODUCT_TYPES:
 		return _error(_("{0} is not supported by the desk configurator yet.").format(product_type))
+	from illumenate_lighting.illumenate_lighting.portal.configuration import family_for_template
+
+	product_type = family_for_template(product_type, tape_neon_template)
 
 	qty = finite_number(qty, minimum=1, field="quantity")
 	if not qty.is_integer():

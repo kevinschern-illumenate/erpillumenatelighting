@@ -260,6 +260,7 @@ def generate(
 					field = {
 						"Linear Fixture": "fixture_template",
 						"LED Tape": "tape_neon_template",
+						"COB Tape": "tape_neon_template",
 						"LED Neon": "tape_neon_template",
 						"LED Sheet": "sheet_template",
 					}[configured.family]

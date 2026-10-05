@@ -12,7 +12,7 @@ def execute():
 	from illumenate_lighting.patches.consolidate_section_label_field import _fixture_schedule_field
 
 	fields = _configured_product_fields("ill_fixture_type")
-	fields[0]["options"] = "\nLinear Fixture\nLED Tape\nLED Neon\nLED Sheet"
+	fields[0]["options"] = "\nLinear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet"
 	fields.extend(
 		[
 			{

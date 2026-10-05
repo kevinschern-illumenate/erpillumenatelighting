@@ -6,15 +6,22 @@ import json
 import frappe
 from frappe.utils import quote
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_CATEGORIES,
+	TAPE_NEON_CATEGORIES,
+)
+
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the unified configurator portal page.
 
-	Supports four product categories via ?category= parameter:
+	Supports these product categories via ?category= parameter:
 	  - Linear Fixture (default) – uses ilL-Fixture-Template
 	  - LED Tape – uses ilL-Tape-Neon-Template (product_category='LED Tape')
+	  - COB Tape - uses ilL-Tape-Neon-Template (product_category='COB Tape'),
+	    configured exactly like LED Tape
 	  - LED Neon – uses ilL-Tape-Neon-Template (product_category='LED Neon')
 	  - LED Sheet / LED Sheets – uses ilL-LED-Sheet-Template
 	"""
@@ -154,6 +161,11 @@ def get_context(context):
 		context.title = "Choose a product type"
 		context.no_cache = 1
 		return context
+	# A tape template decides LED Tape vs COB Tape, so older links and schedule
+	# lines that still say LED Tape open a COB Tape template as COB Tape.
+	from illumenate_lighting.illumenate_lighting.portal.configuration import family_for_template
+
+	product_category = family_for_template(product_category, template_code)
 	require_family(product_category)
 	quiz_prefill = None
 	if context.finder and template_code and initial_request is None:
@@ -163,7 +175,7 @@ def get_context(context):
 		session = sessions.get_owned(context.finder)
 		quiz_prefill = prefill_for_template(product_category, template_code, sessions.decoded(session.quiz_answers), server_definition.load())
 		initial_request = {"template": template_code, "selections": quiz_prefill["selections"]}
-	if quiz_handoff and initial_request is None and product_category in ("Linear Fixture", "LED Tape", "LED Neon"):
+	if quiz_handoff and initial_request is None and product_category in ("Linear Fixture", *TAPE_NEON_CATEGORIES):
 		from illumenate_lighting.illumenate_lighting.portal.quiz_prefill import resolve
 
 		quiz_prefill = resolve(product_category, template_code, quiz_handoff)
@@ -186,7 +198,7 @@ def get_context(context):
 			existing_configured_sheet = get_configured_sheet_for_line(
 				schedule_name, int(line_idx)
 			).get("data")
-	elif product_category in ("LED Tape", "LED Neon"):
+	elif product_category in TAPE_NEON_CATEGORIES:
 		templates = _get_tape_neon_templates(product_category)
 
 	# Determine if pricing should be shown based on user role
@@ -199,6 +211,7 @@ def get_context(context):
 		"Controller": "Configure Controller",
 		"Linear Fixture": "Configure Fixture",
 		"LED Tape": "Configure LED Tape",
+		"COB Tape": "Configure COB Tape",
 		"LED Neon": "Configure LED Neon",
 		"LED Sheet": "Configure LED Sheet",
 	}
@@ -208,9 +221,9 @@ def get_context(context):
 	has_templates = bool(templates)
 
 	context.product_category = product_category
-	context.is_tape_neon = product_category in ("LED Tape", "LED Neon")
+	context.is_tape_neon = product_category in TAPE_NEON_CATEGORIES
 	context.is_neon = product_category == "LED Neon"
-	context.is_tape = product_category == "LED Tape"
+	context.is_tape = product_category in TAPE_CATEGORIES
 	context.is_led_sheet = product_category == "LED Sheet"
 	context.has_templates = has_templates
 	context.led_sheet_templates = led_sheet_templates
@@ -262,6 +275,9 @@ def _normalize_product_category(category):
 		"LED Tape": "LED Tape",
 		"LED Tapes": "LED Tape",
 		"led-tape": "LED Tape",
+		"COB Tape": "COB Tape",
+		"COB Tapes": "COB Tape",
+		"cob-tape": "COB Tape",
 		"LED Neon": "LED Neon",
 		"LED Neons": "LED Neon",
 		"led-neon": "LED Neon",
@@ -366,7 +382,7 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 
 	The markup is wired to the IllConfigurator.Fixture / TapeNeon / LedSheet classes:
 	  - Linear Fixture -> templates/includes/configurator_fixture_form.html
-	  - LED Tape / LED Neon -> templates/includes/configurator_tape_neon_form.html
+	  - LED Tape / COB Tape / LED Neon -> templates/includes/configurator_tape_neon_form.html
 	  - LED Sheet -> templates/includes/configurator_led_sheet_form.html
 
 	The caller mounts the returned HTML inside a host element carrying
@@ -410,7 +426,7 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 
 	templates = _get_tape_neon_templates(product_category)
 	context = {
-		"is_tape_neon": True, "is_tape": product_category == "LED Tape", "is_neon": product_category == "LED Neon",
+		"is_tape_neon": True, "is_tape": product_category in TAPE_CATEGORIES, "is_neon": product_category == "LED Neon",
 		"is_led_sheet": False, "product_category": product_category,
 		"title": "Configure " + product_category, "templates": templates, "has_templates": bool(templates),
 		"selected_template": selected_template, "show_pricing": True,
