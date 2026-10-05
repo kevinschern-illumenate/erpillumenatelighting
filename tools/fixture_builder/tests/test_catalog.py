@@ -27,6 +27,13 @@ from tools.fixture_builder.config_schema import load_config
 
 
 class CatalogTests(unittest.TestCase):
+	def test_cli_uses_shared_catalog_implementation(self):
+		from illumenate_lighting.illumenate_lighting.catalog_authoring.catalog import (
+			prepare_catalog as shared,
+		)
+
+		self.assertIs(prepare_catalog, shared)
+
 	@classmethod
 	def setUpClass(cls):
 		cls.schema = build_schema()
