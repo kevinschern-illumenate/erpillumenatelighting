@@ -86,6 +86,7 @@ role_home_page = {
 # Website Route Rules
 # -------------------
 website_route_rules = [
+	{"from_route": "/catalog-builder", "to_route": "catalog_builder"},
 	{"from_route": "/portal/product-verification/<request_name>", "to_route": "product_verification"},
 	{"from_route": "/portal/product-finder", "to_route": "product_finder"},
 	# Portal main pages

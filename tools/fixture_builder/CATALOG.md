@@ -5,6 +5,17 @@ configurators. The app creates configured Items, BOMs, cut plans, project lines,
 and sales transactions when a customer configuration is resolved; these are not
 product onboarding records.
 
+## Builder hosting
+
+Catalog staff can author at `/catalog-builder` on their ERPNext site (enabled
+System User with **ilL Catalog Publisher** or **System Manager**, or Administrator).
+The page loads the same committed reference snapshot as the Vercel editor through
+an authenticated endpoint. No reference records are included in its public bundle.
+Drafts stay in browser storage for that site; use **Save draft** / **Open YAML**
+to move them. Both editors still use the CSV workflow below. Live records and
+server Check/Import are later releases; see the
+[implementation plan](../../docs/CATALOG_BUILDER_IN_ERPNEXT_PLAN.md).
+
 ## Product coverage
 
 | Family | Engineering and template records | Related authoring records |
