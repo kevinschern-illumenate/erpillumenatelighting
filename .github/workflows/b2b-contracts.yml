@@ -49,6 +49,10 @@ jobs:
           npm run test:render --prefix tools/yaml_builder_ui
           npm run build:erp --prefix tools/yaml_builder_ui
           git diff --exit-code illumenate_lighting/public/catalog_builder
+      - name: Catalog Builder browser workflow
+        run: |
+          npm ci --prefix tests/portal_e2e
+          BROWSER_EXECUTABLE="$(command -v google-chrome)" npm run test:browser --prefix tools/yaml_builder_ui
       - name: PDF filler and merger contract
         run: python -B tools/check_pdf_fidelity.py
       - name: Generated spec sheet matches the InDesign golden

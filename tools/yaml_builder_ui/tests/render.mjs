@@ -34,6 +34,9 @@ try {
   assert.ok(renderToStaticMarkup(React.createElement(Legacy)).includes('YAML Builder'));
   assert.ok(shell.includes('Generate the import package'));
   assert.ok(!shell.includes('Check in ERPNext'));
+  assert.ok(shell.includes('https://illumenatelighting.v.frappe.cloud/catalog-builder'));
+  assert.ok(shell.includes('Save draft here, then Open YAML there'));
+  assert.ok(!erpShell.includes('Open ERPNext Catalog Builder'));
   assert.ok(!erpShell.includes('Generate the import package'));
   assert.ok(erpShell.includes('Check in ERPNext') && erpShell.includes('Import to ERPNext'));
   assert.ok(erpShell.includes('Recent checks and imports'));

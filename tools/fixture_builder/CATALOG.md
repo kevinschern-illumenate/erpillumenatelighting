@@ -38,6 +38,8 @@ Authenticated catalog staff can POST a JSON body to
 Check uses the same dependency ordering and engineering validation as the CLI,
 verifies declared external links against the site, and attempts normal Frappe
 inserts with your own permissions. It always rolls back the catalog records.
+Each insert uses a savepoint so an invalid row can be rolled back while independent
+rows continue; no successful row from a Check remains saved.
 Each row reports `checked`, `error`, or `skipped`; dependent rows are skipped after
 a failure and independent rows are still checked. The limit is 500 parent records.
 
@@ -48,6 +50,8 @@ less than 30 minutes old. Import revalidates against the current site and commit
 only when every insert succeeds. Any row error rolls the whole import back.
 Existing records are never updated; importing the same catalog again fails
 validation instead of overwriting records. Check and Import share a site lock.
+Attachments are manual: upload files separately and use their existing site URLs
+in Attach/Attach Image fields. The builder does not upload or copy files.
 
 Each run writes a read-only **ilL-Catalog-Import** receipt, accessible from the
 **Catalog Imports** workspace shortcut. `history?limit=20` returns your own recent
@@ -63,8 +67,12 @@ Currency remain read-only. Only audit insertion bypasses permissions. Deploy the
 Session 3 backend with **Migrate**, then verify the permission patch and workspace
 shortcut. The Session 4 UI needs only **Pull** once those migrations are applied.
 Custom production hooks and every product family still need the Session 5 staging
-rehearsal; the installed-site tests exercise an extrusion kit, Item Price, and
-prompt-named LED Package with real Frappe permissions and rollback.
+rehearsal. Installed-site tests cover all seven families with synthetic records,
+configurator resolution, Item Price and prompt-named LED Package insertion,
+real Frappe permissions, rollback, contention, and the 500-record limit.
+
+For the release gates, local rehearsal evidence, and staging record, see the
+[Catalog Builder rollout checklist](../../docs/CATALOG_BUILDER_ROLLOUT.md).
 
 ## Product coverage
 
