@@ -11,9 +11,9 @@ Open **ilLumenate Lighting → Portal Operations** (`/app/ill-portal-operations`
 | ilL Operations | Read manufacturing drawing holds. Obtain a current technical approval before submitting the Work Order; this queue never releases work automatically. |
 | ilL Integration | Publication and email failures. Inspect publication job errors before retrying. For email, distinguish failed queue creation from an existing Email Queue attempt. Never create a replacement email when delivery is uncertain. |
 | ilL Product Finder Manager | Maintain Finder questions, glossary, mappings and Settings; preview draft content and review product verification requests. |
-| ilL Catalog Publisher | Product, template/specification/compatibility/mapping authoring and approved Item literature. Run Engineering preflight on templates and Channel preflight on products, then approve/stage and explicitly publish the inspected revision. |
+| ilL Catalog Publisher | Catalog Builder Check/Import, product/template/specification/compatibility/mapping authoring, catalog Items and pricing, and approved Item literature. Run Engineering preflight on templates and Channel preflight on products, then approve/stage and explicitly publish the inspected revision. |
 
-Engineering also receives master authoring and Item-literature permissions. Item creation, pricing maintenance, stock/manufacturing execution and accounting still require the corresponding native ERP job roles. The Operations role by itself supplies a drawing-hold view; it does not grant Work Order submission. See the [authoring field register](B2B_AUTHORING_FIELD_REGISTER.md) for setup/import order and public Sheet markup.
+Engineering also receives master authoring and Item-literature permissions. Catalog Publishers receive catalog Item and Item Price authoring permissions through the catalog permission migration. Other staff still need their corresponding native ERP roles for those tasks; stock/manufacturing execution and accounting require native ERP job permissions. The Operations role by itself supplies a drawing-hold view; it does not grant Work Order submission. See the [authoring field register](B2B_AUTHORING_FIELD_REGISTER.md) for setup/import order and public Sheet markup.
 
 ## Role assignment checklist
 
@@ -60,6 +60,51 @@ Workspace upgrades back up the existing record under the site's `private/ill-wor
 Local service/DOM tests cover predicates, forbidden states, retry behavior and merge preservation. Actual ordinary-role Desk walkthroughs, asset loading, scheduler execution and fresh/upgraded Cloud migrations remain deployment acceptance tasks.
 
 Use [Cloud acceptance](B2B_CLOUD_ACCEPTANCE.md) for fixture secrets, historical checksums, concurrent-session tests, the mandatory role walkthrough matrix, legacy private-copy rehearsal, restore and rollout. Department leads must record named ownership and absence coverage there before release.
+
+## Catalog Builder operations
+
+Open [Catalog Builder](https://illumenatelighting.v.frappe.cloud/catalog-builder) or the
+**Catalog Builder** workspace shortcut. Use an enabled System User with **ilL Catalog
+Publisher**; System Manager and Administrator can also use it. User assignments are
+explicit. Kevin Yong Min Schern is the owner's intended Publisher for staging and
+production; match the exact User account and record the assignment in the
+[rollout checklist](CATALOG_BUILDER_ROLLOUT.md) before granting it.
+
+1. Build a draft for one product family, using live link suggestions. Copy existing
+   records only when creating new names. The shipped examples contain placeholders;
+   resolve them against the live site and review engineering values.
+2. **Check in ERPNext**. It performs real validation and rolls back every catalog
+   insert. Resolve errors and skipped dependencies in the results table and inspect
+   warnings. Save YAML to retain a portable draft; browser storage is site-specific.
+3. **Import to ERPNext** after a passing Check. Confirm the DocType counts. The
+   draft must be unchanged, the Check must belong to this user, and it expires in
+   30 minutes. Import creates all records or rolls them all back; existing records
+   are never updated. Split catalogs above 500 parent records into dependency order.
+4. Open created records and **Open audit log** from the results. Verify the product
+   in its configurator, including relevant variants, components, physical dimensions,
+   and pricing. An import alone does not prove engineering readiness.
+5. Run **Readiness and Publication** separately. Complete Engineering and Channel
+   preflight, approve/stage, then publish the inspected revision using the
+   [publication runbook](B2B_PUBLICATION_RUNBOOK.md). Import does not publish.
+6. **Start a new draft** after success; importing the same names again reports
+   duplicates. Upload attachments manually and reference existing site file URLs.
+
+If an import response is lost, inspect **Recent checks and imports** and refresh
+the live reference before trying again. Records may already have been committed;
+the browser never retries a POST automatically. A failed reference refresh or
+missing receipt after a reported successful import does not undo the import.
+Reload and log in again for session/CSRF failures. For a busy-site refusal, wait
+for the other run to finish, then Check again. Catalog Publishers cannot undo an
+import from the builder; an administrator reviews any necessary deletion.
+
+The catalog migration grants create/write/import on the schema's parent DocTypes:
+Item, Item Attribute, Item Group, UOM, Brand, Item Price; product Attributes,
+Specifications, relationship maps, submittal mappings, templates, and Webflow
+Product/Category. Supplier, Price List, and Currency are read/select only. Catalog
+Publishers receive read-only **ilL-Catalog-Import** receipts and cannot create, edit,
+or delete them in Desk; private tracebacks are System Manager-only. Permissions
+on individual records and fields still apply. Confirm this matrix as a non-admin
+Publisher on staging after migration.
 
 ## Product Finder operations
 

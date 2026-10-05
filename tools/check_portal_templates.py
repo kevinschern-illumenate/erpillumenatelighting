@@ -310,6 +310,19 @@ assert "nothing was pre-filled" in nothing and "5000K" in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
 assert 'ill-finder.js' in finder
 parser.feed(finder)
+catalog_builder = environment.get_template("templates/pages/catalog_builder.html").render(
+	assets="/assets/illumenate_lighting/catalog_builder/catalog-builder",
+	asset_version=123,
+	mount_options={
+		"csrfToken": "csrf",
+		"referenceUrl": "/api/reference",
+		"user": "</script><script>bad()</script>",
+	},
+)
+assert "catalog-builder.css?v=123" in catalog_builder and "catalog-builder.js?v=123" in catalog_builder
+assert "IllCatalogBuilder.mount(" in catalog_builder and "<script>bad()" not in catalog_builder
+assert "</body>" in catalog_builder
+parser.feed(catalog_builder)
 banner = environment.get_template("templates/includes/product_finder_banner.html").render(finder_banner=View(image=None, headline="Find <light>", text="Choose", cta="Start", resume=View(url="/portal/product-finder?session=T", percent=50)))
 assert "Resume (50% done)" in banner and "Find &lt;light&gt;" in banner
 (render_dir / "finder-banner.html").write_text(banner, encoding="utf8")

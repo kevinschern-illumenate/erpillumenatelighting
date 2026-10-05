@@ -5,6 +5,75 @@ configurators. The app creates configured Items, BOMs, cut plans, project lines,
 and sales transactions when a customer configuration is resolved; these are not
 product onboarding records.
 
+## Builder hosting
+
+Catalog staff can author at `/catalog-builder` on their ERPNext site (enabled
+System User with **ilL Catalog Publisher** or **System Manager**, or Administrator).
+The page lists live records using your read permissions and fetches full records
+for copying. No reference records are included in its public bundle. Drafts stay
+in browser storage for that site; use **Save draft** / **Open YAML** to move them.
+Vercel and the CLI still use the committed reference snapshot.
+
+The ERP editor provides **Check in ERPNext**, **Import to ERPNext**, filtered results,
+and **Recent checks and imports**. Check sends the resolved YAML object without
+`add_to_reference`; downloaded drafts preserve that optional CLI flag. Only an
+unchanged draft with a passing Check can be imported, after confirming per-DocType
+counts. Editing is disabled during a run. Error/skipped records return you to their
+editor; durable created records and receipts link to Desk. A rolled-back attempt
+never gets a created-record link. See the
+[implementation plan](../../docs/CATALOG_BUILDER_IN_ERPNEXT_PLAN.md).
+
+After success, the live reference refreshes and **Start a new draft** clears the
+current product after confirmation. The success result remains visible even if
+that refresh fails. Lost import responses show an unknown outcome and are never
+retried automatically; check history and refresh the reference before continuing.
+
+### Server Check and Import
+
+Authenticated catalog staff can POST a JSON body to
+`/api/method/illumenate_lighting.illumenate_lighting.api.catalog_builder.check`:
+`{"catalog": { ...version 2 catalog... }}`. Session-cookie requests need the current
+`X-Frappe-CSRF-Token`; API-key requests use normal Frappe token authentication.
+
+Check uses the same dependency ordering and engineering validation as the CLI,
+verifies declared external links against the site, and attempts normal Frappe
+inserts with your own permissions. It always rolls back the catalog records.
+Each insert uses a savepoint so an invalid row can be rolled back while independent
+rows continue; no successful row from a Check remains saved.
+Each row reports `checked`, `error`, or `skipped`; dependent rows are skipped after
+a failure and independent rows are still checked. The limit is 500 parent records.
+
+Only a `Passed` Check permits POSTing to the same API module's `import_catalog`
+method with `{"catalog": {...}, "expected_hash": "<Check catalog_hash>"}`. The
+catalog must be identical, the Check must belong to the same user, and it must be
+less than 30 minutes old. Import revalidates against the current site and commits
+only when every insert succeeds. Any row error rolls the whole import back.
+Existing records are never updated; importing the same catalog again fails
+validation instead of overwriting records. Check and Import share a site lock.
+Attachments are manual: upload files separately and use their existing site URLs
+in Attach/Attach Image fields. The builder does not upload or copy files.
+
+Each run writes a read-only **ilL-Catalog-Import** receipt, accessible from the
+**Catalog Imports** workspace shortcut. `history?limit=20` returns your own recent
+runs; System Managers and Administrator see all runs. Tracebacks require System
+Manager access. `results` show insert attempts; a rolled-back import has a
+`created` summary count of zero. If saving the receipt itself fails after a
+successful import, the response retains `Imported` and explicitly reports the
+missing audit log; do not retry it as though it rolled back.
+
+The migration grants **ilL Catalog Publisher** create/write/import on catalog
+masters, including **Item Price**, without delete. Supplier, Price List, and
+Currency remain read-only. Only audit insertion bypasses permissions. Deploy the
+Session 3 backend with **Migrate**, then verify the permission patch and workspace
+shortcut. The Session 4 UI needs only **Pull** once those migrations are applied.
+Custom production hooks and every product family still need the Session 5 staging
+rehearsal. Installed-site tests cover all seven families with synthetic records,
+configurator resolution, Item Price and prompt-named LED Package insertion,
+real Frappe permissions, rollback, contention, and the 500-record limit.
+
+For the release gates, local rehearsal evidence, and staging record, see the
+[Catalog Builder rollout checklist](../../docs/CATALOG_BUILDER_ROLLOUT.md).
+
 ## Product coverage
 
 | Family | Engineering and template records | Related authoring records |

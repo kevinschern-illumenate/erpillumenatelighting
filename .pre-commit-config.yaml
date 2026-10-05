@@ -39,6 +39,7 @@ repos:
         exclude: |
             (?x)^(
                 illumenate_lighting/public/dist/.*|
+                illumenate_lighting/public/catalog_builder/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
                 illumenate_lighting/templates/includes/.*|
@@ -56,6 +57,7 @@ repos:
         exclude: |
             (?x)^(
                 illumenate_lighting/public/dist/.*|
+                illumenate_lighting/public/catalog_builder/.*|
                 cypress/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
