@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex">
+	<title>Catalog Builder · ilLumenate</title>
+	<link rel="stylesheet" href="{{ assets }}.css?v={{ asset_version }}">
+</head>
+<body>
+	<div id="catalog-builder-root"></div>
+	<script src="{{ assets }}.js?v={{ asset_version }}"></script>
+	<script>IllCatalogBuilder.mount("catalog-builder-root", {{ mount_options | tojson }});</script>
+</body>
+</html>

@@ -3,6 +3,33 @@
 Author catalogs for **linear fixtures, LED tape, LED neon, LED sheets,
 extrusion kits, drivers, and controllers** using the current ERPNext DocType fields.
 
+## Use the builder in ERPNext
+
+Open [Catalog Builder](https://illumenatelighting.v.frappe.cloud/catalog-builder),
+or the **Catalog Builder** shortcut in the ilLumenate Lighting Desk workspace.
+Log in with an enabled System User holding **ilL Catalog Publisher** or
+**System Manager**; Administrator also has access.
+
+Drafts are per browser and per site. Move them between ERPNext, Vercel, or devices
+with **Save draft** and **Open YAML**. This release reads the committed ERPNext
+snapshot through an authenticated endpoint; live records arrive in the next release.
+If the snapshot is unavailable, declare existing records manually. Generate CSVs
+with the CLI and import them through ERPNext Data Import as described below.
+The Vercel workflow is unchanged.
+
+Rebuild the committed ERP bundle after editor changes:
+
+```sh
+npm ci --prefix tools/yaml_builder_ui
+npm run build:erp --prefix tools/yaml_builder_ui
+```
+
+Commit both files in `illumenate_lighting/public/catalog_builder/`; CI rebuilds them
+and checks freshness. The ERP build rejects imports of `erp-reference.json`, so
+the public bundle contains only the editor, schema, and illustrative examples.
+Deploy this hosting release with a **Migrate** update for the route and workspace
+shortcut. A missing snapshot reports unavailable until the live-data release.
+
 ## Start
 
 ```powershell
@@ -41,8 +68,9 @@ The CLI checks engineering values and variant ambiguity. Follow the generated
 A DocType can have multiple batches when records depend on earlier records of that
 type. Use only files named in the current manifest.
 
-The editor does not contact ERPNext, upload attachments, publish products, or create
-orders. Live ERPNext readiness remains authoritative for site records, compatibility
+The ERPNext editor fetches the reference snapshot from the site. Both editors
+keep authoring local; they do not import records, upload attachments, publish products,
+or create orders. Live ERPNext readiness remains authoritative for site records, compatibility
 coverage, electrical selection, PDFs, and channel publication.
 
 ## Existing ERPNext records

@@ -140,7 +140,7 @@ function ReferencePanel({ doctype, reference, onCopy }) {
   </details>;
 }
 
-export default function CatalogApp({ onLegacy }) {
+export default function CatalogApp({ onLegacy, loadReference, mode = 'vercel' }) {
   const [workspace, setWorkspace] = useState(restore);
   const [selected, setSelected] = useState('Item');
   const [search, setSearch] = useState('');
@@ -153,10 +153,13 @@ export default function CatalogApp({ onLegacy }) {
   const [pending, setPending] = useState(restorePending);
   const fileInput = useRef(null);
   useEffect(() => {
-    // The ERPNext export is large, so it loads after the editor opens.
-    import('./erp-reference.json').then(module => setExported(module.default))
+    // The ERPNext records are large, so they load after the editor opens.
+    loadReference().then(data => {
+      setExported(data);
+      if (data?.unavailable) setMessage('Existing ERPNext records are unavailable. Declare existing records manually.');
+    })
       .catch(() => setMessage('Existing ERPNext records could not be loaded. Declare existing records manually.'));
-  }, []);
+  }, [loadReference]);
   const catalog = workspace.drafts[workspace.active] || emptyCatalog(workspace.active);
   const product = schema.products[workspace.active];
   const setCatalog = next => setWorkspace(previous => ({ ...previous, drafts: { ...previous.drafts, [previous.active]: next } }));

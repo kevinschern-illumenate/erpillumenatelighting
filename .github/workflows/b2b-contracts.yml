@@ -42,6 +42,13 @@ jobs:
           npm run build:portal --prefix tools/configurator_ui
           npm run build:public --prefix tools/configurator_ui
           git diff --exit-code illumenate_lighting/public/product_finder
+      - name: Catalog Builder bundle is fresh
+        run: |
+          npm ci --prefix tools/yaml_builder_ui
+          npm test --prefix tools/yaml_builder_ui
+          npm run test:render --prefix tools/yaml_builder_ui
+          npm run build:erp --prefix tools/yaml_builder_ui
+          git diff --exit-code illumenate_lighting/public/catalog_builder
       - name: PDF filler and merger contract
         run: python -B tools/check_pdf_fidelity.py
       - name: Generated spec sheet matches the InDesign golden
