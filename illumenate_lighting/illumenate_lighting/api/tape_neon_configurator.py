@@ -3570,8 +3570,27 @@ def _spec_item_code(tape_spec) -> str:
     return getattr(tape_spec, "item", None) or tape_spec.name
 
 
-def _offering_codes(sel: dict, tape_offering) -> list[str]:
-    """CCT and output level codes of the resolved offering, as the linear part number carries them."""
+def _spec_is_shared(tape_spec) -> bool:
+    """True when more than one CCT/output offering ships this spec's Item.
+
+    Catalog specs are one Item per offering, and that Item code already
+    carries the CCT and output (``COB-SD-SW-20-30K-300-3M-WH-8MM``).  Only a
+    spec shared by several offerings needs them added to stay unique.
+    """
+    try:
+        return int(frappe.db.count("ilL-Rel-Tape Offering", {"tape_spec": tape_spec.name}) or 0) > 1
+    except (TypeError, ValueError):
+        return False
+
+
+def _offering_codes(sel: dict, tape_spec, tape_offering) -> list[str]:
+    """CCT and output level codes the part number adds after the spec's Item.
+
+    Empty when the Item code already identifies the offering, so the part
+    number never repeats them (``...-30K-300-3M-WH-8MM-30K-300-88.6-1-C``).
+    """
+    if not _spec_is_shared(tape_spec):
+        return []
     cct = (tape_offering or {}).get("cct") or sel.get("cct")
     output_level = (tape_offering or {}).get("output_level") or sel.get("output_level")
     return [
@@ -3617,13 +3636,14 @@ def _build_tape_part_number(
     Build LED Tape part number.
 
     Single-segment (endcapped):
-        {tape_spec_item}-{cct}-{output}-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
+        {tape_spec_item}[-{cct}-{output}]-{length_inches_or_xx}[-{feed_type_code}{leader_cable_ft}]-C
 
     Multi-segment (jumper-chained):
-        {tape_spec_item}-{cct}-{output}-{total_length_inches}-J({hash})
+        {tape_spec_item}[-{cct}-{output}]-{total_length_inches}-J({hash})
 
-    Uses the tape spec's Item code as the base, then the CCT and output level codes
-    (the spec is shared by every CCT/output offering), then the total manufacturable
+    Uses the tape spec's Item code as the base, which already carries the CCT and
+    output (CCT and output level codes follow it only when several offerings share
+    the spec, see ``_offering_codes``), then the total manufacturable
     length in inches (or "xx" when the length is not yet specified), followed
     by an optional feed segment (feed-type code + leader cable length in feet)
     and "C" for endcapped.  Jumper-chained configurations replace the feed
@@ -3635,7 +3655,7 @@ def _build_tape_part_number(
     """
     import hashlib
 
-    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_offering)]
+    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_spec, tape_offering)]
 
     # Total length in inches (manufacturable) — "xx" when not specified.
     if manufacturable_length_mm:
@@ -3758,13 +3778,14 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     Build LED Neon part number.
 
     Single-segment (endcapped):
-        {tape_spec_item}-{cct}-{output}-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
+        {tape_spec_item}[-{cct}-{output}]-{total_length_inches}-{feed_dir_code}{leader_cable_ft}-C
 
     Multi-segment (jumpered):
-        {tape_spec_item}-{cct}-{output}-{total_length_inches}-J({hash})
+        {tape_spec_item}[-{cct}-{output}]-{total_length_inches}-J({hash})
 
-    Uses the tape spec's Item code as the base, then the CCT and output level codes
-    (the spec is shared by every CCT/output offering), then the total manufacturable
+    Uses the tape spec's Item code as the base, which already carries the CCT and
+    output (CCT and output level codes follow it only when several offerings share
+    the spec, see ``_offering_codes``), then the total manufacturable
     length in inches.  For single-segment configs the feed direction code and
     leader cable length in feet are added followed by "C" for endcapped.  For
     multi-segment (jumpered) configs, "-J({hash})" is appended where the hash
@@ -3772,7 +3793,7 @@ def _build_neon_part_number(sel, tape_spec, tape_offering, segments) -> str:
     """
     import hashlib
 
-    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_offering)]
+    parts = [_spec_item_code(tape_spec), *_offering_codes(sel, tape_spec, tape_offering)]
 
     # Total manufacturable length in inches (sum of all segments).
     # When no length has been provided yet, fall back to "xx".
