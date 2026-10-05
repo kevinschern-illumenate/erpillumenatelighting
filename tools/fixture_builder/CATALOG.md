@@ -9,12 +9,51 @@ product onboarding records.
 
 Catalog staff can author at `/catalog-builder` on their ERPNext site (enabled
 System User with **ilL Catalog Publisher** or **System Manager**, or Administrator).
-The page loads the same committed reference snapshot as the Vercel editor through
-an authenticated endpoint. No reference records are included in its public bundle.
-Drafts stay in browser storage for that site; use **Save draft** / **Open YAML**
-to move them. Both editors still use the CSV workflow below. Live records and
-server Check/Import are later releases; see the
+The page lists live records using your read permissions and fetches full records
+for copying. No reference records are included in its public bundle. Drafts stay
+in browser storage for that site; use **Save draft** / **Open YAML** to move them.
+Vercel and the CLI still use the committed reference snapshot.
+
+The server now provides Check/Import/history endpoints. The editor's buttons and
+results view arrive in Session 4; use the CSV workflow below until then. See the
 [implementation plan](../../docs/CATALOG_BUILDER_IN_ERPNEXT_PLAN.md).
+
+### Server Check and Import
+
+Authenticated catalog staff can POST a JSON body to
+`/api/method/illumenate_lighting.illumenate_lighting.api.catalog_builder.check`:
+`{"catalog": { ...version 2 catalog... }}`. Session-cookie requests need the current
+`X-Frappe-CSRF-Token`; API-key requests use normal Frappe token authentication.
+
+Check uses the same dependency ordering and engineering validation as the CLI,
+verifies declared external links against the site, and attempts normal Frappe
+inserts with your own permissions. It always rolls back the catalog records.
+Each row reports `checked`, `error`, or `skipped`; dependent rows are skipped after
+a failure and independent rows are still checked. The limit is 500 parent records.
+
+Only a `Passed` Check permits POSTing to the same API module's `import_catalog`
+method with `{"catalog": {...}, "expected_hash": "<Check catalog_hash>"}`. The
+catalog must be identical, the Check must belong to the same user, and it must be
+less than 30 minutes old. Import revalidates against the current site and commits
+only when every insert succeeds. Any row error rolls the whole import back.
+Existing records are never updated; importing the same catalog again fails
+validation instead of overwriting records. Check and Import share a site lock.
+
+Each run writes a read-only **ilL-Catalog-Import** receipt, accessible from the
+**Catalog Imports** workspace shortcut. `history?limit=20` returns your own recent
+runs; System Managers and Administrator see all runs. Tracebacks require System
+Manager access. `results` show insert attempts; a rolled-back import has a
+`created` summary count of zero. If saving the receipt itself fails after a
+successful import, the response retains `Imported` and explicitly reports the
+missing audit log; do not retry it as though it rolled back.
+
+The migration grants **ilL Catalog Publisher** create/write/import on catalog
+masters, including **Item Price**, without delete. Supplier, Price List, and
+Currency remain read-only. Only audit insertion bypasses permissions. Deploy this
+release with **Migrate**, then verify the permission patch and workspace shortcut.
+Custom production hooks and every product family still need the Session 5 staging
+rehearsal; the installed-site tests exercise an extrusion kit, Item Price, and
+prompt-named LED Package with real Frappe permissions and rollback.
 
 ## Product coverage
 

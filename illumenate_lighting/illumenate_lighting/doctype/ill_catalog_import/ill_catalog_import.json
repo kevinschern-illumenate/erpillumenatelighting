@@ -1,0 +1,177 @@
+{
+ "actions": [],
+ "allow_import": 0,
+ "autoname": "format:CAT-IMP-{YYYY}-{#####}",
+ "creation": "2026-10-05 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mode",
+  "status",
+  "user",
+  "product_type",
+  "series_name",
+  "catalog_hash",
+  "check_log",
+  "record_count",
+  "created_count",
+  "error_count",
+  "skipped_count",
+  "warning_count",
+  "duration_ms",
+  "section_payload",
+  "catalog_json",
+  "results_json",
+  "error_detail"
+ ],
+ "fields": [
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Mode",
+   "read_only": 1,
+   "options": "Check\nImport",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "read_only": 1,
+   "options": "Passed\nFailed\nImported\nRolled Back\nRefused\nError",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "read_only": 1,
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product_type",
+   "fieldtype": "Data",
+   "label": "Product Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "series_name",
+   "fieldtype": "Data",
+   "label": "Catalog Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "catalog_hash",
+   "fieldtype": "Data",
+   "label": "Catalog Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "check_log",
+   "fieldtype": "Link",
+   "label": "Passing Check",
+   "read_only": 1,
+   "options": "ilL-Catalog-Import"
+  },
+  {
+   "fieldname": "record_count",
+   "fieldtype": "Int",
+   "label": "Records",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_count",
+   "fieldtype": "Int",
+   "label": "Created",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "skipped_count",
+   "fieldtype": "Int",
+   "label": "Skipped",
+   "read_only": 1
+  },
+  {
+   "fieldname": "warning_count",
+   "fieldtype": "Int",
+   "label": "Warnings",
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration_ms",
+   "fieldtype": "Int",
+   "label": "Duration (ms)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_payload",
+   "fieldtype": "Section Break",
+   "label": "Payload",
+   "read_only": 1,
+   "collapsible": 1
+  },
+  {
+   "fieldname": "catalog_json",
+   "fieldtype": "Code",
+   "label": "Submitted Catalog",
+   "read_only": 1,
+   "options": "JSON"
+  },
+  {
+   "fieldname": "results_json",
+   "fieldtype": "Code",
+   "label": "Results",
+   "read_only": 1,
+   "options": "JSON"
+  },
+  {
+   "fieldname": "error_detail",
+   "fieldtype": "Code",
+   "label": "Error Detail",
+   "read_only": 1,
+   "permlevel": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Catalog-Import",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1
+  },
+  {
+   "role": "System Manager",
+   "permlevel": 1,
+   "read": 1
+  },
+  {
+   "role": "ilL Catalog Publisher",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "search_fields": "mode, status, series_name",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "series_name",
+ "track_changes": 0
+}

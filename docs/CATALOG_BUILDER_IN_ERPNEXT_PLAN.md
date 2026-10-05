@@ -20,6 +20,14 @@ JSON 511,327 bytes, and Chromium datalist keydown-to-next-frame latency 37.5 ms
 median / 47.2 ms p95 over 30 keystrokes. Keep the datalist; production/staging
 measurement remains part of Session 5.
 
+**Session 3 implementation note:** the service now exposes Check, Import, and
+history, with `ilL-Catalog-Import` receipts and the post-model-sync permission patch.
+The site lock is held through audit persistence. If the audit write fails after
+the catalog commit, the response preserves `Imported` and reports that failure.
+The audit role matrix retains the DocType's export permission; Supplier, Price
+List, and Currency receive explicit read/select only. Session 3 is stacked on
+Session 2; merge the preceding sessions before retargeting its PR to `main`.
+
 ## How to use this document
 
 - Do the sessions **in order**. Each session is one branch and one pull request,
