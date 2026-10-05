@@ -241,12 +241,17 @@ class TestCatalogImport(IntegrationTestCase):
 		self.assert_catalog_absent()
 		self.assertTrue(frappe.db.exists(service.AUDIT, result["log"]))
 
-	def test_second_connection_cannot_run_while_site_lock_is_held(self):
+	def test_second_connection_cannot_check_or_import_while_site_lock_is_held(self):
+		checked = self.run_catalog()
+		self.assertEqual(checked["status"], "Passed", checked)
 		with self.other_connection():
 			self.assertEqual(frappe.db.sql("select get_lock(%s, 0)", service._lock_name())[0][0], 1)
 		try:
 			result = self.run_catalog()
 			self.assertEqual((result["status"], result["stage"]), ("Refused", "lock"), result)
+			result = self.run_catalog("Import", digest=checked["catalog_hash"])
+			self.assertEqual((result["status"], result["stage"]), ("Refused", "lock"), result)
+			self.assert_catalog_absent()
 		finally:
 			with self.other_connection():
 				frappe.db.sql("select release_lock(%s)", service._lock_name())

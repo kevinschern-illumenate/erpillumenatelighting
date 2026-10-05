@@ -331,6 +331,10 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
         <input ref={fileInput} type="file" accept=".yaml,.yml,.json" hidden onChange={importFile} />
       </div>
     </header>
+    {mode !== 'erp' && <div className="catalog-offline-notice">
+      To check and import, use the builder in ERPNext: <a href="https://illumenatelighting.v.frappe.cloud/catalog-builder" target="_blank" rel="noopener">Open ERPNext Catalog Builder</a>.
+      {' '}Save draft here, then Open YAML there to move your work.
+    </div>}
     <nav className="catalog-products" aria-label="Product families">
       {Object.entries(schema.products).map(([key, value]) => <button key={key} aria-pressed={workspace.active === key}
         onClick={() => { setWorkspace(previous => ({ ...previous, active: key })); setSelected(value.template); setUndo(null); setMessage(''); setFieldSearch(''); setRun({ phase: 'idle' }); }}>

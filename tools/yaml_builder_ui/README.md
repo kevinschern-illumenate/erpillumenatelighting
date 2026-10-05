@@ -155,6 +155,10 @@ The CLI reads the same snapshot; pass `--no-reference` to ignore it.
 
 ## Host on Vercel
 
+Owner decision (2026-10-05): **keep Vercel for offline drafting**. The Vercel editor
+links to the production ERPNext builder for Check and Import. Use **Save draft**
+here and **Open YAML** in ERPNext; local browser drafts do not cross sites.
+
 The builder is a static site: drafts stay in each browser's storage and exports are
 browser downloads, so it needs no server or ERPNext access.
 

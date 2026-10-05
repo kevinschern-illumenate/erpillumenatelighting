@@ -37,6 +37,15 @@ reports an unknown outcome and is never retried automatically. Editing is disabl
 during a run; the confirmation uses the exact checked payload/hash. Session 4 is
 stacked on Session 3 and is a Pull update after the preceding migrations.
 
+**Session 5 status:** local rehearsal and release preparation are recorded in
+[CATALOG_BUILDER_ROLLOUT.md](CATALOG_BUILDER_ROLLOUT.md). The owner reconfirmed
+`stagingillumenate.v.frappe.cloud`, named Kevin Yong Min Schern as the intended
+Publisher on both sites, and chose to retain Vercel with the ERPNext link.
+The owner subsequently directed this session to use isolated local checks and
+leave the company's staging environment untouched. Live-site acceptance and
+production rollout are deferred; a supplied backup could support a local restore
+rehearsal without accessing staging.
+
 ## How to use this document
 
 - Do the sessions **in order**. Each session is one branch and one pull request,
