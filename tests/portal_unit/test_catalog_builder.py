@@ -1,9 +1,10 @@
-"""Catalog Builder authorization, snapshot delivery, and page boot options."""
+"""Catalog Builder authorization, live references, and page boot options."""
 
 import json
 import tempfile
 import unittest
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -36,7 +37,7 @@ def catalog_service(module, user="publisher@example.com", roles=None, enabled=1,
 
 
 class CatalogBuilderReference(unittest.TestCase):
-	def test_unauthorized_users_cannot_read_the_snapshot(self):
+	def test_unauthorized_users_cannot_read_or_copy_records(self):
 		for access in (
 			{"user": "Guest"},
 			{"roles": ["Dealer"]},
@@ -45,36 +46,150 @@ class CatalogBuilderReference(unittest.TestCase):
 			{"enabled": 0},
 			{"user_type": "Website User"},
 		):
-			with self.subTest(access=access), catalog_service(API, **access) as (service, _):
-				with patch.object(service, "SNAPSHOT") as snapshot:
+			with self.subTest(access=access), catalog_service(API, **access) as (service, frappe):
+				with patch.object(service, "live_reference") as live:
 					with self.assertRaises(PermissionError):
 						service.reference()
-					snapshot.is_file.assert_not_called()
-					snapshot.read_text.assert_not_called()
+					with self.assertRaises(PermissionError):
+						service.record("Item", "secret")
+					live.assert_not_called()
+					frappe.cache().get_value.assert_not_called()
+					frappe.get_doc.assert_not_called()
 
-	def test_catalog_staff_and_administrators_get_the_snapshot(self):
-		payload = {
-			"schema_version": 1,
-			"exported_on": "2026-10-04",
-			"doctypes": {"ilL-Attribute-Finish": {"source": "export", "records": {"White": {"code": "WH"}}}},
-		}
-		with tempfile.TemporaryDirectory() as directory:
-			snapshot = Path(directory) / "reference.json"
-			snapshot.write_text(json.dumps(payload), encoding="utf-8")
-			for access in ({}, {"roles": ["System Manager"]}, {"user": "Administrator", "roles": []}):
-				with self.subTest(access=access), catalog_service(API, **access) as (service, _):
+	def test_cache_is_user_scoped_and_refresh_bypasses_it(self):
+		for access in ({}, {"roles": ["System Manager"]}, {"user": "Administrator", "roles": []}):
+			with self.subTest(access=access), catalog_service(API, **access) as (service, frappe):
+				cache = frappe.cache()
+				cache.get_value.return_value = None
+				with patch.object(service, "live_reference", return_value={"source": "live"}) as live:
 					self.assertEqual(service.reference.whitelist_options, {"methods": ["GET"]})
-					self.assertEqual(service.SNAPSHOT, REPO / "tools/yaml_builder_ui/src/erp-reference.json")
-					with patch.object(service, "SNAPSHOT", snapshot):
-						self.assertEqual(service.reference(), payload)
+					self.assertEqual(service.reference(), {"source": "live"})
+					cache.get_value.assert_called_once_with(service.CACHE_KEY, user=frappe.session.user)
+					cache.set_value.assert_called_once_with(
+						service.CACHE_KEY, {"source": "live"}, user=frappe.session.user, expires_in_sec=300
+					)
+					cache.get_value.return_value = {"source": "cached"}
+					self.assertEqual(service.reference(), {"source": "cached"})
+					live.assert_called_once()
+					self.assertEqual(service.reference(refresh="1"), {"source": "live"})
+					self.assertEqual(live.call_count, 2)
 
-	def test_missing_snapshot_reports_unavailable(self):
-		with tempfile.TemporaryDirectory() as directory, catalog_service(API) as (service, _):
-			with patch.object(service, "SNAPSHOT", Path(directory) / "missing.json"):
-				self.assertEqual(
-					service.reference(),
-					{"schema_version": 1, "exported_on": None, "doctypes": {}, "unavailable": True},
-				)
+	def test_live_reference_requests_only_readable_summary_fields_and_rows(self):
+		def field(name, kind="Data"):
+			return {"fieldname": name, "fieldtype": kind}
+
+		schema = {
+			"doctypes": {
+				"Item": {
+					"fields": [
+						field("item_code"),
+						field("disabled", "Check"),
+						field("description", "Text Editor"),
+						field("rate", "Currency"),
+						field("image", "Attach Image"),
+						field("children", "Table"),
+						field("removed"),
+						field("restricted"),
+					]
+				},
+				"ilL-Webflow-Product": {"fields": [field("title"), field("date", "Date")]},
+				"Brand": {"fields": []},
+				"Missing": {"fields": []},
+				"Item Price": {"fields": []},
+				"Child": {"istable": 1, "fields": []},
+			}
+		}
+		with (
+			catalog_service(API) as (service, frappe),
+			patch.object(service, "cached_schema", return_value=schema),
+		):
+			frappe.utils.now_datetime = lambda: datetime(2026, 10, 5, 12, 34, 56)
+			frappe.db.exists.side_effect = lambda dt, name: name != "Missing"
+			frappe.has_permission.side_effect = lambda dt, permission: dt != "Brand"
+			meta = MagicMock()
+			meta.has_field.side_effect = lambda name: name != "removed"
+			meta.get_permitted_fieldnames.return_value = ["item_code", "disabled", "removed", "title", "date"]
+			frappe.get_meta = MagicMock(return_value=meta)
+			frappe.get_list = MagicMock(
+				side_effect=[
+					[{"name": "ITEM-1", "item_code": "ITEM-1", "disabled": 0}],
+					[{"name": "WEB-1", "title": "Example"}],
+				]
+			)
+			data = service.live_reference()
+			self.assertEqual(data["source"], "live")
+			self.assertEqual(data["schema_version"], 1)
+			self.assertEqual(data["exported_on"], "2026-10-05T12:34:56")
+			self.assertEqual(data["skipped"], ["Brand", "Missing"])
+			self.assertEqual(
+				data["doctypes"]["Item"],
+				{
+					"source": "live",
+					"exported_on": data["exported_on"],
+					"records": {"ITEM-1": {"item_code": "ITEM-1"}},
+				},
+			)
+			self.assertEqual(
+				[call.args[0] for call in frappe.get_list.call_args_list], ["Item", "ilL-Webflow-Product"]
+			)
+			self.assertEqual(
+				frappe.get_list.call_args_list[0].kwargs,
+				{"fields": ["name", "item_code", "disabled"], "limit_page_length": 0, "order_by": "name asc"},
+			)
+			self.assertEqual(frappe.get_list.call_args_list[1].kwargs["fields"], ["name", "title"])
+			frappe.get_all.assert_not_called()
+
+	def test_record_rejects_non_catalog_prices_and_children(self):
+		with catalog_service(API) as (service, frappe):
+			for doctype in ("User", "Item Price", "Item Variant Attribute", "Unknown"):
+				with self.subTest(doctype=doctype), self.assertRaises(frappe.ValidationError):
+					service.record(doctype, "test")
+			frappe.get_doc.assert_not_called()
+
+	def test_record_requires_read_permission_before_serializing(self):
+		with catalog_service(API) as (service, frappe):
+			frappe.get_doc.return_value.check_permission.side_effect = PermissionError
+			with self.assertRaises(PermissionError):
+				service.record("Item", "secret")
+			frappe.get_doc.return_value.as_dict.assert_not_called()
+
+	def test_record_copies_children_after_field_permissions_and_strips_metadata(self):
+		with catalog_service(API) as (service, frappe):
+			doc = frappe.get_doc.return_value
+			data = {
+				"doctype": "Item",
+				"name": "ITEM-1",
+				"owner": "private",
+				"item_code": "ITEM-1",
+				"description": "Full description",
+				"disabled": 0,
+				"valuation_rate": 99,
+				"supplier_items": [{"supplier": "private"}],
+				"attributes": [
+					{
+						"name": "child-id",
+						"idx": 1,
+						"parent": "ITEM-1",
+						"attribute": "Color",
+						"attribute_value": "White",
+					}
+				],
+				"brand": "restricted",
+			}
+			doc.apply_fieldlevel_read_permissions.side_effect = lambda: data.pop("brand")
+			doc.as_dict.side_effect = lambda: data
+			self.assertEqual(service.record.whitelist_options, {"methods": ["GET"]})
+			self.assertEqual(
+				service.record("Item", "ITEM-1"),
+				{
+					"item_code": "ITEM-1",
+					"description": "Full description",
+					"disabled": 0,
+					"attributes": [{"attribute": "Color", "attribute_value": "White"}],
+				},
+			)
+			doc.check_permission.assert_called_once_with("read")
+			doc.apply_fieldlevel_read_permissions.assert_called_once()
 
 
 class CatalogBuilderPage(unittest.TestCase):

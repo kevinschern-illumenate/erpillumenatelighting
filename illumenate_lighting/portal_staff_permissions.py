@@ -34,6 +34,7 @@ def authoring_permissions(names):
 		or name
 		in {
 			"ilL-Fixture-Template",
+			"ilL-Extrusion-Kit-Template",
 			"ilL-Tape-Neon-Template",
 			"ilL-LED-Sheet-Template",
 			"ilL-Driver-Template",
@@ -121,11 +122,19 @@ def apply_service_permissions():
 		frappe.get_all("DocType", filters={"istable": 0, "issingle": 0}, pluck="name")
 	)
 	matrices["ilL Engineering"].update(masters)
+	catalog_masters = {"read", "select", "write", "create", "report", "import", "export"}
 	matrices["ilL Catalog Publisher"] = {
 		**masters,
 		"ilL-Webflow-Product": {"read", "select", "write", "create", "report", "import", "export"},
 		"ilL-Webflow-Category": {"read", "select", "write", "create", "report", "import", "export"},
 		"ilL-Webflow-Brand": {"read", "select"},
+		# Catalog imports use the user's own permissions, including Item Price creation.
+		**{
+			name: set(catalog_masters)
+			for name in ("Item", "Item Attribute", "Item Group", "UOM", "Brand", "Item Price")
+		},
+		**{name: {"read", "select"} for name in ("Supplier", "Price List", "Currency")},
+		"ilL-Catalog-Import": {"read", "select", "report", "export"},
 	}
 	matrices["ilL Integration"].update(
 		{

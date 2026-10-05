@@ -11,11 +11,34 @@ Log in with an enabled System User holding **ilL Catalog Publisher** or
 **System Manager**; Administrator also has access.
 
 Drafts are per browser and per site. Move them between ERPNext, Vercel, or devices
-with **Save draft** and **Open YAML**. This release reads the committed ERPNext
-snapshot through an authenticated endpoint; live records arrive in the next release.
-If the snapshot is unavailable, declare existing records manually. Generate CSVs
-with the CLI and import them through ERPNext Data Import as described below.
-The Vercel workflow is unchanged.
+with **Save draft** and **Open YAML**. The ERPNext editor lists live records you can
+read, cached for five minutes per user. Use **Refresh ERPNext records** after creating
+or changing records in Desk. The loaded time uses the site's timezone; skipped
+DocTypes appear under **No read access**. Existing DocType, record, and field
+permissions apply. The Session 3 migration grants Catalog Publishers the catalog
+create/import permissions and read-only audit access.
+
+**Copy as new record** fetches the full readable record, including child rows and
+long text, while omitting audit metadata, prices, supplier rows, and Webflow sync
+state. Give the copy a new name before importing.
+
+Use **Check in ERPNext** for a full dry run with live validation; nothing is saved.
+A passing Check enables **Import to ERPNext** for that exact draft. Edits require
+another Check, and a check expires after 30 minutes. Confirm the record counts to
+import all records in one transaction. The results show errors, skipped dependencies,
+warnings, and links to created records and the audit log. Select an error or skipped
+record to return to its editor. **Recent checks and imports** shows your runs;
+System Managers can see all runs.
+
+After importing, start a new draft: the created names now exist in ERPNext. If an
+import response is lost, review history and refresh existing records before trying
+again; the request is never retried automatically. Reload and log in again if the
+session or CSRF token expires. Publication remains a separate step through
+Readiness and Publication.
+
+Vercel and the CLI keep using the committed reference snapshot. ERPNext ignores
+browser pending additions and `add_to_reference`; loaded drafts keep that flag
+when saved for use with the CLI.
 
 Rebuild the committed ERP bundle after editor changes:
 
@@ -27,8 +50,8 @@ npm run build:erp --prefix tools/yaml_builder_ui
 Commit both files in `illumenate_lighting/public/catalog_builder/`; CI rebuilds them
 and checks freshness. The ERP build rejects imports of `erp-reference.json`, so
 the public bundle contains only the editor, schema, and illustrative examples.
-Deploy this hosting release with a **Migrate** update for the route and workspace
-shortcut. A missing snapshot reports unavailable until the live-data release.
+Deploy Session 4 with a **Pull** update after Sessions 1–3 have migrated. If deploying
+the sessions together, use **Migrate** for the route, audit DocType, and permissions.
 
 ## Start
 
@@ -51,13 +74,13 @@ Use **Family expansion editor** for the existing fixture/tape/neon wizard.
    and review every declared existing ERPNext record before using the example.
 3. Enter linked names. Suggestions include catalog records and declared existing
    records. Create missing Item records, then set their Item Group and UOM.
-4. Resolve references by adding records, linking to a record in the ERPNext export
+4. Resolve references by adding records, linking to a record in the live ERPNext list or Vercel snapshot
    (below), or selecting **Use existing ERPNext record**. That declaration does not
    verify the live site.
 5. **Save draft** works anytime. **Download catalog** requires browser structure and
    reference checks to pass. **Open YAML** reopens version 2 YAML or JSON without
    discarding fields. Replacing a draft asks for confirmation.
-6. From the repository root, run:
+6. In ERPNext, Check and then Import. For the Vercel/CLI workflow, run from the repository root:
 
 ```powershell
 python -m tools.fixture_builder --config my-catalog.yaml --output ./output/my-catalog/
@@ -68,14 +91,15 @@ The CLI checks engineering values and variant ambiguity. Follow the generated
 A DocType can have multiple batches when records depend on earlier records of that
 type. Use only files named in the current manifest.
 
-The ERPNext editor fetches the reference snapshot from the site. Both editors
-keep authoring local; they do not import records, upload attachments, publish products,
-or create orders. Live ERPNext readiness remains authoritative for site records, compatibility
+The ERPNext editor fetches live references and full copies, checks drafts, and imports
+records into the site. Vercel keeps authoring local and exports YAML for the CLI.
+Neither editor uploads attachments, publishes products, or creates orders.
+Live ERPNext readiness remains authoritative for site records, compatibility
 coverage, electrical selection, PDFs, and channel publication.
 
 ## Existing ERPNext records
 
-`src/erp-reference.json` is a snapshot of the records already in ERPNext, built from
+For Vercel and the CLI, `src/erp-reference.json` is a snapshot of the records already in ERPNext, built from
 ERPNext's DocType exports: LED Tape specs, profiles, lenses, accessories, drivers,
 templates, attributes, relationship maps, and every Item (templates and variants,
 with their variant attributes), plus the Item Groups, UOMs, Brands and Item
@@ -89,10 +113,11 @@ Attributes those records link to. In the editor:
 - Each DocType page lists its existing records. Search them, or **Copy as new record**
   to start from an existing spec or template.
 - Adding a record whose name already exists in ERPNext is a validation finding,
-  because Insert New Records would fail. A declared existing record that a fully
-  exported DocType does not contain is flagged as a likely typo.
+  because Insert New Records would fail. A declared existing record absent from a
+  complete reference list is flagged for review. In ERPNext, also check read access
+  and refresh the list.
 
-### Add a new catalog to the reference
+### Add a new catalog to the reference (Vercel and CLI)
 
 Check **Add to ERPNext reference after import** when the catalog will be imported.
 The YAML then carries `add_to_reference: true` (the catalog needs a name):
@@ -130,6 +155,10 @@ The CLI reads the same snapshot; pass `--no-reference` to ignore it.
 
 ## Host on Vercel
 
+Owner decision (2026-10-05): **keep Vercel for offline drafting**. The Vercel editor
+links to the production ERPNext builder for Check and Import. Use **Save draft**
+here and **Open YAML** in ERPNext; local browser drafts do not cross sites.
+
 The builder is a static site: drafts stay in each browser's storage and exports are
 browser downloads, so it needs no server or ERPNext access.
 
@@ -159,6 +188,20 @@ npm test
 npm run test:render
 npm run build
 ```
+
+The ERP browser regressions use the repository's existing Playwright package and
+controlled API responses (no site or credentials needed):
+
+```sh
+npm ci --prefix tests/portal_e2e
+npm exec --prefix tests/portal_e2e -- playwright install chromium
+npm run build:erp --prefix tools/yaml_builder_ui
+npm run test:browser --prefix tools/yaml_builder_ui
+```
+
+Set `BROWSER_EXECUTABLE` to use an already installed Chromium. These tests cover
+Check/Import gating, busy controls, error recovery, results, and history; also verify
+the real Check → Import flow on an isolated bench before deploying.
 
 Development refreshes the schema snapshot; production builds check it. To refresh
 the shared examples, run `python -m tools.fixture_builder.catalog_examples` from the

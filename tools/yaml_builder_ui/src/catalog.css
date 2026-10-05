@@ -58,8 +58,41 @@
 .catalog-app .catalog-origin { color: #86653b; }
 .catalog-toolbar .catalog-add-reference { gap: 8px; font-size: 13px; }
 .catalog-notice { padding: 12px 32px; background: #e8ecd9; display: flex; align-items: center; justify-content: space-between; }
-.catalog-modal-backdrop { position: fixed; inset: 0; background: #0007; display: grid; place-items: center; z-index: 100; }
-.catalog-modal { background: white; padding: 28px; max-width: 480px; border-radius: 12px; margin: 20px; }
-.catalog-modal button { margin-right: 10px; }
+.catalog-app .catalog-modal { background: white; color: #24221f; padding: 28px; width: calc(100% - 40px); max-width: 480px; max-height: 90vh; overflow: auto; border: 1px solid #d5cec0; border-radius: 12px; margin: auto; }
+.catalog-app .catalog-modal::backdrop { background: #0007; }
+.catalog-app .catalog-modal button { margin: 8px 10px 0 0; }
+.catalog-app .catalog-controls { min-width: 0; padding: 0; margin: 0; border: 0; }
+.catalog-app .catalog-offline-notice { padding: 12px 32px; background: #e6edf3; color: #29475f; }
+.catalog-app .catalog-run { padding: 0 32px; }
+.catalog-app .catalog-run:empty { display: none; }
+.catalog-app .catalog-results { background: white; border: 1px solid #d5cec0; border-radius: 10px; padding: 16px; margin-bottom: 24px; }
+.catalog-app .catalog-result-banner { border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+.catalog-app .catalog-status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border: 1px solid currentColor; border-radius: 20px; white-space: nowrap; }
+.catalog-app .catalog-tone-success { background: #e6f1e8; color: #245630; }
+.catalog-app .catalog-tone-error { background: #fbe9e6; color: #8c2824; }
+.catalog-app .catalog-tone-warning { background: #fff1d5; color: #754400; }
+.catalog-app .catalog-tone-neutral { background: #eeece7; color: #49453d; }
+.catalog-app .catalog-api-error, .catalog-app .catalog-run-errors { color: #8c2824; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 12px; }
+.catalog-app .catalog-stale { color: #754400; }
+.catalog-app .catalog-result-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.catalog-app .catalog-result-table { max-height: 420px; overflow: auto; border: 1px solid #d5cec0; border-radius: 6px; }
+.catalog-app .catalog-result-table table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; }
+.catalog-app .catalog-result-table th { position: sticky; top: 0; z-index: 1; background: #eeece7; }
+.catalog-app .catalog-result-table td, .catalog-app .catalog-result-table th { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid #e0dace; overflow-wrap: anywhere; min-width: 80px; max-width: 420px; }
+.catalog-app .catalog-result-table tr:nth-child(even) { background: #f8f6f1; }
+.catalog-app .catalog-result-table ul { padding-left: 18px; margin: 6px 0; }
+.catalog-app .catalog-result-select { text-align: left; color: #315778; text-decoration: underline; overflow-wrap: anywhere; }
+.catalog-app a { color: #315778; text-decoration: underline; }
+.catalog-app a:focus-visible, .catalog-app summary:focus-visible, .catalog-app [tabindex]:focus-visible { outline: 2px solid #765529; outline-offset: 2px; }
+.catalog-app .catalog-history { margin: 16px 0; }
+.catalog-app .catalog-history ol { list-style: none; padding: 0; }
+.catalog-app .catalog-history li { border-top: 1px solid #d5cec0; padding-top: 12px; }
+.catalog-app .catalog-history small { display: block; margin-top: 6px; }
+.catalog-app .catalog-imported { margin-bottom: 24px; }
+.catalog-app .catalog-progress { display: flex; align-items: center; gap: 10px; color: #49453d; }
+.catalog-app .catalog-spinner { width: 18px; height: 18px; border: 3px solid #d5cec0; border-top-color: #765529; border-radius: 50%; animation: catalog-spin 1s linear infinite; }
+@keyframes catalog-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .catalog-app .catalog-spinner { animation: none; } }
+@media (max-width: 760px) { .catalog-app .catalog-run { padding: 0 16px; } }
 @media (max-width: 1200px) { .catalog-layout { grid-template-columns: 200px minmax(0, 1fr); } .catalog-review { position: static; grid-column: 2; max-height: none; } .catalog-header { align-items: start; } }
 @media (max-width: 760px) { .catalog-header { flex-direction: column; } .catalog-actions { justify-content: start; } .catalog-layout { display: block; padding: 0 16px 24px; } .catalog-sidebar { position: static; margin-bottom: 24px; } .catalog-type-list { max-height: 180px; } .catalog-fields { grid-template-columns: 1fr; } .catalog-header, .catalog-products, .catalog-toolbar { padding: 16px; } }
