@@ -99,7 +99,8 @@ try {
     await page.getByRole('button', { name: 'Errors', exact: true }).click();
     await expect(page.locator('.catalog-result-table tbody tr')).toHaveCount(1);
     await page.getByRole('button', { name: 'Edit UI-KIT', exact: true }).click();
-    await expect(page.locator('.catalog-record')).toBeFocused();
+    // The table view focuses the record's row; cards focus the record card.
+    await expect(page.locator(`[id="catalog-record-${doctype}-0"]`)).toBeFocused();
     await expect(page.locator('.catalog-editor h2')).toHaveText('Extrusion-Kit-Template');
     await page.getByRole('button', { name: 'Skipped', exact: true }).click();
     await expect(page.locator('.catalog-result-table')).toContainText('Dependency failed');
