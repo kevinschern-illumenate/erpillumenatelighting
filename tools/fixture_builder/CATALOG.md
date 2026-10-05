@@ -14,9 +14,19 @@ for copying. No reference records are included in its public bundle. Drafts stay
 in browser storage for that site; use **Save draft** / **Open YAML** to move them.
 Vercel and the CLI still use the committed reference snapshot.
 
-The server now provides Check/Import/history endpoints. The editor's buttons and
-results view arrive in Session 4; use the CSV workflow below until then. See the
+The ERP editor provides **Check in ERPNext**, **Import to ERPNext**, filtered results,
+and **Recent checks and imports**. Check sends the resolved YAML object without
+`add_to_reference`; downloaded drafts preserve that optional CLI flag. Only an
+unchanged draft with a passing Check can be imported, after confirming per-DocType
+counts. Editing is disabled during a run. Error/skipped records return you to their
+editor; durable created records and receipts link to Desk. A rolled-back attempt
+never gets a created-record link. See the
 [implementation plan](../../docs/CATALOG_BUILDER_IN_ERPNEXT_PLAN.md).
+
+After success, the live reference refreshes and **Start a new draft** clears the
+current product after confirmation. The success result remains visible even if
+that refresh fails. Lost import responses show an unknown outcome and are never
+retried automatically; check history and refresh the reference before continuing.
 
 ### Server Check and Import
 
@@ -49,8 +59,9 @@ missing audit log; do not retry it as though it rolled back.
 
 The migration grants **ilL Catalog Publisher** create/write/import on catalog
 masters, including **Item Price**, without delete. Supplier, Price List, and
-Currency remain read-only. Only audit insertion bypasses permissions. Deploy this
-release with **Migrate**, then verify the permission patch and workspace shortcut.
+Currency remain read-only. Only audit insertion bypasses permissions. Deploy the
+Session 3 backend with **Migrate**, then verify the permission patch and workspace
+shortcut. The Session 4 UI needs only **Pull** once those migrations are applied.
 Custom production hooks and every product family still need the Session 5 staging
 rehearsal; the installed-site tests exercise an extrusion kit, Item Price, and
 prompt-named LED Package with real Frappe permissions and rollback.

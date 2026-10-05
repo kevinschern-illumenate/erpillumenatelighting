@@ -28,6 +28,15 @@ The audit role matrix retains the DocType's export permission; Supplier, Price
 List, and Currency receive explicit read/select only. Session 3 is stacked on
 Session 2; merge the preceding sessions before retargeting its PR to `main`.
 
+**Session 4 implementation note:** the ERP editor now checks and imports through
+one CSRF-aware client, with result filters, audit history, and confirmed creation.
+The successful import response remains visible while its passing Check is consumed.
+Desk record links require both `Imported` and a `created` row: a rolled-back attempt
+may include `created` rows whose records no longer exist. A lost import response
+reports an unknown outcome and is never retried automatically. Editing is disabled
+during a run; the confirmation uses the exact checked payload/hash. Session 4 is
+stacked on Session 3 and is a Pull update after the preceding migrations.
+
 ## How to use this document
 
 - Do the sessions **in order**. Each session is one branch and one pull request,
