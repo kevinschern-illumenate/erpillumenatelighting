@@ -18,6 +18,10 @@ try {
   assert.ok(shell.includes('Add to ERPNext reference after import'));
   assert.ok(!shell.includes('Refresh ERPNext records'));
   for (const product of Object.values(schema.products)) assert.ok(shell.includes(product.label));
+  assert.ok(shell.includes('Find &amp; replace'));
+  const { default: FindReplaceDialog } = await server.ssrLoadModule('/src/FindReplaceDialog.jsx');
+  const finder = renderToStaticMarkup(React.createElement(FindReplaceDialog, { catalog: examples.fixture, reference: null, doctype: 'Item', onApply() {}, onClose() {} }));
+  assert.ok(finder.includes('Find and replace') && finder.includes('Names and all text fields') && finder.includes('Only Item'));
   const { default: Workspace } = await server.ssrLoadModule('/src/Workspace.jsx');
   const erpShell = renderToStaticMarkup(React.createElement(Workspace, { loadReference, mode: 'erp' }));
   assert.ok(erpShell.includes('Refresh ERPNext records'));

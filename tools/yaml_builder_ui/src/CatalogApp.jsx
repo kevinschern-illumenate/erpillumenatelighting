@@ -5,6 +5,7 @@ import examples from './catalog-examples.json';
 import ImportResults, { ApiError } from './ImportResults.jsx';
 import ImportHistory from './ImportHistory.jsx';
 import ConfirmDialog from './ConfirmDialog.jsx';
+import FindReplaceDialog from './FindReplaceDialog.jsx';
 import { recordCounts } from './erp-api.js';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
@@ -12,6 +13,7 @@ import {
   catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey,
 } from './catalog-model.js';
 import { issueIndex, findingGroups } from './grid-model.js';
+import { renameRecords, applyReplace } from './rename-model.js';
 import { RecordFields } from './RecordFields.jsx';
 import { RecordGrid, GridData } from './RecordGrid.jsx';
 import './catalog.css';
@@ -26,6 +28,7 @@ const parentTypes = Object.keys(schema.doctypes).filter(name => !schema.doctypes
 const shortName = name => name.replace(/^ilL-/, '');
 // The server timestamp is already in the site's timezone; keep that clock time.
 const loadedTime = timestamp => timestamp?.slice(11, 16) || 'unknown';
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const recordPrefix = doctype => `catalog-record-${encodeURIComponent(doctype)}-`;
 const recordId = (doctype, index) => `${recordPrefix(doctype)}${index}`;
 
@@ -132,6 +135,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [confirm, setConfirm] = useState(null);
+  const [findOpen, setFindOpen] = useState(false);
   // Snapshots of the active product's draft; catalogs are never mutated, so snapshots share unchanged records.
   const [history, setHistory] = useState({ product: null, past: [], future: [] });
   const [view, setView] = useState(restoreView);
@@ -308,6 +312,27 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     element?.focus({ preventScroll: true });
     element?.scrollIntoView({ block: 'center' });
   }, [selection]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** After a record name is edited in the table, point links (and records named from it) at the new name. */
+  const followRename = (from, to, key) => {
+    const named = name => (catalog.records[selected] || []).filter(row => recordName(selected, row, schema) === name).length;
+    // Another record still holding the old name, or sharing the new one, makes the links ambiguous.
+    if (named(from) > 0) return;
+    if (named(to) > 1) { setMessage(`Another ${shortName(selected)} record is already named ${to}, so links to ${from} were left unchanged.`); return; }
+    const result = renameRecords(catalog, schema, [{ doctype: selected, from, to }]);
+    if (!result.changes.length) return;
+    setCatalog(result.catalog, { label: 'Edit cell', key });
+    const dependents = result.renamed.length - 1;
+    setMessage(`Renamed ${from} to ${to} and updated ${plural(result.changes.length, 'link')}`
+      + `${dependents ? `, including ${plural(dependents, 'record')} named from it` : ''}. Undo reverses it.`);
+  };
+  const replaceAll = changes => {
+    const result = applyReplace(catalog, schema, changes);
+    setCatalog(result.catalog, { label: 'Find and replace' });
+    const values = changes.filter(change => change.kind === 'value').length;
+    const links = result.changes.filter(change => !change.rename).length;
+    setMessage([values && `Replaced ${plural(values, 'value')}`, result.renamed.length && `renamed ${plural(result.renamed.length, 'record')}`,
+      links && `updated ${plural(links, 'link')}`].filter(Boolean).join(', ').replace(/^./, letter => letter.toUpperCase()) + '. Undo reverses all of it.');
+  };
   const copyRecord = async (name, summary) => {
     const target = currentDraft.current;
     setCopying(name);
@@ -338,11 +363,24 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     } catch (error) { setMessage(error.message); }
     finally { setOpening(false); }
   };
+  const findAllowed = useRef(true);
+  findAllowed.current = !busy && !confirm;
+  // Find and replace works from anywhere on the page, not only with focus inside the editor.
+  useEffect(() => {
+    const open = event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'h') return;
+      if (!findAllowed.current || event.target.closest?.('dialog')) return;
+      event.preventDefault();
+      setFindOpen(true);
+    };
+    document.addEventListener('keydown', open);
+    return () => document.removeEventListener('keydown', open);
+  }, []);
   const onShortcut = event => {
     // Cells handle their own shortcuts; this covers focus on buttons and the page.
     if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.altKey) return;
-    if (event.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
     const letter = event.key.toLowerCase();
+    if (event.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
     if (letter === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); }
     if (letter === 'y') { event.preventDefault(); redo(); }
   };
@@ -435,6 +473,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
           </div>
           <button disabled={!timeline.past.length} onClick={undo} title={timeline.past.length ? `Undo ${timeline.past.at(-1).label.toLowerCase()} (Ctrl+Z)` : 'Nothing to undo'}>↶ Undo</button>
           <button disabled={!timeline.future.length} onClick={redo} title={timeline.future.length ? `Redo ${timeline.future.at(-1).label.toLowerCase()} (Ctrl+Y)` : 'Nothing to redo'}>↷ Redo</button>
+          <button onClick={() => setFindOpen(true)} title="Rename records or replace text across the draft; links follow renamed records (Ctrl+H)">Find &amp; replace</button>
           {!view.table && <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)], { label: 'Add record' })}>+ Add record</button>}
           <button ref={readinessToggle} className="catalog-readiness-toggle" aria-expanded={readinessOpen} aria-controls="catalog-readiness"
             onClick={() => setReadinessOpen(!readinessOpen)}>
@@ -503,7 +542,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
         {view.table ? <GridData.Provider value={{ catalog, reference, issues: cellIssues, undo, redo }}>
           <RecordGrid key={selected} doctype={selected} rows={rows} columnFilter={fieldSearch} onChange={replaceRows}
             copyRow={row => asNewRecord(selected, row)} rowIdPrefix={recordPrefix(selected)}
-            focus={view.table && selection?.doctype === selected ? selection : null} />
+            focus={view.table && selection?.doctype === selected ? selection : null} onRename={followRename} />
         </GridData.Provider> : <>
           {!rows.length && <div className="catalog-empty"><h3>Add your first {shortName(selected)} record</h3><p>Use the current ERPNext fields below, or load an example to explore a complete product setup.</p></div>}
           {rows.map((row, index) => <section className="catalog-record" id={recordId(selected, index)} tabIndex={-1} key={index}>
@@ -518,5 +557,6 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     </div>
     </fieldset>
     {confirm && <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} />}
+    {findOpen && <FindReplaceDialog catalog={catalog} reference={reference} doctype={selected} onApply={replaceAll} onClose={() => setFindOpen(false)} />}
   </div>;
 }

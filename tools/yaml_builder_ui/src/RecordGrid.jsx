@@ -2,6 +2,7 @@ import { createContext, memo, useContext, useEffect, useId, useMemo, useRef, use
 import schema from './catalog-schema.json';
 import { blankRecord, recordName, inReference, referenceSummary } from './catalog-model.js';
 import { RecordFields } from './RecordFields.jsx';
+import { namingField } from './rename-model.js';
 import {
   gridColumns, visibleColumns, filledCount, defaultWidth, parseTSV, toTSV, parseNumber, rangeBounds, copyMatrix,
   pasteCells, rowsFromMatrix, fillDown, clearCells, insertAfter, duplicateRows, removeRows, moveRows, setField,
@@ -187,6 +188,7 @@ const SHORTCUTS = [
   ['Paste one value into a block', 'Fills every selected cell'], ['Ctrl+D', 'Fill down from the top selected row'],
   ['Delete', 'Clear the selected cells'], ['Ctrl+Z / Ctrl+Y', 'Undo / redo'], ['F2', 'Edit the text in a cell'],
   ['Alt+Enter', 'New line in a long text cell'], ['Esc', 'Select just the current cell'],
+  ['Edit a record name', 'Links to it follow when you leave the cell'], ['Ctrl+H', 'Find and replace across the draft'],
 ];
 
 /**
@@ -197,8 +199,9 @@ const SHORTCUTS = [
 /**
  * `focus` ({ index, rest, nonce }) moves to a row, or to the field `rest` names inside
  * it ("field" or "childTable[2].field"), opening child tables and hidden columns on the way.
+ * `onRename(from, to, key)` runs when focus leaves an edited record name, so links can follow.
  */
-export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true, columnFilter = '', copyRow, rowIdPrefix = '', focus = null }) {
+export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true, columnFilter = '', copyRow, rowIdPrefix = '', focus = null, onRename = null }) {
   const { reference, issues = EMPTY_ISSUES, undo, redo, catalog } = useContext(GridData);
   const grid = `g${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const wrap = useRef(null);
@@ -222,6 +225,9 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
   }
   const actions = useRef({}).current;
   const index = issues || EMPTY_ISSUES;
+  const naming = top && onRename ? namingField(doctype, schema) : null;
+  // The record name when its cell gained focus, to rename links once editing ends.
+  const nameEdit = useRef(null);
 
   const readOnlyPresent = schema.doctypes[doctype].fields
     .filter(field => field.read_only && rows.some(row => row && Object.hasOwn(row, field.fieldname))).map(field => field.fieldname).join();
@@ -433,11 +439,23 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
 
   function onFocus(event) {
     const td = ownCell(event.target);
-    if (!td || pendingFocus.current) return;
+    if (!td) return;
     const r = Number(td.dataset.r);
     const c = Number(td.dataset.c);
+    if (naming && cols[c]?.key === naming && nameEdit.current?.index !== order[r]) {
+      nameEdit.current = { index: order[r], from: recordName(doctype, rows[order[r]] || {}, schema) };
+    }
+    if (pendingFocus.current) return;
     setSel(previous => previous && previous.ar === r && previous.ac === c && previous.fr === r && previous.fc === c
       ? previous : { ar: r, ac: c, fr: r, fc: c });
+  }
+  function onBlur(event) {
+    const edit = nameEdit.current;
+    const td = ownCell(event.target);
+    if (!edit || !td || td.contains(event.relatedTarget)) return;
+    nameEdit.current = null;
+    const to = recordName(doctype, rows[edit.index] || {}, schema);
+    if (edit.from && to && to !== edit.from) onRename(edit.from, to, `${path}[${edit.index}].${naming}`);
   }
   function onMouseDown(event) {
     const td = ownCell(event.target);
@@ -601,7 +619,7 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
       {checked.size ? `${count(checked.size, 'row')} checked · ` : ''}{selection ? `${selection} cells selected` : ''}
       {(checked.size || selection) && status ? ' · ' : ''}{status}
     </p>
-    <div className="grid-wrap" ref={wrap} onKeyDown={onKeyDown} onFocus={onFocus} onMouseDown={onMouseDown} onMouseOver={onMouseOver}
+    <div className="grid-wrap" ref={wrap} onKeyDown={onKeyDown} onFocus={onFocus} onBlur={onBlur} onMouseDown={onMouseDown} onMouseOver={onMouseOver}
       onCopy={event => onCopy(event)} onCut={event => onCopy(event, true)} onPaste={onPaste}>
       <table className="grid-table" style={{ width: tableWidth }}>
         <colgroup><col style={{ width: ROW_HEAD }} />{cols.map(column => <col key={column.key} style={{ width: widthOf(column) }} />)}</colgroup>

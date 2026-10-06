@@ -137,6 +137,18 @@ one-card-per-record form.
 - **Bulk entry:** **Copy table** copies the shown rows and columns with headers.
   **Paste rows** appends rows from spreadsheet cells on the clipboard, matching
   columns by header name when the first line has them.
+- **Renaming keeps links:** edit a record's name in the table and, when you leave the
+  cell, every field that links to the old name follows. That includes child rows,
+  Dynamic Links, and records whose names are built from it: renaming Item `DEMO-TAPE`
+  also renames its LED Tape spec, that spec's Tape Offerings, and the template rows
+  linking those offerings. One Undo reverses the edit and its links. Links stay
+  unchanged when another record still has the old name or already has the new one.
+- **Find & replace** (Ctrl+H, or the button above the table) renames records or
+  replaces text across the draft, in record names only or in every text and link
+  field, for all DocTypes or the current one. Match case, whole value and regular
+  expressions (`CH-(\w+)` → `PR-$1`) are available. The preview lists every change.
+  Renames that would collide with a draft record or an existing ERPNext record start
+  unchecked. Renamed records keep their links, as above. One Undo reverses it all.
 - Cells with validation findings are shaded red and list the findings on hover; row
   numbers show a count of findings for the row, its child rows included. Links to
   existing ERPNext records have a green edge.
