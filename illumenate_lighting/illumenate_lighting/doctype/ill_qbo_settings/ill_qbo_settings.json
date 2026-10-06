@@ -13,6 +13,24 @@
         "paid_to_account",
         "column_break_posting",
         "mode_of_payment",
+        "push_sb",
+        "push_enabled",
+        "n8n_proxy_url",
+        "push_start_date",
+        "column_break_push",
+        "push_sales_invoices",
+        "push_credit_notes",
+        "apply_credit_notes",
+        "push_payments",
+        "push_customer_updates",
+        "mapping_sb",
+        "qbo_default_item",
+        "qbo_tax_item",
+        "column_break_mapping",
+        "qbo_tax_code",
+        "qbo_deposit_account",
+        "item_group_map_sb",
+        "item_group_map",
         "help_sb",
         "endpoint_help"
     ],
@@ -20,7 +38,7 @@
         {
             "fieldname": "general_sb",
             "fieldtype": "Section Break",
-            "label": "Inbound Payment Sync (QuickBooks Online → ERPNext)"
+            "label": "Inbound Payment Sync (QuickBooks Online \u2192 ERPNext)"
         },
         {
             "default": "1",
@@ -62,6 +80,113 @@
             "options": "Mode of Payment"
         },
         {
+            "fieldname": "push_sb",
+            "fieldtype": "Section Break",
+            "label": "Outbound Push (ERPNext \u2192 QuickBooks Online)"
+        },
+        {
+            "fieldname": "push_enabled",
+            "fieldtype": "Check",
+            "label": "Push Enabled",
+            "default": "0",
+            "description": "Automatically push submitted Sales Invoices, credit notes, customer receipts and cancellations to QuickBooks through the n8n proxy workflow. Turn off the old n8n invoice workflow first."
+        },
+        {
+            "fieldname": "n8n_proxy_url",
+            "fieldtype": "Data",
+            "label": "n8n QuickBooks Proxy URL",
+            "options": "URL",
+            "description": "Production URL of the n8n workflow 'QuickBooks API Proxy' (n8n_workflows/quickbooks_api_proxy.json). Signed with the Webhook Shared Secret above."
+        },
+        {
+            "fieldname": "push_start_date",
+            "fieldtype": "Date",
+            "label": "Push Documents Posted On/After",
+            "description": "Auto-push only documents with a posting date on or after this date. Older ones can be sent with Backfill or Push Now."
+        },
+        {
+            "fieldname": "column_break_push",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "push_sales_invoices",
+            "fieldtype": "Check",
+            "label": "Push Sales Invoices",
+            "default": "1"
+        },
+        {
+            "fieldname": "push_credit_notes",
+            "fieldtype": "Check",
+            "label": "Push Credit Notes (Returns)",
+            "default": "1"
+        },
+        {
+            "fieldname": "apply_credit_notes",
+            "fieldtype": "Check",
+            "label": "Apply Credit Notes to the Original Invoice",
+            "default": "1",
+            "description": "When ERPNext reduces the original invoice (Update Outstanding for Self off), apply the QuickBooks credit memo to it with a $0 payment."
+        },
+        {
+            "fieldname": "push_payments",
+            "fieldtype": "Check",
+            "label": "Push Customer Payments",
+            "default": "1",
+            "description": "Payment Entries (Receive, Customer) entered in ERPNext. Payments that came from QuickBooks are never pushed back."
+        },
+        {
+            "fieldname": "push_customer_updates",
+            "fieldtype": "Check",
+            "label": "Push Customer Contact Updates",
+            "default": "1"
+        },
+        {
+            "fieldname": "mapping_sb",
+            "fieldtype": "Section Break",
+            "label": "QuickBooks Mapping"
+        },
+        {
+            "fieldname": "qbo_default_item",
+            "fieldtype": "Data",
+            "label": "Default QuickBooks Item",
+            "default": "ERPNext Sales",
+            "description": "Product/Service in QuickBooks used for invoice lines (create it as a Service or Non-inventory item with your sales income account)."
+        },
+        {
+            "fieldname": "qbo_tax_item",
+            "fieldtype": "Data",
+            "label": "QuickBooks Item for Taxes & Charges",
+            "description": "Used for ERPNext tax/charge rows and rounding. Blank = Default QuickBooks Item. Use a non-taxable item tied to your sales-tax-payable or other liability account."
+        },
+        {
+            "fieldname": "column_break_mapping",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "qbo_tax_code",
+            "fieldtype": "Data",
+            "label": "QuickBooks Line Tax Code",
+            "default": "NON",
+            "description": "TaxCodeRef sent on every line. US companies: NON (ERPNext already calculated tax). Blank = omit."
+        },
+        {
+            "fieldname": "qbo_deposit_account",
+            "fieldtype": "Data",
+            "label": "QuickBooks Deposit Account for Payments",
+            "description": "Name of the QuickBooks bank account payments pushed from ERPNext deposit to. Blank = Undeposited Funds / Payments to deposit."
+        },
+        {
+            "fieldname": "item_group_map_sb",
+            "fieldtype": "Section Break",
+            "label": "Item Group \u2192 QuickBooks Item"
+        },
+        {
+            "fieldname": "item_group_map",
+            "fieldtype": "Table",
+            "label": "Item Group Map",
+            "options": "ilL-QBO-Item-Map"
+        },
+        {
             "fieldname": "help_sb",
             "fieldtype": "Section Break",
             "label": "Endpoint"
@@ -70,13 +195,13 @@
             "fieldname": "endpoint_help",
             "fieldtype": "HTML",
             "label": "Endpoint Help",
-            "options": "<p>n8n posts normalized QBO Payment events to:<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code></p><p>Every inbound event is recorded in <b>ilL-QBO-Sync-Log</b>. Starter n8n workflow: <code>n8n_workflows/quickbooks_payment_sync.json</code>.</p>"
+            "options": "<p><b>Inbound</b> (QuickBooks payments \u2192 ERPNext): n8n posts to <code>/api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code>; every event is in <b>ilL-QBO-Sync-Log</b>. Workflow: <code>n8n_workflows/quickbooks_payment_sync.json</code>.</p><p><b>Outbound</b> (ERPNext \u2192 QuickBooks): every push is an <b>ilL-QBO-Push-Log</b> row, sent through <code>n8n_workflows/quickbooks_api_proxy.json</code>. Use the buttons above to test the connection, retry failures and backfill.</p><p>Setup: <code>docs/QBO_CONNECTOR_SETUP_AND_TEST.md</code>.</p>"
         }
     ],
     "index_web_pages_for_search": 1,
     "issingle": 1,
     "links": [],
-    "modified": "2026-09-17 10:00:00.000000",
+    "modified": "2026-10-06 09:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-QBO-Settings",

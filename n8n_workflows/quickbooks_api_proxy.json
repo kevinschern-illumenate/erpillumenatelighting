@@ -1,0 +1,323 @@
+{
+  "name": "QuickBooks API Proxy (ERPNext → QuickBooks)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quickbooks-api-proxy",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "erpnext-request",
+      "name": "ERPNext Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "quickbooks-api-proxy",
+      "notes": "Paste this node's PRODUCTION URL into ilL-QBO-Settings → n8n QuickBooks Proxy URL. Keep Options → Raw Body ON (the signature covers the exact bytes)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ERPNext (illumenate_lighting qbo_client.py) signs the raw body:\n//   X-QBO-Signature = hex(HMAC-SHA256(body, QBO_WEBHOOK_SECRET))\n// Body: {\"method\": \"GET\"|\"POST\", \"path\": \"/invoice\", \"params\": {...}, \"body\": {...}, \"ts\": <unix seconds>}\nconst crypto = require('crypto');\n\nconst QBO_WEBHOOK_SECRET = ''; // fallback only; prefer the n8n Variable QBO_WEBHOOK_SECRET (same as ilL-QBO-Settings)\nconst QBO_REALM_ID = '';       // fallback only; prefer the n8n Variable QBO_REALM_ID (QuickBooks Company ID)\nconst QBO_API_BASE = 'https://quickbooks.api.intuit.com'; // sandbox company: https://sandbox-quickbooks.api.intuit.com\nfunction setting(name, fallback) {\n  // n8n Variables win; the constant above is the fallback for plans without Variables.\n  try { const v = $vars[name]; if (v) return String(v); } catch (e) {}\n  return fallback;\n}\n\nconst MAX_SKEW_SECONDS = 300;\nconst ALLOWED_PATH = /^\\/(query|customer|invoice|creditmemo|payment|item|account)(\\/[0-9]+)?$/;\nconst ALLOWED_PARAMS = ['query', 'requestid', 'operation', 'include'];\nconst reject = (status, error) => [{ json: { ok: false, status, error } }];\n\nconst secret = setting('QBO_WEBHOOK_SECRET', QBO_WEBHOOK_SECRET);\nconst realm = setting('QBO_REALM_ID', QBO_REALM_ID);\nconst base = setting('QBO_API_BASE', QBO_API_BASE).replace(/\\/+$/, '');\nif (!secret) return reject(500, 'QBO_WEBHOOK_SECRET is not configured in n8n');\nif (!realm) return reject(500, 'QBO_REALM_ID is not configured in n8n');\n\nconst item = $input.first();\nlet raw;\nif (item.binary && item.binary.data) {\n  raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n} else {\n  raw = Buffer.from(JSON.stringify(item.json.body ?? {}), 'utf8');\n}\n\nconst headers = item.json.headers || {};\nconst provided = String(headers['x-qbo-signature'] || '').toLowerCase().replace(/^sha256=/, '');\nconst expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');\nconst a = Buffer.from(provided);\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  return reject(401, 'bad signature: QBO_WEBHOOK_SECRET in n8n differs from ilL-QBO-Settings');\n}\n\nlet req;\ntry { req = JSON.parse(raw.toString('utf8')); } catch (e) { return reject(400, 'body is not JSON'); }\nif (Math.abs(Date.now() / 1000 - Number(req.ts || 0)) > MAX_SKEW_SECONDS) return reject(401, 'stale request (clock skew or replay)');\nif (!['GET', 'POST'].includes(req.method)) return reject(400, `method ${req.method} not allowed`);\nif (!ALLOWED_PATH.test(String(req.path || ''))) return reject(403, `path ${req.path} not allowed`);\n\nconst qs = new URLSearchParams({ minorversion: '75' });\nfor (const key of ALLOWED_PARAMS) {\n  const value = req.params && req.params[key];\n  if (value !== undefined && value !== null && value !== '') qs.set(key, String(value));\n}\nreturn [{\n  json: {\n    ok: true,\n    method: req.method,\n    // Intuit expects %20, not '+', for spaces in the query string.\n    url: `${base}/v3/company/${encodeURIComponent(realm)}${req.path}?${qs.toString().replace(/\\+/g, '%20')}`,\n    body: req.body || {},\n  },\n}];"
+      },
+      "id": "verify-request",
+      "name": "Verify & Build Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ],
+      "notes": "Checks ERPNext's HMAC signature and timestamp, and only allows QuickBooks paths ERPNext uses. Set QBO_REALM_ID (QuickBooks Company ID) as an n8n Variable."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-valid",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-get",
+              "leftValue": "={{ $json.method }}",
+              "rightValue": "GET",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-get",
+      "name": "GET?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        750,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "qbo-get",
+      "name": "QuickBooks GET",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        -200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "notes": "Select the QuickBooks OAuth2 credential (same one the payment workflow uses)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "qbo-post",
+      "name": "QuickBooks POST",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "notes": "Select the same QuickBooks OAuth2 credential. Creates carry an Intuit requestid, so a retry can't duplicate a record."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize QuickBooks' answer for ERPNext: {ok, status, body, intuit_tid} or {ok:false, status, error}.\nreturn $input.all().map((item) => {\n  const r = item.json || {};\n  if (r.statusCode === undefined) {\n    const err = r.error && (r.error.message || r.error.description) || r.error || 'request to QuickBooks failed';\n    return { json: { ok: false, status: 502, error: String(err) } };\n  }\n  const status = Number(r.statusCode);\n  const headers = r.headers || {};\n  return {\n    json: {\n      ok: status >= 200 && status < 300,\n      status,\n      body: r.body === undefined ? null : r.body,\n      intuit_tid: headers.intuit_tid || headers['intuit-tid'] || null,\n    },\n  };\n});"
+      },
+      "id": "shape-response",
+      "name": "Shape Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to ERPNext",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "ERPNext Request": {
+      "main": [
+        [
+          {
+            "node": "Verify & Build Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify & Build Request": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "GET?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET?": {
+      "main": [
+        [
+          {
+            "node": "QuickBooks GET",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QuickBooks POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QuickBooks GET": {
+      "main": [
+        [
+          {
+            "node": "Shape Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QuickBooks POST": {
+      "main": [
+        [
+          {
+            "node": "Shape Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "quickbooks"
+    },
+    {
+      "name": "erpnext"
+    }
+  ]
+}

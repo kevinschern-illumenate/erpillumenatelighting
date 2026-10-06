@@ -1,0 +1,43 @@
+{
+    "actions": [],
+    "allow_rename": 0,
+    "creation": "2026-10-06 09:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "item_group",
+        "qbo_item_name"
+    ],
+    "fields": [
+        {
+            "fieldname": "item_group",
+            "fieldtype": "Link",
+            "label": "ERPNext Item Group",
+            "options": "Item Group",
+            "in_list_view": 1,
+            "reqd": 1,
+            "columns": 4
+        },
+        {
+            "fieldname": "qbo_item_name",
+            "fieldtype": "Data",
+            "label": "QuickBooks Item Name",
+            "in_list_view": 1,
+            "reqd": 1,
+            "columns": 6,
+            "description": "Exact Name of the Product/Service in QuickBooks. Child groups inherit their parent's mapping."
+        }
+    ],
+    "istable": 1,
+    "links": [],
+    "modified": "2026-10-06 09:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "ilLumenate Lighting",
+    "name": "ilL-QBO-Item-Map",
+    "owner": "Administrator",
+    "permissions": [],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

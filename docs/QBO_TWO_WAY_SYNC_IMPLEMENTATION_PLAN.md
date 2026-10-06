@@ -1,9 +1,9 @@
-# QuickBooks Online ⇄ ERPNext: Payment Reverse-Sync Implementation Plan
+# QuickBooks Online ⇄ ERPNext: Two-Way Sync Implementation Plan
 
-**Status:** ERPNext side implemented (2026-09-17) — see §6 for what remains (n8n + Intuit configuration).
+**Status:** Inbound payment sync implemented 2026-09-17 (§1–7). Outbound ERPNext → QBO push implemented 2026-10-06 (§8), replacing the old n8n-only invoice workflow. Setup and test: [QBO_CONNECTOR_SETUP_AND_TEST.md](QBO_CONNECTOR_SETUP_AND_TEST.md).
 **Hosting note:** ERPNext runs on Frappe Cloud with no SSH/bench access. Everything below deploys via git push → Frappe Cloud deploy (runs `bench migrate`, which syncs the new doctypes and runs the patch). The webhook secret is entered in the **ilL-QBO-Settings** Single doctype (Password field) instead of `bench set-config`; a `qbo_webhook_secret` site-config key is still honored if set through the Frappe Cloud dashboard.
 **Scope:** Add QBO Payment → ERPNext Payment Entry sync (with void/edit handling) on top of the existing one-way ERPNext → QBO push (Customers + Sales Invoices, triggered on ERPNext submit via n8n).
-**Out of scope (explicitly deferred):** ERPNext-originated Payment Entry → QBO push, partial/multi-invoice payment allocation, multi-currency, multi-company.
+**Out of scope (explicitly deferred):** multi-invoice allocation of *inbound* QBO payments, multi-currency, multi-company, purchase side (Bills/Vendors). ERPNext-originated Payment Entry → QBO push was deferred here and is now covered by §8.
 
 ---
 
@@ -263,3 +263,62 @@ Every response except 401/400 includes `log` (the `ilL-QBO-Sync-Log` name).
 - **Multiple invoices per QBO Payment**: QBO natively allows one Payment to cover multiple invoices (`Line[]` array with multiple `LinkedTxn`). MVP assumes 1:1; if a merchant ever applies a payment to 2+ invoices in QBO, the current design will only pick up the first matched `LinkedTxn` — worth deciding whether to hard-fail (safer) or split across multiple `references` rows on one Payment Entry (moderate effort, deferred per your answer but flagging so it's not a silent gap).
 - **Unallocated/overpayments**: QBO permits payments with no linked invoice (on-account credit). Decide whether to create an unallocated Payment Entry (`party` only, no `references`) or reject/alert — not addressed above since it wasn't in scope, but will occur eventually.
 - **Bank account reconciliation timing**: since `paid_to` posts directly to the trust account, confirm this doesn't double-count if you also separately reconcile bank deposits via ERPNext's Bank Reconciliation tool against QBO-originated deposits.
+
+---
+
+## 8. Outbound push: ERPNext → QuickBooks Online (implemented 2026-10-06)
+
+The previous ERPNext → QBO path lived only in n8n Cloud and wasn't in the repo, so it couldn't be reviewed or tested. It is replaced by an ERPNext-owned outbox plus a thin n8n relay that holds the QBO OAuth credential.
+
+```mermaid
+sequenceDiagram
+    participant ERP as ERPNext (qbo_push.py)
+    participant N8N as n8n "QuickBooks API Proxy"
+    participant QBO as QuickBooks Online
+    ERP->>ERP: on_submit / on_cancel → ilL-QBO-Push-Log (Queued), enqueue after commit
+    loop each QBO call the handler needs
+        ERP->>N8N: POST {method, path, params, body, ts} + X-QBO-Signature
+        N8N->>N8N: verify HMAC, ±300s ts, path allowlist
+        N8N->>QBO: /v3/company/{QBO_REALM_ID}{path}?minorversion=75 (OAuth2)
+        QBO-->>N8N: entity / Fault
+        N8N-->>ERP: {ok, status, body, intuit_tid}
+    end
+    ERP->>ERP: write back custom_qbo_id, log Synced / Failed (+ backoff)
+```
+
+Pieces:
+
+- `api/qbo_client.py`: signed client for the relay. Parses QBO `Fault` errors and classifies them as retryable (401, 429, 5xx, stale SyncToken 5010) or needing a person.
+- `api/qbo_push.py`:
+  - doc events, the outbox state machine and the handlers;
+  - builders whose QBO line total equals the ERPNext rounded/grand total exactly (net amounts, tax rows as lines, rounding line or discount line);
+  - Desk actions: Push now, Link existing record, Retry, Retry all failed, Backfill, Test connection.
+- `ilL-QBO-Push-Log` (outbox/audit) and the `ilL-QBO-Item-Map` child table. New fields in ilL-QBO-Settings.
+- `n8n_workflows/quickbooks_api_proxy.json`: Webhook (raw body) → verify → GET/POST to QBO → shape → respond.
+- `public/js/qbo_sync.js`: status line and QuickBooks ▾ menu on Sales Invoice, Payment Entry and Customer.
+
+Mapping:
+
+| ERPNext | QBO | Notes |
+|---|---|---|
+| Customer | Customer | Linked id → else exact DisplayName match → else create. On `6240` duplicate name, retries as `Name (CUST-ID)`. |
+| Sales Invoice | Invoice | DocNumber = ERPNext name (last 21 chars); PrivateNote `ERPNext Sales Invoice <name>`. Lines are non-taxable (`NON`); tax/charge rows become lines on the tax item. |
+| Return Sales Invoice | CreditMemo (+ $0 Payment linking it to the original Invoice when `update_outstanding_for_self` is off) | Cancel removes the application, then deletes the CreditMemo (QBO can't void credit memos). |
+| Payment Entry (Receive, Customer) | Payment | One line per Sales Invoice allocation; unallocated stays as customer credit. PrivateNote `ERPNext Payment Entry <name>`. |
+| Cancel | Invoice void / Payment `operation=update&include=void` | |
+
+Idempotency and ordering:
+
+- Logs for one document run in creation order under a MariaDB named lock.
+- Every create carries a deterministic Intuit `requestid`.
+- Before creating, invoices are looked up by DocNumber (linked if the PrivateNote marker matches, or the customer and total match), and payments by customer + date + marker.
+- Write-backs are committed immediately, so a later failure can't orphan a QBO record.
+
+Loop guards:
+
+- The inbound endpoint sets `frappe.flags.in_qbo_inbound_sync`; Payment Entries it creates or cancels are never pushed.
+- Payment Entries with `custom_synced_from = "QuickBooks Online"` are never pushed.
+- The payment webhook passes `erpnext_payment_entry` (parsed from the PrivateNote marker), so the echo of a pushed payment is logged as `Skipped-NoOp`. Voids of it still cancel the ERPNext entry.
+
+Retries: 2, 5, 15, 30, 60, 120, 240 and 480 minutes (8 attempts). After that the log stays Failed with no next attempt until someone retries it. The 5-minute scheduler also recovers jobs whose worker died mid-push.
+

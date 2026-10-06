@@ -451,6 +451,35 @@ Prereqs: `ilL-QBO-Settings` has a webhook secret, Paid To Account and Mode of Pa
 **Expected:**
 - [ ] Log status `Failed`, error `invoice_already_paid`; no second Payment Entry; n8n alert fires
 
+### Section 9b: ERPNext → QuickBooks Online Push
+
+Prereqs: ilL-QBO-Settings → Push Enabled, proxy URL set, **Test QuickBooks connection** all ✅; `quickbooks_api_proxy.json` active with `QBO_WEBHOOK_SECRET` / `QBO_REALM_ID`; the old n8n invoice workflow deactivated. Unit tests: `bench --site <site> run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_qbo_push`.
+
+#### Test 9b.1: Invoice push (new customer)
+- [ ] Submit a $1.00 Sales Invoice for a customer not in QBO → push log Synced. QBO has the customer and an invoice whose number = ERPNext name, total $1.00, memo "ERPNext Sales Invoice …"
+- [ ] Sales Invoice and Customer show `QBO ID`; the form dashboard says "In QuickBooks Online"
+
+#### Test 9b.2: Totals match with tax, discount and rounding
+- [ ] Invoice with a tax row, a document discount and rounding → QBO total equals the ERPNext rounded total; no "differs" warning in the log
+
+#### Test 9b.3: ERPNext payment
+- [ ] Payment Entry (Receive) against a synced invoice → QBO payment applied, invoice Paid in QBO
+- [ ] Inbound sync log shows a Skipped-NoOp echo; no extra Payment Entry
+
+#### Test 9b.4: Cancellations
+- [ ] Cancel the Payment Entry → QBO payment Voided; cancel the invoice → QBO invoice Voided
+
+#### Test 9b.5: Credit note
+- [ ] Return against a synced invoice → QBO Credit Memo plus a $0 payment applying it; the original invoice balance drops
+- [ ] Cancel the return → application and Credit Memo removed in QBO
+
+#### Test 9b.6: Outage and retry
+- [ ] Deactivate the proxy workflow, submit an invoice → log Failed with a next attempt; the submit itself succeeded
+- [ ] Reactivate, press Retry now → Synced, exactly one QBO invoice
+
+#### Test 9b.7: Dependency wait
+- [ ] Payment against an invoice whose push failed → payment log Queued "Waiting for Sales Invoice …"; after fixing the invoice, both sync
+
 ---
 
 ## Section 10: Desk Configurator (Quotation / Sales Order → Fixture Schedule)

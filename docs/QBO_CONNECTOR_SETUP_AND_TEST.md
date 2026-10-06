@@ -1,95 +1,154 @@
-# QuickBooks Online ⇄ ERPNext connector: setup and smoke test
+# QuickBooks Online ⇄ ERPNext connector: setup and test
 
-Quick setup runbook. Design and edge cases: [QBO_TWO_WAY_SYNC_IMPLEMENTATION_PLAN.md](QBO_TWO_WAY_SYNC_IMPLEMENTATION_PLAN.md). Full scenario list: [QA_CHECKLIST.md](QA_CHECKLIST.md) §9.
+How to set it up and prove it works. Design notes: [QBO_TWO_WAY_SYNC_IMPLEMENTATION_PLAN.md](QBO_TWO_WAY_SYNC_IMPLEMENTATION_PLAN.md). Full scenario list: [QA_CHECKLIST.md](QA_CHECKLIST.md) §9.
 
 ```
-ERPNext ──(Sales Invoice submit)──► n8n "push" workflow ──► QBO Customer/Invoice   [lives only in n8n Cloud]
-QBO ──(Intuit webhook)──► n8n quickbooks_payment_sync.json ──► ERPNext Payment Entry [this repo]
+ERPNext ──► ilL-QBO-Push-Log (outbox, retries) ──► n8n "QuickBooks API Proxy" ──► QuickBooks
+QuickBooks ──(Intuit webhook)──► n8n "QuickBooks Payment → ERPNext" ──► ERPNext ──► ilL-QBO-Sync-Log
 ```
 
-## 1. Deploy the app
+Both n8n workflows use your one QuickBooks OAuth2 credential. ERPNext never holds QuickBooks tokens. ERPNext and n8n sign every request to each other with one shared secret.
 
-1. Merge this branch and let Frappe Cloud deploy. The migrate runs `harden_qbo_sync_fields`, which makes `custom_qbo_id` / `custom_synced_from` writable after submit and stops Duplicate/Amend from copying them.
-2. Check it worked: open any submitted Sales Invoice → Customize Form → `QBO ID` should show **Allow on Submit** and **No Copy**.
+## What syncs
 
-## 2. ERPNext settings
+| In ERPNext | In QuickBooks | When |
+|---|---|---|
+| Sales Invoice submitted | Invoice (customer found by name or created first) | seconds after submit |
+| Credit note (return) submitted | Credit Memo, applied to the original invoice if ERPNext reduced it | seconds after submit |
+| Sales Invoice / credit note cancelled | Invoice voided / Credit Memo deleted | seconds after cancel |
+| Payment Entry (Receive, Customer) submitted | Payment applied to those invoices | seconds after submit |
+| That Payment Entry cancelled | Payment voided | seconds after cancel |
+| Customer email/phone/address changed (already in QuickBooks) | Customer updated | seconds after save |
+| **Payment Entry created / cancelled automatically** | ← Payment received / voided in QuickBooks | 1–5 min (Intuit batches webhooks) |
 
-Open **ilL-QBO-Settings**:
+**Not synced:**
+- Purchase side (bills, vendors).
+- Multi-currency documents.
+- Payments with deductions or write-offs.
+- Edits made in QuickBooks to invoices, or to payments that came from ERPNext. A void of such a payment *is* synced back.
+- Renaming a customer. The QuickBooks display name is kept.
+
+Every outbound push is a row in **ilL-QBO-Push-Log**. Every inbound payment is a row in **ilL-QBO-Sync-Log**. A QuickBooks outage never blocks a submit: the push waits and retries for about 16 hours, then stops and waits for **Retry**.
+
+---
+
+## Setup
+
+### 1. Deploy
+
+Merge and let Frappe Cloud deploy. Migrate adds the new doctypes, settings fields and custom-field fixes.
+
+### 2. Turn off the old ERPNext → QuickBooks flow
+
+Do this before step 7, or every invoice gets pushed twice.
+
+- In n8n, **deactivate** the old workflow that created QuickBooks customers and invoices.
+- In ERPNext, open **Webhook** (Integrations) and disable any webhook that sends Sales Invoice events to n8n.
+
+Invoices the old flow already pushed are safe. Either their `QBO ID` is set, so they're skipped, or the new push finds them by invoice number and links them.
+
+### 3. QuickBooks preparation (≈5 min)
+
+1. **Company ID**: ⚙ → Account and settings → Billing & subscription. You'll paste it into n8n as `QBO_REALM_ID`.
+2. **Custom transaction numbers ON**: ⚙ → Account and settings → Sales → Sales form content. QuickBooks invoices then carry the ERPNext invoice number, which is also how retries find an invoice that already exists.
+3. **Products and services**: create these (Service or Non-inventory, *not taxable*):
+   - **`ERPNext Sales`**: income account = your product sales income.
+   - **`ERPNext Sales Tax`** (recommended): ERPNext tax and freight rows post here. Point it at the liability account your bookkeeper wants for tax ERPNext collected. If you skip it, those rows post to `ERPNext Sales`.
+   - Optional: one item per income account, mapped from ERPNext Item Groups in step 4.
+4. **Sales tax**: ERPNext already calculates tax, so every line is sent as non-taxable (`NON`). QuickBooks must not add its own tax. If it does, the push log shows a "QuickBooks total … differs" warning.
+
+### 4. ERPNext → ilL-QBO-Settings
 
 | Field | Value |
 |---|---|
-| Sync Enabled | ✔ |
-| Webhook Shared Secret | Run `openssl rand -hex 32` and paste the output. Keep it for n8n. |
+| **Inbound** Sync Enabled | ✔ |
+| Webhook Shared Secret | Output of `openssl rand -hex 32`. The same value goes into n8n. |
 | Paid To Account | `1010 - ilLumenate Lighting WA Trust - ilL` |
-| Mode of Payment | `QuickBooks Online` (open it and confirm the Accounts row maps the company to the 1010 account) |
+| Mode of Payment | `QuickBooks Online` |
+| **Outbound** Push Enabled | ☐ leave **off** until step 7 |
+| n8n QuickBooks Proxy URL | From step 5 |
+| Push Documents Posted On/After | Today (older documents are only sent if you backfill) |
+| Push Sales Invoices / Credit Notes / Apply Credit Notes / Customer Payments / Customer Updates | ✔ (defaults) |
+| Default QuickBooks Item | `ERPNext Sales` |
+| QuickBooks Item for Taxes & Charges | `ERPNext Sales Tax` |
+| QuickBooks Line Tax Code | `NON` |
+| QuickBooks Deposit Account for Payments | Name of the QuickBooks bank account, or blank for "Payments to deposit" (Undeposited Funds) |
+| Item Group → QuickBooks Item | Optional rows, e.g. `Drivers` → `Driver Sales`. Child groups inherit from their parent. |
 
-Then check from your laptop. This makes no changes to money:
+### 5. n8n
 
-```bash
-QBO_WEBHOOK_SECRET=<the secret> python3 tools/qbo_smoke_test.py https://illumenatelighting.v.frappe.cloud
-```
-
-You want `PASS`. The script also leaves one `Skipped-NoOp` row in **ilL-QBO-Sync-Log**.
-
-## 3. n8n
-
-1. **Import** `n8n_workflows/quickbooks_payment_sync.json`. If you imported an older copy, delete it or deactivate it: its parser only reads the legacy Intuit format.
+1. **Import both workflows:**
+   - `n8n_workflows/quickbooks_api_proxy.json`: ERPNext → QuickBooks.
+   - `n8n_workflows/quickbooks_payment_sync.json`: QuickBooks payments → ERPNext. Replace any older copy.
 2. **Variables** (Settings → Variables):
-   - `INTUIT_VERIFIER_TOKEN`: from step 4.
-   - `QBO_WEBHOOK_SECRET`: same value as ilL-QBO-Settings.
-   - `ILL_ERP_BASE_URL`: `https://illumenatelighting.v.frappe.cloud` (the Webflow workflows already use this one).
-   - Optional `QBO_API_BASE`: leave it unset for production. Set it to `https://sandbox-quickbooks.api.intuit.com` only when testing against an Intuit sandbox company.
 
-   If your plan has no Variables, paste the values into the constants at the top of the **Verify Intuit Signature**, **Split Payment Entities** and **Sign Request (HMAC)** Code nodes.
-3. **Fetch QBO Payment** node: select the same QuickBooks OAuth2 credential the push workflow uses, set to the production environment.
-4. **Intuit Webhook** node: leave Options → **Raw Body** on.
-5. Replace **Send Alert** with a Slack or Email node that uses `{{ $json.subject }}` and `{{ $json.text }}`. Under Workflow Settings → Error Workflow, pick an error workflow so a bad signature or missing config doesn't fail silently.
-6. **Activate** the workflow, then copy the Webhook node's **Production URL**.
+   | Variable | Value |
+   |---|---|
+   | `QBO_WEBHOOK_SECRET` | same as ilL-QBO-Settings |
+   | `QBO_REALM_ID` | QuickBooks Company ID |
+   | `INTUIT_VERIFIER_TOKEN` | from step 6 |
+   | `ILL_ERP_BASE_URL` | `https://illumenatelighting.v.frappe.cloud` |
+   | `QBO_API_BASE` (optional) | leave unset for production; `https://sandbox-quickbooks.api.intuit.com` only for a sandbox company |
 
-## 4. Intuit Developer portal
+   If your plan has no Variables, fill in the constants at the top of each workflow's Code nodes instead.
+3. **Credentials**: pick your QuickBooks OAuth2 credential (production) on **QuickBooks GET**, **QuickBooks POST** and **Fetch QBO Payment**.
+4. Leave **Raw Body** on in both Webhook nodes. In the payment workflow, swap **Send Alert** for Slack or Email. Set an Error Workflow on both workflows.
+5. **Activate both**, then copy the two production URLs:
+   - **ERPNext Request** URL → ilL-QBO-Settings → *n8n QuickBooks Proxy URL*.
+   - **Intuit Webhook** URL → Intuit portal (step 6).
 
-Use the **same Intuit app** whose Client ID/Secret are in n8n's QuickBooks credential. Intuit only sends webhooks for companies that connected through that app.
+### 6. Intuit Developer portal
 
-1. Go to your app → **Webhooks** → **Production**, and paste the n8n production URL.
-2. Subscribe to **Payment** events (Create/Update/Delete/Void). Leave Invoice and Customer off.
-3. Copy the **Verifier Token** into the n8n variable `INTUIT_VERIFIER_TOKEN`.
-4. Intuit now sends CloudEvents (`qbo.payment.created.v1`, …). The workflow also still reads the old format.
+Use the same Intuit app whose keys are in the n8n QuickBooks credential.
 
-## 5. Check the push (ERPNext → QBO) workflow
+1. Go to Webhooks → Production. Endpoint = the **Intuit Webhook** URL; events = **Payment** only.
+2. Copy the **Verifier Token** into n8n's `INTUIT_VERIFIER_TOKEN`.
 
-That workflow lives only in n8n Cloud, so it couldn't be reviewed here. Confirm these four things:
+### 7. Check both directions, then turn on push
 
-- After it creates the QBO invoice, it writes the QBO Invoice **Id** (not the DocNumber) into `Sales Invoice.custom_qbo_id`. Payments are matched **only** by this field.
-- Before this deploy, writing that field to a *submitted* invoice was rejected by ERPNext ("Not allowed to change QBO ID after submission"). If the push workflow had errors at that step, they should stop now.
-- It skips invoices that already have a `custom_qbo_id`, so a re-run doesn't create a duplicate QBO invoice.
-- If it ever pushes Payment Entries, it must skip any with `custom_synced_from = "QuickBooks Online"`. Otherwise payments loop back into QBO.
+1. **Inbound check** (from your laptop; no money moves). You want `PASS`:
+   ```bash
+   QBO_WEBHOOK_SECRET=<secret> python3 tools/qbo_smoke_test.py https://illumenatelighting.v.frappe.cloud
+   ```
+2. **Outbound check**: ilL-QBO-Settings → **Outbound → Test QuickBooks connection**. You want "Connected to *your company*" and a ✅ beside every QuickBooks item and account you named.
+3. Tick **Push Enabled** and save.
 
-## 6. The test: one invoice, round trip (≈10 minutes)
+---
 
-Use a test customer and a $1.00 invoice.
+## The test (~15 min, two $1.00 invoices)
 
-1. **ERPNext → QBO.** Create and submit a Sales Invoice for $1.00.
-   - Expect: the invoice appears in QBO within a minute, and the ERPNext invoice shows a **QBO ID**.
-2. **QBO → ERPNext.** In QBO, **Receive payment** for that invoice, full $1.00.
-   - Expect, usually within 1–5 minutes (Intuit batches webhooks):
-     - **ilL-QBO-Sync-Log** has a row with status **Created**.
-     - A submitted **Payment Entry** posted to the 1010 trust account, with QBO ID = the QBO payment Id.
-     - The Sales Invoice status is **Paid**.
-3. **Void it.** In QBO, void or delete that payment.
-   - Expect: a log row with status **Cancelled**, the Payment Entry cancelled (not deleted), and the invoice back to **Unpaid**.
-4. **Clean up.** Void the invoice in QBO, then cancel the Sales Invoice in ERPNext.
+Use a test customer, e.g. `ZZ QBO Test`. After each step, check the **QuickBooks** panel on the form: the dashboard line and the QuickBooks ▾ menu → Sync log.
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | **ERPNext → QBO invoice.** Submit Sales Invoice A for $1.00. | Within seconds, the form shows "In QuickBooks Online (Id …)". QuickBooks has the customer and an invoice with the same number for $1.00. The push log is **Synced**. |
+| 2 | **QBO → ERPNext payment.** In QuickBooks, receive $1.00 on invoice A. | Within 1–5 min: ilL-QBO-Sync-Log **Created**; a submitted Payment Entry on the 1010 account; invoice A **Paid**. Nothing new in the push log (it isn't echoed back). |
+| 3 | **QBO void → ERPNext.** In QuickBooks, void that payment. | Sync log **Cancelled**, the Payment Entry cancelled, invoice A back to **Unpaid**. |
+| 4 | **ERPNext → QBO payment.** Submit Sales Invoice B for $1.00, then a Payment Entry (Receive) for $1.00 against B. | Push log for the Payment Entry **Synced**. In QuickBooks, invoice B is **Paid**, and the payment's memo reads "ERPNext Payment Entry …". A few minutes later the sync log shows a **Skipped-NoOp** echo. No duplicate Payment Entry. |
+| 5 | **ERPNext cancel → QBO.** Cancel that Payment Entry, then cancel invoices A and B. | Push log **Void** rows **Synced**. In QuickBooks the payment and both invoices show as **Voided**. |
+
+That's the full loop. For credit notes: make a return against a $1.00 invoice. QuickBooks gets a Credit Memo applied to that invoice, and its balance drops to $0.
 
 ### If something doesn't show up
 
 | Symptom | Look at |
 |---|---|
-| No n8n execution at all | Intuit portal webhook URL/subscription; workflow active; the company connected via the same Intuit app |
-| n8n fails at **Verify Intuit Signature** | Wrong `INTUIT_VERIFIER_TOKEN`, or Raw Body turned off |
-| n8n runs but **Split Payment Entities** outputs nothing | The event wasn't a Payment (expected for invoice/customer events) |
-| **Fetch QBO Payment** errors | QuickBooks credential expired or set to the wrong environment; `QBO_API_BASE` sandbox vs production mismatch |
-| ERPNext responds `unauthorized` | `QBO_WEBHOOK_SECRET` ≠ ilL-QBO-Settings secret; rerun `tools/qbo_smoke_test.py` |
-| Log `Failed` `invoice_not_matched` | The push workflow never wrote `custom_qbo_id` on that Sales Invoice (see step 5) |
-| Log `Failed` `invoice_already_paid` / `amount_exceeds_outstanding` | The invoice was also paid in ERPNext. Remove one of the two payments. |
-| Log `Failed` `multiple_invoices_linked` | One QBO payment covers 2+ invoices. Not supported; enter it by hand. |
+| Push log **Failed** "n8n proxy: bad signature" | `QBO_WEBHOOK_SECRET` in n8n ≠ ilL-QBO-Settings |
+| "QBO_REALM_ID is not configured" / "path not allowed" | n8n Variables; re-import the proxy workflow |
+| "QuickBooks authorization failed — reconnect…" | Reconnect the QuickBooks credential in n8n, then ilL-QBO-Settings → **Retry all failed pushes** |
+| "QuickBooks has no Item named 'ERPNext Sales'" | Create the item in QuickBooks, or fix the name in settings |
+| "QuickBooks already has Invoice #… for a different customer or amount" | A hand-made QuickBooks invoice uses that number. Use QuickBooks ▾ → **Link existing record**, or renumber the QuickBooks one. |
+| Payment push **Queued** "Waiting for Sales Invoice …" | The invoice push is still pending or failed; fix that one first |
+| "Sales Invoice … is not in QuickBooks" | Old invoice from before the start date. Open it → QuickBooks ▾ → **Push now**, then retry the payment. |
+| Warning "QuickBooks total … differs from ERPNext" | QuickBooks added its own sales tax. Make the items non-taxable / check the tax code (step 3.4). |
+| Nothing arrives from QuickBooks payments | Intuit webhook URL/subscription; payment workflow active; `INTUIT_VERIFIER_TOKEN`; `tools/qbo_smoke_test.py` |
+| Sync log `invoice_not_matched` | That invoice was never pushed (no `QBO ID`); push it, then re-run the n8n execution |
+| Sync log `invoice_already_paid` | The payment was also entered in ERPNext; remove one |
 
-To replay after fixing a problem, re-run the n8n execution. ERPNext deduplicates by QBO payment id, so a replay is safe.
+## Day to day
+
+- **ilL-QBO-Push-Log**, filtered to Status = Failed, shows everything that needs a person. Each log shows the error, the exact request sent and QuickBooks' reply. Fix the cause, then press **Retry now**.
+- ilL-QBO-Settings → **Outbound → Retry all failed pushes** after an outage or reconnect.
+- ilL-QBO-Settings → **Outbound → Backfill…** sends older invoices and payments in a date range. Run it after the go-live start date if you want history in QuickBooks. Invoices already there are linked, not duplicated.
+- Retrying is always safe: ERPNext reuses Intuit request ids and checks QuickBooks for the invoice number and memo before creating anything.
+- n8n Cloud executions: each push uses 2–5 proxy executions (lookups plus the create), so budget about 5 per invoice.

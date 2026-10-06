@@ -55,6 +55,8 @@ web_include_js = ["illumenate_web.bundle.js"]
 doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": "public/js/quote_request.js", "Sales Order": "public/js/sales_order.js", "Quotation": "public/js/quotation.js",
     "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
+# QuickBooks Online sync status and actions
+doctype_js.update({name: "public/js/qbo_sync.js" for name in ("Sales Invoice", "Payment Entry", "Customer")})
 doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
     "ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
     "ilL-Driver-Template", "ilL-Controller-Template",
@@ -332,6 +334,16 @@ doc_events = {
 	},
 	"Sales Invoice": {
 		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
+		# QuickBooks Online push (queues an ilL-QBO-Push-Log; never blocks the submit)
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.qbo_push.on_sales_invoice_submit",
+		"on_cancel": "illumenate_lighting.illumenate_lighting.api.qbo_push.on_sales_invoice_cancel",
+	},
+	"Payment Entry": {
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.qbo_push.on_payment_entry_submit",
+		"on_cancel": "illumenate_lighting.illumenate_lighting.api.qbo_push.on_payment_entry_cancel",
+	},
+	"Customer": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.qbo_push.on_customer_update",
 	},
 	"Purchase Order": {
 		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",
@@ -450,7 +462,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover", "illumenate_lighting.illumenate_lighting.api.qbo_push.run_due_pushes"]}}
 
 # Testing
 # -------

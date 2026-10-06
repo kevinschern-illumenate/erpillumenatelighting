@@ -86,6 +86,8 @@ def receive_payment_event():
 
 	# Authenticated by HMAC; run as Administrator so owner/GL entries are not "Guest".
 	frappe.set_user("Administrator")
+	# Payment Entries this request creates/cancels must not be pushed back to QBO (qbo_push hooks).
+	frappe.flags.in_qbo_inbound_sync = True
 
 	try:
 		event = _normalize_payload(payload)
@@ -239,10 +241,21 @@ def _normalize_payload(payload):
 		"qbo_invoice_ids": invoice_ids,
 		"customer_qbo_id": str(payload.get("customer_qbo_id") or "").strip() or None,
 		"merged_from_id": str(payload.get("merged_from_id") or "").strip() or None,
+		"erpnext_payment_entry": str(payload.get("erpnext_payment_entry") or "").strip() or None,
 	}
 
 
 def _process_event(event, log):
+	origin = _erpnext_origin(event)
+	if origin and event["event_type"] != "Delete" and event["amount"] > 0:
+		# The echo of a payment ERPNext pushed (qbo_push). Voids still flow through below.
+		_update_log(
+			log,
+			status="Skipped-NoOp",
+			payment_entry=origin,
+			error_message=f"Payment was created from ERPNext Payment Entry {origin}; nothing to import",
+		)
+		return {"action": "skipped", "payment_entry": origin}
 	if event["event_type"] == "Delete":
 		return _handle_delete(event, log)
 	if event["amount"] <= 0:
@@ -254,6 +267,20 @@ def _process_event(event, log):
 			note=f"Cancelled: QBO payment amount is now 0 (voided in QuickBooks Online, {event['event_type']})",
 		)
 	return _handle_upsert(event, log)
+
+
+def _erpnext_origin(event):
+	"""Payment Entry that this QBO payment was pushed from, if any."""
+	name = event.get("erpnext_payment_entry")
+	if name and frappe.db.exists("Payment Entry", name):
+		synced_from = frappe.db.get_value("Payment Entry", name, "custom_synced_from")
+		if synced_from != SYNCED_FROM:
+			return name
+	return frappe.db.get_value(
+		"Payment Entry",
+		{"custom_qbo_id": event["qbo_payment_id"], "custom_synced_from": "ERPNext"},
+		"name",
+	)
 
 
 def _handle_delete(event, log, note="Cancelled: payment voided/deleted in QuickBooks Online"):
@@ -559,4 +586,5 @@ def _update_log(log, status, **values):
 def _commit():
 	# Tests run inside a transaction that FrappeTestCase rolls back; don't break that.
 	if not frappe.flags.in_test:
-		frappe.db.commit()
+		# Deliberate: log/outbox state must survive a later failure in the same request.
+		frappe.db.commit()  # nosemgrep

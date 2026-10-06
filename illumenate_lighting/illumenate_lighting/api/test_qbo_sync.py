@@ -436,6 +436,47 @@ class TestQBOSync(FrappeTestCase):
 		self.assertEqual(log.status, "Cancelled")
 		self.assertEqual(log.payment_entry, "PE-TEST-OLD")
 
+	# -- ERPNext-originated payments (pushed by qbo_push) -------------------
+
+	def test_echo_of_payment_pushed_from_erpnext_is_skipped(self):
+		pid = f"{TEST_PREFIX}ECHO"
+		with (
+			patch(f"{MOD}._erpnext_origin", return_value="PE-ERP-1"),
+			patch(f"{MOD}._match_sales_invoice") as match,
+			patch(f"{MOD}._create_payment_entry") as create,
+		):
+			result = self._call(
+				{
+					"qbo_payment_id": pid,
+					"event_type": "Create",
+					"amount": 100,
+					"qbo_invoice_ids": ["145", "146"],
+					"erpnext_payment_entry": "PE-ERP-1",
+				}
+			)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["action"], "skipped")
+		match.assert_not_called()
+		create.assert_not_called()
+		self.assertEqual(self._logs(pid)[0].status, "Skipped-NoOp")
+
+	def test_void_in_qbo_of_erpnext_payment_still_cancels_it(self):
+		pid = f"{TEST_PREFIX}ECHOVOID"
+		with (
+			patch(f"{MOD}._erpnext_origin", return_value="PE-ERP-1"),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-ERP-1"),
+			patch(f"{MOD}._cancel_payment_entry") as cancel,
+		):
+			result = self._call({"qbo_payment_id": pid, "event_type": "Delete"})
+		self.assertEqual(result["action"], "cancelled")
+		cancel.assert_called_once()
+
+	def test_inbound_request_sets_push_loop_guard(self):
+		frappe.flags.in_qbo_inbound_sync = False
+		self._call({"qbo_payment_id": f"{TEST_PREFIX}FLAG", "event_type": "Delete"})
+		self.assertTrue(frappe.flags.in_qbo_inbound_sync)
+		frappe.flags.in_qbo_inbound_sync = False
+
 	# -- settings ----------------------------------------------------------
 
 	def test_sync_disabled_skips(self):
