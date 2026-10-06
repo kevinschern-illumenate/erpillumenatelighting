@@ -1,34 +1,44 @@
-# ilLumenate System Designer — Product Plan
+# ilLumenate System Designer — Product Plan and Implementation Handbook
 
-**Working name:** ilLumenate System Designer (dealer-facing project documentation and support tool)
-**Status:** Proposal for review · Written 2026-10-06
+**Product:** ilLumenate System Designer (portal button and menu label: **"Design system"**)
+**Status:** Approved for implementation · Decisions D1–D12 final (section 22) · Revised 2026-10-06
+**Audience:** Kevin (owner), ilLumenate staff, and the agent that will implement it.
+
 **Inputs investigated:**
 
 1. This repository: the ERPNext app and Dealer Portal (`illumenate_lighting/`).
 2. `kevinschern-illumenate/riser-diagram-generator` v1.2.0 (React + TypeScript; inspected at its `main` HEAD).
-3. The single-file **LED Tape System Visualizer** (Three.js r128; 3D model, system diagram, training visuals, install guide), supplied in chat.
+3. The single-file **LED Tape System Visualizer** (Three.js r128; 3D model, system diagram, training visuals, install guide), supplied in chat. **It is not in any repository yet; work package WP-0.4 commits it.**
 
-This plan combines the three into one product that runs inside the Dealer Portal and takes every product fact from ERPNext. Section 0 is the summary; sections 1–3 are the investigation; 4–14 define the product; 15–21 cover architecture, delivery and risk; the appendices hold the field mappings.
+**How this document is organized**
+
+- **Part I — Product plan (sections 0–23):** what exists, what we are building, why, and the decisions.
+- **Part II — Implementation handbook (sections H1–H12):** rules for the implementing agent, repository conventions, exact data specs, contracts, algorithms, and a numbered work-package list with files, steps, tests and acceptance criteria.
+- **Appendices A–E:** field mappings, vocabularies, validation codes, references, glossary.
+
+> **Implementing agent: read section H1 first, then Part I sections 0, 5, 15, 16, 18 and 22, then the work package you are assigned.** Do not start a work package whose dependencies are not merged.
 
 ---
 
 ## Contents
 
+**Part I — Product plan**
+
 0. [Executive summary](#0-executive-summary)
 1. [What exists today](#1-what-exists-today)
 2. [The core problem: three copies of the product data](#2-the-core-problem-three-copies-of-the-product-data)
-3. [Gap analysis: what ERPNext must hold for the designer to work](#3-gap-analysis-what-erpnext-must-hold-for-the-designer-to-work)
+3. [Gap analysis: what ERPNext must hold](#3-gap-analysis-what-erpnext-must-hold)
 4. [Product vision, users and jobs](#4-product-vision-users-and-jobs)
 5. [Product principles](#5-product-principles)
 6. [The end-to-end workflow](#6-the-end-to-end-workflow)
 7. [Module 1 — Project and schedule intake](#7-module-1--project-and-schedule-intake)
-8. [Module 2 — Site model (spaces, locations, distances)](#8-module-2--site-model-spaces-locations-distances)
+8. [Module 2 — Site model](#8-module-2--site-model)
 9. [Module 3 — Run builder](#9-module-3--run-builder)
 10. [Module 4 — Power and control assignment](#10-module-4--power-and-control-assignment)
 11. [Module 5 — Engineering checks and recommendations](#11-module-5--engineering-checks-and-recommendations)
-12. [Module 6 — Outputs: riser, presentation diagram, plan view, 3D](#12-module-6--outputs-riser-presentation-diagram-plan-view-3d)
-13. [Module 7 — Install guides, training and support visuals](#13-module-7--install-guides-training-and-support-visuals)
-14. [Module 8 — Documentation package, review, sharing and commerce](#14-module-8--documentation-package-review-sharing-and-commerce)
+12. [Module 6 — Outputs: riser, presentation, plan view, 3D](#12-module-6--outputs-riser-presentation-plan-view-3d)
+13. [Module 7 — Install guides, training, labels](#13-module-7--install-guides-training-labels)
+14. [Module 8 — Package, review, sharing, commerce](#14-module-8--package-review-sharing-commerce)
 15. [Architecture](#15-architecture)
 16. [Data model in ERPNext](#16-data-model-in-erpnext)
 17. [API surface](#17-api-surface)
@@ -36,11 +46,29 @@ This plan combines the three into one product that runs inside the Dealer Portal
 19. [What happens to each proof of concept](#19-what-happens-to-each-proof-of-concept)
 20. [Phased roadmap](#20-phased-roadmap)
 21. [Testing, quality and acceptance](#21-testing-quality-and-acceptance)
-22. [Risks, liability and open decisions](#22-risks-liability-and-open-decisions)
+22. [Decisions (final), risks and liability](#22-decisions-final-risks-and-liability)
 23. [Success metrics](#23-success-metrics)
-24. [Appendices](#24-appendices)
+
+**Part II — Implementation handbook**
+
+- [H1. Rules for the implementing agent](#h1-rules-for-the-implementing-agent)
+- [H2. Repository conventions you must follow](#h2-repository-conventions-you-must-follow)
+- [H3. Target file tree](#h3-target-file-tree)
+- [H4. DocType specifications](#h4-doctype-specifications)
+- [H5. Design document schema (TypeScript / Zod)](#h5-design-document-schema-typescript--zod)
+- [H6. API contracts](#h6-api-contracts)
+- [H7. Design Catalog adapter specification](#h7-design-catalog-adapter-specification)
+- [H8. Algorithms](#h8-algorithms)
+- [H9. UI specification](#h9-ui-specification)
+- [H10. Golden fixtures and parity tests](#h10-golden-fixtures-and-parity-tests)
+- [H11. Work packages](#h11-work-packages)
+- [H12. Pull-request sequence and review checklist](#h12-pull-request-sequence-and-review-checklist)
+
+**Appendices:** [A. Field mappings](#appendix-a--field-mapping-erp--engine-catalog) · [B. Protocol vocabulary](#appendix-b--protocol-vocabulary) · [C. Validation codes](#appendix-c--validation-codes) · [D. Source references](#appendix-d--source-references) · [E. Glossary](#appendix-e--glossary)
 
 ---
+
+# Part I — Product plan
 
 ## 0. Executive summary
 
@@ -50,22 +78,22 @@ This plan combines the three into one product that runs inside the Dealer Portal
 |---|---|---|
 | **ERPNext Dealer Portal** | Projects, fixture schedules, configured builds (segments, runs, run watts, cut lengths, leader/jumper cables), an exact power-supply allocator, driver eligibility, spec submittals, document requests with drawing review, dealer permissions, quotes and Sales Orders. | No system-level view. Power is planned per build, never across a site. No riser, no wiring, no visuals. |
 | **Riser Diagram Generator** | A pure, tested electrical engine (graph, loads, CV/CC checks, voltage drop, wire selection, DMX, BOM, 39 validation codes); a paper-inch drawing model with column layout, cable routing and pagination; vector PDF with layers, native DXF (AutoCAD AUDIT 0 errors) and SVG. | Local-only (IndexedDB), its own product library with EXAMPLE data, and an ERP pull that expects a JSON blob (`custom_riser_specs`) that ERPNext does not have. |
-| **LED Tape System Visualizer** | Beautiful, on-brand 3D scenes (cove, under-cabinet, toe-kick, shelf, niche), lit renders, exploded and cross-section views, a flat system diagram, 40+ training visuals, a parameterized install guide with video and printable output. | Everything is hard-coded (`ZONES`, `PROFILES`, `EXAMPLE`, `JOB`, `CAD_SH01`). One 6,000-line file on Three.js r128. No persistence. |
+| **LED Tape System Visualizer** | On-brand 3D scenes (cove, under-cabinet, toe-kick, shelf, niche), lit renders, exploded and cross-section views, a flat system diagram, ~40 training visuals, a parameterized install guide with video and printable output. | Everything is hard-coded (`ZONES`, `PROFILES`, `EXAMPLE`, `JOB`, `CAD_SH01`). One 6,000-line file on Three.js r128. No persistence. |
 
-**The product.** One dealer-facing tool, opened from a fixture schedule in the portal, that:
+**The product.** One dealer-facing tool, opened with **"Design system"** from a fixture schedule in the portal, that:
 
 1. Pulls the schedule (by number or picker) and expands every line into the physical runs ERPNext already computed.
 2. Lets the dealer place power supplies, cabinets, dimmers and controllers, and link runs to supply outputs (drag-and-drop or auto-assign).
-3. Checks everything as they go: supply load against the 80% rule and per-output limits, maximum run length, voltage drop on every home run, wire gauge and cable type for the install environment, breaker load, Class 2 limits, dimmer compatibility, DMX addressing.
+3. Checks everything as they go: supply load against the 80% rule and per-output limits, maximum run length, voltage drop on every home run against a **3% Class 2 target** (D5), wire gauge and cable type for the install environment, breaker load, Class 2 limits, dimmer compatibility, DMX addressing.
 4. Produces four views of the same design: an **engineering riser** (PDF/DXF), a **presentation diagram** for homeowners and designers, a **plan view** over the dealer's floor plan, and a **3D project view** with supply locations and wire routes.
-5. Generates **install guides**, **labels** and a **documentation package**, and sends the design to ilLumenate for **engineering review** using the drawing-review records that already exist.
-6. Writes the supplies, controllers, wire and accessories it added back to the schedule as lines, so the quote and Sales Order match the design.
+5. Generates **install guides**, **labels** and a **documentation package**, and sends the design to an ilLumenate **Applications Engineer** (D3) for review using the drawing-review records that already exist.
+6. Writes supplies, controllers, **wire as quotable Items** (D7) and accessories back to the schedule as lines, so the quote and Sales Order match the design. Review approval is **required before a Sales Order** when a schedule uses DMX, line-voltage (phase-cut) dimming, or exceeds 1.5 kW (D4).
 
-**The rule that makes it work:** ERPNext is the only place product data lives. The designer reads a versioned, permission-scoped **Design Catalog** generated from the spec doctypes. Nothing in the designer is typed in twice.
+**The rule that makes it work:** ERPNext is the only place product data lives. The designer reads a versioned, permission-scoped **Design Catalog** generated from the spec doctypes. Nothing is typed in twice. Third-party fixtures are the one exception: the dealer enters their data, and every output flags it **"Data by dealer"** (D8).
 
-**Recommended architecture.** A React + TypeScript app built with Vite, committed as a bundle inside this app (the same pattern as the Product Finder, because Frappe Cloud runs `bench build`, not Vite), mounted at `/portal/schedules/<schedule>/design`. The riser engine, drawing model and serializers move in as packages. The visualizer is rebuilt as a modular Three.js scene package. Designs are saved in a new `ilL-System-Design` doctype linked to the schedule version.
+**Architecture.** A React + TypeScript app built with Vite, committed as a bundle inside this app (the Product Finder pattern, because Frappe Cloud runs `bench build`, not Vite), mounted at `/portal/schedules/<schedule>/design`. The riser engine, drawing model and serializers move in as packages. The visualizer is rebuilt as a modular Three.js package. Designs are saved in a new `ilL-System-Design` doctype linked to the schedule version.
 
-**Delivery.** Eight phases (section 20). The first dealer-visible release (Phase 3) gives intake, power assignment, live checks and the engineering riser on real ERP data. Presentation diagram, 3D and install guides follow. Phase 0 is mostly ERP data work: the spec doctypes need roughly 30 electrical fields the riser engine requires (section 3).
+**Delivery.** Phases 0–8 (section 20, work packages in H11). The first dealer-visible release (Phase 3) gives intake, power assignment, live checks and the engineering riser on real ERP data. The standalone riser repo gets one ERP-connected release and is then archived (D1).
 
 ---
 
@@ -73,187 +101,152 @@ This plan combines the three into one product that runs inside the Dealer Portal
 
 ### 1.1 ERPNext app and Dealer Portal (this repository)
 
+**Platform:** Frappe/ERPNext **version 16** (`pyproject.toml`: `frappe >=16.0.0-dev,<17`); production runs Python 3.14 (CI `ci.yml`). Module name: `ilLumenate Lighting`.
+
 **Commercial structure**
 
 - `ilL-Project` → `ilL-Project-Fixture-Schedule` (versioned: `version`, `version_parent`, `is_locked`, `locked_by`) → `ilL-Child-Fixture-Schedule-Line`.
-- Each line has `line_id` (Fixture Type), `qty`, `location`, `product_type`, links to the template and the configured record (`configured_fixture`, `configured_tape_neon`, `configured_led_sheet`, `configured_group`), third-party fields for "Other" manufacturers (`manufacturer_name`, `fixture_model_number`, `driver_model_number`, `dimming_protocol`, `input_voltage` as text), and power-supply linkage (`power_supply_for_line`, `power_supply_qty_per_build`).
-- Portal routes in `hooks.py`: `/portal/projects`, `/portal/schedules/<schedule>`, `/portal/configure*`, `/portal/drawings`, `/portal/quotes`, `/portal/orders`, `/portal/resources`, `/portal/product-finder`.
-- Schedule → quote → Sales Order (`create_schedule_sales_order`, `quote_from_schedule.py`), dealer pricing (`get_schedule_dealer_pricing`), versioning (`create_schedule_version`).
+- Each line has `line_id` (Fixture Type), `qty`, `location`, `product_type`, links to the template and the configured record (`configured_fixture`, `configured_tape_neon`, `configured_led_sheet`, `configured_group`), third-party fields for "Other" manufacturers (`manufacturer_name`, `fixture_model_number`, `driver_model_number`, `dimming_protocol`, `input_voltage` as text), power-supply linkage (`power_supply_for_line`, `power_supply_qty_per_build`) and a stable `line_key`.
+- Portal routes in `illumenate_lighting/hooks.py` `website_route_rules`: `/portal/projects`, `/portal/schedules/<schedule>`, `/portal/configure*`, `/portal/drawings`, `/portal/quotes`, `/portal/orders`, `/portal/resources`, `/portal/product-finder`.
+- Schedule → quote → Sales Order: `api/portal.py create_schedule_sales_order` → `can_request_schedule_order(doc, user)` in `doctype/ill_project_fixture_schedule/ill_project_fixture_schedule.py` (the single policy for the button, the endpoint and the conversion; **D4's gate plugs in here**) → `schedule.create_sales_order_result()`.
+
+**Access control (already consolidated)** — `portal/access.py`: `get_actor`, `project_permission`, `schedule_permission(schedule, ptype, user)`, `can_read_schedule`, `can_edit_schedule`, `schedule_query_conditions`, `can_view_catalog`, `can_read_configured_record`. Staff capabilities in `portal/staff.py` (`CAPABILITIES = {"engineering": {"ilL Engineering"}, "sales": …}`, `allowed(capability)`, `require(capability)`). Optional site flags in `portal/site_flags.py` (`conf_flag(key, default)`). Pricing visibility uses the `Can View Pricing` role.
 
 **Configured builds carry the electrical facts the designer needs**
 
-- `ilL-Configured-Fixture` (linear): `runs` child table (`run_index`, `segment_index`, `run_len_mm`, `run_watts`, `leader_item`, `leader_len_mm`), `segments` (profile/lens/tape cut lengths, end caps, start leader, end jumper), `max_run_ft_by_watts`, `max_run_ft_by_voltage_drop`, `max_run_ft_effective`, `total_watts`, `power_feed_type`, `feed_direction_start/end`, `environment_rating`, `tape_offering`, plus canonical JSON snapshots: `build_snapshot_json`, `component_manifest_json`, `power_plan_json`, `cable_manifest_json`.
-- `ilL-Configured-Tape-Neon` (tape, COB, neon): `segments` with start/end feed types, lead lengths, jumpers and watts per segment, `cut_increment_mm`, `is_free_cutting`, `watts_per_foot`, `power_plan_json`.
-- `linear_build.cable_manifest()` already lists every physical feed, additional feed, jumper and end leader with its Item and length. This is the starting point for wiring.
+- `ilL-Configured-Fixture` (linear): `runs` child (`run_index`, `segment_index`, `run_len_mm`, `run_watts`, `leader_item`, `leader_len_mm`), `segments` (profile/lens/tape cut lengths, end caps, start leader, end jumper), `max_run_ft_by_watts`, `max_run_ft_by_voltage_drop`, `max_run_ft_effective`, `total_watts`, `power_feed_type`, `feed_direction_start/end`, `environment_rating`, `tape_offering`, plus canonical JSON: `build_snapshot_json`, `component_manifest_json`, `power_plan_json`, `cable_manifest_json`, and `config_hash`.
+- `ilL-Configured-Tape-Neon` (tape, COB, neon): `segments` with start/end feed types, lead lengths, jumpers and watts, `cut_increment_mm`, `is_free_cutting`, `watts_per_foot`, `power_plan_json`, `config_hash`.
+- `api/linear_build.py cable_manifest()` lists every physical feed, additional feed, jumper and end leader with Item and length.
 
 **Power planning**
 
-- `api/power_planner.py` `plan_power(circuits, candidates)`: exact bounded search (≤12 circuits, ≤32 candidate drivers). One circuit per output, outputs never paralleled, honours total and per-output capacity × `usable_load_factor`, minimizes supply count, then cost, then priority. Returns `drivers` and per-output `allocations` (`supply`, `output`, `run_key`, `watts`).
-- `tape_neon_power.connected_runs()` merges jumper-connected runs and rejects ones over `max_run_ft_effective`.
-- `driver_catalog.candidates()` resolves eligible drivers per template from `ilL-Rel-Driver-Eligibility` filtered by tape voltage and protocol; `independent_outputs()` refuses to treat color channels as independent feeds.
-- `power_supply_lines.py` turns selected supplies into ACCESSORY schedule lines under their fixture line, quantity × builds.
-- Engine rule today: `max_run_ft_by_watts = 85 W / W·ft⁻¹` (`configurator_engine.py`), capped by the tape spec's static `voltage_drop_max_run_length_ft`. `docs/MVP_CONSTRAINTS.md` notes the voltage-drop table is not implemented.
+- `api/power_planner.py plan_power(circuits, candidates)`: exact bounded search (`MAX_CIRCUITS = 12`, `MAX_CANDIDATES = 32`), one circuit per output, never paralleled, honours total and per-output capacity × `usable_load_factor`, minimizes (supply count, cost, priority, capacity). Returns `drivers` and per-output `allocations` (`supply`, `output`, `run_key`, `watts`).
+- `api/tape_neon_power.py connected_runs()` merges jumper-connected runs and rejects ones over `max_run_ft_effective`; `select_plan()` builds circuits from actual run loads.
+- `api/driver_catalog.py candidates()` resolves eligible drivers per template from `ilL-Rel-Driver-Eligibility`; `independent_outputs()` refuses to treat color channels as independent feeds.
+- `api/power_supply_lines.py` writes selected supplies as ACCESSORY schedule lines under the fixture line (`power_supply_for_line`, `power_supply_qty_per_build`) — **the write-back pattern the designer copies**.
+- `api/configurator_engine.py`: `max_run_ft_by_watts = MAX_WATTS_PER_RUN (85 W) / W·ft⁻¹`, capped by the tape spec's static `voltage_drop_max_run_length_ft`. `docs/MVP_CONSTRAINTS.md` notes the voltage-drop table is not implemented.
 
-**Product specification doctypes (the catalog)**
-
-- `ilL-Spec-LED Tape`: `input_voltage`, `watts_per_foot`, `voltage_drop_max_run_length_ft`, `input_protocol`, `supported_dimming_protocols`, `lumens_per_foot`, `led_pitch_mm`, `cut_increment_mm`, `is_free_cutting`, `leader_cable_item`.
-- `ilL-Rel-Tape Offering`: CCT/CRI/output combinations with `watts_per_ft_override`, `cut_increment_mm_override`.
-- `ilL-Spec-Driver`: input voltage range and type, `voltage_output`, `outputs_count`, `independent_outputs_count`, `output_type`, `output_protocol`, `input_protocols`, `max_wattage`, `max_wattage_per_output`, `usable_load_factor`, dimensions, certifications, cost.
-- `ilL-Spec-Controller`: type, input range, `max_load_watts`, `max_load_amps`, `channels`, `zones`, input/output/wireless protocols, `compatible_drivers`, dimensions.
-- `ilL-Spec-Profile`: width, height, stock and max assembled length, joiner system, lens interface. `ilL-Spec-Lens`, `ilL-Spec-Accessory`, `ilL-Attribute-Leader Cable` (`no_conductors`, `awg`, `jacket_rating`).
-- Templates: `ilL-Fixture-Template` (e.g. SH01), `ilL-Tape-Neon-Template`, `ilL-LED-Sheet-Template`, `ilL-Driver-Template`, `ilL-Controller-Template`.
+**Product specification doctypes (the catalog)** — field lists in section 3 and Appendix A: `ilL-Spec-LED Tape`, `ilL-Rel-Tape Offering`, `ilL-Spec-Driver`, `ilL-Spec-Controller` (`controller_type` options today: DMX Controller, Wireless Receiver, Wall Dimmer, Scene Controller, Sensor, Gateway, Repeater), `ilL-Spec-Profile`, `ilL-Spec-Lens`, `ilL-Spec-Accessory`, `ilL-Attribute-Leader Cable`, templates (`ilL-Fixture-Template` e.g. **SH01**, `ilL-Tape-Neon-Template`, `ilL-LED-Sheet-Template`, `ilL-Driver-Template`, `ilL-Controller-Template`).
 
 **Documents and review**
 
-- `spec_submittal.py` fills PDF submittal templates per line; `ilL-Line-Document` attaches files to schedule lines with SHA-256.
-- `ilL-Document-Request` (request types with custom fields, deliverables, comments, SLA, `technical_reviewer`, `fixture_schedule`) and `ilL-Drawing-Review` (`revision`, `revision_token`, `file_sha256`, `build_hash`, `decision`, `reviewed_by`). A design review fits this exactly.
+- `api/spec_submittal.py` fills PDF submittals (pypdf); `ilL-Line-Document` attaches files to lines with SHA-256.
+- `ilL-Document-Request` (request types with custom fields, deliverables with `is_published_to_portal`, `published_file_sha256`, `published_build_hash`, comments, SLA, `technical_reviewer`, `fixture_schedule`).
+- `portal/drawing_review.py`: `detail(request)` and `decide(request_name, revision_token, decision, note)` create `ilL-Drawing-Review` (`revision_token` = fingerprint of request + revision + file SHA-256 + build hash; only the `technical_reviewer` decides). **The design review reuses this mechanism.**
 
-**Frontend pattern**
+**Frontend and test patterns**
 
-- Portal pages are Jinja templates with vanilla JS bundles (`public/js/portal*.js`, `public/js/configurator/*`).
-- The Product Finder is a React app in `tools/configurator_ui`, built with Vite into committed bundles under `public/product_finder/{portal,public}`; the portal page mounts it with a CSRF token. **The System Designer should copy this pattern.**
-
-**Known portal debt that affects this project** (from `docs/DEALER_PORTAL_ASSESSMENT_AND_IMPLEMENTATION_PLAN.md`): P0 permission defects (non-dealer company users get write access; schedule list vs direct access mismatch; globally scoped document request lists; drawing requests accepting arbitrary projects), `portal.py` owning too many domains (4,448 lines), inconsistent error contracts, unescaped dynamic HTML. The designer adds a new write surface to schedules, so those P0 items are prerequisites (Phase 0).
+- Portal pages: Jinja templates + vanilla JS bundles (`public/js/portal*.js`).
+- Product Finder: React app in `tools/configurator_ui`, built by Vite into **committed** bundles under `public/product_finder/{portal,public}`; `templates/pages/product_finder.py` builds the context (login redirect, access check, `csrf_token`) and the HTML mounts `IllConfigurator.mount(...)`.
+- CI `b2b-contracts.yml`: `python -m unittest discover -s tests/portal_unit` (service tests with Frappe doubles via `tests/portal_unit/test_services.py load_service`), template render checks, Node DOM tests, **"bundle is fresh" steps** (`npm run build … && git diff --exit-code public/…`), `tools/check_b2b_changes.py` (changed-file lint + schema checks). CI `ci.yml`: installed-site bench tests and a double `bench migrate` rehearsal.
 
 ### 1.2 Riser Diagram Generator v1.2.0
 
-**Stack:** React 19, strict TypeScript, Vite 8, Zod 4 (schemas are the source of truth), Zustand + immer + zundo (undo/redo), AG Grid Community, Dexie (IndexedDB), `@cantoo/pdf-lib` + fontkit, JSZip, PapaParse, Vitest, Playwright. 97 unit/integration tests; engine coverage ~97% lines.
+**Stack:** React 19, strict TypeScript, Vite 8, Zod 4, Zustand + immer + zundo, AG Grid Community, Dexie, `@cantoo/pdf-lib` + fontkit, JSZip, PapaParse, Vitest, Playwright. 97 unit/integration tests; engine ~97% line coverage. Node ≥ 22.13.
 
-**Data model (`src/schemas`)**
+**Schemas (`src/schemas`)**
 
-- `Project`: `meta` (name, number, client, designer, checker, sheet prefix, stamp), `settings` (NEC edition, termination temperature, voltage-drop targets for line/low-voltage/landscape, distributed vs lumped VD, PSU derate 80%, continuous load factor 1.25, breaker limit 80%, tape margin, DMX max unit loads/length, SPI max data length, units, sheet size and flow, wire waste, wire label template).
-- `sources` (panel, circuit, voltage, phase, breaker A, poles, switching), `equipment` (catalog item, qty, location, enclosure, `fedFrom` port, feed length, `controlFrom`, control length, DMX universe/address, environment), `loads` (type tag, zone, catalog item, qty **or** tape length, `fedFrom`, home-run length, inter-fixture length, feed method `end|double-end|center|multi-feed`, environment), `controlLinks`, wire overrides, layout pins, notes, revisions, W-tags.
-- `CatalogItem` with discriminated `specs` for `psu`, `driver`, `decoder`, `controller`, `tape`, `fixture`, `accessory`, plus `incomplete` (keeps known facts, lists missing fields, blocks calculation). Every item has `erpItemCode`, provenance and `localOverrides`.
-- Wire library (`WireType`: conductors, listing, rated V, temperature, plenum/riser/wet/burial/sunlight flags, resistance, ampacity basis) and code tables (NEC Ch. 9 Table 8 resistance, Table 9 effective Z, 310.16 ampacity, 402.5 fixture wire) as editable JSON with citations.
+- `Project`: `meta` (name, number, client, designer, checker, date, brand, sheet prefix, stamp), `settings` (NEC edition, termination °C, VD targets line/low-voltage/landscape = 3/3/5%, VD method lumped/distributed, AC VD method, PSU derate 80%, continuous load factor 1.25, breaker limit 80%, tape margin, min line-voltage AWG 12, DMX max unit loads 32 / length 1000 ft, SPI 15 ft, units ft/m, font, schedules on/off, sheet size/flow, wire waste 10%, label template, parallel-conductor policy).
+- `sources`, `equipment` (with `fedFrom`, `controlFrom`, DMX, `enclosure`, `env`), `loads` (qty **or** `lengthFt`, `feedMethod` end/double-end/center/multi-feed, home-run and inter-fixture lengths), `controlLinks`, `wireOverrides`, `layoutOverrides`, notes, revisions, `wireTagMap`.
+- `CatalogItem` with discriminated `specs` (`psu`, `driver`, `decoder`, `controller`, `tape`, `fixture`, `accessory`, `incomplete`), `erpItemCode`, provenance, `localOverrides`. Wire library and code tables (NEC Ch. 9 Table 8, Table 9, 310.16, 402.5) as cited JSON.
 
-**Engine (`src/engine`)** — pure, no React: graph resolution and cycle detection; load profiles (tape W/ft, multichannel, pixel, fixtures, CC); input current with efficiency and PF; voltage drop (lumped or distributed, multichannel common return); wire selection by environment, ampacity, terminal size and VD target; DMX patching, segments, unit loads, termination; BOM. 39 typed validation codes, e.g. `PSU_OVERLOAD`, `PSU_ABOVE_DERATE`, `CLASS2_OVER_100VA`, `TAPE_RUN_TOO_LONG`, `TAPE_UNDERVOLTAGE`, `VD_OVER_TARGET`, `NO_VALID_WIRE`, `BREAKER_OVERLOAD`, `INRUSH_LIMIT`, `PHASE_DIMMER_COMPAT_UNKNOWN`, `DMX_ADDRESS_OVERLAP`, `DMX_NO_TERMINATOR`, `SUGGEST_SPLIT_FEED`, `CC_COMPLIANCE`.
+**Engine (`src/engine`)** — pure: graph + cycles; loads (tape, multichannel, pixel, fixtures, CC); input current with efficiency/PF; VD lumped/distributed/multichannel; wire selection by environment, ampacity, terminals, VD; DMX patch/segments/unit loads/termination; BOM; 39 validation codes (Appendix C).
 
-**Drawing (`src/drawing`)** — paper-inch geometry model; 26 symbol files (PSU, driver, decoder, DMX controller, Lutron, keypad, relay, gateway, wireless TX/RX, pixel controller, opto splitter, distribution, junction, panel, tape, linear, downlight, landscape, terminator, off-sheet…); fixed functional columns (panels → enclosures → supplies → controls → loads); one orthogonal router with lane occupancy, clearances and crossing bridges; pagination with continuation bubbles; title blocks (ARCH C/D, ANSI B/D); schedules and legends; manual pins. Runs in a Web Worker; 200 loads lay out in < 2 s.
+**Drawing (`src/drawing`)** — paper-inch model; 26 symbol files; functional columns; one orthogonal router with lane occupancy and crossing bridges; pagination with continuations; title blocks (ARCH C/D, ANSI B/D); schedules/legends; manual pins; Web Worker; 200 loads < 2 s.
 
-**Serializers** — SVG preview, layered PDF (OCG layers, embedded TrueType), native R2007 DXF with blocks and attributes.
+**Serializers** — SVG, layered PDF (OCG), native R2007 DXF (AutoCAD AUDIT 0 errors).
 
-**ERP integration today** — `server/proxy.mjs` (loopback-only Express, pull-only, reads `/api/resource/Item` by item group) and `features/erp/sync.ts` (maps ERP fields through `erp-mapping.example.json`; expects `custom_riser_category` and a `custom_riser_specs` JSON blob on Item; preview/commit with conflict detection against local overrides). **Those custom fields do not exist in this ERP.** The integration was designed for a schema that was never built; this plan replaces it with a server-generated catalog (section 15.4).
+**ERP integration today** — `server/proxy.mjs` (loopback Express, pull-only, `/api/resource/Item` by item group) and `src/features/erp/sync.ts` (maps through `erp-mapping.example.json`, expects `custom_riser_category` / `custom_riser_specs` on Item). **Those fields do not exist in this ERP**; replaced by the Design Catalog (section 15.4, D1).
 
 ### 1.3 LED Tape System Visualizer (single-file HTML)
 
-**Engine:** Three.js r128 (UMD from cdnjs), custom orbit controls, procedural PMREM environment, stencil-capped cross-sections, a 2D overlay canvas for labels that is composited into exports.
-
-**What it renders**
-
-- **3D model**: a room (floor, walls, ceiling, cove ledge, base and upper cabinets, bookcase, shower niche, closet, framing) and five zones (cove, under-cabinet, toe-kick, shelving, niche) with channel, tape, diffuser, clips, end caps, connectors, supplies, wall dimmer bank, breaker panel, line- and low-voltage wiring, light washes, CCT and dimming, 24 toggleable layers, camera presets, saved views, exploded view, cross-section.
-- **System diagram**: a one-line schematic (breaker → dimmer → supply → tape, one row per zone) in brand style.
-- **Training visuals**: about 40 slide-ready visuals for the Intermediate and Advanced curricula (load and supply sizing, max run, feed methods, wire voltage drop, gauge table, cut intervals, corners, takeoff, dimming, DMX, optics, thermal, code checklist), many with build steps and animation.
-- **Install guide**: a parameterized cove installation (SH01 St. Helens SF + LED-HD-SW) with a cut list, clip marks, tape pieces, corner routes, jumpers, feed routes, testing and troubleshooting; it plays as a captioned walkthrough, records MP4/WebM, and prints a self-contained HTML guide. It already contains CAD outlines of the SH01 body, lens, clip and swivel bracket (`CAD_SH01`).
-- **Export**: PNG at 1×/2×/4× with labels, transparent backgrounds, all build steps, video, saved views.
-
-**Brand system:** full ilLumenate tokens (primary navy, secondary blue, accent gold, Kelvin swatches, RGB product colors, radii, strokes), Manrope + Poppins embedded, logo artwork. This becomes the visual language for the presentation outputs.
-
-**Data:** all hard-coded. Every product fact (W/ft, max run, cut interval, supply sizes, clip spacing, channel dimensions) duplicates something ERPNext owns or should own.
+Three.js r128 (UMD), custom orbit rig, procedural PMREM environment, stencil-capped sections, 2D label overlay composited into exports. Renders: a room with five zones and 24 layers; an exploded/section detail; a one-line schematic; ~40 training visuals (Intermediate 3–5, Advanced 1–4) with build steps and animation; a parameterized cove install guide (SH01 St. Helens SF + LED-HD-SW) with cut list, clip marks, tape pieces, corner routes, jumpers, feed routes, testing, troubleshooting, captioned playback, MP4/WebM recording and printable HTML. Contains CAD outlines `CAD_SH01` (body, lens, clip, swivel bracket). Brand system: full ilLumenate tokens (`DS`), Manrope + Poppins, logo artwork. **All data hard-coded.**
 
 ---
 
 ## 2. The core problem: three copies of the product data
 
-Today a single fact, such as "LED-HD-SW is 4.4 W/ft, cuts every 50 mm and runs 16.4 ft from one end," lives in up to three places:
-
 | Fact | ERPNext | Riser generator | Visualizer |
 |---|---|---|---|
-| Tape W/ft | `ilL-Spec-LED Tape.watts_per_foot` (+ offering override) | `TapeSpecs.wPerFtMax` (local library) | `JOB.wPerFt`, `EXAMPLE.wPerFt`, `ZONES[].wPerFt` |
+| Tape W/ft | `ilL-Spec-LED Tape.watts_per_foot` (+ offering override) | `TapeSpecs.wPerFtMax` | `JOB.wPerFt`, `EXAMPLE.wPerFt`, `ZONES[].wPerFt` |
 | Cut interval | `cut_increment_mm` (+ override) | `cutIntervalIn` | `JOB.cutIntervalIn`, `EXAMPLE.cutIntervalIn` |
-| Max run | `voltage_drop_max_run_length_ft`, 85 W rule | `maxRunFtSingleFeed`, `maxRunFtDoubleFeed` | `JOB.maxRunFt`, `EXAMPLE.maxRunFt` |
-| Supply sizes | `ilL-Spec-Driver` rows | `PsuSpecs` (EXAMPLE) | `JOB.supplySizes`, `EXAMPLE.supplySizes` |
-| Channel geometry | `ilL-Spec-Profile.width_mm/height_mm` | not modelled | `PROFILES`, `CAD_SH01` |
-| Wire resistance | not modelled | NEC Table 8 JSON | `AWG_OHMS_PER_1000FT` |
+| Max run | `voltage_drop_max_run_length_ft`, 85 W rule | `maxRunFtSingleFeed/DoubleFeed` | `JOB.maxRunFt`, `EXAMPLE.maxRunFt` |
+| Supply sizes | `ilL-Spec-Driver` | `PsuSpecs` (EXAMPLE) | `JOB.supplySizes`, `EXAMPLE.supplySizes` |
+| Channel geometry | `ilL-Spec-Profile.width_mm/height_mm` | — | `PROFILES`, `CAD_SH01` |
+| Wire resistance | — | NEC Table 8 JSON | `AWG_OHMS_PER_1000FT` |
 
-Every price change, spec revision or new product means three manual updates, and the tools disagree with each other and with the quote. The combined product removes the second and third copies:
+The combined product removes the second and third copies:
 
-- **Product facts** come only from ERPNext, through one adapter that produces the Design Catalog.
-- **Engineering reference data** (NEC tables, wire types) is versioned data owned by ilLumenate engineering. Wire types move into ERPNext as a new spec doctype so they can be stocked, priced and added to quotes. Code tables ship with the app as cited, versioned JSON (they are not products).
-- **Project facts** (runs, distances, supply placement) live in the saved design, linked to the schedule version.
+- **Product facts** come only from ERPNext through one adapter (the Design Catalog).
+- **Wire types** become ERP spec records linked to sellable Items (D7).
+- **Code tables** ship with the app as cited, versioned JSON (they are not products).
+- **Project facts** (runs, distances, placement) live in the saved design.
+- **Third-party products** are dealer-entered on the schedule line and flagged "Data by dealer" everywhere (D8).
 
 ---
 
-## 3. Gap analysis: what ERPNext must hold for the designer to work
+## 3. Gap analysis: what ERPNext must hold
 
-The riser engine refuses to calculate with `incomplete` products, which is the correct behaviour. Each table lists the fields the engine needs, what ERPNext has now, and the proposed change. Full mapping tables are in Appendix A.
+The riser engine refuses to calculate with `incomplete` products — correct behaviour, kept. Exact field specs (fieldname, type, default) are in **H4.3**; mappings in **Appendix A**.
 
 ### 3.1 LED tape (`ilL-Spec-LED Tape`, `ilL-Rel-Tape Offering`)
 
 | Engine field | ERPNext today | Action |
 |---|---|---|
-| `voltage` (12/24/48) | `input_voltage` → Link to `ilL-Attribute-Output Voltage` (label) | Add numeric `nominal_voltage_v` to the attribute; adapter reads it. |
-| `drive` (CV / CV-CC-IC) | — | Add `drive_type` Select (CV, CV with CC IC). |
-| `wPerFtMax` | `watts_per_foot` (+ `watts_per_ft_override` per offering) | Use offering override when present. Document that the value is maximum, not typical. |
-| `channels`, `channelMap`, `channelWPerFtMax` | — (implied by LED package: single, TW, RGB, RGBW) | Add `channels` Int and a child table `channel_name`, `max_w_per_ft`. Default 1. |
-| `powerBasis`, `maxSimultaneousPct` | — | Add with defaults (`all-channel-max`, `channels × 100`). |
-| `maxRunFtSingleFeed` | `voltage_drop_max_run_length_ft`, 85 W rule in engine | Add explicit `max_run_single_feed_ft`; keep the old field as the source during migration. |
-| `maxRunFtDoubleFeed` | — | Add `max_run_double_feed_ft`. |
-| `minOperatingV` | — | Add `min_operating_voltage_v` (needed for `TAPE_UNDERVOLTAGE` and real VD-at-tape checks). |
-| `cutIntervalIn`, `freeCutting` | `cut_increment_mm`, `is_free_cutting` | Convert mm → in in the adapter. |
-| `reelLengthFt` | — | Add `reel_length_m` (also used by takeoffs and install guides). |
-| `pixel` (protocol, px/ft, A/px) | — | Add a pixel section for addressable tape. |
-| Visual facts | `led_pitch_mm`, `lumens_per_foot` | Add `tape_width_mm`, `leds_per_segment` (install guide, 3D). |
+| `voltage` (12/24/48) | `input_voltage` → Link `ilL-Attribute-Output Voltage` (label) | Add `nominal_voltage_v` (Float) to the attribute |
+| `drive` | — | Add `drive_type` Select: `CV`, `CV with CC IC` |
+| `wPerFtMax` | `watts_per_foot`, offering `watts_per_ft_override` | Use override when present |
+| channels | — (implied by LED package) | Add `channels` Int (default 1) + child table `ilL-Child-Tape-Channel` (`channel_name`, `max_w_per_ft`) |
+| `powerBasis`, `maxSimultaneousPct` | — | Add with defaults |
+| `maxRunFtSingleFeed` | `voltage_drop_max_run_length_ft` | Add `max_run_single_feed_ft`; fall back to old field |
+| `maxRunFtDoubleFeed` | — | Add `max_run_double_feed_ft` |
+| `minOperatingV` | — | Add `min_operating_voltage_v` |
+| `cutIntervalIn`, `freeCutting` | `cut_increment_mm`, `is_free_cutting` | Convert mm → in |
+| `reelLengthFt` | — | Add `reel_length_m` |
+| `pixel` | — | Add `pixel_protocol`, `pixels_per_m`, `amps_per_pixel_max` |
+| Visual | `led_pitch_mm`, `lumens_per_foot` | Add `tape_width_mm`, `leds_per_cut_segment`, `max_case_temp_c` |
 
 ### 3.2 Power supplies and drivers (`ilL-Spec-Driver`)
 
 | Engine field | ERPNext today | Action |
 |---|---|---|
-| `inputType`, `inputVMin/Max`, `inputPhase` | `input_voltage_type`, `input_voltage_min/max` | Add `input_phase` (default 1PH). |
-| `outputType` CV/CC, `outputV`, `outputmA`, `outputVMin/Max` | `output_type`, `voltage_output` (Link) | Add `output_current_ma`, `compliance_v_min/max` for CC drivers. |
-| `ratedW`, `outputs[]` (name, maxW, class2) | `max_wattage`, `max_wattage_per_output`, `outputs_count`, `independent_outputs_count` | Add `class2_outputs` Check (or per-output table when outputs differ). |
-| `efficiency`, `powerFactor` | — | Add both (needed for input current and breaker loading). |
-| `maxInputA`, `maxInputAAtV` | — | Add. |
-| `inrushA`, `maxUnitsPer20ABreaker` | — | Add (needed for `INRUSH_LIMIT`, supplies per circuit). |
-| `dimming[]` | `input_protocols` child table | Map protocol names to the engine's protocol enum (Appendix B). |
-| `terminalMinAwg`, `terminalMaxAwg` | — | Add (needed for `TERMINAL_OVERSIZE`). |
-| `listings[]` | `certifications` | Map. |
-| Derate | `usable_load_factor` (e.g. 0.8) | Keep as the authority. The engine's `psuDeratePct` setting becomes "ERP default, override only with staff role". |
-| Physical | width/height/depth/weight | Already present; used for 3D and cabinet fit. Add `mounting` (DIN, screw, plug-in), `location_rating` (dry, damp, wet). |
+| Input type/range/phase | `input_voltage_type`, `input_voltage_min/max` | Add `input_phase` (default `1PH`) |
+| CV/CC output | `output_type` (Constant Voltage / Constant Current), `voltage_output` | Add `output_current_ma`, `compliance_v_min`, `compliance_v_max` |
+| Rated W, outputs | `max_wattage`, `max_wattage_per_output`, `outputs_count`, `independent_outputs_count` | Add `class2_outputs` Check |
+| Efficiency, PF | — | Add `efficiency` (0–1), `power_factor` (0–1) |
+| Input current, inrush | — | Add `max_input_a`, `max_input_a_at_v`, `inrush_a`, `max_units_per_20a_breaker` |
+| Dimming | `input_protocols` child | Map via Appendix B |
+| Terminals | — | Add `terminal_min_awg`, `terminal_max_awg` |
+| Listings | `certifications` | Map |
+| Derate | `usable_load_factor` | Authority for the 80% rule |
+| Physical | dims, weight | Add `mounting` (DIN Rail, Screw, Plug-in, Junction Box), `location_rating` (Dry, Damp, Wet) |
 
 ### 3.3 Controllers, dimmers, decoders (`ilL-Spec-Controller`)
 
-The riser engine splits controls into `decoder` and `controller` kinds with ports. ERPNext has one doctype with `controller_type`.
-
-| Engine field | ERPNext today | Action |
-|---|---|---|
-| Kind (decoder / controller / converter / keypad / gateway…) | `controller_type` Select | Map values to engine categories (Appendix B); add missing values. |
-| `channels`, `maxAPerChannel`, `maxATotal`, `maxWPerChannel`, `maxWTotal` | `channels`, `max_load_amps`, `max_load_watts` | Add per-channel limits. |
-| `dmxFootprint`, `unitLoad`, `dmxThru` | — | Add. |
-| `ports[]` (name, direction, protocol, maxDevices) | input/output protocol tables | Add a ports child table. |
-| `powerType`, `outputDimming` (AC phase-cut decoders) | `input_voltage_type` | Add `output_dimming` for AC decoders and wall dimmers. |
-| Phase dimmer limits: min load, LED max W, supplies per dimmer, neutral required | — | Add (the training visuals already teach these: `DIMMER` in section 1c). |
-| `maxUniverses`, `maxPixels`, `maxDataLengthFt`, `maxBusDevices` | — | Add for pixel controllers and gateways. |
-| `terminalMinAwg/MaxAwg`, `ownPowerW` | `standby_power_watts` | Map / add. |
+Add `controller_type` options **DMX Decoder, DMX to 0-10V Converter, Pixel Controller, Wireless Transmitter, Relay, Lutron Module** (Appendix A.5); add per-channel limits, `dmx_footprint`, `unit_load`, `dmx_thru`, ports child table, `output_dimming`, phase-dimmer limits (`min_load_w`, `led_max_w`, `max_supplies`, `neutral_required`), `max_universes`, `max_pixels`, `max_data_length_ft`, `max_bus_devices`, terminal sizes.
 
 ### 3.4 Linear fixtures (configured)
 
-Configured linear fixtures already store everything per build: run lengths, run watts, feed types, leaders and jumpers. The adapter models each configured fixture build as a `fixture` (or a tape-like `load` per run, see section 9.2) with its actual runs. No new fields are needed beyond the tape specs above, because the tape offering drives the electrical rules.
+No new fields: configured records already store runs, run watts, feeds, leaders, jumpers. The build's tape offering drives the electrical rules.
 
-### 3.5 Profiles, lenses and visuals
+### 3.5 Profiles, lenses, accessories (visual data)
 
-| Need | ERPNext today | Action |
-|---|---|---|
-| Cross-section outline for 3D, exploded views and install guides | width/height only | Add a `cross_section_file` (DXF) attachment plus a generated `cross_section_json` (closed polylines for body, lens, clip, in 1/1000 in, the same format as `CAD_SH01`). Staff upload the DXF once per profile family; a server job flattens it. |
-| Mounting hardware geometry (clip, swivel bracket) | `ilL-Spec-Accessory` (type, mounting method) | Add the same cross-section fields; add `clip_spacing_max_in`, `clip_end_offset_in`, `screw_spec`. |
-| Lens transmission and diffusion class | `ilL-Spec-Lens` | Add `transmission_pct`, `diffusion_class` (clear, frosted, opal) for optics visuals. |
-| Thermal limit | — | Add `max_w_per_ft` per profile (the Advanced thermal table) and tape `max_case_temp_c`. |
-| Product imagery for presentation | Webflow product images | Reuse `ilL-Webflow-Product` gallery and add a transparent "diagram icon" per template. |
+- `ilL-Spec-Profile`: `cross_section_file` (Attach, DXF), `cross_section_json` (Long Text, generated), `max_w_per_ft` (thermal).
+- `ilL-Spec-Accessory`: `cross_section_file`, `cross_section_json`, `clip_spacing_max_in`, `clip_end_offset_in`, `screw_spec`.
+- `ilL-Spec-Lens`: `transmission_pct`, `diffusion_class` (Clear, Frosted, Opal).
+- Templates: `diagram_icon` (Attach SVG), `scene_archetypes` (Small Text, comma list).
 
-### 3.6 Wire and cable (new)
+### 3.6 Wire and cable — new, quotable (D7)
 
-ERPNext has `ilL-Attribute-Leader Cable` (conductors, AWG, jacket) for factory leaders only. The designer recommends field wire, so a wire library is required.
+New doctype **`ilL-Spec-Wire`** linked to a sellable **Item** (H4.1). Wire is stocked, priced through Item Price, and written to schedules as accessory lines. Seed from the riser repo's `wires.seed.json` after engineering review (it is EXAMPLE today). Code tables ship as JSON.
 
-- New doctype **`ilL-Spec-Wire`** linked to an `Item` (so it can be stocked, priced and quoted): category (Class 2 power, building wire, data, control, landscape), conductor groups (count, AWG, material, role, colors, resistance override), listing (CL2, CL3, CL2P, CL3R, CMP, NM-B, UF…), rated V, temperature rating, plenum/riser/wet/burial/sunlight/shielded flags, OD, applications (the engine's run types), `riser_label`, verification flag and provenance.
-- Seed from the riser repo's `wires.seed.json` after engineering review (it is marked EXAMPLE today).
-- Code tables (NEC Table 8, Table 9, 310.16, 402.5) ship with the app as JSON with edition and citation, exactly as the riser repo does. Staff can switch the default edition; a project records which edition it used.
+### 3.7 Third-party fixtures — allowed, flagged (D8)
 
-### 3.7 Third-party ("Other manufacturer") schedule lines
-
-Lines for other manufacturers carry text fields only. To include them in a riser the dealer must enter watts, input voltage and dimming as numbers, or the line stays `incomplete` and is drawn with a "data required" flag (never silently calculated). Add numeric `watts_each`, `input_voltage_v`, `voltage_class` (line/low) to the schedule line.
+Add to `ilL-Child-Fixture-Schedule-Line`: `watts_each` (Float), `input_voltage_v` (Float), `voltage_class` (Select: Low Voltage, Line Voltage), `third_party_drive` (Select: CV, CC, Integral Driver), `third_party_ma` (Float), `third_party_dimming` (Link to dimming protocol). Lines with these filled are calculated and flagged `DATA_BY_DEALER` on every output; lines without them stay `incomplete`.
 
 ### 3.8 Catalog readiness reporting
 
-Extend `product_readiness.py` (or add `design_readiness`) so the Catalog Builder shows, per tape, driver, controller and wire, which design fields are missing. A product can be published for quoting before it is design-ready; the designer then shows it as `incomplete` with the missing field names, and staff get a work list.
+A design-readiness report (Desk page + Catalog Builder badge) per tape offering, driver, controller and wire, listing missing design fields. Products can be quoted before they are design-ready; the designer shows them as `incomplete` with field names.
 
 ---
 
@@ -265,15 +258,15 @@ Extend `product_readiness.py` (or add `design_readiness`) so the Catalog Builder
 
 ### 4.2 Users
 
-| Persona | Who | Primary jobs | Mode |
+| Persona | Who | Primary jobs | Access |
 |---|---|---|---|
-| **Dealer designer** | AV/lighting integrator's designer or project manager | Assign supplies, check runs, produce the riser and package | Designer (full) |
-| **Dealer sales** | Integrator's salesperson | Show the homeowner what they are buying; make the quote match | Presenter (simplified) |
-| **Installer / electrician** | Field crew, often the dealer's subcontractor | Read the riser and install guide; know wire types and lengths; label | Viewer (shared link / PDF / QR) |
-| **Applications engineer** | ilLumenate staff | Review designs, mark up, approve; handle exceptions | Reviewer (staff) |
-| **Specifier / lighting designer** | Architect or LD on the project | Receive submittals and a professional riser | Viewer |
-| **Homeowner / GC** | End client | Understand and approve the design | Viewer (presentation only) |
-| **Catalog owner** | ilLumenate product team | Keep design fields complete | Desk (Catalog Builder) |
+| **Dealer designer** | Integrator's designer or PM (`Dealer` role, schedule write access) | Assign supplies, check runs, produce riser and package, request review | Edit |
+| **Dealer sales** | Integrator's salesperson (schedule read access) | Show the homeowner; check the quote | Read + presentation exports |
+| **Installer / electrician** | Field crew | Read riser and guides; wire types/lengths; labels | Installer share link (D10) |
+| **Applications Engineer** | ilLumenate staff, role **`ilL Applications Engineer`** (D3) | Review, comment, approve, override errors | Reviewer |
+| **Order approver** | ilLumenate staff (`ilL Order Approver`) | Override the D4 gate with a reason in exceptional cases | Gate override |
+| **Specifier / homeowner / GC** | External | Receive submittals, riser, presentation | Share links |
+| **Catalog owner** | ilLumenate product team (`ilL Catalog Publisher`) | Keep design fields complete | Desk |
 
 ### 4.3 Jobs to be done
 
@@ -283,50 +276,52 @@ Extend `product_readiness.py` (or add `design_readiness`) so the Catalog Builder
 4. "Help me sell the job with something beautiful that isn't a spec sheet."
 5. "Give my crew step-by-step instructions for *this* cove, not a generic one."
 6. "Make sure the quote has every supply, dimmer and foot of wire the design needs."
-7. "Let ilLumenate check my work and stamp it when I need that."
+7. "Let ilLumenate check my work and approve it when the job needs that."
 
-### 4.4 Two experience levels in one tool
+### 4.4 Two experience levels
 
-- **Guided (default for dealers):** a step-by-step flow (section 6), plain language, defaults filled in, checks shown as cards with a fix button, technical settings hidden.
-- **Engineering (opt-in, staff and power users):** the riser repo's grid tables (sources, equipment, loads, control links), all settings, manual pins, wire overrides, parallel conductors, code-edition choice.
+- **Guided (default):** stepper (section 6), plain language, defaults filled in, check cards with fix buttons, technical settings hidden.
+- **Engineering (opt-in; always on for staff):** the riser repo's grids (sources, equipment, loads, control links), all settings, pins, wire overrides, code edition.
 
-Both edit the same design document. Switching never loses data.
+Both edit the same design document.
 
 ---
 
 ## 5. Product principles
 
-1. **ERPNext is the only product source.** The designer never stores a product spec it can't trace to an ERP record and revision. Local overrides exist only for staff, are recorded, and are flagged on every output.
-2. **The schedule is the bill of quantities.** The designer reads lines and writes back the lines it adds (supplies, controllers, wire, accessories). It never edits configured builds; to change a build the dealer reopens the configurator.
-3. **One engine, one drawing model, many outputs.** The riser rule carries over: the engine computes; the riser, presentation diagram, plan view, 3D, install guide and BOM consume engine output and never recompute electrical values.
-4. **Never invent data.** Missing facts produce `incomplete` with named missing fields, not guesses. EXAMPLE products never appear in dealer projects.
-5. **Honest checks with a fix.** Every warning says what is wrong, why it matters, and the smallest change that fixes it ("Move PS-2 within 18 ft of the run or use 14 AWG").
-6. **Deterministic and reproducible.** The same design, catalog snapshot and engine version produce byte-identical outputs. Every output carries a build hash, so a reviewed drawing can be proven unchanged (this is what `ilL-Drawing-Review.build_hash` is for).
-7. **Beautiful for people, precise for trades.** Presentation outputs use the brand system (Manrope/Poppins, navy/blue/gold, zone colors). Engineering outputs use drafting conventions (Arimo/Roboto Condensed, black lines, title blocks).
-8. **Respect the existing permission model.** Dealers see only their customers' projects; no cost data leaves the server; share links are signed and expire.
-9. **Line voltage belongs to the electrician.** The tool sizes and draws 120/277 V circuits for coordination but labels them "by licensed electrician" and never presents them as stamped engineering unless staff review approved them.
+1. **ERPNext is the only product source.** Every catalog item traces to an ERP record and `modified` timestamp. Staff-only local overrides are recorded and flagged on outputs.
+2. **The schedule is the bill of quantities.** The designer reads lines and writes back only lines it owns. It never edits configured builds.
+3. **One engine, one drawing model, many outputs.** Views consume engine output and never recompute electrical values.
+4. **Never invent data.** Missing facts → `incomplete` with named fields. EXAMPLE products never appear in dealer projects. Dealer-entered third-party data is calculated but always labelled "Data by dealer" (D8).
+5. **Honest checks with a fix.** Each warning states what, why, the numbers, and the smallest fix.
+6. **Deterministic and reproducible.** Same inputs + catalog snapshot + engine version → byte-identical outputs and the same `build_hash`.
+7. **Beautiful for people, precise for trades.** Presentation uses brand type and color; engineering uses drafting conventions.
+8. **Respect permissions.** Dealers see only their own projects; **no cost data and no cost-derived numbers leave the server** (D6); share links are signed and expire after 90 days unless renewed (D10).
+9. **Line voltage belongs to the electrician.** Line-voltage circuits are drawn for coordination, labelled "By licensed electrician," never stamped unless an Applications Engineer approved the design.
+10. **Portal-only presentation for now (D12).** Nothing in the designer is exposed to Webflow or public endpoints in this plan; packages are written so a public mode can be added later without refactoring.
+11. **Imperial now, metric later (D11).** All UI and outputs use feet/inches; internal storage follows ERP (mm) and the engine (ft). No metric UI until Phase 8.
 
 ---
 
 ## 6. The end-to-end workflow
 
 ```
-Portal schedule ──► 1 Intake ──► 2 Site ──► 3 Runs ──► 4 Power & controls ──► 5 Check ──► 6 Outputs ──► 7 Package / Review / Quote
-       ▲                                                                                                          │
-       └──────────────────────── supplies, controllers, wire written back as schedule lines ──────────────────────┘
+Schedule page ─"Design system"─► 1 Start ─► 2 Spaces ─► 3 Runs ─► 4 Power ─► 5 Check ─► 6 Views ─► 7 Finish
+       ▲                                                                                       │
+       └──── supplies, controllers, wire (Items), accessories written back as schedule lines ──┘
+                                     │
+                     D4 gate: DMX / phase dimming / > 1.5 kW ⇒ approved review before Sales Order
 ```
-
-The guided flow is a stepper with these screens; each step can be revisited, and the check panel is visible throughout.
 
 | Step | Screen | Dealer does | System does |
 |---|---|---|---|
-| 1 | **Start** | Opens "Design system" from a schedule, or enters a schedule number, or picks project → schedule | Loads schedule version, lines, configured builds, Design Catalog snapshot; shows readiness |
-| 2 | **Spaces** | Names rooms/areas, marks the electrical room and panel, optionally uploads a floor plan | Groups lines by `location`; suggests spaces from location text |
-| 3 | **Runs** | Confirms each run's space, feed end, environment (dry, damp, wet, in-wall, plenum, outdoor) and distance to its supply | Expands lines × qty into physical runs with ERP lengths and watts |
-| 4 | **Power** | Places supplies (or accepts auto-plan), drags runs onto supply outputs, assigns supplies to circuits and cabinets, adds dimmers/controllers | Live load bars per supply and output; eligible supplies only |
-| 5 | **Check** | Reviews cards, applies fixes | Runs the engine; voltage drop, wire selection, breaker load, DMX, compatibility |
-| 6 | **Views** | Chooses outputs: riser, presentation, plan, 3D | Renders from one model; exports |
-| 7 | **Finish** | Builds the package, requests review, updates the quote | Writes lines back; creates deliverables; opens a review request |
+| 1 | **Start** | Opens from a schedule, or enters a schedule number, or picks project → schedule | Loads schedule version, lines, configured builds, Design Catalog; shows readiness and whether review will be required (D4) |
+| 2 | **Spaces** | Names rooms, marks electrical room/panel and supply cabinets, optional floor plan (Phase 6) | Groups lines by `location` |
+| 3 | **Runs** | Confirms space, feed end, environment, distance to supply per run | Expands lines × qty into runs with ERP lengths/watts |
+| 4 | **Power** | Places supplies or accepts auto-plan; drags runs onto outputs; circuits; dimmers/controllers | Live load bars; eligible supplies only; auto-plan shows supply count and wire totals only (D6) |
+| 5 | **Check** | Reviews cards, applies fixes | Engine: VD (3% Class 2 target, D5), wire selection, breakers, DMX, compatibility |
+| 6 | **Views** | Riser, presentation, plan, 3D | Renders from one model; exports |
+| 7 | **Finish** | Builds package, requests review, updates the quote | Writes lines back; deliverables; review request; D4 status |
 
 ---
 
@@ -334,147 +329,91 @@ The guided flow is a stepper with these screens; each step can be revisited, and
 
 ### 7.1 Entry points
 
-- **From the schedule page** (`/portal/schedules/<schedule>`): a "Design system" button. Opens `/portal/schedules/<schedule>/design`.
-- **From the projects list:** a "Designs" tab per project listing designs per schedule.
-- **Direct:** `/portal/design` with a search box that accepts a schedule number (`naming_series` value) or project name, scoped to what the user may access (reuse `get_user_projects_for_configurator`, `get_schedules_for_project`).
-- **Staff:** a Desk button on `ilL-Project-Fixture-Schedule` opens the same app in reviewer mode.
+- **Schedule page** (`/portal/schedules/<schedule>`): a **"Design system"** button (primary when no design exists, "Open design" otherwise) and a design status badge.
+- **Project page:** "Designs" tab listing designs per schedule with status and review state.
+- **Direct:** `/portal/design` — search by schedule number or project name, scoped by `schedule_query_conditions`.
+- **Staff:** Desk button on `ilL-Project-Fixture-Schedule` and `ilL-System-Design` opens reviewer mode.
 
 ### 7.2 What intake loads
 
-1. The schedule header, version and lock state.
-2. All lines, including accessory and power lines (`power_supply_for_line`).
-3. For each configured line: the configured record's runs, segments, feed types, leader/jumper cable manifest, environment rating, tape offering, `power_plan_json` and `max_run_ft_effective`.
-4. The Design Catalog snapshot (section 15.4), limited to products relevant to the schedule plus all design-ready supplies, controllers and wires.
-5. Any existing `ilL-System-Design` for this schedule.
+Schedule header/version/lock; all lines incl. accessory and power lines; for each configured line the runs, segments, feeds, cable manifest, environment, offering, `power_plan_json`, `max_run_ft_effective`, `config_hash`; the Design Catalog snapshot hash; existing designs; the D4 requirement and reasons.
 
 ### 7.3 Readiness screen
 
-Before the dealer starts, show a short readiness summary:
+- Ready lines; lines needing data (third-party lines → "Enter data" form; catalog gaps → "Notify ilLumenate", deduplicated per product per day); unconfigured lines (link to configurator); lock state (locked → read-only, offer "Design on a new version").
+- **Review banner (D4):** "This schedule uses DMX / phase-cut dimming / 2.1 kW. ilLumenate review is required before ordering." (or "Review optional").
 
-- Lines ready (configured and design-ready products).
-- Lines that need data (third-party lines without numeric watts, products with missing design fields) with a "Complete" action for third-party lines and a "Notify ilLumenate" action for catalog gaps (creates a catalog-readiness task, deduplicated).
-- Lines not yet configured (link to the configurator).
-- Whether the schedule is locked (designs on a locked version are read-only; offer "design on a new version").
+### 7.4 Keeping in sync with the schedule
 
-### 7.4 Keeping the design in sync with the schedule
-
-The design stores the schedule version and a hash per line (`line_key`, configured record name, `config_hash`, qty). On open:
-
-- **Unchanged:** proceed.
-- **Changed lines:** show a reconcile dialog: added lines (new runs to assign), removed lines (their assignments are dropped, listed), changed builds (lengths/watts differ; assignments kept, checks rerun), qty changes (extra builds to assign, or surplus assignments removed).
-- **New schedule version:** offer "copy design to the new version" (the design is versioned with the schedule; see section 16.1).
+The design stores schedule version and per-line fingerprints (`line_key`, configured record, `config_hash`, qty, third-party fields). On open: unchanged → proceed; changed → reconcile dialog (added, removed, changed builds, qty changes); new schedule version → "Copy design to version N". Algorithm in H8.4.
 
 ### 7.5 Acceptance
 
-- Opening a 150-line schedule with configured builds takes < 3 s to first paint on a typical connection (lines and catalog loaded in parallel; catalog cached by hash).
-- A dealer can never load a schedule they cannot open in the portal (same permission function).
+- 150-line schedule interactive in < 3 s with a cached catalog.
+- A user can never open a design for a schedule `can_read_schedule` denies.
 
 ---
 
-## 8. Module 2 — Site model (spaces, locations, distances)
+## 8. Module 2 — Site model
 
-The visualizer and riser both need "where." The schedule only has a free-text `location`. A light site model fills the gap without becoming CAD.
-
-### 8.1 Entities
-
-- **Space:** name, level (Basement, Level 1…), type (kitchen, living, bath, exterior, mechanical…), optional archetype for 3D (section 12.4).
-- **Electrical location:** panel (with circuits), cabinet/enclosure (a named supply location: "Mechanical room rack," "Sink base," "Attic over hall"), each in a space, with environment and access notes.
-- **Distances:** home-run lengths are entered per run (to its supply) and per supply (to its circuit/panel). The tool offers quick estimates: "same space" (default 10 ft), "adjacent," "another level," or a measured number. On a floor plan (section 12.3) distances are measured from placed points with a slack factor.
-
-### 8.2 Behaviour
-
-- Auto-create spaces from distinct `location` values; dealers merge or rename.
-- Cabinets become riser enclosures (the riser layout already treats enclosures as compound units with supply/control/load columns).
-- Environment defaults cascade: space → cabinet → run, overridable per run (in-wall, plenum ceiling, wet, outdoor, direct burial).
+- **Space:** name, level, type, optional 3D archetype.
+- **Cabinet (enclosure):** a named supply location in a space with environment (Dry/Damp/Wet), access note, optional size limit. Becomes a riser enclosure.
+- **Panel:** name, location, voltage, circuits.
+- **Distances:** per run (to its supply) and per cabinet (to its circuit) with provenance: `estimate` (quick picks: same space 10 ft, adjacent 25 ft, other level 40 ft), `entered`, `measured` (plan view, Phase 6).
+- Spaces auto-created from distinct `location` values (normalized: trimmed, case-folded); dealers merge/rename.
+- Environment cascades space → cabinet → run, overridable per run: Dry concealed, In-wall, Plenum, Riser, Raceway, Damp, Wet, Outdoor exposed, Direct burial (maps to engine `EnvironmentSchema` per Appendix B.2).
 
 ---
 
 ## 9. Module 3 — Run builder
 
-### 9.1 Expanding schedule lines into physical runs
+### 9.1 Expansion
 
-A schedule line `F3 · qty 4 · Kitchen` with a configured linear fixture of 2 runs becomes 8 physical runs: `F3-1.1`, `F3-1.2`, `F3-2.1` … `F3-4.2`. Each run carries:
+`F3 · qty 4 · Kitchen` with 2 runs per build → `F3-1.1 … F3-4.2`. Each run: `run_key = {line_key}:{build}:{run}`, length and watts from ERP (read-only), feeds from segments, environment, tape spec/offering, factory leader from `cable_manifest_json`. Identical builds with qty ≥ 6 default to a **group** (assign once, drawn as a stacked bank), splittable anytime. Algorithm: H8.1.
 
-- `run_key` = `{line_key}:{build_index}:{run_index}` (stable across reopen; tied to `line_key`, not row index).
-- Length and watts from the configured record's `runs` (ERP authority, read-only).
-- Feed type and direction from the configured segments; the number of feeds (`end`, `double-end`, `center`, `multi-feed`) follows the build's feed plan.
-- Environment rating, tape spec and offering (for VD, min voltage, max run).
-- The factory leader/jumper cable from `cable_manifest_json` (the first part of the wire path: factory leader to the field junction).
+### 9.2 Engine mapping
 
-**Large quantities.** Where qty is large and builds are identical (e.g. 24 identical shelf lights), runs can be handled as a **group**: assign once, applied to all, drawn on the riser as a stacked bank (the riser drawing already supports parallel receiver banks). The group can be split at any time.
-
-### 9.2 How runs map into the engine
-
-| Product family | Engine representation |
+| Family | Engine representation |
 |---|---|
-| LED Tape / COB / Neon (configured) | One `load` per run: `catalogId` = tape catalog item from the offering, `lengthFt` = run length, `feedMethod` from the build, `homeRunLengthFt` from the site model |
-| Linear fixture (configured) | One `load` per run, same as tape, with the build's tape offering as the electrical item; the fixture's part number is carried for labels |
-| LED Sheet | One `load` per sheet feed using the sheet's power plan |
-| Configured group | One `load` per member run; group label kept for drawings |
-| Third-party low-voltage fixture | `fixture` load with qty, watts, input V, drive; `incomplete` until numeric data is entered |
-| Third-party line-voltage fixture | `fixture` load (`voltageClass: line`) on a source circuit; drawn for coordination |
-| Accessory and driver lines already on the schedule | Become equipment candidates in the supply pool (section 10.2) |
+| Tape / COB / Neon (configured) | one `load` per run: tape catalog item from offering, `lengthFt`, `feedMethod`, `homeRunLengthFt` |
+| Linear fixture (configured) | one `load` per run, tape offering as the electrical item; part number kept for labels |
+| LED Sheet | one `load` per sheet feed from its power plan |
+| Configured group | one `load` per member run |
+| Third-party low voltage (D8) | `fixture` load with dealer data, `DATA_BY_DEALER` info |
+| Third-party line voltage (D8) | `fixture` load (`voltageClass: line`) on a source circuit, `DATA_BY_DEALER` |
+| Existing accessory/driver lines | supply pool candidates |
 
-### 9.3 Run editor
+### 9.3 Run editor and run-level checks
 
-A table (guided mode: cards per space) with: run key, fixture type, space, length (read-only), watts (read-only), feed end(s), environment, home-run length, assigned supply/output, status chip. Bulk edit for environment and distance. A strip preview shows the run and its feed points (reusing the visualizer's strip renderer, `drawStrip`).
-
-### 9.4 Run-level checks (before power assignment)
-
-- Run length vs `max_run_single_feed_ft` / `max_run_double_feed_ft` (ERP already enforces this in the configurator; the designer re-checks because jumpers and site feeds can combine runs).
-- Feed method feasibility (e.g. double-end needs a second home run; center feed needs mid-run access).
-- Jumper-connected runs are one circuit (`tape_neon_power.connected_runs` logic).
+Table/cards: key, type, space, length, watts, feeds, environment, home-run length + provenance, assignment, status. Bulk edit. Strip preview. Checks: run vs single/double-feed max; feed feasibility; jumper-connected runs are one circuit.
 
 ---
 
 ## 10. Module 4 — Power and control assignment
 
-This is the heart of "link power supplies to specific runs."
+### 10.1 Power board
 
-### 10.1 The power board (guided mode)
-
-A two-pane workspace:
-
-- **Left — Runs to power:** unassigned runs grouped by space, each a card showing watts and length.
-- **Right — Supplies:** each supply is a card with its model, location (cabinet), a load bar (used vs `max_wattage × usable_load_factor`, with the 80% line), and its output slots. Each output slot shows its own load bar against `max_wattage_per_output × usable_load_factor` and its Class 2 status.
-- **Drag** a run onto an output. A run that would overload the output or supply is refused with the reason. Multi-select drags several runs.
-- **Add supply:** picker filtered to drivers eligible for every run you intend to put on it: voltage match, protocol match (the dimming method chosen for the zone), driver eligibility (`ilL-Rel-Driver-Eligibility` for the runs' templates), location rating vs the cabinet environment. Sorted by fit (fewest supplies, then size).
-- **Auto-plan:** see 10.3.
-- Supplies are placed in a cabinet (Module 2). Cabinets show combined load, heat (W lost = load × (1/efficiency − 1)) and the circuit they're on.
+Left: unassigned runs by space. Right: supply cards per cabinet with total load bar (vs `max_wattage × usable_load_factor`, 80% line) and output slots (vs `max_wattage_per_output × usable_load_factor`, Class 2 badge). Drag runs onto outputs; refusal shows the reason. "Add supply" picker filtered by voltage, protocol, eligibility, location rating; sorted by **fit** (smallest supply that fits, fewest added supplies) — **never by price** (D6). Cabinet totals show load and heat.
 
 ### 10.2 Starting point from ERP
 
-When the configurator already planned power for a build (`include_power_supply` with `power_plan_json` allocations, and supply lines under the fixture line), the designer pre-places those supplies and allocations as the **default** assignment, marked "from configurator." The dealer can keep them, consolidate across builds, or move supplies to a shared cabinet. Consolidation is the main value: per-build planning often yields more supplies than a site-level plan.
+Configurator-selected supplies (`power_plan_json` allocations and existing power lines) are pre-placed as "from configurator". Consolidation into shared cabinets is the main value.
 
-### 10.3 Auto-plan (site-level allocator)
+### 10.3 Auto-plan
 
-Extend `plan_power` into a site-level planner:
+Site-level allocator (H8.2). Policies: fewest supplies (default), fewest cabinets, shortest wire. Cost enters only as a server-computed opaque `rank` integer per supply (D6). The proposal panel shows **supply count, cabinets used, total wire by type (ft)** and per-cabinet changes — no prices, no cost deltas.
 
-- **Inputs:** runs (watts, voltage, protocol, space), candidate supplies per run (eligibility), cabinets with allowed supply types and capacity, maximum home-run length or VD budget per run, policy (fewest supplies, fewest cabinets, shortest wire, lowest cost).
-- **Constraints:** one run per output (never paralleled); per-output and total limits × `usable_load_factor`; all runs on a supply share voltage and dimming protocol; a run can only go to cabinets within its distance/VD budget; supply location rating ≥ cabinet environment; Class 2 per output.
-- **Algorithm:** the existing exact search covers ≤12 circuits. For a site, partition by voltage + protocol + cabinet reachability, then run exact search per partition when small, and a first-fit-decreasing with local improvement (swap/merge) when large. Report optimality ("exact" or "heuristic, within N supplies of the lower bound").
-- **Output:** proposed supplies per cabinet and allocations, shown as a diff to accept wholesale or per cabinet.
-- Implemented in the shared TypeScript engine (instant feedback) with a Python mirror for server verification (section 18).
+### 10.4 Sources, circuits, breakers
 
-### 10.4 Sources, circuits and breakers
-
-- Each cabinet or supply is fed from a source: panel, circuit, voltage (120/208/240/277…), breaker A, switching (none, relay, phase-forward, phase-reverse, 0-10V, Lutron module) — the riser `Source` schema.
-- Breaker loading uses supply input current (from efficiency, PF and `maxInputA`), continuous load factor 1.25 and the 80% limit; supplies per 20 A breaker and inrush limits are enforced.
-- Guided mode asks one question per cabinet: "Which circuit feeds this? (Panel, circuit number, switched by…)." Engineering mode shows the full sources grid.
+Each cabinet/supply fed from a source (panel, circuit, voltage, breaker A, switching). Input current from efficiency, PF and `max_input_a`; continuous load factor 1.25; 80% breaker limit; supplies per 20 A breaker; inrush.
 
 ### 10.5 Controls
 
-- **Zones and dimming method:** a zone is a set of runs dimmed together. The dealer picks the method per zone (ELV/TRIAC phase-cut, 0-10V, DALI-2, DMX512, Lutron QS/EcoSystem, wireless). This filters supply choices (driver input protocols) and adds the needed devices.
-- **Phase-cut zones:** wall dimmer from the controller catalog; checks min load, LED max W, supplies per dimmer, neutral requirement (`PHASE_DIMMER_COMPAT_UNKNOWN` when the pairing isn't on a tested list).
-- **DMX zones:** controller → decoders → supplies; decoder channels per run (TW = 2, RGB = 3, RGBW = 4); auto-patch addresses by chain order; universe, unit loads, cable length and terminator checks (riser engine `dmx.ts`).
-- **0-10V:** controller sink capacity vs number of drivers.
-- Control links are drawn as their own layer on every output.
+Zones with a dimming method (ELV/TRIAC phase-cut, 0-10V, DALI-2, DMX512, Lutron QS/EcoSystem, wireless). Method filters supplies and adds devices. Phase-cut: min load, LED max W, supplies per dimmer, neutral. DMX: controller → decoders → supplies, auto-patch, universes, unit loads, length, terminator. 0-10V: sink capacity. **Selecting DMX or phase-cut, or exceeding 1.5 kW, shows the D4 "review required" chip.**
 
 ### 10.6 Acceptance
 
-- Assigning a run updates load bars and checks in < 100 ms for designs up to 300 runs.
-- Undo/redo for every assignment (zundo, as in the riser repo).
-- Auto-plan on a 60-run residential design returns in < 2 s.
+Assignment updates checks < 100 ms (≤ 300 runs); undo/redo; auto-plan < 2 s for 60 runs.
 
 ---
 
@@ -482,175 +421,104 @@ Extend `plan_power` into a site-level planner:
 
 ### 11.1 Check catalogue
 
-Every check is an engine validation code (riser list, extended). Each has: severity, plain-language title, explanation, the numbers, and one or more **fix actions** that edit the design.
-
-| Area | Checks | Example fix actions |
+| Area | Checks | Fix actions |
 |---|---|---|
-| Supply loading | `PSU_OVERLOAD`, `PSU_ABOVE_DERATE` (80% / `usable_load_factor`), `CHANNEL_OVERCURRENT`, per-output limit | Move run to another output; add a supply; switch to a larger supply |
-| Class 2 | `CLASS2_OVER_100VA` per output | Split across outputs; use a Class 2 output |
-| Run length | `TAPE_RUN_TOO_LONG`, `MAX_LENGTH_HINT`, `SUGGEST_SPLIT_FEED` | Change to double-end feed; add an injection feed; split the run |
-| Voltage at the tape | `TAPE_UNDERVOLTAGE` (supply V − home-run drop − in-tape drop < `min_operating_voltage_v`), `VD_OVER_TARGET` | Upsize wire; move supply closer; feed from both ends |
-| Wire selection | `NO_VALID_WIRE`, `WIRE_REQUIRES_VERIFICATION`, `TERMINAL_OVERSIZE`, `PARALLEL_REVIEW_REQUIRED` | Choose listed alternative; split the circuit |
-| Wire type for environment | In-wall → CL2/CL3 minimum; plenum → CL2P/CL3P; riser → CL2R/CL3R; wet/outdoor → wet-rated, sunlight-resistant; burial → direct-burial rated | Auto-select compliant wire type |
-| Line voltage | `BREAKER_OVERLOAD`, `INRUSH_LIMIT`, minimum line-voltage AWG | Split cabinets across circuits |
-| Compatibility | `VOLTAGE_MISMATCH`, `DRIVE_MISMATCH` (CV/CC), `PROTOCOL_MISMATCH`, `INPUT_V_OUT_OF_RANGE`, `CC_COMPLIANCE`, `PHASE_DIMMER_COMPAT_UNKNOWN` | Swap to an eligible supply |
-| Controls | `DMX_ADDRESS_OVERLAP/OVERFLOW`, `DMX_UNIT_LOADS`, `DMX_LENGTH`, `DMX_NO_TERMINATOR`, `DMX_TOPOLOGY`, `SPI_DATA_LENGTH`, `DEVICE_CAPACITY` | Re-patch; add splitter; add terminator |
-| Data quality | `INCOMPLETE_SPEC`, `EXAMPLE_PRODUCT_IN_USE`, `UNRESOLVED_REF`, `CYCLE` | Complete third-party data; notify catalog team |
-| Thermal (new) | W/ft vs profile `max_w_per_ft`; supply heat in enclosed cabinets | Choose deeper profile; ventilate cabinet |
-| Placement (new) | Supply in a location it isn't rated for; no service access marked | Move supply; mark access |
+| Supply loading | `PSU_OVERLOAD`, `PSU_ABOVE_DERATE`, `CHANNEL_OVERCURRENT`, per-output | Move run; add supply; larger supply |
+| Class 2 | `CLASS2_OVER_100VA` | Split outputs; Class 2 output |
+| Run length | `TAPE_RUN_TOO_LONG`, `MAX_LENGTH_HINT`, `SUGGEST_SPLIT_FEED` | Double-end feed; injection; split |
+| Voltage at tape | `TAPE_UNDERVOLTAGE`, `VD_OVER_TARGET` (3% Class 2, D5) | Upsize wire; move supply; feed both ends |
+| Wire | `NO_VALID_WIRE`, `WIRE_REQUIRES_VERIFICATION`, `TERMINAL_OVERSIZE`, `PARALLEL_REVIEW_REQUIRED` | Pick listed alternative; split circuit |
+| Wire type by environment | In-wall ≥ CL2/CL3; plenum CL2P/CL3P; riser CL2R/CL3R; wet/outdoor wet + sunlight-resistant; burial direct-burial | Auto-select compliant wire Item |
+| Line voltage | `BREAKER_OVERLOAD`, `INRUSH_LIMIT`, min line AWG | Split across circuits |
+| Compatibility | `VOLTAGE_MISMATCH`, `DRIVE_MISMATCH`, `PROTOCOL_MISMATCH`, `INPUT_V_OUT_OF_RANGE`, `CC_COMPLIANCE`, `PHASE_DIMMER_COMPAT_UNKNOWN` | Swap to eligible supply |
+| Controls | DMX codes, `SPI_DATA_LENGTH`, `DEVICE_CAPACITY`, dimmer codes | Re-patch; splitter; terminator |
+| Data | `INCOMPLETE_SPEC`, `EXAMPLE_PRODUCT_IN_USE`, `UNRESOLVED_REF`, `CYCLE`, `DATA_BY_DEALER` (info) | Enter data; notify catalog team |
+| Thermal / placement | `PROFILE_THERMAL_LIMIT`, `SUPPLY_LOCATION_RATING`, `SUPPLY_NO_ACCESS`, `CABINET_HEAT` | Deeper profile; move supply; ventilate |
+| Review | `REVIEW_REQUIRED` (info, D4), `SCHEDULE_OUT_OF_SYNC` | Request review; reconcile |
 
-### 11.2 Voltage drop and wire gauge (closing the MVP gap)
+### 11.2 Voltage drop and wire gauge
 
-The riser engine already computes VD per run (lumped or distributed, multichannel common return) with NEC Table 8 resistance and selects the smallest wire that meets the target and ampacity in the run's environment. The designer shows, per run:
+Per run: wire Item and gauge, one-way length, current, drop (V, %), voltage at tape, margin to `min_operating_voltage_v`. **Default targets (D5): 3% Class 2 low-voltage, 3% line voltage, 5% landscape.** Stored in `ilL-System-Designer-Settings`; a project may **tighten** targets; loosening requires an Applications Engineer override recorded on the design. A "what gauge if…" distance slider shows where the recommendation steps up.
 
-- Home-run wire type and gauge, one-way length, current, drop in volts and percent, voltage at the tape, and the margin to `min_operating_voltage_v`.
-- A **"what gauge if…" slider** (distance) showing where the recommendation steps up (the visualizer's gauge cheat-sheet, now live).
-- Project-level targets (3% Class 2 default; 5% landscape) set by staff policy; dealers can tighten but not loosen without review.
+### 11.3 Wire takeoff (D7)
 
-This replaces the static `voltage_drop_max_run_length_ft` heuristic for site wiring and resolves the limitation noted in `docs/MVP_CONSTRAINTS.md`.
+Every home run, control link and line branch gets a W-tag, length (+ waste %, default 10%), wire type and **wire Item**. Totals per Item roll into the BOM and write back to the schedule as accessory lines (qty in the Item's sales UOM; spool rounding per H8.6).
 
-### 11.3 Wire takeoff
+### 11.4 Explanations
 
-Every home run, control link and line-voltage branch gets a W-tag (`W-01`…), length (with waste %), wire type and a quoting Item. Totals per wire Item roll up into the BOM and can be written to the schedule as accessory lines (section 14.5).
-
-### 11.4 Explanations and learning
-
-Each check card has a "Why?" link that opens the relevant training visual with the dealer's own numbers (e.g. `PSU_ABOVE_DERATE` opens the 3.1 load-and-supply visual with this supply and load). This turns the training library into contextual help.
+Each check card links "Why?" to the matching training visual rendered with the dealer's numbers.
 
 ### 11.5 Overrides
 
-- Dealers can acknowledge warnings with a reason; errors cannot be overridden by dealers.
-- Staff can override errors with a reason; the override and reviewer are printed in the QA notes and drawing revision block.
+Dealers may acknowledge warnings with a reason; errors cannot be overridden by dealers. Applications Engineers may override errors with a reason; overrides print in QA notes and the revision block.
 
 ---
 
-## 12. Module 6 — Outputs: riser, presentation diagram, plan view, 3D
+## 12. Module 6 — Outputs: riser, presentation, plan view, 3D
 
-All four views read the same design and engine result. Changes in any editor update every view.
+### 12.1 Engineering riser
 
-### 12.1 Engineering riser (from the riser generator)
+Riser layout, router, pagination, title blocks, schedules, serializers moved in. Title block: ilLumenate brand + dealer logo (`Customer.dealer_logo`), project/schedule/version, design revision, designer, checker (Applications Engineer when approved), stamp: `PRELIMINARY` (default), `NOT FOR CONSTRUCTION`, `FOR REFERENCE`, or `REVIEWED BY ILLUMENATE` (only when the current revision is approved). Sheet schedules: fixture, power supply, wire (W-tag, from/to, Item, AWG, length, VD), panel/circuit, DMX patch, BOM, notes. Third-party loads show a **"DATA BY DEALER"** tag on their symbol and a general note (D8). Formats: layered PDF, DXF ZIP, SVG; sheets ARCH C/D, ANSI B/D, plus **Letter and Tabloid** for dealer packages.
 
-- The riser layout, router, pagination, title blocks, schedules and serializers move in unchanged where possible.
-- **Title block:** ilLumenate brand plus a dealer logo slot (from the dealer's Customer record), project/schedule/version, design revision, designer, checker (ilLumenate reviewer when approved), stamp (`PRELIMINARY`, `FOR REFERENCE`, `NOT FOR CONSTRUCTION`, or "REVIEWED BY ILLUMENATE" when approved).
-- **Schedules on the sheets:** fixture schedule (from the ERP schedule, Fixture Type / qty / location / part number), power-supply schedule (tag, model, cabinet, circuit, outputs used, load, % of rating), wire schedule (W-tag, from/to, type, AWG, length, VD), panel/circuit schedule, DMX patch, BOM, general and key notes.
-- **Labels:** equipment tags (`PS-01`), run tags (`F3-2.1`), wire tags printed on the drawing and on labels (section 13.4).
-- **Formats:** layered PDF (OCG layers: power, control, annotations, schedules), native DXF (blocks/attributes for CAD import), SVG; sheet sizes ARCH C/D, ANSI B/D, plus a new **Letter/Tabloid** sheet for dealer packages.
+### 12.2 Presentation diagram (portal-only, D12)
 
-### 12.2 Presentation diagram ("system story")
+Brand-styled "system story": one band per space/zone, flowing source → cabinet/supplies → control → light; product icons (template `diagram_icon`), lit strip per run in its CCT, product names/finishes, friendly supply locations. Variants: homeowner, designer, installer. PNG (1×/2×/4×), SVG, PDF page. Rendered by `packages/present` (SVG first).
 
-A non-technical, brand-styled diagram that generalizes the visualizer's schematic mode.
+### 12.3 Plan view (Phase 6)
 
-- **Layout:** one band per space (or per zone), flowing left to right: power source → cabinet/supplies → control → light. Each band shows the space name, the zone color, an icon per product (template diagram icon from ERP), and a lit strip with the run's CCT.
-- **Content:** product names and finishes, CCT and dimming method, supply locations as friendly labels ("Supplies in the mechanical room"), total connected light. No gauges or W-tags.
-- **Variants:** homeowner (simplest), designer (adds CCT/CRI/output/profile), installer (adds supply tags and wire types, still brand-styled).
-- **Formats:** PNG (1×/2×/4×), PDF page, embeddable image for proposals.
-- **Rendering:** a 2D canvas/SVG renderer built from the visualizer's slide kit (`card`, `pill`, `drawStrip`, `drawPSU`, brand tokens, Manrope/Poppins). SVG output is preferred so PDFs stay vector.
+Upload floor plan (PDF page/image), two-point scale calibration, place runs/supplies/cabinets/dimmers/panel, draw or auto-route orthogonal wire paths with slack factor (default 15%); measured lengths become home-run lengths (`measured`). Output: plan sheet PDF (drafting and brand variants).
 
-### 12.3 Plan view (floor-plan overlay)
+### 12.4 3D project view (Phase 6)
 
-The missing piece between "diagram" and "3D": where things physically are.
+Modular `packages/scene3d` rebuilt from the visualizer on current Three.js. **Archetype order (D9):** cove first, then **under-cabinet, toe-kick, shelving, niche** (already modelled in the visualizer), then **ceiling reveal and stair** (Phase 8). Products from ERP (profile `cross_section_json`, tape width/LED density, lens class, supply dimensions). Supplies in cabinets, routed LV wires in zone color, line legs, dimmers, panel; glow, washes, CCT, dim; exploded/section; presets; PNG and video export. Every render carries "Representative — not to scale."
 
-- Dealer uploads a floor plan (PDF page or image) per level and sets scale with a two-point calibration.
-- Places **runs** (polylines along the cove/cabinet line), **supplies/cabinets**, **dimmers/keypads**, **panel**. Draws or auto-routes **wire paths** (orthogonal Manhattan routes with a slack factor).
-- Measured path lengths become the home-run lengths in the engine (with "measured on plan" provenance), replacing estimates.
-- Output: plan sheet PDF with symbols, run tags, supply tags, wire tags and a legend; a brand-styled version for presentations.
-- Phase 6 scope; Phases 3–5 work with entered distances.
+### 12.5 Consistency
 
-### 12.4 3D project view
-
-Rebuilt from the visualizer as a modular scene system (section 19.3).
-
-- **Space archetypes:** parameterized scene kits for the common residential applications already modelled — cove (rectangular, L, U, linear), under-cabinet, toe-kick, shelving/bookcase, shower niche — plus new ones: ceiling reveal/mud-in, stair nosing, vanity/mirror back-light, closet rod, exterior soffit. Each archetype has parameters (lengths, heights, depth) filled from the runs assigned to the space.
-- **Products from ERP:** channel cross-sections from the profile's `cross_section_json`, tape width and LED density from tape specs, lens type/finish from the configured build, supply box dimensions from the driver spec.
-- **Power and wiring shown:** supplies in their cabinets (attic, closet, sink base, rack), routed low-voltage wires per run in zone color, line-voltage legs, dimmers/keypads, panel. Layers and zone toggles as in the visualizer.
-- **Lighting:** glow, washes, CCT, dim level; tunable white and RGB colour preview.
-- **Detail views:** exploded and cross-section of any run's assembly (the visualizer's stencil-capped section with ERP geometry).
-- **Camera:** presets (perspective, isometric, plan, elevations, section close-up), saved views, framing presets (16:9, 4:3, 1:1).
-- **Exports:** PNG with labels, turntable/flythrough video (MP4/WebM via MediaRecorder), all saved views.
-- **Scope limits:** this is a representative model, not a survey. Each render carries "Representative — not to scale" unless built from a calibrated plan (12.3) in a later phase ("extrude walls from the plan").
-
-### 12.5 Output consistency rules
-
-- Tags, colors and names come from one design dictionary: zone color (brand ramp), equipment tag, run tag, W-tag.
-- A view never shows a number the engine didn't produce (principle 3).
-- Each export embeds design ID, revision, engine version, catalog snapshot hash and build hash in metadata (PDF info, DXF header variables, PNG tEXt, SVG `<metadata>`).
+One design dictionary for tags/colors/names. Every export embeds design ID, revision, engine version, catalog snapshot hash and build hash (PDF info dict, DXF header, PNG tEXt, SVG `<metadata>`).
 
 ---
 
-## 13. Module 7 — Install guides, training and support visuals
+## 13. Module 7 — Install guides, training, labels
 
-### 13.1 Install guides per run or per space
-
-The visualizer's install guide (section 21 of the HTML) becomes a generator driven by the design:
-
-- **Inputs from ERP:** profile cut lengths, lens cuts and end caps (`ilL-Child-Configured-Segment`), tape cut lengths and segment counts, cut interval, feed and jumper plan (`cable_manifest_json`), clip type, spacing and screw spec (accessory spec), cross-section geometry.
-- **Inputs from the design:** supply location, feed route, home-run wire type/gauge/length, split point, dimmer/controller, labels.
-- **Steps (templated per product family):** at a glance, parts and tools, lay out and mark, mount clips, cut channel and lens, cut tape, corners (routes), jumpers, power to the feed point, wiring diagram, assembly, test, troubleshooting, finished view.
-- **Factory-built vs field-built:** configured linear fixtures arrive cut and assembled, so their guide skips cutting and covers mounting, joining shipped pieces (`SHIP_PIECES`), feeding and testing. Tape/neon field builds get the full guide.
-- **Outputs:** captioned walkthrough in the portal, MP4/WebM video, printable HTML/PDF, and a per-space QR code that opens the guide on a phone (signed link).
-
-### 13.2 Training visuals library
-
-The ~40 training visuals become a library in the portal's Resources page:
-
-- Default numbers come from real ERP products (a representative tape, supply and wire) instead of `EXAMPLE`.
-- Every visual can be opened with the dealer's design values ("show this with my run").
-- Staff keep curriculum text in ERP (a simple `ilL-Training-Visual` config: id, section, title, captions, product bindings), so the copy changes without a code release.
-- Export PNG per build step and video, as today, for slide decks.
-
-### 13.3 Contextual help
-
-Check cards, run editor fields and supply cards link to the matching visual (section 11.4). The guided flow shows a short visual on first use of each step.
-
-### 13.4 Labels
-
-Printable label sheets (Avery-compatible PDF) for supplies (`PS-01 · 96 W · Cabinet: Mech room · Circuit 12 · Zones Z1/Z2`), wire ends (`W-07 · PS-01 OUT 2 → F3-2.1`) and runs, each with a QR code to the design's installer view.
+- **Install guides** per space from ERP build data + design (supply location, feed route, wire, split point, controls). Field-built (tape/neon) guides include cutting; factory-built (linear) guides cover mounting, joining shipped pieces, feeding, testing. Outputs: captioned walkthrough, MP4/WebM, printable HTML/PDF, per-space QR (installer share token, D10).
+- **Training library** in `/portal/resources`: ~40 visuals bound to representative ERP products, openable with the dealer's design values; copy in `ilL-Training-Visual` records.
+- **Contextual help** from check cards and fields.
+- **Labels** (Avery 5160/5163 PDF): supplies, wire ends (`W-07 · PS-01 OUT 2 → F3-2.1`), runs, each with QR to the installer view.
 
 ---
 
-## 14. Module 8 — Documentation package, review, sharing and commerce
+## 14. Module 8 — Package, review, sharing, commerce
 
 ### 14.1 Documentation package
 
-A one-click bundle assembled from the design:
+Cover · fixture schedule · system summary (presentation + totals) · riser sheets · plan sheets · 3D renders · supply/wire/panel schedules, DMX patch, BOM · install guides · spec submittals for every line and added supply/controller (`spec_submittal.py`) · code & listing checklist · "Data by dealer" appendix listing every third-party value the dealer entered (D8). Merged PDF + ZIP, private files with SHA-256.
 
-1. Cover (brand, project, dealer, revision, stamp).
-2. Fixture schedule (existing schedule export path).
-3. System summary (presentation diagram + totals: connected watts, supplies, circuits).
-4. Engineering riser sheets.
-5. Plan view sheets (when present).
-6. 3D renders (saved views).
-7. Supply, wire and panel schedules; DMX patch; BOM.
-8. Install guides per space.
-9. Spec submittals for every line and every added supply/controller (existing `spec_submittal.py`).
-10. Code and listing checklist (Advanced 4 content, filled with the products' certifications).
+### 14.2 Review by an Applications Engineer (D3)
 
-Delivered as a merged PDF plus a ZIP (PDF, DXF, PNG, labels). Stored as private files linked to the design revision with SHA-256 (the `ilL-Line-Document` pattern).
+- New role **`ilL Applications Engineer`**, staff capability `"design_review"` in `portal/staff.py`.
+- "Request review" creates an `ilL-Document-Request` of type **System Design Review** linked to the schedule and design revision; `technical_reviewer` is assigned from users with the role (round-robin or manual in Desk).
+- Reviewer mode: pinned comments on riser/plan/3D, error overrides, approve / request changes.
+- Approval → `ilL-Drawing-Review` via the existing fingerprint scheme (request + revision + package SHA-256 + design `build_hash`). Outputs then carry `REVIEWED BY ILLUMENATE · <name> · <date>`. Any edit after approval creates a new revision and removes the stamp.
 
-### 14.2 Engineering review by ilLumenate
+### 14.3 Review gating before Sales Order (D4)
 
-- "Request review" creates an `ilL-Document-Request` of a new request type **System Design Review**, linked to the schedule and the design revision, with priority and due date.
-- Staff open the design in reviewer mode: comment pins on any view (riser, plan, 3D), check overrides, approve or request changes.
-- Approval writes an `ilL-Drawing-Review` with `revision`, `revision_token`, `file_sha256` of the package and `build_hash` of the design. Outputs then carry "Reviewed by ilLumenate · <reviewer> · <date>". Any later edit creates a new revision and removes the stamp until re-reviewed.
-- Optional policy: review required before Sales Order for designs over a threshold (e.g. > 1 kW, any DMX, any line-voltage dimming).
+- **Required** when the schedule (or its design) has any of: DMX zone or DMX device; line-voltage (phase-cut ELV/TRIAC) dimming; total connected load **> 1.5 kW** (1500 W).
+- **Optional** otherwise (the dealer can still request review).
+- Enforced in `can_request_schedule_order` (single policy for button, endpoint and conversion) behind site flag `ill_system_design_review_gate` (default **off** at release, switched on after the pilot) and the Settings toggle. Algorithm: H8.5.
+- Satisfied only by an **Approved** design revision whose line fingerprints match the schedule being converted.
+- `ilL Order Approver` or `ilL Applications Engineer` can override with a recorded reason (audit as `ilL-Portal-Event`).
 
-### 14.3 Sharing
+### 14.4 Sharing (D10)
 
-- Signed, expiring read-only links per audience: **homeowner** (presentation + 3D), **installer** (riser, plan, guides, labels; no prices), **specifier** (riser + submittals).
-- Share views never expose prices, costs or other projects.
-- Collaborators on the project (existing `ilL-Child-Project-Collaborator`) get in-portal access with their role.
+Signed read-only links per audience (homeowner: presentation + 3D; installer: riser, plan, guides, labels; specifier: riser + submittals). **Default expiry 90 days; "Renew" extends to 90 days from today**; revocable; access logged. Never prices or costs. Portal-only routes (`/portal/design-share/<token>`), no public embed (D12).
 
-### 14.4 Versioning
+### 14.5 Versioning
 
-- A design has revisions (A, B, C…). Saving a revision freezes its inputs, catalog snapshot hash, engine version and outputs.
-- When the schedule gets a new version (`create_schedule_version`), the design can be copied forward; diffs are listed (section 7.4).
+Revisions A, B, C… freeze inputs, snapshot hash, engine version and outputs. New schedule versions can receive a copied design with diffs.
 
-### 14.5 Commerce loop: writing back to the schedule
+### 14.6 Commerce loop
 
-- Supplies, controllers, dimmers, decoders, terminators, wire (by Item and length) and accessories the design adds become schedule lines through one endpoint, using the `power_supply_lines.py` pattern (a marker field ties each line to the design, so the design can update or remove only its own lines).
-- When the design consolidates supplies that the configurator had added per build, the per-build supply lines are replaced by the design's site-level lines (the dealer confirms the diff first).
-- Pricing then flows through the normal quote → Sales Order path; the design shows the price impact of changes when the user has the pricing role.
-- A schedule with a design shows a "Designed" badge and a link; the quote PDF can append the system summary page.
+Supplies, controllers, dimmers, decoders, terminators, **wire Items (D7)** and accessories become schedule lines owned by the design (`system_design`, `design_line_role`). Consolidation replaces configurator per-build supply lines after a confirmed diff. Pricing flows through the normal quote → Sales Order path; users with `Can View Pricing` see the price impact of a write-back diff (prices only, never cost).
 
 ---
 
@@ -658,409 +526,235 @@ Delivered as a merged PDF plus a ZIP (PDF, DXF, PNG, labels). Stored as private 
 
 ### 15.1 Options considered
 
-| Option | Description | Verdict |
-|---|---|---|
-| A. Keep three apps, sync data | Riser stays local, visualizer stays a file, both pull from ERP | Rejected: still three UIs, three storage models, no write-back, no review |
-| B. Rebuild everything in Frappe/Jinja + vanilla JS | Match the existing portal pages | Rejected: discards a mature TypeScript engine, router and serializers; vanilla JS is the source of the portal's current quality problems |
-| C. Separate hosted app (e.g. Vercel) calling ERP APIs | Modern stack, independent deploys | Rejected for v1: second auth system, CORS, a second deployment, cost data risk; the Product Finder already retired a Vercel prototype for these reasons |
-| **D. React/TS app inside this Frappe app, committed bundle** | Same pattern as the Product Finder; portal session and CSRF; Python endpoints | **Recommended** |
+| Option | Verdict |
+|---|---|
+| A. Keep three apps, sync data | Rejected: three UIs, no write-back/review |
+| B. Rebuild in Jinja + vanilla JS | Rejected: discards the TS engine/router/serializers |
+| C. Separate hosted app | Rejected: second auth, CORS, cost-data risk (Finder retired its Vercel prototype for these reasons) |
+| **D. React/TS app inside this app, committed bundle** | **Chosen** |
 
-### 15.2 Recommended structure
+### 15.2 Structure
+
+See H3 for the full file tree. Summary:
 
 ```
-tools/system_designer/                 # Vite + React + TS workspace (npm workspaces)
-  packages/
-    core-schemas/                      # Zod schemas (from riser src/schemas), JSON Schema export
-    engine/                            # pure calc engine (from riser src/engine) + site allocator
-    drawing/                           # paper-inch drawing model, symbols, layout, router (riser)
-    serializers/                       # SVG, PDF (OCG), DXF (riser)
-    present/                           # brand 2D renderer: presentation diagram, labels, training kit
-    scene3d/                           # Three.js scene system: archetypes, products, wiring, export
-    guides/                            # install-guide generator (from visualizer section 21)
-    erp-client/                        # typed client for the Frappe endpoints
-  app/                                 # the portal SPA (routes, stores, screens)
-  tests/                               # Vitest + Playwright
-illumenate_lighting/public/system_designer/   # committed build output (bench build serves it)
-illumenate_lighting/templates/pages/system_design.html|py   # mounts the SPA with CSRF + context
-illumenate_lighting/illumenate_lighting/system_design/       # Python package (new domain module)
-  catalog.py          # Design Catalog generation
-  designs.py          # load/save/revise designs, schedule reconcile
-  verify.py           # server-side verification (Python mirror of critical checks)
-  writeback.py        # schedule line write-back
-  outputs.py          # package assembly, file storage, review hooks
-  share.py            # signed share links
+tools/system_designer/           npm workspaces: packages/* + app/
+illumenate_lighting/public/system_designer/      committed build output
+illumenate_lighting/templates/pages/system_design.{py,html}, design_share.{py,html}
+illumenate_lighting/illumenate_lighting/system_design/   Python domain package
 ```
-
-The new Python package keeps this work out of `portal.py` (consistent with the portal plan's domain-consolidation phase).
 
 ### 15.3 Frontend stack
 
-- React 19 + strict TypeScript + Vite (align `tools/configurator_ui` later; the Finder is on React 18/Vite 6 today).
-- Zustand + immer + zundo (undo/redo), Zod, Tailwind (brand tokens from the visualizer's `DS`), Radix primitives, AG Grid Community for engineering tables, lucide icons.
-- Three.js current release as an ES module (replacing r128 UMD).
-- `@cantoo/pdf-lib` + fontkit for PDFs, JSZip for bundles.
-- Web Workers for layout, auto-plan and PDF generation.
-- **Bundle budget:** initial route < 400 KB gzipped; riser layout, PDF/DXF, AG Grid and Three.js load on demand (the riser repo already lazy-loads heavy modules).
+React 19, strict TS, Vite, Zustand + immer + zundo, Zod 4, Tailwind with brand tokens, Radix, AG Grid Community, lucide-react, Three.js (current, ES modules), `@cantoo/pdf-lib` + fontkit, JSZip, Web Workers. Initial route < 400 KB gzipped; heavy modules lazy.
 
-### 15.4 The Design Catalog adapter (ERP → designer)
+### 15.4 Design Catalog adapter
 
-The key integration piece.
-
-- A Python function builds catalog items in the engine's `CatalogItem` shape from the spec doctypes:
-  - `ilL-Spec-LED Tape` × active `ilL-Rel-Tape Offering` → `tape` items (one per offering where W/ft or cut increment differ; otherwise per spec).
-  - `ilL-Spec-Driver` → `psu` (CV) or `driver` (CC).
-  - `ilL-Spec-Controller` → `decoder` / `controller` by type mapping.
-  - `ilL-Spec-Wire` → wire library entries.
-  - Configured fixture templates → metadata (diagram icon, profile cross-section, names) used by presentation and 3D.
-- Units converted (mm → in/ft), protocol names mapped to the engine enum (Appendix B), every item tagged with ERP doctype, name and `modified` timestamp (provenance).
-- Items missing required fields are emitted as `incomplete` with `missingFields`, never dropped silently.
-- **No cost fields** are ever serialized (driver `cost` is used server-side only for auto-plan ranking, applied as an opaque rank).
-- The snapshot is content-hashed (SHA-256 of canonical JSON) and cached (Redis + a stored `ilL-Design-Catalog-Snapshot` per hash). Designs record the hash they were calculated with. Opening an old revision can load its exact snapshot.
-- The same adapter can serve the standalone riser repo (section 19.1) through an authenticated endpoint, replacing its `custom_riser_specs` mapping.
+Python builds engine-shaped catalog items from spec doctypes (H7). Units converted, protocols mapped, provenance attached, missing fields → `incomplete`, **no cost fields; supplies carry an opaque `rank` integer only (D6)**. Content-hashed, cached (Redis key `ill:design_catalog:<hash>` + `ilL-Design-Catalog-Snapshot` record). Also served to the standalone riser 1.3 release through a staff-only endpoint (D1).
 
 ### 15.5 Persistence
 
-- Server is the system of record: `ilL-System-Design` (section 16).
-- Client keeps an IndexedDB draft (Dexie, as in the riser repo) for crash recovery and offline edits; it syncs on save with optimistic concurrency (`modified` / revision number). Conflicts show a merge dialog (most edits are independent assignments).
-- Autosave every 5 s while editing (debounced), explicit "Save revision" for frozen revisions.
-- Large outputs (PDF, DXF, video) are generated client-side and uploaded as private files; the server stores SHA-256 and links them to the revision. A server-side re-render path exists for staff (section 15.7).
+Server is the system of record (`ilL-System-Design`). Client keeps an IndexedDB draft for recovery; autosave every 5 s (debounced) with optimistic concurrency on `modified`; explicit "Save revision". Client generates outputs and uploads them as private files with SHA-256.
 
-### 15.6 Security and permissions
+### 15.6 Security
 
-- Mount page requires a logged-in portal user with access to the schedule (single permission function shared with the schedule page; fix P0.2 first).
-- All endpoints check schedule/project access and the user's role (dealer designer, dealer read-only, staff reviewer).
-- No pricing in designer payloads unless the user has "Can View Pricing"; never costs.
-- Uploaded floor plans and generated files are private (`private_storage.py` pattern).
-- Share links: HMAC-signed tokens with audience, design revision and expiry; revocable; access logged as `ilL-Portal-Event`.
-- Server re-validates design JSON against the JSON Schema exported from Zod, with size limits (e.g. 5 MB) and a maximum run count.
-- Escape every server string in the UI (React does this by default; ban `dangerouslySetInnerHTML` by lint rule).
+Mount and every endpoint check `can_read_schedule`/`can_edit_schedule`; staff actions check capabilities; prices only with `Can View Pricing`; never costs; private files; HMAC share tokens (H8.7); server validates design JSON against committed JSON Schema with size limits (5 MB, 1,000 runs); React escapes by default; lint bans `dangerouslySetInnerHTML`.
 
 ### 15.7 Server-side rendering
 
-Some outputs must be generated without a browser: package regeneration by staff, the quote PDF's system page, scheduled re-issue. Options:
-
-1. **Client-only generation** (v1): the browser generates and uploads; staff use their browser.
-2. **Headless render worker** (later): a small Node service (or Frappe Cloud background worker with Node available) runs the same packages to render PDF/DXF/PNG. Verify Frappe Cloud support before committing; fall back to a separate container if needed.
-
-Start with option 1; design the packages to be environment-neutral (no DOM in engine, drawing, serializers, present SVG output) so option 2 is a deployment, not a rewrite.
+v1 client-only. Packages stay DOM-free (engine, drawing, serializers, present SVG) so a headless render worker can be added later (verify Frappe Cloud Node availability first).
 
 ### 15.8 Performance budgets
 
 | Operation | Budget |
 |---|---|
-| Open design (150 lines, cached catalog) | < 3 s to interactive |
-| Engine recalculation (300 runs) | < 150 ms (worker) |
-| Riser layout (200 loads) | < 2 s (proven in the riser repo) |
+| Open design (150 lines, cached catalog) | < 3 s |
+| Engine recalculation (300 runs, worker) | < 150 ms |
+| Riser layout (200 loads) | < 2 s |
 | Auto-plan (60 runs) | < 2 s |
-| 3D scene build (5 spaces, 40 runs) | < 1.5 s, 60 fps orbit on a mid laptop |
-| Package generation (20 sheets + guides) | < 30 s with progress |
+| 3D scene (5 spaces, 40 runs) | < 1.5 s build, 60 fps orbit |
+| Package (20 sheets + guides) | < 30 s with progress |
 
 ---
 
 ## 16. Data model in ERPNext
 
-### 16.1 New doctypes
+Summary here; exact fields in **H4**.
 
-**`ilL-System-Design`** (submittable-like lifecycle via status, not Frappe submit)
-
-| Field | Type | Notes |
-|---|---|---|
-| `fixture_schedule` | Link → ilL-Project-Fixture-Schedule | required |
-| `schedule_version` | Int | version the design was built on |
-| `ill_project` | Link → ilL-Project | denormalized for permissions/listing |
-| `customer` | Link → Customer | owner customer |
-| `title` | Data | |
-| `status` | Select | Draft, In Review, Changes Requested, Approved, Issued, Superseded |
-| `revision` | Data | A, B, C… |
-| `revision_parent` | Link → ilL-System-Design | previous revision |
-| `design_json` | Long Text (JSON) | the design document (site, runs, equipment, sources, links, settings, layout pins, views) |
-| `design_schema_version` | Int | |
-| `engine_version` | Data | |
-| `catalog_snapshot` | Link → ilL-Design-Catalog-Snapshot | |
-| `line_fingerprint_json` | Long Text | per-line hashes for reconcile |
-| `result_summary_json` | Long Text | totals, check counts by severity (for lists) |
-| `build_hash` | Data | SHA-256 of canonical inputs + engine version + snapshot hash |
-| `error_count`, `warning_count` | Int | for list filters and gating |
-| `review_request` | Link → ilL-Document-Request | |
-| `approved_review` | Link → ilL-Drawing-Review | |
-| `deliverables` | Table → ilL-Child-Design-Deliverable | kind (riser PDF, DXF ZIP, presentation PNG, package PDF, guide, labels, video), file, SHA-256, created |
-| `share_links` | Table → ilL-Child-Design-Share | audience, token hash, expires, revoked |
-| `collaborators` | inherits project/schedule collaborators | |
-
-**`ilL-Design-Catalog-Snapshot`**: `snapshot_hash` (unique), `generated_on`, `engine_contract_version`, `catalog_json` (compressed), `item_count`, `incomplete_count`.
-
-**`ilL-Spec-Wire`** (section 3.6) with child **`ilL-Child-Wire-Conductor`**.
-
-**`ilL-Training-Visual`** (section 13.2): `visual_id`, `section`, `title`, `subtitle`, `captions_json`, product bindings, `is_published`.
-
-**Request type seed:** `System Design Review` for `ilL-Document-Request`.
-
-### 16.2 Field additions to existing doctypes
-
-- `ilL-Spec-LED Tape`, `ilL-Spec-Driver`, `ilL-Spec-Controller`, `ilL-Spec-Profile`, `ilL-Spec-Lens`, `ilL-Spec-Accessory`, `ilL-Attribute-Output Voltage`: fields listed in section 3 / Appendix A.
-- `ilL-Child-Fixture-Schedule-Line`: `watts_each`, `input_voltage_v`, `voltage_class` (third-party lines); `system_design` (Link, for lines written back by a design); `design_line_role` (supply, controller, wire, accessory).
-- `ilL-Fixture-Template` / `ilL-Tape-Neon-Template`: `diagram_icon` (Attach, SVG), `scene_archetypes` (which 3D archetypes it can appear in).
-- `Customer`: `dealer_logo` (Attach) for title blocks.
-
-All via patches with defaults so existing records stay valid.
-
-### 16.3 Design JSON shape (summary)
-
-The riser `Project` schema extended with:
-
-- `schedule`: name, version, line fingerprints.
-- `site`: spaces, levels, cabinets, panels, floor plans (file refs + calibration), placed symbols and wire paths.
-- `runs`: run records keyed by `run_key` with source (ERP line/build/run), site placement, environment, home-run length + provenance (estimated / entered / measured on plan).
-- `equipment`, `sources`, `controlLinks`, `loads` (generated from runs but stored for engine determinism), `wireOverrides`, `layoutOverrides`.
-- `zones`: dimming zones with method, color, scenes (optional).
-- `views`: saved 3D views, presentation variant settings, riser sheet settings.
-- `overrides`: acknowledged warnings and staff overrides with reasons.
-
-Zod remains the source of truth; a JSON Schema is exported at build time and committed for server-side validation (Python `jsonschema`).
+- **New doctypes:** `ilL-System-Design`, `ilL-Child-Design-Deliverable`, `ilL-Child-Design-Share`, `ilL-Child-Design-Comment`, `ilL-Design-Catalog-Snapshot`, `ilL-Spec-Wire`, `ilL-Child-Wire-Conductor`, `ilL-Child-Tape-Channel`, `ilL-Child-Controller-Port`, `ilL-Training-Visual`, `ilL-System-Designer-Settings` (Single).
+- **New role:** `ilL Applications Engineer` (D3). **New request type:** `System Design Review`.
+- **Field additions:** spec doctypes (section 3), schedule line (third-party data, `system_design`, `design_line_role`, `design_line_key`), templates (`diagram_icon`, `scene_archetypes`), `Customer.dealer_logo`, `ilL-Attribute-Output Voltage.nominal_voltage_v`, `ilL-Attribute-Dimming Protocol.engine_protocol`.
+- **Design JSON:** riser `Project` extended with schedule fingerprints, site, runs, zones, views, overrides (H5).
 
 ---
 
 ## 17. API surface
 
-All under `illumenate_lighting.illumenate_lighting.system_design.*`, whitelisted, POST for writes, uniform `{success, data | error}` contract (portal plan §6.5).
+All endpoints live in `illumenate_lighting.illumenate_lighting.system_design.api` (one facade module delegating to services), return `{"success": true, "data": …}` or `{"success": false, "error": "…", "code": "…"}`. Writes are `@frappe.whitelist(methods=["POST"])`. Full request/response contracts in **H6**.
 
-| Endpoint | Purpose |
-|---|---|
-| `designs.find_schedule(query)` | Search accessible schedules by number or project name |
-| `designs.open(schedule, design=None)` | Schedule, lines, configured builds (runs, segments, cable manifest, power plan), existing design, catalog snapshot hash, readiness, permissions |
-| `catalog.get(snapshot_hash)` | Design Catalog snapshot (cached, ETag) |
-| `catalog.eligible_supplies(run_keys \| templates, voltage, protocol)` | Driver eligibility for a set of runs (no costs) |
-| `designs.save(design, design_json, expected_modified)` | Autosave draft (schema-validated, concurrency-checked) |
-| `designs.create_revision(design, note)` | Freeze a revision |
-| `designs.reconcile(design)` | Diff against current schedule version |
-| `designs.copy_to_version(design, schedule_version)` | Carry a design forward |
-| `verify.run(design)` | Server-side verification of critical checks; stores summary |
-| `planner.auto_plan(design, policy)` | Server-side site allocator (mirror of the client one; used for verification and very large designs) |
-| `writeback.preview(design)` / `writeback.apply(design, accepted)` | Schedule line diff and apply |
-| `outputs.upload(design, kind, file, sha256)` | Store a generated deliverable |
-| `outputs.package(design)` | Assemble the package (merge PDFs incl. spec submittals) |
-| `review.request(design, priority, due, note)` | Create the review request |
-| `review.decide(design, decision, note)` | Staff decision → `ilL-Drawing-Review` |
-| `review.comments(design)` / `review.add_comment(...)` | Pinned comments |
-| `share.create(design, audience, expires)` / `share.revoke(token_id)` / `share.open(token)` | Share links |
-| `floorplan.upload(design, file)` | Private floor plan upload; returns rendered page images |
-| `training.list()` / `training.get(visual_id)` | Training visual config |
+| Endpoint | Purpose | Access |
+|---|---|---|
+| `find_schedules` | Search accessible schedules | Portal user |
+| `open_design` | Schedule + lines + builds + design + catalog hash + readiness + D4 status | Read schedule |
+| `get_catalog` | Catalog snapshot by hash | Catalog access |
+| `eligible_supplies` | Driver eligibility for runs (rank only) | Read schedule |
+| `save_design` | Autosave draft | Edit schedule |
+| `create_revision` | Freeze revision | Edit schedule |
+| `reconcile_design` | Diff vs schedule | Read schedule |
+| `copy_design_to_version` | Carry forward | Edit target schedule |
+| `verify_design` | Python verification of critical checks | Read schedule |
+| `auto_plan` | Server allocator (verification / large designs) | Edit schedule |
+| `writeback_preview` / `writeback_apply` | Schedule line diff/apply | Edit schedule |
+| `upload_deliverable` | Store generated file | Edit schedule |
+| `request_review` | Create review request | Edit schedule |
+| `review_decide` | Approve / request changes | `design_review` capability + assigned reviewer |
+| `list_comments` / `add_comment` / `resolve_comment` | Pinned comments | Read schedule (add: dealer editor or reviewer) |
+| `create_share` / `renew_share` / `revoke_share` | Share links (90 days, D10) | Edit schedule |
+| `open_share` | Token → read-only payload | Token |
+| `review_requirement` | D4 evaluation for a schedule | Read schedule |
+| `override_review_gate` | D4 override with reason | `sales` or `design_review` capability |
+| `get_catalog_for_desktop` | Catalog for standalone riser 1.3 (D1) | `engineering` capability, API key |
+| `list_training_visuals` / `get_training_visual` | Training config | Catalog access |
 
 ---
 
 ## 18. Consolidating the calculation engines
 
-### 18.1 Two engines exist today
+### 18.1 Ownership
 
-- **Python (ERP):** build math (segments, cut lengths, runs, run watts), 85 W rule, per-build `plan_power`, driver eligibility. It decides what gets manufactured and sold.
-- **TypeScript (riser):** site electrical math (VD, wire selection, breakers, DMX, CV/CC, Class 2), tested and fast in the browser.
-
-### 18.2 Ownership rule
-
-| Concern | Owner | The other side |
+| Concern | Owner | Other side |
 |---|---|---|
-| Build geometry, cut lengths, run split, run watts, factory leaders | ERP (Python) | Designer reads, never recomputes |
-| Max run per build (configurator) | ERP | Designer re-checks for site-combined runs only |
-| Driver eligibility (which supplies may feed which templates) | ERP | Designer filters by it |
-| Per-build supply suggestion | ERP `plan_power` | Designer uses as default |
-| Site supply allocation, consolidation | Designer engine (TS) | Python mirror verifies |
-| Voltage drop, wire selection, breaker load, Class 2, DMX, compatibility | Designer engine (TS) | Python mirror verifies the subset that gates review/orders |
-| Pricing | ERP | Designer displays only |
+| Build geometry, cuts, runs, run watts, factory leaders | ERP (Python) | Designer reads only |
+| Max run per build | ERP | Designer re-checks site-combined runs |
+| Driver eligibility | ERP | Designer filters |
+| Per-build supply suggestion | ERP `plan_power` | Designer default |
+| Site allocation, consolidation | Designer engine (TS) | Python mirror verifies |
+| VD, wire selection, breakers, Class 2, DMX, compatibility | Designer engine (TS) | Python mirror verifies the gating subset |
+| Pricing and cost | ERP | Designer shows prices only to `Can View Pricing`; never cost (D6) |
 
-### 18.3 Parity and verification
+### 18.2 Parity
 
-- A shared folder of **golden fixtures** (design JSON + catalog snapshot → expected results), seeded from the riser repo's `examples/engineering-results.json` and new residential cases (the visualizer's cove/under-cabinet/toe-kick/shelf/niche set).
-- TypeScript runs them in Vitest; Python runs the critical subset in the bench test suite. CI fails on divergence.
-- The Python mirror covers: supply/output loading and derate, Class 2, max run, VD with Table 8 resistance and wire selection for Class 2 DC runs, protocol/voltage match. Everything else is computed client-side and recorded with the engine version.
-- Version the engine (`engine_version` already exists on configured records; the designer gets its own). Changing a rule bumps the version; old revisions remain reproducible because the engine package for each version is kept in the bundle manifest (or the result is stored and only re-verified on demand).
+Shared golden fixtures (H10) run in Vitest and Python unittest; CI fails on divergence. Python mirror covers supply/output loading and derate, Class 2, max run, VD + wire selection for Class 2 DC runs (Table 8), voltage/protocol match, D4 triggers.
 
-### 18.4 Rule alignment work items
+### 18.3 Rule alignment
 
-- Replace the configurator's fixed 85 W per-run rule with spec-driven limits (`max_run_single_feed_ft`, supply output limits) once the tape fields exist, so the configurator and designer agree. Keep 85 W as a staff-configurable fallback.
-- Align derate: engine `psuDeratePct` defaults to each driver's `usable_load_factor`.
-- Align protocol vocabulary (Appendix B) in one shared table used by Python and TypeScript.
+- Configurator max run moves from the fixed 85 W rule to spec fields (`max_run_single_feed_ft`, output limits) once filled; 85 W stays as a Settings fallback.
+- Engine derate defaults to each driver's `usable_load_factor`.
+- One protocol vocabulary table (Appendix B) used by Python and TS.
+- Engine version `system-designer-engine@<semver>` recorded on every revision.
 
 ---
 
 ## 19. What happens to each proof of concept
 
-### 19.1 Riser Diagram Generator
+### 19.1 Riser Diagram Generator (D1)
 
 | Part | Fate |
 |---|---|
-| `src/schemas` | Moves to `packages/core-schemas`; extended for site, runs, zones, views |
-| `src/engine` | Moves to `packages/engine`; add site allocator, thermal and placement checks; keep 100% purity and coverage rules |
-| `src/drawing`, `src/serializers` | Move largely unchanged; add Letter/Tabloid sheets, dealer logo slot, ERP schedules |
-| `src/features/tables`, `library`, `review`, `drawing`, `export` | Become the Engineering mode screens (adapted to server persistence) |
-| `src/features/erp`, `server/proxy.mjs` | Retired; replaced by the Design Catalog endpoint |
-| `src/storage` (Dexie) | Kept for drafts/offline only |
-| `src/data` NEC tables | Kept as cited, versioned reference data |
-| `wires.seed.json`, `products.example.json` | Wires → seed for `ilL-Spec-Wire` after review; example products → test fixtures only |
+| `src/schemas` | → `packages/core-schemas`, extended |
+| `src/engine` | → `packages/engine` + site allocator, thermal, placement, review-trigger checks |
+| `src/drawing`, `src/serializers` | → `packages/drawing`, `packages/serializers` + Letter/Tabloid, dealer logo, ERP schedules, "DATA BY DEALER" tag |
+| `src/features/*` | → Engineering-mode screens in `app/` |
+| `src/features/erp`, `server/proxy.mjs` | Retired in the designer; **in the standalone repo, replaced by the authenticated catalog client for release 1.3.0** |
+| `src/data/nec` | Kept as cited reference data |
+| `wires.seed.json` | Template for `ilL-Spec-Wire` import after review |
 
-**Repository strategy:** import the riser source into this repo with history (`git subtree add`) under `tools/system_designer/packages/*`, then develop here. Keep the standalone riser repo for one release as the engineering desktop tool, pointed at the new authenticated catalog endpoint, then archive it. (Decision D1, section 22.3.)
+**D1 plan:** import riser source with history via `git subtree` (WP-0.3). Ship **riser-diagram-generator 1.3.0 "ERP edition"** (WP-2.6): the Libraries → ERPNext Sync screen calls `get_catalog_for_desktop` with a staff API key through the existing loopback proxy (still pull-only, credentials in `.env`), the field mapping is removed, and products come in read-only. After System Designer reaches general availability (end of Phase 7), mark the repo archived on GitHub with a README pointing to the System Designer.
 
 ### 19.2 LED Tape System Visualizer
 
 | Part | Fate |
 |---|---|
-| Brand tokens, fonts, logo (`DS`, `BRAND`, brand assets) | `packages/present/brand` and Tailwind theme; shared by all presentation output |
-| Geometry builders (architecture, LED assembly, power, wiring) | `packages/scene3d` modules; architecture becomes parameterized archetypes; LED assembly reads ERP cross-sections |
-| Orbit rig, materials, lighting, exploded/section | `packages/scene3d/core` (ported to current Three.js; or adopt the maintained OrbitControls) |
-| Labels/callouts/dimension overlay | `packages/scene3d/overlay` (shared with plan view) |
-| Flat system diagram (section 14) | Superseded by the presentation diagram renderer |
-| Training visuals (sections 19, 20) | `packages/present/training`, data bound to ERP |
-| Install guide (section 21) | `packages/guides`, data bound to ERP + design |
-| Hard-coded data (`ZONES`, `PROFILES`, `EXAMPLE`, `JOB`, `CAD_SH01`, `PARTS`) | Removed; replaced by ERP catalog + design; `CAD_SH01` becomes the first `cross_section_json` (for profile SH01) |
+| Brand tokens, fonts, logo | → `packages/present/brand` + Tailwind theme |
+| Geometry builders | → `packages/scene3d` (archetypes, products, wiring) |
+| Orbit rig, materials, lighting, exploded/section | → `packages/scene3d/core` (current Three.js) |
+| Label/dimension overlay | → `packages/scene3d/overlay` |
+| Flat schematic | Superseded by presentation diagram |
+| Training visuals | → `packages/present/training` (ERP-bound) |
+| Install guide | → `packages/guides` |
+| Hard-coded data | Removed; `CAD_SH01` becomes SH01's `cross_section_json` |
 
-**Three.js r128 → current:** cdnjs's three.js package stops at r128 (UMD); current releases ship as ES modules only. Expect changes in: `outputEncoding` → `outputColorSpace`, physically correct lights by default (light intensities need retuning), `Geometry` already absent in r128 (no impact), PMREM API minor changes, `InstancedMesh` unchanged. Budget a week for the port with visual regression snapshots.
+**Three.js r128 → current:** cdnjs's three.js package stops at r128 (UMD); current releases ship as ES modules only. Expect: `outputEncoding` → `outputColorSpace`, physically correct lighting by default (retune intensities), PMREM API changes; the custom OrbitRig keeps working. Budget one week with visual snapshots.
 
-### 19.3 The schedule page and configurators
+### 19.3 Schedule page and configurators
 
-No rewrite. Add the "Design system" button, a "Designed" badge, and the line write-back markers. The configurators keep producing builds; the designer consumes them.
+No rewrite: add the "Design system" button, design badge, review-required banner, and write-back markers.
 
 ---
 
 ## 20. Phased roadmap
 
-Sizes are relative effort for one full-stack developer with domain support (S ≈ 1 week, M ≈ 2–3 weeks, L ≈ 4–6 weeks). Phases 0 and 1 can overlap.
+S ≈ 1 week, M ≈ 2–3 weeks, L ≈ 4–6 weeks (one full-stack developer with domain support). Work packages are in H11.
 
-### Phase 0 — Foundations and prerequisites (M)
-
-- Fix portal P0 permission defects that touch schedules, document requests and drawing requests (portal plan Phase 1 items P0.1–P0.4, P0.6).
-- Create the `system_design` Python package skeleton and uniform error contract.
-- Set up `tools/system_designer` workspace, build to `public/system_designer`, mount page with CSRF, CI (lint, typecheck, Vitest, Playwright, "committed bundle matches build" check like the Finder).
-- Import riser source with history; get its test suite green in the new workspace.
-- **Exit:** empty designer opens from a schedule for authorized users only; riser tests pass in CI.
-
-### Phase 1 — ERP data readiness (M, mostly catalog work)
-
-- Add design fields to tape, driver, controller, profile, lens, accessory, voltage attribute, schedule line (patches with defaults).
-- Create `ilL-Spec-Wire`; seed reviewed wire types; ship NEC tables.
-- Design readiness report in Catalog Builder.
-- Fill fields for the products dealers use most (target: the top 20 tapes/offerings, all active drivers, the dimmers/decoders on the price list).
-- **Exit:** readiness report shows ≥ 90% of schedule-line volume (last 6 months) design-ready.
-
-### Phase 2 — Design Catalog and intake (M)
-
-- Design Catalog adapter, snapshot storage, caching, protocol/unit mapping, golden tests.
-- `designs.open`, run expansion (lines × qty × runs), readiness screen, schedule reconcile.
-- `ilL-System-Design` doctype, save/autosave, revisions.
-- **Exit:** a real schedule opens with every run listed, ERP lengths/watts shown, and incomplete items named.
-
-### Phase 3 — Power assignment, checks, engineering riser (L) — **first dealer release (beta)**
-
-- Spaces and cabinets (entered distances), run editor, power board with drag-and-drop, eligible supply picker, configurator power plans as defaults.
-- Sources/circuits, zones and dimming method, phase-cut and 0-10V controls (DMX in Phase 5).
-- Live engine checks with fix actions; VD and wire gauge per run; wire takeoff.
-- Engineering riser PDF/DXF/SVG with ERP schedules, title block with dealer logo, stamps.
-- Python verification for critical checks; golden parity tests.
-- **Exit:** 5 pilot dealers complete real projects; riser accepted by their electricians; zero cost-data exposure in a security review.
-
-### Phase 4 — Commerce loop and review (M)
-
-- Schedule write-back (supplies, controllers, wire, accessories) with diff; consolidation replacing per-build supply lines.
-- System Design Review request type, reviewer mode, pinned comments, approval → `ilL-Drawing-Review` with build hash; stamped outputs; optional review gating before Sales Order.
-- **Exit:** a design-driven schedule converts to a Sales Order whose supply/wire lines match the design exactly.
-
-### Phase 5 — Presentation diagram, labels, DMX and advanced controls (M)
-
-- Presentation diagram (three variants), labels with QR, DMX zones (decoders, patching, termination), Lutron/DALI devices, auto-plan (site allocator) with policy options.
-- **Exit:** sales pilot uses presentation output in proposals; DMX designs pass engine checks and render on the riser.
-
-### Phase 6 — 3D project view and plan view (L)
-
-- `scene3d` port to current Three.js; archetypes from runs; ERP cross-sections; supplies and wire routing; exports and video.
-- Floor plan upload, calibration, placement, measured wire paths feeding the engine; plan sheet output.
-- **Exit:** a cove + kitchen project renders in 3D from real data with supply locations; plan-measured distances replace estimates.
-
-### Phase 7 — Install guides, training library, documentation package, sharing (M)
-
-- Guide generator per space (field-built and factory-built paths), video and printable output.
-- Training visuals library bound to ERP data and contextual help links.
-- Documentation package (merged PDF + ZIP incl. spec submittals), signed share links per audience.
-- **Exit:** a full package for a pilot project is produced in one click and shared with homeowner and installer links.
-
-### Phase 8 — Hardening and scale (ongoing)
-
-- Server-side render worker (if Frappe Cloud allows), performance at 500+ runs, accessibility (WCAG 2.2 AA for the app shell), localization of units (metric), analytics, retire the standalone riser repo.
-
-### Milestone summary
-
-| Milestone | After phase | Dealer value |
-|---|---|---|
-| M1 Data ready | 1 | — (internal) |
-| M2 Open any schedule as a design | 2 | See runs and readiness |
-| M3 **Beta: power plan + checked riser** | 3 | The main ask: link supplies, check, riser |
-| M4 Quote matches design; ilLumenate review | 4 | Fewer errors, stamped drawings |
-| M5 Sell it: presentation + labels + DMX | 5 | Proposals and complex control |
-| M6 See it: 3D + plan | 6 | Visual project, supply locations, routing |
-| M7 Build it: guides + package + sharing | 7 | Complete documentation |
+| Phase | Name | Size | Work packages | Exit criteria |
+|---|---|---|---|---|
+| 0 | Foundations | M | WP-0.1 … WP-0.6 | Empty designer opens from a schedule for authorized users only; riser tests green in this repo's CI; visualizer committed |
+| 1 | ERP data readiness | M | WP-1.1 … WP-1.7 | Readiness report ≥ 90% of last-6-months schedule-line volume design-ready; wire Items exist and price |
+| 2 | Catalog, intake, persistence | M | WP-2.1 … WP-2.6 | Real schedule opens with all runs and named gaps; drafts save; **riser 1.3.0 released (D1)** |
+| 3 | **Beta:** power, checks, riser | L | WP-3.1 … WP-3.9 | 5 pilot dealers complete real projects; electricians accept risers; zero cost leakage in security review |
+| 4 | Commerce loop and review | M | WP-4.1 … WP-4.6 | Design-driven schedule converts to an SO matching the design; D4 gate verified on staging, then flag on |
+| 5 | Presentation, labels, DMX, auto-plan | M | WP-5.1 … WP-5.5 | Presentation used in proposals; DMX designs pass and render |
+| 6 | 3D and plan view | L | WP-6.1 … WP-6.6 | Cove + 4 archetypes (D9) render from real data; plan-measured lengths feed the engine |
+| 7 | Guides, training, package, sharing | M | WP-7.1 … WP-7.5 | One-click package; 90-day share links (D10); **GA**; riser repo archived (D1) |
+| 8 | Hardening and scale | ongoing | WP-8.1 … WP-8.6 | Ceiling reveal + stair archetypes (D9); **metric units (D11)**; 500+ runs; accessibility; optional render worker |
 
 ---
 
 ## 21. Testing, quality and acceptance
 
-### 21.1 Automated
-
-- **Engine:** keep the riser rule — every calculation and validation branch unit-tested; coverage gates (lines ≥ 95% for engine).
-- **Golden parity:** TS and Python run the same fixtures (section 18.3).
-- **Adapter:** Python unit tests for every spec → catalog mapping, unit conversion, protocol mapping, incomplete detection; a test that no cost field appears in any payload.
-- **Schemas:** round-trip and migration tests for `design_json` versions.
-- **Drawing/serializers:** existing riser tests (collisions, separation, continuations, pagination, DXF round trip with `dxf-parser`, PDF structure); add snapshot tests for presentation SVG and 3D (headless WebGL screenshots with tolerance).
-- **API:** permission matrix tests (dealer A cannot open dealer B's schedule/design/share), concurrency, schema rejection, size limits (extend `test_portal_access_matrix.py`).
-- **E2E (Playwright):** open schedule → assign → fix a check → export riser → request review → approve → write back → Sales Order.
-
-### 21.2 Manual and field
-
-- AutoCAD import of DXF (AUDIT 0 errors) per sheet size, as the riser acceptance report does.
-- Electrician review of 5 pilot risers.
-- Engineering spot-check: 10 designs recalculated by hand (load, VD, gauge).
-- Visual QA of presentation and 3D on brand guidelines.
-
-### 21.3 Definition of done per output
-
-Every output must: carry design ID, revision, engine version, snapshot hash, build hash; render identically from the same inputs; show the correct stamp; contain no prices unless permitted.
+- **Engine:** every branch tested; engine line coverage ≥ 95%.
+- **Golden parity:** TS and Python on the same fixtures (H10).
+- **Adapter:** mapping, conversion, protocol, incomplete detection; **a test that walks every payload and fails on any forbidden key (H7.4)**.
+- **Schemas:** round-trip and migration of `design_json`.
+- **Drawing/serializers:** existing riser tests + Letter/Tabloid + "DATA BY DEALER"; presentation SVG snapshots; 3D screenshot snapshots with tolerance.
+- **API:** permission matrix (dealer A vs B, collaborator read vs write, staff capabilities, share tokens expired/revoked/renewed), concurrency, schema rejection, size limits, D4 gate cases.
+- **E2E:** open → assign → fix → riser export → request review → approve → write back → SO.
+- **Manual:** AutoCAD DXF import AUDIT 0 errors per sheet size; electrician review of pilot risers; 10 hand-calculated designs; brand QA.
+- **Definition of done per output:** metadata embedded, deterministic, correct stamp, no prices unless permitted, never costs.
 
 ---
 
-## 22. Risks, liability and open decisions
+## 22. Decisions (final), risks and liability
 
-### 22.1 Risks
+### 22.1 Decisions — final as of 2026-10-06
 
-| Risk | Impact | Mitigation |
+| # | Decision | Where it is implemented |
 |---|---|---|
-| Catalog data incomplete | Designer shows many `incomplete` items; low adoption | Phase 1 before dealer release; readiness report; prioritize by sales volume |
-| Engine disagreement (configurator vs designer) | Dealer confusion, wrong supplies | Ownership rule (18.2), golden parity tests, align 85 W rule |
-| Liability for engineering advice | Legal exposure | Stamps and disclaimers; line voltage "by licensed electrician"; staff review as the only path to "Reviewed" outputs; record code edition; terms of use acceptance on first open |
-| Scope creep into CAD | Delays | 3D is representative; plan view is overlay-only; no wall editing in v1 |
-| Frappe Cloud constraints (no Node at runtime) | No server rendering | Client-side generation first; render worker later (15.7) |
-| Bundle size/performance on dealer laptops | Slow UX | Lazy loading, workers, budgets (15.8) |
-| Portal security debt | Data leaks | Phase 0 fixes; permission tests; single access function |
-| Three.js port regressions | Visual bugs | Snapshot tests; port in isolation before binding data |
-| Dealers bypass the tool and order without design | Lower value | Make write-back the easiest way to add supplies; review gating policy for larger jobs |
+| **D1** | Keep the standalone riser repo for **one release pointed at ERP (1.3.0)**, then **archive** it at GA | §19.1, WP-2.6, WP-7.5 |
+| **D2** | Product name **"ilLumenate System Designer"**; portal label **"Design system"** | App title, page title, button, menu, PDF metadata `Creator`, file names `ilLumenate-System-Designer_…` |
+| **D3** | New role **"Applications Engineer"** approves designs. Created as `ilL Applications Engineer` to follow the repo's `ilL …` role naming; staff capability `design_review` | §14.2, H4.4, WP-0.5, WP-4.3 |
+| **D4** | Review **required before Sales Order** for DMX, line-voltage (phase-cut) dimming, or **> 1.5 kW**; optional otherwise | §14.3, H8.5, WP-4.4 |
+| **D5** | Default VD target **3% for Class 2 runs** (also 3% line voltage, 5% landscape); projects may tighten; loosening needs an Applications Engineer override | §11.2, Settings H4.1, WP-3.5 |
+| **D6** | Dealers **do not see cost ranking**; auto-plan ranks silently by an opaque server rank and shows **supply count and wire totals only** | §10.3, H7.4, H8.2, WP-5.4 |
+| **D7** | **Wire types are quotable Items** (`ilL-Spec-Wire` → Item) and are written to schedules | §3.6, §11.3, H4.1, H8.6, WP-1.4, WP-4.1 |
+| **D8** | **Third-party fixtures allowed on risers** with dealer-entered data, flagged **"Data by dealer"** on every output | §3.7, §12.1, §14.1, H4.3, WP-1.6, WP-3.2 |
+| **D9** | 3D archetypes after cove: **under-cabinet, toe-kick, shelving, niche**, then **ceiling reveal and stair** | §12.4, WP-6.2, WP-6.3, WP-8.2 |
+| **D10** | Share links default to **90 days, renewable** | §14.4, H8.7, WP-7.4 |
+| **D11** | **Metric support in Phase 8** (engine already supports `units: m`) | §5 principle 11, WP-8.3 |
+| **D12** | Presentation diagram **portal-only**; Webflow/public use later | §5 principle 10, §12.2, §14.4, WP-8.6 |
 
-### 22.2 Legal and safety content
+### 22.2 Risks
 
-- Every engineering output: "Design aid. Verify against product documentation and local code. Line-voltage work by a licensed electrician." The riser repo already has stamp options; keep `NOT FOR CONSTRUCTION` as the default until ilLumenate review approves.
-- Record NEC edition and VD targets on each sheet.
-- Never print a UL listing claim the product's certification table doesn't support.
+| Risk | Mitigation |
+|---|---|
+| Catalog data incomplete | Phase 1 before dealer release; readiness report by sales volume |
+| Engine disagreement | Ownership rule; golden parity; align 85 W rule |
+| Engineering liability | Stamps/disclaimers; line voltage "by licensed electrician"; only Applications Engineers stamp; code edition recorded; first-open terms acceptance |
+| D4 gate blocks orders unexpectedly | Flag default off; pilot; clear banner from Start screen; staff override with reason; gate evaluates from schedule data even without a design |
+| Scope creep into CAD | 3D representative; plan view overlay-only |
+| Frappe Cloud has no runtime Node | Client-side generation first |
+| Bundle/performance | Lazy loading, workers, budgets |
+| Three.js port regressions | Snapshot tests; port before binding data |
+| Wire Item pricing gaps (D7) | Readiness report includes wire Items without Item Price |
+| Dealer-entered data wrong (D8) | Flag everywhere; reviewer checklist item; listed in package appendix |
 
-### 22.3 Decisions needed from you
+### 22.3 Legal and safety content
 
-| # | Decision | Recommendation |
-|---|---|---|
-| D1 | Keep the standalone riser repo after migration? | Keep one release pointed at ERP, then archive |
-| D2 | Product name | "ilLumenate System Designer" (portal: "Design system") |
-| D3 | Who may approve designs (role) | New role "Applications Engineer" |
-| D4 | Review gating before Sales Order | Required for DMX, line-voltage dimming, or > 1.5 kW; optional otherwise |
-| D5 | Default VD target for Class 2 runs | 3% (matches riser default and visualizer guidance) |
-| D6 | Do dealers see auto-plan cost ranking? | No; rank silently, show supply count and wire totals only |
-| D7 | Wire types as quotable Items | Yes; adds revenue and makes the BOM complete |
-| D8 | Third-party fixtures on risers | Allowed with dealer-entered data, flagged "data by dealer" |
-| D9 | 3D archetype priority after cove | Under-cabinet, toe-kick, shelving, niche (already modelled), then ceiling reveal and stair |
-| D10 | Share link default expiry | 90 days, renewable |
-| D11 | Metric support | Phase 8 (engine already supports `units: m`) |
-| D12 | Webflow/public use of presentation diagram | Later; portal-only first |
+- Engineering outputs: "Design aid. Verify against product documentation and local code. Line-voltage work by a licensed electrician."
+- Default stamp `PRELIMINARY`; `REVIEWED BY ILLUMENATE` only on approved revisions.
+- NEC edition and VD targets printed on each riser sheet.
+- No listing claim beyond the product's certifications table.
+- Third-party data note: "Third-party product data entered by <dealer>; not verified by ilLumenate" (D8).
 
 ---
 
@@ -1068,137 +762,927 @@ Every output must: carry design ID, revision, engine version, snapshot hash, bui
 
 | Metric | Target (6 months after beta) |
 |---|---|
-| Share of quoted schedules with a design | ≥ 40% of schedules over $5k |
-| Supply-related order changes after Sales Order | −50% vs baseline |
-| Factory calls/tickets about power/wiring | −40% |
-| Median time from schedule to checked riser | < 30 min |
-| Designs approved on first review | ≥ 70% |
-| Dealer satisfaction (in-app survey) | ≥ 4.3 / 5 |
-| Average supplies per kW (consolidation) | −15% vs per-build planning |
-| Attach rate of wire/control lines on designed schedules | ≥ 60% |
+| Quoted schedules over $5k with a design | ≥ 40% |
+| Supply-related order changes after SO | −50% vs baseline |
+| Factory power/wiring tickets | −40% |
+| Median schedule → checked riser | < 30 min |
+| First-review approvals | ≥ 70% |
+| Dealer satisfaction | ≥ 4.3 / 5 |
+| Supplies per kW | −15% vs per-build planning |
+| Wire/control line attach rate on designed schedules (D7) | ≥ 60% |
+| Orders blocked by D4 then approved within 2 business days | ≥ 90% |
 
 ---
 
-## 24. Appendices
+# Part II — Implementation handbook
 
-### Appendix A — Field mapping: ERP → engine catalog
+## H1. Rules for the implementing agent
+
+1. **Read before you write.** For each work package, read every file it lists under "Read first". Do not assume a function or field exists because this plan names it; confirm it in code. If the code disagrees with the plan, the code wins — note the difference in your PR description.
+2. **One work package per PR** unless H12 groups them. Each PR is independently mergeable, keeps CI green, and does not break existing portal flows.
+3. **Never invent product data.** Seeds and tests use clearly marked `EXAMPLE`/`TEST` records. Real wire, driver and tape values come from staff, not from you.
+4. **Engine purity.** Nothing in `packages/engine`, `packages/core-schemas`, `packages/drawing`, `packages/serializers` may import React, the DOM, `window`, IndexedDB or network code.
+5. **Views never recompute electrical values.** If a view needs a number, add it to the engine result.
+6. **No cost data.** Never serialize the forbidden keys in H7.4 or any number derived from them. Prices only through existing pricing-role checks.
+7. **Permissions first.** Every endpoint starts with an access check from `portal/access.py` or `portal/staff.py`. Never use `ignore_permissions=True` on user-supplied writes without an explicit preceding check.
+8. **Migrations are additive.** New fields have safe defaults; patches are idempotent (CI runs `bench migrate` twice).
+9. **Commit generated bundles.** After changing anything under `tools/system_designer`, run the build and commit `illumenate_lighting/public/system_designer/` (CI fails if stale).
+10. **Imperial UI only** until WP-8.3 (D11). Store ERP lengths in mm, engine lengths in ft, display ft/in.
+11. **Keep this plan current.** If you change a contract (H5/H6) or a decision's implementation, update this document in the same PR.
+12. **Git hygiene.** Work on the branch you are given; do not force-push shared branches; no model identifiers in commits, code or docs.
+13. **Ask, don't guess, on product decisions.** Anything not covered by D1–D12 or this handbook (e.g. a new threshold, a new audience for sharing) goes back to Kevin as a question in the PR.
+
+## H2. Repository conventions you must follow
+
+**Python**
+
+- Frappe v16 / ERPNext v16; production Python 3.14, CI contract job Python 3.11 — write code valid on both (no PEP 695 generics or `type` alias statements).
+- Format: **tabs**, double quotes, line length 110 (`pyproject.toml [tool.ruff]`). Run `ruff check` and `ruff format` on changed files; run `python -B tools/check_b2b_changes.py` before pushing.
+- Copyright header on new files: `# Copyright (c) 2026, ilLumenate Lighting and contributors` / `# For license information, please see license.txt`.
+- Whitelisted endpoints: `@frappe.whitelist()` for reads, `@frappe.whitelist(methods=["POST"])` for writes. Accept `Union[str, dict]` JSON bodies and `json.loads` strings (pattern in `api/portal.py`).
+- Errors to the portal: return `{"success": False, "error": msg, "code": …}`; use `api/portal.py _safe_error(e, log_prefix)` for unexpected exceptions (it logs and returns a generic message).
+- Roles are created in a `[pre_model_sync]` patch (pattern: `patches/create_product_finder_role.py`) so new DocType permissions can reference them.
+- Patches: add module paths to `illumenate_lighting/patches.txt` in the right section; make them idempotent.
+- DocTypes: folder `illumenate_lighting/illumenate_lighting/doctype/<snake_name>/` with `<snake_name>.json`, `<snake_name>.py`, `__init__.py`; module `ilLumenate Lighting`; copy the Document class naming used by neighbouring doctypes.
+- Custom fields on core doctypes (Customer, Item): add to `illumenate_lighting/illumenate_lighting/fixtures/custom_field.json` **and** create them in a patch for existing sites (follow how `ill_build_id` was added).
+- Site flags: `portal/site_flags.conf_flag("ill_system_design_review_gate", default=False)`.
+
+**Python tests**
+
+- Service tests: `tests/portal_unit/test_system_design_*.py`, using `test_services.load_service(ROOT + ".system_design.<module>", deps)` with Frappe doubles; run `python -B -m unittest discover -s tests/portal_unit`.
+- Installed-site tests (doctype JSON, patches, real queries): `illumenate_lighting/illumenate_lighting/system_design/test_*.py`; add gating ones to the `ci.yml` "installed-site regression suites" step.
+
+**TypeScript / frontend**
+
+- Node 22 in the CI contract job (Node 24 in the bench job). npm workspaces under `tools/system_designer`.
+- Scripts in `tools/system_designer/package.json`: `dev`, `build` (writes to `../../illumenate_lighting/public/system_designer`), `test` (Vitest), `typecheck`, `lint`, `test:e2e`, `schema:export`.
+- Base public path `/assets/illumenate_lighting/system_designer/`. Entry names stable (`designer.js`, `designer.css`); lazy chunks may be hashed; `emptyOutDir: true` to remove stale chunks.
+- CI: add a step to `.github/workflows/b2b-contracts.yml` mirroring "Product Finder bundles are fresh": `npm ci`, `npm test`, `npm run typecheck`, `npm run build`, `npm run schema:export`, `git diff --exit-code illumenate_lighting/public/system_designer`.
+- Portal mount pattern: copy `templates/pages/product_finder.{py,html}` (login redirect, access check, `csrf_token`, `no_cache = 1`). All fetches send `X-Frappe-CSRF-Token`.
+- In cloud sessions, Playwright uses the pre-installed Chromium (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`); do not run `playwright install`.
+
+**Portal templates**
+
+- Run `python -B tools/check_portal_templates.py` after template edits.
+- Route rules: add `{"from_route": "/portal/schedules/<schedule>/design", "to_route": "system_design"}` **before** the `/portal/schedules/<schedule>` rule in `hooks.py`, plus `/portal/design` → `system_design` and `/portal/design-share/<token>` → `design_share`.
+
+## H3. Target file tree
+
+```
+tools/system_designer/
+  package.json                    # workspaces: ["packages/*", "app"]
+  tsconfig.base.json
+  vite.config.ts                  # builds app/ → public/system_designer
+  vitest.workspace.ts
+  playwright.config.ts
+  reference/
+    led-tape-system-visualizer.html   # WP-0.4, unchanged reference, not served
+    README.md
+  vendor/riser/                   # git subtree of the riser repo (WP-0.3); source of truth for the move
+  fixtures/
+    golden/                       # H10 shared fixtures (*.input.json, *.expected.json)
+    schedules/                    # sample open_design payloads (TEST data)
+  packages/
+    core-schemas/src/             # riser schemas + design.ts (H5); scripts/export-schema.ts
+    engine/src/                   # riser engine + expand.ts, allocator.ts, thermal.ts, placement.ts, review.ts
+    drawing/src/                  # riser drawing
+    serializers/src/              # riser serializers
+    data/src/                     # NEC tables, protocols.ts (Appendix B), environments.ts, brand.json
+    present/src/                  # brand/, diagram/, labels/, training/
+    scene3d/src/                  # core/, archetypes/, products/, wiring/, overlay/, export/
+    guides/src/                   # guide model, step templates, renderers
+    erp-client/src/               # typed client for H6 endpoints
+  app/
+    index.html
+    src/
+      main.tsx                    # window.IllSystemDesigner.mount(el, options)
+      routes/                     # start, spaces, runs, power, check, views, finish, engineering, review, share
+      stores/                     # design (zustand + zundo), catalog, ui
+      workers/                    # engine.worker.ts, layout.worker.ts, pdf.worker.ts
+      components/                 # cards, load bars, check cards, pickers
+illumenate_lighting/public/system_designer/                       # committed build output
+illumenate_lighting/public/system_designer/schema/design.schema.json   # committed JSON Schema (H5)
+illumenate_lighting/templates/pages/system_design.{py,html}
+illumenate_lighting/templates/pages/design_share.{py,html}
+illumenate_lighting/illumenate_lighting/system_design/
+  __init__.py
+  api.py            # whitelisted facade (H6)
+  access.py         # design-level access helpers on top of portal/access.py
+  catalog.py        # Design Catalog adapter (H7)
+  protocols.py      # Appendix B table (mirrors packages/data)
+  units.py          # mm/ft/in helpers
+  designs.py        # open/save/revise/copy, JSON Schema validation
+  expansion.py      # schedule → runs (H8.1)
+  reconcile.py      # H8.4
+  verify.py         # Python mirror checks (H10)
+  allocator.py      # server site allocator (H8.2)
+  review.py         # request/decide/comments (wraps portal/drawing_review.py)
+  gate.py           # D4 (H8.5)
+  writeback.py      # H8.6
+  shares.py         # H8.7
+  deliverables.py   # uploads, package assembly
+  geometry.py       # cross-section extraction (H8.8)
+  readiness.py      # design readiness report
+  settings.py       # typed access to ilL-System-Designer-Settings
+  code_tables/      # NEC JSON copies used by verify.py (generated from packages/data; parity-tested)
+  seed/sh01_cross_section.json
+  test_*.py         # installed-site tests
+tests/portal_unit/test_system_design_*.py   # service tests with Frappe doubles
+```
+
+## H4. DocType specifications
+
+Conventions: **Req** = mandatory; defaults apply on insert and in migration patches.
+
+### H4.1 New doctypes
+
+**`ilL-System-Design`** (naming `SYSD-.YYYY.-.#####`; track changes; perms: System Manager full, `ilL Applications Engineer` read/write, `ilL Engineering` read; portal access only through H6 endpoints and a `has_permission` hook delegating to schedule access)
+
+| Fieldname | Label | Type | Options / default | Req | Notes |
+|---|---|---|---|---|---|
+| `title` | Title | Data | | ✓ | default "<schedule_name> design" |
+| `fixture_schedule` | Fixture Schedule | Link | ilL-Project-Fixture-Schedule | ✓ | |
+| `schedule_version` | Schedule Version | Int | | ✓ | |
+| `ill_project` | Project | Link | ilL-Project | ✓ | denormalized |
+| `customer` | Customer | Link | Customer | | owner customer |
+| `status` | Status | Select | Draft / In Review / Changes Requested / Approved / Superseded | ✓ | default Draft |
+| `revision` | Revision | Data | | ✓ | A, B, C… |
+| `revision_parent` | Previous Revision | Link | ilL-System-Design | | |
+| `is_current` | Current Revision | Check | 1 | | one current per schedule version |
+| `design_json` | Design | Long Text | | ✓ | validated JSON (H5) |
+| `design_schema_version` | Design Schema Version | Int | 1 | ✓ | |
+| `engine_version` | Engine Version | Data | | ✓ | |
+| `catalog_snapshot` | Catalog Snapshot | Link | ilL-Design-Catalog-Snapshot | ✓ | |
+| `line_fingerprint_json` | Line Fingerprints | Long Text | | ✓ | H8.4 |
+| `result_summary_json` | Result Summary | Long Text | | | totals, counts by severity |
+| `build_hash` | Build Hash | Data | | | SHA-256 hex |
+| `error_count` | Errors | Int | 0 | | |
+| `warning_count` | Warnings | Int | 0 | | |
+| `total_connected_w` | Connected Load (W) | Float | 0 | | D4 |
+| `uses_dmx` | Uses DMX | Check | 0 | | D4 |
+| `uses_phase_dimming` | Uses Phase-cut Dimming | Check | 0 | | D4 |
+| `review_required` | Review Required | Check | 0 | | D4 |
+| `review_required_reasons` | Review Reasons | Small Text | | | |
+| `has_dealer_data` | Contains Dealer Data | Check | 0 | | D8 |
+| `review_request` | Review Request | Link | ilL-Document-Request | | |
+| `approved_review` | Approved Review | Link | ilL-Drawing-Review | | |
+| `approved_by` | Approved By | Link | User | | read-only |
+| `approved_on` | Approved On | Datetime | | | read-only |
+| `vd_override_reason` | VD Target Override Reason | Small Text | | | D5 loosening |
+| `deliverables` | Deliverables | Table | ilL-Child-Design-Deliverable | | |
+| `shares` | Share Links | Table | ilL-Child-Design-Share | | |
+| `comments` | Review Comments | Table | ilL-Child-Design-Comment | | |
+| `terms_accepted_by` | Terms Accepted By | Link | User | | first-open acceptance |
+| `terms_accepted_on` | Terms Accepted On | Datetime | | | |
+
+**`ilL-Child-Design-Deliverable`** (istable): `kind` Select (Riser PDF / Riser DXF ZIP / Riser SVG / Presentation PNG / Presentation SVG / Presentation PDF / Plan PDF / 3D PNG / 3D Video / Install Guide PDF / Install Guide Video / Labels PDF / Package PDF / Package ZIP), `variant` Data, `file` Attach (private), `file_sha256` Data, `revision` Data, `build_hash` Data, `created_by` Link User, `created_on` Datetime.
+
+**`ilL-Child-Design-Share`** (istable): `audience` Select (Homeowner / Installer / Specifier), `token_id` Data (16 hex), `token_hash` Data (SHA-256 of the secret), `created_by` Link User, `created_on` Datetime, `expires_on` Datetime (default now + 90 days, D10), `renewed_count` Int, `revoked` Check, `revoked_on` Datetime, `last_opened_on` Datetime, `open_count` Int.
+
+**`ilL-Child-Design-Comment`** (istable): `comment_id` Data, `view` Select (Riser / Presentation / Plan / 3D / Run / Supply / General), `anchor_json` Small Text (sheet + x/y, entity ref, or camera + point), `body` Small Text, `author` Link User, `created_on` Datetime, `resolved` Check, `resolved_by` Link User, `resolved_on` Datetime.
+
+**`ilL-Design-Catalog-Snapshot`** (named by `snapshot_hash`; read: System Manager, Engineering, Applications Engineer): `snapshot_hash` Data unique ✓, `engine_contract_version` Data ✓, `generated_on` Datetime, `catalog_json` Long Text (gzip + base64), `item_count` Int, `incomplete_count` Int, `wire_count` Int.
+
+**`ilL-Spec-Wire`** (D7; named by `item`; perms mirror `ilL-Spec-Driver`)
+
+| Fieldname | Type | Options / default | Req | Notes |
+|---|---|---|---|---|
+| `item` | Link Item | | ✓ | must be `is_sales_item = 1` |
+| `wire_name` | Data | | ✓ | e.g. "18/2 CL3R" |
+| `category` | Select | Class 2 Power / Building Wire / Cable Assembly / Data / Control / Landscape / Flex Cord | ✓ | |
+| `applications` | Small Text | comma list of engine run types | ✓ | e.g. `class2-dc,lv-branch` |
+| `conductors` | Table | ilL-Child-Wire-Conductor | ✓ | |
+| `listing` | Data | | ✓ | CL2, CL3, CL2P, CL3R, CMP, NM-B, UF-B… |
+| `rated_v` | Float | | ✓ | |
+| `temp_rating_c` | Select | 60 / 75 / 90 / 105 | ✓ | |
+| `plenum`, `riser`, `wet`, `direct_burial`, `sunlight_resistant`, `shielded` | Check | 0 | | |
+| `impedance_ohm` | Float | | | data cables |
+| `resistance_ohm_per_kft` | Float | | | overrides Table 8 |
+| `ampacity_a` | Float | | | manufacturer value |
+| `ampacity_basis` | Select | 310.16 / 402.5 fallback / Manufacturer | | |
+| `od_in` | Float | | | |
+| `riser_label` | Data | | ✓ | printed on riser |
+| `sales_uom_mode` | Select | Per Foot / Per Spool | ✓ | default Per Foot |
+| `spool_length_ft` | Float | | | required when Per Spool |
+| `is_verified` | Check | 0 | | engineering verified |
+| `source_reference` | Small Text | | ✓ | datasheet / standard |
+| `is_active` | Check | 1 | | |
+
+**`ilL-Child-Wire-Conductor`** (istable): `count` Int ✓, `awg` Select (24…4/0) ✓, `material` Select Cu/Al ✓, `stranding` Select Solid/Stranded ✓, `role` Select Power/Ground/Signal/Data Pair/Channel ✓, `colors` Small Text, `resistance_ohm_per_kft` Float, `ampacity_a` Float.
+
+**`ilL-Child-Tape-Channel`** (istable): `channel_name` Data ✓ (W, C, R, G, B…), `max_w_per_ft` Float ✓.
+
+**`ilL-Child-Controller-Port`** (istable): `port_name` Data ✓, `direction` Select In/Out/Bidirectional ✓, `protocol` Link ilL-Attribute-Dimming Protocol ✓, `max_devices` Int.
+
+**`ilL-Training-Visual`**: `visual_id` Data unique ✓, `section` Data, `group` Data, `title` Data ✓, `subtitle` Small Text, `captions_json` Long Text (array per build step), `product_bindings_json` Small Text (e.g. `{"tape": "<offering>", "supply": "<driver spec>"}`), `is_published` Check.
+
+**`ilL-System-Designer-Settings`** (Single; write: System Manager, Applications Engineer)
+
+| Fieldname | Type | Default | Decision |
+|---|---|---|---|
+| `enabled` | Check | 0 | rollout switch |
+| `pilot_customers` | Table MultiSelect → Customer (child doctype with one Link field) | | Phase 3 pilot |
+| `vd_target_class2_pct` | Float | 3.0 | D5 |
+| `vd_target_line_pct` | Float | 3.0 | D5 |
+| `vd_target_landscape_pct` | Float | 5.0 | D5 |
+| `nec_edition` | Select 2020/2023/2026 | 2023 | |
+| `wire_waste_pct` | Float | 10 | D7 |
+| `max_watts_per_run_fallback` | Float | 85 | §18.3 |
+| `review_gate_enabled` | Check | 0 | D4 (also needs site flag) |
+| `review_gate_watts` | Float | 1500 | D4 |
+| `review_gate_dmx` | Check | 1 | D4 |
+| `review_gate_phase_dimming` | Check | 1 | D4 |
+| `share_default_days` | Int | 90 | D10 |
+| `share_max_days` | Int | 90 | D10 (renew extends to now + this) |
+| `group_threshold_qty` | Int | 6 | §9.1 |
+| `default_distance_same_space_ft` / `_adjacent_ft` / `_other_level_ft` | Float | 10 / 25 / 40 | §8 |
+| `plan_route_slack_pct` | Float | 15 | §12.3 |
+| `terms_text` | Text Editor | legal copy (§22.3) | |
+| `reviewer_assignment` | Select Manual / Round Robin | Round Robin | D3 (falls back to the request type's `default_assignee_role`) |
+
+### H4.2 Request type seed
+
+`ilL-Request-Type` record: `type_name = "System Design Review"`, `category = "Technical"`, `is_active = 1`, `portal_label = "System design review"`, `default_priority = "Normal"`, `sla_hours_normal = 16`, `sla_hours_high = 8`, `sla_hours_rush = 4` (business-hour SLA ≈ 2 days normal), `default_assignee_role = "ilL Applications Engineer"` (D3), `show_project_field = 1`, `show_fixture_field = 0`, no custom fields. Created in a post-model-sync patch (the role exists from the pre-model-sync patch).
+
+### H4.3 Field additions to existing doctypes
+
+| DocType | Fieldname | Type | Default / notes |
+|---|---|---|---|
+| ilL-Attribute-Output Voltage | `nominal_voltage_v` | Float | parsed from label in patch ("24VDC" → 24) |
+| ilL-Attribute-Dimming Protocol | `engine_protocol` | Select (Appendix B values) | mapped in patch |
+| ilL-Spec-LED Tape | `drive_type` | Select CV / CV with CC IC | CV |
+| | `channels` | Int | 1 |
+| | `channel_limits` | Table ilL-Child-Tape-Channel | |
+| | `power_basis` | Select All Channel Max / Max Operating | All Channel Max |
+| | `max_simultaneous_pct` | Float | 100 × channels |
+| | `max_run_single_feed_ft` | Float | copy of `voltage_drop_max_run_length_ft` |
+| | `max_run_double_feed_ft` | Float | |
+| | `min_operating_voltage_v` | Float | |
+| | `reel_length_m` | Float | |
+| | `pixel_protocol` | Select None / WS2811 / WS2815 / SK6812 / SPI Other | None |
+| | `pixels_per_m`, `amps_per_pixel_max` | Float | |
+| | `tape_width_mm`, `leds_per_cut_segment`, `max_case_temp_c` | Float / Int / Float | |
+| ilL-Spec-Driver | `input_phase` | Select 1PH / 3PH | 1PH |
+| | `output_current_ma`, `compliance_v_min`, `compliance_v_max` | Float | CC only |
+| | `class2_outputs` | Check | 0 |
+| | `efficiency`, `power_factor` | Float (0–1) | |
+| | `max_input_a`, `max_input_a_at_v`, `inrush_a` | Float | |
+| | `max_units_per_20a_breaker` | Int | |
+| | `terminal_min_awg`, `terminal_max_awg` | Select AWG | |
+| | `mounting` | Select DIN Rail / Screw / Plug-in / Junction Box | |
+| | `location_rating` | Select Dry / Damp / Wet | Dry |
+| ilL-Spec-Controller | `controller_type` options | + DMX Decoder, DMX to 0-10V Converter, Pixel Controller, Wireless Transmitter, Relay, Lutron Module | |
+| | `max_a_per_channel`, `max_w_per_channel` | Float | |
+| | `dmx_footprint` | Int | |
+| | `unit_load` | Float | 1 |
+| | `dmx_thru` | Check | 1 |
+| | `ports` | Table ilL-Child-Controller-Port | |
+| | `output_dimming` | Select None / Phase Forward / Phase Reverse / 0-10V | None |
+| | `min_load_w`, `led_max_w` | Float | phase dimmers |
+| | `max_supplies` | Int | |
+| | `neutral_required` | Check | 0 |
+| | `max_universes`, `max_pixels`, `max_bus_devices` | Int | |
+| | `max_data_length_ft` | Float | |
+| | `terminal_min_awg`, `terminal_max_awg` | Select AWG | |
+| ilL-Spec-Profile | `cross_section_file` | Attach | DXF |
+| | `cross_section_json` | Long Text | generated (H8.8) |
+| | `max_w_per_ft` | Float | thermal |
+| ilL-Spec-Accessory | `cross_section_file`, `cross_section_json` | Attach / Long Text | |
+| | `clip_spacing_max_in`, `clip_end_offset_in` | Float | |
+| | `screw_spec` | Data | |
+| ilL-Spec-Lens | `transmission_pct` | Float | |
+| | `diffusion_class` | Select Clear / Frosted / Opal | |
+| ilL-Fixture-Template, ilL-Tape-Neon-Template, ilL-LED-Sheet-Template | `diagram_icon` | Attach | SVG |
+| | `scene_archetypes` | Small Text | e.g. `cove,under-cabinet` |
+| ilL-Child-Fixture-Schedule-Line | `watts_each` | Float | D8 |
+| | `input_voltage_v` | Float | D8 |
+| | `voltage_class` | Select Low Voltage / Line Voltage | D8 |
+| | `third_party_drive` | Select CV / CC / Integral Driver | D8 |
+| | `third_party_ma` | Float | D8 |
+| | `third_party_dimming` | Link ilL-Attribute-Dimming Protocol | D8 |
+| | `system_design` | Link ilL-System-Design | write-back owner |
+| | `design_line_role` | Select Supply / Controller / Wire / Accessory | write-back role |
+| | `design_line_key` | Data | stable upsert key |
+| Customer (custom field) | `dealer_logo` | Attach Image | title blocks |
+
+### H4.4 Role and capability (D3)
+
+- Patch `patches/create_applications_engineer_role.py` in `[pre_model_sync]`: create Role `ilL Applications Engineer` (`desk_access = 1`) if missing.
+- `portal/staff.py`: `CAPABILITIES["design_review"] = {"ilL Applications Engineer"}`.
+- DocPerms: `ilL-System-Design` read/write; `ilL-Drawing-Review` create; `ilL-System-Designer-Settings` read/write; check `doctype/ill_document_request/ill_document_request.py has_permission` — if it grants staff by an explicit role list, add the new role.
+
+## H5. Design document schema (TypeScript / Zod)
+
+Location: `packages/core-schemas/src/design.ts`. The riser `ProjectSchema` remains the engine input; the design wraps it with site and ERP context. **Version 1:**
+
+```ts
+export const RunKeySchema = z.string().regex(/^[^:]+:\d+:\d+$/);           // {line_key}:{build}:{run}
+export const LengthProvenanceSchema = z.enum(['estimate', 'entered', 'measured', 'erp']);
+export const EnvSchema = EnvironmentSchema;                                   // riser enum; UI labels map via Appendix B.2
+
+export const SpaceSchema = z.object({
+  id: IdSchema, name: z.string().min(1).max(120), level: z.string().max(60).default(''),
+  type: z.enum(['kitchen','living','dining','bedroom','bath','hall','stair','exterior','mechanical','closet','other']).default('other'),
+  archetype: z.enum(['cove','under-cabinet','toe-kick','shelving','niche','ceiling-reveal','stair','none']).default('none'),
+  env: EnvSchema.default('dry-concealed'),
+}).strict();
+
+export const CabinetSchema = z.object({
+  id: IdSchema, tag: IdSchema, name: z.string().max(120), spaceId: IdSchema,
+  locationRating: z.enum(['Dry','Damp','Wet']), env: EnvSchema,
+  accessNote: z.string().max(300).default(''), sourceId: IdSchema.optional(),
+  feedLengthFt: NonnegativeSchema.default(0), feedLengthProvenance: LengthProvenanceSchema.default('estimate'),
+}).strict();
+
+export const RunSchema = z.object({
+  key: RunKeySchema,
+  lineKey: IdSchema, lineId: IdSchema, buildIndex: CountSchema, runIndex: CountSchema,
+  groupId: IdSchema.optional(),
+  source: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('configured'),
+               doctype: z.enum(['ilL-Configured-Fixture','ilL-Configured-Tape-Neon','ilL-Configured-LED-Sheet','ilL-Configured-Group']),
+               name: IdSchema, configHash: IdSchema }).strict(),
+    z.object({ kind: z.literal('third-party') }).strict(),                 // D8
+  ]),
+  catalogId: IdSchema,                       // tape item id, or tp:{line_key} for third-party
+  lengthFt: PositiveSchema.optional(),       // ERP, read-only
+  watts: PositiveSchema,                     // ERP or dealer (D8)
+  feedMethod: z.enum(['end','double-end','center','multi-feed']),
+  feeds: CountSchema.optional(),
+  spaceId: IdSchema, env: EnvSchema,
+  homeRunLengthFt: NonnegativeSchema, homeRunProvenance: LengthProvenanceSchema,
+  assignment: z.object({ equipmentId: IdSchema, port: IdSchema }).strict().optional(),
+  zoneId: IdSchema.optional(),
+}).strict();
+
+export const ZoneSchema = z.object({
+  id: IdSchema, name: z.string().max(120), color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  method: z.enum(['phase-forward','phase-reverse','0-10V','DALI-2','DMX512','Lutron-QS','Lutron-EcoSystem','CRMX-wireless','none']),
+}).strict();
+
+export const OverrideSchema = z.object({
+  code: IdSchema, entityRef: IdSchema, kind: z.enum(['acknowledge','staff-override']),
+  reason: z.string().min(3).max(1000), by: z.string(), at: z.iso.datetime(),
+}).strict();
+
+export const DesignSchema = z.object({
+  schemaVersion: z.literal(1),
+  engineVersion: z.string(),
+  catalogSnapshotHash: z.string().regex(/^[0-9a-f]{64}$/),
+  schedule: z.object({ name: IdSchema, version: z.number().int().nonnegative() }).strict(),
+  site: z.object({ spaces: z.array(SpaceSchema), cabinets: z.array(CabinetSchema),
+                   floorPlans: z.array(z.unknown()).default([]) }).strict(),   // FloorPlanSchema replaces unknown in WP-6.5 (schema v2)
+  runs: z.array(RunSchema).max(1000),
+  zones: z.array(ZoneSchema),
+  project: ProjectSchema,                    // riser engine input (sources, equipment, loads, controlLinks, settings…)
+  views: z.object({ saved3d: z.array(z.unknown()).default([]), presentation: z.unknown().optional(),
+                    riser: z.unknown().optional() }).strict().default({}),
+  overrides: z.array(OverrideSchema).default([]),
+}).strict();
+```
+
+Rules:
+
+- `project.loads` are **derived** from `runs` by `deriveLoads(design, catalog)` (engine package) before every calculation and stored so the saved design is self-contained. The UI never edits `project.loads` directly.
+- `project.settings` VD targets are initialised from Settings (D5). A validator rejects values above Settings unless an override with `kind: 'staff-override'` and `code: 'VD_TARGET_LOOSENED'` exists.
+- Bump `schemaVersion` for any breaking change and add a migration (`migrateDesign(v1 → v2)`) plus a Python migration for stored rows.
+- Export JSON Schema with Zod 4 `z.toJSONSchema(DesignSchema)` via `packages/core-schemas/scripts/export-schema.ts` to `illumenate_lighting/public/system_designer/schema/design.schema.json` (committed; CI freshness). Python validates with `jsonschema` — **check whether `jsonschema` is importable on the bench; if not, add it to `pyproject.toml` dependencies in the same PR.**
+- `build_hash = sha256(canonicalJson({design minus views, engineVersion, catalogSnapshotHash}))`. Canonical JSON: keys sorted, no whitespace, lengths/watts rounded to 3 decimals before hashing in both languages. Python: `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. A parity test hashes the same fixtures in both.
+
+## H6. API contracts
+
+Module: `illumenate_lighting.illumenate_lighting.system_design.api`. Responses: `{"success": true, "data": {...}}` or `{"success": false, "error": str, "code": str}` with `code` ∈ `NOT_FOUND | FORBIDDEN | INVALID | CONFLICT | LOCKED | GATE | INTERNAL`. Return `NOT_FOUND` (not `FORBIDDEN`) for records the user can't see, so guessed names reveal nothing.
+
+| Endpoint | Method | Request | `data` on success | Access / notes |
+|---|---|---|---|---|
+| `find_schedules` | GET | `query` (≥ 2 chars), `limit ≤ 20` | `[{name, schedule_name, project, project_name, version, has_design}]` | `schedule_query_conditions` |
+| `open_design` | GET | `schedule`, `design?` | `{schedule:{name, schedule_name, version, is_locked, status}, lines:[Line], builds:{<doctype>:{<name>: Build}}, design \| null, design_meta:{name, revision, status, modified} \| null, catalog_hash, readiness:{ready, needs_data, unconfigured, catalog_gaps}, review_requirement:{required, reasons}, permissions:{can_edit, can_review, can_view_pricing}, settings:{vd targets, waste, distance defaults, group threshold}}` | `can_read_schedule`; `Build` = runs, segments, feeds, cable manifest, environment, offering, power-plan allocations, `max_run_ft_effective`, `config_hash` |
+| `get_catalog` | GET | `hash` | `{hash, engine_contract_version, items:[CatalogItem], wires:[WireType], code_tables_version}` + `ETag` | `can_view_catalog`; `NOT_FOUND` for unknown hash |
+| `eligible_supplies` | POST | `schedule`, `run_keys` | `[{catalog_id, item_code, rank}]` | opaque `rank` (D6) |
+| `save_design` | POST | `schedule`, `design_name?`, `design_json`, `expected_modified?` | `{name, revision, modified, build_hash, summary}` | `can_edit_schedule`; `CONFLICT` on stale `modified`; `LOCKED` if schedule locked; schema-validated; ≤ 5 MB |
+| `create_revision` | POST | `design`, `note` | `{name, revision}` | old `is_current = 0`; new status Draft |
+| `reconcile_design` | GET | `design` | `{added, removed, changed, qty}` | H8.4 |
+| `copy_design_to_version` | POST | `design`, `target_schedule` | `{name}` | edit on target |
+| `verify_design` | POST | `design` | `{ok, mismatches:[{code, entityRef, client, server}], summary}` | stores summary |
+| `auto_plan` | POST | `design`, `policy` (`fewest_supplies` \| `fewest_cabinets` \| `shortest_wire`) | `{proposal:{equipment, assignments}, totals:{supplies, cabinets, wire_ft_by_item}, optimality}` | no prices or costs (D6) |
+| `writeback_preview` | GET | `design` | `{add, update, remove, replaces_configurator_lines, price_delta?}` | `price_delta` only with `Can View Pricing` |
+| `writeback_apply` | POST | `design`, `accepted_keys` | `{added, updated, removed}` | transactional (H8.6) |
+| `upload_deliverable` | POST multipart | `design`, `kind`, `variant`, `file`, `sha256` | `{file_url, row}` | server recomputes SHA-256; private |
+| `request_review` | POST | `design`, `priority`, `due_date?`, `note?` | `{request}` | saved revision with 0 errors required |
+| `review_decide` | POST | `design`, `decision` (`Approved` \| `Changes Requested`), `note` | `{review, status}` | `design_review` + assigned `technical_reviewer`; uses `portal/drawing_review.decide` |
+| `list_comments` / `add_comment` / `resolve_comment` | GET/POST | `design` + comment fields | comment rows | |
+| `create_share` | POST | `design`, `audience`, `days?` (≤ 90) | `{url, token_id, expires_on}` | full URL returned once only |
+| `renew_share` | POST | `design`, `token_id` | `{expires_on}` | now + 90 days (D10) |
+| `revoke_share` | POST | `design`, `token_id` | `{}` | |
+| `open_share` | GET | `token` | audience-filtered payload | no login (H8.7) |
+| `review_requirement` | GET | `schedule` | `{required, reasons:[{code, detail}], satisfied, approved_design?}` | H8.5 |
+| `override_review_gate` | POST | `schedule`, `reason` | `{override_id}` | `sales` or `design_review` capability |
+| `get_catalog_for_desktop` | GET | — | as `get_catalog`, current snapshot | `engineering` capability, token auth (D1) |
+| `list_training_visuals` / `get_training_visual` | GET | `visual_id?` | config rows | `can_view_catalog` |
+
+## H7. Design Catalog adapter specification
+
+File: `system_design/catalog.py`. Entry points: `build_snapshot() -> str` (returns hash) and `current_snapshot_hash() -> str`.
+
+### H7.1 Algorithm
+
+```
+def build_snapshot():
+    items = []
+    for spec in active ilL-Spec-LED Tape:
+        offerings = active ilL-Rel-Tape Offering where tape_spec = spec
+        groups = group offerings by (effective W/ft, effective cut increment)
+        for group in groups: items.append(tape_item(spec, group))        # id: tape:{spec}:{w}:{cut}
+    for d in ilL-Spec-Driver whose Item is enabled and a sales item:
+        items.append(psu_or_driver_item(d))                              # id: drv:{d.name}
+    for c in active ilL-Spec-Controller:
+        items.append(control_item(c))                                    # id: ctl:{c.name}
+    wires = [wire_type(w) for w in active ilL-Spec-Wire]                 # id: wire:{w.item}
+    payload = {"engine_contract_version": CONTRACT, "items": sorted(items, key=id),
+               "wires": sorted(wires, key=id), "code_tables_version": CODE_TABLES}
+    h = sha256(canonical_json(payload))
+    upsert ilL-Design-Catalog-Snapshot(h); cache "ill:design_catalog:" + h (24 h); cache "ill:design_catalog:current" = h
+    return h
+```
+
+- **Invalidation:** `doc_events` in `hooks.py` for spec doctypes, offerings, wires, voltage/protocol attributes and driver eligibility call `system_design.catalog.invalidate` (deletes `ill:design_catalog:current`). `current_snapshot_hash()` rebuilds lazily. Old snapshots stay stored for reproducibility. Avoid N+1 queries: bulk-load child tables with `frappe.get_all(..., filters={"parent": ["in", names]})`.
+- **Third-party items (D8)** are not in the snapshot. The client synthesizes `fixture` items with id `tp:{line_key}`, `isExample: false`, provenance `{kind: 'user-supplied', reference: 'Data by dealer: <customer>'}`.
+
+### H7.2 `incomplete` rules
+
+An item becomes `{"kind": "incomplete", "intendedKind": k, "available": {...}, "missingFields": [...], "notes": []}` when any Req field in Appendix A is missing or unmappable (voltage not 12/24/48, unmapped protocol). `missingFields` uses **ERP fieldnames** so the readiness report links straight to them.
+
+### H7.3 Unit conversions
+
+mm → in `/25.4`; mm → ft `/304.8`; m → ft `×3.28084`; per m → per ft `/3.28084`. Round to 4 decimals in the payload.
+
+### H7.4 No-cost rule and rank (D6)
+
+- Forbidden keys at any depth of any designer or share payload: `cost`, `valuation_rate`, `last_purchase_rate`, `standard_rate`, `selection_cost`, `buying_price`. Price fields (`rate`, `price_list_rate`, `amount`) appear only in `writeback_preview.price_delta` and only for `Can View Pricing` users.
+- Supply `rank` = dense rank over `(ilL-Rel-Driver-Eligibility.priority desc, ilL-Spec-Driver.cost asc, item_code asc)`, integers from 1. It reveals order, never magnitude.
+- Unit test: build every payload from a TEST fixture and assert none of the forbidden keys appears.
+
+### H7.5 Desktop variant (D1)
+
+`get_catalog_for_desktop` returns the same payload. Auth: API key/secret of a staff user with the `engineering` capability (`Authorization: token key:secret`, which the riser proxy already sends).
+
+## H8. Algorithms
+
+### H8.1 Schedule → runs (`expansion.py`, `packages/engine/src/expand.ts`)
+
+```
+for line in schedule.lines:
+    if line.design_line_role: continue                       # write-back output, not input
+    if line is an accessory / power line: supply_pool.add(line.accessory_item, line.qty); continue
+    if line has a configured record:
+        build = configured record
+        runs = linear: build.runs | tape/neon: connected_runs(computed plan) | sheet: feeds from power plan | group: member runs
+        for b in 1..line.qty:
+            for r in runs:
+                yield Run(key=f"{line.line_key}:{b}:{r.run_index}", lengthFt=r.run_len_mm/304.8, watts=r.run_watts,
+                          feedMethod=feed_method(build, r), env=map_env(build.environment_rating),
+                          source=configured(doctype, name, build.config_hash), catalogId=tape_catalog_id(build))
+    elif line is third-party and line.watts_each:              # D8
+        for b in 1..line.qty: yield Run(key=f"{line.line_key}:{b}:1", watts=line.watts_each, source=third-party,
+                                        catalogId=f"tp:{line.line_key}", feedMethod="end")
+    else:
+        readiness.needs_data.append(line)
+group identical builds when line.qty >= settings.group_threshold_qty
+```
+
+`feed_method`: one start feed → `end`; start and end feeds on the same run → `double-end`; a centre feed type → `center`; ≥ 3 feeds → `multi-feed` with `feeds = n`. Map `ilL-Attribute-Power Feed Type.connection_type` / `directionality` in one table in `expansion.py` after reading the attribute records (values are data, not constants). If `line_key` is empty on an old line, fall back to `line_id + idx` and report it in readiness so staff can backfill.
+
+### H8.2 Site allocator (`packages/engine/src/allocator.ts`, mirror `allocator.py`)
+
+```
+input: runs R (watts, voltage, protocol, reachable cabinets, maxHomeRunFt), supplies S (catalog items with rank),
+       cabinets C (locationRating), policy
+1. partition R by (voltage, protocol)
+2. for each partition P:
+     candidates = S eligible for every run in P (intersection), matching voltage and protocol, locationRating ≥ cabinet rating
+     reachable(run) = cabinets whose distance ≤ maxHomeRunFt (largest length meeting the VD target with the heaviest allowed Class 2 wire)
+     assign runs to cabinets: greedy — cabinet covering the most unassigned runs first (ties: policy)
+     for each cabinet group G:
+         if |G| ≤ 12 and |candidates| ≤ 32: exact search (port of power_planner.plan_power) with objective:
+              fewest_supplies → (count, rank_sum, capacity)
+              fewest_cabinets → cabinet step minimizes cabinets, then fewest_supplies
+              shortest_wire   → (total home-run ft, count, rank_sum)
+         else: first-fit decreasing by watts onto outputs of the best-ranked smallest supply that fits,
+               then local search (merge two least-loaded supplies; swap runs to free a supply) until no improvement or 200 iterations
+3. lower bound = ceil(total watts / largest usable capacity among candidates); optimality = "exact" if every group was exact
+output: equipment (supplies with cabinet, tags PS-01…), assignments run → (equipment, "OUT n"), totals (supplies, cabinets, wire ft by wire item)
+```
+
+Always enforced: one run per output; per-output and total limits × `usable_load_factor`; Class 2 per output where required; never parallel outputs. **Output contains no cost or price** (D6). The Python mirror runs the same fixtures (H10).
+
+### H8.3 VD targets (D5)
+
+`effective_target = settings.vd_target_class2_pct` unless the project tightened it (lower) or a `VD_TARGET_LOOSENED` staff override exists. Engine uses riser `voltageDrop` and `selectWire`; candidates are `ilL-Spec-Wire` entries whose `applications` include the run type and whose flags satisfy the environment (riser `environmentMatches`, plus the in-wall rule in Appendix B.2).
+
+### H8.4 Reconcile (`reconcile.py`, mirrored in TS)
+
+Fingerprint per line: `sha256(line_key | configured doctype | configured name | config_hash | qty | watts_each | input_voltage_v | voltage_class | third_party_drive | third_party_ma | third_party_dimming)`.
+
+- Key in design, not schedule → **removed** (drop runs; list dropped assignments).
+- Key in schedule, not design → **added** (new unassigned runs).
+- Same key, `config_hash` changed → **changed** (replace length/watts; keep assignments by `run_index` where the run still exists).
+- Same key, only qty changed → **qty** (add/remove builds from the end).
+- Write-back lines are ignored.
+
+### H8.5 Review gate (D4) (`gate.py`)
+
+```
+def review_requirement(schedule):
+    s = settings()
+    if not (s.review_gate_enabled and conf_flag("ill_system_design_review_gate", default=False)):
+        return {required: False, reasons: [], satisfied: True}
+    reasons = []
+    total_w = Σ lines (configured.total_watts × qty) + Σ third-party (watts_each × qty)
+    if total_w > s.review_gate_watts: reasons.append({code: "LOAD_OVER_THRESHOLD", detail: f"{total_w:.0f} W"})
+    if s.review_gate_dmx and has_dmx(schedule): reasons.append({code: "DMX"})
+        # DMX if any: configured record's requested protocol / power-plan driver input protocol maps to DMX512;
+        #             accessory line whose Item has an ilL-Spec-Controller of a DMX type; third_party_dimming maps to DMX512;
+        #             current design.uses_dmx
+    if s.review_gate_phase_dimming and has_phase(schedule): reasons.append({code: "PHASE_DIMMING"})
+        # phase-cut if any protocol above maps to phase-forward/phase-reverse, or a Wall Dimmer controller with phase output,
+        # or current design.uses_phase_dimming
+    required = bool(reasons)
+    approved = current ilL-System-Design for the schedule with status "Approved"
+    satisfied = (not required) or (approved and approved.line_fingerprint_json == fingerprints(schedule)) or active_override(schedule)
+    return {required, reasons, satisfied, approved_design: approved and approved.name}
+```
+
+Integration: at the end of `can_request_schedule_order`, after existing checks pass, call `gate.review_requirement(doc)`; if `required and not satisfied`, return `(False, _("ilLumenate review of the system design is required before ordering: {0}").format(reason text))`. Overrides are `ilL-Portal-Event` rows (`event_key = "system_design_gate_override:<schedule>:<fingerprint-hash>"`, `reference_type = "ilL-Project-Fixture-Schedule"`, `reference_name = schedule`, `subject` = user, `message` = reason). Because the fingerprint hash is in the key, an override stops applying as soon as the schedule changes. Read `doctype/ill_portal_event` and its existing writers first; if `event_key` must be unique, this format already is. Wrap the gate call so an unexpected exception logs and **fails closed only when the flag is on** (returns not-allowed with a support message), and never affects behaviour when the flag is off.
+
+### H8.6 Write-back (`writeback.py`)
+
+- Desired lines from the engine BOM: supplies (Item, qty), controllers/dimmers/decoders/terminators (Item, qty), wire (D7) — Per Foot: `qty = ceil(total_ft × (1 + waste_pct/100))`; Per Spool: `qty = ceil(total_ft × (1 + waste_pct/100) / spool_length_ft)` — and accessories.
+- `design_line_key = f"{role}:{item_code}"`.
+- Upsert by (`system_design`, `design_line_key`); remove owned lines no longer desired; never touch lines without `system_design`.
+- Consolidation: list configurator power lines (`power_supply_for_line` set) for builds the design re-powers as `replaces_configurator_lines`; on apply, remove them using `power_supply_lines.clear_power_lines` (read it first; do not reimplement).
+- New lines: `manufacturer_type = "ACCESSORY"`, `accessory_item`, `accessory_item_name`, `qty`, `location` = cabinet name (wire: "Field wire"), `line_id` prefixes `PS`, `CTRL`, `WIRE`, `ACC` + index (suffix if taken). Reuse `api/portal.py add_schedule_line` validation (active, sellable, non-template SKU) instead of raw row writes.
+- One transaction; on error `frappe.db.rollback()` and return `INTERNAL` via `_safe_error`.
+
+### H8.7 Share tokens (D10) (`shares.py`)
+
+- Secret: `secrets.token_urlsafe(32)`; token id: `secrets.token_hex(8)`. URL `/portal/design-share/<token_id>.<secret>`. Store `token_hash = sha256(secret)` only.
+- `open_share`: split, find row by `token_id`, `hmac.compare_digest` on hashes, require `revoked = 0` and `expires_on > now`, update `last_opened_on`/`open_count`, log `ilL-Portal-Event`, return the audience payload for the latest **approved** revision if one exists, else the current revision; prices always stripped.
+- `create_share`: `expires_on = now + min(days or settings.share_default_days, settings.share_max_days)`. `renew_share`: `expires_on = now + settings.share_max_days`, `renewed_count += 1`. `revoke_share`: sets `revoked`, `revoked_on`.
+- Rate-limit `open_share` (Frappe `rate_limit` decorator, ~60/min per IP; confirm the decorator signature in v16).
+
+### H8.8 Cross-section extraction (`geometry.py`)
+
+On save of a profile/accessory with `cross_section_file`, enqueue a background job that parses the DXF (use `ezdxf` only if available on the bench; otherwise accept a JSON upload in the same format and defer DXF parsing — check before adding dependencies), keeps closed LWPOLYLINEs on layers `BODY`, `LENS`, `CLIP`, normalizes to 1/1000 inch with origin at the channel bottom centre, and writes `cross_section_json` as `{"body": [x, y, …], "lens": [...], "clip": [...]}` (the `CAD_SH01` format). SH01 is seeded from `system_design/seed/sh01_cross_section.json`, extracted from the reference visualizer's `CAD_SH01` constant.
+
+## H9. UI specification
+
+**Shell:** full-height app in the portal layout. Header: brand, "ilLumenate System Designer" (D2), schedule name/version, revision chip, status chip, review chip (D4: "Review required" / "Review optional" / "Approved"), save state ("Saved · 12:04"), Guided/Engineering toggle, help. Left: stepper (Guided) or tabs (Engineering). Right: collapsible check panel with severity counts.
+
+| Screen | Key components | Empty / error states |
+|---|---|---|
+| Start | Readiness list, review banner, terms modal on first open, Continue | Locked schedule → read-only banner + "Design on a new version" |
+| Spaces | Space list (rename/merge), cabinet cards (location rating, access, circuit), panel card | No locations → single "Project" space |
+| Runs | Run table/cards, bulk edit, strip preview, group chips, "Data by dealer" chips (D8) | Unconfigured lines listed with configurator links |
+| Power | Run pool, supply cards with load bars and output slots, Add-supply picker (fit-sorted, no prices — D6), Auto-plan → proposal drawer (supplies, cabinets, wire totals) | No eligible supply → explanation + "Ask ilLumenate" |
+| Check | Check cards (severity, title, numbers, Why?, fix buttons), acknowledge dialog | All-clear state |
+| Views | Riser (sheet thumbnails, export), Presentation (variant), Plan (Phase 6), 3D (Phase 6) | Export progress modal |
+| Finish | Write-back diff (price delta only with pricing role), Request review, Package builder, Share links (90-day expiry, Renew, Revoke — D10) | Errors block review request with a list |
+| Engineering | Riser AG Grid tables, settings | — |
+| Review (staff) | Views + comment pins, override dialog, Approve / Request changes | — |
+| Share (external) | Read-only audience view, downloads, "Data by dealer" note | Expired / revoked page |
+
+**Visual language:** visualizer brand tokens (`--primary-600` text, `--secondary-600` actions, `--accent-500` highlights, radii ≤ 20 px, Manrope headings, Poppins body); zone colors from the `ZONE_COLORS` ramp; severity colors error `#D63B2F`, warning `--accent-800`, info `--secondary-600`.
+
+**Accessibility:** keyboard alternative to drag ("Assign to…" menu), visible focus, icons alongside severity colors, WCAG 2.2 AA contrast.
+
+## H10. Golden fixtures and parity tests
+
+Folder `tools/system_designer/fixtures/golden/`. Each case: `<name>.input.json` (design + catalog subset) and `<name>.expected.json` (engine result subset: loading, run VD, selected wire ids, message codes, D4 triggers, build hash).
+
+| Case | Content |
+|---|---|
+| `riser-example` | From riser `examples/example.riser.json` + `engineering-results.json` |
+| `cove-24v-single` | 20 ft cove, 4.5 W/ft, one 100 W supply, 15 ft 18 AWG home run (the visualizer's running example) |
+| `cove-too-long` | 30 ft single-end → `TAPE_RUN_TOO_LONG`, `SUGGEST_SPLIT_FEED` |
+| `vd-over-target` | 40 ft 18 AWG at 3 A → `VD_OVER_TARGET` at 3% (D5); recommends a heavier gauge |
+| `class2-over` | 120 W on one Class 2 output → `CLASS2_OVER_100VA` |
+| `kitchen-five-zones` | The visualizer's five zones with cabinets |
+| `phase-dimmer-min-load` | 6 W run on an ELV dimmer → `DIMMER_MIN_LOAD`; D4 `PHASE_DIMMING` |
+| `dmx-tw-rgbw` | DMX decoders, patch, missing terminator → `DMX_NO_TERMINATOR`; D4 `DMX` |
+| `load-over-1500` | 1,600 W total → D4 `LOAD_OVER_THRESHOLD`; `load-at-1500` → no trigger |
+| `third-party-mixed` | Dealer-entered fixtures → `DATA_BY_DEALER` (D8) |
+| `allocator-12-exact` | 12 runs, exact supply count |
+| `allocator-40-heuristic` | 40 runs, heuristic ≤ lower bound + 1 |
+
+Runners: `packages/engine/test/golden.test.ts` (all fields) and `tests/portal_unit/test_system_design_parity.py` (Python subset). Update expected files only via `UPDATE_GOLDEN=1` with a PR note explaining why.
+
+## H11. Work packages
+
+Format: **ID — title (size)** · Depends · Read first · Do · Tests · Done when. Decisions referenced in brackets.
+
+### Phase 0 — Foundations
+
+**WP-0.1 — Portal access audit for designer surfaces (S)**
+- Depends: —
+- Read first: `docs/DEALER_PORTAL_ASSESSMENT_AND_IMPLEMENTATION_PLAN.md` §5, `portal/access.py`, `doctype/ill_project_fixture_schedule/ill_project_fixture_schedule.py` (`has_permission`, `can_request_schedule_order`), `api/document_requests.py` (`list_requests`, `_scoped_request_conditions`), `api/portal.py create_drawing_request`, the access-matrix tests (`api/test_portal_access_matrix.py` and `tests/portal_unit`).
+- Do: check each P0 item (P0.1–P0.4, P0.6) against current code — the access layer has since been consolidated in `portal/access.py`, so several may already be fixed. Record a status table in the PR. Fix only items still open that touch schedules, document requests or drawing requests.
+- Tests: extend access-matrix tests for any fix.
+- Done when: every P0 item is "fixed earlier (evidence)" or "fixed here (test)".
+
+**WP-0.2 — Workspace scaffold and bundle pipeline (M)**
+- Depends: —
+- Read first: `tools/configurator_ui/{package.json,vite.config.js,vite.portal.config.js}`, `templates/pages/product_finder.{py,html}`, `.github/workflows/b2b-contracts.yml`, `hooks.py` route rules.
+- Do: create `tools/system_designer` (H3) with npm workspaces, strict TS, ESLint (ban `dangerouslySetInnerHTML`), Vitest, Playwright; `app/src/main.tsx` exposes `window.IllSystemDesigner.mount(el, {schedule, csrfToken, apiBase})` rendering a placeholder titled "ilLumenate System Designer" (D2); build to `public/system_designer/`; templates `system_design.{py,html}` (login redirect, `can_read_schedule`, Settings `enabled` or pilot-customer check, `csrf_token`); route rules (H2); CI "System Designer bundle is fresh" step.
+- Tests: template render check; Playwright smoke; Python unit test for page context (unauthorized user redirected).
+- Done when: `/portal/schedules/<s>/design` shows the placeholder for an authorized pilot user only; CI green.
+
+**WP-0.3 — Import riser source with history (S)** [D1]
+- Depends: WP-0.2
+- Read first: riser `package.json`, `tsconfig.json`, `vitest.config.ts`, `src/*/README.md`.
+- Do: `git subtree add --prefix=tools/system_designer/vendor/riser https://github.com/kevinschern-illumenate/riser-diagram-generator main` (history kept). Move `src/schemas`, `src/engine`, `src/drawing`, `src/serializers`, `src/data`, `src/workers/layout.worker.ts` into packages (H3) with path aliases; keep riser feature screens under `app/src/engineering/legacy` for WP-3.8; do not carry `server/proxy.mjs` or `src/features/erp` into the designer. Leave `vendor/riser` untouched as the reference copy.
+- Tests: all riser unit tests pass in the workspace; coverage thresholds kept.
+- Done when: `npm test` runs the riser suite green in CI.
+
+**WP-0.4 — Commit the visualizer as a reference asset (S)**
+- Depends: —
+- Do: save the supplied visualizer HTML unchanged as `tools/system_designer/reference/led-tape-system-visualizer.html` with a README (provenance, "reference only, EXAMPLE data, not served"). Kevin supplies the file if it is not available in the session.
+- Done when: committed.
+
+**WP-0.5 — Applications Engineer role, capability and Settings (S)** [D3, D4, D5, D10]
+- Depends: —
+- Read first: `patches/create_product_finder_role.py`, `portal/staff.py`, `patches.txt`.
+- Do: H4.4 patch and capability; `ilL-System-Designer-Settings` with H4.1 defaults; `system_design/settings.py` typed accessor (returns defaults when the single doc is unsaved).
+- Tests: `staff.allowed("design_review")` with the role; installed-site test that defaults are 3.0 / 3.0 / 5.0 / 1500 / 90 / 90.
+- Done when: migrate twice cleanly.
+
+**WP-0.6 — Python package skeleton and error contract (S)**
+- Depends: WP-0.5
+- Do: create `system_design/` modules (H3) with docstrings; `api.py` with `respond(data)` / `fail(code, msg)`; `access.py` (`require_read(schedule)`, `require_edit(schedule)`, `require_reviewer()`, `require_capability(name)`).
+- Tests: contract and access wrappers with Frappe doubles.
+
+### Phase 1 — ERP data readiness
+
+**WP-1.1 — Tape spec fields (S)**
+- Read first: `doctype/ill_spec_led_tape/*`, `doctype/ill_rel_tape_offering/*`, `doctype/ill_attribute_output_voltage/*`, `doctype/ill_attribute_dimming_protocol/*`, `doctype/ill_attribute_led_package/*`.
+- Do: H4.3 tape fields + `ilL-Child-Tape-Channel`; `nominal_voltage_v` and `engine_protocol` on attributes. Patch: parse voltage from labels (regex `(\d+(?:\.\d+)?)\s*V`); pre-fill `engine_protocol` by label (Appendix B.1); copy `voltage_drop_max_run_length_ft` → `max_run_single_feed_ft`; set `channels` from LED package where unambiguous (single 1, TW 2, RGB 3, RGBW 4), else leave 1 and surface in readiness.
+- Tests: parser and mapping unit tests; patch idempotency (installed-site).
+- Done when: migrate twice; values populated where derivable.
+
+**WP-1.2 — Driver spec fields (S)** · Read: `doctype/ill_spec_driver/*`, `api/driver_catalog.py`. Do: H4.3 driver fields in an "Electrical (design)" section. Tests: existing driver/configurator tests unchanged. Done: migrate twice.
+
+**WP-1.3 — Controller spec fields and types (S)** · Read: `doctype/ill_spec_controller/*`, `api/driver_controller_configurator.py`. Do: new `controller_type` options, fields, `ilL-Child-Controller-Port`. Tests: existing controller configurator tests unchanged.
+
+**WP-1.4 — Wire spec and Items (M)** [D7]
+- Read first: riser `src/schemas/wire.ts`, `src/data/wires.seed.json`; `api/unit_conversion.py`; how `linear_build.py` uses `cable_stock_quantity`.
+- Do: `ilL-Spec-Wire`, `ilL-Child-Wire-Conductor`; Item Group "Field Wire" (patch creates if missing); Desk CSV import (CSV → wire specs + Items with `is_sales_item = 1`, UOM Foot or a spool UOM). **Do not import the EXAMPLE seed.** Provide `tools/seed_imports/field_wire_TEMPLATE.csv` with the seed's columns and blank values for staff.
+- Tests: Per Spool requires `spool_length_ft`; Item must be sellable; CSV parser tests.
+- Done when: staff can import reviewed wire, and wire Items price through Item Price.
+
+**WP-1.5 — Visual fields and SH01 seed (S)** · Do: H4.3 profile/accessory/lens/template fields; extract `CAD_SH01` from the reference HTML into `system_design/seed/sh01_cross_section.json`; patch sets it on the SH01 profile spec(s) if empty. Done: SH01 shows `cross_section_json`.
+
+**WP-1.6 — Schedule line third-party fields and write-back markers (S)** [D8]
+- Read first: `doctype/ill_child_fixture_schedule_line/*`, `api/portal.py add_schedule_line/update_schedule_line`, third-party editing in `templates/pages/schedule.html` and its JS.
+- Do: H4.3 schedule-line fields; dealers set D8 fields via `update_schedule_line` with validation (0 < watts ≤ 2000; voltage ∈ {12, 24, 48, 120, 208, 240, 277}; CC requires `third_party_ma`); show them in the third-party line editor; write-back fields are read-only to dealers.
+- Tests: validation tests in `tests/portal_unit` (pattern: `test_add_schedule_line.py`); template check.
+- Done when: a dealer can enter third-party data on the schedule page.
+
+**WP-1.7 — Design readiness report (M)**
+- Read first: `api/product_readiness.py`, the Catalog Builder page.
+- Do: `system_design/readiness.py` with the H7.2 rule table (shared with WP-2.1); Desk page "Design readiness" with product-type filters and a volume column (schedule lines using each product in the last 180 days); includes wire Items without an Item Price (D7); Catalog Builder badge.
+- Tests: rule-table tests.
+- Done when: the report shows the Phase 1 exit metric.
+
+### Phase 2 — Catalog, intake, persistence
+
+**WP-2.1 — Design Catalog adapter (M)** [D6] · Depends: WP-1.1–1.4 · Do: H7 (`catalog.py`, `protocols.py`, `units.py`), snapshot doctype, cache, invalidation hooks, `get_catalog`. Tests: per-kind mapping, incomplete, conversion, **forbidden-key test**, hash stability. Done: snapshot builds in < 5 s on a production-sized copy.
+
+**WP-2.2 — Schema package and JSON Schema export (S)** · Depends: WP-0.3 · Do: `design.ts` (H5), `deriveLoads`, `schema:export`, committed schema + CI freshness, Python `designs.validate_design_json`, canonical-JSON hash in both languages. Tests: Zod round-trip; Python accepts/rejects the same samples; hash parity. Done: both sides validate the same fixtures.
+
+**WP-2.3 — Expansion and `open_design` (M)** [D4, D8] · Depends: WP-2.1, WP-2.2 · Read: `api/tape_neon_power.py connected_runs`, `api/linear_build.py`, configured doctypes, `portal.py get_schedule_lines_for_configurator`. Do: H8.1 (Python for builds/readiness; TS for runs), `open_design`, `find_schedules`, `review_requirement` (returns not-required while the gate is off). Tests: linear multi-run, jumpered tape, sheet, group, third-party, qty > 1, grouping threshold, missing `line_key`. Done: Start and Runs list a real schedule's runs.
+
+**WP-2.4 — `ilL-System-Design`, save and revisions (M)** · Do: H4.1 doctypes; `save_design`, `create_revision`, concurrency, size limit, lock handling, `has_permission` hook; client store with zundo and IndexedDB draft. Tests: conflict, locked schedule, permission matrix. Done: edits survive reload; conflicting saves detected.
+
+**WP-2.5 — Reconcile and copy-forward (S)** · Do: H8.4 + dialog. Tests: each diff category. Done: changing a qty on the schedule triggers the dialog.
+
+**WP-2.6 — Riser 1.3.0 "ERP edition" (S)** [D1] · Depends: WP-2.1 · Works in the riser repo (needs push access; if unavailable, produce `tools/system_designer/vendor/riser-1.3.patch` and ask Kevin to apply it). Do: `get_catalog_for_desktop` (H7.5) in this repo; in the riser repo, proxy route `/api/erp/catalog` calling it; replace Libraries → ERPNext Sync with "Load ilLumenate catalog" (ERP items read-only, local overrides disabled for them); remove `erp-mapping.example.json` and the `custom_riser_*` mapping; README "ERP edition" + deprecation notice pointing to the System Designer; version 1.3.0. Tests: proxy tests with mocked upstream; updated sync tests. Done: tag `v1.3.0`.
+
+### Phase 3 — Beta: power, checks, riser
+
+**WP-3.1 — Guided shell, stepper, terms (S)** · H9 shell; terms modal writes `terms_accepted_by/on`; check panel scaffold; D2 naming everywhere.
+
+**WP-3.2 — Spaces, cabinets, distances (M)** [D8] · §8; quick distance picks from Settings; environment cascade; third-party runs with "Data by dealer" chips.
+
+**WP-3.3 — Runs screen (S)** · §9.3; bulk edit; strip preview; group/split.
+
+**WP-3.4 — Power board (L)** [D6] · Read: `power_planner.py`, `driver_catalog.py`. Do: §10.1–10.2; `eligible_supplies`; fit-sorted picker with no prices; configurator defaults; sources/circuits; zones (phase-cut, 0-10V); keyboard assign. Tests: store tests; Playwright drag/assign; refusal reasons.
+
+**WP-3.5 — Engine integration and checks UI (M)** [D5, D8] · Engine worker; `deriveLoads`; check cards with fix actions; VD targets tighten-only + staff override; wire selection from catalog wires; Appendix C additions. Tests: golden cases; fix-action tests.
+
+**WP-3.6 — Python verification mirror (M)** · `verify.py` subset (§18.2) with code tables; `verify_design`; parity runner. Tests: parity on all golden cases.
+
+**WP-3.7 — Engineering riser outputs (M)** [D2, D8] · Riser from design; `Customer.dealer_logo` custom field + patch; Letter/Tabloid title blocks; ERP-sourced schedules; "DATA BY DEALER" tag + general note; stamps (default PRELIMINARY); metadata embedding (`Creator: ilLumenate System Designer`); `upload_deliverable`. Tests: riser drawing tests; DXF round trip; metadata test.
+
+**WP-3.8 — Engineering mode (S)** · Riser grids bound to the design store; on for staff, opt-in for dealers.
+
+**WP-3.9 — Pilot enablement and telemetry (S)** · Settings pilot customers; `ilL-Portal-Event` rows with `event_key` prefixes `system_design:opened`, `:saved`, `:riser_exported`, `:check_fixed` (append design name + timestamp so keys stay unique); feedback prompt. Done: Phase 3 metrics measurable.
+
+### Phase 4 — Commerce loop and review
+
+**WP-4.1 — Write-back (M)** [D7] · Read: `power_supply_lines.py`, `portal.py add_schedule_line`. Do: H8.6; preview diff with price delta for pricing role only; apply. Tests: idempotent re-apply; consolidation replacing configurator lines; spool rounding; rollback.
+
+**WP-4.2 — Review request type and flow (S)** [D3] · H4.2 seed; `request_review` (0 errors required); round-robin reviewer assignment over enabled users holding `ilL Applications Engineer`.
+
+**WP-4.3 — Reviewer mode, comments, decisions (M)** [D3] · Read: `portal/drawing_review.py`. Do: comment pins; error overrides; `review_decide` publishing the package PDF as the request deliverable with `published_file_sha256` and `published_build_hash = design.build_hash` so the existing fingerprint works; stamp switch; status transitions. Tests: only the assigned reviewer decides; edit after approval → new revision, stamp removed.
+
+**WP-4.4 — D4 review gate (M)** [D4] · Read: `can_request_schedule_order`, `portal/site_flags.py`. Do: H8.5; banners on the schedule page and Start screen; `override_review_gate`; order button disabled with reason. Tests: 1500 W (no trigger) vs 1500.1 W (trigger); DMX via configured protocol, controller line, third-party dimming, design flag; phase via protocol and dimmer line; satisfied by matching approved design; unsatisfied after a schedule change; override valid then invalidated; no effect when flag or setting is off; exception path. Done: verified on staging, then the flag is turned on (ops change).
+
+**WP-4.5 — Schedule page integration (S)** [D2] · "Design system" button, design badge, review chip, project page "Designs" tab. Template checks.
+
+**WP-4.6 — End-to-end commerce test (S)** · Playwright: open → assign → riser → review → approve → write back → SO allowed.
+
+### Phase 5 — Presentation, labels, DMX, auto-plan
+
+**WP-5.1 — Brand package and presentation diagram (M)** [D12] · Read: reference visualizer sections 0, 14, 19 helpers (`card`, `pill`, `drawStrip`, `drawPSU`). Do: `packages/present` SVG renderer, three variants, PNG rasterization, portal-only. Tests: SVG snapshots.
+
+**WP-5.2 — Labels (S)** [D10] · Avery 5160/5163 PDFs with QR codes to an installer share link created on demand.
+
+**WP-5.3 — DMX and advanced controls (M)** [D4] · DMX zones, decoders, auto-patch, terminator, Lutron/DALI devices; sets `uses_dmx`. Tests: `dmx-tw-rgbw`.
+
+**WP-5.4 — Auto-plan (M)** [D6] · H8.2 in TS + Python mirror; proposal drawer with supply count, cabinets, wire totals only. Tests: allocator golden cases; payload forbidden-key test.
+
+**WP-5.5 — Contextual "Why?" links (S)** · Map check codes → training visual ids (stub viewer until WP-7.2).
+
+### Phase 6 — 3D and plan view
+
+**WP-6.1 — Scene core port (M)** · Port orbit rig, materials, environment, lighting, overlay, exploded/section to current Three.js in `packages/scene3d/core`; screenshot snapshot harness.
+
+**WP-6.2 — Cove archetype from data (M)** [D9] · Cove kit parameterized by assigned runs (linear, L, U, rectangle); SH01 cross-section from ERP; supplies in cabinet; wires.
+
+**WP-6.3 — Under-cabinet, toe-kick, shelving, niche (L)** [D9, in this order] · Port the visualizer builders, parameterize, compose per space.
+
+**WP-6.4 — 3D exports (S)** · PNG with labels, turntable video, saved views.
+
+**WP-6.5 — Plan view (L)** · Private floor plan upload, PDF page render, calibration, placement, orthogonal routing with slack, measured lengths → runs; plan sheet PDF; design schema v2 (`FloorPlanSchema`) with migration.
+
+**WP-6.6 — Archetype selection UI (S)** · Per-space archetype pick with template `scene_archetypes` hints.
+
+### Phase 7 — Guides, training, package, sharing
+
+**WP-7.1 — Install guide generator (L)** · Read: reference visualizer section 21. `packages/guides` step templates (field-built vs factory-built), data from ERP build + design; walkthrough, video, printable PDF, QR.
+
+**WP-7.2 — Training library (M)** · `ilL-Training-Visual` seed for the ~40 visuals; `packages/present/training` bound to representative ERP products; Resources entry.
+
+**WP-7.3 — Documentation package (M)** [D8] · §14.1 merge (server-side pypdf merge of uploaded PDFs + spec submittals); "Data by dealer" appendix; ZIP.
+
+**WP-7.4 — Share links (S)** [D10] · H8.7; `design_share.{py,html}`; Finish screen controls. Tests: expiry, renew to now + 90 days, revoke, constant-time compare, audience filtering, no prices.
+
+**WP-7.5 — GA and riser archive (S)** [D1] · Settings `enabled = 1` for all dealers (ops). Riser repo final README notice; Kevin archives the repository on GitHub.
+
+### Phase 8 — Hardening
+
+- **WP-8.1** Performance at 500+ runs (worker batching, virtualized lists).
+- **WP-8.2** Ceiling reveal and stair archetypes [D9].
+- **WP-8.3** Metric units [D11]: per-user unit toggle, engine `units: m`, outputs in m/mm, Settings default.
+- **WP-8.4** Accessibility audit (WCAG 2.2 AA) and fixes.
+- **WP-8.5** Optional headless render worker (after confirming Frappe Cloud support).
+- **WP-8.6** Public presentation embed: design review only [D12]; implement only after a new decision.
+
+## H12. Pull-request sequence and review checklist
+
+**Sequence** (one PR per line unless noted):
+
+1. WP-0.1 · 2. WP-0.5 + WP-0.6 · 3. WP-0.2 · 4. WP-0.3 · 5. WP-0.4 · 6. WP-1.1 · 7. WP-1.2 · 8. WP-1.3 · 9. WP-1.4 · 10. WP-1.5 · 11. WP-1.6 · 12. WP-2.2 · 13. WP-2.1 · 14. WP-1.7 · 15. WP-2.3 · 16. WP-2.4 · 17. WP-2.5 · 18. WP-2.6 (riser repo) · 19–27. WP-3.1 … WP-3.9 · 28–33. WP-4.1 … WP-4.6 · then Phases 5–8 in WP order.
+
+**Every PR must:**
+
+- [ ] Name the work package and decisions it implements.
+- [ ] List files read and any plan/code discrepancies found.
+- [ ] Pass `ruff check` / `ruff format --check` on changed Python, `python -B tools/check_b2b_changes.py`, `python -B -m unittest discover -s tests/portal_unit`, `python -B tools/check_portal_templates.py` (if templates changed), and in `tools/system_designer` (if TS changed) `npm test && npm run typecheck && npm run build && npm run schema:export` with outputs committed.
+- [ ] Add tests for every new branch; change golden fixtures only with an explanation.
+- [ ] Keep patches idempotent and new fields defaulted.
+- [ ] Contain no forbidden cost keys in any payload; prices only behind `Can View Pricing`.
+- [ ] Update this plan if a contract or decision implementation changed.
+
+---
+
+## Appendix A — Field mapping: ERP → engine catalog
+
+**Req** = required for a complete (non-`incomplete`) item.
 
 **A.1 Tape (`kind: 'tape'`)**
 
-| Engine | ERP source | Transform |
+| Engine | ERP source | Transform | Req |
+|---|---|---|---|
+| `id` | `tape:{spec}:{w}:{cut}` | — | ✓ |
+| `sku` / `erpItemCode` | `ilL-Spec-LED Tape.item` | — | ✓ |
+| `voltage` | `input_voltage` → `nominal_voltage_v` | must be 12/24/48 | ✓ |
+| `drive` | `drive_type` | CV → `CV`; CV with CC IC → `CV-CC-IC` | ✓ |
+| `wPerFtMax` | offering `watts_per_ft_override` ‖ `watts_per_foot` | — | ✓ |
+| `powerBasis`, `maxSimultaneousPct` | `power_basis`, `max_simultaneous_pct` | All Channel Max → `all-channel-max` | ✓ (defaults) |
+| `channels`, `channelMap`, `channelWPerFtMax` | `channels`, `channel_limits` | names from table, else `CH1…` | ✓ (defaults) |
+| `maxRunFtSingleFeed` | `max_run_single_feed_ft` ‖ `voltage_drop_max_run_length_ft` | — | ✓ |
+| `maxRunFtDoubleFeed` | `max_run_double_feed_ft` | — | ✓ |
+| `freeCutting`, `cutIntervalIn` | `is_free_cutting`, offering `cut_increment_mm_override` ‖ `cut_increment_mm` | mm ÷ 25.4 | ✓ |
+| `minOperatingV` | `min_operating_voltage_v` | — | ✓ |
+| `reelLengthFt` | `reel_length_m` | × 3.28084 | |
+| `pixel` | `pixel_protocol`, `pixels_per_m`, `amps_per_pixel_max` | per m → per ft | if pixel |
+| visual | `led_pitch_mm`, `tape_width_mm`, `leds_per_cut_segment`, `lumens_per_foot`, CCT/CRI | presentation/3D only | |
+
+**A.2 Supply / driver**
+
+| Engine | ERP source | Req |
 |---|---|---|
-| `id` | `tape:{spec}:{offering}` | — |
-| `sku` / `erpItemCode` | `ilL-Spec-LED Tape.item` (offering-level Item when present) | — |
-| `voltage` | `input_voltage` → `ilL-Attribute-Output Voltage.nominal_voltage_v` (new) | must be 12/24/48 else `incomplete` |
-| `drive` | `drive_type` (new) | CV / CV-CC-IC |
-| `wPerFtMax` | offering `watts_per_ft_override` ‖ spec `watts_per_foot` | — |
-| `powerBasis` / `maxSimultaneousPct` | new fields | defaults |
-| `channels` / `channelMap` / `channelWPerFtMax` | new channel table; default from LED package | — |
-| `maxRunFtSingleFeed` | `max_run_single_feed_ft` (new) ‖ `voltage_drop_max_run_length_ft` | — |
-| `maxRunFtDoubleFeed` | `max_run_double_feed_ft` (new) | else `incomplete` |
-| `freeCutting` / `cutIntervalIn` | `is_free_cutting` / offering `cut_increment_mm_override` ‖ `cut_increment_mm` | mm ÷ 25.4 |
-| `minOperatingV` | `min_operating_voltage_v` (new) | — |
-| `reelLengthFt` | `reel_length_m` (new) | m × 3.2808 |
-| `pixel` | new pixel section | — |
-| (visual) | `led_pitch_mm`, `tape_width_mm`, `leds_per_segment`, `lumens_per_foot`, CCT/CRI from offering | presentation/3D only |
+| `inputType`, `inputVMin`, `inputVMax` | `input_voltage_type`, `input_voltage_min/max` | ✓ |
+| `inputPhase` | `input_phase` | ✓ (default) |
+| `outputType` | `output_type` (Constant Voltage → `CV` psu; Constant Current → `CC` driver) | ✓ |
+| `outputV` | `voltage_output` → `nominal_voltage_v` | CV ✓ |
+| `outputmA`, `outputVMin/Max` | `output_current_ma`, `compliance_v_min/max` | CC ✓ |
+| `ratedW` | `max_wattage` | ✓ |
+| `outputs[]` | `independent_outputs_count` × `{maxW: max_wattage_per_output, class2: class2_outputs}` | ✓ |
+| `efficiency`, `powerFactor` | same names | ✓ |
+| `maxInputA`, `maxInputAAtV`, `inrushA`, `maxUnitsPer20ABreaker` | same names | |
+| `dimming[]` | `input_protocols` → Appendix B | ✓ |
+| `terminalMinAwg/MaxAwg` | same | ✓ |
+| `listings[]` | `certifications` | |
+| derate | `usable_load_factor` | ✓ |
+| `rank` (D6) | H7.4 | ✓ |
 
-**A.2 Supply / driver (`kind: 'psu' | 'driver'`)**
+**A.3 Controls**
 
-| Engine | ERP source |
-|---|---|
-| `inputType`, `inputVMin`, `inputVMax` | `input_voltage_type`, `input_voltage_min`, `input_voltage_max` |
-| `inputPhase` | `input_phase` (new) |
-| `outputType` | `output_type` (CV→psu, CC→driver) |
-| `outputV` | `voltage_output` → attribute `nominal_voltage_v` |
-| `outputmA`, `outputVMin/Max` | `output_current_ma`, `compliance_v_min/max` (new) |
-| `ratedW` | `max_wattage` |
-| `outputs[]` | `independent_outputs_count` × `{maxW: max_wattage_per_output, class2: class2_outputs}` |
-| `efficiency`, `powerFactor` | new |
-| `maxInputA`, `maxInputAAtV`, `inrushA`, `maxUnitsPer20ABreaker` | new |
-| `dimming[]` | `input_protocols` → protocol map |
-| `terminalMinAwg/MaxAwg` | new |
-| `listings[]` | `certifications` |
-| derate | `usable_load_factor` |
+| Engine | ERP source | Req |
+|---|---|---|
+| category | `controller_type` (A.5) | ✓ |
+| `channels`, `maxAPerChannel`, `maxATotal`, `maxWPerChannel`, `maxWTotal` | `channels`, `max_a_per_channel`, `max_load_amps`, `max_w_per_channel`, `max_load_watts` | decoder ✓ |
+| `dmxFootprint`, `unitLoad`, `dmxThru` | same | DMX ✓ |
+| `protocolIn/Out`, `ports[]` | `input_protocols`, `output_protocols`, `ports` | ✓ |
+| `powerType`, `outputDimming` | `input_voltage_type`, `output_dimming` | AC decoder ✓ |
+| `ownPowerW` | `standby_power_watts` | |
+| dimmer limits | `min_load_w`, `led_max_w`, `max_supplies`, `neutral_required` | phase dimmer ✓ |
 
-**A.3 Controls (`kind: 'decoder' | 'controller'`)**
-
-| Engine | ERP source |
-|---|---|
-| category | `controller_type` → map (A.5) |
-| `channels`, `maxAPerChannel`, `maxATotal`, `maxWPerChannel`, `maxWTotal` | `channels`, new per-channel fields, `max_load_amps`, `max_load_watts` |
-| `dmxFootprint`, `unitLoad`, `dmxThru` | new |
-| `protocolIn/Out`, `ports[]` | `input_protocols`, `output_protocols`, new ports table |
-| `powerType`, `outputDimming` | `input_voltage_type`, `output_dimming` (new) |
-| `ownPowerW` | `standby_power_watts` |
-| dimmer limits | `min_load_w`, `led_max_w`, `max_supplies`, `neutral_required` (new) |
-
-**A.4 Schedule line → design run**
-
-| Design | Source |
-|---|---|
-| `run_key` | `{line_key}:{build_index}:{run_index}` |
-| type tag | `line_id` |
-| space | `location` (mapped to a space) |
-| electrical item | configured record `tape_offering` / `tape_spec` |
-| length | `ilL-Child-Configured-Run.run_len_mm` (linear) or segment/run plan (tape/neon) |
-| watts | `run_watts` |
-| feeds | segment `start/end_power_feed_type`, `power_feed_type` attribute (`connection_type`, `directionality`) |
-| factory leader | `cable_manifest_json` entry for the run |
-| environment | `environment_rating` (default), overridable |
-| default supply | `power_plan_json.allocations` for that run |
+**A.4 Schedule line → design run** — see H8.1.
 
 **A.5 Controller type → engine category**
 
-`ilL-Spec-Controller.controller_type` today offers: DMX Controller, Wireless Receiver, Wall Dimmer, Scene Controller, Sensor, Gateway, Repeater. That is too coarse for the engine, which needs decoders, converters and dimmer types to be distinct.
-
-| `controller_type` (ERP) | Engine category | Action |
+| `controller_type` | Engine category | Action |
 |---|---|---|
 | DMX Controller | `dmx-controller` | — |
 | Wireless Receiver | `wireless-rx` | — |
-| Wall Dimmer | `phase-dimmer` (new engine category) or `0-10v-dimmer` | Split by `output_dimming` (phase-forward / phase-reverse / 0-10V) |
+| Wall Dimmer | `phase-dimmer` (new engine category) or `0-10v-dimmer` | split by `output_dimming` |
 | Scene Controller | `keypad` | — |
 | Gateway | `sacn-gateway` | — |
-| Repeater | `opto-splitter` | Confirm intent |
-| Sensor | not modelled | Add an engine `sensor` category later, or draw as a control-only device |
-| *(missing)* DMX Decoder | `dmx-decoder` | Add option |
-| *(missing)* DMX to 0-10V Converter | `dmx-0-10v-converter` | Add option |
-| *(missing)* Pixel Controller | `pixel-controller` | Add option |
-| *(missing)* Wireless Transmitter | `wireless-tx` | Add option |
-| *(missing)* Relay, Lutron Module | `relay`, `lutron-module` | Add options |
+| Repeater | `opto-splitter` | confirm intent with staff |
+| Sensor | not modelled | draw as a control-only device (later) |
+| DMX Decoder *(new)* | `dmx-decoder` | WP-1.3 |
+| DMX to 0-10V Converter *(new)* | `dmx-0-10v-converter` | WP-1.3 |
+| Pixel Controller *(new)* | `pixel-controller` | WP-1.3 |
+| Wireless Transmitter *(new)* | `wireless-tx` | WP-1.3 |
+| Relay, Lutron Module *(new)* | `relay`, `lutron-module` | WP-1.3 |
 
-Add the missing options and the `phase-dimmer` engine category in Phase 1.
+**A.6 Wire (D7)** — `ilL-Spec-Wire` → riser `WireType`: `id = wire:{item}`, `name = wire_name`, `category` lower-kebab, `applications` split, `conductors` from child rows, `listing`, `ratedV`, `tempRatingC`, flags, `resistanceOhmPerKft`, `ampacityA`, `ampacityBasis`, `odIn`, `riserLabel`, `isExample: false`, `verify: !is_verified`, `source: {kind: 'manufacturer', reference: source_reference}`, plus `erpItemCode = item`, `salesUom`, `spoolLengthFt`.
 
-### Appendix B — Protocol vocabulary
+## Appendix B — Protocol vocabulary
 
-One shared mapping table (Python and TS) from `ilL-Attribute-Dimming Protocol` names to the engine enum: `none`, `phase-forward` (TRIAC, leading edge), `phase-reverse` (ELV, trailing edge), `0-10V`, `1-10V`, `DALI-2`, `DMX512`, `RDM`, `sACN`, `Art-Net`, `CRMX-wireless`, `Lutron-QS`, `Lutron-EcoSystem`, `PWM`, `SPI`. Unmapped ERP values make the item `incomplete` with "unmapped protocol: X," never a silent default.
+**B.1 Dimming protocols.** One table (`system_design/protocols.py` and `packages/data/src/protocols.ts`, kept identical by a parity test) from `ilL-Attribute-Dimming Protocol.engine_protocol` to the engine enum: `none`, `phase-forward` (TRIAC, leading edge), `phase-reverse` (ELV, trailing edge), `0-10V`, `1-10V`, `DALI-2`, `DMX512`, `RDM`, `sACN`, `Art-Net`, `CRMX-wireless`, `Lutron-QS`, `Lutron-EcoSystem`, `PWM`, `SPI`. The WP-1.1 patch pre-fills `engine_protocol` by case-insensitive label match (TRIAC → phase-forward, ELV → phase-reverse, 0-10V, DALI → DALI-2, DMX → DMX512, SPI); unmatched values stay blank and make dependent items `incomplete` ("unmapped protocol: X").
 
-### Appendix C — Validation codes added by the designer
+**B.2 Environments.** UI labels → engine `EnvironmentSchema`: Dry concealed → `dry-concealed`; In-wall → `dry-concealed` plus a rule requiring CL2/CL3 or better listing; Plenum → `plenum`; Riser → `riser`; Raceway → `raceway`; Damp → `wet` for wire selection (conservative) and `Damp` for supply location rating; Wet → `wet`; Outdoor exposed → `outdoor-exposed`; Direct burial → `direct-burial`. ERP `environment_rating` values map in one table in `expansion.py` (read the attribute records first).
 
-| Code | Meaning |
-|---|---|
-| `PROFILE_THERMAL_LIMIT` | Tape W/ft above the profile's thermal limit |
-| `SUPPLY_LOCATION_RATING` | Supply rated dry placed in a damp/wet location |
-| `SUPPLY_NO_ACCESS` | Supply location has no service access marked |
-| `CABINET_HEAT` | Enclosed cabinet heat above guideline |
-| `DIMMER_MIN_LOAD` / `DIMMER_LED_MAX` / `DIMMER_SUPPLY_COUNT` / `DIMMER_NEUTRAL` | Phase dimmer limits |
-| `SCHEDULE_OUT_OF_SYNC` | Design built on an older schedule version |
-| `CONFIG_PLAN_REPLACED` | Configurator supply lines superseded by the design (info) |
-| `DATA_BY_DEALER` | Third-party product data entered by the dealer (info, printed) |
+## Appendix C — Validation codes
 
-### Appendix D — Key source references
+**Riser engine (kept):** `INCOMPLETE_SPEC`, `UNRESOLVED_REF`, `CYCLE`, `VOLTAGE_MISMATCH`, `DRIVE_MISMATCH`, `PROTOCOL_MISMATCH`, `INPUT_V_OUT_OF_RANGE`, `PSU_OVERLOAD`, `CHANNEL_OVERCURRENT`, `BREAKER_OVERLOAD`, `TAPE_UNDERVOLTAGE`, `NO_VALID_WIRE`, `DMX_ADDRESS_OVERLAP`, `DMX_ADDRESS_OVERFLOW`, `PSU_ABOVE_DERATE`, `CLASS2_OVER_100VA`, `VD_OVER_TARGET`, `TAPE_RUN_TOO_LONG`, `TERMINAL_OVERSIZE`, `DMX_UNIT_LOADS`, `DMX_LENGTH`, `DMX_NO_TERMINATOR`, `SPI_DATA_LENGTH`, `INRUSH_LIMIT`, `PHASE_DIMMER_COMPAT_UNKNOWN`, `EXAMPLE_PRODUCT_IN_USE`, `MAX_LENGTH_HINT`, `SUGGEST_SPLIT_FEED`, `CODE_TABLE_UNAVAILABLE`, `WIRE_REQUIRES_VERIFICATION`, `INVALID_SPEC`, `INVALID_PORT`, `DMX_TOPOLOGY`, `PARALLEL_REVIEW_REQUIRED`, `DATA_LENGTH`, `CC_COMPLIANCE`, `INPUT_CURRENT_ESTIMATED`, `QTY_DISTRIBUTION`, `DEVICE_CAPACITY`.
 
-**ERP (this repo):** `illumenate_lighting/illumenate_lighting/api/power_planner.py`, `tape_neon_power.py`, `linear_power.py`, `driver_catalog.py`, `power_supply_lines.py`, `linear_build.py` (`cable_manifest`), `configurator_engine.py` (max run rules), `spec_submittal.py`, `document_requests.py`, `portal.py` (schedule endpoints), `doctype/ill_project_fixture_schedule`, `doctype/ill_child_fixture_schedule_line`, `doctype/ill_configured_fixture`, `doctype/ill_configured_tape_neon`, `doctype/ill_spec_*`, `doctype/ill_drawing_review`, `doctype/ill_line_document`, `tools/configurator_ui` (bundle pattern), `docs/DEALER_PORTAL_ASSESSMENT_AND_IMPLEMENTATION_PLAN.md`, `docs/MVP_CONSTRAINTS.md`.
+**Added by the designer** (extend `ValidationMessageSchema.code` in WP-3.5):
 
-**Riser repo:** `src/schemas/{project,catalog,wire,common,library}.ts`, `src/engine/{calculate,loads,voltageDrop,wireSelect,dmx,bom,graph}.ts`, `src/drawing/` (layout, symbols, sheet), `src/serializers/{svg,pdf,dxf}`, `src/features/erp/sync.ts`, `server/proxy.mjs`, `src/data/nec/*.json`, `docs/acceptance-report.md`, `docs/drawing-revision-1.1.md`.
+| Code | Severity | Meaning |
+|---|---|---|
+| `PROFILE_THERMAL_LIMIT` | warning | Tape W/ft above the profile's `max_w_per_ft` |
+| `SUPPLY_LOCATION_RATING` | error | Supply location rating below the cabinet's |
+| `SUPPLY_NO_ACCESS` | warning | Cabinet has no access note |
+| `CABINET_HEAT` | warning | Enclosed cabinet heat above guideline |
+| `DIMMER_MIN_LOAD` / `DIMMER_LED_MAX` / `DIMMER_SUPPLY_COUNT` | error | Phase dimmer limits |
+| `DIMMER_NEUTRAL` | warning | Dimmer needs a neutral; confirm the box has one |
+| `VD_TARGET_LOOSENED` | info | Staff loosened a VD target (D5) |
+| `SCHEDULE_OUT_OF_SYNC` | warning | Design built on an older schedule version/fingerprint |
+| `CONFIG_PLAN_REPLACED` | info | Configurator supply lines superseded by the design |
+| `DATA_BY_DEALER` | info | Third-party data entered by the dealer (D8) |
+| `REVIEW_REQUIRED` | info | D4 requires approval before ordering |
 
-**Visualizer (single HTML file):** sections 0 (brand), 1–1d (data to be replaced by ERP), 7–10 (3D builders), 11 (labels overlay), 13 (exploded/section), 14 (schematic), 17 (export), 19–20 (training visuals), 21 (install guide, `CAD_SH01`).
+## Appendix D — Source references
 
-### Appendix E — Glossary
+**ERP (this repo):** `api/power_planner.py`, `api/tape_neon_power.py`, `api/linear_power.py`, `api/driver_catalog.py`, `api/power_supply_lines.py`, `api/linear_build.py` (`cable_manifest`), `api/configurator_engine.py` (max run), `api/spec_submittal.py`, `api/document_requests.py`, `api/portal.py` (schedule endpoints, `create_schedule_sales_order`, `add_schedule_line`, `_safe_error`), `api/product_readiness.py`, `portal/access.py`, `portal/staff.py`, `portal/site_flags.py`, `portal/drawing_review.py`, `doctype/ill_project_fixture_schedule` (`can_request_schedule_order`), `doctype/ill_child_fixture_schedule_line`, `doctype/ill_configured_fixture`, `doctype/ill_configured_tape_neon`, `doctype/ill_spec_*`, `doctype/ill_drawing_review`, `doctype/ill_line_document`, `templates/pages/product_finder.{py,html}`, `tools/configurator_ui`, `tests/portal_unit/test_services.py`, `.github/workflows/{ci,b2b-contracts}.yml`, `patches/create_product_finder_role.py`, `docs/DEALER_PORTAL_ASSESSMENT_AND_IMPLEMENTATION_PLAN.md`, `docs/MVP_CONSTRAINTS.md`.
+
+**Riser repo:** `src/schemas/{project,catalog,wire,common,library}.ts`, `src/engine/{calculate,loads,voltageDrop,wireSelect,dmx,bom,graph}.ts`, `src/drawing/`, `src/serializers/`, `src/features/erp/sync.ts`, `server/proxy.mjs`, `src/data/nec/*.json`, `src/data/wires.seed.json`, `examples/`, `docs/acceptance-report.md`, `docs/drawing-revision-1.1.md`.
+
+**Visualizer (`tools/system_designer/reference/led-tape-system-visualizer.html` after WP-0.4):** section 0 (brand), 1–1d (EXAMPLE data to replace), 7–10 (3D builders), 11 (overlay), 13 (exploded/section), 14 (schematic), 17 (export), 19–20 (training), 21 (install guide, `CAD_SH01`).
+
+## Appendix E — Glossary
 
 - **Run:** a continuous electrically connected length of tape or a fixture's internal circuit, fed by one supply output.
 - **Feed:** a point where power enters a run (end, both ends, center, injection).
-- **Home run:** the field wire from a supply output to a run's feed (or from a junction to the factory leader).
+- **Home run:** field wire from a supply output to a run's feed.
 - **Cabinet / enclosure:** a named location holding supplies and controls.
 - **Design Catalog:** the versioned, engine-shaped product snapshot generated from ERP specs.
-- **Build hash:** SHA-256 of a design's canonical inputs, engine version and catalog snapshot; proves an output is unchanged.
-- **Archetype:** a parameterized 3D scene kit for a common application (cove, under-cabinet…).
+- **Build hash:** SHA-256 of a design's canonical inputs, engine version and catalog snapshot.
+- **Archetype:** a parameterized 3D scene kit (cove, under-cabinet, …).
+- **Applications Engineer:** ilLumenate staff role that reviews and approves designs (D3).
+- **Review gate:** the D4 rule blocking Sales Orders for DMX, phase-cut dimming or > 1.5 kW schedules without an approved design.
+- **Data by dealer:** third-party product data entered by the dealer; calculated, always flagged (D8).
