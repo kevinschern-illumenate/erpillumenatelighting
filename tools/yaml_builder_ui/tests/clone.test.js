@@ -196,6 +196,23 @@ test('a copied template and product do not link each other, and records already 
   assert.equal(result.catalog.records.Item[0].item_name, 'Already drafted');
 });
 
+test('rules can also rewrite text in the copies, and names built from text follow', () => {
+  const reference = exported();
+  const rename = ruleRenamer([{ find: 'DEMO', replace: 'CAST' }, { find: 'Example', replace: 'Castle' }]);
+  const options = { root, reference, schema, full: fromExport(reference), rename };
+  const plain = cloneFamily(emptyCatalog('fixture'), schema, discoverFamily(options), fromExport(reference)).catalog;
+  assert.equal(plain.records['ilL-Fixture-Template'][0].default_profile_family, 'DEMO');
+  const discovery = discoverFamily({ ...options, renameText: rename });
+  const next = cloneFamily(emptyCatalog('fixture'), schema, discovery, fromExport(reference), { renameText: rename }).catalog;
+  const template = next.records['ilL-Fixture-Template'][0];
+  assert.deepEqual([template.default_profile_family, template.template_name], ['CAST', 'Castle Linear fixtures']);
+  assert.equal(next.records['ilL-Spec-Profile'][0].family, 'CAST');
+  // Links are renamed only through record renames; Select values are never rewritten.
+  assert.equal(next.records['ilL-Rel-Mounting-Accessory-Map'][0].template_type, 'ilL-Fixture-Template');
+  assert.equal(next.records['ilL-Spec-LED Tape'][0].leader_cable_item, 'CAST-LEADER');
+  assert.deepEqual(catalogIssues(next, schema, reference), []);
+});
+
 test('the copy limit stops discovery and says so', () => {
   const reference = exported();
   const discovery = discoverFamily({ root, reference, schema, full: () => undefined, rename: ruleRenamer([{ find: 'DEMO', replace: 'CAST' }]), limit: 3 });

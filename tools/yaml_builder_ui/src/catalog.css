@@ -238,3 +238,24 @@
 .catalog-clone-review ins { color: #245630; text-decoration: none; font-weight: 600; }
 @media (max-width: 760px) { .catalog-clone-pick { grid-template-columns: minmax(0, 1fr); } }
 .catalog-app .catalog-modal-actions { position: sticky; bottom: -28px; margin: 12px -28px -28px; padding: 4px 28px 16px; background: white; border-top: 1px solid #e0dace; }
+/* Generate rows */
+.catalog-app .catalog-generate-source { display: grid; gap: 4px; font-weight: 600; font-size: 12px; max-width: 420px; margin-bottom: 6px; }
+.catalog-generate-axis { border: 1px solid #e0dace; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.catalog-generate-axis-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 10px; align-items: end; margin-bottom: 8px; }
+.catalog-generate-axis-head label { display: grid; gap: 4px; font-weight: 600; font-size: 12px; }
+.catalog-app .catalog-generate-axis-head button, .catalog-app .catalog-generate-value-tools button { margin: 0; }
+.catalog-generate-value-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.catalog-app .catalog-generate-value-tools input { flex: 1 1 200px; width: auto; }
+.catalog-generate-value-tools span { font-size: 12px; color: #706b61; }
+.catalog-generate-checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 12px; max-height: 160px; overflow: auto; font-size: 13px; }
+.catalog-generate-checklist label { display: flex; gap: 6px; align-items: center; overflow-wrap: anywhere; }
+.catalog-generate-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 14px; }
+.catalog-generate-fields label { display: grid; gap: 3px; font-size: 12px; font-weight: 600; }
+.catalog-generate-fields small { font-weight: 400; }
+.catalog-generate h3 small { font-weight: 400; margin-left: 8px; }
+.catalog-generate code { font-size: 12px; background: #f1ede4; padding: 1px 4px; border-radius: 4px; }
+.catalog-replace-preview tr.is-muted td { color: #8a857a; }
+.catalog-generate-save { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.catalog-generate-save label { display: grid; gap: 4px; font-weight: 600; font-size: 12px; flex: 1 1 240px; }
+.catalog-app .catalog-generate-save button { margin: 0; }
+@media (max-width: 760px) { .catalog-generate-axis-head { grid-template-columns: minmax(0, 1fr); } }

@@ -27,6 +27,11 @@ try {
   const cloneReference = { source: 'export', doctypes: { 'ilL-Fixture-Template': { source: 'export', records: { 'DEMO-FIXTURE': { template_name: 'Demo' } } } } };
   const cloner = renderToStaticMarkup(React.createElement(CloneFamilyDialog, { catalog: examples.fixture, product: schema.products.fixture, reference: cloneReference, api: null, onApply() {}, onClose() {} }));
   assert.ok(cloner.includes('Clone an existing family') && cloner.includes('DEMO-FIXTURE') && cloner.includes('Fixture-Template'));
+  assert.ok(shell.includes('Generate rows'));
+  const { default: GenerateRowsDialog } = await server.ssrLoadModule('/src/GenerateRowsDialog.jsx');
+  const generator = renderToStaticMarkup(React.createElement(GenerateRowsDialog, { doctype: 'ilL-Rel-Endcap-Map', catalog: examples.fixture, reference: null,
+    onApply() {}, onSaveRecipe() {}, onDeleteRecipe() {}, onClose() {} }));
+  assert.ok(generator.includes('Generate Rel-Endcap-Map rows') && generator.includes('Endcap map from allowed options') && generator.includes('Already in the draft'));
   const { default: Workspace } = await server.ssrLoadModule('/src/Workspace.jsx');
   const erpShell = renderToStaticMarkup(React.createElement(Workspace, { loadReference, mode: 'erp' }));
   assert.ok(erpShell.includes('Refresh ERPNext records'));

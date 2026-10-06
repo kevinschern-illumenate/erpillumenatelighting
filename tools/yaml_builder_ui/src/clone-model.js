@@ -8,6 +8,8 @@ import { namingField, renameRecords } from './rename-model.js';
 
 const MASTERS = new Set(['Item Group', 'UOM', 'Brand', 'Item Attribute', 'Item Price', 'ilL-Webflow-Category']);
 const LINKS = new Set(['Link', 'Dynamic Link']);
+const TABLES = new Set(['Table', 'Table MultiSelect']);
+const TEXT = new Set(['Data', 'Small Text', 'Text', 'Long Text', 'Text Editor']);
 export const DEFAULT_LIMIT = 300;
 const key = (doctype, name) => JSON.stringify([doctype, name]);
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -85,10 +87,12 @@ export function ruleRenamer(rules, { matchCase = false } = {}) {
  * fetched full record (with child tables) or undefined; the reference fills in until then.
  * `modes` overrides a node's mode: 'copy', 'link' (keep linking the original) or 'existing'
  * (link the existing record that already has the new name).
+ * `renameText`, when given, also rewrites text fields in the copies (see cloneFamily), so
+ * format names built from text predict the copy's name.
  * Returns { nodes: [{ doctype, name, newName, mode, modes, reason, via, owner }], needed, truncated }:
  * `needed` lists copied records still to fetch, so their child-table links can be followed.
  */
-export function discoverFamily({ root, reference, schema, full = () => undefined, rename = name => name, modes = new Map(), limit = DEFAULT_LIMIT }) {
+export function discoverFamily({ root, reference, schema, full = () => undefined, rename = name => name, renameText = null, modes = new Map(), limit = DEFAULT_LIMIT }) {
   const index = ownerIndex(reference, schema);
   const content = (doctype, name) => full(doctype, name) ?? reference?.doctypes?.[doctype]?.records?.[name];
   const exists = (doctype, name) => full(doctype, name) !== undefined || inReference(reference, doctype, name);
@@ -143,7 +147,9 @@ export function discoverFamily({ root, reference, schema, full = () => undefined
     const rule = (schema.doctypes[doctype]?.autoname || '').slice(7);
     return rule.replace(/\{([^}]+)\}/g, (_, fieldname) => {
       const field = fields.get(fieldname);
-      return field && LINKS.has(field.fieldtype) ? linkedName(record, field) : String(record[fieldname] ?? '');
+      if (field && LINKS.has(field.fieldtype)) return linkedName(record, field);
+      const text = String(record[fieldname] ?? '');
+      return renameText && field && TEXT.has(field.fieldtype) ? renameText(text) : text;
     });
   }
 
@@ -179,18 +185,35 @@ export function discoverFamily({ root, reference, schema, full = () => undefined
   return { nodes: [...nodes.values()], needed, truncated };
 }
 
+/** Apply rename rules to a row's text fields and its child rows' text fields, leaving `skip`. */
+function renameTextFields(doctype, row, schema, rename, skip = null) {
+  const next = { ...row };
+  for (const field of schema.doctypes[doctype]?.fields || []) {
+    const value = row[field.fieldname];
+    if (field.fieldname === skip || value === undefined || value === null || value === '') continue;
+    if (TABLES.has(field.fieldtype) && Array.isArray(value)) {
+      next[field.fieldname] = value.map(child => isRecord(child) ? renameTextFields(field.options, child, schema, rename) : child);
+    } else if (TEXT.has(field.fieldtype) && typeof value === 'string') next[field.fieldname] = rename(value);
+  }
+  return next;
+}
+
 /**
  * Add a discovered family's copies to a draft. Copies take their new names and every link
  * between them follows; links to 'existing' records point at the new name. A copied
  * template's `webflow_product` is cleared when the product is copied too, since the pair
  * would be circular on import. Records whose new name is already in the draft are skipped.
+ * With `renameText`, the rules also rewrite the copies' text fields (a profile family code,
+ * a product name); links and record names are always handled by the renames.
  */
-export function cloneFamily(catalog, schema, discovery, full) {
+export function cloneFamily(catalog, schema, discovery, full, { renameText = null } = {}) {
   const records = {};
   const copied = discovery.nodes.filter(node => node.mode === 'copy');
   for (const node of copied) {
-    const row = structuredClone(full(node.doctype, node.name) || {});
-    if (namingField(node.doctype, schema) === 'name') row.name = node.name;
+    const naming = namingField(node.doctype, schema);
+    let row = structuredClone(full(node.doctype, node.name) || {});
+    if (renameText) row = renameTextFields(node.doctype, row, schema, renameText, naming);
+    if (naming === 'name') row.name = node.name;
     (records[node.doctype] ||= []).push(row);
   }
   // Format names follow their links, but links hold the stored name, which can predate the format.

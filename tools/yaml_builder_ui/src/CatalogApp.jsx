@@ -7,6 +7,7 @@ import ImportHistory from './ImportHistory.jsx';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import FindReplaceDialog from './FindReplaceDialog.jsx';
 import CloneFamilyDialog from './CloneFamilyDialog.jsx';
+import GenerateRowsDialog from './GenerateRowsDialog.jsx';
 import { recordCounts } from './erp-api.js';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
@@ -15,6 +16,7 @@ import {
 } from './catalog-model.js';
 import { issueIndex, findingGroups } from './grid-model.js';
 import { renameRecords, applyReplace } from './rename-model.js';
+import { withRecipe } from './generator-model.js';
 import { RecordFields } from './RecordFields.jsx';
 import { RecordGrid, GridData } from './RecordGrid.jsx';
 import './catalog.css';
@@ -138,6 +140,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const [confirm, setConfirm] = useState(null);
   const [findOpen, setFindOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
   // Snapshots of the active product's draft; catalogs are never mutated, so snapshots share unchanged records.
   const [history, setHistory] = useState({ product: null, past: [], future: [] });
   const [view, setView] = useState(restoreView);
@@ -230,6 +233,8 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const payload = useMemo(() => {
     const next = { ...resolved };
     if (mode === 'erp') delete next.add_to_reference;
+    // Editor settings (saved recipes) are never imported, so editing them needs no new Check.
+    delete next.builder;
     return next;
   }, [resolved, mode]);
   const payloadKey = JSON.stringify(payload);
@@ -343,6 +348,10 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       result.skipped.length ? `Skipped ${plural(result.skipped.length, 'record')} already in the draft: ${result.skipped.slice(0, 5).map(item => item.name).join(', ')}${result.skipped.length > 5 ? '…' : ''}.` : '',
       result.cleared.length ? `Cleared the Webflow product link on ${result.cleared.map(item => item.name).join(', ')} to avoid a circular import; set it in ERPNext after importing.` : '',
       'Review the copies, then Undo if anything looks wrong.'].filter(Boolean).join(' '));
+  };
+  const addGenerated = (generated, left) => {
+    replaceRows([...rows, ...generated], { label: `Generate ${generated.length} rows` });
+    setMessage(`Added ${plural(generated.length, `${shortName(selected)} row`)}${left ? `; ${left} other ${left === 1 ? 'combination was' : 'combinations were'} not added` : ''}. Review them in the table; Undo removes them.`);
   };
   const copyRecord = async (name, summary) => {
     const target = currentDraft.current;
@@ -486,6 +495,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
           </div>
           <button disabled={!timeline.past.length} onClick={undo} title={timeline.past.length ? `Undo ${timeline.past.at(-1).label.toLowerCase()} (Ctrl+Z)` : 'Nothing to undo'}>↶ Undo</button>
           <button disabled={!timeline.future.length} onClick={redo} title={timeline.future.length ? `Redo ${timeline.future.at(-1).label.toLowerCase()} (Ctrl+Y)` : 'Nothing to redo'}>↷ Redo</button>
+          <button onClick={() => setGenerateOpen(true)} title={`Add ${shortName(selected)} rows for every combination of chosen values`}>Generate rows</button>
           <button onClick={() => setFindOpen(true)} title="Rename records or replace text across the draft; links follow renamed records (Ctrl+H)">Find &amp; replace</button>
           {!view.table && <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)], { label: 'Add record' })}>+ Add record</button>}
           <button ref={readinessToggle} className="catalog-readiness-toggle" aria-expanded={readinessOpen} aria-controls="catalog-readiness"
@@ -571,6 +581,10 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     </fieldset>
     {confirm && <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} />}
     {cloneOpen && <CloneFamilyDialog catalog={catalog} product={product} reference={reference} api={api} onApply={addFamily} onClose={() => setCloneOpen(false)} />}
+    {generateOpen && <GenerateRowsDialog doctype={selected} catalog={catalog} reference={reference} onApply={addGenerated}
+      onSaveRecipe={recipe => setCatalog(withRecipe(catalog, selected, recipe.name, recipe), { label: 'Save recipe' })}
+      onDeleteRecipe={name => setCatalog(withRecipe(catalog, selected, name, null), { label: 'Delete recipe' })}
+      onClose={() => setGenerateOpen(false)} />}
     {findOpen && <FindReplaceDialog catalog={catalog} reference={reference} doctype={selected} onApply={replaceAll} onClose={() => setFindOpen(false)} />}
   </div>;
 }

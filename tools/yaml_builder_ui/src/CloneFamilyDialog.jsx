@@ -27,6 +27,7 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
   const [modes, setModes] = useState(() => new Map());
   const [show, setShow] = useState('copy');
   const [replaceDraft, setReplaceDraft] = useState(false);
+  const [renameInside, setRenameInside] = useState(true);
   const [fetched, setFetched] = useState(() => new Map());
   const [failed, setFailed] = useState(() => new Map());
   const inflight = useRef(new Set());
@@ -36,9 +37,11 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
   const full = useMemo(() => api
     ? (doctype, name) => fetched.get(key(doctype, name))
     : (doctype, name) => reference?.doctypes?.[doctype]?.records?.[name], [api, fetched, reference]);
+  const rename = useMemo(() => ruleRenamer(rules, { matchCase }), [rules, matchCase]);
+  const renameText = renameInside ? rename : null;
   const discovery = useMemo(() => root && reference
-    ? discoverFamily({ root, reference, schema, full, modes, rename: ruleRenamer(rules, { matchCase }) })
-    : { nodes: [], needed: [], truncated: false }, [root, reference, full, modes, rules, matchCase]);
+    ? discoverFamily({ root, reference, schema, full, modes, rename, renameText })
+    : { nodes: [], needed: [], truncated: false }, [root, reference, full, modes, rename, renameText]);
   const waiting = discovery.needed.filter(node => !failed.has(key(node.doctype, node.name)));
   // Fetch records to copy a few at a time; each arrival can reveal more links to follow.
   useEffect(() => {
@@ -74,7 +77,7 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
   const setMode = (node, mode) => setModes(previous => new Map(previous).set(key(node.doctype, node.name), mode));
   const setRule = (index, field, value) => setRules(previous => previous.map((rule, i) => i === index ? { ...rule, [field]: value } : rule));
   const apply = () => {
-    const result = cloneFamily(replaceDraft ? { ...emptyCatalog(catalog.product_type), series_name: catalog.series_name } : catalog, schema, discovery, full);
+    const result = cloneFamily(replaceDraft ? { ...emptyCatalog(catalog.product_type), series_name: catalog.series_name } : catalog, schema, discovery, full, { renameText });
     onClose();
     onApply({ ...result, root, newRoot: rootNode?.newName });
   };
@@ -110,6 +113,8 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
         </div>)}
         <button type="button" onClick={() => setRules([...rules, { find: '', replace: '' }])}>+ Add rule</button>
         <label className="catalog-clone-option"><input type="checkbox" checked={matchCase} onChange={e => setMatchCase(e.target.checked)} /> Match case exactly</label>
+        <label className="catalog-clone-option"><input type="checkbox" checked={renameInside} onChange={e => setRenameInside(e.target.checked)} />
+          Also apply the rules to text inside the copies, such as profile family codes and product names</label>
       </section>}
       {root && <section className="catalog-clone-step" aria-label="Review">
         <h3>3. Review</h3>

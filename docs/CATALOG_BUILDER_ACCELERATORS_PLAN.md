@@ -17,7 +17,10 @@ it's imported. The features below go after those costs.
 | 4 | Coverage preflight ("Will it configure?") | Post-import Desk fixes | M–L | 3 for "Generate missing" |
 | 5 | Draft library + ERPNext draft sync | Save/Open YAML shuffling; one draft per type | M | — |
 
-Suggested order: **1 → 2 → 3 → 4 → 5**. Each lands as its own PR with tests,
+Suggested order: **1 → 2 → 3 → 4 → 5**.
+
+**Status (2026-10-06):** features 1–3 are implemented on `staging`; 4 and 5 are not
+started. See *Implementation notes* at the end for where the build differs from this plan. Each lands as its own PR with tests,
 README/CATALOG.md updates, and a rebuilt ERP bundle (`npm run build:erp`, commit
 `illumenate_lighting/public/catalog_builder/`).
 
@@ -285,3 +288,44 @@ overwrite), revision conflict, size limit. Browser: switch drafts, restore a ver
   for server changes; `ruff check .` and `ruff format .`.
 - Update `tools/yaml_builder_ui/README.md` and `tools/fixture_builder/CATALOG.md`.
 - Server changes (features 4 and 5) need **Migrate** on deploy; UI-only ones need **Pull**.
+
+## Implementation notes (features 1–3)
+
+Where the shipped code differs from the plan above:
+
+- **Modules.** Rename and find/replace live in `src/rename-model.js` (not
+  `catalog-model.js`), cloning in `src/clone-model.js`, the generator in
+  `src/generator-model.js`; dialogs are `FindReplaceDialog.jsx`, `CloneFamilyDialog.jsx`
+  and `GenerateRowsDialog.jsx`. Tests: `tests/rename.test.js`, `tests/clone.test.js`,
+  `tests/generator.test.js`.
+- **Renames cascade.** Renaming a record also renames records whose names derive from
+  it (a Link naming field such as a spec's `item`, or a `format:` rule), repeating until
+  names stop changing. `external_links` declarations are left alone: they name records
+  that already exist in ERPNext.
+- **Rename on edit** applies when focus leaves a name cell in the table (not on each
+  keystroke, so an intermediate name never captures another record's links). It merges
+  into the typing undo step. The card view and row form don't propagate.
+- **Clone decides by name.** A record is copied when the rename rules change its name,
+  and linked otherwise; there is no "shared vs. owned" inbound-link scan. Owned records
+  are found through a template link, else a spec link, else the Item a spec or variant
+  describes, so sibling templates sharing an Item are never pulled in. Stored ERPNext
+  names often predate their `format:` rule (68 of 85 tape offerings) or a renamed Item,
+  so derived names are compared with the same derivation before renaming, and links to
+  copies are renamed from the stored name. Driver eligibility rows are not pulled in
+  from driver specs. A new name already in ERPNext becomes **Use existing**.
+- **Clone also rewrites text** (optional, on by default) so family codes such as
+  `default_profile_family` follow the rules; without this, generator patterns built
+  from those fields kept the old family code.
+- **No server endpoint was needed for cloning:** the existing `api.record` fetches full
+  records, and the live reference supplies top-level links for ownership.
+- **Recipes are stored in the draft only** (`builder.recipes`), not also in browser
+  storage, so they travel with **Save draft**. The client strips `builder` from the
+  Check/Import payload; `catalog_authoring/catalog.py` accepts and ignores it.
+- **Generator presets are keyed by DocType**, not product type, and pre-select axis
+  values from the draft at the time they're chosen.
+- **Verified on real data** (the committed ERPNext export): cloning `ILL-CA01-SW` as
+  `ILL-CA09-SW` gives 57 records with no browser findings in either Vercel or ERPNext
+  mode. The CLI still reports values the source records were already missing
+  (`default_profile_spec`, submittal mapping `item`). Deleting two endcap maps and
+  running the endcap preset regenerates exactly those two rows.
+

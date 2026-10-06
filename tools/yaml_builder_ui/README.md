@@ -200,8 +200,36 @@ rename rules such as `CA01` → `CA03`. Rules apply in order to every name. Unle
 - In ERPNext, records to copy are fetched in full, child rows included. A record that
   can't be read blocks the clone until you keep it as an original. On Vercel the
   export provides them, with only short fields for Webflow products.
+- **Also apply the rules to text inside the copies** (on by default) rewrites text
+  fields too, such as a template's profile family code (`CA01` → `CA03`) and product
+  names. Links are only ever changed through renamed records, and choice fields are
+  never rewritten.
 - Records whose new name is already in the draft are skipped. **Replace the current
   draft** starts from an empty draft instead. Undo reverses the whole clone.
+
+### Generate rows
+
+**Generate rows** (above the table) adds rows to the current DocType for every
+combination of chosen values, so maps and Item sets don't need typing row by row.
+
+- **Axes** each have a name and values, either typed one per line or chosen from a
+  DocType's draft and ERPNext records. For attributes, **Allowed in templates** picks
+  the values the draft's templates allow.
+- **Field patterns** fill each field. `{style}` is the style axis's value. `{style.code}`
+  reads that record's `code`. Dotted fields follow links, so `{pair.endcap_color.code}`
+  goes from a Finish Endcap Color record to its Endcap Color's code. Text without
+  tokens is the same for every row, and empty fields keep their defaults.
+- **Presets** start from the draft: endcap maps from allowed styles and finish colors,
+  mounting maps from allowed mounting methods, driver eligibility, leader cable maps,
+  tape offerings, and profile, lens and endcap Items coded from the template's
+  profile family. Run a preset after adding an option to a template, and only the
+  missing rows are new.
+- **Preview** marks each row as new, already in the draft, existing in ERPNext, or
+  repeating an earlier row; only new rows are added. Uncheck any you don't want. Rows
+  with empty token values are flagged. Up to 2000 combinations.
+- **Save recipe** keeps the axes and patterns in the draft under `builder.recipes`, so
+  **Save draft** and **Open YAML** carry them. Recipes are never imported and don't
+  require a new Check. Undo removes generated rows.
 
 ### Add a new catalog to the reference (Vercel and CLI)
 
