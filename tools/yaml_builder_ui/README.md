@@ -97,6 +97,38 @@ Neither editor uploads attachments, publishes products, or creates orders.
 Live ERPNext readiness remains authoritative for site records, compatibility
 coverage, electrical selection, PDFs, and channel publication.
 
+## Work in the record table
+
+Each DocType opens as a table: one row per record, one column per field. The record
+name column stays pinned while you scroll. Switch to **Cards** for the previous
+one-card-per-record form, and use **Wide** to give the table the full width (import
+readiness moves below it).
+
+- **Review:** each column header shows how many rows are filled (`3/10`). **Columns**
+  hides fields or shows only fields with data (required fields always stay), and the
+  field search above the table shows only matching columns. Choices and column widths
+  (drag a header edge; double-click resets) are remembered per DocType in this
+  browser. **Filter rows** finds records by any value.
+- **Spreadsheet keys:** Tab, arrows and Enter move between cells. Shift+arrows,
+  Shift+click or dragging selects a block; clicking a header or row number selects a
+  column or row. Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste blocks, including to
+  and from Excel or Google Sheets. Pasting one value into a block fills every selected
+  cell, and pasting past the last row adds rows. Ctrl+D fills down, Delete clears, and
+  Ctrl+Z / Ctrl+Y undo and redo any table change. **Shortcuts** lists them all.
+- **Rows:** check rows (Shift+click checks a range), or select their cells, then
+  **Duplicate**, **Insert row**, move them with ↑ / ↓, or **Delete** them. Duplicated
+  records have their name cleared so you can give each copy a new one.
+- **Child tables** show their row count; click one to edit its rows as a nested table
+  under the record. Copying a child-table cell copies all its rows, so pasting it into
+  another record's cell (or filling down) copies the child rows too. The ⤢ button
+  opens a record as the full form with field descriptions.
+- **Bulk entry:** **Copy table** copies the shown rows and columns with headers.
+  **Paste rows** appends rows from spreadsheet cells on the clipboard, matching
+  columns by header name when the first line has them.
+- Cells with validation findings are shaded red and list the findings on hover; row
+  numbers show a count of findings for the row, its child rows included. Links to
+  existing ERPNext records have a green edge.
+
 ## Existing ERPNext records
 
 For Vercel and the CLI, `src/erp-reference.json` is a snapshot of the records already in ERPNext, built from
@@ -208,5 +240,5 @@ the shared examples, run `python -m tools.fixture_builder.catalog_examples` from
 repository root with PyYAML installed.
 
 See the [catalog contract](../fixture_builder/CATALOG.md) for coverage, YAML format,
-import behavior, and limits. The main files are `src/CatalogApp.jsx`,
+import behavior, and limits. The main files are `src/CatalogApp.jsx`, `src/RecordGrid.jsx`, `src/grid-model.js`,
 `src/catalog-model.js`, and `tools/fixture_builder/catalog.py`.

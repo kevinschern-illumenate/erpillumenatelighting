@@ -12,6 +12,7 @@ const examples = JSON.parse(readFileSync(new URL('../src/catalog-examples.json',
 const server = await createServer({ configFile: false, plugins: [react()], server: { middlewareMode: true }, appType: 'custom' });
 try {
   const { default: CatalogApp, RecordFields } = await server.ssrLoadModule('/src/CatalogApp.jsx');
+  const { RecordGrid, GridData } = await server.ssrLoadModule('/src/RecordGrid.jsx');
   const loadReference = () => new Promise(() => {});
   const shell = renderToStaticMarkup(React.createElement(CatalogApp, { onLegacy() {}, loadReference }));
   assert.ok(shell.includes('Add to ERPNext reference after import'));
@@ -28,6 +29,9 @@ try {
         const html = renderToStaticMarkup(React.createElement(RecordFields, { doctype, row, catalog, onChange() {} }));
         assert.ok(html.includes('catalog-fields'), `${product} / ${doctype} must render`);
       }
+      const grid = renderToStaticMarkup(React.createElement(GridData.Provider, { value: { catalog, reference: null, undo() {}, redo() {} } },
+        React.createElement(RecordGrid, { doctype, rows: records, onChange() {} })));
+      assert.ok(grid.includes('grid-table') && (grid.match(/class="grid-rowhead"/g) || []).length === records.length, `${product} / ${doctype} table must render`);
     }
   }
   const { default: Legacy } = await server.ssrLoadModule('/src/App.jsx');
