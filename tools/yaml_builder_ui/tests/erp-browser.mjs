@@ -70,6 +70,9 @@ try {
     state.reference = route => route.abort();
     await page.getByRole('dialog').getByRole('button', { name: 'Import to ERPNext', exact: true }).click();
     await expect(page.getByText('Created 1 records in ERPNext.')).toBeVisible();
+    // The refresh failure is flagged on the readiness button and explained in its panel.
+    await expect(page.locator('.catalog-readiness-toggle')).toContainText('Existing ERPNext records did not load');
+    await page.locator('.catalog-readiness-toggle').click();
     await expect(page.locator('.catalog-review [role=alert]')).toContainText('Failed to fetch');
     assert.deepEqual(state.calls.find(call => call.method === 'import_catalog').body, { catalog: expected, expected_hash: 'checked-hash' });
     await expect(importButton).toBeDisabled();
@@ -99,8 +102,8 @@ try {
     await page.getByRole('button', { name: 'Errors', exact: true }).click();
     await expect(page.locator('.catalog-result-table tbody tr')).toHaveCount(1);
     await page.getByRole('button', { name: 'Edit UI-KIT', exact: true }).click();
-    // The table view focuses the record's row; cards focus the record card.
-    await expect(page.locator(`[id="catalog-record-${doctype}-0"]`)).toBeFocused();
+    // The table view focuses the record's first cell; cards focus the record card.
+    await expect(page.getByLabel('Template Code, row 1', { exact: true })).toBeFocused();
     await expect(page.locator('.catalog-editor h2')).toHaveText('Extrusion-Kit-Template');
     await page.getByRole('button', { name: 'Skipped', exact: true }).click();
     await expect(page.locator('.catalog-result-table')).toContainText('Dependency failed');
@@ -116,6 +119,7 @@ try {
     await expect(importButton).toBeDisabled();
     assert.equal(state.calls.filter(call => call.method === 'import_catalog').length, 1);
     state.history = route => route.abort();
+    await page.locator('.catalog-readiness-toggle').click();
     await page.locator('.catalog-history summary').click();
     await expect(page.getByRole('button', { name: 'Retry history' })).toBeVisible();
     state.history = route => json(route, []);

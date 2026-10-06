@@ -101,9 +101,21 @@ coverage, electrical selection, PDFs, and channel publication.
 
 Each DocType opens as a table: one row per record, one column per field. The record
 name column stays pinned while you scroll. Switch to **Cards** for the previous
-one-card-per-record form, and use **Wide** to give the table the full width (import
-readiness moves below it).
+one-card-per-record form.
 
+- **More room:** **« Hide** the ERPNext records list to give the table the full width.
+  **☰ ERPNext records** then opens it as a drawer that closes once you choose a
+  DocType; **Pin** keeps it open beside the table. The choice is remembered.
+- **Stay on track:** the bar above the table stays in view and shows badges as you
+  edit: the current DocType's findings, and on **Import readiness** the checks to
+  resolve (red), declared existing records not found (amber, `?`), a failed load of
+  existing records (`!`) and, in ERPNext, whether the last Check failed or is out of
+  date. A badge pulses when its count goes up; ✓ means ready. Each DocType in the list
+  shows its own count.
+- **Import readiness** opens as a dropdown with every readiness action: findings
+  grouped by DocType (select one to jump to its cell, opening child tables and hidden
+  columns on the way), unresolved links, declared records, the import command or
+  ERPNext history, and the YAML preview. Escape or a click outside closes it.
 - **Review:** each column header shows how many rows are filled (`3/10`). **Columns**
   hides fields or shows only fields with data (required fields always stay), and the
   field search above the table shows only matching columns. Choices and column widths

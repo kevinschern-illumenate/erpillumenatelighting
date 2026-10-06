@@ -11,7 +11,7 @@ import {
   referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
   catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey,
 } from './catalog-model.js';
-import { issueIndex } from './grid-model.js';
+import { issueIndex, findingGroups } from './grid-model.js';
 import { RecordFields } from './RecordFields.jsx';
 import { RecordGrid, GridData } from './RecordGrid.jsx';
 import './catalog.css';
@@ -50,7 +50,40 @@ function asNewRecord(doctype, row) {
 }
 
 function restoreView() {
-  try { return { table: true, wide: false, ...JSON.parse(localStorage.getItem(VIEW)) }; } catch { return { table: true, wide: false }; }
+  const defaults = { table: true, types: 'pinned' };
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(VIEW)) }; } catch { return defaults; }
+}
+
+/** True for a moment after `value` grows, so a badge can draw the eye to a new problem. */
+function useBump(value) {
+  const [bump, setBump] = useState(false);
+  const previous = useRef(value);
+  useEffect(() => {
+    const grew = value > previous.current;
+    previous.current = value;
+    if (!grew) return undefined;
+    setBump(true);
+    const timer = setTimeout(() => setBump(false), 1600);
+    return () => clearTimeout(timer);
+  }, [value]);
+  return bump;
+}
+
+/** Close a popover on Escape or a press outside the given elements. */
+function useDismiss(open, close, refs) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const press = event => { if (!refs.some(ref => ref.current?.contains(event.target))) close(); };
+    const key = event => { if (event.key === 'Escape') close(); };
+    document.addEventListener('mousedown', press);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', press); document.removeEventListener('keydown', key); };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+function Badge({ tone, label, children, bump = false }) {
+  return <span className={`catalog-badge is-${tone}${bump ? ' is-bump' : ''}`} title={label}>
+    <span aria-hidden="true">{children}</span><span className="catalog-sr">{label}</span></span>;
 }
 
 function restorePending() {
@@ -113,6 +146,12 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   currentRun.current = run;
   const [historyRevision, setHistoryRevision] = useState(0);
   const [selection, setSelection] = useState(null);
+  const [drawer, setDrawer] = useState(false);
+  const [readinessOpen, setReadinessOpen] = useState(false);
+  const drawerRef = useRef(null);
+  const drawerToggle = useRef(null);
+  const readinessRef = useRef(null);
+  const readinessToggle = useRef(null);
   const runBusy = useRef(false);
   const busy = ['checking', 'importing'].includes(run.phase);
   const fileInput = useRef(null);
@@ -204,6 +243,8 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const missing = useMemo(() => unresolvedLinks(catalog, schema, reference), [catalog, reference]);
   const unconfirmed = useMemo(() => unconfirmedLinks(catalog, reference), [catalog, reference]);
   const cellIssues = useMemo(() => issueIndex(issues, missing, catalog, schema), [issues, missing, catalog]);
+  const findings = useMemo(() => findingGroups(issues, cellIssues, schema), [issues, cellIssues]);
+  const findingCounts = Object.fromEntries(findings.groups.map(group => [group.doctype, group.count]));
   const fromErp = Object.values(resolved.external_links).reduce((sum, names) => sum + names.length, 0)
     - Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0);
   const total = Object.values(catalog.records).reduce((sum, rows) => sum + rows.length, 0);
@@ -244,14 +285,29 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const selectResult = (doctype, name) => {
     const index = (catalog.records[doctype] || []).findIndex(row => recordName(doctype, row, schema) === name);
     if (index < 0) { setMessage('This record is no longer in the current draft.'); return; }
-    setSelected(doctype); setFieldSearch(''); setSelection({ doctype, index });
+    setSelected(doctype); setFieldSearch(''); setSelection({ doctype, index, nonce: Date.now() });
   };
+  /** Show a finding's record, and in the table its cell, opening child tables as needed. */
+  const goToFinding = item => {
+    setReadinessOpen(false); setDrawer(false);
+    setSelected(item.doctype); setFieldSearch('');
+    setSelection({ doctype: item.doctype, index: item.index, rest: item.rest, nonce: Date.now() });
+  };
+  const chooseDoctype = doctype => {
+    setSelected(doctype); setFieldSearch('');
+    if (view.types !== 'pinned') setDrawer(false);
+  };
+  useDismiss(drawer, () => setDrawer(false), [drawerRef, drawerToggle]);
+  useDismiss(readinessOpen, () => setReadinessOpen(false), [readinessRef, readinessToggle]);
+  const issueBump = useBump(issues.length);
+  const unconfirmedBump = useBump(unconfirmed.length);
   useEffect(() => {
-    if (!selection) return;
+    // The table focuses its own rows and cells; cards focus the record.
+    if (!selection || view.table) return;
     const element = document.getElementById(recordId(selection.doctype, selection.index));
     element?.focus({ preventScroll: true });
     element?.scrollIntoView({ block: 'center' });
-  }, [selection]);
+  }, [selection]); // eslint-disable-line react-hooks/exhaustive-deps
   const copyRecord = async (name, summary) => {
     const target = currentDraft.current;
     setCopying(name);
@@ -353,28 +409,101 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
         } })}>Start a new draft</button>
       </div>}
     </div>}
-    <div className={`catalog-layout ${view.wide ? 'is-wide' : ''}`}>
-      <aside className="catalog-sidebar">
-        <h2>ERPNext records</h2><input aria-label="Find a DocType" placeholder="Find a DocType…" value={search} onChange={e => setSearch(e.target.value)} />
+    <div className={`catalog-layout ${view.types === 'pinned' ? '' : 'is-collapsed'}`}>
+      {(view.types === 'pinned' || drawer) && <aside className={`catalog-sidebar ${view.types === 'pinned' ? '' : 'is-drawer'}`} ref={drawerRef}
+        aria-label="ERPNext records">
+        <div className="catalog-sidebar-head"><h2>ERPNext records</h2>
+          <button onClick={() => { saveView({ ...view, types: view.types === 'pinned' ? 'hidden' : 'pinned' }); setDrawer(false); }}
+            title={view.types === 'pinned' ? 'Hide this list to give the table the full width' : 'Keep this list open beside the table'}>
+            {view.types === 'pinned' ? '« Hide' : 'Pin'}</button></div>
+        <input aria-label="Find a DocType" placeholder="Find a DocType…" value={search} onChange={e => setSearch(e.target.value)} autoFocus={drawer} />
         <div className="catalog-type-list">{orderedTypes.map(doctype => <button key={doctype} aria-pressed={selected === doctype}
-          onClick={() => { setSelected(doctype); setFieldSearch(''); }}>{shortName(doctype)} <span>{catalog.records[doctype]?.length || ''}</span></button>)}</div>
-      </aside>
+          onClick={() => chooseDoctype(doctype)}>{shortName(doctype)} <span className="catalog-type-counts">
+            {findingCounts[doctype] ? <Badge tone="error" label={`${findingCounts[doctype]} to fix`}>{findingCounts[doctype]}</Badge> : null}
+            <span>{catalog.records[doctype]?.length || ''}</span></span></button>)}</div>
+      </aside>}
       <main className="catalog-editor">
-        <div className="catalog-section-title"><div><h2>{shortName(selected)}</h2><p>{rows.length} records in this catalog</p></div>
+        <div className="catalog-bar">
+          {view.types !== 'pinned' && <button ref={drawerToggle} className="catalog-types-toggle" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}
+            title="Choose a DocType">☰ ERPNext records</button>}
+          <div className="catalog-bar-title"><h2>{shortName(selected)}</h2>
+            {findingCounts[selected] ? <Badge tone="error" label={`${findingCounts[selected]} to fix in ${shortName(selected)}`}>{findingCounts[selected]}</Badge> : null}
+            <p>{rows.length} {rows.length === 1 ? 'record' : 'records'}</p></div>
           <div className="catalog-segmented" role="group" aria-label="Record view">
             <button aria-pressed={view.table} onClick={() => saveView({ ...view, table: true })} title="One row per record, one column per field">Table</button>
             <button aria-pressed={!view.table} onClick={() => saveView({ ...view, table: false })} title="One card per record, with field descriptions">Cards</button>
           </div>
-          <button aria-pressed={view.wide} onClick={() => saveView({ ...view, wide: !view.wide })} title="Give the editor the full width and show import readiness below it">Wide</button>
           <button disabled={!timeline.past.length} onClick={undo} title={timeline.past.length ? `Undo ${timeline.past.at(-1).label.toLowerCase()} (Ctrl+Z)` : 'Nothing to undo'}>↶ Undo</button>
           <button disabled={!timeline.future.length} onClick={redo} title={timeline.future.length ? `Redo ${timeline.future.at(-1).label.toLowerCase()} (Ctrl+Y)` : 'Nothing to redo'}>↷ Redo</button>
-          {!view.table && <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)], { label: 'Add record' })}>+ Add record</button>}</div>
+          {!view.table && <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)], { label: 'Add record' })}>+ Add record</button>}
+          <button ref={readinessToggle} className="catalog-readiness-toggle" aria-expanded={readinessOpen} aria-controls="catalog-readiness"
+            onClick={() => setReadinessOpen(!readinessOpen)}>
+            Import readiness
+            {issues.length > 0 && <Badge tone="error" bump={issueBump} label={`${issues.length} ${issues.length === 1 ? 'check' : 'checks'} to resolve`}>{issues.length}</Badge>}
+            {unconfirmed.length > 0 && <Badge tone="warn" bump={unconfirmedBump} label={`${unconfirmed.length} declared ${unconfirmed.length === 1 ? 'record' : 'records'} not found`}>{unconfirmed.length}?</Badge>}
+            {referenceError && <Badge tone="error" label="Existing ERPNext records did not load">!</Badge>}
+            {mode === 'erp' && (run.stale || (run.phase === 'checked' && run.payloadKey !== payloadKey)) && <Badge tone="warn" label="Changed since the last check">Re-check</Badge>}
+            {mode === 'erp' && run.response?.status === 'Failed' && !run.stale && <Badge tone="error" label="The last check failed">Check failed</Badge>}
+            {!issues.length && !unconfirmed.length && !referenceError && <Badge tone="ok" label="Ready">✓</Badge>}
+            <span aria-hidden="true"> ▾</span>
+          </button>
+          <div className="catalog-review" id="catalog-readiness" ref={readinessRef} role="region" aria-label="Import readiness details" hidden={!readinessOpen}>
+            <div className="catalog-review-head"><strong>Import readiness</strong><button onClick={() => setReadinessOpen(false)}>Close</button></div>
+            {issues.length > 0 ? <section className="catalog-findings" aria-label="Checks to resolve">
+              <h3>{issues.length} {issues.length === 1 ? 'check' : 'checks'} to resolve</h3>
+              <p>Select one to go to the cell.</p>
+              {findings.general.map(text => {
+                const missingType = /^Add at least one (.+)$/.exec(text)?.[1];
+                return <div className="catalog-finding is-general" key={text}><span>{text}</span>
+                  {missingType && schema.doctypes[missingType] && <button onClick={() => { chooseDoctype(missingType); setReadinessOpen(false); }}>Open {shortName(missingType)}</button>}</div>;
+              })}
+              {findings.groups.map(group => <details key={group.doctype} open={group.doctype === selected || findings.groups.length <= 3 || undefined}>
+                <summary>{shortName(group.doctype)} <Badge tone="error" label={`${group.count} to fix`}>{group.count}</Badge></summary>
+                {group.items.map(item => <button className="catalog-finding" key={item.path} onClick={() => goToFinding(item)}>
+                  <strong>{item.label}</strong><span>{item.messages.join('; ')}</span></button>)}
+              </details>)}
+            </section> : <p className="catalog-ok">Structure and references are ready for {mode === 'erp' ? 'Check in ERPNext' : 'CLI engineering validation'}.</p>}
+            <p>Each link must point to a record in this catalog, a record in {mode === 'erp' ? 'the live ERPNext list' : 'the ERPNext export'}, or a record you confirm already exists in ERPNext.</p>
+            <p>{reference ? `${fromErp} links resolve to existing ERPNext records (${reference.source === 'live' ? `live from ERPNext, loaded ${loadedTime(reference.exported_on)}` : `export of ${reference.exported_on}`}).` : referenceLoading ? 'Loading existing ERPNext records…' : 'Existing ERPNext records have not loaded.'}</p>
+            {referenceError && <ApiError error={referenceError} />}
+            {mode === 'erp' && <button disabled={referenceLoading} onClick={() => loadExisting({ refresh: true })}>{referenceLoading ? 'Loading ERPNext records…' : 'Refresh ERPNext records'}</button>}
+            {reference?.skipped?.length > 0 && <details><summary>No read access to {reference.skipped.length} DocTypes</summary><p>No read access to: {reference.skipped.join(', ')}</p></details>}
+            {mode !== 'erp' && catalog.add_to_reference && <p className="catalog-ok">On download, this catalog's records become existing ERPNext records for your other catalogs. Import the package into ERPNext and commit the reference file the CLI updates.</p>}
+            {mode !== 'erp' && ownPending.length > 0 && <details><summary>{ownPending.length} {ownPending.length === 1 ? 'catalog' : 'catalogs'} pending in this browser</summary>
+              <p>These count as existing until the shared reference includes them.</p>
+              {ownPending.map(row => <div className="catalog-link" key={row.catalog}><strong>{row.catalog}</strong>
+                <small>{Object.values(row.records).reduce((sum, names) => sum + names.length, 0)} records · {row.added_on}{row.catalog === catalogKey(catalog) ? ' · this catalog' : ''}</small>
+                <button onClick={() => setPending(previous => previous.filter(item => item.catalog !== row.catalog))}>Remove from this browser</button></div>)}</details>}
+            {missing.some(link => link.doctype === 'Item') && <button onClick={() => { setCatalog(makeItemRecords(catalog, schema, reference), { label: 'Create missing Items' }); chooseDoctype('Item'); }}>Create missing Item records</button>}
+            {missing.length > 0 && <details open><summary>{missing.length} unresolved links</summary>{missing.map(link => <div className="catalog-link" key={JSON.stringify([link.doctype, link.name])}>
+              <strong>{link.name}</strong><small>{link.doctype || 'Select the Dynamic Link DocType first'}</small>
+              {link.doctype && <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [link.doctype]: [...(catalog.external_links[link.doctype] || []), link.name] } }, { label: 'Declare existing record' })}>Use existing ERPNext record</button>}
+            </div>)}</details>}
+            {unconfirmed.length > 0 && <details open><summary>{unconfirmed.length} declared records not in {mode === 'erp' ? 'the live ERPNext list' : 'the ERPNext export'}</summary>
+              <p>{mode === 'erp' ? 'Check for a typo, refresh the list, or confirm you have read access to the record.' : 'Check for a typo, or confirm the record was created after the export.'}</p>
+              {unconfirmed.map(link => <div className="catalog-link" key={`${link.doctype}/${link.name}`}><strong>{link.name}</strong><small>{link.doctype}</small></div>)}</details>}
+            <details><summary>Declared existing ERPNext records ({Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0)})</summary>
+              {Object.entries(catalog.external_links).flatMap(([doctype, names]) => names.map(name => <div className="catalog-link" key={`${doctype}/${name}`}><strong>{name}</strong><small>{doctype}</small>
+                <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [doctype]: names.filter(value => value !== name) } }, { label: 'Remove declaration' })}>Remove declaration</button></div>))}</details>
+            {mode === 'erp' ? <>
+              <h3>Check and import in ERPNext</h3>
+              <p>Check is a full dry run with ERPNext validation. Import is all-or-nothing. Publication remains separate, through Readiness and Publication.</p>
+              <ImportHistory api={api} revision={historyRevision} />
+            </> : <>
+              <h3>Generate the import package</h3><code>python -m tools.fixture_builder --config "{filename}" --output ./output/{workspace.active}/</code>
+              <p>The CLI validates engineering values and creates ordered CSVs plus an import manifest. Run it from the repository root.</p>
+            </>}
+            <button onClick={() => setShowPreview(!showPreview)}>{showPreview ? 'Hide YAML' : 'Preview YAML'}</button>
+            {showPreview && <pre>{yaml}</pre>}
+          </div>
+        </div>
         <ReferencePanel key={selected} doctype={selected} reference={reference}
           onCopy={copyRecord} copying={copying} />
         <input className="catalog-field-search" aria-label="Find a field" placeholder={view.table ? 'Show columns matching…' : 'Find a field by name…'} value={fieldSearch} onChange={e => setFieldSearch(e.target.value)} />
         {view.table ? <GridData.Provider value={{ catalog, reference, issues: cellIssues, undo, redo }}>
           <RecordGrid key={selected} doctype={selected} rows={rows} columnFilter={fieldSearch} onChange={replaceRows}
-            copyRow={row => asNewRecord(selected, row)} rowIdPrefix={recordPrefix(selected)} />
+            copyRow={row => asNewRecord(selected, row)} rowIdPrefix={recordPrefix(selected)}
+            focus={view.table && selection?.doctype === selected ? selection : null} />
         </GridData.Provider> : <>
           {!rows.length && <div className="catalog-empty"><h3>Add your first {shortName(selected)} record</h3><p>Use the current ERPNext fields below, or load an example to explore a complete product setup.</p></div>}
           {rows.map((row, index) => <section className="catalog-record" id={recordId(selected, index)} tabIndex={-1} key={index}>
@@ -386,41 +515,6 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
           </section>)}
         </>}
       </main>
-      <aside className="catalog-review">
-        <h2>Import readiness</h2><p>Each link must point to a record in this catalog, a record in {mode === 'erp' ? 'the live ERPNext list' : 'the ERPNext export'}, or a record you confirm already exists in ERPNext.</p>
-        <p>{reference ? `${fromErp} links resolve to existing ERPNext records (${reference.source === 'live' ? `live from ERPNext, loaded ${loadedTime(reference.exported_on)}` : `export of ${reference.exported_on}`}).` : referenceLoading ? 'Loading existing ERPNext records…' : 'Existing ERPNext records have not loaded.'}</p>
-        {referenceError && <ApiError error={referenceError} />}
-        {mode === 'erp' && <button disabled={referenceLoading} onClick={() => loadExisting({ refresh: true })}>{referenceLoading ? 'Loading ERPNext records…' : 'Refresh ERPNext records'}</button>}
-        {reference?.skipped?.length > 0 && <details><summary>No read access to {reference.skipped.length} DocTypes</summary><p>No read access to: {reference.skipped.join(', ')}</p></details>}
-        {mode !== 'erp' && catalog.add_to_reference && <p className="catalog-ok">On download, this catalog's records become existing ERPNext records for your other catalogs. Import the package into ERPNext and commit the reference file the CLI updates.</p>}
-        {mode !== 'erp' && ownPending.length > 0 && <details><summary>{ownPending.length} {ownPending.length === 1 ? 'catalog' : 'catalogs'} pending in this browser</summary>
-          <p>These count as existing until the shared reference includes them.</p>
-          {ownPending.map(row => <div className="catalog-link" key={row.catalog}><strong>{row.catalog}</strong>
-            <small>{Object.values(row.records).reduce((sum, names) => sum + names.length, 0)} records · {row.added_on}{row.catalog === catalogKey(catalog) ? ' · this catalog' : ''}</small>
-            <button onClick={() => setPending(previous => previous.filter(item => item.catalog !== row.catalog))}>Remove from this browser</button></div>)}</details>}
-        {missing.some(link => link.doctype === 'Item') && <button onClick={() => { setCatalog(makeItemRecords(catalog, schema, reference), { label: 'Create missing Items' }); setSelected('Item'); }}>Create missing Item records</button>}
-        {missing.length > 0 && <details open><summary>{missing.length} unresolved links</summary>{missing.map(link => <div className="catalog-link" key={JSON.stringify([link.doctype, link.name])}>
-          <strong>{link.name}</strong><small>{link.doctype || 'Select the Dynamic Link DocType first'}</small>
-          {link.doctype && <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [link.doctype]: [...(catalog.external_links[link.doctype] || []), link.name] } }, { label: 'Declare existing record' })}>Use existing ERPNext record</button>}
-        </div>)}</details>}
-        {unconfirmed.length > 0 && <details open><summary>{unconfirmed.length} declared records not in {mode === 'erp' ? 'the live ERPNext list' : 'the ERPNext export'}</summary>
-          <p>{mode === 'erp' ? 'Check for a typo, refresh the list, or confirm you have read access to the record.' : 'Check for a typo, or confirm the record was created after the export.'}</p>
-          {unconfirmed.map(link => <div className="catalog-link" key={`${link.doctype}/${link.name}`}><strong>{link.name}</strong><small>{link.doctype}</small></div>)}</details>}
-        <details><summary>Declared existing ERPNext records ({Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0)})</summary>
-          {Object.entries(catalog.external_links).flatMap(([doctype, names]) => names.map(name => <div className="catalog-link" key={`${doctype}/${name}`}><strong>{name}</strong><small>{doctype}</small>
-            <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [doctype]: names.filter(value => value !== name) } }, { label: 'Remove declaration' })}>Remove declaration</button></div>))}</details>
-        {issues.length > 0 ? <details><summary>{issues.length} validation findings</summary><ul>{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul></details> : <p className="catalog-ok">Structure and references are ready for {mode === 'erp' ? 'Check in ERPNext' : 'CLI engineering validation'}.</p>}
-        {mode === 'erp' ? <>
-          <h3>Check and import in ERPNext</h3>
-          <p>Check is a full dry run with ERPNext validation. Import is all-or-nothing. Publication remains separate, through Readiness and Publication.</p>
-          <ImportHistory api={api} revision={historyRevision} />
-        </> : <>
-          <h3>Generate the import package</h3><code>python -m tools.fixture_builder --config "{filename}" --output ./output/{workspace.active}/</code>
-          <p>The CLI validates engineering values and creates ordered CSVs plus an import manifest. Run it from the repository root.</p>
-        </>}
-        <button onClick={() => setShowPreview(!showPreview)}>{showPreview ? 'Hide YAML' : 'Preview YAML'}</button>
-        {showPreview && <pre>{yaml}</pre>}
-      </aside>
     </div>
     </fieldset>
     {confirm && <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} />}

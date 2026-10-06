@@ -346,3 +346,46 @@ export function issueIndex(issues, missing = [], catalog = null, schema = null) 
   }
   return { cells, under, rows };
 }
+
+/**
+ * Describe a finding location (`Doctype[0].child[1].field`) for people:
+ * { doctype, index, rest, label: 'Row 1 › Child 2 › Field' }, or null if it names no row.
+ */
+export function locatePath(path, schema) {
+  const match = /^(.+?)\[(\d+)\](?:\.(.*))?$/.exec(path);
+  if (!match || !schema.doctypes[match[1]]) return null;
+  const [, doctype, index, rest = ''] = match;
+  const parts = [`Row ${Number(index) + 1}`];
+  let current = doctype;
+  let remaining = rest;
+  while (remaining) {
+    const step = /^([^.[]+)(?:\[(\d+)\])?(?:\.(.*))?$/.exec(remaining);
+    if (!step) { parts.push(remaining); break; }
+    const field = schema.doctypes[current]?.fields.find(item => item.fieldname === step[1]);
+    const label = step[1] === 'name' && !field ? 'Record ID' : field?.label || step[1];
+    parts.push(step[2] === undefined ? label : `${label} ${Number(step[2]) + 1}`);
+    if (field && TABLE_TYPES.has(field.fieldtype)) current = field.options;
+    remaining = step[3] || '';
+  }
+  return { doctype, index: Number(index), rest, label: parts.join(' › ') };
+}
+
+/**
+ * Findings grouped by DocType in record order, for the readiness list and badges.
+ * `general` holds catalog-level findings that point at no record.
+ */
+export function findingGroups(issues, index, schema) {
+  const groups = new Map();
+  for (const [path, messages] of index.cells) {
+    const place = locatePath(path, schema);
+    if (!place) continue;
+    if (!groups.has(place.doctype)) groups.set(place.doctype, []);
+    groups.get(place.doctype).push({ path, ...place, messages });
+  }
+  const order = (a, b) => a.index - b.index || a.path.localeCompare(b.path, undefined, { numeric: true });
+  const general = issues.filter(issue => !/^(.+?\[\d+\][^:]*): /.test(issue) && !/: duplicate record /.test(issue));
+  return {
+    general,
+    groups: [...groups].map(([doctype, items]) => ({ doctype, items: items.sort(order), count: items.reduce((sum, item) => sum + item.messages.length, 0) })),
+  };
+}

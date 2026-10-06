@@ -132,7 +132,7 @@ function RowForm({ doctype, row, top, number, onChange, onClose }) {
 }
 
 const GridRow = memo(function GridRow(props) {
-  const { grid, doctype, row, index, r, columns, sel, active, checked, open, issues, path, top, actions, rowIdPrefix } = props;
+  const { grid, doctype, row, index, r, columns, sel, active, checked, open, issues, path, top, actions, rowIdPrefix, childFocus } = props;
   const [left, right] = sel ? sel.split(':').map(Number) : [-1, -2];
   const openKeys = open ? open.split('|') : [];
   const findings = issues.rows.get(`${path}[${index}]`) || [];
@@ -161,6 +161,7 @@ const GridRow = memo(function GridRow(props) {
               <button type="button" onClick={() => actions.toggleOpen(index, key)}>Close</button></div>
             {row?.[key] !== undefined && !Array.isArray(row[key]) && <p role="alert">Invalid child table. Adding rows replaces it.</p>}
             <RecordGrid doctype={column.options} rows={Array.isArray(row?.[key]) ? row[key] : []} path={`${path}[${index}].${key}`} top={false}
+              focus={childFocus?.key === key ? childFocus.focus : null}
               onChange={(rows, change) => actions.replaceRow(index, setField(row, key, rows.length ? rows : ''), change)} />
           </>}
       </div></td></tr>;
@@ -193,7 +194,11 @@ const SHORTCUTS = [
  * tables open as nested grids under their row. `onChange(rows, change)` receives
  * every edit; `change.label` names it for undo, `change.key` groups typing in one cell.
  */
-export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true, columnFilter = '', copyRow, rowIdPrefix = '' }) {
+/**
+ * `focus` ({ index, rest, nonce }) moves to a row, or to the field `rest` names inside
+ * it ("field" or "childTable[2].field"), opening child tables and hidden columns on the way.
+ */
+export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true, columnFilter = '', copyRow, rowIdPrefix = '', focus = null }) {
   const { reference, issues = EMPTY_ISSUES, undo, redo, catalog } = useContext(GridData);
   const grid = `g${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const wrap = useRef(null);
@@ -208,6 +213,13 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
   const drag = useRef(false);
   const lastChecked = useRef(null);
   const afterRender = useRef(null);
+  const focusRequest = useRef(null);
+  const seenFocus = useRef(null);
+  const [childFocus, setChildFocus] = useState(null);
+  if (focus && focus.nonce !== seenFocus.current) {
+    seenFocus.current = focus.nonce;
+    focusRequest.current = focus;
+  }
   const actions = useRef({}).current;
   const index = issues || EMPTY_ISSUES;
 
@@ -258,9 +270,37 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
     return () => window.removeEventListener('mouseup', stop);
   }, []);
   useEffect(() => {
-    if (!afterRender.current) return;
-    const { r, c } = afterRender.current;
-    afterRender.current = null;
+    if (afterRender.current) {
+      const { r, c } = afterRender.current;
+      afterRender.current = null;
+      move(r, c, false);
+    }
+    const request = focusRequest.current;
+    if (!request) return;
+    const r = order.indexOf(request.index);
+    if (r < 0) {
+      // A row filter may hide the row; clear it and try again after rendering.
+      if (needle && request.index < rows.length) setRowFilter(''); else focusRequest.current = null;
+      return;
+    }
+    const target = /^([^.[]+)(?:\[(\d+)\](?:\.(.*))?)?$/.exec(request.rest || '');
+    const key = target?.[1];
+    const c = key ? cols.findIndex(column => column.key === key) : -1;
+    if (key && c < 0 && all.some(column => column.key === key) && (hidden.includes(key) || prefs.dataOnly)) {
+      savePrefs({ ...prefs, hidden: hidden.filter(item => item !== key), dataOnly: false });
+      setStatus(`Showing the ${all.find(column => column.key === key).label} column.`);
+      return;
+    }
+    focusRequest.current = null;
+    if (c < 0) {
+      if (key && all.some(column => column.key === key)) setStatus(`Clear the column search to see ${all.find(column => column.key === key).label}.`);
+      move(r, 0, false);
+      return;
+    }
+    if (target[2] !== undefined && cols[c].kind === 'table') {
+      setOpen(previous => new Set(previous).add(`${request.index}|${key}`));
+      setChildFocus({ row: request.index, key, focus: { index: Number(target[2]), rest: target[3] || '', nonce: request.nonce } });
+    }
     move(r, c, false);
   });
 
@@ -594,7 +634,8 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
             return <GridRow key={i} grid={grid} doctype={doctype} row={rows[i]} index={i} r={r} columns={cols} top={top} path={path}
               sel={inRange ? `${bounds.left}:${bounds.right}` : ''} active={clamped && clamped.fr === r ? clamped.fc : -1}
               checked={checked.has(i)} open={rowOpen} issues={index} issueSig={(index.rows.get(`${path}[${i}]`) || []).join('\n')}
-              lists={lists} reference={reference} actions={actions} rowIdPrefix={rowIdPrefix} />;
+              lists={lists} reference={reference} actions={actions} rowIdPrefix={rowIdPrefix}
+              childFocus={childFocus?.row === i ? childFocus : null} />;
           })}
           {!order.length && <tr><td className="grid-empty" colSpan={cols.length + 1}>
             {rows.length ? 'No rows match the filter.' : 'No rows yet. Add a row, or copy cells from a spreadsheet and use Paste rows.'}</td></tr>}
