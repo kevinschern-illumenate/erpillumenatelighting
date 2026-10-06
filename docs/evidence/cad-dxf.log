@@ -1,0 +1,125 @@
+Redirect stdout (file: C:\Users\Kevin\AppData\Local\Temp\accc662442).
+AcCoreConsole: StdOutConsoleMode: processed-output: disabled,auto
+AutoCAD Core Engine Console - Copyright 2025 Autodesk, Inc.  All rights reserved. (W.74.0.0)
+
+Execution Path:
+C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe
+Current Directory: C:\Users\Kevin\Documents\Codex\2026-09-24\files-mentioned-by-the-user-illumenate\work\export-check
+Isolating to regkey=RiserExportQA, userDataFolder=C:\Users\Kevin\Documents\Codex\2026-09-24\files-mentioned-by-the-user-illumenate\work\export-check\cad-profile.
+
+INFO: Isolation create time: 661 ms.
+
+Version Number: W.74.0.0 (UNICODE)
+LogFilePath has been set to the working folder.
+CoreHeartBeat
+Regenerating model.
+Drawing created using acad.dwt from AutoCAD profile: <<Unnamed Profile>>
+**** System Variable Changed ****
+1 of the monitored system variables has changed from the preferred value. Use SYSVARMONITOR command to view changes.
+
+
+AutoCAD menu utilities loaded.
+Command:
+Command:
+
+Command:
+Command: (setvar "FILEDIA" 0)
+0
+
+Command: (setvar "CMDECHO" 1)
+1
+
+Command: (command "_.DXFIN" "C:/Users/Kevin/Documents/Codex/2026-09-24/files-mentioned-by-the-user-illumenate/work/export-check/example-riser-tiled.dxf")
+CoreHeartBeat
+_.DXFIN File name: C:/Users/Kevin/Documents/Codex/2026-09-24/files-mentioned-by-the-user-illumenate/work/export-check/example-riser-tiled.dxf Regenerating model.
+
+
+
+Auditing Header
+
+
+Auditing Tables
+
+
+Auditing Entities Pass 1
+
+Pass 1 1600    objects audited
+Auditing Entities Pass 2
+
+Pass 2 1600    objects audited
+Auditing Blocks
+
+ 8       Blocks audited
+
+
+
+Auditing AcDsRecords
+
+
+Total errors found 0 fixed 0
+
+Erased 0 objects
+
+
+Command: nil
+
+Command: (command "_.AUDIT" "_N")
+_.AUDIT
+Fix any errors detected? [Yes/No] <N>: _N
+
+
+Auditing Header
+
+
+Auditing Tables
+
+
+Auditing Entities Pass 1
+
+Pass 1 1600    objects audited
+Auditing Entities Pass 2
+
+Pass 2 1600    objects audited
+Auditing Blocks
+
+ 8       Blocks audited
+
+
+
+Auditing AcDsRecords
+
+
+Total errors found 0 fixed 0
+
+Erased 0 objects
+
+
+Command: nil
+
+Command: (setq riser-report (open "C:/Users/Kevin/Documents/Codex/2026-09-24/files-mentioned-by-the-user-illumenate/work/export-check/cad-dxf-entities.txt" "w"))
+#<file "C:/Users/Kevin/Documents/Codex/2026-09-24/files-mentioned-by-the-user-illumenate/work/export-check/cad-dxf-entities.txt">
+
+Command: (write-line (strcat "INSUNITS=" (itoa (getvar "INSUNITS"))) riser-report)
+"INSUNITS=1"
+
+Command: (setq riser-ss (ssget "_X"))
+<Selection set: 2>
+
+Command: (if riser-ss (progn (write-line (strcat "COUNT=" (itoa (sslength riser-ss))) riser-report) (setq riser-i 0) (repeat (sslength riser-ss) (setq riser-e (ssname riser-ss riser-i) riser-data (entget riser-e) riser-i (1+ riser-i)) (prin1 riser-data riser-report) (write-line "" riser-report) (if (= (cdr (assoc 0 riser-data)) "INSERT") (progn (setq riser-a (entnext riser-e)) (while (and riser-a (= (cdr (assoc 0 (entget riser-a))) "ATTRIB")) (prin1 (entget riser-a) riser-report) (write-line "" riser-report) (setq riser-a (entnext riser-a))))))))
+<Entity name: 112ac606380>
+
+Command: (setq riser-layer (tblnext "LAYER" T))
+((0 . "LAYER") (2 . "0") (70 . 0) (62 . 7) (6 . "Continuous"))
+
+Command: (while riser-layer (prin1 riser-layer riser-report) (write-line "" riser-report) (setq riser-layer (tblnext "LAYER")))
+nil
+
+Command: (close riser-report)
+nil
+
+Command: (princ "RISER_CAD_CHECK_COMPLETE")
+RISER_CAD_CHECK_COMPLETE"RISER_CAD_CHECK_COMPLETE"
+
+Command: (command "_.QUIT" "_Y")
+_.QUIT Really want to discard all changes to drawing? <N> _Y
+Command: ; error: Function cancelled
