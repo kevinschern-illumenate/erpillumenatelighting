@@ -10,13 +10,14 @@ Package spectrum type).
 FAMILIES = (
 	"Linear Fixture",
 	"LED Tape",
+	"COB Tape",
 	"LED Neon",
 	"LED Sheet",
 	"Extrusion Kit",
 	"Driver",
 	"Controller",
 )
-LIGHT = ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet")
+LIGHT = ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet")
 
 FACETS = {
 	"family": {"label": "Product type", "families": FAMILIES, "kind": "set", "doctypes": ()},
@@ -28,13 +29,13 @@ FACETS = {
 	},
 	"environment_rating": {
 		"label": "Environment rating",
-		"families": ("Linear Fixture", "LED Tape", "LED Neon", "Extrusion Kit", "Driver"),
+		"families": ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "Extrusion Kit", "Driver"),
 		"kind": "rank",
 		"doctypes": ("ilL-Attribute-Environment Rating",),
 	},
 	"ip_rating": {
 		"label": "IP rating",
-		"families": ("LED Tape", "LED Neon", "LED Sheet"),
+		"families": ("LED Tape", "COB Tape", "LED Neon", "LED Sheet"),
 		"kind": "rank",
 		"doctypes": ("ilL-Attribute-IP Rating",),
 	},
@@ -47,7 +48,7 @@ FACETS = {
 	},
 	"color_mode": {
 		"label": "Color control",
-		"families": ("Linear Fixture", "LED Tape", "LED Neon"),
+		"families": ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon"),
 		"kind": "set",
 		"doctypes": ("ilL-Attribute-LED Package",),
 		"derived": True,
@@ -63,7 +64,7 @@ FACETS = {
 	"cri_min": {"label": "Minimum CRI", "families": LIGHT, "kind": "number", "doctypes": ()},
 	"lumens_per_ft": {
 		"label": "Brightness (lm/ft)",
-		"families": ("Linear Fixture", "LED Tape", "LED Neon"),
+		"families": ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon"),
 		"kind": "number",
 		"doctypes": (),
 	},
@@ -93,7 +94,7 @@ FACETS = {
 	},
 	"output_voltage": {
 		"label": "Voltage",
-		"families": ("LED Tape", "Driver"),
+		"families": ("LED Tape", "COB Tape", "Driver"),
 		"kind": "set",
 		"doctypes": ("ilL-Attribute-Output Voltage",),
 	},

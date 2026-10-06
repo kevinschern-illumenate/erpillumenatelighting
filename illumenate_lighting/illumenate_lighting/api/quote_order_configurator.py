@@ -23,6 +23,7 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 	_create_or_get_configured_tape_neon_item,
 	_ensure_item_group_exists,
 	build_fixture_bom_items,
+	configured_tape_neon_item_group,
 	ensure_configured_item_price,
 )
 from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
@@ -30,9 +31,16 @@ from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import id
 PARENT_DOCTYPES = {"Quotation", "Sales Order"}
 PRODUCT_TYPE_FIXTURE = "Linear Fixture"
 PRODUCT_TYPE_TAPE = "LED Tape"
+PRODUCT_TYPE_COB_TAPE = "COB Tape"
 PRODUCT_TYPE_NEON = "LED Neon"
 PRODUCT_TYPE_SHEET = "LED Sheet"
-PRODUCT_TYPES = {PRODUCT_TYPE_FIXTURE, PRODUCT_TYPE_TAPE, PRODUCT_TYPE_NEON, PRODUCT_TYPE_SHEET}
+PRODUCT_TYPES = {
+	PRODUCT_TYPE_FIXTURE,
+	PRODUCT_TYPE_TAPE,
+	PRODUCT_TYPE_COB_TAPE,
+	PRODUCT_TYPE_NEON,
+	PRODUCT_TYPE_SHEET,
+}
 
 
 @frappe.whitelist()
@@ -41,6 +49,7 @@ def get_product_types() -> list[dict[str, str]]:
 	return [
 		{"label": PRODUCT_TYPE_FIXTURE, "value": PRODUCT_TYPE_FIXTURE, "bom_status": "available"},
 		{"label": PRODUCT_TYPE_TAPE, "value": PRODUCT_TYPE_TAPE, "bom_status": "available"},
+		{"label": PRODUCT_TYPE_COB_TAPE, "value": PRODUCT_TYPE_COB_TAPE, "bom_status": "available"},
 		{"label": PRODUCT_TYPE_NEON, "value": PRODUCT_TYPE_NEON, "bom_status": "available"},
 		{"label": PRODUCT_TYPE_SHEET, "value": PRODUCT_TYPE_SHEET, "bom_status": "available"},
 	]
@@ -76,6 +85,16 @@ def qoc_get_product_types() -> dict[str, Any]:
 				"configured_doctype": "ilL-Configured-Tape-Neon",
 				"template_doctype": "ilL-Tape-Neon-Template",
 				"item_group": CONFIGURED_TAPE_ITEM_GROUP,
+				"engine": "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration",
+				"calculate_and_lookup": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.calculate_and_lookup",
+				"save_and_apply": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.save_and_apply",
+				"preview_bom": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.preview_bom",
+				"power_supply_supported": True,
+			},
+			PRODUCT_TYPE_COB_TAPE: {
+				"configured_doctype": "ilL-Configured-Tape-Neon",
+				"template_doctype": "ilL-Tape-Neon-Template",
+				"item_group": configured_tape_neon_item_group(PRODUCT_TYPE_COB_TAPE),
 				"engine": "illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration",
 				"calculate_and_lookup": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.calculate_and_lookup",
 				"save_and_apply": "illumenate_lighting.illumenate_lighting.api.configured_product_builder.save_and_apply",
@@ -258,6 +277,9 @@ def _normalize_product_type(product_type: str) -> str:
 		"led tape": PRODUCT_TYPE_TAPE,
 		"tape": PRODUCT_TYPE_TAPE,
 		"led_tape": PRODUCT_TYPE_TAPE,
+		"cob tape": PRODUCT_TYPE_COB_TAPE,
+		"cob": PRODUCT_TYPE_COB_TAPE,
+		"cob_tape": PRODUCT_TYPE_COB_TAPE,
 		"led neon": PRODUCT_TYPE_NEON,
 		"neon": PRODUCT_TYPE_NEON,
 		"led_neon": PRODUCT_TYPE_NEON,
@@ -380,10 +402,7 @@ def _ensure_configured_artifacts(
 		frappe.throw(_("Configured tape/neon product {0} is {1}, not {2}").format(
 			configured.name, configured.product_category, product_type
 		))
-	is_neon = product_type == PRODUCT_TYPE_NEON
-	_ensure_item_group_exists(
-		CONFIGURED_NEON_ITEM_GROUP if is_neon else CONFIGURED_TAPE_ITEM_GROUP
-	)
+	_ensure_item_group_exists(configured_tape_neon_item_group(product_type))
 	item_result = _create_or_get_configured_tape_neon_item(configured, skip_if_exists=True)
 	if not item_result.get("success"):
 		frappe.throw(_messages_to_html(item_result.get("messages")))

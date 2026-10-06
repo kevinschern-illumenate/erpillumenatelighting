@@ -99,14 +99,15 @@ def validate_config(config: FixtureBuilderConfig, reference=None) -> list[str]:
                 )
 
         # Validate template references
-        expected_category = "LED Tape" if config.product_type == "tape" else "LED Neon"
+        # COB Tape is a tape category: tape configs build LED Tape or COB Tape templates.
+        expected_categories = ("LED Tape", "COB Tape") if config.product_type == "tape" else ("LED Neon",)
         for tmpl in config.tape_neon_templates:
             if not tmpl.template_code:
                 errors.append("Tape/neon template_code is required")
-            if tmpl.product_category and tmpl.product_category != expected_category:
+            if tmpl.product_category and tmpl.product_category not in expected_categories:
                 errors.append(
                     f"Template {tmpl.template_code}: product_category should be "
-                    f"'{expected_category}' for product_type='{config.product_type}'"
+                    f"{' or '.join(repr(c) for c in expected_categories)} for product_type='{config.product_type}'"
                 )
             for spec_ref in tmpl.allowed_tape_specs:
                 if spec_ref.tape_spec and spec_ref.tape_spec not in valid_spec_codes:

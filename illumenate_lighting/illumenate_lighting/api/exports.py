@@ -25,6 +25,7 @@ from frappe import _
 from frappe.utils import now, nowdate
 from frappe.utils.file_manager import save_file
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
 
 
@@ -372,7 +373,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 		line.configured_tape_neon
 		for line in (schedule.lines or [])
 		if line.manufacturer_type == "ILLUMENATE"
-		and getattr(line, "product_type", None) in ("LED Tape", "LED Neon")
+		and getattr(line, "product_type", None) in TAPE_NEON_CATEGORIES
 		and line.configured_tape_neon
 	]
 
@@ -489,7 +490,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 
 		elif (
 			line.manufacturer_type == "ILLUMENATE"
-			and getattr(line, "product_type", None) in ("LED Tape", "LED Neon")
+			and getattr(line, "product_type", None) in TAPE_NEON_CATEGORIES
 		):
 			# LED Tape / LED Neon — read from configured_tape_neon record or variant_selections
 			import json as _json_tn
@@ -996,7 +997,7 @@ def _build_other_description(line: dict) -> str:
 
 
 def _build_tape_neon_pdf_description(line: dict) -> str:
-	"""Build compact description for a configured LED Tape / LED Neon line."""
+	"""Build compact description for a configured LED Tape / COB Tape / LED Neon line."""
 	part_number = line.get("part_number") or "Configured"
 	product_category = line.get("product_category") or line.get("product_type") or "LED Tape"
 	parts = [f"<strong>{part_number}</strong> <span style='font-size:6.5px;'>({product_category})</span>"]
@@ -1201,7 +1202,7 @@ def debug_schedule_lines(schedule_id: str) -> dict:
 			# Which branch will exports.py take?
 			"_branch": (
 				"linear_fixture" if (line.manufacturer_type == "ILLUMENATE" and line.configured_fixture)
-				else "tape_neon" if (line.manufacturer_type == "ILLUMENATE" and getattr(line, "product_type", None) in ("LED Tape", "LED Neon"))
+				else "tape_neon" if (line.manufacturer_type == "ILLUMENATE" and getattr(line, "product_type", None) in TAPE_NEON_CATEGORIES)
 				else "unconfigured" if (line.manufacturer_type == "ILLUMENATE" and not line.configured_fixture)
 				else "accessory" if line.manufacturer_type == "ACCESSORY"
 				else "other"

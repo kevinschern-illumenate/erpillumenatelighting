@@ -8,6 +8,7 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_CATEGORIES,
 	canonical_json,
 	fingerprint,
 	finite_number,
@@ -19,9 +20,24 @@ RECEIPT = "ilL-Configuration-Receipt"
 FAMILIES = {
 	"Linear Fixture": ("configured_fixture", "ilL-Configured-Fixture", "fixture_template"),
 	"LED Tape": ("configured_tape_neon", "ilL-Configured-Tape-Neon", "tape_neon_template"),
+	"COB Tape": ("configured_tape_neon", "ilL-Configured-Tape-Neon", "tape_neon_template"),
 	"LED Neon": ("configured_tape_neon", "ilL-Configured-Tape-Neon", "tape_neon_template"),
 	"LED Sheet": ("configured_led_sheet", "ilL-Configured-LED-Sheet", "led_sheet_template"),
 }
+
+
+def family_for_template(family, template):
+	"""The tape category a line builds as: its template's (LED Tape or COB Tape).
+
+	A template moved from LED Tape to COB Tape keeps working from lines and links
+	that still say LED Tape; every other family is returned unchanged.
+	"""
+	if family not in TAPE_CATEGORIES or not template:
+		return family
+	category = frappe.db.get_value("ilL-Tape-Neon-Template", template, "product_category")
+	if category not in TAPE_CATEGORIES:
+		category = frappe.db.get_value("ilL-Tape-Neon-Template", {"template_code": template}, "product_category")
+	return category if category in TAPE_CATEGORIES else family
 
 
 def object_value(value, label):
@@ -92,6 +108,7 @@ def calculate(family, selections, product_slug=None, template=None, segments=Non
 	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
 	require_catalog_access()
+	family = family_for_template(family, template)
 	payload = normalized_payload(
 		family, selections, product_slug=product_slug, template=template, segments=segments
 	)
@@ -228,6 +245,7 @@ def save(
 	from illumenate_lighting.illumenate_lighting.api.power_supply_lines import set_power_lines, split_power
 
 	line = resolve_line(schedule, line_key, line_idx)
+	family = family_for_template(family, template)
 	payload = normalized_payload(
 		family, selections, product_slug=product_slug, template=template, segments=segments
 	)

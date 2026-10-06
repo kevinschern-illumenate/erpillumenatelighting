@@ -22,7 +22,7 @@
    "fieldtype": "Select",
    "label": "Family",
    "read_only": 1,
-   "options": "Linear Fixture\nLED Tape\nLED Neon\nLED Sheet",
+   "options": "Linear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet",
    "reqd": 1
   },
   {

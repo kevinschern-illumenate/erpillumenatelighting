@@ -956,7 +956,7 @@ function TapeSpecsSection({ s, setS }) {
             </Field>
             <Field label="Product Category">
               <Select value={spec.productCategory} onChange={v => update(i, { productCategory: v })}
-                options={['LED Tape', 'LED Neon']} />
+                options={['LED Tape', 'COB Tape', 'LED Neon']} />
             </Field>
             <Field label="Input Voltage">
               <Select value={spec.inputVoltage} onChange={v => update(i, { inputVoltage: v })} options={VOLTAGE_CHOICES} />
@@ -1196,7 +1196,7 @@ function TemplateCard({ tpl, index, specCodes, isNeon, onUpdate, onRemove, onDup
               <TextInput value={tpl.templateName} onChange={v => onUpdate({ templateName: v })} placeholder="Flex Full Spectrum" />
             </Field>
             <Field label="Product Category">
-              <Select value={tpl.productCategory} onChange={v => onUpdate({ productCategory: v })} options={['LED Tape', 'LED Neon']} />
+              <Select value={tpl.productCategory} onChange={v => onUpdate({ productCategory: v })} options={['LED Tape', 'COB Tape', 'LED Neon']} />
             </Field>
             <Field label="Series">
               <TextInput value={tpl.series} onChange={v => onUpdate({ series: v })} />

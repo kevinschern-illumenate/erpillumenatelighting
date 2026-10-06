@@ -7,7 +7,7 @@ frappe.query_reports["Catalog Configurability"] = {
 			fieldname: "product_type",
 			label: __("Product Type"),
 			fieldtype: "Select",
-			options: ["", "Fixture Template", "LED Tape", "LED Neon", "LED Sheet", "Extrusion Kit", "Driver", "Controller"],
+			options: ["", "Fixture Template", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Extrusion Kit", "Driver", "Controller"],
 		},
 		{
 			fieldname: "only_problems",

@@ -17,7 +17,11 @@ or use the "Preview repair" / "Apply repair" buttons on the Catalog Configurabil
 
 import frappe
 
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES, parse_bool
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	FAMILY_ALIASES,
+	parse_bool,
+	same_template_family,
+)
 from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_DOCTYPES, TEMPLATE_FIELDS
 
 PRODUCT = "ilL-Webflow-Product"
@@ -47,7 +51,11 @@ def _plan(product, backlinks) -> tuple[dict, list]:
 	candidates = [row for row in backlinks.get(product.name, []) if row[2]]
 	if not field or not candidates:
 		return {}, []
-	matching = [row for row in candidates if row[0] == doctype and (not row[3] or row[3] == family)]
+	matching = [
+		row
+		for row in candidates
+		if row[0] == doctype and (not row[3] or same_template_family(family, row[3]))
+	]
 	if not matching:
 		return {}, [
 			f"Active template {name} ({linked_doctype}) points at this {product.product_type} product, "

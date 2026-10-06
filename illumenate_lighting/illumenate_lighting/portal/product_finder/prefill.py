@@ -2,6 +2,7 @@
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.portal.product_finder import engine, matcher
 from illumenate_lighting.illumenate_lighting.portal.product_finder.facts import TEMPLATES
 from illumenate_lighting.illumenate_lighting.portal.quiz_prefill import (
@@ -72,7 +73,7 @@ def prefill_for_template(family, template, answers, definition):
 					value = row.get(key) or row.get("attribute_link")
 					if value:
 						candidates.append({"value": value, "is_default": row.get("is_default")})
-			if family in ("LED Tape", "LED Neon") and facet == "environment_rating":
+			if family in TAPE_NEON_CATEGORIES and facet == "environment_rating":
 				candidates += [
 					{"value": row.environment_rating, "is_default": row.get("is_default")}
 					for row in doc.get("allowed_tape_specs") or []

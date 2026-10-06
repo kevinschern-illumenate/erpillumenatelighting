@@ -2,7 +2,11 @@
 
 import frappe
 
-from illumenate_lighting.illumenate_lighting.api.configuration_contract import FAMILY_ALIASES
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	COB_TAPE,
+	FAMILY_ALIASES,
+	LED_TAPE,
+)
 from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_list
 
 
@@ -19,7 +23,9 @@ def reason(family, *, public=False):
 	"""Return the stable projection reason for a family's rollout state."""
 	families = _list("ill_portal_enabled_families")
 	family = FAMILY_ALIASES.get(family, family)
-	if families is not None and family not in families:
+	# COB Tape is offered wherever LED Tape is, unless the site lists it on its own.
+	enabled = families is None or family in families or (family == COB_TAPE and LED_TAPE in families)
+	if not enabled:
 		return "family_not_enabled"
 	users = _list("ill_portal_pilot_users")
 	if users is None or public or frappe.flags.get("ill_product_download"):

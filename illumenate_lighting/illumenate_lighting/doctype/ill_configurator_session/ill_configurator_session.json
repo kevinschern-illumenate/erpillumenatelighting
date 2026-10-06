@@ -41,7 +41,7 @@
    "fieldname": "product_type",
    "fieldtype": "Select",
    "label": "Product Type",
-   "options": "Linear Fixture\nLED Tape\nLED Neon\nLED Sheet\nExtrusion Kit\nDriver\nController\nMixed"
+   "options": "Linear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet\nExtrusion Kit\nDriver\nController\nMixed"
   },
   {
    "fieldname": "recommended_template",
@@ -106,7 +106,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-06-30 00:00:00.000000",
+ "modified": "2026-10-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Configurator-Session",

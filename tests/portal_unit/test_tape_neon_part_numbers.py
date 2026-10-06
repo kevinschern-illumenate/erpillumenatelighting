@@ -1,4 +1,4 @@
-"""LED Tape / LED Neon part numbers carry CCT and output level and are part of the build identity."""
+"""LED Tape / COB Tape / LED Neon part numbers: CCT and output appear once, and are part of the build identity."""
 
 import unittest
 
@@ -11,6 +11,10 @@ CODES = {
 	("ilL-Attribute-Output Level", "High", "sku_code"): "H",
 	("ilL-Attribute-Power Feed Type", "Standard", "code"): "E",
 	("ilL-Attribute-Feed-Direction", "End", "code"): "E",
+}
+CATALOG_CODES = {
+	("ilL-Attribute-CCT", "3000K", "code"): "30K",
+	("ilL-Attribute-Output Level", "300 lm/ft", "sku_code"): "300",
 }
 SPEC = Record(name="TAPE-SH01-24V-5W")
 SEGMENT = {
@@ -26,14 +30,20 @@ def offering(cct="3000K", output_level="Standard"):
 	return Record(name=f"{SPEC.name}-{cct}-{output_level}", cct=cct, output_level=output_level)
 
 
-class PartNumbers(unittest.TestCase):
-	def service(self):
+class ServiceMixin:
+	def service(self, codes=CODES, offerings_per_spec=4):
 		context = load_service(ROOT + ".api.tape_neon_configurator")
 		service, frappe = context.__enter__()
 		self.addCleanup(context.__exit__, None, None, None)
-		frappe.db.get_value.side_effect = lambda doctype, name, field: CODES.get((doctype, name, field))
+		frappe.db.get_value.side_effect = lambda doctype, name, field: codes.get((doctype, name, field))
 		frappe.db.exists.return_value = True
+		frappe.db.count.return_value = offerings_per_spec
+		self.frappe = frappe
 		return service
+
+
+class PartNumbers(ServiceMixin, unittest.TestCase):
+	"""A spec shared by several CCT/output offerings: the codes keep its builds apart."""
 
 	def test_tape_part_number_places_cct_and_output_after_the_spec(self):
 		service = self.service()
@@ -82,6 +92,43 @@ class PartNumbers(unittest.TestCase):
 		self.assertEqual(
 			service._build_neon_part_number(sel, SPEC, None, [SEGMENT]),
 			"TAPE-SH01-24V-5W-40-xx-150-E2-C",
+		)
+
+
+class CatalogPartNumbers(ServiceMixin, unittest.TestCase):
+	"""Catalog specs ship one Item per offering whose code already names the CCT and output."""
+
+	SPEC = Record(name="COB-SD-SW-20-30K-300-3M-WH-8MM", item="COB-SD-SW-20-30K-300-3M-WH-8MM")
+	OFFERING = Record(name="COB-SD-SW-20-30K-300", cct="3000K", output_level="300 lm/ft")
+
+	def catalog_service(self):
+		return self.service(codes=CATALOG_CODES, offerings_per_spec=1)
+
+	def test_cct_and_output_are_not_repeated_after_the_item_code(self):
+		service = self.catalog_service()
+		sel = {"lead_length_inches": 12}
+		self.assertEqual(
+			service._build_tape_part_number(sel, self.SPEC, self.OFFERING, 88.6 * 25.4),
+			"COB-SD-SW-20-30K-300-3M-WH-8MM-88.6-1-C",
+		)
+		self.frappe.db.count.assert_called_with("ilL-Rel-Tape Offering", {"tape_spec": self.SPEC.name})
+
+	def test_neon_part_numbers_do_not_repeat_cct_and_output(self):
+		service = self.catalog_service()
+		spec = Record(name="NON-PNC-SW-67-30K-150-WH", item="NON-PNC-SW-67-30K-150-WH")
+		self.assertEqual(
+			service._build_neon_part_number({}, spec, self.OFFERING, [SEGMENT]),
+			"NON-PNC-SW-67-30K-150-WH-150-E2-C",
+		)
+		jumpered = service._build_neon_part_number({}, spec, self.OFFERING, [SEGMENT, {**SEGMENT, "segment_index": 2}])
+		self.assertRegex(jumpered, r"^NON-PNC-SW-67-30K-150-WH-300-J\([0-9A-F]{4}\)$")
+
+	def test_a_spec_with_no_recorded_offering_is_not_treated_as_shared(self):
+		service = self.service(codes=CATALOG_CODES, offerings_per_spec=0)
+		sel = {"lead_length_inches": 12}
+		self.assertEqual(
+			service._build_tape_part_number(sel, self.SPEC, self.OFFERING, 88.6 * 25.4),
+			"COB-SD-SW-20-30K-300-3M-WH-8MM-88.6-1-C",
 		)
 
 

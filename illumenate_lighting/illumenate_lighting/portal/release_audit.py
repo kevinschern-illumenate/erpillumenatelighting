@@ -5,6 +5,7 @@ import frappe
 ENGINEERING_REFERENCES = {
 	"Linear Fixture": ("ilL-Fixture-Template", "ILL-SH01-SW"),
 	"LED Tape": ("ilL-Tape-Neon-Template", "led-hd-sw"),
+	"COB Tape": ("ilL-Tape-Neon-Template", "cob-sd-sw"),
 	"LED Neon": ("ilL-Tape-Neon-Template", "non-pnc-sw"),
 	"LED Sheet": ("ilL-LED-Sheet-Template", "Snowfield Static White LED Sheet"),
 }

@@ -11,6 +11,7 @@ TEMPLATE_FIELDS = {
 	"Controller": "controller_template",
 	"Linear Fixture": "fixture_template",
 	"LED Tape": "tape_neon_template",
+	"COB Tape": "tape_neon_template",
 	"LED Neon": "tape_neon_template",
 	"LED Sheet": "led_sheet_template",
 }
@@ -21,6 +22,7 @@ TEMPLATE_DOCTYPES = {
 	"Controller": "ilL-Controller-Template",
 	"Linear Fixture": "ilL-Fixture-Template",
 	"LED Tape": "ilL-Tape-Neon-Template",
+	"COB Tape": "ilL-Tape-Neon-Template",
 	"LED Neon": "ilL-Tape-Neon-Template",
 	"LED Sheet": "ilL-LED-Sheet-Template",
 }
@@ -28,6 +30,7 @@ TEMPLATE_DOCTYPES = {
 PER_FOOT_TEMPLATES = {
 	"Linear Fixture": "ilL-Fixture-Template",
 	"LED Tape": "ilL-Tape-Neon-Template",
+	"COB Tape": "ilL-Tape-Neon-Template",
 	"LED Neon": "ilL-Tape-Neon-Template",
 }
 

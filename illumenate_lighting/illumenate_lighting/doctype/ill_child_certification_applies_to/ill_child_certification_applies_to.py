@@ -16,7 +16,7 @@ class ilLChildCertificationAppliesTo(Document):
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
-		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "Component", "Accessory"]
+		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "COB Tape", "Component", "Accessory"]
 	# end: auto-generated types
 
 	pass

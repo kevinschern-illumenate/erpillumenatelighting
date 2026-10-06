@@ -122,7 +122,7 @@ class Facts(unittest.TestCase):
 			self.assertEqual(linear["facets"]["environment_rating"], frozenset(["Wet"]))
 			self.assertEqual(linear["sources"]["environment_rating"], "attribute_link")
 			self.assertEqual(linear["facets"]["lumens_per_ft"], (450.0,))
-			for family in ("Linear Fixture", "LED Tape", "LED Neon", "LED Sheet"):
+			for family in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet"):
 				p = by_family[family]
 				self.assertEqual(p["facets"]["color_mode"], frozenset(["Addressable pixel (SPI)"]))
 				self.assertEqual(p["facets"]["light_type"], frozenset(["Full-color"]))
@@ -140,7 +140,7 @@ class Facts(unittest.TestCase):
 				tables = self.table_data(service, copies)
 				frappe.get_all.reset_mock()
 				frappe.get_all.side_effect = lambda dt, **kw: tables.get(dt, [])
-				self.assertEqual(len(service.build_facts()), 7 * copies)
+				self.assertEqual(len(service.build_facts()), len(service.TEMPLATES) * copies)
 				counts.append(frappe.get_all.call_count)
 			self.assertEqual(counts[0], counts[1])
 			self.assertLess(counts[1], 65)

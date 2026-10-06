@@ -4,6 +4,10 @@ import json
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_CATEGORIES,
+	TAPE_NEON_CATEGORIES,
+)
 from illumenate_lighting.illumenate_lighting.portal.configuration import (
 	FAMILIES,
 	resolve_line,
@@ -58,14 +62,14 @@ def for_line(line):
 			offering = frappe.get_doc("ilL-Rel-Tape Offering", inputs["tape_offering_id"])
 			for field, source in {"led_package_code": "led_package", "cct_code": "cct"}.items():
 				inputs.setdefault(field, offering.get(source))
-	elif family in {"LED Tape", "LED Neon"}:
+	elif family in TAPE_NEON_CATEGORIES:
 		inputs = dict(build.get("selections") or {})
 		for field in ("cct", "output_level", "environment_rating", "finish", "include_power_supply"):
 			inputs.setdefault(field, doc.get(field))
 		segments = []
 		for row in build.get("segments") or doc.get("segments") or []:
 			segment = dict(row.as_dict()) if hasattr(row, "as_dict") else dict(row)
-			prefix = "tape" if family == "LED Tape" else "fixture"
+			prefix = "tape" if family in TAPE_CATEGORIES else "fixture"
 			segment[prefix + "_length_unit"] = "in"
 			segment[prefix + "_length_value"] = float(segment.get("requested_length_mm") or 0) / 25.4
 			segment.setdefault("end_feed_length_inches", segment.get("end_cable_length_inches") or 0)

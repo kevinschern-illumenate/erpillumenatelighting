@@ -190,15 +190,17 @@ test('tearing down a document adapter does not destroy an embedded picker', () =
   dom.window.close();
 });
 
+const TAPE_FAMILIES = ['LED Tape', 'COB Tape'];
+
 test('rendered coordinator mounts all legacy families and retains tape reels and segment actions', () => {
-  for (const category of ['Linear Fixture', 'LED Tape', 'LED Neon']) {
+  for (const category of ['Linear Fixture', 'LED Tape', 'COB Tape', 'LED Neon']) {
     const html = fs.readFileSync(path.join(__dirname, 'rendered', category.replaceAll(' ', '-') + '-coordinator.html'), 'utf8');
     const { dom, $, api, requests } = setup(html);
-    const context = { product_category: category, is_tape: category === 'LED Tape', is_neon: category === 'LED Neon', is_tape_neon: category !== 'Linear Fixture', has_templates: false };
+    const context = { product_category: category, is_tape: TAPE_FAMILIES.includes(category), is_neon: category === 'LED Neon', is_tape_neon: category !== 'Linear Fixture', has_templates: false };
     const inst = new api.Coordinator($('#portal-configurator'), context);
     inst.init();
     assert.ok(requests.length > 0, category);
-    if (category === 'LED Tape') {
+    if (TAPE_FAMILIES.includes(category)) {
       assert.equal(inst.$('#tapeSegmentsList .tape-segment-card').length, 1);
       inst.$('#tapeModeReelBtn').trigger('click');
       assert.ok(inst.$('#tapeModeReelBtn').hasClass('btn-primary'));
@@ -218,10 +220,10 @@ test('rendered coordinator mounts all legacy families and retains tape reels and
 });
 
 test('all coordinator families omit unused numeric overrides after form encoding', () => {
-  for (const category of ['Linear Fixture', 'LED Tape', 'LED Neon']) {
+  for (const category of ['Linear Fixture', 'LED Tape', 'COB Tape', 'LED Neon']) {
     const html = fs.readFileSync(path.join(__dirname, 'rendered', category.replaceAll(' ', '-') + '-coordinator.html'), 'utf8');
     const { dom, $, api, requests } = setup(html);
-    const inst = new api.Coordinator($('#portal-configurator'), { product_category: category, is_tape: category === 'LED Tape', is_neon: category === 'LED Neon', is_tape_neon: category !== 'Linear Fixture', has_templates: false });
+    const inst = new api.Coordinator($('#portal-configurator'), { product_category: category, is_tape: TAPE_FAMILIES.includes(category), is_neon: category === 'LED Neon', is_tape_neon: category !== 'Linear Fixture', has_templates: false });
     inst.init();
     if (category === 'Linear Fixture') {
       inst.restoreGeometry({segments: [{requested_length_mm: 1000, end_type: 'Endcap'}]});
@@ -262,6 +264,23 @@ test('embedded fixture rejects invalid enabled overrides before sending a reques
     assert.equal(requests.length, 0, value);
     dom.window.close();
   }
+});
+
+test('COB Tape configures with the tape steps and saves as its own family', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/COB-Tape-coordinator.html'), 'utf8');
+  const { dom, $, api, requests } = setup(html);
+  assert.ok($('#categorySelector .pill-option[data-category="COB Tape"]').hasClass('active'));
+  const inst = new api.Coordinator($('#portal-configurator'), { product_category: 'COB Tape', is_tape: true, is_tape_neon: true, has_templates: false, selected_template: 'cob-sd-sw' });
+  inst.init();
+  assert.equal(inst.$('#tapeSegmentsList .tape-segment-card').length, 1);
+  assert.equal(inst.$('#neonSegmentsList .neon-segment-card').length, 0);
+  inst.$('#tnCalculateBtn').prop('disabled', false).trigger('click');
+  assert.match(requests.at(-1).method, /validate_tape_configuration/);
+  const request = inst.exportRequest();
+  assert.equal(request.family, 'COB Tape');
+  assert.equal(request.template, 'cob-sd-sw');
+  assert.ok(Array.isArray(request.segments));
+  dom.window.close();
 });
 
 test('coordinator ignores a calculation after input changes or close', () => {

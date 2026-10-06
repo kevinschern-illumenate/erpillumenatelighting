@@ -76,6 +76,7 @@ def desk():
 				ROOT + ".api.quote_order_configurator",
 				PRODUCT_TYPE_FIXTURE="Linear Fixture",
 				PRODUCT_TYPE_TAPE="LED Tape",
+				PRODUCT_TYPE_COB_TAPE="COB Tape",
 				PRODUCT_TYPE_NEON="LED Neon",
 				PRODUCT_TYPE_SHEET="LED Sheet",
 				_apply_artifact_to_row=MagicMock(),

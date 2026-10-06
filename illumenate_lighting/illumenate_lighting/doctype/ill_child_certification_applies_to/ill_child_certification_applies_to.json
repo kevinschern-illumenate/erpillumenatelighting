@@ -14,14 +14,14 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Product Type",
-   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nComponent\nAccessory",
+   "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nCOB Tape\nComponent\nAccessory",
    "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-21 10:00:00.000000",
+ "modified": "2026-10-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Certification-Applies-To",

@@ -4,6 +4,7 @@ import json
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	FAMILY_ALIASES,
+	TAPE_CATEGORIES,
 	canonical_json,
 	finite_number,
 	length_mm,
@@ -15,6 +16,7 @@ ENGINE_VERSION = "fixture-group-1"
 TEMPLATE_TYPES = {
 	"Linear Fixture": "ilL-Fixture-Template",
 	"LED Tape": "ilL-Tape-Neon-Template",
+	"COB Tape": "ilL-Tape-Neon-Template",
 	"LED Neon": "ilL-Tape-Neon-Template",
 	"LED Sheet": "ilL-LED-Sheet-Template",
 }
@@ -31,6 +33,17 @@ SHARED_FIELDS = {
 		"delivered_output_value",
 	},
 	"LED Tape": {
+		"cct",
+		"output_level",
+		"environment_rating",
+		"finish",
+		"tape_spec",
+		"mounting_accessory_item",
+		"mounting_accessory_qty",
+		"pcb_finish",
+		"pcb_mounting",
+	},
+	"COB Tape": {
 		"cct",
 		"output_level",
 		"environment_rating",
@@ -103,7 +116,7 @@ def _segment(raw, family, index):
 		if field in raw:
 			raise ValueError("Segment specifications and power must be selected once for the group: " + field)
 	linear = family == "Linear Fixture"
-	prefix = "tape" if family == "LED Tape" else "fixture"
+	prefix = "tape" if family in TAPE_CATEGORIES else "fixture"
 	if "requested_length_mm" in raw:
 		mm = _length(raw["requested_length_mm"], "mm", positive=True)
 	else:

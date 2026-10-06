@@ -3,6 +3,7 @@
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+	TAPE_CATEGORIES,
 	finite_number,
 	is_count_uom,
 	length_mm,
@@ -11,9 +12,10 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 
 def validate_request(selections, segments, template):
 	if not template or not frappe.db.exists(
-		"ilL-Tape-Neon-Template", {"name": template, "is_active": 1, "product_category": "LED Tape"}
+		"ilL-Tape-Neon-Template",
+		{"name": template, "is_active": 1, "product_category": ["in", list(TAPE_CATEGORIES)]},
 	):
-		raise ValueError("Choose an active LED Tape template for a bulk reel")
+		raise ValueError("Choose an active LED Tape or COB Tape template for a bulk reel")
 	if segments or selections.get("override_max_run_ft") not in (None, "", 0, "0"):
 		raise ValueError("Bulk reels do not accept assembly segments or a run-length override")
 	if finite_number(selections.get("lead_length_inches") or 0, minimum=0) != 0:

@@ -23,6 +23,7 @@ CONFIGURATION_TABLES = {
 WEBFLOW_TEMPLATES = {
 	"Fixture Template": ("fixture_template", "ilL-Fixture-Template"),
 	"LED Tape": ("tape_neon_template", "ilL-Tape-Neon-Template"),
+	"COB Tape": ("tape_neon_template", "ilL-Tape-Neon-Template"),
 	"LED Neon": ("tape_neon_template", "ilL-Tape-Neon-Template"),
 	"LED Sheet": ("led_sheet_template", "ilL-LED-Sheet-Template"),
 	"Driver": ("driver_template", "ilL-Driver-Template"),

@@ -55,6 +55,7 @@ class CommercialSchema(unittest.TestCase):
 			):
 				self.assertIn((doctype, field), fields)
 			self.assertIn("LED Sheet", fields[(doctype, "ill_product_type")].options.split("\n"))
+			self.assertIn("COB Tape", fields[(doctype, "ill_product_type")].options.split("\n"))
 		for doctype in ("Quotation", "Sales Order"):
 			self.assertIn((doctype, "ill_fixture_schedule"), fields)
 		for doctype in ROW_TYPES[:2]:
@@ -73,7 +74,7 @@ class CommercialSchema(unittest.TestCase):
 				("Sales Order Item", "ill_section_label"): section,
 			}
 		)
-		self.assertEqual(product.options.split("\n")[-2:], ["Site Product", "LED Sheet"])
+		self.assertEqual(product.options.split("\n")[-3:], ["Site Product", "COB Tape", "LED Sheet"])
 		product.save.assert_called_once_with(ignore_permissions=True)
 		self.assertIs(fields[("Sales Order Item", "additional_notes")], notes)
 		self.assertEqual(notes.fieldtype, "Text Editor")
@@ -83,3 +84,4 @@ class CommercialSchema(unittest.TestCase):
 	def test_existing_sites_receive_a_new_post_sync_patch(self):
 		patches = Path("illumenate_lighting/patches.txt").read_text().split("[post_model_sync]", 1)[1]
 		self.assertIn("illumenate_lighting.patches.b2b_commercial_schema", patches.splitlines())
+		self.assertIn("illumenate_lighting.patches.add_cob_tape_category", patches.splitlines())
