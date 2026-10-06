@@ -16,11 +16,15 @@ Expected JSON body::
         "amount": 1234.56,
         "txn_date": "2026-09-15",
         "qbo_invoice_id": "145",
-        "qbo_invoice_ids": ["145"],       # optional; >1 entry fails loudly (no multi-invoice allocation)
-        "customer_qbo_id": "62",           # optional, logged only
-        "merged_from_id": "180",           # Merge only: QBO id that was folded into qbo_payment_id
-        "deleted": false                   # true forces event_type=Delete
+        "qbo_invoice_ids": ["145"],  # optional; >1 entry fails loudly (no multi-invoice allocation)
+        "applied_amount": 1234.56,  # optional; amount of the payment applied to the invoice
+        "customer_qbo_id": "62",  # optional, logged only
+        "merged_from_id": "180",  # Merge only: QBO id that was folded into qbo_payment_id
+        "deleted": false,  # true forces event_type=Delete
     }
+
+An amount of 0 (voided in QBO, or a credit-only application) cancels the
+existing Payment Entry for that QBO id, if any, instead of creating one.
 
 Auth: ``X-QBO-Signature`` = HMAC-SHA256 hex digest over the raw request body,
 keyed with the shared secret (site_config ``qbo_webhook_secret`` or
@@ -31,6 +35,7 @@ signature is verified.
 import hashlib
 import hmac
 import json
+from contextlib import contextmanager
 
 import frappe
 from frappe.rate_limiter import rate_limit
@@ -44,6 +49,7 @@ DEFAULT_MODE_OF_PAYMENT = "QuickBooks Online"
 SYNCED_FROM = "QuickBooks Online"
 VALID_EVENT_TYPES = ("Create", "Update", "Delete", "Merge")
 SAVEPOINT = "qbo_payment_event"
+LOCK_TIMEOUT_SECONDS = 20
 
 
 class QBOSyncError(Exception):
@@ -98,6 +104,21 @@ def receive_payment_event():
 		_commit()
 		return {"success": False, "error": "sync_disabled", "log": log.name}
 
+	# Intuit can deliver Create and Update for one payment within milliseconds; n8n
+	# then runs two executions in parallel. Serialize per QBO payment id so both
+	# don't see "no Payment Entry yet" and create two.
+	try:
+		with _payment_lock(event["qbo_payment_id"]):
+			return _process_in_savepoint(event, log)
+	except QBOSyncError as e:
+		# Only the lock raises here; _process_in_savepoint handles its own errors.
+		_update_log(log, status="Failed", error_message=e.message)
+		_commit()
+		frappe.local.response["http_status_code"] = 503
+		return {"success": False, "error": e.code, "message": e.message, "log": log.name}
+
+
+def _process_in_savepoint(event, log):
 	# No commits between savepoint and the end of _process_event, or the savepoint is lost.
 	try:
 		frappe.db.savepoint(SAVEPOINT)
@@ -121,6 +142,25 @@ def receive_payment_event():
 		)
 		frappe.local.response["http_status_code"] = 500
 		return {"success": False, "error": "processing_failed", "message": message, "log": log.name}
+
+
+@contextmanager
+def _payment_lock(qbo_payment_id):
+	"""MariaDB named lock held for the request's DB connection; released on exit."""
+	if frappe.db.db_type != "mariadb":
+		yield
+		return
+	key = "qbo_pe_" + hashlib.sha1(f"{frappe.local.site}:{qbo_payment_id}".encode()).hexdigest()[:40]
+	acquired = frappe.db.sql("SELECT GET_LOCK(%s, %s)", (key, LOCK_TIMEOUT_SECONDS))[0][0]
+	if not acquired:
+		raise QBOSyncError(
+			"busy",
+			f"Another request is still processing QBO Payment {qbo_payment_id}; retry shortly",
+		)
+	try:
+		yield
+	finally:
+		frappe.db.sql("SELECT RELEASE_LOCK(%s)", (key,))
 
 
 # ---------------------------------------------------------------------------
@@ -181,15 +221,19 @@ def _normalize_payload(payload):
 		invoice_ids = [str(i).strip() for i in invoice_ids if str(i or "").strip()]
 	else:
 		invoice_ids = []
-	qbo_invoice_id = str(payload.get("qbo_invoice_id") or (invoice_ids[0] if invoice_ids else "") or "").strip()
+	qbo_invoice_id = str(
+		payload.get("qbo_invoice_id") or (invoice_ids[0] if invoice_ids else "") or ""
+	).strip()
 	if qbo_invoice_id and qbo_invoice_id not in invoice_ids:
 		invoice_ids.insert(0, qbo_invoice_id)
 
 	txn_date = payload.get("txn_date")
+	applied_amount = payload.get("applied_amount")
 	return {
 		"qbo_payment_id": qbo_payment_id,
 		"event_type": event_type,
 		"amount": flt(payload.get("amount"), 2),
+		"applied_amount": None if applied_amount in (None, "") else flt(applied_amount, 2),
 		"txn_date": getdate(txn_date) if txn_date else None,
 		"qbo_invoice_id": qbo_invoice_id or None,
 		"qbo_invoice_ids": invoice_ids,
@@ -201,10 +245,18 @@ def _normalize_payload(payload):
 def _process_event(event, log):
 	if event["event_type"] == "Delete":
 		return _handle_delete(event, log)
+	if event["amount"] <= 0:
+		# QBO keeps a voided Payment with TotalAmt 0 and may report the void as an
+		# Update; a $0 payment that only applies a credit memo has nothing to post either.
+		return _handle_delete(
+			event,
+			log,
+			note=f"Cancelled: QBO payment amount is now 0 (voided in QuickBooks Online, {event['event_type']})",
+		)
 	return _handle_upsert(event, log)
 
 
-def _handle_delete(event, log):
+def _handle_delete(event, log, note="Cancelled: payment voided/deleted in QuickBooks Online"):
 	pe_name = _get_submitted_payment_entry(event["qbo_payment_id"])
 	if not pe_name:
 		_update_log(
@@ -214,7 +266,7 @@ def _handle_delete(event, log):
 		)
 		return {"action": "skipped", "payment_entry": None}
 
-	_cancel_payment_entry(pe_name, "Delete", "Cancelled: payment voided/deleted in QuickBooks Online")
+	_cancel_payment_entry(pe_name, event["event_type"], note)
 	_update_log(log, status="Cancelled", payment_entry=pe_name)
 	return {"action": "cancelled", "payment_entry": pe_name}
 
@@ -231,25 +283,26 @@ def _handle_upsert(event, log):
 			"invoice_not_linked",
 			f"QBO Payment {event['qbo_payment_id']} has no linked Invoice (unapplied payment) — review manually",
 		)
-	if event["amount"] <= 0:
-		raise QBOSyncError("invalid_amount", f"amount must be > 0 (got {event['amount']})")
 
 	si = _match_sales_invoice(event["qbo_invoice_id"])
 	_update_log(log, status="Matched", sales_invoice=si.name)
 
-	warnings = []
-	if abs(flt(si.outstanding_amount) - event["amount"]) > 0.005:
-		warnings.append(
-			f"QBO amount {event['amount']} differs from invoice outstanding {flt(si.outstanding_amount)}"
-		)
+	# Allocate what QBO applied to the invoice; any excess stays unallocated on the PE.
+	# Capped at the cash received, since a credit memo can make the invoice line larger.
+	allocated = event["amount"]
+	if event["applied_amount"] is not None and event["applied_amount"] > 0:
+		allocated = min(event["applied_amount"], event["amount"])
 
+	warnings = []
 	existing = _get_submitted_payment_entry(event["qbo_payment_id"])
 	rekeyed_from = None
 	if not existing and event["event_type"] == "Merge" and event["merged_from_id"]:
 		existing = _get_submitted_payment_entry(event["merged_from_id"])
 		rekeyed_from = event["merged_from_id"]
 		if existing:
-			warnings.append(f"Merge: re-keyed Payment Entry {existing} from QBO id {rekeyed_from} to {event['qbo_payment_id']}")
+			warnings.append(
+				f"Merge: re-keyed Payment Entry {existing} from QBO id {rekeyed_from} to {event['qbo_payment_id']}"
+			)
 
 	if frappe.db.exists("Payment Entry", {"custom_qbo_id": event["qbo_payment_id"], "docstatus": 0}):
 		raise QBOSyncError(
@@ -259,7 +312,7 @@ def _handle_upsert(event, log):
 
 	superseded = None
 	if existing:
-		if not rekeyed_from and _is_in_sync(existing, event, si.name):
+		if not rekeyed_from and _is_in_sync(existing, event, si.name, allocated):
 			_update_log(log, status="Skipped-Duplicate", payment_entry=existing, warnings=warnings)
 			frappe.db.set_value(
 				"Payment Entry",
@@ -276,7 +329,31 @@ def _handle_upsert(event, log):
 		)
 		superseded = existing
 
-	pe = _create_payment_entry(si, event, superseded=superseded)
+	# Cancelling the superseded PE restored the invoice's outstanding; re-read it.
+	outstanding = _current_outstanding(si.name) if superseded else flt(si.outstanding_amount)
+	if outstanding <= 0.005:
+		raise QBOSyncError(
+			"invoice_already_paid",
+			f"Sales Invoice {si.name} has nothing outstanding (already paid in ERPNext?). "
+			f"QBO Payment {event['qbo_payment_id']} was not applied — check for a duplicate payment",
+		)
+	if allocated - outstanding > 0.005:
+		raise QBOSyncError(
+			"amount_exceeds_outstanding",
+			f"QBO Payment {event['qbo_payment_id']} applies {allocated} but Sales Invoice {si.name} "
+			f"only has {outstanding} outstanding (part already paid in ERPNext?) — review manually",
+		)
+	if outstanding - allocated > 0.005:
+		warnings.append(
+			f"QBO amount {allocated} differs from invoice outstanding {outstanding} (partial payment)"
+		)
+	if event["amount"] - allocated > 0.005:
+		warnings.append(
+			f"{flt(event['amount'] - allocated, 2)} of the QBO payment is not applied to the invoice; "
+			"left unallocated on the Payment Entry"
+		)
+
+	pe = _create_payment_entry(si, event, allocated=allocated, outstanding=outstanding, superseded=superseded)
 
 	if superseded:
 		frappe.db.set_value(
@@ -312,11 +389,17 @@ def _match_sales_invoice(qbo_invoice_id):
 		filters={"custom_qbo_id": qbo_invoice_id},
 		fields=["name", "docstatus"],
 		order_by="docstatus desc, creation desc",
-		limit=2,
 	)
 	if not rows:
 		raise QBOSyncError("invoice_not_matched", f"No Sales Invoice with custom_qbo_id={qbo_invoice_id}")
 	submitted = [r for r in rows if r.docstatus == 1]
+	if len(submitted) > 1:
+		# e.g. an invoice duplicated before custom_qbo_id was no_copy. Never guess which one was paid.
+		raise QBOSyncError(
+			"multiple_invoices_matched",
+			f"Sales Invoices {', '.join(r.name for r in submitted)} all have custom_qbo_id={qbo_invoice_id}; "
+			"clear the QBO ID on the wrong one(s) and replay",
+		)
 	if not submitted:
 		raise QBOSyncError(
 			"invoice_not_submitted",
@@ -336,7 +419,7 @@ def _get_submitted_payment_entry(qbo_payment_id):
 	)
 
 
-def _is_in_sync(pe_name, event, sales_invoice_name):
+def _is_in_sync(pe_name, event, sales_invoice_name, allocated):
 	pe = frappe.db.get_value("Payment Entry", pe_name, ["paid_amount", "posting_date"], as_dict=True)
 	if not pe:
 		return False
@@ -346,10 +429,16 @@ def _is_in_sync(pe_name, event, sales_invoice_name):
 		return False
 	refs = frappe.get_all(
 		"Payment Entry Reference",
-		filters={"parent": pe_name, "reference_doctype": "Sales Invoice"},
-		pluck="reference_name",
+		filters={"parent": pe_name, "parenttype": "Payment Entry"},
+		fields=["reference_doctype", "reference_name", "allocated_amount"],
 	)
-	return refs == [sales_invoice_name]
+	if {(r.reference_doctype, r.reference_name) for r in refs} != {("Sales Invoice", sales_invoice_name)}:
+		return False
+	return abs(sum(flt(r.allocated_amount) for r in refs) - allocated) <= 0.005
+
+
+def _current_outstanding(sales_invoice_name):
+	return flt(frappe.db.get_value("Sales Invoice", sales_invoice_name, "outstanding_amount"))
 
 
 def _cancel_payment_entry(pe_name, event_type, note):
@@ -368,17 +457,21 @@ def _cancel_payment_entry(pe_name, event_type, note):
 	)
 
 
-def _create_payment_entry(si, event, superseded=None):
+def _create_payment_entry(si, event, allocated=None, outstanding=None, superseded=None):
 	settings = _get_settings()
 	paid_to = settings.get("paid_to_account") or DEFAULT_PAID_TO_ACCOUNT
 	mode_of_payment = settings.get("mode_of_payment") or DEFAULT_MODE_OF_PAYMENT
 	if not frappe.db.exists("Account", paid_to):
-		raise QBOSyncError("paid_to_account_missing", f"Account '{paid_to}' does not exist; set it in ilL-QBO-Settings")
+		raise QBOSyncError(
+			"paid_to_account_missing", f"Account '{paid_to}' does not exist; set it in ilL-QBO-Settings"
+		)
 	if mode_of_payment and not frappe.db.exists("Mode of Payment", mode_of_payment):
 		mode_of_payment = None
 
 	posting_date = event["txn_date"] or getdate(nowdate())
 	amount = event["amount"]
+	allocated = amount if allocated is None else allocated
+	outstanding = flt(si.outstanding_amount) if outstanding is None else outstanding
 
 	pe = frappe.new_doc("Payment Entry")
 	pe.flags.ignore_permissions = True
@@ -406,8 +499,8 @@ def _create_payment_entry(si, event, superseded=None):
 			"reference_name": si.name,
 			"due_date": si.get("due_date"),
 			"total_amount": si.grand_total,
-			"outstanding_amount": si.outstanding_amount,
-			"allocated_amount": amount,
+			"outstanding_amount": outstanding,
+			"allocated_amount": allocated,
 		},
 	)
 	pe.custom_qbo_id = event["qbo_payment_id"]
@@ -415,7 +508,9 @@ def _create_payment_entry(si, event, superseded=None):
 	pe.custom_qbo_event_type = event["event_type"]
 	pe.custom_qbo_last_synced = now_datetime()
 	pe.custom_qbo_sync_note = (
-		f"Recreated after QBO {event['event_type']}; supersedes {superseded}" if superseded else "Created from QBO Payment"
+		f"Recreated after QBO {event['event_type']}; supersedes {superseded}"
+		if superseded
+		else "Created from QBO Payment"
 	)
 	pe.insert(ignore_permissions=True)
 	pe.submit()

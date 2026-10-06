@@ -54,16 +54,30 @@ class TestQBOSync(FrappeTestCase):
 		request = MagicMock()
 		request.get_data.return_value = body
 		request.method = "POST"
-		with patch.object(frappe, "request", request), patch(
-			f"{MOD}._get_webhook_secret", return_value=SECRET
-		), patch.object(frappe, "get_request_header", side_effect=lambda h: signature if h == qbo_sync.SIGNATURE_HEADER else None):
+		with (
+			patch.object(frappe, "request", request),
+			patch(f"{MOD}._get_webhook_secret", return_value=SECRET),
+			patch.object(
+				frappe,
+				"get_request_header",
+				side_effect=lambda h: signature if h == qbo_sync.SIGNATURE_HEADER else None,
+			),
+		):
 			return qbo_sync.receive_payment_event()
 
 	def _logs(self, qbo_payment_id):
 		return frappe.get_all(
 			"ilL-QBO-Sync-Log",
 			filters={"qbo_payment_id": qbo_payment_id},
-			fields=["name", "status", "payment_entry", "superseded_payment_entry", "sales_invoice", "error_message", "warnings"],
+			fields=[
+				"name",
+				"status",
+				"payment_entry",
+				"superseded_payment_entry",
+				"sales_invoice",
+				"error_message",
+				"warnings",
+			],
 			order_by="creation desc",
 		)
 
@@ -102,15 +116,18 @@ class TestQBOSync(FrappeTestCase):
 	def test_signature_accepts_sha256_prefix(self):
 		body = b'{"a":1}'
 		request = MagicMock()
-		with patch(f"{MOD}._get_webhook_secret", return_value=SECRET), patch.object(
-			frappe, "get_request_header", return_value=f"sha256={_sign(body).upper()}"
-		), patch.object(frappe, "request", request):
+		with (
+			patch(f"{MOD}._get_webhook_secret", return_value=SECRET),
+			patch.object(frappe, "get_request_header", return_value=f"sha256={_sign(body).upper()}"),
+			patch.object(frappe, "request", request),
+		):
 			self.assertTrue(qbo_sync._verify_signature(body))
 
 	def test_no_secret_configured_rejects_everything(self):
 		body = b"{}"
-		with patch(f"{MOD}._get_webhook_secret", return_value=None), patch.object(
-			frappe, "get_request_header", return_value=_sign(body)
+		with (
+			patch(f"{MOD}._get_webhook_secret", return_value=None),
+			patch.object(frappe, "get_request_header", return_value=_sign(body)),
 		):
 			self.assertFalse(qbo_sync._verify_signature(body))
 
@@ -133,7 +150,12 @@ class TestQBOSync(FrappeTestCase):
 
 	def test_invoice_ids_are_merged_with_primary(self):
 		event = qbo_sync._normalize_payload(
-			{"qbo_payment_id": "1", "event_type": "Create", "qbo_invoice_id": "10", "qbo_invoice_ids": ["10", "11"]}
+			{
+				"qbo_payment_id": "1",
+				"event_type": "Create",
+				"qbo_invoice_id": "10",
+				"qbo_invoice_ids": ["10", "11"],
+			}
 		)
 		self.assertEqual(event["qbo_invoice_ids"], ["10", "11"])
 
@@ -160,11 +182,19 @@ class TestQBOSync(FrappeTestCase):
 	def test_create_event_creates_payment_entry(self):
 		pid = f"{TEST_PREFIX}CREATE"
 		created = frappe._dict(name="PE-TEST-NEW")
-		with patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice()), patch(
-			f"{MOD}._get_submitted_payment_entry", return_value=None
-		), patch(f"{MOD}._create_payment_entry", return_value=created) as create:
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice()),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value=None),
+			patch(f"{MOD}._create_payment_entry", return_value=created) as create,
+		):
 			result = self._call(
-				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "txn_date": "2026-09-15", "qbo_invoice_id": "145"}
+				{
+					"qbo_payment_id": pid,
+					"event_type": "Create",
+					"amount": 100,
+					"txn_date": "2026-09-15",
+					"qbo_invoice_id": "145",
+				}
 			)
 		self.assertTrue(result["success"])
 		self.assertEqual(result["action"], "created")
@@ -182,21 +212,29 @@ class TestQBOSync(FrappeTestCase):
 
 	def test_amount_mismatch_is_a_warning_not_a_failure(self):
 		pid = f"{TEST_PREFIX}WARN"
-		with patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=250)), patch(
-			f"{MOD}._get_submitted_payment_entry", return_value=None
-		), patch(f"{MOD}._create_payment_entry", return_value=frappe._dict(name="PE-TEST-WARN")):
-			result = self._call({"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"})
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=250)),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value=None),
+			patch(f"{MOD}._create_payment_entry", return_value=frappe._dict(name="PE-TEST-WARN")),
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"}
+			)
 		self.assertTrue(result["success"])
 		self.assertIn("differs from invoice outstanding", self._logs(pid)[0].warnings)
 
 	def test_duplicate_create_is_skipped(self):
 		pid = f"{TEST_PREFIX}DUP"
-		with patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice()), patch(
-			f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-EXISTING"
-		), patch(f"{MOD}._is_in_sync", return_value=True), patch(
-			f"{MOD}._create_payment_entry"
-		) as create, patch(f"{MOD}._cancel_payment_entry") as cancel:
-			result = self._call({"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"})
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice()),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-EXISTING"),
+			patch(f"{MOD}._is_in_sync", return_value=True),
+			patch(f"{MOD}._create_payment_entry") as create,
+			patch(f"{MOD}._cancel_payment_entry") as cancel,
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"}
+			)
 		self.assertTrue(result["success"])
 		self.assertEqual(result["action"], "skipped")
 		self.assertEqual(result["payment_entry"], "PE-TEST-EXISTING")
@@ -206,12 +244,17 @@ class TestQBOSync(FrappeTestCase):
 
 	def test_update_with_changed_amount_supersedes(self):
 		pid = f"{TEST_PREFIX}UPD"
-		with patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=120)), patch(
-			f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-OLD"
-		), patch(f"{MOD}._is_in_sync", return_value=False), patch(
-			f"{MOD}._create_payment_entry", return_value=frappe._dict(name="PE-TEST-NEW2")
-		) as create, patch(f"{MOD}._cancel_payment_entry") as cancel:
-			result = self._call({"qbo_payment_id": pid, "event_type": "Update", "amount": 120, "qbo_invoice_id": "145"})
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=120)),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-OLD"),
+			patch(f"{MOD}._is_in_sync", return_value=False),
+			patch(f"{MOD}._current_outstanding", return_value=120.0),
+			patch(f"{MOD}._create_payment_entry", return_value=frappe._dict(name="PE-TEST-NEW2")) as create,
+			patch(f"{MOD}._cancel_payment_entry") as cancel,
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Update", "amount": 120, "qbo_invoice_id": "145"}
+			)
 		self.assertTrue(result["success"])
 		self.assertEqual(result["action"], "recreated")
 		self.assertEqual(result["superseded_payment_entry"], "PE-TEST-OLD")
@@ -238,10 +281,15 @@ class TestQBOSync(FrappeTestCase):
 
 	def test_unexpected_exception_rolls_back_and_logs_failed(self):
 		pid = f"{TEST_PREFIX}BOOM"
-		with patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice()), patch(
-			f"{MOD}._get_submitted_payment_entry", return_value=None
-		), patch(f"{MOD}._create_payment_entry", side_effect=RuntimeError("boom")), patch.object(frappe, "log_error"):
-			result = self._call({"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"})
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice()),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value=None),
+			patch(f"{MOD}._create_payment_entry", side_effect=RuntimeError("boom")),
+			patch.object(frappe, "log_error"),
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"}
+			)
 		self.assertFalse(result["success"])
 		self.assertEqual(result["error"], "processing_failed")
 		self.assertEqual(frappe.local.response.get("http_status_code"), 500)
@@ -249,7 +297,121 @@ class TestQBOSync(FrappeTestCase):
 		self.assertEqual(log.status, "Failed")
 		self.assertIn("boom", log.error_message)
 
-	# -- delete ------------------------------------------------------------
+	def test_update_rereads_outstanding_after_cancelling_superseded_pe(self):
+		# Invoice 100, first QBO payment 60 -> ERPNext outstanding 40. Payment edited to 80:
+		# the stale 40 would reject the new PE; after cancelling the old PE it is 100 again.
+		pid = f"{TEST_PREFIX}UPDSTALE"
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=40)),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-OLD"),
+			patch(f"{MOD}._is_in_sync", return_value=False),
+			patch(f"{MOD}._current_outstanding", return_value=100.0),
+			patch(f"{MOD}._cancel_payment_entry"),
+			patch(f"{MOD}._create_payment_entry", return_value=frappe._dict(name="PE-TEST-NEW3")) as create,
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Update", "amount": 80, "qbo_invoice_id": "145"}
+			)
+		self.assertTrue(result["success"])
+		self.assertEqual(create.call_args.kwargs["outstanding"], 100.0)
+		self.assertEqual(create.call_args.kwargs["allocated"], 80)
+
+	def test_invoice_already_paid_fails_loudly(self):
+		pid = f"{TEST_PREFIX}PAID"
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=0)),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value=None),
+			patch(f"{MOD}._create_payment_entry") as create,
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"}
+			)
+		self.assertEqual(result["error"], "invoice_already_paid")
+		create.assert_not_called()
+		self.assertEqual(self._logs(pid)[0].status, "Failed")
+
+	def test_amount_exceeding_outstanding_fails_loudly(self):
+		pid = f"{TEST_PREFIX}OVER"
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=50)),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value=None),
+			patch(f"{MOD}._create_payment_entry") as create,
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"}
+			)
+		self.assertEqual(result["error"], "amount_exceeds_outstanding")
+		create.assert_not_called()
+
+	def test_applied_amount_is_allocated_and_rest_left_unallocated(self):
+		pid = f"{TEST_PREFIX}APPLIED"
+		with (
+			patch(f"{MOD}._match_sales_invoice", return_value=self._fake_invoice(outstanding=100)),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value=None),
+			patch(f"{MOD}._create_payment_entry", return_value=frappe._dict(name="PE-TEST-APP")) as create,
+		):
+			result = self._call(
+				{
+					"qbo_payment_id": pid,
+					"event_type": "Create",
+					"amount": 120,
+					"applied_amount": 100,
+					"qbo_invoice_id": "145",
+				}
+			)
+		self.assertTrue(result["success"])
+		self.assertEqual(create.call_args.kwargs["allocated"], 100)
+		self.assertIn("not applied to the invoice", self._logs(pid)[0].warnings)
+
+	def test_two_submitted_invoices_with_same_qbo_id_fail_loudly(self):
+		rows = [frappe._dict(name="SINV-A", docstatus=1), frappe._dict(name="SINV-B", docstatus=1)]
+		with patch.object(frappe, "get_all", return_value=rows):
+			with self.assertRaises(qbo_sync.QBOSyncError) as ctx:
+				qbo_sync._match_sales_invoice("145")
+		self.assertEqual(ctx.exception.code, "multiple_invoices_matched")
+
+	def test_lock_timeout_returns_busy(self):
+		pid = f"{TEST_PREFIX}BUSY"
+		with patch(f"{MOD}._payment_lock", side_effect=qbo_sync.QBOSyncError("busy", "locked")):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 100, "qbo_invoice_id": "145"}
+			)
+		self.assertEqual(result["error"], "busy")
+		self.assertEqual(frappe.local.response.get("http_status_code"), 503)
+		self.assertEqual(self._logs(pid)[0].status, "Failed")
+
+	def test_payment_lock_is_released(self):
+		# The lock must be released so a redelivery right after can take it.
+		with qbo_sync._payment_lock(f"{TEST_PREFIX}LOCK"):
+			pass
+		with qbo_sync._payment_lock(f"{TEST_PREFIX}LOCK"):
+			pass
+
+	# -- delete / void -----------------------------------------------------
+
+	def test_zero_amount_update_cancels_existing_payment_entry(self):
+		pid = f"{TEST_PREFIX}VOID0"
+		with (
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-OLD"),
+			patch(f"{MOD}._cancel_payment_entry") as cancel,
+			patch(f"{MOD}._match_sales_invoice") as match,
+		):
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Update", "amount": 0, "qbo_invoice_id": "145"}
+			)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["action"], "cancelled")
+		cancel.assert_called_once()
+		match.assert_not_called()
+		self.assertEqual(self._logs(pid)[0].status, "Cancelled")
+
+	def test_zero_amount_without_payment_entry_is_noop(self):
+		pid = f"{TEST_PREFIX}ZERO"
+		result = self._call(
+			{"qbo_payment_id": pid, "event_type": "Create", "amount": 0, "qbo_invoice_id": "145"}
+		)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["action"], "skipped")
 
 	def test_delete_without_payment_entry_is_noop(self):
 		pid = f"{TEST_PREFIX}DELNONE"
@@ -260,9 +422,10 @@ class TestQBOSync(FrappeTestCase):
 
 	def test_delete_cancels_existing_payment_entry(self):
 		pid = f"{TEST_PREFIX}DEL"
-		with patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-OLD"), patch(
-			f"{MOD}._cancel_payment_entry"
-		) as cancel:
+		with (
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-OLD"),
+			patch(f"{MOD}._cancel_payment_entry") as cancel,
+		):
 			result = self._call({"qbo_payment_id": pid, "event_type": "Delete"})
 		self.assertTrue(result["success"])
 		self.assertEqual(result["action"], "cancelled")
@@ -278,6 +441,8 @@ class TestQBOSync(FrappeTestCase):
 	def test_sync_disabled_skips(self):
 		pid = f"{TEST_PREFIX}DISABLED"
 		with patch(f"{MOD}._get_settings", return_value={"sync_enabled": 0}):
-			result = self._call({"qbo_payment_id": pid, "event_type": "Create", "amount": 1, "qbo_invoice_id": "1"})
+			result = self._call(
+				{"qbo_payment_id": pid, "event_type": "Create", "amount": 1, "qbo_invoice_id": "1"}
+			)
 		self.assertEqual(result["error"], "sync_disabled")
 		self.assertEqual(self._logs(pid)[0].status, "Skipped-NoOp")

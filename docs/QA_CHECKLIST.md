@@ -441,6 +441,15 @@ Prereqs: `ilL-QBO-Settings` has a webhook secret, Paid To Account and Mode of Pa
 
 **Expected:**
 - [ ] HTTP 401, `{"error": "unauthorized"}`; no `ilL-QBO-Sync-Log` row; one Error Log entry containing only IP + body hash
+- [ ] Shortcut: `QBO_WEBHOOK_SECRET=… python3 tools/qbo_smoke_test.py <site-url>` checks both the signed and the bad-signature case
+
+### Test 9.7: Double Entry Guard
+
+**Steps:**
+1. Pay a synced invoice in ERPNext by hand, then receive the same payment in QBO
+
+**Expected:**
+- [ ] Log status `Failed`, error `invoice_already_paid`; no second Payment Entry; n8n alert fires
 
 ---
 

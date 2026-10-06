@@ -239,12 +239,20 @@ Steps:
 | Sync disabled in settings | 200 | false | `sync_disabled` | Skipped-NoOp |
 | Invoice not found / not submitted | 200 | false | `invoice_not_matched` / `invoice_not_submitted` | Failed |
 | Payment linked to 0 or 2+ invoices | 200 | false | `invoice_not_linked` / `multiple_invoices_linked` | Failed |
+| 2+ submitted Sales Invoices carry the same QBO id | 200 | false | `multiple_invoices_matched` | Failed |
+| Invoice already paid / amount above outstanding (double entry) | 200 | false | `invoice_already_paid` / `amount_exceeds_outstanding` | Failed |
+| Amount 0 (voided in QBO, sent as Update) | 200 | true | — (`action: cancelled` or `skipped`) | Cancelled / Skipped-NoOp |
+| Same payment already being processed (lock timeout) | 503 | false | `busy` | Failed |
 | New payment | 200 | true | — (`action: created`) | Created |
 | Redelivered, unchanged | 200 | true | — (`action: skipped`) | Skipped-Duplicate |
 | Changed amount/date/invoice | 200 | true | — (`action: recreated`, `superseded_payment_entry`) | Superseded |
 | Delete/Void with PE | 200 | true | — (`action: cancelled`) | Cancelled |
 | Delete/Void without PE | 200 | true | — (`action: skipped`) | Skipped-NoOp |
 | Unexpected exception | 500 | false | `processing_failed` | Failed |
+
+Optional `applied_amount` (sum of the QBO payment lines linked to the invoice) is what gets allocated; any remainder of `amount` stays unallocated on the Payment Entry. Requests are serialized per QBO payment id (MariaDB `GET_LOCK`), so parallel Create/Update deliveries can't create two Payment Entries.
+
+**Intuit payload format:** Intuit switched webhooks to CloudEvents (mandatory from 15 May 2026: a JSON array of `{type: "qbo.payment.created.v1", intuitentityid, intuitaccountid, ...}`). The n8n workflow parses both CloudEvents and the legacy `eventNotifications` shape. Setup and smoke test: [QBO_CONNECTOR_SETUP_AND_TEST.md](QBO_CONNECTOR_SETUP_AND_TEST.md).
 
 Every response except 401/400 includes `log` (the `ilL-QBO-Sync-Log` name).
 
