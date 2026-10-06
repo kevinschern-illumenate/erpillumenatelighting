@@ -22,6 +22,11 @@ try {
   const { default: FindReplaceDialog } = await server.ssrLoadModule('/src/FindReplaceDialog.jsx');
   const finder = renderToStaticMarkup(React.createElement(FindReplaceDialog, { catalog: examples.fixture, reference: null, doctype: 'Item', onApply() {}, onClose() {} }));
   assert.ok(finder.includes('Find and replace') && finder.includes('Names and all text fields') && finder.includes('Only Item'));
+  assert.ok(shell.includes('Clone existing family'));
+  const { default: CloneFamilyDialog } = await server.ssrLoadModule('/src/CloneFamilyDialog.jsx');
+  const cloneReference = { source: 'export', doctypes: { 'ilL-Fixture-Template': { source: 'export', records: { 'DEMO-FIXTURE': { template_name: 'Demo' } } } } };
+  const cloner = renderToStaticMarkup(React.createElement(CloneFamilyDialog, { catalog: examples.fixture, product: schema.products.fixture, reference: cloneReference, api: null, onApply() {}, onClose() {} }));
+  assert.ok(cloner.includes('Clone an existing family') && cloner.includes('DEMO-FIXTURE') && cloner.includes('Fixture-Template'));
   const { default: Workspace } = await server.ssrLoadModule('/src/Workspace.jsx');
   const erpShell = renderToStaticMarkup(React.createElement(Workspace, { loadReference, mode: 'erp' }));
   assert.ok(erpShell.includes('Refresh ERPNext records'));

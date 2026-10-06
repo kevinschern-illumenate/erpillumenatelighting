@@ -173,6 +173,36 @@ Attributes those records link to. In the editor:
   complete reference list is flagged for review. In ERPNext, also check read access
   and refresh the list.
 
+### Clone an existing family
+
+**Clone existing family** (beside **Load example**) copies a family that is already in
+ERPNext into the draft under new names. Pick a template (or a Webflow Product), then add
+rename rules such as `CA01` → `CA03`. Rules apply in order to every name. Unless
+**Match case exactly** is on, lowercase and uppercase matches keep their case, so
+`ill-ca01-sw` becomes `ill-ca03-sw`.
+
+- **What is copied:** every record whose name the rules change. That covers the
+  template, its specs and Items, and the records that belong to them: endcap,
+  mounting and kit maps, driver eligibility, tape offerings, leader cable maps,
+  profile-lens maps, submittal mappings and Webflow products. Records that belong to
+  another template are never pulled in, even when they share an Item.
+- **What is linked:** records whose names stay the same. A copy can't keep its name,
+  because it would collide with the original. Attributes, UOM, Item Group, Brand and
+  Item Attribute are always linked.
+- **Review** lists each record with what will happen and why. Switch a record to
+  **Keep original** to link it instead of copying it; records named from it (a
+  spec named by its Item) follow. When a new name already exists in ERPNext, the clone
+  links to that record (**Use existing**).
+- Links between the copies follow their new names, including child rows. A copied
+  template's link to its copied Webflow product is cleared, because the pair would be
+  circular on import; set it in ERPNext afterwards. Copies keep the original's values,
+  including attachment URLs, so replace spec sheets and images.
+- In ERPNext, records to copy are fetched in full, child rows included. A record that
+  can't be read blocks the clone until you keep it as an original. On Vercel the
+  export provides them, with only short fields for Webflow products.
+- Records whose new name is already in the draft are skipped. **Replace the current
+  draft** starts from an empty draft instead. Undo reverses the whole clone.
+
 ### Add a new catalog to the reference (Vercel and CLI)
 
 Check **Add to ERPNext reference after import** when the catalog will be imported.

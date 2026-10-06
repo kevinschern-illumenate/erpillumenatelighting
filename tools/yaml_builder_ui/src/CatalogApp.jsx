@@ -6,6 +6,7 @@ import ImportResults, { ApiError } from './ImportResults.jsx';
 import ImportHistory from './ImportHistory.jsx';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import FindReplaceDialog from './FindReplaceDialog.jsx';
+import CloneFamilyDialog from './CloneFamilyDialog.jsx';
 import { recordCounts } from './erp-api.js';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
@@ -136,6 +137,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const [showPreview, setShowPreview] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [findOpen, setFindOpen] = useState(false);
+  const [cloneOpen, setCloneOpen] = useState(false);
   // Snapshots of the active product's draft; catalogs are never mutated, so snapshots share unchanged records.
   const [history, setHistory] = useState({ product: null, past: [], future: [] });
   const [view, setView] = useState(restoreView);
@@ -333,6 +335,15 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     setMessage([values && `Replaced ${plural(values, 'value')}`, result.renamed.length && `renamed ${plural(result.renamed.length, 'record')}`,
       links && `updated ${plural(links, 'link')}`].filter(Boolean).join(', ').replace(/^./, letter => letter.toUpperCase()) + '. Undo reverses all of it.');
   };
+  const addFamily = result => {
+    setCatalog(result.catalog, { label: 'Clone family' });
+    setRun({ phase: 'idle' });
+    if (result.root && schema.doctypes[result.root.doctype]) chooseDoctype(result.root.doctype);
+    setMessage([`Added ${plural(result.added, 'record')} cloned from ${result.root.name}${result.newRoot ? ` as ${result.newRoot}` : ''}.`,
+      result.skipped.length ? `Skipped ${plural(result.skipped.length, 'record')} already in the draft: ${result.skipped.slice(0, 5).map(item => item.name).join(', ')}${result.skipped.length > 5 ? '…' : ''}.` : '',
+      result.cleared.length ? `Cleared the Webflow product link on ${result.cleared.map(item => item.name).join(', ')} to avoid a circular import; set it in ERPNext after importing.` : '',
+      'Review the copies, then Undo if anything looks wrong.'].filter(Boolean).join(' '));
+  };
   const copyRecord = async (name, summary) => {
     const target = currentDraft.current;
     setCopying(name);
@@ -433,6 +444,8 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       <button onClick={() => setConfirm({ title: 'Replace this draft with an illustrative example? Review engineering values before using it.', run: () => {
         setCatalog(structuredClone(examples[workspace.active]), { label: 'Load example' }); setSelected(product.template); setRun({ phase: 'idle' });
       } })}>Load example</button>
+      <button disabled={!reference} title={reference ? 'Copy an existing ERPNext family under new names' : 'Existing ERPNext records have not loaded'}
+        onClick={() => setCloneOpen(true)}>Clone existing family</button>
       <button onClick={() => setConfirm({ title: 'Clear this product draft?', run: () => { setCatalog(emptyCatalog(workspace.active), { label: 'Clear draft' }); setRun({ phase: 'idle' }); } })}>Clear draft</button>
     </div>
     {mode === 'erp' && <div className="catalog-run">
@@ -557,6 +570,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     </div>
     </fieldset>
     {confirm && <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} />}
+    {cloneOpen && <CloneFamilyDialog catalog={catalog} product={product} reference={reference} api={api} onApply={addFamily} onClose={() => setCloneOpen(false)} />}
     {findOpen && <FindReplaceDialog catalog={catalog} reference={reference} doctype={selected} onApply={replaceAll} onClose={() => setFindOpen(false)} />}
   </div>;
 }

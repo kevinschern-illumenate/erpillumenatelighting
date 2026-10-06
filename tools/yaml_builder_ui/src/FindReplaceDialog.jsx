@@ -61,7 +61,9 @@ export default function FindReplaceDialog({ catalog, reference, doctype, onApply
       </tr>)}</tbody>
     </table></div>}
     {plan.changes.length > SHOWN && <p>Showing {SHOWN} of {plan.changes.length}. All checked changes are applied.</p>}
-    <button onClick={onClose}>Cancel</button>
-    <button className="catalog-primary" disabled={!chosen.length} onClick={() => { onClose(); onApply(chosen); }}>Replace {chosen.length || ''}</button>
+    <div className="catalog-modal-actions">
+      <button onClick={onClose}>Cancel</button>
+      <button className="catalog-primary" disabled={!chosen.length} onClick={() => { onClose(); onApply(chosen); }}>Replace {chosen.length || ''}</button>
+    </div>
   </dialog>;
 }

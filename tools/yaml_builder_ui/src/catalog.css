@@ -220,3 +220,21 @@
 @media (max-width: 760px) { .catalog-replace-form { grid-template-columns: minmax(0, 1fr); } }
 .catalog-app .catalog-replace-form input[type="radio"] { width: auto; }
 .catalog-app .catalog-replace-preview td:first-child, .catalog-app .catalog-replace-preview th:first-child { min-width: 0; width: 40px; }
+/* Clone an existing family */
+.catalog-clone-step { border-top: 1px solid #e0dace; padding-top: 14px; margin-top: 14px; }
+.catalog-clone-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-bottom: 10px; }
+.catalog-clone-pick label { display: grid; gap: 4px; font-weight: 600; font-size: 12px; }
+.catalog-clone-candidates { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; max-height: 220px; overflow: auto; padding: 2px; }
+.catalog-app .catalog-clone-candidates button { margin: 0; text-align: left; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.catalog-app .catalog-clone-candidates button[aria-selected="true"] { background: #ebe0cb; border-color: #b8a07b; }
+.catalog-clone-candidates small { font-size: 11px; }
+.catalog-clone-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.catalog-app .catalog-clone-rule button { margin: 0; }
+.catalog-app .catalog-clone-option { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.catalog-app .catalog-clone-review { max-height: 340px; margin: 10px 0; }
+.catalog-app .catalog-clone-review select { min-width: 150px; }
+.catalog-app .catalog-clone-step .catalog-segmented button { margin: 0 6px 0 0; }
+.catalog-clone-step code { font-size: 12px; background: #f1ede4; padding: 1px 4px; border-radius: 4px; }
+.catalog-clone-review ins { color: #245630; text-decoration: none; font-weight: 600; }
+@media (max-width: 760px) { .catalog-clone-pick { grid-template-columns: minmax(0, 1fr); } }
+.catalog-app .catalog-modal-actions { position: sticky; bottom: -28px; margin: 12px -28px -28px; padding: 4px 28px 16px; background: white; border-top: 1px solid #e0dace; }
