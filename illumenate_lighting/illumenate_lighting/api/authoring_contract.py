@@ -45,7 +45,9 @@ def record_issues(doctype, record):
 				+ (f" at most {maximum}" if maximum is not None else ""),
 			)
 
-	if doctype.startswith("ilL-Spec-"):
+	# Engineering specs are named by their Item; ilL-Spec-Submittal-Mapping shares the
+	# prefix but maps PDF fields to a template and has no item field.
+	if doctype.startswith("ilL-Spec-") and doctype != "ilL-Spec-Submittal-Mapping":
 		required("item")
 	if doctype == "ilL-Spec-LED Tape":
 		required("input_voltage", "input_protocol", "led_package")
