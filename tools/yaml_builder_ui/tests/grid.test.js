@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { catalogIssues, unresolvedLinks } from '../src/catalog-model.js';
 import {
   gridColumns, visibleColumns, parseTSV, toTSV, coerceCell, copyMatrix, pasteCells, rowsFromMatrix,
-  fillDown, clearCells, duplicateRows, moveRows, removeRows, issueIndex, parseNumber,
+  fillDown, clearCells, duplicateRows, moveRows, removeRows, issueIndex, parseNumber, locatePath, findingGroups,
 } from '../src/grid-model.js';
 
 const schema = JSON.parse(readFileSync(new URL('../src/catalog-schema.json', import.meta.url)));
@@ -132,4 +132,25 @@ test('validation findings mark cells, child-table cells and rows', () => {
   assert.ok(index.rows.get('ilL-Driver-Template[0].variants[0]').some(text => text.startsWith('driver_spec:')));
   assert.ok(index.rows.get('ilL-Driver-Template[1]').some(text => text.includes('duplicate record')));
   assert.ok(index.cells.get('ilL-Driver-Template[0].base_price_msrp').some(text => text.includes('finite number')));
+});
+
+test('findings read as places in the catalog and group by DocType', () => {
+  assert.deepEqual(locatePath('ilL-Driver-Template[0].variants[1].driver_spec', schema),
+    { doctype: 'ilL-Driver-Template', index: 0, rest: 'variants[1].driver_spec', label: 'Row 1 › Variants 2 › Driver Spec' });
+  assert.equal(locatePath('ilL-Attribute-LED Package[2].name', schema).label, 'Row 3 › Record ID');
+  assert.equal(locatePath('Item[4]', schema).label, 'Row 5');
+  assert.equal(locatePath('Not-A-Doctype[0].x', schema), null);
+  const catalog = structuredClone(examples.driver);
+  const template = catalog.records['ilL-Driver-Template'][0];
+  template.variants[0].driver_spec = 'MISSING-SPEC';
+  template.base_price_msrp = 'abc';
+  catalog.add_to_reference = true;
+  catalog.series_name = '';
+  const issues = catalogIssues(catalog, schema);
+  const { groups, general } = findingGroups(issues, issueIndex(issues, unresolvedLinks(catalog, schema), catalog, schema), schema);
+  assert.deepEqual(general, ['Name the catalog to add it to the ERPNext reference']);
+  const driver = groups.find(group => group.doctype === 'ilL-Driver-Template');
+  assert.deepEqual(driver.items.map(item => item.label), ['Row 1 › Base Price MSRP', 'Row 1 › Variants 1 › Driver Spec']);
+  assert.ok(driver.items.every(item => item.index === 0 && item.messages.length));
+  assert.equal(driver.count, driver.items.reduce((sum, item) => sum + item.messages.length, 0));
 });

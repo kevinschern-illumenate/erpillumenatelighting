@@ -126,6 +126,10 @@ prompt-named records such as LED Package. Quote numeric-looking names (`"90"`,
 `"3"`, `"001"`); use numbers for Float/Int/Currency fields and booleans or 0/1 for Check.
 Lists and objects in JSON fields serialize as JSON in the corresponding CSV cell.
 
+An optional `builder` mapping holds editor settings, such as the Catalog Builder's saved
+row generator recipes (`builder.recipes`). It is never imported or exported to CSV, and
+ERPNext Check and Import ignore it.
+
 Set `add_to_reference: true` to add the catalog's records to the ERPNext reference
 after generation (see below). Unknown fields/types, malformed child rows, invalid enum values, duplicate names,
 missing required values, nonfinite numbers, unresolved links, ambiguous active

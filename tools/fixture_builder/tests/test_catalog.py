@@ -208,6 +208,21 @@ class CatalogTests(unittest.TestCase):
 		with self.assertRaisesRegex(ValueError, "unresolved ilL-Attribute-CCT / TYPO"):
 			prepare_catalog(config)
 
+	def test_builder_settings_are_accepted_and_never_exported(self):
+		config = example_catalog("fixture")
+		config["builder"] = {
+			"recipes": [{"name": "Endcaps", "doctype": "ilL-Rel-Endcap-Map", "axes": [], "fields": {}}]
+		}
+		self.assertEqual(validate_config(config), [])
+		with tempfile.TemporaryDirectory() as output:
+			generate_all(config, output)
+			exported = "".join(path.read_text(encoding="utf-8-sig") for path in Path(output).iterdir())
+		self.assertNotIn("Endcaps", exported)
+		self.assertNotIn("recipes", exported)
+		config["builder"] = ["not", "a", "mapping"]
+		with self.assertRaisesRegex(ValueError, "builder must be a mapping"):
+			prepare_catalog(config)
+
 	def test_catalog_loader_rejects_unknown_version_and_nonmapping(self):
 		with tempfile.TemporaryDirectory() as output:
 			path = Path(output) / "invalid.yaml"
