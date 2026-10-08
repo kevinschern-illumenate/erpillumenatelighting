@@ -409,6 +409,109 @@ body.reorder-no-select {
 		min-width: 0;
 	}
 }
+
+/* Linear Fixture picker in the Add Line modal: series families, then templates */
+.ill-linear-picker { margin-bottom: 0.5rem; }
+.ill-linear-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+.ill-linear-toolbar .ill-linear-search { flex: 1; min-width: 0; }
+.ill-linear-count { font-size: 12px; color: var(--ill-muted, #7f8080); white-space: nowrap; }
+.ill-linear-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 10px;
+	max-height: 360px;
+	overflow-y: auto;
+	padding: 3px;
+	margin: -3px;
+}
+.ill-linear-family {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	text-align: left;
+	background: var(--ill-paper, #fff);
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius, 8px);
+	overflow: hidden;
+	cursor: pointer;
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+}
+.ill-linear-family:hover,
+.ill-linear-family:focus-visible {
+	outline: none;
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
+.ill-linear-family-media {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	background: var(--ill-bg, #e8f0f6);
+	overflow: hidden;
+}
+.ill-linear-family-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ill-linear-placeholder { font-size: 26px; color: var(--ill-subtle, #b3b4b3); }
+.ill-linear-family-body { display: block; padding: 8px 10px 10px; }
+.ill-linear-family-name {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--ill-ink, #172e48);
+}
+.ill-linear-family-code {
+	font-family: var(--ill-font-mono, monospace);
+	font-size: 11px;
+	font-weight: 400;
+	color: var(--ill-muted, #7f8080);
+}
+.ill-linear-empty { grid-column: 1 / -1; padding: 16px; text-align: center; color: var(--ill-muted, #7f8080); font-size: 13px; }
+.ill-linear-series-title { font-weight: 600; color: var(--ill-ink, #172e48); margin: 2px 0 8px; }
+.ill-linear-options { max-height: 300px; overflow-y: auto; }
+.ill-linear-option { font-size: 13px; padding: 8px 12px; }
+.ill-linear-option-code { font-family: var(--ill-font-mono, monospace); font-size: 11px; opacity: 0.75; }
+.ill-linear-selected {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	border: 1.5px solid var(--ill-accent-soft, #b3d1e5);
+	background: var(--ill-accent-bg, #e6f0f7);
+	border-radius: var(--ill-radius, 8px);
+}
+.ill-linear-selected-media {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 42px;
+	border-radius: 6px;
+	overflow: hidden;
+	background: var(--ill-paper, #fff);
+}
+.ill-linear-selected-media img { width: 100%; height: 100%; object-fit: cover; }
+.ill-linear-selected-media .ill-linear-placeholder { font-size: 18px; }
+.ill-linear-selected-text { min-width: 0; }
+.ill-linear-change {
+	margin-left: auto;
+	flex: 0 0 auto;
+	border: 1px solid var(--ill-border-str, #8b97a4);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+	border-radius: var(--ill-radius-pill, 9999px);
+	padding: 3px 12px;
+	font-size: 12px;
+	cursor: pointer;
+}
+.ill-linear-change:hover { border-color: var(--ill-accent, #00588c); }
 </style>
 {% endblock %}
 
@@ -2096,19 +2199,181 @@ function loadFixtureTemplates(productType) {
 		},
 		callback: function(r) {
 			var options = '<option value="">{{ _("Select Fixture Template...") }}</option>';
-			if (r.message && r.message.templates) {
-				r.message.templates.forEach(function(template) {
-					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
-					options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\'>' + template.template_name + ' (' + template.template_code + ')</option>';
-				});
-			}
+			var templates = (r.message && r.message.templates) || [];
+			templates.forEach(function(template) {
+				var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
+				options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\'>' + template.template_name + ' (' + template.template_code + ')</option>';
+			});
 			$('#add_fixture_template').html(options);
-			IllConfigurator.renderTemplateCards({ $select: $('#add_fixture_template'), $container: $('#add_fixture_template_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
+			renderLinearFixturePicker($('#add_fixture_template'), $('#add_fixture_template_cards'), templates);
 		},
 		error: function() {
 			$('#add_fixture_template').html('<option value="">{{ _("Error loading templates") }}</option>');
 		}
 	});
+}
+
+// Series code of a fixture template code: "ILL-SH02-SW" -> "ILL-SH02".
+// Codes without a finish suffix form a series of their own.
+function linearSeriesCode(code) {
+	var parts = String(code || '').split('-');
+	return parts.length > 2 ? parts.slice(0, 2).join('-') : String(code || '');
+}
+
+// Family label from a template name, up to and including the first "]":
+// "St. Helens [SF] Static White" -> "St. Helens [SF]".
+function linearFamilyName(templateName) {
+	var name = String(templateName || '');
+	var end = name.indexOf(']');
+	return end === -1 ? name.trim() : name.slice(0, end + 1).trim();
+}
+
+// Two-step Linear Fixture picker for the Add Line modal: series families as
+// image cards, then a plain list of that series' templates. The hidden
+// #add_fixture_template select stays the source of truth.
+function renderLinearFixturePicker($select, $container, templates) {
+	var ns = '.illLinearPicker';
+	var esc = frappe.utils.escape_html;
+	var families = [];
+	var bySeries = {};
+	templates.forEach(function(t) {
+		var series = linearSeriesCode(t.template_code);
+		if (!bySeries[series]) {
+			bySeries[series] = { series: series, name: linearFamilyName(t.template_name), templates: [] };
+			families.push(bySeries[series]);
+		}
+		bySeries[series].templates.push(t);
+	});
+	families.forEach(function(f) {
+		var withImage = f.templates.find(function(t) { return t.image; });
+		f.image = withImage ? withImage.image : '';
+	});
+	// Product line name first, then series code (St. Helens SH01, SH02, SH03).
+	families.sort(function(a, b) {
+		var baseA = a.name.split('[')[0].trim().toLowerCase();
+		var baseB = b.name.split('[')[0].trim().toLowerCase();
+		if (baseA !== baseB) return baseA < baseB ? -1 : 1;
+		return a.series < b.series ? -1 : (a.series > b.series ? 1 : 0);
+	});
+
+	var state = { series: null };
+
+	function templateByValue(value) {
+		return templates.find(function(t) { return t.name === value; });
+	}
+	function media(f) {
+		return f.image
+			? '<img src="' + esc(f.image) + '" alt="' + esc(f.name) + '" loading="lazy">'
+			: '<span class="ill-linear-placeholder"><i class="fa fa-lightbulb-o"></i></span>';
+	}
+
+	function renderFamilies() {
+		var q = ($container.find('.ill-linear-search').val() || '').toLowerCase().trim();
+		var shown = families.filter(function(f) {
+			if (!q) return true;
+			var haystack = f.name + ' ' + f.series + ' ' + f.templates.map(function(t) {
+				return t.template_name + ' ' + t.template_code;
+			}).join(' ');
+			return haystack.toLowerCase().indexOf(q) !== -1;
+		});
+		$container.find('.ill-linear-count').text(shown.length === families.length
+			? __('{0} fixtures', [families.length])
+			: __('{0} of {1} fixtures', [shown.length, families.length]));
+		$container.find('.ill-linear-grid').html(shown.length ? shown.map(function(f) {
+			return '<button type="button" class="ill-linear-family" data-series="' + esc(f.series) + '">'
+				+ '<span class="ill-linear-family-media">' + media(f) + '</span>'
+				+ '<span class="ill-linear-family-body">'
+				+ '<span class="ill-linear-family-name">' + esc(f.name) + '</span>'
+				+ '<span class="ill-linear-family-code">' + esc(f.series) + '</span>'
+				+ '</span></button>';
+		}).join('') : '<div class="ill-linear-empty">' + esc(__('No fixtures match your search.')) + '</div>');
+	}
+
+	function renderSeries() {
+		var f = bySeries[state.series];
+		var current = $select.val();
+		$container.find('.ill-linear-series-title').html(esc(f.name) + ' <span class="ill-linear-family-code">(' + esc(f.series) + ')</span>');
+		$container.find('.ill-linear-options').html(f.templates.map(function(t) {
+			var active = t.name === current;
+			return '<button type="button" class="list-group-item list-group-item-action ill-linear-option' + (active ? ' active' : '')
+				+ '" data-value="' + esc(t.name) + '">' + esc(t.template_name)
+				+ ' <span class="ill-linear-option-code">(' + esc(t.template_code) + ')</span></button>';
+		}).join(''));
+	}
+
+	function sync() {
+		var t = templateByValue($select.val());
+		var $families = $container.find('.ill-linear-families');
+		var $series = $container.find('.ill-linear-series');
+		var $selected = $container.find('.ill-linear-selected');
+		if (t) {
+			var f = bySeries[linearSeriesCode(t.template_code)];
+			state.series = f.series;
+			$selected.html(
+				'<span class="ill-linear-selected-media">' + media(f) + '</span>'
+				+ '<span class="ill-linear-selected-text"><span class="ill-linear-family-name">' + esc(t.template_name) + '</span>'
+				+ '<span class="ill-linear-family-code">' + esc(t.template_code) + '</span></span>'
+				+ '<button type="button" class="ill-linear-change">' + esc(__('Change')) + '</button>'
+			).show();
+			$families.hide();
+			$series.hide();
+		} else if (state.series && bySeries[state.series]) {
+			$selected.hide();
+			$families.hide();
+			renderSeries();
+			$series.show();
+		} else {
+			state.series = null;
+			$selected.hide();
+			$series.hide();
+			renderFamilies();
+			$families.show();
+		}
+	}
+
+	$container.off(ns).addClass('ill-linear-picker').html(
+		'<div class="ill-linear-families">'
+		+ '<div class="ill-linear-toolbar">'
+		+ '<input type="search" class="form-control form-control-sm ill-linear-search" placeholder="' + esc(__('Search fixtures...')) + '" aria-label="' + esc(__('Search fixtures...')) + '">'
+		+ '<span class="ill-linear-count" role="status" aria-live="polite"></span>'
+		+ '</div>'
+		+ '<div class="ill-linear-grid"></div>'
+		+ '</div>'
+		+ '<div class="ill-linear-series" style="display:none;">'
+		+ '<button type="button" class="btn btn-link btn-sm px-0 ill-linear-back"><i class="fa fa-angle-left"></i> ' + esc(__('All fixtures')) + '</button>'
+		+ '<div class="ill-linear-series-title"></div>'
+		+ '<div class="list-group ill-linear-options"></div>'
+		+ '</div>'
+		+ '<div class="ill-linear-selected" style="display:none;"></div>'
+	);
+	$select.addClass('ill-template-select-driven').off(ns).on('change' + ns, sync);
+
+	$container.on('input' + ns, '.ill-linear-search', renderFamilies);
+	$container.on('click' + ns, '.ill-linear-family', function() {
+		state.series = $(this).attr('data-series');
+		sync();
+		$container.find('.ill-linear-option').first().trigger('focus');
+	});
+	$container.on('click' + ns, '.ill-linear-option', function() {
+		$select.val($(this).attr('data-value')).trigger('change');
+	});
+	$container.on('click' + ns, '.ill-linear-back', function() {
+		state.series = null;
+		$select.val('').trigger('change');
+	});
+	$container.on('click' + ns, '.ill-linear-change', function() {
+		// Back to the same series so a different finish is one click away
+		$select.val('').trigger('change');
+	});
+	if (!$container.data('illLinearImageFallback')) {
+		// Image errors don't bubble, so listen in the capture phase (once per container)
+		$container[0].addEventListener('error', function(event) {
+			if (event.target.tagName === 'IMG') $(event.target).replaceWith('<span class="ill-linear-placeholder"><i class="fa fa-lightbulb-o"></i></span>');
+		}, true);
+		$container.data('illLinearImageFallback', true);
+	}
+
+	sync();
 }
 
 // Template category (LED Tape, COB Tape or LED Neon) of a Product Category option.
