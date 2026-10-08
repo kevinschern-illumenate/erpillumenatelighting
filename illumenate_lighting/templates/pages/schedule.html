@@ -682,6 +682,50 @@ body.reorder-no-select {
 .ill-linear-selected .ill-linear-thumb { background: var(--ill-paper, #fff); }
 .ill-linear-selected .ill-linear-code { background: var(--ill-paper, #fff); }
 
+/* Add Line modal actions and notes in the ilLumenate brand (navy) style */
+#addLineModal .btn-primary,
+#addLineModal .btn-success {
+	background: var(--ill-accent, #00588c);
+	border: 1.5px solid var(--ill-accent, #00588c);
+	border-radius: var(--ill-radius, 8px);
+	color: #fff;
+	font-weight: 500;
+	transition: opacity var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+}
+#addLineModal .btn-primary:hover,
+#addLineModal .btn-success:hover,
+#addLineModal .btn-primary:not(:disabled):not(.disabled):active,
+#addLineModal .btn-success:not(:disabled):not(.disabled):active {
+	background: var(--ill-accent, #00588c);
+	border-color: var(--ill-accent, #00588c);
+	color: #fff;
+	opacity: 0.9;
+}
+#addLineModal .btn-primary:focus,
+#addLineModal .btn-success:focus { box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5); }
+#addLineModal .btn-secondary {
+	background: var(--ill-paper, #fff);
+	border: 1.5px solid var(--ill-border-str, #8b97a4);
+	border-radius: var(--ill-radius, 8px);
+	color: var(--ill-ink, #172e48);
+	font-weight: 500;
+}
+#addLineModal .btn-secondary:hover,
+#addLineModal .btn-secondary:not(:disabled):not(.disabled):active {
+	background: var(--ill-paper, #fff);
+	border-color: var(--ill-accent, #00588c);
+	color: var(--ill-accent, #00588c);
+}
+#addLineModal .btn-secondary:focus { box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5); }
+#addLineModal .btn-block { margin-bottom: 1rem; }
+#addLineModal .alert-info {
+	background: var(--ill-accent-bg, #e6f0f7);
+	border: 1px solid var(--ill-accent-soft, #b3d1e5);
+	border-radius: var(--ill-radius, 8px);
+	color: var(--ill-ink, #172e48);
+}
+#addLineModal .alert-info .fa { color: var(--ill-accent, #00588c); }
+
 @media (max-width: 575.98px) {
 	.ill-linear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 	.ill-linear-panel-head,
