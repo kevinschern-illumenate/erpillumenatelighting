@@ -81,11 +81,13 @@ def record(user, preference, subject, message, reference_type, reference_name, e
 	"""Commit intent alongside the business record, independent of email setup."""
 	if not user or not reference_type or not reference_name:
 		return False
+	# `modified` comes back as a datetime, which the canonical JSON fingerprint rejects.
+	revision = event_key or frappe.db.get_value(reference_type, reference_name, "modified")
 	key = fingerprint(
 		{
 			"kind": preference,
 			"reference": [reference_type, reference_name],
-			"revision": event_key or frappe.db.get_value(reference_type, reference_name, "modified"),
+			"revision": None if revision is None else str(revision),
 			"subject": subject,
 			"message": message,
 		}

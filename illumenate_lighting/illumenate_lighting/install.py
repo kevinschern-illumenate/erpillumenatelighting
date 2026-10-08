@@ -46,6 +46,15 @@ def after_install():
 	)
 
 	invoice_payment_instructions()
+	from illumenate_lighting.patches.add_item_build_id_field import execute as item_build_id
+
+	item_build_id()
+	from illumenate_lighting.patches.add_webflow_contact_form_fields import execute as webflow_contact_form
+
+	webflow_contact_form()
+	from illumenate_lighting.patches.add_work_order_qc_fields import execute as work_order_qc
+
+	work_order_qc()
 	from illumenate_lighting.patches.create_product_finder_role import execute as product_finder_role
 
 	product_finder_role()

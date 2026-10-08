@@ -41,6 +41,20 @@ import frappe
 from frappe import _
 
 
+def _submitted_datetime(value):
+    """Webflow sends ISO 8601 UTC ("2026-10-08T16:34:56.789Z"); a Datetime column
+    needs a naive system-timezone value. Unparseable input is dropped, not fatal."""
+    from frappe.utils import convert_utc_to_system_timezone
+
+    try:
+        parsed = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed
+    return convert_utc_to_system_timezone(parsed).replace(tzinfo=None)
+
+
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def create_lead_from_webflow(
     first_name: str,
@@ -191,7 +205,7 @@ def create_lead_from_webflow(
         
         # Add Webflow Form Details fields (new custom fields)
         if submitted_at:
-            lead_data["webflow_submitted_at"] = submitted_at
+            lead_data["webflow_submitted_at"] = _submitted_datetime(submitted_at)
         if contact_form_subject:
             lead_data["webflow_contact_form_subject"] = contact_form_subject
         if contact_form_message:
