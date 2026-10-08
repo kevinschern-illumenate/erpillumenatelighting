@@ -1,6 +1,8 @@
+import json
 import types
 import unittest
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from test_configuration_save import Doc
@@ -116,3 +118,12 @@ class Conversations(unittest.TestCase):
 				module.reply(**args(file_ids=["FILE1"]))
 			frappe.db.rollback.assert_called_once()
 			notify.assert_not_called()
+
+	def test_message_schema_accepts_every_conversation_parent(self):
+		path = (
+			Path(__file__).parents[2]
+			/ "illumenate_lighting/illumenate_lighting/doctype/ill_portal_message/ill_portal_message.json"
+		)
+		field = next(f for f in json.loads(path.read_text())["fields"] if f["fieldname"] == "reference_type")
+		with service() as (module, *_):
+			self.assertEqual(set(field["options"].split("\n")), set(module.PARENTS))

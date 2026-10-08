@@ -20,7 +20,7 @@
    "fieldtype": "Select",
    "label": "Reference Type",
    "read_only": 1,
-   "options": "ilL-Document-Request\nIssue",
+   "options": "ilL-Product-Verification-Request\nilL-Document-Request\nIssue\nilL-Quote-Request\nilL-Order-Intake\nilL-Order-Change",
    "reqd": 1
   },
   {
