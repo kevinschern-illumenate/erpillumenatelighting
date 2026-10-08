@@ -36,7 +36,7 @@ Also handles new schedule creation when is_new is True
 .driver-sub-line {
 	margin-top: 0.35rem;
 	padding-top: 0.35rem;
-	border-top: 1px dashed var(--ill-gray-200, #e0e0e0);
+	border-top: 1px dashed var(--ill-gray-200, #DCE2E8);
 	opacity: 0.85;
 }
 .driver-sub-line .small {
@@ -45,7 +45,7 @@ Also handles new schedule creation when is_new is True
 .pricing-sub-line {
 	margin-top: 0.25rem;
 	padding-top: 0.25rem;
-	border-top: 1px dashed var(--ill-gray-200, #e0e0e0);
+	border-top: 1px dashed var(--ill-gray-200, #DCE2E8);
 	font-size: 0.8rem;
 	opacity: 0.85;
 }
@@ -83,7 +83,7 @@ details.stock-breakdown .stock-breakdown-list .stock-item-row {
 	gap: 6px;
 }
 details.stock-breakdown .stock-breakdown-list .stock-item-type {
-	color: #666;
+	color: var(--ill-text-secondary);
 	min-width: 55px;
 }
 details.stock-breakdown .stock-breakdown-list .stock-item-code {
@@ -94,7 +94,7 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 	margin-left: auto;
 	white-space: nowrap;
 	font-size: 0.75rem;
-	color: #888;
+	color: var(--ill-gray-500);
 }
 /* Kit component stock table */
 .kit-stock-breakdown {
@@ -108,7 +108,7 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 	font-size: 0.7rem;
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
-	border-bottom: 1px solid #eee !important;
+	border-bottom: 1px solid var(--ill-gray-200) !important;
 }
 .kit-stock-table td,
 .kit-stock-table th {
@@ -140,7 +140,7 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 .drag-handle-btn {
 	border: none;
 	background: transparent;
-	color: var(--ill-gray-500, #9e9e9e);
+	color: var(--ill-gray-500, #8B97A4);
 	cursor: grab;
 	padding: 6px 8px;
 	line-height: 1;
@@ -148,8 +148,8 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 	touch-action: none;
 }
 .drag-handle-btn:hover {
-	color: var(--ill-gray-800, #424242);
-	background: var(--ill-gray-100, #f5f5f5);
+	color: var(--ill-gray-800, #172E48);
+	background: var(--ill-gray-100, #EEF1F4);
 }
 .drag-handle-btn:active {
 	cursor: grabbing;
@@ -159,7 +159,7 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 }
 .fixture-lines-table tr.row-dragging {
 	opacity: 0.5;
-	background: var(--ill-gray-50, #fafafa);
+	background: var(--ill-gray-50, #F6F8FA);
 }
 .drop-indicator-row td {
 	padding: 0 !important;
@@ -167,7 +167,7 @@ details.stock-breakdown .stock-breakdown-list .stock-item-qty {
 }
 .drop-indicator-row .drop-indicator-line {
 	height: 3px;
-	background: var(--ill-primary, #0d6efd);
+	background: var(--ill-primary, #00588C);
 	border-radius: 2px;
 	margin: 0;
 }
@@ -187,7 +187,7 @@ body.reorder-no-select {
 	position: relative;
 	max-width: 100%;
 	border-radius: 6px;
-	border: 1px solid var(--ill-gray-200, #eee);
+	border: 1px solid var(--ill-gray-200, #E8EAED);
 	overflow: hidden;
 	background: #fff;
 	margin-bottom: 0.5rem;
@@ -221,7 +221,7 @@ body.reorder-no-select {
 	top: 50%;
 	transform: translateY(-50%);
 	background: rgba(255,255,255,0.85);
-	border: 1px solid #ced4da;
+	border: 1px solid var(--ill-gray-300);
 	border-radius: 50%;
 	width: 36px;
 	height: 36px;
@@ -231,9 +231,9 @@ body.reorder-no-select {
 	cursor: pointer;
 	z-index: 10;
 	font-size: 18px;
-	color: #495057;
+	color: var(--ill-ink);
 	transition: background 0.15s;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+	box-shadow: 0 1px 3px rgba(12, 23, 36, 0.12);
 }
 .add-line-gallery-wrapper .gallery-nav:hover {
 	background: rgba(255,255,255,1);
@@ -250,7 +250,7 @@ body.reorder-no-select {
 	bottom: 8px;
 	left: 50%;
 	transform: translateX(-50%);
-	background: rgba(0,0,0,0.55);
+	background: rgba(12, 23, 36, 0.55);
 	color: #fff;
 	padding: 2px 10px;
 	border-radius: 12px;
@@ -263,10 +263,10 @@ body.reorder-no-select {
 	align-items: center;
 	gap: 8px;
 	padding: 6px 12px;
-	background: #f8f9fa;
-	border-top: 1px solid var(--ill-gray-200, #eee);
+	background: var(--ill-surface-soft);
+	border-top: 1px solid var(--ill-gray-200, #E8EAED);
 	font-size: 0.8rem;
-	color: #6c757d;
+	color: var(--ill-text-secondary);
 }
 .add-line-gallery-zoom-bar label {
 	margin: 0;
@@ -283,15 +283,15 @@ body.reorder-no-select {
 }
 .add-line-gallery-zoom-bar .zoom-reset-btn {
 	background: none;
-	border: 1px solid #ced4da;
+	border: 1px solid var(--ill-gray-300);
 	border-radius: 4px;
 	padding: 1px 8px;
 	cursor: pointer;
 	font-size: 0.75rem;
-	color: #495057;
+	color: var(--ill-ink);
 }
 .add-line-gallery-zoom-bar .zoom-reset-btn:hover {
-	background: #e9ecef;
+	background: var(--ill-gray-200);
 }
 
 /* Mobile/Tablet Card Layout */
@@ -301,10 +301,10 @@ body.reorder-no-select {
 	}
 	.fixture-lines-table tbody tr {
 		display: block;
-		border: 1px solid var(--ill-gray-200, #eee);
+		border: 1px solid var(--ill-gray-200, #E8EAED);
 		border-radius: var(--ill-radius-md, 8px);
 		margin-bottom: var(--ill-space-4, 1rem);
-		box-shadow: var(--ill-shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+		box-shadow: var(--ill-shadow-sm, 0 1px 2px rgba(12, 23, 36, 0.05));
 		overflow: hidden;
 	}
 	.fixture-lines-table tbody tr:hover {
@@ -336,7 +336,7 @@ body.reorder-no-select {
 	.fixture-lines-table tbody td.col-pricing::before {
 		content: attr(data-label) ": ";
 		font-weight: 600;
-		color: var(--ill-gray-600, #757575);
+		color: var(--ill-gray-600, #5D6D7F);
 		font-size: var(--ill-font-size-xs, 0.75rem);
 		text-transform: uppercase;
 	}
@@ -350,7 +350,7 @@ body.reorder-no-select {
 	/* Card body: Fixture Details */
 	.fixture-lines-table tbody td.col-fixture-details {
 		display: block;
-		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		border-top: 1px solid var(--ill-gray-100, #EEF1F4);
 		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
 		max-width: none;
 		width: auto;
@@ -360,8 +360,8 @@ body.reorder-no-select {
 		display: block;
 		max-width: none;
 		width: auto;
-		background: var(--ill-gray-50, #fafafa);
-		border-top: 1px solid var(--ill-gray-100, #f5f5f5);
+		background: var(--ill-gray-50, #F6F8FA);
+		border-top: 1px solid var(--ill-gray-100, #EEF1F4);
 		padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
 		text-align: left;
 	}
@@ -602,7 +602,7 @@ body.reorder-no-select {
 	margin-left: auto;
 	padding: 6px 14px;
 	border: 1.5px solid var(--ill-border-str, #8b97a4);
-	border-radius: var(--ill-radius, 8px);
+	border-radius: var(--ill-radius-pill, 9999px);
 	background: var(--ill-paper, #fff);
 	color: var(--ill-ink, #172e48);
 	font-size: 13px;
@@ -682,12 +682,318 @@ body.reorder-no-select {
 .ill-linear-selected .ill-linear-thumb { background: var(--ill-paper, #fff); }
 .ill-linear-selected .ill-linear-code { background: var(--ill-paper, #fff); }
 
+/* Tape/Neon, LED Sheet and Item pickers in the Add Line modal. They use the
+ * shared IllConfigurator card picker, whose own CSS only applies inside
+ * .ill-configurator, so they get the same family-card look as the Linear picker. */
+#addLineModal .ill-template-picker {
+	margin-bottom: 0;
+	font-family: var(--ill-font-body, inherit);
+	color: var(--ill-ink, #172e48);
+}
+#addLineModal .ill-template-picker-toolbar {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+#addLineModal .ill-template-picker-toolbar::before {
+	content: "\f002";
+	font-family: FontAwesome;
+	position: absolute;
+	left: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ill-muted, #7f8080);
+	font-size: 13px;
+	pointer-events: none;
+}
+#addLineModal .ill-template-search {
+	flex: 1;
+	min-width: 0;
+	height: 38px;
+	padding: 0 12px 0 34px;
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius, 8px);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+	font-size: 14px;
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+}
+#addLineModal .ill-template-search::placeholder { color: var(--ill-muted, #7f8080); }
+#addLineModal .ill-template-search:focus {
+	outline: none;
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
+#addLineModal .ill-template-picker-count { font-size: 12px; color: var(--ill-muted, #7f8080); white-space: nowrap; }
+#addLineModal .ill-template-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 14px;
+	max-height: 440px;
+	overflow-y: auto;
+	padding: 4px;
+	margin: -4px;
+	animation: fadeIn 0.2s ease-out;
+}
+#addLineModal .ill-template-card {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	text-align: left;
+	background: var(--ill-paper, #fff);
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+	box-shadow: var(--ill-shadow, 0 1px 3px rgba(23,46,72,.08));
+	overflow: hidden;
+	cursor: pointer;
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease), transform var(--ill-transition, 150ms ease);
+}
+#addLineModal .ill-template-card:hover {
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: var(--ill-shadow-lg, 0 4px 12px rgba(23,46,72,.1));
+	transform: translateY(-2px);
+}
+#addLineModal .ill-template-card:focus { outline: none; }
+#addLineModal .ill-template-card:focus-visible {
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
+#addLineModal .ill-template-card.selected {
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
+#addLineModal .ill-template-card-media {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	background: var(--ill-bg, #e8f0f6);
+	border-bottom: 1px solid var(--ill-border, #dce2e8);
+	overflow: hidden;
+}
+#addLineModal .ill-template-card-media img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform 0.35s ease;
+}
+#addLineModal .ill-template-card:hover .ill-template-card-media img { transform: scale(1.04); }
+#addLineModal .ill-template-card-placeholder { font-size: 28px; color: var(--ill-subtle, #b3b4b3); }
+#addLineModal .ill-template-card-check {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: var(--ill-accent, #00588c);
+	color: #fff;
+	font-size: 12px;
+}
+#addLineModal .ill-template-card.selected .ill-template-card-check { display: inline-flex; }
+#addLineModal .ill-template-card-body {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	flex: 1;
+	gap: 8px;
+	padding: 10px 12px 12px;
+}
+#addLineModal .ill-template-card-name {
+	font-family: var(--ill-font-display, inherit);
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.3;
+	color: var(--ill-ink, #172e48);
+}
+/* Same chip as .ill-linear-code */
+#addLineModal .ill-template-card-code,
+#addLineModal .ill-template-selected-code {
+	display: inline-block;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding: 1px 8px;
+	border-radius: var(--ill-radius-pill, 9999px);
+	background: var(--ill-bg, #e8f0f6);
+	color: var(--ill-accent, #00588c);
+	font-family: var(--ill-font-mono, monospace);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+#addLineModal .ill-template-card-body .ill-template-card-code { order: 2; margin-top: auto; }
+#addLineModal .ill-template-card-desc {
+	order: 1;
+	font-size: 11.5px;
+	line-height: 1.45;
+	color: var(--ill-muted, #7f8080);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+#addLineModal .ill-template-picker-empty {
+	grid-column: 1 / -1;
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--ill-muted, #7f8080);
+	font-size: 13px;
+	border: 1.5px dashed var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+}
+#addLineModal .ill-template-picker-empty::before {
+	content: "\f002";
+	font-family: FontAwesome;
+	display: block;
+	font-size: 20px;
+	margin-bottom: 6px;
+	color: var(--ill-subtle, #b3b4b3);
+}
+/* Selected summary, like .ill-linear-selected */
+#addLineModal .ill-template-selected {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 14px;
+	border: 1.5px solid var(--ill-accent, #00588c);
+	border-radius: var(--ill-radius-lg, 12px);
+	background: var(--ill-accent-bg, #e6f0f7);
+	animation: fadeIn 0.2s ease-out;
+}
+#addLineModal .ill-template-selected img {
+	flex: 0 0 auto;
+	width: 64px;
+	height: 48px;
+	object-fit: cover;
+	border-radius: var(--ill-radius, 8px);
+	border: 1px solid var(--ill-border, #dce2e8);
+	background: var(--ill-paper, #fff);
+}
+#addLineModal .ill-template-selected > div {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	min-width: 0;
+}
+#addLineModal .ill-template-selected-name {
+	font-family: var(--ill-font-display, inherit);
+	font-size: 16px;
+	font-weight: 700;
+	line-height: 1.25;
+	color: var(--ill-ink, #172e48);
+}
+#addLineModal .ill-template-selected-code { background: var(--ill-paper, #fff); }
+#addLineModal .ill-template-change {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+	padding: 6px 14px;
+	border: 1.5px solid var(--ill-border-str, #8b97a4);
+	border-radius: var(--ill-radius-pill, 9999px);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: border-color var(--ill-transition, 150ms ease), color var(--ill-transition, 150ms ease);
+}
+#addLineModal .ill-template-change::before { content: "\f040"; font-family: FontAwesome; }
+#addLineModal .ill-template-change:hover { border-color: var(--ill-accent, #00588c); color: var(--ill-accent, #00588c); }
+#addLineModal .ill-template-change:focus { outline: none; }
+#addLineModal .ill-template-change:focus-visible { border-color: var(--ill-accent, #00588c); box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5); }
+
+/* Section heading, product details and gallery in the Add Line modal */
+#addLineModal .illumenate-fields > hr,
+#addLineModal .other-fields > hr { border-top-color: var(--ill-border, #dce2e8); }
+#addLineModal .illumenate-fields > h6,
+#addLineModal .other-fields > h6 {
+	font-family: var(--ill-font-body, inherit);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--ill-accent, #00588c) !important;
+}
+#addLineModal .selected-item-details .alert,
+#addLineModal .tape-neon-template-info .alert {
+	padding: 12px 14px;
+	background: var(--ill-paper, #fff);
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+	color: var(--ill-ink, #172e48);
+}
+#addLineModal .selected-item-details strong,
+#addLineModal .tape-neon-template-info strong {
+	font-family: var(--ill-font-display, inherit);
+	font-weight: 700;
+}
+#addLineModal .badge {
+	padding: 3px 10px;
+	border-radius: var(--ill-radius-pill, 9999px);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+#addLineModal .badge-info { background: var(--ill-accent-bg, #e6f0f7); color: var(--ill-accent, #00588c); }
+#addLineModal .badge-warning { background: var(--ill-gold-bg, #fff6e0); color: #7a5500; }
+#addLineModal .alert-success {
+	background: var(--ill-success-bg, #cce1d6);
+	border: 1px solid rgba(0, 104, 51, 0.25);
+	border-radius: var(--ill-radius, 8px);
+	color: var(--ill-success, #006833);
+}
+#addLineModal .alert-warning {
+	background: var(--ill-gold-bg, #fff6e0);
+	border: 1px solid var(--ill-gold, #fdc757);
+	border-radius: var(--ill-radius, 8px);
+	color: #7a5500;
+}
+#addLineModal .add-line-gallery-wrapper {
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+	box-shadow: var(--ill-shadow, 0 1px 3px rgba(23,46,72,.08));
+	margin: 4px 0 1rem;
+}
+#addLineModal .add-line-gallery-wrapper .gallery-nav {
+	border-color: var(--ill-border, #dce2e8);
+	color: var(--ill-ink, #172e48);
+	box-shadow: var(--ill-shadow, 0 1px 3px rgba(23,46,72,.08));
+}
+#addLineModal .add-line-gallery-wrapper .gallery-nav:hover { border-color: var(--ill-accent, #00588c); color: var(--ill-accent, #00588c); }
+#addLineModal .add-line-gallery-counter { background: rgba(23, 46, 72, 0.75); }
+#addLineModal .add-line-gallery-zoom-bar {
+	background: var(--ill-bg, #e8f0f6);
+	border-top-color: var(--ill-border, #dce2e8);
+	color: var(--ill-muted, #7f8080);
+}
+#addLineModal .add-line-gallery-zoom-bar input[type="range"] { accent-color: var(--ill-accent, #00588c); }
+#addLineModal .add-line-gallery-zoom-bar .zoom-reset-btn {
+	border-color: var(--ill-border-str, #8b97a4);
+	border-radius: var(--ill-radius-pill, 9999px);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+}
+#addLineModal .add-line-gallery-zoom-bar .zoom-reset-btn:hover { border-color: var(--ill-accent, #00588c); color: var(--ill-accent, #00588c); background: var(--ill-paper, #fff); }
+
 /* Add Line modal actions and notes in the ilLumenate brand (navy) style */
 #addLineModal .btn-primary,
 #addLineModal .btn-success {
 	background: var(--ill-accent, #00588c);
 	border: 1.5px solid var(--ill-accent, #00588c);
-	border-radius: var(--ill-radius, 8px);
+	border-radius: var(--ill-radius-pill, 9999px);
 	color: #fff;
 	font-weight: 500;
 	transition: opacity var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
@@ -706,7 +1012,7 @@ body.reorder-no-select {
 #addLineModal .btn-secondary {
 	background: var(--ill-paper, #fff);
 	border: 1.5px solid var(--ill-border-str, #8b97a4);
-	border-radius: var(--ill-radius, 8px);
+	border-radius: var(--ill-radius-pill, 9999px);
 	color: var(--ill-ink, #172e48);
 	font-weight: 500;
 }
@@ -727,10 +1033,13 @@ body.reorder-no-select {
 #addLineModal .alert-info .fa { color: var(--ill-accent, #00588c); }
 
 @media (max-width: 575.98px) {
-	.ill-linear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+	.ill-linear-grid,
+	#addLineModal .ill-template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 	.ill-linear-panel-head,
-	.ill-linear-selected { flex-wrap: wrap; }
-	.ill-linear-btn { margin-left: 0; }
+	.ill-linear-selected,
+	#addLineModal .ill-template-selected { flex-wrap: wrap; }
+	.ill-linear-btn,
+	#addLineModal .ill-template-change { margin-left: 0; }
 	.ill-linear-option { flex-wrap: wrap; }
 }
 </style>
@@ -1772,37 +2081,38 @@ body.reorder-no-select {
 									</select>
 								</div>
 							</div>
-							<div class="col-md-6">
-								<!-- Tape/Neon Template dropdown (shown when LED Tape, COB Tape or LED Neon selected) -->
-								<div class="form-group tape-neon-template-group" style="display: none;">
-									<label>{{ _("Product Series") }}</label>
-									<div id="add_tape_neon_template_cards"></div>
-								<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
-										<option value="">{{ _("Select Product Series...") }}</option>
-									</select>
-								</div>
-								<!-- LED Sheet Template dropdown (shown when LED Sheet selected) -->
-								<div class="form-group led-sheet-template-group" style="display: none;">
-									<label>{{ _("LED Sheet Template") }}</label>
-									<div id="add_led_sheet_template_cards"></div>
-								<select class="form-control" name="led_sheet_template" id="add_led_sheet_template">
-										<option value="">{{ _("Select LED Sheet Template...") }}</option>
-									</select>
-								</div>
-								<!-- Item dropdown (shown when non-Linear Fixture category selected) -->
-								<div class="form-group item-selection-group" style="display: none;">
-									<label>{{ _("Item") }}</label>
-									<div id="add_selected_item_cards"></div>
-								<select class="form-control" name="selected_item" id="add_selected_item">
-										<option value="">{{ _("Select Item...") }}</option>
-									</select>
-								</div>
-							</div>
+						</div>
+
+						<!-- Tape/Neon, LED Sheet and Item pickers sit full width like the Linear
+						     Fixture picker below; each hidden select stays the form value. -->
+						<!-- Tape/Neon Template picker (shown when LED Tape, COB Tape or LED Neon selected) -->
+						<div class="form-group tape-neon-template-group add-line-picker-group" style="display: none;">
+							<label>{{ _("Product Series") }}</label>
+							<div id="add_tape_neon_template_cards"></div>
+							<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
+								<option value="">{{ _("Select Product Series...") }}</option>
+							</select>
+						</div>
+						<!-- LED Sheet Template picker (shown when LED Sheet selected) -->
+						<div class="form-group led-sheet-template-group add-line-picker-group" style="display: none;">
+							<label>{{ _("LED Sheet Template") }}</label>
+							<div id="add_led_sheet_template_cards"></div>
+							<select class="form-control" name="led_sheet_template" id="add_led_sheet_template">
+								<option value="">{{ _("Select LED Sheet Template...") }}</option>
+							</select>
+						</div>
+						<!-- Item picker (shown for every other product category) -->
+						<div class="form-group item-selection-group add-line-picker-group" style="display: none;">
+							<label>{{ _("Item") }}</label>
+							<div id="add_selected_item_cards"></div>
+							<select class="form-control" name="selected_item" id="add_selected_item">
+								<option value="">{{ _("Select Item...") }}</option>
+							</select>
 						</div>
 
 						<!-- Fixture Template picker (shown when Linear Fixture selected); full width so
 						     the series families have room. The hidden select stays the form value. -->
-						<div class="form-group fixture-template-group" style="display: none;">
+						<div class="form-group fixture-template-group add-line-picker-group" style="display: none;">
 							<label>{{ _("Fixture Template") }}</label>
 							<div id="add_fixture_template_cards"></div>
 							<select class="form-control" name="fixture_template" id="add_fixture_template">
@@ -2620,6 +2930,11 @@ function renderLinearFixturePicker($select, $container, templates) {
 	sync();
 }
 
+// Count line for the shared product pickers in the Add Line modal ("12 products").
+function addLinePickerCount(shown, total) {
+	return shown === total ? __('{0} products', [total]) : __('{0} of {1} products', [shown, total]);
+}
+
 // Template category (LED Tape, COB Tape or LED Neon) of a Product Category option.
 // The server names it; older payloads fall back to the group's label.
 function tapeNeonCategoryOf($option) {
@@ -2658,7 +2973,7 @@ function loadTapeNeonTemplates(productType) {
 				});
 			}
 			$('#add_tape_neon_template').html(options);
-			IllConfigurator.renderTemplateCards({ $select: $('#add_tape_neon_template'), $container: $('#add_tape_neon_template_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
+			IllConfigurator.renderTemplateCards({ $select: $('#add_tape_neon_template'), $container: $('#add_tape_neon_template_cards'), labels: { search: __('Search products...'), empty: __('No products match your search.'), count: addLinePickerCount } });
 		},
 		error: function() {
 			$('#add_tape_neon_template').html('<option value="">{{ _("Error loading series") }}</option>');
@@ -2681,7 +2996,7 @@ function loadLedSheetTemplates(productType) {
 				});
 			}
 			$('#add_led_sheet_template').html(options);
-			IllConfigurator.renderTemplateCards({ $select: $('#add_led_sheet_template'), $container: $('#add_led_sheet_template_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
+			IllConfigurator.renderTemplateCards({ $select: $('#add_led_sheet_template'), $container: $('#add_led_sheet_template_cards'), labels: { search: __('Search products...'), empty: __('No products match your search.'), count: addLinePickerCount } });
 		},
 		error: function() {
 			$('#add_led_sheet_template').html('<option value="">{{ _("Error loading templates") }}</option>');
@@ -2907,7 +3222,7 @@ function loadItemsForProductType(productType) {
 				});
 			}
 			$('#add_selected_item').html(options);
-			IllConfigurator.renderTemplateCards({ $select: $('#add_selected_item'), $container: $('#add_selected_item_cards'), labels: { search: __('Search products?'), empty: __('No products match your search.') } });
+			IllConfigurator.renderTemplateCards({ $select: $('#add_selected_item'), $container: $('#add_selected_item_cards'), labels: { search: __('Search products...'), empty: __('No products match your search.'), count: addLinePickerCount } });
 		},
 		error: function() {
 			$('#add_selected_item').html('<option value="">{{ _("Error loading items") }}</option>');
