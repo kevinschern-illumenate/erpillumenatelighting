@@ -16,10 +16,10 @@ Help center, FAQ, and support ticket submission
 	margin-bottom: 2rem;
 }
 .support-hero {
-	background: linear-gradient(135deg, #c2185b 0%, #e91e63 100%);
+	background: var(--ill-brand-gradient);
 	color: white;
 	padding: 2.5rem;
-	border-radius: 12px;
+	border-radius: var(--ill-radius-lg);
 	margin-bottom: 2rem;
 	text-align: center;
 }
@@ -32,7 +32,7 @@ Help center, FAQ, and support ticket submission
 }
 .support-hero .form-control {
 	padding: 0.875rem 1.25rem;
-	border-radius: 25px;
+	border-radius: var(--ill-radius-pill);
 	border: none;
 	font-size: 1rem;
 }
@@ -44,14 +44,15 @@ Help center, FAQ, and support ticket submission
 }
 .contact-card {
 	background: white;
-	border-radius: 12px;
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
 	padding: 1.5rem;
 	text-align: center;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	box-shadow: var(--ill-shadow-card);
 	transition: all 0.2s;
 }
 .contact-card:hover {
-	box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+	box-shadow: var(--ill-shadow-elevated);
 	transform: translateY(-2px);
 }
 .contact-card-icon {
@@ -64,15 +65,15 @@ Help center, FAQ, and support ticket submission
 	font-size: 1.5rem;
 	margin: 0 auto 1rem;
 }
-.contact-card-icon.email { background: #e3f2fd; color: #1976d2; }
-.contact-card-icon.phone { background: #e8f5e9; color: #388e3c; }
-.contact-card-icon.chat { background: #fff3e0; color: #f57c00; }
-.contact-card-icon.ticket { background: #fce4ec; color: #c2185b; }
+.contact-card-icon.email,
+.contact-card-icon.phone,
+.contact-card-icon.chat,
+.contact-card-icon.ticket { background: var(--ill-blue-100); color: var(--ill-blue-600); }
 .contact-card h5 {
 	margin-bottom: 0.5rem;
 }
 .contact-card p {
-	color: #666;
+	color: var(--ill-text-secondary);
 	font-size: 0.9rem;
 	margin-bottom: 1rem;
 }
@@ -86,13 +87,14 @@ Help center, FAQ, and support ticket submission
 	font-weight: 600;
 	margin-bottom: 1rem;
 	padding-bottom: 0.5rem;
-	border-bottom: 2px solid #e0e0e0;
+	border-bottom: 2px solid var(--ill-gray-300);
 }
 .faq-item {
 	background: white;
-	border-radius: 8px;
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
 	margin-bottom: 0.5rem;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+	box-shadow: var(--ill-shadow-card);
 }
 .faq-question {
 	padding: 1rem 1.25rem;
@@ -103,11 +105,11 @@ Help center, FAQ, and support ticket submission
 	font-weight: 500;
 }
 .faq-question:hover {
-	background: #fafafa;
+	background: var(--ill-surface-soft);
 }
 .faq-question i {
 	transition: transform 0.2s;
-	color: #888;
+	color: var(--ill-gray-500);
 }
 .faq-item.open .faq-question i {
 	transform: rotate(180deg);
@@ -115,7 +117,7 @@ Help center, FAQ, and support ticket submission
 .faq-answer {
 	display: none;
 	padding: 0 1.25rem 1rem;
-	color: #666;
+	color: var(--ill-text-secondary);
 	line-height: 1.6;
 }
 .faq-item.open .faq-answer {
@@ -123,13 +125,14 @@ Help center, FAQ, and support ticket submission
 }
 .ticket-form-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 }
 .ticket-form-header {
 	padding: 1.5rem;
-	background: #c2185b;
+	background: var(--ill-brand-gradient);
 	color: white;
 }
 .ticket-form-body {
@@ -140,10 +143,11 @@ Help center, FAQ, and support ticket submission
 }
 .ticket-item {
 	background: white;
-	border-radius: 8px;
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
 	padding: 1rem 1.25rem;
 	margin-bottom: 0.75rem;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+	box-shadow: var(--ill-shadow-card);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -153,18 +157,18 @@ Help center, FAQ, and support ticket submission
 }
 .ticket-meta {
 	font-size: 0.8rem;
-	color: #888;
+	color: var(--ill-gray-500);
 }
 .status-badge {
 	padding: 0.25rem 0.75rem;
-	border-radius: 20px;
+	border-radius: var(--ill-radius-pill);
 	font-size: 0.75rem;
 	font-weight: 500;
 }
-.status-badge.open { background: #fff3e0; color: #ef6c00; }
-.status-badge.in-progress { background: #e3f2fd; color: #1565c2; }
-.status-badge.resolved { background: #e8f5e9; color: #2e7d32; }
-.status-badge.closed { background: #f5f5f5; color: #666; }
+.status-badge.open { background: var(--ill-gold-100); color: var(--ill-gold-ink); }
+.status-badge.in-progress { background: var(--ill-blue-100); color: var(--ill-blue-800); }
+.status-badge.resolved { background: var(--ill-green-100); color: var(--ill-green); }
+.status-badge.closed { background: var(--ill-gray-100); color: var(--ill-text-secondary); }
 </style>
 {% endblock %}
 
@@ -206,7 +210,7 @@ Help center, FAQ, and support ticket submission
 			</div>
 			<h5>{{ _("Phone Support") }}</h5>
 			<p>{{ _("Mon-Fri, 7am-4pm PST") }}</p>
-			<a href="tel:+14253812447" class="btn btn-outline-success btn-sm">
+			<a href="tel:+14253812447" class="btn btn-outline-primary btn-sm">
 				1-425-381-2447
 			</a>
 		</div>
@@ -216,7 +220,7 @@ Help center, FAQ, and support ticket submission
 			</div>
 			<h5>{{ _("Submit Ticket") }}</h5>
 			<p>{{ _("Track your support requests") }}</p>
-			<a href="#ticketForm" class="btn btn-outline-danger btn-sm">
+			<a href="#ticketForm" class="btn btn-outline-primary btn-sm">
 				{{ _("Create Ticket") }}
 			</a>
 		</div>
@@ -369,7 +373,7 @@ Help center, FAQ, and support ticket submission
 							<small class="form-text text-muted">{{ _("Upload photos, documents, or other files") }}</small>
 						</div>
 
-						<button type="submit" class="btn btn-danger btn-block">
+						<button type="submit" class="btn btn-primary btn-block">
 							<i class="fa fa-paper-plane"></i> {{ _("Submit Request") }}
 						</button>
 					</form>

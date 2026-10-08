@@ -9,7 +9,7 @@
 	justify-content: space-between;
 	padding: 1rem 0;
 	margin-bottom: 1.5rem;
-	border-bottom: 1px solid #dee2e6;
+	border-bottom: 1px solid var(--ill-gray-300, #DCE2E8);
 	overflow-x: auto;
 }
 .ill-configurator-fixture .progress-step {
@@ -23,8 +23,8 @@
 	width: 28px;
 	height: 28px;
 	border-radius: 50%;
-	background: #e9ecef;
-	color: #6c757d;
+	background: var(--ill-gray-200, #E8EAED);
+	color: var(--ill-text-secondary, #5D6D7F);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -33,7 +33,7 @@
 	margin-bottom: 0.25rem;
 }
 .ill-configurator-fixture .progress-step.active .step-number {
-	background: #0d6efd;
+	background: var(--ill-blue-600, #00588C);
 	color: white;
 }
 .ill-configurator-fixture .progress-step.completed .step-number {
@@ -42,11 +42,11 @@
 }
 .ill-configurator-fixture .progress-step .step-label {
 	font-size: 0.7rem;
-	color: #6c757d;
+	color: var(--ill-text-secondary, #5D6D7F);
 	text-align: center;
 }
 .ill-configurator-fixture .progress-step.active .step-label {
-	color: #0d6efd;
+	color: var(--ill-blue-600, #00588C);
 	font-weight: 500;
 }
 
@@ -54,10 +54,10 @@
 .ill-configurator-fixture .part-number-preview {
 	font-family: 'Courier New', monospace;
 	font-size: 1.25rem;
-	background: #f8f9fa;
+	background: var(--ill-surface-soft, #F6F8FA);
 	padding: 1rem;
 	border-radius: 0.5rem;
-	border: 2px solid #dee2e6;
+	border: 2px solid var(--ill-gray-300, #DCE2E8);
 	margin-bottom: 1rem;
 	text-align: center;
 }
@@ -65,40 +65,40 @@
 	display: inline;
 }
 .ill-configurator-fixture .part-number-preview .segment.unselected {
-	color: #adb5bd;
+	color: var(--ill-gray-400, #A2ABB6);
 }
 .ill-configurator-fixture .part-number-preview .segment.selected {
 	color: #212529;
 	font-weight: 600;
 }
 .ill-configurator-fixture .part-number-preview .segment.locked {
-	color: #0d6efd;
+	color: var(--ill-blue-600, #00588C);
 }
 
 /* Config Section */
 .ill-configurator-fixture .config-section {
 	margin-bottom: 1.5rem;
 	padding-bottom: 1rem;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200, #E8EAED);
 }
 .ill-configurator-fixture .config-section h4 {
 	font-size: 1rem;
 	font-weight: 600;
 	margin-bottom: 0.75rem;
-	color: #333;
+	color: var(--ill-ink, #172E48);
 }
 .ill-configurator-fixture .config-section.locked h4 {
-	color: #6c757d;
+	color: var(--ill-text-secondary, #5D6D7F);
 }
 .ill-configurator-fixture .config-section .series-display {
-	background: #e7f1ff;
+	background: var(--ill-blue-100, #E6EEF4);
 	border: 1px solid #b6d4fe;
 	padding: 0.75rem 1rem;
 	border-radius: 0.5rem;
 }
 .ill-configurator-fixture .config-section .series-display .series-name {
 	font-weight: 600;
-	color: #0d6efd;
+	color: var(--ill-blue-600, #00588C);
 }
 
 /* Feed Configuration */
@@ -133,10 +133,10 @@
 
 /* Complex Fixture Banner */
 .ill-configurator-fixture .complex-fixture-banner {
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	background: var(--ill-brand-gradient, linear-gradient(117deg, #172E48 0%, #00588C 100%));
 	color: white;
 	padding: 1rem;
-	border-radius: 0.5rem;
+	border-radius: var(--ill-radius-lg, 12px);
 	margin-top: 1.5rem;
 }
 .ill-configurator-fixture .complex-fixture-banner a {
@@ -205,7 +205,7 @@
 	border-radius: var(--ill-radius);
 	padding: 8px 12px;
 	font-size: 14px;
-	color: var(--ill-ink);
+	color: var(--ill-ink, #172E48);
 	background: var(--ill-paper);
 	transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
 }
@@ -220,7 +220,7 @@
 .ill-configurator-fixture .length-input-group select {
 	border: 1.5px solid var(--ill-border);
 	border-radius: var(--ill-radius);
-	color: var(--ill-ink);
+	color: var(--ill-ink, #172E48);
 	background-color: var(--ill-paper);
 	transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
 }

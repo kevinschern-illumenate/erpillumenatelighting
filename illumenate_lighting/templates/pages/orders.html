@@ -16,31 +16,32 @@ View and track sales orders with production and shipment status
 }
 .order-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	margin-bottom: 1rem;
 	overflow: hidden;
 	transition: all 0.2s ease;
 }
 .order-card:hover {
-	box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+	box-shadow: var(--ill-shadow-elevated);
 }
 .order-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	padding: 1.25rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
-	background: #fafbfc;
+	border-bottom: 1px solid var(--ill-gray-200);
+	background: var(--ill-surface-soft);
 }
 .order-id {
 	font-size: 1.1rem;
 	font-weight: 600;
-	color: #333;
+	color: var(--ill-ink);
 	text-decoration: none;
 }
 .order-id:hover {
-	color: #1976d2;
+	color: var(--ill-blue-600);
 }
 .order-body {
 	padding: 1.25rem 1.5rem;
@@ -57,17 +58,17 @@ View and track sales orders with production and shipment status
 .detail-label {
 	font-size: 0.75rem;
 	text-transform: uppercase;
-	color: #888;
+	color: var(--ill-gray-500);
 	margin-bottom: 0.25rem;
 }
 .detail-value {
 	font-weight: 500;
-	color: #333;
+	color: var(--ill-ink);
 }
 .order-progress {
 	padding: 1rem 1.5rem;
-	background: #f8f9fa;
-	border-top: 1px solid #f0f0f0;
+	background: var(--ill-surface-soft);
+	border-top: 1px solid var(--ill-gray-200);
 }
 .progress-steps {
 	display: flex;
@@ -81,7 +82,7 @@ View and track sales orders with production and shipment status
 	left: 0;
 	right: 0;
 	height: 2px;
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 	z-index: 0;
 }
 .progress-step {
@@ -96,38 +97,39 @@ View and track sales orders with production and shipment status
 	width: 32px;
 	height: 32px;
 	border-radius: 50%;
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #888;
+	color: var(--ill-gray-500);
 	font-size: 0.8rem;
 	margin-bottom: 0.5rem;
 }
 .step-icon.completed {
-	background: #4caf50;
+	background: var(--ill-green);
 	color: white;
 }
 .step-icon.active {
-	background: #1976d2;
+	background: var(--ill-blue-600);
 	color: white;
 	animation: pulse 1.5s infinite;
 }
 @keyframes pulse {
-	0%, 100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.4); }
-	50% { box-shadow: 0 0 0 8px rgba(25, 118, 210, 0); }
+	0%, 100% { box-shadow: 0 0 0 0 rgba(0, 88, 140, 0.4); }
+	50% { box-shadow: 0 0 0 8px rgba(0, 88, 140, 0); }
 }
 .step-label {
 	font-size: 0.7rem;
-	color: #666;
+	color: var(--ill-text-secondary);
 	text-align: center;
 }
 .filter-bar {
 	background: white;
-	border-radius: 8px;
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
 	padding: 1rem 1.5rem;
 	margin-bottom: 1.5rem;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+	box-shadow: var(--ill-shadow-card);
 }
 .filter-tabs {
 	display: flex;
@@ -136,40 +138,40 @@ View and track sales orders with production and shipment status
 }
 .filter-tab {
 	padding: 0.5rem 1rem;
-	border-radius: 20px;
-	border: 1px solid #e0e0e0;
+	border-radius: var(--ill-radius-pill);
+	border: 1px solid var(--ill-gray-300);
 	background: white;
-	color: #666;
+	color: var(--ill-text-secondary);
 	font-size: 0.875rem;
 	cursor: pointer;
 	transition: all 0.2s;
 }
 .filter-tab:hover {
-	border-color: #1976d2;
-	color: #1976d2;
+	border-color: var(--ill-blue-600);
+	color: var(--ill-blue-600);
 }
 .filter-tab.active {
-	background: #1976d2;
-	border-color: #1976d2;
+	background: var(--ill-blue-600);
+	border-color: var(--ill-blue-600);
 	color: white;
 }
 .empty-state {
 	text-align: center;
 	padding: 4rem 2rem;
 	background: white;
-	border-radius: 12px;
+	border-radius: var(--ill-radius-lg);
 }
 .empty-state i {
 	font-size: 4rem;
-	color: #ccc;
+	color: var(--ill-gray-400);
 	margin-bottom: 1rem;
 }
 .empty-state h4 {
-	color: #666;
+	color: var(--ill-text-secondary);
 	margin-bottom: 0.5rem;
 }
 .empty-state p {
-	color: #999;
+	color: var(--ill-gray-500);
 }
 .empty-state .btn {
 	padding: 0.5rem 1.25rem;
