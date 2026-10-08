@@ -410,24 +410,74 @@ body.reorder-no-select {
 	}
 }
 
-/* Linear Fixture picker in the Add Line modal: series families, then templates */
-.ill-linear-picker { margin-bottom: 0.5rem; }
+/* Linear Fixture picker in the Add Line modal: series families, then templates.
+ * Uses the ilLumenate brand tokens from portal.css, like the configurator cards. */
+.ill-linear-picker {
+	font-family: var(--ill-font-body, inherit);
+	color: var(--ill-ink, #172e48);
+}
+.ill-linear-families,
+.ill-linear-series,
+.ill-linear-selected { animation: fadeIn 0.2s ease-out; }
+.ill-linear-code {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: var(--ill-radius-pill, 9999px);
+	background: var(--ill-bg, #e8f0f6);
+	color: var(--ill-accent, #00588c);
+	font-family: var(--ill-font-mono, monospace);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+.ill-linear-placeholder { font-size: 28px; color: var(--ill-subtle, #b3b4b3); }
+
+/* Toolbar */
 .ill-linear-toolbar {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	margin-bottom: 8px;
+	gap: 12px;
+	margin-bottom: 12px;
 }
-.ill-linear-toolbar .ill-linear-search { flex: 1; min-width: 0; }
+.ill-linear-search-wrap { position: relative; flex: 1; min-width: 0; }
+.ill-linear-search-wrap .fa-search {
+	position: absolute;
+	left: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ill-muted, #7f8080);
+	font-size: 13px;
+	pointer-events: none;
+}
+.ill-linear-search {
+	width: 100%;
+	height: 38px;
+	padding: 0 12px 0 34px;
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius, 8px);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+	font-size: 14px;
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+}
+.ill-linear-search::placeholder { color: var(--ill-muted, #7f8080); }
+.ill-linear-search:focus {
+	outline: none;
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5);
+}
 .ill-linear-count { font-size: 12px; color: var(--ill-muted, #7f8080); white-space: nowrap; }
+
+/* Step 1: family cards */
 .ill-linear-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-	gap: 10px;
-	max-height: 360px;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 14px;
+	max-height: 440px;
 	overflow-y: auto;
-	padding: 3px;
-	margin: -3px;
+	padding: 4px;
+	margin: -4px;
 }
 .ill-linear-family {
 	display: flex;
@@ -436,12 +486,18 @@ body.reorder-no-select {
 	text-align: left;
 	background: var(--ill-paper, #fff);
 	border: 1.5px solid var(--ill-border, #dce2e8);
-	border-radius: var(--ill-radius, 8px);
+	border-radius: var(--ill-radius-lg, 12px);
+	box-shadow: var(--ill-shadow, 0 1px 3px rgba(23,46,72,.08));
 	overflow: hidden;
 	cursor: pointer;
-	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease), transform var(--ill-transition, 150ms ease);
 }
-.ill-linear-family:hover,
+.ill-linear-family:hover {
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: var(--ill-shadow-lg, 0 4px 12px rgba(23,46,72,.1));
+	transform: translateY(-2px);
+}
+.ill-linear-family:focus { outline: none; }
 .ill-linear-family:focus-visible {
 	outline: none;
 	border-color: var(--ill-accent, #00588c);
@@ -454,64 +510,185 @@ body.reorder-no-select {
 	width: 100%;
 	aspect-ratio: 4 / 3;
 	background: var(--ill-bg, #e8f0f6);
+	border-bottom: 1px solid var(--ill-border, #dce2e8);
 	overflow: hidden;
 }
-.ill-linear-family-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ill-linear-placeholder { font-size: 26px; color: var(--ill-subtle, #b3b4b3); }
-.ill-linear-family-body { display: block; padding: 8px 10px 10px; }
-.ill-linear-family-name {
+.ill-linear-family-media img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 	display: block;
-	font-size: 13px;
-	font-weight: 600;
+	transition: transform 0.35s ease;
+}
+.ill-linear-family:hover .ill-linear-family-media img { transform: scale(1.04); }
+.ill-linear-family-body {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	gap: 8px;
+	padding: 10px 12px 12px;
+}
+.ill-linear-family-name {
+	font-family: var(--ill-font-display, inherit);
+	font-size: 14px;
+	font-weight: 700;
 	line-height: 1.3;
 	color: var(--ill-ink, #172e48);
 }
-.ill-linear-family-code {
-	font-family: var(--ill-font-mono, monospace);
-	font-size: 11px;
-	font-weight: 400;
-	color: var(--ill-muted, #7f8080);
+.ill-linear-family-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	margin-top: auto;
 }
-.ill-linear-empty { grid-column: 1 / -1; padding: 16px; text-align: center; color: var(--ill-muted, #7f8080); font-size: 13px; }
-.ill-linear-series-title { font-weight: 600; color: var(--ill-ink, #172e48); margin: 2px 0 8px; }
-.ill-linear-options { max-height: 300px; overflow-y: auto; }
-.ill-linear-option { font-size: 13px; padding: 8px 12px; }
-.ill-linear-option-code { font-family: var(--ill-font-mono, monospace); font-size: 11px; opacity: 0.75; }
+.ill-linear-family-count { font-size: 11.5px; color: var(--ill-muted, #7f8080); white-space: nowrap; }
+.ill-linear-family-count .fa { margin-left: 2px; transition: transform var(--ill-transition, 150ms ease); }
+.ill-linear-family:hover .ill-linear-family-count { color: var(--ill-accent, #00588c); }
+.ill-linear-family:hover .ill-linear-family-count .fa { transform: translateX(2px); }
+.ill-linear-empty {
+	grid-column: 1 / -1;
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--ill-muted, #7f8080);
+	font-size: 13px;
+	border: 1.5px dashed var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+}
+.ill-linear-empty .fa { display: block; font-size: 20px; margin-bottom: 6px; color: var(--ill-subtle, #b3b4b3); }
+
+/* Shared header used by step 2 and the selected summary */
+.ill-linear-panel-head,
 .ill-linear-selected {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	padding: 8px 10px;
-	border: 1.5px solid var(--ill-accent-soft, #b3d1e5);
-	background: var(--ill-accent-bg, #e6f0f7);
-	border-radius: var(--ill-radius, 8px);
+	gap: 12px;
 }
-.ill-linear-selected-media {
+.ill-linear-series-head { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.ill-linear-thumb {
 	flex: 0 0 auto;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 56px;
-	height: 42px;
-	border-radius: 6px;
+	width: 64px;
+	height: 48px;
+	border-radius: var(--ill-radius, 8px);
+	border: 1px solid var(--ill-border, #dce2e8);
+	background: var(--ill-bg, #e8f0f6);
 	overflow: hidden;
-	background: var(--ill-paper, #fff);
 }
-.ill-linear-selected-media img { width: 100%; height: 100%; object-fit: cover; }
-.ill-linear-selected-media .ill-linear-placeholder { font-size: 18px; }
-.ill-linear-selected-text { min-width: 0; }
-.ill-linear-change {
-	margin-left: auto;
+.ill-linear-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ill-linear-thumb .ill-linear-placeholder { font-size: 20px; }
+.ill-linear-head-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.ill-linear-eyebrow {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--ill-muted, #7f8080);
+}
+.ill-linear-head-name {
+	font-family: var(--ill-font-display, inherit);
+	font-size: 16px;
+	font-weight: 700;
+	line-height: 1.25;
+	color: var(--ill-ink, #172e48);
+}
+.ill-linear-btn {
 	flex: 0 0 auto;
-	border: 1px solid var(--ill-border-str, #8b97a4);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+	padding: 6px 14px;
+	border: 1.5px solid var(--ill-border-str, #8b97a4);
+	border-radius: var(--ill-radius, 8px);
 	background: var(--ill-paper, #fff);
 	color: var(--ill-ink, #172e48);
-	border-radius: var(--ill-radius-pill, 9999px);
-	padding: 3px 12px;
-	font-size: 12px;
+	font-size: 13px;
+	font-weight: 500;
 	cursor: pointer;
+	transition: border-color var(--ill-transition, 150ms ease), color var(--ill-transition, 150ms ease);
 }
-.ill-linear-change:hover { border-color: var(--ill-accent, #00588c); }
+.ill-linear-btn:hover { border-color: var(--ill-accent, #00588c); color: var(--ill-accent, #00588c); }
+
+/* Step 2: options for one series */
+.ill-linear-series {
+	padding: 14px;
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius-lg, 12px);
+	background: var(--ill-paper, #fff);
+	box-shadow: var(--ill-shadow, 0 1px 3px rgba(23,46,72,.08));
+}
+.ill-linear-series .ill-linear-panel-head {
+	padding-bottom: 12px;
+	margin-bottom: 12px;
+	border-bottom: 1px solid var(--ill-border, #dce2e8);
+}
+.ill-linear-options {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 320px;
+	overflow-y: auto;
+	padding: 3px;
+	margin: -3px;
+}
+.ill-linear-option {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	padding: 11px 14px;
+	text-align: left;
+	border: 1.5px solid var(--ill-border, #dce2e8);
+	border-radius: var(--ill-radius, 8px);
+	background: var(--ill-paper, #fff);
+	color: var(--ill-ink, #172e48);
+	font-size: 14px;
+	cursor: pointer;
+	transition: border-color var(--ill-transition, 150ms ease), background var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+}
+.ill-linear-option:hover { border-color: var(--ill-accent, #00588c); background: var(--ill-accent-bg, #e6f0f7); }
+.ill-linear-option:focus { outline: none; }
+.ill-linear-option:focus-visible { border-color: var(--ill-accent, #00588c); box-shadow: 0 0 0 3px var(--ill-accent-soft, #b3d1e5); }
+.ill-linear-option.selected { border-color: var(--ill-accent, #00588c); background: var(--ill-accent-bg, #e6f0f7); }
+.ill-linear-option-name { flex: 1; min-width: 0; font-weight: 500; }
+.ill-linear-radio {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	border: 2px solid var(--ill-border-str, #8b97a4);
+	background: var(--ill-paper, #fff);
+	transition: border-color var(--ill-transition, 150ms ease), box-shadow var(--ill-transition, 150ms ease);
+}
+.ill-linear-option:hover .ill-linear-radio { border-color: var(--ill-accent, #00588c); }
+.ill-linear-option.selected .ill-linear-radio {
+	border-color: var(--ill-accent, #00588c);
+	box-shadow: inset 0 0 0 3px var(--ill-paper, #fff);
+	background: var(--ill-accent, #00588c);
+}
+.ill-linear-option .ill-linear-code { background: var(--ill-paper, #fff); border: 1px solid var(--ill-border, #dce2e8); }
+
+/* Selected summary */
+.ill-linear-selected {
+	padding: 12px 14px;
+	border: 1.5px solid var(--ill-accent, #00588c);
+	border-radius: var(--ill-radius-lg, 12px);
+	background: var(--ill-accent-bg, #e6f0f7);
+}
+.ill-linear-selected .ill-linear-eyebrow { color: var(--ill-accent, #00588c); }
+.ill-linear-selected .ill-linear-thumb { background: var(--ill-paper, #fff); }
+.ill-linear-selected .ill-linear-code { background: var(--ill-paper, #fff); }
+
+@media (max-width: 575.98px) {
+	.ill-linear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+	.ill-linear-panel-head,
+	.ill-linear-selected { flex-wrap: wrap; }
+	.ill-linear-btn { margin-left: 0; }
+	.ill-linear-option { flex-wrap: wrap; }
+}
 </style>
 {% endblock %}
 
@@ -1552,14 +1729,6 @@ body.reorder-no-select {
 								</div>
 							</div>
 							<div class="col-md-6">
-								<!-- Fixture Template dropdown (shown when Linear Fixture selected) -->
-								<div class="form-group fixture-template-group" style="display: none;">
-									<label>{{ _("Fixture Template") }}</label>
-									<div id="add_fixture_template_cards"></div>
-								<select class="form-control" name="fixture_template" id="add_fixture_template">
-										<option value="">{{ _("Select Fixture Template...") }}</option>
-									</select>
-								</div>
 								<!-- Tape/Neon Template dropdown (shown when LED Tape, COB Tape or LED Neon selected) -->
 								<div class="form-group tape-neon-template-group" style="display: none;">
 									<label>{{ _("Product Series") }}</label>
@@ -1585,6 +1754,16 @@ body.reorder-no-select {
 									</select>
 								</div>
 							</div>
+						</div>
+
+						<!-- Fixture Template picker (shown when Linear Fixture selected); full width so
+						     the series families have room. The hidden select stays the form value. -->
+						<div class="form-group fixture-template-group" style="display: none;">
+							<label>{{ _("Fixture Template") }}</label>
+							<div id="add_fixture_template_cards"></div>
+							<select class="form-control" name="fixture_template" id="add_fixture_template">
+								<option value="">{{ _("Select Fixture Template...") }}</option>
+							</select>
 						</div>
 
 						<!-- Product image gallery (shared for fixture templates and items) -->
@@ -2264,7 +2443,10 @@ function renderLinearFixturePicker($select, $container, templates) {
 	function media(f) {
 		return f.image
 			? '<img src="' + esc(f.image) + '" alt="' + esc(f.name) + '" loading="lazy">'
-			: '<span class="ill-linear-placeholder"><i class="fa fa-lightbulb-o"></i></span>';
+			: '<span class="ill-linear-placeholder" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span>';
+	}
+	function optionCount(f) {
+		return f.templates.length === 1 ? __('1 option') : __('{0} options', [f.templates.length]);
 	}
 
 	function renderFamilies() {
@@ -2284,20 +2466,32 @@ function renderLinearFixturePicker($select, $container, templates) {
 				+ '<span class="ill-linear-family-media">' + media(f) + '</span>'
 				+ '<span class="ill-linear-family-body">'
 				+ '<span class="ill-linear-family-name">' + esc(f.name) + '</span>'
-				+ '<span class="ill-linear-family-code">' + esc(f.series) + '</span>'
-				+ '</span></button>';
-		}).join('') : '<div class="ill-linear-empty">' + esc(__('No fixtures match your search.')) + '</div>');
+				+ '<span class="ill-linear-family-meta">'
+				+ '<span class="ill-linear-code">' + esc(f.series) + '</span>'
+				+ '<span class="ill-linear-family-count">' + esc(optionCount(f)) + ' <i class="fa fa-angle-right"></i></span>'
+				+ '</span></span></button>';
+		}).join('') : '<div class="ill-linear-empty"><i class="fa fa-search"></i>' + esc(__('No fixtures match your search.')) + '</div>');
 	}
 
 	function renderSeries() {
 		var f = bySeries[state.series];
 		var current = $select.val();
-		$container.find('.ill-linear-series-title').html(esc(f.name) + ' <span class="ill-linear-family-code">(' + esc(f.series) + ')</span>');
+		$container.find('.ill-linear-series-head').html(
+			'<span class="ill-linear-thumb">' + media(f) + '</span>'
+			+ '<span class="ill-linear-head-text">'
+			+ '<span class="ill-linear-eyebrow">' + esc(__('Choose an option')) + '</span>'
+			+ '<span class="ill-linear-head-name">' + esc(f.name) + '</span>'
+			+ '<span class="ill-linear-code">' + esc(f.series) + '</span>'
+			+ '</span>'
+		);
 		$container.find('.ill-linear-options').html(f.templates.map(function(t) {
 			var active = t.name === current;
-			return '<button type="button" class="list-group-item list-group-item-action ill-linear-option' + (active ? ' active' : '')
-				+ '" data-value="' + esc(t.name) + '">' + esc(t.template_name)
-				+ ' <span class="ill-linear-option-code">(' + esc(t.template_code) + ')</span></button>';
+			return '<button type="button" class="ill-linear-option' + (active ? ' selected' : '')
+				+ '" aria-pressed="' + (active ? 'true' : 'false') + '" data-value="' + esc(t.name) + '">'
+				+ '<span class="ill-linear-radio" aria-hidden="true"></span>'
+				+ '<span class="ill-linear-option-name">' + esc(t.template_name) + '</span>'
+				+ '<span class="ill-linear-code">' + esc(t.template_code) + '</span>'
+				+ '</button>';
 		}).join(''));
 	}
 
@@ -2310,10 +2504,13 @@ function renderLinearFixturePicker($select, $container, templates) {
 			var f = bySeries[linearSeriesCode(t.template_code)];
 			state.series = f.series;
 			$selected.html(
-				'<span class="ill-linear-selected-media">' + media(f) + '</span>'
-				+ '<span class="ill-linear-selected-text"><span class="ill-linear-family-name">' + esc(t.template_name) + '</span>'
-				+ '<span class="ill-linear-family-code">' + esc(t.template_code) + '</span></span>'
-				+ '<button type="button" class="ill-linear-change">' + esc(__('Change')) + '</button>'
+				'<span class="ill-linear-thumb">' + media(f) + '</span>'
+				+ '<span class="ill-linear-head-text">'
+				+ '<span class="ill-linear-eyebrow"><i class="fa fa-check-circle"></i> ' + esc(__('Selected fixture')) + '</span>'
+				+ '<span class="ill-linear-head-name">' + esc(t.template_name) + '</span>'
+				+ '<span class="ill-linear-code">' + esc(t.template_code) + '</span>'
+				+ '</span>'
+				+ '<button type="button" class="ill-linear-btn ill-linear-change"><i class="fa fa-pencil"></i> ' + esc(__('Change')) + '</button>'
 			).show();
 			$families.hide();
 			$series.hide();
@@ -2334,15 +2531,18 @@ function renderLinearFixturePicker($select, $container, templates) {
 	$container.off(ns).addClass('ill-linear-picker').html(
 		'<div class="ill-linear-families">'
 		+ '<div class="ill-linear-toolbar">'
-		+ '<input type="search" class="form-control form-control-sm ill-linear-search" placeholder="' + esc(__('Search fixtures...')) + '" aria-label="' + esc(__('Search fixtures...')) + '">'
+		+ '<span class="ill-linear-search-wrap"><i class="fa fa-search" aria-hidden="true"></i>'
+		+ '<input type="search" class="ill-linear-search" placeholder="' + esc(__('Search fixtures...')) + '" aria-label="' + esc(__('Search fixtures...')) + '"></span>'
 		+ '<span class="ill-linear-count" role="status" aria-live="polite"></span>'
 		+ '</div>'
 		+ '<div class="ill-linear-grid"></div>'
 		+ '</div>'
 		+ '<div class="ill-linear-series" style="display:none;">'
-		+ '<button type="button" class="btn btn-link btn-sm px-0 ill-linear-back"><i class="fa fa-angle-left"></i> ' + esc(__('All fixtures')) + '</button>'
-		+ '<div class="ill-linear-series-title"></div>'
-		+ '<div class="list-group ill-linear-options"></div>'
+		+ '<div class="ill-linear-panel-head">'
+		+ '<div class="ill-linear-series-head"></div>'
+		+ '<button type="button" class="ill-linear-btn ill-linear-back"><i class="fa fa-th-large"></i> ' + esc(__('All fixtures')) + '</button>'
+		+ '</div>'
+		+ '<div class="ill-linear-options"></div>'
 		+ '</div>'
 		+ '<div class="ill-linear-selected" style="display:none;"></div>'
 	);
