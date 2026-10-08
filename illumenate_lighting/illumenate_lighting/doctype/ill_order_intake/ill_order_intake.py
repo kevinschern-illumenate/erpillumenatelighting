@@ -1,6 +1,8 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.stored_values import same
+
 
 class ilLOrderIntake(Document):
 	def validate(self):
@@ -15,10 +17,10 @@ class ilLOrderIntake(Document):
 			"request_snapshot",
 			"request_hash",
 		):
-			if self.get(field) != old.get(field):
+			if not same(self.get(field), old.get(field)):
 				frappe.throw("Original order intake is immutable")
 		if old.state == "APPROVED" and any(
-			self.get(field) != old.get(field)
+			not same(self.get(field), old.get(field))
 			for field in ("state", "approved_snapshot", "approved_by", "approved_on", "acknowledged_hash")
 		):
 			frappe.throw("Approved acknowledgment is immutable")
@@ -30,11 +32,11 @@ class ilLOrderIntake(Document):
 			"acknowledgment_file",
 			"acknowledgment_sha256",
 		):
-			if old.get(field) and self.get(field) != old.get(field):
+			if old.get(field) and not same(self.get(field), old.get(field)):
 				frappe.throw("Submitted intake and acknowledgment evidence are immutable")
 		previous = [row.as_dict() for row in old.decisions or []]
 		current = [row.as_dict() for row in self.decisions or []]
 		for i, row in enumerate(previous):
 			for key in ("action", "actor", "recorded_on", "revision_hash", "note"):
-				if i >= len(current) or row.get(key) != current[i].get(key):
+				if i >= len(current) or not same(row.get(key), current[i].get(key)):
 					frappe.throw("Order decisions are append-only")

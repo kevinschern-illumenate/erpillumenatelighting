@@ -17,7 +17,7 @@
   {% for tax in offer.snapshot.taxes %}<p>{{ tax.description | e }}: {{ frappe.format_value(tax.tax_amount, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</p>{% endfor %}
   <p class="h4">{{ _("Total") }}: {{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</p>
   {% if offer.snapshot.exclusions %}<h2 class="h5 mt-3">{{ _("Excluded from this offer") }}</h2><ul>{% for line in offer.snapshot.exclusions %}<li>{{ line.designation | e }}: {{ line.reason | e }}</li>{% endfor %}</ul>{% endif %}
-  {% if offer.snapshot.terms %}<details class="my-3"><summary>{{ _("Terms") }}</summary><div>{{ frappe.utils.sanitize_html(offer.snapshot.terms) | safe }}</div></details>{% endif %}
+  {% if offer.snapshot.terms %}<details class="my-3"><summary>{{ _("Terms") }}</summary><div>{{ ill_sanitize_html(offer.snapshot.terms) | safe }}</div></details>{% endif %}
   {% if offer.unavailable_reason %}<p class="alert alert-warning">{{ offer.unavailable_reason | e }}</p>{% endif %}
   {% if offer.sales_order %}<a class="btn btn-primary" href="/portal/orders/{{ offer.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
   {% if offer.response_note %}<p>{{ _("Your response") }}: {{ offer.response_note | e }}</p>{% endif %}

@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import now
 
+from illumenate_lighting.illumenate_lighting.stored_values import same
+
 
 class ilLExportJob(Document):
 	def before_insert(self):
@@ -20,7 +22,7 @@ class ilLExportJob(Document):
 	def validate(self):
 		"""Validate export job data."""
 		old = self.get_doc_before_save()
-		if any(self.get(field) != (old.get(field) if old else None) for field in ("issued_on", "issued_by")):
+		if any(not same(self.get(field), old.get(field) if old else None) for field in ("issued_on", "issued_by")):
 			frappe.throw(_("Use the verified packet issue action; issuance metadata is immutable."))
 		if old and old.get("manifest_json"):
 			for field in ("manifest_json", "snapshot_json", "source_revision", "manifest_schema_version", "schedule", "requested_by", "export_type"):

@@ -273,7 +273,7 @@ Detailed view of a single sales order with tracking and items
 		</table></div>
 		<p>{{ _("Original total") }}: {{ intake.original.grand_total }} {{ intake.original.currency | e }}</p>
 		<div style="white-space: pre-wrap">{{ (intake.original.terms or '') | e }}</div></details>
-        <dl>{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ frappe.utils.sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd>{% endfor %}</dl>
+        <dl>{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ ill_sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd>{% endfor %}</dl>
 		<p>{{ _("Current total") }}: {{ intake.current.grand_total }} {{ intake.current.currency | e }}</p>
 		<div class="mb-3" style="white-space: pre-wrap">{{ (intake.current.terms or '') | e }}</div>
 		<button class="btn btn-primary" type="button" id="acknowledge-order" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Acknowledge current revision") }}</button>

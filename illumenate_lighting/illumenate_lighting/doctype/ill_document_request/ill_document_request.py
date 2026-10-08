@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, now_datetime
 
+from illumenate_lighting.illumenate_lighting.stored_values import same
+
 
 class ilLDocumentRequest(Document):
 	def before_insert(self):
@@ -74,7 +76,7 @@ class ilLDocumentRequest(Document):
 			published = {row.name: row for row in old.deliverables or [] if row.is_published_to_portal}
 			current = {row.name: row for row in self.deliverables or []}
 			for name, row in published.items():
-				if name not in current or any(row.get(key) != current[name].get(key) for key in ("file", "version", "notes", "is_published_to_portal", "published_on", "published_by", "published_build_hash", "published_file_sha256")):
+				if name not in current or any(not same(row.get(key), current[name].get(key)) for key in ("file", "version", "notes", "is_published_to_portal", "published_on", "published_by", "published_build_hash", "published_file_sha256")):
 					frappe.throw(_("Published deliverables are immutable. Add a new revision."))
 			if not _is_request_staff(old, frappe.session.user):
 				for field in ("deliverables", "assigned_to", "owner_customer", "requester_customer", "requester_user", "hide_from_portal", "project", "sales_order", "fixture_schedule", "technical_reviewer", "required_for_manufacturing", "ill_observed_build_hash", "ill_review_state", "ill_impact_task", "ill_next_action_by", "task_link", "sla_deadline", "completed_on"):
