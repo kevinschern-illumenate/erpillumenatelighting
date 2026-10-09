@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
 	schedule_status_label,
 )
+from illumenate_lighting.illumenate_lighting.system_design.dealer_data import dimming_choices
 
 no_cache = 1
 
@@ -243,6 +244,14 @@ def get_context(context):
 			"input_voltage": line.input_voltage,
 			"other_finish": line.other_finish,
 			"spec_sheet": line.spec_sheet,
+			# Dealer-entered design data (System Designer D8)
+			"watts_each": line.get("watts_each"),
+			"input_voltage_v": line.get("input_voltage_v"),
+			"voltage_class": line.get("voltage_class"),
+			"third_party_drive": line.get("third_party_drive"),
+			"third_party_ma": line.get("third_party_ma"),
+			"third_party_dimming": line.get("third_party_dimming"),
+			"design_line_role": line.get("design_line_role"),
 			"cf_details": {},
 			# Included power supplies are their own lines under the fixture line.
 			"power_supply_for_line": line.get("power_supply_for_line"),
@@ -394,6 +403,7 @@ def get_context(context):
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
+	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 	context.can_issue_packet = can_edit or allowed("engineering")

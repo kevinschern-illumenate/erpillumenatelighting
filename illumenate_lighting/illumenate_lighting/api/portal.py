@@ -1536,6 +1536,9 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 			line.dimming_protocol = line_data.get("dimming_protocol")
 			line.input_voltage = line_data.get("input_voltage")
 			line.other_finish = line_data.get("other_finish")
+			from illumenate_lighting.illumenate_lighting.system_design import dealer_data
+
+			dealer_data.apply(line, line_data)
 			from illumenate_lighting.illumenate_lighting.portal.files import finalize_spec
 
 			if line_data.get("spec_sheet"):
@@ -1797,6 +1800,9 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 				line.input_voltage = line_data.get("input_voltage")
 			if "other_finish" in line_data:
 				line.other_finish = line_data.get("other_finish")
+			from illumenate_lighting.illumenate_lighting.system_design import dealer_data
+
+			dealer_data.apply(line, line_data)
 			from illumenate_lighting.illumenate_lighting.portal.files import finalize_spec
 
 			if "spec_sheet" in line_data and line_data["spec_sheet"] != line.spec_sheet:

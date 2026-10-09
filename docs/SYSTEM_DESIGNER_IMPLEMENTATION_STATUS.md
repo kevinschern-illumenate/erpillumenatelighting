@@ -16,6 +16,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-1.3 | Controller types, design fields and ports | Done |
 | WP-1.4 | Wire spec and Items | Done |
 | WP-1.5 | Visual fields and SH01 seed | Done |
+| WP-1.6 | Schedule line third-party fields and write-back markers | Done (see `system_design` link note) |
 
 ## WP-0.1 — Portal access audit
 
@@ -127,3 +128,16 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
 - Profile and accessory saves reject malformed `cross_section_json` (`system_design/geometry.py`). DXF
   extraction from `cross_section_file` is still to come (H8.8); until then staff can paste JSON.
 - The seed keeps the swivel bracket views (`swivelFront`, `swivelPlan`) because the install guide uses them.
+
+## WP-1.6 — Third-party design data on schedule lines (D8)
+
+- Third-party (`OTHER`) lines gain `watts_each`, `input_voltage_v`, `voltage_class`, `third_party_drive`,
+  `third_party_ma` and `third_party_dimming` in a "Design Data (Data by dealer)" section.
+- Dealers set them through `add_schedule_line` / `update_schedule_line`; `system_design/dealer_data.py`
+  validates the merged values (0 < W ≤ 2000; V in 12/24/48/120/208/240/277; CC needs mA; dimming must be
+  an existing protocol). Voltage class follows the voltage when left blank and must agree with it.
+- The schedule page's add/edit third-party forms have a "System design data" block marked "Data by
+  dealer", and the line shows a "Data by dealer" badge with the values.
+- Write-back markers `design_line_role` and `design_line_key` are read-only and never set from the portal.
+- Discrepancy: H4.3's `system_design` Link to `ilL-System-Design` is added with WP-2.2, which creates that
+  doctype; a Link to a doctype that does not exist yet would fail migrate.
