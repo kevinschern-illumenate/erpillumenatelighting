@@ -3,13 +3,14 @@
 
 """Installed-site checks for saved designs and revisions (WP-2.4)."""
 
+import hashlib
 import json
 from pathlib import Path
 
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from illumenate_lighting.illumenate_lighting.system_design import access, api, catalog
+from illumenate_lighting.illumenate_lighting.system_design import access, api, catalog, deliverables
 
 FIXTURE = (
 	Path(__file__).resolve().parents[3]
@@ -223,6 +224,41 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual((stored["ok"], stored["compared"]), (False, True))
 		self.assertEqual(api.verify_design(design="nope")["code"], "NOT_FOUND")
 		self.assertEqual(api.verify_design(design=data["name"], client="[1")["code"], "INVALID")
+
+	def test_upload_a_riser_deliverable(self):
+		data = self.save()["data"]
+		svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 17 11"><line x1="0" y1="0" x2="1" y2="1"/></svg>'
+		digest = hashlib.sha256(svg).hexdigest()
+		before = frappe.db.get_value("ilL-System-Design", data["name"], "modified")
+		stored = deliverables.upload_deliverable(
+			data["name"], "Riser SVG", "E-1", digest, data["build_hash"], content=svg, filename="riser.svg"
+		)
+		row = stored["row"]
+		self.assertEqual((row["kind"], row["variant"], row["revision"]), ("Riser SVG", "E-1", "A"))
+		self.assertEqual((row["file_sha256"], row["build_hash"]), (digest, data["build_hash"]))
+		self.assertTrue(stored["file_url"].startswith("/private/files/ilLumenate-System-Designer_"))
+		self.assertEqual(frappe.db.get_value("ilL-System-Design", data["name"], "modified"), before)
+		again = deliverables.upload_deliverable(
+			data["name"], "Riser SVG", "E-1", digest, content=svg, filename="riser.svg"
+		)
+		self.assertEqual(again["row"]["name"], row["name"])
+		opened = api.open_design(schedule=self.schedule.name)["data"]
+		self.assertEqual([item["name"] for item in opened["deliverables"]], [row["name"]])
+		self.assertEqual(opened["title_block"]["customer"], designer_customer())
+		self.assertEqual(opened["title_block"]["project_name"], "ZZ Designer Save Test")
+
+		def code(**changes):
+			args = {"kind": "Riser SVG", "sha256": digest, "content": svg, "filename": "riser.svg", **changes}
+			try:
+				deliverables.upload_deliverable(data["name"], **args)
+			except Exception as e:
+				return getattr(e, "code", type(e).__name__)
+
+		self.assertEqual(code(sha256="0" * 64), "INVALID")
+		self.assertEqual(code(build_hash="f" * 64), "CONFLICT")
+		self.assertEqual(code(kind="Riser PDF", filename="riser.pdf"), "INVALID")
+		script = b"<svg><script>alert(1)</script></svg>"
+		self.assertEqual(code(content=script, sha256=hashlib.sha256(script).hexdigest()), "INVALID")
 
 	def test_copy_forward_to_the_next_version(self):
 		data = self.save()["data"]

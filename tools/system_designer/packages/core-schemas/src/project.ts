@@ -28,7 +28,14 @@ export const ProjectMetaSchema = z
     date: z.iso.date(),
     brand: z.enum(['illumenate', '206']),
     sheetPrefix: z.string().min(1).max(12),
-    stamp: z.enum(['NONE', 'FOR REFERENCE', 'NOT FOR CONSTRUCTION', 'PRELIMINARY']),
+    // REVIEWED BY ILLUMENATE is for approved System Designer revisions only (plan §22.3).
+    stamp: z.enum([
+      'NONE',
+      'FOR REFERENCE',
+      'NOT FOR CONSTRUCTION',
+      'PRELIMINARY',
+      'REVIEWED BY ILLUMENATE',
+    ]),
   })
   .strict();
 export const ProjectSettingsSchema = z

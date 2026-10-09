@@ -6,6 +6,7 @@ import resistanceJson from './nec/table8_conductor_resistance.json';
 import ampacityJson from './nec/table310_16_ampacity.json';
 import fixtureJson from './nec/table402_5_fixture_wire.json';
 import effectiveZJson from './nec/table9_effective_z.json';
+import ansiA from './titleblocks/ansi-a.json';
 import ansiB from './titleblocks/ansi-b.json';
 import archC from './titleblocks/arch-c.json';
 import archD from './titleblocks/arch-d.json';
@@ -29,6 +30,6 @@ export const seedCodeTables = CodeTableLibrarySchema.parse([
   fixtureJson,
   effectiveZJson,
 ]);
-export const seedTitleBlocks = [ansiB, archC, archD, ansiD].map((template) =>
+export const seedTitleBlocks = [ansiB, archC, archD, ansiD, ansiA].map((template) =>
   TitleBlockSchema.parse(template),
 );

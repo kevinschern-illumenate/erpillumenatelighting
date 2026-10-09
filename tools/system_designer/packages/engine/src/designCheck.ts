@@ -144,6 +144,9 @@ export interface DesignCheck {
   runs: Record<string, RunResult>;
   /** Wires chosen to satisfy the in-wall rule, by engine run id. */
   inWall: Record<string, string>;
+  /** The project and library the engine ran on, for drawing the riser (WP-3.7). */
+  project: Project;
+  library: LibrarySnapshot;
 }
 
 const SEVERITY = { error: 0, warning: 1, info: 2 } as const;
@@ -289,7 +292,7 @@ export function checkDesign(input: CheckInput): DesignCheck {
     const source = loadKey.get(run.entityRef) ?? loadKey.get(run.to.id);
     if (source && (powerTypes as readonly string[]).includes(run.type) && !runs[source.key]) runs[source.key] = run;
   }
-  return { result, messages, targets, runs, inWall };
+  return { result, messages, targets, runs, inWall, project, library };
 }
 
 /** The next heavier wire that passes, for the "Use a heavier wire" fix; null when there is none. */

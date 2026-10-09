@@ -88,17 +88,29 @@ function path(p: Exclude<Primitive, { kind: 'text' }>): PDFOperator[] {
   ops.push(stroke());
   return ops;
 }
+/** The riser generator's own name; the System Designer passes `DESIGNER_CREATOR` (plan D2). */
+export const RISER_CREATOR = 'ilLumenate Lighting Riser Generator v1.2.0';
+export const DESIGNER_CREATOR = 'ilLumenate System Designer';
+export interface PdfOptions {
+  creator?: string;
+  /** Searchable keywords such as the design, revision and build hash. */
+  keywords?: string[];
+}
+const dataUrlBytes = (src: string) =>
+  Uint8Array.from(atob(src.slice(src.indexOf(',') + 1)), (c) => c.charCodeAt(0));
 export async function serializePdf(
   drawing: Drawing,
   project: Project,
   fontBytes: FontBytes,
+  options: PdfOptions = {},
 ): Promise<Uint8Array> {
   const document = await PDFDocument.create({ updateMetadata: false });
   const fonts = await embedFonts(document, fontBytes);
   document.setTitle(project.meta.name);
   document.setAuthor(project.meta.designer);
   document.setSubject(project.meta.number);
-  document.setCreator('ilLumenate Lighting Riser Generator v1.2.0');
+  document.setCreator(options.creator ?? RISER_CREATOR);
+  if (options.keywords?.length) document.setKeywords(options.keywords);
   document.setProducer('ilLumenate Lighting vector drawing model');
   const date = new Date(`${project.meta.date}T00:00:00Z`);
   document.setCreationDate(date);
@@ -156,6 +168,18 @@ export async function serializePdf(
         }
       }
       page.pushOperators(popGraphicsState(), endMarkedContent());
+    }
+    for (const image of sheet.images ?? []) {
+      const bytes = dataUrlBytes(image.src);
+      const embedded = image.src.startsWith('data:image/png')
+        ? await document.embedPng(bytes)
+        : await document.embedJpg(bytes);
+      page.drawImage(embedded, {
+        x: image.x * 72,
+        y: image.y * 72,
+        width: image.width * 72,
+        height: image.height * 72,
+      });
     }
   }
   return document.save({ useObjectStreams: false, addDefaultPage: false });

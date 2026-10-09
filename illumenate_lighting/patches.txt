@@ -64,3 +64,4 @@ illumenate_lighting.patches.system_designer_tape_fields
 illumenate_lighting.patches.create_field_wire_item_group
 illumenate_lighting.patches.seed_sh01_cross_section
 illumenate_lighting.patches.catalog_builder_permissions #2026-10-09 rerun for ilL-Spec-Wire
+illumenate_lighting.patches.add_customer_dealer_logo

@@ -21,6 +21,7 @@ import {
 import { drawConnections } from './connections';
 import { applyPins } from './pins';
 import { intersects, type Bounds } from './router';
+import { modelLabel } from '../labels';
 
 export const layerForRun = (run: RunResult): LayerName =>
   run.type.startsWith('lv-')
@@ -82,7 +83,7 @@ export async function layoutProject(
       );
     }
     const modelLines = wrapText(
-      node.item ? `${node.item.sku} · ${node.item.model}` : '',
+      node.item ? modelLabel(node.item) : '',
       symbol.widthIn - 0.28,
     ).length;
     const outputs = result.runs.filter((r) => r.from.id === node.id);
@@ -419,7 +420,7 @@ export async function layoutProject(
         sheet.prims.push({
           ...paragraph(
             item
-              ? `${item.sku} · ${item.model}`
+              ? modelLabel(item)
               : 'panel' in node.entity
                 ? `${node.entity.panel} / circuit ${node.entity.circuit}`
                 : '',

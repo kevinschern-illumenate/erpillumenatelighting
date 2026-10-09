@@ -4,11 +4,13 @@ import type { EngineResult } from '@ill/engine/model';
 import { DrawingSchema, type Drawing } from './model';
 import { layoutProject } from './layout/pages';
 import { composeSheets } from './sheet/compose';
+import type { DrawingOptions } from './options';
 
 export async function buildDrawing(
   project: Project,
   library: LibrarySnapshot,
   result: EngineResult,
+  options: DrawingOptions = {},
 ): Promise<Drawing> {
   const start = performance.now();
   if (result.messages.some((m) => m.code === 'INCOMPLETE_SPEC'))
@@ -16,7 +18,7 @@ export async function buildDrawing(
       'Drawing unavailable: this project uses products marked Needs specifications. Complete those products in Libraries before generating the drawing.',
     );
   const diagrams = await layoutProject(project, library, result);
-  const sheets = composeSheets(diagrams, project, library, result);
+  const sheets = composeSheets(diagrams, project, library, result, options);
   sheets.forEach((sheet) => {
     sheet.fontFamily = project.settings.drawingFont;
   });

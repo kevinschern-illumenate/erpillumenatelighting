@@ -246,9 +246,14 @@ function insert(w: Writer, p: BlockRef, s: SymbolDef, owner: string, offset: num
   // SEQEND has only the AcDbEntity subclass; AcDbSequenceEnd is not a DXF subclass.
   w.parts.splice(-2);
 }
-export function serializeDxf(sheets: Sheet[]): string {
+export interface DxfOptions {
+  /** Written as a leading 999 comment, e.g. `ilLumenate System Designer`. */
+  creator?: string;
+}
+export function serializeDxf(sheets: Sheet[], options: DxfOptions = {}): string {
   if (!sheets.length) throw new Error('No sheets selected');
   const w = new Writer();
+  if (options.creator) w.add([999, `Creator: ${options.creator}`.replace(/[\r\n]+/g, ' ')]);
   const blocks = [
     ...new Map(
       sheets.flatMap((s) =>
@@ -477,10 +482,11 @@ export function serializeDxf(sheets: Sheet[]): string {
 export async function serializeDxfZip(
   drawing: Drawing,
   fontFiles: Record<string, Uint8Array | string> = {},
+  options: DxfOptions = {},
 ): Promise<Uint8Array> {
   const zip = new JSZip();
   for (const sheet of drawing.sheets)
-    zip.file(`${sheet.number.replace(/[^\w.-]/g, '_')}.dxf`, serializeDxf([sheet]), {
+    zip.file(`${sheet.number.replace(/[^\w.-]/g, '_')}.dxf`, serializeDxf([sheet], options), {
       date: new Date('2000-01-01T00:00:00Z'),
     });
   for (const [name, bytes] of Object.entries(fontFiles))

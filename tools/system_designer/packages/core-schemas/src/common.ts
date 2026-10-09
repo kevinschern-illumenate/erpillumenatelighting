@@ -93,7 +93,8 @@ export const EquipmentCategorySchema = z.enum([
   'distribution-block',
 ]);
 export const CatalogCategorySchema = z.enum([...EquipmentCategorySchema.options, 'tape', 'fixture']);
-export const SheetSizeSchema = z.enum(['ANSI_B', 'ARCH_C', 'ARCH_D', 'ANSI_D']);
+/** ANSI A is Letter (11 × 8.5 in) and ANSI B is Tabloid (17 × 11 in), both landscape. */
+export const SheetSizeSchema = z.enum(['ANSI_A', 'ANSI_B', 'ARCH_C', 'ARCH_D', 'ANSI_D']);
 export const EditionSchema = z.enum(['2020', '2023', '2026']);
 export const PortRefSchema = z.object({ ref: IdSchema, port: IdSchema.optional() }).strict();
 export const ProvenanceSchema = z

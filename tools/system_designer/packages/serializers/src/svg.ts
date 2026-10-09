@@ -17,6 +17,8 @@ export type SvgOptions = {
   monochrome?: boolean;
   interactive?: boolean;
   fontCss?: string;
+  /** Written as the SVG's metadata, e.g. `ilLumenate System Designer`. */
+  creator?: string;
 };
 export function serializeSvg(sheet: Sheet, options: SvgOptions = {}): string {
   const flat = flattenSheet(sheet);
@@ -87,5 +89,12 @@ export function serializeSvg(sheet: Sheet, options: SvgOptions = {}): string {
     if (prims.length)
       body.push(`<g data-layer="${layer.name}">${prims.map(primitive).join('')}</g>`);
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(`${sheet.number} ${sheet.title}`)}" width="${sheet.widthIn}in" height="${sheet.heightIn}in" viewBox="0 0 ${sheet.widthIn} ${sheet.heightIn}" style="background:white">${options.fontCss ? `<defs><style>${options.fontCss}</style></defs>` : ''}${body.join('')}</svg>`;
+  for (const image of sheet.images ?? [])
+    body.push(
+      `<image href="${escapeXml(image.src)}" x="${n(image.x)}" y="${n(sheet.heightIn - image.y - image.height)}" width="${n(image.width)}" height="${n(image.height)}" preserveAspectRatio="xMidYMid meet"/>`,
+    );
+  const metadata = options.creator
+    ? `<metadata>${escapeXml(`Creator: ${options.creator}`)}</metadata>`
+    : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(`${sheet.number} ${sheet.title}`)}" width="${sheet.widthIn}in" height="${sheet.heightIn}in" viewBox="0 0 ${sheet.widthIn} ${sheet.heightIn}" style="background:white">${metadata}${options.fontCss ? `<defs><style>${options.fontCss}</style></defs>` : ''}${body.join('')}</svg>`;
 }

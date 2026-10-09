@@ -12,6 +12,7 @@ import { StartStep } from './StartStep';
 import { TermsDialog } from './TermsDialog';
 import { engineCheckItems, runCheckItems, type Check, type OpenDesign } from './open';
 import { CheckStep } from './CheckStep';
+import { ViewsStep } from './ViewsStep';
 import { useCatalog } from '../design/catalog';
 import { useDesignCheck } from '../design/engine';
 import { vdLimits } from '@ill/engine/designCheck';
@@ -238,6 +239,8 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
               readOnly={Boolean(readOnly)}
               goTo={setStep}
             />
+          ) : step === 'views' ? (
+            <ViewsStep open={open} store={store} engine={engine} api={api} />
           ) : (
             <section aria-labelledby="ill-sd-step-title">
               <h2 id="ill-sd-step-title">{current.label}</h2>

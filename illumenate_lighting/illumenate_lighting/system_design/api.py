@@ -174,6 +174,15 @@ def verify_design(design=None, client=None):
 	return designs.verify_design(design, parse_json(client, "client") if client not in (None, "") else None)
 
 
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def upload_deliverable(design=None, kind=None, variant=None, sha256=None, build_hash=None):
+	"""Store a generated drawing on a design (WP-3.7); the file is the multipart ``file`` part."""
+	from illumenate_lighting.illumenate_lighting.system_design import deliverables
+
+	return deliverables.upload_deliverable(design, kind, variant, sha256, build_hash)
+
+
 # --- Reconcile and copy forward (WP-2.5, H6) -----------------------------------------------------
 
 

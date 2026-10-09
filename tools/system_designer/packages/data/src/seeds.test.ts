@@ -28,7 +28,7 @@ describe('seed data acceptance', () => {
     expect(seedProducts).toHaveLength(25);
     expect(seedWires).toHaveLength(61);
     expect(seedLayers.layers).toHaveLength(16);
-    expect(seedTitleBlocks).toHaveLength(4);
+    expect(seedTitleBlocks).toHaveLength(5);
     expect(seedNotes).toHaveLength(12);
     expect(seedCodeTables).toHaveLength(4);
   });

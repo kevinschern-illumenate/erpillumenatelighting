@@ -37,17 +37,18 @@ def require_read(schedule):
 	return doc
 
 
-def require_edit(schedule):
+def require_edit(schedule, allow_locked=False):
 	"""Return the schedule document when the session user may change it.
 
-	A readable schedule the user may not edit is ``FORBIDDEN``; a locked schedule is ``LOCKED``.
+	A readable schedule the user may not edit is ``FORBIDDEN``; a locked schedule is ``LOCKED`` unless
+	``allow_locked`` (for records that leave the schedule as it is, such as generated drawings).
 	"""
 	from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule
 
 	doc = require_read(schedule)
 	if not can_edit_schedule(doc):
 		raise DesignError("FORBIDDEN", _("You can view this schedule but not change it"))
-	if doc.get("is_locked"):
+	if doc.get("is_locked") and not allow_locked:
 		raise DesignError("LOCKED", _("This schedule version is locked"))
 	return doc
 

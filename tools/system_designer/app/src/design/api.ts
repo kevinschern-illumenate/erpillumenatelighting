@@ -24,6 +24,24 @@ export interface DesignMeta {
   is_current: boolean;
   /** Someone accepted the terms on this revision; a save before that must send ``termsAccepted``. */
   terms_accepted: boolean;
+  /** The Applications Engineer who approved this revision, when it is approved. */
+  approved_by?: string | null;
+}
+
+export const DELIVERABLE_KINDS = ['Riser PDF', 'Riser DXF ZIP', 'Riser SVG'] as const;
+export type DeliverableKind = (typeof DELIVERABLE_KINDS)[number];
+
+/** A generated file stored on the design (``upload_deliverable``). */
+export interface Deliverable {
+  name: string;
+  kind: string;
+  variant: string;
+  file: string;
+  file_sha256: string;
+  revision: string;
+  build_hash: string;
+  created_by: string;
+  created_on: string;
 }
 
 export interface SaveResult {
@@ -128,6 +146,27 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
     /** The server's re-check of the saved design's gating subset (plan §18.2). */
     verifyDesign(design: string, client: VerifySubset) {
       return post<VerifyResult>('verify_design', { design, client: JSON.stringify(client) });
+    },
+    /** Store a generated drawing on the saved design; the server recomputes the SHA-256 (H6). */
+    uploadDeliverable(args: {
+      design: string;
+      kind: DeliverableKind;
+      variant?: string;
+      file: Blob;
+      filename: string;
+      sha256: string;
+    }) {
+      const body = new FormData();
+      body.set('design', args.design);
+      body.set('kind', args.kind);
+      if (args.variant) body.set('variant', args.variant);
+      body.set('sha256', args.sha256);
+      body.set('file', args.file, args.filename);
+      return call<{ file_url: string; row: Deliverable }>('upload_deliverable', {
+        method: 'POST',
+        headers: { 'X-Frappe-CSRF-Token': csrfToken },
+        body,
+      });
     },
     reconcileDesign(design: string) {
       return call<ReconcileDiff>('reconcile_design', { method: 'GET' }, new URLSearchParams({ design }));

@@ -543,7 +543,8 @@
         "NONE",
         "FOR REFERENCE",
         "NOT FOR CONSTRUCTION",
-        "PRELIMINARY"
+        "PRELIMINARY",
+        "REVIEWED BY ILLUMENATE"
        ]
       }
      },
@@ -717,6 +718,7 @@
          "default": "ARCH_D",
          "type": "string",
          "enum": [
+          "ANSI_A",
           "ANSI_B",
           "ARCH_C",
           "ARCH_D",

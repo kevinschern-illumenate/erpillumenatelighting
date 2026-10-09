@@ -15,6 +15,7 @@ from frappe.utils import get_datetime, now_datetime
 from illumenate_lighting.illumenate_lighting.system_design import (
 	access,
 	catalog,
+	deliverables,
 	expansion,
 	gate,
 	reconcile,
@@ -115,6 +116,36 @@ def open_design(schedule, design=None):
 		"settings": client_settings(values),
 		"newer_version": newer_version(doc) if doc.get("is_locked") else None,
 		"user": frappe.session.user,
+		"title_block": title_block(doc),
+		"deliverables": deliverables.list_deliverables(record) if record else [],
+	}
+
+
+def title_block(schedule_doc):
+	"""What the riser title block names (plan §12.1): project, site, dealer and the dealer's logo."""
+	project = None
+	if schedule_doc.get("ill_project"):
+		project = frappe.db.get_value(
+			"ilL-Project",
+			schedule_doc.get("ill_project"),
+			["name", "project_name", "location", "customer"],
+			as_dict=True,
+		)
+	customer = schedule_doc.get("customer") or (project.customer if project else None)
+	name = logo = None
+	if customer:
+		name = frappe.db.get_value("Customer", customer, "customer_name")
+		# The field arrives by patch, so a site that has not migrated yet has no logo.
+		if frappe.get_meta("Customer").has_field("dealer_logo"):
+			logo = frappe.db.get_value("Customer", customer, "dealer_logo")
+	return {
+		"project_name": (project.project_name if project else None)
+		or schedule_doc.get("schedule_name")
+		or "",
+		"project_number": project.name if project else "",
+		"site_address": (project.location if project else None) or "",
+		"customer": name or customer or "",
+		"dealer_logo": logo or None,
 	}
 
 
@@ -207,6 +238,10 @@ def design_meta(record):
 		"schedule_version": record.schedule_version,
 		"is_current": bool(record.is_current),
 		"terms_accepted": bool(record.get("terms_accepted_by")),
+		# The Applications Engineer who approved this revision checks the riser (plan §12.1).
+		"approved_by": frappe.utils.get_fullname(record.approved_by)
+		if record.status == "Approved" and record.get("approved_by")
+		else None,
 	}
 
 

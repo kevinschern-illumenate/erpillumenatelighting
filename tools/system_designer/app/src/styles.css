@@ -634,3 +634,12 @@
 	padding: 6px 0;
 	border-bottom: 1px solid var(--ill-border);
 }
+
+.ill-sd__riser {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin-top: 12px;
+	border: 1px solid var(--ill-border);
+	background: #fff;
+}

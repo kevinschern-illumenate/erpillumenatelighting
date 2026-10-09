@@ -3,8 +3,10 @@ import type { LibrarySnapshot } from '@ill/core-schemas/library';
 import type { EngineResult } from '@ill/engine/model';
 import { seedLayers, seedTitleBlocks } from '@ill/data/seeds';
 import { flattenSheet, line, text, type Sheet, type Primitive } from '../model';
+import type { DrawingOptions } from '../options';
 import { paragraph, wrapText } from '../text';
 import { titleBlockLogo } from '../brand';
+import { DATA_BY_DEALER_TAG, isDealerData, modelLabel } from '../labels';
 import { powerTypes } from '@ill/engine/wireSelect';
 
 const BODY = 3 / 32;
@@ -24,7 +26,26 @@ const labels: Record<string, string> = {
   revisions: 'LATEST REVISION',
   stamp: 'ISSUE STATUS',
 };
-export function frameSheet(sheet: Sheet, project: Project, total: number) {
+type Region = { x: number; y: number; width: number; height: number };
+/** Fit a logo of the given pixel size inside a region, centred, keeping its proportions. */
+export function fitImage(region: Region, widthPx: number, heightPx: number, pad = 0.06): Region {
+  const room = { width: region.width - 2 * pad, height: region.height - 2 * pad };
+  const scale = Math.min(room.width / widthPx, room.height / heightPx);
+  const width = widthPx * scale,
+    height = heightPx * scale;
+  return {
+    x: region.x + (region.width - width) / 2,
+    y: region.y + (region.height - height) / 2,
+    width,
+    height,
+  };
+}
+export function frameSheet(
+  sheet: Sheet,
+  project: Project,
+  total: number,
+  options: DrawingOptions = {},
+) {
   const template = seedTitleBlocks.find((s) => s.sheetSize === sheet.size)!;
   const rect = (r: { x: number; y: number; width: number; height: number }): Primitive => ({
     kind: 'rect',
@@ -42,7 +63,13 @@ export function frameSheet(sheet: Sheet, project: Project, total: number) {
     text(
       `${sheet.number} / ${total}  ·  ALL LENGTHS ARE ONE-WAY UNLESS NOTED`,
       ref.x + 1.3,
-      ref.y + 0.3,
+      ref.y + 0.4,
+    ),
+    // NEC edition and voltage-drop targets go on every sheet (plan §22.3).
+    text(
+      `NEC ${project.settings.necEdition}  ·  VD TARGETS ${project.settings.vdTargetLineVoltagePct}% LINE / ${project.settings.vdTargetLowVoltagePct}% LOW VOLTAGE`,
+      ref.x + 1.3,
+      ref.y + 0.2,
     ),
   );
   const revision = project.revisions.at(-1);
@@ -77,6 +104,18 @@ export function frameSheet(sheet: Sheet, project: Project, total: number) {
     );
     if (labels[field.name])
       sheet.prims.push(text(labels[field.name]!, r.x, top - 0.14, BODY, 'E-ANNO-TTLB'));
+    const dealer = field.name === 'brandLogo' ? options.dealerLogo : undefined;
+    if (dealer) {
+      // The dealer's logo shares the brand cell: ilLumenate above, the dealer below (plan §12.1).
+      const split = r.height * 0.45;
+      const image = fitImage({ ...r, height: split }, dealer.widthPx, dealer.heightPx);
+      sheet.images = [...(sheet.images ?? []), { ...image, src: dealer.src, layer: 'E-ANNO-TTLB' }];
+      const upper = { ...r, y: r.y + split, height: r.height - split };
+      if (project.meta.brand !== '206') sheet.prims.push(...titleBlockLogo(upper));
+      else
+        sheet.prims.push(text('206 LIGHTING', upper.x, upper.y + 0.12, 0.2, 'E-ANNO-TTLB', 'bold'));
+      continue;
+    }
     if (field.name === 'brandLogo' && project.meta.brand !== '206') {
       sheet.prims.push(...titleBlockLogo(r));
       continue;
@@ -106,10 +145,11 @@ export function composeSheets(
   project: Project,
   library: LibrarySnapshot,
   result: EngineResult,
+  options: DrawingOptions = {},
 ): Sheet[] {
   const sheets = [...diagrams];
   if (!project.settings.showSchedules) {
-    sheets.forEach((sheet) => frameSheet(sheet, project, sheets.length));
+    sheets.forEach((sheet) => frameSheet(sheet, project, sheets.length, options));
     return sheets;
   }
   const template = seedTitleBlocks.find((t) => t.sheetSize === project.settings.sheet.size)!;
@@ -140,7 +180,7 @@ export function composeSheets(
       weights: [1, 3, 1.4, 1, 2.3],
       rows: project.loads.map((l) => [
         l.typeTag,
-        `${item(l.catalogId)?.sku ?? 'UNRESOLVED'}\n${item(l.catalogId)?.model ?? ''}`,
+        item(l.catalogId) ? modelLabel(item(l.catalogId)!, '\n') : 'UNRESOLVED\n',
         l.lengthFt !== undefined
           ? `${len(l.lengthFt)} ${project.settings.units}`
           : `${l.qty ?? 1} ea`,
@@ -198,7 +238,8 @@ export function composeSheets(
       heads: ['SKU', 'DESCRIPTION', 'QUANTITY', 'REELS'],
       weights: [2, 4, 1.2, 0.8],
       rows: result.bom.map((b) => [
-        b.sku,
+        // A dealer's own fixture has no ilLumenate SKU; its row says whose data it is.
+        isDealerData(library.products.find((p) => p.sku === b.sku)) ? DATA_BY_DEALER_TAG : b.sku,
         `${b.description}${b.isExample ? ' [EXAMPLE]' : ''}`,
         `${b.unit === 'ft' ? len(b.quantity) : b.quantity} ${b.unit === 'ft' ? project.settings.units : b.unit}`,
         b.reels === undefined ? '—' : String(b.reels),
@@ -462,6 +503,6 @@ export function composeSheets(
       y - 0.49,
     ),
   );
-  sheets.forEach((s) => frameSheet(s, project, sheets.length));
+  sheets.forEach((s) => frameSheet(s, project, sheets.length, options));
   return sheets;
 }

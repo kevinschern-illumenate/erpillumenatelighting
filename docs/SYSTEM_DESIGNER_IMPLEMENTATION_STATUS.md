@@ -513,3 +513,46 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Protocol match is enforced when runs are put in zones (WP-3.4); the engine's control-link
     `PROTOCOL_MISMATCH` joins the mirror when the designer draws control links.
   - Multichannel and line-voltage wire sizing stay with the engine; their loading is still verified.
+
+## WP-3.7 — Engineering riser outputs
+
+- Riser from the design: `packages/engine/src/riser.ts` (`riserProject`) turns the project the checks
+  ran on (now on `DesignCheck.project` and `.library`, in-wall wires included) into the drawing input:
+  title block from the ERP (project, number, site, dealer, designer, checker), sheet, stamp, a design
+  revision row, the design-aid general note and, when any load has dealer data, "Third-party product
+  data entered by <dealer>; not verified by ilLumenate" (D8, §22.3).
+  - `open_design` now returns `title_block` (`project_name`, `project_number`, `site_address`,
+    `customer`, `dealer_logo`), `deliverables`, and `design_meta.approved_by` on approved revisions.
+- Stamps: PRELIMINARY by default; NOT FOR CONSTRUCTION and FOR REFERENCE; REVIEWED BY ILLUMENATE only
+  on an approved revision, which also names the approving Applications Engineer as checker. Another
+  stamp on an unapproved revision falls back to PRELIMINARY.
+- Sheets: Letter (`ANSI_A`, 11 × 8.5 in, new title block) and Tabloid (`ANSI_B`) join ARCH C/D and
+  ANSI D. Every sheet now prints the NEC edition and the voltage-drop targets under the sheet count.
+- DATA BY DEALER: dealer fixtures show maker, model and the tag on their symbol and LOAD SCHEDULE row;
+  their BOM row shows the tag in place of the internal `tp:` id.
+- Dealer logo: `Customer.dealer_logo` (Attach Image) by patch `add_customer_dealer_logo`. The browser
+  reads it, scales it to at most 800 px and passes it as a PNG data URL (`DrawingOptions.dealerLogo`);
+  the brand cell shows ilLumenate above and the dealer below. Sheets carry it as `images`: PDF and SVG
+  embed it; DXF has no raster and leaves it out.
+- Metadata (D2): `serializePdf(…, {creator, keywords})` writes `Creator: ilLumenate System Designer`
+  and schedule/design/revision keywords; DXF starts with a `999 Creator:` comment; SVG gets a
+  `<metadata>` line. The riser generator keeps its own creator by default.
+- Views step: pick sheet and stamp, draw the riser (layout worker), preview each sheet, download PDF,
+  DXF ZIP (with fonts) or the shown sheet as SVG. Files are named
+  `ilLumenate-System-Designer_<schedule>_rev<rev>_<sheet>.<ext>`. When the design is saved with no
+  unsaved changes and the user can edit the schedule, each download is also stored on the revision.
+  - Drawing fonts are now published with the bundle (`?url` imports, about 0.9 MB).
+- `upload_deliverable(design, kind, variant, sha256, build_hash?)` (POST multipart, file in `file`):
+  checks edit access (a locked schedule may still export), kind (Riser PDF / DXF ZIP / SVG), the file
+  itself (PDF via `validate_content`; ZIP of `.dxf` drawings and their fonts only, with size and count
+  limits; SVG without scripts, event handlers, entities or external links), recomputes the SHA-256,
+  stores a private File and inserts the `ilL-Child-Design-Deliverable` row alone so the design's
+  `modified` is unchanged. The same file sent twice returns the existing row.
+- Tests: `packages/drawing/src/riser.test.ts` (title block, tags, notes, stamps, Letter with logo,
+  PDF metadata, DXF round trip), `ViewsStep.test.tsx`, `test_system_design_deliverables.py`,
+  installed `test_designs.test_upload_a_riser_deliverable`.
+- Discrepancies and choices:
+  - Schedules on the riser are the engine's tables from the ERP-sourced design; the plan's separate
+    panel/circuit table is part of the equipment schedule's feed column.
+  - The DXF ZIP has no dealer logo (no raster in DXF); PDF and SVG do.
+  - The default sheet is Tabloid; Letter suits small systems.

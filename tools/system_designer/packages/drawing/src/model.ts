@@ -125,6 +125,15 @@ export const BlockRefSchema = z.object({
   scale: z.literal(1),
   attributes: z.record(z.string(), z.string()),
 });
+export const ImageSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  /** A PNG or JPEG data URL. */
+  src: z.string().regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/),
+  layer: LayerNameSchema,
+});
 export const SheetSchema = z.object({
   id: z.string(),
   number: z.string(),
@@ -146,6 +155,8 @@ export const SheetSchema = z.object({
     }),
   ),
   layoutWarnings: z.array(z.string()),
+  /** Raster images such as a dealer logo. PDF and SVG embed them; DXF has no raster and leaves them out. */
+  images: z.array(ImageSchema).optional(),
   connections: z
     .array(
       z.object({
@@ -175,6 +186,7 @@ export type BlockRef = z.infer<typeof BlockRefSchema>;
 export type SymbolDef = z.infer<typeof SymbolSchema>;
 export type Sheet = z.infer<typeof SheetSchema>;
 export type Drawing = z.infer<typeof DrawingSchema>;
+export type SheetImage = z.infer<typeof ImageSchema>;
 export type LayerName = z.infer<typeof LayerNameSchema>;
 export function text(
   value: string,

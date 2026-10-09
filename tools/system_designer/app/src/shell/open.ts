@@ -8,7 +8,7 @@ import { expandRuns, type ExpandOptions, type Skipped } from '@ill/engine/expand
 import type { ReconcileDiff } from '@ill/engine/reconcile';
 import type { DesignMessage } from '@ill/engine/designCheck';
 import { runChecks, runLabel } from '@ill/engine/runs';
-import type { DesignMeta } from '../design/api';
+import type { Deliverable, DesignMeta } from '../design/api';
 
 /** Written into every saved design so a later engine can tell which one produced it. */
 export const ENGINE_VERSION = 'system-designer-0.1.0';
@@ -37,6 +37,7 @@ export const OpenDesignSchema = z.object({
       schedule_version: z.number(),
       is_current: z.boolean(),
       terms_accepted: z.boolean().default(false),
+      approved_by: z.string().nullish(),
     })
     .nullable(),
   reconcile: z.custom<ReconcileDiff>((value) => value === null || typeof value === 'object').nullable(),
@@ -58,6 +59,18 @@ export const OpenDesignSchema = z.object({
   newer_version: z.object({ name: z.string(), version: z.number() }).nullish(),
   /** The signed-in user, recorded on acknowledgements and overrides. */
   user: z.string().nullish(),
+  /** What the riser title block names (plan §12.1); older servers send none. */
+  title_block: z
+    .object({
+      project_name: z.string().default(''),
+      project_number: z.string().default(''),
+      site_address: z.string().default(''),
+      customer: z.string().default(''),
+      dealer_logo: z.string().nullish(),
+    })
+    .nullish(),
+  /** Generated files already stored on this design. */
+  deliverables: z.array(z.custom<Deliverable>((value) => typeof value === 'object' && value !== null)).default([]),
 });
 export type OpenDesign = z.infer<typeof OpenDesignSchema>;
 
