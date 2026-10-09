@@ -1142,6 +1142,14 @@ body.reorder-no-select {
 								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge" title="{{ schedule_status_description(schedule.status) }}">
 									{{ schedule_status_label(schedule.status) }}
 								</span>
+								{% if system_design and system_design.design %}
+								<a href="{{ system_design.url }}" class="badge badge-{{ system_design.design.tone }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
+									<i class="fa fa-sitemap"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) }}
+								</a>
+								{% endif %}
+								{% if system_design and system_design.review %}
+								<span class="badge badge-{{ system_design.review.tone }} ml-1" id="systemDesignReview">{{ system_design.review.label }}</span>
+								{% endif %}
 								{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
 								<div class="dropdown d-inline-block ml-2">
 									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -1176,6 +1184,11 @@ body.reorder-no-select {
 							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
 								<i class="fa fa-plus"></i> {{ _("Add Line") }}
 							</button>
+							{% endif %}
+							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
+							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url }}">
+								<i class="fa fa-sitemap"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
+							</a>
 							{% endif %}
 							{% if can_edit and not schedule.is_locked %}
 							<button class="btn btn-outline-primary" onclick="createNewVersion()">

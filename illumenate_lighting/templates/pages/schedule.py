@@ -418,6 +418,10 @@ def get_context(context):
 	context.is_internal = is_internal
 	context.can_create_order = can_create_order
 	context.order_block_reason = order_block_reason
+	# System Designer entry, current design and D4 review state (WP-4.5); None hides them.
+	from illumenate_lighting.illumenate_lighting.system_design.portal_pages import schedule_card
+
+	context.system_design = schedule_card(schedule)
 	context.can_show_dealer_pricing = can_show_dealer_pricing
 	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty

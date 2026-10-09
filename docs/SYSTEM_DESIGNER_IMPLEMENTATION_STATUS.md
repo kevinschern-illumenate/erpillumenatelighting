@@ -33,6 +33,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-4.2 | Review request type and flow | Done |
 | WP-4.3 | Reviewer mode: comments, overrides, decisions | Done |
 | WP-4.4 | D4 review gate before ordering | Done (flag off by default) |
+| WP-4.5 | Schedule and project page integration | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -723,3 +724,20 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     stored fingerprints in the same transaction.
   - Order Approvers override through the endpoint; the designer shows the override only to
     Applications Engineers (a schedule-page control can follow if sales wants one).
+
+## WP-4.5 — Schedule and project pages
+
+- `system_design/portal_pages.py`:
+  - `schedule_card(schedule_doc)` → `{url, design: {name, revision, status, tone}, review: {label, tone}}`
+    for the schedule page, or `None` when the designer is not enabled for the user.
+  - `project_designs(schedules)` → the current designs of the project's readable schedule versions,
+    newest first, or `None` to hide the tab.
+  - `review_chip(requirement, status)`: Review required / In review / Review approved / Review
+    overridden; nothing when the gate does not apply.
+  - Both log and return `None` on any failure, so the pages render as before.
+- `schedule.html`: "Design System" (no design yet, editors only) or "Open System Design" button, a
+  design badge (revision and status, linking to the designer) and the review chip beside the status.
+- `project.html`: a "Designs" tab listing the current designs, shown only when the designer is on for
+  the user.
+- Tests: `tests/portal_unit/test_system_design_portal_pages.py`, installed
+  `test_designs.test_schedule_and_project_pages`, `tools/check_portal_templates.py`.

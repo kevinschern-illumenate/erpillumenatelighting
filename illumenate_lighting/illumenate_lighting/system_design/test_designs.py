@@ -561,3 +561,18 @@ class TestDesigns(IntegrationTestCase):
 			self.assertEqual(
 				api.override_review_gate(schedule=self.schedule.name, reason="Please")["code"], "FORBIDDEN"
 			)
+
+	def test_schedule_and_project_pages(self):
+		from illumenate_lighting.illumenate_lighting.system_design import portal_pages
+
+		card = portal_pages.schedule_card(self.schedule)
+		self.assertEqual(
+			(card["url"], card["design"]), (f"/portal/schedules/{self.schedule.name}/design", None)
+		)
+		data = self.save()["data"]
+		card = portal_pages.schedule_card(self.schedule)
+		self.assertEqual((card["design"]["name"], card["design"]["status"]), (data["name"], "Draft"))
+		schedules = [
+			frappe._dict(name=self.schedule.name, schedule_name="ZZ", version=self.schedule.version or 0)
+		]
+		self.assertEqual([row["name"] for row in portal_pages.project_designs(schedules)], [data["name"]])
