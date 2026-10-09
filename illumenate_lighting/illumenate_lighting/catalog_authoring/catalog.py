@@ -216,8 +216,12 @@ def prepare_catalog(config, schema=None, reference=None):
 			"records",
 			"external_links",
 			"add_to_reference",
+			# Editor settings such as saved row generator recipes; never imported.
+			"builder",
 		}:
 			errors.append(f"Unknown catalog key: {key}")
+	if "builder" in config and not isinstance(config["builder"], dict):
+		errors.append("builder must be a mapping of editor settings")
 	if config.get("add_to_reference") not in (None, True, False):
 		errors.append("add_to_reference must be true or false")
 	if config.get("add_to_reference") and not str(config.get("series_name") or "").strip():

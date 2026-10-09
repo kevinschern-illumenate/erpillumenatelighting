@@ -1,6 +1,8 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.stored_values import same
+
 
 class ilLQuoteOffer(Document):
 	def validate(self):
@@ -21,7 +23,7 @@ class ilLQuoteOffer(Document):
 			"snapshot_hash",
 			"schedule_hash",
 		):
-			if self.get(field) != previous.get(field):
+			if not same(self.get(field), previous.get(field)):
 				frappe.throw("Issued offer content is immutable; issue an amended Quotation")
 		for field in (
 			"pdf_file",
@@ -32,5 +34,5 @@ class ilLQuoteOffer(Document):
 			"responded_on",
 			"response_note",
 		):
-			if previous.get(field) and self.get(field) != previous.get(field):
+			if previous.get(field) and not same(self.get(field), previous.get(field)):
 				frappe.throw("Issued offer artifacts and buyer responses are immutable")

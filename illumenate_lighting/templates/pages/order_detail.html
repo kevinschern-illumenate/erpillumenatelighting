@@ -13,13 +13,14 @@ Detailed view of a single sales order with tracking and items
 }
 .order-header-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 	margin-bottom: 1.5rem;
 }
 .order-header-top {
-	background: linear-gradient(135deg, #388e3c 0%, #4caf50 100%);
+	background: var(--ill-brand-gradient);
 	color: white;
 	padding: 2rem;
 }
@@ -39,18 +40,19 @@ Detailed view of a single sales order with tracking and items
 .detail-label {
 	font-size: 0.75rem;
 	text-transform: uppercase;
-	color: #888;
+	color: var(--ill-gray-500);
 	margin-bottom: 0.25rem;
 }
 .detail-value {
 	font-size: 1.1rem;
 	font-weight: 500;
-	color: #333;
+	color: var(--ill-ink);
 }
 .order-progress-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	padding: 2rem;
 	margin-bottom: 1.5rem;
 }
@@ -67,7 +69,7 @@ Detailed view of a single sales order with tracking and items
 	left: 0;
 	right: 0;
 	height: 4px;
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 	z-index: 0;
 }
 .progress-timeline::after {
@@ -77,7 +79,7 @@ Detailed view of a single sales order with tracking and items
 	left: 0;
 	width: {{ progress_percent }}%;
 	height: 4px;
-	background: #4caf50;
+	background: var(--ill-green);
 	z-index: 1;
 	transition: width 0.5s ease;
 }
@@ -93,26 +95,26 @@ Detailed view of a single sales order with tracking and items
 	width: 48px;
 	height: 48px;
 	border-radius: 50%;
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 1.25rem;
-	color: #888;
+	color: var(--ill-gray-500);
 	margin-bottom: 0.75rem;
 }
 .step-circle.completed {
-	background: #4caf50;
+	background: var(--ill-green);
 	color: white;
 }
 .step-circle.active {
-	background: #1976d2;
+	background: var(--ill-blue-600);
 	color: white;
 	animation: pulse 1.5s infinite;
 }
 @keyframes pulse {
-	0%, 100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.4); }
-	50% { box-shadow: 0 0 0 12px rgba(25, 118, 210, 0); }
+	0%, 100% { box-shadow: 0 0 0 0 rgba(0, 88, 140, 0.4); }
+	50% { box-shadow: 0 0 0 12px rgba(0, 88, 140, 0); }
 }
 .step-title {
 	font-weight: 500;
@@ -121,18 +123,19 @@ Detailed view of a single sales order with tracking and items
 }
 .step-date {
 	font-size: 0.75rem;
-	color: #888;
+	color: var(--ill-gray-500);
 }
 .items-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 	margin-bottom: 1.5rem;
 }
 .items-header {
 	padding: 1rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -142,16 +145,16 @@ Detailed view of a single sales order with tracking and items
 }
 .items-table th {
 	padding: 0.75rem 1.5rem;
-	background: #fafafa;
+	background: var(--ill-surface-soft);
 	font-weight: 600;
 	font-size: 0.8rem;
 	text-transform: uppercase;
-	color: #666;
-	border-bottom: 1px solid #f0f0f0;
+	color: var(--ill-text-secondary);
+	border-bottom: 1px solid var(--ill-gray-200);
 }
 .items-table td {
 	padding: 1rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200);
 }
 .items-table tr:last-child td {
 	border-bottom: none;
@@ -161,21 +164,22 @@ Detailed view of a single sales order with tracking and items
 }
 .item-code {
 	font-size: 0.85rem;
-	color: #888;
+	color: var(--ill-gray-500);
 }
 .shipment-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 }
 .shipment-header {
 	padding: 1rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200);
 }
 .shipment-item {
 	padding: 1.25rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -188,7 +192,7 @@ Detailed view of a single sales order with tracking and items
 }
 .shipment-meta {
 	font-size: 0.85rem;
-	color: #666;
+	color: var(--ill-text-secondary);
 }
 .tracking-link {
 	font-family: monospace;
@@ -196,8 +200,9 @@ Detailed view of a single sales order with tracking and items
 }
 .sidebar-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	padding: 1.5rem;
 	margin-bottom: 1rem;
 }
@@ -210,22 +215,22 @@ Detailed view of a single sales order with tracking and items
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.75rem 1rem;
-	background: #f5f5f5;
-	border-radius: 8px;
+	background: var(--ill-gray-100);
+	border-radius: var(--ill-radius-md);
 	margin-bottom: 0.5rem;
 	text-decoration: none;
-	color: #333;
+	color: var(--ill-ink);
 	transition: all 0.2s;
 }
 .action-btn:hover {
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 	text-decoration: none;
-	color: #333;
+	color: var(--ill-ink);
 }
 .action-btn i {
 	width: 24px;
 	text-align: center;
-	color: #666;
+	color: var(--ill-text-secondary);
 }
 </style>
 {% endblock %}
@@ -268,7 +273,7 @@ Detailed view of a single sales order with tracking and items
 		</table></div>
 		<p>{{ _("Original total") }}: {{ intake.original.grand_total }} {{ intake.original.currency | e }}</p>
 		<div style="white-space: pre-wrap">{{ (intake.original.terms or '') | e }}</div></details>
-        <dl>{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ frappe.utils.sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd>{% endfor %}</dl>
+        <dl>{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ ill_sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd>{% endfor %}</dl>
 		<p>{{ _("Current total") }}: {{ intake.current.grand_total }} {{ intake.current.currency | e }}</p>
 		<div class="mb-3" style="white-space: pre-wrap">{{ (intake.current.terms or '') | e }}</div>
 		<button class="btn btn-primary" type="button" id="acknowledge-order" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Acknowledge current revision") }}</button>

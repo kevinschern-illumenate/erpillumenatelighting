@@ -167,7 +167,7 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html"],
 }
 
 # Installation
@@ -185,26 +185,14 @@ after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
 # `bench migrate` imports that directory and overwrites matching records. Keep each
 # entry filtered to records this app owns: an unfiltered Custom Field entry would
 # ship ERPNext, HRMS and CRM fields and overwrite them on every site.
+#
+# List only configuration the app controls and staff should not edit. Data the team
+# maintains (request types, attribute lists, Webflow categories, LED sheet specs and
+# templates, drivers, Items, job titles) must stay out: once exported, every migrate
+# would reset it and discard their edits. Seed such data with an insert-if-missing patch.
 fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
 	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
-	{"dt": "ILL Request Type"},
-	# Webflow integration fixtures (Phase 1)
-	{"dt": "ilL-Attribute-Certification"},
-	{"dt": "ilL-Webflow-Category"},
-	# Webflow configurator fixtures (Phase 2)
-	{"dt": "ilL-Attribute-Feed-Direction"},
-	# LED Sheet seed data (Snowfield; Analog RGBW intentionally excluded pending series code)
-	{"dt": "ilL-Spec-Driver", "filters": [["item", "in", ["LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]]},
-	{"dt": "ilL-Rel-Driver-Eligibility", "filters": [["template_type", "=", "ilL-LED-Sheet-Template"]]},
-	{"dt": "ilL-Spec-LED-Sheet"},
-	{"dt": "ilL-LED-Sheet-Template"},
-	{
-		"dt": "Item",
-		"filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER", "LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]],
-	},
-	# Job Title Master for CRM Lead integration
-	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields this app owns. Most are created by patches instead.
 	{"dt": "Custom Field", "filters": [["module", "=", "ilLumenate Lighting"]]},
 	# Workspace for sidebar navigation

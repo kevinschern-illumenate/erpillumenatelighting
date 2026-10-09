@@ -137,6 +137,18 @@ one-card-per-record form.
 - **Bulk entry:** **Copy table** copies the shown rows and columns with headers.
   **Paste rows** appends rows from spreadsheet cells on the clipboard, matching
   columns by header name when the first line has them.
+- **Renaming keeps links:** edit a record's name in the table and, when you leave the
+  cell, every field that links to the old name follows. That includes child rows,
+  Dynamic Links, and records whose names are built from it: renaming Item `DEMO-TAPE`
+  also renames its LED Tape spec, that spec's Tape Offerings, and the template rows
+  linking those offerings. One Undo reverses the edit and its links. Links stay
+  unchanged when another record still has the old name or already has the new one.
+- **Find & replace** (Ctrl+H, or the button above the table) renames records or
+  replaces text across the draft, in record names only or in every text and link
+  field, for all DocTypes or the current one. Match case, whole value and regular
+  expressions (`CH-(\w+)` → `PR-$1`) are available. The preview lists every change.
+  Renames that would collide with a draft record or an existing ERPNext record start
+  unchecked. Renamed records keep their links, as above. One Undo reverses it all.
 - Cells with validation findings are shaded red and list the findings on hover; row
   numbers show a count of findings for the row, its child rows included. Links to
   existing ERPNext records have a green edge.
@@ -160,6 +172,64 @@ Attributes those records link to. In the editor:
   because Insert New Records would fail. A declared existing record absent from a
   complete reference list is flagged for review. In ERPNext, also check read access
   and refresh the list.
+
+### Clone an existing family
+
+**Clone existing family** (beside **Load example**) copies a family that is already in
+ERPNext into the draft under new names. Pick a template (or a Webflow Product), then add
+rename rules such as `CA01` → `CA03`. Rules apply in order to every name. Unless
+**Match case exactly** is on, lowercase and uppercase matches keep their case, so
+`ill-ca01-sw` becomes `ill-ca03-sw`.
+
+- **What is copied:** every record whose name the rules change. That covers the
+  template, its specs and Items, and the records that belong to them: endcap,
+  mounting and kit maps, driver eligibility, tape offerings, leader cable maps,
+  profile-lens maps, submittal mappings and Webflow products. Records that belong to
+  another template are never pulled in, even when they share an Item.
+- **What is linked:** records whose names stay the same. A copy can't keep its name,
+  because it would collide with the original. Attributes, UOM, Item Group, Brand and
+  Item Attribute are always linked.
+- **Review** lists each record with what will happen and why. Switch a record to
+  **Keep original** to link it instead of copying it; records named from it (a
+  spec named by its Item) follow. When a new name already exists in ERPNext, the clone
+  links to that record (**Use existing**).
+- Links between the copies follow their new names, including child rows. A copied
+  template's link to its copied Webflow product is cleared, because the pair would be
+  circular on import; set it in ERPNext afterwards. Copies keep the original's values,
+  including attachment URLs, so replace spec sheets and images.
+- In ERPNext, records to copy are fetched in full, child rows included. A record that
+  can't be read blocks the clone until you keep it as an original. On Vercel the
+  export provides them, with only short fields for Webflow products.
+- **Also apply the rules to text inside the copies** (on by default) rewrites text
+  fields too, such as a template's profile family code (`CA01` → `CA03`) and product
+  names. Links are only ever changed through renamed records, and choice fields are
+  never rewritten.
+- Records whose new name is already in the draft are skipped. **Replace the current
+  draft** starts from an empty draft instead. Undo reverses the whole clone.
+
+### Generate rows
+
+**Generate rows** (above the table) adds rows to the current DocType for every
+combination of chosen values, so maps and Item sets don't need typing row by row.
+
+- **Axes** each have a name and values, either typed one per line or chosen from a
+  DocType's draft and ERPNext records. For attributes, **Allowed in templates** picks
+  the values the draft's templates allow.
+- **Field patterns** fill each field. `{style}` is the style axis's value. `{style.code}`
+  reads that record's `code`. Dotted fields follow links, so `{pair.endcap_color.code}`
+  goes from a Finish Endcap Color record to its Endcap Color's code. Text without
+  tokens is the same for every row, and empty fields keep their defaults.
+- **Presets** start from the draft: endcap maps from allowed styles and finish colors,
+  mounting maps from allowed mounting methods, driver eligibility, leader cable maps,
+  tape offerings, and profile, lens and endcap Items coded from the template's
+  profile family. Run a preset after adding an option to a template, and only the
+  missing rows are new.
+- **Preview** marks each row as new, already in the draft, existing in ERPNext, or
+  repeating an earlier row; only new rows are added. Uncheck any you don't want. Rows
+  with empty token values are flagged. Up to 2000 combinations.
+- **Save recipe** keeps the axes and patterns in the draft under `builder.recipes`, so
+  **Save draft** and **Open YAML** carry them. Recipes are never imported and don't
+  require a new Check. Undo removes generated rows.
 
 ### Add a new catalog to the reference (Vercel and CLI)
 

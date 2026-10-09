@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_b
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.portal.access import get_actor
 from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
+from illumenate_lighting.illumenate_lighting.stored_values import same
 
 DOCTYPE = "ilL-Order-Intake"
 APPROVER_ROLE = "ilL Order Approver"
@@ -432,8 +433,8 @@ def validate_order(order, method=None):
 		# that order. The amendment gets a fresh intake and buyer acknowledgment.
 		order.ill_quote_offer = None
 		order.ill_confirmed_delivery_date = None
-	changed = order.get("ill_confirmed_delivery_date") != (
-		old.get("ill_confirmed_delivery_date") if old else None
+	changed = not same(
+		order.get("ill_confirmed_delivery_date"), old.get("ill_confirmed_delivery_date") if old else None
 	)
 	if changed:
 		if governed:

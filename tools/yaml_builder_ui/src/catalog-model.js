@@ -42,6 +42,9 @@ export function parseCatalog(text, parse, schema) {
   if (value.add_to_reference !== undefined && typeof value.add_to_reference !== 'boolean') {
     throw new Error('add_to_reference must be true or false.');
   }
+  if (value.builder !== undefined && (!value.builder || typeof value.builder !== 'object' || Array.isArray(value.builder))) {
+    throw new Error('builder must hold builder settings such as saved recipes.');
+  }
   return { ...value, external_links: value.external_links || {} };
 }
 

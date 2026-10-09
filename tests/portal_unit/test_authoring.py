@@ -83,6 +83,15 @@ class Authoring(unittest.TestCase):
 			"total_sheet_watts", {row["field"] for row in record_issues("ilL-Spec-LED-Sheet", spec)}
 		)
 
+	def test_specs_need_their_item_but_submittal_mappings_have_none(self):
+		self.assertIn("item", {row["field"] for row in record_issues("ilL-Spec-Profile", {"family": "CA01"})})
+		mapping = {
+			"fixture_template": "ILL-CA01-SW",
+			"pdf_field_name": "Model",
+			"source_field": "template_code",
+		}
+		self.assertEqual(record_issues("ilL-Spec-Submittal-Mapping", mapping), [])
+
 	def test_ambiguous_option_codes_or_defaults_are_reported(self):
 		options = [
 			{"option_type": "CCT", "option_code": "30", "attribute_link": "3000K", "is_default": 1},

@@ -1,6 +1,8 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.stored_values import same
+
 
 class ilLOrderChange(Document):
 	def validate(self):
@@ -20,7 +22,7 @@ class ilLOrderChange(Document):
 			"original_snapshot",
 			"original_hash",
 		):
-			if self.get(key) != old.get(key):
+			if not same(self.get(key), old.get(key)):
 				frappe.throw("Original change request is immutable")
 		if old.state in ("COMPLETED", "REJECTED"):
 			for key in (
@@ -32,7 +34,7 @@ class ilLOrderChange(Document):
 				"decided_by",
 				"decided_on",
 			):
-				if self.get(key) != old.get(key):
+				if not same(self.get(key), old.get(key)):
 					frappe.throw("Decided requests are immutable")
 		if self.state in ("COMPLETED", "REJECTED") and not self.flags.order_change_service:
 			frappe.throw("Use the revision-checked decision action")
