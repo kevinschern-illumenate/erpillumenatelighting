@@ -1,0 +1,67 @@
+{
+  "id": "nec-2023-table8-cu",
+  "kind": "resistance",
+  "material": "Cu",
+  "units": "ohm/kft",
+  "comment": "User must verify all values against the adopted NEC edition, installation conditions, conductor listing, and terminal ratings. This seed is not an independent code certification.",
+  "source": {
+    "standard": "NFPA 70",
+    "edition": "2023",
+    "table": "Chapter 9 Table 8",
+    "reference": "NFPA 70 (NEC), 2023 edition, Chapter 9 Table 8; supplied implementation plan §4.1.",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+    "verification": "user-supplied-unverified",
+    "supportingUrls": [],
+    "checkedOn": "2026-09-24"
+  },
+  "referenceTempC": 75,
+  "coating": "uncoated",
+  "rows": [
+    {
+      "awg": "18",
+      "solid": 7.77,
+      "stranded": 7.95
+    },
+    {
+      "awg": "16",
+      "solid": 4.89,
+      "stranded": 4.99
+    },
+    {
+      "awg": "14",
+      "solid": 3.07,
+      "stranded": 3.14
+    },
+    {
+      "awg": "12",
+      "solid": 1.93,
+      "stranded": 1.98
+    },
+    {
+      "awg": "10",
+      "solid": 1.21,
+      "stranded": 1.24
+    },
+    {
+      "awg": "8",
+      "solid": 0.764,
+      "stranded": 0.778
+    },
+    {
+      "awg": "6",
+      "stranded": 0.491
+    },
+    {
+      "awg": "4",
+      "stranded": 0.308
+    },
+    {
+      "awg": "2",
+      "stranded": 0.194
+    },
+    {
+      "awg": "1/0",
+      "stranded": 0.122
+    }
+  ]
+}
