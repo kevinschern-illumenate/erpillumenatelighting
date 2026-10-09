@@ -115,15 +115,18 @@ def find_schedules(query=None, limit=20):
 @frappe.whitelist(methods=["GET"])
 @endpoint
 def review_requirement(schedule=None):
-	from illumenate_lighting.illumenate_lighting.system_design import access, catalog, expansion, gate
+	from illumenate_lighting.illumenate_lighting.system_design import access, gate
 	from illumenate_lighting.illumenate_lighting.system_design.settings import settings
 
-	doc = access.require_read(schedule)
-	values = settings()
-	if not gate.gate_enabled(values):
-		return gate.review_requirement([], {}, values)
-	lines, builds, _readiness = expansion.expand_schedule(doc, {})
-	return gate.review_requirement(lines, builds, values)
+	return gate.schedule_requirement(access.require_read(schedule), settings())
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def override_review_gate(schedule=None, reason=None):
+	from illumenate_lighting.illumenate_lighting.system_design import gate
+
+	return gate.override_review_gate(schedule, reason)
 
 
 # --- Power board (WP-3.4, H6) --------------------------------------------------------------------

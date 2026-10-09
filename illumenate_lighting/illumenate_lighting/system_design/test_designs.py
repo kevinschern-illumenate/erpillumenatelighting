@@ -16,6 +16,7 @@ from illumenate_lighting.illumenate_lighting.system_design import (
 	api,
 	catalog,
 	deliverables,
+	gate,
 	writeback,
 )
 
@@ -511,3 +512,52 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("ilL-Document-Request", request_name, "status"), "Completed")
 		self.assertEqual(decided["data"]["design_meta"]["status"], "Approved")
 		self.assertEqual(api.review_decide(design=data["name"], decision="Approved")["code"], "CONFLICT")
+
+	def test_review_gate_before_ordering(self):
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+			can_request_schedule_order,
+		)
+
+		settings = "ilL-System-Designer-Settings"
+		frappe.db.set_single_value(settings, "review_gate_enabled", 1)
+		frappe.db.set_single_value(settings, "review_gate_watts", 10)
+		data = self.save()["data"]
+
+		def order():
+			self.schedule.reload()
+			return can_request_schedule_order(self.schedule)
+
+		# With the site flag off the gate never changes ordering.
+		with patch.dict(frappe.conf, {gate.SITE_FLAG: 0}):
+			self.assertEqual(order(), (True, ""))
+		with patch.dict(frappe.conf, {gate.SITE_FLAG: 1}):
+			allowed, reason = order()
+			self.assertFalse(allowed)
+			self.assertIn("12 W", reason)
+			requirement = api.review_requirement(schedule=self.schedule.name)["data"]
+			self.assertEqual((requirement["required"], requirement["satisfied"]), (True, False))
+			frappe.db.set_value("ilL-System-Design", data["name"], "status", "Approved")
+			self.assertEqual(order(), (True, ""))
+			self.assertEqual(
+				api.review_requirement(schedule=self.schedule.name)["data"]["approved_design"], data["name"]
+			)
+			# A schedule change after approval needs a new review or an override.
+			self.schedule.lines[0].qty = 2
+			self.schedule.save(ignore_permissions=True)
+			self.assertFalse(order()[0])
+			self.assertEqual(
+				api.override_review_gate(schedule=self.schedule.name, reason="x")["code"], "INVALID"
+			)
+			first = api.override_review_gate(schedule=self.schedule.name, reason="Customer signed off")
+			self.assertTrue(first["success"], first)
+			again = api.override_review_gate(schedule=self.schedule.name, reason="Customer signed off")
+			self.assertEqual(again["data"]["override_id"], first["data"]["override_id"])
+			self.assertEqual(order(), (True, ""))
+			self.assertEqual(
+				api.review_requirement(schedule=self.schedule.name)["data"]["override"]["reason"],
+				"Customer signed off",
+			)
+			frappe.set_user(website_user("zz-designer-dealer-gate@example.com"))
+			self.assertEqual(
+				api.override_review_gate(schedule=self.schedule.name, reason="Please")["code"], "FORBIDDEN"
+			)

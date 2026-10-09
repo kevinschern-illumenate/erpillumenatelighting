@@ -133,6 +133,15 @@ export interface DesignComment {
   resolved_by: string | null;
 }
 
+/** The D4 gate for a schedule (H8.5): whether ordering needs a review, and what satisfies it. */
+export interface ReviewRequirement {
+  required: boolean;
+  reasons: { code: string; detail?: string | null }[];
+  satisfied: boolean;
+  approved_design?: string | null;
+  override?: { by: string; reason: string; on: string } | null;
+}
+
 export type ReviewDecision = 'Approved' | 'Changes Requested';
 
 export interface ApiOptions {
@@ -308,6 +317,13 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         design,
         comment_id: commentId,
         resolved: resolved ? '1' : '0',
+      });
+    },
+    /** Order Approvers and Applications Engineers let the schedule's current lines be ordered unreviewed. */
+    overrideReviewGate(schedule: string, reason: string) {
+      return post<{ override_id: string; review_requirement: ReviewRequirement }>('override_review_gate', {
+        schedule,
+        reason,
       });
     },
     reconcileDesign(design: string) {

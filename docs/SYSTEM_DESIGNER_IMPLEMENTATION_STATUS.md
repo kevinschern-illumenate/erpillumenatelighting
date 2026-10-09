@@ -32,6 +32,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-4.1 | Write-back to the schedule | Done |
 | WP-4.2 | Review request type and flow | Done |
 | WP-4.3 | Reviewer mode: comments, overrides, decisions | Done |
+| WP-4.4 | D4 review gate before ordering | Done (flag off by default) |
 
 ## WP-0.1 — Portal access audit
 
@@ -261,7 +262,7 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     environment applies. Unknown environment values also fall back to the space environment.
   - Spaces come from line locations (`space-{slug}`, or `unassigned`).
   - A line with no `line_key` gets `{line_id}-{idx}` and is listed in `missing_line_keys`.
-  - A required review always reports `satisfied: false`; approval and overrides land in WP-4.4.
+  - A required review always reports `satisfied: false`; approval and overrides landed in WP-4.4.
   - `has_design` in `find_schedules` and the `design` argument of `open_design` wait for the
     `ilL-System-Design` doctype (WP-2.4); a design argument returns `NOT_FOUND` until then.
 
@@ -695,3 +696,30 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     than as editor changes saved by the reviewer.
   - Pins store sheet fractions, so they stay put when the sheet is redrawn at another size but may
     drift if a later revision changes the layout; the comment text still applies.
+
+## WP-4.4 — D4 review gate
+
+- `system_design/gate.py`:
+  - `review_requirement(lines, builds, values, design?, prints?, override?)` adds the current design's
+    DMX / phase-cut zones to the line reasons and is satisfied by an Approved current design whose
+    `line_fingerprint_json` equals the schedule's fingerprints now, or by an active override.
+  - `schedule_requirement(schedule_doc)` loads all of that for one schedule; `open_design` and the
+    `review_requirement` endpoint use it.
+  - `override_review_gate(schedule, reason)` (`sales` or `design_review` capability; endpoint of the same
+    name) records an `ilL-Portal-Event` keyed `system_design_gate_override:<schedule>:<sha256 of the
+    fingerprints>`, so it lapses when the lines change; repeating it is a no-op.
+  - `order_block(schedule_doc)` runs at the end of `can_request_schedule_order` (button, endpoint and
+    conversion). With the `ill_system_design_review_gate` site flag off it returns at once and never
+    blocks; with it on, an unexpected failure is logged and blocks with a support message.
+- Schedule page: when the gate is what stops ordering, its reason shows under the order buttons.
+- Designer: the review card says whether the approved design or an override allows ordering, warns
+  when the schedule changed after approval, and lets Applications Engineers allow ordering without
+  review with a reason. The header chip reads "Review overridden" in that case.
+- Tests: `test_system_design_expansion.Gate`, installed `test_designs.test_review_gate_before_ordering`,
+  `FinishStep.test.tsx`.
+- Choices:
+  - A write-back after approval keeps the approval valid: write-back lines are outputs of the design
+    and are left out of the fingerprints, and replaced configurator supplies update the design's
+    stored fingerprints in the same transaction.
+  - Order Approvers override through the endpoint; the designer shows the override only to
+    Applications Engineers (a schedule-page control can follow if sales wants one).

@@ -341,3 +341,49 @@ describe('Finish step reviewer mode', () => {
     expect(thread().querySelectorAll('li')).toHaveLength(2);
   });
 });
+
+describe('Finish step review gate', () => {
+  const required = {
+    required: true,
+    reasons: [{ code: 'DMX', detail: 'DMX control' }],
+    satisfied: false,
+  };
+  async function renderWith(value: ReturnType<typeof openFixture>) {
+    root = createRoot(el);
+    await act(async () => root.render(<FinishStep open={value} store={store} engine={engine} api={api} />));
+  }
+
+  it('lets an Applications Engineer allow ordering without review, with a reason', async () => {
+    api.overrideReviewGate = vi.fn().mockResolvedValue({
+      override_id: 'k',
+      review_requirement: {
+        ...required,
+        satisfied: true,
+        override: { by: 'ae@example.com', reason: 'Signed off', on: '2026-10-09' },
+      },
+    });
+    await renderWith(
+      openFixture({
+        catalog_hash: 'd'.repeat(64),
+        review_requirement: required,
+        permissions: { can_edit: false, can_review: true, can_view_pricing: false, can_engineer: true },
+      }),
+    );
+    const input = el.querySelector<HTMLInputElement>('[data-testid="gate-override"] input')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Signed off');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click(button(/Allow ordering without review/));
+    expect(api.overrideReviewGate).toHaveBeenCalledWith('SCH-TEST', 'Signed off');
+    expect(el.querySelector('[data-testid="review-gate"]')!.textContent).toContain('ae@example.com overrode it');
+    expect(el.querySelector('[data-testid="gate-override"]')).toBeNull();
+  });
+
+  it('offers no override to dealers and says when an approval no longer matches', async () => {
+    store.setState({ meta: { ...META, status: 'Approved' } });
+    await renderWith(openFixture({ catalog_hash: 'd'.repeat(64), review_requirement: required }));
+    expect(el.querySelector('[data-testid="gate-override"]')).toBeNull();
+    expect(el.querySelector('[data-testid="review-gate"]')!.textContent).toContain('changed after this revision');
+  });
+});

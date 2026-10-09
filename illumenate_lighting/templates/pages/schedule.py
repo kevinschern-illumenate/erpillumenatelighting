@@ -63,10 +63,16 @@ def get_context(context):
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
 		can_convert_schedule_to_order,
 	)
-	can_create_order = can_convert_schedule_to_order(schedule, frappe.session.user)[0]
+	can_create_order, order_denial = can_convert_schedule_to_order(schedule, frappe.session.user)
 	# The button opens portal order intake, which also requires a Dealer of the
 	# ordering company; explain instead of offering a button that will be refused.
 	order_block_reason = None
+	if not can_create_order and (is_dealer or is_internal):
+		# D4: say when only the system design review stands in the way (never set with the gate off).
+		from illumenate_lighting.illumenate_lighting.system_design.gate import order_block
+
+		if order_block(schedule) == order_denial:
+			order_block_reason = order_denial
 	if can_create_order:
 		from illumenate_lighting.illumenate_lighting.portal.offers import commercial_customer
 		from illumenate_lighting.illumenate_lighting.portal.order_intake import buyer_denial

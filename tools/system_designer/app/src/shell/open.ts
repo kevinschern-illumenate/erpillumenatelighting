@@ -54,6 +54,10 @@ export const OpenDesignSchema = z.object({
     required: z.boolean(),
     reasons: z.array(ReasonSchema),
     satisfied: z.boolean(),
+    /** The Approved current design that satisfies the gate (WP-4.4). */
+    approved_design: z.string().nullish(),
+    /** A staff override that lets this schedule's current lines be ordered without review. */
+    override: z.object({ by: z.string(), reason: z.string(), on: z.string() }).nullish(),
   }),
   permissions: z.object({
     can_edit: z.boolean(),

@@ -115,7 +115,7 @@ def open_design(schedule, design=None):
 		"reconcile": reconcile_for(record, lines, builds) if record else None,
 		"catalog_hash": snapshot_hash,
 		"readiness": readiness,
-		"review_requirement": gate.review_requirement(lines, builds, values),
+		"review_requirement": gate.schedule_requirement(doc, values, lines, builds),
 		"permissions": permissions(doc),
 		"settings": client_settings(values),
 		"newer_version": newer_version(doc) if doc.get("is_locked") else None,

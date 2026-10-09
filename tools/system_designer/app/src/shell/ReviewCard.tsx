@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
 import type { Design } from '@ill/core-schemas/design';
-import type { DesignApi, ReviewDecision } from '../design/api';
+import type { DesignApi, ReviewDecision, ReviewRequirement } from '../design/api';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
 import type { OpenDesign } from './open';
@@ -50,7 +50,7 @@ export function ReviewCard({
   const [notice, setNotice] = useState('');
 
   const issues = engine.state === 'ready' && engine.design === design ? openIssues(engine) : null;
-  const requirement = open.review_requirement;
+  const [requirement, setRequirement] = useState<ReviewRequirement>(open.review_requirement);
   const status = meta?.status;
   const reviewing = open.permissions.can_review && status === 'In Review' && Boolean(meta?.is_current);
   const canRevise = open.permissions.can_edit && !open.schedule.is_locked && status === 'Approved' && meta?.is_current;
@@ -114,6 +114,27 @@ export function ReviewCard({
           ? `Review is required before this schedule can be ordered: ${requirement.reasons.map((reason) => reason.detail ?? reason.code).join(', ')}.`
           : 'Review is optional for this schedule. An Applications Engineer can still check the design.'}
       </p>
+      {requirement.required && requirement.satisfied ? (
+        <p className="ill-sd__muted" data-testid="review-gate">
+          {requirement.override
+            ? `Ordering is allowed without a review: ${requirement.override.by} overrode it ("${requirement.override.reason}"). A change to the schedule's lines needs a new review or override.`
+            : 'Ordering is allowed: the approved design matches the schedule.'}
+        </p>
+      ) : requirement.required && meta?.status === 'Approved' ? (
+        <p className="ill-sd__callout ill-sd__callout--warn" data-testid="review-gate">
+          The schedule changed after this revision was approved, so it needs a new review before it can be ordered.
+        </p>
+      ) : null}
+      {requirement.required && !requirement.satisfied && open.permissions.can_review ? (
+        <GateOverride
+          schedule={open.schedule.name}
+          api={api}
+          onDone={(next) => {
+            setRequirement(next);
+            setNotice('This schedule can now be ordered without a review.');
+          }}
+        />
+      ) : null}
       {status === 'In Review' ? (
         <p className="ill-sd__callout" data-testid="review-status">
           Revision {meta?.revision} is with ilLumenate for review. It is read-only until the review is done.
@@ -322,6 +343,58 @@ function ReviewerPanel({
       {notice ? (
         <p className="ill-sd__muted" role="status" data-testid="reviewer-notice">
           {notice}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Staff let a schedule's current lines be ordered without an approved design (H8.5, WP-4.4). */
+function GateOverride({
+  schedule,
+  api,
+  onDone,
+}: {
+  schedule: string;
+  api: DesignApi;
+  onDone(requirement: ReviewRequirement): void;
+}) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function send() {
+    setBusy(true);
+    setError('');
+    try {
+      onDone((await api.overrideReviewGate(schedule, reason.trim())).review_requirement);
+      setReason('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The review could not be overridden');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="ill-sd__row" data-testid="gate-override">
+      <input
+        aria-label="Reason to allow ordering without review"
+        placeholder="Why this schedule can be ordered without review"
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+      />
+      <button
+        type="button"
+        className="ill-sd__button ill-sd__button--quiet"
+        disabled={busy || reason.trim().length < 3}
+        onClick={() => void send()}
+      >
+        Allow ordering without review
+      </button>
+      {error ? (
+        <p className="ill-sd__error" role="alert">
+          {error}
         </p>
       ) : null}
     </div>

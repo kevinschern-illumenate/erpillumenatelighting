@@ -10,7 +10,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from test_services import ROOT, Record, load_service
 
@@ -165,7 +165,14 @@ class Gate(unittest.TestCase):
 			with patch.object(module, "gate_enabled", return_value=False):
 				result = module.review_requirement(payload["lines"], payload["builds"], self.values())
 			self.assertEqual(
-				result, {"required": False, "reasons": [], "satisfied": True, "approved_design": None}
+				result,
+				{
+					"required": False,
+					"reasons": [],
+					"satisfied": True,
+					"approved_design": None,
+					"override": None,
+				},
 			)
 			with patch.object(module, "gate_enabled", return_value=True):
 				result = module.review_requirement(payload["lines"], payload["builds"], self.values())
@@ -176,6 +183,91 @@ class Gate(unittest.TestCase):
 			)
 			self.assertEqual(reasons[0]["code"], "LOAD_OVER_THRESHOLD")
 			self.assertEqual(reasons[0]["detail"], "403 W")
+
+	def test_satisfied_by_a_matching_approval_or_an_override(self):
+		with load_service(GATE) as (module, _frappe), load_service(EXPANSION) as (expansion, _f):
+			payload = expected_payload(expansion, copy.deepcopy(RECORDS))
+			lines, builds, values = payload["lines"], payload["builds"], self.values()
+			prints = {"G1-1": {"fingerprint": "a" * 64, "qty": 2}}
+			approved = {
+				"name": "SYSD-1",
+				"status": "Approved",
+				"line_fingerprint_json": json.dumps(prints),
+			}
+			with patch.object(module, "gate_enabled", return_value=True):
+				result = module.review_requirement(lines, builds, values, approved, prints)
+				self.assertTrue(result["satisfied"])
+				self.assertEqual(result["approved_design"], "SYSD-1")
+				changed = {"G1-1": {"fingerprint": "a" * 64, "qty": 3}}
+				result = module.review_requirement(lines, builds, values, approved, changed)
+				self.assertFalse(result["satisfied"])
+				self.assertIsNone(result["approved_design"])
+				drafted = {**approved, "status": "In Review"}
+				self.assertFalse(
+					module.review_requirement(lines, builds, values, drafted, prints)["satisfied"]
+				)
+				override = {"by": "approver@example.com", "reason": "Customer accepted", "on": "2026-10-09"}
+				result = module.review_requirement(lines, builds, values, drafted, prints, override)
+				self.assertTrue(result["satisfied"])
+				self.assertEqual(result["override"], override)
+
+	def test_design_zones_add_reasons_the_lines_do_not_show(self):
+		with load_service(GATE) as (module, _frappe):
+			values = self.values()
+			design = {"uses_dmx": 1, "uses_phase_dimming": 1}
+			self.assertEqual(
+				[r["code"] for r in module.design_reasons([], design, values)], ["DMX", "PHASE_DIMMING"]
+			)
+			self.assertEqual(
+				[r["code"] for r in module.design_reasons([{"code": "DMX"}], design, values)],
+				["DMX", "PHASE_DIMMING"],
+			)
+			self.assertEqual(
+				module.design_reasons([], design, self.values(review_gate_dmx=0))[0]["code"], "PHASE_DIMMING"
+			)
+			self.assertEqual(module.design_reasons([], None, values), [])
+
+	def test_override_key_follows_the_lines(self):
+		with load_service(GATE) as (module, _frappe):
+			one = module.override_key("SCH-1", {"a": {"fingerprint": "x", "qty": 1}})
+			self.assertTrue(one.startswith("system_design_gate_override:SCH-1:"))
+			self.assertLessEqual(len(one), 140)
+			self.assertEqual(one, module.override_key("SCH-1", {"a": {"qty": 1, "fingerprint": "x"}}))
+			self.assertNotEqual(one, module.override_key("SCH-1", {"a": {"fingerprint": "x", "qty": 2}}))
+
+	def test_order_block_never_blocks_with_the_flag_off_and_fails_closed_with_it_on(self):
+		with load_service(GATE) as (module, frappe_stub):
+			frappe_stub.log_error = MagicMock()
+			schedule = Record(name="SCH-1")
+			with (
+				patch.object(module, "_flag_on", return_value=False),
+				patch.object(module, "schedule_requirement", side_effect=AssertionError("not called")),
+			):
+				self.assertIsNone(module.order_block(schedule))
+			with (
+				patch.object(module, "_flag_on", return_value=True),
+				patch.object(module, "schedule_requirement", side_effect=RuntimeError("boom")),
+			):
+				self.assertIn("could not run", module.order_block(schedule))
+			frappe_stub.log_error.assert_called_once()
+			required = {
+				"required": True,
+				"satisfied": False,
+				"reasons": [{"code": "DMX", "detail": "DMX control"}],
+			}
+			with (
+				patch.object(module, "_flag_on", return_value=True),
+				patch.object(module, "schedule_requirement", return_value=required),
+			):
+				self.assertEqual(
+					module.order_block(schedule),
+					"ilLumenate review of the system design is required before ordering: DMX control",
+				)
+			with (
+				patch.object(module, "_flag_on", return_value=True),
+				patch.object(module, "schedule_requirement", return_value={**required, "satisfied": True}),
+			):
+				self.assertIsNone(module.order_block(schedule))
 
 
 def write_expected():

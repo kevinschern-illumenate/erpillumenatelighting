@@ -48,7 +48,10 @@ export function readOnlyReason(open: OpenDesign, status: string | undefined): st
 
 export function reviewChip(open: OpenDesign, status: string | undefined) {
   if (status === 'Approved') return { label: 'Approved', tone: 'ok' };
-  return open.review_requirement.required
+  const requirement = open.review_requirement;
+  if (requirement.required && requirement.satisfied && requirement.override)
+    return { label: 'Review overridden', tone: 'ok' };
+  return requirement.required
     ? { label: 'Review required', tone: 'warn' }
     : { label: 'Review optional', tone: 'quiet' };
 }
