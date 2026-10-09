@@ -9,10 +9,9 @@ value, and every field the template had before the Web Listing tab, is left alon
 reported instead. Writes go straight to the database, so template controllers and the
 publication approval hashes are not touched.
 
-From the System Console, dry run first:
+From the System Console (which does not allow imports), dry run first:
 
-    from illumenate_lighting.illumenate_lighting.web_listing_migration import migrate
-    print(migrate(dry_run=1))
+    print(frappe.call("illumenate_lighting.illumenate_lighting.web_listing_migration.migrate", dry_run=1))
 
 ``migrate`` is idempotent and can be re-run after more listings are linked.
 """
@@ -248,6 +247,7 @@ def _listing(name):
 	return json.loads(frappe.as_json(frappe.get_doc(PRODUCT, name).as_dict()))
 
 
+@frappe.whitelist(methods=["POST"])
 def migrate(dry_run=1):
 	"""Migrate every linked listing and backfill publication listing links; return a report."""
 	dry_run = int(dry_run)
@@ -320,6 +320,7 @@ def backfill_publication_listings(dry_run=1, products=None):
 	return counts
 
 
+@frappe.whitelist(methods=["POST"])
 def link_and_migrate(listing, template, dry_run=1):
 	"""Link a listing to a confirmed template and migrate it with Listed on Web off.
 
@@ -349,8 +350,10 @@ def link_and_migrate(listing, template, dry_run=1):
 	return row
 
 
+@frappe.whitelist()
 def parity_report():
 	"""List every migrated listing whose template no longer matches it on a carried field."""
+	frappe.only_for("System Manager")
 	report = []
 	for name in frappe.get_all(PRODUCT, pluck="name", order_by="name asc"):
 		listing = _listing(name)
