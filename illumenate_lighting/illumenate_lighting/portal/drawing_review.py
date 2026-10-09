@@ -31,7 +31,9 @@ def _current(request):
 	file = frappe.get_doc("File", file_name)
 	if file.attached_to_doctype != request.doctype or file.attached_to_name != request.name:
 		frappe.throw("Drawing revision must belong to this request")
-	sha256 = hashlib.sha256(file.get_content()).hexdigest()
+	from illumenate_lighting.illumenate_lighting.portal.file_validation import stored_bytes
+
+	sha256 = hashlib.sha256(stored_bytes(file)).hexdigest()
 	from illumenate_lighting.illumenate_lighting.portal.drawing_impact import request_build_hash
 
 	current_hash = request_build_hash(request)

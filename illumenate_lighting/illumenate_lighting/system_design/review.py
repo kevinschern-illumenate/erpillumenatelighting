@@ -454,7 +454,9 @@ def _riser_pdf(record):
 	name = frappe.db.get_value("File", {"file_url": row.file, "is_private": 1}, "name")
 	if not name:
 		raise DesignError("INVALID", _("The riser PDF is missing; export it again"))
-	return row, frappe.get_doc("File", name).get_content()
+	from illumenate_lighting.illumenate_lighting.portal.file_validation import stored_bytes
+
+	return row, stored_bytes(frappe.get_doc("File", name))
 
 
 def _publish(request, record, row, content):

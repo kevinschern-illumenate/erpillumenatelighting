@@ -408,7 +408,7 @@ class TestDesigns(IntegrationTestCase):
 			self.assertTrue(preview["success"], preview)
 			added = {row["key"]: row["qty"] for row in preview["data"]["add"]}
 			self.assertEqual(added, {"Supply:ZZ-WB-PSU": 2, "Wire:ZZ-WB-WIRE": 2})
-			self.assertIn("price_delta", preview["data"])
+			self.assertEqual("price_delta" in preview["data"], "Can View Pricing" in frappe.get_roles())
 			stale = api.writeback_apply(design=data["name"], accepted_keys='["Supply:OTHER"]', wire_feet=feet)
 			self.assertEqual(stale["code"], "CONFLICT")
 			applied = api.writeback_apply(

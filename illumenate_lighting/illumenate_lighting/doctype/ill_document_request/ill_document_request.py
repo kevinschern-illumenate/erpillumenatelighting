@@ -89,13 +89,16 @@ class ilLDocumentRequest(Document):
 			if previous and previous.file == row.file and previous.is_published_to_portal == row.is_published_to_portal:
 				continue
 			if row.file:
-				from illumenate_lighting.illumenate_lighting.portal.file_validation import validate_content
+				from illumenate_lighting.illumenate_lighting.portal.file_validation import (
+					stored_bytes,
+					validate_content,
+				)
 
 				name = frappe.db.get_value("File", {"file_url": row.file, "is_private": 1, "attached_to_doctype": self.doctype, "attached_to_name": self.name}, "name")
 				if not name:
 					frappe.throw(_("Deliverables must be private files attached to this saved request."))
 				file = frappe.get_doc("File", name)
-				validate_content(file.file_name, file.get_content())
+				validate_content(file.file_name, stored_bytes(file))
 			if row.is_published_to_portal and (not row.file or not row.version):
 				frappe.throw(_("Published drawings require a file and an explicit revision."))
 			if row.is_published_to_portal and (not previous or not previous.is_published_to_portal):
@@ -105,7 +108,7 @@ class ilLDocumentRequest(Document):
 
 				row.published_on, row.published_by = now_datetime(), frappe.session.user
 				row.published_build_hash = request_build_hash(self)
-				row.published_file_sha256 = sha256(file.get_content()).hexdigest()
+				row.published_file_sha256 = sha256(stored_bytes(file)).hexdigest()
 		versions = [row.version for row in self.deliverables or [] if row.is_published_to_portal and row.version]
 		if len(versions) != len(set(versions)):
 			frappe.throw(_("Each published drawing must have a unique revision."))
