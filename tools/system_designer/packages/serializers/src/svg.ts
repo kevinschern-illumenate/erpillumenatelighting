@@ -25,10 +25,13 @@ export function serializeSvg(sheet: Sheet, options: SvgOptions = {}): string {
   const body: string[] = [];
   function primitive(p: Primitive): string {
     const layer = seedLayers.layers.find((l) => l.name === p.layer)!;
+    // A colour-coded sheet (the client diagram) keeps each primitive's own colour.
     const color =
-      options.monochrome !== false && p.layer !== 'E-ANNO-QAFL'
-        ? '#111111'
-        : (p.color ?? layer.color);
+      sheet.colored && p.color
+        ? p.color
+        : options.monochrome !== false && p.layer !== 'E-ANNO-QAFL'
+          ? '#111111'
+          : (p.color ?? layer.color);
     const weight = (p.lineweightMm ?? layer.lineweightMm) / 25.4;
     const dash = seedLayers.linetypes
       .find((l) => l.name === (p.linetype ?? layer.linetype))!
@@ -78,17 +81,20 @@ export function serializeSvg(sheet: Sheet, options: SvgOptions = {}): string {
       )
       .join('')}</g>`;
   }
-  for (const layer of seedLayers.layers) {
-    if (!layer.export && !options.qa) continue;
-    const prims = flat.filter(
-      (p) =>
-        p.layer === layer.name &&
-        (options.wireTags !== false || p.role !== 'wire-tag') &&
-        (options.dmx !== false || p.role !== 'dmx'),
-    );
-    if (prims.length)
-      body.push(`<g data-layer="${layer.name}">${prims.map(primitive).join('')}</g>`);
-  }
+  // Fills first, so outlines and text on any layer stay on top of them.
+  for (const fills of [true, false])
+    for (const layer of seedLayers.layers) {
+      if (!layer.export && !options.qa) continue;
+      const prims = flat.filter(
+        (p) =>
+          p.layer === layer.name &&
+          (p.kind === 'hatch') === fills &&
+          (options.wireTags !== false || p.role !== 'wire-tag') &&
+          (options.dmx !== false || p.role !== 'dmx'),
+      );
+      if (prims.length)
+        body.push(`<g data-layer="${layer.name}">${prims.map(primitive).join('')}</g>`);
+    }
   for (const image of sheet.images ?? [])
     body.push(
       `<image href="${escapeXml(image.src)}" x="${n(image.x)}" y="${n(sheet.heightIn - image.y - image.height)}" width="${n(image.width)}" height="${n(image.height)}" preserveAspectRatio="xMidYMid meet"/>`,

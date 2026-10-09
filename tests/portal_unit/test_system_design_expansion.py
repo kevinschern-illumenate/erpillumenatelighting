@@ -93,6 +93,13 @@ class Expansion(unittest.TestCase):
 		self.assertEqual((wet["environment"], wet["runs"][0]["feedMethod"]), ("wet", "center"))
 		self.assertEqual(wet["catalogId"], "tape:TEST-TAPE-24:6.2:100")
 
+	def test_part_number_is_the_configured_products_own(self):
+		# A fixture shows its own part number, never its tape's; other builds fall back in order.
+		self.assertEqual(self.builds["ILL-CF-LINEAR"]["partNumber"], "TEST-FX-LINEAR-30K-12FT")
+		self.assertEqual(self.builds["ILL-CF-WET"]["partNumber"], "TEST-CFG-ITEM-WET")
+		self.assertEqual(self.builds["ILL-CTN-00001"]["partNumber"], "TEST-TN-24-30K-WET")
+		self.assertIsNone(self.builds["ILL-CG-00001"]["partNumber"])
+
 	def test_jumpered_tape_runs_are_connected(self):
 		build = self.builds["ILL-CTN-00001"]
 		self.assertEqual(

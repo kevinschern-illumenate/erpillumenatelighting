@@ -187,6 +187,11 @@ def _build(doc, family, runs, context, **extra):
 		"name": doc["name"],
 		"family": family,
 		"configHash": doc.get("config_hash") or None,
+		# What the client diagram shows: the configured product's own part number, not its tape's.
+		"partNumber": doc.get("display_part_number")
+		or doc.get("part_number")
+		or doc.get("configured_item")
+		or None,
 		"runs": runs,
 		"issues": issues,
 		**extra,

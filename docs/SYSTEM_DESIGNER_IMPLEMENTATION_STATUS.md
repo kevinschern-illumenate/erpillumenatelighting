@@ -756,3 +756,26 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   decision; the outcome now shows on the card.
 - The designer's Playwright suite is run locally (`npm run test:e2e` with
   `SYSTEM_DESIGNER_CHROMIUM` set); CI runs the unit, type and bundle checks.
+
+## Client diagram and single-line low-voltage wire
+
+- Low-voltage wire on both styles: parallel runs from one output to one load (a double-end feed) are
+  drawn as one line. Its callout lists every cable tag and the total conductors, for example
+  `W-01, W-02 / OUT1 · 2 × 18/2 CL3R · 4 COND`. The schedules still list each cable
+  (`packages/drawing/src/wires.ts`).
+- Views step: a Style choice, "Riser diagram (installer)" or "Client diagram (homeowner)". The client
+  diagram uses the riser's layout, colour-codes product families and wire families, and replaces the
+  engineering schedules with a "FIXTURE SCHEDULE & ORDERING" page. That page has a colour key, the
+  dealer's schedule lines (type, product, part number, quantity, location), power supplies and
+  controls, wire to order (gauge, conductors, estimated length) and notes. It has no prices.
+- Wire callouts on the client diagram are "LV Wire · 18 AWG · 2 conductors", with the gauge taken from
+  the wire the engine chose. Line voltage is marked "by electrician".
+- A configured fixture shows its own part number, not its tape's. `open_design` builds now carry
+  `partNumber`, taken from `display_part_number`, then `part_number`, then `configured_item`.
+- Client exports are PDF and SVG only (no DXF). They are kept as "Presentation PDF" and "Presentation
+  SVG", with `_Client` in the file name. Pins and comments on the client diagram use the Presentation
+  view.
+- The serializers paint fills first on every sheet. Colour is written only on colour-coded sheets, so
+  the riser PDF and SVG stay monochrome.
+- Tests: `packages/drawing/src/client.test.ts`, `app/src/shell/ViewsStep.test.tsx`, and
+  `tests/portal_unit/test_system_design_expansion.py` and `test_system_design_deliverables.py`.

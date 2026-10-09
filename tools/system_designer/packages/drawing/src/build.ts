@@ -5,6 +5,7 @@ import { DrawingSchema, type Drawing } from './model';
 import { layoutProject } from './layout/pages';
 import { composeSheets } from './sheet/compose';
 import type { DrawingOptions } from './options';
+import { drawnRuns } from './wires';
 
 export async function buildDrawing(
   project: Project,
@@ -17,8 +18,14 @@ export async function buildDrawing(
     throw new Error(
       'Drawing unavailable: this project uses products marked Needs specifications. Complete those products in Libraries before generating the drawing.',
     );
-  const diagrams = await layoutProject(project, library, result);
-  const sheets = composeSheets(diagrams, project, library, result, options);
+  const drawn = drawnRuns(result);
+  // The client diagram has its own schedule page, so its diagrams use the paper the schedules would.
+  const laidOut =
+    options.style === 'client'
+      ? { ...project, settings: { ...project.settings, showSchedules: false } }
+      : project;
+  const diagrams = await layoutProject(laidOut, library, drawn, options);
+  const sheets = composeSheets(diagrams, project, library, result, options, drawn.members);
   sheets.forEach((sheet) => {
     sheet.fontFamily = project.settings.drawingFont;
   });

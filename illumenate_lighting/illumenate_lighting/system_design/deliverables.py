@@ -30,7 +30,14 @@ MAX_ZIP_UNPACKED = 200 * 1024 * 1024
 FILE_PREFIX = "ilLumenate-System-Designer"
 
 # kind → file extension. Other kinds (presentation, 3D, packages) arrive with their work packages.
-KINDS = {"Riser PDF": ".pdf", "Riser DXF ZIP": ".zip", "Riser SVG": ".svg"}
+# Presentation is the client diagram: the riser's layout, colour-coded, for a homeowner (no schedules).
+KINDS = {
+	"Riser PDF": ".pdf",
+	"Riser DXF ZIP": ".zip",
+	"Riser SVG": ".svg",
+	"Presentation PDF": ".pdf",
+	"Presentation SVG": ".svg",
+}
 VARIANT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,39}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 # Fonts travel with DXF so CAD shows the drawing's lettering; anything else in the ZIP is refused.
@@ -52,7 +59,7 @@ def validate_deliverable(kind, content):
 		_invalid(_("Unknown deliverable kind"))
 	if not isinstance(content, bytes) or not content or len(content) > MAX_BYTES:
 		_invalid(_("The file must be between 1 byte and 20 MiB"))
-	if kind == "Riser PDF":
+	if KINDS[kind] == ".pdf":
 		from illumenate_lighting.illumenate_lighting.portal.file_validation import validate_content
 
 		try:
@@ -91,8 +98,10 @@ def validate_deliverable(kind, content):
 
 
 def deliverable_filename(record, kind, variant):
-	"""``ilLumenate-System-Designer_<schedule>_<revision>[_<variant>].<ext>`` (D2 file names)."""
+	"""``ilLumenate-System-Designer_<schedule>_<revision>[_Client][_<variant>].<ext>`` (D2 file names)."""
 	parts = [FILE_PREFIX, record.fixture_schedule, f"rev{record.revision}"]
+	if kind.startswith("Presentation"):
+		parts.append("Client")
 	if variant:
 		parts.append(variant)
 	stem = "_".join(re.sub(r"[^\w.-]+", "-", part).strip("-") for part in parts)
