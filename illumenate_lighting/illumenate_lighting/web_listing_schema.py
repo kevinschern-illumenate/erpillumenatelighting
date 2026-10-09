@@ -117,6 +117,12 @@ SHARED_FIELDS = [
 		"options": "ilL-Child-Webflow-Brand-Target",
 	},
 	{
+		"fieldname": "compatible_products",
+		"fieldtype": "Table",
+		"label": "Compatible Products",
+		"options": "ilL-Child-Webflow-Compatibility",
+	},
+	{
 		"fieldname": "attribute_links",
 		"fieldtype": "Table",
 		"label": "Attribute Links",

@@ -61,6 +61,7 @@
   "configurator_options",
   "web_publishing_section",
   "target_brands",
+  "compatible_products",
   "attribute_links",
   "web_lengths_section",
   "min_length_mm",
@@ -397,6 +398,12 @@
    "options": "ilL-Child-Webflow-Brand-Target"
   },
   {
+   "fieldname": "compatible_products",
+   "fieldtype": "Table",
+   "label": "Compatible Products",
+   "options": "ilL-Child-Webflow-Compatibility"
+  },
+  {
    "fieldname": "attribute_links",
    "fieldtype": "Table",
    "label": "Attribute Links",
@@ -473,7 +480,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-09 13:47:34.000000",
+ "modified": "2026-10-09 14:03:51.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",
