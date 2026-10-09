@@ -17,6 +17,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-1.4 | Wire spec and Items | Done |
 | WP-1.5 | Visual fields and SH01 seed | Done |
 | WP-1.6 | Schedule line third-party fields and write-back markers | Done (see `system_design` link note) |
+| WP-1.7 | Design readiness report | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -141,3 +142,21 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
 - Write-back markers `design_line_role` and `design_line_key` are read-only and never set from the portal.
 - Discrepancy: H4.3's `system_design` Link to `ilL-System-Design` is added with WP-2.2, which creates that
   doctype; a Link to a doctype that does not exist yet would fail migrate.
+
+## WP-1.7 — Design readiness
+
+- `system_design/readiness.py` holds the H7.2 rule table as pure functions (`tape_issues`, `driver_issues`,
+  `controller_issues`, `wire_issues`, plus the A.5 `controller_category` map). Each returns
+  `{status, missing, notes}`, with `missing` as ERP fieldnames. WP-2.1's catalog uses the same functions.
+- Desk page **Design Readiness** (`/app/design-readiness`; catalog, engineering and Applications Engineer
+  roles): product-type filter, "only incomplete", links to each record, and a volume column counting
+  schedule lines from schedules changed in the last 180 days (tape through configured tape/neon and
+  fixtures; drivers, controllers and wire through accessory lines and fixture driver allocations).
+- Wire Items with no selling Item Price are incomplete (D7).
+- The Catalog Builder shows a "Design readiness" link with the incomplete count (ERP mode only).
+- Choices where Appendix A is loose:
+  - Decoders need all four limits (A and W per channel and total), since A.3 lists them all as required.
+  - DMX footprint and unit load are required for DMX decoders and DMX-to-0-10V converters (the DMX receivers).
+  - Every controller needs at least one mapped protocol and at least one port row.
+  - Sensors are reported as "not modelled", not as incomplete.
+  - A multichannel tape with no channel limits is a note, not incomplete (names default to CH1…).

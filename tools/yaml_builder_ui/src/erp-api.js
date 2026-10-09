@@ -45,6 +45,7 @@ export function createErpApi({ csrfToken, fetchImpl = fetch }) {
     check: catalog => call('check', { body: { catalog } }),
     importCatalog: (catalog, expectedHash) => call('import_catalog', { body: { catalog, expected_hash: expectedHash } }),
     history: () => call('history'),
+    designReadiness: () => call('design_readiness'),
   };
 }
 
