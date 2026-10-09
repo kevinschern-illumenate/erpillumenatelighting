@@ -67,6 +67,8 @@ export const BuildSchema = z
     name: IdSchema,
     family: z.enum(['linear', 'tape', 'sheet', 'group']),
     configHash: z.string().nullable(),
+    /** The configured product's own part number (a fixture's, not its tape's). */
+    partNumber: z.string().nullable().optional(),
     runs: z.array(BuildRunSchema),
     issues: z.array(z.string()),
     protocols: z.array(ProtocolSchema).optional(),

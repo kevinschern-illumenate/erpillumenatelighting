@@ -24,6 +24,15 @@ import {
   type Bounds,
   type Segment,
 } from './router';
+import { WIRE_COLORS, wireFamily } from '../client';
+import { clientWireLabels, riserWireLabel } from '../wires';
+
+/** How cables are drawn: the client diagram colours them and uses plain callouts. */
+export interface WireStyle {
+  client: boolean;
+  /** The runs each drawn line stands for (parallel low-voltage runs share one line). */
+  members: Map<string, RunResult[]>;
+}
 
 export type Continuation = { ref: string; runs: RunResult[] };
 type Side = 'W' | 'E' | 'N' | 'S';
@@ -62,7 +71,16 @@ export function drawConnections(
   continuationFor: Map<string, Continuation>,
   layerForRun: (run: RunResult) => LayerName,
   denseMarkersFirst = false,
+  wires: WireStyle = { client: false, members: new Map() },
 ) {
+  /** Colour and weight of a client cable; the riser keeps its layer's. */
+  const paint = (run: RunResult) =>
+    wires.client
+      ? {
+          color: WIRE_COLORS[wireFamily(run)].color,
+          lineweightMm: powerTypes.includes(run.type) ? 0.5 : 0.35,
+        }
+      : {};
   const vertical = project.settings.sheet.flow === 'TB';
   const runs = result.runs.filter(
     (r) =>
@@ -429,6 +447,7 @@ export function drawConnections(
           entityId: run.entityRef,
           role: 'wire',
           runId: run.runId,
+          ...paint(run),
         });
       else {
         let x = Math.min(seg.a.x, seg.b.x);
@@ -444,6 +463,7 @@ export function drawConnections(
               entityId: run.entityRef,
               role: 'wire',
               runId: run.runId,
+              ...paint(run),
             },
             {
               kind: 'arc',
@@ -457,6 +477,7 @@ export function drawConnections(
               entityId: run.entityRef,
               role: 'wire',
               runId: run.runId,
+              ...paint(run),
             },
           );
           x = cx + 0.07;
@@ -471,6 +492,7 @@ export function drawConnections(
           entityId: run.entityRef,
           role: 'wire',
           runId: run.runId,
+          ...paint(run),
         });
       }
     }
@@ -490,6 +512,7 @@ export function drawConnections(
           entityId: run.entityRef,
           role: 'terminal',
           runId: run.runId,
+          ...(wires.client ? { color: paint(run).color } : {}),
         });
         const p = text(
           terminal.name,
@@ -524,10 +547,10 @@ export function drawConnections(
     }
     // The reserved continuation callout already carries the cable identity.
     if (!fromLocal || !toLocal) continue;
-    const wire = library.wires.find((w) => w.id === run.wireTypeId);
+    const members = wires.members.get(run.runId) ?? [run];
     const label = project.settings.wireLabelTemplate
       .replaceAll('{tag}', `${run.tag}${run.from.port ? ` / ${run.from.port}` : ''}`)
-      .replaceAll('{wireLabel}', wire?.riserLabel ?? 'NO VALID WIRE')
+      .replaceAll('{wireLabel}', riserWireLabel(library, members))
       .replaceAll('{lengthFt}', run.lengthFt.toFixed(1))
       .replaceAll('{vdPct}', run.vdPct?.toFixed(1) ?? '—');
     let placed = false;
@@ -538,13 +561,15 @@ export function drawConnections(
         (Math.abs(a.a.x - a.b.x) + Math.abs(a.a.y - a.b.y)),
     );
     const control = !powerTypes.includes(run.type);
-    for (const value of control
-      ? [
-          `${controlName(run)} · ${label}`,
-          `${controlName(run)} · ${run.tag}`,
-          `${controlName(run)}\n${run.tag}`,
-        ]
-      : [label, `${run.tag} / ${run.from.port ?? 'POWER'}`, run.tag]) {
+    for (const value of wires.client
+      ? clientWireLabels(library, members)
+      : control
+        ? [
+            `${controlName(run)} · ${label}`,
+            `${controlName(run)} · ${run.tag}`,
+            `${controlName(run)}\n${run.tag}`,
+          ]
+        : [label, `${run.tag} / ${run.from.port ?? 'POWER'}`, run.tag]) {
       placement: for (const seg of segs) {
         const horizontal = Math.abs(seg.a.y - seg.b.y) < 1e-6;
         const length = horizontal ? Math.abs(seg.a.x - seg.b.x) : Math.abs(seg.a.y - seg.b.y);

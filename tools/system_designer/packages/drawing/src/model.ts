@@ -155,6 +155,8 @@ export const SheetSchema = z.object({
     }),
   ),
   layoutWarnings: z.array(z.string()),
+  /** Colour-coded sheet (the client diagram): serializers paint each primitive's own `color`. */
+  colored: z.boolean().optional(),
   /** Raster images such as a dealer logo. PDF and SVG embed them; DXF has no raster and leaves them out. */
   images: z.array(ImageSchema).optional(),
   connections: z

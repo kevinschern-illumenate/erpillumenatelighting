@@ -1,6 +1,6 @@
 import type { Project } from '@ill/core-schemas/project';
 import type { LibrarySnapshot } from '@ill/core-schemas/library';
-import type { EngineResult, RunResult } from '@ill/engine/model';
+import type { RunResult } from '@ill/engine/model';
 import { buildGraph } from '@ill/engine/graph';
 import { powerTypes } from '@ill/engine/wireSelect';
 import { seedTitleBlocks } from '@ill/data/seeds';
@@ -22,6 +22,10 @@ import { drawConnections } from './connections';
 import { applyPins } from './pins';
 import { intersects, type Bounds } from './router';
 import { modelLabel } from '../labels';
+import type { DrawingOptions } from '../options';
+import { clientSymbol, productFamily } from '../client';
+import type { DrawnRuns } from '../wires';
+import { controlName } from './continuations';
 
 export const layerForRun = (run: RunResult): LayerName =>
   run.type.startsWith('lv-')
@@ -46,8 +50,11 @@ type PreparedPage = {
 export async function layoutProject(
   project: Project,
   library: LibrarySnapshot,
-  result: EngineResult,
+  drawn: DrawnRuns,
+  options: DrawingOptions = {},
 ): Promise<Sheet[]> {
+  const { result } = drawn;
+  const client = options.style === 'client';
   const template = seedTitleBlocks.find((s) => s.sheetSize === project.settings.sheet.size)!;
   const area = { ...template.drawingArea };
   const gutter = 1.65;
@@ -70,6 +77,15 @@ export async function layoutProject(
     'keypad',
     'lutron-module',
   ]);
+  const controlNode = (category: string | undefined) => controllers.has(category ?? '');
+  /** The model line on a symbol; the client diagram shows a configured fixture's own part number. */
+  const modelText = (node: { id: string; item?: (typeof library.products)[number] }) => {
+    if (!node.item) return '';
+    if (!client) return modelLabel(node.item);
+    const own = options.loads?.[node.id]?.partNumber;
+    if (own) return own;
+    return modelLabel(node.item).replace(/ · DATA BY DEALER$/, '');
+  };
   const nodes: LayoutNode[] = [...graph.nodes.values()].map((node) => {
     let symbol = symbolFor(node.item, node.kind === 'source');
     if (node.item?.specs.kind === 'tape') {
@@ -82,10 +98,7 @@ export async function layoutProject(
         count,
       );
     }
-    const modelLines = wrapText(
-      node.item ? modelLabel(node.item) : '',
-      symbol.widthIn - 0.28,
-    ).length;
+    const modelLines = wrapText(modelText(node), symbol.widthIn - 0.28).length;
     const outputs = result.runs.filter((r) => r.from.id === node.id);
     const outputPorts = Math.max(
       ...[true, false].map(
@@ -119,6 +132,16 @@ export async function layoutProject(
         ),
       };
     }
+    if (client)
+      symbol = clientSymbol(
+        symbol,
+        productFamily(
+          node.item,
+          node.kind === 'source',
+          controlNode(node.item?.category),
+          node.kind === 'load' ? options.loads?.[node.id]?.type : undefined,
+        ),
+      );
     let root = node;
     let psu = '';
     const seen = new Set<string>();
@@ -131,7 +154,7 @@ export async function layoutProject(
     }
     const source = root.kind === 'source' && 'panel' in root.entity ? root.entity : undefined;
     const category = node.item?.category;
-    const control = controllers.has(category ?? '');
+    const control = controlNode(category);
     return {
       id: node.id,
       tag: node.tag,
@@ -318,7 +341,8 @@ export async function layoutProject(
       const sheet: Sheet = {
         id: `sheet-${pageIndex + 1}`,
         number,
-        title: 'LIGHTING SYSTEM RISER',
+        title: client ? 'LIGHTING SYSTEM OVERVIEW' : 'LIGHTING SYSTEM RISER',
+        ...(client ? { colored: true } : {}),
         size: template.sheetSize,
         widthIn: template.widthIn,
         heightIn: template.heightIn,
@@ -388,6 +412,27 @@ export async function layoutProject(
                 ? node.entity.zone
                 : '',
         };
+        // The client diagram keeps the voltages in and out and names the control protocols on a
+        // card in place of DMX addresses; wattage and loading stay on the riser.
+        if (client) {
+          attrs.WATTS = '';
+          attrs.LOAD_PCT = '';
+          // A supply fed off this drawing still says what it takes in, from its datasheet range.
+          if (!attrs.VIN && (item?.specs.kind === 'psu' || item?.specs.kind === 'driver')) {
+            const { inputVMin: low, inputVMax: high, inputType } = item.specs;
+            attrs.VIN = `${low === high ? low : `${low}-${high}`} V ${inputType} IN`;
+          }
+          const protocols = [
+            ...new Set(
+              result.runs
+                .filter(
+                  (r) => (r.from.id === n.id || r.to.id === n.id) && !powerTypes.includes(r.type),
+                )
+                .map(controlName),
+            ),
+          ];
+          attrs.DMX_ADDR = protocols.length ? `CONTROL: ${protocols.join(', ')}` : '';
+        }
         sheet.prims.push({
           kind: 'block',
           layer: n.symbol.prims[0]!.layer,
@@ -420,7 +465,7 @@ export async function layoutProject(
         sheet.prims.push({
           ...paragraph(
             item
-              ? modelLabel(item)
+              ? modelText({ id: n.id, item })
               : 'panel' in node.entity
                 ? `${node.entity.panel} / circuit ${node.entity.circuit}`
                 : '',
@@ -502,6 +547,7 @@ export async function layoutProject(
         continuationFor,
         layerForRun,
         prepared.denseMarkersFirst,
+        { client, members: drawn.members },
       );
       return sheet;
     });

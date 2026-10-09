@@ -30,7 +30,13 @@ export interface DesignMeta {
   review_request?: string | null;
 }
 
-export const DELIVERABLE_KINDS = ['Riser PDF', 'Riser DXF ZIP', 'Riser SVG'] as const;
+export const DELIVERABLE_KINDS = [
+  'Riser PDF',
+  'Riser DXF ZIP',
+  'Riser SVG',
+  'Presentation PDF',
+  'Presentation SVG',
+] as const;
 export type DeliverableKind = (typeof DELIVERABLE_KINDS)[number];
 
 /** A generated file stored on the design (``upload_deliverable``). */

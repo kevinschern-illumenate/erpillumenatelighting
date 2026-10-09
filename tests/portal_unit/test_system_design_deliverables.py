@@ -38,6 +38,8 @@ class ValidateDeliverable(unittest.TestCase):
 				}
 			)
 			self.assertEqual(module.validate_deliverable("Riser DXF ZIP", dxf), "application/zip")
+			# The client diagram is checked as the riser file of the same format.
+			self.assertEqual(module.validate_deliverable("Presentation SVG", SVG), "image/svg+xml")
 
 	def test_refuses_active_or_mislabelled_content(self):
 		with load_service(DELIVERABLES) as (module, _frappe):
@@ -50,6 +52,7 @@ class ValidateDeliverable(unittest.TestCase):
 				b"",
 			):
 				self.assertEqual(self.code(module, "Riser SVG", content), "INVALID", content)
+				self.assertEqual(self.code(module, "Presentation SVG", content), "INVALID", content)
 			for members in (
 				{"E-1.dxf": "0\r\nSECTION", "run.exe": "MZ"},
 				{"../E-1.dxf": "0\r\nSECTION"},
@@ -70,6 +73,10 @@ class ValidateDeliverable(unittest.TestCase):
 			self.assertEqual(
 				module.deliverable_filename(record, "Riser DXF ZIP", ""),
 				"ilLumenate-System-Designer_ILL-SCHED-2026-00001_revB.zip",
+			)
+			self.assertEqual(
+				module.deliverable_filename(record, "Presentation PDF", "Tabloid"),
+				"ilLumenate-System-Designer_ILL-SCHED-2026-00001_revB_Client_Tabloid.pdf",
 			)
 
 

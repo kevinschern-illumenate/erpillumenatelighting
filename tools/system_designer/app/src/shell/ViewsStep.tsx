@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Project } from '@ill/core-schemas/project';
 import type { Drawing } from '@ill/drawing/model';
-import type { DrawingOptions } from '@ill/drawing/options';
+import type { DrawingOptions, DrawingStyle } from '@ill/drawing/options';
 import {
   allowedStamps,
   DEFAULT_STAMP,
@@ -13,6 +13,7 @@ import {
 } from '@ill/engine/riser';
 import type { FontBytes } from '@ill/serializers/pdf/fonts';
 import { track, type CommentAnchor, type Deliverable, type DeliverableKind, type DesignApi } from '../design/api';
+import { clientOptions } from '../design/client';
 import type { CheckState } from '../design/engine';
 import { createDrawingRunner, logoDataUrl, sha256Hex, type DrawingInput } from '../design/drawing';
 import type { DesignStore } from '../design/store';
@@ -21,11 +22,25 @@ import { CommentThread, pinAt, SheetPins, useComments } from './Comments';
 import { FeedbackPrompt } from './FeedbackPrompt';
 import type { OpenDesign } from './open';
 
-/** Export formats on the Views step; each is generated in the browser (plan §12.1). */
-const FORMATS: { kind: DeliverableKind; label: string; extension: string; mime: string }[] = [
-  { kind: 'Riser PDF', label: 'PDF', extension: 'pdf', mime: 'application/pdf' },
-  { kind: 'Riser DXF ZIP', label: 'DXF (ZIP)', extension: 'zip', mime: 'application/zip' },
-  { kind: 'Riser SVG', label: 'SVG (this sheet)', extension: 'svg', mime: 'image/svg+xml' },
+type Format = { kind: DeliverableKind; label: string; extension: string; mime: string };
+
+/** Export formats on the Views step, per drawing style; each is generated in the browser (plan §12.1). */
+const FORMATS: Record<DrawingStyle, Format[]> = {
+  riser: [
+    { kind: 'Riser PDF', label: 'PDF', extension: 'pdf', mime: 'application/pdf' },
+    { kind: 'Riser DXF ZIP', label: 'DXF (ZIP)', extension: 'zip', mime: 'application/zip' },
+    { kind: 'Riser SVG', label: 'SVG (this sheet)', extension: 'svg', mime: 'image/svg+xml' },
+  ],
+  // The client diagram is for a homeowner: no CAD file.
+  client: [
+    { kind: 'Presentation PDF', label: 'PDF', extension: 'pdf', mime: 'application/pdf' },
+    { kind: 'Presentation SVG', label: 'SVG (this sheet)', extension: 'svg', mime: 'image/svg+xml' },
+  ],
+};
+
+const STYLES: { style: DrawingStyle; label: string; noun: string }[] = [
+  { style: 'riser', label: 'Riser diagram (installer)', noun: 'riser' },
+  { style: 'client', label: 'Client diagram (homeowner)', noun: 'client diagram' },
 ];
 
 export interface ViewsDeps {
@@ -69,7 +84,8 @@ export function ViewsStep({
   const approved = meta?.status === 'Approved';
   const [sheet, setSheet] = useState<RiserSheet>('ANSI_B');
   const [stamp, setStamp] = useState<RiserStamp>(DEFAULT_STAMP);
-  const [drawn, setDrawn] = useState<{ drawing: Drawing; project: Project } | null>(null);
+  const [style, setStyle] = useState<DrawingStyle>('riser');
+  const [drawn, setDrawn] = useState<{ drawing: Drawing; project: Project; style: DrawingStyle } | null>(null);
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -110,8 +126,10 @@ export function ViewsStep({
       approved,
     });
   }, [ready, engine, block, open, meta, stamp, sheet, approved]);
-  // A drawing made for another design, sheet or stamp is not what the buttons would export.
-  const drawing = drawn && drawn.project === project ? drawn.drawing : null;
+  // A drawing made for another design, sheet, stamp or style is not what the buttons would export.
+  const drawing = drawn && drawn.project === project && drawn.style === style ? drawn.drawing : null;
+  const noun = STYLES.find((item) => item.style === style)!.noun;
+  const view = style === 'client' ? 'Presentation' : 'Riser';
   const current = drawing?.sheets[page];
   const [preview, setPreview] = useState<{ sheet: unknown; url: string } | null>(null);
   useEffect(() => {
@@ -137,28 +155,31 @@ export function ViewsStep({
   const canStore = Boolean(meta?.name) && !dirty && (open.permissions.can_edit || open.permissions.can_review);
   const canComment = Boolean(meta?.name) && (open.permissions.can_edit || open.permissions.can_review);
   const shownSheet = drawing?.sheets[page]?.number ?? '';
-  const base = `ilLumenate-System-Designer_${safe(open.schedule.name)}_rev${meta?.revision ?? 'draft'}_${safe(sheetLabel(sheet))}`;
+  const base = `ilLumenate-System-Designer_${safe(open.schedule.name)}_rev${meta?.revision ?? 'draft'}${style === 'client' ? '_Client' : ''}_${safe(sheetLabel(sheet))}`;
 
   async function draw() {
     if (!project || engine.state !== 'ready') return;
-    setBusy('Drawing the riser…');
+    setBusy(`Drawing the ${noun}…`);
     setError('');
     setNotice('');
     try {
       const logo = block?.dealer_logo ? await deps.logo(block.dealer_logo) : null;
-      const options: DrawingOptions = logo ? { dealerLogo: logo } : {};
+      const options: DrawingOptions = {
+        ...(logo ? { dealerLogo: logo } : {}),
+        ...(style === 'client' ? clientOptions(open.lines, open.builds, design!, project) : {}),
+      };
       const made = await deps.draw({ project, library: engine.check.library, result: engine.check.result, options });
-      setDrawn({ drawing: made, project });
+      setDrawn({ drawing: made, project, style });
       setPage(0);
-      if (block?.dealer_logo && !logo) setNotice('Your logo could not be read, so the riser shows only ours.');
+      if (block?.dealer_logo && !logo) setNotice(`Your logo could not be read, so the ${noun} shows only ours.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'The riser could not be drawn');
+      setError(e instanceof Error ? e.message : `The ${noun} could not be drawn`);
     } finally {
       setBusy('');
     }
   }
 
-  async function exportAs(format: (typeof FORMATS)[number]) {
+  async function exportAs(format: Format) {
     if (!drawing || !project) return;
     setBusy(`Preparing the ${format.label}…`);
     setError('');
@@ -167,7 +188,7 @@ export function ViewsStep({
       const { DESIGNER_CREATOR } = await import('@ill/serializers/pdf/pdf');
       let bytes: Uint8Array;
       let filename = `${base}.${format.extension}`;
-      if (format.kind === 'Riser PDF') {
+      if (format.extension === 'pdf') {
         const { serializePdf } = await import('@ill/serializers/pdf/pdf');
         bytes = await serializePdf(drawing, project, await deps.fonts(project.settings.drawingFont), {
           creator: DESIGNER_CREATOR,
@@ -199,7 +220,7 @@ export function ViewsStep({
           schedule: open.schedule.name,
           event: 'riser_exported',
           design: meta?.name,
-          details: { kind: format.kind, sheet: sheetLabel(sheet), stored: false },
+          details: { kind: format.kind, sheet: sheetLabel(sheet), style, stored: false },
         });
         setNotice(
           open.permissions.can_edit ? 'Downloaded. Save the design to keep its drawings on it.' : 'Downloaded.',
@@ -207,7 +228,7 @@ export function ViewsStep({
         return;
       }
       const variant =
-        format.kind === 'Riser SVG' ? `${sheetLabel(sheet)} ${drawing.sheets[page]!.number}` : sheetLabel(sheet);
+        format.extension === 'svg' ? `${sheetLabel(sheet)} ${drawing.sheets[page]!.number}` : sheetLabel(sheet);
       const result = await api.uploadDeliverable({
         design: meta!.name,
         kind: format.kind,
@@ -229,11 +250,28 @@ export function ViewsStep({
     <section aria-labelledby="ill-sd-step-title" className="ill-sd__views-step">
       <h2 id="ill-sd-step-title">Views</h2>
       <p className="ill-sd__muted">
-        Draw the riser for this design, then download it. Drawings of a saved design are kept on its revision.
+        Draw the riser for this design, then download it. Drawings of a saved design are kept on its revision. The
+        client diagram is a simpler, colour-coded version with your fixture schedule, to hand to a homeowner.
       </p>
       <div className="ill-sd__card" data-testid="riser-options">
-        <h3>Riser</h3>
+        <h3>Drawing</h3>
         <div className="ill-sd__row">
+          <label className="ill-sd__pick">
+            <span>Style</span>
+            <select
+              value={style}
+              onChange={(event) => {
+                setStyle(event.target.value as DrawingStyle);
+                setPin(null);
+              }}
+            >
+              {STYLES.map((item) => (
+                <option key={item.style} value={item.style}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="ill-sd__pick">
             <span>Sheet</span>
             <select value={sheet} onChange={(event) => setSheet(event.target.value as RiserSheet)}>
@@ -260,7 +298,7 @@ export function ViewsStep({
             disabled={!project || incomplete || Boolean(busy)}
             onClick={() => void draw()}
           >
-            {drawing ? 'Draw again' : 'Draw riser'}
+            {drawing ? 'Draw again' : style === 'client' ? 'Draw client diagram' : 'Draw riser'}
           </button>
         </div>
         {!approved ? (
@@ -268,7 +306,7 @@ export function ViewsStep({
         ) : null}
         {incomplete ? (
           <p className="ill-sd__error" role="alert">
-            Some products need specifications before the riser can be drawn. Open the Check step to see which.
+            Some products need specifications before the {noun} can be drawn. Open the Check step to see which.
           </p>
         ) : !ready ? (
           <p className="ill-sd__muted" role="status">
@@ -306,7 +344,7 @@ export function ViewsStep({
                 ))}
               </select>
             </label>
-            {FORMATS.map((format) => (
+            {FORMATS[style].map((format) => (
               <button
                 key={format.kind}
                 type="button"
@@ -339,8 +377,12 @@ export function ViewsStep({
                 if (pinning) setPin(pinAt(event, shownSheet));
               }}
             >
-              <img className="ill-sd__riser" src={previewUrl} alt={`Riser sheet ${shownSheet}`} />
-              <SheetPins comments={comments.comments} view="Riser" sheet={shownSheet} pending={pin} />
+              <img
+                className="ill-sd__riser"
+                src={previewUrl}
+                alt={`${style === 'client' ? 'Client diagram' : 'Riser'} sheet ${shownSheet}`}
+              />
+              <SheetPins comments={comments.comments} view={view} sheet={shownSheet} pending={pin} />
             </div>
           ) : null}
         </div>
@@ -348,11 +390,11 @@ export function ViewsStep({
       {meta?.name ? (
         <CommentThread
           comments={comments}
-          view="Riser"
+          view={view}
           canComment={canComment}
           anchor={pin}
           onClearAnchor={() => setPin(null)}
-          title="Comments on the riser"
+          title={`Comments on the ${noun}`}
         />
       ) : null}
       {exported ? (

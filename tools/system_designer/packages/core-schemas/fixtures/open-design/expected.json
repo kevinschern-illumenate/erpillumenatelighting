@@ -26,6 +26,7 @@
         "maxRunFtEffective": 16.0,
         "name": "ILL-CF-LINEAR",
         "offering": "TEST-TAPE-24-3000K-STD",
+        "partNumber": "TEST-FX-LINEAR-30K-12FT",
         "runs": [
           {
             "feedMethod": "end",
@@ -54,6 +55,7 @@
         "maxRunFtEffective": 10.0,
         "name": "ILL-CF-WET",
         "offering": "TEST-TAPE-24-3000K-HO",
+        "partNumber": "TEST-CFG-ITEM-WET",
         "runs": [
           {
             "feedMethod": "center",
@@ -91,6 +93,7 @@
         "maxRunFtEffective": null,
         "name": "ILL-CG-00001",
         "offering": "TEST-TAPE-24-3000K-STD",
+        "partNumber": null,
         "protocols": [
           "0-10V"
         ],
@@ -137,6 +140,7 @@
         "maxRunFtEffective": null,
         "name": "ILL-CLS-00001",
         "offering": null,
+        "partNumber": "TEST-SHEET-30K-6PC",
         "runs": [
           {
             "feedMethod": "end",
@@ -167,6 +171,7 @@
         "maxRunFtEffective": 16.0,
         "name": "ILL-CTN-00001",
         "offering": "TEST-TAPE-24-3000K-STD",
+        "partNumber": "TEST-TN-24-30K-WET",
         "protocols": [
           "DMX512"
         ],

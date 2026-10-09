@@ -118,7 +118,7 @@ const byTest = (id: string) => el.querySelector<HTMLElement>(`[data-testid="${id
 // Drawing and exporting finish a few tasks later; wait until the step is idle again.
 async function click(node: HTMLElement) {
   await act(async () => node.click());
-  for (let i = 0; i < 200 && el.textContent?.match(/Drawing the riser|Preparing the/); i += 1)
+  for (let i = 0; i < 200 && el.textContent?.match(/Drawing the|Preparing the/); i += 1)
     await act(async () => {
       await new Promise((done) => setTimeout(done, 25));
     });
@@ -127,7 +127,7 @@ async function click(node: HTMLElement) {
 describe('Views step', () => {
   it('draws the riser and keeps the PDF on the saved revision', async () => {
     await render();
-    const stamps = [...el.querySelectorAll('[data-testid="riser-options"] select')[1]!.querySelectorAll('option')];
+    const stamps = [...el.querySelectorAll('[data-testid="riser-options"] select')[2]!.querySelectorAll('option')];
     expect(stamps.map((option) => option.value)).toEqual(['PRELIMINARY', 'NOT FOR CONSTRUCTION', 'FOR REFERENCE']);
     await click(button('Draw riser'));
     expect(byTest('riser-preview')?.textContent).toContain('Sheet 1 of');
@@ -168,7 +168,7 @@ describe('Views step', () => {
       schedule: 'SCH-TEST',
       event: 'riser_exported',
       design: 'SYSD-1',
-      details: { kind: 'Riser DXF ZIP', sheet: 'Tabloid', stored: false },
+      details: { kind: 'Riser DXF ZIP', sheet: 'Tabloid', style: 'riser', stored: false },
     });
     await click(button('Not now'));
     expect(byTest('feedback')).toBeNull();
@@ -176,8 +176,40 @@ describe('Views step', () => {
     act(() => root.unmount());
     store.setState({ meta: { ...META, status: 'Approved', approved_by: 'Avery Engineer' } });
     await render();
-    const stamps = [...el.querySelectorAll('[data-testid="riser-options"] select')[1]!.querySelectorAll('option')];
+    const stamps = [...el.querySelectorAll('[data-testid="riser-options"] select')[2]!.querySelectorAll('option')];
     expect(stamps.map((option) => option.value)).toContain('REVIEWED BY ILLUMENATE');
+  });
+
+  it('draws the client diagram with the fixture part number and keeps it as a presentation', async () => {
+    const draw = vi.fn(deps.draw);
+    deps.draw = draw;
+    await render();
+    const style = el.querySelector<HTMLSelectElement>('[data-testid="riser-options"] select')!;
+    await act(async () => {
+      style.value = 'client';
+      style.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await click(button('Draw client diagram'));
+    const options = draw.mock.calls[0]![0].options!;
+    expect(options.style).toBe('client');
+    // The configured fixture's own part number, not its tape's.
+    expect(options.loads?.['load:a1linear:1:1']).toEqual({ type: 'linear', partNumber: 'TEST-FX-LINEAR-30K-12FT' });
+    // The dealer's lines, without the ones the designer wrote back; a build with no part number shows none.
+    const schedule = options.fixtureSchedule!;
+    expect(schedule.map((row) => row.type)).toEqual(['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1']);
+    expect(schedule.find((row) => row.type === 'D1')?.partNumber).toBe('—');
+    expect(schedule.find((row) => row.type === 'I1')?.partNumber).toBe('Not configured yet');
+    const titles = [...el.querySelectorAll('[data-testid="riser-preview"] option')].map((node) => node.textContent);
+    expect(titles.some((title) => title?.includes('FIXTURE SCHEDULE & ORDERING'))).toBe(true);
+    // A homeowner gets no CAD file.
+    expect(button('Download DXF (ZIP)')).toBeUndefined();
+    await click(button('Download PDF'));
+    const [, filename] = deps.save.mock.calls[0]!;
+    expect(filename).toBe('ilLumenate-System-Designer_SCH-TEST_revA_Client_Tabloid.pdf');
+    expect(api.uploadDeliverable).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'Presentation PDF', variant: 'Tabloid', filename }),
+    );
+    expect(byTest('deliverables')?.textContent).toContain('Presentation PDF · Tabloid');
   });
 });
 

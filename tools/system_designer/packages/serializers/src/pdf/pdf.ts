@@ -14,9 +14,11 @@ import {
   rectangle,
   setDashPattern,
   setFillingGrayscaleColor,
+  setFillingRgbColor,
   setFontAndSize,
   setLineWidth,
   setStrokingGrayscaleColor,
+  setStrokingRgbColor,
   setTextMatrix,
   showText,
   stroke,
@@ -96,6 +98,12 @@ export interface PdfOptions {
   /** Searchable keywords such as the design, revision and build hash. */
   keywords?: string[];
 }
+/** `#RRGGBB` as PDF colour components. */
+const rgb = (hex: string): [number, number, number] => [
+  parseInt(hex.slice(1, 3), 16) / 255,
+  parseInt(hex.slice(3, 5), 16) / 255,
+  parseInt(hex.slice(5, 7), 16) / 255,
+];
 const dataUrlBytes = (src: string) =>
   Uint8Array.from(atob(src.slice(src.indexOf(',') + 1)), (c) => c.charCodeAt(0));
 export async function serializePdf(
@@ -127,48 +135,66 @@ export async function serializePdf(
     const page = document.addPage([sheet.widthIn * 72, sheet.heightIn * 72]);
     page.node.setFontDictionary(PDFName.of('MAIN'), fonts.main.ref);
     page.node.setFontDictionary(PDFName.of('BOLD'), fonts.bold.ref);
-    for (const [index, layer] of layers.entries()) {
-      page.pushOperators(
-        layerStart(page, index),
-        pushGraphicsState(),
-        setStrokingGrayscaleColor(0),
-        setFillingGrayscaleColor(0),
-      );
-      for (const p of flattened[pageIndex]!.filter((p) => p.layer === layer.name)) {
-        const pattern = seedLayers.linetypes
-          .find((l) => l.name === (p.linetype ?? layer.linetype))!
-          .patternIn.map((n) => Math.max(0.005, Math.abs(n)) * 72);
-        page.pushOperators(
-          setLineWidth(((p.lineweightMm ?? layer.lineweightMm) * 72) / 25.4),
-          setDashPattern(pattern, 0),
+    // Fills first, so outlines and text on any layer stay on top of them.
+    for (const fills of [true, false])
+      for (const [index, layer] of layers.entries()) {
+        const prims = flattened[pageIndex]!.filter(
+          (p) => p.layer === layer.name && (p.kind === 'hatch') === fills,
         );
-        if (p.kind !== 'text') {
-          page.pushOperators(...path(p));
-          continue;
-        }
-        const font = fonts[p.font],
-          size = fontEmSize(p.heightIn, fontBytes.name) * 72;
-        for (const [i, value] of p.value.split('\n').entries()) {
-          if (!value) continue;
-          const width = font.widthOfTextAtSize(value, size);
-          const offset = p.hAlign === 'center' ? width / 2 : p.hAlign === 'right' ? width : 0;
-          const baseY =
-            (p.y - (p.vAlign === 'top' ? p.heightIn : p.vAlign === 'middle' ? p.heightIn / 2 : 0)) *
-            72;
-          const leading = p.heightIn * 72 * 1.45;
-          const x = p.rotation === 90 ? p.x * 72 + i * leading : p.x * 72 - offset;
-          const y = p.rotation === 90 ? baseY - offset : baseY - i * leading;
+        if (fills && !prims.length) continue;
+        page.pushOperators(
+          layerStart(page, index),
+          pushGraphicsState(),
+          setStrokingGrayscaleColor(0),
+          setFillingGrayscaleColor(0),
+        );
+        for (const p of prims) {
+          // A colour-coded sheet (the client diagram) paints each primitive's own colour.
+          if (sheet.colored) {
+            const color = p.color ? rgb(p.color) : null;
+            page.pushOperators(
+              ...(color
+                ? [setStrokingRgbColor(...color), setFillingRgbColor(...color)]
+                : [setStrokingGrayscaleColor(0), setFillingGrayscaleColor(0)]),
+            );
+          }
+          const pattern = seedLayers.linetypes
+            .find((l) => l.name === (p.linetype ?? layer.linetype))!
+            .patternIn.map((n) => Math.max(0.005, Math.abs(n)) * 72);
           page.pushOperators(
-            beginText(),
-            setFontAndSize(p.font === 'bold' ? 'BOLD' : 'MAIN', size),
-            p.rotation === 90 ? setTextMatrix(0, 1, -1, 0, x, y) : setTextMatrix(1, 0, 0, 1, x, y),
-            showText(font.encodeText(value)),
-            endText(),
+            setLineWidth(((p.lineweightMm ?? layer.lineweightMm) * 72) / 25.4),
+            setDashPattern(pattern, 0),
           );
+          if (p.kind !== 'text') {
+            page.pushOperators(...path(p));
+            continue;
+          }
+          const font = fonts[p.font],
+            size = fontEmSize(p.heightIn, fontBytes.name) * 72;
+          for (const [i, value] of p.value.split('\n').entries()) {
+            if (!value) continue;
+            const width = font.widthOfTextAtSize(value, size);
+            const offset = p.hAlign === 'center' ? width / 2 : p.hAlign === 'right' ? width : 0;
+            const baseY =
+              (p.y -
+                (p.vAlign === 'top' ? p.heightIn : p.vAlign === 'middle' ? p.heightIn / 2 : 0)) *
+              72;
+            const leading = p.heightIn * 72 * 1.45;
+            const x = p.rotation === 90 ? p.x * 72 + i * leading : p.x * 72 - offset;
+            const y = p.rotation === 90 ? baseY - offset : baseY - i * leading;
+            page.pushOperators(
+              beginText(),
+              setFontAndSize(p.font === 'bold' ? 'BOLD' : 'MAIN', size),
+              p.rotation === 90
+                ? setTextMatrix(0, 1, -1, 0, x, y)
+                : setTextMatrix(1, 0, 0, 1, x, y),
+              showText(font.encodeText(value)),
+              endText(),
+            );
+          }
         }
+        page.pushOperators(popGraphicsState(), endMarkedContent());
       }
-      page.pushOperators(popGraphicsState(), endMarkedContent());
-    }
     for (const image of sheet.images ?? []) {
       const bytes = dataUrlBytes(image.src);
       const embedded = image.src.startsWith('data:image/png')

@@ -1,6 +1,6 @@
 import type { Project } from '@ill/core-schemas/project';
 import type { LibrarySnapshot } from '@ill/core-schemas/library';
-import type { EngineResult } from '@ill/engine/model';
+import type { EngineResult, RunResult } from '@ill/engine/model';
 import { seedLayers, seedTitleBlocks } from '@ill/data/seeds';
 import { flattenSheet, line, text, type Sheet, type Primitive } from '../model';
 import type { DrawingOptions } from '../options';
@@ -8,6 +8,14 @@ import { paragraph, wrapText } from '../text';
 import { titleBlockLogo } from '../brand';
 import { DATA_BY_DEALER_TAG, isDealerData, modelLabel } from '../labels';
 import { powerTypes } from '@ill/engine/wireSelect';
+import {
+  PRODUCT_COLORS,
+  WIRE_COLORS,
+  wireFamily,
+  type ClientFamily,
+  type WireFamily,
+} from '../client';
+import { clientWireName, conductorCount, wireGauge } from '../wires';
 
 const BODY = 3 / 32;
 const LEADING = BODY * 1.45;
@@ -58,20 +66,26 @@ export function frameSheet(
     rect(template.referenceSquare),
   );
   const ref = template.referenceSquare;
-  sheet.prims.push(
-    paragraph('1.000 in\nREF. SQUARE', ref.x + 0.1, ref.y + 0.6, 0.8),
-    text(
-      `${sheet.number} / ${total}  ·  ALL LENGTHS ARE ONE-WAY UNLESS NOTED`,
-      ref.x + 1.3,
-      ref.y + 0.4,
-    ),
-    // NEC edition and voltage-drop targets go on every sheet (plan §22.3).
-    text(
-      `NEC ${project.settings.necEdition}  ·  VD TARGETS ${project.settings.vdTargetLineVoltagePct}% LINE / ${project.settings.vdTargetLowVoltagePct}% LOW VOLTAGE`,
-      ref.x + 1.3,
-      ref.y + 0.2,
-    ),
-  );
+  sheet.prims.push(paragraph('1.000 in\nREF. SQUARE', ref.x + 0.1, ref.y + 0.6, 0.8));
+  if (options.style === 'client')
+    sheet.prims.push(
+      text(`${sheet.number} / ${total}`, ref.x + 1.3, ref.y + 0.4),
+      text(project.generalNotes[0] ?? '', ref.x + 1.3, ref.y + 0.2),
+    );
+  else
+    sheet.prims.push(
+      text(
+        `${sheet.number} / ${total}  ·  ALL LENGTHS ARE ONE-WAY UNLESS NOTED`,
+        ref.x + 1.3,
+        ref.y + 0.4,
+      ),
+      // NEC edition and voltage-drop targets go on every sheet (plan §22.3).
+      text(
+        `NEC ${project.settings.necEdition}  ·  VD TARGETS ${project.settings.vdTargetLineVoltagePct}% LINE / ${project.settings.vdTargetLowVoltagePct}% LOW VOLTAGE`,
+        ref.x + 1.3,
+        ref.y + 0.2,
+      ),
+    );
   const revision = project.revisions.at(-1);
   const values: Record<string, string> = {
     brandLogo: project.meta.brand === '206' ? '206 LIGHTING' : 'ilLumenate Lighting',
@@ -140,15 +154,106 @@ export function frameSheet(
 }
 
 type Table = { title: string; heads: string[]; weights: number[]; rows: string[][] };
+
+/** The client page (WP-5.1 client style): what the dealer scheduled and what to order. No prices. */
+function clientTables(
+  project: Project,
+  library: LibrarySnapshot,
+  result: EngineResult,
+  options: DrawingOptions,
+): Table[] {
+  const item = (id: string) => library.products.find((p) => p.id === id);
+  // ERP item code first; a dealer's own product has only its model to go by.
+  const partNumber = (id: string) => {
+    const product = item(id);
+    if (!product) return '—';
+    if (product.erpItemCode) return product.erpItemCode;
+    return product.source?.kind === 'user-supplied' ? product.model : product.sku;
+  };
+  const fixtures =
+    options.fixtureSchedule ??
+    project.loads.map((load) => ({
+      type: load.typeTag,
+      product: item(load.catalogId)?.model ?? '',
+      partNumber: options.loads?.[load.id]?.partNumber ?? partNumber(load.catalogId),
+      qty: load.lengthFt !== undefined ? `${load.lengthFt.toFixed(1)} ft` : String(load.qty ?? 1),
+      location: load.zone,
+    }));
+  const wires = new Map<
+    string,
+    { name: string; conductors: number | null; feet: number; runs: number }
+  >();
+  for (const run of result.runs) {
+    if (run.type.startsWith('lv-') || run.type === 'wireless') continue;
+    const wire = library.wires.find((w) => w.id === run.wireTypeId);
+    const name = `${clientWireName(run)}${wireGauge(wire) ? ` · ${wireGauge(wire)}` : ''}`;
+    const row = wires.get(name) ?? {
+      name,
+      conductors: conductorCount(library, [{ ...run, parallelSets: 1 }]),
+      feet: 0,
+      runs: 0,
+    };
+    row.feet += run.lengthFt * Math.max(1, run.parallelSets);
+    row.runs += 1;
+    wires.set(name, row);
+  }
+  return [
+    {
+      title: 'FIXTURE SCHEDULE',
+      heads: ['TYPE', 'PRODUCT', 'PART NUMBER', 'QTY', 'LOCATION'],
+      weights: [0.8, 3, 3, 0.9, 2],
+      rows: fixtures.map((row) => [row.type, row.product, row.partNumber, row.qty, row.location]),
+    },
+    {
+      title: 'POWER SUPPLIES AND CONTROLS',
+      heads: ['TAG', 'PRODUCT', 'PART NUMBER', 'QTY', 'LOCATION'],
+      weights: [0.8, 3, 3, 0.9, 2],
+      rows: project.equipment.map((e) => [
+        e.tag,
+        item(e.catalogId)?.model ?? '',
+        partNumber(e.catalogId),
+        String(e.qty),
+        e.location,
+      ]),
+    },
+    {
+      title: 'WIRE',
+      heads: ['WIRE', 'CONDUCTORS PER CABLE', 'ESTIMATED LENGTH', 'RUNS'],
+      weights: [3, 1.6, 1.6, 0.8],
+      rows: [...wires.values()].map((row) => [
+        row.name,
+        row.conductors === null ? '—' : String(row.conductors),
+        `${Math.ceil(row.feet)} ft`,
+        String(row.runs),
+      ]),
+    },
+    {
+      title: 'NOTES',
+      heads: ['NO.', 'NOTE'],
+      weights: [0.5, 8],
+      rows: [
+        project.generalNotes[0] ?? '',
+        'Wire lengths are one-way estimates from the design. Confirm them on site before ordering.',
+        ...(result.runs.some((run) => run.type.startsWith('lv-'))
+          ? ['Line-voltage wiring is by the electrician and is not listed here.']
+          : []),
+      ]
+        .filter(Boolean)
+        .map((note, i) => [String(i + 1), note]),
+    },
+  ];
+}
 export function composeSheets(
   diagrams: Sheet[],
   project: Project,
   library: LibrarySnapshot,
   result: EngineResult,
   options: DrawingOptions = {},
+  members: Map<string, RunResult[]> = new Map(),
 ): Sheet[] {
   const sheets = [...diagrams];
-  if (!project.settings.showSchedules) {
+  const client = options.style === 'client';
+  if (!project.settings.showSchedules && !client) {
     sheets.forEach((sheet) => frameSheet(sheet, project, sheets.length, options));
     return sheets;
   }
@@ -284,6 +389,8 @@ export function composeSheets(
       ],
     },
   ];
+  // The client page replaces the engineering schedules.
+  if (client) tables.splice(0, tables.length, ...clientTables(project, library, result, options));
   const sheetForNode = new Map(
     diagrams.flatMap((s) => s.nodes.map((n) => [n.id, s.number] as const)),
   );
@@ -291,10 +398,10 @@ export function composeSheets(
   for (const c of diagrams.flatMap((s) => s.connections ?? []))
     if (c.reference) {
       const ids = references.get(c.reference) ?? new Set<string>();
-      ids.add(c.runId);
+      for (const run of members.get(c.runId) ?? [{ runId: c.runId }]) ids.add(run.runId);
       references.set(c.reference, ids);
     }
-  if (references.size)
+  if (references.size && !client)
     tables.splice(3, 0, {
       title: 'CONTINUATION INDEX',
       heads: ['REF', 'FROM SHEET / EQUIPMENT', 'TO SHEET(S)', 'CABLE TAGS'],
@@ -331,7 +438,8 @@ export function composeSheets(
     current = {
       id: `sheet-${n}`,
       number: `${project.meta.sheetPrefix}${n}`,
-      title: 'SCHEDULES, LEGEND & NOTES',
+      title: client ? 'FIXTURE SCHEDULE & ORDERING' : 'SCHEDULES, LEGEND & NOTES',
+      ...(client ? { colored: true } : {}),
       size: template.sheetSize,
       widthIn: template.widthIn,
       heightIn: template.heightIn,
@@ -346,7 +454,7 @@ export function composeSheets(
     y = top;
   }
   // Reuse clear paper below every diagram before adding schedule-only sheets.
-  for (const diagram of diagrams.filter((s) => s.nodes.length)) {
+  for (const diagram of diagrams.filter((s) => s.nodes.length && !client)) {
     const flat = flattenSheet(diagram);
     const lows = flat.flatMap((p) =>
       p.kind === 'line'
@@ -386,6 +494,7 @@ export function composeSheets(
     );
     y -= 0.4;
   }
+  if (client) colorKey(diagrams, result);
   for (const table of tables) {
     if (!table.rows.length) continue;
     need(1.3);
@@ -438,6 +547,72 @@ export function composeSheets(
     row(table.heads, true);
     for (const values of table.rows) row(values);
     y -= 0.45;
+  }
+  if (client) {
+    sheets.forEach((s) => frameSheet(s, project, sheets.length, options));
+    return sheets;
+  }
+  /** Swatches for every product and wire family the diagrams use, each with its name. */
+  function colorKey(drawn: Sheet[], runs: EngineResult) {
+    const families = new Set(
+      drawn.flatMap((s) =>
+        s.prims.flatMap((p) =>
+          p.kind === 'block' ? [/-client-(\w+)$/.exec(p.symbolId)?.[1]] : [],
+        ),
+      ),
+    );
+    const products = (Object.keys(PRODUCT_COLORS) as ClientFamily[]).filter((family) =>
+      families.has(family),
+    );
+    const wireKinds = new Set(runs.runs.map(wireFamily));
+    const wireFamilies = (Object.keys(WIRE_COLORS) as WireFamily[]).filter((family) =>
+      wireKinds.has(family),
+    );
+    if (!products.length && !wireFamilies.length) return;
+    need(1.3);
+    title('COLOR KEY');
+    // A grid across the column, so the key sits above the schedules instead of filling a sheet.
+    const across = Math.max(1, Math.floor(width / 3.2));
+    const cell = width / across;
+    const entries: ((left: number) => Primitive[])[] = [
+      ...products.map((family) => (left: number): Primitive[] => {
+        const colors = PRODUCT_COLORS[family];
+        const box = [
+          { x: left, y: y - 0.2 },
+          { x: left + 0.6, y: y - 0.2 },
+          { x: left + 0.6, y: y + 0.08 },
+          { x: left, y: y + 0.08 },
+        ];
+        return [
+          { kind: 'hatch', points: box, layer: 'E-ANNO-SCHD', color: colors.fill },
+          {
+            kind: 'polyline',
+            points: box,
+            closed: true,
+            layer: 'E-ANNO-SCHD',
+            color: colors.stroke,
+            lineweightMm: 0.35,
+          },
+          text(colors.label, left + 0.8, y - 0.1),
+        ];
+      }),
+      ...wireFamilies.map((family) => (left: number): Primitive[] => [
+        {
+          ...line(left, y - 0.06, left + 0.6, y - 0.06, 'E-ANNO-SCHD'),
+          color: WIRE_COLORS[family].color,
+          lineweightMm: 0.5,
+        },
+        text(WIRE_COLORS[family].label, left + 0.8, y - 0.1),
+      ]),
+    ];
+    for (let i = 0; i < entries.length; i += across) {
+      need(0.45);
+      entries
+        .slice(i, i + across)
+        .forEach((entry, j) => current!.prims.push(...entry(x() + j * cell)));
+      y -= 0.4;
+    }
+    y -= 0.25;
   }
   const used = new Map(
     diagrams.flatMap((s) =>
