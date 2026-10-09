@@ -126,6 +126,18 @@ def review_requirement(schedule=None):
 	return gate.review_requirement(lines, builds, values)
 
 
+# --- Power board (WP-3.4, H6) --------------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def eligible_supplies(schedule=None, run_keys=None, location_rating=None):
+	"""Catalog supplies that can feed ``run_keys``: ids, item codes and opaque ``rank`` only (D6)."""
+	from illumenate_lighting.illumenate_lighting.system_design import supplies
+
+	return supplies.eligible_supplies(schedule, run_keys, location_rating)
+
+
 # --- Saving and revisions (WP-2.4, H6) -----------------------------------------------------------
 
 

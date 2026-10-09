@@ -25,8 +25,9 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-2.5 | Reconcile and copy-forward | Done (dialog UI in Phase 3) |
 | WP-2.6 | Riser 1.3.0 ERP edition | Draft PR riser-diagram-generator#1; tag `v1.3.0` after merge |
 | WP-3.1 | Guided shell, stepper, terms | Done |
-| WP-3.2 | Spaces, cabinets, distances | Done (cabinet → run cascade with WP-3.4) |
+| WP-3.2 | Spaces, cabinets, distances | Done |
 | WP-3.3 | Runs screen | Done |
+| WP-3.4 | Power board | Done (auto-plan in WP-4.x; dimmer devices with WP-3.5 checks) |
 
 ## WP-0.1 — Portal access audit
 
@@ -412,3 +413,38 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Lengths, watts and feeds stay read-only (they come from the configured build), so "split" means
     splitting a group. A run that is too long is fixed in the configurator, which the check says.
   - Run labels moved from the Spaces screen into the engine package.
+
+## WP-3.4 — Power board
+
+- Server: `eligible_supplies(schedule, run_keys, location_rating?)` in `system_design/supplies.py`.
+  - A supply qualifies when it is a complete constant-voltage catalog supply at the runs' voltage, is
+    allowed for every configured product's template (`ilL-Rel-Driver-Eligibility`), accepts the
+    supply-dimmed protocol a product needs (phase-cut, 0-10V, DALI-2), and its `location_rating` on
+    `ilL-Spec-Driver` is at least the cabinet's.
+  - Rows are `{catalog_id, item_code, rank, location_rating}`: the opaque D6 rank and nothing about cost.
+  - Line-voltage third-party lines are refused: they are fed from a panel circuit.
+- Engine: `packages/engine/src/power.ts`.
+  - Supplies are sized against `ratedW × usableLoadFactor` and each output against
+    `maxW × usableLoadFactor` (the project operating target when the ERP has no factor).
+  - Assignment refusals give the reason: line voltage, constant-current supply, voltage, protocol, zone
+    method, two zones on one output, output or supply over its usable rating.
+  - Add, move and remove supplies. A supply takes its cabinet's environment, circuit and feed length, and
+    follows later cabinet changes (the WP-3.2 cascade). Removing a circuit unlinks what it fed.
+  - Picker order is by fit: one supply that carries the runs first, then fewest supplies, then smallest,
+    then rank. Never by price.
+  - "Start from configurator supplies" places one supply per build copy and allocation, marked "From
+    configurator", in a cabinet in the run's space (added when the space has none).
+  - Zones carry a dimming method. Runs in a zone must be on supplies that accept a supply-dimmed method.
+    DMX or phase-cut zones, or more than 1.5 kW, show the D4 review note on the board.
+- App: the Power step. Unassigned runs by space on the left; cabinets with supply cards, load bars (80%
+  guide line), outputs with Class 2 badges, assigned runs and the circuit on the right.
+  - Drag runs onto an output, or select them and press "Assign here" (keyboard).
+  - The catalog snapshot is loaded once per hash with `get_catalog`; example products are dropped.
+- Tests: engine `power.test.ts`; Python `test_system_design_supplies.py`; installed
+  `test_open_design.test_eligible_supplies`; jsdom `PowerStep.test.tsx`; Playwright drag and refusal in
+  `tests/e2e/smoke.spec.ts`.
+- Discrepancies and choices:
+  - DMX zones dim through decoders, so the supply is not checked against DMX; decoders, dimmers and
+    phase-cut device limits come with the checks in WP-3.5.
+  - Run environments stay as set on the Spaces and Runs steps; the cabinet cascade applies to the
+    supplies inside the cabinet.

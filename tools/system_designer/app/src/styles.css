@@ -507,3 +507,130 @@
 .ill-sd__strip-feed {
 	fill: var(--ill-secondary-600);
 }
+.ill-sd__board {
+	display: grid;
+	grid-template-columns: minmax(200px, 1fr) minmax(0, 2.4fr);
+	gap: 16px;
+	align-items: start;
+	margin-bottom: 16px;
+}
+@media (max-width: 760px) {
+	.ill-sd__board {
+		grid-template-columns: 1fr;
+	}
+}
+.ill-sd__pool {
+	border: 1px solid var(--ill-border);
+	border-radius: 14px;
+	padding: 8px 12px;
+	position: sticky;
+	top: 8px;
+}
+.ill-sd__pool h3,
+.ill-sd__pool h4 {
+	margin: 8px 0 4px;
+	font-size: 0.95rem;
+}
+.ill-sd__run-pool,
+.ill-sd__outputs,
+.ill-sd__assigned,
+.ill-sd__choices {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.ill-sd__run-pool li {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 4px 6px;
+	border-radius: 8px;
+	cursor: grab;
+}
+.ill-sd__run-pool li:hover {
+	background: var(--ill-surface-2);
+}
+.ill-sd__run-pool label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.ill-sd__supply {
+	background: var(--ill-surface-2);
+	border-radius: 10px;
+	padding: 8px 10px;
+	margin-bottom: 8px;
+}
+.ill-sd__output {
+	border: 1px dashed var(--ill-border);
+	border-radius: 8px;
+	padding: 6px 8px;
+	margin-bottom: 6px;
+	background: var(--ill-surface);
+}
+.ill-sd__output--over {
+	border-color: var(--ill-secondary-600);
+	background: #e6f0f6;
+}
+.ill-sd__assigned li {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 2px 8px 2px 0;
+	font-size: 0.9rem;
+}
+.ill-sd__refusal {
+	margin: 0 0 4px;
+	font-size: 0.85rem;
+}
+.ill-sd__load {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.85rem;
+}
+.ill-sd__load-bar {
+	position: relative;
+	display: inline-block;
+	width: 120px;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--ill-border);
+	overflow: hidden;
+}
+.ill-sd__load-bar > span:first-child {
+	display: block;
+	height: 100%;
+	background: var(--ill-secondary-600);
+}
+.ill-sd__load-bar--over > span:first-child {
+	background: var(--ill-error);
+}
+.ill-sd__load-line {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: var(--ill-primary-600);
+}
+.ill-sd__zone-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+}
+.ill-sd__picker {
+	border: 1px solid var(--ill-border);
+	border-radius: 10px;
+	padding: 8px 10px;
+	margin-top: 8px;
+}
+.ill-sd__choices li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--ill-border);
+}

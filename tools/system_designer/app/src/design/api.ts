@@ -33,6 +33,14 @@ export interface SaveResult {
   summary: Record<string, unknown>;
 }
 
+/** One row of ``eligible_supplies``: ids and the opaque D6 rank, never a price. */
+export interface EligibleSupply {
+  catalog_id: string;
+  item_code: string | null;
+  rank: number | null;
+  location_rating: 'Dry' | 'Damp' | 'Wet';
+}
+
 export interface ApiOptions {
   /** e.g. /api/method/illumenate_lighting.illumenate_lighting.system_design.api */
   apiBase: string;
@@ -98,6 +106,16 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         expected_modified: args.expectedModified,
         reconciled: args.reconciled ? '1' : undefined,
         terms_accepted: args.termsAccepted ? '1' : undefined,
+      });
+    },
+    getCatalog(hash: string) {
+      return call<unknown>('get_catalog', { method: 'GET' }, new URLSearchParams({ hash }));
+    },
+    eligibleSupplies(args: { schedule: string; runKeys: string[]; locationRating?: string }) {
+      return post<EligibleSupply[]>('eligible_supplies', {
+        schedule: args.schedule,
+        run_keys: JSON.stringify(args.runKeys),
+        location_rating: args.locationRating,
       });
     },
     reconcileDesign(design: string) {

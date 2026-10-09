@@ -65,6 +65,7 @@ export function setSpaceEnvironment(design: Design, spaceId: string, choice: Env
     if (cabinet.spaceId === spaceId && choiceOf(cabinet) === previous) {
       setEnv(cabinet, choice);
       cabinet.locationRating = environmentOption(choice).locationRating;
+      syncCabinetSupplies(design, cabinet.id);
     }
   for (const run of design.runs) if (run.spaceId === spaceId && choiceOf(run) === previous) setEnv(run, choice);
 }
@@ -74,6 +75,7 @@ export function setCabinetEnvironment(design: Design, cabinetId: string, choice:
   if (!cabinet) throw new Error(`Unknown cabinet: ${cabinetId}`);
   setEnv(cabinet, choice);
   cabinet.locationRating = environmentOption(choice).locationRating;
+  syncCabinetSupplies(design, cabinetId);
 }
 
 export function setRunEnvironment(design: Design, runKeys: readonly string[], choice: EnvChoice) {
@@ -151,6 +153,7 @@ export function updateCabinet(
   }
   Object.assign(cabinet, changes);
   if ('sourceId' in changes && !changes.sourceId) delete cabinet.sourceId;
+  syncCabinetSupplies(design, cabinetId);
 }
 
 /** Remove a cabinet that holds no equipment yet. */
@@ -178,6 +181,7 @@ export function setCabinetFeed(design: Design, cabinetId: string, lengthFt: numb
   if (!cabinet) throw new Error(`Unknown cabinet: ${cabinetId}`);
   cabinet.feedLengthFt = lengthFt;
   cabinet.feedLengthProvenance = picked ? 'estimate' : 'entered';
+  syncCabinetSupplies(design, cabinetId);
 }
 
 /** A new panel circuit (riser source). Returns its id. */
@@ -211,12 +215,24 @@ export function updateCircuit(
   Object.assign(source, changes);
 }
 
-/** Remove a circuit; cabinets on it lose the link, and one feeding equipment is refused. */
+/** Remove a circuit; cabinets and supplies on it lose the link (they show as not yet fed). */
 export function removeCircuit(design: Design, sourceId: string) {
   const source = design.project.sources.find((item) => item.id === sourceId);
   const refs = new Set([sourceId, source?.tag]);
-  if (design.project.equipment.some((item) => refs.has(item.fedFrom.ref)))
-    throw new Error('Equipment is fed from this circuit; move it first');
+  for (const item of design.project.equipment) if (refs.has(item.fedFrom.ref)) item.fedFrom = { ref: 'unassigned' };
   design.project.sources = design.project.sources.filter((item) => item.id !== sourceId);
   for (const cabinet of design.site.cabinets) if (cabinet.sourceId === sourceId) delete cabinet.sourceId;
+}
+
+/** Supplies in a cabinet follow its environment, circuit and feed length (WP-3.2 cascade). */
+export function syncCabinetSupplies(design: Design, cabinetId: string) {
+  const cabinet = design.site.cabinets.find((item) => item.id === cabinetId);
+  if (!cabinet) return;
+  for (const supply of design.project.equipment)
+    if (supply.enclosure === cabinetId) {
+      supply.env = cabinet.env;
+      supply.location = cabinet.name || cabinet.tag;
+      supply.feedLengthFt = cabinet.feedLengthFt;
+      if (cabinet.sourceId) supply.fedFrom = { ref: cabinet.sourceId };
+    }
 }

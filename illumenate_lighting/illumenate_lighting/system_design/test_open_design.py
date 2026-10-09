@@ -61,6 +61,36 @@ class TestOpenDesign(IntegrationTestCase):
 		self.assertIn("licensed electrician", data["settings"]["terms_text"])
 		self.assertEqual(api.open_design(schedule="NOPE-404")["code"], "NOT_FOUND")
 
+	def test_eligible_supplies(self):
+		self.schedule.append(
+			"lines",
+			{
+				"line_id": "TP3",
+				"qty": 1,
+				"location": "Hall",
+				"manufacturer_type": "OTHER",
+				"watts_each": 10,
+				"input_voltage_v": 24,
+				"voltage_class": "Low Voltage",
+			},
+		)
+		self.schedule.save(ignore_permissions=True)
+		keys = [line["key"] for line in api.open_design(schedule=self.schedule.name)["data"]["lines"]]
+		line_voltage = api.eligible_supplies(schedule=self.schedule.name, run_keys=f'["{keys[0]}:1:1"]')
+		self.assertEqual(line_voltage["code"], "INVALID")
+		self.assertIn("line voltage", line_voltage["error"])
+		found = api.eligible_supplies(
+			schedule=self.schedule.name, run_keys=[f"{keys[2]}:1:1"], location_rating="Dry"
+		)
+		self.assertTrue(found["success"], found)
+		for row in found["data"]:
+			self.assertEqual(set(row), {"catalog_id", "item_code", "rank", "location_rating"})
+		bad = api.eligible_supplies(
+			schedule=self.schedule.name, run_keys=[f"{keys[2]}:1:1"], location_rating="Sky"
+		)
+		self.assertEqual(bad["code"], "INVALID")
+		self.assertEqual(api.eligible_supplies(schedule="NOPE-404", run_keys=["a:1:1"])["code"], "NOT_FOUND")
+
 	def test_find_schedules_and_review_requirement(self):
 		found = api.find_schedules(query="ZZ Designer Open")
 		self.assertTrue(found["success"], found)

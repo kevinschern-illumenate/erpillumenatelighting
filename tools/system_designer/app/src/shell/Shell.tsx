@@ -5,6 +5,7 @@ import type { DesignApi } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { saveDesign, type DesignStore, type SaveStatus } from '../design/store';
 import { CheckPanel } from './CheckPanel';
+import { PowerStep } from './PowerStep';
 import { RunsStep } from './RunsStep';
 import { SpacesStep } from './SpacesStep';
 import { StartStep } from './StartStep';
@@ -185,6 +186,8 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
             <SpacesStep open={open} store={store} readOnly={Boolean(readOnly)} />
           ) : step === 'runs' ? (
             <RunsStep open={open} store={store} readOnly={Boolean(readOnly)} />
+          ) : step === 'power' ? (
+            <PowerStep open={open} store={store} api={api} readOnly={Boolean(readOnly)} />
           ) : (
             <section aria-labelledby="ill-sd-step-title">
               <h2 id="ill-sd-step-title">{current.label}</h2>
