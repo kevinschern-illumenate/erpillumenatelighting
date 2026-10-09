@@ -1496,6 +1496,37 @@
         }
       ]
     },
+    "ilL-Child-Controller-Port": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "port_name",
+          "label": "Port",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "direction",
+          "label": "Direction",
+          "fieldtype": "Select",
+          "options": "In\nOut\nBidirectional",
+          "reqd": 1
+        },
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "reqd": 1
+        },
+        {
+          "fieldname": "max_devices",
+          "label": "Max Devices",
+          "fieldtype": "Int"
+        }
+      ]
+    },
     "ilL-Child-Controller-Protocol": {
       "autoname": "",
       "istable": 1,
@@ -4368,7 +4399,7 @@
           "fieldname": "controller_type",
           "label": "Controller Type",
           "fieldtype": "Select",
-          "options": "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater",
+          "options": "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater\nDMX Decoder\nDMX to 0-10V Converter\nPixel Controller\nWireless Transmitter\nRelay\nLutron Module",
           "reqd": 1
         },
         {
@@ -4480,6 +4511,102 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "max_a_per_channel",
+          "label": "Max Amps Per Channel",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_w_per_channel",
+          "label": "Max Watts Per Channel",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "output_dimming",
+          "label": "Output Dimming",
+          "fieldtype": "Select",
+          "options": "None\nPhase Forward\nPhase Reverse\n0-10V",
+          "default": "None"
+        },
+        {
+          "fieldname": "min_load_w",
+          "label": "Min Load (W)",
+          "fieldtype": "Float",
+          "description": "Phase dimmers."
+        },
+        {
+          "fieldname": "led_max_w",
+          "label": "LED Max Load (W)",
+          "fieldtype": "Float",
+          "description": "Phase dimmers."
+        },
+        {
+          "fieldname": "max_supplies",
+          "label": "Max Supplies",
+          "fieldtype": "Int",
+          "description": "Phase dimmers: how many power supplies one dimmer may drive."
+        },
+        {
+          "fieldname": "neutral_required",
+          "label": "Neutral Required",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "dmx_footprint",
+          "label": "DMX Footprint (Channels)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "unit_load",
+          "label": "DMX Unit Load",
+          "fieldtype": "Float",
+          "default": "1"
+        },
+        {
+          "fieldname": "dmx_thru",
+          "label": "DMX Thru",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "max_universes",
+          "label": "Max Universes",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_pixels",
+          "label": "Max Pixels",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_bus_devices",
+          "label": "Max Bus Devices",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_data_length_ft",
+          "label": "Max Data Length (ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "terminal_min_awg",
+          "label": "Terminal Min AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0"
+        },
+        {
+          "fieldname": "terminal_max_awg",
+          "label": "Terminal Max AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0"
+        },
+        {
+          "fieldname": "ports",
+          "label": "Ports",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Controller-Port"
         }
       ]
     },
@@ -4622,6 +4749,92 @@
           "label": "Independent Power Outputs",
           "fieldtype": "Int",
           "description": "Number of separately loadable feed outputs. Required when Outputs exceeds one; exclude color/control channels. Must not exceed physical Outputs."
+        },
+        {
+          "fieldname": "input_phase",
+          "label": "Input Phase",
+          "fieldtype": "Select",
+          "options": "1PH\n3PH",
+          "default": "1PH"
+        },
+        {
+          "fieldname": "class2_outputs",
+          "label": "Class 2 Outputs",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "efficiency",
+          "label": "Efficiency (0-1)",
+          "fieldtype": "Float",
+          "description": "Full-load efficiency, e.g. 0.9."
+        },
+        {
+          "fieldname": "power_factor",
+          "label": "Power Factor (0-1)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "output_current_ma",
+          "label": "Output Current (mA)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "compliance_v_min",
+          "label": "Compliance Voltage Min (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "compliance_v_max",
+          "label": "Compliance Voltage Max (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_input_a",
+          "label": "Max Input Current (A)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_input_a_at_v",
+          "label": "Max Input Current Measured At (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "inrush_a",
+          "label": "Inrush Current (A)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_units_per_20a_breaker",
+          "label": "Max Units Per 20 A Breaker",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "terminal_min_awg",
+          "label": "Terminal Min AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+          "description": "Smallest wire the output terminals accept."
+        },
+        {
+          "fieldname": "terminal_max_awg",
+          "label": "Terminal Max AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+          "description": "Largest wire the output terminals accept."
+        },
+        {
+          "fieldname": "mounting",
+          "label": "Mounting",
+          "fieldtype": "Select",
+          "options": "\nDIN Rail\nScrew\nPlug-in\nJunction Box"
+        },
+        {
+          "fieldname": "location_rating",
+          "label": "Location Rating",
+          "fieldtype": "Select",
+          "options": "Dry\nDamp\nWet",
+          "default": "Dry"
         }
       ]
     },
