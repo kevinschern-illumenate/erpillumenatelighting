@@ -126,5 +126,16 @@ class TemplateLink(unittest.TestCase):
 		self.assertEqual(call("template_link", {"fixture_template": None}), (None, None))
 
 
+class Write(unittest.TestCase):
+	def test_tables_only_top_up_skips_the_scalar_update(self):
+		with load_service(ROOT + ".web_listing_migration") as (module, frappe):
+			module._write(FIXTURE, "ILL-EL01-SW", {}, {"web_certifications": [{"certification": "UL"}]})
+			frappe.db.set_value.assert_not_called()
+			frappe.get_doc.assert_called_once()
+			self.assertEqual(
+				frappe.get_doc.call_args[0][0]["doctype"], "ilL-Child-Webflow-Certification-Link"
+			)
+
+
 if __name__ == "__main__":
 	unittest.main()

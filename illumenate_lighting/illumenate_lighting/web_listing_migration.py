@@ -165,7 +165,8 @@ CHILD_DOCTYPES = {RENAMED.get(field, field): child for field, child in TABLES.it
 
 
 def _write(doctype, name, values, tables):
-	frappe.db.set_value(doctype, name, values, update_modified=False)
+	if values:  # a top-up may only fill tables, and an empty UPDATE is a SQL error
+		frappe.db.set_value(doctype, name, values, update_modified=False)
 	for field, rows in tables.items():
 		child = CHILD_DOCTYPES[field]
 		for idx, row in enumerate(rows, 1):
