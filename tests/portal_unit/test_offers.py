@@ -218,6 +218,21 @@ class IssuedOfferGuards(unittest.TestCase):
 				with self.assertRaises(ValueError):
 					module.list_offers(status="everything")
 
+	def test_offer_status_labels_expired_issued_offers(self):
+		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, _frappe):
+			self.assertEqual(module.offer_status("ISSUED", "2026-10-01", "2026-10-09"), ("Expired", "danger"))
+			self.assertEqual(
+				module.offer_status("ISSUED", "2026-11-01", "2026-10-09"),
+				("Awaiting your response", "warning"),
+			)
+			self.assertEqual(
+				module.offer_status("ISSUED", None, "2026-10-09"), ("Awaiting your response", "warning")
+			)
+			self.assertEqual(
+				module.offer_status("ACCEPTED", "2026-10-01", "2026-10-09"), ("Accepted", "success")
+			)
+			self.assertEqual(module.offer_status("ODD", None, "2026-10-09"), ("ODD", "secondary"))
+
 	def test_acceptance_with_changed_client_hash_is_rejected(self):
 		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, _frappe):
 			with (

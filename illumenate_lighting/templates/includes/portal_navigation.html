@@ -1,6 +1,14 @@
+{# Highlights the section of the current route, e.g. portal/quote-requests/QR-1 under Quotes. #}
+{% set section = (path | default('', true)).strip('/').split('/')[:2] | join('/') %}
 <nav class="ill-portal-navigation" aria-label="{{ _('Portal navigation') }}">
-    <a href="/portal">{{ _("Overview") }}</a>
-    <a href="/portal/projects">{{ _("Projects") }}</a>
+    {% for href, label, sections in [
+        ('/portal', 'Overview', ['portal']),
+        ('/portal/projects', 'Projects', ['portal/projects', 'portal/schedules']),
+        ('/portal/quotes', 'Quotes', ['portal/quotes', 'portal/quote-requests']),
+        ('/portal/orders', 'Orders', ['portal/orders']),
+    ] %}
+    <a href="{{ href }}"{% if section in sections %} aria-current="page"{% endif %}>{{ _(label) }}</a>
+    {% endfor %}
     {% if ill_can_view_catalog() %}<a href="/portal/products">{{ _("Products") }}</a>{% endif %}
     {% if ill_finder_enabled() %}<a href="/portal/product-finder">{{ _("Product Finder") }}</a>{% endif %}
     <a href="/portal/support">{{ _("Support") }}</a>

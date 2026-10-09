@@ -91,6 +91,8 @@ assert '<form id="offer-response"' in rendered
 assert "&lt;img" in rendered and "<img src=x" not in rendered
 assert "<script>unsafe()" not in rendered
 assert 'data-parent-type="ilL-Quote-Request" data-parent-name="QR-00001"' in rendered
+assert 'ill-status--warning">Awaiting your response' in rendered and "Next step" in rendered
+assert 'href="/portal/quotes" aria-current="page"' in detail.render(offer=offer, path="portal/quotes/OFFER-00001")
 offer["can_respond"] = False
 assert '<form id="offer-response"' not in detail.render(offer=offer)
 listing = environment.get_template("templates/pages/quotes.html")
@@ -259,18 +261,22 @@ orders_html = environment.get_template("templates/pages/orders.html").render(
 	orders=[order_view], page=2, has_more=True, search="PO1", filter="shipping"
 )
 assert "Newer orders" in orders_html and "Older orders" in orders_html
+assert 'class="ill-record"' in orders_html and "No orders match" not in orders_html
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",
 		schedule="S1",
 		requested_by="buyer",
-		state="REQUESTED",
+		state="INFORMATION_NEEDED",
+		status_label="Needs your reply",
+		status_class="warning",
 		due_date=None,
 		files=[],
 		snapshot=View(requested_date=None, contact="Buyer", notes="Need <script>bad()</script>", lines=[]),
 	)
 )
 assert "<script>bad()" not in quote_request_html
+assert "Needs your reply" in quote_request_html and "ilLumenate needs more information" in quote_request_html
 
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
