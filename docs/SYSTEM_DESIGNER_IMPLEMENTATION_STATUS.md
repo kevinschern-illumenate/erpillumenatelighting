@@ -58,9 +58,22 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
 
 ## WP-0.3 — Riser source
 
-See the WP-0.3 section of the pull request: the riser repository is imported under
-`tools/system_designer/vendor/riser` with history (subtree), and its engine, schemas, drawing,
-serializers and data move into workspace packages with the riser test suite running in this repo's CI.
+- `git subtree add` imported riser-diagram-generator `main` (v1.2.0) with history at
+  `tools/system_designer/vendor/riser`. It is the untouched reference copy.
+- Schemas, data, engine, drawing and serializers were copied into `packages/{core-schemas,data,engine,
+  drawing,serializers}` with cross-package imports rewritten to package names; the layout worker is in
+  `app/src/workers`. See `tools/system_designer/packages/README.md`.
+- 21 test files / 120 tests pass (`npm test`): every riser test of the moved code plus the library
+  import/editor tests.
+- Discrepancies:
+  - `schemas` and `data` imported each other; `general-notes.seed.json` moved to `core-schemas` to break
+    the cycle. `seedLibrary()` moved from the riser's zustand store into `@ill/data/library`.
+  - `serializers/pdf/fonts.ts` fetched fonts over the network; that loader moved to `app/src/lib/fonts.ts`
+    so the serializer is pure. ESLint now enforces purity for the five packages.
+  - The riser's screens, stores and storage (and their 5 tests) are not moved yet. They come with WP-3.8
+    (engineering mode); `vendor/riser` keeps them meanwhile. The proxy and ERP sync are not carried (D1).
+  - Riser has no coverage thresholds to keep. The heaviest drawing test takes ~8 s on a shared runner, so
+    `testTimeout` is 30 s.
 
 ## WP-0.4 — Visualizer reference
 

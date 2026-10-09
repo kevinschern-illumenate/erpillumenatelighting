@@ -1,0 +1,11 @@
+{
+  "name": "@ill/core-schemas",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./*.json": "./src/*.json",
+    "./*.ts": "./src/*.ts",
+    "./*": "./src/*.ts"
+  }
+}
