@@ -692,7 +692,7 @@ def volumes(days=VOLUME_DAYS):
 	cutoff = frappe.utils.add_days(frappe.utils.nowdate(), -days)
 	tape = frappe.db.sql(
 		"""
-		select coalesce(ctn.tape_spec, offering.tape_spec) as spec, count(*) as lines
+		select coalesce(ctn.tape_spec, offering.tape_spec) as spec, count(*) as line_count
 		from `tabilL-Child-Fixture-Schedule-Line` line
 		join `tabilL-Project-Fixture-Schedule` schedule on schedule.name = line.parent
 		left join `tabilL-Configured-Tape-Neon` ctn on ctn.name = line.configured_tape_neon
@@ -707,7 +707,7 @@ def volumes(days=VOLUME_DAYS):
 	)
 	items = frappe.db.sql(
 		"""
-		select item, count(*) as lines from (
+		select item, count(*) as line_count from (
 			select line.accessory_item as item
 			from `tabilL-Child-Fixture-Schedule-Line` line
 			join `tabilL-Project-Fixture-Schedule` schedule on schedule.name = line.parent
@@ -731,8 +731,8 @@ def volumes(days=VOLUME_DAYS):
 		as_dict=True,
 	)
 	return {
-		"tape": {row["spec"]: int(row["lines"]) for row in tape},
-		"item": {row["item"]: int(row["lines"]) for row in items},
+		"tape": {row["spec"]: int(row["line_count"]) for row in tape},
+		"item": {row["item"]: int(row["line_count"]) for row in items},
 	}
 
 
