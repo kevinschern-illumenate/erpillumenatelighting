@@ -15,7 +15,17 @@ def _current(request):
 	if not published:
 		frappe.throw("No published drawing revision is available")
 	revision = max(published, key=lambda row: (str(row.published_on or ""), row.idx))
-	file_name = frappe.db.get_value("File", {"file_url": revision.file, "is_private": 1}, "name")
+	# Frappe shares one file_url between File rows with the same bytes, so prefer this request's own row.
+	file_name = frappe.db.get_value(
+		"File",
+		{
+			"file_url": revision.file,
+			"is_private": 1,
+			"attached_to_doctype": request.doctype,
+			"attached_to_name": request.name,
+		},
+		"name",
+	) or frappe.db.get_value("File", {"file_url": revision.file, "is_private": 1}, "name")
 	if not file_name:
 		frappe.throw("Drawing review requires a private registered file")
 	file = frappe.get_doc("File", file_name)

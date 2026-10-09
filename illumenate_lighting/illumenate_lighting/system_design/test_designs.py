@@ -55,6 +55,19 @@ def _tree_leaf(doctype, field, root, leaf):
 	return leaf
 
 
+def stock_uom():
+	"""A UOM for test Items; the CI site has no setup data."""
+	if not frappe.db.exists("UOM", "Nos"):
+		frappe.get_doc({"doctype": "UOM", "uom_name": "Nos"}).insert(ignore_permissions=True)
+	return "Nos"
+
+
+def last_error():
+	"""The newest Error Log, so an INTERNAL endpoint answer shows its cause in the test output."""
+	rows = frappe.get_all("Error Log", fields=["method", "error"], order_by="creation desc", limit=1)
+	return rows[0] if rows else None
+
+
 def designer_customer():
 	"""The customer every ilL-Project needs, created once for these tests."""
 	name = "ZZ Designer Customer"
@@ -355,7 +368,15 @@ class TestDesigns(IntegrationTestCase):
 		for code in ("ZZ-WB-PSU", "ZZ-WB-WIRE"):
 			if not frappe.db.exists("Item", code):
 				frappe.get_doc(
-					{"doctype": "Item", "item_code": code, "item_name": code, "item_group": "All Item Groups"}
+					{
+						"doctype": "Item",
+						"item_code": code,
+						"item_name": code,
+						"item_group": _tree_leaf(
+							"Item Group", "item_group_name", "All Item Groups", "ZZ Designer Items"
+						),
+						"stock_uom": stock_uom(),
+					}
 				).insert(ignore_permissions=True)
 		stored = json.loads(frappe.db.get_value("ilL-System-Design", data["name"], "design_json"))
 		stored["project"]["equipment"] = [
@@ -504,7 +525,7 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual(api.review_decide(design=data["name"], decision="Approved")["code"], "INVALID")
 		keep_riser()
 		decided = api.review_decide(design=data["name"], decision="Approved", note="Looks good")
-		self.assertTrue(decided["success"], decided)
+		self.assertTrue(decided["success"], (decided, last_error()))
 		record = frappe.get_doc("ilL-System-Design", data["name"])
 		self.assertEqual((record.status, record.approved_by), ("Approved", engineer))
 		review = frappe.get_doc("ilL-Drawing-Review", record.approved_review)
@@ -606,7 +627,8 @@ class TestDesigns(IntegrationTestCase):
 				filename="r.pdf",
 			)
 			frappe.set_user(engineer)
-			self.assertTrue(api.review_decide(design=data["name"], decision="Approved")["success"])
+			decided = api.review_decide(design=data["name"], decision="Approved")
+			self.assertTrue(decided["success"], (decided, last_error()))
 			frappe.set_user("Administrator")
 			self.schedule.reload()
 			self.assertEqual(can_request_schedule_order(self.schedule), (True, ""))
