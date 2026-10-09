@@ -31,6 +31,21 @@ def website_user(email):
 	return email
 
 
+def _tree_leaf(doctype, field, root, leaf):
+	"""A non-group record in an ERPNext tree, creating the root on a site without setup data."""
+	existing = frappe.db.get_value(doctype, {"is_group": 0}, "name")
+	if existing:
+		return existing
+	if not frappe.db.exists(doctype, root):
+		frappe.get_doc({"doctype": doctype, field: root, "is_group": 1}).insert(ignore_permissions=True)
+	if not frappe.db.exists(doctype, leaf):
+		parent_field = "parent_" + frappe.scrub(doctype)
+		frappe.get_doc({"doctype": doctype, field: leaf, "is_group": 0, parent_field: root}).insert(
+			ignore_permissions=True
+		)
+	return leaf
+
+
 def designer_customer():
 	"""The customer every ilL-Project needs, created once for these tests."""
 	name = "ZZ Designer Customer"
@@ -39,9 +54,12 @@ def designer_customer():
 			{
 				"doctype": "Customer",
 				"customer_name": name,
-				"customer_group": frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
-				or "All Customer Groups",
-				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+				"customer_group": _tree_leaf(
+					"Customer Group", "customer_group_name", "All Customer Groups", "ZZ Designer Group"
+				),
+				"territory": _tree_leaf(
+					"Territory", "territory_name", "All Territories", "ZZ Designer Territory"
+				),
 			}
 		).insert(ignore_permissions=True)
 	return name
