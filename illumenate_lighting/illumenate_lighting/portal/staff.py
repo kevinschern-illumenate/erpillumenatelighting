@@ -10,6 +10,7 @@ CAPABILITIES = {
 	"integration": {"ilL Integration"},
 	"sales": {"ilL Sales Review", "ilL Order Approver"},
 	"engineering": {"ilL Engineering"},
+	"design_review": {"ilL Applications Engineer"},
 	"support": {"ilL Support"},
 	"operations": {"ilL Operations"},
 }
