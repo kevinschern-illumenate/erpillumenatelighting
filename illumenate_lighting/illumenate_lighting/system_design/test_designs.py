@@ -31,10 +31,32 @@ def website_user(email):
 	return email
 
 
+def designer_customer():
+	"""The customer every ilL-Project needs, created once for these tests."""
+	name = "ZZ Designer Customer"
+	if not frappe.db.exists("Customer", name):
+		frappe.get_doc(
+			{
+				"doctype": "Customer",
+				"customer_name": name,
+				"customer_group": frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+				or "All Customer Groups",
+				"territory": frappe.db.get_value("Territory", {"is_group": 0}, "name") or "All Territories",
+			}
+		).insert(ignore_permissions=True)
+	return name
+
+
 class TestDesigns(IntegrationTestCase):
 	def setUp(self):
 		frappe.set_user("Administrator")
-		project = frappe.get_doc({"doctype": "ilL-Project", "project_name": "ZZ Designer Save Test"})
+		project = frappe.get_doc(
+			{
+				"doctype": "ilL-Project",
+				"project_name": "ZZ Designer Save Test",
+				"customer": designer_customer(),
+			}
+		)
 		project.insert(ignore_permissions=True)
 		self.schedule = frappe.get_doc(
 			{

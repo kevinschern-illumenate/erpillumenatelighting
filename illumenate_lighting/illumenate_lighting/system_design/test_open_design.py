@@ -7,12 +7,19 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from illumenate_lighting.illumenate_lighting.system_design import api
+from illumenate_lighting.illumenate_lighting.system_design.test_designs import designer_customer
 
 
 class TestOpenDesign(IntegrationTestCase):
 	def setUp(self):
 		frappe.set_user("Administrator")
-		project = frappe.get_doc({"doctype": "ilL-Project", "project_name": "ZZ Designer Open Test"})
+		project = frappe.get_doc(
+			{
+				"doctype": "ilL-Project",
+				"project_name": "ZZ Designer Open Test",
+				"customer": designer_customer(),
+			}
+		)
 		project.insert(ignore_permissions=True)
 		schedule = frappe.get_doc(
 			{
