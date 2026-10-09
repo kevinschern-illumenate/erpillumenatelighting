@@ -152,18 +152,44 @@ def detail(name):
 	}
 
 
-def list_requests(page=1, page_size=20):
+REQUEST_FILTERS = {
+	"all": ("DRAFT", "REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED", "ISSUED", "CLOSED"),
+	"open": ("REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED"),
+	"action": ("INFORMATION_NEEDED",),
+	"closed": ("ISSUED", "CLOSED"),
+}
+REQUEST_LABELS = {
+	"DRAFT": ("Draft", "secondary"),
+	"REQUESTED": ("Received", "info"),
+	"UNDER_REVIEW": ("Under review", "info"),
+	"INFORMATION_NEEDED": ("Needs your reply", "warning"),
+	"ISSUED": ("Quote issued", "success"),
+	"CLOSED": ("Closed", "secondary"),
+}
+
+
+def list_requests(page=1, page_size=20, status="all"):
 	from illumenate_lighting.illumenate_lighting.portal.conversations import _pagination
 
 	page, page_size = _pagination(page, page_size)
+	if status not in REQUEST_FILTERS:
+		frappe.throw("Choose a supported request filter")
 	# Use the same scoped predicate as native lists without requiring website users to enter Desk.
 	condition = get_permission_query_conditions()
-	return frappe.db.sql(
-		f"""select name, schedule, state, creation from `tabilL-Quote-Request`
-		where {condition or "1=1"} order by creation desc, name desc limit %s offset %s""",
-		(page_size + 1, (page - 1) * page_size),
+	rows = frappe.db.sql(
+		f"""select `tabilL-Quote-Request`.name, `tabilL-Quote-Request`.schedule,
+			`tabilL-Quote-Request`.state, `tabilL-Quote-Request`.creation, sch.schedule_name
+		from `tabilL-Quote-Request`
+		left join `tabilL-Project-Fixture-Schedule` sch on sch.name = `tabilL-Quote-Request`.schedule
+		where `tabilL-Quote-Request`.state in %s and ({condition or "1=1"})
+		order by `tabilL-Quote-Request`.creation desc, `tabilL-Quote-Request`.name desc
+		limit %s offset %s""",
+		(REQUEST_FILTERS[status], page_size + 1, (page - 1) * page_size),
 		as_dict=True,
 	)
+	for row in rows:
+		row.status_label, row.status_class = REQUEST_LABELS.get(row.state, (row.state, "secondary"))
+	return rows
 
 
 def has_permission(doc, ptype="read", user=None):

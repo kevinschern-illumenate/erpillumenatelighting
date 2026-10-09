@@ -257,6 +257,8 @@ Detailed view of a single sales order with tracking and items
 	{% if intake %}
 	<section class="card p-3 mb-4" aria-labelledby="intake-heading">
 		<h2 id="intake-heading" class="h5">{{ _("Order review") }}: {{ intake.state.replace('_', ' ').title() | e }}</h2>
+		{% if intake.next_step %}<div class="alert {{ 'alert-warning' if intake.next_step.buyer else 'alert-info' }} mb-3" role="status"><strong>{{ _("Next step") }}:</strong> {{ _(intake.next_step.text) }}</div>{% endif %}
+		{% if intake.acknowledged and intake.acknowledged_on and not order.docstatus %}<p class="text-muted small">{{ _("You acknowledged the current revision on {0}.").format(frappe.utils.format_date(intake.acknowledged_on)) }}</p>{% endif %}
 		{% if intake.message %}<p class="mb-2"><a href="#order-conversation">{{ _("Read the latest message from ilLumenate in the conversation below.") }}</a></p>{% endif %}
 		{% if intake.needs_intake %}
         <p>{{ _("Complete the order's address, contact and PO intake before review can finish.") }}</p>

@@ -56,6 +56,12 @@ offer = {
 	"pdf_url": "/private/files/offer.pdf",
 	"sales_order": None,
 	"quote_request": "QR-00001",
+	"project_name": "Lobby <b>",
+	"schedule_name": "Level 1",
+	"status_label": "Awaiting your response",
+	"status_class": "warning",
+	"grand_total": 240.0,
+	"currency": "USD",
 	"response_note": None,
 	"unavailable_reason": None,
 	"can_respond": True,
@@ -93,6 +99,20 @@ assert "OFFER-00001" in listing.render(
 )
 assert "No issued quotations" in listing.render(
 	offers=[], next_cursor=None, requests=[], requests_page=1, more_requests=False
+)
+filtered = listing.render(
+	offers=[offer],
+	next_cursor="OFFER-00001",
+	requests=[dict(name="QR-1", schedule="S1", schedule_name="Level 1", state="INFORMATION_NEEDED", status_label="Needs your reply", status_class="warning")],
+	requests_page=1,
+	more_requests=False,
+	status="open",
+	search="lobby",
+	request_status="action",
+)
+assert "Lobby &lt;b&gt;" in filtered and "Needs your reply" in filtered and "status=open&amp;search=lobby" in filtered
+assert "No quotes match" in listing.render(
+	offers=[], next_cursor=None, requests=[], requests_page=1, more_requests=False, status="open", search="", request_status="open"
 )
 
 from html.parser import HTMLParser
@@ -184,6 +204,7 @@ intake_view = View(
 	original=View(items=[], grand_total=90, currency="USD", terms="Original terms"),
 	current=View(grand_total=100, currency="USD", terms="Current terms"),
 	revision_hash="revision",
+	next_step=View(buyer=True, text="Acknowledge <this> revision"),
 )
 order_html = environment.get_template("templates/pages/order_detail.html").render(
 	order=order_view,
@@ -232,6 +253,7 @@ order_html = environment.get_template("templates/pages/order_detail.html").rende
 )
 assert "&lt;script&gt;" in order_html and "<script>bad()" not in order_html
 assert "Not confirmed" in order_html and "Outstanding" in order_html and "ROW1" in order_html
+assert "Next step" in order_html and "Acknowledge &lt;this&gt; revision" in order_html
 parser.feed(order_html)
 orders_html = environment.get_template("templates/pages/orders.html").render(
 	orders=[order_view], page=2, has_more=True, search="PO1", filter="shipping"

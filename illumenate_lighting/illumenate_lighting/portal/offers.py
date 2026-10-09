@@ -440,27 +440,104 @@ def detail(offer_name):
 	}
 
 
+OFFER_FILTERS = {
+	"all": {},
+	"open": {"state": "ISSUED"},
+	"accepted": {"state": "ACCEPTED"},
+	"revision": {"state": "REVISION_REQUESTED"},
+	"declined": {"state": "DECLINED"},
+	"expired": {"state": "ISSUED"},
+}
+
+
 @frappe.whitelist()
-def list_offers(after=None, limit=20):
+def list_offers(after=None, limit=20, status="all", search=None):
 	actor = get_actor()
 	if actor.is_guest:
 		frappe.throw("Sign in to view quotes", frappe.PermissionError)
-	filters = {}
+	if status not in OFFER_FILTERS:
+		frappe.throw("Choose a supported quote filter")
+	filters = dict(OFFER_FILTERS[status])
 	if not (allowed("sales") and frappe.has_permission("Quotation", "read")):
 		if not actor.is_dealer or not actor.customer:
 			return {"offers": [], "next_cursor": None}
 		filters["customer"] = actor.customer
+	# An issued offer past its validity date can no longer be accepted.
+	today = nowdate()
+	if status == "open":
+		filters["valid_until"] = [">=", today]
+	elif status == "expired":
+		filters["valid_until"] = ["<", today]
 	if after:
 		filters["name"] = ["<", after]
+	query = str(search or "").strip()[:140]
+	or_filters = None
+	if query:
+		schedules = frappe.get_all(
+			SCHEDULE, filters={"schedule_name": ["like", f"%{query}%"]}, pluck="name", limit_page_length=200
+		)
+		or_filters = {"name": ["like", f"%{query}%"], "quotation": ["like", f"%{query}%"]}
+		if schedules:
+			or_filters["schedule"] = ["in", schedules]
 	limit = max(1, min(int(limit), 50))
 	rows = frappe.get_all(
 		DOCTYPE,
 		filters=filters,
-		fields=["name", "quotation", "customer", "schedule", "state", "valid_until", "issued_on"],
+		or_filters=or_filters,
+		fields=["name", "quotation", "customer", "schedule", "state", "valid_until", "issued_on", "sales_order"],
 		order_by="name desc",
 		limit_page_length=limit + 1,
 	)
-	return {
-		"offers": [row for row in rows[:limit] if can_read(row)],
-		"next_cursor": rows[limit - 1].name if len(rows) > limit else None,
+	offers = [row for row in rows[:limit] if can_read(row)]
+	_describe(offers, today)
+	return {"offers": offers, "next_cursor": rows[limit - 1].name if len(rows) > limit else None}
+
+
+def _describe(offers, today):
+	"""Add the project, schedule, total and a buyer-facing status to each listed offer."""
+	if not offers:
+		return
+	quotations = {
+		row.name: row
+		for row in frappe.get_all(
+			"Quotation",
+			filters={"name": ["in", [offer.quotation for offer in offers]]},
+			fields=["name", "grand_total", "currency"],
+		)
 	}
+	schedules = {
+		row.name: row
+		for row in frappe.get_all(
+			SCHEDULE,
+			filters={"name": ["in", [offer.schedule for offer in offers]]},
+			fields=["name", "schedule_name", "ill_project"],
+		)
+	}
+	project_names = [row.ill_project for row in schedules.values() if row.ill_project]
+	projects = (
+		dict(
+			frappe.get_all(
+				"ilL-Project", filters={"name": ["in", project_names]}, fields=["name", "project_name"], as_list=True
+			)
+		)
+		if project_names
+		else {}
+	)
+	labels = {
+		"ISSUED": ("Awaiting your response", "warning"),
+		"ACCEPTED": ("Accepted", "success"),
+		"DECLINED": ("Declined", "secondary"),
+		"REVISION_REQUESTED": ("Revision requested", "info"),
+		"SUPERSEDED": ("Replaced by a newer quote", "secondary"),
+		"CANCELLED": ("Cancelled", "secondary"),
+	}
+	for offer in offers:
+		quotation = quotations.get(offer.quotation) or {}
+		schedule = schedules.get(offer.schedule) or {}
+		expired = offer.state == "ISSUED" and offer.valid_until and str(offer.valid_until) < str(today)
+		offer.status_label, offer.status_class = (
+			("Expired", "danger") if expired else labels.get(offer.state, (offer.state, "secondary"))
+		)
+		offer.grand_total, offer.currency = quotation.get("grand_total"), quotation.get("currency")
+		offer.schedule_name = schedule.get("schedule_name") or offer.schedule
+		offer.project_name = projects.get(schedule.get("ill_project"))
