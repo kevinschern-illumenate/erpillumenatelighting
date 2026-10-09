@@ -7,8 +7,8 @@ Run from the System Console (or ``bench execute``) on a site, dry run first:
 
 New templates are created inactive, so the portal kit configurator does not offer
 them before their profile, lens, endcap and mounting maps exist. With ``link=1``
-the listing's ``kit_template`` is pointed at the new template; leave it at 0 to
-review the templates first. In the System Console, tick Commit for a real run.
+the listing's ``kit_template`` is pointed at a template this run created; an
+existing same-named template is never linked, since it may be one being rebuilt. In the System Console, tick Commit for a real run.
 """
 
 import json
@@ -144,7 +144,8 @@ def generate_kit_templates(dry_run=1, link=0):
 		else:
 			frappe.get_doc(values).insert()
 			row["action"] = "created"
-		if link and not dry_run and frappe.db.exists(KIT, code):
+		# Only link templates made here; a same-named template may be one being rebuilt.
+		if link and row["action"] == "created":
 			frappe.db.set_value(PRODUCT, name, "kit_template", code)
 			frappe.db.set_value(KIT, code, "webflow_product", name, update_modified=False)
 			row["action"] += "; listing linked"
