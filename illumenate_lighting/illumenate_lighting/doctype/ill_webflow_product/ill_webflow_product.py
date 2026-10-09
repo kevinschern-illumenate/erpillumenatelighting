@@ -217,6 +217,19 @@ class ilLWebflowProduct(Document):
 		self._update_led_sheet_template_backlink()
 		self._update_driver_template_backlink()
 		self._update_controller_template_backlink()
+		self._mirror_to_template()
+
+	def _mirror_to_template(self):
+		"""Keep a migrated template's web content in step with edits made here."""
+		from illumenate_lighting.illumenate_lighting.web_listing_source import mirror_to_template
+
+		frappe.db.savepoint("web_listing_mirror")
+		try:
+			mirror_to_template(self)
+		except Exception:
+			# Never block a save; the parity report shows a template that fell behind.
+			frappe.db.rollback(save_point="web_listing_mirror")
+			frappe.log_error(title=f"Web listing mirror failed for {self.name}")
 
 	def handle_deletions(self):
 		"""Handle removal of bi-directional compatibility links upon row deletion."""

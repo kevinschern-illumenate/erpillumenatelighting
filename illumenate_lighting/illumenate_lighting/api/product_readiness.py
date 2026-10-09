@@ -18,6 +18,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 from illumenate_lighting.illumenate_lighting.api.product_projection import project_product, safe_document_url
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES, added_fieldnames
+from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 
 def require_catalog_reader():
@@ -77,10 +78,11 @@ VOLATILE = {
 
 
 def unpublished_fields(doctype):
-	"""Template Web Listing fields nothing publishes yet.
+	"""Template Web Listing fields, kept out of dependency hashes.
 
-	Kept out of dependency hashes so adding them does not reset publication approvals;
-	drop this once the export reads web content from templates.
+	The export reads them into the publication payload, which is hashed already, so
+	leaving them out of the template's record hash keeps approvals from resetting when
+	listings move onto templates.
 	"""
 	return added_fieldnames(doctype) if doctype in TEMPLATE_DOCTYPES else ()
 
@@ -232,8 +234,10 @@ def evaluate(product, channel="cms"):
 		raise ValueError("Unknown product channel")
 	if isinstance(product, str):
 		product = frappe.get_doc("ilL-Webflow-Product", product)
+	if not isinstance(product, Listing):
+		product = Listing(product)
 	projection = project_product(product.as_dict())
-	dependencies, issues = dependency_manifest(product)
+	dependencies, issues = dependency_manifest(product.source)
 
 	def issue(record, field, message):
 		issues.append({"record": record, "field": field, "message": message})

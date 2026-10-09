@@ -99,7 +99,10 @@ def _same(left, right):
 
 
 def _rows(rows):
-	return [{key: value for key, value in row.items() if key not in ROW_META} for row in rows or []]
+	return [
+		{key: value for key, value in row.items() if key not in ROW_META and not key.startswith("__")}
+		for row in rows or []
+	]
 
 
 def template_link(listing):
