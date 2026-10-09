@@ -2,7 +2,7 @@
 (function () {
     'use strict';
     const api = 'illumenate_lighting.illumenate_lighting.portal.';
-    function dialog(title, fields, send) {
+    function dialog(title, fields, send, submitLabel) {
         const previousFocus = document.activeElement;
         const modal = document.createElement('dialog');
         const form = document.createElement('form');
@@ -23,7 +23,7 @@
         }
         const result = document.createElement('p'); result.setAttribute('role', 'status');
         const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-secondary mr-2'; cancel.textContent = __('Cancel'); cancel.onclick = () => modal.close();
-        const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'btn btn-primary'; submit.textContent = __('Submit request');
+        const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'btn btn-primary'; submit.textContent = submitLabel || __('Submit request');
         form.append(result, cancel, submit); modal.append(form); document.body.append(modal);
         modal.addEventListener('close', () => { modal.remove(); if (previousFocus?.isConnected) previousFocus.focus(); });
         const key = crypto.randomUUID(); let sending = false;
@@ -62,7 +62,7 @@
         },
         withdraw(order, revision) {
             return dialog(__('Withdraw pending order request'), [{name: 'note', type: 'textarea', label: __('Reason for withdrawal'), required: true}],
-                values => PortalUploads.call(api + 'order_review.withdraw', {order_name: order, revision_hash: revision, note: values.note}));
+                values => PortalUploads.call(api + 'order_review.withdraw', {order_name: order, revision_hash: revision, note: values.note}), __('Withdraw request'));
         }
     };
     document.addEventListener('click', event => {

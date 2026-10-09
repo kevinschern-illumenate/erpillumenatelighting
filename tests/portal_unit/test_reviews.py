@@ -146,6 +146,62 @@ class OrderApproval(unittest.TestCase):
 			):
 				module.before_submit(submitted)
 
+	def test_review_decision_is_posted_in_the_order_conversation(self):
+		conversations = types.ModuleType(ROOT + ".portal.conversations")
+		conversations.post = MagicMock()
+		deps = {**self.dependencies(), conversations.__name__: conversations}
+		with load_service(ROOT + ".portal.order_review", deps) as (module, _frappe):
+			request = Record(state="CHANGES_PROPOSED", decisions=[Record(), Record()])
+			module._post_decision(request, "Revised the driver to 96W")
+			conversations.post.assert_called_once_with(
+				request, "Revised the driver to 96W", key="CHANGES_PROPOSED:2", notify=False
+			)
+
+	def test_next_step_says_who_acts_on_a_request(self):
+		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, _frappe):
+			order = Record(docstatus=0, ill_confirmed_delivery_date=None)
+			request = Record(state="UNDER_REVIEW", intake_json=None)
+			cases = [
+				({}, {}, False, True, "Complete the PO"),
+				({}, {"intake_json": "{}", "state": "INFORMATION_NEEDED"}, False, True, "more information"),
+				({}, {"intake_json": "{}"}, False, False, "will confirm a delivery date"),
+				(
+					{"ill_confirmed_delivery_date": "2026-11-01"},
+					{"intake_json": "{}"},
+					False,
+					True,
+					"acknowledge",
+				),
+				(
+					{"ill_confirmed_delivery_date": "2026-11-01"},
+					{"intake_json": "{}"},
+					True,
+					False,
+					"approve the order next",
+				),
+				({"docstatus": 1}, {}, True, False, "Approved"),
+				({}, {"state": "REJECTED"}, False, True, "replacement draft"),
+			]
+			for order_values, request_values, acknowledged, buyer, text in cases:
+				step = module.next_step(
+					Record(order, **order_values), Record(request, **request_values), acknowledged
+				)
+				self.assertEqual(step["buyer"], buyer, text)
+				self.assertIn(text, step["text"])
+
+	def test_buyer_po_edit_keeps_a_normalized_acknowledgment(self):
+		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, frappe):
+			stored, _submitted = self.desk_submit_pair(module)
+			request = self.acknowledged_request(module, stored)
+			request.save = MagicMock()
+			previous = module.revision_hashes(stored)
+			stored.po_no = "PO-2"
+			frappe.db.get_value.return_value = "INTAKE1"
+			frappe.get_doc.return_value = request
+			module.record_buyer_po_edit(stored, previous, "buyer@example.com")
+			self.assertTrue(module._acknowledged(request, stored))
+			self.assertEqual(request.decisions[-1]["action"], "PO_UPDATED")
+
 	def test_role_without_erp_submit_permission_cannot_approve(self):
 		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, frappe):
 			frappe.get_roles.return_value = [module.APPROVER_ROLE]

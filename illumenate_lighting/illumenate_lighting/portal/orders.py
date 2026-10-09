@@ -228,7 +228,7 @@ def list_orders(user=None, *, page=None, page_size=20, search=None, status=None)
 		filters["customer"] = actor.customer
 
 	states = {
-		"all": {}, "requests": {"docstatus": 0},
+		"all": {}, "action": {"docstatus": 0}, "requests": {"docstatus": 0},
 		"active": {"docstatus": 1, "per_delivered": ["<", 100]},
 		"shipping": {"docstatus": 1, "per_delivered": ["between", [0.000001, 99.999999]]},
 		"fulfilled": {"docstatus": 1, "per_delivered": [">=", 100]},
@@ -237,6 +237,12 @@ def list_orders(user=None, *, page=None, page_size=20, search=None, status=None)
 	if (status or "all") not in states:
 		frappe.throw("Choose a supported order filter")
 	filters.update(states[status or "all"])
+	from illumenate_lighting.illumenate_lighting.portal.order_review import buyer_actions
+
+	if status == "action":
+		# Pending requests per company are few; decide each one exactly.
+		drafts = frappe.get_list("Sales Order", filters=filters, user=actor.user, pluck="name", limit_page_length=200)
+		filters["name"] = ["in", sorted(buyer_actions(drafts)) or [""]]
 	query = str(search or "").strip()[:140]
 	options = {"filters": filters, "user": actor.user, "limit_page_length": 0}
 	if query:
@@ -279,9 +285,11 @@ def list_orders(user=None, *, page=None, page_size=20, search=None, status=None)
 		by_order.setdefault(line.parent, []).append(line)
 	intakes = frappe.get_all("ilL-Order-Intake", filters={"sales_order": ["in", [o.name for o in orders]]}, fields=["sales_order", "state"]) if orders else []
 	intake_states = {row.sales_order: row.state for row in intakes}
+	waiting = buyer_actions([o.name for o in orders if o.docstatus == 0 and o.name in intake_states])
 	for order in orders:
 		_decorate(order, work_orders.get(order.name, []), by_order.get(order.name, []))
 		_apply_intake_state(order, intake_states.get(order.name))
+		order["needs_action"] = order.name in waiting
 	return orders
 
 
@@ -500,12 +508,14 @@ def set_order_request_po_number(order_name, po_no, user=None):
 	if po_no == (order.po_no or ""):
 		return order
 
-	from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
-	from illumenate_lighting.illumenate_lighting.portal.order_review import record_buyer_po_edit, snapshot
+	from illumenate_lighting.illumenate_lighting.portal.order_review import (
+		record_buyer_po_edit,
+		revision_hashes,
+	)
 
-	previous_hash = fingerprint(snapshot(order))
+	previous_hashes = revision_hashes(order)
 	order.db_set("po_no", po_no or None)
-	record_buyer_po_edit(order, previous_hash, actor.user)
+	record_buyer_po_edit(order, previous_hashes, actor.user)
 	order.add_comment("Info", _("PO number set to {0} from the portal").format(po_no or _("(blank)")))
 	return order
 

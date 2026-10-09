@@ -147,6 +147,77 @@ class IssuedOfferGuards(unittest.TestCase):
 			self.assertTrue(result["already_existed"])
 			current.assert_not_called()
 
+	def test_buyer_response_note_joins_the_conversation_sales_reads(self):
+		conversations = types.ModuleType(ROOT + ".portal.conversations")
+		conversations.post = MagicMock()
+		deps = {**self.dependencies(), conversations.__name__: conversations}
+		with load_service(ROOT + ".portal.offers", deps) as (module, frappe):
+			request = Record(doctype="ilL-Quote-Request", name="QR1")
+			offer = Record(name="OFFER1", response_note="Lower the lens cost", sales_order=None)
+			module._post_response(offer, request, "REQUEST_REVISION")
+			conversations.post.assert_called_once_with(
+				request, "Requested a revision of offer OFFER1: Lower the lens cost", key="offer:OFFER1"
+			)
+			intake = Record(doctype="ilL-Order-Intake", name="INTAKE1")
+			frappe.get_doc.return_value = intake
+			offer.update(sales_order="SO1", response_note="Ship to site B")
+			module._post_response(offer, request, "ACCEPT")
+			conversations.post.assert_called_with(
+				intake, "Accepted offer OFFER1: Ship to site B", key="offer:OFFER1"
+			)
+			conversations.post.reset_mock()
+			offer.update(response_note="")
+			module._post_response(offer, request, "ACCEPT")
+			conversations.post.assert_not_called()
+
+	def test_offer_list_filters_and_describes_each_quote(self):
+		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, frappe):
+			frappe.has_permission.return_value = False
+			module.get_actor.return_value.update(is_dealer=True, customer="DEALER-A")
+			rows = [
+				Record(
+					name="OFFER2",
+					quotation="Q2",
+					customer="DEALER-A",
+					schedule="S1",
+					state="ISSUED",
+					valid_until="2026-01-01",
+				),
+				Record(
+					name="OFFER1",
+					quotation="Q1",
+					customer="DEALER-A",
+					schedule="S1",
+					state="ACCEPTED",
+					valid_until=None,
+				),
+			]
+
+			def get_all(doctype, **kwargs):
+				return {
+					module.DOCTYPE: rows,
+					"Quotation": [Record(name="Q2", grand_total=500.0, currency="USD")],
+					module.SCHEDULE: [Record(name="S1", schedule_name="Level 1", ill_project="P1")],
+					"ilL-Project": [("P1", "Lobby")],
+				}[doctype]
+
+			frappe.get_all.side_effect = get_all
+			with (
+				patch.object(module, "can_read", return_value=True),
+				patch.object(module, "nowdate", return_value="2026-10-09"),
+			):
+				listed = module.list_offers(status="expired", search="Q2")["offers"]
+				offer_call = next(c for c in frappe.get_all.call_args_list if c.args[0] == module.DOCTYPE)
+				self.assertEqual(offer_call.kwargs["filters"]["valid_until"], ["<", "2026-10-09"])
+				self.assertEqual(offer_call.kwargs["filters"]["customer"], "DEALER-A")
+				self.assertIn("quotation", offer_call.kwargs["or_filters"])
+				self.assertEqual(
+					[(o.status_label, o.grand_total, o.project_name, o.schedule_name) for o in listed],
+					[("Expired", 500.0, "Lobby", "Level 1"), ("Accepted", None, "Lobby", "Level 1")],
+				)
+				with self.assertRaises(ValueError):
+					module.list_offers(status="everything")
+
 	def test_acceptance_with_changed_client_hash_is_rejected(self):
 		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, _frappe):
 			with (

@@ -52,7 +52,7 @@
    "fieldtype": "Select",
    "label": "Action",
    "read_only": 1,
-   "options": "REPLY\nREQUEST_INFO\nRESOLVE\nREOPEN",
+   "options": "REPLY\nREQUEST_INFO\nRESOLVE\nREOPEN\nDECISION",
    "reqd": 1
   },
   {

@@ -207,7 +207,7 @@ View and track sales orders with production and shipment status
         <input id="order-search" class="form-control" type="search" name="search" value="{{ search | default('', true) | e }}" maxlength="140">
         <label for="order-status">{{ _("Status") }}</label>
         <select id="order-status" name="status" class="form-control">
-        {% for key, label in [('all','All orders'),('requests','Order requests'),('active','Approved / in progress'),('shipping','Partially shipped'),('fulfilled','Fulfilled'),('cancelled','Cancelled')] %}
+        {% for key, label in [('all','All orders'),('action','Needs your action'),('requests','Order requests'),('active','Approved / in progress'),('shipping','Partially shipped'),('fulfilled','Fulfilled'),('cancelled','Cancelled')] %}
         <option value="{{ key }}" {% if filter == key %}selected{% endif %}>{{ _(label) }}</option>
         {% endfor %}</select><button class="btn btn-primary mt-2" type="submit">{{ _("Find orders") }}</button>
     </form>
@@ -220,8 +220,11 @@ View and track sales orders with production and shipment status
 				<a href="/portal/orders/{{ order.name }}" class="order-id">
 					<i class="fa fa-file-text-o"></i> {{ order.name }}
 				</a>
+				<span>
+				{% if order.needs_action %}<span class="badge badge-warning mr-1">{{ _("Needs your action") }}</span>{% endif %}
 				<span class="badge badge-{{ order.portal_status_class }}" title="{{ order.erp_status }}">
 					{{ order.portal_status_label }}
+				</span>
 				</span>
 			</div>
 			<div class="order-body">
@@ -283,8 +286,13 @@ View and track sales orders with production and shipment status
 		{% else %}
 		<div class="empty-state">
 			<i class="fa fa-shopping-cart"></i>
+			{% if search or filter != 'all' %}
+			<h4>{{ _("No orders match") }}</h4>
+			<p>{{ _("Try another search or status.") }} <a href="/portal/orders">{{ _("Show all orders") }}</a></p>
+			{% else %}
 			<h4>{{ _("No orders yet") }}</h4>
 			<p>{{ _("When you place orders, they will appear here for tracking.") }}</p>
+			{% endif %}
 			<a href="/portal/projects" class="btn btn-primary btn-sm mt-3">
 				<i class="fa fa-plus"></i> {{ _("Start a Project") }}
 			</a>

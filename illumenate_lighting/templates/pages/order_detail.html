@@ -257,7 +257,9 @@ Detailed view of a single sales order with tracking and items
 	{% if intake %}
 	<section class="card p-3 mb-4" aria-labelledby="intake-heading">
 		<h2 id="intake-heading" class="h5">{{ _("Order review") }}: {{ intake.state.replace('_', ' ').title() | e }}</h2>
-		{% if intake.message %}<p style="white-space: pre-wrap">{{ intake.message | e }}</p>{% endif %}
+		{% if intake.next_step %}<div class="alert {{ 'alert-warning' if intake.next_step.buyer else 'alert-info' }} mb-3" role="status"><strong>{{ _("Next step") }}:</strong> {{ _(intake.next_step.text) }}</div>{% endif %}
+		{% if intake.acknowledged and intake.acknowledged_on and not order.docstatus %}<p class="text-muted small">{{ _("You acknowledged the current revision on {0}.").format(frappe.utils.format_date(intake.acknowledged_on)) }}</p>{% endif %}
+		{% if intake.message %}<p class="mb-2"><a href="#order-conversation">{{ _("Read the latest message from ilLumenate in the conversation below.") }}</a></p>{% endif %}
 		{% if intake.needs_intake %}
         <p>{{ _("Complete the order's address, contact and PO intake before review can finish.") }}</p>
         <button type="button" class="btn btn-primary" id="complete-intake" data-order="{{ order.name | e }}">{{ _("Complete intake") }}</button>
@@ -360,6 +362,15 @@ Detailed view of a single sales order with tracking and items
 				</p>
 				{% endif %}
 			</div>
+
+			{% if intake %}
+			<!-- Conversation: decisions, buyer replies and staff replies in one place -->
+			<section class="sidebar-card mb-4" id="order-conversation" aria-labelledby="order-conversation-heading">
+				<h2 class="h5" id="order-conversation-heading">{{ _("Conversation with ilLumenate") }}</h2>
+				<p class="text-muted small">{{ _("Review decisions, questions and your replies about this order, oldest first.") }}</p>
+				<div data-portal-conversation data-parent-type="ilL-Order-Intake" data-parent-name="{{ intake.name | e }}"></div>
+			</section>
+			{% endif %}
 
 			<!-- Order Items -->
 			<div class="items-card">
@@ -467,7 +478,6 @@ Detailed view of a single sales order with tracking and items
 			{% for file in intake_files %}<a class="d-block" href="{{ file.file_url | e }}">{{ file.file_name | e }}</a>{% endfor %}
 			{% if intake.can_withdraw %}<button class="btn btn-outline-danger mb-3" data-order-action="Withdraw" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Withdraw pending request") }}</button>{% endif %}
 			{% if intake.can_replace %}<button class="btn btn-outline-primary mb-3" data-order-action="Replacement" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Prepare replacement draft") }}</button>{% endif %}
-			<div data-portal-conversation data-parent-type="ilL-Order-Intake" data-parent-name="{{ intake.name | e }}"></div>
 			</div>{% endif %}
 			{% if actions.can_request_change %}
 			<div class="sidebar-card"><h2 class="h5">{{ _("Order follow-up") }}</h2>
