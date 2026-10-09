@@ -91,3 +91,36 @@ def get_catalog_for_desktop():
 
 	require_capability("engineering")
 	return catalog.catalog_response(catalog.current_snapshot_hash())
+
+
+# --- Opening a schedule (WP-2.3, H6) -------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def open_design(schedule=None, design=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.open_design(schedule, design)
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def find_schedules(query=None, limit=20):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.find_schedules(query, limit)
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def review_requirement(schedule=None):
+	from illumenate_lighting.illumenate_lighting.system_design import access, catalog, expansion, gate
+	from illumenate_lighting.illumenate_lighting.system_design.settings import settings
+
+	doc = access.require_read(schedule)
+	values = settings()
+	if not gate.gate_enabled(values):
+		return gate.review_requirement([], {}, values)
+	lines, builds, _readiness = expansion.expand_schedule(doc, {})
+	return gate.review_requirement(lines, builds, values)

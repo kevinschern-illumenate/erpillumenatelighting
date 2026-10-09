@@ -1,0 +1,406 @@
+{
+  "builds": {
+    "ilL-Configured-Fixture": {
+      "ILL-CF-LINEAR": {
+        "allocations": [
+          {
+            "itemCode": "TEST-PSU-96",
+            "output": 1,
+            "runKey": "1",
+            "supply": 1
+          },
+          {
+            "itemCode": "TEST-PSU-96",
+            "output": 2,
+            "runKey": "2",
+            "supply": 1
+          }
+        ],
+        "catalogId": "tape:TEST-TAPE-24:4.4:50",
+        "configHash": "hash-linear",
+        "doctype": "ilL-Configured-Fixture",
+        "environment": "dry-concealed",
+        "environmentRating": "Dry",
+        "family": "linear",
+        "issues": [],
+        "maxRunFtEffective": 16.0,
+        "name": "ILL-CF-LINEAR",
+        "offering": "TEST-TAPE-24-3000K-STD",
+        "runs": [
+          {
+            "feedMethod": "end",
+            "lengthFt": 6.0,
+            "runIndex": 1,
+            "watts": 26.4
+          },
+          {
+            "feedMethod": "end",
+            "lengthFt": 6.0,
+            "runIndex": 2,
+            "watts": 26.4
+          }
+        ],
+        "totalWatts": 52.8
+      },
+      "ILL-CF-WET": {
+        "allocations": [],
+        "catalogId": "tape:TEST-TAPE-24:6.2:100",
+        "configHash": "hash-wet",
+        "doctype": "ilL-Configured-Fixture",
+        "environment": "wet",
+        "environmentRating": "Damp",
+        "family": "linear",
+        "issues": [],
+        "maxRunFtEffective": 10.0,
+        "name": "ILL-CF-WET",
+        "offering": "TEST-TAPE-24-3000K-HO",
+        "runs": [
+          {
+            "feedMethod": "center",
+            "lengthFt": 5.0,
+            "runIndex": 1,
+            "watts": 31.0
+          }
+        ],
+        "totalWatts": 31.0
+      }
+    },
+    "ilL-Configured-Group": {
+      "ILL-CG-00001": {
+        "allocations": [
+          {
+            "itemCode": "TEST-PSU-60",
+            "output": 1,
+            "runKey": "1",
+            "supply": 1
+          },
+          {
+            "itemCode": "TEST-PSU-60",
+            "output": 2,
+            "runKey": "2",
+            "supply": 1
+          }
+        ],
+        "catalogId": "tape:TEST-TAPE-24:4.4:50",
+        "configHash": "hash-group",
+        "doctype": "ilL-Configured-Group",
+        "environment": null,
+        "environmentRating": "Mystery",
+        "family": "group",
+        "issues": [],
+        "maxRunFtEffective": null,
+        "name": "ILL-CG-00001",
+        "offering": "TEST-TAPE-24-3000K-STD",
+        "protocols": [
+          "0-10V"
+        ],
+        "runs": [
+          {
+            "feedMethod": "end",
+            "lengthFt": 3.0,
+            "runIndex": 1,
+            "watts": 13.2
+          },
+          {
+            "feedMethod": "end",
+            "lengthFt": 6.0,
+            "runIndex": 2,
+            "watts": 26.4
+          }
+        ],
+        "totalWatts": 39.6
+      }
+    },
+    "ilL-Configured-LED-Sheet": {
+      "ILL-CLS-00001": {
+        "allocations": [
+          {
+            "itemCode": "TEST-PSU-96",
+            "output": 1,
+            "runKey": "1",
+            "supply": 1
+          },
+          {
+            "itemCode": "TEST-PSU-96",
+            "output": 2,
+            "runKey": "2",
+            "supply": 1
+          }
+        ],
+        "catalogId": "sheet:TEST-SHEET",
+        "configHash": "hash-sheet",
+        "doctype": "ilL-Configured-LED-Sheet",
+        "environment": "dry-concealed",
+        "environmentRating": "Dry",
+        "family": "sheet",
+        "issues": [],
+        "maxRunFtEffective": null,
+        "name": "ILL-CLS-00001",
+        "offering": null,
+        "runs": [
+          {
+            "feedMethod": "end",
+            "lengthFt": null,
+            "runIndex": 1,
+            "watts": 50.0
+          },
+          {
+            "feedMethod": "end",
+            "lengthFt": null,
+            "runIndex": 2,
+            "watts": 40.0
+          }
+        ],
+        "totalWatts": 90.0
+      }
+    },
+    "ilL-Configured-Tape-Neon": {
+      "ILL-CTN-00001": {
+        "allocations": [],
+        "catalogId": "tape:TEST-TAPE-24:4.4:50",
+        "configHash": "hash-tape",
+        "doctype": "ilL-Configured-Tape-Neon",
+        "environment": "wet",
+        "environmentRating": "Wet",
+        "family": "tape",
+        "issues": [],
+        "maxRunFtEffective": 16.0,
+        "name": "ILL-CTN-00001",
+        "offering": "TEST-TAPE-24-3000K-STD",
+        "protocols": [
+          "DMX512"
+        ],
+        "runs": [
+          {
+            "feedMethod": "end",
+            "lengthFt": 4.9213,
+            "runIndex": 1,
+            "watts": 21.6
+          },
+          {
+            "feedMethod": "end",
+            "lengthFt": 9.8425,
+            "runIndex": 2,
+            "watts": 43.3
+          }
+        ],
+        "totalWatts": 64.9
+      }
+    }
+  },
+  "lines": [
+    {
+      "accessoryItem": null,
+      "configured": {
+        "doctype": "ilL-Configured-Fixture",
+        "name": "ILL-CF-LINEAR"
+      },
+      "designLineRole": null,
+      "idx": 1,
+      "key": "a1linear",
+      "kind": "configured",
+      "lineId": "A1",
+      "lineKey": "a1linear",
+      "location": "Kitchen",
+      "powerSupplyForLine": null,
+      "productType": "Linear Fixture",
+      "qty": 2,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": null,
+      "configured": {
+        "doctype": "ilL-Configured-Tape-Neon",
+        "name": "ILL-CTN-00001"
+      },
+      "designLineRole": null,
+      "idx": 2,
+      "key": "b1tape",
+      "kind": "configured",
+      "lineId": "B1",
+      "lineKey": "b1tape",
+      "location": "Kitchen",
+      "powerSupplyForLine": null,
+      "productType": "LED Tape",
+      "qty": 1,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": null,
+      "configured": {
+        "doctype": "ilL-Configured-LED-Sheet",
+        "name": "ILL-CLS-00001"
+      },
+      "designLineRole": null,
+      "idx": 3,
+      "key": "c1sheet",
+      "kind": "configured",
+      "lineId": "C1",
+      "lineKey": "c1sheet",
+      "location": "Living Room",
+      "powerSupplyForLine": null,
+      "productType": "LED Sheet",
+      "qty": 1,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": null,
+      "configured": {
+        "doctype": "ilL-Configured-Group",
+        "name": "ILL-CG-00001"
+      },
+      "designLineRole": null,
+      "idx": 4,
+      "key": "d1group",
+      "kind": "configured",
+      "lineId": "D1",
+      "lineKey": "d1group",
+      "location": "Living Room",
+      "powerSupplyForLine": null,
+      "productType": "LED Tape",
+      "qty": 1,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": null,
+      "configured": null,
+      "designLineRole": null,
+      "idx": 5,
+      "key": "e1other",
+      "kind": "third-party",
+      "lineId": "E1",
+      "lineKey": "e1other",
+      "location": "Hall",
+      "powerSupplyForLine": null,
+      "productType": null,
+      "qty": 6,
+      "thirdParty": {
+        "dimming": "phase-forward",
+        "dimmingName": "TRIAC",
+        "drive": "Integral Driver",
+        "inputVoltageV": 120.0,
+        "mA": null,
+        "manufacturer": "Other Co",
+        "model": "DL-4",
+        "voltageClass": "Line Voltage",
+        "wattsEach": 12.0
+      }
+    },
+    {
+      "accessoryItem": null,
+      "configured": null,
+      "designLineRole": null,
+      "idx": 6,
+      "key": "f1other",
+      "kind": "third-party",
+      "lineId": "F1",
+      "lineKey": "f1other",
+      "location": "Hall",
+      "powerSupplyForLine": null,
+      "productType": null,
+      "qty": 1,
+      "thirdParty": {
+        "dimming": null,
+        "dimmingName": null,
+        "drive": null,
+        "inputVoltageV": null,
+        "mA": null,
+        "manufacturer": null,
+        "model": null,
+        "voltageClass": null,
+        "wattsEach": null
+      }
+    },
+    {
+      "accessoryItem": null,
+      "configured": {
+        "doctype": "ilL-Configured-Fixture",
+        "name": "ILL-CF-WET"
+      },
+      "designLineRole": null,
+      "idx": 7,
+      "key": "G1-7",
+      "kind": "configured",
+      "lineId": "G1",
+      "lineKey": null,
+      "location": "",
+      "powerSupplyForLine": null,
+      "productType": "Linear Fixture",
+      "qty": 1,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": "TEST-PSU-96",
+      "configured": null,
+      "designLineRole": null,
+      "idx": 8,
+      "key": "h1acc",
+      "kind": "accessory",
+      "lineId": "H1",
+      "lineKey": "h1acc",
+      "location": "Kitchen",
+      "powerSupplyForLine": "a1linear",
+      "productType": null,
+      "qty": 2,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": null,
+      "configured": null,
+      "designLineRole": null,
+      "idx": 9,
+      "key": "i1new",
+      "kind": "unconfigured",
+      "lineId": "I1",
+      "lineKey": "i1new",
+      "location": "Kitchen",
+      "powerSupplyForLine": null,
+      "productType": "Linear Fixture",
+      "qty": 1,
+      "thirdParty": null
+    },
+    {
+      "accessoryItem": "TEST-WIRE-18-2",
+      "configured": null,
+      "designLineRole": "Wire",
+      "idx": 10,
+      "key": "j1wire",
+      "kind": "writeback",
+      "lineId": "WIRE1",
+      "lineKey": "j1wire",
+      "location": "Field wire",
+      "powerSupplyForLine": null,
+      "productType": null,
+      "qty": 3,
+      "thirdParty": null
+    }
+  ],
+  "readiness": {
+    "catalog_gaps": [
+      {
+        "catalogId": "sheet:TEST-SHEET",
+        "key": "c1sheet",
+        "reason": "This product is not in the design catalog yet"
+      }
+    ],
+    "missing_line_keys": [
+      "G1-7"
+    ],
+    "needs_data": [
+      {
+        "key": "f1other",
+        "reason": "Enter the watts for this fixture"
+      }
+    ],
+    "ready": [
+      "a1linear",
+      "b1tape",
+      "d1group",
+      "e1other",
+      "G1-7"
+    ],
+    "unconfigured": [
+      "i1new"
+    ]
+  }
+}

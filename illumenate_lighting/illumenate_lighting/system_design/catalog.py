@@ -119,17 +119,24 @@ def catalog_item(item_id, sku, item_code, category, kind, specs, check, item, so
 # --- Tape (A.1) --------------------------------------------------------------------------------
 
 
+def tape_group(spec, offering):
+	"""Effective ``(W/ft, cut mm)`` of one offering; cut is ``None`` for free-cutting tape."""
+	watts = _num(offering.get("watts_per_ft_override")) or _num(spec.get("watts_per_foot"))
+	cut = (
+		None
+		if spec.get("is_free_cutting")
+		else _num(offering.get("cut_increment_mm_override")) or _num(spec.get("cut_increment_mm"))
+	)
+	return watts, cut
+
+
+def tape_item_id(spec_name, watts, cut_mm):
+	return f"tape:{spec_name}:{_label(watts or 0)}:{'free' if cut_mm is None else _label(cut_mm)}"
+
+
 def tape_groups(spec, offerings):
 	"""Group active offerings by effective W/ft and cut increment: ``[(w, cut_mm), ...]`` sorted."""
-	groups = set()
-	for offering in offerings:
-		watts = _num(offering.get("watts_per_ft_override")) or _num(spec.get("watts_per_foot"))
-		cut = (
-			None
-			if spec.get("is_free_cutting")
-			else _num(offering.get("cut_increment_mm_override")) or _num(spec.get("cut_increment_mm"))
-		)
-		groups.add((watts, cut))
+	groups = {tape_group(spec, offering) for offering in offerings}
 	return sorted(groups, key=lambda group: (group[0] or 0, group[1] or 0))
 
 
@@ -182,7 +189,7 @@ def tape_items(spec, offerings, context, items):
 		check_group = check
 		if not watts and "watts_per_foot" not in check["missing"]:
 			check_group = {**check, "missing": [*check["missing"], "watts_per_foot"]}
-		item_id = f"tape:{spec['name']}:{_label(watts or 0)}:{'free' if cut_mm is None else _label(cut_mm)}"
+		item_id = tape_item_id(spec["name"], watts, cut_mm)
 		sku = spec["item"]
 		if len(groups) > 1:
 			sku = f"{sku} {_label(watts or 0)} W/ft" + ("" if cut_mm is None else f" {_label(cut_mm)} mm cut")

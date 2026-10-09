@@ -20,6 +20,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-1.7 | Design readiness report | Done |
 | WP-2.2 | Schema package and JSON Schema export | Done |
 | WP-2.1 | Design Catalog adapter and snapshots | Done |
+| WP-2.3 | Open design: schedule lines, builds, readiness, review requirement | Done (gate approval in WP-4.4) |
 
 ## WP-0.1 — Portal access audit
 
@@ -223,3 +224,32 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     negative resistance, ampacity, impedance and diameter.
   - Snapshots built while serving a GET request are committed explicitly (Frappe does not commit GETs).
   - `ENGINE_CONTRACT_VERSION = "catalog-1"`, `CODE_TABLES_VERSION = "nec-2023-1"` until WP-3 owns them.
+
+## WP-2.3 — Open design
+
+- `system_design/expansion.py` turns a schedule into `lines` (camelCase, one per schedule line with its
+  `kind`: configured, third-party, accessory, unconfigured or writeback), `builds` (per configured doc:
+  runs, allocations, catalogId, environment, protocols, issues) and a `readiness` summary (ready,
+  needs_data, unconfigured, catalog_gaps, missing_line_keys). Builders cover Configured Fixture,
+  Configured Tape/Neon, LED Sheet and Configured Group; docs load in bulk.
+- `system_design/gate.py` answers the D4 review requirement. It is off unless the Settings switch and the
+  `ill_system_design_review_gate` site flag are both on. Reasons: total load over the threshold, DMX,
+  phase dimming.
+- Endpoints (GET, designer flag required): `open_design(schedule, design?)`, `find_schedules(query,
+  limit)` and `review_requirement(schedule)`.
+- TypeScript: `core-schemas/src/open-design.ts` parses the payload; `engine/src/expand.ts` expands lines
+  and builds into spaces and runs (`{key}:{copy}:{runIndex}`; a line with qty at or above the group
+  threshold gets one group id).
+- Parity: `fixtures/open-design/erp-records.json` builds the committed `expected.json`; Python checks it
+  and Vitest expands it.
+- Discrepancies and choices:
+  - Feed method: tape and neon are end-fed; linear fixtures map Middle to center and end-fed
+    `feed_direction` to double-end, otherwise end.
+  - LED sheets have no engine product yet, so they report a catalog gap (`sheet:{spec}`).
+  - A group takes its catalogId from its members and has no environment of its own; the space
+    environment applies. Unknown environment values also fall back to the space environment.
+  - Spaces come from line locations (`space-{slug}`, or `unassigned`).
+  - A line with no `line_key` gets `{line_id}-{idx}` and is listed in `missing_line_keys`.
+  - A required review always reports `satisfied: false`; approval and overrides land in WP-4.4.
+  - `has_design` in `find_schedules` and the `design` argument of `open_design` wait for the
+    `ilL-System-Design` doctype (WP-2.4); a design argument returns `NOT_FOUND` until then.
