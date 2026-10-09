@@ -643,3 +643,44 @@
 	border: 1px solid var(--ill-border);
 	background: #fff;
 }
+
+.ill-sd__grid {
+	width: 100%;
+	min-width: 0;
+	margin-top: 8px;
+}
+.ill-sd__picker {
+	width: 360px;
+	max-width: 90vw;
+	padding: 10px;
+	border: 1px solid var(--ill-border);
+	background: var(--ill-surface);
+	border-radius: 6px;
+	box-shadow: 0 8px 30px #0002;
+}
+.ill-sd__picker > input {
+	width: 100%;
+	margin-bottom: 8px;
+}
+.ill-sd__picker [role='listbox'] {
+	max-height: 250px;
+	overflow: auto;
+}
+.ill-sd__picker button {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 8px;
+	font-size: 12px;
+	border: 0;
+	background: transparent;
+}
+.ill-sd__picker button:hover,
+.ill-sd__picker button[aria-selected='true'] {
+	background: var(--ill-border);
+}
+.ill-sd__settings {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 12px;
+}

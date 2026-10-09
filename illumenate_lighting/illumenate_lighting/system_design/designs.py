@@ -82,6 +82,8 @@ def permissions(doc):
 		"can_edit": bool(can_edit_schedule(doc) and not doc.get("is_locked")),
 		"can_review": bool(allowed("design_review")),
 		"can_view_pricing": "Can View Pricing" in frappe.get_roles(),
+		# Engineering mode is always on for ilLumenate engineering staff (plan §7, WP-3.8).
+		"can_engineer": bool(allowed("engineering") or allowed("design_review")),
 	}
 
 

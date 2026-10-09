@@ -556,3 +556,27 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     panel/circuit table is part of the equipment schedule's feed column.
   - The DXF ZIP has no dealer logo (no raster in DXF); PDF and SVG do.
   - The default sheet is Tabloid; Letter suits small systems.
+
+## WP-3.8 — Engineering mode
+
+- Access: always on for ilLumenate staff (new `permissions.can_engineer`: the `engineering` or
+  `design_review` capability), who open in Engineering mode. Dealers turn it on with "Engineering
+  tools" in the header; the choice is kept in the browser (`ill-sd:engineering-opt-in`).
+- Engineering mode shows the steps as tabs plus a Grids tab (`app/src/engineering/EngineeringTab.tsx`,
+  loaded on demand with AG Grid, the riser's grid):
+  - Circuits, Equipment and Control links edit `design.project` through the design store, so undo,
+    drafts and the checks work as on the guided steps. Each edit is checked against the project schema
+    (`app/src/engineering/grids.ts`); tags stay unique; removing supplies or circuits uses the guided
+    helpers, which release runs and cabinets, and drops control links to removed equipment.
+  - Loads are read-only: they come from the runs (change them on the Runs step).
+  - A QA column shows each row's engine messages.
+  - Settings: NEC edition, units, drawing font, schedules on the riser, riser flow, wire waste and DMX
+    patch rounding for everyone; operating target, continuous load factor, breaker limit, tape margin,
+    termination rating, smallest line-voltage wire, VD methods and DMX/SPI limits for staff only.
+    Voltage-drop targets stay on the Check step (Settings limits, D5).
+- Tests: `grids.test.ts`, `EngineeringTab.test.tsx`, App opt-in and staff tests, and an e2e test that
+  edits equipment in the grid of the committed bundle.
+- Discrepancies and choices:
+  - Settings that make a design less conservative are staff-only; the plan says "all settings" for
+    engineering mode without separating dealers and staff.
+  - Riser layout pins are edited on the drawing, which the designer does not show interactively yet.

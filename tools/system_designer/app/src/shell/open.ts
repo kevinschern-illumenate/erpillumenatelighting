@@ -54,7 +54,13 @@ export const OpenDesignSchema = z.object({
     reasons: z.array(ReasonSchema),
     satisfied: z.boolean(),
   }),
-  permissions: z.object({ can_edit: z.boolean(), can_review: z.boolean(), can_view_pricing: z.boolean() }),
+  permissions: z.object({
+    can_edit: z.boolean(),
+    can_review: z.boolean(),
+    can_view_pricing: z.boolean(),
+    /** ilLumenate engineering or Applications Engineer staff: engineering mode is always on. */
+    can_engineer: z.boolean().default(false),
+  }),
   settings: z.record(z.string(), z.unknown()),
   newer_version: z.object({ name: z.string(), version: z.number() }).nullish(),
   /** The signed-in user, recorded on acknowledgements and overrides. */

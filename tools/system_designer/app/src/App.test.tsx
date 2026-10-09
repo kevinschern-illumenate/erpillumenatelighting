@@ -167,10 +167,26 @@ describe('designer shell', () => {
     await click(button('Continue'));
     expect(el.querySelector('main h2')?.textContent).toBe('Spaces');
     expect(el.querySelector('[aria-current="step"]')?.textContent).toBe('2Spaces');
-    await click(button('Engineering'));
+    // Dealers turn engineering mode on; the choice is kept in this browser.
+    expect(button('Engineering')).toBeUndefined();
+    const optIn = [...el.querySelectorAll('label')].find((node) => node.textContent === 'Engineering tools')!;
+    await click(optIn.querySelector('input') ?? undefined);
+    expect(localStorage.getItem('ill-sd:engineering-opt-in')).toBe('1');
     expect(el.querySelector('nav')?.getAttribute('aria-label')).toBe('Design tabs');
     expect(button('Continue')).toBeUndefined();
     expect(el.querySelector('[aria-current="step"]')?.textContent).toBe('Spaces');
+    expect(button('Grids')).toBeDefined();
+    await click(button('Guided'));
+    expect(button('Grids')).toBeUndefined();
+    localStorage.removeItem('ill-sd:engineering-opt-in');
+  });
+
+  it('opens in engineering mode for ilLumenate staff', async () => {
+    const open = openFixture({ design_meta: null });
+    await render(apiFor({ ...open, permissions: { ...open.permissions, can_engineer: true } }));
+    expect(el.querySelector('nav')?.getAttribute('aria-label')).toBe('Design tabs');
+    expect(button('Grids')).toBeDefined();
+    expect([...el.querySelectorAll('label')].some((node) => node.textContent === 'Engineering tools')).toBe(false);
   });
 
   it('flags a required review and applies schedule changes as one undoable edit', async () => {

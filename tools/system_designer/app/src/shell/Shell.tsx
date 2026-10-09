@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { PRODUCT_NAME } from '../product';
 import type { DesignApi, VerifyResult } from '../design/api';
@@ -17,7 +17,10 @@ import { useCatalog } from '../design/catalog';
 import { useDesignCheck } from '../design/engine';
 import { vdLimits } from '@ill/engine/designCheck';
 import { verifySubset } from '@ill/engine/verify';
-import { STEPS, type Mode, type StepId } from './steps';
+import { GRIDS_TAB, readOptIn, STEPS, writeOptIn, type Mode, type StepId } from './steps';
+
+// The grids load AG Grid; only engineering mode pays for it.
+const EngineeringTab = lazy(() => import('../engineering/EngineeringTab'));
 
 const EDITABLE_STATUSES = new Set(['Draft', 'Changes Requested']);
 
@@ -68,7 +71,20 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   const canUndo = useStore(store.temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(store.temporal, (s) => s.futureStates.length > 0);
   const [step, setStep] = useState<StepId>('start');
-  const [mode, setMode] = useState<Mode>('guided');
+  // Engineering mode is always there for ilLumenate staff; dealers turn it on (plan §7).
+  const staff = Boolean(open.permissions.can_engineer || open.permissions.can_review);
+  const [optIn, setOptIn] = useState(readOptIn);
+  const engineeringAvailable = staff || optIn;
+  const [mode, setModeState] = useState<Mode>(staff ? 'engineering' : 'guided');
+  const setMode = (value: Mode) => {
+    setModeState(value);
+    if (value === 'guided' && step === GRIDS_TAB.id) setStep('start');
+  };
+  const chooseEngineering = (value: boolean) => {
+    writeOptIn(value);
+    setOptIn(value);
+    setMode(value ? 'engineering' : 'guided');
+  };
   const [checksOpen, setChecksOpen] = useState(true);
   const reconcile = useStore(store, (s) => s.reconcile);
   const reconciled = useStore(store, (s) => s.reconciled);
@@ -129,7 +145,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   }, [store, readOnly, saveAndVerify]);
 
   const index = STEPS.findIndex((item) => item.id === step);
-  const current = STEPS[index]!;
+  const current = STEPS[index] ?? GRIDS_TAB;
   const title = open.schedule.schedule_name || open.schedule.name;
 
   return (
@@ -170,13 +186,21 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
           <button type="button" className="ill-sd__button" disabled={!canSave} onClick={save}>
             Save
           </button>
-          <div className="ill-sd__toggle" role="group" aria-label="Mode">
-            {(['guided', 'engineering'] as const).map((value) => (
-              <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>
-                {value === 'guided' ? 'Guided' : 'Engineering'}
-              </button>
-            ))}
-          </div>
+          {engineeringAvailable ? (
+            <div className="ill-sd__toggle" role="group" aria-label="Mode">
+              {(['guided', 'engineering'] as const).map((value) => (
+                <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>
+                  {value === 'guided' ? 'Guided' : 'Engineering'}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {!staff ? (
+            <label className="ill-sd__pick">
+              <input type="checkbox" checked={optIn} onChange={(event) => chooseEngineering(event.target.checked)} />
+              <span>Engineering tools</span>
+            </label>
+          ) : null}
           <details className="ill-sd__help">
             <summary>Help</summary>
             <p>
@@ -206,7 +230,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
       <div className="ill-sd__layout">
         <nav className="ill-sd__nav" aria-label={mode === 'guided' ? 'Design steps' : 'Design tabs'}>
           <ol>
-            {STEPS.map((item, position) => (
+            {(mode === 'engineering' ? [...STEPS, GRIDS_TAB] : STEPS).map((item, position) => (
               <li key={item.id}>
                 <button
                   type="button"
@@ -239,6 +263,16 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
               readOnly={Boolean(readOnly)}
               goTo={setStep}
             />
+          ) : step === GRIDS_TAB.id ? (
+            <Suspense fallback={<p className="ill-sd__muted">Loading the grids…</p>}>
+              <EngineeringTab
+                store={store}
+                engine={engine}
+                catalog={catalog}
+                readOnly={Boolean(readOnly)}
+                staff={staff}
+              />
+            </Suspense>
           ) : step === 'views' ? (
             <ViewsStep open={open} store={store} engine={engine} api={api} />
           ) : (

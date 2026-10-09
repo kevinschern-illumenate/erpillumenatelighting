@@ -29,7 +29,7 @@ export function openFixture(changes: Partial<OpenDesign> = {}): OpenDesign {
     catalog_hash: 'c'.repeat(64),
     readiness: { ...expected.readiness, missing_line_keys: expected.readiness.missing_line_keys ?? [] },
     review_requirement: { required: false, reasons: [], satisfied: true },
-    permissions: { can_edit: true, can_review: false, can_view_pricing: false },
+    permissions: { can_edit: true, can_review: false, can_view_pricing: false, can_engineer: false },
     settings: {
       vd_target_class2_pct: 3,
       vd_target_line_pct: 3,

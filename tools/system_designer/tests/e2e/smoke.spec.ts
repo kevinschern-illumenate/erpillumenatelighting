@@ -61,7 +61,8 @@ window.IllSystemDesigner.mount(document.getElementById("ill-system-designer-root
     }
     const file = path.replace('/assets/illumenate_lighting/system_designer/', '');
     const body = readFileSync(resolve(OUT, file));
-    return route.fulfill({ body, contentType: file.endsWith('.css') ? 'text/css' : 'text/javascript' });
+    const type = file.endsWith('.css') ? 'text/css' : file.endsWith('.ttf') ? 'font/ttf' : 'text/javascript';
+    return route.fulfill({ body, contentType: type });
   });
 }
 
@@ -116,5 +117,52 @@ test('the Check step runs the engine in a worker and sizes an assigned run', asy
   await page.getByRole('navigation').getByRole('button', { name: 'Check' }).click();
   await expect(page.getByTestId('result-a1linear:1:1')).toContainText('18/2 CL3R');
   await expect(page.getByTestId('check-UNRESOLVED_REF-PS-1')).toContainText('PS-1 is not on a panel circuit yet.');
+  expect(errors).toEqual([]);
+});
+
+async function assignOneRun(page: Page) {
+  await page.getByRole('button', { name: 'Accept and continue' }).click();
+  await page.getByRole('button', { name: 'Spaces' }).click();
+  await page.getByTestId('space-space-kitchen').getByRole('button', { name: 'Add cabinet' }).click();
+  await page.getByRole('button', { name: 'Power' }).click();
+  await page.getByTestId('board-C-1').getByRole('button', { name: 'Add supply' }).click();
+  await page.getByRole('button', { name: 'Add Test 96 W supply' }).click();
+  await page.getByTestId('pool-a1linear:1:1').dragTo(page.getByTestId('output-PS-1-OUT1'));
+}
+
+test('the Views step draws the riser in a worker and downloads a PDF with its fonts', async ({ page }) => {
+  await serve(page);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`${ORIGIN}/portal/schedules/SCH-0001/design`);
+  await assignOneRun(page);
+  await page.getByRole('navigation').getByRole('button', { name: 'Views' }).click();
+  await page.getByRole('button', { name: 'Draw riser' }).click();
+  await expect(page.getByRole('img', { name: /Riser sheet/ })).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download PDF' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('ilLumenate-System-Designer_SCH-0001_revdraft_Tabloid.pdf');
+  const bytes = readFileSync((await file.path())!);
+  expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+  await expect(page.getByTestId('views-notice')).toHaveText('Downloaded. Save the design to keep its drawings on it.');
+  expect(errors).toEqual([]);
+});
+
+test('a dealer turns on engineering mode and edits equipment in the grid', async ({ page }) => {
+  await serve(page);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`${ORIGIN}/portal/schedules/SCH-0001/design`);
+  await assignOneRun(page);
+  await page.getByLabel('Engineering tools').check();
+  await page.getByRole('navigation').getByRole('button', { name: 'Grids' }).click();
+  await page.getByRole('tab', { name: 'Equipment' }).click();
+  const grid = page.getByTestId('grid-equipment');
+  await expect(grid.getByRole('gridcell', { name: 'PS-1', exact: true })).toBeVisible();
+  await grid.getByRole('gridcell', { name: '1', exact: true }).first().dblclick();
+  await page.keyboard.type('2');
+  await page.keyboard.press('Enter');
+  await expect(grid.getByRole('gridcell', { name: '2', exact: true }).first()).toBeVisible();
   expect(errors).toEqual([]);
 });
