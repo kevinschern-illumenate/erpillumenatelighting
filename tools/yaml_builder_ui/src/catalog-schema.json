@@ -2994,6 +2994,12 @@
           "options": "ilL-Child-Webflow-Brand-Target"
         },
         {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility"
+        },
+        {
           "fieldname": "attribute_links",
           "label": "Attribute Links",
           "fieldtype": "Table",
@@ -3311,6 +3317,12 @@
           "options": "ilL-Child-Webflow-Brand-Target"
         },
         {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility"
+        },
+        {
           "fieldname": "attribute_links",
           "label": "Attribute Links",
           "fieldtype": "Table",
@@ -3549,6 +3561,12 @@
           "label": "Target Brands",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility"
         },
         {
           "fieldname": "attribute_links",
@@ -3853,6 +3871,12 @@
           "label": "Target Brands",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility"
         },
         {
           "fieldname": "attribute_links",
@@ -4228,6 +4252,12 @@
           "label": "Target Brands",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility"
         },
         {
           "fieldname": "attribute_links",
@@ -6092,6 +6122,12 @@
           "label": "Target Brands",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "compatible_products",
+          "label": "Compatible Products",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Compatibility"
         },
         {
           "fieldname": "attribute_links",
