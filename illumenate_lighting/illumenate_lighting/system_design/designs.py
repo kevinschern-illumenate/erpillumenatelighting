@@ -6,10 +6,13 @@
 The document contract (validation and build hash) lives in :mod:`.design_schema` (WP-2.2).
 """
 
+import json
+
 import frappe
 from frappe import _
+from frappe.utils import get_datetime, now_datetime
 
-from illumenate_lighting.illumenate_lighting.system_design import access, catalog, expansion, gate
+from illumenate_lighting.illumenate_lighting.system_design import access, catalog, expansion, gate, reconcile
 from illumenate_lighting.illumenate_lighting.system_design.design_schema import (
 	build_hash,
 	canonical_json,
@@ -18,10 +21,23 @@ from illumenate_lighting.illumenate_lighting.system_design.design_schema import 
 from illumenate_lighting.illumenate_lighting.system_design.errors import DesignError
 from illumenate_lighting.illumenate_lighting.system_design.settings import is_enabled_for, settings
 
-__all__ = ["build_hash", "canonical_json", "find_schedules", "open_design", "validate_design_json"]
+__all__ = [
+	"build_hash",
+	"canonical_json",
+	"create_revision",
+	"find_schedules",
+	"open_design",
+	"save_design",
+	"validate_design_json",
+]
 
 DESIGN_DOCTYPE = "ilL-System-Design"
 FIND_LIMIT = 20
+MAX_DESIGN_BYTES = 5 * 1024 * 1024
+SCHEMA_VERSION = 1
+EDITABLE_STATUSES = ("Draft", "Changes Requested")
+DMX_ZONE_METHODS = {"DMX512", "CRMX-wireless"}
+PHASE_ZONE_METHODS = {"phase-forward", "phase-reverse"}
 CLIENT_SETTINGS = (
 	"vd_target_class2_pct",
 	"vd_target_line_pct",
@@ -67,9 +83,7 @@ def open_design(schedule, design=None):
 	payload = catalog.get_snapshot(snapshot_hash) or {"items": []}
 	kinds = {item["id"]: item["specs"]["kind"] for item in payload["items"]}
 	lines, builds, readiness = expansion.expand_schedule(doc, kinds)
-	if design:
-		# Saved designs arrive with ilL-System-Design (WP-2.4); until then no name can match.
-		raise DesignError("NOT_FOUND", _("Design not found"))
+	record = access.require_design(design, doc.name) if design else current_design(doc)
 	return {
 		"schedule": {
 			"name": doc.name,
@@ -81,8 +95,8 @@ def open_design(schedule, design=None):
 		},
 		"lines": lines,
 		"builds": builds,
-		"design": None,
-		"design_meta": None,
+		"design": json.loads(record.design_json) if record else None,
+		"design_meta": design_meta(record) if record else None,
 		"catalog_hash": snapshot_hash,
 		"readiness": readiness,
 		"review_requirement": gate.review_requirement(lines, builds, values),
@@ -128,7 +142,9 @@ def find_schedules(query, limit=FIND_LIMIT):
 	if rows and _designs_exist():
 		designed = set(
 			frappe.get_all(
-				DESIGN_DOCTYPE, filters={"schedule": ["in", [r["name"] for r in rows]]}, pluck="schedule"
+				DESIGN_DOCTYPE,
+				filters={"fixture_schedule": ["in", [r["name"] for r in rows]]},
+				pluck="fixture_schedule",
 			)
 		)
 	return [
@@ -142,3 +158,236 @@ def find_schedules(query, limit=FIND_LIMIT):
 		}
 		for row in rows
 	]
+
+
+# --- Saved designs and revisions (WP-2.4, H6) -----------------------------------------------------
+
+
+def design_meta(record):
+	return {
+		"name": record.name,
+		"revision": record.revision,
+		"status": record.status,
+		"modified": str(record.modified),
+		"schedule_version": record.schedule_version,
+		"is_current": bool(record.is_current),
+	}
+
+
+def current_design(schedule_doc):
+	"""The current revision for the schedule's version, or ``None``."""
+	if not _designs_exist():
+		return None
+	names = frappe.get_all(
+		DESIGN_DOCTYPE,
+		filters={
+			"fixture_schedule": schedule_doc.name,
+			"schedule_version": schedule_doc.get("version") or 0,
+			"is_current": 1,
+		},
+		order_by="modified desc",
+		limit=1,
+		pluck="name",
+	)
+	return frappe.get_doc(DESIGN_DOCTYPE, names[0]) if names else None
+
+
+def next_revision(revision):
+	"""A → B … Z → AA → AB (spreadsheet columns)."""
+	value = 0
+	for char in (revision or "").upper():
+		if not "A" <= char <= "Z":
+			raise ValueError(f"Not a revision letter: {revision}")
+		value = value * 26 + (ord(char) - 64)
+	value += 1
+	letters = ""
+	while value:
+		value, rest = divmod(value - 1, 26)
+		letters = chr(65 + rest) + letters
+	return letters
+
+
+def parse_design(design_json):
+	"""Parse and size-check the posted design (≤ 5 MB of UTF-8)."""
+	raw = design_json if isinstance(design_json, str) else json.dumps(design_json or None)
+	if len(raw.encode("utf-8")) > MAX_DESIGN_BYTES:
+		raise DesignError("INVALID", _("This design is larger than 5 MB; remove saved views and try again"))
+	try:
+		design = json.loads(raw)
+	except ValueError:
+		raise DesignError("INVALID", _("The design is not valid JSON"))
+	return design
+
+
+def design_summary(design, lines, builds, values):
+	"""Stored totals and the D4 / D8 flags. Errors and warnings arrive with server verify (WP-3)."""
+	total, protocols = gate.load_profile(lines, builds)
+	methods = {zone.get("method") for zone in design.get("zones") or []}
+	uses_dmx = bool(protocols & gate.DMX_PROTOCOLS or methods & DMX_ZONE_METHODS)
+	uses_phase = bool(protocols & gate.PHASE_PROTOCOLS or methods & PHASE_ZONE_METHODS)
+	reasons = gate.reasons_from(total, protocols | methods, values) if gate.gate_enabled(values) else []
+	runs = design.get("runs") or []
+	site = design.get("site") or {}
+	return {
+		"runs": len(runs),
+		"spaces": len(site.get("spaces") or []),
+		"cabinets": len(site.get("cabinets") or []),
+		"zones": len(design.get("zones") or []),
+		"total_connected_w": round(total, 1),
+		"uses_dmx": uses_dmx,
+		"uses_phase_dimming": uses_phase,
+		"has_dealer_data": any((run.get("source") or {}).get("kind") == "third-party" for run in runs),
+		"review_required": bool(reasons),
+		"review_reasons": reasons,
+	}
+
+
+def _check_design(design, schedule_doc, values):
+	problems = validate_design_json(design, values)
+	if problems:
+		raise DesignError(
+			"INVALID", _("The design did not pass validation: {0}").format("; ".join(problems[:5]))
+		)
+	ref = design["schedule"]
+	if ref["name"] != schedule_doc.name:
+		raise DesignError("INVALID", _("This design belongs to a different schedule"))
+	if ref["version"] != (schedule_doc.get("version") or 0):
+		raise DesignError(
+			"CONFLICT",
+			_("The schedule changed since this design was opened; reopen it to bring in the changes"),
+		)
+	if not frappe.db.exists(catalog.SNAPSHOT_DOCTYPE, design["catalogSnapshotHash"]):
+		raise DesignError("INVALID", _("The design uses a catalog this server does not know; reopen it"))
+
+
+def _apply(record, design, schedule_doc, lines, builds, values):
+	summary = design_summary(design, lines, builds, values)
+	record.update(
+		{
+			"design_json": canonical_json(design),
+			"design_schema_version": design["schemaVersion"],
+			"engine_version": design["engineVersion"],
+			"catalog_snapshot": design["catalogSnapshotHash"],
+			"build_hash": build_hash(design),
+			"line_fingerprint_json": canonical_json(reconcile.fingerprints(lines, builds)),
+			"result_summary_json": canonical_json(summary),
+			"total_connected_w": summary["total_connected_w"],
+			"uses_dmx": int(summary["uses_dmx"]),
+			"uses_phase_dimming": int(summary["uses_phase_dimming"]),
+			"has_dealer_data": int(summary["has_dealer_data"]),
+			"review_required": int(summary["review_required"]),
+			"review_required_reasons": "\n".join(
+				f"{reason['code']}: {reason['detail']}" for reason in summary["review_reasons"]
+			),
+		}
+	)
+	return summary
+
+
+def _locked_for_edit(record, expected_modified):
+	"""Lock the row, then refuse stale, superseded or submitted revisions."""
+	current = frappe.db.get_value(DESIGN_DOCTYPE, record.name, "modified", for_update=True)
+	if not expected_modified:
+		raise DesignError("INVALID", _("expected_modified is required when saving an existing design"))
+	try:
+		stale = get_datetime(expected_modified) != get_datetime(current)
+	except Exception:
+		raise DesignError("INVALID", _("expected_modified is not a valid timestamp"))
+	if stale:
+		raise DesignError(
+			"CONFLICT", _("Someone else saved this design after you opened it; reload to see their changes")
+		)
+	if not record.is_current:
+		raise DesignError("CONFLICT", _("A newer revision of this design exists; open it instead"))
+	if record.status not in EDITABLE_STATUSES:
+		raise DesignError(
+			"LOCKED", _("This revision is {0}; create a new revision to change it").format(_(record.status))
+		)
+
+
+def save_design(schedule, design_json, design_name=None, expected_modified=None):
+	"""Create or update the current design of a schedule version (H6 ``save_design``)."""
+	schedule_doc = access.require_edit(schedule)
+	require_designer()
+	design = parse_design(design_json)
+	values = settings()
+	_check_design(design, schedule_doc, values)
+	lines, builds, _readiness = expansion.expand_schedule(schedule_doc, {})
+	if design_name:
+		record = access.require_design(design_name, schedule_doc.name)
+		_locked_for_edit(record, expected_modified)
+		if record.schedule_version != (schedule_doc.get("version") or 0):
+			raise DesignError("CONFLICT", _("This design is for an earlier schedule version"))
+	else:
+		existing = current_design(schedule_doc)
+		if existing:
+			raise DesignError(
+				"CONFLICT",
+				_("This schedule already has a design ({0}); open it instead").format(existing.name),
+			)
+		record = frappe.new_doc(DESIGN_DOCTYPE)
+		record.update(
+			{
+				"title": _("{0} design").format(schedule_doc.get("schedule_name") or schedule_doc.name),
+				"fixture_schedule": schedule_doc.name,
+				"schedule_version": schedule_doc.get("version") or 0,
+				"ill_project": schedule_doc.get("ill_project"),
+				"customer": schedule_doc.get("customer"),
+				"status": "Draft",
+				"revision": "A",
+				"is_current": 1,
+			}
+		)
+	summary = _apply(record, design, schedule_doc, lines, builds, values)
+	record.flags.ignore_permissions = True
+	if record.is_new():
+		record.insert()
+	else:
+		record.save()
+	return {
+		"name": record.name,
+		"revision": record.revision,
+		"modified": str(record.modified),
+		"build_hash": record.build_hash,
+		"summary": summary,
+	}
+
+
+REVISION_RESET = (
+	"review_request",
+	"approved_review",
+	"approved_by",
+	"approved_on",
+	"terms_accepted_by",
+	"terms_accepted_on",
+)
+
+
+def create_revision(design, note=None):
+	"""Start the next revision as a Draft copy; the old one stops being current (H6)."""
+	record = access.require_design(design)
+	access.require_edit(record.fixture_schedule)
+	require_designer()
+	frappe.db.get_value(DESIGN_DOCTYPE, record.name, "name", for_update=True)
+	if not frappe.db.get_value(DESIGN_DOCTYPE, record.name, "is_current"):
+		raise DesignError("CONFLICT", _("A newer revision of this design exists; open it instead"))
+	revision = frappe.copy_doc(record)
+	revision.update(
+		{
+			"revision": next_revision(record.revision),
+			"revision_parent": record.name,
+			"status": "Draft",
+			"is_current": 1,
+			"deliverables": [],
+			"shares": [],
+			"comments": [],
+			**{field: None for field in REVISION_RESET},
+		}
+	)
+	record.db_set("is_current", 0)
+	revision.flags.ignore_permissions = True
+	revision.insert()
+	text = str(note or "").strip()
+	if text:
+		revision.add_comment("Comment", text[:1000])
+	return {"name": revision.name, "revision": revision.revision}

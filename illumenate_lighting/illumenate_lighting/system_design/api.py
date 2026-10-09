@@ -124,3 +124,22 @@ def review_requirement(schedule=None):
 		return gate.review_requirement([], {}, values)
 	lines, builds, _readiness = expansion.expand_schedule(doc, {})
 	return gate.review_requirement(lines, builds, values)
+
+
+# --- Saving and revisions (WP-2.4, H6) -----------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def save_design(schedule=None, design_json=None, design_name=None, expected_modified=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.save_design(schedule, design_json, design_name, expected_modified)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def create_revision(design=None, note=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.create_revision(design, note)

@@ -1,0 +1,368 @@
+{
+ "actions": [],
+ "autoname": "SYSD-.YYYY.-.#####",
+ "creation": "2026-10-09 18:00:00.000000",
+ "description": "A System Designer design for one fixture schedule version (WP-2.4). Dealers reach it only through the System Designer endpoints.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "fixture_schedule",
+  "schedule_version",
+  "ill_project",
+  "customer",
+  "column_break_status",
+  "status",
+  "revision",
+  "revision_parent",
+  "is_current",
+  "results_section",
+  "error_count",
+  "warning_count",
+  "total_connected_w",
+  "has_dealer_data",
+  "column_break_results",
+  "uses_dmx",
+  "uses_phase_dimming",
+  "review_required",
+  "review_required_reasons",
+  "review_section",
+  "review_request",
+  "approved_review",
+  "vd_override_reason",
+  "column_break_review",
+  "approved_by",
+  "approved_on",
+  "terms_accepted_by",
+  "terms_accepted_on",
+  "deliverables_section",
+  "deliverables",
+  "shares",
+  "comments",
+  "design_section",
+  "design_schema_version",
+  "engine_version",
+  "catalog_snapshot",
+  "build_hash",
+  "design_json",
+  "line_fingerprint_json",
+  "result_summary_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "fixture_schedule",
+   "fieldtype": "Link",
+   "label": "Fixture Schedule",
+   "options": "ilL-Project-Fixture-Schedule",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "schedule_version",
+   "fieldtype": "Int",
+   "label": "Schedule Version",
+   "reqd": 1
+  },
+  {
+   "fieldname": "ill_project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "ilL-Project",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nIn Review\nChanges Requested\nApproved\nSuperseded",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Data",
+   "label": "Revision",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "revision_parent",
+   "fieldtype": "Link",
+   "label": "Previous Revision",
+   "options": "ilL-System-Design",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_current",
+   "fieldtype": "Check",
+   "label": "Current Revision",
+   "default": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "results_section",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Errors",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "warning_count",
+   "fieldtype": "Int",
+   "label": "Warnings",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_connected_w",
+   "fieldtype": "Float",
+   "label": "Connected Load (W)",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "has_dealer_data",
+   "fieldtype": "Check",
+   "label": "Contains Dealer Data",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_results",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "uses_dmx",
+   "fieldtype": "Check",
+   "label": "Uses DMX",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "uses_phase_dimming",
+   "fieldtype": "Check",
+   "label": "Uses Phase-cut Dimming",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_required",
+   "fieldtype": "Check",
+   "label": "Review Required",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_required_reasons",
+   "fieldtype": "Small Text",
+   "label": "Review Reasons",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_section",
+   "fieldtype": "Section Break",
+   "label": "Review"
+  },
+  {
+   "fieldname": "review_request",
+   "fieldtype": "Link",
+   "label": "Review Request",
+   "options": "ilL-Document-Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_review",
+   "fieldtype": "Link",
+   "label": "Approved Review",
+   "options": "ilL-Drawing-Review",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vd_override_reason",
+   "fieldtype": "Small Text",
+   "label": "VD Target Override Reason"
+  },
+  {
+   "fieldname": "column_break_review",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "terms_accepted_by",
+   "fieldtype": "Link",
+   "label": "Terms Accepted By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "terms_accepted_on",
+   "fieldtype": "Datetime",
+   "label": "Terms Accepted On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "deliverables_section",
+   "fieldtype": "Section Break",
+   "label": "Deliverables and Sharing",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "deliverables",
+   "fieldtype": "Table",
+   "label": "Deliverables",
+   "options": "ilL-Child-Design-Deliverable"
+  },
+  {
+   "fieldname": "shares",
+   "fieldtype": "Table",
+   "label": "Share Links",
+   "options": "ilL-Child-Design-Share"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Table",
+   "label": "Review Comments",
+   "options": "ilL-Child-Design-Comment"
+  },
+  {
+   "fieldname": "design_section",
+   "fieldtype": "Section Break",
+   "label": "Design Document",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "design_schema_version",
+   "fieldtype": "Int",
+   "label": "Design Schema Version",
+   "default": "1",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "engine_version",
+   "fieldtype": "Data",
+   "label": "Engine Version",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "catalog_snapshot",
+   "fieldtype": "Link",
+   "label": "Catalog Snapshot",
+   "options": "ilL-Design-Catalog-Snapshot",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_hash",
+   "fieldtype": "Data",
+   "label": "Build Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "design_json",
+   "fieldtype": "Long Text",
+   "label": "Design",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_fingerprint_json",
+   "fieldtype": "Long Text",
+   "label": "Line Fingerprints",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "result_summary_json",
+   "fieldtype": "Long Text",
+   "label": "Result Summary",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-09 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-System-Design",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "share": 1,
+   "email": 1
+  },
+  {
+   "role": "ilL Applications Engineer",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "write": 1,
+   "create": 1,
+   "email": 1
+  },
+  {
+   "role": "ilL Engineering",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "search_fields": "fixture_schedule,revision,status",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

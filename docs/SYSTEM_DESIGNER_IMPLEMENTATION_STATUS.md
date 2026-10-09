@@ -21,6 +21,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-2.2 | Schema package and JSON Schema export | Done |
 | WP-2.1 | Design Catalog adapter and snapshots | Done |
 | WP-2.3 | Open design: schedule lines, builds, readiness, review requirement | Done (gate approval in WP-4.4) |
+| WP-2.4 | `ilL-System-Design`, save and revisions | Done (UI wiring in Phase 3) |
 
 ## WP-0.1 — Portal access audit
 
@@ -253,3 +254,35 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - A required review always reports `satisfied: false`; approval and overrides land in WP-4.4.
   - `has_design` in `find_schedules` and the `design` argument of `open_design` wait for the
     `ilL-System-Design` doctype (WP-2.4); a design argument returns `NOT_FOUND` until then.
+
+## WP-2.4 — Saved designs and revisions
+
+- Doctypes: `ilL-System-Design` (`SYSD-.YYYY.-.#####`, track changes) with `ilL-Child-Design-Deliverable`,
+  `ilL-Child-Design-Share` and `ilL-Child-Design-Comment`, as H4.1. Role rights: System Manager full,
+  ilL Applications Engineer read/write/create, ilL Engineering read. Schedule lines gain the read-only
+  `system_design` Link (H4.3), completing the WP-1.6 note.
+- `has_permission` and `permission_query_conditions` hooks: design staff (`design_review` or
+  `engineering`) and Administrator keep their role rights; anyone else gets the schedule's decision
+  (`read` for read types, otherwise `write`). Dealers have no role rights on the doctype, so they reach
+  designs only through the endpoints.
+- `save_design(schedule, design_json, design_name?, expected_modified?)` (POST): requires schedule edit
+  rights (`LOCKED` on a locked schedule), the designer flag, ≤ 5 MB, a valid design (H5 schema, references,
+  D5 ceiling), the same schedule and version, and a known catalog snapshot. Updates lock the row and compare
+  `expected_modified` (`CONFLICT` when stale); only the current revision in Draft or Changes Requested can
+  change (`LOCKED` otherwise). A second new design for the same schedule version is a `CONFLICT`.
+- Stored per save: canonical design JSON, build hash, H8.4 line fingerprints (`reconcile.fingerprints`),
+  a result summary and the D4/D8 flags (connected load, DMX, phase dimming, dealer data, review reasons).
+- `create_revision(design, note?)` (POST): copies the current revision to the next letter (A … Z, AA …)
+  as a Draft, clears review, approval, terms, deliverables, shares and comments, and sets the old one
+  `is_current = 0`. The note becomes a comment on the new revision.
+- `open_design` now returns the current revision for the schedule version (or the named one, `NOT_FOUND`
+  if it belongs to another schedule) with `design_meta`; `find_schedules` fills `has_design`.
+- Client (`app/src/design/`): a zustand store with zundo undo (design only, 100 steps), a Dexie
+  IndexedDB draft per schedule, and an endpoint client. A draft is restored only when it was made on the
+  same saved revision and timestamp; a successful save drops it, a conflict keeps it.
+- Discrepancies and choices:
+  - `error_count` and `warning_count` stay 0 until server verify (WP-3) computes them.
+  - `expected_modified` is required when updating an existing design.
+  - `create_revision` needs schedule edit rights, so a locked schedule cannot start a revision.
+  - The old revision keeps its status; only `is_current` changes, as H6 states.
+  - The store is not wired into the page yet; the designer UI arrives in Phase 3.

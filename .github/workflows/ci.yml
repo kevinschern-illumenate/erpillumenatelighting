@@ -129,6 +129,7 @@ jobs:
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.system_design.test_readiness
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.system_design.test_catalog
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.system_design.test_open_design
+          bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.system_design.test_designs
         env:
           TYPE: server
 

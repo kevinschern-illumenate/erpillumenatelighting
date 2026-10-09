@@ -251,6 +251,7 @@ permission_query_conditions = {
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
+	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.get_permission_query_conditions",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_query_conditions",
 }
 
@@ -271,6 +272,7 @@ has_permission = {
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
+	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.has_permission",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_has_permission",
 }
 

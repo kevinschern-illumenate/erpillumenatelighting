@@ -63,3 +63,63 @@ def require_capability(name):
 def require_reviewer():
 	"""Applications Engineers (D3) and System Managers."""
 	require_capability("design_review")
+
+
+# --- ilL-System-Design records (WP-2.4) -----------------------------------------------------------
+
+DESIGN_DOCTYPE = "ilL-System-Design"
+DESIGN_STAFF_CAPABILITIES = ("design_review", "engineering")
+
+
+def _is_design_staff(user=None):
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	return any(allowed(name, user) for name in DESIGN_STAFF_CAPABILITIES)
+
+
+def design_permission(doc, ptype="read", user=None):
+	"""``has_permission`` hook: a design follows its schedule; design staff keep their role rights."""
+	from illumenate_lighting.illumenate_lighting.portal.access import READ_PTYPES, schedule_permission
+
+	user = user or frappe.session.user
+	if user == "Guest":
+		return False
+	if user == "Administrator" or _is_design_staff(user):
+		return True
+	if not doc.get("fixture_schedule") or not frappe.db.exists(SCHEDULE_DOCTYPE, doc.fixture_schedule):
+		return False
+	schedule = frappe.get_doc(SCHEDULE_DOCTYPE, doc.fixture_schedule)
+	return schedule_permission(schedule, "read" if ptype in READ_PTYPES else "write", user)
+
+
+def design_query_conditions(user=None):
+	"""List filter matching :func:`design_permission` for reads."""
+	from illumenate_lighting.illumenate_lighting.portal.access import (
+		SCHEDULE_TABLE,
+		schedule_query_conditions,
+	)
+
+	user = user or frappe.session.user
+	if user == "Guest":
+		return "1=0"
+	if user == "Administrator" or _is_design_staff(user):
+		return ""
+	conditions = schedule_query_conditions(user)
+	if not conditions:
+		return ""
+	return (
+		f"`tab{DESIGN_DOCTYPE}`.fixture_schedule in "
+		f"(select {SCHEDULE_TABLE}.name from {SCHEDULE_TABLE} where {conditions})"
+	)
+
+
+def require_design(name, schedule=None):
+	"""Return a design the user may read; ``NOT_FOUND`` when absent, unreadable or on another schedule."""
+	_require_login()
+	if not name or not isinstance(name, str) or not frappe.db.exists(DESIGN_DOCTYPE, name):
+		raise DesignError("NOT_FOUND", _("Design not found"))
+	design = frappe.get_doc(DESIGN_DOCTYPE, name)
+	if schedule and design.fixture_schedule != schedule:
+		raise DesignError("NOT_FOUND", _("Design not found"))
+	require_read(design.fixture_schedule)
+	return design

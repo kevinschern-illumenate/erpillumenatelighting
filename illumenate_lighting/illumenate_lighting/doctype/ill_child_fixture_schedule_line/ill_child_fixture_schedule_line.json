@@ -67,7 +67,8 @@
   "system_design_section",
   "design_line_role",
   "column_break_system_design",
-  "design_line_key"
+  "design_line_key",
+  "system_design"
  ],
  "fields": [
   {
@@ -491,13 +492,21 @@
    "label": "Design Line Key",
    "read_only": 1,
    "description": "Stable key the System Designer uses to update this line."
+  },
+  {
+   "fieldname": "system_design",
+   "fieldtype": "Link",
+   "label": "System Design",
+   "options": "ilL-System-Design",
+   "read_only": 1,
+   "description": "The design that wrote this line."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-09 16:00:00.000000",
+ "modified": "2026-10-09 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Fixture-Schedule-Line",
