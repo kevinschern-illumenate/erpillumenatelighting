@@ -12,11 +12,12 @@ import {
   type RiserStamp,
 } from '@ill/engine/riser';
 import type { FontBytes } from '@ill/serializers/pdf/fonts';
-import type { Deliverable, DeliverableKind, DesignApi } from '../design/api';
+import { track, type Deliverable, type DeliverableKind, type DesignApi } from '../design/api';
 import type { CheckState } from '../design/engine';
 import { createDrawingRunner, logoDataUrl, sha256Hex, type DrawingInput } from '../design/drawing';
 import type { DesignStore } from '../design/store';
 import { loadFontBytes } from '../lib/fonts';
+import { FeedbackPrompt } from './FeedbackPrompt';
 import type { OpenDesign } from './open';
 
 /** Export formats on the Views step; each is generated in the browser (plan §12.1). */
@@ -73,6 +74,7 @@ export function ViewsStep({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [stored, setStored] = useState<Deliverable[]>(open.deliverables);
+  const [exported, setExported] = useState(false);
   const runner = useRef<ReturnType<typeof createDrawingRunner> | null>(null);
   const deps = useMemo<ViewsDeps>(
     () => ({
@@ -183,7 +185,15 @@ export function ViewsStep({
       }
       const blob = new Blob([bytes as BlobPart], { type: format.mime });
       deps.save(blob, filename);
+      setExported(true);
       if (!canStore) {
+        // A stored file is recorded by the server; a download alone is reported here (WP-3.9).
+        track(api, {
+          schedule: open.schedule.name,
+          event: 'riser_exported',
+          design: meta?.name,
+          details: { kind: format.kind, sheet: sheetLabel(sheet), stored: false },
+        });
         setNotice(
           open.permissions.can_edit ? 'Downloaded. Save the design to keep its drawings on it.' : 'Downloaded.',
         );
@@ -312,6 +322,19 @@ export function ViewsStep({
             <img className="ill-sd__riser" src={previewUrl} alt={`Riser sheet ${drawing.sheets[page]!.number}`} />
           ) : null}
         </div>
+      ) : null}
+      {exported ? (
+        <FeedbackPrompt
+          name={meta?.name ?? open.schedule.name}
+          onSend={(rating, comment) =>
+            track(api, {
+              schedule: open.schedule.name,
+              event: 'feedback',
+              design: meta?.name,
+              details: { rating, ...(comment ? { comment } : {}) },
+            })
+          }
+        />
       ) : null}
       {stored.length ? (
         <div className="ill-sd__card" data-testid="deliverables">

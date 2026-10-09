@@ -260,6 +260,27 @@ class TestDesigns(IntegrationTestCase):
 		script = b"<svg><script>alert(1)</script></svg>"
 		self.assertEqual(code(content=script, sha256=hashlib.sha256(script).hexdigest()), "INVALID")
 
+	def test_pilot_telemetry_rows(self):
+		data = self.save()["data"]
+		api.open_design(schedule=self.schedule.name)
+		logged = api.log_event(
+			schedule=self.schedule.name,
+			event="feedback",
+			design=data["name"],
+			details=json.dumps({"rating": 4, "comment": "Clear"}),
+		)
+		self.assertTrue(logged["success"], logged)
+		rows = frappe.get_all(
+			"ilL-Portal-Event",
+			filters={"reference_name": data["name"], "event_key": ["like", "system_design:%"]},
+			fields=["event_key", "message"],
+		)
+		events = sorted(row.event_key.split(":")[1] for row in rows)
+		self.assertEqual(events, ["feedback", "opened", "saved"])
+		feedback = next(json.loads(row.message) for row in rows if ":feedback:" in row.event_key)
+		self.assertEqual((feedback["rating"], feedback["comment"]), (4, "Clear"))
+		self.assertEqual(api.log_event(schedule=self.schedule.name, event="opened")["code"], "INVALID")
+
 	def test_copy_forward_to_the_next_version(self):
 		data = self.save()["data"]
 		next_name = self.schedule.create_new_version(version_notes="ZZ designer copy test")

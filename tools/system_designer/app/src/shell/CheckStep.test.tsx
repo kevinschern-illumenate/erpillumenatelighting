@@ -37,7 +37,10 @@ async function render(value: OpenDesign = open) {
 beforeEach(() => {
   el = document.createElement('div');
   document.body.append(el);
-  api = { getCatalog: vi.fn().mockResolvedValue(catalogPayload) } as unknown as DesignApi;
+  api = {
+    getCatalog: vi.fn().mockResolvedValue(catalogPayload),
+    logEvent: vi.fn().mockResolvedValue({ event_key: null }),
+  } as unknown as DesignApi;
   store = createDesignStore();
   const design = newDesign(open).design;
   addCabinet(design, 'space-kitchen', distanceDefaults({}));
@@ -117,6 +120,26 @@ describe('Check step', () => {
     expect(access().textContent).toContain('Accepted: Access through the attic');
     await click(button('Withdraw', access()));
     expect(design().overrides).toEqual([]);
+    // Accepting a check is not fixing it.
+    expect(api.logEvent).not.toHaveBeenCalled();
+  });
+
+  it('reports a check the dealer fixed for the pilot metrics', async () => {
+    await render();
+    expect(byTest('check-SUPPLY_NO_ACCESS-cab-1')).not.toBeNull();
+    await act(async () =>
+      store.getState().edit((draft) => {
+        draft.site.cabinets[0]!.accessNote = 'Pantry door';
+      }),
+    );
+    await settle();
+    expect(byTest('check-SUPPLY_NO_ACCESS-cab-1')).toBeNull();
+    expect(api.logEvent).toHaveBeenCalledWith({
+      schedule: 'SCH-TEST',
+      event: 'check_fixed',
+      design: undefined,
+      details: { codes: ['SUPPLY_NO_ACCESS'] },
+    });
   });
 
   it('tightens the voltage-drop target and refuses a looser one for dealers', async () => {

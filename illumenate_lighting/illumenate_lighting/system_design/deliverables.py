@@ -19,7 +19,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from illumenate_lighting.illumenate_lighting.system_design import access
+from illumenate_lighting.illumenate_lighting.system_design import access, telemetry
 from illumenate_lighting.illumenate_lighting.system_design.errors import DesignError
 
 DESIGN_DOCTYPE = "ilL-System-Design"
@@ -181,4 +181,10 @@ def upload_deliverable(design, kind, variant=None, sha256=None, build_hash=None,
 	)
 	# Insert the row alone: the design's ``modified`` stays as it was, so the open editor can still save.
 	row.db_insert()
+	telemetry.record(
+		"riser_exported",
+		record.fixture_schedule,
+		record.name,
+		{"kind": kind, "sheet": variant, "stored": True},
+	)
 	return {"file_url": file.file_url, "row": _row(row), "mime_type": mime}

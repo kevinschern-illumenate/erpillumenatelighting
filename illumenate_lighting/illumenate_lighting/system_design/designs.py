@@ -19,6 +19,7 @@ from illumenate_lighting.illumenate_lighting.system_design import (
 	expansion,
 	gate,
 	reconcile,
+	telemetry,
 	verify,
 )
 from illumenate_lighting.illumenate_lighting.system_design.design_schema import (
@@ -97,6 +98,7 @@ def open_design(schedule, design=None):
 	kinds = {item["id"]: item["specs"]["kind"] for item in payload["items"]}
 	lines, builds, readiness = expansion.expand_schedule(doc, kinds)
 	record = access.require_design(design, doc.name) if design else current_design(doc)
+	telemetry.record("opened", doc.name, record.name if record else None)
 	return {
 		"schedule": {
 			"name": doc.name,
@@ -439,6 +441,7 @@ def save_design(
 		record.insert()
 	else:
 		record.save()
+	telemetry.record("saved", record.fixture_schedule, record.name, {"revision": record.revision})
 	return {
 		"name": record.name,
 		"revision": record.revision,

@@ -39,6 +39,8 @@ async function serve(page: Page) {
       return route.fulfill({ json: { message: { success: true, data: OPEN } } });
     if (path === '/api/method/x.get_catalog')
       return route.fulfill({ json: { message: { success: true, data: { hash: OPEN.catalog_hash, ...CATALOG } } } });
+    if (path === '/api/method/x.log_event')
+      return route.fulfill({ json: { message: { success: true, data: { event_key: null } } } });
     if (path === '/api/method/x.eligible_supplies')
       return route.fulfill({
         json: {

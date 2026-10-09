@@ -183,6 +183,15 @@ def upload_deliverable(design=None, kind=None, variant=None, sha256=None, build_
 	return deliverables.upload_deliverable(design, kind, variant, sha256, build_hash)
 
 
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def log_event(schedule=None, event=None, design=None, details=None):
+	"""Pilot telemetry the browser reports (WP-3.9): riser downloads, fixed checks, feedback."""
+	from illumenate_lighting.illumenate_lighting.system_design import telemetry
+
+	return telemetry.log_event(schedule, event, design, details)
+
+
 # --- Reconcile and copy forward (WP-2.5, H6) -----------------------------------------------------
 
 

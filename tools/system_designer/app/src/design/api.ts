@@ -168,6 +168,15 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         body,
       });
     },
+    /** Pilot telemetry (WP-3.9): what only the browser sees. */
+    logEvent(args: { schedule: string; event: TelemetryEvent; design?: string; details?: Record<string, unknown> }) {
+      return post<{ event_key: string | null }>('log_event', {
+        schedule: args.schedule,
+        event: args.event,
+        design: args.design,
+        details: args.details ? JSON.stringify(args.details) : undefined,
+      });
+    },
     reconcileDesign(design: string) {
       return call<ReconcileDiff>('reconcile_design', { method: 'GET' }, new URLSearchParams({ design }));
     },
@@ -184,3 +193,14 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
 }
 
 export type DesignApi = ReturnType<typeof createDesignApi>;
+
+export type TelemetryEvent = 'riser_exported' | 'check_fixed' | 'feedback';
+
+/** Send a telemetry event and forget it: telemetry never interrupts the work it describes. */
+export function track(api: Partial<DesignApi>, args: Parameters<DesignApi['logEvent']>[0]) {
+  try {
+    void api.logEvent?.(args)?.catch(() => undefined);
+  } catch {
+    // Ignore: an older server or a test double without the endpoint.
+  }
+}

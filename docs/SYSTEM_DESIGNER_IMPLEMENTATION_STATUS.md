@@ -580,3 +580,27 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Settings that make a design less conservative are staff-only; the plan says "all settings" for
     engineering mode without separating dealers and staff.
   - Riser layout pins are edited on the drawing, which the designer does not show interactively yet.
+
+## WP-3.9 — Pilot enablement and telemetry
+
+- Pilot customers are the Settings `pilot_customers` table (WP-0.5); `is_enabled_for` admits their
+  users before the global switch.
+- Events: `system_design/telemetry.py` writes `ilL-Portal-Event` rows keyed
+  `system_design:<event>:<design or schedule>:<timestamp>:<nonce>`, with `subject` = user and a JSON
+  `message` (event, schedule, design, small details; never prices). No delivery rows, so no email.
+  A failed insert rolls back to a savepoint and is logged; it never fails the work it describes.
+  - Server-recorded: `opened` (`open_design`), `saved` (`save_design`, with the revision) and
+    `riser_exported` for stored files (`upload_deliverable`).
+  - Browser-reported through `log_event(schedule, event, design?, details?)`: `riser_exported` for a
+    download that was not stored, `check_fixed` (codes of errors or warnings that went away after an
+    edit; accepting a check does not count) and `feedback` (rating 1–5, optional comment). Details are
+    typed and trimmed server-side; other events are refused.
+- Feedback prompt: after the first riser export on the Views step, once per design per browser.
+- Metrics: Script Report **System Designer Pilot** (System Manager, ilL Engineering, ilL Applications
+  Engineer): per schedule, customer, users, opens, saves, risers, checks fixed, minutes from first open
+  to first riser (plan §23 "schedule → checked riser"), average rating and comments.
+- Tests: `test_system_design_telemetry.py`, `test_system_designer_pilot_report.py`, installed
+  `test_designs.test_pilot_telemetry_rows`, CheckStep and ViewsStep jsdom tests.
+- Discrepancies and choices:
+  - An undo that removes a problem's cause also counts as a fixed check.
+  - The key adds a short nonce after the timestamp so two events in the same microsecond stay unique.

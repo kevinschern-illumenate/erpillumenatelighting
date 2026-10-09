@@ -77,7 +77,9 @@ beforeEach(() => {
       limits: vdLimits(open.settings),
     }),
   };
+  localStorage.clear();
   api = {
+    logEvent: vi.fn().mockResolvedValue({ event_key: null }),
     uploadDeliverable: vi.fn().mockImplementation(async (args: { kind: string; variant: string; sha256: string }) => ({
       file_url: '/private/files/riser.pdf',
       row: {
@@ -141,6 +143,18 @@ describe('Views step', () => {
     expect(sent.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(byTest('views-notice')?.textContent).toBe('Downloaded and kept on revision A.');
     expect(byTest('deliverables')?.textContent).toContain('Riser PDF · Tabloid');
+    // The server records a stored export itself; the feedback prompt follows the first export.
+    expect(api.logEvent).not.toHaveBeenCalled();
+    await click(button('4'));
+    await click(button('Send'));
+    expect(api.logEvent).toHaveBeenCalledWith({
+      schedule: 'SCH-TEST',
+      event: 'feedback',
+      design: 'SYSD-1',
+      details: { rating: 4 },
+    });
+    expect(byTest('feedback')?.textContent).toContain('Thank you');
+    expect(localStorage.getItem('ill-sd:feedback:SYSD-1')).toBe('1');
   });
 
   it('only downloads while the design has unsaved changes, and offers the review stamp once approved', async () => {
@@ -150,6 +164,14 @@ describe('Views step', () => {
     await click(button('Download DXF (ZIP)'));
     expect(deps.save.mock.calls[0]![1]).toBe('ilLumenate-System-Designer_SCH-TEST_revA_Tabloid.zip');
     expect(api.uploadDeliverable).not.toHaveBeenCalled();
+    expect(api.logEvent).toHaveBeenCalledWith({
+      schedule: 'SCH-TEST',
+      event: 'riser_exported',
+      design: 'SYSD-1',
+      details: { kind: 'Riser DXF ZIP', sheet: 'Tabloid', stored: false },
+    });
+    await click(button('Not now'));
+    expect(byTest('feedback')).toBeNull();
     expect(byTest('views-notice')?.textContent).toBe('Downloaded. Save the design to keep its drawings on it.');
     act(() => root.unmount());
     store.setState({ meta: { ...META, status: 'Approved', approved_by: 'Avery Engineer' } });

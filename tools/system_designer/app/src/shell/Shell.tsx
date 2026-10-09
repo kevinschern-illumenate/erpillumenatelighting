@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { PRODUCT_NAME } from '../product';
-import type { DesignApi, VerifyResult } from '../design/api';
+import { track, type DesignApi, type VerifyResult } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { saveDesign, type DesignStore, type SaveStatus } from '../design/store';
 import { CheckPanel } from './CheckPanel';
@@ -143,6 +143,29 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [store, readOnly, saveAndVerify]);
+
+  // Pilot telemetry (WP-3.9): an error or warning that goes away after an edit counts as fixed.
+  // Accepting a check keeps it in the list, so only real fixes are reported.
+  const openIssues = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (engine.state !== 'ready') return;
+    const issues = new Set(
+      engine.check.messages
+        .filter((item) => item.severity === 'error' || item.severity === 'warning')
+        .map((item) => `${item.code}|${item.entityRef}`),
+    );
+    const before = openIssues.current;
+    openIssues.current = issues;
+    if (!before || readOnly) return;
+    const codes = [...new Set([...before].filter((key) => !issues.has(key)).map((key) => key.split('|')[0]!))];
+    if (codes.length)
+      track(api, {
+        schedule: open.schedule.name,
+        event: 'check_fixed',
+        design: store.getState().meta?.name,
+        details: { codes },
+      });
+  }, [engine, readOnly, api, open.schedule.name, store]);
 
   const index = STEPS.findIndex((item) => item.id === step);
   const current = STEPS[index] ?? GRIDS_TAB;
