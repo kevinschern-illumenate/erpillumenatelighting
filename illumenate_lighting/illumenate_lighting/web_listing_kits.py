@@ -1,9 +1,8 @@
 """Generate Extrusion Kit templates for kit web listings that have none.
 
-Run from the System Console (or ``bench execute``) on a site, dry run first:
+Run from the System Console (which does not allow imports), dry run first:
 
-    from illumenate_lighting.illumenate_lighting.web_listing_kits import generate_kit_templates
-    print(generate_kit_templates(dry_run=1))
+    print(frappe.call("illumenate_lighting.illumenate_lighting.web_listing_kits.generate_kit_templates", dry_run=1))
 
 New templates are created inactive, so the portal kit configurator does not offer
 them before their profile, lens, endcap and mounting maps exist. With ``link=1``
@@ -115,6 +114,7 @@ def _as_dict(doctype, name):
 	return frappe.get_doc(doctype, name).as_dict() if name and frappe.db.exists(doctype, name) else None
 
 
+@frappe.whitelist(methods=["POST"])
 def generate_kit_templates(dry_run=1, link=0):
 	"""Create a kit template for each Extrusion Kit listing without one; return a report."""
 	dry_run, link = int(dry_run), int(link)
