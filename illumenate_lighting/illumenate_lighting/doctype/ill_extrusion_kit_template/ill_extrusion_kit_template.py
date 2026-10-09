@@ -5,10 +5,13 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.web_listing import validate_web_listing
+
 
 class ilLExtrusionKitTemplate(Document):
 	def validate(self):
 		"""Validate kit template data."""
+		validate_web_listing(self)
 		self._validate_allowed_options()
 		self._validate_quantities()
 

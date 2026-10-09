@@ -7,6 +7,8 @@
  "track_changes": 1,
  "field_order": [
   "product",
+  "listing_doctype",
+  "listing_name",
   "brand",
   "publication",
   "operation",
@@ -34,6 +36,21 @@
    "in_list_view": 1,
    "reqd": 1,
    "options": "ilL-Webflow-Product"
+  },
+  {
+   "fieldname": "listing_doctype",
+   "fieldtype": "Link",
+   "label": "Listing DocType",
+   "options": "DocType",
+   "read_only": 1,
+   "description": "Template (or Webflow Product) that holds this listing's web content."
+  },
+  {
+   "fieldname": "listing_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Listing",
+   "options": "listing_doctype",
+   "read_only": 1
   },
   {
    "fieldname": "brand",

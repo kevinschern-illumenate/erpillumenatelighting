@@ -2886,6 +2886,120 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "web_listed",
+          "label": "Listed on Web",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+        },
+        {
+          "fieldname": "web_slug",
+          "label": "Web Slug",
+          "fieldtype": "Data",
+          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+        },
+        {
+          "fieldname": "web_title",
+          "label": "Web Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_category",
+          "label": "Web Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category"
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Portal Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (Years)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Filled from this template on save.",
+          "read_only": 1
         }
       ]
     },
@@ -3089,6 +3203,120 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "web_listed",
+          "label": "Listed on Web",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+        },
+        {
+          "fieldname": "web_slug",
+          "label": "Web Slug",
+          "fieldtype": "Data",
+          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+        },
+        {
+          "fieldname": "web_title",
+          "label": "Web Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_category",
+          "label": "Web Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category"
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Portal Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (Years)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Filled from this template on save.",
+          "read_only": 1
         }
       ]
     },
@@ -3209,6 +3437,172 @@
           "fieldtype": "Currency",
           "default": "0",
           "description": "Base kit MSRP price before option adders"
+        },
+        {
+          "fieldname": "web_listed",
+          "label": "Listed on Web",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+        },
+        {
+          "fieldname": "web_slug",
+          "label": "Web Slug",
+          "fieldtype": "Data",
+          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+        },
+        {
+          "fieldname": "web_title",
+          "label": "Web Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_category",
+          "label": "Web Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category"
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Portal Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (Years)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Filled from this template on save.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "min_length_mm",
+          "label": "Min Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_length_mm",
+          "label": "Max Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "length_increment_mm",
+          "label": "Length Increment (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "l70_life_hours",
+          "label": "L70 Life (Hours)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_min_c",
+          "label": "Operating Temp Min (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_max_c",
+          "label": "Operating Temp Max (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "kit_components",
+          "label": "Kit Components",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Kit-Component"
         }
       ]
     },
@@ -3347,6 +3741,172 @@
           "fieldtype": "Link",
           "options": "ilL-Spec-Profile",
           "description": "Used to pull dimensions for Webflow export"
+        },
+        {
+          "fieldname": "web_listed",
+          "label": "Listed on Web",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+        },
+        {
+          "fieldname": "web_slug",
+          "label": "Web Slug",
+          "fieldtype": "Data",
+          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+        },
+        {
+          "fieldname": "web_title",
+          "label": "Web Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_category",
+          "label": "Web Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category"
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Portal Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (Years)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Filled from this template on save.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "min_length_mm",
+          "label": "Min Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_length_mm",
+          "label": "Max Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "length_increment_mm",
+          "label": "Length Increment (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "feed_lengths",
+          "label": "Feed Lengths",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "l70_life_hours",
+          "label": "L70 Life (Hours)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_min_c",
+          "label": "Operating Temp Min (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_max_c",
+          "label": "Operating Temp Max (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
         }
       ]
     },
@@ -3562,6 +4122,140 @@
           "fieldname": "warranty",
           "label": "Warranty",
           "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_listed",
+          "label": "Listed on Web",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+        },
+        {
+          "fieldname": "web_slug",
+          "label": "Web Slug",
+          "fieldtype": "Data",
+          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+        },
+        {
+          "fieldname": "web_title",
+          "label": "Web Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_category",
+          "label": "Web Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category"
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Portal Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON"
+        },
+        {
+          "fieldname": "warranty_years",
+          "label": "Warranty (Years)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Filled from this template on save.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "l70_life_hours",
+          "label": "L70 Life (Hours)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_min_c",
+          "label": "Operating Temp Min (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_max_c",
+          "label": "Operating Temp Max (C)",
+          "fieldtype": "Int"
         }
       ]
     },
@@ -5297,6 +5991,161 @@
           "options": "ilL-Webflow-Product",
           "description": "Backlink to the Webflow product that references this template (for gallery images)",
           "read_only": 1
+        },
+        {
+          "fieldname": "web_listed",
+          "label": "Listed on Web",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+        },
+        {
+          "fieldname": "web_slug",
+          "label": "Web Slug",
+          "fieldtype": "Data",
+          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+        },
+        {
+          "fieldname": "web_title",
+          "label": "Web Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "web_category",
+          "label": "Web Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category"
+        },
+        {
+          "fieldname": "portal_item",
+          "label": "Portal Item",
+          "fieldtype": "Link",
+          "options": "Item"
+        },
+        {
+          "fieldname": "short_description",
+          "label": "Short Description",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "product_badge",
+          "label": "Product Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+        },
+        {
+          "fieldname": "features",
+          "label": "Features",
+          "fieldtype": "JSON"
+        },
+        {
+          "fieldname": "featured_image",
+          "label": "Featured Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "series_family_image",
+          "label": "Series Family Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "gallery_images",
+          "label": "Gallery Images",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Gallery-Image"
+        },
+        {
+          "fieldname": "documents",
+          "label": "Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "is_configurable",
+          "label": "Is Configurable",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "configurator_intro_text",
+          "label": "Configurator Intro Text",
+          "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "configurator_options",
+          "label": "Configurator Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option"
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brands",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target"
+        },
+        {
+          "fieldname": "attribute_links",
+          "label": "Attribute Links",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Attribute-Link",
+          "description": "Filled from this template on save.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "min_length_mm",
+          "label": "Min Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_length_mm",
+          "label": "Max Length (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "length_increment_mm",
+          "label": "Length Increment (mm)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "feed_lengths",
+          "label": "Feed Lengths",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "l70_life_hours",
+          "label": "L70 Life (Hours)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_min_c",
+          "label": "Operating Temp Min (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "operating_temp_max_c",
+          "label": "Operating Temp Max (C)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
         }
       ]
     },
