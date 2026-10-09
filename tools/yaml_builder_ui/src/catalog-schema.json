@@ -3469,6 +3469,18 @@
           "fieldtype": "Link",
           "options": "ilL-Spec-Profile",
           "description": "Used to pull dimensions for Webflow export"
+        },
+        {
+          "fieldname": "diagram_icon",
+          "label": "Diagram Icon",
+          "fieldtype": "Attach",
+          "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+          "fieldname": "scene_archetypes",
+          "label": "Scene Archetypes",
+          "fieldtype": "Small Text",
+          "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         }
       ]
     },
@@ -3684,6 +3696,18 @@
           "fieldname": "warranty",
           "label": "Warranty",
           "fieldtype": "Data"
+        },
+        {
+          "fieldname": "diagram_icon",
+          "label": "Diagram Icon",
+          "fieldtype": "Attach",
+          "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+          "fieldname": "scene_archetypes",
+          "label": "Scene Archetypes",
+          "fieldtype": "Small Text",
+          "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         }
       ]
     },
@@ -4435,6 +4459,33 @@
           "fieldname": "qty_rule_value",
           "label": "QTY Rule Value",
           "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cross_section_file",
+          "label": "Cross-Section File",
+          "fieldtype": "Attach",
+          "description": "DXF with closed polylines on layers BODY, LENS and CLIP, or a JSON file in the cross_section_json format."
+        },
+        {
+          "fieldname": "clip_spacing_max_in",
+          "label": "Max Clip Spacing (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "clip_end_offset_in",
+          "label": "Clip End Offset (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "screw_spec",
+          "label": "Screw Spec",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "cross_section_json",
+          "label": "Cross-Section Outlines",
+          "fieldtype": "Long Text",
+          "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
         }
       ]
     },
@@ -5291,6 +5342,17 @@
           "label": "Supported Environment Ratings",
           "fieldtype": "Table",
           "options": "ilL-Child-Lens Environments"
+        },
+        {
+          "fieldname": "transmission_pct",
+          "label": "Transmission (%)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "diffusion_class",
+          "label": "Diffusion Class",
+          "fieldtype": "Select",
+          "options": "\nClear\nFrosted\nOpal"
         }
       ]
     },
@@ -5392,6 +5454,24 @@
           "label": "Lens Interface",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Lens Interface Type"
+        },
+        {
+          "fieldname": "cross_section_file",
+          "label": "Cross-Section File",
+          "fieldtype": "Attach",
+          "description": "DXF with closed polylines on layers BODY, LENS and CLIP, or a JSON file in the cross_section_json format."
+        },
+        {
+          "fieldname": "max_w_per_ft",
+          "label": "Max Tape Load (W/ft)",
+          "fieldtype": "Float",
+          "description": "Thermal limit for tape in this channel."
+        },
+        {
+          "fieldname": "cross_section_json",
+          "label": "Cross-Section Outlines",
+          "fieldtype": "Long Text",
+          "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
         }
       ]
     },
@@ -5853,6 +5933,18 @@
           "options": "ilL-Webflow-Product",
           "description": "Backlink to the Webflow product that references this template (for gallery images)",
           "read_only": 1
+        },
+        {
+          "fieldname": "diagram_icon",
+          "label": "Diagram Icon",
+          "fieldtype": "Attach",
+          "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+          "fieldname": "scene_archetypes",
+          "label": "Scene Archetypes",
+          "fieldtype": "Small Text",
+          "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         }
       ]
     },

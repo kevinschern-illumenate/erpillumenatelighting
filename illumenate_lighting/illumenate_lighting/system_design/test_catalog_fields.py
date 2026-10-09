@@ -16,6 +16,12 @@ class TestSystemDesignerCatalogFields(IntegrationTestCase):
 			("ilL-Attribute-Dimming Protocol", "engine_protocol"),
 			("ilL-Spec-LED Tape", "max_run_single_feed_ft"),
 			("ilL-Spec-LED Tape", "channel_limits"),
+			("ilL-Spec-Profile", "cross_section_json"),
+			("ilL-Spec-Accessory", "clip_spacing_max_in"),
+			("ilL-Spec-Lens", "diffusion_class"),
+			("ilL-Fixture-Template", "diagram_icon"),
+			("ilL-Tape-Neon-Template", "scene_archetypes"),
+			("ilL-LED-Sheet-Template", "diagram_icon"),
 		):
 			with self.subTest(doctype=doctype, field=field):
 				self.assertIsNotNone(frappe.get_meta(doctype).get_field(field))

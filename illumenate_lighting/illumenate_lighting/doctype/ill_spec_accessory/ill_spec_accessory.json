@@ -1,168 +1,206 @@
 {
-    "actions":  [
-
-                ],
-    "allow_rename":  1,
-    "autoname":  "field:item",
-    "creation":  "2026-01-07 13:00:01.656382",
-    "doctype":  "DocType",
-    "engine":  "InnoDB",
-    "field_order":  [
-                        "item",
-                        "type",
-                        "column_break_hnoa",
-                        "profile_family",
-                        "environment_rating",
-                        "mounting_method",
-                        "joiner_system",
-                        "joiner_angle",
-                        "endcaps_section",
-                        "endcap_style",
-                        "allowance_override_per_side_mm",
-                        "leader_cable__feed_section",
-                        "leader_cable",
-                        "feed_type",
-                        "qty_rules_section",
-                        "qty_rule_type",
-                        "qty_rule_value"
-                    ],
-    "fields":  [
-                   {
-                       "fieldname":  "item",
-                       "fieldtype":  "Link",
-                       "label":  "Accessory Item",
-                       "options":  "Item",
-                       "unique":  1
-                   },
-                   {
-                       "fieldname":  "type",
-                       "fieldtype":  "Select",
-                       "label":  "Accessory Type",
-                       "options":  "Endcap\nJoiner\nMounting\nLeader\nFeed\nConnector\nGasket\nHardware"
-                   },
-                   {
-                       "fieldname":  "column_break_hnoa",
-                       "fieldtype":  "Column Break"
-                   },
-                   {
-                       "fieldname":  "profile_family",
-                       "fieldtype":  "Data",
-                       "label":  "Profile Family"
-                   },
-                   {
-                       "fieldname":  "environment_rating",
-                       "fieldtype":  "Link",
-                       "label":  "Environment Rating",
-                       "options":  "ilL-Attribute-Environment Rating"
-                   },
-                   {
-                       "fieldname":  "mounting_method",
-                       "fieldtype":  "Link",
-                       "label":  "Mounting Method",
-                       "options":  "ilL-Attribute-Mounting Method"
-                   },
-                   {
-                       "fieldname":  "joiner_system",
-                       "fieldtype":  "Link",
-                       "label":  "Joiner System",
-                       "options":  "ilL-Attribute-Joiner System"
-                   },
-                   {
-                       "fieldname":  "joiner_angle",
-                       "fieldtype":  "Link",
-                       "label":  "Joiner Angle",
-                       "options":  "ilL-Attribute-Joiner Angle"
-                   },
-                   {
-                       "fieldname":  "endcaps_section",
-                       "fieldtype":  "Section Break",
-                       "label":  "Endcaps"
-                   },
-                   {
-                       "fieldname":  "endcap_style",
-                       "fieldtype":  "Link",
-                       "label":  "Endcap Style",
-                       "options":  "ilL-Attribute-Endcap Style"
-                   },
-                   {
-                       "fieldname":  "allowance_override_per_side_mm",
-                       "fieldtype":  "Float",
-                       "label":  "Allowance Override per Side (mm)"
-                   },
-                   {
-                       "fieldname":  "leader_cable__feed_section",
-                       "fieldtype":  "Section Break",
-                       "label":  "Leader Cable / Feed"
-                   },
-                   {
-                       "fieldname":  "leader_cable",
-                       "fieldtype":  "Link",
-                       "label":  "Leader Cable",
-                       "options":  "ilL-Attribute-Leader Cable"
-                   },
-                   {
-                       "fieldname":  "feed_type",
-                       "fieldtype":  "Link",
-                       "label":  "Feed Type",
-                       "options":  "ilL-Attribute-Power Feed Type"
-                   },
-                   {
-                       "fieldname":  "qty_rules_section",
-                       "fieldtype":  "Section Break",
-                       "label":  "QTY Rules"
-                   },
-                   {
-                       "fieldname":  "qty_rule_type",
-                       "fieldtype":  "Select",
-                       "label":  "QTY Rule Type",
-                       "options":  "Per Fixture\nPer Joint\nPer Run\nPer x mm"
-                   },
-                   {
-                       "fieldname":  "qty_rule_value",
-                       "fieldtype":  "Float",
-                       "label":  "QTY Rule Value"
-                   }
-               ],
-    "grid_page_length":  50,
-    "index_web_pages_for_search":  1,
-    "links":  [
-
-              ],
-    "modified":  "2026-01-07 13:23:39.135438",
-    "modified_by":  "Administrator",
-    "module":  "ilLumenate Lighting",
-    "name":  "ilL-Spec-Accessory",
-    "naming_rule":  "By fieldname",
-    "owner":  "Administrator",
-    "permissions":  [
-                        {
-                            "create":  1,
-                            "delete":  1,
-                            "email":  1,
-                            "export":  1,
-                            "print":  1,
-                            "read":  1,
-                            "report":  1,
-                            "role":  "System Manager",
-                            "share":  1,
-                            "write":  1
-                        },
-                        {
-                            "email":  1,
-                            "export":  1,
-                            "print":  1,
-                            "read":  1,
-                            "report":  1,
-                            "role":  "All",
-                            "share":  1
-                        }
-                    ],
-    "row_format":  "Dynamic",
-    "rows_threshold_for_grid_search":  20,
-    "sort_field":  "modified",
-    "sort_order":  "DESC",
-    "states":  [
-
-               ],
-    "allow_import":  1
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:item",
+ "creation": "2026-01-07 13:00:01.656382",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "type",
+  "column_break_hnoa",
+  "profile_family",
+  "environment_rating",
+  "mounting_method",
+  "joiner_system",
+  "joiner_angle",
+  "endcaps_section",
+  "endcap_style",
+  "allowance_override_per_side_mm",
+  "leader_cable__feed_section",
+  "leader_cable",
+  "feed_type",
+  "qty_rules_section",
+  "qty_rule_type",
+  "qty_rule_value",
+  "system_designer_section",
+  "cross_section_file",
+  "clip_spacing_max_in",
+  "clip_end_offset_in",
+  "screw_spec",
+  "column_break_system_designer",
+  "cross_section_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Accessory Item",
+   "options": "Item",
+   "unique": 1
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Accessory Type",
+   "options": "Endcap\nJoiner\nMounting\nLeader\nFeed\nConnector\nGasket\nHardware"
+  },
+  {
+   "fieldname": "column_break_hnoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "profile_family",
+   "fieldtype": "Data",
+   "label": "Profile Family"
+  },
+  {
+   "fieldname": "environment_rating",
+   "fieldtype": "Link",
+   "label": "Environment Rating",
+   "options": "ilL-Attribute-Environment Rating"
+  },
+  {
+   "fieldname": "mounting_method",
+   "fieldtype": "Link",
+   "label": "Mounting Method",
+   "options": "ilL-Attribute-Mounting Method"
+  },
+  {
+   "fieldname": "joiner_system",
+   "fieldtype": "Link",
+   "label": "Joiner System",
+   "options": "ilL-Attribute-Joiner System"
+  },
+  {
+   "fieldname": "joiner_angle",
+   "fieldtype": "Link",
+   "label": "Joiner Angle",
+   "options": "ilL-Attribute-Joiner Angle"
+  },
+  {
+   "fieldname": "endcaps_section",
+   "fieldtype": "Section Break",
+   "label": "Endcaps"
+  },
+  {
+   "fieldname": "endcap_style",
+   "fieldtype": "Link",
+   "label": "Endcap Style",
+   "options": "ilL-Attribute-Endcap Style"
+  },
+  {
+   "fieldname": "allowance_override_per_side_mm",
+   "fieldtype": "Float",
+   "label": "Allowance Override per Side (mm)"
+  },
+  {
+   "fieldname": "leader_cable__feed_section",
+   "fieldtype": "Section Break",
+   "label": "Leader Cable / Feed"
+  },
+  {
+   "fieldname": "leader_cable",
+   "fieldtype": "Link",
+   "label": "Leader Cable",
+   "options": "ilL-Attribute-Leader Cable"
+  },
+  {
+   "fieldname": "feed_type",
+   "fieldtype": "Link",
+   "label": "Feed Type",
+   "options": "ilL-Attribute-Power Feed Type"
+  },
+  {
+   "fieldname": "qty_rules_section",
+   "fieldtype": "Section Break",
+   "label": "QTY Rules"
+  },
+  {
+   "fieldname": "qty_rule_type",
+   "fieldtype": "Select",
+   "label": "QTY Rule Type",
+   "options": "Per Fixture\nPer Joint\nPer Run\nPer x mm"
+  },
+  {
+   "fieldname": "qty_rule_value",
+   "fieldtype": "Float",
+   "label": "QTY Rule Value"
+  },
+  {
+   "fieldname": "system_designer_section",
+   "fieldtype": "Section Break",
+   "label": "System Designer",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "cross_section_file",
+   "fieldtype": "Attach",
+   "label": "Cross-Section File",
+   "description": "DXF with closed polylines on layers BODY, LENS and CLIP, or a JSON file in the cross_section_json format."
+  },
+  {
+   "fieldname": "clip_spacing_max_in",
+   "fieldtype": "Float",
+   "label": "Max Clip Spacing (in)"
+  },
+  {
+   "fieldname": "clip_end_offset_in",
+   "fieldtype": "Float",
+   "label": "Clip End Offset (in)"
+  },
+  {
+   "fieldname": "screw_spec",
+   "fieldtype": "Data",
+   "label": "Screw Spec"
+  },
+  {
+   "fieldname": "column_break_system_designer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cross_section_json",
+   "fieldtype": "Long Text",
+   "label": "Cross-Section Outlines",
+   "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-09 15:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-Accessory",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_import": 1
 }

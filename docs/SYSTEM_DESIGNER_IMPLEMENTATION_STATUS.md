@@ -15,6 +15,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-1.2 | Driver design fields | Done |
 | WP-1.3 | Controller types, design fields and ports | Done |
 | WP-1.4 | Wire spec and Items | Done |
+| WP-1.5 | Visual fields and SH01 seed | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -112,3 +113,17 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   import never writes prices (D6).
 - Discrepancy: the plan says "UOM Foot or a spool UOM" without naming the spool UOM; the import uses a
   whole-number UOM named `Spool`, and the spool's length lives on the spec.
+
+## WP-1.5 — Visual fields and SH01 seed
+
+- H4.3 fields in a collapsible "System Designer" section: profile `cross_section_file`,
+  `cross_section_json`, `max_w_per_ft`; accessory cross-section fields, `clip_spacing_max_in`,
+  `clip_end_offset_in`, `screw_spec`; lens `transmission_pct`, `diffusion_class`; `diagram_icon` and
+  `scene_archetypes` on the fixture, tape/neon and LED sheet templates.
+- `system_design/seed/sh01_cross_section.json` is the visualizer's `CAD_SH01` constant, unchanged
+  (1/1000 inch, origin at the channel bottom centre). A unit test keeps it equal to the reference file.
+- `patches/seed_sh01_cross_section.py` writes it to every SH01 profile spec (family or series SH01, plus
+  the SH01 template's default profile) whose `cross_section_json` is empty.
+- Profile and accessory saves reject malformed `cross_section_json` (`system_design/geometry.py`). DXF
+  extraction from `cross_section_file` is still to come (H8.8); until then staff can paste JSON.
+- The seed keeps the swivel bracket views (`swivelFront`, `swivelPlan`) because the install guide uses them.

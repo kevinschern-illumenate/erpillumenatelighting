@@ -50,7 +50,11 @@
         "column_break_spec_documents",
         "spec_submittal_template",
         "webflow_section",
-        "webflow_product"
+        "webflow_product",
+        "system_designer_section",
+        "diagram_icon",
+        "column_break_system_designer",
+        "scene_archetypes"
     ],
     "fields": [
         {
@@ -320,12 +324,34 @@
             "label": "Webflow Product",
             "options": "ilL-Webflow-Product",
             "read_only": 1
+        },
+        {
+            "fieldname": "system_designer_section",
+            "fieldtype": "Section Break",
+            "label": "System Designer",
+            "collapsible": 1
+        },
+        {
+            "fieldname": "diagram_icon",
+            "fieldtype": "Attach",
+            "label": "Diagram Icon",
+            "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+            "fieldname": "column_break_system_designer",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "scene_archetypes",
+            "fieldtype": "Small Text",
+            "label": "Scene Archetypes",
+            "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         }
     ],
     "grid_page_length": 50,
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-10-05 12:00:00.000000",
+    "modified": "2026-10-09 15:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-Tape-Neon-Template",
@@ -353,7 +379,14 @@
             "role": "All",
             "share": 1
         },
-        {"role": "ilL Catalog Publisher", "read": 1, "write": 1, "create": 1, "report": 1, "export": 1}
+        {
+            "role": "ilL Catalog Publisher",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "report": 1,
+            "export": 1
+        }
     ],
     "row_format": "Dynamic",
     "rows_threshold_for_grid_search": 20,

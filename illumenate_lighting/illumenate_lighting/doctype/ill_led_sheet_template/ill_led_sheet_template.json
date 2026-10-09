@@ -30,7 +30,11 @@
   "spec_submittal_template",
   "spec_sheet",
   "certifications",
-  "warranty"
+  "warranty",
+  "system_designer_section",
+  "diagram_icon",
+  "column_break_system_designer",
+  "scene_archetypes"
  ],
  "fields": [
   {
@@ -175,12 +179,34 @@
    "fieldname": "warranty",
    "fieldtype": "Data",
    "label": "Warranty"
+  },
+  {
+   "fieldname": "system_designer_section",
+   "fieldtype": "Section Break",
+   "label": "System Designer",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "diagram_icon",
+   "fieldtype": "Attach",
+   "label": "Diagram Icon",
+   "description": "SVG symbol drawn on risers and system diagrams."
+  },
+  {
+   "fieldname": "column_break_system_designer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scene_archetypes",
+   "fieldtype": "Small Text",
+   "label": "Scene Archetypes",
+   "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-06-30 00:00:00.000000",
+ "modified": "2026-10-09 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-LED-Sheet-Template",
